@@ -1,0 +1,16 @@
+# Rust
+target/
+**/target/
+Cargo.lock
+
+# OS/editor
+.DS_Store
+Thumbs.db
+
+# Anna runtime (never commit state)
+var/
+tmp/
+*.log
+
+# System paths (defense-in-depth: won't exist in repo anyway)
+etc/anna/
