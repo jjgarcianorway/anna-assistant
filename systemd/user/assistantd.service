@@ -1,0 +1,16 @@
+[Unit]
+Description=Assistant Daemon
+
+[Service]
+ExecStart=%h/.local/bin/assistantd
+Restart=on-failure
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+LockPersonality=yes
+
+[Install]
+WantedBy=default.target

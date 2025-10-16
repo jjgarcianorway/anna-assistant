@@ -1,0 +1,25 @@
+[workspace]
+members = ["cmd/annad", "cmd/annactl"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["You"]
+
+[workspace.dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+notify = "6"
+git2 = "0.18"
+clap = { version = "4", features = ["derive"] }
+thiserror = "1"
+dirs = "5"
+time = { version = "0.3", features = ["formatting", "macros", "local-offset"] }
+which = "6"

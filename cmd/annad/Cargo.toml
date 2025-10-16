@@ -1,0 +1,20 @@
+[package]
+name = "annad"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rusqlite = { workspace = true }
+notify = { workspace = true }
+git2 = { workspace = true }
+clap = { workspace = true }
+dirs = { workspace = true }
+time = { workspace = true }
+which = { workspace = true }
