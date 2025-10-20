@@ -1,0 +1,10 @@
+# Machine-readable self-knowledge registry.
+version = "0.1.0"
+
+[features]
+daemon = true
+cli = true
+sysinfo = "v1"
+personas = false
+privacy_profiles = false
+event_suggestions = false

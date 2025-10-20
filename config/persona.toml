@@ -1,0 +1,41 @@
+# Default persona configuration (installed once; user can edit later)
+
+[persona]
+# "auto" | "ops" | "dev" | "power_user" | "casual" | "quiet"
+mode = "auto"
+
+# "strict" (no browser inference) | "balanced" (window/process only) | "enhanced" (opt-in titles/hosts only)
+privacy = "balanced"
+
+# If true, Anna will keep a short rationale for `annactl persona why`
+explain_auto = true
+
+[persona.ops]
+verbosity = "low"
+interrupt_policy = "critical_only"
+color = false
+format = "table"
+
+[persona.dev]
+verbosity = "medium"
+interrupt_policy = "important"
+color = true
+format = "human"
+
+[persona.power_user]
+verbosity = "high"
+interrupt_policy = "important"
+color = true
+format = "human"
+
+[persona.casual]
+verbosity = "medium"
+interrupt_policy = "normal"
+color = true
+format = "human"
+
+[persona.quiet]
+verbosity = "low"
+interrupt_policy = "critical_only"
+color = false
+format = "plain"

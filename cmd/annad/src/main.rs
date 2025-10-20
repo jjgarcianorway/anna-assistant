@@ -24,13 +24,15 @@ fn hb_interval() -> Duration {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
     fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_target(true)
         .with_level(true)
         .without_time()
         .init();
-
     let (root, plans_root) = ensure_dirs()?;
 
     // Collect and persist system snapshot at startup

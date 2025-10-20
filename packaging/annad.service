@@ -1,0 +1,17 @@
+[Unit]
+Description=Anna - System Assistant Daemon v%I
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/annad
+WorkingDirectory=/var/lib/anna
+Restart=always
+RestartSec=3
+User=root
+StandardOutput=journal
+StandardError=journal
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

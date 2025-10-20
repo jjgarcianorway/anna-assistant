@@ -14,3 +14,9 @@ tmp/
 
 # System paths (defense-in-depth: won't exist in repo anyway)
 etc/anna/
+# Rust / Cargo
+/target
+**/target
+**/*.rmeta
+**/*.d
+**/*.fingerprint
