@@ -1,1 +1,0 @@
-/home/lhoqvso/assistant-starter/target/release/annad: /home/lhoqvso/assistant-starter/cmd/annad/src/journal.rs /home/lhoqvso/assistant-starter/cmd/annad/src/main.rs /home/lhoqvso/assistant-starter/cmd/annad/src/plan.rs /home/lhoqvso/assistant-starter/cmd/annad/src/sysinfo.rs
