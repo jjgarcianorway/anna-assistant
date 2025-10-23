@@ -18,3 +18,5 @@ clap = { workspace = true }
 dirs = { workspace = true }
 time = { workspace = true }
 which = { workspace = true }
+toml = { workspace = true }
+libc = { workspace = true }

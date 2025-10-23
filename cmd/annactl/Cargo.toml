@@ -10,3 +10,4 @@ serde_json = { workspace = true }
 clap = { workspace = true }
 time = { workspace = true }
 dirs = { workspace = true }
+toml = { workspace = true }

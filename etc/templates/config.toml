@@ -1,0 +1,38 @@
+# Anna assistant configuration
+
+[ui]
+fancy = true
+datetime_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
+
+[persona]
+enabled = true
+confidence_threshold = 0.6
+min_observation_days = 3
+
+[persona.sampler]
+enable = true
+interval_secs = 60
+max_procs = 20000
+loadavg_cap = 8.0
+
+[persona.infer]
+daily_at = "03:15"
+window_days = 14
+change_epsilon = 0.05
+
+[persona.trigger]
+enable = true
+debounce_secs = 300
+pkg_churn_threshold = 20
+shell_hist_threshold = 200
+browser_nav_threshold = 100
+
+[advice]
+enabled = true
+disk_free_threshold = 0.15
+check_interval_minutes = 60
+cooldown_hours = 12
+
+[signals]
+allow_shell_history = false
+allow_browser_history = false

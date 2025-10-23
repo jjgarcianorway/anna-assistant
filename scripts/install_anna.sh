@@ -150,4 +150,17 @@ printf "• Status: %s\n" "$(systemctl is-active annad || true)"
 printf "• Enabled: %s\n" "$(systemctl is-enabled annad || true)"
 printf "• Data dir: %s\n" "$DATA"
 hr
+
+read -r -p "Run a quick health check now? [Y/n] " run_qhc
+if [[ -z "$run_qhc" || "$run_qhc" =~ ^[Yy]$ ]]; then
+  step "Running quick health check…"
+  if sudo "$ANNACTL" quickscan; then
+    ok "Quick health check complete"
+    note "Review recommendations with 'annactl advice list'"
+  else
+    fail "Quick health check failed"
+  fi
+  hr
+fi
+
 printf "Tip: see runtime info with ${b}annactl status${reset}\n"
