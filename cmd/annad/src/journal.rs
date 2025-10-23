@@ -23,7 +23,11 @@ pub struct FailedCounter {
 }
 impl FailedCounter {
     pub fn new(threshold: usize, window_secs: i64) -> Self {
-        Self { times: Default::default(), threshold, window: window_secs }
+        Self {
+            times: Default::default(),
+            threshold,
+            window: window_secs,
+        }
     }
     fn now() -> i64 {
         SystemTime::now()
@@ -35,14 +39,18 @@ impl FailedCounter {
         let t = Self::now();
         self.times.push_back(t);
         while let Some(&old) = self.times.front() {
-            if t - old > self.window { self.times.pop_front(); } else { break; }
+            if t - old > self.window {
+                self.times.pop_front();
+            } else {
+                break;
+            }
         }
         self.times.len() >= self.threshold
     }
 }
 
 /// Follow journald and call `on_failure` when sshd brute-force is detected.
-pub fn follow_journal(mut on_failure: impl FnMut() -> ()) -> Result<()> {
+pub fn follow_journal(mut on_failure: impl FnMut()) -> Result<()> {
     let mut child = Command::new("journalctl")
         .args(["-f", "-o", "json"])
         .stdout(Stdio::piped())
@@ -56,12 +64,12 @@ pub fn follow_journal(mut on_failure: impl FnMut() -> ()) -> Result<()> {
     let mut counter = FailedCounter::new(5, 10 * 60); // 5 fails in 10 minutes
 
     for line_res in reader.lines() {
-        let line = match line_res.ok() {
-            Some(l) => l,
-            None => break,
+        let line = match line_res {
+            std::result::Result::Ok(l) => l,
+            Err(_) => break,
         };
 
-        if let Some(rec) = serde_json::from_str::<JRec>(&line).ok() {
+        if let std::result::Result::Ok(rec) = serde_json::from_str::<JRec>(&line) {
             let id = rec.SYSLOG_IDENTIFIER.as_deref().unwrap_or("");
             if id == "sshd" {
                 if let Some(msg) = rec.MESSAGE.as_deref() {

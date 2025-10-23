@@ -60,6 +60,18 @@ impl Store {
         fs::write_atomic(&self.trigger_path, &payload)
     }
 
+    pub fn read_last_trigger(&self) -> Result<Option<TriggerSnapshot>> {
+        match stdfs::read_to_string(&self.trigger_path) {
+            Ok(data) => {
+                let snapshot: TriggerSnapshot =
+                    serde_json::from_str(&data).context("parse last trigger snapshot")?;
+                Ok(Some(snapshot))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e).context("read last trigger snapshot"),
+        }
+    }
+
     pub fn read_override(&self) -> Result<Option<Persona>> {
         match stdfs::read_to_string(&self.override_path) {
             Ok(data) => {

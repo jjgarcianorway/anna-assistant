@@ -3,7 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
 fn now_id() -> String {
     let t = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -86,5 +85,10 @@ Rollback: sudo bash rollback.sh
         fs::set_permissions(&apply, fs::Permissions::from_mode(0o755))?;
         fs::set_permissions(&rollback, fs::Permissions::from_mode(0o755))?;
     }
-    Ok(PlanPaths { dir, apply, rollback, readme })
+    Ok(PlanPaths {
+        dir,
+        apply,
+        rollback,
+        readme,
+    })
 }

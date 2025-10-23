@@ -42,10 +42,18 @@ fn parse_meminfo() -> (u64, u64, u64, u64) {
             }
             None
         };
-        if let Some(v) = grab("MemTotal:") { mt = v; }
-        if let Some(v) = grab("MemAvailable:") { ma = v; }
-        if let Some(v) = grab("SwapTotal:") { st = v; }
-        if let Some(v) = grab("SwapFree:") { sf = v; }
+        if let Some(v) = grab("MemTotal:") {
+            mt = v;
+        }
+        if let Some(v) = grab("MemAvailable:") {
+            ma = v;
+        }
+        if let Some(v) = grab("SwapTotal:") {
+            st = v;
+        }
+        if let Some(v) = grab("SwapFree:") {
+            sf = v;
+        }
     }
     (mt / 1024, ma / 1024, st / 1024, sf / 1024) // -> MiB
 }
@@ -71,7 +79,11 @@ fn cpu_model_and_cores() -> (String, usize) {
 
 fn uptime_secs() -> u64 {
     read_to_string("/proc/uptime")
-        .and_then(|s| s.split_whitespace().next().and_then(|f| f.parse::<f64>().ok()))
+        .and_then(|s| {
+            s.split_whitespace()
+                .next()
+                .and_then(|f| f.parse::<f64>().ok())
+        })
         .map(|f| f as u64)
         .unwrap_or(0)
 }
@@ -145,7 +157,7 @@ fn partitions() -> Vec<String> {
             .ok()
             .map(|o| o.stdout)
         {
-            if let Some(js) = serde_json::from_slice::<serde_json::Value>(&out).ok() {
+            if let Ok(js) = serde_json::from_slice::<serde_json::Value>(&out) {
                 let mut v = Vec::new();
                 if let Some(blockdevices) = js.get("blockdevices").and_then(|x| x.as_array()) {
                     for bd in blockdevices {

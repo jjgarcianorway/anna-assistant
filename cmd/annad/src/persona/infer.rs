@@ -1,4 +1,4 @@
-use super::store::{create_state, Store};
+use super::store::{create_state, Store, TriggerSnapshot};
 use super::types::{Persona, PersonaSource, PersonaState};
 use crate::config::Config;
 use anyhow::{Context, Result};
@@ -58,6 +58,10 @@ impl WindowData {
     fn contains_exec(&self, name: &str) -> bool {
         self.top_execs.contains_key(name)
     }
+
+    fn exec_count(&self, name: &str) -> u64 {
+        self.top_execs.get(name).copied().unwrap_or(0)
+    }
 }
 
 pub fn maybe_update_current(cfg: &Config) -> Result<Option<PersonaState>> {
@@ -71,7 +75,8 @@ pub fn maybe_update_current(cfg: &Config) -> Result<Option<PersonaState>> {
         return Ok(None);
     }
 
-    let (persona, confidence, explanations) = score(&window);
+    let signals = store.read_last_trigger()?;
+    let (persona, confidence, explanations) = score(&window, signals.as_ref());
     if confidence < cfg.persona.confidence_threshold {
         return Ok(None);
     }
@@ -143,7 +148,10 @@ fn gather_rollup_paths() -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-pub fn score(window: &WindowData) -> (Persona, f32, Vec<String>) {
+pub fn score(
+    window: &WindowData,
+    trigger: Option<&TriggerSnapshot>,
+) -> (Persona, f32, Vec<String>) {
     let shares = |cat: &str| window.share(cat);
     let s_editor = shares("editor");
     let s_terminal = shares("terminal");
@@ -174,6 +182,88 @@ pub fn score(window: &WindowData) -> (Persona, f32, Vec<String>) {
     if s_browser >= 0.4 {
         creator = (creator + 0.25).min(1.0);
     }
+    const DEV_TOOL_EXECUTABLES: &[&str] = &[
+        "cargo", "rustup", "pip", "pip3", "poetry", "npm", "pnpm", "yarn", "go", "deno",
+    ];
+    const POWER_DESKTOP_EXECUTABLES: &[&str] = &[
+        "hyprland",
+        "sway",
+        "river",
+        "qtile",
+        "waybar",
+        "dunst",
+        "alacritty",
+        "kitty",
+        "wezterm",
+    ];
+    const EDITOR_PLUGINS: &[&str] = &["nvim", "vim", "neovide", "astronvim"];
+    const ADMIN_TOGGLES: &[&str] = &["powerprofilesctl", "tlp", "tuned-adm"];
+
+    let mut bonus_notes = Vec::new();
+
+    if let Some(snapshot) = trigger {
+        if snapshot.pkg_churn >= 30 {
+            dev = (dev + 0.15).min(1.0);
+            power = (power + 0.15).min(1.0);
+            bonus_notes.push(format!(
+                "Package churn (~{} operations) suggests active tweaking.",
+                snapshot.pkg_churn
+            ));
+        } else if snapshot.pkg_churn >= 10 {
+            dev = (dev + 0.10).min(1.0);
+            power = (power + 0.10).min(1.0);
+            bonus_notes.push(format!(
+                "Recent package activity (~{} ops) nudged us toward dev/power personas.",
+                snapshot.pkg_churn
+            ));
+        }
+    }
+
+    if let Some(tool) = DEV_TOOL_EXECUTABLES
+        .iter()
+        .find(|name| window.exec_count(name) >= 3)
+    {
+        dev = (dev + 0.12).min(1.0);
+        power = (power + 0.08).min(1.0);
+        bonus_notes.push(format!(
+            "Commands like `{}` showed up repeatedly, signalling developer workflows.",
+            tool
+        ));
+    }
+
+    if let Some(tool) = POWER_DESKTOP_EXECUTABLES
+        .iter()
+        .find(|name| window.exec_count(name) >= 1)
+    {
+        power = (power + 0.1).min(1.0);
+        bonus_notes.push(format!(
+            "Desktop tooling such as `{}` points toward a power-user setup.",
+            tool
+        ));
+    }
+
+    if let Some(tool) = EDITOR_PLUGINS
+        .iter()
+        .find(|name| window.exec_count(name) >= 5)
+    {
+        dev = (dev + 0.08).min(1.0);
+        bonus_notes.push(format!(
+            "Editor-focused processes like `{}` dominated samples, leaning dev-heavy.",
+            tool
+        ));
+    }
+
+    if let Some(tool) = ADMIN_TOGGLES
+        .iter()
+        .find(|name| window.exec_count(name) >= 2)
+    {
+        admin = (admin + 0.1).min(1.0);
+        bonus_notes.push(format!(
+            "Power management commands such as `{}` suggest hands-on system tuning.",
+            tool
+        ));
+    }
+
     let max_other = dev.max(admin).max(power).max(creator);
     let casual = (1.0 - max_other).max(0.0);
 
@@ -192,7 +282,7 @@ pub fn score(window: &WindowData) -> (Persona, f32, Vec<String>) {
         }
     }
 
-    let mut explanations = Vec::new();
+    let mut explanations = bonus_notes;
     let days = window.days.max(1);
     match best.0 {
         Persona::DevEnthusiast => {
@@ -390,7 +480,7 @@ mod tests {
     #[test]
     fn dev_persona_scoring() {
         let window = make_window(&[("editor", 300), ("terminal", 200), ("build", 100)], 700);
-        let (persona, score, explanations) = score(&window);
+        let (persona, score, explanations) = score(&window, None);
         assert_eq!(persona, Persona::DevEnthusiast);
         assert!(score > 0.6);
         assert!(explanations.len() >= 2);
@@ -402,7 +492,7 @@ mod tests {
     #[test]
     fn casual_persona_when_even() {
         let window = make_window(&[("editor", 100), ("browser", 120), ("terminal", 110)], 400);
-        let (persona, _score, explanations) = score(&window);
+        let (persona, _score, explanations) = score(&window, None);
         assert_eq!(persona, Persona::CasualMinimal);
         assert!(explanations.len() >= 2);
         assert!(explanations
