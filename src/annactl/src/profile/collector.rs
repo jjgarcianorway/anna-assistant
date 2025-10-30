@@ -1,6 +1,6 @@
 //! System profile collector - gathers hardware, software, and config info
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Command;
@@ -147,7 +147,8 @@ impl ProfileCollector {
         // Basic network info
         if let Ok(output) = Command::new("ip").arg("-br").arg("addr").output() {
             if output.status.success() {
-                let interfaces: Vec<_> = String::from_utf8_lossy(&output.stdout)
+                let text = String::from_utf8_lossy(&output.stdout);
+                let interfaces: Vec<_> = text
                     .lines()
                     .filter(|l| !l.starts_with("lo"))
                     .collect();

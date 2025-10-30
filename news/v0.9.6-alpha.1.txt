@@ -1,0 +1,25 @@
+🔧 Phase 4.1: Config Governance & Personas
+
+New in v0.9.6-alpha.1:
+
+• Conversational config management
+  - annactl config get/set/list/export/import
+  - Three-tier system (system/user/runtime)
+  - File locking and banners
+
+• Persona system (4 presets)
+  - dev, ops, gamer, minimal
+  - annactl persona get/set/why/list
+  - Auto-adapt or fixed mode
+
+• System profiling
+  - annactl profile show (hardware summary)
+  - annactl profile checks (8 health checks)
+  - Remediation hints included
+
+• Unified messaging everywhere
+  - Anna's conversational voice throughout
+  - No user-facing sudo commands
+  - Friendly privilege escalation
+
+All changes use Anna's narrative style!

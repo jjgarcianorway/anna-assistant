@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ╭─────────────────────────────────────────────────────────────────────╮
-# │ Anna Assistant Installer - Phase 4.3 (v0.9.6-alpha)                │
+# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.1)          │
 # │                                                                     │
 # │ Conversational • Intelligent • Self-Healing                         │
 # │                                                                     │
@@ -25,7 +25,7 @@ source "$SCRIPT_DIR/anna_common.sh"
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.6-alpha"
+BUNDLE_VERSION="0.9.6-alpha.1"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -735,6 +735,21 @@ print_final_summary() {
     echo "  • annactl doctor check    - Let me check my own health"
     echo "  • annactl explore         - Discover my capabilities"
     echo "  • annactl news            - See what's new in this version"
+
+    echo ""
+    anna_narrative "Your knobs (make Anna yours):"
+    echo "  • annactl profile show    - See your system profile"
+    echo "  • annactl profile checks  - Run health checks with remediation hints"
+    echo "  • annactl persona list    - See available personas (dev, ops, gamer, minimal)"
+    echo "  • annactl persona set dev - Switch to dev persona (verbose, emojis)"
+    echo "  • annactl config list     - See all configuration options"
+    echo "  • annactl config set ui.emojis off  - Turn off emojis"
+
+    echo ""
+    echo -e "${C_GRAY}📋 Config files:${NC}"
+    echo -e "${C_GRAY}   • System defaults: /etc/anna/config.yaml${NC}"
+    echo -e "${C_GRAY}   • Your preferences: ~/.config/anna/config.yaml${NC}"
+    echo -e "${C_GRAY}   • (Use 'annactl config ...' to change - manual edits discouraged)${NC}"
 
     echo ""
     echo -e "${C_GRAY}📝 Install log: $LOG_DIR/install.log${NC}"

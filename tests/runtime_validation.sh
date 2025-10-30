@@ -5,7 +5,7 @@ set -euo pipefail
 # Full end-to-end deployment and runtime testing
 # Requires: sudo/root access on Arch Linux
 
-VERSION="0.9.4-beta.1"
+VERSION="0.9.6-alpha.1"
 LOG_DIR="tests/logs"
 LOG_FILE="$LOG_DIR/runtime_validation.log"
 
@@ -881,6 +881,114 @@ test_installer_telemetry_integration() {
     fi
 }
 
+# Phase 4.1 tests
+test_config_governance() {
+    test_step "config_governance" "Testing config governance system"
+
+    # Test config list command
+    local config_output=$(/usr/local/bin/annactl config list 2>/dev/null || true)
+
+    if echo "$config_output" | grep -q "configuration"; then
+        log_to_file "Config governance: config list works"
+        test_pass
+        return 0
+    else
+        test_fail "Config list command failed"
+        return 1
+    fi
+}
+
+test_config_file_banner() {
+    test_step "config_file_banner" "Testing config file has governance banner"
+
+    # Create a user config by setting a value
+    /usr/local/bin/annactl config set ui.test_value true >/dev/null 2>&1 || true
+
+    local user_config="$HOME/.config/anna/config.yaml"
+
+    if [[ ! -f "$user_config" ]]; then
+        test_fail "User config file not created"
+        return 1
+    fi
+
+    # Check for banner
+    if head -5 "$user_config" | grep -q "Managed by Anna"; then
+        log_to_file "Config banner found in user config"
+        test_pass
+        return 0
+    else
+        test_fail "Config banner not found"
+        return 1
+    fi
+}
+
+test_persona_commands() {
+    test_step "persona_commands" "Testing persona system"
+
+    # Test persona list
+    local persona_output=$(/usr/local/bin/annactl persona list 2>/dev/null || true)
+
+    if echo "$persona_output" | grep -q "dev\|ops\|gamer\|minimal"; then
+        log_to_file "Persona system: list shows personas"
+        test_pass
+        return 0
+    else
+        test_fail "Persona list command failed"
+        return 1
+    fi
+}
+
+test_persona_set_and_why() {
+    test_step "persona_set_why" "Testing persona set and why commands"
+
+    # Set persona to dev
+    /usr/local/bin/annactl persona set dev --fixed >/dev/null 2>&1 || true
+
+    # Check why explains the source
+    local why_output=$(/usr/local/bin/annactl persona why 2>/dev/null || true)
+
+    if echo "$why_output" | grep -q "dev"; then
+        log_to_file "Persona why explains current persona"
+        test_pass
+        return 0
+    else
+        test_fail "Persona why command failed"
+        return 1
+    fi
+}
+
+test_profile_show() {
+    test_step "profile_show" "Testing profile show command"
+
+    # Run profile show
+    local profile_output=$(/usr/local/bin/annactl profile show 2>/dev/null || true)
+
+    if echo "$profile_output" | grep -q "Hardware\|Graphics\|system"; then
+        log_to_file "Profile show displays system information"
+        test_pass
+        return 0
+    else
+        test_fail "Profile show command failed"
+        return 1
+    fi
+}
+
+test_profile_checks() {
+    test_step "profile_checks" "Testing profile checks command"
+
+    # Run profile checks
+    local checks_output=$(/usr/local/bin/annactl profile checks 2>/dev/null || true)
+
+    if echo "$checks_output" | grep -q "check\|Summary"; then
+        log_to_file "Profile checks returns health checks"
+        test_pass
+        return 0
+    else
+        test_fail "Profile checks command failed"
+        return 1
+    fi
+}
+
 main() {
     # Setup
     mkdir -p "$LOG_DIR"
@@ -938,6 +1046,14 @@ main() {
     test_installer_dependencies
     test_installer_phases
     test_installer_telemetry_integration
+
+    # Phase 4.1 tests (v0.9.6-alpha.1)
+    test_config_governance
+    test_config_file_banner
+    test_persona_commands
+    test_persona_set_and_why
+    test_profile_show
+    test_profile_checks
 
     # Print summary
     print_summary

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use std::collections::HashMap;
+use anna_common::{anna_narrative, anna_info};
 
 mod doctor;
 use doctor::{doctor_check, doctor_repair, doctor_rollback};
@@ -13,6 +14,8 @@ use autonomy::{autonomy_get, autonomy_set};
 
 mod config_cmd;
 mod persona_cmd;
+mod profile;
+mod profile_cmd;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 
@@ -99,6 +102,18 @@ enum Commands {
         #[command(subcommand)]
         action: PersonaAction,
     },
+
+    /// System profiling and health checks
+    Profile {
+        #[command(subcommand)]
+        action: ProfileAction,
+    },
+
+    /// Ask Anna to do something (natural language)
+    Ask {
+        /// What you want Anna to do
+        intent: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -170,6 +185,23 @@ enum PersonaAction {
 
     /// List all available personas
     List,
+}
+
+#[derive(Subcommand)]
+enum ProfileAction {
+    /// Show system profile with hardware, graphics, audio, network info
+    Show,
+
+    /// Run system health checks
+    Checks {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        /// Filter by status (pass, warn, error, info)
+        #[arg(long)]
+        status: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -591,6 +623,20 @@ async fn main() -> Result<()> {
             },
             PersonaAction::Why => persona_cmd::persona_why().await,
             PersonaAction::List => persona_cmd::persona_list().await,
+        },
+        Commands::Profile { action } => match action {
+            ProfileAction::Show => profile_cmd::profile_show().await,
+            ProfileAction::Checks { json, status } =>
+                profile_cmd::profile_checks(json, status.as_deref()).await,
+        },
+        Commands::Ask { intent } => {
+            anna_narrative("I'm learning to understand natural language requests!");
+            anna_info("For now, try specific commands like:");
+            println!("  • annactl profile show");
+            println!("  • annactl profile checks");
+            println!("  • annactl config set ui.emojis on");
+            println!("  • annactl persona set dev");
+            Ok(())
         },
     };
 
@@ -1198,6 +1244,28 @@ fn print_explore_guide() -> Result<()> {
     println!("│    → View loaded policies");
     println!("│");
     println!("└─ System configuration and policy management\n");
+
+    println!("┌─ Make Anna Yours (NEW in v0.9.6)");
+    println!("│");
+    println!("│  annactl profile show");
+    println!("│    → See your system profile (hardware, graphics, audio)");
+    println!("│");
+    println!("│  annactl profile checks");
+    println!("│    → Run health checks with remediation hints");
+    println!("│");
+    println!("│  annactl persona list");
+    println!("│    → See available personas (dev, ops, gamer, minimal)");
+    println!("│");
+    println!("│  annactl persona set dev");
+    println!("│    → Switch to dev persona (verbose, emojis)");
+    println!("│");
+    println!("│  annactl config list");
+    println!("│    → See all customizable settings");
+    println!("│");
+    println!("│  annactl config set ui.emojis off");
+    println!("│    → Turn off emojis");
+    println!("│");
+    println!("└─ Customize Anna's behavior and UI\n");
 
     println!("┌─ Telemetry & History");
     println!("│");

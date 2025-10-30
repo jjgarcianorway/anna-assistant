@@ -7,6 +7,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.1] - Phase 4.1: Config Governance & Personas + Minimal Phase 4.3 UI - 2025-10-30
+
+### Added - Conversational Configuration & Personas
+
+#### Config Governance System
+- **Three-Tier Configuration** (system defaults, user preferences, runtime overrides):
+  - System defaults: `/etc/anna/config.yaml`
+  - User preferences: `~/.config/anna/config.yaml`
+  - Runtime snapshot: `/var/lib/anna/state/config.effective.json`
+- **annactl config** commands with Anna's conversational voice:
+  - `config get <key>` - View value with origin (system/user/runtime)
+  - `config set <key> <value>` - Update user preference
+  - `config list` - Show all effective configuration
+  - `config reset [key]` - Reset to defaults (all or specific key)
+  - `config export [path]` - Export user config to file
+  - `config import <path> [--replace]` - Import config from file
+- **File Locking** - Advisory locks via `flock()` for concurrent writes
+- **Config Banners** - All generated config files include governance header:
+  ```
+  # ─────────────────────────────────────────────────────────
+  # Managed by Anna. Please use `annactl config ...` to change behavior.
+  # Manual edits may be overwritten. See `annactl help config`.
+  # ─────────────────────────────────────────────────────────
+  ```
+
+#### Persona System
+- **4 Bundled Personas** (customizable UI behavior):
+  - **dev**: Verbose=4, emojis=true, colors=true, tips=frequent
+  - **ops**: Verbose=2, emojis=false, colors=true, tips=rare
+  - **gamer**: Verbose=3, emojis=true, colors=true, tips=occasional
+  - **minimal**: Verbose=1, emojis=false, colors=false, tips=never
+- **annactl persona** commands:
+  - `persona get` - Show current persona
+  - `persona set <name> [--auto|--fixed]` - Change persona (auto adapts to context, fixed locks it)
+  - `persona why` - Explain why current persona was chosen
+  - `persona list` - List all available personas
+- **Auto-Adaptation** - Personas can switch based on context (e.g., terminal vs background task)
+
+#### System Profiling (Phase 4.3 UI)
+- **annactl profile show** - Display system summary:
+  - 💻 Hardware (CPU, memory, kernel)
+  - 🎨 Graphics (GPU, session type, desktop, VA-API status)
+  - 🔊 Audio (PipeWire/PulseAudio)
+  - 🌐 Network (active interfaces)
+  - ⚡ Boot (boot time, failed units)
+  - 📦 Software (package manager, AUR helper, shell, tools)
+  - Anna's Take (observations about your setup)
+- **annactl profile checks** - Run 8 health checks with remediation hints:
+  1. VA-API (hardware video acceleration)
+  2. Audio server (PipeWire/PulseAudio)
+  3. Boot time analysis
+  4. CPU governor (performance/powersave/schedutil)
+  5. TRIM timer (SSD health)
+  6. Firmware updates (fwupd)
+  7. Journald persistence
+  8. Session type (Wayland/X11)
+  - Filters: `--status pass|warn|error|info`
+  - JSON output: `--json`
+
+#### Stub Commands
+- **annactl ask <intent>** - Natural language interface (stub, not yet functional):
+  - Returns friendly message: "I'm learning to understand natural language requests!"
+  - Suggests concrete commands to try instead
+
+### Changed
+
+#### Installer Enhancements
+- **Version bump to v0.9.6-alpha.1** (enables upgrade detection)
+- **"Your knobs" panel** added to final summary:
+  - Profile commands (show, checks)
+  - Persona commands (list, set)
+  - Config commands (list, set)
+  - Clear instructions that config files should be edited via `annactl`, not manually
+- **Config file paths** displayed with note about governance
+
+#### Explore Command Update
+- **New section**: "Make Anna Yours (NEW in v0.9.6)"
+  - Lists profile, persona, and config customization commands
+  - Encourages users to personalize Anna's behavior
+
+#### News File
+- **news/v0.9.6-alpha.1.txt** created highlighting Phase 4.1 features
+
+### Testing
+
+#### Runtime Validation Tests (6 new)
+1. **test_config_governance** - Config list command works
+2. **test_config_file_banner** - User config has governance banner
+3. **test_persona_commands** - Persona list shows 4 personas
+4. **test_persona_set_and_why** - Persona set/why explains source
+5. **test_profile_show** - Profile show prints hardware summary
+6. **test_profile_checks** - Profile checks returns health checks
+
+Total tests: 32 (26 existing + 6 new Phase 4.1 tests)
+
+### Documentation
+- **news/v0.9.6-alpha.1.txt** - User-facing highlights
+- **CHANGELOG.md** - This entry
+
+### Migration from 0.9.6-alpha
+
+```bash
+sudo ./scripts/install.sh
+```
+
+Installer will detect version change and perform upgrade. All existing configurations preserved.
+
+**Note**: This is v0.9.6-alpha.1 (Phase 4.1 + minimal Phase 4.3 UI). Full Phase 4.3 (Smart Playbooks) will be v0.9.6-beta.
+
+---
+
 ## [0.9.6-alpha] - Phase 4.3: Deep Profiling & Smart Playbooks (Foundation) - 2025-10-30
 
 ### Added - Foundation Infrastructure
