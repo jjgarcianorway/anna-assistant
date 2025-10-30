@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.4-beta.1] - Sprint 5 Phase 3: Hotfix & CLI Completion - 2025-10-30
+
+### Fixed
+- **CLI Commands Integration**: `annactl news` and `annactl explore` now properly recognized after installation
+  - Commands were implemented but binary wasn't updated in previous release
+  - Verified functionality with local binary testing
+
+- **Policy YAML Schema**: Corrected policy file format from object to array
+  - Policy loader expects `Vec<PolicyRule>`, not single objects
+  - Created proper policy files in `policies.d/` directory:
+    - `10-low-disk.yaml` - Low disk space alerts
+    - `20-quickscan-reminder.yaml` - Quickscan reminder policy
+    - `30-high-cpu.yaml` - High CPU usage warnings
+  - Each policy file now uses array format: `- when: ... then: ...`
+
+### Added
+- **Policy Files in Repository**: Policy templates now version-controlled
+  - Installer deploys correct format automatically
+  - Easier to maintain and update policies
+
+- **news/v0.9.4-beta.1.txt**: Release notes for hotfix
+
+### Changed
+- Version bumped to 0.9.4-beta.1 in:
+  - Cargo.toml
+  - scripts/install.sh
+  - tests/runtime_validation.sh
+
+### Testing
+- ✅ `./target/release/annactl news` - Works correctly
+- ✅ `./target/release/annactl news --list` - Shows all versions
+- ✅ `./target/release/annactl explore` - Displays capability guide
+- ✅ Policy YAML format validated
+
+### Migration from 0.9.4-beta
+Run installer to update:
+```bash
+sudo ./scripts/install.sh
+```
+
+This will:
+1. Detect 0.9.4-beta installation
+2. Update to 0.9.4-beta.1
+3. Install corrected policy files
+4. Deploy updated annactl binary with news/explore commands
+
+---
+
 ## [0.9.4-beta] - Sprint 5 Phase 3: Beautiful & Intelligent Installer - 2025-10-30
 
 ### Added - Beautiful Installer UX & Intelligence

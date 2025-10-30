@@ -17,7 +17,7 @@ set -euo pipefail
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.4-beta"
+BUNDLE_VERSION="0.9.4-beta.1"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"

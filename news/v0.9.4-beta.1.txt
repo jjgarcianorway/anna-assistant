@@ -1,0 +1,14 @@
+📰 What's New in v0.9.4-beta.1
+
+• Hotfix: CLI commands now properly integrated
+• annactl news and annactl explore fully functional
+• Fixed policy YAML schema (array format)
+• Policy files now included in repository
+• Verified installer upgrade flow
+
+This patch release completes Phase 3 by ensuring all
+CLI features work correctly after installation.
+
+Try: annactl news --list
+     annactl explore
+     annactl news --version v0.9.4-beta

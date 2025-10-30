@@ -1,0 +1,6 @@
+# High CPU Usage Policy
+# Triggers when CPU usage exceeds 90% for sustained period
+- when: "telemetry.cpu_usage > 90"
+  then:
+    type: log_warning
+  enabled: true

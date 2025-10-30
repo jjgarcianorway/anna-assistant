@@ -5,7 +5,7 @@ set -euo pipefail
 # Full end-to-end deployment and runtime testing
 # Requires: sudo/root access on Arch Linux
 
-VERSION="0.9.4-beta"
+VERSION="0.9.4-beta.1"
 LOG_DIR="tests/logs"
 LOG_FILE="$LOG_DIR/runtime_validation.log"
 
