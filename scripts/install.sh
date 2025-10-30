@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ╭─────────────────────────────────────────────────────────────────────╮
-# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.1)          │
+# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.2)          │
 # │                                                                     │
 # │ Conversational • Intelligent • Self-Healing                         │
 # │                                                                     │
@@ -25,7 +25,7 @@ source "$SCRIPT_DIR/anna_common.sh"
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.6-alpha.1"
+BUNDLE_VERSION="0.9.6-alpha.2"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -67,6 +67,9 @@ if [[ "$SUPPORTS_UNICODE" == "true" ]]; then
     SYM_CHECK="✓"
     SYM_CROSS="✗"
     SYM_WAIT="⏳"
+    SYM_INFO="ℹ"
+    SYM_WARN="⚠"
+    SYM_SUCCESS="✓"
     TREE_T="┌"
     TREE_B="└"
     TREE_V="│"
@@ -75,6 +78,9 @@ else
     SYM_CHECK="[OK]"
     SYM_CROSS="[FAIL]"
     SYM_WAIT="[WAIT]"
+    SYM_INFO="[i]"
+    SYM_WARN="[!]"
+    SYM_SUCCESS="[OK]"
     TREE_T="+"
     TREE_B="+"
     TREE_V="|"

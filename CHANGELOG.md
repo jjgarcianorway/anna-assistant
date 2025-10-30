@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.2] - Hotfix: Installer Symbol Initialization - 2025-10-30
+
+### Fixed
+
+#### Installer Stability
+- **Uninitialized Variables** - Fixed `set -u` strict mode errors in installer:
+  - Added `SYM_INFO` symbol definition (ℹ/[i])
+  - Added `SYM_WARN` symbol definition (⚠/[!])
+  - Added `SYM_SUCCESS` symbol definition (✓/[OK])
+  - Symbols now properly initialized in both Unicode and ASCII modes
+- **Issue**: Installer would fail with "unbound variable" error when using `print_info()` function
+- **Root Cause**: `SYM_INFO`, `SYM_WARN`, and `SYM_SUCCESS` were referenced but never defined in symbol initialization block (lines 66-88)
+- **Impact**: Prevented successful installation on systems with strict Bash configuration
+
+### Changed
+- Version bumped to 0.9.6-alpha.2 across all components
+
+### Testing
+- ✅ Bash syntax check passes (`bash -n`)
+- ✅ All symbols now properly initialized before use
+- ✅ Installer safe for `set -euo pipefail` strict mode
+
+### Migration from 0.9.6-alpha.1
+```bash
+sudo ./scripts/install.sh
+```
+
+No functional changes - this is a stability hotfix only.
+
+---
+
 ## [0.9.6-alpha.1] - Phase 4.1: Config Governance & Personas + Minimal Phase 4.3 UI - 2025-10-30
 
 ### Added - Conversational Configuration & Personas
