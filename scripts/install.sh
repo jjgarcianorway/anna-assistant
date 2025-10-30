@@ -6,7 +6,7 @@ set -euo pipefail
 # Runs as normal user, escalates only when needed
 # Intelligent version detection and upgrade management
 
-BUNDLE_VERSION="0.9.3-beta"
+BUNDLE_VERSION="0.9.4-alpha"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"

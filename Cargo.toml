@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.9.3-beta"
+version = "0.9.4-alpha"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "MIT"
@@ -30,6 +30,7 @@ tokio-stream = "0.1"
 # System
 nix = { version = "0.27", features = ["socket", "signal", "user"] }
 libc = "0.2"
+sysinfo = "0.30"
 
 # CLI
 clap = { version = "4.0", features = ["derive", "cargo"] }
@@ -37,6 +38,10 @@ clap = { version = "4.0", features = ["derive", "cargo"] }
 # Config
 toml = "0.8"
 
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
 # System utilities
 which = "6.0"
 chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
