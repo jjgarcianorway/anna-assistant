@@ -5,6 +5,9 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use std::collections::HashMap;
 
+mod doctor;
+use doctor::{doctor_check, doctor_repair, doctor_rollback};
+
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 
 #[derive(Parser)]
@@ -20,11 +23,10 @@ enum Commands {
     /// Check if daemon is responsive
     Ping,
 
-    /// Run system diagnostics
+    /// System diagnostics and self-healing
     Doctor {
-        /// Run auto-fix for failed checks (requires autonomy != off)
-        #[arg(long)]
-        autofix: bool,
+        #[command(subcommand)]
+        action: DoctorAction,
     },
 
     /// Show daemon status
@@ -96,6 +98,29 @@ enum ConfigAction {
 
     /// List all configuration values
     List,
+}
+
+#[derive(Subcommand)]
+enum DoctorAction {
+    /// Run read-only system health check
+    Check {
+        /// Show verbose diagnostic information
+        #[arg(long)]
+        verbose: bool,
+    },
+
+    /// Run self-healing repairs
+    Repair {
+        /// Show what would be fixed without making changes
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Roll back to a previous backup
+    Rollback {
+        /// Backup timestamp (YYYYMMDD-HHMMSS) or "list" to show available backups
+        timestamp: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -285,16 +310,20 @@ async fn main() -> Result<()> {
             println!("✓ {}", response["message"].as_str().unwrap_or("OK"));
             Ok::<(), anyhow::Error>(())
         }
-        Commands::Doctor { autofix } => {
-            if autofix {
-                let response = send_request(Request::DoctorAutoFix).await?;
-                print_autofix_results(&response)?;
-            } else {
-                let response = send_request(Request::Doctor).await?;
-                print_diagnostics(&response)?;
+        Commands::Doctor { action } => match action {
+            DoctorAction::Check { verbose } => {
+                doctor_check(verbose).await?;
+                Ok(())
             }
-            Ok(())
-        }
+            DoctorAction::Repair { dry_run } => {
+                doctor_repair(dry_run).await?;
+                Ok(())
+            }
+            DoctorAction::Rollback { timestamp } => {
+                doctor_rollback(&timestamp).await?;
+                Ok(())
+            }
+        },
         Commands::Status => {
             let response = send_request(Request::Status).await?;
             print_status(&response)?;
