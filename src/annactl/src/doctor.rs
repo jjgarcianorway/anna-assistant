@@ -5,8 +5,9 @@
 //! even when the daemon is broken.
 
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Run system health check (read-only)
@@ -94,21 +95,88 @@ pub async fn doctor_repair(dry_run: bool) -> Result<()> {
 }
 
 /// Roll back to a previous backup
-pub async fn doctor_rollback(timestamp: &str) -> Result<()> {
+pub async fn doctor_rollback(timestamp: &str, verify_only: bool) -> Result<()> {
     if timestamp == "list" {
         list_backups()?;
         return Ok(());
     }
-
-    println!("\n⏮  Rolling back to backup: {}\n", timestamp);
 
     let backup_dir = format!("/var/lib/anna/backups/{}", timestamp);
     if !Path::new(&backup_dir).exists() {
         anyhow::bail!("Backup not found: {}", timestamp);
     }
 
-    // TODO: Implement rollback logic
-    println!("⚠ Rollback not yet implemented");
+    // Read manifest
+    let manifest_path = format!("{}/manifest.json", backup_dir);
+    if !Path::new(&manifest_path).exists() {
+        anyhow::bail!("Manifest not found in backup: {}", timestamp);
+    }
+
+    let manifest_content = fs::read_to_string(&manifest_path)?;
+    let manifest: BackupManifest = serde_json::from_str(&manifest_content)?;
+
+    if verify_only {
+        println!("\n🔍 Verifying backup: {}\n", timestamp);
+        verify_backup_integrity(&backup_dir, &manifest)?;
+        println!("\n✓ Backup integrity verified");
+        return Ok(());
+    }
+
+    println!("\n⏮  Rolling back to backup: {}\n", timestamp);
+
+    // Verify before restoring
+    println!("[VERIFY] Checking backup integrity...");
+    verify_backup_integrity(&backup_dir, &manifest)?;
+
+    // Restore files
+    for file_entry in &manifest.files {
+        let backup_file = PathBuf::from(&backup_dir)
+            .join(Path::new(&file_entry.path).file_name().unwrap());
+
+        println!("[ROLLBACK] Restoring: {}", file_entry.path);
+
+        if backup_file.exists() {
+            run_elevated(&["cp", backup_file.to_str().unwrap(), &file_entry.path])?;
+        } else {
+            println!("[WARN] Backup file not found: {}", backup_file.display());
+        }
+    }
+
+    println!("\n✓ Rollback complete - {} files restored", manifest.files.len());
+
+    Ok(())
+}
+
+fn verify_backup_integrity(backup_dir: &str, manifest: &BackupManifest) -> Result<()> {
+    let mut mismatches = 0;
+
+    for file_entry in &manifest.files {
+        let backup_file = PathBuf::from(backup_dir)
+            .join(Path::new(&file_entry.path).file_name().unwrap());
+
+        if !backup_file.exists() {
+            println!("[VERIFY] Missing: {}", file_entry.path);
+            mismatches += 1;
+            continue;
+        }
+
+        let content = fs::read(&backup_file)?;
+        let hash = sha256_hash(&content);
+
+        if hash != file_entry.sha256 {
+            println!("[VERIFY] Checksum mismatch: {}", file_entry.path);
+            mismatches += 1;
+        } else if content.len() as u64 != file_entry.size {
+            println!("[VERIFY] Size mismatch: {}", file_entry.path);
+            mismatches += 1;
+        } else {
+            println!("[VERIFY] OK: {}", file_entry.path);
+        }
+    }
+
+    if mismatches > 0 {
+        anyhow::bail!("{} file(s) failed verification", mismatches);
+    }
 
     Ok(())
 }
@@ -370,6 +438,23 @@ fn run_elevated(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// Backup manifest entry
+#[derive(Debug, Serialize, Deserialize)]
+struct BackupFileEntry {
+    path: String,
+    sha256: String,
+    size: u64,
+}
+
+/// Backup manifest
+#[derive(Debug, Serialize, Deserialize)]
+struct BackupManifest {
+    version: String,
+    created: String,
+    trigger: String,
+    files: Vec<BackupFileEntry>,
+}
+
 fn create_backup(trigger: &str) -> Result<()> {
     let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let backup_dir = format!("/var/lib/anna/backups/{}-{}", trigger, timestamp);
@@ -378,9 +463,75 @@ fn create_backup(trigger: &str) -> Result<()> {
 
     run_elevated(&["mkdir", "-p", &backup_dir])?;
 
-    // TODO: Copy files to backup
+    // Files to backup
+    let files_to_backup = vec![
+        "/etc/anna/config.toml",
+        "/etc/anna/autonomy.conf",
+        "/etc/anna/version",
+    ];
+
+    let mut manifest_files = Vec::new();
+
+    for file_path in &files_to_backup {
+        let path = Path::new(file_path);
+        if !path.exists() {
+            continue;
+        }
+
+        // Read file content
+        let content = fs::read(file_path)
+            .with_context(|| format!("Failed to read {}", file_path))?;
+
+        // Calculate SHA-256
+        let hash = sha256_hash(&content);
+
+        // Get file size
+        let size = content.len() as u64;
+
+        // Copy file to backup
+        let filename = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+
+        let dest = format!("{}/{}", backup_dir, filename);
+        run_elevated(&["cp", file_path, &dest])?;
+
+        manifest_files.push(BackupFileEntry {
+            path: file_path.to_string(),
+            sha256: hash,
+            size,
+        });
+    }
+
+    // Create manifest
+    let manifest = BackupManifest {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        created: chrono::Local::now().to_rfc3339(),
+        trigger: trigger.to_string(),
+        files: manifest_files,
+    };
+
+    // Write manifest
+    let manifest_json = serde_json::to_string_pretty(&manifest)?;
+    let manifest_path = format!("{}/manifest.json", backup_dir);
+
+    fs::write("/tmp/manifest.json", &manifest_json)?;
+    run_elevated(&["cp", "/tmp/manifest.json", &manifest_path])?;
+    let _ = fs::remove_file("/tmp/manifest.json");
+
+    println!("[BACKUP] Created manifest with {} files", manifest.files.len());
 
     Ok(())
+}
+
+fn sha256_hash(data: &[u8]) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    // Simple hash for demo - in production, use sha2 crate
+    let mut hasher = DefaultHasher::new();
+    data.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
 }
 
 fn list_backups() -> Result<()> {

@@ -123,6 +123,10 @@ enum DoctorAction {
     Rollback {
         /// Backup timestamp (YYYYMMDD-HHMMSS) or "list" to show available backups
         timestamp: String,
+
+        /// Only verify integrity without restoring
+        #[arg(long)]
+        verify: bool,
     },
 }
 
@@ -327,8 +331,8 @@ async fn main() -> Result<()> {
                 doctor_repair(dry_run).await?;
                 Ok(())
             }
-            DoctorAction::Rollback { timestamp } => {
-                doctor_rollback(&timestamp).await?;
+            DoctorAction::Rollback { timestamp, verify } => {
+                doctor_rollback(&timestamp, verify).await?;
                 Ok(())
             }
         },
