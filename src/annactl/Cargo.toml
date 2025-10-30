@@ -19,6 +19,7 @@ thiserror = { workspace = true }
 clap = { workspace = true }
 nix = { workspace = true }
 chrono = { workspace = true }
+sysinfo = { workspace = true }
 dirs = "5.0"
 
 # Internal dependencies

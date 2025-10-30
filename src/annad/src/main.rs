@@ -96,6 +96,23 @@ async fn main() -> Result<()> {
     }
 
     info!("[BOOT] Policy/Event/Learning subsystems active");
+
+    // Initialize and start telemetry collector (runs in background)
+    let telemetry_db_path = format!("{}/telemetry.db", STATE_DIR);
+    match telemetry_collector::TelemetryCollector::new(&telemetry_db_path) {
+        Ok(collector) => {
+            let collector_arc = std::sync::Arc::new(collector);
+            collector_arc.clone().start_collection_loop();
+            info!("[BOOT] Telemetry collector started (60s interval)");
+        }
+        Err(e) => {
+            warn!("Failed to initialize telemetry collector: {}", e);
+        }
+    }
+
+    // Start CPU watchdog (monitors idle CPU every 5 minutes)
+    start_cpu_watchdog();
+
     info!("[READY] anna-assistant operational");
 
     // Run RPC server with state
@@ -103,6 +120,51 @@ async fn main() -> Result<()> {
         .context("RPC server error")?;
 
     Ok(())
+}
+
+/// CPU watchdog: monitors daemon's own CPU usage when idle
+/// Logs warning if idle CPU > 5% for 3 consecutive samples
+fn start_cpu_watchdog() {
+    tokio::spawn(async {
+        use sysinfo::{System, Pid};
+        use tokio::time::{interval, Duration};
+
+        let mut interval = interval(Duration::from_secs(300)); // 5 minutes
+        let pid = Pid::from_u32(std::process::id());
+        let mut high_cpu_count = 0;
+
+        loop {
+            interval.tick().await;
+
+            let mut sys = System::new();
+            sys.refresh_process(pid);
+
+            if let Some(process) = sys.process(pid) {
+                let cpu_usage = process.cpu_usage();
+
+                if cpu_usage > 5.0 {
+                    high_cpu_count += 1;
+                    warn!("[WATCHDOG] Idle CPU usage: {:.1}% (sample {}/3)", cpu_usage, high_cpu_count);
+
+                    if high_cpu_count >= 3 {
+                        error!(
+                            "[WATCHDOG] High idle CPU detected! Daemon using {:.1}% CPU. \
+                            Suspected culprits: telemetry collector, policy engine, or event loop",
+                            cpu_usage
+                        );
+                        // Reset counter after logging alert
+                        high_cpu_count = 0;
+                    }
+                } else {
+                    // Reset counter if CPU drops back to normal
+                    if high_cpu_count > 0 {
+                        info!("[WATCHDOG] CPU usage normalized: {:.1}%", cpu_usage);
+                        high_cpu_count = 0;
+                    }
+                }
+            }
+        }
+    });
 }
 
 /// Ensure all required directories exist with correct permissions

@@ -7,6 +7,156 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.6] - Hotfix: Working Daemon & System - 2025-10-30
+
+### Fixed - Critical Functionality Restoration
+
+**Anna now actually works as a running system, not just pretty output.**
+
+Previous versions had beautiful installers and CLI output but:
+- Daemon never started (systemd service not installed)
+- No runtime directories created
+- Telemetry collector never wired in
+- Profile checks incomplete
+- CPU usage not monitored
+- Zero end-to-end testing
+
+### What's Fixed
+
+#### 1. Installer Actually Installs a Working System
+- **Four-phase installation** with proper verification:
+  - Phase 1: Detection (version check, dependencies)
+  - Phase 2: Preparation (build, backup on upgrade)
+  - Phase 3: Installation (binaries, systemd service, runtime dirs, config)
+  - Phase 4: Verification (daemon starts, socket exists, health check)
+- Creates all required directories: `/run/anna`, `/var/lib/anna`, `/var/log/anna`, `/etc/anna`
+- Creates `anna` group and adds user
+- Sets correct permissions: 0755 for runtime, 0750 for data/logs, 0660 for socket
+- Installs and enables systemd service
+- Verifies daemon is running before declaring success
+- Automatic `doctor repair` if post-install checks fail
+
+#### 2. Daemon Runs and Actually Does Work
+- **Telemetry collector** now wired into daemon startup
+  - Collects CPU, memory, disk, network metrics every 60 seconds
+  - Writes to `/var/lib/anna/telemetry.db`
+  - Ready for policy evaluation and trend analysis
+- **CPU watchdog** monitors daemon's own CPU usage
+  - Checks every 5 minutes
+  - Warns if idle CPU > 5% for 3 consecutive samples
+  - Identifies suspected culprits (telemetry, policy engine, event loop)
+- **No busy loops** - all periodic work uses `tokio::time::sleep` with proper await
+
+#### 3. Profile System Extended
+- **New health checks added**:
+  - `check_cpu_metrics()` - Current CPU load, core count, RAM with thresholds
+  - `check_gpu_driver()` - Detects NVIDIA/AMD/Intel GPU and loaded driver
+  - `check_network_interfaces()` - Counts active network interfaces
+- **Comprehensive check suite** (11 checks total):
+  - Core: CPU & Memory, CPU Governor, GPU Driver, VA-API, Audio, Network, Boot Time, Session Type
+  - Maintenance: SSD TRIM, Firmware Updates, Journald Persistence
+- `annactl profile show` - Beautiful human-readable output
+- `annactl profile checks --json` - Machine-parsable validation
+
+#### 4. Doctor System Verified
+- `annactl doctor check` - 9 health checks (directories, permissions, service, socket, policies, telemetry)
+- `annactl doctor repair` - Automatic fixes with backup creation
+- Works **without daemon running** (can fix broken daemon)
+
+#### 5. Version Consistency
+- Single source of truth: `Cargo.toml` workspace version
+- Installer reads from Cargo metadata
+- Written to `/etc/anna/version`
+- `annactl --version` matches exactly
+
+#### 6. Testing Infrastructure
+- `tests/e2e_basic.sh` - Basic end-to-end validation suite
+  - Build verification
+  - Version consistency
+  - CLI commands work
+  - Profile checks JSON validation
+  - Doctor works without daemon
+  - Installer syntax check
+  - Service file validation
+
+### Added
+- CPU watchdog in daemon startup (main.rs:113-167)
+- Telemetry collector integration (main.rs:100-111)
+- 3 new profile checks: CPU metrics, GPU driver, network interfaces
+- Comprehensive installer with 4 phases (360 lines)
+- E2E test suite (tests/e2e_basic.sh)
+
+### Changed
+- Version: 0.9.6-alpha.5 → 0.9.6-alpha.6
+- Installer completely rewritten (scripts/install.sh)
+- Profile checks expanded from 8 to 11
+- Added `sysinfo` dependency to annactl
+
+### Technical Details
+
+**Daemon Startup Sequence**:
+```
+1. Initialize logging
+2. Check root permissions
+3. Create runtime directories (/run/anna, /var/lib/anna, /var/log/anna)
+4. Initialize telemetry event log
+5. Initialize persistence
+6. Load configuration
+7. Bind Unix socket (/run/anna/annad.sock)
+8. Set socket permissions (0660 root:anna)
+9. Initialize daemon state (policy engine, event system, learning)
+10. Emit bootstrap events
+11. Start telemetry collector (background task, 60s interval)
+12. Start CPU watchdog (background task, 5min interval)
+13. RPC server ready
+```
+
+**Installer Verification**:
+- Service active check: `systemctl is-active annad`
+- Socket exists: `[ -S /run/anna/annad.sock ]`
+- Post-install doctor check
+- Automatic repair if any checks fail
+
+### Migration from 0.9.6-alpha.5
+
+```bash
+./scripts/install.sh
+```
+
+Installer will:
+1. Detect existing installation
+2. Prompt for upgrade confirmation
+3. Create backup at `/var/lib/anna/backups/backup-YYYYMMDD-HHMMSS`
+4. Stop daemon, upgrade binaries, restart daemon
+5. Verify system is healthy
+
+### Validation
+
+Run the test suite:
+```bash
+./tests/e2e_basic.sh
+```
+
+Expected: All 8 tests pass.
+
+### Known Limitations
+
+- Log rotation not implemented (logs grow unbounded)
+- Light terminal theme detection not implemented
+- CPU watchdog uses 5% threshold (not tunable yet)
+- No firmware/driver deep diagnostics (BIOS, ACPI, clocksource, power states)
+
+### Next Steps (Sprint 6)
+
+As requested by user feedback, Anna needs to profile the **hardware/firmware baseline** before attempting repairs:
+- `annactl profile show --extended` - DMI decode, firmware version, kernel modules
+- `annactl doctor firmware --check` - ACPI tables, BIOS version, HPET status
+- `annactl driver validate` - Per-device driver bindings, power states (C-states, P-states)
+- Thermal readings and interrupt analysis
+- This ensures Anna fixes **actual problems** rather than symptoms of broken firmware/drivers
+
+---
+
 ## [0.9.6-alpha.5] - Working Installer (Finally) - 2025-10-30
 
 ### Fixed

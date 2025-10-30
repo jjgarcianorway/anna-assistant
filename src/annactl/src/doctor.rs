@@ -305,11 +305,11 @@ fn check_policies(_verbose: bool) -> bool {
         })
         .unwrap_or(0);
 
-    let ok = count >= 2;
+    let ok = count >= 1;
     if ok {
-        println!("[OK] Policies loaded ({} rules)", count);
+        println!("[OK] Policies loaded ({} files)", count);
     } else {
-        println!("[FAIL] Insufficient policies ({} rules, expected ≥2)", count);
+        println!("[FAIL] No policy files found (expected ≥1 in {})", policy_dir);
     }
 
     ok

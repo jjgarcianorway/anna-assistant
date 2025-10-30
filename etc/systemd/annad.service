@@ -5,6 +5,8 @@ After=network.target
 
 [Service]
 Type=simple
+User=root
+Group=anna
 ExecStart=/usr/local/bin/annad
 Restart=on-failure
 RestartSec=5s
@@ -14,7 +16,7 @@ PrivateTmp=yes
 NoNewPrivileges=false
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/etc/anna /run /var/log/anna
+ReadWritePaths=/etc/anna /run /var/lib/anna /var/log/anna
 
 # Resource limits
 MemoryMax=512M
