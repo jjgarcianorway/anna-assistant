@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant Installer - Sprint 3 (v0.9.2a-final)
+# Anna Assistant Installer - Sprint 4 (v0.9.3-alpha)
 # Self-healing, idempotent installation with auto-repair
 # Runs as normal user, escalates only when needed
+# Intelligent version detection and upgrade management
 
-VERSION="0.9.2a-final"
+BUNDLE_VERSION="0.9.3-alpha"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -14,7 +15,12 @@ CONFIG_DIR="/etc/anna"
 POLKIT_DIR="/usr/share/polkit-1/actions"
 COMPLETION_DIR="/usr/share/bash-completion/completions"
 STATE_DIR="/var/lib/anna"
+LOG_DIR="/var/log/anna"
+VERSION_FILE="/etc/anna/version"
 ANNA_GROUP="anna"
+
+# Installation mode (set by detect_version)
+INSTALL_MODE=""  # fresh, upgrade, skip, or abort
 
 # Colors
 RED='\033[0;31m'
@@ -48,6 +54,26 @@ log_error() {
     echo -e "${RED}[FAIL]${NC} $1"
 }
 
+log_install() {
+    echo -e "${CYAN}[INSTALL]${NC} $1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INSTALL] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+}
+
+log_update() {
+    echo -e "${YELLOW}[UPDATE]${NC} $1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [UPDATE] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+}
+
+log_heal() {
+    echo -e "${GREEN}[HEAL]${NC} $1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [HEAL] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+}
+
+log_ready() {
+    echo -e "${GREEN}[READY]${NC} $1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [READY] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+}
+
 # Check if we have sudo/pkexec available
 needs_elevation() {
     return $(test "$EUID" -ne 0)
@@ -73,13 +99,106 @@ print_banner() {
     cat <<'EOF'
     ╔═══════════════════════════════════════╗
     ║                                       ║
-    ║      ANNA ASSISTANT v0.9.2a-final     ║
+    ║      ANNA ASSISTANT v0.9.3-alpha      ║
     ║     Self-Healing System Assistant     ║
-    ║   Sprint 3: Runtime Self-Healing      ║
+    ║   Sprint 4: Autonomy & Self-Healing   ║
     ║                                       ║
     ╚═══════════════════════════════════════╝
 EOF
     echo -e "${NC}"
+    echo ""
+}
+
+# Version comparison: returns 0 if v1 < v2, 1 if v1 == v2, 2 if v1 > v2
+compare_versions() {
+    local v1="$1"
+    local v2="$2"
+
+    # Strip any -alpha, -beta, -rc suffixes for comparison
+    local v1_base=$(echo "$v1" | sed 's/-.*$//')
+    local v2_base=$(echo "$v2" | sed 's/-.*$//')
+
+    # Split into major.minor.patch
+    IFS='.' read -ra V1 <<< "$v1_base"
+    IFS='.' read -ra V2 <<< "$v2_base"
+
+    # Compare major
+    if [[ ${V1[0]:-0} -lt ${V2[0]:-0} ]]; then
+        return 0  # v1 < v2
+    elif [[ ${V1[0]:-0} -gt ${V2[0]:-0} ]]; then
+        return 2  # v1 > v2
+    fi
+
+    # Compare minor
+    if [[ ${V1[1]:-0} -lt ${V2[1]:-0} ]]; then
+        return 0
+    elif [[ ${V1[1]:-0} -gt ${V2[1]:-0} ]]; then
+        return 2
+    fi
+
+    # Compare patch
+    if [[ ${V1[2]:-0} -lt ${V2[2]:-0} ]]; then
+        return 0
+    elif [[ ${V1[2]:-0} -gt ${V2[2]:-0} ]]; then
+        return 2
+    fi
+
+    return 1  # v1 == v2
+}
+
+# Detect installed version and determine installation mode
+detect_version() {
+    log_install "Checking installed version..."
+
+    if [[ ! -f "$VERSION_FILE" ]]; then
+        log_install "No previous installation detected"
+        INSTALL_MODE="fresh"
+        return 0
+    fi
+
+    local installed_version=$(cat "$VERSION_FILE" 2>/dev/null || echo "unknown")
+
+    if [[ "$installed_version" == "unknown" ]]; then
+        log_warn "Version file exists but unreadable, treating as fresh install"
+        INSTALL_MODE="fresh"
+        return 0
+    fi
+
+    log_info "Installed version: $installed_version"
+    log_info "Bundle version: $BUNDLE_VERSION"
+
+    compare_versions "$installed_version" "$BUNDLE_VERSION"
+    local cmp=$?
+
+    case $cmp in
+        0)  # installed < bundle
+            log_update "Upgrade available: $installed_version → $BUNDLE_VERSION"
+
+            # Check for --yes flag
+            if [[ "${1:-}" == "--yes" ]] || [[ "${1:-}" == "-y" ]]; then
+                log_update "Auto-upgrade enabled (--yes)"
+                INSTALL_MODE="upgrade"
+            else
+                echo ""
+                echo -e "${YELLOW}Would you like to upgrade? [Y/n]${NC} "
+                read -r response
+                if [[ "$response" =~ ^[Nn] ]]; then
+                    log_skip "Upgrade declined by user"
+                    exit 0
+                fi
+                INSTALL_MODE="upgrade"
+            fi
+            ;;
+        1)  # installed == bundle
+            log_skip "Already installed: v$installed_version"
+            exit 0
+            ;;
+        2)  # installed > bundle
+            log_error "Installed version ($installed_version) is newer than bundle ($BUNDLE_VERSION)"
+            log_error "Downgrade not supported. Aborting."
+            exit 1
+            ;;
+    esac
 }
 
 check_environment() {
@@ -290,9 +409,19 @@ setup_directories() {
     run_elevated mkdir -p "$STATE_DIR/state"
     run_elevated mkdir -p "$STATE_DIR/events"
     run_elevated mkdir -p "$STATE_DIR/users"
+    run_elevated mkdir -p "$STATE_DIR/backups"
     run_elevated chown -R root:"$ANNA_GROUP" "$STATE_DIR" 2>/dev/null || true
     run_elevated chmod -R 0750 "$STATE_DIR"
     log_success "State directory: $STATE_DIR (0750 root:anna)"
+
+    # Log directory: 0750 root:anna
+    run_elevated mkdir -p "$LOG_DIR"
+    run_elevated chown root:"$ANNA_GROUP" "$LOG_DIR" 2>/dev/null || true
+    run_elevated chmod 0750 "$LOG_DIR"
+    run_elevated touch "$LOG_DIR/install.log" "$LOG_DIR/doctor.log" "$LOG_DIR/autonomy.log" 2>/dev/null || true
+    run_elevated chown root:"$ANNA_GROUP" "$LOG_DIR"/*.log 2>/dev/null || true
+    run_elevated chmod 0660 "$LOG_DIR"/*.log 2>/dev/null || true
+    log_success "Log directory: $LOG_DIR (0750 root:anna)"
 
     # Create per-user audit logs
     local target_user="${SUDO_USER:-$USER}"
@@ -565,21 +694,35 @@ post_install_validation() {
     fi
 }
 
+write_version_file() {
+    log_install "Writing version file..."
+    echo "$BUNDLE_VERSION" | run_elevated tee "$VERSION_FILE" > /dev/null
+    run_elevated chown root:"$ANNA_GROUP" "$VERSION_FILE"
+    run_elevated chmod 0644 "$VERSION_FILE"
+    log_ready "Anna Assistant v$BUNDLE_VERSION operational"
+}
+
 print_completion() {
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                                       ║${NC}"
-    echo -e "${GREEN}║   INSTALLATION COMPLETE!              ║${NC}"
+    if [[ "$INSTALL_MODE" == "upgrade" ]]; then
+        echo -e "${GREEN}║   UPGRADE COMPLETE!                   ║${NC}"
+    else
+        echo -e "${GREEN}║   INSTALLATION COMPLETE!              ║${NC}"
+    fi
+    echo -e "${GREEN}║                                       ║${NC}"
+    echo -e "${GREEN}║   Anna v$BUNDLE_VERSION is ready!       ║${NC}"
     echo -e "${GREEN}║                                       ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
     echo ""
     echo "Quick start:"
     echo "  annactl status              - Check daemon status"
-    echo "  annactl doctor              - Run diagnostics"
+    echo "  annactl doctor check        - Run health diagnostics"
+    echo "  annactl doctor repair       - Self-healing repairs"
     echo "  annactl config list         - List configuration"
     echo "  annactl policy list         - List policies"
-    echo "  annactl events show         - Show recent events"
-    echo "  annactl learning stats      - Learning statistics"
+    echo "  annactl events list         - Show recent events"
     echo ""
     echo "Service management:"
     echo "  sudo systemctl status annad"
@@ -602,6 +745,9 @@ main() {
         log_error "Must run from anna-assistant project root"
         exit 1
     fi
+
+    # Detect version and determine install mode
+    detect_version "$@"
 
     check_environment
     check_requirements
@@ -631,6 +777,9 @@ main() {
         log_warn "Validation had issues, but installation completed"
         log_info "Review the errors above and check service logs"
     fi
+
+    # Write version file to mark installation complete
+    write_version_file
 
     print_completion
 }
