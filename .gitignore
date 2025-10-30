@@ -1,0 +1,30 @@
+# Rust
+/target/
+Cargo.lock
+*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+/dist/
+/build/
+
+# Test outputs
+/tests/output/
+*.tmp
+
+# Local config overrides
+/local_config.toml

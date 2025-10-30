@@ -1,0 +1,29 @@
+[Unit]
+Description=Anna Assistant Daemon
+Documentation=https://github.com/anna-assistant/anna
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/annad
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/etc/anna /run /var/log/anna
+
+# Resource limits
+MemoryMax=512M
+TasksMax=100
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=annad
+
+[Install]
+WantedBy=multi-user.target
