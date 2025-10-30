@@ -579,6 +579,27 @@ fn print_status(data: &serde_json::Value) -> Result<()> {
     );
     println!();
 
+    // Show recent logs from journald
+    println!("📋 Recent Logs (last 15 entries):\n");
+    match std::process::Command::new("journalctl")
+        .args(&["-u", "annad", "-n", "15", "--no-pager", "-o", "short-precise"])
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let logs = String::from_utf8_lossy(&output.stdout);
+            for line in logs.lines() {
+                println!("  {}", line);
+            }
+        }
+        Ok(_) => {
+            println!("  (Unable to read logs - may require elevated permissions)");
+        }
+        Err(_) => {
+            println!("  (journalctl not available)");
+        }
+    }
+    println!();
+
     Ok(())
 }
 

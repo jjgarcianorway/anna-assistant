@@ -3,7 +3,7 @@
 //! Sprint 3: Intelligence, Policies & Event Reactions
 //!
 //! The policy engine evaluates conditions before allowing autonomous actions.
-//! Rules are defined in YAML files in /etc/anna/policies.d/*.yaml
+//! Rules are defined in YAML files in /etc/anna/policies.d/*.{yaml,yml}
 //!
 //! Rule syntax:
 //! ```yaml
@@ -225,12 +225,13 @@ impl PolicyEngine {
 
         let mut loaded_rules = Vec::new();
 
-        // Read all .yaml files in the policy directory
+        // Read all .yaml and .yml files in the policy directory
         for entry in fs::read_dir(&self.policy_dir)? {
             let entry = entry?;
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
+            let ext = path.extension().and_then(|s| s.to_str());
+            if ext == Some("yaml") || ext == Some("yml") {
                 match self.load_policy_file(&path) {
                     Ok(mut rules) => {
                         // Parse conditions for each rule
