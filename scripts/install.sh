@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant Installer - Sprint 4 (v0.9.3-alpha)
+# Anna Assistant Installer - Sprint 5 Phase 3 (v0.9.4-beta)
 # Self-healing, idempotent installation with auto-repair
 # Runs as normal user, escalates only when needed
 # Intelligent version detection and upgrade management
 
-BUNDLE_VERSION="0.9.4-alpha"
+BUNDLE_VERSION="0.9.4-beta"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
