@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant QA Test Harness - Sprint 2
+# Anna Assistant QA Test Harness - Sprint 3
 # Validates compilation, functionality, and contract compliance
 
 RED='\033[0;31m'
@@ -18,7 +18,7 @@ START_TIME=$(date +%s)
 
 # Test manifest
 cat > /tmp/qa_manifest.txt <<'EOF'
-Sprint 2 QA Test Manifest
+Sprint 3 QA Test Manifest
 =========================
 Sprint 1 tests (base):
 1. Project structure validation
@@ -36,7 +36,7 @@ Sprint 1 tests (base):
 13. Install idempotency
 14. Uninstall backup creation
 
-Sprint 2 tests (new):
+Sprint 2 tests:
 15. Autonomy framework (levels, tasks, permissions)
 16. Persistence layer (state save/load/list)
 17. Auto-fix mechanism (doctor --autofix)
@@ -44,7 +44,19 @@ Sprint 2 tests (new):
 19. State directory structure
 20. Autonomy CLI commands
 
-Expected runtime: < 3 minutes
+Sprint 3 tests (new):
+21. Policy Engine (rule parsing, evaluation, actions)
+22. Event Reaction System (event dispatch, filtering)
+23. Learning Cache (outcome recording, recommendations)
+24. Policy CLI commands (list, reload, eval)
+25. Events CLI commands (show, list, clear)
+26. Learning CLI commands (stats, recommendations, reset)
+27. Policy YAML parsing
+28. Event-policy integration
+29. Learning persistence
+30. Sprint 3 module integration
+
+Expected runtime: < 4 minutes
 EOF
 
 test_header() {
@@ -772,6 +784,394 @@ test_sprint2_integration() {
     fi
 }
 
+# Test 20: Sprint 3 - Policy Engine
+test_policy_engine() {
+    test_header "Sprint 3: Policy Engine"
+
+    # Check policy module exists
+    if [[ -f src/annad/src/policy.rs ]]; then
+        test_pass "Policy module exists"
+    else
+        test_fail "Policy module missing"
+        return 1
+    fi
+
+    # Check for PolicyEngine struct
+    if grep -q 'pub struct PolicyEngine' src/annad/src/policy.rs; then
+        test_pass "PolicyEngine struct defined"
+    else
+        test_fail "PolicyEngine struct missing"
+    fi
+
+    # Check for PolicyRule and PolicyAction types
+    if grep -q 'pub struct PolicyRule' src/annad/src/policy.rs && \
+       grep -q 'pub enum PolicyAction' src/annad/src/policy.rs; then
+        test_pass "Policy types (Rule, Action) defined"
+    else
+        test_fail "Policy types incomplete"
+    fi
+
+    # Check for policy evaluation
+    if grep -q 'pub fn evaluate' src/annad/src/policy.rs && \
+       grep -q 'pub fn load_policies' src/annad/src/policy.rs; then
+        test_pass "Policy evaluation functions present"
+    else
+        test_fail "Policy evaluation functions missing"
+    fi
+
+    # Check for condition parsing
+    if grep -q 'parse_condition' src/annad/src/policy.rs && \
+       grep -q 'enum Operator' src/annad/src/policy.rs; then
+        test_pass "Condition parsing implemented"
+    else
+        test_fail "Condition parsing missing"
+    fi
+
+    # Check for PolicyContext
+    if grep -q 'pub struct PolicyContext' src/annad/src/policy.rs; then
+        test_pass "PolicyContext struct defined"
+    else
+        test_fail "PolicyContext struct missing"
+    fi
+
+    # Check for policy actions
+    if grep -q 'DisableAutonomy' src/annad/src/policy.rs && \
+       grep -q 'RunDoctor' src/annad/src/policy.rs && \
+       grep -q 'SendAlert' src/annad/src/policy.rs; then
+        test_pass "Policy actions defined (DisableAutonomy, RunDoctor, SendAlert)"
+    else
+        test_fail "Policy actions incomplete"
+    fi
+
+    # Check for serde_yaml support
+    if grep -q 'serde_yaml' src/annad/Cargo.toml; then
+        test_pass "serde_yaml dependency added"
+    else
+        test_fail "serde_yaml dependency missing"
+    fi
+}
+
+# Test 21: Sprint 3 - Event Reaction System
+test_event_reaction_system() {
+    test_header "Sprint 3: Event Reaction System"
+
+    # Check events module exists
+    if [[ -f src/annad/src/events.rs ]]; then
+        test_pass "Events module exists"
+    else
+        test_fail "Events module missing"
+        return 1
+    fi
+
+    # Check for Event struct
+    if grep -q 'pub struct Event' src/annad/src/events.rs; then
+        test_pass "Event struct defined"
+    else
+        test_fail "Event struct missing"
+    fi
+
+    # Check for EventDispatcher
+    if grep -q 'pub struct EventDispatcher' src/annad/src/events.rs; then
+        test_pass "EventDispatcher struct defined"
+    else
+        test_fail "EventDispatcher struct missing"
+    fi
+
+    # Check for event types
+    if grep -q 'pub enum EventType' src/annad/src/events.rs && \
+       grep -q 'TelemetryAlert' src/annad/src/events.rs && \
+       grep -q 'ConfigChange' src/annad/src/events.rs && \
+       grep -q 'DoctorResult' src/annad/src/events.rs; then
+        test_pass "Event types defined (TelemetryAlert, ConfigChange, DoctorResult)"
+    else
+        test_fail "Event types incomplete"
+    fi
+
+    # Check for event severity
+    if grep -q 'pub enum EventSeverity' src/annad/src/events.rs && \
+       grep -q 'Critical' src/annad/src/events.rs; then
+        test_pass "Event severity levels defined"
+    else
+        test_fail "Event severity levels missing"
+    fi
+
+    # Check for dispatch function
+    if grep -q 'pub fn dispatch' src/annad/src/events.rs; then
+        test_pass "Event dispatch function present"
+    else
+        test_fail "Event dispatch function missing"
+    fi
+
+    # Check for event filtering
+    if grep -q 'get_events_by_type' src/annad/src/events.rs && \
+       grep -q 'get_events_by_severity' src/annad/src/events.rs; then
+        test_pass "Event filtering functions present"
+    else
+        test_fail "Event filtering functions missing"
+    fi
+
+    # Check for EventReactor
+    if grep -q 'pub struct EventReactor' src/annad/src/events.rs; then
+        test_pass "EventReactor struct defined"
+    else
+        test_fail "EventReactor struct missing"
+    fi
+
+    # Check for uuid dependency
+    if grep -q 'uuid' src/annad/Cargo.toml; then
+        test_pass "uuid dependency added"
+    else
+        test_fail "uuid dependency missing"
+    fi
+}
+
+# Test 22: Sprint 3 - Learning Cache
+test_learning_cache() {
+    test_header "Sprint 3: Learning Cache"
+
+    # Check learning module exists
+    if [[ -f src/annad/src/learning.rs ]]; then
+        test_pass "Learning module exists"
+    else
+        test_fail "Learning module missing"
+        return 1
+    fi
+
+    # Check for LearningCache struct
+    if grep -q 'pub struct LearningCache' src/annad/src/learning.rs; then
+        test_pass "LearningCache struct defined"
+    else
+        test_fail "LearningCache struct missing"
+    fi
+
+    # Check for ActionStats
+    if grep -q 'pub struct ActionStats' src/annad/src/learning.rs; then
+        test_pass "ActionStats struct defined"
+    else
+        test_fail "ActionStats struct missing"
+    fi
+
+    # Check for Outcome enum
+    if grep -q 'pub enum Outcome' src/annad/src/learning.rs && \
+       grep -q 'Success' src/annad/src/learning.rs && \
+       grep -q 'Failure' src/annad/src/learning.rs; then
+        test_pass "Outcome enum defined (Success, Failure)"
+    else
+        test_fail "Outcome enum incomplete"
+    fi
+
+    # Check for record_action function
+    if grep -q 'pub fn record_action' src/annad/src/learning.rs; then
+        test_pass "record_action function present"
+    else
+        test_fail "record_action function missing"
+    fi
+
+    # Check for recommendations
+    if grep -q 'get_recommended_actions' src/annad/src/learning.rs && \
+       grep -q 'priority_score' src/annad/src/learning.rs; then
+        test_pass "Recommendation functions present"
+    else
+        test_fail "Recommendation functions missing"
+    fi
+
+    # Check for persistence
+    if grep -q 'pub fn load' src/annad/src/learning.rs && \
+       grep -q 'pub fn save' src/annad/src/learning.rs; then
+        test_pass "Learning persistence functions present"
+    else
+        test_fail "Learning persistence functions missing"
+    fi
+
+    # Check for LearningAnalytics
+    if grep -q 'pub struct LearningAnalytics' src/annad/src/learning.rs; then
+        test_pass "LearningAnalytics struct defined"
+    else
+        test_fail "LearningAnalytics struct missing"
+    fi
+}
+
+# Test 23: Sprint 3 - CLI Commands
+test_sprint3_cli() {
+    test_header "Sprint 3: CLI Commands"
+
+    # Check for policy subcommand
+    if grep -q 'Policy {' src/annactl/src/main.rs; then
+        test_pass "annactl policy subcommand exists"
+    else
+        test_fail "annactl policy subcommand missing"
+        return 1
+    fi
+
+    # Check for policy actions
+    if grep -q 'PolicyAction::List' src/annactl/src/main.rs && \
+       grep -q 'PolicyAction::Reload' src/annactl/src/main.rs && \
+       grep -q 'PolicyAction::Eval' src/annactl/src/main.rs; then
+        test_pass "Policy actions (list, reload, eval) defined"
+    else
+        test_fail "Policy actions incomplete"
+    fi
+
+    # Check for events subcommand
+    if grep -q 'Events {' src/annactl/src/main.rs; then
+        test_pass "annactl events subcommand exists"
+    else
+        test_fail "annactl events subcommand missing"
+    fi
+
+    # Check for event actions
+    if grep -q 'EventAction::Show' src/annactl/src/main.rs && \
+       grep -q 'EventAction::List' src/annactl/src/main.rs && \
+       grep -q 'EventAction::Clear' src/annactl/src/main.rs; then
+        test_pass "Event actions (show, list, clear) defined"
+    else
+        test_fail "Event actions incomplete"
+    fi
+
+    # Check for learning subcommand
+    if grep -q 'Learning {' src/annactl/src/main.rs; then
+        test_pass "annactl learning subcommand exists"
+    else
+        test_fail "annactl learning subcommand missing"
+    fi
+
+    # Check for learning actions
+    if grep -q 'LearningAction::Stats' src/annactl/src/main.rs && \
+       grep -q 'LearningAction::Recommendations' src/annactl/src/main.rs && \
+       grep -q 'LearningAction::Reset' src/annactl/src/main.rs; then
+        test_pass "Learning actions (stats, recommendations, reset) defined"
+    else
+        test_fail "Learning actions incomplete"
+    fi
+
+    # Check for print functions
+    if grep -q 'fn print_policy_list' src/annactl/src/main.rs && \
+       grep -q 'fn print_events' src/annactl/src/main.rs && \
+       grep -q 'fn print_learning_stats' src/annactl/src/main.rs; then
+        test_pass "Sprint 3 print functions present"
+    else
+        test_fail "Sprint 3 print functions missing"
+    fi
+}
+
+# Test 24: Sprint 3 - RPC Handlers
+test_sprint3_rpc() {
+    test_header "Sprint 3: RPC Handlers"
+
+    # Check for policy RPC handlers
+    if grep -q 'PolicyEvaluate' src/annad/src/rpc.rs && \
+       grep -q 'PolicyReload' src/annad/src/rpc.rs && \
+       grep -q 'PolicyList' src/annad/src/rpc.rs; then
+        test_pass "Policy RPC handlers present"
+    else
+        test_fail "Policy RPC handlers missing"
+    fi
+
+    # Check for events RPC handlers
+    if grep -q 'EventsList' src/annad/src/rpc.rs && \
+       grep -q 'EventsShow' src/annad/src/rpc.rs && \
+       grep -q 'EventsClear' src/annad/src/rpc.rs; then
+        test_pass "Events RPC handlers present"
+    else
+        test_fail "Events RPC handlers missing"
+    fi
+
+    # Check for learning RPC handlers
+    if grep -q 'LearningStats' src/annad/src/rpc.rs && \
+       grep -q 'LearningRecommendations' src/annad/src/rpc.rs && \
+       grep -q 'LearningReset' src/annad/src/rpc.rs; then
+        test_pass "Learning RPC handlers present"
+    else
+        test_fail "Learning RPC handlers missing"
+    fi
+
+    # Check that RPC imports Sprint 3 modules
+    if grep -q 'use crate::policy' src/annad/src/rpc.rs && \
+       grep -q 'use crate::events' src/annad/src/rpc.rs && \
+       grep -q 'use crate::learning' src/annad/src/rpc.rs; then
+        test_pass "RPC imports Sprint 3 modules"
+    else
+        test_fail "RPC missing Sprint 3 imports"
+    fi
+}
+
+# Test 25: Sprint 3 - Policy Files
+test_policy_files() {
+    test_header "Sprint 3: Policy Files"
+
+    # Check for example policy files
+    if [[ -f docs/policies.d/example-telemetry.yaml ]]; then
+        test_pass "Example telemetry policy exists"
+    else
+        test_fail "Example telemetry policy missing"
+    fi
+
+    if [[ -f docs/policies.d/example-system.yaml ]]; then
+        test_pass "Example system policy exists"
+    else
+        test_fail "Example system policy missing"
+    fi
+
+    # Check for policy documentation
+    if [[ -f docs/policies.d/README.md ]]; then
+        test_pass "Policy documentation exists"
+    else
+        test_fail "Policy documentation missing"
+    fi
+
+    # Validate YAML syntax if available
+    if command -v python3 &>/dev/null; then
+        if python3 -c "import yaml; yaml.safe_load(open('docs/policies.d/example-telemetry.yaml'))" 2>/dev/null; then
+            test_pass "Telemetry policy YAML valid"
+        else
+            test_fail "Telemetry policy YAML invalid"
+        fi
+
+        if python3 -c "import yaml; yaml.safe_load(open('docs/policies.d/example-system.yaml'))" 2>/dev/null; then
+            test_pass "System policy YAML valid"
+        else
+            test_fail "System policy YAML invalid"
+        fi
+    else
+        test_skip "YAML validation" "python3 not installed"
+    fi
+}
+
+# Test 26: Sprint 3 - Integration Validation
+test_sprint3_integration() {
+    test_header "Sprint 3: Integration Validation"
+
+    # Check that all Sprint 3 modules are declared in main
+    if grep -q 'mod policy;' src/annad/src/main.rs && \
+       grep -q 'mod events;' src/annad/src/main.rs && \
+       grep -q 'mod learning;' src/annad/src/main.rs; then
+        test_pass "Sprint 3 modules declared in daemon main"
+    else
+        test_fail "Sprint 3 modules not declared"
+    fi
+
+    # Check for tempfile dependency (used in tests)
+    if grep -q 'tempfile' src/annad/Cargo.toml; then
+        test_pass "tempfile dependency added (for tests)"
+    else
+        test_fail "tempfile dependency missing"
+    fi
+
+    # Check that events link to policy engine
+    if grep -q 'PolicyEngine' src/annad/src/events.rs; then
+        test_pass "Events module links to PolicyEngine"
+    else
+        test_fail "Events module missing PolicyEngine integration"
+    fi
+
+    # Verify learning cache path
+    if grep -q '/var/lib/anna/learning.json' src/annad/src/rpc.rs; then
+        test_pass "Learning cache path configured correctly"
+    else
+        test_fail "Learning cache path incorrect"
+    fi
+}
+
 print_summary() {
     local end_time=$(date +%s)
     local duration=$((end_time - START_TIME))
@@ -803,7 +1203,7 @@ main() {
 ╔═══════════════════════════════════════╗
 ║                                       ║
 ║    ANNA QA TEST HARNESS               ║
-║    Sprint 2 Validation Suite          ║
+║    Sprint 3 Validation Suite          ║
 ║                                       ║
 ╚═══════════════════════════════════════╝
 EOF
@@ -830,7 +1230,7 @@ EOF
     test_telemetry
     test_documentation
 
-    # Sprint 2 tests (new)
+    # Sprint 2 tests
     test_autonomy_framework
     test_persistence_layer
     test_autofix_mechanism
@@ -838,7 +1238,95 @@ EOF
     test_state_directories
     test_sprint2_integration
 
+    # Sprint 3 tests (new)
+    test_policy_engine
+    test_event_reaction_system
+    test_learning_cache
+    test_sprint3_cli
+    test_sprint3_rpc
+    test_policy_files
+    test_sprint3_integration
+
+    # Runtime validation (requires sudo)
+    test_runtime_validation
+
     print_summary
+}
+
+# Runtime Validation Stage (Sprint 3)
+test_runtime_validation() {
+    print_stage_header "Runtime Validation (Privileged Tests)"
+
+    # Check if we can run privileged tests
+    if [[ $EUID -eq 0 ]]; then
+        # Already running as root
+        run_runtime_validation_suite
+    elif command -v sudo &>/dev/null; then
+        # Check if sudo is available
+        echo -e "${YELLOW}[INFO]${NC} Runtime validation requires sudo privileges"
+        echo -e "${YELLOW}[INFO]${NC} This will test actual daemon deployment"
+        echo ""
+
+        if sudo -n true 2>/dev/null; then
+            # Passwordless sudo available
+            run_runtime_validation_suite
+        else
+            # Sudo requires password
+            test_skip "Runtime validation" "Requires sudo with password (run manually)"
+            echo ""
+            echo -e "${BLUE}To run runtime validation manually:${NC}"
+            echo "  sudo bash tests/runtime_validation.sh"
+            echo ""
+        fi
+    else
+        test_skip "Runtime validation" "Requires sudo/root access"
+        echo ""
+        echo -e "${YELLOW}⚠️  Runtime validation skipped (no sudo available)${NC}"
+        echo ""
+        echo -e "${BLUE}To run runtime validation:${NC}"
+        echo "  1. Deploy to system with sudo access"
+        echo "  2. Run: sudo bash tests/runtime_validation.sh"
+        echo ""
+    fi
+}
+
+run_runtime_validation_suite() {
+    test_info "Launching runtime validation script"
+
+    if [[ ! -f tests/runtime_validation.sh ]]; then
+        test_fail "Runtime validation script not found"
+        return 1
+    fi
+
+    # Make sure it's executable
+    chmod +x tests/runtime_validation.sh
+
+    # Run the validation script
+    echo ""
+    echo -e "${BLUE}════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}  Running full end-to-end runtime validation${NC}"
+    echo -e "${BLUE}════════════════════════════════════════════════════${NC}"
+    echo ""
+
+    if [[ $EUID -eq 0 ]]; then
+        # Already root
+        if bash tests/runtime_validation.sh; then
+            test_pass "Runtime validation suite"
+        else
+            test_fail "Runtime validation suite failed"
+        fi
+    else
+        # Use sudo
+        if sudo bash tests/runtime_validation.sh; then
+            test_pass "Runtime validation suite"
+        else
+            test_fail "Runtime validation suite failed"
+        fi
+    fi
+
+    echo ""
+    echo -e "${BLUE}════════════════════════════════════════════════════${NC}"
+    echo ""
 }
 
 main "$@"

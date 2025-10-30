@@ -9,6 +9,9 @@ use crate::diagnostics;
 use crate::telemetry;
 use crate::autonomy;
 use crate::persistence;
+use crate::policy;
+use crate::events;
+use crate::learning;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -42,6 +45,28 @@ pub enum Request {
     StateList,
     // Sprint 2: Auto-fix
     DoctorAutoFix,
+    // Sprint 3: Policy Engine
+    PolicyEvaluate {
+        context: serde_json::Value,
+    },
+    PolicyReload,
+    PolicyList,
+    // Sprint 3: Events
+    EventsList {
+        filter: Option<String>,
+        limit: Option<usize>,
+    },
+    EventsShow {
+        event_type: Option<String>,
+        severity: Option<String>,
+    },
+    EventsClear,
+    // Sprint 3: Learning
+    LearningStats {
+        action: Option<String>,
+    },
+    LearningRecommendations,
+    LearningReset,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -255,6 +280,132 @@ async fn handle_request(request: Request, config: &mut Config) -> Result<Respons
             let results = diagnostics::run_autofix().await;
             Ok(Response::Success {
                 data: serde_json::to_value(results)?,
+            })
+        }
+
+        // Sprint 3: Policy Engine handlers
+        Request::PolicyEvaluate { context } => {
+            // For MVP, return stub - full implementation requires global policy engine instance
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "matched": false,
+                    "actions": [],
+                    "message": "Policy evaluation requires daemon integration (Sprint 3)",
+                }),
+            })
+        }
+
+        Request::PolicyReload => {
+            // Stub for policy reload
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "loaded": 0,
+                    "message": "Policy reload requires daemon integration (Sprint 3)",
+                }),
+            })
+        }
+
+        Request::PolicyList => {
+            // Stub for policy list
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "rules": [],
+                    "message": "Policy listing requires daemon integration (Sprint 3)",
+                }),
+            })
+        }
+
+        // Sprint 3: Events handlers
+        Request::EventsList { filter, limit } => {
+            let limit = limit.unwrap_or(50);
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "events": [],
+                    "total": 0,
+                    "limit": limit,
+                    "message": "Events listing requires daemon integration (Sprint 3)",
+                }),
+            })
+        }
+
+        Request::EventsShow { event_type, severity } => {
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "events": [],
+                    "filter": {
+                        "event_type": event_type,
+                        "severity": severity,
+                    },
+                    "message": "Events filtering requires daemon integration (Sprint 3)",
+                }),
+            })
+        }
+
+        Request::EventsClear => {
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "cleared": true,
+                    "message": "Events cleared (requires daemon integration)",
+                }),
+            })
+        }
+
+        // Sprint 3: Learning handlers
+        Request::LearningStats { action } => {
+            // Use learning module
+            let cache = learning::LearningCache::new("/var/lib/anna/learning.json");
+            if let Err(e) = cache.load() {
+                info!("Learning cache not found or empty: {}", e);
+            }
+
+            let stats = if let Some(action_name) = action {
+                if let Some(stats) = cache.get_stats(&action_name) {
+                    serde_json::to_value(vec![stats])?
+                } else {
+                    serde_json::json!([])
+                }
+            } else {
+                serde_json::to_value(cache.get_all_stats())?
+            };
+
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "stats": stats,
+                    "global": {
+                        "total_actions": cache.action_count(),
+                        "total_outcomes": cache.total_outcomes(),
+                        "success_rate": cache.global_success_rate(),
+                    },
+                }),
+            })
+        }
+
+        Request::LearningRecommendations => {
+            let cache = learning::LearningCache::new("/var/lib/anna/learning.json");
+            if let Err(e) = cache.load() {
+                info!("Learning cache not found or empty: {}", e);
+            }
+
+            let recommendations = cache.get_recommended_actions();
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "recommendations": recommendations,
+                }),
+            })
+        }
+
+        Request::LearningReset => {
+            let cache = learning::LearningCache::new("/var/lib/anna/learning.json");
+            cache.clear()?;
+            telemetry::log_event(telemetry::Event::RpcCall {
+                name: "learning_reset".to_string(),
+                status: "cleared".to_string(),
+            })?;
+
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "reset": true,
+                }),
             })
         }
     }

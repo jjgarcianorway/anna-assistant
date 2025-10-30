@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant Uninstaller - Sprint 1
-# Safe removal with automatic backup
+# Anna Assistant Uninstaller - Sprint 3 (v0.9.2a)
+# Safe removal with comprehensive backup
 
+VERSION="0.9.2"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
+TMPFILES_DIR="/usr/lib/tmpfiles.d"
 CONFIG_DIR="/etc/anna"
 POLKIT_DIR="/usr/share/polkit-1/actions"
 COMPLETION_DIR="/usr/share/bash-completion/completions"
-BACKUP_DIR="$HOME/Documents/anna_backup_$(date +%Y%m%d_%H%M%S)"
+STATE_DIR="/var/lib/anna"
+BACKUP_ROOT="$HOME/Documents"
 
 # Colors
 RED='\033[0;31m'
@@ -35,168 +38,327 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-backup_config() {
-    log_info "Creating backup at $BACKUP_DIR..."
-
-    mkdir -p "$BACKUP_DIR"
-
-    # Backup system config
-    if [[ -d "$CONFIG_DIR" ]]; then
-        sudo cp -r "$CONFIG_DIR" "$BACKUP_DIR/etc_anna"
-        sudo chown -R "$USER:$USER" "$BACKUP_DIR/etc_anna"
-        log_success "System configuration backed up"
-    fi
-
-    # Backup user config if it exists
-    if [[ -d "$HOME/.config/anna" ]]; then
-        cp -r "$HOME/.config/anna" "$BACKUP_DIR/user_config"
-        log_success "User configuration backed up"
-    fi
-
-    # Backup telemetry events if they exist
-    if [[ -d "$HOME/.local/share/anna" ]]; then
-        cp -r "$HOME/.local/share/anna" "$BACKUP_DIR/user_data"
-        log_success "User data backed up"
-    fi
-
-    # Create restore instructions
-    cat > "$BACKUP_DIR/README-RESTORE.md" <<'EOF'
-# Anna Assistant Backup - Restore Instructions
-
-This directory contains a backup of your Anna Assistant configuration and data.
-
-## Contents
-
-- `etc_anna/` - System-wide configuration from /etc/anna/
-- `user_config/` - Your user configuration from ~/.config/anna/
-- `user_data/` - Your telemetry events from ~/.local/share/anna/
-
-## To Restore
-
-### System Configuration
-```bash
-sudo cp -r etc_anna/anna /etc/
-```
-
-### User Configuration
-```bash
-cp -r user_config/anna ~/.config/
-```
-
-### User Data
-```bash
-cp -r user_data/anna ~/.local/share/
-```
-
-## After Restoring
-
-If you reinstall Anna, the restored configuration will be used automatically.
-
-No restart is needed for user configuration changes.
-System configuration changes require:
-```bash
-sudo systemctl restart annad
-```
-
----
-Backup created: $(date)
+print_banner() {
+    echo -e "${BLUE}"
+    cat <<'EOF'
+    ╔═══════════════════════════════════════╗
+    ║                                       ║
+    ║        ANNA ASSISTANT v0.9.2          ║
+    ║           Uninstaller                 ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝
 EOF
-
-    log_success "Restore instructions created: $BACKUP_DIR/README-RESTORE.md"
+    echo -e "${NC}"
 }
 
-stop_service() {
-    log_info "Stopping annad service..."
-
-    if systemctl is-active --quiet annad.service; then
-        sudo systemctl stop annad.service
-        log_success "Service stopped"
-    else
-        log_info "Service not running"
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        log_error "This script must be run as root (use sudo)"
+        exit 1
     fi
-
-    if systemctl is-enabled --quiet annad.service 2>/dev/null; then
-        sudo systemctl disable annad.service
-        log_success "Service disabled"
-    fi
-}
-
-remove_files() {
-    log_info "Removing Anna files..."
-
-    # Remove binaries
-    sudo rm -f "$BIN_DIR/annad" "$BIN_DIR/annactl"
-
-    # Remove systemd service
-    sudo rm -f "$SYSTEMD_DIR/annad.service"
-    sudo systemctl daemon-reload
-
-    # Remove polkit policy
-    sudo rm -f "$POLKIT_DIR/com.anna.policy"
-
-    # Remove bash completion
-    sudo rm -f "$COMPLETION_DIR/annactl"
-
-    # Remove config (already backed up)
-    sudo rm -rf "$CONFIG_DIR"
-
-    # Remove runtime files
-    sudo rm -rf /run/anna
-    sudo rm -rf /var/lib/anna
-
-    log_success "Files removed"
-}
-
-remove_user_files() {
-    log_info "Removing user configuration..."
-
-    # User config (already backed up)
-    rm -rf "$HOME/.config/anna"
-
-    # User data (already backed up)
-    rm -rf "$HOME/.local/share/anna"
-
-    log_success "User files removed"
-}
-
-print_completion() {
-    echo ""
-    echo -e "${GREEN}╔═══════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                                       ║${NC}"
-    echo -e "${GREEN}║   UNINSTALLATION COMPLETE             ║${NC}"
-    echo -e "${GREEN}║                                       ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
-    echo ""
-    echo "Backup location:"
-    echo "  $BACKUP_DIR"
-    echo ""
-    echo "To restore your configuration, see:"
-    echo "  $BACKUP_DIR/README-RESTORE.md"
-    echo ""
 }
 
 confirm_uninstall() {
-    echo -e "${YELLOW}This will remove Anna Assistant from your system.${NC}"
-    echo "Configuration will be backed up to:"
-    echo "  $BACKUP_DIR"
     echo ""
-    read -p "Continue? [y/N] " -n 1 -r
-    echo
+    echo -e "${YELLOW}WARNING:${NC} This will remove Anna Assistant from your system"
+    echo "The following will be deleted:"
+    echo "  - Binaries: /usr/local/bin/anna{d,ctl}"
+    echo "  - Service: /etc/systemd/system/annad.service"
+    echo "  - Config: /etc/anna/"
+    echo "  - State: /var/lib/anna/"
+    echo ""
+    echo "A backup will be created in: $BACKUP_ROOT/anna_backup_<timestamp>/"
+    echo ""
+    read -p "Continue with uninstall? [y/N] " -n 1 -r
+    echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         log_info "Uninstall cancelled"
         exit 0
     fi
 }
 
-main() {
-    echo -e "${BLUE}Anna Assistant Uninstaller - Sprint 1${NC}"
-    echo ""
+stop_service() {
+    log_info "Stopping annad service..."
 
+    if systemctl is-active --quiet annad.service; then
+        systemctl stop annad.service || log_warn "Failed to stop service"
+        log_success "Service stopped"
+    else
+        log_info "Service not running"
+    fi
+
+    if systemctl is-enabled --quiet annad.service 2>/dev/null; then
+        systemctl disable annad.service || log_warn "Failed to disable service"
+        log_success "Service disabled"
+    fi
+}
+
+create_backup() {
+    log_info "Creating backup..."
+
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_dir="$BACKUP_ROOT/anna_backup_$timestamp"
+
+    mkdir -p "$backup_dir"
+
+    # Backup configuration
+    if [[ -d "$CONFIG_DIR" ]]; then
+        cp -r "$CONFIG_DIR" "$backup_dir/etc_anna"
+        log_success "Configuration backed up"
+    fi
+
+    # Backup state
+    if [[ -d "$STATE_DIR" ]]; then
+        cp -r "$STATE_DIR" "$backup_dir/var_lib_anna"
+        log_success "State data backed up"
+    fi
+
+    # Backup binaries
+    if [[ -f "$BIN_DIR/annad" ]]; then
+        cp "$BIN_DIR/annad" "$backup_dir/"
+    fi
+    if [[ -f "$BIN_DIR/annactl" ]]; then
+        cp "$BIN_DIR/annactl" "$backup_dir/"
+    fi
+
+    # Create restore instructions
+    cat > "$backup_dir/README-RESTORE.md" <<EOF
+# Anna Assistant Backup - $timestamp
+
+This directory contains a complete backup of your Anna Assistant installation.
+
+## What's Included
+
+- \`etc_anna/\` - Configuration files from /etc/anna
+- \`var_lib_anna/\` - State data from /var/lib/anna
+- \`annad\` - Daemon binary
+- \`annactl\` - CLI binary
+
+## Restore Instructions
+
+To restore Anna Assistant:
+
+### Option 1: Quick Restore (if Anna is still installed)
+
+\`\`\`bash
+# Restore configuration
+sudo cp -r etc_anna/* /etc/anna/
+
+# Restore state
+sudo cp -r var_lib_anna/* /var/lib/anna/
+
+# Restart service
+sudo systemctl restart annad
+\`\`\`
+
+### Option 2: Full Restore (if Anna was uninstalled)
+
+\`\`\`bash
+# 1. Restore binaries
+sudo cp annad /usr/local/bin/
+sudo cp annactl /usr/local/bin/
+sudo chmod +x /usr/local/bin/anna{d,ctl}
+
+# 2. Restore configuration
+sudo mkdir -p /etc/anna
+sudo cp -r etc_anna/* /etc/anna/
+
+# 3. Restore state
+sudo mkdir -p /var/lib/anna
+sudo cp -r var_lib_anna/* /var/lib/anna/
+
+# 4. Reinstall service (requires original source)
+# Navigate to anna-assistant source directory and run:
+sudo ./scripts/install.sh
+\`\`\`
+
+### Option 3: Clean Reinstall
+
+For a clean installation from source:
+
+\`\`\`bash
+# Clone repository
+git clone https://github.com/anna-assistant/anna
+cd anna
+
+# Install
+sudo ./scripts/install.sh
+
+# Then restore just your configuration
+sudo cp -r /path/to/backup/etc_anna/config.toml /etc/anna/
+sudo cp -r /path/to/backup/etc_anna/policies.d/* /etc/anna/policies.d/
+\`\`\`
+
+## Backup Contents
+
+- Created: $timestamp
+- Version: $VERSION
+- User: ${SUDO_USER:-root}
+- System: $(uname -n)
+
+## Notes
+
+- Configuration includes policies from /etc/anna/policies.d/
+- State includes:
+  - Telemetry events
+  - Persistent state snapshots
+  - Learning cache data
+- User-specific config (~/.config/anna/) is not backed up
+  (it's preserved in your home directory)
+
+---
+
+For support: https://github.com/anna-assistant/anna/issues
+EOF
+
+    log_success "Backup created in: $backup_dir"
+    echo ""
+    echo -e "${GREEN}Backup location:${NC} $backup_dir"
+    echo "Restore instructions: $backup_dir/README-RESTORE.md"
+    echo ""
+}
+
+remove_binaries() {
+    log_info "Removing binaries..."
+
+    rm -f "$BIN_DIR/annad" || log_warn "Failed to remove annad"
+    rm -f "$BIN_DIR/annactl" || log_warn "Failed to remove annactl"
+
+    log_success "Binaries removed"
+}
+
+remove_systemd() {
+    log_info "Removing systemd integration..."
+
+    # Remove service file
+    if [[ -f "$SYSTEMD_DIR/annad.service" ]]; then
+        rm -f "$SYSTEMD_DIR/annad.service"
+        log_success "Service file removed"
+    fi
+
+    # Remove tmpfiles configuration
+    if [[ -f "$TMPFILES_DIR/annad.conf" ]]; then
+        rm -f "$TMPFILES_DIR/annad.conf"
+        log_success "Tmpfiles configuration removed"
+    fi
+
+    systemctl daemon-reload
+    log_success "Systemd reloaded"
+}
+
+remove_polkit() {
+    log_info "Removing polkit policy..."
+
+    if [[ -f "$POLKIT_DIR/com.anna.policy" ]]; then
+        rm -f "$POLKIT_DIR/com.anna.policy"
+        log_success "Polkit policy removed"
+    else
+        log_info "Polkit policy not found"
+    fi
+}
+
+remove_bash_completion() {
+    log_info "Removing bash completion..."
+
+    if [[ -f "$COMPLETION_DIR/annactl" ]]; then
+        rm -f "$COMPLETION_DIR/annactl"
+        log_success "Bash completion removed"
+    else
+        log_info "Bash completion not found"
+    fi
+}
+
+remove_config() {
+    log_info "Removing configuration..."
+
+    if [[ -d "$CONFIG_DIR" ]]; then
+        rm -rf "$CONFIG_DIR"
+        log_success "Configuration removed"
+    else
+        log_info "Configuration directory not found"
+    fi
+}
+
+remove_state() {
+    log_info "Removing state data..."
+
+    if [[ -d "$STATE_DIR" ]]; then
+        rm -rf "$STATE_DIR"
+        log_success "State data removed"
+    else
+        log_info "State directory not found"
+    fi
+}
+
+remove_runtime() {
+    log_info "Removing runtime directory..."
+
+    if [[ -d "/run/anna" ]]; then
+        rm -rf "/run/anna"
+        log_success "Runtime directory removed"
+    fi
+}
+
+remove_group() {
+    log_info "Checking anna group..."
+
+    if getent group anna > /dev/null 2>&1; then
+        # Check if any users are in the group
+        local group_users=$(getent group anna | cut -d: -f4)
+
+        if [[ -n "$group_users" ]]; then
+            log_info "Group 'anna' has members: $group_users"
+            log_info "Keeping group (users still need access)"
+        else
+            groupdel anna 2>/dev/null || log_warn "Failed to remove group"
+            log_success "Group 'anna' removed (no members)"
+        fi
+    else
+        log_info "Group 'anna' not found"
+    fi
+}
+
+print_completion() {
+    echo ""
+    echo -e "${GREEN}╔═══════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                                       ║${NC}"
+    echo -e "${GREEN}║   UNINSTALL COMPLETE!                 ║${NC}"
+    echo -e "${GREEN}║                                       ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
+    echo ""
+    echo "Anna Assistant has been removed from your system."
+    echo ""
+    echo "User-specific data preserved:"
+    echo "  ~/.config/anna/           (user configuration)"
+    echo "  ~/.local/share/anna/      (user telemetry)"
+    echo ""
+    echo "To completely remove user data:"
+    echo "  rm -rf ~/.config/anna"
+    echo "  rm -rf ~/.local/share/anna"
+    echo ""
+    echo "To reinstall:"
+    echo "  git clone https://github.com/anna-assistant/anna"
+    echo "  cd anna && sudo ./scripts/install.sh"
+    echo ""
+}
+
+main() {
+    print_banner
+
+    check_root
     confirm_uninstall
-    backup_config
+
     stop_service
-    remove_files
-    remove_user_files
+    create_backup
+    remove_systemd
+    remove_binaries
+    remove_polkit
+    remove_bash_completion
+    remove_config
+    remove_state
+    remove_runtime
+    remove_group
+
     print_completion
 }
 

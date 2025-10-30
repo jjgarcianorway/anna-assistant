@@ -1,0 +1,28 @@
+[Unit]
+Description=Anna Assistant Daemon
+Documentation=https://github.com/anna-assistant/anna
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/annad
+User=root
+Group=anna
+Restart=on-failure
+RestartSec=5s
+
+# Runtime directory management
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0770
+
+# Security hardening (relaxed for initial stability)
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=annad
+
+[Install]
+WantedBy=multi-user.target

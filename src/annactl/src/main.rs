@@ -53,6 +53,24 @@ enum Commands {
         #[command(subcommand)]
         action: TelemetryAction,
     },
+
+    /// Policy management (Sprint 3)
+    Policy {
+        #[command(subcommand)]
+        action: PolicyAction,
+    },
+
+    /// Events management (Sprint 3)
+    Events {
+        #[command(subcommand)]
+        action: EventAction,
+    },
+
+    /// Learning cache management (Sprint 3)
+    Learning {
+        #[command(subcommand)]
+        action: LearningAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -126,6 +144,73 @@ enum TelemetryAction {
     Stats,
 }
 
+#[derive(Subcommand)]
+enum PolicyAction {
+    /// List all loaded policies
+    List,
+
+    /// Reload policies from disk
+    Reload,
+
+    /// Evaluate policies against current state
+    Eval {
+        /// JSON context for evaluation (optional)
+        #[arg(short, long)]
+        context: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum EventAction {
+    /// Show recent events
+    Show {
+        /// Filter by event type
+        #[arg(long)]
+        event_type: Option<String>,
+
+        /// Filter by minimum severity (info, warning, error, critical)
+        #[arg(long)]
+        severity: Option<String>,
+
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "50")]
+        limit: usize,
+    },
+
+    /// List all events
+    List {
+        /// Filter string
+        #[arg(long)]
+        filter: Option<String>,
+
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "50")]
+        limit: usize,
+    },
+
+    /// Clear event history
+    Clear,
+}
+
+#[derive(Subcommand)]
+enum LearningAction {
+    /// Show learning statistics
+    Stats {
+        /// Specific action name (optional)
+        action: Option<String>,
+    },
+
+    /// Get action recommendations
+    Recommendations,
+
+    /// Reset learning cache
+    Reset {
+        /// Confirm reset
+        #[arg(long)]
+        confirm: bool,
+    },
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum ConfigScope {
@@ -161,6 +246,26 @@ enum Request {
     },
     StateList,
     DoctorAutoFix,
+    // Sprint 3
+    PolicyEvaluate {
+        context: serde_json::Value,
+    },
+    PolicyReload,
+    PolicyList,
+    EventsList {
+        filter: Option<String>,
+        limit: Option<usize>,
+    },
+    EventsShow {
+        event_type: Option<String>,
+        severity: Option<String>,
+    },
+    EventsClear,
+    LearningStats {
+        action: Option<String>,
+    },
+    LearningRecommendations,
+    LearningReset,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -271,6 +376,74 @@ async fn main() -> Result<()> {
                 Ok(())
             }
         },
+        Commands::Policy { action } => match action {
+            PolicyAction::List => {
+                let response = send_request(Request::PolicyList).await?;
+                print_policy_list(&response)?;
+                Ok(())
+            }
+            PolicyAction::Reload => {
+                let response = send_request(Request::PolicyReload).await?;
+                println!("✓ Policies reloaded: {} rules", response["loaded"].as_u64().unwrap_or(0));
+                Ok(())
+            }
+            PolicyAction::Eval { context } => {
+                let ctx = if let Some(json_str) = context {
+                    serde_json::from_str(&json_str).context("Invalid JSON context")?
+                } else {
+                    serde_json::json!({})
+                };
+                let response = send_request(Request::PolicyEvaluate { context: ctx }).await?;
+                print_policy_eval(&response)?;
+                Ok(())
+            }
+        },
+        Commands::Events { action } => match action {
+            EventAction::Show { event_type, severity, limit } => {
+                let response = send_request(Request::EventsShow {
+                    event_type: event_type.clone(),
+                    severity: severity.clone(),
+                }).await?;
+                print_events(&response, limit)?;
+                Ok(())
+            }
+            EventAction::List { filter, limit } => {
+                let response = send_request(Request::EventsList {
+                    filter: filter.clone(),
+                    limit: Some(limit),
+                }).await?;
+                print_events(&response, limit)?;
+                Ok(())
+            }
+            EventAction::Clear => {
+                let _response = send_request(Request::EventsClear).await?;
+                println!("✓ Event history cleared");
+                Ok(())
+            }
+        },
+        Commands::Learning { action } => match action {
+            LearningAction::Stats { action: action_name } => {
+                let response = send_request(Request::LearningStats {
+                    action: action_name.clone(),
+                }).await?;
+                print_learning_stats(&response)?;
+                Ok(())
+            }
+            LearningAction::Recommendations => {
+                let response = send_request(Request::LearningRecommendations).await?;
+                print_learning_recommendations(&response)?;
+                Ok(())
+            }
+            LearningAction::Reset { confirm } => {
+                if !confirm {
+                    eprintln!("Error: Use --confirm to reset learning cache");
+                    std::process::exit(1);
+                }
+                let _response = send_request(Request::LearningReset).await?;
+                println!("✓ Learning cache reset");
+                Ok(())
+            }
+        },
     };
 
     match result {
@@ -283,9 +456,35 @@ async fn main() -> Result<()> {
 }
 
 async fn send_request(request: Request) -> Result<serde_json::Value> {
-    let stream = UnixStream::connect(SOCKET_PATH)
-        .await
-        .context("Failed to connect to daemon. Is annad running?")?;
+    let stream = match UnixStream::connect(SOCKET_PATH).await {
+        Ok(s) => s,
+        Err(e) => {
+            // Provide helpful error message with troubleshooting steps
+            eprintln!("❌ annad not running or socket unavailable");
+            eprintln!();
+            eprintln!("Socket path: {}", SOCKET_PATH);
+            eprintln!("Error: {}", e);
+            eprintln!();
+            eprintln!("Troubleshooting:");
+            eprintln!("  1. Check if daemon is running:");
+            eprintln!("       sudo systemctl status annad");
+            eprintln!();
+            eprintln!("  2. View recent logs:");
+            eprintln!("       sudo journalctl -u annad --since -5m | tail -n 50");
+            eprintln!();
+            eprintln!("  3. Check socket permissions:");
+            eprintln!("       ls -lh {}", SOCKET_PATH);
+            eprintln!();
+            eprintln!("  4. Verify group membership:");
+            eprintln!("       groups | grep anna");
+            eprintln!("       (If not in 'anna' group, run: newgrp anna)");
+            eprintln!();
+            eprintln!("  5. Start the daemon:");
+            eprintln!("       sudo systemctl start annad");
+            eprintln!();
+            std::process::exit(1);
+        }
+    };
 
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
@@ -588,4 +787,130 @@ enum Status {
     Pass,
     Warn,
     Fail,
+}
+
+// Sprint 3 print functions
+fn print_policy_list(data: &serde_json::Value) -> Result<()> {
+    println!("\n📋 Policy Rules\n");
+
+    if let Some(message) = data["message"].as_str() {
+        println!("{}", message);
+    } else if let Some(rules) = data["rules"].as_array() {
+        if rules.is_empty() {
+            println!("No policies loaded.");
+        } else {
+            for (idx, rule) in rules.iter().enumerate() {
+                println!("{}. {}", idx + 1, rule["condition"].as_str().unwrap_or("unknown"));
+                println!("   → Action: {}", rule["action"].as_str().unwrap_or("unknown"));
+                println!("   Enabled: {}", rule["enabled"].as_bool().unwrap_or(false));
+                println!();
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_policy_eval(data: &serde_json::Value) -> Result<()> {
+    println!("\n🔍 Policy Evaluation\n");
+
+    if let Some(message) = data["message"].as_str() {
+        println!("{}", message);
+    } else {
+        let matched = data["matched"].as_bool().unwrap_or(false);
+        println!("Matched: {}", if matched { "yes" } else { "no" });
+
+        if let Some(actions) = data["actions"].as_array() {
+            if !actions.is_empty() {
+                println!("\nActions to execute:");
+                for action in actions {
+                    println!("  - {:?}", action);
+                }
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_events(data: &serde_json::Value, _limit: usize) -> Result<()> {
+    println!("\n📡 Events\n");
+
+    if let Some(message) = data["message"].as_str() {
+        println!("{}", message);
+    } else if let Some(events) = data["events"].as_array() {
+        if events.is_empty() {
+            println!("No events found.");
+        } else {
+            for event in events {
+                let id = event["id"].as_str().unwrap_or("unknown");
+                let event_type = event["event_type"].as_str().unwrap_or("unknown");
+                let severity = event["severity"].as_str().unwrap_or("info");
+                let source = event["source"].as_str().unwrap_or("unknown");
+                let message = event["message"].as_str().unwrap_or("");
+
+                println!("[{}] {} - {} ({})", severity.to_uppercase(), event_type, message, source);
+                println!("  ID: {}", id);
+                println!();
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_learning_stats(data: &serde_json::Value) -> Result<()> {
+    println!("\n🧠 Learning Statistics\n");
+
+    if let Some(global) = data.get("global") {
+        println!("Global Statistics:");
+        println!("  Total actions:     {}", global["total_actions"].as_u64().unwrap_or(0));
+        println!("  Total outcomes:    {}", global["total_outcomes"].as_u64().unwrap_or(0));
+        println!("  Success rate:      {:.1}%", global["success_rate"].as_f64().unwrap_or(0.0) * 100.0);
+        println!();
+    }
+
+    if let Some(stats) = data["stats"].as_array() {
+        if !stats.is_empty() {
+            println!("Action Statistics:");
+            for stat in stats {
+                println!("\n  {}", stat["action_name"].as_str().unwrap_or("unknown"));
+                println!("    Executions:      {}", stat["total_executions"].as_u64().unwrap_or(0));
+                println!("    Success:         {}", stat["success_count"].as_u64().unwrap_or(0));
+                println!("    Failure:         {}", stat["failure_count"].as_u64().unwrap_or(0));
+                println!("    Success rate:    {:.1}%", stat["success_rate"].as_f64().unwrap_or(0.0) * 100.0);
+                println!("    Avg duration:    {:.1}ms", stat["avg_duration_ms"].as_f64().unwrap_or(0.0));
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_learning_recommendations(data: &serde_json::Value) -> Result<()> {
+    println!("\n💡 Recommended Actions\n");
+
+    if let Some(recommendations) = data["recommendations"].as_array() {
+        if recommendations.is_empty() {
+            println!("No recommendations available yet.");
+        } else {
+            println!("Actions ranked by success probability:\n");
+            for (idx, rec) in recommendations.iter().enumerate() {
+                if let Some(arr) = rec.as_array() {
+                    if arr.len() >= 2 {
+                        let name = arr[0].as_str().unwrap_or("unknown");
+                        let score = arr[1].as_f64().unwrap_or(0.0);
+                        println!("{}. {} (score: {:.3})", idx + 1, name, score);
+                    }
+                }
+            }
+        }
+    }
+
+    println!();
+    Ok(())
 }

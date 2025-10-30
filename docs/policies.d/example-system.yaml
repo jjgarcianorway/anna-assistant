@@ -1,0 +1,16 @@
+# Example Policy: System Health Monitoring
+#
+# Policies that monitor system uptime and health metrics
+# to trigger maintenance actions.
+
+- when: uptime > 172800
+  then: run_doctor
+  enabled: true
+
+- when: diagnostics.failures > 3
+  then: send_alert
+  enabled: true
+
+- when: diagnostics.pass_rate < 0.8
+  then: disable_autonomy
+  enabled: false
