@@ -40,17 +40,28 @@ pub enum Status {
 pub async fn run_diagnostics() -> DiagnosticResults {
     let mut checks = Vec::new();
 
-    // Required checks for Sprint 1
+    // Core system checks (organized by category)
     checks.push(check_daemon_active());
     checks.push(check_socket_ready());
-    checks.push(check_polkit_policies());
-    checks.push(check_paths_writable());
-    checks.push(check_autocomplete_installed());
+    checks.push(check_socket_permissions());
+    checks.push(check_anna_group());
+    checks.push(check_group_membership());
 
-    // Legacy checks
+    // Path checks
     checks.push(check_config_dir());
+    checks.push(check_state_dir());
+    checks.push(check_runtime_dir());
+    checks.push(check_paths_writable());
+
+    // Permission checks
     checks.push(check_permissions());
+    checks.push(check_config_permissions());
+    checks.push(check_state_permissions());
+
+    // Dependency checks
     checks.push(check_dependencies());
+    checks.push(check_polkit_policies());
+    checks.push(check_autocomplete_installed());
 
     // Determine overall status
     let overall_status = if checks.iter().any(|c| c.status == Status::Fail) {
@@ -294,6 +305,230 @@ fn check_dependencies() -> DiagnosticCheck {
             message: format!("Missing tools: {}", missing.join(", ")),
             fix_hint: Some("Install missing tools via package manager".to_string()),
         }
+    }
+}
+
+/// Check if anna group exists
+fn check_anna_group() -> DiagnosticCheck {
+    use nix::unistd::Group;
+    match Group::from_name("anna") {
+        Ok(Some(_)) => DiagnosticCheck {
+            name: "anna_group".to_string(),
+            status: Status::Pass,
+            message: "Anna group exists".to_string(),
+            fix_hint: None,
+        },
+        _ => DiagnosticCheck {
+            name: "anna_group".to_string(),
+            status: Status::Fail,
+            message: "Anna group not found".to_string(),
+            fix_hint: Some("sudo groupadd anna".to_string()),
+        },
+    }
+}
+
+/// Check if current user is in anna group
+fn check_group_membership() -> DiagnosticCheck {
+    // Get current user's groups
+    let output = Command::new("groups").output();
+
+    match output {
+        Ok(result) if result.status.success() => {
+            let groups_str = String::from_utf8_lossy(&result.stdout);
+            if groups_str.contains("anna") {
+                DiagnosticCheck {
+                    name: "group_membership".to_string(),
+                    status: Status::Pass,
+                    message: "User is in anna group".to_string(),
+                    fix_hint: None,
+                }
+            } else {
+                DiagnosticCheck {
+                    name: "group_membership".to_string(),
+                    status: Status::Warn,
+                    message: "User not in anna group".to_string(),
+                    fix_hint: Some("sudo usermod -aG anna $USER && newgrp anna".to_string()),
+                }
+            }
+        }
+        _ => DiagnosticCheck {
+            name: "group_membership".to_string(),
+            status: Status::Warn,
+            message: "Could not check group membership".to_string(),
+            fix_hint: None,
+        },
+    }
+}
+
+/// Check socket permissions
+fn check_socket_permissions() -> DiagnosticCheck {
+    let socket_path = Path::new("/run/anna/annad.sock");
+    if !socket_path.exists() {
+        return DiagnosticCheck {
+            name: "socket_permissions".to_string(),
+            status: Status::Fail,
+            message: "Socket does not exist".to_string(),
+            fix_hint: Some("sudo systemctl restart annad".to_string()),
+        };
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(metadata) = std::fs::metadata(socket_path) {
+            let mode = metadata.permissions().mode();
+            let perms = mode & 0o777;
+            if perms == 0o660 || perms == 0o666 {
+                return DiagnosticCheck {
+                    name: "socket_permissions".to_string(),
+                    status: Status::Pass,
+                    message: format!("Socket permissions correct ({:o})", perms),
+                    fix_hint: None,
+                };
+            } else {
+                return DiagnosticCheck {
+                    name: "socket_permissions".to_string(),
+                    status: Status::Warn,
+                    message: format!("Socket permissions incorrect ({:o}, expected 660)", perms),
+                    fix_hint: Some("sudo systemctl restart annad".to_string()),
+                };
+            }
+        }
+    }
+
+    DiagnosticCheck {
+        name: "socket_permissions".to_string(),
+        status: Status::Warn,
+        message: "Could not check socket permissions".to_string(),
+        fix_hint: None,
+    }
+}
+
+/// Check state directory
+fn check_state_dir() -> DiagnosticCheck {
+    let state_dir = Path::new("/var/lib/anna");
+    if state_dir.exists() && state_dir.is_dir() {
+        DiagnosticCheck {
+            name: "state_directory".to_string(),
+            status: Status::Pass,
+            message: "/var/lib/anna exists".to_string(),
+            fix_hint: None,
+        }
+    } else {
+        DiagnosticCheck {
+            name: "state_directory".to_string(),
+            status: Status::Fail,
+            message: "/var/lib/anna missing".to_string(),
+            fix_hint: Some("sudo mkdir -p /var/lib/anna && sudo chown root:anna /var/lib/anna && sudo chmod 0750 /var/lib/anna".to_string()),
+        }
+    }
+}
+
+/// Check runtime directory
+fn check_runtime_dir() -> DiagnosticCheck {
+    let runtime_dir = Path::new("/run/anna");
+    if runtime_dir.exists() && runtime_dir.is_dir() {
+        DiagnosticCheck {
+            name: "runtime_directory".to_string(),
+            status: Status::Pass,
+            message: "/run/anna exists".to_string(),
+            fix_hint: None,
+        }
+    } else {
+        DiagnosticCheck {
+            name: "runtime_directory".to_string(),
+            status: Status::Fail,
+            message: "/run/anna missing".to_string(),
+            fix_hint: Some("sudo mkdir -p /run/anna && sudo chown root:anna /run/anna && sudo chmod 0770 /run/anna".to_string()),
+        }
+    }
+}
+
+/// Check config directory permissions
+fn check_config_permissions() -> DiagnosticCheck {
+    let config_dir = Path::new("/etc/anna");
+    if !config_dir.exists() {
+        return DiagnosticCheck {
+            name: "config_permissions".to_string(),
+            status: Status::Fail,
+            message: "Config directory does not exist".to_string(),
+            fix_hint: Some("sudo mkdir -p /etc/anna && sudo chown root:anna /etc/anna && sudo chmod 0750 /etc/anna".to_string()),
+        };
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(metadata) = std::fs::metadata(config_dir) {
+            let mode = metadata.permissions().mode();
+            let perms = mode & 0o777;
+            if perms == 0o750 {
+                return DiagnosticCheck {
+                    name: "config_permissions".to_string(),
+                    status: Status::Pass,
+                    message: "Config directory permissions correct (0750)".to_string(),
+                    fix_hint: None,
+                };
+            } else {
+                return DiagnosticCheck {
+                    name: "config_permissions".to_string(),
+                    status: Status::Warn,
+                    message: format!("Config permissions incorrect ({:o}, expected 0750)", perms),
+                    fix_hint: Some("sudo chmod 0750 /etc/anna && sudo chown root:anna /etc/anna".to_string()),
+                };
+            }
+        }
+    }
+
+    DiagnosticCheck {
+        name: "config_permissions".to_string(),
+        status: Status::Warn,
+        message: "Could not check config permissions".to_string(),
+        fix_hint: None,
+    }
+}
+
+/// Check state directory permissions
+fn check_state_permissions() -> DiagnosticCheck {
+    let state_dir = Path::new("/var/lib/anna");
+    if !state_dir.exists() {
+        return DiagnosticCheck {
+            name: "state_permissions".to_string(),
+            status: Status::Fail,
+            message: "State directory does not exist".to_string(),
+            fix_hint: Some("sudo mkdir -p /var/lib/anna && sudo chown root:anna /var/lib/anna && sudo chmod 0750 /var/lib/anna".to_string()),
+        };
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(metadata) = std::fs::metadata(state_dir) {
+            let mode = metadata.permissions().mode();
+            let perms = mode & 0o777;
+            if perms == 0o750 {
+                return DiagnosticCheck {
+                    name: "state_permissions".to_string(),
+                    status: Status::Pass,
+                    message: "State directory permissions correct (0750)".to_string(),
+                    fix_hint: None,
+                };
+            } else {
+                return DiagnosticCheck {
+                    name: "state_permissions".to_string(),
+                    status: Status::Warn,
+                    message: format!("State permissions incorrect ({:o}, expected 0750)", perms),
+                    fix_hint: Some("sudo chmod -R 0750 /var/lib/anna && sudo chown -R root:anna /var/lib/anna".to_string()),
+                };
+            }
+        }
+    }
+
+    DiagnosticCheck {
+        name: "state_permissions".to_string(),
+        status: Status::Warn,
+        message: "Could not check state permissions".to_string(),
+        fix_hint: None,
     }
 }
 

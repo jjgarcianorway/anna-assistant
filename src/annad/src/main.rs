@@ -136,16 +136,20 @@ fn get_anna_group_id() -> Option<u32> {
 
 /// Set directory permissions and group ownership
 fn set_directory_permissions(path: &str, mode: u32, gid: Option<u32>) -> Result<()> {
-    use nix::unistd::{Gid, Uid, chown};
-
     // Set permissions
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
         .context(format!("Failed to set permissions on {}", path))?;
 
     // Set ownership to root:anna (if anna group exists)
-    if let Some(gid) = gid {
-        chown(path, Some(Uid::from_raw(0)), Some(Gid::from_raw(gid)))
-            .context(format!("Failed to set ownership on {}", path))?;
+    if gid.is_some() {
+        let result = std::process::Command::new("chown")
+            .arg("root:anna")
+            .arg(path)
+            .status();
+
+        if let Err(e) = result {
+            warn!("Failed to set ownership on {}: {}", path, e);
+        }
     }
 
     Ok(())
@@ -153,8 +157,6 @@ fn set_directory_permissions(path: &str, mode: u32, gid: Option<u32>) -> Result<
 
 /// Configure socket permissions: 0660 root:anna
 fn configure_socket_permissions() -> Result<()> {
-    use nix::unistd::{Gid, Uid, chown};
-
     let anna_gid = get_anna_group_id();
 
     // Set permissions to 0660 (owner and group can read/write)
@@ -162,10 +164,17 @@ fn configure_socket_permissions() -> Result<()> {
         .context(format!("Failed to set socket permissions on {}", SOCKET_PATH))?;
 
     // Set ownership to root:anna
-    if let Some(gid) = anna_gid {
-        chown(SOCKET_PATH, Some(Uid::from_raw(0)), Some(Gid::from_raw(gid)))
-            .context(format!("Failed to set socket ownership on {}", SOCKET_PATH))?;
-        info!("[BOOT] Socket permissions: 0660 root:{}", ANNA_GROUP);
+    if anna_gid.is_some() {
+        let result = std::process::Command::new("chown")
+            .arg("root:anna")
+            .arg(SOCKET_PATH)
+            .status();
+
+        if result.is_ok() {
+            info!("[BOOT] Socket permissions: 0660 root:{}", ANNA_GROUP);
+        } else {
+            warn!("Failed to set socket ownership");
+        }
     } else {
         warn!("Socket ownership: root:root (anna group not found)");
         // Fallback to 0666 if anna group doesn't exist

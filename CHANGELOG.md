@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.2a-final] - Sprint 3 Self-Healing Runtime - 2025-10-30
+
+### Added - Self-Healing System
+- **Automated Permission Repair**:
+  - Installer now runs as normal user, escalates only when needed
+  - Auto-detects and fixes missing `anna` group
+  - Auto-adds users to group with re-login detection
+  - Creates per-user audit logs at `/var/lib/anna/users/<uid>/audit.log`
+  - Runs `annactl doctor repair --bootstrap` automatically after install
+- **Enhanced Doctor Diagnostics**:
+  - 16 comprehensive health checks (vs. 8 previously)
+  - Granular checks: `anna_group`, `group_membership`, `socket_permissions`
+  - Permission validation: config (0750), state (0750), runtime (0770), socket (0660)
+  - Path validation: `/etc/anna`, `/var/lib/anna`, `/run/anna`
+  - Auto-repair bootstrap runs twice (fix, then verify)
+- **Capability Gating**:
+  - Detects polkit availability, skips gracefully if missing
+  - Shows actionable message: "Install with: sudo pacman -S polkit"
+  - Installer continues without polkit (autonomy disabled)
+- **Idempotent Installation**:
+  - Detects existing state and preserves it
+  - [OK] for already-correct state
+  - [FIXED] for repaired issues
+  - [SKIP] for unavailable features
+  - [FAIL] only for critical errors
+
+### Changed
+- **Installer** (`scripts/install.sh`):
+  - No longer requires `sudo` to start - escalates automatically
+  - Uses `run_elevated()` helper for sudo/pkexec
+  - Compiles as user, installs as root
+  - Better status messages with color coding
+  - Auto-runs doctor repair bootstrap
+- **Daemon** (`src/annad/src/main.rs`):
+  - Uses `chown` command instead of nix crate for ownership
+  - Improved structured logging ([BOOT], [READY])
+  - Auto-creates audit log directories
+- **Diagnostics** (`src/annad/src/diagnostics.rs`):
+  - Added 8 new diagnostic checks
+  - More precise permission validation
+  - Better fix hints with exact commands
+- **Version**: Updated to v0.9.2a-final
+
+### Fixed
+- Group membership detection now works in all scenarios
+- Socket permissions verified as 0660 root:anna
+- User audit logs created with correct ownership
+- Doctor repair runs automatically post-install
+- No manual `sudo` needed for repairs
+
+### Validation
+- Installer idempotency: ✓ PASS
+- Permission auto-repair: ✓ PASS
+- Group auto-add: ✓ PASS (with re-login notice)
+- Doctor bootstrap: ✓ PASS (2-pass verification)
+- Audit log creation: ✓ PASS (0640 root:anna)
+- Socket permissions: ✓ PASS (0660 root:anna)
+- Service startup: ✓ PASS
+- All CLI commands: ✓ PASS
+
+---
+
 ## [0.9.2a] - Sprint 3 Runtime Validation - 2025-10-30
 
 ### Added
