@@ -36,37 +36,37 @@ enum Commands {
         action: ConfigAction,
     },
 
-    /// Autonomy management (Sprint 2)
+    /// Autonomy management
     Autonomy {
         #[command(subcommand)]
         action: AutonomyAction,
     },
 
-    /// State persistence management (Sprint 2)
+    /// State persistence management
     State {
         #[command(subcommand)]
         action: StateAction,
     },
 
-    /// Telemetry management (Sprint 2)
+    /// Telemetry management
     Telemetry {
         #[command(subcommand)]
         action: TelemetryAction,
     },
 
-    /// Policy management (Sprint 3)
+    /// Policy management
     Policy {
         #[command(subcommand)]
         action: PolicyAction,
     },
 
-    /// Events management (Sprint 3)
+    /// Events management
     Events {
         #[command(subcommand)]
         action: EventAction,
     },
 
-    /// Learning cache management (Sprint 3)
+    /// Learning cache management
     Learning {
         #[command(subcommand)]
         action: LearningAction,

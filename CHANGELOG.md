@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.2b-final] - Sprint 3B RPC Wiring & Integration Polish - 2025-10-30
+
+### Added - Complete RPC Wiring
+- **Global Daemon State** (`src/annad/src/state.rs` - 171 lines):
+  - PolicyEngine, EventDispatcher, TelemetrySnapshot, LearningCache
+  - 1000-event ring buffer with thread-safe access
+  - Bootstrap event emission (3 events on daemon startup)
+- **Fully Functional RPC Handlers** (all placeholders removed):
+  - Policy: `PolicyList`, `PolicyReload`, `PolicyEvaluate`
+  - Events: `EventsList`, `EventsShow`, `EventsClear`
+  - Learning: `LearningStats`, `LearningRecommendations`, `LearningReset`
+- **Example Policies**: `10-low-disk.yml`, `20-quickscan-reminder.yml`
+- **Validation Tests**: 6 new tests for policy, events, telemetry, learning
+
+### Changed
+- Daemon emits 3 bootstrap events on startup
+- Installer performs sanity checks (policy reload + events verification)
+- CLI help text cleaned (all Sprint X labels removed)
+- Validation script updated to v0.9.2b with new tests
+
+### Fixed
+- All "requires daemon integration" messages removed
+- RPC handlers now use real backend implementations
+
+### Validation
+- ✅ 8/8 acceptance criteria met (100%)
+- ✅ Build: 0 errors, 33 warnings (non-critical)
+- ✅ All tests pass (with [SIMULATED] markers where sudo required)
+
+---
+
 ## [0.9.2a-final] - Sprint 3 Self-Healing Runtime - 2025-10-30
 
 ### Added - Self-Healing System

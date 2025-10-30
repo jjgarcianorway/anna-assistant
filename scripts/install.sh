@@ -333,12 +333,30 @@ setup_config() {
         log_success "Configuration already exists, preserving"
     fi
 
-    # Install example policies
-    if [[ -d docs/policies.d ]] && ls docs/policies.d/*.yaml >/dev/null 2>&1; then
-        run_elevated cp docs/policies.d/*.yaml "$CONFIG_DIR/policies.d/" 2>/dev/null || true
-        run_elevated chown -R root:"$ANNA_GROUP" "$CONFIG_DIR/policies.d"
-        run_elevated chmod 0640 "$CONFIG_DIR/policies.d"/*.yaml 2>/dev/null || true
-        log_success "Example policies installed"
+    # Install example policies (if not already present)
+    if [[ -d docs/policies.d ]] && ls docs/policies.d/*.yml >/dev/null 2>&1; then
+        local policies_installed=0
+        local policies_skipped=0
+
+        for policy_file in docs/policies.d/*.yml; do
+            local policy_name=$(basename "$policy_file")
+            if [[ -f "$CONFIG_DIR/policies.d/$policy_name" ]]; then
+                policies_skipped=$((policies_skipped + 1))
+            else
+                if run_elevated cp "$policy_file" "$CONFIG_DIR/policies.d/$policy_name"; then
+                    run_elevated chown root:"$ANNA_GROUP" "$CONFIG_DIR/policies.d/$policy_name"
+                    run_elevated chmod 0640 "$CONFIG_DIR/policies.d/$policy_name"
+                    policies_installed=$((policies_installed + 1))
+                fi
+            fi
+        done
+
+        if [[ $policies_installed -gt 0 ]]; then
+            log_success "Installed $policies_installed example policies"
+        fi
+        if [[ $policies_skipped -gt 0 ]]; then
+            log_skip "$policies_skipped policies already present"
+        fi
     fi
 }
 
@@ -419,6 +437,45 @@ run_doctor_bootstrap() {
     fi
 
     log_success "Doctor bootstrap complete"
+}
+
+run_sanity_checks() {
+    log_info "Running sanity checks..."
+
+    local target_user="${SUDO_USER:-$USER}"
+
+    # Check 1: Policy reload
+    log_info "Reloading policies..."
+    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
+        if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
+            local policy_output=$(sudo -u "$target_user" annactl policy reload 2>/dev/null | grep -o '[0-9]* policies loaded' || echo "0 policies loaded")
+        else
+            local policy_output=$(sudo -u "$target_user" sg anna -c "annactl policy reload" 2>/dev/null | grep -o '[0-9]* policies loaded' || echo "0 policies loaded")
+        fi
+    else
+        local policy_output=$(annactl policy reload 2>/dev/null | grep -o '[0-9]* policies loaded' || echo "0 policies loaded")
+    fi
+    log_success "Policy reload: $policy_output"
+
+    # Check 2: Show recent events
+    log_info "Checking bootstrap events..."
+    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
+        if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
+            local event_count=$(sudo -u "$target_user" annactl events list 2>/dev/null | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+        else
+            local event_count=$(sudo -u "$target_user" sg anna -c "annactl events list" 2>/dev/null | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+        fi
+    else
+        local event_count=$(annactl events list 2>/dev/null | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+    fi
+
+    if [[ "$event_count" -ge 3 ]]; then
+        log_success "Bootstrap events: $event_count found"
+    else
+        log_warn "Bootstrap events: only $event_count found (expected 3)"
+    fi
+
+    log_success "Sanity checks complete"
 }
 
 post_install_validation() {
@@ -566,6 +623,9 @@ main() {
 
     # Run doctor repair bootstrap (auto-fix any remaining issues)
     run_doctor_bootstrap
+
+    # Run sanity checks (policy reload, events check)
+    run_sanity_checks
 
     if ! post_install_validation; then
         log_warn "Validation had issues, but installation completed"

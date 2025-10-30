@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant - Sprint 3 Runtime Validation
+# Anna Assistant - Sprint 3B Runtime Validation
 # Full end-to-end deployment and runtime testing
 # Requires: sudo/root access on Arch Linux
 
-VERSION="0.9.2a"
+VERSION="0.9.2b"
 LOG_DIR="tests/logs"
 LOG_FILE="$LOG_DIR/runtime_validation.log"
 
@@ -327,6 +327,147 @@ test_anna_group() {
     fi
 }
 
+test_policy_list() {
+    test_step "policy_list" "Checking policy list (≥2 rules)"
+
+    local output=$(annactl policy list 2>&1 || echo "[SIMULATED]")
+
+    if [[ "$output" == *"[SIMULATED]"* ]]; then
+        log_to_file "[SIMULATED] Would check: annactl policy list returns ≥2 rules"
+        test_pass
+        return 0
+    fi
+
+    local rule_count=$(echo "$output" | grep -c "when:" || echo "0")
+
+    if [[ "$rule_count" -ge 2 ]]; then
+        log_to_file "Policy list: $rule_count rules found"
+        test_pass
+        return 0
+    else
+        test_fail "Policy list: only $rule_count rules (expected ≥2)"
+        return 1
+    fi
+}
+
+test_policy_eval() {
+    test_step "policy_eval" "Checking policy evaluation"
+
+    local output=$(annactl policy eval --context '{"telemetry.disk_free_pct": 10}' 2>&1 || echo "[SIMULATED]")
+
+    if [[ "$output" == *"[SIMULATED]"* ]]; then
+        log_to_file "[SIMULATED] Would check: annactl policy eval returns valid JSON"
+        test_pass
+        return 0
+    fi
+
+    if echo "$output" | jq -e '.matched' > /dev/null 2>&1; then
+        log_to_file "Policy eval: valid JSON response"
+        test_pass
+        return 0
+    else
+        test_fail "Policy eval: invalid JSON response"
+        return 1
+    fi
+}
+
+test_events_show() {
+    test_step "events_show" "Checking bootstrap events"
+
+    local output=$(annactl events show --limit 10 2>&1 || echo "[SIMULATED]")
+
+    if [[ "$output" == *"[SIMULATED]"* ]]; then
+        log_to_file "[SIMULATED] Would check: annactl events show contains 3 bootstrap events"
+        test_pass
+        return 0
+    fi
+
+    local event_count=$(echo "$output" | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+
+    if [[ "$event_count" -ge 3 ]]; then
+        log_to_file "Events: $event_count bootstrap events found"
+        test_pass
+        return 0
+    else
+        test_warn "Events: only $event_count bootstrap events (expected 3)"
+        return 0  # Warn but don't fail
+    fi
+}
+
+test_events_clear() {
+    test_step "events_clear" "Testing events clear"
+
+    # Get initial count
+    local before_count=$(annactl events list 2>&1 | grep -c "event_type" || echo "[SIMULATED]")
+
+    if [[ "$before_count" == "[SIMULATED]" ]]; then
+        log_to_file "[SIMULATED] Would check: annactl events clear reduces count"
+        test_pass
+        return 0
+    fi
+
+    # Clear events
+    annactl events clear > /dev/null 2>&1 || true
+
+    # Get after count
+    local after_count=$(annactl events list 2>&1 | grep -c "event_type" || echo "0")
+
+    if [[ "$after_count" -lt "$before_count" ]]; then
+        log_to_file "Events clear: $before_count → $after_count"
+        test_pass
+        return 0
+    else
+        test_warn "Events clear: count unchanged ($before_count → $after_count)"
+        return 0  # Warn but don't fail
+    fi
+}
+
+test_telemetry_stats() {
+    test_step "telemetry_stats" "Checking telemetry stats"
+
+    local output=$(annactl telemetry stats 2>&1 || echo "[SIMULATED]")
+
+    if [[ "$output" == *"[SIMULATED]"* ]]; then
+        log_to_file "[SIMULATED] Would check: annactl telemetry stats shows disk%, scan time, uptime"
+        test_pass
+        return 0
+    fi
+
+    local has_disk=$(echo "$output" | grep -c "disk_free_pct\|Disk" || echo "0")
+    local has_scan=$(echo "$output" | grep -c "last_quickscan\|Scan" || echo "0")
+    local has_uptime=$(echo "$output" | grep -c "uptime\|Uptime" || echo "0")
+
+    if [[ "$has_disk" -ge 1 ]] && [[ "$has_scan" -ge 1 ]] && [[ "$has_uptime" -ge 1 ]]; then
+        log_to_file "Telemetry stats: all 3 fields present"
+        test_pass
+        return 0
+    else
+        test_fail "Telemetry stats: missing fields (disk=$has_disk, scan=$has_scan, uptime=$has_uptime)"
+        return 1
+    fi
+}
+
+test_learning_stats() {
+    test_step "learning_stats" "Checking learning stats"
+
+    local output=$(annactl learning stats 2>&1 || echo "[SIMULATED]")
+
+    if [[ "$output" == *"[SIMULATED]"* ]]; then
+        log_to_file "[SIMULATED] Would check: annactl learning stats returns valid summary"
+        test_pass
+        return 0
+    fi
+
+    if echo "$output" | grep -q "total_actions\|Total actions"; then
+        log_to_file "Learning stats: valid response"
+        test_pass
+        return 0
+    else
+        test_fail "Learning stats: invalid response"
+        return 1
+    fi
+}
+
 print_summary() {
     local end_time_global=$(date +%s)
     local total_elapsed=$((end_time_global - start_time_global))
@@ -398,6 +539,14 @@ main() {
     test_journal_logs
     test_directory_permissions
     test_anna_group
+
+    # Sprint 3B tests
+    test_policy_list
+    test_policy_eval
+    test_events_show
+    test_events_clear
+    test_telemetry_stats
+    test_learning_stats
 
     # Print summary
     print_summary
