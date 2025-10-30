@@ -461,12 +461,12 @@ run_sanity_checks() {
     log_info "Checking bootstrap events..."
     if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
         if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-            local event_count=$(sudo -u "$target_user" annactl events list 2>/dev/null | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+            local event_count=$(sudo -u "$target_user" annactl events list 2>/dev/null | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
         else
-            local event_count=$(sudo -u "$target_user" sg anna -c "annactl events list" 2>/dev/null | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+            local event_count=$(sudo -u "$target_user" sg anna -c "annactl events list" 2>/dev/null | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
         fi
     else
-        local event_count=$(annactl events list 2>/dev/null | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+        local event_count=$(annactl events list 2>/dev/null | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
     fi
 
     if [[ "$event_count" -ge 3 ]]; then

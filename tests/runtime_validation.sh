@@ -382,7 +382,7 @@ test_events_show() {
         return 0
     fi
 
-    local event_count=$(echo "$output" | grep -c "SystemStartup\|DoctorBootstrap\|ConfigChange" || echo "0")
+    local event_count=$(echo "$output" | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
 
     if [[ "$event_count" -ge 3 ]]; then
         log_to_file "Events: $event_count bootstrap events found"
