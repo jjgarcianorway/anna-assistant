@@ -1,6 +1,11 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::Path;
 use std::process::Command;
+use tracing::{info, warn};
+
+use crate::telemetry;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiagnosticResults {
@@ -14,6 +19,14 @@ pub struct DiagnosticCheck {
     pub status: Status,
     pub message: String,
     pub fix_hint: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AutoFixResult {
+    pub check_name: String,
+    pub attempted: bool,
+    pub success: bool,
+    pub message: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -281,5 +294,169 @@ fn check_dependencies() -> DiagnosticCheck {
             message: format!("Missing tools: {}", missing.join(", ")),
             fix_hint: Some("Install missing tools via package manager".to_string()),
         }
+    }
+}
+
+/// Run auto-fix for failed diagnostic checks
+/// Only safe, low-risk fixes are attempted
+pub async fn run_autofix() -> Vec<AutoFixResult> {
+    let mut results = Vec::new();
+
+    // Run diagnostics first to see what needs fixing
+    let diag_results = run_diagnostics().await;
+
+    for check in diag_results.checks {
+        if check.status != Status::Fail {
+            continue; // Only fix failures
+        }
+
+        let fix_result = match check.name.as_str() {
+            "socket_ready" => autofix_socket_directory(),
+            "paths_writable" => autofix_paths(),
+            "config_directory" => autofix_config_directory(),
+            "polkit_policies_present" => autofix_polkit_notice(),
+            _ => AutoFixResult {
+                check_name: check.name.clone(),
+                attempted: false,
+                success: false,
+                message: "No auto-fix available for this check".to_string(),
+            },
+        };
+
+        // Log auto-fix attempt
+        let _ = telemetry::log_event(telemetry::Event::RpcCall {
+            name: format!("autofix.{}", check.name),
+            status: if fix_result.success {
+                "success"
+            } else {
+                "failed"
+            }
+            .to_string(),
+        });
+
+        results.push(fix_result);
+    }
+
+    results
+}
+
+/// Auto-fix: Recreate socket directory
+fn autofix_socket_directory() -> AutoFixResult {
+    let socket_dir = Path::new("/run/anna");
+
+    if !socket_dir.exists() {
+        match fs::create_dir_all(socket_dir) {
+            Ok(_) => {
+                info!("Auto-fix: Created socket directory /run/anna");
+                AutoFixResult {
+                    check_name: "socket_ready".to_string(),
+                    attempted: true,
+                    success: true,
+                    message: "Created /run/anna directory".to_string(),
+                }
+            }
+            Err(e) => {
+                warn!("Auto-fix failed to create socket directory: {}", e);
+                AutoFixResult {
+                    check_name: "socket_ready".to_string(),
+                    attempted: true,
+                    success: false,
+                    message: format!("Failed to create directory: {}", e),
+                }
+            }
+        }
+    } else {
+        AutoFixResult {
+            check_name: "socket_ready".to_string(),
+            attempted: false,
+            success: false,
+            message: "Directory exists but socket missing (daemon may need restart)".to_string(),
+        }
+    }
+}
+
+/// Auto-fix: Create required paths
+fn autofix_paths() -> AutoFixResult {
+    let paths = vec![
+        Path::new("/etc/anna"),
+        Path::new("/var/lib/anna"),
+        Path::new("/var/lib/anna/events"),
+        Path::new("/var/lib/anna/state"),
+    ];
+
+    let mut created = Vec::new();
+    let mut failed = Vec::new();
+
+    for path in paths {
+        if !path.exists() {
+            match fs::create_dir_all(path) {
+                Ok(_) => created.push(path.display().to_string()),
+                Err(e) => {
+                    failed.push(format!("{}: {}", path.display(), e));
+                }
+            }
+        }
+    }
+
+    if !failed.is_empty() {
+        AutoFixResult {
+            check_name: "paths_writable".to_string(),
+            attempted: true,
+            success: false,
+            message: format!("Failed to create: {}", failed.join(", ")),
+        }
+    } else if !created.is_empty() {
+        AutoFixResult {
+            check_name: "paths_writable".to_string(),
+            attempted: true,
+            success: true,
+            message: format!("Created paths: {}", created.join(", ")),
+        }
+    } else {
+        AutoFixResult {
+            check_name: "paths_writable".to_string(),
+            attempted: false,
+            success: false,
+            message: "All paths exist".to_string(),
+        }
+    }
+}
+
+/// Auto-fix: Create config directory
+fn autofix_config_directory() -> AutoFixResult {
+    let config_dir = Path::new("/etc/anna");
+
+    if !config_dir.exists() {
+        match fs::create_dir_all(config_dir) {
+            Ok(_) => AutoFixResult {
+                check_name: "config_directory".to_string(),
+                attempted: true,
+                success: true,
+                message: "Created /etc/anna directory".to_string(),
+            },
+            Err(e) => AutoFixResult {
+                check_name: "config_directory".to_string(),
+                attempted: true,
+                success: false,
+                message: format!("Failed to create directory: {}", e),
+            },
+        }
+    } else {
+        AutoFixResult {
+            check_name: "config_directory".to_string(),
+            attempted: false,
+            success: false,
+            message: "Directory already exists".to_string(),
+        }
+    }
+}
+
+/// Auto-fix: Polkit policy (cannot auto-install, just provide notice)
+fn autofix_polkit_notice() -> AutoFixResult {
+    AutoFixResult {
+        check_name: "polkit_policies_present".to_string(),
+        attempted: false,
+        success: false,
+        message: "Cannot auto-install polkit policy. Run installer or: sudo cp polkit/com.anna.policy /usr/share/polkit-1/actions/".to_string(),
     }
 }

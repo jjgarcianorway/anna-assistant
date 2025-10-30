@@ -113,6 +113,11 @@ pub fn log_event(event: Event) -> Result<()> {
 }
 
 /// Rotate old event files, keeping only MAX_EVENT_FILES most recent
+/// This is called automatically on init, but can also be triggered manually
+pub fn rotate_old_files_now() -> Result<()> {
+    rotate_old_files()
+}
+
 fn rotate_old_files() -> Result<()> {
     let dir = events_dir();
     if !dir.exists() {

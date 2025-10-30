@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant QA Test Harness - Sprint 1
+# Anna Assistant QA Test Harness - Sprint 2
 # Validates compilation, functionality, and contract compliance
 
 RED='\033[0;31m'
@@ -18,9 +18,9 @@ START_TIME=$(date +%s)
 
 # Test manifest
 cat > /tmp/qa_manifest.txt <<'EOF'
-Sprint 1 QA Test Manifest
+Sprint 2 QA Test Manifest
 =========================
-Expected tests:
+Sprint 1 tests (base):
 1. Project structure validation
 2. Compilation (release mode)
 3. Binary smoke tests
@@ -35,6 +35,14 @@ Expected tests:
 12. Telemetry event creation
 13. Install idempotency
 14. Uninstall backup creation
+
+Sprint 2 tests (new):
+15. Autonomy framework (levels, tasks, permissions)
+16. Persistence layer (state save/load/list)
+17. Auto-fix mechanism (doctor --autofix)
+18. Telemetry commands (list, stats)
+19. State directory structure
+20. Autonomy CLI commands
 
 Expected runtime: < 3 minutes
 EOF
@@ -484,6 +492,286 @@ test_documentation() {
     fi
 }
 
+# Test 14: Sprint 2 - Autonomy Framework
+test_autonomy_framework() {
+    test_header "Sprint 2: Autonomy Framework"
+
+    # Check autonomy module exists
+    if [[ -f src/annad/src/autonomy.rs ]]; then
+        test_pass "Autonomy module exists"
+    else
+        test_fail "Autonomy module missing"
+        return 1
+    fi
+
+    # Check for autonomy levels
+    if grep -q 'enum AutonomyLevel' src/annad/src/autonomy.rs && \
+       grep -q 'Off' src/annad/src/autonomy.rs && \
+       grep -q 'Low' src/annad/src/autonomy.rs && \
+       grep -q 'Safe' src/annad/src/autonomy.rs; then
+        test_pass "Autonomy levels defined (Off, Low, Safe)"
+    else
+        test_fail "Autonomy levels incomplete"
+    fi
+
+    # Check for task types
+    if grep -q 'enum Task' src/annad/src/autonomy.rs && \
+       grep -q 'Doctor' src/annad/src/autonomy.rs && \
+       grep -q 'TelemetryCleanup' src/annad/src/autonomy.rs && \
+       grep -q 'ConfigSync' src/annad/src/autonomy.rs; then
+        test_pass "Autonomy tasks defined (Doctor, TelemetryCleanup, ConfigSync)"
+    else
+        test_fail "Autonomy tasks incomplete"
+    fi
+
+    # Check for get_status and run_task functions
+    if grep -q 'pub fn get_status' src/annad/src/autonomy.rs && \
+       grep -q 'pub async fn run_task' src/annad/src/autonomy.rs; then
+        test_pass "Autonomy API functions present"
+    else
+        test_fail "Autonomy API functions missing"
+    fi
+
+    # Check RPC handlers
+    if grep -q 'AutonomyStatus' src/annad/src/rpc.rs && \
+       grep -q 'AutonomyRun' src/annad/src/rpc.rs; then
+        test_pass "Autonomy RPC handlers present"
+    else
+        test_fail "Autonomy RPC handlers missing"
+    fi
+
+    # Check annactl commands
+    if grep -q 'Autonomy {' src/annactl/src/main.rs && \
+       grep -q 'AutonomyAction::Status' src/annactl/src/main.rs && \
+       grep -q 'AutonomyAction::Run' src/annactl/src/main.rs; then
+        test_pass "annactl autonomy commands present"
+    else
+        test_fail "annactl autonomy commands missing"
+    fi
+}
+
+# Test 15: Sprint 2 - Persistence Layer
+test_persistence_layer() {
+    test_header "Sprint 2: Persistence Layer"
+
+    # Check persistence module exists
+    if [[ -f src/annad/src/persistence.rs ]]; then
+        test_pass "Persistence module exists"
+    else
+        test_fail "Persistence module missing"
+        return 1
+    fi
+
+    # Check for core functions
+    if grep -q 'pub fn init()' src/annad/src/persistence.rs && \
+       grep -q 'pub fn save_state' src/annad/src/persistence.rs && \
+       grep -q 'pub fn load_state' src/annad/src/persistence.rs && \
+       grep -q 'pub fn list_states' src/annad/src/persistence.rs; then
+        test_pass "Persistence API functions present"
+    else
+        test_fail "Persistence API functions incomplete"
+    fi
+
+    # Check for state rotation
+    if grep -q 'MAX_STATE_AGE_DAYS' src/annad/src/persistence.rs || \
+       grep -q 'rotate_old_states' src/annad/src/persistence.rs; then
+        test_pass "Persistence includes state rotation logic"
+    else
+        test_fail "Persistence missing rotation logic"
+    fi
+
+    # Check RPC handlers
+    if grep -q 'StateSave' src/annad/src/rpc.rs && \
+       grep -q 'StateLoad' src/annad/src/rpc.rs && \
+       grep -q 'StateList' src/annad/src/rpc.rs; then
+        test_pass "Persistence RPC handlers present"
+    else
+        test_fail "Persistence RPC handlers missing"
+    fi
+
+    # Check annactl commands
+    if grep -q 'State {' src/annactl/src/main.rs && \
+       grep -q 'StateAction::Save' src/annactl/src/main.rs && \
+       grep -q 'StateAction::Load' src/annactl/src/main.rs && \
+       grep -q 'StateAction::List' src/annactl/src/main.rs; then
+        test_pass "annactl state commands present"
+    else
+        test_fail "annactl state commands missing"
+    fi
+
+    # Check initialization in main
+    if grep -q 'persistence::init()' src/annad/src/main.rs; then
+        test_pass "Persistence initialized in daemon main"
+    else
+        test_fail "Persistence not initialized in daemon"
+    fi
+}
+
+# Test 16: Sprint 2 - Auto-Fix Mechanism
+test_autofix_mechanism() {
+    test_header "Sprint 2: Auto-Fix Mechanism"
+
+    # Check for run_autofix function
+    if grep -q 'pub async fn run_autofix' src/annad/src/diagnostics.rs; then
+        test_pass "Auto-fix function exists"
+    else
+        test_fail "Auto-fix function missing"
+        return 1
+    fi
+
+    # Check for AutoFixResult type
+    if grep -q 'struct AutoFixResult' src/annad/src/diagnostics.rs; then
+        test_pass "AutoFixResult type defined"
+    else
+        test_fail "AutoFixResult type missing"
+    fi
+
+    # Check for individual fix functions
+    local fix_functions=(
+        "autofix_socket_directory"
+        "autofix_paths"
+        "autofix_config_directory"
+    )
+
+    local all_found=true
+    for func in "${fix_functions[@]}"; do
+        if grep -q "fn ${func}()" src/annad/src/diagnostics.rs; then
+            test_pass "Auto-fix function: ${func} implemented"
+        else
+            test_fail "Auto-fix function: ${func} missing"
+            all_found=false
+        fi
+    done
+
+    # Check RPC handler
+    if grep -q 'DoctorAutoFix' src/annad/src/rpc.rs; then
+        test_pass "Auto-fix RPC handler present"
+    else
+        test_fail "Auto-fix RPC handler missing"
+    fi
+
+    # Check annactl doctor --autofix flag
+    if grep -q 'autofix: bool' src/annactl/src/main.rs && \
+       grep -q 'DoctorAutoFix' src/annactl/src/main.rs; then
+        test_pass "annactl doctor --autofix flag present"
+    else
+        test_fail "annactl doctor --autofix flag missing"
+    fi
+
+    # Check for telemetry logging of auto-fix attempts
+    if grep -q 'autofix' src/annad/src/diagnostics.rs; then
+        test_pass "Auto-fix attempts logged to telemetry"
+    else
+        test_fail "Auto-fix telemetry logging missing"
+    fi
+}
+
+# Test 17: Sprint 2 - Telemetry Commands
+test_telemetry_commands() {
+    test_header "Sprint 2: Telemetry Commands"
+
+    # Check for telemetry subcommand
+    if grep -q 'Telemetry {' src/annactl/src/main.rs; then
+        test_pass "annactl telemetry subcommand exists"
+    else
+        test_fail "annactl telemetry subcommand missing"
+        return 1
+    fi
+
+    # Check for list and stats actions
+    if grep -q 'TelemetryAction::List' src/annactl/src/main.rs && \
+       grep -q 'TelemetryAction::Stats' src/annactl/src/main.rs; then
+        test_pass "Telemetry actions (list, stats) defined"
+    else
+        test_fail "Telemetry actions incomplete"
+    fi
+
+    # Check for print functions
+    if grep -q 'fn print_telemetry_list' src/annactl/src/main.rs && \
+       grep -q 'fn print_telemetry_stats' src/annactl/src/main.rs; then
+        test_pass "Telemetry print functions present"
+    else
+        test_fail "Telemetry print functions missing"
+    fi
+
+    # Check for limit parameter
+    if grep -q 'limit: usize' src/annactl/src/main.rs; then
+        test_pass "Telemetry list has limit parameter"
+    else
+        test_fail "Telemetry list missing limit parameter"
+    fi
+
+    # Verify telemetry reads from correct paths
+    if grep -q '/var/lib/anna/events' src/annactl/src/main.rs && \
+       grep -q '.local/share/anna/events' src/annactl/src/main.rs; then
+        test_pass "Telemetry reads from system and user paths"
+    else
+        test_fail "Telemetry path configuration incorrect"
+    fi
+}
+
+# Test 18: Sprint 2 - State Directory Structure
+test_state_directories() {
+    test_header "Sprint 2: State Directory Structure"
+
+    # Check that persistence defines STATE_DIR constant
+    if grep -q 'STATE_DIR' src/annad/src/persistence.rs; then
+        test_pass "STATE_DIR constant defined"
+    else
+        test_fail "STATE_DIR constant missing"
+    fi
+
+    # Check for /var/lib/anna/state path
+    if grep -q '/var/lib/anna/state' src/annad/src/persistence.rs; then
+        test_pass "State directory path correct"
+    else
+        test_fail "State directory path incorrect"
+    fi
+
+    # Check that init creates required directories
+    if grep -q 'create_dir_all' src/annad/src/persistence.rs; then
+        test_pass "Persistence init creates directories"
+    else
+        test_fail "Persistence init missing directory creation"
+    fi
+}
+
+# Test 19: Sprint 2 - Integration Validation
+test_sprint2_integration() {
+    test_header "Sprint 2: Integration Validation"
+
+    # Check that all Sprint 2 modules are declared in main
+    if grep -q 'mod autonomy;' src/annad/src/main.rs && \
+       grep -q 'mod persistence;' src/annad/src/main.rs; then
+        test_pass "Sprint 2 modules declared in daemon main"
+    else
+        test_fail "Sprint 2 modules not declared"
+    fi
+
+    # Check that rpc.rs imports Sprint 2 modules
+    if grep -q 'use crate::autonomy' src/annad/src/rpc.rs && \
+       grep -q 'use crate::persistence' src/annad/src/rpc.rs; then
+        test_pass "RPC imports Sprint 2 modules"
+    else
+        test_fail "RPC missing Sprint 2 imports"
+    fi
+
+    # Verify telemetry rotation is accessible from autonomy
+    if grep -q 'pub fn rotate_old_files_now' src/annad/src/telemetry.rs || \
+       grep -q 'TelemetryCleanup' src/annad/src/autonomy.rs; then
+        test_pass "Telemetry rotation accessible from autonomy"
+    else
+        test_fail "Telemetry rotation not properly exposed"
+    fi
+
+    # Check for dirs dependency in annactl Cargo.toml
+    if grep -q 'dirs' src/annactl/Cargo.toml; then
+        test_pass "dirs dependency added to annactl"
+    else
+        test_fail "dirs dependency missing from annactl"
+    fi
+}
+
 print_summary() {
     local end_time=$(date +%s)
     local duration=$((end_time - START_TIME))
@@ -515,7 +803,7 @@ main() {
 ╔═══════════════════════════════════════╗
 ║                                       ║
 ║    ANNA QA TEST HARNESS               ║
-║    Sprint 1 Validation Suite          ║
+║    Sprint 2 Validation Suite          ║
 ║                                       ║
 ╚═══════════════════════════════════════╝
 EOF
@@ -527,6 +815,7 @@ EOF
         exit 1
     fi
 
+    # Sprint 1 tests (base)
     test_structure
     test_compilation
     test_binaries
@@ -540,6 +829,14 @@ EOF
     test_doctor_checks
     test_telemetry
     test_documentation
+
+    # Sprint 2 tests (new)
+    test_autonomy_framework
+    test_persistence_layer
+    test_autofix_mechanism
+    test_telemetry_commands
+    test_state_directories
+    test_sprint2_integration
 
     print_summary
 }

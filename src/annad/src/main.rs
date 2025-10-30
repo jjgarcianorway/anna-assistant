@@ -8,6 +8,8 @@ mod rpc;
 mod diagnostics;
 mod telemetry;
 mod polkit;
+mod autonomy;
+mod persistence;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 const SOCKET_DIR: &str = "/run/anna";
@@ -45,6 +47,10 @@ async fn main() -> Result<()> {
     // Initialize telemetry
     telemetry::init()?;
     telemetry::log_event(telemetry::Event::DaemonStarted)?;
+
+    // Initialize persistence
+    persistence::init()?;
+    info!("Persistence layer initialized");
 
     // Load configuration
     let config = config::load_config()?;

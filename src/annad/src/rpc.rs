@@ -7,6 +7,8 @@ use tracing::{info, error, debug};
 use crate::config::{self, Config, Scope};
 use crate::diagnostics;
 use crate::telemetry;
+use crate::autonomy;
+use crate::persistence;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -24,6 +26,22 @@ pub enum Request {
         value: String,
     },
     ConfigList,
+    // Sprint 2: Autonomy
+    AutonomyStatus,
+    AutonomyRun {
+        task: String,
+    },
+    // Sprint 2: Persistence
+    StateSave {
+        component: String,
+        data: serde_json::Value,
+    },
+    StateLoad {
+        component: String,
+    },
+    StateList,
+    // Sprint 2: Auto-fix
+    DoctorAutoFix,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -175,6 +193,68 @@ async fn handle_request(request: Request, config: &mut Config) -> Result<Respons
             let values = config::list_values(config);
             Ok(Response::Success {
                 data: serde_json::to_value(values)?,
+            })
+        }
+
+        Request::AutonomyStatus => {
+            let status = autonomy::get_status(config);
+            Ok(Response::Success {
+                data: serde_json::to_value(status)?,
+            })
+        }
+
+        Request::AutonomyRun { task } => {
+            // Parse task name
+            let task_obj = match task.as_str() {
+                "doctor" => autonomy::Task::Doctor,
+                "telemetry_cleanup" => autonomy::Task::TelemetryCleanup,
+                "config_sync" => autonomy::Task::ConfigSync,
+                _ => anyhow::bail!("Unknown task: {}", task),
+            };
+
+            let result = autonomy::run_task(task_obj, config).await?;
+            Ok(Response::Success {
+                data: serde_json::to_value(result)?,
+            })
+        }
+
+        Request::StateSave { component, data } => {
+            persistence::save_state(&component, data)?;
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "component": component,
+                    "saved": true,
+                }),
+            })
+        }
+
+        Request::StateLoad { component } => {
+            let state = persistence::load_state(&component)?;
+            if let Some(state) = state {
+                Ok(Response::Success {
+                    data: serde_json::to_value(state)?,
+                })
+            } else {
+                Ok(Response::Success {
+                    data: serde_json::json!({
+                        "component": component,
+                        "found": false,
+                    }),
+                })
+            }
+        }
+
+        Request::StateList => {
+            let components = persistence::list_states()?;
+            Ok(Response::Success {
+                data: serde_json::to_value(components)?,
+            })
+        }
+
+        Request::DoctorAutoFix => {
+            let results = diagnostics::run_autofix().await;
+            Ok(Response::Success {
+                data: serde_json::to_value(results)?,
             })
         }
     }

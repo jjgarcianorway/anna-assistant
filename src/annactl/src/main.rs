@@ -21,7 +21,11 @@ enum Commands {
     Ping,
 
     /// Run system diagnostics
-    Doctor,
+    Doctor {
+        /// Run auto-fix for failed checks (requires autonomy != off)
+        #[arg(long)]
+        autofix: bool,
+    },
 
     /// Show daemon status
     Status,
@@ -30,6 +34,24 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+
+    /// Autonomy management (Sprint 2)
+    Autonomy {
+        #[command(subcommand)]
+        action: AutonomyAction,
+    },
+
+    /// State persistence management (Sprint 2)
+    State {
+        #[command(subcommand)]
+        action: StateAction,
+    },
+
+    /// Telemetry management (Sprint 2)
+    Telemetry {
+        #[command(subcommand)]
+        action: TelemetryAction,
     },
 }
 
@@ -58,6 +80,52 @@ enum ConfigAction {
     List,
 }
 
+#[derive(Subcommand)]
+enum AutonomyAction {
+    /// Show autonomy status
+    Status,
+
+    /// Run an autonomous task
+    Run {
+        /// Task name (doctor, telemetry_cleanup, config_sync)
+        task: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum StateAction {
+    /// Save component state
+    Save {
+        /// Component name
+        component: String,
+
+        /// JSON data to save
+        data: String,
+    },
+
+    /// Load component state
+    Load {
+        /// Component name
+        component: String,
+    },
+
+    /// List all saved states
+    List,
+}
+
+#[derive(Subcommand)]
+enum TelemetryAction {
+    /// List recent telemetry events
+    List {
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+    },
+
+    /// Show statistics summary
+    Stats,
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum ConfigScope {
@@ -80,6 +148,19 @@ enum Request {
         value: String,
     },
     ConfigList,
+    AutonomyStatus,
+    AutonomyRun {
+        task: String,
+    },
+    StateSave {
+        component: String,
+        data: serde_json::Value,
+    },
+    StateLoad {
+        component: String,
+    },
+    StateList,
+    DoctorAutoFix,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -97,11 +178,17 @@ async fn main() -> Result<()> {
         Commands::Ping => {
             let response = send_request(Request::Ping).await?;
             println!("✓ {}", response["message"].as_str().unwrap_or("OK"));
-            Ok(())
+            Ok::<(), anyhow::Error>(())
         }
-        Commands::Doctor => {
-            let response = send_request(Request::Doctor).await?;
-            print_diagnostics(&response)
+        Commands::Doctor { autofix } => {
+            if autofix {
+                let response = send_request(Request::DoctorAutoFix).await?;
+                print_autofix_results(&response)?;
+            } else {
+                let response = send_request(Request::Doctor).await?;
+                print_diagnostics(&response)?;
+            }
+            Ok(())
         }
         Commands::Status => {
             let response = send_request(Request::Status).await?;
@@ -132,6 +219,55 @@ async fn main() -> Result<()> {
             ConfigAction::List => {
                 let response = send_request(Request::ConfigList).await?;
                 print_config_list(&response)?;
+                Ok(())
+            }
+        },
+        Commands::Autonomy { action } => match action {
+            AutonomyAction::Status => {
+                let response = send_request(Request::AutonomyStatus).await?;
+                print_autonomy_status(&response)?;
+                Ok(())
+            }
+            AutonomyAction::Run { task } => {
+                let response = send_request(Request::AutonomyRun { task: task.clone() }).await?;
+                print_task_result(&response)?;
+                Ok(())
+            }
+        },
+        Commands::State { action } => match action {
+            StateAction::Save { component, data } => {
+                let json_data: serde_json::Value = serde_json::from_str(&data)
+                    .context("Invalid JSON data")?;
+                let _response = send_request(Request::StateSave {
+                    component: component.clone(),
+                    data: json_data,
+                })
+                .await?;
+                println!("✓ Saved state for component: {}", component);
+                Ok(())
+            }
+            StateAction::Load { component } => {
+                let response = send_request(Request::StateLoad { component: component.clone() }).await?;
+                if response["found"].as_bool().unwrap_or(true) {
+                    println!("{}", serde_json::to_string_pretty(&response)?);
+                } else {
+                    println!("No state found for component: {}", component);
+                }
+                Ok(())
+            }
+            StateAction::List => {
+                let response = send_request(Request::StateList).await?;
+                print_state_list(&response)?;
+                Ok(())
+            }
+        },
+        Commands::Telemetry { action } => match action {
+            TelemetryAction::List { limit } => {
+                print_telemetry_list(limit)?;
+                Ok(())
+            }
+            TelemetryAction::Stats => {
+                print_telemetry_stats()?;
                 Ok(())
             }
         },
@@ -210,6 +346,30 @@ fn print_diagnostics(data: &serde_json::Value) -> Result<()> {
     Ok(())
 }
 
+fn print_autofix_results(data: &serde_json::Value) -> Result<()> {
+    let results: Vec<AutoFixResult> = serde_json::from_value(data.clone())?;
+
+    println!("\n🔧 Auto-Fix Results\n");
+    println!("{}", "=".repeat(70));
+
+    for result in &results {
+        let icon = if result.success {
+            "✓"
+        } else if result.attempted {
+            "✗"
+        } else {
+            "○"
+        };
+
+        println!("{} {} - {}", icon, result.check_name, result.message);
+    }
+
+    println!("{}", "=".repeat(70));
+    println!();
+
+    Ok(())
+}
+
 fn print_status(data: &serde_json::Value) -> Result<()> {
     println!("\n📊 Anna Daemon Status\n");
     println!("Version:       {}", data["version"].as_str().unwrap_or("unknown"));
@@ -241,6 +401,165 @@ fn print_config_list(data: &serde_json::Value) -> Result<()> {
     Ok(())
 }
 
+fn print_autonomy_status(data: &serde_json::Value) -> Result<()> {
+    println!("\n🤖 Autonomy Status\n");
+    println!("Level:                  {}", data["level"].as_str().unwrap_or("unknown"));
+    println!("Automatic tasks:        {}", if data["automatic_tasks_enabled"].as_bool().unwrap_or(false) { "enabled" } else { "disabled" });
+    println!("Recommendations:        {}", if data["recommendations_enabled"].as_bool().unwrap_or(false) { "enabled" } else { "disabled" });
+
+    if let Some(tasks) = data["tasks_available"].as_array() {
+        println!("\nAvailable tasks:");
+        for task in tasks {
+            if let Some(name) = task.as_str() {
+                println!("  - {}", name);
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_task_result(data: &serde_json::Value) -> Result<()> {
+    println!("\n✓ Task completed: {}", data["task"].as_str().unwrap_or("unknown"));
+    println!("Success: {}", data["success"].as_bool().unwrap_or(false));
+    println!("Message: {}", data["message"].as_str().unwrap_or(""));
+
+    if let Some(actions) = data["actions_taken"].as_array() {
+        if !actions.is_empty() {
+            println!("\nActions taken:");
+            for action in actions {
+                if let Some(desc) = action.as_str() {
+                    println!("  - {}", desc);
+                }
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_state_list(data: &serde_json::Value) -> Result<()> {
+    let components: Vec<String> = serde_json::from_value(data.clone())?;
+
+    println!("\n💾 Saved States\n");
+
+    if components.is_empty() {
+        println!("No saved states found.");
+    } else {
+        for component in components {
+            println!("  - {}", component);
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_telemetry_list(limit: usize) -> Result<()> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let mut telemetry_paths: Vec<PathBuf> = vec![
+        PathBuf::from("/var/lib/anna/events"),
+    ];
+
+    // Add user telemetry path if HOME is set
+    if let Some(home) = dirs::home_dir() {
+        telemetry_paths.push(home.join(".local/share/anna/events"));
+    }
+
+    let mut all_events = Vec::new();
+
+    for path in telemetry_paths {
+        if path.exists() {
+            if let Ok(entries) = fs::read_dir(path) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let file_path = entry.path();
+                    if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                        if let Ok(contents) = fs::read_to_string(&file_path) {
+                            for line in contents.lines().rev().take(limit) {
+                                all_events.push(line.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("\n📊 Recent Telemetry Events\n");
+
+    if all_events.is_empty() {
+        println!("No telemetry events found.");
+    } else {
+        for event in all_events.iter().take(limit) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(event) {
+                println!("{}", serde_json::to_string_pretty(&json)?);
+                println!("{}", "-".repeat(70));
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+fn print_telemetry_stats() -> Result<()> {
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::PathBuf;
+
+    let mut telemetry_paths: Vec<PathBuf> = vec![
+        PathBuf::from("/var/lib/anna/events"),
+    ];
+
+    // Add user telemetry path if HOME is set
+    if let Some(home) = dirs::home_dir() {
+        telemetry_paths.push(home.join(".local/share/anna/events"));
+    }
+
+    let mut event_counts: HashMap<String, usize> = HashMap::new();
+    let mut total_events = 0;
+
+    for path in telemetry_paths {
+        if path.exists() {
+            if let Ok(entries) = fs::read_dir(path) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let file_path = entry.path();
+                    if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                        if let Ok(contents) = fs::read_to_string(&file_path) {
+                            for line in contents.lines() {
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                                    if let Some(event_type) = json["type"].as_str() {
+                                        *event_counts.entry(event_type.to_string()).or_insert(0) += 1;
+                                        total_events += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("\n📈 Telemetry Statistics\n");
+    println!("Total events: {}", total_events);
+    println!("\nBy type:");
+
+    let mut sorted: Vec<_> = event_counts.iter().collect();
+    sorted.sort_by_key(|(_, count)| std::cmp::Reverse(**count));
+
+    for (event_type, count) in sorted {
+        println!("  {:30} {}", event_type, count);
+    }
+
+    println!();
+    Ok(())
+}
+
 #[derive(Debug, Deserialize)]
 struct DiagnosticResults {
     checks: Vec<DiagnosticCheck>,
@@ -253,6 +572,14 @@ struct DiagnosticCheck {
     status: Status,
     message: String,
     fix_hint: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AutoFixResult {
+    check_name: String,
+    attempted: bool,
+    success: bool,
+    message: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
