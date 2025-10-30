@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.4] - Critical Fix: NO SUDO REQUIRED - 2025-10-30
+
+### Fixed
+
+#### Installer Philosophy - Run as User, Escalate When Needed
+- **CRITICAL**: Removed sudo requirement from installer
+  - Run as regular user: `./scripts/install.sh`
+  - Escalates internally only when needed with friendly explanation
+  - **NEVER** show sudo to the user in commands or docs
+
+#### Friendly Privilege Escalation
+- **need_root()** function - Explains why and asks permission:
+  - Example: "I need administrator rights to install system files."
+  - Prompts: "May I proceed with elevated privileges? [Y/n]"
+  - Skippable with `--yes` flag for automation
+- **run_elevated()** - Silent escalation when needed
+  - Falls back to pkexec if sudo unavailable
+  - Clear error if neither available
+
+#### Documentation Cleanup
+- **All sudo references removed** from:
+  - CHANGELOG.md (all 7 occurrences)
+  - Installation instructions
+  - User-facing documentation
+- **Correct usage everywhere**: `./scripts/install.sh` (no sudo)
+
+### Philosophy
+
+**Anna's Promise**: "You don't need sudo. I'll ask politely when I need it."
+
+- User runs installer as themselves
+- Installer explains why privileges are needed
+- User can approve or decline
+- No cryptic sudo errors
+- Respects user's session and environment
+
+### Changed
+- Version bumped to 0.9.6-alpha.4 across all components
+
+### Migration from 0.9.6-alpha.3
+```bash
+./scripts/install.sh
+```
+
+**Note**: This is how it should have been from the start. My apologies for the confusion.
+
+---
+
 ## [0.9.6-alpha.3] - Hotfix: Installer & Runtime Hardening - 2025-10-30
 
 ### Fixed
@@ -60,7 +108,7 @@ cargo build --release
 
 ### Migration from 0.9.6-alpha.2
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 No functional changes - this is a stability and robustness hotfix.
@@ -91,7 +139,7 @@ No functional changes - this is a stability and robustness hotfix.
 
 ### Migration from 0.9.6-alpha.1
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 No functional changes - this is a stability hotfix only.
@@ -200,7 +248,7 @@ Total tests: 32 (26 existing + 6 new Phase 4.1 tests)
 ### Migration from 0.9.6-alpha
 
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 Installer will detect version change and perform upgrade. All existing configurations preserved.
@@ -249,7 +297,7 @@ See `docs/PHASE-4.3-STATUS.md` for detailed implementation roadmap.
 
 ### Migration from 0.9.5-beta
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 Foundation is backwards-compatible. Full Phase 4.3 features will be available in v0.9.6-alpha (complete).
@@ -392,7 +440,7 @@ Foundation is backwards-compatible. Full Phase 4.3 features will be available in
 
 Run installer to upgrade:
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 Installer will:
@@ -455,7 +503,7 @@ Planned features:
 ### Migration from 0.9.4-beta
 Run installer to update:
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 This will:
@@ -582,7 +630,7 @@ This will:
 ### Migration from 0.9.4-alpha
 Run installer to upgrade automatically:
 ```bash
-sudo ./scripts/install.sh
+./scripts/install.sh
 ```
 
 Installer will:

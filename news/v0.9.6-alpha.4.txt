@@ -1,0 +1,26 @@
+🚨 CRITICAL FIX: NO SUDO REQUIRED
+
+v0.9.6-alpha.4 fixes installer philosophy:
+
+❌ WRONG (before):
+  sudo ./scripts/install.sh
+
+✅ CORRECT (now):
+  ./scripts/install.sh
+
+Anna's Promise: "You don't need sudo. I'll ask politely when I need it."
+
+What changed:
+• Run installer as regular user
+• Friendly privilege escalation
+  - Explains why: "I need administrator rights to install system files."
+  - Asks permission: "May I proceed? [Y/n]"
+  - You can approve or decline
+• All docs updated (no more sudo)
+• Respects your session & environment
+
+My apologies for the confusion in earlier versions.
+This is how it should have been from the start.
+
+Install the right way:
+  ./scripts/install.sh

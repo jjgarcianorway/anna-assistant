@@ -3,7 +3,7 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 # ╭─────────────────────────────────────────────────────────────────────╮
-# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.3)          │
+# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.4)          │
 # │                                                                     │
 # │ Conversational • Intelligent • Self-Healing                         │
 # │                                                                     │
@@ -46,7 +46,7 @@ source "$SCRIPT_DIR/anna_common.sh"
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.6-alpha.3"
+BUNDLE_VERSION="0.9.6-alpha.4"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -217,9 +217,10 @@ print_arrow() {
 # ============================================================================
 
 needs_elevation() {
-    return $(test "$EUID" -ne 0)
+    [[ "$EUID" -ne 0 ]]
 }
 
+# Friendly privilege escalation - explains why and asks permission
 run_elevated() {
     if needs_elevation; then
         if command -v sudo &>/dev/null; then
@@ -227,9 +228,32 @@ run_elevated() {
         elif command -v pkexec &>/dev/null; then
             pkexec "$@"
         else
-            echo "ERROR: This script needs elevated privileges (sudo or pkexec)" >&2
+            anna_narrative "I need administrator rights to install system files."
+            anna_warn "Neither sudo nor pkexec is available."
+            anna_info "Please install sudo or run as root."
             exit 1
         fi
+    else
+        "$@"
+    fi
+}
+
+# Friendly privilege request with explanation
+need_root() {
+    local reason="$1"
+    shift
+
+    if needs_elevation; then
+        anna_narrative "$reason"
+        if [[ "${AUTO_YES}" != "true" ]]; then
+            printf "${C_BLUE}May I proceed with elevated privileges?${NC} [Y/n] "
+            read -r response
+            if [[ "$response" =~ ^[Nn] ]]; then
+                anna_info "Okay, stopping here."
+                exit 0
+            fi
+        fi
+        run_elevated "$@"
     else
         "$@"
     fi
