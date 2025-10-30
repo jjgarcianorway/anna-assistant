@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
+use std::collections::HashMap;
 
-const SOCKET_PATH: &str = "/run/anna.sock";
+const SOCKET_PATH: &str = "/run/anna/annad.sock";
 
 #[derive(Parser)]
 #[command(name = "annactl")]
@@ -25,14 +26,43 @@ enum Commands {
     /// Show daemon status
     Status,
 
-    /// Show current configuration
-    Config,
-
-    /// Request privilege elevation for system-level operations
-    Elevate {
-        /// Operation to perform with elevated privileges
-        operation: String,
+    /// Configuration management
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
     },
+}
+
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Get a configuration value
+    Get {
+        /// Configuration key (e.g., "autonomy.level")
+        key: String,
+    },
+
+    /// Set a configuration value
+    Set {
+        /// Scope: user or system
+        #[arg(value_enum)]
+        scope: ConfigScope,
+
+        /// Configuration key
+        key: String,
+
+        /// New value
+        value: String,
+    },
+
+    /// List all configuration values
+    List,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ConfigScope {
+    User,
+    System,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,7 +71,15 @@ enum Request {
     Ping,
     Doctor,
     Status,
-    GetConfig,
+    ConfigGet {
+        key: String,
+    },
+    ConfigSet {
+        scope: ConfigScope,
+        key: String,
+        value: String,
+    },
+    ConfigList,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,30 +93,57 @@ enum Response {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    let result = match cli.command {
         Commands::Ping => {
             let response = send_request(Request::Ping).await?;
             println!("✓ {}", response["message"].as_str().unwrap_or("OK"));
+            Ok(())
         }
         Commands::Doctor => {
             let response = send_request(Request::Doctor).await?;
-            print_diagnostics(&response)?;
+            print_diagnostics(&response)
         }
         Commands::Status => {
             let response = send_request(Request::Status).await?;
             print_status(&response)?;
+            Ok(())
         }
-        Commands::Config => {
-            let response = send_request(Request::GetConfig).await?;
-            println!("{}", serde_json::to_string_pretty(&response)?);
-        }
-        Commands::Elevate { operation } => {
-            println!("Requesting privilege elevation for: {}", operation);
-            println!("(Polkit integration pending)");
+        Commands::Config { action } => match action {
+            ConfigAction::Get { key } => {
+                let response = send_request(Request::ConfigGet { key: key.clone() }).await?;
+                println!("{} = {}", key, response["value"].as_str().unwrap_or(""));
+                Ok(())
+            }
+            ConfigAction::Set { scope, key, value } => {
+                let response = send_request(Request::ConfigSet {
+                    scope,
+                    key: key.clone(),
+                    value: value.clone(),
+                })
+                .await?;
+                println!(
+                    "✓ Set {} = {} (scope: {})",
+                    key,
+                    value,
+                    response["scope"].as_str().unwrap_or("")
+                );
+                Ok(())
+            }
+            ConfigAction::List => {
+                let response = send_request(Request::ConfigList).await?;
+                print_config_list(&response)?;
+                Ok(())
+            }
+        },
+    };
+
+    match result {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
         }
     }
-
-    Ok(())
 }
 
 async fn send_request(request: Request) -> Result<serde_json::Value> {
@@ -110,7 +175,7 @@ fn print_diagnostics(data: &serde_json::Value) -> Result<()> {
     let results: DiagnosticResults = serde_json::from_value(data.clone())?;
 
     println!("\n🔍 Anna System Diagnostics\n");
-    println!("{}", "=".repeat(50));
+    println!("{}", "=".repeat(70));
 
     for check in &results.checks {
         let icon = match check.status {
@@ -118,10 +183,15 @@ fn print_diagnostics(data: &serde_json::Value) -> Result<()> {
             Status::Warn => "⚠",
             Status::Fail => "✗",
         };
-        println!("{} {} - {}", icon, check.name, check.message);
+
+        println!("{} {:30} {}", icon, check.name, check.message);
+
+        if let Some(fix_hint) = &check.fix_hint {
+            println!("  → Fix: {}", fix_hint);
+        }
     }
 
-    println!("{}", "=".repeat(50));
+    println!("{}", "=".repeat(70));
     println!(
         "\nOverall Status: {}",
         match results.overall_status {
@@ -130,19 +200,44 @@ fn print_diagnostics(data: &serde_json::Value) -> Result<()> {
             Status::Fail => "✗ FAIL",
         }
     );
+    println!();
+
+    // Exit non-zero if any check failed
+    if results.overall_status == Status::Fail {
+        std::process::exit(1);
+    }
 
     Ok(())
 }
 
 fn print_status(data: &serde_json::Value) -> Result<()> {
     println!("\n📊 Anna Daemon Status\n");
-    println!("Version: {}", data["version"].as_str().unwrap_or("unknown"));
-    println!("Status: {}", data["uptime"].as_str().unwrap_or("unknown"));
+    println!("Version:       {}", data["version"].as_str().unwrap_or("unknown"));
+    println!("Status:        {}", data["uptime"].as_str().unwrap_or("unknown"));
     println!(
-        "Autonomy Tier: {}",
-        data["autonomy_tier"].as_u64().unwrap_or(0)
+        "Autonomy:      {}",
+        data["autonomy_level"].as_str().unwrap_or("unknown")
     );
+    println!();
 
+    Ok(())
+}
+
+fn print_config_list(data: &serde_json::Value) -> Result<()> {
+    let config_map: HashMap<String, String> = serde_json::from_value(data.clone())?;
+
+    println!("\n⚙️  Configuration\n");
+
+    let mut keys: Vec<_> = config_map.keys().collect();
+    keys.sort();
+
+    for key in keys {
+        if let Some(value) = config_map.get(key) {
+            println!("{:35} = {}", key, value);
+        }
+    }
+
+    println!();
     Ok(())
 }
 
@@ -157,9 +252,10 @@ struct DiagnosticCheck {
     name: String,
     status: Status,
     message: String,
+    fix_hint: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum Status {
     Pass,

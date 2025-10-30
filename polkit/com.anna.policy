@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Anna Assistant</vendor>
+  <vendor_url>https://github.com/anna-assistant/anna</vendor_url>
+
+  <!--
+    Policy for Anna Assistant privileged operations.
+    Installed to: /usr/share/polkit-1/actions/com.anna.policy
+  -->
+
+  <action id="com.anna.config.write">
+    <description>Modify Anna system configuration</description>
+    <message>Authentication is required to modify Anna's system-wide configuration</message>
+    <icon_name>preferences-system</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="com.anna.maintenance.execute">
+    <description>Execute Anna system maintenance tasks</description>
+    <message>Authentication is required to perform system maintenance operations</message>
+    <icon_name>system-run</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+</policyconfig>

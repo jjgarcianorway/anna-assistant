@@ -6,8 +6,11 @@ use tracing::{info, error};
 mod config;
 mod rpc;
 mod diagnostics;
+mod telemetry;
+mod polkit;
 
-const SOCKET_PATH: &str = "/run/anna.sock";
+const SOCKET_PATH: &str = "/run/anna/annad.sock";
+const SOCKET_DIR: &str = "/run/anna";
 const CONFIG_DIR: &str = "/etc/anna";
 
 #[tokio::main]
@@ -28,11 +31,20 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }
 
-    // Ensure config directory exists
+    // Ensure directories exist
     if !Path::new(CONFIG_DIR).exists() {
         std::fs::create_dir_all(CONFIG_DIR)?;
         info!("Created config directory: {}", CONFIG_DIR);
     }
+
+    if !Path::new(SOCKET_DIR).exists() {
+        std::fs::create_dir_all(SOCKET_DIR)?;
+        info!("Created socket directory: {}", SOCKET_DIR);
+    }
+
+    // Initialize telemetry
+    telemetry::init()?;
+    telemetry::log_event(telemetry::Event::DaemonStarted)?;
 
     // Load configuration
     let config = config::load_config()?;

@@ -8,11 +8,40 @@ Language: Rust + Bash
 
 ---
 
+## 60-Second Quickstart
+
+**Install → Verify → Demo → Uninstall**
+
+```bash
+# Requirements: Arch Linux, bash, systemd, polkit
+# Install Rust if needed:
+sudo pacman -S rust cargo systemd
+
+# 1. Install Anna (builds, installs, starts daemon)
+cd anna-assistant && ./scripts/install.sh
+
+# 2. Verify installation
+annactl status
+annactl doctor
+
+# 3. Try configuration
+annactl config list
+annactl config set user telemetry.local_store off
+annactl config get telemetry.local_store
+
+# 4. Uninstall (creates backup in ~/Documents/)
+./scripts/uninstall.sh
+```
+
+That's it! The installer is idempotent and safe to re-run.
+
+---
+
 ## Overview
 
 Anna is a production-grade Linux assistant designed with strict architectural contracts:
 
-- **annad**: Root daemon handling privileged operations via Unix socket (`/run/anna.sock`)
+- **annad**: Root daemon handling privileged operations via Unix socket (`/run/anna/annad.sock`)
 - **annactl**: Non-privileged CLI client for user interaction
 - **Polkit integration**: All privilege elevation through standard system dialogs
 - **Zero external dependencies**: No web frameworks, AI models, or cloud services
@@ -28,7 +57,7 @@ Anna is a production-grade Linux assistant designed with strict architectural co
 │   (CLI client)  │
 └────────┬────────┘
          │ Unix Socket
-         │ /run/anna.sock
+         │ /run/anna/annad.sock
          ▼
 ┌─────────────────┐
 │     annad       │  (root daemon)

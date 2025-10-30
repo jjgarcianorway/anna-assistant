@@ -4,8 +4,9 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tracing::{info, error, debug};
 
-use crate::config::Config;
+use crate::config::{self, Config, Scope};
 use crate::diagnostics;
+use crate::telemetry;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -14,6 +15,15 @@ pub enum Request {
     Doctor,
     Status,
     GetConfig,
+    ConfigGet {
+        key: String,
+    },
+    ConfigSet {
+        scope: Scope,
+        key: String,
+        value: String,
+    },
+    ConfigList,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,7 +33,7 @@ pub enum Response {
     Error { message: String },
 }
 
-pub async fn serve(listener: UnixListener, config: Config) -> Result<()> {
+pub async fn serve(listener: UnixListener, mut config: Config) -> Result<()> {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
@@ -39,7 +49,7 @@ pub async fn serve(listener: UnixListener, config: Config) -> Result<()> {
     }
 }
 
-async fn handle_connection(stream: UnixStream, config: Config) -> Result<()> {
+async fn handle_connection(stream: UnixStream, mut config: Config) -> Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
@@ -61,27 +71,26 @@ async fn handle_connection(stream: UnixStream, config: Config) -> Result<()> {
 
         debug!("Received request: {:?}", request);
 
-        let response = match request {
-            Request::Ping => Response::Success {
-                data: serde_json::json!({ "message": "pong" }),
-            },
-            Request::Doctor => {
-                let results = diagnostics::run_diagnostics().await;
-                Response::Success {
-                    data: serde_json::to_value(results)?,
+        // Log RPC call
+        let rpc_name = format!("{:?}", request).split_whitespace().next().unwrap_or("unknown").to_string();
+
+        let response = match handle_request(request, &mut config).await {
+            Ok(resp) => {
+                let _ = telemetry::log_event(telemetry::Event::RpcCall {
+                    name: rpc_name,
+                    status: "success".to_string(),
+                });
+                resp
+            }
+            Err(e) => {
+                let _ = telemetry::log_event(telemetry::Event::RpcCall {
+                    name: rpc_name,
+                    status: "error".to_string(),
+                });
+                Response::Error {
+                    message: e.to_string(),
                 }
             }
-            Request::Status => {
-                let status = serde_json::json!({
-                    "version": env!("CARGO_PKG_VERSION"),
-                    "uptime": "running",
-                    "autonomy_tier": config.autonomy.tier,
-                });
-                Response::Success { data: status }
-            }
-            Request::GetConfig => Response::Success {
-                data: serde_json::to_value(&config)?,
-            },
         };
 
         let json = serde_json::to_string(&response)?;
@@ -92,4 +101,81 @@ async fn handle_connection(stream: UnixStream, config: Config) -> Result<()> {
     }
 
     Ok(())
+}
+
+async fn handle_request(request: Request, config: &mut Config) -> Result<Response> {
+    match request {
+        Request::Ping => Ok(Response::Success {
+            data: serde_json::json!({ "message": "pong" }),
+        }),
+
+        Request::Doctor => {
+            let results = diagnostics::run_diagnostics().await;
+            Ok(Response::Success {
+                data: serde_json::to_value(results)?,
+            })
+        }
+
+        Request::Status => {
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "uptime": "running",
+                    "autonomy_level": config.autonomy.level,
+                }),
+            })
+        }
+
+        Request::GetConfig => Ok(Response::Success {
+            data: serde_json::to_value(&config)?,
+        }),
+
+        Request::ConfigGet { key } => {
+            // Reload config to get latest values
+            *config = config::load_config()?;
+
+            if let Some(value) = config::get_value(config, &key) {
+                Ok(Response::Success {
+                    data: serde_json::json!({ "key": key, "value": value }),
+                })
+            } else {
+                anyhow::bail!("Unknown configuration key: {}", key);
+            }
+        }
+
+        Request::ConfigSet { scope, key, value } => {
+            // Reload config first
+            *config = config::load_config()?;
+
+            // Set the value
+            config::set_value(config, &key, &value)?;
+
+            // Save to the appropriate scope
+            config::save_config(config, scope)?;
+
+            // Log the change
+            telemetry::log_event(telemetry::Event::ConfigChanged {
+                scope: format!("{:?}", scope).to_lowercase(),
+                key: key.clone(),
+            })?;
+
+            Ok(Response::Success {
+                data: serde_json::json!({
+                    "key": key,
+                    "value": value,
+                    "scope": format!("{:?}", scope).to_lowercase(),
+                }),
+            })
+        }
+
+        Request::ConfigList => {
+            // Reload config to get latest values
+            *config = config::load_config()?;
+
+            let values = config::list_values(config);
+            Ok(Response::Success {
+                data: serde_json::to_value(values)?,
+            })
+        }
+    }
 }
