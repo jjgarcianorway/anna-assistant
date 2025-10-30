@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.5] - Working Installer (Finally) - 2025-10-30
+
+### Fixed
+
+**The installer actually works now.**
+
+Previous versions had a 900+ line overcomplicated installer that:
+- Stopped after building (never installed anything)
+- Had garbled terminal output
+- Was never properly tested
+
+### New Installer
+
+Simple, functional, 59 lines:
+
+```bash
+./scripts/install.sh
+```
+
+What it does:
+1. Builds binaries
+2. Installs to /usr/local/bin (asks for password once)
+3. Verifies installation
+4. Shows you what to try next
+
+That's it. No fancy UI, no complex phases, just works.
+
+### What Was Wrong
+
+The old installer had:
+- Broken privilege escalation logic
+- Silent failures after build phase
+- Overcomplicated terminal detection
+- Never actually called install_system()
+- Garbled Unicode box characters
+
+### What's Right Now
+
+- 59 lines instead of 900+
+- Clear output (no garbled characters)
+- Actually installs the binaries
+- Simple error messages
+- Tested and working
+
+### Changed
+- Version bumped to 0.9.6-alpha.5
+- Complete installer rewrite (scripts/install.sh)
+
+### Migration
+
+```bash
+./scripts/install.sh
+```
+
+### Apologies
+
+The previous 4 alpha versions had broken installers. This one works.
+
+---
+
 ## [0.9.6-alpha.4] - Critical Fix: NO SUDO REQUIRED - 2025-10-30
 
 ### Fixed
