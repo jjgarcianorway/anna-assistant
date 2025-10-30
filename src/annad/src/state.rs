@@ -9,6 +9,7 @@ use anyhow::Result;
 use crate::policy::PolicyEngine;
 use crate::events::{EventDispatcher, Event, EventType, EventSeverity};
 use crate::learning::LearningCache;
+use crate::telemetry_collector::TelemetryCollector;
 
 /// Telemetry snapshot - cheap runtime metrics
 #[derive(Debug, Clone)]
@@ -79,6 +80,7 @@ pub struct DaemonState {
     pub event_dispatcher: Arc<EventDispatcher>,
     #[allow(dead_code)]
     pub telemetry: Arc<Mutex<TelemetrySnapshot>>,
+    pub telemetry_collector: Arc<TelemetryCollector>,
     pub learning_cache: Arc<Mutex<LearningCache>>,
     pub start_time: u64,
 }
@@ -103,6 +105,16 @@ impl DaemonState {
             tracing::info!("Learning cache not loaded: {}", e);
         }
 
+        // Initialize telemetry collector
+        let telemetry_collector = Arc::new(
+            TelemetryCollector::new("/var/lib/anna/telemetry.db")
+                .expect("Failed to initialize telemetry collector")
+        );
+
+        // Start background collection loop
+        telemetry_collector.clone().start_collection_loop();
+        tracing::info!("Telemetry collection started (60s interval)");
+
         let start_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -112,6 +124,7 @@ impl DaemonState {
             policy_engine,
             event_dispatcher,
             telemetry,
+            telemetry_collector,
             learning_cache,
             start_time,
         })

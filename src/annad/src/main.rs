@@ -8,6 +8,7 @@ mod config;
 mod rpc;
 mod diagnostics;
 mod telemetry;
+mod telemetry_collector;
 mod polkit;
 mod autonomy;
 mod persistence;
