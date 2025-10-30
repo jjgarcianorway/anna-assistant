@@ -6,7 +6,7 @@ set -euo pipefail
 # Runs as normal user, escalates only when needed
 # Intelligent version detection and upgrade management
 
-BUNDLE_VERSION="0.9.3-alpha"
+BUNDLE_VERSION="0.9.3-beta"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -54,24 +54,40 @@ log_error() {
     echo -e "${RED}[FAIL]${NC} $1"
 }
 
+log_to_file() {
+    # Helper to write to log file, creating directory if needed
+    local log_entry="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    if [[ -d "$LOG_DIR" ]] || run_elevated mkdir -p "$LOG_DIR" 2>/dev/null; then
+        echo "$log_entry" >> "$LOG_DIR/install.log" 2>/dev/null || true
+    fi
+}
+
 log_install() {
-    echo -e "${CYAN}[INSTALL]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INSTALL] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+    echo -e "  ${CYAN}▸${NC} $1"
+    log_to_file "[INSTALL] $1"
 }
 
 log_update() {
-    echo -e "${YELLOW}[UPDATE]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [UPDATE] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+    echo -e "  ${YELLOW}▸${NC} $1"
+    log_to_file "[UPDATE] $1"
 }
 
 log_heal() {
-    echo -e "${GREEN}[HEAL]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [HEAL] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+    echo -e "  ${GREEN}✓${NC} $1"
+    log_to_file "[HEAL] $1"
 }
 
 log_ready() {
-    echo -e "${GREEN}[READY]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [READY] $1" >> "$LOG_DIR/install.log" 2>/dev/null || true
+    echo -e "${GREEN}✓${NC} $1"
+    log_to_file "[READY] $1"
+}
+
+print_section() {
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  $1${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
 }
 
 # Check if we have sudo/pkexec available
@@ -95,15 +111,15 @@ run_elevated() {
 }
 
 print_banner() {
+    clear
     echo -e "${BLUE}"
-    cat <<'EOF'
-    ╔═══════════════════════════════════════╗
-    ║                                       ║
-    ║      ANNA ASSISTANT v0.9.3-alpha      ║
-    ║     Self-Healing System Assistant     ║
-    ║   Sprint 4: Autonomy & Self-Healing   ║
-    ║                                       ║
-    ╚═══════════════════════════════════════╝
+    cat <<EOF
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║               ANNA ASSISTANT v${BUNDLE_VERSION}                ║
+║            Autonomous Self-Healing System                 ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
     echo ""
@@ -238,16 +254,21 @@ check_requirements() {
 }
 
 compile_binaries() {
-    log_info "Compiling Anna (this may take a few minutes)..."
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  Building Release Binaries${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
 
     # Always compile as the actual user (not root)
     if [[ -n "${SUDO_USER:-}" ]] && [[ $EUID -eq 0 ]]; then
-        sudo -u "$SUDO_USER" cargo build --release
+        sudo -u "$SUDO_USER" cargo build --release --quiet 2>&1 | grep -v "^warning:" || true
     else
-        cargo build --release
+        cargo build --release --quiet 2>&1 | grep -v "^warning:" || true
     fi
 
-    if [ $? -ne 0 ]; then
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo ""
         log_error "Compilation failed"
         exit 1
     fi
@@ -257,17 +278,17 @@ compile_binaries() {
         exit 1
     fi
 
-    log_success "Compilation complete"
+    echo ""
+    log_ready "Binaries compiled successfully"
+    echo ""
 }
 
 create_anna_group() {
-    log_info "Setting up anna group..."
-
     if getent group "$ANNA_GROUP" > /dev/null 2>&1; then
-        log_success "Group '$ANNA_GROUP' already exists"
+        log_heal "Group 'anna' configured"
     else
         if run_elevated groupadd "$ANNA_GROUP"; then
-            log_fixed "Created group '$ANNA_GROUP'"
+            log_heal "Created group 'anna'"
         else
             log_error "Failed to create group '$ANNA_GROUP'"
             exit 1
@@ -276,23 +297,20 @@ create_anna_group() {
 }
 
 add_user_to_group() {
-    log_info "Adding user to anna group..."
-
     # Determine the actual user (not root)
     local target_user="${SUDO_USER:-$USER}"
 
     if [[ -z "$target_user" ]] || [[ "$target_user" == "root" ]]; then
         log_warn "Could not determine non-root user to add to group"
-        log_warn "Manual step: Run 'sudo usermod -aG anna YOUR_USERNAME'"
         return
     fi
 
     if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-        log_success "User '$target_user' already in group '$ANNA_GROUP'"
+        log_heal "User '$target_user' in group 'anna'"
     else
         if run_elevated usermod -aG "$ANNA_GROUP" "$target_user"; then
-            log_fixed "Added '$target_user' to group '$ANNA_GROUP'"
-            log_warn "NOTE: Group membership requires logout/login or 'newgrp anna' to take effect"
+            log_heal "Added '$target_user' to group 'anna'"
+            log_warn "Group membership requires logout/login to take effect"
             export GROUP_MEMBERSHIP_CHANGED=1
         else
             log_error "Failed to add user to group"
@@ -302,11 +320,9 @@ add_user_to_group() {
 }
 
 install_binaries() {
-    log_info "Installing binaries to $BIN_DIR..."
-
     if run_elevated install -m 755 target/release/annad "$BIN_DIR/annad" && \
        run_elevated install -m 755 target/release/annactl "$BIN_DIR/annactl"; then
-        log_success "Binaries installed"
+        log_heal "Binaries installed to $BIN_DIR"
     else
         log_error "Failed to install binaries"
         exit 1
@@ -314,8 +330,6 @@ install_binaries() {
 }
 
 install_systemd_service() {
-    log_info "Installing systemd service..."
-
     # Install service unit
     local service_file=""
     if [[ -f packaging/arch/annad.service ]]; then
@@ -327,33 +341,23 @@ install_systemd_service() {
         exit 1
     fi
 
-    if run_elevated cp "$service_file" "$SYSTEMD_DIR/annad.service"; then
-        log_success "Service unit installed"
-    else
-        log_error "Failed to install service unit"
-        exit 1
-    fi
+    run_elevated cp "$service_file" "$SYSTEMD_DIR/annad.service" || { log_error "Failed to install service unit"; exit 1; }
 
     # Install tmpfiles configuration
     if [[ -f packaging/arch/annad.tmpfiles.conf ]]; then
         run_elevated mkdir -p "$TMPFILES_DIR"
-        if run_elevated cp packaging/arch/annad.tmpfiles.conf "$TMPFILES_DIR/annad.conf"; then
-            run_elevated systemd-tmpfiles --create "$TMPFILES_DIR/annad.conf" 2>/dev/null || true
-            log_success "Tmpfiles configuration installed"
-        fi
+        run_elevated cp packaging/arch/annad.tmpfiles.conf "$TMPFILES_DIR/annad.conf"
+        run_elevated systemd-tmpfiles --create "$TMPFILES_DIR/annad.conf" 2>/dev/null || true
     fi
 
     run_elevated systemctl daemon-reload
-    log_success "Systemd configuration reloaded"
+    log_heal "Systemd service configured"
 }
 
 install_polkit_policy() {
-    log_info "Installing polkit policy..."
-
     # Check if polkit is available
     if ! command -v pkexec &>/dev/null && ! [[ -d /usr/share/polkit-1 ]]; then
-        log_skip "Polkit not installed - autonomy features will be unavailable"
-        log_info "To enable autonomy: sudo pacman -S polkit (or equivalent)"
+        log_skip "Polkit not available (autonomy features disabled)"
         return
     fi
 
@@ -362,32 +366,17 @@ install_polkit_policy() {
     fi
 
     if [[ -f polkit/com.anna.policy ]]; then
-        if run_elevated cp polkit/com.anna.policy "$POLKIT_DIR/com.anna.policy"; then
-            log_success "Polkit policy installed"
-        else
-            log_warn "Failed to install polkit policy"
-        fi
-    else
-        log_warn "Polkit policy file not found, skipping"
+        run_elevated cp polkit/com.anna.policy "$POLKIT_DIR/com.anna.policy" && log_heal "Polkit policy configured" || log_warn "Polkit policy installation failed"
     fi
 }
 
 install_bash_completion() {
-    log_info "Installing bash completion..."
-
     if [[ ! -d "$COMPLETION_DIR" ]]; then
-        log_skip "Bash completion directory not found"
         return
     fi
 
     if [[ -f completion/annactl.bash ]]; then
-        if run_elevated cp completion/annactl.bash "$COMPLETION_DIR/annactl"; then
-            log_success "Bash completion installed"
-        else
-            log_warn "Failed to install bash completion"
-        fi
-    else
-        log_skip "Bash completion file not found"
+        run_elevated cp completion/annactl.bash "$COMPLETION_DIR/annactl" && log_heal "Bash completion configured" || true
     fi
 }
 
@@ -752,33 +741,34 @@ main() {
     check_environment
     check_requirements
     compile_binaries
+
+    print_section "System Configuration"
     create_anna_group
     add_user_to_group
     install_binaries
     install_systemd_service
     install_polkit_policy
     install_bash_completion
+
+    print_section "Directory Setup"
     setup_directories
     setup_config
     create_user_paths
 
+    print_section "Service Activation"
     if ! enable_service; then
         log_error "Service startup failed"
         exit 1
     fi
 
-    # Run doctor repair bootstrap (auto-fix any remaining issues)
+    print_section "Post-Install Verification"
     run_doctor_bootstrap
-
-    # Run sanity checks (policy reload, events check)
     run_sanity_checks
 
     if ! post_install_validation; then
         log_warn "Validation had issues, but installation completed"
-        log_info "Review the errors above and check service logs"
     fi
 
-    # Write version file to mark installation complete
     write_version_file
 
     print_completion
