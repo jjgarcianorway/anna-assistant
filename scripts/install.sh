@@ -130,9 +130,11 @@ compare_versions() {
     local v1="$1"
     local v2="$2"
 
-    # Strip any -alpha, -beta, -rc suffixes for comparison
+    # Extract base version and suffix
     local v1_base=$(echo "$v1" | sed 's/-.*$//')
     local v2_base=$(echo "$v2" | sed 's/-.*$//')
+    local v1_suffix=$(echo "$v1" | grep -o '\-.*$' | sed 's/^-//' || echo "")
+    local v2_suffix=$(echo "$v2" | grep -o '\-.*$' | sed 's/^-//' || echo "")
 
     # Split into major.minor.patch
     IFS='.' read -ra V1 <<< "$v1_base"
@@ -157,6 +159,33 @@ compare_versions() {
         return 0
     elif [[ ${V1[2]:-0} -gt ${V2[2]:-0} ]]; then
         return 2
+    fi
+
+    # Base versions are equal, compare suffixes
+    # Precedence: (no suffix) > rc > beta > alpha
+    if [[ -z "$v1_suffix" && -n "$v2_suffix" ]]; then
+        return 2  # v1 > v2 (release > prerelease)
+    elif [[ -n "$v1_suffix" && -z "$v2_suffix" ]]; then
+        return 0  # v1 < v2 (prerelease < release)
+    elif [[ -z "$v1_suffix" && -z "$v2_suffix" ]]; then
+        return 1  # v1 == v2 (both are releases)
+    fi
+
+    # Both have suffixes, compare them
+    # alpha < beta < rc
+    local suffix_order=("alpha" "beta" "rc")
+    local v1_idx=-1
+    local v2_idx=-1
+
+    for i in "${!suffix_order[@]}"; do
+        [[ "$v1_suffix" == "${suffix_order[$i]}" ]] && v1_idx=$i
+        [[ "$v2_suffix" == "${suffix_order[$i]}" ]] && v2_idx=$i
+    done
+
+    if [[ $v1_idx -lt $v2_idx ]]; then
+        return 0  # v1 < v2
+    elif [[ $v1_idx -gt $v2_idx ]]; then
+        return 2  # v1 > v2
     fi
 
     return 1  # v1 == v2
