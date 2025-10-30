@@ -15,10 +15,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Configuration file banner (inserted at top of YAML files)
-pub const CONFIG_BANNER: &str = r#"# ─────────────────────────────────────────────────────────
-# Managed by Anna. Please use `annactl config ...` to change behavior.
-# Manual edits may be overwritten. See `annactl help config`.
-# ─────────────────────────────────────────────────────────
+pub const CONFIG_BANNER: &str = r#"# Managed by Anna. Please use `annactl config set ...` to change settings.
+# Manual edits can be overwritten. To lock a value, use `annactl config set --lock`.
+# To inspect origins and locks: `annactl config list --why`.
+# For help: `annactl help config`
 "#;
 
 /// Configuration value with origin tracking

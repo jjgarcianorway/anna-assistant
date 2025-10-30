@@ -5,7 +5,7 @@ set -euo pipefail
 # Full end-to-end deployment and runtime testing
 # Requires: sudo/root access on Arch Linux
 
-VERSION="0.9.6-alpha.2"
+VERSION="0.9.6-alpha.3"
 LOG_DIR="tests/logs"
 LOG_FILE="$LOG_DIR/runtime_validation.log"
 
@@ -992,9 +992,13 @@ test_profile_checks() {
 main() {
     # Setup
     mkdir -p "$LOG_DIR"
+
+    # Get hostname without hard dependency on hostname command
+    HOSTNAME=$(hostnamectl --static 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || echo "unknown")
+
     echo "===== Anna Assistant Runtime Validation v$VERSION =====" > "$LOG_FILE"
     echo "Started: $(date)" >> "$LOG_FILE"
-    echo "Host: $(hostname)" >> "$LOG_FILE"
+    echo "Host: $HOSTNAME" >> "$LOG_FILE"
     echo "Kernel: $(uname -r)" >> "$LOG_FILE"
     echo "" >> "$LOG_FILE"
 

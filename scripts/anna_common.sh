@@ -39,9 +39,14 @@ detect_terminal() {
         fi
     fi
 
-    # Check Unicode support
+    # Check Unicode support (LANG, LC_ALL, or locale charmap)
     if [[ "${LANG:-}" =~ UTF-8 ]] || [[ "${LC_ALL:-}" =~ UTF-8 ]]; then
         SUPPORTS_UNICODE=true
+    elif command -v locale &>/dev/null; then
+        local charmap=$(locale charmap 2>/dev/null || echo "")
+        if [[ "$charmap" =~ UTF-8 ]]; then
+            SUPPORTS_UNICODE=true
+        fi
     fi
 }
 

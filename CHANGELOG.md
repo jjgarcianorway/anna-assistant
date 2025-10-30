@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.3] - Hotfix: Installer & Runtime Hardening - 2025-10-30
+
+### Fixed
+
+#### Installer Hardening
+- **Enhanced Strict Mode** - Upgraded from `set -euo pipefail` to `set -Eeuo pipefail`:
+  - Added `-E` flag: ERR trap is inherited by shell functions
+  - Set safe `IFS=$'\n\t'` to prevent word splitting issues
+- **Defensive Symbol Initialization** - Added `: "${VAR:=default}"` pattern for all variables:
+  - Prevents "unbound variable" errors even if anna_common.sh fails to load
+  - All symbols (SYM_*, BOX_*, TREE_*) have safe defaults
+- **Enhanced Unicode Detection** - Added `locale charmap` fallback:
+  - Checks LANG, LC_ALL, then locale charmap for UTF-8 support
+  - More robust on minimal systems without LANG set
+
+#### Runtime Validation
+- **Removed hostname Hard Dependency** - No longer requires inetutils package:
+  - Tries `hostnamectl --static` first (systemd)
+  - Falls back to `/proc/sys/kernel/hostname`
+  - Final fallback to "unknown"
+  - Works on minimal Arch Linux installations
+
+#### Config Governance
+- **Improved Banner** - Updated from 3 lines to 4 lines with better guidance:
+  ```
+  # Managed by Anna. Please use `annactl config set ...` to change settings.
+  # Manual edits can be overwritten. To lock a value, use `annactl config set --lock`.
+  # To inspect origins and locks: `annactl config list --why`.
+  # For help: `annactl help config`
+  ```
+
+### Verified
+
+- ✅ CPU Usage: Daemon telemetry loop already optimal (60s tokio interval)
+- ✅ CLI Commands: config/persona/profile/ask all wired and functional
+- ✅ Anna Voice: Consistent messaging throughout (no changes needed)
+- ✅ Bash Syntax: `bash -n` passes on all scripts
+
+### Changed
+- Version bumped to 0.9.6-alpha.3 across all components
+
+### Testing
+```bash
+# Syntax check
+bash -n scripts/install.sh
+bash -n tests/runtime_validation.sh
+
+# Build
+cargo build --release
+```
+
+### Migration from 0.9.6-alpha.2
+```bash
+sudo ./scripts/install.sh
+```
+
+No functional changes - this is a stability and robustness hotfix.
+
+---
+
 ## [0.9.6-alpha.2] - Hotfix: Installer Symbol Initialization - 2025-10-30
 
 ### Fixed

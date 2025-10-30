@@ -1,0 +1,26 @@
+🔧 Hotfix: Installer & Runtime Stability
+
+Critical fixes for v0.9.6-alpha.3:
+
+✅ Installer hardening
+  - Strict mode: set -Eeuo pipefail + safe IFS
+  - All symbols defensively initialized
+  - Enhanced Unicode/charmap detection
+  - No more "unbound variable" errors
+
+✅ Runtime validation robust
+  - hostname: no hard dependency
+  - Falls back: hostnamectl → /proc → "unknown"
+  - Works on minimal Arch installs
+
+✅ Config governance improved
+  - 4-line banner with lock guidance
+  - Clear "use annactl" messaging
+  - Origin tracking explained
+
+✅ CPU usage optimized
+  - Daemon: 60s telemetry interval (verified)
+  - No tight loops or spinners
+  - Terminal lag eliminated
+
+All Phase 4.1 features stable & ready!

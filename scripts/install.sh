@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+IFS=$'\n\t'
 
 # ╭─────────────────────────────────────────────────────────────────────╮
-# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.2)          │
+# │ Anna Assistant Installer - Phase 4.1+4.3 (v0.9.6-alpha.3)          │
 # │                                                                     │
 # │ Conversational • Intelligent • Self-Healing                         │
 # │                                                                     │
@@ -21,11 +22,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/anna_common.sh
 source "$SCRIPT_DIR/anna_common.sh"
 
+# Defensive defaults for all variables (prevents unbound errors)
+: "${SYM_INFO:=i}"
+: "${SYM_OK:=✓}"
+: "${SYM_WARN:=!}"
+: "${SYM_ERR:=✗}"
+: "${SYM_CHECK:=✓}"
+: "${SYM_CROSS:=✗}"
+: "${SYM_WAIT:=...}"
+: "${SYM_SUCCESS:=✓}"
+: "${BOX_H:=-}"
+: "${BOX_V:=|}"
+: "${BOX_TL:=+}"
+: "${BOX_TR:=+}"
+: "${BOX_BL:=+}"
+: "${BOX_BR:=+}"
+: "${TREE_T:=+}"
+: "${TREE_B:=+}"
+: "${TREE_V:=|}"
+: "${TREE_H:=-}"
+
 # ============================================================================
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.6-alpha.2"
+BUNDLE_VERSION="0.9.6-alpha.3"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
