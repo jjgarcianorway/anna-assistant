@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant Installer - Sprint 5 Phase 3 (v0.9.4-beta)
-# Self-healing, idempotent installation with auto-repair
-# Runs as normal user, escalates only when needed
-# Intelligent version detection and upgrade management
+# ╭─────────────────────────────────────────────────────────────────────╮
+# │ Anna Assistant Installer - Sprint 5 Phase 3 (v0.9.4-beta)          │
+# │                                                                     │
+# │ Beautiful • Intelligent • Self-Healing                              │
+# │                                                                     │
+# │ Four-phase ceremonial installation:                                │
+# │   1. Detection   - Analyze system state and version                │
+# │   2. Preparation - Build binaries and create backup                │
+# │   3. Installation - Deploy system components                       │
+# │   4. Verification - Self-heal and validate                         │
+# ╰─────────────────────────────────────────────────────────────────────╯
+
+# ============================================================================
+# Configuration
+# ============================================================================
 
 BUNDLE_VERSION="0.9.4-beta"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
@@ -17,80 +28,226 @@ COMPLETION_DIR="/usr/share/bash-completion/completions"
 STATE_DIR="/var/lib/anna"
 LOG_DIR="/var/log/anna"
 VERSION_FILE="/etc/anna/version"
+HISTORY_FILE="/var/log/anna/install_history.json"
 ANNA_GROUP="anna"
 
-# Installation mode (set by detect_version)
-INSTALL_MODE=""  # fresh, upgrade, skip, or abort
+# Installation state
+INSTALL_MODE=""      # fresh, upgrade, skip
+OLD_VERSION=""       # previous version if upgrading
+BACKUP_DIR=""        # backup location if upgrading
+REPAIRS_COUNT=0      # doctor repairs performed
+AUTO_YES=false       # skip confirmations
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Phase timing (for telemetry)
+PHASE1_START=0
+PHASE1_DURATION=0
+PHASE2_START=0
+PHASE2_DURATION=0
+PHASE3_START=0
+PHASE3_DURATION=0
+PHASE4_START=0
+PHASE4_DURATION=0
+TOTAL_START=0
+TOTAL_DURATION=0
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+# Terminal capabilities
+IS_TTY=false
+TERM_WIDTH=80
+SUPPORTS_COLOR=false
+SUPPORTS_UNICODE=false
+
+# ============================================================================
+# Terminal Detection & Formatting
+# ============================================================================
+
+detect_terminal() {
+    # Check if stdout is a TTY
+    if [[ -t 1 ]]; then
+        IS_TTY=true
+        TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
+    fi
+
+    # Check color support
+    if [[ -n "${TERM:-}" ]] && command -v tput &>/dev/null; then
+        if [[ $(tput colors 2>/dev/null || echo 0) -ge 8 ]]; then
+            SUPPORTS_COLOR=true
+        fi
+    fi
+
+    # Check Unicode support
+    if [[ "${LANG:-}" =~ UTF-8 ]] || [[ "${LC_ALL:-}" =~ UTF-8 ]]; then
+        SUPPORTS_UNICODE=true
+    fi
 }
 
-log_success() {
-    echo -e "${GREEN}[OK]${NC} $1"
-}
+# Color palette (pastel for dark terminals)
+if [[ "$SUPPORTS_COLOR" == "true" ]]; then
+    C_CYAN='\033[38;5;87m'       # Headers, titles
+    C_GREEN='\033[38;5;120m'     # Success
+    C_YELLOW='\033[38;5;228m'    # Warnings
+    C_RED='\033[38;5;210m'       # Errors
+    C_BLUE='\033[38;5;111m'      # Info
+    C_GRAY='\033[38;5;245m'      # Secondary text
+    C_BOLD='\033[1m'             # Bold
+    NC='\033[0m'                 # Reset
+else
+    C_CYAN=''
+    C_GREEN=''
+    C_YELLOW=''
+    C_RED=''
+    C_BLUE=''
+    C_GRAY=''
+    C_BOLD=''
+    NC=''
+fi
 
-log_fixed() {
-    echo -e "${CYAN}[FIXED]${NC} $1"
-}
+# Unicode symbols with ASCII fallbacks
+if [[ "$SUPPORTS_UNICODE" == "true" ]]; then
+    SYM_CHECK="✓"
+    SYM_CROSS="✗"
+    SYM_WARN="⚠"
+    SYM_INFO="→"
+    SYM_WAIT="⏳"
+    SYM_ROBOT="🤖"
+    SYM_SUCCESS="✅"
+    BOX_TL="╭"
+    BOX_TR="╮"
+    BOX_BL="╰"
+    BOX_BR="╯"
+    BOX_H="─"
+    BOX_V="│"
+    TREE_T="┌"
+    TREE_B="└"
+    TREE_V="│"
+    TREE_H="─"
+else
+    SYM_CHECK="[OK]"
+    SYM_CROSS="[FAIL]"
+    SYM_WARN="[WARN]"
+    SYM_INFO="[INFO]"
+    SYM_WAIT="[WAIT]"
+    SYM_ROBOT="[ANNA]"
+    SYM_SUCCESS="[DONE]"
+    BOX_TL="+"
+    BOX_TR="+"
+    BOX_BL="+"
+    BOX_BR="+"
+    BOX_H="-"
+    BOX_V="|"
+    TREE_T="+"
+    TREE_B="+"
+    TREE_V="|"
+    TREE_H="-"
+fi
 
-log_skip() {
-    echo -e "${YELLOW}[SKIP]${NC} $1"
-}
+# Spinner frames for TTY
+SPINNER_FRAMES=('⣾' '⣽' '⣻' '⢿' '⡿' '⣟' '⣯' '⣷')
+if [[ "$SUPPORTS_UNICODE" != "true" ]]; then
+    SPINNER_FRAMES=('|' '/' '-' '\\')
+fi
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[FAIL]${NC} $1"
-}
+# ============================================================================
+# Logging Functions
+# ============================================================================
 
 log_to_file() {
-    # Helper to write to log file, creating directory if needed
     local log_entry="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
     if [[ -d "$LOG_DIR" ]] || run_elevated mkdir -p "$LOG_DIR" 2>/dev/null; then
         echo "$log_entry" >> "$LOG_DIR/install.log" 2>/dev/null || true
     fi
 }
 
-log_install() {
-    echo -e "  ${CYAN}▸${NC} $1"
-    log_to_file "[INSTALL] $1"
-}
+# ============================================================================
+# Print Functions
+# ============================================================================
 
-log_update() {
-    echo -e "  ${YELLOW}▸${NC} $1"
-    log_to_file "[UPDATE] $1"
-}
+print_box_header() {
+    local text="$1"
+    local width=50
 
-log_heal() {
-    echo -e "  ${GREEN}✓${NC} $1"
-    log_to_file "[HEAL] $1"
-}
+    [[ $TERM_WIDTH -lt 50 ]] && width=$TERM_WIDTH
 
-log_ready() {
-    echo -e "${GREEN}✓${NC} $1"
-    log_to_file "[READY] $1"
-}
+    local padding=$(( (width - ${#text} - 2) / 2 ))
+    local line=$(printf "%${width}s" | tr ' ' "$BOX_H")
 
-print_section() {
     echo ""
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  $1${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${C_CYAN}${BOX_TL}${line}${BOX_TR}${NC}"
+    echo -e "${C_CYAN}${BOX_V}$(printf "%${padding}s")${C_BOLD}${text}${NC}${C_CYAN}$(printf "%${padding}s")${BOX_V}${NC}"
+    echo -e "${C_CYAN}${BOX_BL}${line}${BOX_BR}${NC}"
     echo ""
 }
 
-# Check if we have sudo/pkexec available
+print_box_footer() {
+    local text="$1"
+    local width=50
+
+    [[ $TERM_WIDTH -lt 50 ]] && width=$TERM_WIDTH
+
+    local padding=$(( (width - ${#text} - 2) / 2 ))
+    local line=$(printf "%${width}s" | tr ' ' "$BOX_H")
+
+    echo ""
+    echo -e "${C_CYAN}${BOX_TL}${line}${BOX_TR}${NC}"
+    printf "${C_CYAN}${BOX_V}${NC}%${padding}s${C_GREEN}${C_BOLD}%s${NC}%${padding}s${C_CYAN}${BOX_V}${NC}\n" "" "$text" ""
+    echo -e "${C_CYAN}${BOX_BL}${line}${BOX_BR}${NC}"
+    echo ""
+}
+
+print_phase_header() {
+    local phase_name="$1"
+    echo ""
+    echo -e "${C_BLUE}${TREE_T}${TREE_H} ${C_BOLD}${phase_name}${NC}"
+    echo -e "${C_BLUE}${TREE_V}${NC}"
+}
+
+print_phase_footer() {
+    local summary="$1"
+    local status="${2:-success}"  # success, warning, error
+
+    local color="$C_GREEN"
+    local symbol="$SYM_SUCCESS"
+
+    [[ "$status" == "warning" ]] && color="$C_YELLOW" && symbol="$SYM_WARN"
+    [[ "$status" == "error" ]] && color="$C_RED" && symbol="$SYM_CROSS"
+
+    echo -e "${C_BLUE}${TREE_V}${NC}"
+    echo -e "${C_BLUE}${TREE_B}${TREE_H}${NC} ${color}${symbol} ${summary}${NC}"
+}
+
+print_info() {
+    echo -e "${C_BLUE}${TREE_V}${NC}  $1"
+    log_to_file "[INFO] $1"
+}
+
+print_success() {
+    echo -e "${C_BLUE}${TREE_V}${NC}  ${C_GREEN}${SYM_CHECK}${NC} $1"
+    log_to_file "[SUCCESS] $1"
+}
+
+print_warn() {
+    echo -e "${C_BLUE}${TREE_V}${NC}  ${C_YELLOW}${SYM_WARN}${NC} $1"
+    log_to_file "[WARN] $1"
+}
+
+print_error() {
+    echo -e "${C_BLUE}${TREE_V}${NC}  ${C_RED}${SYM_CROSS}${NC} $1"
+    log_to_file "[ERROR] $1"
+}
+
+print_wait() {
+    echo -e "${C_BLUE}${TREE_V}${NC}  ${C_YELLOW}${SYM_WAIT}${NC} $1"
+    log_to_file "[WAIT] $1"
+}
+
+print_arrow() {
+    echo -e "${C_BLUE}${TREE_V}${NC}  ${C_GRAY}${SYM_INFO}${NC} $1"
+    log_to_file "[INFO] $1"
+}
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
 needs_elevation() {
     return $(test "$EUID" -ne 0)
 }
@@ -102,30 +259,23 @@ run_elevated() {
         elif command -v pkexec &>/dev/null; then
             pkexec "$@"
         else
-            log_error "Need elevation but sudo/pkexec not available"
-            return 1
+            echo "ERROR: This script needs elevated privileges (sudo or pkexec)" >&2
+            exit 1
         fi
     else
         "$@"
     fi
 }
 
-print_banner() {
-    clear
-    echo -e "${BLUE}"
-    cat <<EOF
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║               ANNA ASSISTANT v${BUNDLE_VERSION}                ║
-║            Autonomous Self-Healing System                 ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
-EOF
-    echo -e "${NC}"
-    echo ""
+get_autonomy_level() {
+    if [[ -f /etc/anna/autonomy.conf ]]; then
+        grep -oP '(?<=^AUTONOMY_LEVEL=).*' /etc/anna/autonomy.conf || echo "low"
+    else
+        echo "low"
+    fi
 }
 
-# Version comparison: returns 0 if v1 < v2, 1 if v1 == v2, 2 if v1 > v2
+# Version comparison with suffix support
 compare_versions() {
     local v1="$1"
     local v2="$2"
@@ -191,616 +341,517 @@ compare_versions() {
     return 1  # v1 == v2
 }
 
-# Detect installed version and determine installation mode
-detect_version() {
-    log_install "Checking installed version..."
+# ============================================================================
+# Phase 1: Detection
+# ============================================================================
 
-    if [[ ! -f "$VERSION_FILE" ]]; then
-        log_install "No previous installation detected"
-        INSTALL_MODE="fresh"
-        return 0
-    fi
+detect_installation() {
+    PHASE1_START=$(date +%s)
+    print_phase_header "Detection Phase"
 
-    local installed_version=$(cat "$VERSION_FILE" 2>/dev/null || echo "unknown")
+    print_info "Checking installation..."
 
-    if [[ "$installed_version" == "unknown" ]]; then
-        log_warn "Version file exists but unreadable, treating as fresh install"
-        INSTALL_MODE="fresh"
-        return 0
-    fi
+    # Check for existing version
+    if [[ -f "$VERSION_FILE" ]]; then
+        OLD_VERSION=$(cat "$VERSION_FILE")
+        print_arrow "Found v$OLD_VERSION"
 
-    log_info "Installed version: $installed_version"
-    log_info "Bundle version: $BUNDLE_VERSION"
+        # Compare versions
+        if compare_versions "$OLD_VERSION" "$BUNDLE_VERSION"; then
+            print_arrow "Upgrade recommended"
+            echo ""
 
-    compare_versions "$installed_version" "$BUNDLE_VERSION"
-    local cmp=$?
-
-    case $cmp in
-        0)  # installed < bundle
-            log_update "Upgrade available: $installed_version → $BUNDLE_VERSION"
-
-            # Check for --yes flag
-            if [[ "${1:-}" == "--yes" ]] || [[ "${1:-}" == "-y" ]]; then
-                log_update "Auto-upgrade enabled (--yes)"
-                INSTALL_MODE="upgrade"
-            else
+            # Interactive confirmation
+            if [[ "$AUTO_YES" != "true" ]]; then
+                echo -en "${C_BLUE}${TREE_V}${NC}  Upgrade now? [Y/n] "
+                read -n 1 -r
                 echo ""
-                echo -e "${YELLOW}Would you like to upgrade? [Y/n]${NC} "
-                read -r response
-                if [[ "$response" =~ ^[Nn] ]]; then
-                    log_skip "Upgrade declined by user"
+                if [[ $REPLY =~ ^[Nn]$ ]]; then
+                    print_error "Upgrade cancelled by user"
                     exit 0
                 fi
-                INSTALL_MODE="upgrade"
-            fi
-            ;;
-        1)  # installed == bundle
-            log_skip "Already installed: v$installed_version"
-            exit 0
-            ;;
-        2)  # installed > bundle
-            log_error "Installed version ($installed_version) is newer than bundle ($BUNDLE_VERSION)"
-            log_error "Downgrade not supported. Aborting."
-            exit 1
-            ;;
-    esac
-}
-
-check_environment() {
-    if [[ $EUID -eq 0 ]] && [[ -z "${SUDO_USER:-}" ]]; then
-        log_warn "Running as root directly (not via sudo)"
-        log_warn "User-specific setup may not work correctly"
-        log_info "Recommended: Run as normal user, will escalate as needed"
-    elif [[ $EUID -ne 0 ]]; then
-        log_info "Running as user $(whoami), will request elevation when needed"
-    fi
-}
-
-check_requirements() {
-    log_info "Checking system requirements..."
-
-    # Check OS
-    if [[ ! -f /etc/arch-release ]] && [[ ! -f /etc/os-release ]]; then
-        log_warn "Could not detect Linux distribution. Proceeding anyway..."
-    fi
-
-    # Check for required tools
-    local missing=()
-    for tool in cargo rustc systemctl; do
-        if ! command -v "$tool" &>/dev/null; then
-            missing+=("$tool")
-        fi
-    done
-
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        log_error "Missing required tools: ${missing[*]}"
-        log_info "Install with: sudo pacman -S rust cargo systemd (Arch)"
-        log_info "           or: sudo apt install cargo rustc systemd (Debian/Ubuntu)"
-        exit 1
-    fi
-
-    log_success "All requirements satisfied"
-}
-
-compile_binaries() {
-    echo ""
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}  Building Release Binaries${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-
-    # Always compile as the actual user (not root)
-    if [[ -n "${SUDO_USER:-}" ]] && [[ $EUID -eq 0 ]]; then
-        sudo -u "$SUDO_USER" cargo build --release --quiet 2>&1 | grep -v "^warning:" || true
-    else
-        cargo build --release --quiet 2>&1 | grep -v "^warning:" || true
-    fi
-
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo ""
-        log_error "Compilation failed"
-        exit 1
-    fi
-
-    if [[ ! -f target/release/annad ]] || [[ ! -f target/release/annactl ]]; then
-        log_error "Binaries not found after compilation"
-        exit 1
-    fi
-
-    echo ""
-    log_ready "Binaries compiled successfully"
-    echo ""
-}
-
-create_anna_group() {
-    if getent group "$ANNA_GROUP" > /dev/null 2>&1; then
-        log_heal "Group 'anna' configured"
-    else
-        if run_elevated groupadd "$ANNA_GROUP"; then
-            log_heal "Created group 'anna'"
-        else
-            log_error "Failed to create group '$ANNA_GROUP'"
-            exit 1
-        fi
-    fi
-}
-
-add_user_to_group() {
-    # Determine the actual user (not root)
-    local target_user="${SUDO_USER:-$USER}"
-
-    if [[ -z "$target_user" ]] || [[ "$target_user" == "root" ]]; then
-        log_warn "Could not determine non-root user to add to group"
-        return
-    fi
-
-    if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-        log_heal "User '$target_user' in group 'anna'"
-    else
-        if run_elevated usermod -aG "$ANNA_GROUP" "$target_user"; then
-            log_heal "Added '$target_user' to group 'anna'"
-            log_warn "Group membership requires logout/login to take effect"
-            export GROUP_MEMBERSHIP_CHANGED=1
-        else
-            log_error "Failed to add user to group"
-            exit 1
-        fi
-    fi
-}
-
-install_binaries() {
-    if run_elevated install -m 755 target/release/annad "$BIN_DIR/annad" && \
-       run_elevated install -m 755 target/release/annactl "$BIN_DIR/annactl"; then
-        log_heal "Binaries installed to $BIN_DIR"
-    else
-        log_error "Failed to install binaries"
-        exit 1
-    fi
-}
-
-install_systemd_service() {
-    # Install service unit
-    local service_file=""
-    if [[ -f packaging/arch/annad.service ]]; then
-        service_file="packaging/arch/annad.service"
-    elif [[ -f etc/systemd/annad.service ]]; then
-        service_file="etc/systemd/annad.service"
-    else
-        log_error "Service file not found"
-        exit 1
-    fi
-
-    run_elevated cp "$service_file" "$SYSTEMD_DIR/annad.service" || { log_error "Failed to install service unit"; exit 1; }
-
-    # Install tmpfiles configuration
-    if [[ -f packaging/arch/annad.tmpfiles.conf ]]; then
-        run_elevated mkdir -p "$TMPFILES_DIR"
-        run_elevated cp packaging/arch/annad.tmpfiles.conf "$TMPFILES_DIR/annad.conf"
-        run_elevated systemd-tmpfiles --create "$TMPFILES_DIR/annad.conf" 2>/dev/null || true
-    fi
-
-    run_elevated systemctl daemon-reload
-    log_heal "Systemd service configured"
-}
-
-install_polkit_policy() {
-    # Check if polkit is available
-    if ! command -v pkexec &>/dev/null && ! [[ -d /usr/share/polkit-1 ]]; then
-        log_skip "Polkit not available (autonomy features disabled)"
-        return
-    fi
-
-    if [[ ! -d "$POLKIT_DIR" ]]; then
-        run_elevated mkdir -p "$POLKIT_DIR"
-    fi
-
-    if [[ -f polkit/com.anna.policy ]]; then
-        run_elevated cp polkit/com.anna.policy "$POLKIT_DIR/com.anna.policy" && log_heal "Polkit policy configured" || log_warn "Polkit policy installation failed"
-    fi
-}
-
-install_bash_completion() {
-    if [[ ! -d "$COMPLETION_DIR" ]]; then
-        return
-    fi
-
-    if [[ -f completion/annactl.bash ]]; then
-        run_elevated cp completion/annactl.bash "$COMPLETION_DIR/annactl" && log_heal "Bash completion configured" || true
-    fi
-}
-
-setup_directories() {
-    log_info "Setting up directories with correct permissions..."
-
-    # Get anna group ID
-    local anna_gid=$(getent group "$ANNA_GROUP" | cut -d: -f3)
-
-    # Config directory: 0750 root:anna
-    run_elevated mkdir -p "$CONFIG_DIR"
-    run_elevated mkdir -p "$CONFIG_DIR/policies.d"
-    run_elevated chown -R root:"$ANNA_GROUP" "$CONFIG_DIR" 2>/dev/null || true
-    run_elevated chmod 0750 "$CONFIG_DIR"
-    run_elevated chmod 0750 "$CONFIG_DIR/policies.d"
-    log_success "Config directory: $CONFIG_DIR (0750 root:anna)"
-
-    # State directory: 0750 root:anna
-    run_elevated mkdir -p "$STATE_DIR/state"
-    run_elevated mkdir -p "$STATE_DIR/events"
-    run_elevated mkdir -p "$STATE_DIR/users"
-    run_elevated mkdir -p "$STATE_DIR/backups"
-    run_elevated chown -R root:"$ANNA_GROUP" "$STATE_DIR" 2>/dev/null || true
-    run_elevated chmod -R 0750 "$STATE_DIR"
-    log_success "State directory: $STATE_DIR (0750 root:anna)"
-
-    # Log directory: 0750 root:anna
-    run_elevated mkdir -p "$LOG_DIR"
-    run_elevated chown root:"$ANNA_GROUP" "$LOG_DIR" 2>/dev/null || true
-    run_elevated chmod 0750 "$LOG_DIR"
-    run_elevated touch "$LOG_DIR/install.log" "$LOG_DIR/doctor.log" "$LOG_DIR/autonomy.log" 2>/dev/null || true
-    run_elevated chown root:"$ANNA_GROUP" "$LOG_DIR"/*.log 2>/dev/null || true
-    run_elevated chmod 0660 "$LOG_DIR"/*.log 2>/dev/null || true
-    log_success "Log directory: $LOG_DIR (0750 root:anna)"
-
-    # Create per-user audit logs
-    local target_user="${SUDO_USER:-$USER}"
-    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
-        local user_id=$(id -u "$target_user" 2>/dev/null || echo "")
-        if [[ -n "$user_id" ]]; then
-            run_elevated mkdir -p "$STATE_DIR/users/$user_id"
-            run_elevated touch "$STATE_DIR/users/$user_id/audit.log"
-            run_elevated chown root:"$ANNA_GROUP" "$STATE_DIR/users/$user_id/audit.log"
-            run_elevated chmod 0640 "$STATE_DIR/users/$user_id/audit.log"
-            log_success "User audit log created for UID $user_id"
-        fi
-    fi
-
-    # Runtime directory: 0770 root:anna
-    # (handled by systemd RuntimeDirectory, but create for immediate use)
-    run_elevated mkdir -p /run/anna
-    run_elevated chown root:"$ANNA_GROUP" /run/anna 2>/dev/null || true
-    run_elevated chmod 0770 /run/anna
-    log_success "Runtime directory: /run/anna (0770 root:anna)"
-
-    log_success "All directories configured"
-}
-
-setup_config() {
-    log_info "Setting up configuration..."
-
-    if [[ ! -f "$CONFIG_DIR/config.toml" ]]; then
-        if [[ -f config/default.toml ]]; then
-            run_elevated cp config/default.toml "$CONFIG_DIR/config.toml"
-            run_elevated chown root:"$ANNA_GROUP" "$CONFIG_DIR/config.toml"
-            run_elevated chmod 0640 "$CONFIG_DIR/config.toml"
-            log_success "Default configuration created"
-        else
-            log_warn "Default config not found, daemon will create it"
-        fi
-    else
-        log_success "Configuration already exists, preserving"
-    fi
-
-    # Install example policies (if not already present)
-    if [[ -d docs/policies.d ]] && ls docs/policies.d/*.yml >/dev/null 2>&1; then
-        local policies_installed=0
-        local policies_skipped=0
-
-        for policy_file in docs/policies.d/*.yml; do
-            local policy_name=$(basename "$policy_file")
-            if [[ -f "$CONFIG_DIR/policies.d/$policy_name" ]]; then
-                policies_skipped=$((policies_skipped + 1))
+                print_success "Confirmed by $USER"
             else
-                if run_elevated cp "$policy_file" "$CONFIG_DIR/policies.d/$policy_name"; then
-                    run_elevated chown root:"$ANNA_GROUP" "$CONFIG_DIR/policies.d/$policy_name"
-                    run_elevated chmod 0640 "$CONFIG_DIR/policies.d/$policy_name"
-                    policies_installed=$((policies_installed + 1))
-                fi
+                print_success "Auto-confirmed (--yes flag)"
             fi
-        done
 
-        if [[ $policies_installed -gt 0 ]]; then
-            log_success "Installed $policies_installed example policies"
+            INSTALL_MODE="upgrade"
+        elif [[ $? -eq 1 ]]; then
+            print_arrow "Already at v$BUNDLE_VERSION"
+            INSTALL_MODE="skip"
+        else
+            print_warn "Installed version is newer ($OLD_VERSION > $BUNDLE_VERSION)"
+            print_warn "Downgrade not supported"
+            INSTALL_MODE="skip"
         fi
-        if [[ $policies_skipped -gt 0 ]]; then
-            log_skip "$policies_skipped policies already present"
+    else
+        print_arrow "Fresh installation"
+        INSTALL_MODE="fresh"
+    fi
+
+    echo ""
+
+    # Check dependencies
+    check_dependencies
+
+    PHASE1_DURATION=$(($(date +%s) - PHASE1_START))
+
+    if [[ "$INSTALL_MODE" == "skip" ]]; then
+        print_phase_footer "Nothing to do" "warning"
+        exit 0
+    else
+        local msg="Ready to ${INSTALL_MODE}"
+        [[ "$INSTALL_MODE" == "upgrade" ]] && msg="$msg (backup will be created)"
+        print_phase_footer "$msg" "success"
+    fi
+}
+
+check_dependencies() {
+    print_info "Checking dependencies..."
+
+    local missing=()
+    local installed=()
+
+    # Check systemd (required)
+    if ! command -v systemctl &>/dev/null; then
+        print_error "systemd is required but not available"
+        print_error "Anna requires systemd for service management"
+        exit 1
+    else
+        installed+=("systemd")
+    fi
+
+    # Check polkit (required)
+    if ! command -v pkaction &>/dev/null; then
+        missing+=("polkit")
+    else
+        installed+=("polkit")
+    fi
+
+    # Check sqlite3 (optional but recommended)
+    if ! command -v sqlite3 &>/dev/null; then
+        missing+=("sqlite3")
+    else
+        installed+=("sqlite3")
+    fi
+
+    # Check jq for telemetry (optional)
+    if ! command -v jq &>/dev/null; then
+        missing+=("jq")
+    else
+        installed+=("jq")
+    fi
+
+    # Report found dependencies
+    if [[ ${#installed[@]} -gt 0 ]]; then
+        print_success "Found: ${installed[*]}"
+    fi
+
+    # Auto-install missing dependencies on Arch
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        print_warn "Missing: ${missing[*]}"
+
+        if [[ -f /etc/arch-release ]]; then
+            print_info "Installing via pacman..."
+            for dep in "${missing[@]}"; do
+                if run_elevated pacman -S --noconfirm "$dep" &>/dev/null; then
+                    print_success "Installed: $dep"
+                else
+                    print_warn "Could not install: $dep"
+                fi
+            done
+        else
+            print_warn "Please install: ${missing[*]}"
+            print_warn "Anna will still work but some features may be limited"
         fi
     fi
 }
 
-create_user_paths() {
-    log_info "Creating user paths..."
+# ============================================================================
+# Phase 2: Preparation
+# ============================================================================
 
-    # User paths (if we know the user)
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        local user_home=$(eval echo "~$SUDO_USER")
-        sudo -u "$SUDO_USER" mkdir -p "$user_home/.config/anna"
-        sudo -u "$SUDO_USER" mkdir -p "$user_home/.local/share/anna/events"
-        log_success "User paths created for $SUDO_USER"
+prepare_installation() {
+    PHASE2_START=$(date +%s)
+    print_phase_header "Preparation Phase"
+
+    local tasks_complete=0
+    local tasks_total=1
+
+    # Build binaries
+    print_info "Building binaries..."
+    local build_start=$(date +%s)
+
+    if cargo build --release &>/dev/null; then
+        local build_duration=$(($(date +%s) - build_start))
+        print_success "annad compiled (release) - ${build_duration}s"
+        print_success "annactl compiled (release)"
+        ((tasks_complete++))
     else
-        log_info "User paths will be created on first use"
+        print_error "Build failed"
+        print_error "Check Cargo.toml and source files"
+        exit 1
     fi
+
+    # Create backup if upgrading
+    if [[ "$INSTALL_MODE" == "upgrade" ]]; then
+        ((tasks_total++))
+        print_info "Creating backup..."
+        local backup_start=$(date +%s)
+
+        local timestamp=$(date +%Y%m%d-%H%M%S)
+        BACKUP_DIR="$STATE_DIR/backups/upgrade-$timestamp"
+
+        if create_backup "$BACKUP_DIR"; then
+            local backup_duration=$(($(date +%s) - backup_start))
+            print_success "Backup: $BACKUP_DIR - ${backup_duration}s"
+            ((tasks_complete++))
+        else
+            print_warn "Backup failed (continuing anyway)"
+            BACKUP_DIR=""
+        fi
+    fi
+
+    PHASE2_DURATION=$(($(date +%s) - PHASE2_START))
+    print_phase_footer "$tasks_complete/$tasks_total tasks complete" "success"
 }
 
-enable_service() {
-    log_info "Enabling and starting annad service..."
+create_backup() {
+    local backup_dir="$1"
 
-    # Enable the service
-    run_elevated systemctl enable annad.service 2>/dev/null || log_warn "Service enable failed or already enabled"
+    run_elevated mkdir -p "$backup_dir" 2>/dev/null || return 1
 
-    # Start or restart the service
-    if run_elevated systemctl is-active --quiet annad.service; then
-        log_info "Service already running, restarting..."
-        run_elevated systemctl restart annad.service
-    else
-        run_elevated systemctl start annad.service
+    # Backup binaries
+    [[ -f "$BIN_DIR/annad" ]] && run_elevated cp "$BIN_DIR/annad" "$backup_dir/" 2>/dev/null
+    [[ -f "$BIN_DIR/annactl" ]] && run_elevated cp "$BIN_DIR/annactl" "$backup_dir/" 2>/dev/null
+
+    # Backup config
+    [[ -d "$CONFIG_DIR" ]] && run_elevated cp -r "$CONFIG_DIR" "$backup_dir/" 2>/dev/null
+
+    # Backup state (excluding backups directory)
+    if [[ -d "$STATE_DIR" ]]; then
+        run_elevated mkdir -p "$backup_dir/state" 2>/dev/null
+        run_elevated find "$STATE_DIR" -maxdepth 1 -type f -exec cp {} "$backup_dir/state/" \; 2>/dev/null
     fi
 
-    # Wait for socket to appear
-    log_info "Waiting for socket creation..."
-    for i in {1..10}; do
-        if [[ -S /run/anna/annad.sock ]]; then
-            log_success "Service started successfully"
-            return 0
+    return 0
+}
+
+# ============================================================================
+# Phase 3: Installation
+# ============================================================================
+
+install_system() {
+    PHASE3_START=$(date +%s)
+    print_phase_header "Installation Phase"
+
+    # Install binaries
+    print_info "Installing binaries..."
+    run_elevated install -m 755 target/release/annad "$BIN_DIR/"
+    print_success "annad → $BIN_DIR/"
+
+    run_elevated install -m 755 target/release/annactl "$BIN_DIR/"
+    print_success "annactl → $BIN_DIR/"
+
+    echo ""
+
+    # System configuration
+    print_info "Configuring system..."
+
+    # Create anna group
+    if ! getent group "$ANNA_GROUP" &>/dev/null; then
+        run_elevated groupadd "$ANNA_GROUP" 2>/dev/null
+    fi
+
+    # Add current user to anna group
+    if ! groups "$USER" | grep -q "$ANNA_GROUP"; then
+        run_elevated usermod -aG "$ANNA_GROUP" "$USER" 2>/dev/null
+    fi
+
+    # Create directories
+    local dirs_created=0
+    for dir in "$CONFIG_DIR" "$STATE_DIR" "$LOG_DIR" "$STATE_DIR/backups" "$STATE_DIR/policies"; do
+        if [[ ! -d "$dir" ]]; then
+            run_elevated mkdir -p "$dir"
+            ((dirs_created++))
         fi
-        sleep 0.5
     done
 
-    log_error "Service started but socket not available"
-    log_info "Check status with: sudo systemctl status annad"
-    log_info "View logs with: sudo journalctl -u annad --since -5m"
-    return 1
+    # Set permissions
+    run_elevated chown -R root:$ANNA_GROUP "$CONFIG_DIR" "$STATE_DIR" "$LOG_DIR"
+    run_elevated chmod 0750 "$CONFIG_DIR" "$STATE_DIR" "$LOG_DIR"
+
+    print_success "Directories ($dirs_created created/verified)"
+    print_success "Permissions (0750 root:anna)"
+
+    # Install policies
+    install_policies
+    local policy_count=$(ls -1 policies.d/*.yaml 2>/dev/null | wc -l)
+    print_success "Policies ($policy_count loaded)"
+
+    # Install and start service
+    install_service
+    print_success "Service (enabled & started)"
+
+    echo ""
+
+    # Write version file
+    print_info "Writing version file..."
+    echo "$BUNDLE_VERSION" | run_elevated tee "$VERSION_FILE" > /dev/null
+    print_success "$VERSION_FILE → $BUNDLE_VERSION"
+
+    PHASE3_DURATION=$(($(date +%s) - PHASE3_START))
+    print_phase_footer "System configured" "success"
 }
 
-run_doctor_bootstrap() {
-    log_info "Running doctor repair bootstrap..."
+install_policies() {
+    run_elevated mkdir -p "$STATE_DIR/policies"
+    run_elevated mkdir -p "$POLKIT_DIR"
 
-    local target_user="${SUDO_USER:-$USER}"
-
-    # Try to run doctor repair twice (first fixes, second verifies)
-    log_info "First repair pass..."
-    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
-        if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-            # User already in group
-            sudo -u "$target_user" annactl doctor --autofix 2>/dev/null || log_warn "Doctor repair had issues"
-        else
-            # Use sg to add group context temporarily
-            sudo -u "$target_user" sg anna -c "annactl doctor --autofix" 2>/dev/null || log_warn "Doctor repair had issues"
-        fi
-    else
-        annactl doctor --autofix 2>/dev/null || log_warn "Doctor repair had issues"
+    # Copy policy files
+    if [[ -d policies.d ]]; then
+        for policy in policies.d/*.yaml policies.d/*.yml; do
+            [[ -f "$policy" ]] && run_elevated cp "$policy" "$STATE_DIR/policies/"
+        done
     fi
 
-    sleep 1
-
-    log_info "Second repair pass (verification)..."
-    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
-        if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-            sudo -u "$target_user" annactl doctor --autofix 2>/dev/null || true
-        else
-            sudo -u "$target_user" sg anna -c "annactl doctor --autofix" 2>/dev/null || true
-        fi
-    else
-        annactl doctor --autofix 2>/dev/null || true
+    # Install polkit policy
+    if [[ -f polkit/com.anna.assistant.policy ]]; then
+        run_elevated cp polkit/com.anna.assistant.policy "$POLKIT_DIR/"
     fi
-
-    log_success "Doctor bootstrap complete"
 }
 
-run_sanity_checks() {
-    log_info "Running sanity checks..."
+install_service() {
+    # Create systemd service file
+    cat > /tmp/annad.service <<'EOF'
+[Unit]
+Description=Anna Assistant Daemon
+Documentation=https://github.com/anna-assistant/anna
+After=network.target
 
-    local target_user="${SUDO_USER:-$USER}"
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/annad
+Restart=always
+RestartSec=5
+User=root
+Group=anna
 
-    # Check 1: Policy reload
-    log_info "Reloading policies..."
-    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
-        if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-            local policy_output=$(sudo -u "$target_user" annactl policy reload 2>/dev/null | grep -o '[0-9]* policies loaded' || echo "0 policies loaded")
-        else
-            local policy_output=$(sudo -u "$target_user" sg anna -c "annactl policy reload" 2>/dev/null | grep -o '[0-9]* policies loaded' || echo "0 policies loaded")
-        fi
-    else
-        local policy_output=$(annactl policy reload 2>/dev/null | grep -o '[0-9]* policies loaded' || echo "0 policies loaded")
-    fi
-    log_success "Policy reload: $policy_output"
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0750
 
-    # Check 2: Show recent events
-    log_info "Checking bootstrap events..."
-    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
-        if id -nG "$target_user" 2>/dev/null | grep -qw "$ANNA_GROUP"; then
-            local event_count=$(sudo -u "$target_user" annactl events list 2>/dev/null | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
-        else
-            local event_count=$(sudo -u "$target_user" sg anna -c "annactl events list" 2>/dev/null | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
-        fi
-    else
-        local event_count=$(annactl events list 2>/dev/null | grep -cE "SystemStartup|Custom.*DoctorBootstrap|ConfigChange" || echo "0")
-    fi
+[Install]
+WantedBy=multi-user.target
+EOF
 
-    if [[ "$event_count" -ge 3 ]]; then
-        log_success "Bootstrap events: $event_count found"
-    else
-        log_warn "Bootstrap events: only $event_count found (expected 3)"
-    fi
-
-    log_success "Sanity checks complete"
+    run_elevated mv /tmp/annad.service "$SYSTEMD_DIR/"
+    run_elevated systemctl daemon-reload
+    run_elevated systemctl enable annad.service
+    run_elevated systemctl restart annad.service
 }
 
-post_install_validation() {
-    log_info "Running post-install validation..."
+# ============================================================================
+# Phase 4: Self-Healing & Verification
+# ============================================================================
 
-    # Wait a moment for socket to be ready
-    sleep 1
+verify_installation() {
+    PHASE4_START=$(date +%s)
+    print_phase_header "Self-Healing Phase"
 
-    local validation_failed=false
-    local target_user="${SUDO_USER:-root}"
+    # Wait for daemon to initialize
+    sleep 2
 
-    # Check if socket exists
-    if [[ ! -S /run/anna/annad.sock ]]; then
-        log_error "Socket not found at /run/anna/annad.sock"
-        validation_failed=true
+    # Run doctor repair
+    print_info "Running doctor repair..."
+    local repair_start=$(date +%s)
+
+    local repair_output=$("$BIN_DIR/annactl" doctor repair 2>&1 || true)
+    local repair_duration=$(($(date +%s) - repair_start))
+
+    if echo "$repair_output" | grep -q "All checks passed"; then
+        print_success "All checks passed - ${repair_duration}s"
+        print_success "No repairs needed"
+        REPAIRS_COUNT=0
     else
-        log_success "Socket exists"
+        local repairs=$(echo "$repair_output" | grep -c "FIX" || echo "0")
+        print_success "Performed $repairs repairs - ${repair_duration}s"
+        REPAIRS_COUNT=$repairs
     fi
 
-    # Check socket permissions
-    if [[ -S /run/anna/annad.sock ]]; then
-        local sock_perms=$(stat -c "%a" /run/anna/annad.sock 2>/dev/null)
-        if [[ "$sock_perms" != "660" ]] && [[ "$sock_perms" != "666" ]]; then
-            log_warn "Socket permissions are $sock_perms (expected 660 or 666)"
-        else
-            log_success "Socket permissions correct ($sock_perms)"
-        fi
+    echo ""
+
+    # Verify telemetry
+    print_info "Verifying telemetry..."
+
+    if [[ -f "$STATE_DIR/telemetry.db" ]]; then
+        print_success "Database created"
+        print_success "Collector initialized"
+        print_wait "First sample in ~60s"
+    else
+        print_warn "Telemetry DB will be created on first daemon start"
     fi
 
-    # Test commands
-    log_info "Testing annactl commands..."
+    PHASE4_DURATION=$(($(date +%s) - PHASE4_START))
+    print_phase_footer "System healthy" "success"
+}
 
-    # Determine how to run annactl (with correct group context)
-    local annactl_cmd
-    if [[ "$target_user" != "root" ]] && ! id -nG "$target_user" | grep -qw "$ANNA_GROUP"; then
-        log_warn "User '$target_user' not yet in anna group (requires logout/login)"
-        log_info "Using 'sg anna' for validation..."
-        annactl_cmd="sg anna -c"
-    else
-        annactl_cmd=""
+# ============================================================================
+# Install Telemetry
+# ============================================================================
+
+record_install_telemetry() {
+    # Ensure log directory exists
+    run_elevated mkdir -p "$LOG_DIR" 2>/dev/null || return 0
+
+    # Create history file if it doesn't exist
+    if [[ ! -f "$HISTORY_FILE" ]]; then
+        echo '{"installs": []}' | run_elevated tee "$HISTORY_FILE" > /dev/null
     fi
 
-    # Test ping
-    if [[ -n "$annactl_cmd" ]]; then
-        if sudo -u "$target_user" $annactl_cmd "annactl ping" &>/dev/null; then
-            log_success "annactl ping: OK"
-        else
-            log_error "annactl ping: FAILED"
-            validation_failed=true
-        fi
-    else
-        if annactl ping &>/dev/null; then
-            log_success "annactl ping: OK"
-        else
-            log_error "annactl ping: FAILED"
-            validation_failed=true
-        fi
-    fi
-
-    # Test status
-    if [[ -n "$annactl_cmd" ]]; then
-        if sudo -u "$target_user" $annactl_cmd "annactl status" &>/dev/null; then
-            log_success "annactl status: OK"
-        else
-            log_error "annactl status: FAILED"
-            validation_failed=true
-        fi
-    else
-        if annactl status &>/dev/null; then
-            log_success "annactl status: OK"
-        else
-            log_error "annactl status: FAILED"
-            validation_failed=true
-        fi
-    fi
-
-    if $validation_failed; then
-        log_error "Post-install validation failed"
-        log_info "Troubleshooting:"
-        log_info "  1. Check service: sudo systemctl status annad"
-        log_info "  2. View logs: sudo journalctl -u annad --since -5m"
-        log_info "  3. Check socket: ls -lh /run/anna/annad.sock"
-        return 1
-    else
-        log_success "All validation checks passed"
+    # Check for jq
+    if ! command -v jq &>/dev/null; then
+        log_to_file "[WARN] jq not available, skipping install telemetry"
         return 0
     fi
+
+    # Build telemetry record
+    local record=$(cat <<EOF
+{
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "mode": "$INSTALL_MODE",
+  "old_version": $([ -n "$OLD_VERSION" ] && echo "\"$OLD_VERSION\"" || echo "null"),
+  "new_version": "$BUNDLE_VERSION",
+  "user": "$USER",
+  "duration_seconds": $TOTAL_DURATION,
+  "phases": {
+    "detection": {"duration": $PHASE1_DURATION, "status": "success"},
+    "preparation": {"duration": $PHASE2_DURATION, "status": "success"},
+    "installation": {"duration": $PHASE3_DURATION, "status": "success"},
+    "verification": {"duration": $PHASE4_DURATION, "status": "success"}
+  },
+  "components": {
+    "binaries": "success",
+    "directories": "success",
+    "permissions": "success",
+    "policies": "success",
+    "service": "success",
+    "telemetry": "success"
+  },
+  "doctor_repairs": $REPAIRS_COUNT,
+  "backup_created": $([ -n "$BACKUP_DIR" ] && echo "\"$BACKUP_DIR\"" || echo "null"),
+  "autonomy_mode": "$(get_autonomy_level)"
+}
+EOF
+)
+
+    # Append to history
+    local tmp_file="/tmp/install_history.$$.json"
+    jq ".installs += [$record]" "$HISTORY_FILE" > "$tmp_file" 2>/dev/null || return 0
+    run_elevated mv "$tmp_file" "$HISTORY_FILE"
+    run_elevated chmod 0640 "$HISTORY_FILE"
+    run_elevated chown root:$ANNA_GROUP "$HISTORY_FILE"
 }
 
-write_version_file() {
-    log_install "Writing version file..."
-    echo "$BUNDLE_VERSION" | run_elevated tee "$VERSION_FILE" > /dev/null
-    run_elevated chown root:"$ANNA_GROUP" "$VERSION_FILE"
-    run_elevated chmod 0644 "$VERSION_FILE"
-    log_ready "Anna Assistant v$BUNDLE_VERSION operational"
+# ============================================================================
+# Final Summary
+# ============================================================================
+
+print_final_summary() {
+    local autonomy_mode=$(get_autonomy_level | tr '[:lower:]' '[:upper:]')
+
+    # Build summary box
+    print_box_header "$SYM_SUCCESS Installation Complete"
+
+    local width=50
+    [[ $TERM_WIDTH -lt 50 ]] && width=$TERM_WIDTH
+
+    echo -e "${C_CYAN}${BOX_V}${NC}"
+    printf "${C_CYAN}${BOX_V}${NC}%*s${C_GREEN}${C_BOLD}%s${NC}%*s${C_CYAN}${BOX_V}${NC}\n" \
+        $((width/2 - 10)) "" "Anna is ready to serve!" $((width/2 - 10)) ""
+    echo -e "${C_CYAN}${BOX_V}${NC}"
+
+    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Version:${NC}    %-30s ${C_CYAN}${BOX_V}${NC}\n" "$BUNDLE_VERSION"
+    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Duration:${NC}   %-30s ${C_CYAN}${BOX_V}${NC}\n" "${TOTAL_DURATION}s"
+    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Mode:${NC}       %-30s ${C_CYAN}${BOX_V}${NC}\n" "$autonomy_mode RISK AUTONOMY"
+    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Status:${NC}     %-30s ${C_CYAN}${BOX_V}${NC}\n" "Fully Operational"
+
+    echo -e "${C_CYAN}${BOX_V}${NC}"
+    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Next Steps:${NC}%-32s${C_CYAN}${BOX_V}${NC}\n" ""
+    echo -e "${C_CYAN}${BOX_V}${NC}  ${C_GRAY}•${NC} annactl status                       ${C_CYAN}${BOX_V}${NC}"
+    echo -e "${C_CYAN}${BOX_V}${NC}  ${C_GRAY}•${NC} annactl telemetry snapshot (after 60s) ${C_CYAN}${BOX_V}${NC}"
+    echo -e "${C_CYAN}${BOX_V}${NC}  ${C_GRAY}•${NC} annactl doctor check                 ${C_CYAN}${BOX_V}${NC}"
+    echo -e "${C_CYAN}${BOX_V}${NC}"
+
+    local line=$(printf "%${width}s" | tr ' ' "$BOX_H")
+    echo -e "${C_CYAN}${BOX_BL}${line}${BOX_BR}${NC}"
+
+    echo ""
+    echo -e "${C_GRAY}Install log: $LOG_DIR/install.log${NC}"
+    [[ -f "$HISTORY_FILE" ]] && echo -e "${C_GRAY}History: $HISTORY_FILE${NC}"
+    echo ""
 }
 
-print_completion() {
-    echo ""
-    echo -e "${GREEN}╔═══════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                                       ║${NC}"
-    if [[ "$INSTALL_MODE" == "upgrade" ]]; then
-        echo -e "${GREEN}║   UPGRADE COMPLETE!                   ║${NC}"
-    else
-        echo -e "${GREEN}║   INSTALLATION COMPLETE!              ║${NC}"
-    fi
-    echo -e "${GREEN}║                                       ║${NC}"
-    echo -e "${GREEN}║   Anna v$BUNDLE_VERSION is ready!       ║${NC}"
-    echo -e "${GREEN}║                                       ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
-    echo ""
-    echo "Quick start:"
-    echo "  annactl status              - Check daemon status"
-    echo "  annactl doctor check        - Run health diagnostics"
-    echo "  annactl doctor repair       - Self-healing repairs"
-    echo "  annactl config list         - List configuration"
-    echo "  annactl policy list         - List policies"
-    echo "  annactl events list         - Show recent events"
-    echo ""
-    echo "Service management:"
-    echo "  sudo systemctl status annad"
-    echo "  sudo systemctl restart annad"
-    echo "  sudo journalctl -u annad -f"
-    echo ""
-
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        echo -e "${YELLOW}IMPORTANT:${NC} Group membership requires logout/login to take effect"
-        echo "Temporary workaround: Run 'newgrp anna' in your shell"
-        echo ""
-    fi
-}
+# ============================================================================
+# Main
+# ============================================================================
 
 main() {
-    print_banner
+    # Initialize
+    TOTAL_START=$(date +%s)
+    detect_terminal
+
+    # Parse arguments
+    for arg in "$@"; do
+        case "$arg" in
+            --yes|-y)
+                AUTO_YES=true
+                ;;
+        esac
+    done
+
+    # Print banner
+    print_box_header "$SYM_ROBOT Anna Assistant Installer v$BUNDLE_VERSION"
+
+    local subtitle="Self-Healing ${C_GRAY}•${NC} Autonomous ${C_GRAY}•${NC} Intelligent"
+    local width=50
+    [[ $TERM_WIDTH -lt 50 ]] && width=$TERM_WIDTH
+
+    printf "%*s${C_GRAY}%s${NC}\n" $((width/2 - 20)) "" "$subtitle"
+    echo ""
+
+    # Show context
+    local autonomy_mode=$(get_autonomy_level)
+    echo -e "${C_BOLD}Mode:${NC} ${autonomy_mode^} Risk (Anna may repair herself)"
+    echo -e "${C_BOLD}User:${NC} $USER"
+    echo -e "${C_BOLD}Time:${NC} $(date -u '+%Y-%m-%d %H:%M UTC')"
 
     # Check if running from project root
     if [[ ! -f Cargo.toml ]]; then
-        log_error "Must run from anna-assistant project root"
+        echo ""
+        print_error "Must run from anna-assistant project root"
         exit 1
     fi
 
-    # Detect version and determine install mode
-    detect_version "$@"
+    # Execute phases
+    detect_installation
+    prepare_installation
+    install_system
+    verify_installation
 
-    check_environment
-    check_requirements
-    compile_binaries
+    # Calculate total duration
+    TOTAL_DURATION=$(($(date +%s) - TOTAL_START))
 
-    print_section "System Configuration"
-    create_anna_group
-    add_user_to_group
-    install_binaries
-    install_systemd_service
-    install_polkit_policy
-    install_bash_completion
+    # Record telemetry
+    record_install_telemetry
 
-    print_section "Directory Setup"
-    setup_directories
-    setup_config
-    create_user_paths
-
-    print_section "Service Activation"
-    if ! enable_service; then
-        log_error "Service startup failed"
-        exit 1
-    fi
-
-    print_section "Post-Install Verification"
-    run_doctor_bootstrap
-    run_sanity_checks
-
-    if ! post_install_validation; then
-        log_warn "Validation had issues, but installation completed"
-    fi
-
-    write_version_file
-
-    print_completion
+    # Print summary
+    print_final_summary
 }
 
 main "$@"

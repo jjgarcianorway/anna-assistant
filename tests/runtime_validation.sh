@@ -716,6 +716,171 @@ print_summary() {
     fi
 }
 
+# ============================================================================
+# Sprint 5 Phase 3: Beautiful Installer Tests
+# ============================================================================
+
+test_installer_version_detection() {
+    test_step "installer_version_detection" "Testing installer version detection"
+
+    # Check version file exists
+    if [[ ! -f /etc/anna/version ]]; then
+        test_fail "Version file does not exist"
+        return 1
+    fi
+
+    local installed_version=$(cat /etc/anna/version)
+
+    if [[ "$installed_version" == "$VERSION" ]]; then
+        log_to_file "Installer version detection: v$VERSION matches"
+        test_pass
+        return 0
+    else
+        test_fail "Version mismatch: expected $VERSION, got $installed_version"
+        return 1
+    fi
+}
+
+test_install_history_json() {
+    test_step "install_history_json" "Testing install history JSON"
+
+    local history_file="/var/log/anna/install_history.json"
+
+    if [[ ! -f "$history_file" ]]; then
+        test_fail "Install history file does not exist"
+        return 1
+    fi
+
+    # Validate JSON structure
+    if ! jq empty "$history_file" 2>/dev/null; then
+        test_fail "Install history is not valid JSON"
+        return 1
+    fi
+
+    # Check for required fields
+    local has_installs=$(jq 'has("installs")' "$history_file")
+    if [[ "$has_installs" != "true" ]]; then
+        test_fail "Install history missing 'installs' array"
+        return 1
+    fi
+
+    local install_count=$(jq '.installs | length' "$history_file")
+    if [[ "$install_count" -lt 1 ]]; then
+        test_fail "Install history has no entries"
+        return 1
+    fi
+
+    # Check latest entry has required fields
+    local latest=$(jq '.installs[-1]' "$history_file")
+    local required_fields=("timestamp" "mode" "new_version" "user" "duration_seconds" "phases" "components")
+
+    for field in "${required_fields[@]}"; do
+        if ! echo "$latest" | jq -e "has(\"$field\")" >/dev/null 2>&1; then
+            test_fail "Latest install entry missing field: $field"
+            return 1
+        fi
+    done
+
+    log_to_file "Install history JSON: valid with $install_count entries"
+    test_pass
+    return 0
+}
+
+test_installer_dependencies() {
+    test_step "installer_dependencies" "Testing installer dependency detection"
+
+    # Check that installer can detect dependencies
+    local deps=("systemctl" "pkaction" "sqlite3" "jq")
+    local found=0
+
+    for dep in "${deps[@]}"; do
+        if command -v "$dep" &>/dev/null; then
+            ((found++))
+        fi
+    done
+
+    if [[ $found -ge 3 ]]; then
+        log_to_file "Installer dependencies: $found/4 found"
+        test_pass
+        return 0
+    else
+        test_fail "Installer dependencies: only $found/4 found"
+        return 1
+    fi
+}
+
+test_installer_phases() {
+    test_step "installer_phases" "Testing installer phase structure"
+
+    local history_file="/var/log/anna/install_history.json"
+
+    if [[ ! -f "$history_file" ]]; then
+        test_fail "Install history file does not exist"
+        return 1
+    fi
+
+    # Check latest install has all 4 phases
+    local phases=$(jq -r '.installs[-1].phases | keys[]' "$history_file" 2>/dev/null || echo "")
+    local phase_count=$(echo "$phases" | wc -l)
+
+    local required_phases=("detection" "preparation" "installation" "verification")
+    local phases_found=0
+
+    for phase in "${required_phases[@]}"; do
+        if echo "$phases" | grep -q "$phase"; then
+            ((phases_found++))
+        fi
+    done
+
+    if [[ $phases_found -eq 4 ]]; then
+        log_to_file "Installer phases: all 4 phases present"
+        test_pass
+        return 0
+    else
+        test_fail "Installer phases: only $phases_found/4 found"
+        return 1
+    fi
+}
+
+test_installer_telemetry_integration() {
+    test_step "installer_telemetry_integration" "Testing installer telemetry integration"
+
+    local history_file="/var/log/anna/install_history.json"
+
+    if [[ ! -f "$history_file" ]]; then
+        test_fail "Install history file does not exist"
+        return 1
+    fi
+
+    # Check latest install has doctor_repairs count
+    local repairs=$(jq -r '.installs[-1].doctor_repairs' "$history_file" 2>/dev/null || echo "null")
+
+    if [[ "$repairs" == "null" ]]; then
+        test_fail "Install history missing doctor_repairs count"
+        return 1
+    fi
+
+    # Check autonomy_mode is set
+    local autonomy=$(jq -r '.installs[-1].autonomy_mode' "$history_file" 2>/dev/null || echo "null")
+
+    if [[ "$autonomy" == "null" ]]; then
+        test_fail "Install history missing autonomy_mode"
+        return 1
+    fi
+
+    # Check components status
+    local components=$(jq -r '.installs[-1].components | keys | length' "$history_file" 2>/dev/null || echo "0")
+
+    if [[ "$components" -ge 5 ]]; then
+        log_to_file "Installer telemetry: repairs=$repairs, autonomy=$autonomy, components=$components"
+        test_pass
+        return 0
+    else
+        test_fail "Install history has insufficient components: $components"
+        return 1
+    fi
+}
+
 main() {
     # Setup
     mkdir -p "$LOG_DIR"
@@ -761,11 +926,18 @@ main() {
     test_backup_manifest
     test_log_files
 
-    # Sprint 5 tests
+    # Sprint 5 Phase 2B tests
     test_telemetry_snapshot
     test_telemetry_history
     test_telemetry_trends
     test_doctor_telemetry_db
+
+    # Sprint 5 Phase 3 tests
+    test_installer_version_detection
+    test_install_history_json
+    test_installer_dependencies
+    test_installer_phases
+    test_installer_telemetry_integration
 
     # Print summary
     print_summary
