@@ -67,6 +67,16 @@ pub enum Request {
     },
     LearningRecommendations,
     LearningReset,
+    // Sprint 5: Telemetry
+    TelemetrySnapshot,
+    TelemetryHistory {
+        since: Option<String>,
+        limit: Option<u32>,
+    },
+    TelemetryTrends {
+        metric: String,
+        hours: u32,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -470,6 +480,70 @@ async fn handle_request(request: Request, config: &mut Config, state: &Arc<Daemo
                     "reset": true,
                 }),
             })
+        }
+
+        // Sprint 5: Telemetry handlers
+        Request::TelemetrySnapshot => {
+            match state.telemetry_collector.get_snapshot() {
+                Ok(Some(sample)) => Ok(Response::Success {
+                    data: serde_json::to_value(sample)?,
+                }),
+                Ok(None) => Ok(Response::Error {
+                    message: "No telemetry data yet. Collector needs ~60s to populate first sample.".to_string(),
+                }),
+                Err(e) => Ok(Response::Error {
+                    message: format!("Telemetry error: {}", e),
+                }),
+            }
+        }
+
+        Request::TelemetryHistory { since, limit } => {
+            let limit = limit.unwrap_or(10) as usize;
+
+            match state.telemetry_collector.get_history(limit) {
+                Ok(samples) => {
+                    // Filter by timestamp if 'since' is provided
+                    let filtered_samples = if let Some(since_time) = since {
+                        samples.into_iter()
+                            .filter(|s| s.timestamp >= since_time)
+                            .collect::<Vec<_>>()
+                    } else {
+                        samples
+                    };
+
+                    Ok(Response::Success {
+                        data: serde_json::json!({
+                            "samples": filtered_samples,
+                            "count": filtered_samples.len(),
+                        }),
+                    })
+                }
+                Err(e) => Ok(Response::Error {
+                    message: format!("Failed to retrieve history: {}", e),
+                }),
+            }
+        }
+
+        Request::TelemetryTrends { metric, hours } => {
+            // Validate metric name
+            let valid_metrics = ["cpu", "mem", "memory", "disk"];
+            if !valid_metrics.contains(&metric.as_str()) {
+                return Ok(Response::Error {
+                    message: format!(
+                        "Invalid metric '{}'. Valid metrics: cpu, mem, disk",
+                        metric
+                    ),
+                });
+            }
+
+            match state.telemetry_collector.get_trends(&metric, hours as usize) {
+                Ok(trends) => Ok(Response::Success {
+                    data: serde_json::to_value(trends)?,
+                }),
+                Err(e) => Ok(Response::Error {
+                    message: format!("Failed to calculate trends: {}", e),
+                }),
+            }
         }
     }
 }

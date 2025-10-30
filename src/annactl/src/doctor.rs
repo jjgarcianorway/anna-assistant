@@ -40,6 +40,9 @@ pub async fn doctor_check(verbose: bool) -> Result<()> {
     // Check 8: Events
     all_ok &= check_events(verbose);
 
+    // Check 9: Telemetry Database
+    all_ok &= check_telemetry_db(verbose);
+
     println!();
     if all_ok {
         println!("✓ System healthy - no repairs needed");
@@ -79,6 +82,9 @@ pub async fn doctor_repair(dry_run: bool) -> Result<()> {
 
     // Repair 5: Policies
     repairs_made += repair_policies(dry_run)?;
+
+    // Repair 6: Telemetry Database
+    repairs_made += repair_telemetry_db(dry_run)?;
 
     println!();
     if repairs_made > 0 {
@@ -311,6 +317,34 @@ fn check_events(_verbose: bool) -> bool {
     true
 }
 
+fn check_telemetry_db(verbose: bool) -> bool {
+    let db_path = Path::new("/var/lib/anna/telemetry.db");
+
+    if !db_path.exists() {
+        println!("[FAIL] Telemetry database not found");
+        if verbose {
+            println!("       Expected: {}", db_path.display());
+        }
+        return false;
+    }
+
+    // Check if file is readable
+    match fs::metadata(db_path) {
+        Ok(metadata) => {
+            if verbose {
+                println!("[OK] Telemetry database exists ({} bytes)", metadata.len());
+            } else {
+                println!("[OK] Telemetry database exists");
+            }
+            true
+        }
+        Err(e) => {
+            println!("[FAIL] Cannot access telemetry database: {}", e);
+            false
+        }
+    }
+}
+
 // Helper functions for repairs
 
 fn repair_directories(dry_run: bool) -> Result<usize> {
@@ -418,6 +452,65 @@ fn repair_service(dry_run: bool) -> Result<usize> {
 fn repair_policies(_dry_run: bool) -> Result<usize> {
     // Policies are managed by the installer
     // No automatic repair needed here
+    Ok(0)
+}
+
+fn repair_telemetry_db(dry_run: bool) -> Result<usize> {
+    let db_path = Path::new("/var/lib/anna/telemetry.db");
+
+    // If database doesn't exist, it will be created automatically by the daemon
+    // on next startup, so just check if parent directory exists
+    if !db_path.exists() {
+        let parent_dir = Path::new("/var/lib/anna");
+        if !parent_dir.exists() {
+            if dry_run {
+                println!("[DRY-RUN] Would create {}", parent_dir.display());
+                return Ok(1);
+            } else {
+                println!("[FIX] Creating telemetry directory: {}", parent_dir.display());
+                fs::create_dir_all(parent_dir)
+                    .context("Failed to create telemetry directory")?;
+
+                // Set permissions (0750 root:anna)
+                let _ = run_elevated(&["chown", "root:anna", parent_dir.to_str().unwrap()]);
+                let _ = run_elevated(&["chmod", "0750", parent_dir.to_str().unwrap()]);
+
+                return Ok(1);
+            }
+        }
+
+        // Parent exists but DB doesn't - daemon will create it
+        println!("[OK] Telemetry DB will be created by daemon on startup");
+        return Ok(0);
+    }
+
+    // Database exists - check permissions
+    match fs::metadata(db_path) {
+        Ok(metadata) => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = metadata.permissions().mode();
+                let expected = 0o640;
+
+                if mode & 0o777 != expected {
+                    if dry_run {
+                        println!("[DRY-RUN] Would fix telemetry DB permissions");
+                        return Ok(1);
+                    } else {
+                        println!("[FIX] Fixing telemetry DB permissions");
+                        let _ = run_elevated(&["chmod", "0640", db_path.to_str().unwrap()]);
+                        let _ = run_elevated(&["chown", "root:anna", db_path.to_str().unwrap()]);
+                        return Ok(1);
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("[WARN] Cannot check telemetry DB permissions: {}", e);
+        }
+    }
+
     Ok(0)
 }
 

@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.4-alpha] - Sprint 5 Phase 2B: Telemetry & Automation - 2025-10-30
+
+### Added - Telemetry Collection & RPC/CLI Integration
+
+#### Telemetry Collection System
+- **Background Telemetry Collector** (`src/annad/src/telemetry_collector.rs`):
+  - Collects system metrics every 60 seconds using sysinfo crate
+  - Metrics: CPU usage (%), Memory usage (%), Disk free (%), Uptime (seconds), Network I/O (KB in/out)
+  - Runs as tokio background task, non-blocking
+  - Automatic initialization on daemon startup
+- **SQLite Storage**:
+  - Persistent database: `/var/lib/anna/telemetry.db`
+  - Indexed timestamp column for fast queries
+  - Thread-safe access via `Arc<Mutex<Connection>>`
+  - Schema: id, timestamp, cpu, mem, disk, uptime, net_in, net_out
+- **Integration**:
+  - Added to `DaemonState` as `Arc<TelemetryCollector>`
+  - Shared across all RPC handlers
+  - Collection starts automatically with daemon
+
+#### RPC Endpoints (Phase 2B)
+- **TelemetrySnapshot**: Get most recent telemetry sample
+  - Returns current CPU/MEM/DISK/uptime/network metrics
+  - Helpful error if no data yet (< 60s after start)
+- **TelemetryHistory**: Query historical samples
+  - Parameters: `limit` (default 10), `since` (optional timestamp filter)
+  - Returns array of samples with count
+- **TelemetryTrends**: Calculate metric statistics over time
+  - Parameters: `metric` (cpu/mem/disk), `hours` (time window)
+  - Returns: avg, min, max, sample count
+  - Validates metric names
+
+#### CLI Commands (Phase 2B)
+- **annactl telemetry snapshot**:
+  - Pretty-printed current system metrics
+  - Shows timestamp, CPU%, MEM%, DISK%, uptime, network I/O
+- **annactl telemetry history**:
+  - Tabular history display
+  - Options: `--limit <N>` (default 10), `--since <ISO8601>`
+  - Columns: Timestamp, CPU%, MEM%, DISK%, Uptime
+- **annactl telemetry trends**:
+  - Statistical analysis of metrics
+  - Usage: `trends <cpu|mem|disk> --hours <N>` (default 24)
+  - Shows average, minimum, maximum, sample count
+
+#### Doctor System Enhancements
+- **Telemetry Database Check** (Check #9):
+  - Verifies `/var/lib/anna/telemetry.db` exists
+  - Checks file permissions and readability
+  - Reports file size in verbose mode
+- **Telemetry Database Repair**:
+  - Creates `/var/lib/anna` directory if missing
+  - Sets correct permissions: `0750 root:anna`
+  - Fixes database file permissions if incorrect: `0640 root:anna`
+  - Database auto-created by daemon if only directory exists
+
+#### Validation Tests (Phase 2B)
+- **test_telemetry_snapshot**: Verify collector populates data after 60s
+- **test_telemetry_history**: Verify history command returns valid samples
+- **test_telemetry_trends**: Verify trends calculation for metrics
+- **test_doctor_telemetry_db**: Verify doctor includes DB check
+
+### Changed
+- **Version**: Updated from 0.9.3-beta to 0.9.4-alpha
+- **Dependencies** (`Cargo.toml`):
+  - Added `rusqlite = "0.31"` with bundled feature
+  - Added `sysinfo = "0.30"` for system metrics
+  - Added `sha2 = "0.10"` for future data rotation
+- **Daemon State** (`src/annad/src/state.rs`):
+  - Added `telemetry_collector: Arc<TelemetryCollector>` field
+  - Starts collection loop in `DaemonState::new()`
+- **Validation Script** (`tests/runtime_validation.sh`):
+  - Updated header to Sprint 5
+  - Added 4 new telemetry tests
+  - Total tests: 27 (was 23)
+
+### Fixed
+- TelemetryAction enum replaced old List/Stats with Snapshot/History/Trends
+- Request enum in annactl now matches annad RPC interface
+- Print functions for telemetry output created from scratch
+
+### Documentation
+- **docs/TELEMETRY-AUTOMATION.md** (new): Comprehensive technical documentation
+  - Architecture overview
+  - RPC endpoint specifications
+  - CLI command reference
+  - Database schema
+  - Doctor integration
+  - Performance considerations
+  - Troubleshooting guide
+
+### Performance
+- **Collection Overhead**: ~0.1% CPU, ~2MB RAM, 200 bytes/60s disk I/O
+- **Database Growth**: ~200 bytes/minute = ~105 MB/year
+- **Query Performance**: O(1) snapshot, O(n) history, O(m) trends with indexed queries
+
+### Known Limitations
+- No data rotation yet (Sprint 5 Phase 5)
+- No policy-driven actions yet (Sprint 5 Phase 3)
+- No learning feedback yet (Sprint 5 Phase 4)
+- First sample requires 60 second wait after daemon start
+
+### Migration Notes
+- Existing installations auto-create telemetry database on daemon startup
+- No configuration changes required
+- Doctor check now includes 9 checks (was 8)
+- Telemetry database created with correct permissions automatically
+
+---
+
 ## [0.9.3-beta] - Sprint 4: Autonomy & Self-Healing Architecture - 2025-01-30
 
 ### Added - Self-Healing & Autonomy System

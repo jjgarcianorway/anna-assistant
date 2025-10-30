@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Anna Assistant - Sprint 4 Runtime Validation
+# Anna Assistant - Sprint 5 Runtime Validation
 # Full end-to-end deployment and runtime testing
 # Requires: sudo/root access on Arch Linux
 
-VERSION="0.9.3-beta"
+VERSION="0.9.4-alpha"
 LOG_DIR="tests/logs"
 LOG_FILE="$LOG_DIR/runtime_validation.log"
 
@@ -32,7 +32,7 @@ print_header() {
     echo -e "${BLUE}╔═══════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║                                                   ║${NC}"
     echo -e "${BLUE}║     ANNA ASSISTANT v$VERSION                      ║${NC}"
-    echo -e "${BLUE}║     Sprint 4 Runtime Validation                   ║${NC}"
+    echo -e "${BLUE}║     Sprint 5 Runtime Validation                   ║${NC}"
     echo -e "${BLUE}║                                                   ║${NC}"
     echo -e "${BLUE}╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -585,6 +585,95 @@ test_log_files() {
     fi
 }
 
+# ===== Sprint 5 Tests =====
+
+test_telemetry_snapshot() {
+    test_step "telemetry_snapshot" "Testing telemetry snapshot command"
+
+    # Wait 60 seconds for collector to populate first sample
+    log_to_file "Waiting 60 seconds for telemetry collector..."
+    sleep 60
+
+    local output=$(annactl telemetry snapshot 2>&1 || true)
+
+    if echo "$output" | grep -q "No telemetry data yet"; then
+        test_fail "Telemetry collector not populating data after 60s"
+        return 1
+    fi
+
+    local has_cpu=$(echo "$output" | grep -c "CPU Usage\|cpu_usage" || echo "0")
+    local has_mem=$(echo "$output" | grep -c "Memory Usage\|mem_usage" || echo "0")
+    local has_disk=$(echo "$output" | grep -c "Disk Free\|disk_free" || echo "0")
+
+    if [[ "$has_cpu" -ge 1 ]] && [[ "$has_mem" -ge 1 ]] && [[ "$has_disk" -ge 1 ]]; then
+        log_to_file "Telemetry snapshot: all metrics present (CPU, MEM, DISK)"
+        test_pass
+        return 0
+    else
+        test_fail "Telemetry snapshot: missing metrics (cpu=$has_cpu, mem=$has_mem, disk=$has_disk)"
+        return 1
+    fi
+}
+
+test_telemetry_history() {
+    test_step "telemetry_history" "Testing telemetry history command"
+
+    local output=$(annactl telemetry history --limit 5 2>&1 || true)
+
+    if echo "$output" | grep -q "error\|Error\|FAIL"; then
+        test_fail "Telemetry history command failed: $output"
+        return 1
+    fi
+
+    if echo "$output" | grep -q "Telemetry History\|samples"; then
+        log_to_file "Telemetry history: valid output with samples"
+        test_pass
+        return 0
+    else
+        test_fail "Telemetry history: unexpected output format"
+        return 1
+    fi
+}
+
+test_telemetry_trends() {
+    test_step "telemetry_trends" "Testing telemetry trends command"
+
+    local output=$(annactl telemetry trends cpu --hours 1 2>&1 || true)
+
+    if echo "$output" | grep -q "error\|Error\|FAIL"; then
+        test_fail "Telemetry trends command failed: $output"
+        return 1
+    fi
+
+    local has_avg=$(echo "$output" | grep -c "Average\|avg" || echo "0")
+    local has_min=$(echo "$output" | grep -c "Minimum\|min" || echo "0")
+    local has_max=$(echo "$output" | grep -c "Maximum\|max" || echo "0")
+
+    if [[ "$has_avg" -ge 1 ]] && [[ "$has_min" -ge 1 ]] && [[ "$has_max" -ge 1 ]]; then
+        log_to_file "Telemetry trends: all stats present (avg, min, max)"
+        test_pass
+        return 0
+    else
+        test_fail "Telemetry trends: missing stats (avg=$has_avg, min=$has_min, max=$has_max)"
+        return 1
+    fi
+}
+
+test_doctor_telemetry_db() {
+    test_step "doctor_telemetry_db" "Testing doctor telemetry DB check"
+
+    local output=$(annactl doctor check 2>&1 || true)
+
+    if echo "$output" | grep -q "Telemetry database"; then
+        log_to_file "Doctor check includes telemetry database"
+        test_pass
+        return 0
+    else
+        test_fail "Doctor check missing telemetry database check"
+        return 1
+    fi
+}
+
 print_summary() {
     local end_time_global=$(date +%s)
     local total_elapsed=$((end_time_global - start_time_global))
@@ -611,7 +700,7 @@ print_summary() {
 
     if [[ $TESTS_FAILED -eq 0 ]]; then
         echo -e "${GREEN}✓ All runtime validation tests passed!${NC}"
-        echo -e "${GREEN}✓ Sprint 4 runtime validation: COMPLETE${NC}"
+        echo -e "${GREEN}✓ Sprint 5 runtime validation: COMPLETE${NC}"
         log_to_file "RESULT: ALL TESTS PASSED"
         return 0
     else
@@ -671,6 +760,12 @@ main() {
     test_autonomy_get
     test_backup_manifest
     test_log_files
+
+    # Sprint 5 tests
+    test_telemetry_snapshot
+    test_telemetry_history
+    test_telemetry_trends
+    test_doctor_telemetry_db
 
     # Print summary
     print_summary

@@ -170,15 +170,30 @@ enum StateAction {
 
 #[derive(Subcommand)]
 enum TelemetryAction {
-    /// List recent telemetry events
-    List {
-        /// Maximum number of events to show
-        #[arg(short, long, default_value = "20")]
-        limit: usize,
+    /// Show current system telemetry snapshot
+    Snapshot,
+
+    /// Show telemetry history
+    History {
+        /// Number of samples to show (default: 10)
+        #[arg(short, long, default_value = "10")]
+        limit: u32,
+
+        /// Show samples since timestamp (ISO 8601 format)
+        #[arg(long)]
+        since: Option<String>,
     },
 
-    /// Show statistics summary
-    Stats,
+    /// Show telemetry trends for a metric
+    Trends {
+        /// Metric to analyze: cpu, mem, or disk
+        #[arg(value_parser = ["cpu", "mem", "memory", "disk"])]
+        metric: String,
+
+        /// Time window in hours (default: 24)
+        #[arg(short, long, default_value = "24")]
+        hours: u32,
+    },
 }
 
 #[derive(Subcommand)]
@@ -303,6 +318,16 @@ enum Request {
     },
     LearningRecommendations,
     LearningReset,
+    // Sprint 5: Telemetry
+    TelemetrySnapshot,
+    TelemetryHistory {
+        since: Option<String>,
+        limit: Option<u32>,
+    },
+    TelemetryTrends {
+        metric: String,
+        hours: u32,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -406,12 +431,25 @@ async fn main() -> Result<()> {
             }
         },
         Commands::Telemetry { action } => match action {
-            TelemetryAction::List { limit } => {
-                print_telemetry_list(limit)?;
+            TelemetryAction::Snapshot => {
+                let response = send_request(Request::TelemetrySnapshot).await?;
+                print_telemetry_snapshot(&response)?;
                 Ok(())
             }
-            TelemetryAction::Stats => {
-                print_telemetry_stats()?;
+            TelemetryAction::History { limit, since } => {
+                let response = send_request(Request::TelemetryHistory {
+                    since: since.clone(),
+                    limit: Some(limit),
+                }).await?;
+                print_telemetry_history(&response)?;
+                Ok(())
+            }
+            TelemetryAction::Trends { metric, hours } => {
+                let response = send_request(Request::TelemetryTrends {
+                    metric: metric.clone(),
+                    hours,
+                }).await?;
+                print_telemetry_trends(&response)?;
                 Ok(())
             }
         },
@@ -726,106 +764,67 @@ fn print_state_list(data: &serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-fn print_telemetry_list(limit: usize) -> Result<()> {
-    use std::fs;
-    use std::path::PathBuf;
+fn print_telemetry_snapshot(response: &serde_json::Value) -> Result<()> {
+    let data = &response["data"];
 
-    let mut telemetry_paths: Vec<PathBuf> = vec![
-        PathBuf::from("/var/lib/anna/events"),
-    ];
+    println!("\n📊 System Telemetry Snapshot\n");
+    println!("  Timestamp:    {}", data["timestamp"].as_str().unwrap_or("N/A"));
+    println!("  CPU Usage:    {:.1}%", data["cpu_usage"].as_f64().unwrap_or(0.0));
+    println!("  Memory Usage: {:.1}%", data["mem_usage"].as_f64().unwrap_or(0.0));
+    println!("  Disk Free:    {:.1}%", data["disk_free"].as_f64().unwrap_or(0.0));
+    println!("  Uptime:       {} seconds", data["uptime_sec"].as_u64().unwrap_or(0));
+    println!("  Network In:   {} KB", data["net_in_kb"].as_u64().unwrap_or(0));
+    println!("  Network Out:  {} KB", data["net_out_kb"].as_u64().unwrap_or(0));
+    println!();
 
-    // Add user telemetry path if HOME is set
-    if let Some(home) = dirs::home_dir() {
-        telemetry_paths.push(home.join(".local/share/anna/events"));
-    }
+    Ok(())
+}
 
-    let mut all_events = Vec::new();
+fn print_telemetry_history(response: &serde_json::Value) -> Result<()> {
+    let data = &response["data"];
+    let samples = data["samples"].as_array().context("Invalid samples array")?;
+    let count = data["count"].as_u64().unwrap_or(0);
 
-    for path in telemetry_paths {
-        if path.exists() {
-            if let Ok(entries) = fs::read_dir(path) {
-                for entry in entries.filter_map(|e| e.ok()) {
-                    let file_path = entry.path();
-                    if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                        if let Ok(contents) = fs::read_to_string(&file_path) {
-                            for line in contents.lines().rev().take(limit) {
-                                all_events.push(line.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    println!("\n📈 Telemetry History ({} samples)\n", count);
+    println!("{:<25} {:>8} {:>8} {:>8} {:>10}",
+             "Timestamp", "CPU%", "MEM%", "DISK%", "Uptime(s)");
+    println!("{}", "-".repeat(70));
 
-    println!("\n📊 Recent Telemetry Events\n");
+    for sample in samples {
+        let timestamp = sample["timestamp"].as_str().unwrap_or("N/A");
+        let cpu = sample["cpu_usage"].as_f64().unwrap_or(0.0);
+        let mem = sample["mem_usage"].as_f64().unwrap_or(0.0);
+        let disk = sample["disk_free"].as_f64().unwrap_or(0.0);
+        let uptime = sample["uptime_sec"].as_u64().unwrap_or(0);
 
-    if all_events.is_empty() {
-        println!("No telemetry events found.");
-    } else {
-        for event in all_events.iter().take(limit) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(event) {
-                println!("{}", serde_json::to_string_pretty(&json)?);
-                println!("{}", "-".repeat(70));
-            }
-        }
+        // Shorten timestamp for display (show last 19 chars: YYYY-MM-DD HH:MM:SS)
+        let display_ts = if timestamp.len() > 19 {
+            &timestamp[..19]
+        } else {
+            timestamp
+        };
+
+        println!("{:<25} {:>7.1}% {:>7.1}% {:>7.1}% {:>10}",
+                 display_ts, cpu, mem, disk, uptime);
     }
 
     println!();
     Ok(())
 }
 
-fn print_telemetry_stats() -> Result<()> {
-    use std::collections::HashMap;
-    use std::fs;
-    use std::path::PathBuf;
+fn print_telemetry_trends(response: &serde_json::Value) -> Result<()> {
+    let data = &response["data"];
 
-    let mut telemetry_paths: Vec<PathBuf> = vec![
-        PathBuf::from("/var/lib/anna/events"),
-    ];
-
-    // Add user telemetry path if HOME is set
-    if let Some(home) = dirs::home_dir() {
-        telemetry_paths.push(home.join(".local/share/anna/events"));
-    }
-
-    let mut event_counts: HashMap<String, usize> = HashMap::new();
-    let mut total_events = 0;
-
-    for path in telemetry_paths {
-        if path.exists() {
-            if let Ok(entries) = fs::read_dir(path) {
-                for entry in entries.filter_map(|e| e.ok()) {
-                    let file_path = entry.path();
-                    if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                        if let Ok(contents) = fs::read_to_string(&file_path) {
-                            for line in contents.lines() {
-                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-                                    if let Some(event_type) = json["type"].as_str() {
-                                        *event_counts.entry(event_type.to_string()).or_insert(0) += 1;
-                                        total_events += 1;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    println!("\n📈 Telemetry Statistics\n");
-    println!("Total events: {}", total_events);
-    println!("\nBy type:");
-
-    let mut sorted: Vec<_> = event_counts.iter().collect();
-    sorted.sort_by_key(|(_, count)| std::cmp::Reverse(**count));
-
-    for (event_type, count) in sorted {
-        println!("  {:30} {}", event_type, count);
-    }
-
+    println!("\n📉 Telemetry Trends Analysis\n");
+    println!("  Metric:   {}", data["metric"].as_str().unwrap_or("N/A"));
+    println!("  Period:   {} hours", data["hours"].as_u64().unwrap_or(0));
+    println!("  Samples:  {}", data["samples"].as_u64().unwrap_or(0));
     println!();
+    println!("  Average:  {:.1}%", data["avg"].as_f64().unwrap_or(0.0));
+    println!("  Minimum:  {:.1}%", data["min"].as_f64().unwrap_or(0.0));
+    println!("  Maximum:  {:.1}%", data["max"].as_f64().unwrap_or(0.0));
+    println!();
+
     Ok(())
 }
 
