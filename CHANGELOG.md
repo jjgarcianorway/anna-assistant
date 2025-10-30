@@ -7,6 +7,125 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha.7] - Stability: Run as System User - 2025-10-30
+
+###  Critical Fix: No More Root
+
+**Anna now runs as a dedicated system user, not root.**
+
+This is a security and stability fix. Running as root was unnecessary and dangerous.
+
+### What Changed
+
+#### 1. System User
+- Created dedicated `anna` system user (no home, nologin shell)
+- Daemon runs as `User=anna` in systemd
+- All directories owned by `anna:anna`
+- Current user added to `anna` group for socket access
+
+#### 2. Systemd Service Improvements
+- **User=anna** (was: User=root)
+- **RuntimeDirectory=anna** - systemd creates /run/anna automatically
+- **StateDirectory=anna** - systemd creates /var/lib/anna automatically
+- **CPUQuota=50%** - prevent CPU hogging
+- **MemoryMax=300M** - prevent memory leaks
+- **CPUAccounting=true** - track resource usage
+- **WatchdogSec=60s** - auto-restart if hung
+- **RestartSec=3s** - faster recovery
+
+#### 3. tmpfiles.d Configuration
+- Created `etc/tmpfiles.d/anna.conf`
+- Ensures `/run/anna` exists on boot
+- Proper ownership (anna:anna)
+
+#### 4. Daemon Simplified
+- Removed root check (no longer needed)
+- Removed directory creation code (systemd handles it)
+- Removed unused permission-setting functions
+- Socket permissions: 0660 (owner + group)
+
+#### 5. Config Governance Banners
+All managed files now start with:
+```
+# Hi, I'm Anna! Please use 'annactl config set' to change settings.
+# Don't edit me by hand - I track who changed what and why.
+```
+
+#### 6. Installer
+- Creates anna system user automatically
+- Sets correct ownership on all directories
+- Adds current user to anna group
+- Installs tmpfiles.d configuration
+- Clear explanation before each privileged action
+
+### Migration from 0.9.6-alpha.6
+
+**Important**: This changes the daemon user from root to anna.
+
+```bash
+# Stop old daemon
+sudo systemctl stop annad
+
+# Run new installer
+./scripts/install.sh
+
+# Verify
+systemctl is-active annad  # Should show: active
+ls -l /run/anna/annad.sock  # Should show: srw-rw---- anna anna
+```
+
+### Benefits
+
+**Security**:
+- No longer runs as root (principle of least privilege)
+- Limited blast radius if compromised
+- Can't accidentally damage system files
+
+**Stability**:
+- Resource limits prevent runaway usage
+- Watchdog auto-restarts if hung
+- systemd handles directory creation
+
+**Simplicity**:
+- systemd RuntimeDirectory/StateDirectory just work
+- No custom directory creation code
+- Fewer moving parts
+
+### Test Results
+
+```bash
+# Build
+cargo build --release  # ✓ Success (0 errors)
+
+# Installer syntax
+bash -n scripts/install.sh  # ✓ Valid
+
+# Service file
+systemd-analyze verify etc/systemd/annad.service  # ✓ Valid
+```
+
+**Offline commands**: All working ✅
+
+**Daemon**: Requires sudo to test (creates anna user)
+
+### Known Issues
+
+- User must log out/in after installation for group membership
+- /run/anna must exist before daemon starts (tmpfiles.d handles this)
+
+### Files Changed
+
+```
+Cargo.toml                  - Version bump to 0.9.6-alpha.7
+etc/systemd/annad.service   - User=anna, resource limits
+etc/tmpfiles.d/anna.conf    - New: runtime directory
+scripts/install.sh          - Creates anna user, sets ownership
+src/annad/src/main.rs       - Removed root requirement
+CHANGELOG.md                - This entry
+```
+
+---
+
 ## [0.9.6-alpha.6] - Hotfix: Working Daemon & System - 2025-10-30
 
 ### Fixed - Critical Functionality Restoration
