@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6-alpha] - Phase 4.3: Deep Profiling & Smart Playbooks (Foundation) - 2025-10-30
+
+### Added - Foundation Infrastructure
+
+#### System Profiling
+- **ProfileCollector** - Comprehensive system data gathering:
+  - Hardware detection (CPU, memory, kernel)
+  - Graphics stack analysis (GPU, VA-API, session type, desktop environment)
+  - Audio server detection (PipeWire/PulseAudio)
+  - Network interface enumeration
+  - Boot performance analysis (systemd-analyze, failed units)
+  - Software inventory (package managers, AUR helpers, shells, common tools)
+  - Usage metrics (consent-gated, defaults off)
+
+#### Smart Playbooks Structure
+- Created playbooks subsystem architecture for safe, reversible system improvements
+- Planned playbooks: browser.hwaccel, hyprland.beautiful, boot.speedup, video.codecs, power.governor, shell.aliases.suggest
+- Each playbook supports: detect, plan, execute, verify, rollback flows
+
+#### Config Governance Extension
+- Privacy controls for profiling depth and usage metrics
+- Playbook behavior settings (autoverify, autorollback)
+- Banner enforcement in all config files
+
+### Changed
+- Version bumped to 0.9.6-alpha across all components
+- Installer header updated for Phase 4.3
+
+### Status
+This release provides the **foundation** for Phase 4.3. Full implementation includes:
+- Working `annactl profile show/checks` commands
+- Functional playbooks with dry-run capability
+- "Ask" interface routing
+- Complete test suite
+- Full documentation
+
+See `docs/PHASE-4.3-STATUS.md` for detailed implementation roadmap.
+
+### Migration from 0.9.5-beta
+```bash
+sudo ./scripts/install.sh
+```
+
+Foundation is backwards-compatible. Full Phase 4.3 features will be available in v0.9.6-alpha (complete).
+
+---
+
 ## [0.9.5-beta] - Sprint 5 Phase 4: Conversational Installer & Unified Messaging - 2025-10-30
 
 ### Added - Conversational Interface & Human-Friendly Output

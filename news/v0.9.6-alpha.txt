@@ -1,0 +1,33 @@
+🎉 What's New in v0.9.6-alpha
+
+DEEP SYSTEM PROFILING
+I can now understand your system deeply - hardware, graphics,
+audio, network, boot performance, and software stack.
+No manual investigation needed.
+
+SMART PLAYBOOKS
+Ask me to improve things and I'll create a safe plan:
+• Browser hardware acceleration
+• Beautiful Hyprland setup
+• Faster boot times
+• Optimized power settings
+• Smart shell aliases
+
+Your input drives everything. I explain what I'll do,
+show you the plan, and you decide.
+
+PRIVACY & CONSENT
+You control what I analyze. Usage metrics off by default.
+All collection is transparent and reversible.
+
+CONFIG GOVERNANCE
+One command to change anything: annactl config set
+Config files tell you to use me instead of manual edits.
+
+THE "ASK" INTERFACE
+Natural language requests route to smart actions:
+"make my Hyprland beautiful"
+"enable browser hardware acceleration"
+"speed up my boot"
+
+Try 'annactl profile show' to see what I've learned!

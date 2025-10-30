@@ -11,6 +11,9 @@ use doctor::{doctor_check, doctor_repair, doctor_rollback};
 mod autonomy;
 use autonomy::{autonomy_get, autonomy_set};
 
+mod config_cmd;
+mod persona_cmd;
+
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 
 #[derive(Parser)]
@@ -90,30 +93,82 @@ enum Commands {
 
     /// Interactive guide to Anna's capabilities
     Explore,
+
+    /// Persona management (change Anna's communication style)
+    Persona {
+        #[command(subcommand)]
+        action: PersonaAction,
+    },
 }
 
 #[derive(Subcommand)]
 enum ConfigAction {
-    /// Get a configuration value
+    /// Get a configuration value (shows value and origin)
     Get {
-        /// Configuration key (e.g., "autonomy.level")
+        /// Configuration key (e.g., "ui.emojis")
         key: String,
     },
 
-    /// Set a configuration value
+    /// Set a configuration value in user preferences
     Set {
-        /// Scope: user or system
-        #[arg(value_enum)]
-        scope: ConfigScope,
-
         /// Configuration key
         key: String,
 
-        /// New value
+        /// New value (will be parsed as JSON, or treated as string)
         value: String,
     },
 
+    /// Reset configuration to defaults (all or specific key)
+    Reset {
+        /// Specific key to reset (if omitted, resets all)
+        key: Option<String>,
+    },
+
+    /// Export effective configuration to file or stdout
+    Export {
+        /// Output file path (if omitted, prints to stdout)
+        #[arg(long)]
+        path: Option<String>,
+    },
+
+    /// Import configuration from file
+    Import {
+        /// Input file path
+        #[arg(long)]
+        path: String,
+
+        /// Replace existing config instead of merging
+        #[arg(long)]
+        replace: bool,
+    },
+
     /// List all configuration values
+    List,
+}
+
+#[derive(Subcommand)]
+enum PersonaAction {
+    /// Show current persona
+    Get,
+
+    /// Set persona
+    Set {
+        /// Persona name (dev, ops, gamer, minimal)
+        name: String,
+
+        /// Set as auto-detect (may change based on context)
+        #[arg(long, conflicts_with = "fixed")]
+        auto: bool,
+
+        /// Set as fixed (won't change automatically)
+        #[arg(long, conflicts_with = "auto")]
+        fixed: bool,
+    },
+
+    /// Explain why current persona was chosen
+    Why,
+
+    /// List all available personas
     List,
 }
 
@@ -381,31 +436,12 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Commands::Config { action } => match action {
-            ConfigAction::Get { key } => {
-                let response = send_request(Request::ConfigGet { key: key.clone() }).await?;
-                println!("{} = {}", key, response["value"].as_str().unwrap_or(""));
-                Ok(())
-            }
-            ConfigAction::Set { scope, key, value } => {
-                let response = send_request(Request::ConfigSet {
-                    scope,
-                    key: key.clone(),
-                    value: value.clone(),
-                })
-                .await?;
-                println!(
-                    "✓ Set {} = {} (scope: {})",
-                    key,
-                    value,
-                    response["scope"].as_str().unwrap_or("")
-                );
-                Ok(())
-            }
-            ConfigAction::List => {
-                let response = send_request(Request::ConfigList).await?;
-                print_config_list(&response)?;
-                Ok(())
-            }
+            ConfigAction::Get { key } => config_cmd::config_get(&key).await,
+            ConfigAction::Set { key, value } => config_cmd::config_set(&key, &value).await,
+            ConfigAction::Reset { key } => config_cmd::config_reset(key.as_deref()).await,
+            ConfigAction::Export { path } => config_cmd::config_export(path.as_deref()).await,
+            ConfigAction::Import { path, replace } => config_cmd::config_import(&path, replace).await,
+            ConfigAction::List => config_cmd::config_list().await,
         },
         Commands::Autonomy { action } => match action {
             AutonomyAction::Get => {
@@ -542,6 +578,19 @@ async fn main() -> Result<()> {
         Commands::Explore => {
             print_explore_guide()?;
             Ok(())
+        },
+        Commands::Persona { action } => match action {
+            PersonaAction::Get => persona_cmd::persona_get().await,
+            PersonaAction::Set { name, auto, fixed } => {
+                let mode = if fixed {
+                    anna_common::PersonaMode::Fixed
+                } else {
+                    anna_common::PersonaMode::Auto
+                };
+                persona_cmd::persona_set(&name, mode).await
+            },
+            PersonaAction::Why => persona_cmd::persona_why().await,
+            PersonaAction::List => persona_cmd::persona_list().await,
         },
     };
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ╭─────────────────────────────────────────────────────────────────────╮
-# │ Anna Assistant Installer - Sprint 5 Phase 4 (v0.9.5-beta)          │
+# │ Anna Assistant Installer - Phase 4.3 (v0.9.6-alpha)                │
 # │                                                                     │
 # │ Conversational • Intelligent • Self-Healing                         │
 # │                                                                     │
@@ -25,7 +25,7 @@ source "$SCRIPT_DIR/anna_common.sh"
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.5-beta"
+BUNDLE_VERSION="0.9.6-alpha"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
