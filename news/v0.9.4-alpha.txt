@@ -1,0 +1,15 @@
+📰 What's New in v0.9.4-alpha
+
+• Background telemetry collection (60s intervals)
+• SQLite persistent storage for metrics
+• New RPC endpoints: snapshot, history, trends
+• New CLI commands: annactl telemetry [snapshot|history|trends]
+• Doctor integration with telemetry DB check
+
+Sprint 5 Phase 2B adds comprehensive telemetry automation,
+enabling Anna to monitor system health continuously and
+provide historical analysis.
+
+Try: annactl telemetry snapshot
+     annactl telemetry history --limit 10
+     annactl telemetry trends cpu --hours 24

@@ -1,0 +1,16 @@
+📰 What's New in v0.9.4-beta
+
+• Beautiful 4-phase installer with ceremonial UX
+• Self-healing doctor integration (automatic repairs)
+• Install telemetry and history tracking
+• Intelligent dependency management (auto-install)
+• Adaptive visual formatting (Unicode + ASCII fallbacks)
+• New command: annactl telemetry trends
+
+Sprint 5 Phase 3 delivers a completely reimagined installation
+experience that embodies Anna's personality while providing
+robust self-healing capabilities.
+
+Try: annactl telemetry snapshot (after 60s)
+     annactl doctor check
+     annactl news --list

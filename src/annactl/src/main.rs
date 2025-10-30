@@ -76,6 +76,20 @@ enum Commands {
         #[command(subcommand)]
         action: LearningAction,
     },
+
+    /// Show release highlights and what's new
+    News {
+        /// Show news for a specific version
+        #[arg(long)]
+        version: Option<String>,
+
+        /// List all available versions
+        #[arg(long)]
+        list: bool,
+    },
+
+    /// Interactive guide to Anna's capabilities
+    Explore,
 }
 
 #[derive(Subcommand)]
@@ -520,6 +534,14 @@ async fn main() -> Result<()> {
                 println!("✓ Learning cache reset");
                 Ok(())
             }
+        },
+        Commands::News { version, list } => {
+            print_news(version.as_deref(), list)?;
+            Ok(())
+        },
+        Commands::Explore => {
+            print_explore_guide()?;
+            Ok(())
         },
     };
 
@@ -981,5 +1003,181 @@ fn print_learning_recommendations(data: &serde_json::Value) -> Result<()> {
     }
 
     println!();
+    Ok(())
+}
+
+fn print_news(version: Option<&str>, list_all: bool) -> Result<()> {
+    use std::fs;
+    use std::path::Path;
+
+    let news_dir = Path::new("/usr/local/share/anna/news");
+
+    // Fallback to local news directory if system directory doesn't exist
+    let news_dir = if news_dir.exists() {
+        news_dir
+    } else {
+        Path::new("news")
+    };
+
+    if !news_dir.exists() {
+        eprintln!("Error: News directory not found");
+        eprintln!("Expected: {:?} or ./news/", news_dir);
+        return Ok(());
+    }
+
+    // List mode
+    if list_all {
+        println!("\n📰 Available Release Notes\n");
+
+        let mut versions: Vec<String> = Vec::new();
+        if let Ok(entries) = fs::read_dir(news_dir) {
+            for entry in entries.flatten() {
+                if let Some(filename) = entry.file_name().to_str() {
+                    if filename.ends_with(".txt") {
+                        let version_name = filename.trim_end_matches(".txt");
+                        versions.push(version_name.to_string());
+                    }
+                }
+            }
+        }
+
+        versions.sort();
+        versions.reverse(); // Newest first
+
+        for v in &versions {
+            println!("  • {}", v);
+        }
+
+        println!("\nTo read: annactl news --version <version>");
+        println!("Example: annactl news --version v0.9.4-beta\n");
+        return Ok(());
+    }
+
+    // Determine which version to show
+    let target_version = if let Some(v) = version {
+        v.to_string()
+    } else {
+        // Try to get current version from /etc/anna/version
+        if let Ok(installed) = fs::read_to_string("/etc/anna/version") {
+            format!("v{}", installed.trim())
+        } else {
+            // Default to latest available
+            let mut versions: Vec<String> = Vec::new();
+            if let Ok(entries) = fs::read_dir(news_dir) {
+                for entry in entries.flatten() {
+                    if let Some(filename) = entry.file_name().to_str() {
+                        if filename.ends_with(".txt") {
+                            let version_name = filename.trim_end_matches(".txt");
+                            versions.push(version_name.to_string());
+                        }
+                    }
+                }
+            }
+            versions.sort();
+            versions.reverse();
+            versions.first().cloned().unwrap_or_else(|| "v0.9.4-beta".to_string())
+        }
+    };
+
+    // Read and display the news file
+    let news_file = news_dir.join(format!("{}.txt", target_version));
+
+    if !news_file.exists() {
+        eprintln!("Error: No news found for version {}", target_version);
+        eprintln!("Try: annactl news --list");
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&news_file)?;
+
+    // Print with nice formatting
+    println!("\n╭────────────────────────────────────────────────╮");
+    for line in content.lines() {
+        if line.is_empty() {
+            println!("│                                                │");
+        } else {
+            println!("│  {:<44} │", line);
+        }
+    }
+    println!("╰────────────────────────────────────────────────╯\n");
+
+    Ok(())
+}
+
+fn print_explore_guide() -> Result<()> {
+    println!("\n╭────────────────────────────────────────────────╮");
+    println!("│                                                │");
+    println!("│  🧭 Exploring Anna's Capabilities              │");
+    println!("│                                                │");
+    println!("╰────────────────────────────────────────────────╯\n");
+
+    println!("┌─ Getting Started");
+    println!("│");
+    println!("│  annactl status");
+    println!("│    → View daemon status and system health");
+    println!("│");
+    println!("│  annactl doctor check");
+    println!("│    → Run health diagnostics");
+    println!("│");
+    println!("│  annactl telemetry snapshot");
+    println!("│    → View current system metrics");
+    println!("│");
+    println!("└─ Basic commands for monitoring and verification\n");
+
+    println!("┌─ Diagnostics & Repair");
+    println!("│");
+    println!("│  annactl doctor repair");
+    println!("│    → Fix common issues automatically");
+    println!("│");
+    println!("│  annactl doctor check --verbose");
+    println!("│    → Detailed health report");
+    println!("│");
+    println!("│  annactl telemetry trends cpu --hours 24");
+    println!("│    → Analyze CPU usage over time");
+    println!("│");
+    println!("└─ Self-healing and system analysis\n");
+
+    println!("┌─ Configuration");
+    println!("│");
+    println!("│  annactl config show");
+    println!("│    → View all configuration settings");
+    println!("│");
+    println!("│  annactl autonomy get");
+    println!("│    → Check current autonomy level");
+    println!("│");
+    println!("│  annactl policy list");
+    println!("│    → View loaded policies");
+    println!("│");
+    println!("└─ System configuration and policy management\n");
+
+    println!("┌─ Telemetry & History");
+    println!("│");
+    println!("│  annactl telemetry history --limit 10");
+    println!("│    → View historical metrics");
+    println!("│");
+    println!("│  annactl telemetry trends mem --hours 12");
+    println!("│    → Memory usage trends");
+    println!("│");
+    println!("│  annactl events show --severity warning");
+    println!("│    → View system events");
+    println!("│");
+    println!("└─ Data analysis and event tracking\n");
+
+    println!("┌─ Learn More");
+    println!("│");
+    println!("│  annactl news");
+    println!("│    → What's new in this version");
+    println!("│");
+    println!("│  annactl news --list");
+    println!("│    → All available release notes");
+    println!("│");
+    println!("│  annactl --help");
+    println!("│    → Complete command reference");
+    println!("│");
+    println!("└─ Documentation and help\n");
+
+    println!("💡 Tip: Most commands support --help for detailed usage");
+    println!("💡 Tip: Try 'annactl telemetry snapshot' after 60 seconds\n");
+
     Ok(())
 }

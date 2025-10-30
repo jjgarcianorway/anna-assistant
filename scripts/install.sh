@@ -619,6 +619,15 @@ install_policies() {
     if [[ -f polkit/com.anna.assistant.policy ]]; then
         run_elevated cp polkit/com.anna.assistant.policy "$POLKIT_DIR/"
     fi
+
+    # Install news files
+    if [[ -d news ]]; then
+        local news_install_dir="/usr/local/share/anna/news"
+        run_elevated mkdir -p "$news_install_dir"
+        for news_file in news/*.txt; do
+            [[ -f "$news_file" ]] && run_elevated cp "$news_file" "$news_install_dir/"
+        done
+    fi
 }
 
 install_service() {
@@ -795,6 +804,35 @@ print_final_summary() {
     echo -e "${C_GRAY}Install log: $LOG_DIR/install.log${NC}"
     [[ -f "$HISTORY_FILE" ]] && echo -e "${C_GRAY}History: $HISTORY_FILE${NC}"
     echo ""
+
+    # Show release highlights
+    print_release_highlights
+
+    # Show tip
+    echo -e "${C_BLUE}💡 Tip:${NC} Try ${C_BOLD}annactl help${NC} or ${C_BOLD}annactl explore${NC} to discover what Anna can do."
+    echo ""
+}
+
+print_release_highlights() {
+    local news_file="news/v$BUNDLE_VERSION.txt"
+
+    # Check if news file exists in project
+    if [[ ! -f "$news_file" ]]; then
+        return 0
+    fi
+
+    echo ""
+    echo -e "${C_CYAN}╭────────────────────────────────────────────────╮${NC}"
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ -z "$line" ]]; then
+            echo -e "${C_CYAN}│${NC}                                                ${C_CYAN}│${NC}"
+        else
+            printf "${C_CYAN}│${NC}  %-44s ${C_CYAN}│${NC}\n" "$line"
+        fi
+    done < "$news_file"
+
+    echo -e "${C_CYAN}╰────────────────────────────────────────────────╯${NC}"
 }
 
 # ============================================================================
