@@ -8,6 +8,9 @@ use std::collections::HashMap;
 mod doctor;
 use doctor::{doctor_check, doctor_repair, doctor_rollback};
 
+mod autonomy;
+use autonomy::{autonomy_get, autonomy_set};
+
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 
 #[derive(Parser)]
@@ -125,13 +128,18 @@ enum DoctorAction {
 
 #[derive(Subcommand)]
 enum AutonomyAction {
-    /// Show autonomy status
-    Status,
+    /// Get current autonomy level
+    Get,
 
-    /// Run an autonomous task
-    Run {
-        /// Task name (doctor, telemetry_cleanup, config_sync)
-        task: String,
+    /// Set autonomy level (requires confirmation)
+    Set {
+        /// Autonomy level: low or high
+        #[arg(value_parser = ["low", "high"])]
+        level: String,
+
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
     },
 }
 
@@ -357,14 +365,12 @@ async fn main() -> Result<()> {
             }
         },
         Commands::Autonomy { action } => match action {
-            AutonomyAction::Status => {
-                let response = send_request(Request::AutonomyStatus).await?;
-                print_autonomy_status(&response)?;
+            AutonomyAction::Get => {
+                autonomy_get().await?;
                 Ok(())
             }
-            AutonomyAction::Run { task } => {
-                let response = send_request(Request::AutonomyRun { task: task.clone() }).await?;
-                print_task_result(&response)?;
+            AutonomyAction::Set { level, yes } => {
+                autonomy_set(&level, yes).await?;
                 Ok(())
             }
         },
@@ -599,13 +605,23 @@ fn print_autofix_results(data: &serde_json::Value) -> Result<()> {
 }
 
 fn print_status(data: &serde_json::Value) -> Result<()> {
+    use std::fs;
+
     println!("\n📊 Anna Daemon Status\n");
     println!("Version:       {}", data["version"].as_str().unwrap_or("unknown"));
     println!("Status:        {}", data["uptime"].as_str().unwrap_or("unknown"));
-    println!(
-        "Autonomy:      {}",
-        data["autonomy_level"].as_str().unwrap_or("unknown")
-    );
+
+    // Read autonomy level from config file
+    let autonomy_level = fs::read_to_string("/etc/anna/autonomy.conf")
+        .ok()
+        .and_then(|content| {
+            content.lines()
+                .find(|line| line.starts_with("autonomy_level="))
+                .map(|line| line.trim_start_matches("autonomy_level=").trim().to_string())
+        })
+        .unwrap_or_else(|| "low".to_string());
+
+    println!("Autonomy:      {}", autonomy_level);
     println!();
 
     // Show recent logs from journald
