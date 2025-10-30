@@ -1,7 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::config::Config;
 use crate::diagnostics;

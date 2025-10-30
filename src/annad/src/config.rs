@@ -162,9 +162,9 @@ pub fn load_config() -> Result<Config> {
 }
 
 /// Merge two configs, with overlay taking precedence
-fn merge_configs(base: Config, overlay: Config) -> Config {
+fn merge_configs(_base: Config, overlay: Config) -> Config {
     // For Sprint 1, we do a simple field-level merge
-    // In the future, this could be more sophisticated
+    // In the future, this could be more sophisticated (using base config)
     Config {
         daemon: overlay.daemon,
         autonomy: overlay.autonomy,

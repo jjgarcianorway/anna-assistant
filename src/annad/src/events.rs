@@ -17,9 +17,11 @@ use crate::policy::{PolicyAction, PolicyContext, PolicyEngine};
 #[derive(Debug, Error)]
 pub enum EventError {
     #[error("Event dispatch failed: {0}")]
+    #[allow(dead_code)]
     DispatchError(String),
 
     #[error("Handler registration failed: {0}")]
+    #[allow(dead_code)]
     HandlerError(String),
 
     #[error("Policy evaluation failed: {0}")]
@@ -96,6 +98,7 @@ impl Event {
 /// Event reaction result
 #[derive(Debug, Clone)]
 pub struct ReactionResult {
+    #[allow(dead_code)]
     pub event_id: String,
     pub actions_taken: Vec<PolicyAction>,
     pub success: bool,
@@ -125,6 +128,7 @@ impl EventDispatcher {
     }
 
     /// Register an event handler
+    #[allow(dead_code)]
     pub fn register_handler<F>(&self, handler: F) -> Result<(), EventError>
     where
         F: Fn(&Event) -> Result<(), EventError> + Send + Sync + 'static,
@@ -279,6 +283,7 @@ impl EventDispatcher {
     }
 
     /// Get events filtered by type
+    #[allow(dead_code)]
     pub fn get_events_by_type(&self, event_type: &EventType) -> Vec<Event> {
         let history = self.event_history.lock().unwrap();
         history.iter()
@@ -310,10 +315,12 @@ impl EventDispatcher {
 }
 
 /// Event reactor - high-level event reaction coordinator
+#[allow(dead_code)]
 pub struct EventReactor {
     dispatcher: Arc<EventDispatcher>,
 }
 
+#[allow(dead_code)]
 impl EventReactor {
     /// Create a new event reactor
     pub fn new(policy_engine: Arc<PolicyEngine>) -> Self {

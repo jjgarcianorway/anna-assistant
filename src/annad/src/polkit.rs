@@ -2,10 +2,13 @@ use anyhow::Result;
 use std::path::Path;
 
 /// Polkit actions defined in com.anna.policy
+#[allow(dead_code)]
 pub const ACTION_CONFIG_WRITE: &str = "com.anna.config.write";
+#[allow(dead_code)]
 pub const ACTION_MAINTENANCE: &str = "com.anna.maintenance.execute";
 
 /// Check if polkit policy is installed
+#[allow(dead_code)]
 pub fn is_policy_installed() -> bool {
     Path::new("/usr/share/polkit-1/actions/com.anna.policy").exists()
 }
@@ -15,6 +18,7 @@ pub fn is_policy_installed() -> bool {
 /// For Sprint 1, this is simplified: since annad runs as root via systemd,
 /// we already have the necessary privileges. This function serves as a
 /// placeholder for future per-action authorization checks.
+#[allow(dead_code)]
 pub fn check_authorization(_action: &str, _uid: u32) -> Result<bool> {
     // We're running as root, so we're authorized
     // Future: implement actual polkit D-Bus API calls

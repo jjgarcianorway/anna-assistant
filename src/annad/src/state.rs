@@ -3,7 +3,6 @@
 //! Holds policy engine, event dispatcher, telemetry snapshot, and learning cache
 
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Result;
 
@@ -14,9 +13,13 @@ use crate::learning::LearningCache;
 /// Telemetry snapshot - cheap runtime metrics
 #[derive(Debug, Clone)]
 pub struct TelemetrySnapshot {
+    #[allow(dead_code)]
     pub disk_free_pct: f64,
+    #[allow(dead_code)]
     pub last_quickscan_hours: f64,
+    #[allow(dead_code)]
     pub uptime_minutes: f64,
+    #[allow(dead_code)]
     pub last_updated: u64,
 }
 
@@ -34,6 +37,7 @@ impl TelemetrySnapshot {
     }
 
     /// Update disk free percentage (cheap query)
+    #[allow(dead_code)]
     pub fn update_disk_free(&mut self) {
         // Simplified: read from df or statfs
         // For now, use a placeholder value
@@ -42,6 +46,7 @@ impl TelemetrySnapshot {
     }
 
     /// Update last quickscan time
+    #[allow(dead_code)]
     pub fn update_quickscan(&mut self) {
         // This would read from state file
         self.last_quickscan_hours = 2.5; // Would be real calculation
@@ -49,6 +54,7 @@ impl TelemetrySnapshot {
     }
 
     /// Update uptime
+    #[allow(dead_code)]
     pub fn update_uptime(&mut self, start_time: u64) {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -58,6 +64,7 @@ impl TelemetrySnapshot {
         self.update_timestamp();
     }
 
+    #[allow(dead_code)]
     fn update_timestamp(&mut self) {
         self.last_updated = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -70,6 +77,7 @@ impl TelemetrySnapshot {
 pub struct DaemonState {
     pub policy_engine: Arc<PolicyEngine>,
     pub event_dispatcher: Arc<EventDispatcher>,
+    #[allow(dead_code)]
     pub telemetry: Arc<Mutex<TelemetrySnapshot>>,
     pub learning_cache: Arc<Mutex<LearningCache>>,
     pub start_time: u64,
@@ -158,6 +166,7 @@ impl DaemonState {
     }
 
     /// Update telemetry snapshot
+    #[allow(dead_code)]
     pub fn update_telemetry(&self) {
         let mut telemetry = self.telemetry.lock().unwrap();
         telemetry.update_disk_free();

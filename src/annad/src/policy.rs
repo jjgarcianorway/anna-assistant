@@ -197,6 +197,7 @@ impl PolicyContext {
 pub struct EvaluationResult {
     pub matched: bool,
     pub actions: Vec<PolicyAction>,
+    #[allow(dead_code)]
     pub triggered_rules: Vec<String>,
 }
 

@@ -23,6 +23,7 @@ pub enum LearningError {
     SaveError(String),
 
     #[error("Action not found: {0}")]
+    #[allow(dead_code)]
     ActionNotFound(String),
 
     #[error("IO error: {0}")]
@@ -51,6 +52,7 @@ pub struct OutcomeRecord {
     pub context: HashMap<String, String>,
 }
 
+#[allow(dead_code)]
 impl OutcomeRecord {
     pub fn new(outcome: Outcome) -> Self {
         let timestamp = SystemTime::now()
@@ -97,6 +99,7 @@ pub struct ActionStats {
     pub recent_outcomes: Vec<OutcomeRecord>,
 }
 
+#[allow(dead_code)]
 impl ActionStats {
     pub fn new(action_name: impl Into<String>) -> Self {
         Self {
@@ -255,6 +258,7 @@ impl LearningCache {
     }
 
     /// Record an action outcome
+    #[allow(dead_code)]
     pub fn record_action(
         &self,
         action_name: impl Into<String>,
@@ -303,6 +307,7 @@ impl LearningCache {
     }
 
     /// Check if action should be attempted based on history
+    #[allow(dead_code)]
     pub fn should_attempt(&self, action_name: &str, max_consecutive_failures: usize) -> bool {
         let data = self.data.read().unwrap();
         if let Some(stats) = data.actions.get(action_name) {
@@ -352,10 +357,12 @@ impl LearningCache {
 }
 
 /// Learning analytics and insights
+#[allow(dead_code)]
 pub struct LearningAnalytics {
     cache: Arc<LearningCache>,
 }
 
+#[allow(dead_code)]
 impl LearningAnalytics {
     pub fn new(cache: Arc<LearningCache>) -> Self {
         Self { cache }

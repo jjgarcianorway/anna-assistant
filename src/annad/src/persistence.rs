@@ -109,6 +109,7 @@ pub fn list_states() -> Result<Vec<String>> {
 }
 
 /// Delete component state
+#[allow(dead_code)]
 pub fn delete_state(component: &str) -> Result<()> {
     let state_file = get_state_file(component);
 
@@ -186,12 +187,14 @@ fn rotate_old_states() -> Result<()> {
 }
 
 /// Save a simple key-value state for a component
+#[allow(dead_code)]
 pub fn save_kv_state(component: &str, kv: HashMap<String, String>) -> Result<()> {
     let data = serde_json::to_value(kv)?;
     save_state(component, data)
 }
 
 /// Load a simple key-value state for a component
+#[allow(dead_code)]
 pub fn load_kv_state(component: &str) -> Result<Option<HashMap<String, String>>> {
     if let Some(state) = load_state(component)? {
         let kv: HashMap<String, String> = serde_json::from_value(state.data)

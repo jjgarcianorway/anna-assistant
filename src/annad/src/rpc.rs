@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tracing::{info, error, debug};
+use tracing::{error, debug};
 use std::sync::Arc;
 
 use crate::config::{self, Config, Scope};
@@ -11,8 +11,6 @@ use crate::telemetry;
 use crate::autonomy;
 use crate::persistence;
 use crate::policy;
-use crate::events;
-use crate::learning;
 use crate::state::DaemonState;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -460,7 +458,7 @@ async fn handle_request(request: Request, config: &mut Config, state: &Arc<Daemo
         }
 
         Request::LearningReset => {
-            let mut cache = state.learning_cache.lock().unwrap();
+            let cache = state.learning_cache.lock().unwrap();
             cache.clear()?;
             telemetry::log_event(telemetry::Event::RpcCall {
                 name: "learning_reset".to_string(),
