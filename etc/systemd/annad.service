@@ -1,26 +1,35 @@
 [Unit]
 Description=Anna Assistant Daemon
 Documentation=https://github.com/anna-assistant/anna
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
+User=anna
 Group=anna
 ExecStart=/usr/local/bin/annad
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0750
+StateDirectory=anna
+StateDirectoryMode=0750
+CacheDirectory=anna
+CacheDirectoryMode=0750
 Restart=on-failure
-RestartSec=5s
+RestartSec=3s
+
+# Resource accounting and limits
+CPUAccounting=true
+MemoryAccounting=true
+CPUQuota=50%
+MemoryMax=300M
+WatchdogSec=60s
 
 # Security hardening
 PrivateTmp=yes
-NoNewPrivileges=false
+NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/etc/anna /run /var/lib/anna /var/log/anna
-
-# Resource limits
-MemoryMax=512M
-TasksMax=100
 
 # Logging
 StandardOutput=journal

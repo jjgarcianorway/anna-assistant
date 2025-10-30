@@ -35,15 +35,16 @@ async fn main() -> Result<()> {
 
     info!("[BOOT] Anna Assistant Daemon v{} starting...", env!("CARGO_PKG_VERSION"));
 
-    // Check if running as root
-    if !nix::unistd::Uid::effective().is_root() {
-        error!("[FATAL] annad must run as root");
-        std::process::exit(1);
+    // Verify we're running as the anna user
+    let current_user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+    if current_user != "anna" && current_user != "root" {
+        warn!("[BOOT] Running as user '{}' (expected 'anna')", current_user);
     }
 
-    // Initialize directories with proper permissions
-    if let Err(e) = ensure_directories() {
-        error!("[FATAL] Failed to initialize directories: {}", e);
+    // Verify required directories exist (created by systemd or installer)
+    if let Err(e) = verify_directories() {
+        error!("[FATAL] Required directories missing: {}", e);
+        error!("[FATAL] Run the installer or ensure systemd RuntimeDirectory/StateDirectory are configured");
         std::process::exit(1);
     }
 
@@ -73,13 +74,11 @@ async fn main() -> Result<()> {
     let listener = UnixListener::bind(SOCKET_PATH)
         .context(format!("Failed to bind socket at {}", SOCKET_PATH))?;
 
-    // Set socket permissions and ownership
-    if let Err(e) = configure_socket_permissions() {
-        error!("[FATAL] Failed to configure socket permissions: {}", e);
-        std::process::exit(1);
-    }
+    // Set socket permissions (0660 so anna group can access)
+    std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))
+        .context("Failed to set socket permissions")?;
 
-    info!("[BOOT] RPC online ({})", SOCKET_PATH);
+    info!("[BOOT] RPC online ({}, permissions: 0660)", SOCKET_PATH);
 
     // Initialize global daemon state
     let state = match state::DaemonState::new() {
@@ -167,99 +166,21 @@ fn start_cpu_watchdog() {
     });
 }
 
-/// Ensure all required directories exist with correct permissions
-fn ensure_directories() -> Result<()> {
-    // Get anna group ID
-    let anna_gid = get_anna_group_id();
+/// Verify all required directories exist (created by systemd or installer)
+fn verify_directories() -> Result<()> {
+    let required = vec![
+        (SOCKET_DIR, "socket directory"),
+        (STATE_DIR, "state directory"),
+        (CONFIG_DIR, "config directory"),
+    ];
 
-    // Config directory: 0750 root:anna
-    if !Path::new(CONFIG_DIR).exists() {
-        std::fs::create_dir_all(CONFIG_DIR)
-            .context(format!("Failed to create {}", CONFIG_DIR))?;
+    for (path, name) in required {
+        if !Path::new(path).exists() {
+            anyhow::bail!("{} missing: {}", name, path);
+        }
     }
-    set_directory_permissions(CONFIG_DIR, 0o750, anna_gid)?;
 
-    // Socket directory: 0770 root:anna
-    if !Path::new(SOCKET_DIR).exists() {
-        std::fs::create_dir_all(SOCKET_DIR)
-            .context(format!("Failed to create {}", SOCKET_DIR))?;
-    }
-    set_directory_permissions(SOCKET_DIR, 0o770, anna_gid)?;
-
-    // State directory: 0750 root:anna
-    if !Path::new(STATE_DIR).exists() {
-        std::fs::create_dir_all(STATE_DIR)
-            .context(format!("Failed to create {}", STATE_DIR))?;
-    }
-    set_directory_permissions(STATE_DIR, 0o750, anna_gid)?;
-
-    info!("[BOOT] Directories initialized");
+    info!("[BOOT] All required directories present");
     Ok(())
 }
 
-/// Get the anna group ID, or None if group doesn't exist
-fn get_anna_group_id() -> Option<u32> {
-    use nix::unistd::Group;
-    match Group::from_name(ANNA_GROUP) {
-        Ok(Some(group)) => Some(group.gid.as_raw()),
-        Ok(None) => {
-            warn!("Group '{}' not found, using root group", ANNA_GROUP);
-            None
-        }
-        Err(e) => {
-            warn!("Failed to lookup group '{}': {}", ANNA_GROUP, e);
-            None
-        }
-    }
-}
-
-/// Set directory permissions and group ownership
-fn set_directory_permissions(path: &str, mode: u32, gid: Option<u32>) -> Result<()> {
-    // Set permissions
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
-        .context(format!("Failed to set permissions on {}", path))?;
-
-    // Set ownership to root:anna (if anna group exists)
-    if gid.is_some() {
-        let result = std::process::Command::new("chown")
-            .arg("root:anna")
-            .arg(path)
-            .status();
-
-        if let Err(e) = result {
-            warn!("Failed to set ownership on {}: {}", path, e);
-        }
-    }
-
-    Ok(())
-}
-
-/// Configure socket permissions: 0660 root:anna
-fn configure_socket_permissions() -> Result<()> {
-    let anna_gid = get_anna_group_id();
-
-    // Set permissions to 0660 (owner and group can read/write)
-    std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))
-        .context(format!("Failed to set socket permissions on {}", SOCKET_PATH))?;
-
-    // Set ownership to root:anna
-    if anna_gid.is_some() {
-        let result = std::process::Command::new("chown")
-            .arg("root:anna")
-            .arg(SOCKET_PATH)
-            .status();
-
-        if result.is_ok() {
-            info!("[BOOT] Socket permissions: 0660 root:{}", ANNA_GROUP);
-        } else {
-            warn!("Failed to set socket ownership");
-        }
-    } else {
-        warn!("Socket ownership: root:root (anna group not found)");
-        // Fallback to 0666 if anna group doesn't exist
-        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o666))
-            .context("Failed to set fallback socket permissions")?;
-    }
-
-    Ok(())
-}
