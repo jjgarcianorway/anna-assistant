@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tracing::{info, error, debug};
+use std::sync::Arc;
 
 use crate::config::{self, Config, Scope};
 use crate::diagnostics;
@@ -12,6 +13,7 @@ use crate::persistence;
 use crate::policy;
 use crate::events;
 use crate::learning;
+use crate::state::DaemonState;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -76,13 +78,14 @@ pub enum Response {
     Error { message: String },
 }
 
-pub async fn serve(listener: UnixListener, mut config: Config) -> Result<()> {
+pub async fn serve(listener: UnixListener, config: Config, state: Arc<DaemonState>) -> Result<()> {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
                 let config = config.clone();
+                let state = state.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = handle_connection(stream, config).await {
+                    if let Err(e) = handle_connection(stream, config, state).await {
                         error!("Connection error: {}", e);
                     }
                 });
@@ -92,7 +95,7 @@ pub async fn serve(listener: UnixListener, mut config: Config) -> Result<()> {
     }
 }
 
-async fn handle_connection(stream: UnixStream, mut config: Config) -> Result<()> {
+async fn handle_connection(stream: UnixStream, mut config: Config, state: Arc<DaemonState>) -> Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
@@ -117,7 +120,7 @@ async fn handle_connection(stream: UnixStream, mut config: Config) -> Result<()>
         // Log RPC call
         let rpc_name = format!("{:?}", request).split_whitespace().next().unwrap_or("unknown").to_string();
 
-        let response = match handle_request(request, &mut config).await {
+        let response = match handle_request(request, &mut config, &state).await {
             Ok(resp) => {
                 let _ = telemetry::log_event(telemetry::Event::RpcCall {
                     name: rpc_name,
@@ -146,7 +149,7 @@ async fn handle_connection(stream: UnixStream, mut config: Config) -> Result<()>
     Ok(())
 }
 
-async fn handle_request(request: Request, config: &mut Config) -> Result<Response> {
+async fn handle_request(request: Request, config: &mut Config, state: &Arc<DaemonState>) -> Result<Response> {
     match request {
         Request::Ping => Ok(Response::Success {
             data: serde_json::json!({ "message": "pong" }),
@@ -285,78 +288,144 @@ async fn handle_request(request: Request, config: &mut Config) -> Result<Respons
 
         // Sprint 3: Policy Engine handlers
         Request::PolicyEvaluate { context } => {
-            // For MVP, return stub - full implementation requires global policy engine instance
+            // Build policy context from provided JSON
+            let mut policy_context = policy::PolicyContext::new();
+
+            if let Some(obj) = context.as_object() {
+                for (key, value) in obj {
+                    match value {
+                        serde_json::Value::Number(n) => {
+                            if let Some(f) = n.as_f64() {
+                                policy_context.set_metric(key, f);
+                            }
+                        }
+                        serde_json::Value::Bool(b) => {
+                            policy_context.set_flag(key, *b);
+                        }
+                        serde_json::Value::String(s) => {
+                            policy_context.set_string(key, s.clone());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            let result = state.policy_engine.evaluate(&policy_context)?;
+
             Ok(Response::Success {
                 data: serde_json::json!({
-                    "matched": false,
-                    "actions": [],
-                    "message": "Policy evaluation requires daemon integration (Sprint 3)",
+                    "matched": result.matched,
+                    "actions": result.actions,
+                    "rule_count": state.policy_engine.rule_count(),
                 }),
             })
         }
 
         Request::PolicyReload => {
-            // Stub for policy reload
+            let count = state.reload_policies()?;
             Ok(Response::Success {
                 data: serde_json::json!({
-                    "loaded": 0,
-                    "message": "Policy reload requires daemon integration (Sprint 3)",
+                    "loaded": count,
                 }),
             })
         }
 
         Request::PolicyList => {
-            // Stub for policy list
+            let rules = state.policy_engine.list_rules();
+            let rules_json: Vec<serde_json::Value> = rules.iter().map(|r| {
+                serde_json::json!({
+                    "condition": r.condition,
+                    "action": format!("{:?}", r.action),
+                    "enabled": r.enabled,
+                })
+            }).collect();
+
             Ok(Response::Success {
                 data: serde_json::json!({
-                    "rules": [],
-                    "message": "Policy listing requires daemon integration (Sprint 3)",
+                    "rules": rules_json,
+                    "total": rules.len(),
                 }),
             })
         }
 
         // Sprint 3: Events handlers
-        Request::EventsList { filter, limit } => {
+        Request::EventsList { filter: _, limit } => {
             let limit = limit.unwrap_or(50);
+            let events = state.event_dispatcher.get_recent_events(limit);
+
+            let events_json: Vec<serde_json::Value> = events.iter().map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "timestamp": e.timestamp,
+                    "event_type": format!("{:?}", e.event_type),
+                    "severity": format!("{:?}", e.severity),
+                    "source": e.source,
+                    "message": e.message,
+                    "metadata": e.metadata,
+                })
+            }).collect();
+
             Ok(Response::Success {
                 data: serde_json::json!({
-                    "events": [],
-                    "total": 0,
-                    "limit": limit,
-                    "message": "Events listing requires daemon integration (Sprint 3)",
+                    "events": events_json,
+                    "total": state.event_dispatcher.event_count(),
+                    "showing": events.len(),
                 }),
             })
         }
 
         Request::EventsShow { event_type, severity } => {
+            // Get events based on filters
+            let events = if let Some(ref severity_str) = severity {
+                use crate::events::EventSeverity;
+                let min_severity = match severity_str.to_lowercase().as_str() {
+                    "info" => EventSeverity::Info,
+                    "warning" => EventSeverity::Warning,
+                    "error" => EventSeverity::Error,
+                    "critical" => EventSeverity::Critical,
+                    _ => EventSeverity::Info,
+                };
+                state.event_dispatcher.get_events_by_severity(min_severity)
+            } else {
+                state.event_dispatcher.get_recent_events(50)
+            };
+
+            let events_json: Vec<serde_json::Value> = events.iter().map(|e| {
+                serde_json::json!({
+                    "id": e.id,
+                    "timestamp": e.timestamp,
+                    "event_type": format!("{:?}", e.event_type),
+                    "severity": format!("{:?}", e.severity),
+                    "source": e.source,
+                    "message": e.message,
+                    "metadata": e.metadata,
+                })
+            }).collect();
+
             Ok(Response::Success {
                 data: serde_json::json!({
-                    "events": [],
+                    "events": events_json,
                     "filter": {
                         "event_type": event_type,
                         "severity": severity,
                     },
-                    "message": "Events filtering requires daemon integration (Sprint 3)",
                 }),
             })
         }
 
         Request::EventsClear => {
+            let count = state.event_dispatcher.event_count();
+            state.event_dispatcher.clear_history();
             Ok(Response::Success {
                 data: serde_json::json!({
-                    "cleared": true,
-                    "message": "Events cleared (requires daemon integration)",
+                    "cleared": count,
                 }),
             })
         }
 
         // Sprint 3: Learning handlers
         Request::LearningStats { action } => {
-            // Use learning module
-            let cache = learning::LearningCache::new("/var/lib/anna/learning.json");
-            if let Err(e) = cache.load() {
-                info!("Learning cache not found or empty: {}", e);
-            }
+            let cache = state.learning_cache.lock().unwrap();
 
             let stats = if let Some(action_name) = action {
                 if let Some(stats) = cache.get_stats(&action_name) {
@@ -381,11 +450,7 @@ async fn handle_request(request: Request, config: &mut Config) -> Result<Respons
         }
 
         Request::LearningRecommendations => {
-            let cache = learning::LearningCache::new("/var/lib/anna/learning.json");
-            if let Err(e) = cache.load() {
-                info!("Learning cache not found or empty: {}", e);
-            }
-
+            let cache = state.learning_cache.lock().unwrap();
             let recommendations = cache.get_recommended_actions();
             Ok(Response::Success {
                 data: serde_json::json!({
@@ -395,7 +460,7 @@ async fn handle_request(request: Request, config: &mut Config) -> Result<Respons
         }
 
         Request::LearningReset => {
-            let cache = learning::LearningCache::new("/var/lib/anna/learning.json");
+            let mut cache = state.learning_cache.lock().unwrap();
             cache.clear()?;
             telemetry::log_event(telemetry::Event::RpcCall {
                 name: "learning_reset".to_string(),

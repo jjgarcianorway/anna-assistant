@@ -1,0 +1,7 @@
+# Low Disk Space Policy
+# Triggers when free disk space drops below 15%
+
+when: "telemetry.disk_free_pct < 15"
+then:
+  type: send_alert
+enabled: true

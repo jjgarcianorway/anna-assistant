@@ -14,6 +14,7 @@ mod persistence;
 mod policy;
 mod events;
 mod learning;
+mod state;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 const SOCKET_DIR: &str = "/run/anna";
@@ -78,11 +79,26 @@ async fn main() -> Result<()> {
     }
 
     info!("[BOOT] RPC online ({})", SOCKET_PATH);
+
+    // Initialize global daemon state
+    let state = match state::DaemonState::new() {
+        Ok(s) => std::sync::Arc::new(s),
+        Err(e) => {
+            error!("[FATAL] Failed to initialize daemon state: {}", e);
+            std::process::exit(78);
+        }
+    };
+
+    // Emit bootstrap events
+    if let Err(e) = state.emit_bootstrap_events() {
+        warn!("Failed to emit bootstrap events: {}", e);
+    }
+
     info!("[BOOT] Policy/Event/Learning subsystems active");
     info!("[READY] anna-assistant operational");
 
-    // Run RPC server
-    rpc::serve(listener, config).await
+    // Run RPC server with state
+    rpc::serve(listener, config, state).await
         .context("RPC server error")?;
 
     Ok(())
