@@ -3,10 +3,11 @@ resolver = "2"
 members = [
     "src/annad",
     "src/annactl",
+    "src/anna_common",
 ]
 
 [workspace.package]
-version = "0.9.4-beta.1"
+version = "0.9.5-beta"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "MIT"

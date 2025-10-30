@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # ╭─────────────────────────────────────────────────────────────────────╮
-# │ Anna Assistant Installer - Sprint 5 Phase 3 (v0.9.4-beta)          │
+# │ Anna Assistant Installer - Sprint 5 Phase 4 (v0.9.5-beta)          │
 # │                                                                     │
-# │ Beautiful • Intelligent • Self-Healing                              │
+# │ Conversational • Intelligent • Self-Healing                         │
 # │                                                                     │
 # │ Four-phase ceremonial installation:                                │
 # │   1. Detection   - Analyze system state and version                │
@@ -14,10 +14,18 @@ set -euo pipefail
 # ╰─────────────────────────────────────────────────────────────────────╯
 
 # ============================================================================
+# Load Anna Common Library
+# ============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/anna_common.sh
+source "$SCRIPT_DIR/anna_common.sh"
+
+# ============================================================================
 # Configuration
 # ============================================================================
 
-BUNDLE_VERSION="0.9.4-beta.1"
+BUNDLE_VERSION="0.9.5-beta"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 BIN_DIR="$INSTALL_PREFIX/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -50,72 +58,15 @@ PHASE4_DURATION=0
 TOTAL_START=0
 TOTAL_DURATION=0
 
-# Terminal capabilities
-IS_TTY=false
-TERM_WIDTH=80
-SUPPORTS_COLOR=false
-SUPPORTS_UNICODE=false
+# Terminal capabilities are now provided by anna_common.sh
+# Colors: C_CYAN, C_GREEN, C_YELLOW, C_RED, C_BLUE, C_GRAY, C_BOLD, NC
+# Variables: IS_TTY, TERM_WIDTH, SUPPORTS_COLOR, SUPPORTS_UNICODE
 
-# ============================================================================
-# Terminal Detection & Formatting
-# ============================================================================
-
-detect_terminal() {
-    # Check if stdout is a TTY
-    if [[ -t 1 ]]; then
-        IS_TTY=true
-        TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
-    fi
-
-    # Check color support
-    if [[ -n "${TERM:-}" ]] && command -v tput &>/dev/null; then
-        if [[ $(tput colors 2>/dev/null || echo 0) -ge 8 ]]; then
-            SUPPORTS_COLOR=true
-        fi
-    fi
-
-    # Check Unicode support
-    if [[ "${LANG:-}" =~ UTF-8 ]] || [[ "${LC_ALL:-}" =~ UTF-8 ]]; then
-        SUPPORTS_UNICODE=true
-    fi
-}
-
-# Color palette (pastel for dark terminals)
-if [[ "$SUPPORTS_COLOR" == "true" ]]; then
-    C_CYAN='\033[38;5;87m'       # Headers, titles
-    C_GREEN='\033[38;5;120m'     # Success
-    C_YELLOW='\033[38;5;228m'    # Warnings
-    C_RED='\033[38;5;210m'       # Errors
-    C_BLUE='\033[38;5;111m'      # Info
-    C_GRAY='\033[38;5;245m'      # Secondary text
-    C_BOLD='\033[1m'             # Bold
-    NC='\033[0m'                 # Reset
-else
-    C_CYAN=''
-    C_GREEN=''
-    C_YELLOW=''
-    C_RED=''
-    C_BLUE=''
-    C_GRAY=''
-    C_BOLD=''
-    NC=''
-fi
-
-# Unicode symbols with ASCII fallbacks
+# Additional symbols for installer-specific use
 if [[ "$SUPPORTS_UNICODE" == "true" ]]; then
     SYM_CHECK="✓"
     SYM_CROSS="✗"
-    SYM_WARN="⚠"
-    SYM_INFO="→"
     SYM_WAIT="⏳"
-    SYM_ROBOT="🤖"
-    SYM_SUCCESS="✅"
-    BOX_TL="╭"
-    BOX_TR="╮"
-    BOX_BL="╰"
-    BOX_BR="╯"
-    BOX_H="─"
-    BOX_V="│"
     TREE_T="┌"
     TREE_B="└"
     TREE_V="│"
@@ -123,17 +74,7 @@ if [[ "$SUPPORTS_UNICODE" == "true" ]]; then
 else
     SYM_CHECK="[OK]"
     SYM_CROSS="[FAIL]"
-    SYM_WARN="[WARN]"
-    SYM_INFO="[INFO]"
     SYM_WAIT="[WAIT]"
-    SYM_ROBOT="[ANNA]"
-    SYM_SUCCESS="[DONE]"
-    BOX_TL="+"
-    BOX_TR="+"
-    BOX_BL="+"
-    BOX_BR="+"
-    BOX_H="-"
-    BOX_V="|"
     TREE_T="+"
     TREE_B="+"
     TREE_V="|"
@@ -772,45 +713,36 @@ EOF
 # ============================================================================
 
 print_final_summary() {
-    local autonomy_mode=$(get_autonomy_level | tr '[:lower:]' '[:upper:]')
+    local autonomy_mode=$(get_autonomy_level)
+    local duration_str=$(format_duration "$TOTAL_DURATION")
 
-    # Build summary box
-    print_box_header "$SYM_SUCCESS Installation Complete"
-
-    local width=50
-    [[ $TERM_WIDTH -lt 50 ]] && width=$TERM_WIDTH
-
-    echo -e "${C_CYAN}${BOX_V}${NC}"
-    printf "${C_CYAN}${BOX_V}${NC}%*s${C_GREEN}${C_BOLD}%s${NC}%*s${C_CYAN}${BOX_V}${NC}\n" \
-        $((width/2 - 10)) "" "Anna is ready to serve!" $((width/2 - 10)) ""
-    echo -e "${C_CYAN}${BOX_V}${NC}"
-
-    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Version:${NC}    %-30s ${C_CYAN}${BOX_V}${NC}\n" "$BUNDLE_VERSION"
-    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Duration:${NC}   %-30s ${C_CYAN}${BOX_V}${NC}\n" "${TOTAL_DURATION}s"
-    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Mode:${NC}       %-30s ${C_CYAN}${BOX_V}${NC}\n" "$autonomy_mode RISK AUTONOMY"
-    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Status:${NC}     %-30s ${C_CYAN}${BOX_V}${NC}\n" "Fully Operational"
-
-    echo -e "${C_CYAN}${BOX_V}${NC}"
-    printf "${C_CYAN}${BOX_V}${NC}  ${C_BOLD}Next Steps:${NC}%-32s${C_CYAN}${BOX_V}${NC}\n" ""
-    echo -e "${C_CYAN}${BOX_V}${NC}  ${C_GRAY}•${NC} annactl status                       ${C_CYAN}${BOX_V}${NC}"
-    echo -e "${C_CYAN}${BOX_V}${NC}  ${C_GRAY}•${NC} annactl telemetry snapshot (after 60s) ${C_CYAN}${BOX_V}${NC}"
-    echo -e "${C_CYAN}${BOX_V}${NC}  ${C_GRAY}•${NC} annactl doctor check                 ${C_CYAN}${BOX_V}${NC}"
-    echo -e "${C_CYAN}${BOX_V}${NC}"
-
-    local line=$(printf "%${width}s" | tr ' ' "$BOX_H")
-    echo -e "${C_CYAN}${BOX_BL}${line}${BOX_BR}${NC}"
-
+    # Friendly completion ceremony
     echo ""
-    echo -e "${C_GRAY}Install log: $LOG_DIR/install.log${NC}"
-    [[ -f "$HISTORY_FILE" ]] && echo -e "${C_GRAY}History: $HISTORY_FILE${NC}"
+    anna_box ok \
+        "All done! I've checked everything twice." \
+        "You can talk to me anytime using 'annactl'." \
+        "Let's see what we can build together."
     echo ""
 
-    # Show release highlights
+    anna_ok "Version: $BUNDLE_VERSION"
+    anna_ok "Setup time: $duration_str"
+    anna_ok "Autonomy: ${autonomy_mode^} mode"
+    anna_ok "Status: Fully operational"
+
+    echo ""
+    anna_narrative "Here's what you can try next:"
+    echo "  • annactl status          - See how I'm doing"
+    echo "  • annactl doctor check    - Let me check my own health"
+    echo "  • annactl explore         - Discover my capabilities"
+    echo "  • annactl news            - See what's new in this version"
+
+    echo ""
+    echo -e "${C_GRAY}📝 Install log: $LOG_DIR/install.log${NC}"
+    [[ -f "$HISTORY_FILE" ]] && echo -e "${C_GRAY}📜 History: $HISTORY_FILE${NC}"
+    echo ""
+
+    # Show release highlights if available
     print_release_highlights
-
-    # Show tip
-    echo -e "${C_BLUE}💡 Tip:${NC} Try ${C_BOLD}annactl help${NC} or ${C_BOLD}annactl explore${NC} to discover what Anna can do."
-    echo ""
 }
 
 print_release_highlights() {
@@ -842,7 +774,6 @@ print_release_highlights() {
 main() {
     # Initialize
     TOTAL_START=$(date +%s)
-    detect_terminal
 
     # Parse arguments
     for arg in "$@"; do
@@ -853,28 +784,29 @@ main() {
         esac
     done
 
-    # Print banner
-    print_box_header "$SYM_ROBOT Anna Assistant Installer v$BUNDLE_VERSION"
-
-    local subtitle="Self-Healing ${C_GRAY}•${NC} Autonomous ${C_GRAY}•${NC} Intelligent"
-    local width=50
-    [[ $TERM_WIDTH -lt 50 ]] && width=$TERM_WIDTH
-
-    printf "%*s${C_GRAY}%s${NC}\n" $((width/2 - 20)) "" "$subtitle"
+    # Friendly greeting ceremony
+    echo ""
+    anna_box narrative \
+        "Hi! I'm Anna. I'll take care of your setup." \
+        "I'll explain each step as we go. Ready?"
     echo ""
 
-    # Show context
+    anna_info "Version: $BUNDLE_VERSION"
+    anna_info "User: $USER"
+
     local autonomy_mode=$(get_autonomy_level)
-    echo -e "${C_BOLD}Mode:${NC} ${autonomy_mode^} Risk (Anna may repair herself)"
-    echo -e "${C_BOLD}User:${NC} $USER"
-    echo -e "${C_BOLD}Time:${NC} $(date -u '+%Y-%m-%d %H:%M UTC')"
+    anna_info "Autonomy: ${autonomy_mode^} (I can repair myself if needed)"
 
     # Check if running from project root
     if [[ ! -f Cargo.toml ]]; then
         echo ""
-        print_error "Must run from anna-assistant project root"
+        anna_error "Oops! Please run me from the anna-assistant project root directory."
         exit 1
     fi
+
+    echo ""
+    anna_narrative "Let's begin..."
+    echo ""
 
     # Execute phases
     detect_installation

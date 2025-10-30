@@ -7,6 +7,168 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.5-beta] - Sprint 5 Phase 4: Conversational Installer & Unified Messaging - 2025-10-30
+
+### Added - Conversational Interface & Human-Friendly Output
+
+#### Unified Messaging Layer (`anna_common`)
+- **New shared library** (`src/anna_common/`) providing consistent messaging across all Anna components:
+  - **anna_say()** - Single output function for all user-facing messages
+  - **MessageType** - Categorized messages: Info, Ok, Warn, Error, Narrative
+  - **Terminal Detection** - Auto-detects TTY, color support, Unicode capabilities
+  - **Pastel Color Palette** - Optimized for dark terminals
+  - **Timestamp Formatting** - Locale-aware (en_US, nb_NO, de, fr, es, ja, zh)
+  - **Decorative Boxes** - Beautiful ceremonial output with anna_box()
+
+#### Conversational Installer
+- **Friendly Greeting Ceremony**:
+  - "Hi! I'm Anna. I'll take care of your setup."
+  - Clear explanation of each step in plain English
+  - No more technical jargon or scary terminal output
+- **Natural Language Throughout**:
+  - Old: "Checking dependencies..." → New: "Let me see if everything you need is already installed."
+  - Old: "Installation complete." → New: "All done! I've checked everything twice."
+  - Old: "✓ System healthy" → New: "Everything looks good! I'm feeling healthy."
+- **Warm Completion Message**:
+  - "You can talk to me anytime using 'annactl'."
+  - "Let's see what we can build together."
+
+#### Privilege Escalation Helper
+- **Friendly sudo Requests** (`anna_privilege()` in bash, `request_privilege()` in Rust):
+  - Explains *why* privileges are needed: "I need administrator rights to install system files."
+  - Asks permission: "May I proceed with sudo?"
+  - User can decline without cryptic error messages
+  - Configurable via `ANNA_CONFIRM_PRIVILEGE` or `~/.config/anna/config.yml`
+
+#### Regional Formatting
+- **Locale Detection** (`detect_locale()`):
+  - Reads LC_ALL, LC_TIME, or LANG environment variables
+  - Parses language, country, and encoding
+- **Timestamp Formatting** (`format_timestamp()`):
+  - en_US: "Oct 30 2025 3:45 PM"
+  - nb_NO: "30.10.2025 15:45"
+  - de: "30.10.2025 15:45"
+  - fr/es: "30/10/2025 15:45"
+  - ja: "2025年10月30日 15:45"
+  - zh: "2025-10-30 15:45"
+- **Duration Formatting** (`format_duration()`):
+  - Human-readable: "2m 30s", "1h 15m", "45s"
+
+#### User Configuration System
+- **Config File**: `~/.config/anna/config.yml`
+  ```yaml
+  colors: true        # Enable/disable colored output
+  emojis: true        # Enable/disable emoji/Unicode characters
+  verbose: true       # Show timestamps and extra context
+  confirm_privilege: true  # Ask before using sudo
+  ```
+- **Respects NO_COLOR** environment variable
+- **Graceful Degradation** for non-TTY environments
+- **Default Config** if file doesn't exist
+
+#### Bash Helper Library
+- **scripts/anna_common.sh** - Bash version of Rust anna_common:
+  - `anna_say()`, `anna_info()`, `anna_ok()`, `anna_warn()`, `anna_error()`, `anna_narrative()`
+  - `anna_box()` for decorative ceremonies
+  - `anna_privilege()` for friendly sudo requests
+  - `format_timestamp()` and `format_duration()`
+  - `detect_terminal()` with color/Unicode detection
+  - Exported functions for sourcing in other scripts
+
+### Changed - Conversational Tone
+
+#### annactl Doctor
+- **Before**: "🏥 Anna System Health Check"
+- **After**: "Let me check my own health..."
+- **Before**: "✓ System healthy - no repairs needed"
+- **After**: "Everything looks good! I'm feeling healthy."
+- **Before**: "🔧 Doctor Repair"
+- **After**: "Let me fix any problems I find..."
+- **Before**: "✓ Made 3 repairs successfully"
+- **After**: "All done! I fixed 3 things."
+
+#### Installer Messages
+- All `echo` and `printf` calls replaced with `anna_say()`
+- Technical error messages rewritten in friendly language
+- Progress indicators now conversational
+- Backup creation: "Creating a backup first, just to be safe."
+
+### Technical Details
+
+#### New Rust Crate: anna_common
+- **Location**: `src/anna_common/`
+- **Dependencies**:
+  - serde, serde_json, serde_yaml
+  - anyhow, chrono, once_cell
+  - terminal_size (0.3)
+  - libc (for privilege checks)
+- **Modules**:
+  - `messaging.rs` - Core anna_say() implementation (220 lines)
+  - `config.rs` - User configuration management (110 lines)
+  - `locale.rs` - Regional formatting (100 lines)
+  - `privilege.rs` - Sudo helper with friendly prompts (130 lines)
+- **Integration**: Added to workspace members, used by annactl
+
+#### Bash Library
+- **Location**: `scripts/anna_common.sh` (370 lines)
+- **Functions**: 20+ exported functions
+- **Sourced by**: `scripts/install.sh`
+- **Portable**: Works on Arch, Debian, RHEL, macOS
+
+### Testing
+
+#### Manual Testing Performed
+- ✅ Installer greeting ceremony displays correctly
+- ✅ Color and Unicode detection works (tested with NO_COLOR)
+- ✅ anna_box() draws beautiful boxes with Unicode/ASCII fallback
+- ✅ Locale timestamps format correctly (tested en_US, nb_NO)
+- ✅ annactl doctor check uses conversational messages
+- ✅ Privilege escalation asks nicely before sudo
+- ✅ Config file loading works (tested with ~/.config/anna/config.yml)
+- ✅ Build succeeds with 0 errors, 2 minor warnings (unused structs)
+
+### Files Changed
+- **New Files**:
+  - `src/anna_common/` (entire crate)
+  - `scripts/anna_common.sh` (370 lines)
+  - `news/v0.9.5-beta.txt`
+- **Modified Files**:
+  - `Cargo.toml` - Added anna_common to workspace, version bump
+  - `scripts/install.sh` - Sources anna_common.sh, updated greeting/summary
+  - `src/annactl/Cargo.toml` - Added anna_common dependency
+  - `src/annactl/src/doctor.rs` - Uses anna_say() instead of println!
+  - `CHANGELOG.md` - This entry
+
+### Migration from 0.9.4-beta.1
+
+Run installer to upgrade:
+```bash
+sudo ./scripts/install.sh
+```
+
+Installer will:
+1. Greet you warmly: "Hi! I'm Anna..."
+2. Detect 0.9.4-beta.1 installation
+3. Create backup before upgrading
+4. Update binaries with conversational annactl
+5. Complete with friendly summary
+
+Optional: Create `~/.config/anna/config.yml` to customize Anna's tone.
+
+### Known Limitations
+- Light terminal theme not auto-detected (colors optimized for dark terminals)
+- Config file must be valid YAML (falls back to defaults if invalid)
+- Privilege confirmation only works interactively (not in pipes/automation)
+
+### Next Steps: Sprint 5 Phase 5
+Planned features:
+- Policy action execution (Log, Alert, Execute)
+- Conversational policy engine output
+- Smart repair suggestions with ML
+- Remote configuration management
+
+---
+
 ## [0.9.4-beta.1] - Sprint 5 Phase 3: Hotfix & CLI Completion - 2025-10-30
 
 ### Fixed

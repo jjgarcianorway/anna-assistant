@@ -5,6 +5,7 @@
 //! even when the daemon is broken.
 
 use anyhow::{Context, Result};
+use anna_common::{anna_narrative, anna_info, anna_ok, anna_warn, anna_box, MessageType};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,7 +13,8 @@ use std::process::Command;
 
 /// Run system health check (read-only)
 pub async fn doctor_check(verbose: bool) -> Result<()> {
-    println!("\n🏥 Anna System Health Check\n");
+    anna_box(&["Let me check my own health..."], MessageType::Narrative);
+    println!();
 
     let mut all_ok = true;
 
@@ -45,10 +47,10 @@ pub async fn doctor_check(verbose: bool) -> Result<()> {
 
     println!();
     if all_ok {
-        println!("✓ System healthy - no repairs needed");
+        anna_ok("Everything looks good! I'm feeling healthy.");
         Ok(())
     } else {
-        println!("⚠ Some checks failed - run `annactl doctor repair` to fix");
+        anna_warn("I found some issues. Run 'annactl doctor repair' and I'll fix myself.");
         std::process::exit(1);
     }
 }
@@ -56,15 +58,17 @@ pub async fn doctor_check(verbose: bool) -> Result<()> {
 /// Run self-healing repairs
 pub async fn doctor_repair(dry_run: bool) -> Result<()> {
     if dry_run {
-        println!("\n🔍 Doctor Repair (Dry-Run Mode)\n");
+        anna_box(&["Repair Preview - I'll show you what needs fixing"], MessageType::Info);
     } else {
-        println!("\n🔧 Doctor Repair\n");
+        anna_box(&["Let me fix any problems I find..."], MessageType::Narrative);
     }
+    println!();
 
     let mut repairs_made = 0;
 
     // Create backup before repairs
     if !dry_run {
+        anna_info("Creating a backup first, just to be safe.");
         create_backup("repair")?;
     }
 
@@ -89,12 +93,12 @@ pub async fn doctor_repair(dry_run: bool) -> Result<()> {
     println!();
     if repairs_made > 0 {
         if dry_run {
-            println!("Would make {} repairs", repairs_made);
+            anna_info(format!("I found {} things I can fix for you.", repairs_made));
         } else {
-            println!("✓ Made {} repairs successfully", repairs_made);
+            anna_ok(format!("All done! I fixed {} things.", repairs_made));
         }
     } else {
-        println!("✓ No repairs needed - system healthy");
+        anna_ok("Everything was already in good shape. Nothing to fix!");
     }
 
     Ok(())
