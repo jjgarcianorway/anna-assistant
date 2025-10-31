@@ -246,6 +246,16 @@ else
     echo "✓ Config already exists"
 fi
 
+# Install capability registry
+echo ""
+echo "→ Installing capability registry..."
+if [ -f etc/CAPABILITIES.toml ]; then
+    sudo install -m 0644 etc/CAPABILITIES.toml /usr/lib/anna/
+    echo "✓ Capabilities registered"
+else
+    echo "⚠ CAPABILITIES.toml not found"
+fi
+
 # Install systemd service
 echo ""
 echo "→ Installing systemd service..."
