@@ -1,40 +1,58 @@
 [Unit]
-Description=Anna Assistant Daemon
+Description=Anna v0.11.0 Event-Driven Intelligence Daemon
 Documentation=https://github.com/anna-assistant/anna
-After=network-online.target
-Wants=network-online.target
+After=network.target local-fs.target
 
 [Service]
 Type=simple
+
+# Run as anna user (unprivileged observer)
+# Event-driven architecture: observe, analyze, alert (no auto-repair yet)
 User=anna
 Group=anna
+
+# Capability Bounding Set (read-only observer, no privileged operations)
+# Running as anna user - no capabilities needed for observation
+AmbientCapabilities=
+CapabilityBoundingSet=
+
+# Execution
 ExecStart=/usr/local/bin/annad
-RuntimeDirectory=anna
-RuntimeDirectoryMode=0750
-StateDirectory=anna
-StateDirectoryMode=0750
-CacheDirectory=anna
-CacheDirectoryMode=0750
 Restart=on-failure
-RestartSec=3s
-
-# Resource accounting and limits
-CPUAccounting=true
-MemoryAccounting=true
-CPUQuota=50%
-MemoryMax=300M
-WatchdogSec=60s
-
-# Security hardening
-PrivateTmp=yes
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=read-only
-
-# Logging
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=annad
+
+# Resource Limits
+CPUQuota=5%
+MemoryMax=80M
+TasksMax=32
+
+# Runtime Directory
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0750
+
+# Security Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ProtectKernelLogs=yes
+
+# Writable Paths (anna's own state directories only)
+ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
+# Read-only access to system state for observation
+ReadOnlyPaths=/var/lib/pacman /etc /proc/self/mountinfo
+
+# Need access to /dev for hardware sensors
+PrivateDevices=no
 
 [Install]
 WantedBy=multi-user.target

@@ -1,5 +1,5 @@
-// Anna v0.10.1 Daemon - Pure Telemetry Observer
-// Unprivileged systemd service: collect, classify, never act
+// Anna v0.10 Daemon - Read-Only Telemetry Collection
+// Unprivileged systemd service: observe first, understand second, act never (in v0.10)
 
 use anyhow::{Context, Result};
 use std::path::PathBuf;
@@ -10,24 +10,11 @@ use tokio::time;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
-mod capabilities;
-mod doctor;
-mod doctor_handler;
-mod events;
-mod integrity;
-mod listeners;
 mod persona_v10;
-mod policy;
 mod rpc_v10;
 mod storage_v10;
 mod telemetry_v10;
 
-use capabilities::CapabilityManager;
-use doctor::DoctorApply;
-use doctor_handler::DoctorHandlerImpl;
-use events::EventEngine;
-use integrity::IntegrityWatchdog;
-use policy::PolicyEngine;
 use persona_v10::PersonaRadar;
 use rpc_v10::RpcServer;
 use storage_v10::StorageManager;
@@ -54,14 +41,6 @@ impl Default for DaemonConfig {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Check for --doctor-apply mode
-    let args: Vec<String> = std::env::args().collect();
-    if args.contains(&"--doctor-apply".to_string()) {
-        let verbose = args.contains(&"--verbose".to_string());
-        let doctor = DoctorApply::new(verbose);
-        return doctor.apply();
-    }
-
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -73,35 +52,7 @@ async fn main() -> Result<()> {
         .with_line_number(false)
         .init();
 
-    info!("Anna v0.11.0 daemon starting (event-driven intelligence)");
-
-    // Verify running as anna user
-    if let Ok(user) = std::env::var("USER") {
-        if user != "anna" && user != "root" {
-            warn!("Running as user '{}' (expected 'anna')", user);
-        }
-    }
-
-    // Check capabilities on startup
-    match CapabilityManager::new() {
-        Ok(cap_mgr) => {
-            let checks = cap_mgr.check_all();
-            let active = checks.iter().filter(|c| c.status == capabilities::ModuleStatus::Active).count();
-            let degraded = checks.iter().filter(|c| c.status == capabilities::ModuleStatus::Degraded).count();
-            info!("Capabilities: {} active, {} degraded", active, degraded);
-
-            for check in checks.iter().filter(|c| c.status == capabilities::ModuleStatus::Degraded) {
-                if check.required {
-                    warn!("Required module '{}' degraded: {}",
-                        check.module_name,
-                        check.reason.as_ref().unwrap_or(&"Unknown".to_string()));
-                }
-            }
-        }
-        Err(e) => {
-            warn!("Failed to load capability registry: {}", e);
-        }
-    }
+    info!("Anna v0.10 daemon starting (telemetry-first MVP)");
 
     // Load configuration
     let config = DaemonConfig::default();
@@ -116,15 +67,9 @@ async fn main() -> Result<()> {
             .context("Failed to initialize storage")?,
     ));
 
-    // Initialize event engine (before RPC server so it can access events)
-    info!("Initializing event-driven intelligence...");
-    let event_engine = EventEngine::new(300, 30, 500); // 300ms debounce, 30s cooldown, 500 event history
-    let event_tx = event_engine.sender();
-    let event_engine_shared = Arc::new(event_engine.shared_state());
-
     // Start RPC server
     info!("Starting RPC server at {:?}", config.socket_path);
-    let rpc_server = Arc::new(RpcServer::new(Arc::clone(&storage), Arc::clone(&event_engine_shared)));
+    let rpc_server = Arc::new(RpcServer::new(Arc::clone(&storage)));
     let rpc_socket = config.socket_path.clone();
 
     tokio::spawn(async move {
@@ -135,68 +80,6 @@ async fn main() -> Result<()> {
 
     // Wait for RPC server to bind
     tokio::time::sleep(Duration::from_millis(500)).await;
-
-    // Initialize policy engine
-    let policy = match PolicyEngine::new() {
-        Ok(engine) => Arc::new(Mutex::new(engine)),
-        Err(e) => {
-            warn!("Failed to load policy.toml: {}", e);
-            warn!("Starting with default policy (alert-only mode)");
-            // Create minimal default - will try to load again in future
-            match PolicyEngine::new() {
-                Ok(engine) => Arc::new(Mutex::new(engine)),
-                Err(_) => {
-                    error!("Cannot initialize policy engine, using fallback");
-                    // For now, just try again - in production this would need a hardcoded fallback
-                    return Err(e);
-                }
-            }
-        }
-    };
-
-    // Initialize integrity watchdog
-    let integrity = Arc::new(Mutex::new(IntegrityWatchdog::new()));
-
-    // Create doctor handler
-    let doctor_handler = Arc::new(DoctorHandlerImpl::new(
-        Arc::clone(&integrity),
-        Arc::clone(&policy),
-    ));
-
-    // Spawn event listeners
-    info!("Spawning event listeners (packages, config, storage, devices, network)");
-    let listener_handles = listeners::spawn_all(event_tx);
-    info!("Spawned {} event listeners", listener_handles.len());
-
-    // Start event engine (consumes the engine, history/queue remain shared via event_engine_shared)
-    tokio::spawn(async move {
-        info!("Event engine starting...");
-        if let Err(e) = event_engine.run(doctor_handler).await {
-            error!("Event engine failed: {}", e);
-        }
-    });
-
-    // Start integrity watchdog (runs every 10 minutes)
-    let watchdog_integrity = Arc::clone(&integrity);
-    tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_secs(600)); // 10 minutes
-
-        loop {
-            interval.tick().await;
-            info!("Running integrity watchdog sweep...");
-
-            match watchdog_integrity.lock().await.sweep() {
-                Ok(alerts) => {
-                    if !alerts.is_empty() {
-                        warn!("Integrity watchdog found {} alerts", alerts.len());
-                    }
-                }
-                Err(e) => {
-                    error!("Integrity watchdog failed: {}", e);
-                }
-            }
-        }
-    });
 
     // Start telemetry collection loop
     info!(
@@ -234,7 +117,6 @@ async fn run_collection_loop(
     let mut collector = TelemetryCollector::new();
     let mut failure_count = 0u32;
     let mut backoff_secs = config.poll_interval_secs;
-    let mut collection_count = 0u32;
 
     loop {
         // Collect telemetry
@@ -256,12 +138,15 @@ async fn run_collection_loop(
                     // Reset backoff on success
                     failure_count = 0;
                     backoff_secs = config.poll_interval_secs;
-                    collection_count += 1;
 
                     // Compute persona scores every 10 collections (~5 minutes)
-                    if collection_count % 10 == 0 {
-                        if let Err(e) = update_persona_scores(&storage, &snapshot).await {
-                            warn!("Failed to update persona scores: {}", e);
+                    static mut COLLECTION_COUNT: u32 = 0;
+                    unsafe {
+                        COLLECTION_COUNT += 1;
+                        if COLLECTION_COUNT % 10 == 0 {
+                            if let Err(e) = update_persona_scores(&storage, &snapshot).await {
+                                warn!("Failed to update persona scores: {}", e);
+                            }
                         }
                     }
                 }
@@ -321,17 +206,29 @@ async fn update_persona_scores(
     let mut sorted_scores = scores.clone();
     sorted_scores.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
 
-    if sorted_scores.len() >= 3 {
-        info!(
-            "Top personas: {} ({:.1}), {} ({:.1}), {} ({:.1})",
-            sorted_scores[0].name,
-            sorted_scores[0].score,
-            sorted_scores[1].name,
-            sorted_scores[1].score,
-            sorted_scores[2].name,
-            sorted_scores[2].score,
-        );
-    }
+    info!(
+        "Top personas: {} ({:.1}), {} ({:.1}), {} ({:.1})",
+        sorted_scores[0].name,
+        sorted_scores[0].score,
+        sorted_scores[1].name,
+        sorted_scores[1].score,
+        sorted_scores[2].name,
+        sorted_scores[2].score,
+    );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_defaults() {
+        let config = DaemonConfig::default();
+        assert_eq!(config.poll_interval_secs, 30);
+        assert_eq!(config.poll_jitter_secs, 5);
+        assert_eq!(config.db_path, PathBuf::from("/var/lib/anna/telemetry.db"));
+        assert_eq!(config.socket_path, PathBuf::from("/run/anna/annad.sock"));
+    }
 }

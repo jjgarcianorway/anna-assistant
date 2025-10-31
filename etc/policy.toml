@@ -1,0 +1,85 @@
+# Anna v0.11.0 - Event Auto-Repair Policy
+#
+# Controls which domains can trigger automatic repairs vs alert-only mode.
+#
+# auto = true  → Anna attempts to repair automatically (low-risk fixes only)
+# auto = false → Anna creates alerts and waits for user confirmation (annactl fix)
+
+[policy]
+version = "0.11.0"
+description = "Event-driven repair policy"
+
+# ============================================================================
+# DOMAIN POLICIES
+# ============================================================================
+
+[policy.packages]
+# Package manager changes (pacman hooks, /var/lib/pacman mtime)
+auto = false
+reason = "Package installation requires user review for security"
+allowed_operations = ["enable_module", "disable_module"]
+forbidden_operations = ["install_package", "remove_package"]
+
+[policy.config]
+# Configuration file drift in /etc
+auto = false
+reason = "Config changes may break services, require review"
+allowed_operations = []
+forbidden_operations = ["edit_config", "restore_config"]
+
+[policy.devices]
+# USB, block, net, bluetooth device hotplug
+auto = true
+reason = "Device detection is safe and reversible"
+allowed_operations = ["update_capability", "log_event"]
+forbidden_operations = []
+
+[policy.network]
+# Link state, IP address changes
+auto = true
+reason = "Network state changes are transient"
+allowed_operations = ["update_capability", "log_event"]
+forbidden_operations = ["modify_network_config"]
+
+[policy.storage]
+# Mount/unmount, filesystem changes
+auto = true
+reason = "Storage state detection is safe"
+allowed_operations = ["update_capability", "log_event"]
+forbidden_operations = ["mount", "unmount", "format"]
+
+[policy.kernel]
+# Kernel/initramfs updates
+auto = false
+reason = "Kernel changes require reboot, need user awareness"
+allowed_operations = ["log_event"]
+forbidden_operations = ["regenerate_initramfs", "update_bootloader"]
+
+# ============================================================================
+# LOW-RISK OPERATIONS (always allowed when auto=true)
+# ============================================================================
+
+[policy.always_allowed]
+operations = [
+    "create_directory",
+    "set_permissions",
+    "enable_systemd_unit",
+    "disable_systemd_unit",
+    "update_module_state",
+    "log_event",
+    "create_alert"
+]
+
+# ============================================================================
+# HIGH-RISK OPERATIONS (always require confirmation)
+# ============================================================================
+
+[policy.always_forbidden]
+operations = [
+    "install_package",
+    "remove_package",
+    "edit_system_config",
+    "modify_bootloader",
+    "format_disk",
+    "modify_partition_table"
+]

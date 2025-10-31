@@ -1,25 +1,32 @@
 #!/usr/bin/env bash
-# Anna Assistant Installer v0.9.6-alpha.7
+# Anna Assistant Installer v0.11.0
 # Runs as user, escalates only when needed
 
 set -euo pipefail
 
 echo "╭─────────────────────────────────────────╮"
 echo "│  Anna Assistant Installer              │"
-echo "│  v0.9.6-alpha.7                         │"
+echo "│  v0.11.0 - Event-Driven Intelligence   │"
 echo "╰─────────────────────────────────────────╯"
 echo ""
 
-# Check we're in project root
+# Find project root and cd to it
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+# Verify we're in project root
 if [[ ! -f Cargo.toml ]]; then
-    echo "✗ Please run from anna-assistant project root"
+    echo "✗ Could not find project root (expected Cargo.toml)"
     exit 1
 fi
 
-echo "→ Building binaries..."
-if ! cargo build --release --quiet 2>&1; then
-    echo "✗ Build failed"
-    exit 1
+echo "→ Building binaries (this may take 2-5 minutes on first build)..."
+if cargo build --release 2>&1 | grep -E "error|warning: unused" | head -5; then
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo "✗ Build failed"
+        exit 1
+    fi
 fi
 echo "✓ Build complete"
 echo ""
@@ -38,17 +45,30 @@ if [[ ! $REPLY =~ ^[Yy]?$ ]]; then
 fi
 
 echo ""
-echo "→ Creating anna system user..."
-if ! id -u anna &>/dev/null; then
-    sudo useradd --system --no-create-home --shell /usr/sbin/nologin anna
-    echo "✓ User 'anna' created"
+echo "→ Creating anna system user and group..."
+
+# Check if group exists first
+if ! getent group anna &>/dev/null; then
+    GROUP_EXISTS=false
 else
-    echo "✓ User 'anna' exists"
+    GROUP_EXISTS=true
+    echo "✓ Group 'anna' exists"
 fi
 
-if ! groups anna | grep -q anna; then
-    sudo groupadd anna 2>/dev/null || true
-    echo "✓ Group 'anna' ready"
+# Create user (handle group existence)
+if ! id -u anna &>/dev/null; then
+    if [ "$GROUP_EXISTS" = true ]; then
+        # Group exists, so use it explicitly
+        sudo useradd --system --no-create-home --shell /usr/sbin/nologin -g anna anna
+        echo "✓ User 'anna' created (using existing group)"
+    else
+        # Neither exists, let useradd create both
+        sudo useradd --system --no-create-home --shell /usr/sbin/nologin anna
+        echo "✓ User 'anna' created"
+        echo "✓ Group 'anna' created"
+    fi
+else
+    echo "✓ User 'anna' exists"
 fi
 
 echo ""
@@ -73,11 +93,15 @@ sudo mkdir -p /etc/anna/personas.d
 sudo mkdir -p /run/anna
 sudo mkdir -p /var/lib/anna
 sudo mkdir -p /var/log/anna
+sudo mkdir -p /usr/lib/anna
 
 sudo chown anna:anna /run/anna
 sudo chown anna:anna /var/lib/anna
 sudo chown anna:anna /var/log/anna
+sudo chown root:anna /etc/anna
+sudo chown root:root /usr/lib/anna
 sudo chmod 0750 /run/anna /var/lib/anna /var/log/anna
+sudo chmod 0755 /etc/anna /usr/lib/anna
 echo "✓ Directories created with correct ownership"
 
 echo ""
@@ -108,6 +132,19 @@ fi
 
 echo ""
 echo "→ Installing policies..."
+
+# v0.11.0 Event Auto-Repair Policy
+if [ ! -f /etc/anna/policy.toml ]; then
+    if [ -f etc/policy.toml ]; then
+        sudo cp etc/policy.toml /etc/anna/
+        echo "✓ Event auto-repair policy installed"
+    else
+        echo "⚠ etc/policy.toml not found, skipping"
+    fi
+else
+    echo "✓ Event policy exists"
+fi
+
 if [ ! -f /etc/anna/policies.d/00-bootstrap.yaml ]; then
     cat <<'EOF' | sudo tee /etc/anna/policies.d/00-bootstrap.yaml >/dev/null
 # Hi, I'm Anna! Use 'annactl policy' to manage these rules.
@@ -127,17 +164,109 @@ if [ ! -f /etc/anna/policies.d/00-bootstrap.yaml ]; then
   message: "Policy engine ready"
   enabled: true
 EOF
-    echo "✓ Default policies installed"
+    echo "✓ Bootstrap policies installed"
 else
-    echo "✓ Policies exist"
+    echo "✓ Bootstrap policies exist"
+fi
+
+# Install thermal management policies
+if [ ! -f /etc/anna/policies.d/thermal.yaml ]; then
+    if [ -f etc/policies.d/thermal.yaml ]; then
+        sudo cp etc/policies.d/thermal.yaml /etc/anna/policies.d/
+        echo "✓ Thermal management policies installed"
+    else
+        echo "○ Thermal policies not found, skipping"
+    fi
+else
+    echo "✓ Thermal policies exist"
 fi
 
 echo ""
-echo "→ Installing systemd service..."
-sudo cp etc/systemd/annad.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable annad
-echo "✓ Service installed and enabled"
+echo "→ Installing capability registry..."
+if [ ! -f /usr/lib/anna/CAPABILITIES.toml ]; then
+    if [ -f etc/CAPABILITIES.toml ]; then
+        sudo cp etc/CAPABILITIES.toml /usr/lib/anna/
+        sudo chmod 0644 /usr/lib/anna/CAPABILITIES.toml
+        echo "✓ CAPABILITIES.toml installed"
+    else
+        echo "⚠ CAPABILITIES.toml not found in project"
+        echo "  Creating minimal version..."
+        cat <<'EOF' | sudo tee /usr/lib/anna/CAPABILITIES.toml >/dev/null
+[meta]
+version = "0.11.0"
+description = "Anna telemetry capability registry"
+
+[[modules]]
+name = "lm_sensors"
+description = "Temperature and voltage monitoring"
+category = "sensors"
+required = true
+
+[[modules.deps]]
+binaries = ["sensors"]
+packages = ["lm_sensors"]
+
+[[modules]]
+name = "iproute2"
+description = "Network interface monitoring"
+category = "net"
+required = true
+
+[[modules.deps]]
+binaries = ["ip"]
+packages = ["iproute2"]
+EOF
+        echo "✓ Minimal CAPABILITIES.toml created"
+    fi
+else
+    echo "✓ CAPABILITIES.toml exists"
+fi
+
+echo ""
+echo "→ Detecting hardware..."
+
+# Detect ASUS hardware
+IS_ASUS=false
+if [ -d /sys/devices/platform/asus-nb-wmi ] || [ -d /sys/devices/platform/asus_wmi ] || grep -qi asus /sys/class/dmi/id/board_vendor 2>/dev/null; then
+    IS_ASUS=true
+    echo "✓ ASUS hardware detected"
+else
+    echo "✓ Generic system detected"
+fi
+
+# Install essential sensors
+if ! command -v sensors &>/dev/null; then
+    echo "→ Installing lm-sensors..."
+    if command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm lm_sensors >/dev/null 2>&1 && echo "✓ Sensors installed" || echo "⚠ Could not install sensors"
+    fi
+else
+    echo "✓ Sensors already installed"
+fi
+
+echo ""
+echo "→ Installing systemd services..."
+if [ -f etc/systemd/annad.service ]; then
+    sudo cp etc/systemd/annad.service /etc/systemd/system/
+    sudo cp etc/systemd/anna-fans.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable annad
+    echo "✓ Services installed and enabled"
+else
+    echo "✗ Service files not found in etc/systemd/"
+    echo "  Working directory: $(pwd)"
+    exit 1
+fi
+
+# Install thermal management scripts
+if [ "$IS_ASUS" = true ]; then
+    sudo mkdir -p /usr/local/share/anna
+    if [ -f scripts/anna_fans_asus.sh ]; then
+        sudo cp scripts/anna_fans_asus.sh /usr/local/share/anna/
+        sudo chmod +x /usr/local/share/anna/anna_fans_asus.sh
+        echo "✓ Thermal management scripts installed"
+    fi
+fi
 
 echo ""
 echo "→ Starting daemon..."
@@ -157,13 +286,19 @@ fi
 
 echo ""
 echo "╭─────────────────────────────────────────╮"
-echo "│  ✓ Installation Complete                │"
+echo "│  ✓ Anna Installed Successfully          │"
 echo "╰─────────────────────────────────────────╯"
 echo ""
-echo "Anna is ready! Try:"
-echo "  annactl status"
-echo "  annactl profile show"
-echo "  annactl doctor check"
+echo "Next steps:"
 echo ""
-echo "Note: Log out and back in for group membership to take effect"
+echo "  1. Run system health check:"
+echo "     annactl doctor check"
+echo ""
+echo "  2. Let Anna help with system setup:"
+echo "     annactl doctor setup"
+echo ""
+echo "  3. Check current status:"
+echo "     annactl status"
+echo ""
+echo "Note: Log out and back in for full permissions"
 echo ""

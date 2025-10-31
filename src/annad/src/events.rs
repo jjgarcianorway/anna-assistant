@@ -1,506 +1,387 @@
-//! Event Reaction System - Structured event handling and policy-driven reactions
-//!
-//! Sprint 3: Intelligence, Policies & Event Reactions
-//!
-//! Handles internal events from telemetry, config changes, and doctor results.
-//! Links to Policy Engine to trigger appropriate reactions.
+// Anna v0.11.0 - Event Engine
+//
+// Centralized event system with debouncing, coalescing, and domain-based routing.
+// Converts system changes into semantic triggers for the doctor/repair pipeline.
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
-use thiserror::Error;
+use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
+use tracing::{debug, info, warn};
 
-use crate::policy::{PolicyAction, PolicyContext, PolicyEngine};
-
-/// Event system errors
-#[derive(Debug, Error)]
-pub enum EventError {
-    #[error("Event dispatch failed: {0}")]
-    #[allow(dead_code)]
-    DispatchError(String),
-
-    #[error("Handler registration failed: {0}")]
-    #[allow(dead_code)]
-    HandlerError(String),
-
-    #[error("Policy evaluation failed: {0}")]
-    PolicyError(String),
+/// Event domains (subsystems that can trigger doctor checks)
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum EventDomain {
+    Packages,  // Package manager changes
+    Config,    // /etc configuration drift
+    Devices,   // USB, block, net, bluetooth hotplug
+    Network,   // Link state, IP address changes
+    Storage,   // Mount/unmount, filesystem changes
+    Kernel,    // Kernel/initramfs updates
 }
 
-/// Event severity level
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(rename_all = "lowercase")]
-pub enum EventSeverity {
-    Info,
-    Warning,
-    Error,
-    Critical,
-}
-
-/// Event type categorization
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum EventType {
-    TelemetryAlert,
-    ConfigChange,
-    DoctorResult,
-    AutonomyAction,
-    PolicyTriggered,
-    SystemStartup,
-    SystemShutdown,
-    Custom(String),
-}
-
-/// Structured event
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Event {
-    pub id: String,
-    pub timestamp: u64,
-    pub event_type: EventType,
-    pub severity: EventSeverity,
-    pub source: String,
-    pub message: String,
-    pub metadata: serde_json::Value,
-}
-
-impl Event {
-    /// Create a new event
-    pub fn new(
-        event_type: EventType,
-        severity: EventSeverity,
-        source: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        Self {
-            id: format!("{}-{}", timestamp, uuid::Uuid::new_v4()),
-            timestamp,
-            event_type,
-            severity,
-            source: source.into(),
-            message: message.into(),
-            metadata: serde_json::json!({}),
+impl EventDomain {
+    pub fn as_str(&self) -> &str {
+        match self {
+            EventDomain::Packages => "packages",
+            EventDomain::Config => "config",
+            EventDomain::Devices => "devices",
+            EventDomain::Network => "network",
+            EventDomain::Storage => "storage",
+            EventDomain::Kernel => "kernel",
         }
     }
 
-    /// Add metadata to the event
-    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
-        self.metadata = metadata;
-        self
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "packages" => Some(EventDomain::Packages),
+            "config" => Some(EventDomain::Config),
+            "devices" => Some(EventDomain::Devices),
+            "network" => Some(EventDomain::Network),
+            "storage" => Some(EventDomain::Storage),
+            "kernel" => Some(EventDomain::Kernel),
+            _ => None,
+        }
     }
 }
 
-/// Event reaction result
-#[derive(Debug, Clone)]
-pub struct ReactionResult {
-    #[allow(dead_code)]
-    pub event_id: String,
-    pub actions_taken: Vec<PolicyAction>,
-    pub success: bool,
-    pub error: Option<String>,
+/// A system event that triggers doctor checks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemEvent {
+    pub domain: EventDomain,
+    pub cause: String,        // What triggered this event
+    pub timestamp: i64,       // Unix timestamp
+    pub metadata: HashMap<String, String>, // Additional context
 }
 
-/// Event handler callback
-type EventHandler = Arc<dyn Fn(&Event) -> Result<(), EventError> + Send + Sync>;
+/// Result of processing an event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventResult {
+    pub event: SystemEvent,
+    pub doctor_result: DoctorResult,
+    pub repair_result: Option<RepairResult>,
+    pub duration_ms: u64,
+}
 
-/// Event dispatcher - central event bus
-pub struct EventDispatcher {
-    handlers: Arc<Mutex<Vec<EventHandler>>>,
-    event_history: Arc<Mutex<VecDeque<Event>>>,
-    policy_engine: Arc<PolicyEngine>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoctorResult {
+    pub alerts_found: usize,
+    pub degraded_modules: Vec<String>,
+    pub action_taken: String, // "auto_repair", "alert_only", "no_action"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepairResult {
+    pub success: bool,
+    pub message: String,
+    pub alerts_cleared: usize,
+}
+
+/// Event queue with coalescing and cooldown
+pub struct EventQueue {
+    pending: Arc<Mutex<HashMap<EventDomain, PendingEvent>>>,
+    cooldowns: Arc<Mutex<HashMap<EventDomain, Instant>>>,
+    debounce_ms: u64,
+    cooldown_secs: u64,
+}
+
+struct PendingEvent {
+    events: Vec<SystemEvent>,
+    first_seen: Instant,
+}
+
+impl EventQueue {
+    pub fn new(debounce_ms: u64, cooldown_secs: u64) -> Self {
+        Self {
+            pending: Arc::new(Mutex::new(HashMap::new())),
+            cooldowns: Arc::new(Mutex::new(HashMap::new())),
+            debounce_ms,
+            cooldown_secs,
+        }
+    }
+
+    /// Enqueue an event (may coalesce with pending events)
+    pub fn enqueue(&self, event: SystemEvent) {
+        let mut pending = self.pending.lock().unwrap();
+        let domain = event.domain.clone();
+
+        // Check if in cooldown
+        {
+            let cooldowns = self.cooldowns.lock().unwrap();
+            if let Some(last_run) = cooldowns.get(&domain) {
+                if last_run.elapsed() < Duration::from_secs(self.cooldown_secs) {
+                    debug!(
+                        "Domain {:?} in cooldown, dropping event: {}",
+                        domain, event.cause
+                    );
+                    return;
+                }
+            }
+        }
+
+        // Add to pending
+        pending
+            .entry(domain)
+            .or_insert_with(|| PendingEvent {
+                events: Vec::new(),
+                first_seen: Instant::now(),
+            })
+            .events
+            .push(event);
+    }
+
+    /// Drain events that have passed the debounce window
+    pub fn drain_ready(&self) -> Vec<(EventDomain, Vec<SystemEvent>)> {
+        let mut pending = self.pending.lock().unwrap();
+        let mut ready = Vec::new();
+        let now = Instant::now();
+
+        let debounce_duration = Duration::from_millis(self.debounce_ms);
+
+        pending.retain(|domain, pending_event| {
+            if now.duration_since(pending_event.first_seen) >= debounce_duration {
+                // Ready to process
+                ready.push((domain.clone(), pending_event.events.clone()));
+                false // Remove from pending
+            } else {
+                true // Keep in pending
+            }
+        });
+
+        // Set cooldown for drained domains
+        if !ready.is_empty() {
+            let mut cooldowns = self.cooldowns.lock().unwrap();
+            for (domain, _) in &ready {
+                cooldowns.insert(domain.clone(), Instant::now());
+            }
+        }
+
+        ready
+    }
+
+    /// Get current pending count (for monitoring)
+    pub fn pending_count(&self) -> usize {
+        self.pending.lock().unwrap().len()
+    }
+}
+
+/// Shared state that can be accessed by RPC server
+pub struct EventEngineState {
+    history: Arc<Mutex<VecDeque<EventResult>>>,
+    queue: Arc<EventQueue>,
+}
+
+impl EventEngineState {
+    pub fn get_history(&self, limit: usize) -> Vec<EventResult> {
+        let hist = self.history.lock().unwrap();
+        hist.iter()
+            .rev()
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+
+    pub fn pending_count(&self) -> usize {
+        self.queue.pending.lock().unwrap().len()
+    }
+}
+
+/// Event engine coordinator
+pub struct EventEngine {
+    queue: Arc<EventQueue>,
+    tx: mpsc::UnboundedSender<SystemEvent>,
+    rx: Option<mpsc::UnboundedReceiver<SystemEvent>>,
+    history: Arc<Mutex<VecDeque<EventResult>>>,
     max_history: usize,
 }
 
-impl EventDispatcher {
-    /// Create a new event dispatcher
-    pub fn new(policy_engine: Arc<PolicyEngine>) -> Self {
+impl EventEngine {
+    pub fn new(debounce_ms: u64, cooldown_secs: u64, max_history: usize) -> Self {
+        let (tx, rx) = mpsc::unbounded_channel();
+
         Self {
-            handlers: Arc::new(Mutex::new(Vec::new())),
-            event_history: Arc::new(Mutex::new(VecDeque::new())),
-            policy_engine,
-            max_history: 1000, // Keep last 1000 events
+            queue: Arc::new(EventQueue::new(debounce_ms, cooldown_secs)),
+            tx,
+            rx: Some(rx),
+            history: Arc::new(Mutex::new(VecDeque::with_capacity(max_history))),
+            max_history,
         }
     }
 
-    /// Register an event handler
-    #[allow(dead_code)]
-    pub fn register_handler<F>(&self, handler: F) -> Result<(), EventError>
-    where
-        F: Fn(&Event) -> Result<(), EventError> + Send + Sync + 'static,
-    {
-        let mut handlers = self.handlers.lock().unwrap();
-        handlers.push(Arc::new(handler));
-        Ok(())
+    /// Get a sender for submitting events
+    pub fn sender(&self) -> mpsc::UnboundedSender<SystemEvent> {
+        self.tx.clone()
     }
 
-    /// Dispatch an event to all handlers and evaluate policies
-    pub fn dispatch(&self, event: Event) -> Result<ReactionResult, EventError> {
-        // Add to history
-        {
-            let mut history = self.event_history.lock().unwrap();
-            history.push_back(event.clone());
-            if history.len() > self.max_history {
-                history.pop_front();
-            }
+    /// Get a shared state handle (for RPC server)
+    pub fn shared_state(&self) -> EventEngineState {
+        EventEngineState {
+            history: Arc::clone(&self.history),
+            queue: Arc::clone(&self.queue),
         }
-
-        // Call all registered handlers
-        let handlers = self.handlers.lock().unwrap().clone();
-        for handler in handlers.iter() {
-            if let Err(e) = handler(&event) {
-                eprintln!("Event handler error: {}", e);
-            }
-        }
-
-        // Evaluate policies based on the event
-        let context = self.build_policy_context(&event);
-        let policy_result = self.policy_engine.evaluate(&context)
-            .map_err(|e| EventError::PolicyError(e.to_string()))?;
-
-        let mut result = ReactionResult {
-            event_id: event.id.clone(),
-            actions_taken: Vec::new(),
-            success: true,
-            error: None,
-        };
-
-        // Execute policy actions
-        if policy_result.matched {
-            for action in policy_result.actions {
-                match self.execute_action(&action, &event) {
-                    Ok(_) => {
-                        result.actions_taken.push(action);
-                    }
-                    Err(e) => {
-                        result.success = false;
-                        result.error = Some(format!("Action execution failed: {}", e));
-                        eprintln!("Failed to execute action {:?}: {}", action, e);
-                    }
-                }
-            }
-
-            // Log policy trigger event
-            if !result.actions_taken.is_empty() {
-                let policy_event = Event::new(
-                    EventType::PolicyTriggered,
-                    EventSeverity::Info,
-                    "policy_engine",
-                    format!("Policy triggered {} actions", result.actions_taken.len()),
-                ).with_metadata(serde_json::json!({
-                    "original_event": event.id,
-                    "actions": result.actions_taken,
-                }));
-
-                let mut history = self.event_history.lock().unwrap();
-                history.push_back(policy_event);
-            }
-        }
-
-        Ok(result)
     }
 
-    /// Build policy context from event
-    fn build_policy_context(&self, event: &Event) -> PolicyContext {
-        let mut context = PolicyContext::new();
+    /// Start the event processing loop
+    pub async fn run(
+        mut self,
+        doctor_handler: Arc<dyn DoctorHandler + Send + Sync>,
+    ) -> Result<()> {
+        info!("Event engine starting (debounce: {}ms, cooldown: {}s)",
+            self.queue.debounce_ms, self.queue.cooldown_secs);
 
-        // Add event-specific metrics
-        context.set_string("event.type", format!("{:?}", event.event_type));
-        context.set_string("event.severity", format!("{:?}", event.severity));
-        context.set_string("event.source", event.source.clone());
+        let queue = Arc::clone(&self.queue);
+        let history = Arc::clone(&self.history);
+        let mut rx = self.rx.take().expect("Event receiver already taken");
 
-        // Extract metadata into context
-        if let Some(obj) = event.metadata.as_object() {
-            for (key, value) in obj {
-                match value {
-                    serde_json::Value::Number(n) => {
-                        if let Some(f) = n.as_f64() {
-                            context.set_metric(&format!("event.{}", key), f);
+        // Event ingestion task
+        let queue_clone = Arc::clone(&queue);
+        tokio::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                debug!("Received event: {:?} - {}", event.domain, event.cause);
+                queue_clone.enqueue(event);
+            }
+        });
+
+        // Event processing loop
+        loop {
+            // Sleep and check for ready events
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            let ready = queue.drain_ready();
+            if ready.is_empty() {
+                continue;
+            }
+
+            for (domain, events) in ready {
+                info!(
+                    "Processing {} events for domain {:?}",
+                    events.len(),
+                    domain
+                );
+
+                // Merge causes
+                let causes: Vec<String> = events.iter().map(|e| e.cause.clone()).collect();
+                let cause_str = causes.join(", ");
+
+                // Create composite event
+                let composite = SystemEvent {
+                    domain: domain.clone(),
+                    cause: cause_str,
+                    timestamp: chrono::Utc::now().timestamp(),
+                    metadata: HashMap::new(),
+                };
+
+                // Run doctor
+                let start = Instant::now();
+                match doctor_handler.handle_event(&composite).await {
+                    Ok(result) => {
+                        let duration_ms = start.elapsed().as_millis() as u64;
+
+                        info!(
+                            "Domain {:?} processed in {}ms: {} alerts, action: {}",
+                            domain, duration_ms, result.doctor_result.alerts_found,
+                            result.doctor_result.action_taken
+                        );
+
+                        // Store in history
+                        let mut hist = history.lock().unwrap();
+                        hist.push_back(result);
+                        if hist.len() > self.max_history {
+                            hist.pop_front();
                         }
                     }
-                    serde_json::Value::Bool(b) => {
-                        context.set_flag(&format!("event.{}", key), *b);
+                    Err(e) => {
+                        warn!("Failed to handle event for {:?}: {}", domain, e);
                     }
-                    serde_json::Value::String(s) => {
-                        context.set_string(&format!("event.{}", key), s.clone());
-                    }
-                    _ => {}
                 }
             }
         }
-
-        context
     }
 
-    /// Execute a policy action
-    fn execute_action(&self, action: &PolicyAction, event: &Event) -> Result<(), EventError> {
-        match action {
-            PolicyAction::DisableAutonomy => {
-                println!("Policy Action: Disabling autonomy due to event: {}", event.message);
-                // Integration hook: call autonomy module
-                Ok(())
-            }
-            PolicyAction::EnableAutonomy => {
-                println!("Policy Action: Enabling autonomy due to event: {}", event.message);
-                // Integration hook: call autonomy module
-                Ok(())
-            }
-            PolicyAction::RunDoctor => {
-                println!("Policy Action: Running doctor diagnostics due to event: {}", event.message);
-                // Integration hook: call diagnostics module
-                Ok(())
-            }
-            PolicyAction::RestartService => {
-                println!("Policy Action: Restarting service due to event: {}", event.message);
-                // Integration hook: restart mechanism
-                Ok(())
-            }
-            PolicyAction::SendAlert => {
-                println!("Policy Action: Sending alert for event: {}", event.message);
-                // Integration hook: alerting system
-                Ok(())
-            }
-            PolicyAction::Custom(cmd) => {
-                println!("Policy Action: Executing custom action '{}' due to event: {}", cmd, event.message);
-                // Integration hook: custom action executor
-                Ok(())
-            }
-        }
-    }
-
-    /// Get recent events
-    pub fn get_recent_events(&self, count: usize) -> Vec<Event> {
-        let history = self.event_history.lock().unwrap();
-        history.iter()
+    /// Get recent event history
+    pub fn get_history(&self, limit: usize) -> Vec<EventResult> {
+        let hist = self.history.lock().unwrap();
+        hist.iter()
             .rev()
-            .take(count)
+            .take(limit)
             .cloned()
             .collect()
     }
 
-    /// Get events filtered by type
-    #[allow(dead_code)]
-    pub fn get_events_by_type(&self, event_type: &EventType) -> Vec<Event> {
-        let history = self.event_history.lock().unwrap();
-        history.iter()
-            .filter(|e| &e.event_type == event_type)
-            .cloned()
-            .collect()
-    }
-
-    /// Get events filtered by severity
-    pub fn get_events_by_severity(&self, min_severity: EventSeverity) -> Vec<Event> {
-        let history = self.event_history.lock().unwrap();
-        history.iter()
-            .filter(|e| e.severity >= min_severity)
-            .cloned()
-            .collect()
-    }
-
-    /// Clear event history
-    pub fn clear_history(&self) {
-        let mut history = self.event_history.lock().unwrap();
-        history.clear();
-    }
-
-    /// Get total event count
-    pub fn event_count(&self) -> usize {
-        let history = self.event_history.lock().unwrap();
-        history.len()
+    /// Get pending event count
+    pub fn pending_count(&self) -> usize {
+        self.queue.pending_count()
     }
 }
 
-/// Event reactor - high-level event reaction coordinator
-#[allow(dead_code)]
-pub struct EventReactor {
-    dispatcher: Arc<EventDispatcher>,
+/// Trait for handling doctor/repair logic
+#[async_trait::async_trait]
+pub trait DoctorHandler {
+    async fn handle_event(&self, event: &SystemEvent) -> Result<EventResult>;
 }
 
-#[allow(dead_code)]
-impl EventReactor {
-    /// Create a new event reactor
-    pub fn new(policy_engine: Arc<PolicyEngine>) -> Self {
-        let dispatcher = Arc::new(EventDispatcher::new(policy_engine));
-
-        // Register default telemetry handler
-        dispatcher.register_handler(|event: &Event| {
-            if event.severity >= EventSeverity::Warning {
-                println!("[EVENT] {} - {}: {}",
-                    format!("{:?}", event.severity).to_uppercase(),
-                    event.source,
-                    event.message
-                );
-            }
-            Ok(())
-        }).unwrap();
-
-        Self { dispatcher }
-    }
-
-    /// Get dispatcher reference
-    pub fn dispatcher(&self) -> Arc<EventDispatcher> {
-        self.dispatcher.clone()
-    }
-
-    /// Handle telemetry alert
-    pub fn handle_telemetry_alert(
-        &self,
-        metric: &str,
-        value: f64,
-        threshold: f64,
-    ) -> Result<ReactionResult, EventError> {
-        let event = Event::new(
-            EventType::TelemetryAlert,
-            EventSeverity::Warning,
-            "telemetry",
-            format!("Metric '{}' exceeded threshold: {} > {}", metric, value, threshold),
-        ).with_metadata(serde_json::json!({
-            "metric": metric,
-            "value": value,
-            "threshold": threshold,
-        }));
-
-        self.dispatcher.dispatch(event)
-    }
-
-    /// Handle config change
-    pub fn handle_config_change(
-        &self,
-        key: &str,
-        old_value: &str,
-        new_value: &str,
-    ) -> Result<ReactionResult, EventError> {
-        let event = Event::new(
-            EventType::ConfigChange,
-            EventSeverity::Info,
-            "config",
-            format!("Configuration '{}' changed", key),
-        ).with_metadata(serde_json::json!({
-            "key": key,
-            "old_value": old_value,
-            "new_value": new_value,
-        }));
-
-        self.dispatcher.dispatch(event)
-    }
-
-    /// Handle doctor result
-    pub fn handle_doctor_result(
-        &self,
-        passed: bool,
-        failures: Vec<String>,
-    ) -> Result<ReactionResult, EventError> {
-        let severity = if passed {
-            EventSeverity::Info
-        } else {
-            EventSeverity::Warning
-        };
-
-        let event = Event::new(
-            EventType::DoctorResult,
-            severity,
-            "diagnostics",
-            if passed {
-                "All diagnostic checks passed".to_string()
-            } else {
-                format!("Diagnostic checks failed: {} issues", failures.len())
-            },
-        ).with_metadata(serde_json::json!({
-            "passed": passed,
-            "failures": failures,
-        }));
-
-        self.dispatcher.dispatch(event)
-    }
-
-    /// Handle autonomy action
-    pub fn handle_autonomy_action(
-        &self,
-        action: &str,
-        success: bool,
-    ) -> Result<ReactionResult, EventError> {
-        let severity = if success {
-            EventSeverity::Info
-        } else {
-            EventSeverity::Error
-        };
-
-        let event = Event::new(
-            EventType::AutonomyAction,
-            severity,
-            "autonomy",
-            format!("Autonomy action '{}' {}", action, if success { "succeeded" } else { "failed" }),
-        ).with_metadata(serde_json::json!({
-            "action": action,
-            "success": success,
-        }));
-
-        self.dispatcher.dispatch(event)
+/// Create a system event
+pub fn create_event(domain: EventDomain, cause: impl Into<String>) -> SystemEvent {
+    SystemEvent {
+        domain,
+        cause: cause.into(),
+        timestamp: chrono::Utc::now().timestamp(),
+        metadata: HashMap::new(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy::PolicyEngine;
-    use std::sync::Arc;
-    use tempfile::TempDir;
 
     #[test]
-    fn test_event_creation() {
-        let event = Event::new(
-            EventType::TelemetryAlert,
-            EventSeverity::Warning,
-            "test",
-            "Test message",
-        );
+    fn test_event_queue_coalescing() {
+        let queue = EventQueue::new(100, 30);
 
-        assert_eq!(event.event_type, EventType::TelemetryAlert);
-        assert_eq!(event.severity, EventSeverity::Warning);
-        assert_eq!(event.source, "test");
-        assert_eq!(event.message, "Test message");
+        // Enqueue multiple events for same domain
+        let event1 = create_event(EventDomain::Packages, "installed foo");
+        let event2 = create_event(EventDomain::Packages, "installed bar");
+
+        queue.enqueue(event1);
+        queue.enqueue(event2);
+
+        // Should be pending
+        assert_eq!(queue.pending_count(), 1);
+
+        // Wait for debounce
+        std::thread::sleep(Duration::from_millis(150));
+
+        // Drain should coalesce both events
+        let ready = queue.drain_ready();
+        assert_eq!(ready.len(), 1);
+        assert_eq!(ready[0].1.len(), 2);
+
+        // Should be in cooldown now
+        assert_eq!(queue.pending_count(), 0);
     }
 
     #[test]
-    fn test_event_dispatch() {
-        let temp_dir = TempDir::new().unwrap();
-        let policy_engine = Arc::new(PolicyEngine::new(temp_dir.path()));
-        let dispatcher = EventDispatcher::new(policy_engine);
+    fn test_cooldown_enforcement() {
+        let queue = EventQueue::new(100, 1); // 1 second cooldown
 
-        let event = Event::new(
-            EventType::TelemetryAlert,
-            EventSeverity::Warning,
-            "test",
-            "Test alert",
-        );
+        let event1 = create_event(EventDomain::Packages, "event 1");
+        queue.enqueue(event1);
 
-        let result = dispatcher.dispatch(event.clone()).unwrap();
-        assert_eq!(result.event_id, event.id);
-        assert_eq!(dispatcher.event_count(), 1);
-    }
+        std::thread::sleep(Duration::from_millis(150));
+        let ready1 = queue.drain_ready();
+        assert_eq!(ready1.len(), 1);
 
-    #[test]
-    fn test_event_filtering() {
-        let temp_dir = TempDir::new().unwrap();
-        let policy_engine = Arc::new(PolicyEngine::new(temp_dir.path()));
-        let dispatcher = EventDispatcher::new(policy_engine);
+        // Immediate second event should be dropped (cooldown)
+        let event2 = create_event(EventDomain::Packages, "event 2");
+        queue.enqueue(event2);
+        assert_eq!(queue.pending_count(), 0); // Dropped
 
-        let event1 = Event::new(EventType::TelemetryAlert, EventSeverity::Info, "test", "Info");
-        let event2 = Event::new(EventType::ConfigChange, EventSeverity::Warning, "test", "Warning");
-        let event3 = Event::new(EventType::TelemetryAlert, EventSeverity::Error, "test", "Error");
-
-        dispatcher.dispatch(event1).unwrap();
-        dispatcher.dispatch(event2).unwrap();
-        dispatcher.dispatch(event3).unwrap();
-
-        let alerts = dispatcher.get_events_by_type(&EventType::TelemetryAlert);
-        assert_eq!(alerts.len(), 2);
-
-        let warnings = dispatcher.get_events_by_severity(EventSeverity::Warning);
-        assert_eq!(warnings.len(), 2); // Warning and Error
+        // After cooldown, should accept
+        std::thread::sleep(Duration::from_secs(1));
+        let event3 = create_event(EventDomain::Packages, "event 3");
+        queue.enqueue(event3);
+        assert_eq!(queue.pending_count(), 1); // Accepted
     }
 }

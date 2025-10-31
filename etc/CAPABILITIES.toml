@@ -1,0 +1,230 @@
+# Anna Assistant v0.10.1 - Capability Registry
+# Machine-readable module definitions with dependencies and checks
+
+[meta]
+version = "0.10.1"
+description = "Pure telemetry observer capabilities"
+
+# ============================================================================
+# SENSORS MODULE - Temperature, fan speeds, thermal zones
+# ============================================================================
+[modules.sensors]
+name = "sensors"
+description = "CPU/GPU temperature monitoring, thermal zones, fan speeds"
+category = "telemetry"
+required = false
+
+[modules.sensors.deps.required]
+# No strictly required dependencies
+
+[modules.sensors.deps.optional]
+packages = ["lm_sensors"]
+commands = ["sensors"]
+
+[modules.sensors.checks]
+commands = ["sensors -u"]
+files = ["/sys/class/hwmon", "/sys/class/thermal"]
+evidence = ["temperature readings", "thermal zone data"]
+
+[modules.sensors.degraded]
+reason = "lm_sensors not installed"
+action = "sudo pacman -S lm_sensors && sudo sensors-detect --auto"
+impact = "Temperature monitoring unavailable; thermal alerts disabled"
+
+# ============================================================================
+# NETWORK MODULE - Interface stats, bandwidth, connections
+# ============================================================================
+[modules.net]
+name = "net"
+description = "Network interface statistics, bandwidth, connections"
+category = "telemetry"
+required = false
+
+[modules.net.deps.required]
+# Minimal deps provided by base system
+
+[modules.net.deps.optional]
+packages = ["iproute2", "ethtool", "net-tools"]
+commands = ["ip", "ethtool", "ss"]
+
+[modules.net.checks]
+commands = ["ip link show", "ss -s"]
+files = ["/proc/net/dev", "/sys/class/net"]
+evidence = ["interface stats", "connection counts"]
+
+[modules.net.degraded]
+reason = "iproute2 or ethtool missing"
+action = "sudo pacman -S iproute2 ethtool"
+impact = "Advanced network stats unavailable"
+
+# ============================================================================
+# DISK MODULE - I/O stats, filesystem usage, SMART data
+# ============================================================================
+[modules.disk]
+name = "disk"
+description = "Disk I/O statistics, filesystem usage, SMART health"
+category = "telemetry"
+required = false
+
+[modules.disk.deps.required]
+packages = ["util-linux"]
+commands = ["lsblk", "df"]
+
+[modules.disk.deps.optional]
+packages = ["smartmontools"]
+commands = ["smartctl"]
+
+[modules.disk.checks]
+commands = ["lsblk -o NAME,SIZE,TYPE,MOUNTPOINT", "df -h"]
+files = ["/proc/diskstats", "/sys/block"]
+evidence = ["disk I/O counters", "filesystem usage"]
+
+[modules.disk.degraded]
+reason = "smartmontools not installed"
+action = "sudo pacman -S smartmontools"
+impact = "SMART health monitoring unavailable; disk failure prediction disabled"
+
+# ============================================================================
+# GPU MODULE - GPU utilization, memory, power
+# ============================================================================
+[modules.gpu]
+name = "gpu"
+description = "GPU utilization, memory usage, power draw"
+category = "telemetry"
+required = false
+
+[modules.gpu.deps.required]
+# No strictly required dependencies
+
+[modules.gpu.deps.optional]
+packages = ["mesa-utils", "vulkan-tools"]
+commands = ["glxinfo", "vulkaninfo", "nvidia-smi", "radeontop"]
+
+[modules.gpu.checks]
+commands = ["lspci | grep -i vga"]
+files = ["/sys/class/drm", "/proc/driver/nvidia"]
+evidence = ["GPU device detection"]
+
+[modules.gpu.degraded]
+reason = "GPU tools not installed for detected hardware"
+action = "Install nvidia-utils, mesa-utils, or radeontop based on GPU vendor"
+impact = "GPU utilization and power monitoring unavailable"
+
+# ============================================================================
+# POWER MODULE - Battery, AC status, power profiles
+# ============================================================================
+[modules.power]
+name = "power"
+description = "Battery status, AC power, system power profiles"
+category = "telemetry"
+required = false
+
+[modules.power.deps.required]
+# No strictly required dependencies
+
+[modules.power.deps.optional]
+packages = ["upower", "acpi"]
+commands = ["upower", "acpi"]
+
+[modules.power.checks]
+commands = ["upower -i /org/freedesktop/UPower/devices/battery_BAT0"]
+files = ["/sys/class/power_supply", "/proc/acpi"]
+evidence = ["battery state", "AC adapter status"]
+
+[modules.power.degraded]
+reason = "upower or acpi not installed, or no battery detected"
+action = "sudo pacman -S upower acpi (if on laptop)"
+impact = "Battery monitoring unavailable; power-related alerts disabled"
+
+# ============================================================================
+# BLUETOOTH MODULE - Bluetooth device status
+# ============================================================================
+[modules.bluetooth]
+name = "bluetooth"
+description = "Bluetooth adapter and device status"
+category = "telemetry"
+required = false
+
+[modules.bluetooth.deps.required]
+# No strictly required dependencies
+
+[modules.bluetooth.deps.optional]
+packages = ["bluez", "bluez-utils"]
+commands = ["bluetoothctl", "hcitool"]
+
+[modules.bluetooth.checks]
+commands = ["bluetoothctl show"]
+files = ["/sys/class/bluetooth"]
+evidence = ["bluetooth adapter presence"]
+
+[modules.bluetooth.degraded]
+reason = "bluez not installed or no bluetooth hardware"
+action = "sudo pacman -S bluez bluez-utils && sudo systemctl enable bluetooth"
+impact = "Bluetooth device monitoring unavailable"
+
+# ============================================================================
+# SYSTEM MODULE - Core system telemetry (always active)
+# ============================================================================
+[modules.system]
+name = "system"
+description = "Core CPU, memory, process telemetry"
+category = "core"
+required = true
+
+[modules.system.deps.required]
+packages = ["procps", "coreutils"]
+commands = ["ps", "free", "uptime"]
+
+[modules.system.checks]
+commands = ["free -m", "uptime"]
+files = ["/proc/stat", "/proc/meminfo", "/proc/loadavg"]
+evidence = ["CPU usage", "memory stats", "load average"]
+
+[modules.system.degraded]
+reason = "Critical system utilities missing"
+action = "sudo pacman -S procps coreutils"
+impact = "FATAL: Core telemetry unavailable; Anna cannot function"
+
+# ============================================================================
+# DATABASE MODULE - SQLite storage (always active)
+# ============================================================================
+[modules.database]
+name = "database"
+description = "SQLite telemetry storage and query engine"
+category = "core"
+required = true
+
+[modules.database.deps.required]
+packages = ["sqlite"]
+commands = ["sqlite3"]
+
+[modules.database.checks]
+commands = ["sqlite3 --version"]
+files = ["/var/lib/anna/telemetry.db"]
+evidence = ["database accessible", "write permissions"]
+
+[modules.database.degraded]
+reason = "sqlite not installed or database not writable"
+action = "sudo pacman -S sqlite && sudo chown anna:anna /var/lib/anna/telemetry.db"
+impact = "FATAL: Cannot persist telemetry; Anna cannot function"
+
+# ============================================================================
+# RPC MODULE - UNIX socket communication (always active)
+# ============================================================================
+[modules.rpc]
+name = "rpc"
+description = "UNIX socket RPC for annactl ↔ annad communication"
+category = "core"
+required = true
+
+[modules.rpc.deps.required]
+# No external dependencies
+
+[modules.rpc.checks]
+files = ["/run/anna/annad.sock"]
+evidence = ["socket exists", "socket permissions correct"]
+
+[modules.rpc.degraded]
+reason = "Socket not created or wrong permissions"
+action = "Check systemd RuntimeDirectory=anna and socket permissions"
+impact = "FATAL: annactl cannot communicate with annad"
