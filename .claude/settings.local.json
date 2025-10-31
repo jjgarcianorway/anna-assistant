@@ -100,7 +100,8 @@
       "Bash(./scripts/create scripts/ci_smoke.sh)",
       "Bash(/usr/local/bin/annactl version:*)",
       "Bash(git log:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(sudo ./scripts/verify_socket_persistence.sh:*)"
     ],
     "deny": [],
     "ask": []
