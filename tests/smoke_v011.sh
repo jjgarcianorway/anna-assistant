@@ -120,10 +120,10 @@ else
     info "   Try: sudo systemctl start annad"
 fi
 
-# Test 2.2: Check socket exists (poll up to 15 seconds)
-info "2.2 Checking RPC socket (polling up to 15s)..."
+# Test 2.2: Check socket exists (poll up to 5 seconds per requirements)
+info "2.2 Checking RPC socket (polling up to 5s)..."
 SOCKET_FOUND=false
-for i in {1..15}; do
+for i in {1..5}; do
     if [ -S /run/anna/annad.sock ]; then
         SOCKET_FOUND=true
         break
@@ -132,9 +132,9 @@ for i in {1..15}; do
 done
 
 if [ "$SOCKET_FOUND" = true ]; then
-    pass "RPC socket exists"
+    pass "RPC socket exists within 5 seconds"
 else
-    fail "RPC socket missing after 15 seconds"
+    fail "RPC socket missing after 5 seconds"
 fi
 
 # Test 2.3: Test annactl status
@@ -172,6 +172,14 @@ if systemctl is-active --quiet annad; then
     fi
 else
     skip "Daemon not running, skipping resource check"
+fi
+
+# Test 2.6: Check for database errors in logs
+info "2.6 Checking for database errors..."
+if journalctl -u annad --no-pager 2>/dev/null | grep -q "readonly database"; then
+    fail "Found 'readonly database' errors in logs"
+else
+    pass "No 'readonly database' errors"
 fi
 
 echo ""

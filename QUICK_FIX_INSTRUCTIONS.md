@@ -173,6 +173,39 @@ Check these:
 
 ---
 
+## Diagnostics Tool
+
+Run comprehensive diagnostics to collect system state and troubleshoot issues:
+
+```bash
+bash scripts/anna-diagnostics.sh
+```
+
+Or save output to file:
+```bash
+bash scripts/anna-diagnostics.sh --output anna-diag.txt
+```
+
+The diagnostics script checks:
+- System information and prerequisites
+- Anna binaries and versions
+- User and group configuration
+- Directory permissions and ownership
+- Configuration files
+- Systemd service status
+- RPC socket connectivity
+- Database permissions
+- Recent logs and error patterns
+- CLI command functionality
+- Optional dependencies
+
+**Use this when:**
+- Reporting issues
+- Installation doesn't work after repair
+- Need detailed system state for troubleshooting
+
+---
+
 ## Testing After Fix
 
 Run the smoke test:
