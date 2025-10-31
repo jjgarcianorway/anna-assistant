@@ -33,20 +33,38 @@ impl StorageManager {
 
         let conn = Connection::open(db_path)
             .with_context(|| {
-                let metadata_info = if let Ok(md) = std::fs::metadata(db_path) {
-                    #[cfg(unix)]
-                    {
-                        use std::os::unix::fs::MetadataExt;
-                        format!("DB exists: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode())
-                    }
-                    #[cfg(not(unix))]
-                    {
-                        "DB exists but cannot read permissions (non-Unix)".to_string()
-                    }
-                } else {
-                    "DB does not exist yet".to_string()
-                };
-                format!("Failed to open telemetry database at {:?}. {}", db_path, metadata_info)
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+
+                    let process_uid = unsafe { libc::getuid() };
+                    let process_gid = unsafe { libc::getgid() };
+
+                    let metadata_info = if let Ok(md) = std::fs::metadata(db_path) {
+                        format!("DB file: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777)
+                    } else {
+                        "DB file does not exist yet".to_string()
+                    };
+
+                    let parent_info = if let Some(parent) = db_path.parent() {
+                        if let Ok(md) = std::fs::metadata(parent) {
+                            format!(" | Parent dir: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777)
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
+
+                    format!(
+                        "Failed to open telemetry database at {:?}. Process: uid={} gid={}. {}{}",
+                        db_path, process_uid, process_gid, metadata_info, parent_info
+                    )
+                }
+                #[cfg(not(unix))]
+                {
+                    format!("Failed to open telemetry database at {:?}", db_path)
+                }
             })?;
 
         // Initialize schema

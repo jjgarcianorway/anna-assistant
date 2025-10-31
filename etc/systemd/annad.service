@@ -17,9 +17,12 @@ AmbientCapabilities=
 CapabilityBoundingSet=
 
 # Execution
+ExecStartPre=/usr/bin/install -d -m 0750 -o anna -g anna /run/anna
 ExecStart=/usr/local/bin/annad
 Restart=on-failure
 RestartSec=10
+StartLimitIntervalSec=30
+StartLimitBurst=8
 StandardOutput=journal
 StandardError=journal
 

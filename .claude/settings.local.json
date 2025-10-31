@@ -98,7 +98,9 @@
       "Bash(sudo stat:*)",
       "Bash(git push:*)",
       "Bash(./scripts/create scripts/ci_smoke.sh)",
-      "Bash(/usr/local/bin/annactl version:*)"
+      "Bash(/usr/local/bin/annactl version:*)",
+      "Bash(git log:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

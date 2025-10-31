@@ -83,31 +83,85 @@ impl RpcServer {
     pub async fn start<P: AsRef<Path>>(self: Arc<Self>, socket_path: P) -> Result<()> {
         let socket_path = socket_path.as_ref();
 
-        // Ensure parent directory exists (systemd RuntimeDirectory should create it)
+        // Log the full resolved socket path at INFO before bind
+        info!("RPC socket path (target): {}", socket_path.display());
+
+        // Ensure parent directory exists with correct ownership and mode
         if let Some(parent) = socket_path.parent() {
             if !parent.exists() {
                 std::fs::create_dir_all(parent)
                     .with_context(|| format!("Failed to create socket directory: {:?}", parent))?;
-                info!("Created socket directory: {:?}", parent);
+
+                // Set ownership and mode on parent directory
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    use std::os::unix::fs::MetadataExt;
+
+                    // Get anna user/group IDs
+                    let anna_uid = Self::get_user_id("anna").unwrap_or(1003);
+                    let anna_gid = Self::get_group_id("anna").unwrap_or(1003);
+
+                    // Set ownership (requires root or matching user)
+                    let _ = Self::chown_path(parent, anna_uid, anna_gid);
+
+                    // Set permissions to 0750
+                    let mut perms = std::fs::metadata(parent)?.permissions();
+                    perms.set_mode(0o750);
+                    std::fs::set_permissions(parent, perms)?;
+
+                    let md = std::fs::metadata(parent)?;
+                    info!("Socket directory created: {:?} (uid={} gid={} mode={:o})",
+                          parent, md.uid(), md.gid(), md.mode() & 0o777);
+                }
+                #[cfg(not(unix))]
+                {
+                    info!("Socket directory created: {:?}", parent);
+                }
+            } else {
+                // Log existing parent directory info
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+                    if let Ok(md) = std::fs::metadata(parent) {
+                        info!("Socket directory exists: {:?} (uid={} gid={} mode={:o})",
+                              parent, md.uid(), md.gid(), md.mode() & 0o777);
+                    }
+                }
             }
         }
 
-        // Remove existing socket if present
+        // Set process umask to 0007 for socket creation (results in 0660)
+        #[cfg(unix)]
+        unsafe {
+            libc::umask(0o007);
+        }
+
+        // Remove existing socket if present (only if not in use)
         if socket_path.exists() {
-            std::fs::remove_file(socket_path)
-                .context("Failed to remove existing socket")?;
+            // Try to connect to check if socket is in use
+            let in_use = tokio::net::UnixStream::connect(socket_path).await.is_ok();
+            if !in_use {
+                std::fs::remove_file(socket_path)
+                    .context("Failed to remove stale socket")?;
+                info!("Removed stale socket: {}", socket_path.display());
+            } else {
+                anyhow::bail!("Socket already in use: {:?}", socket_path);
+            }
         }
 
         let listener = UnixListener::bind(socket_path)
             .with_context(|| format!("Failed to bind UNIX socket at {:?}", socket_path))?;
 
-        // Set socket permissions (0660)
+        // fsync the parent directory to ensure socket entry is persisted
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(socket_path)?.permissions();
-            perms.set_mode(0o660);
-            std::fs::set_permissions(socket_path, perms)?;
+        if let Some(parent) = socket_path.parent() {
+            use std::os::unix::io::AsRawFd;
+            if let Ok(dir_fd) = std::fs::File::open(parent) {
+                unsafe {
+                    libc::fsync(dir_fd.as_raw_fd());
+                }
+            }
         }
 
         info!("RPC socket ready: {}", socket_path.display());
@@ -639,6 +693,62 @@ impl RpcServer {
             "pending_count": pending,
             "note": "This is a snapshot. Use 'events' for full history."
         }))
+    }
+
+    // Helper function to get user ID by name
+    #[cfg(unix)]
+    fn get_user_id(username: &str) -> Option<u32> {
+        use std::process::Command;
+        let output = Command::new("id")
+            .args(&["-u", username])
+            .output()
+            .ok()?;
+        if output.status.success() {
+            String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .parse()
+                .ok()
+        } else {
+            None
+        }
+    }
+
+    // Helper function to get group ID by name
+    #[cfg(unix)]
+    fn get_group_id(groupname: &str) -> Option<u32> {
+        use std::process::Command;
+        let output = Command::new("id")
+            .args(&["-g", groupname])
+            .output()
+            .ok()?;
+        if output.status.success() {
+            String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .parse()
+                .ok()
+        } else {
+            None
+        }
+    }
+
+    // Helper function to chown a path
+    #[cfg(unix)]
+    fn chown_path(path: &Path, uid: u32, gid: u32) -> Result<()> {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        let path_cstr = CString::new(path.as_os_str().as_bytes())
+            .context("Invalid path for chown")?;
+
+        let result = unsafe {
+            libc::chown(path_cstr.as_ptr(), uid, gid)
+        };
+
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("chown failed for {:?}", path))
+        }
     }
 }
 

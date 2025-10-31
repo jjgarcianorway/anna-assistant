@@ -306,9 +306,10 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         if verbose {
             println!("│  Checking RPC socket...");
         }
+        let socket_path = "/run/anna/annad.sock";
         let mut socket_found = false;
         for _ in 0..10 {
-            if Path::new("/run/anna/annad.sock").exists() {
+            if Path::new(socket_path).exists() {
                 socket_found = true;
                 break;
             }
@@ -316,9 +317,21 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         }
 
         if socket_found {
-            println!("│  ✓ Socket: /run/anna/annad.sock present");
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                if let Ok(md) = std::fs::metadata(socket_path) {
+                    println!("│  ✓ Socket: {} (uid={} gid={} mode={:o})", socket_path, md.uid(), md.gid(), md.mode() & 0o777);
+                } else {
+                    println!("│  ✓ Socket: {} present", socket_path);
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                println!("│  ✓ Socket: {} present", socket_path);
+            }
         } else {
-            println!("│  ⚠ Socket: /run/anna/annad.sock not found after 10 seconds");
+            println!("│  ⚠ Socket: {} not found after 10 seconds", socket_path);
             degraded.push("RPC socket not created - daemon may be starting or failed".to_string());
         }
     } else {
@@ -326,19 +339,56 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         degraded.push("annad service not active".to_string());
     }
 
-    // 9. Check DB write access
+    // 9. Check DB write access with detailed errno
     if verbose {
         println!("│  Checking database write access...");
     }
-    let db_test = Path::new("/var/lib/anna/.writetest");
-    match std::fs::write(db_test, b"test") {
-        Ok(_) => {
-            let _ = std::fs::remove_file(db_test);
-            println!("│  ✓ Database: /var/lib/anna is writable");
+    let db_path = Path::new("/var/lib/anna/telemetry.db");
+    let db_dir = Path::new("/var/lib/anna");
+    let db_test = db_dir.join(".writetest");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+
+        // Show DB and dir info
+        if verbose {
+            if let Ok(md) = std::fs::metadata(db_dir) {
+                println!("│    DB dir: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777);
+            }
+            if db_path.exists() {
+                if let Ok(md) = std::fs::metadata(db_path) {
+                    println!("│    DB file: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777);
+                }
+            }
         }
-        Err(e) => {
-            println!("│  ⚠ Database: /var/lib/anna not writable ({})", e);
-            degraded.push(format!("/var/lib/anna not writable: {}", e));
+
+        match std::fs::write(&db_test, b"test") {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&db_test);
+                println!("│  ✓ Database: {} is writable", db_dir.display());
+            }
+            Err(e) => {
+                let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                println!("│  ⚠ Database: {} not writable (errno: {}, {})", db_dir.display(), errno, e);
+                if let Ok(md) = std::fs::metadata(db_dir) {
+                    println!("│    Directory: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777);
+                }
+                degraded.push(format!("{} not writable: errno {} - {}", db_dir.display(), errno, e));
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match std::fs::write(&db_test, b"test") {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&db_test);
+                println!("│  ✓ Database: {} is writable", db_dir.display());
+            }
+            Err(e) => {
+                println!("│  ⚠ Database: {} not writable ({})", db_dir.display(), e);
+                degraded.push(format!("{} not writable: {}", db_dir.display(), e));
+            }
         }
     }
 
@@ -422,48 +472,85 @@ pub fn doctor_repair(skip_confirmation: bool) -> Result<()> {
     println!("╰──────────────────────────────────────────────────────────────────");
     println!();
 
-    // Find and run the repair script
-    let script_path = std::env::current_dir()
-        .ok()
-        .and_then(|d| {
-            let p = d.join("scripts/fix_v011_installation.sh");
-            if p.exists() { Some(p) } else { None }
-        })
-        .or_else(|| {
-            // Try relative to binary location
-            std::env::current_exe().ok().and_then(|exe| {
-                let p = exe.parent()?.parent()?.parent()?.join("scripts/fix_v011_installation.sh");
-                if p.exists() { Some(p) } else { None }
-            })
-        });
+    // Step 1: Stop service
+    println!("→ Stopping annad service...");
+    let stop_status = Command::new("sudo")
+        .args(&["systemctl", "stop", "annad"])
+        .status()?;
 
-    if let Some(script) = script_path {
-        println!("→ Running repair script: {}", script.display());
-        println!();
+    if !stop_status.success() {
+        eprintln!("⚠ Failed to stop service (continuing anyway)");
+    }
 
-        let status = Command::new("sudo")
-            .arg("bash")
-            .arg(&script)
-            .status()?;
+    // Step 2: Fix permissions on directories
+    println!("→ Fixing directory permissions...");
+    let dirs = vec!["/var/lib/anna", "/var/log/anna", "/run/anna"];
+    for dir in &dirs {
+        let chown_status = Command::new("sudo")
+            .args(&["chown", "-R", "anna:anna", dir])
+            .status();
 
-        if status.success() {
-            println!();
-            println!("✓ Repair completed successfully");
-            println!();
-            println!("Recommended: Run 'annactl doctor post' to verify");
-            println!();
-            std::process::exit(0);
+        let chmod_status = Command::new("sudo")
+            .args(&["chmod", "0750", dir])
+            .status();
+
+        if chown_status.is_ok() && chmod_status.is_ok() {
+            println!("  ✓ Fixed {}", dir);
         } else {
-            eprintln!();
-            eprintln!("✗ Repair script failed with exit code: {:?}", status.code());
-            eprintln!();
-            std::process::exit(1);
+            eprintln!("  ⚠ Failed to fix {}", dir);
+        }
+    }
+
+    // Step 3: Remove stale socket
+    println!("→ Removing stale socket...");
+    let socket_path = "/run/anna/annad.sock";
+    if Path::new(socket_path).exists() {
+        let rm_status = Command::new("sudo")
+            .args(&["rm", "-f", socket_path])
+            .status()?;
+        if rm_status.success() {
+            println!("  ✓ Removed {}", socket_path);
         }
     } else {
-        eprintln!("✗ Repair script not found at scripts/fix_v011_installation.sh");
-        eprintln!("  Run from project root or ensure script is installed");
+        println!("  (socket does not exist)");
+    }
+
+    // Step 4: Start service
+    println!("→ Starting annad service...");
+    let start_status = Command::new("sudo")
+        .args(&["systemctl", "start", "annad"])
+        .status()?;
+
+    if !start_status.success() {
+        eprintln!("\n✗ Failed to start service");
+        eprintln!("  Check: sudo journalctl -u annad -n 30\n");
         std::process::exit(1);
     }
+
+    // Step 5: Poll for socket (10 seconds)
+    println!("→ Waiting for socket (up to 10s)...");
+    let mut socket_found = false;
+    for i in 1..=10 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if Path::new(socket_path).exists() {
+            socket_found = true;
+            println!("  ✓ Socket appeared after {}s", i);
+            break;
+        }
+    }
+
+    if !socket_found {
+        eprintln!("\n⚠ Socket did not appear after 10s");
+        eprintln!("  Check: sudo journalctl -u annad -n 30\n");
+        std::process::exit(1);
+    }
+
+    println!();
+    println!("✓ Repair completed successfully");
+    println!();
+    println!("Recommended: Run 'annactl doctor post --verbose' to verify");
+    println!();
+    std::process::exit(0);
 }
 
 pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
