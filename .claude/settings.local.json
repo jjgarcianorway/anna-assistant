@@ -104,7 +104,8 @@
       "Bash(sudo ./scripts/verify_socket_persistence.sh:*)",
       "Bash(./scripts/release.sh:*)",
       "Bash(test_auto_commit.txt)",
-      "Bash(git remote get-url:*)"
+      "Bash(git remote get-url:*)",
+      "Bash(systemctl is-enabled:*)"
     ],
     "deny": [],
     "ask": []
