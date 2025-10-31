@@ -246,6 +246,16 @@ else
     echo "✓ Config already exists"
 fi
 
+# Install policy configuration
+if [ ! -f /etc/anna/policy.toml ] && [ -f etc/policy.toml ]; then
+    sudo install -m 0644 etc/policy.toml /etc/anna/
+    echo "✓ Policy config installed"
+elif [ -f /etc/anna/policy.toml ]; then
+    echo "✓ Policy config already exists"
+else
+    echo "⚠ policy.toml not found in source (etc/policy.toml)"
+fi
+
 # Install capability registry
 echo ""
 echo "→ Installing capability registry..."
@@ -271,12 +281,20 @@ fi
 echo ""
 echo "→ Starting Anna..."
 if sudo systemctl enable --now annad 2>/dev/null; then
-    sleep 2
-    if systemctl is-active --quiet annad; then
-        echo "✓ Anna is running"
+    echo "→ Waiting for daemon to initialize..."
+    sleep 3
+
+    # Verify using annactl (the proper way)
+    if annactl status &>/dev/null; then
+        echo "✓ Anna is running and responding"
     else
-        echo "⚠ Service may still be starting"
-        echo "  Check: systemctl status annad"
+        echo "⚠ Service started but not responding"
+        echo ""
+        echo "Diagnostics:"
+        systemctl is-active annad && echo "  • Daemon process: active" || echo "  • Daemon process: inactive"
+        [ -S /run/anna/annad.sock ] && echo "  • Socket: exists" || echo "  • Socket: missing"
+        echo ""
+        echo "Check logs: sudo journalctl -u annad -n 30"
     fi
 else
     echo "⚠ Could not start service"
