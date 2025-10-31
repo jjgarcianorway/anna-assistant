@@ -1,0 +1,62 @@
+post_install() {
+    # Create anna system user and group
+    if ! getent group anna &>/dev/null; then
+        groupadd --system anna
+        echo "==> Created system group 'anna'"
+    fi
+
+    if ! id -u anna &>/dev/null; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin -g anna anna
+        echo "==> Created system user 'anna'"
+    fi
+
+    # Set correct ownership for data directories
+    chown -R anna:anna /var/lib/anna /var/log/anna 2>/dev/null || true
+    chmod 0750 /var/lib/anna /var/log/anna 2>/dev/null || true
+
+    echo ""
+    echo "==> Anna Assistant installed successfully!"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Add your user to the anna group:"
+    echo "     sudo usermod -aG anna \$USER"
+    echo "     (log out and back in for this to take effect)"
+    echo ""
+    echo "  2. Enable and start the daemon:"
+    echo "     sudo systemctl enable --now annad"
+    echo ""
+    echo "  3. Run system health check:"
+    echo "     annactl doctor check"
+    echo ""
+    echo "  4. Check status:"
+    echo "     annactl status"
+    echo ""
+    echo "Documentation: https://github.com/jjgarcianorway/anna-assistant"
+}
+
+post_upgrade() {
+    echo "==> Anna Assistant upgraded to version $1"
+    echo ""
+    echo "Restarting daemon..."
+    systemctl is-active --quiet annad && systemctl restart annad || true
+    echo ""
+    echo "Run 'annactl doctor check' to verify system health"
+}
+
+pre_remove() {
+    # Stop and disable service
+    systemctl is-active --quiet annad && systemctl stop annad || true
+    systemctl is-enabled --quiet annad && systemctl disable annad || true
+}
+
+post_remove() {
+    echo "==> Anna Assistant has been removed"
+    echo ""
+    echo "User data preserved in /var/lib/anna"
+    echo "Logs preserved in /var/log/anna"
+    echo ""
+    echo "To completely remove Anna including data:"
+    echo "  sudo rm -rf /var/lib/anna /var/log/anna /etc/anna"
+    echo "  sudo userdel anna"
+    echo "  sudo groupdel anna"
+}

@@ -1,0 +1,86 @@
+# Maintainer: Anna Assistant Team <jjgarcianorway at github>
+pkgname=anna-assistant-bin
+pkgver=0.11.0
+pkgrel=1
+pkgdesc="Event-driven Linux system assistant with intelligent automation (binary release)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/jjgarcianorway/anna-assistant"
+license=('MIT')
+depends=('systemd' 'lm_sensors')
+optdepends=(
+    'polkit: for privileged operations'
+    'sqlite: for telemetry storage'
+    'jq: for JSON telemetry queries'
+    'asusctl: for ASUS laptop thermal management'
+)
+provides=('anna-assistant')
+conflicts=('anna-assistant')
+backup=(
+    'etc/anna/config.toml'
+    'etc/anna/policy.toml'
+    'etc/anna/policies.d/00-bootstrap.yaml'
+)
+install=anna-assistant.install
+
+source_x86_64=("${pkgname}-${pkgver}-x86_64.tar.gz::https://github.com/jjgarcianorway/anna-assistant/releases/download/v${pkgver}/anna-linux-x86_64.tar.gz")
+source_aarch64=("${pkgname}-${pkgver}-aarch64.tar.gz::https://github.com/jjgarcianorway/anna-assistant/releases/download/v${pkgver}/anna-linux-aarch64.tar.gz")
+
+sha256sums_x86_64=('SKIP')  # Update with actual SHA256 from release
+sha256sums_aarch64=('SKIP') # Update with actual SHA256 from release
+
+package() {
+    # Install binaries
+    install -Dm755 "${srcdir}/annad" "${pkgdir}/usr/bin/annad"
+    install -Dm755 "${srcdir}/annactl" "${pkgdir}/usr/bin/annactl"
+
+    # Create directories
+    install -dm750 "${pkgdir}/var/lib/anna"
+    install -dm750 "${pkgdir}/var/log/anna"
+    install -dm755 "${pkgdir}/usr/lib/anna"
+    install -dm755 "${pkgdir}/etc/anna/policies.d"
+    install -dm755 "${pkgdir}/etc/anna/personas.d"
+
+    # Install default configuration
+    cat > "${pkgdir}/etc/anna/config.toml" <<'EOF'
+# Hi, I'm Anna! Please use 'annactl config set' to change settings.
+# Don't edit me by hand - I track who changed what and why.
+
+[autonomy]
+level = "low"
+
+[ui]
+emojis = false
+color = true
+
+[telemetry]
+enabled = false
+collection_interval_sec = 60
+
+[persona]
+active = "dev"
+EOF
+
+    # Install bootstrap policies
+    cat > "${pkgdir}/etc/anna/policies.d/00-bootstrap.yaml" <<'EOF'
+# Hi, I'm Anna! Use 'annactl policy' to manage these rules.
+
+- when: "telemetry.cpu_usage > 90"
+  then: "alert"
+  message: "High CPU usage"
+  enabled: true
+
+- when: "telemetry.mem_usage > 95"
+  then: "alert"
+  message: "Critical memory"
+  enabled: true
+
+- when: "always"
+  then: "log"
+  message: "Policy engine ready"
+  enabled: true
+EOF
+
+    # Install systemd service (will be provided by source repo)
+    # For now, user needs to run installer to set up service
+    # This is intentional - systemd service requires proper user/group setup
+}

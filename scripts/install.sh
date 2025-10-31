@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Anna Assistant Installer v0.11.0
+# Smart installer: Downloads binaries → Falls back to source build
 # Runs as user, escalates only when needed
 
 set -euo pipefail
 
+VERSION="0.11.0"
+GITHUB_REPO="jjgarcianorway/anna-assistant"
+BUILD_MODE=""
+
 echo "╭─────────────────────────────────────────╮"
 echo "│  Anna Assistant Installer              │"
-echo "│  v0.11.0 - Event-Driven Intelligence   │"
+echo "│  v${VERSION} - Event-Driven Intelligence   │"
 echo "╰─────────────────────────────────────────╯"
 echo ""
 
@@ -21,16 +26,199 @@ if [[ ! -f Cargo.toml ]]; then
     exit 1
 fi
 
-echo "→ Building binaries (this may take 2-5 minutes on first build)..."
-if cargo build --release 2>&1 | grep -E "error|warning: unused" | head -5; then
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo "✗ Build failed"
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        ARTIFACT_NAME="anna-linux-x86_64"
+        ;;
+    aarch64)
+        ARTIFACT_NAME="anna-linux-aarch64"
+        ;;
+    *)
+        echo "⚠ Unsupported architecture: $ARCH"
+        echo "  Only x86_64 and aarch64 are supported for binary downloads"
+        echo "  Will attempt to build from source..."
+        BUILD_MODE="source"
+        ;;
+esac
+
+# Parse command line arguments
+FORCE_BUILD=false
+for arg in "$@"; do
+    case "$arg" in
+        --build|--source)
+            FORCE_BUILD=true
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --build, --source    Force building from source (requires Rust)"
+            echo "  --help, -h           Show this help message"
+            echo ""
+            echo "Installation methods (tried in order):"
+            echo "  1. Use binaries from ./bin/ directory"
+            echo "  2. Download pre-compiled binaries from GitHub releases"
+            echo "  3. Build from source (requires Rust/Cargo)"
+            exit 0
+            ;;
+    esac
+done
+
+# Function to check if binaries are available
+check_binaries() {
+    [[ -f "$1/annad" && -f "$1/annactl" ]]
+}
+
+# Function to verify binary integrity (basic check)
+verify_binaries() {
+    local dir="$1"
+    if ! file "$dir/annad" | grep -q "ELF.*executable"; then
+        echo "✗ Invalid binary: annad"
+        return 1
+    fi
+    if ! file "$dir/annactl" | grep -q "ELF.*executable"; then
+        echo "✗ Invalid binary: annactl"
+        return 1
+    fi
+    return 0
+}
+
+# Function to download pre-compiled binaries
+download_binaries() {
+    echo "→ Downloading pre-compiled binaries for $ARCH..."
+
+    # Check for required tools
+    if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
+        echo "✗ Neither curl nor wget found (required for downloading)"
+        return 1
+    fi
+
+    local url="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/${ARTIFACT_NAME}.tar.gz"
+    local tmp_dir=$(mktemp -d)
+
+    echo "  Downloading from: $url"
+
+    # Download using curl or wget
+    if command -v curl &>/dev/null; then
+        if ! curl -L -f -o "$tmp_dir/binaries.tar.gz" "$url" 2>&1 | grep -E "error|failed" | head -3; then
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
+                echo "✗ Download failed"
+                rm -rf "$tmp_dir"
+                return 1
+            fi
+        fi
+    else
+        if ! wget -q -O "$tmp_dir/binaries.tar.gz" "$url"; then
+            echo "✗ Download failed"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+    fi
+
+    # Extract
+    echo "  Extracting..."
+    if ! tar -xzf "$tmp_dir/binaries.tar.gz" -C "$tmp_dir"; then
+        echo "✗ Extraction failed"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    # Verify extracted binaries
+    if ! verify_binaries "$tmp_dir"; then
+        echo "✗ Downloaded binaries failed verification"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    # Create bin directory and move binaries
+    mkdir -p bin
+    mv "$tmp_dir/annad" "$tmp_dir/annactl" bin/
+    chmod +x bin/annad bin/annactl
+    rm -rf "$tmp_dir"
+
+    echo "✓ Downloaded and verified binaries"
+    BUILD_MODE="downloaded"
+    return 0
+}
+
+# Function to build from source
+build_from_source() {
+    echo "→ Building from source..."
+
+    # Check for Rust/Cargo
+    if ! command -v cargo &>/dev/null; then
+        echo "✗ Cargo not found (required for building from source)"
+        echo ""
+        echo "To install Rust, run one of:"
+        echo "  • System-wide: sudo pacman -S rust"
+        echo "  • User-level:  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+        echo ""
+        return 1
+    fi
+
+    echo "  This may take 2-5 minutes on first build..."
+    if cargo build --release 2>&1 | grep -E "^error" | head -5; then
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "✗ Build failed"
+            return 1
+        fi
+    fi
+
+    # Verify built binaries exist
+    if ! check_binaries "target/release"; then
+        echo "✗ Build succeeded but binaries not found"
+        return 1
+    fi
+
+    echo "✓ Build complete"
+    BUILD_MODE="source"
+    return 0
+}
+
+# Main binary acquisition logic
+if [ "$FORCE_BUILD" = true ]; then
+    echo "→ Forced source build mode"
+    if ! build_from_source; then
         exit 1
     fi
+elif check_binaries "bin"; then
+    echo "→ Using pre-existing binaries from ./bin/"
+    if verify_binaries "bin"; then
+        BUILD_MODE="preexisting"
+    else
+        echo "✗ Binaries in ./bin/ failed verification"
+        exit 1
+    fi
+elif [ -n "$ARTIFACT_NAME" ] && download_binaries; then
+    # Downloaded successfully
+    :
+elif build_from_source; then
+    # Built from source successfully
+    :
+else
+    echo ""
+    echo "✗ All binary acquisition methods failed:"
+    echo "  1. No pre-existing binaries in ./bin/"
+    echo "  2. Could not download from GitHub releases"
+    echo "  3. Could not build from source"
+    echo ""
+    echo "Please either:"
+    echo "  • Install Rust and try again: sudo pacman -S rust"
+    echo "  • Download binaries manually from: https://github.com/${GITHUB_REPO}/releases"
+    echo "  • Place binaries in ./bin/ directory"
+    exit 1
 fi
-echo "✓ Build complete"
-echo ""
 
+# Determine binary source directory
+if [ "$BUILD_MODE" = "source" ]; then
+    BIN_SOURCE="target/release"
+else
+    BIN_SOURCE="bin"
+fi
+
+echo ""
 echo "The following steps require elevated privileges:"
 echo "  • Create anna system user and group"
 echo "  • Install binaries to /usr/local/bin"
@@ -82,8 +270,8 @@ fi
 
 echo ""
 echo "→ Installing binaries..."
-sudo install -m 755 target/release/annad /usr/local/bin/
-sudo install -m 755 target/release/annactl /usr/local/bin/
+sudo install -m 755 "$BIN_SOURCE/annad" /usr/local/bin/
+sudo install -m 755 "$BIN_SOURCE/annactl" /usr/local/bin/
 echo "✓ Binaries installed to /usr/local/bin"
 
 echo ""
@@ -268,6 +456,21 @@ echo ""
 echo "╭─────────────────────────────────────────╮"
 echo "│  ✓ Anna Installed Successfully          │"
 echo "╰─────────────────────────────────────────╯"
+echo ""
+
+# Show installation method
+case "$BUILD_MODE" in
+    downloaded)
+        echo "Installation method: Pre-compiled binaries (downloaded)"
+        ;;
+    preexisting)
+        echo "Installation method: Pre-compiled binaries (from ./bin/)"
+        ;;
+    source)
+        echo "Installation method: Built from source"
+        ;;
+esac
+
 echo ""
 echo "Next steps:"
 echo ""
