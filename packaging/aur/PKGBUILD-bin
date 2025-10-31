@@ -1,6 +1,6 @@
 # Maintainer: Anna Assistant Team <jjgarcianorway at github>
 pkgname=anna-assistant-bin
-pkgver=0.13.8
+pkgver=0.13.9
 pkgrel=1
 pkgdesc="Event-driven Linux system assistant with intelligent automation (binary release)"
 arch=('x86_64' 'aarch64')
