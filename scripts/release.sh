@@ -16,6 +16,7 @@ RELEASE_TYPE=""
 COMMIT_MSG=""
 VERSION=""
 DRY_RUN=false
+SKIP_CONFIRM=false
 
 # Find project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -62,6 +63,7 @@ OPTIONS:
   -m, --message MSG     Commit message (required)
   -v, --version VER     Explicit version (overrides auto-increment)
   -d, --dry-run         Show what would be done without making changes
+  -y, --yes             Skip confirmation prompt (auto-confirm)
   -h, --help            Show this help message
 
 SEMANTIC VERSIONING (-t parameter):
@@ -140,6 +142,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d|--dry-run)
             DRY_RUN=true
+            shift
+            ;;
+        -y|--yes)
+            SKIP_CONFIRM=true
             shift
             ;;
         -h|--help)
@@ -248,13 +254,18 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 # Confirm with user
-read -p "Proceed with release? [y/N] " -n 1 -r
-echo ""
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    print_warning "Release cancelled"
-    exit 0
+if [ "$SKIP_CONFIRM" = false ]; then
+    read -p "Proceed with release? [y/N] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_warning "Release cancelled"
+        exit 0
+    fi
+    echo ""
+else
+    print_info "Auto-confirming release (--yes flag)"
+    echo ""
 fi
-echo ""
 
 # Update version in files
 print_info "Updating version in files..."
