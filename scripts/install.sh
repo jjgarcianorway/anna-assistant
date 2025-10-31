@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Anna Assistant Installer v0.11.0
+# Anna Assistant Installer
 # Smart installer: Downloads binaries → Falls back to source build
 # Runs as user, escalates only when needed
 
 set -euo pipefail
 
-VERSION="0.11.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 BUILD_MODE=""
+LATEST_VERSION=""  # Will be fetched from GitHub
 
 echo "╭─────────────────────────────────────────╮"
 echo "│  Anna Assistant Installer              │"
-echo "│  v${VERSION} - Event-Driven Intelligence   │"
+echo "│  Event-Driven Intelligence             │"
 echo "╰─────────────────────────────────────────╯"
 echo ""
 
@@ -85,9 +85,9 @@ verify_binaries() {
     return 0
 }
 
-# Function to download pre-compiled binaries
-download_binaries() {
-    echo "→ Downloading pre-compiled binaries for $ARCH..."
+# Function to fetch latest release info from GitHub
+fetch_latest_release() {
+    echo "→ Fetching latest release information..."
 
     # Check for required tools
     if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
@@ -95,16 +95,58 @@ download_binaries() {
         return 1
     fi
 
-    local url="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/${ARTIFACT_NAME}.tar.gz"
+    local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+    local tmp_file=$(mktemp)
+
+    # Fetch release info
+    if command -v curl &>/dev/null; then
+        if ! curl -s -f -L "$api_url" -o "$tmp_file"; then
+            echo "✗ Could not fetch release information from GitHub"
+            rm -f "$tmp_file"
+            return 1
+        fi
+    else
+        if ! wget -q -O "$tmp_file" "$api_url"; then
+            echo "✗ Could not fetch release information from GitHub"
+            rm -f "$tmp_file"
+            return 1
+        fi
+    fi
+
+    # Parse JSON to get tag_name (works without jq)
+    # Look for "tag_name": "v0.11.1" pattern
+    LATEST_VERSION=$(grep -o '"tag_name"[^,]*' "$tmp_file" | grep -o 'v[0-9.]*' | head -1)
+    rm -f "$tmp_file"
+
+    if [ -z "$LATEST_VERSION" ]; then
+        echo "✗ Could not determine latest version"
+        return 1
+    fi
+
+    echo "✓ Latest release: $LATEST_VERSION"
+    return 0
+}
+
+# Function to download pre-compiled binaries
+download_binaries() {
+    echo "→ Downloading pre-compiled binaries for $ARCH..."
+
+    # Fetch latest release info
+    if ! fetch_latest_release; then
+        return 1
+    fi
+
+    local url="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${ARTIFACT_NAME}.tar.gz"
     local tmp_dir=$(mktemp -d)
 
-    echo "  Downloading from: $url"
+    echo "  Downloading: ${ARTIFACT_NAME}.tar.gz (${LATEST_VERSION})"
 
     # Download using curl or wget
     if command -v curl &>/dev/null; then
         if ! curl -L -f -o "$tmp_dir/binaries.tar.gz" "$url" 2>&1 | grep -E "error|failed" | head -3; then
             if [ ${PIPESTATUS[0]} -ne 0 ]; then
                 echo "✗ Download failed"
+                echo "  URL: $url"
                 rm -rf "$tmp_dir"
                 return 1
             fi
@@ -112,6 +154,7 @@ download_binaries() {
     else
         if ! wget -q -O "$tmp_dir/binaries.tar.gz" "$url"; then
             echo "✗ Download failed"
+            echo "  URL: $url"
             rm -rf "$tmp_dir"
             return 1
         fi

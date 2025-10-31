@@ -101,7 +101,8 @@
       "Bash(/usr/local/bin/annactl version:*)",
       "Bash(git log:*)",
       "Bash(xargs:*)",
-      "Bash(sudo ./scripts/verify_socket_persistence.sh:*)"
+      "Bash(sudo ./scripts/verify_socket_persistence.sh:*)",
+      "Bash(./scripts/release.sh:*)"
     ],
     "deny": [],
     "ask": []
