@@ -83,29 +83,33 @@ SEMANTIC VERSIONING (-t parameter):
 
 EXAMPLES:
   # Patch release: Bug fixes (0.11.1 -> 0.11.2)
-  ./scripts/release.sh -t patch -m "Fix installation bug"
+  # Will auto-commit any pending changes, then create release
+  ./scripts/release.sh -t patch -m "Fix installation bug" --yes
 
   # Minor release: New features (0.11.1 -> 0.12.0)
-  ./scripts/release.sh -t minor -m "Add new telemetry features"
+  ./scripts/release.sh -t minor -m "Add new telemetry features" --yes
 
   # Major release: Breaking changes (0.11.1 -> 1.0.0)
-  ./scripts/release.sh -t major -m "Stable release with breaking changes"
+  ./scripts/release.sh -t major -m "Stable release with breaking changes" --yes
 
   # Explicit version (bypass semantic versioning)
-  ./scripts/release.sh -v 0.11.2 -m "Hotfix for critical bug"
+  ./scripts/release.sh -v 0.11.2 -m "Hotfix for critical bug" --yes
 
   # Dry run (preview changes without making them)
   ./scripts/release.sh -t patch -m "Test" --dry-run
 
 RELEASE PROCESS:
-  1. Checks git status (must be clean)
-  2. Detects current version from Cargo.toml
-  3. Bumps version based on type
-  4. Updates version in all files
-  5. Creates git commit
-  6. Creates git tag
-  7. Pushes to GitHub
-  8. Triggers GitHub Actions (builds binaries)
+  1. Auto-commits any uncommitted changes (with your message)
+  2. Pushes changes to GitHub
+  3. Detects current version from Cargo.toml
+  4. Bumps version based on type
+  5. Updates version in all files
+  6. Creates release commit
+  7. Creates git tag
+  8. Pushes tag to GitHub
+  9. Triggers GitHub Actions (builds binaries)
+
+ONE COMMAND DOES EVERYTHING!
 
 FILES UPDATED:
   - Cargo.toml (workspace.package.version)
@@ -190,14 +194,39 @@ if [ -n "$RELEASE_TYPE" ]; then
     fi
 fi
 
-# Check git status
+# Check git status and auto-commit if needed
 print_info "Checking git status..."
-if [ "$DRY_RUN" = false ] && [ -n "$(git status --porcelain)" ]; then
-    print_error "Working directory is not clean. Commit or stash changes first."
-    git status --short
-    exit 1
+if [ -n "$(git status --porcelain)" ]; then
+    if [ "$DRY_RUN" = false ]; then
+        print_info "Found uncommitted changes - auto-committing..."
+
+        # Show what will be committed
+        git status --short
+        echo ""
+
+        # Stage all changes
+        git add -A
+
+        # Commit with the provided message
+        git commit -m "$COMMIT_MSG
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+        # Push to main
+        git push origin main
+
+        print_success "Changes committed and pushed"
+        echo ""
+    else
+        print_warning "DRY RUN: Would auto-commit these changes:"
+        git status --short
+        echo ""
+    fi
+else
+    print_success "No uncommitted changes"
 fi
-print_success "Git status clean"
 
 # Get current version from Cargo.toml
 CURRENT_VERSION=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
