@@ -10,18 +10,9 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build for ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: anna-linux-x86_64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: anna-linux-aarch64
+  build-x86_64:
+    name: Build x86_64 Linux
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -29,89 +20,50 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools (aarch64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Build release binary
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          cargo build --release --verbose
+          ls -la target/release/
 
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache target directory
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-target-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build release binaries
+      - name: Verify binaries exist
         run: |
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-          fi
-          cargo build --release --target ${{ matrix.target }}
+          test -f target/release/annad || (echo "annad not found" && exit 1)
+          test -f target/release/annactl || (echo "annactl not found" && exit 1)
 
       - name: Create release archive
         run: |
           mkdir -p dist
-          cd target/${{ matrix.target }}/release
-          tar -czf ../../../dist/${{ matrix.artifact_name }}.tar.gz annad annactl
-          cd ../../../dist
-          sha256sum ${{ matrix.artifact_name }}.tar.gz > ${{ matrix.artifact_name }}.tar.gz.sha256
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            dist/${{ matrix.artifact_name }}.tar.gz
-            dist/${{ matrix.artifact_name }}.tar.gz.sha256
+          cd target/release
+          tar -czf ../../dist/anna-linux-x86_64.tar.gz annad annactl
+          cd ../../dist
+          sha256sum anna-linux-x86_64.tar.gz > anna-linux-x86_64.tar.gz.sha256
+          echo "Created archive:"
+          ls -lh anna-linux-x86_64.tar.gz
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            dist/${{ matrix.artifact_name }}.tar.gz
-            dist/${{ matrix.artifact_name }}.tar.gz.sha256
+            dist/anna-linux-x86_64.tar.gz
+            dist/anna-linux-x86_64.tar.gz.sha256
           draft: false
           prerelease: false
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ## Anna Assistant Release
 
-  create-checksums:
-    name: Create combined checksums
-    needs: build-and-release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+            Pre-compiled binaries for Linux x86_64
 
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
+            ### Installation
 
-      - name: Create combined checksums file
-        run: |
-          cat artifacts/*/*.sha256 > SHA256SUMS
-          cat SHA256SUMS
+            ```bash
+            git clone https://github.com/jjgarcianorway/anna-assistant.git
+            cd anna-assistant
+            ./scripts/install.sh
+            ```
 
-      - name: Upload checksums to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: SHA256SUMS
+            The installer will automatically download and install this release.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
