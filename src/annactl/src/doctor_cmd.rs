@@ -545,6 +545,69 @@ pub fn doctor_repair(skip_confirmation: bool) -> Result<()> {
         std::process::exit(1);
     }
 
+    // Step 6: Verify socket permissions and ownership
+    println!("→ Verifying socket permissions...");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(md) = std::fs::metadata(socket_path) {
+            let mode = md.mode() & 0o777;
+            let uid = md.uid();
+            let gid = md.gid();
+
+            // Get anna uid/gid for comparison
+            let anna_uid = Command::new("id")
+                .args(&["-u", "anna"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok())
+                .unwrap_or(1003);
+
+            let anna_gid = Command::new("id")
+                .args(&["-g", "anna"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok())
+                .unwrap_or(1003);
+
+            if mode != 0o660 {
+                println!("  ⚠ Socket mode incorrect: {:o} (expected: 660), fixing...", mode);
+                let chmod_status = Command::new("sudo")
+                    .args(&["chmod", "0660", socket_path])
+                    .status()?;
+                if chmod_status.success() {
+                    println!("  ✓ Fixed socket mode to 0660");
+                }
+            } else {
+                println!("  ✓ Socket mode correct: {:o}", mode);
+            }
+
+            if uid != anna_uid || gid != anna_gid {
+                println!("  ⚠ Socket ownership incorrect: uid={} gid={} (expected: anna:anna), fixing...", uid, gid);
+                let chown_status = Command::new("sudo")
+                    .args(&["chown", "anna:anna", socket_path])
+                    .status()?;
+                if chown_status.success() {
+                    println!("  ✓ Fixed socket ownership to anna:anna");
+                }
+            } else {
+                println!("  ✓ Socket ownership correct: anna:anna");
+            }
+        }
+    }
+
+    // Step 7: Verify systemd RuntimeDirectoryMode
+    println!("→ Verifying systemd configuration...");
+    let unit_path = "/etc/systemd/system/annad.service";
+    if let Ok(contents) = std::fs::read_to_string(unit_path) {
+        if contents.contains("RuntimeDirectoryMode=0750") {
+            println!("  ✓ RuntimeDirectoryMode=0750 present in service file");
+        } else {
+            println!("  ⚠ RuntimeDirectoryMode=0750 not found in service file");
+            println!("    Expected: RuntimeDirectoryMode=0750");
+        }
+    }
+
     println!();
     println!("✓ Repair completed successfully");
     println!();
