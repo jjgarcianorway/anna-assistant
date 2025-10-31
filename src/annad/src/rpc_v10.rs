@@ -81,15 +81,25 @@ impl RpcServer {
 
     /// Start the RPC server on a UNIX socket
     pub async fn start<P: AsRef<Path>>(self: Arc<Self>, socket_path: P) -> Result<()> {
-        // Remove existing socket if present
         let socket_path = socket_path.as_ref();
+
+        // Ensure parent directory exists (systemd RuntimeDirectory should create it)
+        if let Some(parent) = socket_path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("Failed to create socket directory: {:?}", parent))?;
+                info!("Created socket directory: {:?}", parent);
+            }
+        }
+
+        // Remove existing socket if present
         if socket_path.exists() {
             std::fs::remove_file(socket_path)
                 .context("Failed to remove existing socket")?;
         }
 
         let listener = UnixListener::bind(socket_path)
-            .context("Failed to bind UNIX socket")?;
+            .with_context(|| format!("Failed to bind UNIX socket at {:?}", socket_path))?;
 
         // Set socket permissions (0660)
         #[cfg(unix)]

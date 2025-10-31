@@ -88,20 +88,20 @@ echo "✓ Binaries installed to /usr/local/bin"
 
 echo ""
 echo "→ Creating directories..."
-sudo mkdir -p /etc/anna/policies.d
-sudo mkdir -p /etc/anna/personas.d
-sudo mkdir -p /run/anna
-sudo mkdir -p /var/lib/anna
-sudo mkdir -p /var/log/anna
-sudo mkdir -p /usr/lib/anna
+# Note: systemd StateDirectory, LogsDirectory, RuntimeDirectory will auto-create
+# /var/lib/anna, /var/log/anna, /run/anna with correct ownership on daemon start.
+# We create them here for consistency but fix ownership explicitly.
 
-sudo chown anna:anna /run/anna
-sudo chown anna:anna /var/lib/anna
-sudo chown anna:anna /var/log/anna
-sudo chown root:anna /etc/anna
-sudo chown root:root /usr/lib/anna
-sudo chmod 0750 /run/anna /var/lib/anna /var/log/anna
-sudo chmod 0755 /etc/anna /usr/lib/anna
+sudo install -d -m 0750 -o anna -g anna /var/lib/anna
+sudo install -d -m 0750 -o anna -g anna /var/log/anna
+sudo install -d -m 0755 -o root -g root /usr/lib/anna
+sudo install -d -m 0755 -o root -g root /etc/anna
+sudo install -d -m 0755 -o root -g root /etc/anna/policies.d
+sudo install -d -m 0755 -o root -g root /etc/anna/personas.d
+
+# Ensure ownership is correct (defensive fix)
+sudo chown -R anna:anna /var/lib/anna /var/log/anna
+sudo chmod 0750 /var/lib/anna /var/log/anna
 echo "✓ Directories created with correct ownership"
 
 echo ""
@@ -183,43 +183,21 @@ fi
 
 echo ""
 echo "→ Installing capability registry..."
-if [ ! -f /usr/lib/anna/CAPABILITIES.toml ]; then
-    if [ -f etc/CAPABILITIES.toml ]; then
-        sudo cp etc/CAPABILITIES.toml /usr/lib/anna/
-        sudo chmod 0644 /usr/lib/anna/CAPABILITIES.toml
-        echo "✓ CAPABILITIES.toml installed"
-    else
-        echo "⚠ CAPABILITIES.toml not found in project"
-        echo "  Creating minimal version..."
-        cat <<'EOF' | sudo tee /usr/lib/anna/CAPABILITIES.toml >/dev/null
+if [ -f etc/CAPABILITIES.toml ]; then
+    sudo install -m 0644 -o root -g root etc/CAPABILITIES.toml /usr/lib/anna/CAPABILITIES.toml
+    echo "✓ CAPABILITIES.toml installed"
+elif [ ! -f /usr/lib/anna/CAPABILITIES.toml ]; then
+    echo "⚠ etc/CAPABILITIES.toml not found in repo, creating minimal version..."
+    cat <<'EOF' | sudo tee /usr/lib/anna/CAPABILITIES.toml >/dev/null
 [meta]
 version = "0.11.0"
 description = "Anna telemetry capability registry"
-
-[[modules]]
-name = "lm_sensors"
-description = "Temperature and voltage monitoring"
-category = "sensors"
-required = true
-
-[[modules.deps]]
-binaries = ["sensors"]
-packages = ["lm_sensors"]
-
-[[modules]]
-name = "iproute2"
-description = "Network interface monitoring"
-category = "net"
-required = true
-
-[[modules.deps]]
-binaries = ["ip"]
-packages = ["iproute2"]
 EOF
-        echo "✓ Minimal CAPABILITIES.toml created"
-    fi
+    sudo chmod 0644 /usr/lib/anna/CAPABILITIES.toml
+    sudo chown root:root /usr/lib/anna/CAPABILITIES.toml
+    echo "✓ Minimal CAPABILITIES.toml created"
 else
-    echo "✓ CAPABILITIES.toml exists"
+    echo "✓ CAPABILITIES.toml already exists"
 fi
 
 echo ""
@@ -247,11 +225,12 @@ fi
 echo ""
 echo "→ Installing systemd services..."
 if [ -f etc/systemd/annad.service ]; then
-    sudo cp etc/systemd/annad.service /etc/systemd/system/
-    sudo cp etc/systemd/anna-fans.service /etc/systemd/system/
+    sudo install -m 0644 -o root -g root etc/systemd/annad.service /etc/systemd/system/
+    if [ -f etc/systemd/anna-fans.service ]; then
+        sudo install -m 0644 -o root -g root etc/systemd/anna-fans.service /etc/systemd/system/
+    fi
     sudo systemctl daemon-reload
-    sudo systemctl enable annad
-    echo "✓ Services installed and enabled"
+    echo "✓ Services installed and systemd reloaded"
 else
     echo "✗ Service files not found in etc/systemd/"
     echo "  Working directory: $(pwd)"
@@ -269,17 +248,18 @@ if [ "$IS_ASUS" = true ]; then
 fi
 
 echo ""
-echo "→ Starting daemon..."
-if sudo systemctl start annad; then
-    sleep 2
+echo "→ Enabling and starting daemon..."
+if sudo systemctl enable --now annad; then
+    sleep 3
     if systemctl is-active --quiet annad; then
-        echo "✓ Daemon started successfully"
+        echo "✓ Daemon enabled and started successfully"
     else
         echo "⚠ Daemon may still be starting..."
         echo "  Check status: systemctl status annad"
+        echo "  Check logs: journalctl -u annad -n 20"
     fi
 else
-    echo "✗ Failed to start daemon"
+    echo "✗ Failed to enable/start daemon"
     echo "  Check logs: journalctl -u annad -n 20"
     exit 1
 fi

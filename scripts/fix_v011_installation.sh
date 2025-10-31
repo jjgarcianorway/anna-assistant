@@ -1,153 +1,155 @@
 #!/usr/bin/env bash
-# Anna v0.11.0 - Installation Fix Script
-# Run as root or with working sudo to fix permission and directory issues
+# Anna v0.11.0 Emergency Repair Script
+# Fixes common installation issues: directory ownership, CAPABILITIES.toml, socket permissions
+#
+# Usage: sudo bash scripts/fix_v011_installation.sh
 
 set -euo pipefail
 
 echo "╭─────────────────────────────────────────╮"
-echo "│  Anna v0.11.0 Installation Repair      │"
+echo "│  Anna v0.11.0 Emergency Repair          │"
 echo "╰─────────────────────────────────────────╯"
 echo ""
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "✗ This script must be run as root"
-    echo "  Try: sudo bash $0"
+    echo "✗ This script must be run as root (use sudo)"
     exit 1
 fi
 
-echo "→ Step 1: Stop daemon if running..."
+# Find project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+echo "→ Stopping annad service..."
 systemctl stop annad || true
-echo "✓ Daemon stopped"
+echo "✓ Service stopped"
 echo ""
 
-echo "→ Step 2: Create and fix directory permissions..."
+echo "→ Fixing directory ownership and permissions..."
 
-# Create directories with correct permissions
-mkdir -p /var/lib/anna
-mkdir -p /var/log/anna
-mkdir -p /run/anna
-mkdir -p /etc/anna
-mkdir -p /usr/lib/anna
+# Create directories with correct ownership using install
+install -d -m 0750 -o anna -g anna /var/lib/anna || true
+install -d -m 0750 -o anna -g anna /var/log/anna || true
+install -d -m 0755 -o root -g root /usr/lib/anna || true
+install -d -m 0755 -o root -g root /etc/anna || true
 
-# Set ownership to anna:anna
-chown anna:anna /var/lib/anna
-chown anna:anna /var/log/anna
-chown anna:anna /run/anna
-chown root:anna /etc/anna
-chown root:root /usr/lib/anna
-
-# Set permissions
-chmod 0750 /var/lib/anna
-chmod 0750 /var/log/anna
-chmod 0750 /run/anna
-chmod 0755 /etc/anna
-chmod 0755 /usr/lib/anna
-
-echo "✓ Directories created with correct permissions"
+# Fix ownership recursively (defensive)
+chown -R anna:anna /var/lib/anna /var/log/anna
+chmod 0750 /var/lib/anna /var/log/anna
+echo "✓ Directory ownership: anna:anna for /var/lib/anna and /var/log/anna"
+echo "✓ Directory permissions: 0750"
 echo ""
 
-echo "→ Step 3: Fix existing database if present..."
-if [ -f /var/lib/anna/telemetry.db ]; then
-    chown anna:anna /var/lib/anna/telemetry.db
-    chmod 0640 /var/lib/anna/telemetry.db
-    echo "✓ Database permissions fixed"
-else
-    echo "○ No existing database (will be created on first run)"
-fi
-echo ""
-
-echo "→ Step 4: Install CAPABILITIES.toml..."
-if [ -f etc/CAPABILITIES.toml ]; then
-    cp etc/CAPABILITIES.toml /usr/lib/anna/
-    chown root:root /usr/lib/anna/CAPABILITIES.toml
-    chmod 0644 /usr/lib/anna/CAPABILITIES.toml
-    echo "✓ CAPABILITIES.toml installed"
-elif [ -f /home/lhoqvso/anna-assistant/etc/CAPABILITIES.toml ]; then
-    cp /home/lhoqvso/anna-assistant/etc/CAPABILITIES.toml /usr/lib/anna/
-    chown root:root /usr/lib/anna/CAPABILITIES.toml
-    chmod 0644 /usr/lib/anna/CAPABILITIES.toml
-    echo "✓ CAPABILITIES.toml installed"
-else
-    echo "⚠ CAPABILITIES.toml not found in project"
-    echo "  Creating minimal version..."
+echo "→ Installing/verifying CAPABILITIES.toml..."
+if [ -f "$PROJECT_ROOT/etc/CAPABILITIES.toml" ]; then
+    install -m 0644 -o root -g root "$PROJECT_ROOT/etc/CAPABILITIES.toml" /usr/lib/anna/CAPABILITIES.toml
+    echo "✓ CAPABILITIES.toml installed from repo"
+elif [ ! -f /usr/lib/anna/CAPABILITIES.toml ]; then
+    echo "⚠ etc/CAPABILITIES.toml not found, creating minimal version..."
     cat > /usr/lib/anna/CAPABILITIES.toml <<'EOF'
 [meta]
 version = "0.11.0"
-description = "Anna telemetry capability registry"
-
-[[modules]]
-name = "lm_sensors"
-description = "Temperature and voltage monitoring"
-category = "sensors"
-required = true
-
-[[modules.deps]]
-binaries = ["sensors"]
-packages = ["lm_sensors"]
-
-[[modules]]
-name = "iproute2"
-description = "Network interface monitoring"
-category = "net"
-required = true
-
-[[modules.deps]]
-binaries = ["ip"]
-packages = ["iproute2"]
+description = "Anna telemetry capability registry (minimal emergency version)"
 EOF
-    chown root:root /usr/lib/anna/CAPABILITIES.toml
     chmod 0644 /usr/lib/anna/CAPABILITIES.toml
+    chown root:root /usr/lib/anna/CAPABILITIES.toml
     echo "✓ Minimal CAPABILITIES.toml created"
-fi
-echo ""
-
-echo "→ Step 5: Verify systemd service configuration..."
-if grep -q "RuntimeDirectory=anna" /etc/systemd/system/annad.service; then
-    echo "✓ RuntimeDirectory configured correctly"
 else
-    echo "⚠ RuntimeDirectory not set, adding..."
-    # This shouldn't happen, but add it if missing
-    sed -i '/\[Service\]/a RuntimeDirectory=anna\nRuntimeDirectoryMode=0750' /etc/systemd/system/annad.service
+    echo "✓ CAPABILITIES.toml already exists"
 fi
 echo ""
 
-echo "→ Step 6: Reload systemd and restart daemon..."
+echo "→ Reloading systemd configuration..."
 systemctl daemon-reload
+echo "✓ Systemd reloaded"
+echo ""
+
+echo "→ Restarting annad service..."
 systemctl restart annad
-echo "✓ Daemon restarted"
+sleep 3
+echo "✓ Service restarted"
 echo ""
 
-echo "→ Step 7: Wait for daemon to initialize..."
-sleep 5
+echo "→ Verifying installation..."
 echo ""
 
-echo "→ Step 8: Verify daemon is running..."
+# Check daemon status
 if systemctl is-active --quiet annad; then
-    echo "✓ Daemon is running"
-
-    # Check if socket exists
-    if [ -S /run/anna/annad.sock ]; then
-        echo "✓ RPC socket created"
-        stat -c '  Permissions: %a %U:%G' /run/anna/annad.sock
-    else
-        echo "⚠ RPC socket not created yet (may take a few seconds)"
-    fi
+    echo "✓ annad service: active (running)"
 else
-    echo "✗ Daemon failed to start"
+    echo "✗ annad service: not running"
     echo ""
-    echo "Recent logs:"
-    journalctl -u annad -n 20 --no-pager
+    echo "Check logs:"
+    echo "  sudo journalctl -u annad -n 20 --no-pager"
     exit 1
 fi
-echo ""
 
+# Check socket (wait up to 10 seconds)
+SOCKET_FOUND=false
+for i in {1..10}; do
+    if [ -S /run/anna/annad.sock ]; then
+        SOCKET_FOUND=true
+        break
+    fi
+    sleep 1
+done
+
+if [ "$SOCKET_FOUND" = true ]; then
+    echo "✓ RPC socket: /run/anna/annad.sock exists"
+else
+    echo "✗ RPC socket: not found after 10 seconds"
+    echo ""
+    echo "Check logs:"
+    echo "  sudo journalctl -u annad -n 20 --no-pager"
+    exit 1
+fi
+
+# Check directory ownership
+VAR_LIB_OWNER=$(stat -c '%U:%G' /var/lib/anna 2>/dev/null || stat -f '%Su:%Sg' /var/lib/anna)
+VAR_LOG_OWNER=$(stat -c '%U:%G' /var/log/anna 2>/dev/null || stat -f '%Su:%Sg' /var/log/anna)
+
+if [ "$VAR_LIB_OWNER" = "anna:anna" ]; then
+    echo "✓ /var/lib/anna ownership: anna:anna"
+else
+    echo "⚠ /var/lib/anna ownership: $VAR_LIB_OWNER (expected anna:anna)"
+fi
+
+if [ "$VAR_LOG_OWNER" = "anna:anna" ]; then
+    echo "✓ /var/log/anna ownership: anna:anna"
+else
+    echo "⚠ /var/log/anna ownership: $VAR_LOG_OWNER (expected anna:anna)"
+fi
+
+# Check CAPABILITIES.toml
+if [ -f /usr/lib/anna/CAPABILITIES.toml ]; then
+    echo "✓ /usr/lib/anna/CAPABILITIES.toml: present"
+else
+    echo "✗ /usr/lib/anna/CAPABILITIES.toml: missing"
+fi
+
+# Test annactl connectivity
+echo ""
+echo "→ Testing annactl connectivity..."
+if timeout 5 annactl status &>/dev/null; then
+    echo "✓ annactl can communicate with daemon"
+else
+    echo "✗ annactl cannot reach daemon"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  - Check logs: sudo journalctl -u annad -n 30"
+    echo "  - Check socket: ls -la /run/anna/annad.sock"
+    echo "  - Check DB: ls -la /var/lib/anna/telemetry.db"
+    exit 1
+fi
+
+echo ""
 echo "╭─────────────────────────────────────────╮"
-echo "│  ✓ Installation Repair Complete        │"
+echo "│  ✓ Repair Complete                      │"
 echo "╰─────────────────────────────────────────╯"
 echo ""
-echo "Verification:"
-echo "  • Check status:  systemctl status annad"
-echo "  • View logs:     journalctl -u annad -f"
-echo "  • Test CLI:      annactl status"
+echo "Verification commands:"
+echo "  annactl status"
+echo "  annactl events --limit 5"
+echo "  systemctl status annad"
 echo ""

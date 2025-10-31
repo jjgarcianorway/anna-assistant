@@ -220,7 +220,129 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         degraded.push("CAPABILITIES.toml not installed".to_string());
     }
 
-    // 6. Check optional packages (non-fatal)
+    // 6. Check directory ownership and permissions
+    if verbose {
+        println!("│  Checking directory ownership...");
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+
+        // Check /var/lib/anna
+        if let Ok(metadata) = std::fs::metadata("/var/lib/anna") {
+            let uid = metadata.uid();
+            let gid = metadata.gid();
+            let mode = metadata.mode() & 0o777;
+
+            // Get anna user/group IDs
+            let anna_check = Command::new("id")
+                .args(&["-u", "anna"])
+                .output();
+
+            let anna_uid: u32 = if let Ok(output) = anna_check {
+                String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .parse()
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            if uid == anna_uid && mode == 0o750 {
+                println!("│  ✓ Ownership: /var/lib/anna correct (anna:anna, 0750)");
+            } else {
+                println!("│  ⚠ Ownership: /var/lib/anna incorrect (uid={} mode={:o})", uid, mode);
+                degraded.push(format!("/var/lib/anna wrong ownership: expected anna:anna 0750, got uid={} mode={:o}", uid, mode));
+            }
+        } else {
+            println!("│  ⚠ Directory: /var/lib/anna not readable");
+        }
+
+        // Check /var/log/anna
+        if let Ok(metadata) = std::fs::metadata("/var/log/anna") {
+            let uid = metadata.uid();
+            let gid = metadata.gid();
+            let mode = metadata.mode() & 0o777;
+
+            let anna_check = Command::new("id")
+                .args(&["-u", "anna"])
+                .output();
+
+            let anna_uid: u32 = if let Ok(output) = anna_check {
+                String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .parse()
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            if uid == anna_uid && mode == 0o750 {
+                println!("│  ✓ Ownership: /var/log/anna correct (anna:anna, 0750)");
+            } else {
+                println!("│  ⚠ Ownership: /var/log/anna incorrect (uid={} mode={:o})", uid, mode);
+                degraded.push(format!("/var/log/anna wrong ownership: expected anna:anna 0750, got uid={} mode={:o}", uid, mode));
+            }
+        } else {
+            println!("│  ⚠ Directory: /var/log/anna not readable");
+        }
+    }
+
+    // 7. Check annad service is running
+    if verbose {
+        println!("│  Checking daemon status...");
+    }
+    let daemon_check = Command::new("systemctl")
+        .args(&["is-active", "annad"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+
+    if daemon_check.is_ok() && daemon_check.unwrap().success() {
+        println!("│  ✓ Daemon: annad is active");
+
+        // 8. Check socket exists (wait up to 10 seconds)
+        if verbose {
+            println!("│  Checking RPC socket...");
+        }
+        let mut socket_found = false;
+        for _ in 0..10 {
+            if Path::new("/run/anna/annad.sock").exists() {
+                socket_found = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+
+        if socket_found {
+            println!("│  ✓ Socket: /run/anna/annad.sock present");
+        } else {
+            println!("│  ⚠ Socket: /run/anna/annad.sock not found after 10 seconds");
+            degraded.push("RPC socket not created - daemon may be starting or failed".to_string());
+        }
+    } else {
+        println!("│  ⚠ Daemon: annad is not running");
+        degraded.push("annad service not active".to_string());
+    }
+
+    // 9. Check DB write access
+    if verbose {
+        println!("│  Checking database write access...");
+    }
+    let db_test = Path::new("/var/lib/anna/.writetest");
+    match std::fs::write(db_test, b"test") {
+        Ok(_) => {
+            let _ = std::fs::remove_file(db_test);
+            println!("│  ✓ Database: /var/lib/anna is writable");
+        }
+        Err(e) => {
+            println!("│  ⚠ Database: /var/lib/anna not writable ({})", e);
+            degraded.push(format!("/var/lib/anna not writable: {}", e));
+        }
+    }
+
+    // 10. Check optional packages (non-fatal)
     if verbose {
         println!("│  Checking optional dependencies...");
     }

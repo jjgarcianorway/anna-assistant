@@ -120,24 +120,41 @@ else
     info "   Try: sudo systemctl start annad"
 fi
 
-# Test 2.2: Check socket exists
-info "2.2 Checking RPC socket..."
-if [ -S /run/anna/annad.sock ]; then
+# Test 2.2: Check socket exists (poll up to 15 seconds)
+info "2.2 Checking RPC socket (polling up to 15s)..."
+SOCKET_FOUND=false
+for i in {1..15}; do
+    if [ -S /run/anna/annad.sock ]; then
+        SOCKET_FOUND=true
+        break
+    fi
+    sleep 1
+done
+
+if [ "$SOCKET_FOUND" = true ]; then
     pass "RPC socket exists"
 else
-    fail "RPC socket missing"
+    fail "RPC socket missing after 15 seconds"
 fi
 
-# Test 2.3: Test annactl connection
-info "2.3 Testing annactl connection..."
-if timeout 5 annactl version &>/dev/null; then
-    pass "annactl can communicate with daemon"
+# Test 2.3: Test annactl status
+info "2.3 Testing 'annactl status'..."
+if timeout 5 annactl status &>/dev/null; then
+    pass "annactl status works"
 else
-    fail "annactl cannot reach daemon"
+    fail "annactl status failed"
 fi
 
-# Test 2.4: Check daemon resource usage
-info "2.4 Checking resource usage..."
+# Test 2.4: Test annactl events
+info "2.4 Testing 'annactl events --limit 1'..."
+if timeout 5 annactl events --limit 1 &>/dev/null; then
+    pass "annactl events works"
+else
+    fail "annactl events failed"
+fi
+
+# Test 2.5: Check daemon resource usage
+info "2.5 Checking resource usage..."
 if systemctl is-active --quiet annad; then
     PID=$(systemctl show -p MainPID --value annad)
     if [ -n "$PID" ] && [ "$PID" != "0" ]; then

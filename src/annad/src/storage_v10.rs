@@ -20,8 +20,34 @@ pub struct StorageManager {
 impl StorageManager {
     /// Create or open database at the given path
     pub fn new<P: AsRef<Path>>(db_path: P) -> Result<Self> {
-        let conn = Connection::open(db_path.as_ref())
-            .context("Failed to open telemetry database")?;
+        let db_path = db_path.as_ref();
+
+        // Ensure parent directory exists
+        if let Some(parent) = db_path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Failed to create database directory: {:?}", parent))?;
+
+            // Check write access to parent directory
+            Self::check_dir_writable(parent)?;
+        }
+
+        let conn = Connection::open(db_path)
+            .with_context(|| {
+                let metadata_info = if let Ok(md) = std::fs::metadata(db_path) {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::MetadataExt;
+                        format!("DB exists: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode())
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        "DB exists but cannot read permissions (non-Unix)".to_string()
+                    }
+                } else {
+                    "DB does not exist yet".to_string()
+                };
+                format!("Failed to open telemetry database at {:?}. {}", db_path, metadata_info)
+            })?;
 
         // Initialize schema
         Self::init_schema(&conn)?;
@@ -30,6 +56,54 @@ impl StorageManager {
             conn: Arc::new(Mutex::new(conn)),
             ring_buffer: Arc::new(Mutex::new(VecDeque::with_capacity(RING_BUFFER_SIZE))),
         })
+    }
+
+    /// Check if directory is writable by current process
+    fn check_dir_writable(dir: &Path) -> Result<()> {
+        if !dir.exists() {
+            anyhow::bail!("Directory does not exist: {:?}", dir);
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let metadata = std::fs::metadata(dir)
+                .with_context(|| format!("Cannot read directory metadata: {:?}", dir))?;
+
+            let uid = metadata.uid();
+            let gid = metadata.gid();
+            let mode = metadata.mode();
+
+            // Try to create a test file to verify write access
+            let test_file = dir.join(".writetest");
+            match std::fs::write(&test_file, b"test") {
+                Ok(_) => {
+                    let _ = std::fs::remove_file(&test_file);
+                    Ok(())
+                }
+                Err(e) => {
+                    anyhow::bail!(
+                        "Directory {:?} is not writable: {}. Owner: uid={} gid={} mode={:o}",
+                        dir, e, uid, gid, mode
+                    )
+                }
+            }
+        }
+
+        #[cfg(not(unix))]
+        {
+            // Simple write test for non-Unix systems
+            let test_file = dir.join(".writetest");
+            match std::fs::write(&test_file, b"test") {
+                Ok(_) => {
+                    let _ = std::fs::remove_file(&test_file);
+                    Ok(())
+                }
+                Err(e) => {
+                    anyhow::bail!("Directory {:?} is not writable: {}", dir, e)
+                }
+            }
+        }
     }
 
     /// Initialize SQLite schema

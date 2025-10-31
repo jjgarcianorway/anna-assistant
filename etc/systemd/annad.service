@@ -28,9 +28,14 @@ CPUQuota=5%
 MemoryMax=80M
 TasksMax=32
 
-# Runtime Directory
+# Managed Directories (systemd auto-creates and sets ownership)
+StateDirectory=anna
+StateDirectoryMode=0750
+LogsDirectory=anna
+LogsDirectoryMode=0750
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
+UMask=007
 
 # Security Hardening
 NoNewPrivileges=yes
