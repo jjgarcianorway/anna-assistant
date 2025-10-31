@@ -332,8 +332,7 @@ git tag -a "v$VERSION" -m "Release v$VERSION - $COMMIT_MSG"
 print_success "Tag created"
 
 print_info "Pushing to GitHub..."
-git push origin main
-git push origin "v$VERSION"
+git push --atomic origin main "v$VERSION"
 print_success "Pushed to GitHub"
 
 echo ""
