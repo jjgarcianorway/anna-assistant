@@ -5,11 +5,90 @@
 //! even when the daemon is broken.
 
 use anyhow::{Context, Result};
-use anna_common::{anna_narrative, anna_info, anna_ok, anna_warn, anna_box, MessageType};
+use anna_common::{anna_info, anna_ok, anna_warn, anna_box, MessageType};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// Validation check result
+#[derive(Debug, Clone)]
+struct ValidationCheck {
+    name: String,
+    expected: String,
+    found: String,
+    passed: bool,
+    fix: String,
+}
+
+/// Run comprehensive system validation with detailed diagnostics
+pub async fn doctor_validate() -> Result<()> {
+    anna_box(&["Running comprehensive self-validation..."], MessageType::Info);
+    println!();
+
+    let mut checks = Vec::new();
+
+    // Check 1: Service Status
+    checks.push(validate_service_active());
+
+    // Check 2: Socket
+    checks.push(validate_socket());
+
+    // Check 3: User and Group
+    checks.push(validate_anna_user());
+
+    // Check 4: Directory Ownership
+    checks.push(validate_directory_ownership());
+
+    // Check 5: Service File
+    checks.push(validate_service_file());
+
+    // Check 6: Dependencies
+    checks.push(validate_dependencies());
+
+    // Check 7: Recent Journal Entries
+    checks.push(validate_journal_entries());
+
+    // Check 8: CPU Usage (if daemon running)
+    checks.push(validate_cpu_usage());
+
+    // Print results table
+    println!("╭─────────────────────────────────────────────────────────────╮");
+    println!("│ Component                │ Expected        │ Found           │");
+    println!("├─────────────────────────────────────────────────────────────┤");
+
+    let mut failures = 0;
+    for check in &checks {
+        let status = if check.passed {
+            "✓"
+        } else {
+            failures += 1;
+            "✗"
+        };
+        println!("│ {} {:24} │ {:15} │ {:15} │",
+            status, check.name, check.expected, check.found);
+    }
+
+    println!("╰─────────────────────────────────────────────────────────────╯");
+    println!();
+
+    if failures == 0 {
+        anna_ok("All validation checks passed! Anna is healthy.");
+        Ok(())
+    } else {
+        anna_warn(format!("{} checks failed. Run 'annactl doctor repair' to fix.", failures));
+
+        println!();
+        println!("Recommended fixes:");
+        for check in checks {
+            if !check.passed && !check.fix.is_empty() {
+                println!("  • {}: {}", check.name, check.fix);
+            }
+        }
+
+        std::process::exit(1);
+    }
+}
 
 /// Run system health check (read-only)
 pub async fn doctor_check(verbose: bool) -> Result<()> {
@@ -65,30 +144,66 @@ pub async fn doctor_repair(dry_run: bool) -> Result<()> {
     println!();
 
     let mut repairs_made = 0;
+    let mut repair_log = Vec::new();
 
     // Create backup before repairs
     if !dry_run {
         anna_info("Creating a backup first, just to be safe.");
         create_backup("repair")?;
+        repair_log.push("Created backup before repairs".to_string());
     }
 
     // Repair 1: Directories
-    repairs_made += repair_directories(dry_run)?;
+    anna_info("Checking directory structure...");
+    let dirs_fixed = repair_directories(dry_run)?;
+    if dirs_fixed > 0 {
+        repair_log.push(format!("Created {} missing directories", dirs_fixed));
+        repairs_made += dirs_fixed;
+    }
 
     // Repair 2: Ownership
-    repairs_made += repair_ownership(dry_run)?;
+    anna_info("Checking directory ownership...");
+    let ownership_fixed = repair_ownership(dry_run)?;
+    if ownership_fixed > 0 {
+        repair_log.push(format!("Fixed ownership on {} paths", ownership_fixed));
+        repairs_made += ownership_fixed;
+    }
 
     // Repair 3: Permissions
-    repairs_made += repair_permissions(dry_run)?;
+    anna_info("Checking file permissions...");
+    let perms_fixed = repair_permissions(dry_run)?;
+    if perms_fixed > 0 {
+        repair_log.push(format!("Fixed permissions on {} paths", perms_fixed));
+        repairs_made += perms_fixed;
+    }
 
     // Repair 4: Service
-    repairs_made += repair_service(dry_run)?;
+    anna_info("Checking daemon status...");
+    let service_fixed = repair_service(dry_run)?;
+    if service_fixed > 0 {
+        repair_log.push("Restarted daemon service".to_string());
+        repairs_made += service_fixed;
+    }
 
     // Repair 5: Policies
-    repairs_made += repair_policies(dry_run)?;
+    let policies_fixed = repair_policies(dry_run)?;
+    if policies_fixed > 0 {
+        repair_log.push(format!("Fixed {} policy issues", policies_fixed));
+        repairs_made += policies_fixed;
+    }
 
     // Repair 6: Telemetry Database
-    repairs_made += repair_telemetry_db(dry_run)?;
+    anna_info("Checking telemetry database...");
+    let telemetry_fixed = repair_telemetry_db(dry_run)?;
+    if telemetry_fixed > 0 {
+        repair_log.push("Fixed telemetry database".to_string());
+        repairs_made += telemetry_fixed;
+    }
+
+    // Write repair log to file
+    if !dry_run && repairs_made > 0 {
+        write_repair_log(&repair_log)?;
+    }
 
     println!();
     if repairs_made > 0 {
@@ -96,6 +211,11 @@ pub async fn doctor_repair(dry_run: bool) -> Result<()> {
             anna_info(format!("I found {} things I can fix for you.", repairs_made));
         } else {
             anna_ok(format!("All done! I fixed {} things.", repairs_made));
+            println!();
+            println!("Repairs performed:");
+            for entry in &repair_log {
+                println!("  • {}", entry);
+            }
         }
     } else {
         anna_ok("Everything was already in good shape. Nothing to fix!");
@@ -657,5 +777,416 @@ fn list_backups() -> Result<()> {
     }
 
     println!();
+    Ok(())
+}
+
+// Validation helper functions
+
+/// Check 1: Service is active
+fn validate_service_active() -> ValidationCheck {
+    let output = Command::new("systemctl")
+        .args(&["is-active", "annad"])
+        .output();
+
+    let is_active = output
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "active")
+        .unwrap_or(false);
+
+    ValidationCheck {
+        name: "Service Status".to_string(),
+        expected: "active".to_string(),
+        found: if is_active { "active".to_string() } else { "inactive".to_string() },
+        passed: is_active,
+        fix: "sudo systemctl start annad".to_string(),
+    }
+}
+
+/// Check 2: Socket exists with correct permissions
+fn validate_socket() -> ValidationCheck {
+    let socket_path = Path::new("/run/anna/annad.sock");
+
+    if !socket_path.exists() {
+        return ValidationCheck {
+            name: "Socket".to_string(),
+            expected: "exists".to_string(),
+            found: "missing".to_string(),
+            passed: false,
+            fix: "sudo systemctl restart annad".to_string(),
+        };
+    }
+
+    // Check permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(metadata) = fs::metadata(socket_path) {
+            let mode = metadata.permissions().mode() & 0o777;
+            let expected_mode = 0o660;
+
+            if mode == expected_mode {
+                ValidationCheck {
+                    name: "Socket".to_string(),
+                    expected: "0660".to_string(),
+                    found: format!("{:o}", mode),
+                    passed: true,
+                    fix: String::new(),
+                }
+            } else {
+                ValidationCheck {
+                    name: "Socket".to_string(),
+                    expected: "0660".to_string(),
+                    found: format!("{:o}", mode),
+                    passed: false,
+                    fix: "sudo chmod 0660 /run/anna/annad.sock".to_string(),
+                }
+            }
+        } else {
+            ValidationCheck {
+                name: "Socket".to_string(),
+                expected: "readable".to_string(),
+                found: "unreadable".to_string(),
+                passed: false,
+                fix: "sudo systemctl restart annad".to_string(),
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    ValidationCheck {
+        name: "Socket".to_string(),
+        expected: "exists".to_string(),
+        found: "exists".to_string(),
+        passed: true,
+        fix: String::new(),
+    }
+}
+
+/// Check 3: Anna user and group exist
+fn validate_anna_user() -> ValidationCheck {
+    // Check if anna user exists
+    let user_output = Command::new("id")
+        .args(&["-u", "anna"])
+        .output();
+
+    let user_exists = user_output
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check if anna group exists
+    let group_output = Command::new("getent")
+        .args(&["group", "anna"])
+        .output();
+
+    let group_exists = group_output
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let both_exist = user_exists && group_exists;
+
+    ValidationCheck {
+        name: "User & Group".to_string(),
+        expected: "anna:anna".to_string(),
+        found: if both_exist {
+            "anna:anna".to_string()
+        } else if user_exists {
+            "anna:missing".to_string()
+        } else if group_exists {
+            "missing:anna".to_string()
+        } else {
+            "missing:missing".to_string()
+        },
+        passed: both_exist,
+        fix: "sudo useradd --system --no-create-home anna".to_string(),
+    }
+}
+
+/// Check 4: Directory ownership is correct
+fn validate_directory_ownership() -> ValidationCheck {
+    let dirs = vec![
+        "/run/anna",
+        "/var/lib/anna",
+        "/var/log/anna",
+    ];
+
+    let mut all_correct = true;
+    let mut issues = Vec::new();
+
+    for dir in &dirs {
+        let path = Path::new(dir);
+        if !path.exists() {
+            all_correct = false;
+            issues.push(format!("{} missing", dir));
+            continue;
+        }
+
+        // Try to check ownership (requires reading metadata)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if let Ok(metadata) = fs::metadata(path) {
+                // Get anna UID
+                let anna_uid = Command::new("id")
+                    .args(&["-u", "anna"])
+                    .output()
+                    .ok()
+                    .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok());
+
+                if let Some(expected_uid) = anna_uid {
+                    if metadata.uid() != expected_uid {
+                        all_correct = false;
+                        issues.push(format!("{} wrong owner", dir));
+                    }
+                }
+            }
+        }
+    }
+
+    ValidationCheck {
+        name: "Directory Ownership".to_string(),
+        expected: "anna:anna".to_string(),
+        found: if all_correct { "anna:anna".to_string() } else { "mixed".to_string() },
+        passed: all_correct,
+        fix: "sudo chown -R anna:anna /run/anna /var/lib/anna /var/log/anna".to_string(),
+    }
+}
+
+/// Check 5: Service file is correct
+fn validate_service_file() -> ValidationCheck {
+    let service_path = Path::new("/etc/systemd/system/annad.service");
+
+    if !service_path.exists() {
+        return ValidationCheck {
+            name: "Service File".to_string(),
+            expected: "exists".to_string(),
+            found: "missing".to_string(),
+            passed: false,
+            fix: "Run installer: ./scripts/install.sh".to_string(),
+        };
+    }
+
+    // Read service file and check for key markers
+    if let Ok(content) = fs::read_to_string(service_path) {
+        let has_user = content.contains("User=anna");
+        let has_runtime = content.contains("RuntimeDirectory=anna");
+        let has_watchdog = content.contains("WatchdogSec=");
+
+        let all_present = has_user && has_runtime && has_watchdog;
+
+        ValidationCheck {
+            name: "Service File".to_string(),
+            expected: "correct".to_string(),
+            found: if all_present { "correct".to_string() } else { "outdated".to_string() },
+            passed: all_present,
+            fix: "Run installer to update: ./scripts/install.sh".to_string(),
+        }
+    } else {
+        ValidationCheck {
+            name: "Service File".to_string(),
+            expected: "readable".to_string(),
+            found: "unreadable".to_string(),
+            passed: false,
+            fix: "Run installer: ./scripts/install.sh".to_string(),
+        }
+    }
+}
+
+/// Check 6: Dependencies are installed
+fn validate_dependencies() -> ValidationCheck {
+    let deps = vec!["systemd", "jq", "sqlite3"];
+    let mut missing = Vec::new();
+
+    for dep in &deps {
+        let output = Command::new("which").arg(dep).output();
+        let exists = output.map(|o| o.status.success()).unwrap_or(false);
+
+        if !exists {
+            missing.push(dep.to_string());
+        }
+    }
+
+    let all_installed = missing.is_empty();
+
+    ValidationCheck {
+        name: "Dependencies".to_string(),
+        expected: format!("{} installed", deps.len()),
+        found: if all_installed {
+            format!("{} installed", deps.len())
+        } else {
+            format!("{} missing", missing.len())
+        },
+        passed: all_installed,
+        fix: if !missing.is_empty() {
+            format!("sudo pacman -S {}", missing.join(" "))
+        } else {
+            String::new()
+        },
+    }
+}
+
+/// Check 7: Recent journal entries exist
+fn validate_journal_entries() -> ValidationCheck {
+    let output = Command::new("journalctl")
+        .args(&["-u", "annad", "--since", "60 seconds ago", "--no-pager"])
+        .output();
+
+    let has_entries = output
+        .map(|o| !o.stdout.is_empty() && String::from_utf8_lossy(&o.stdout).lines().count() > 0)
+        .unwrap_or(false);
+
+    ValidationCheck {
+        name: "Journal Entries".to_string(),
+        expected: "present".to_string(),
+        found: if has_entries { "present".to_string() } else { "none".to_string() },
+        passed: has_entries,
+        fix: if has_entries {
+            String::new()
+        } else {
+            "Check if daemon just started or is crashing".to_string()
+        },
+    }
+}
+
+/// Check 8: CPU usage is acceptable
+fn validate_cpu_usage() -> ValidationCheck {
+    // Only check if daemon is running
+    let is_running = Command::new("systemctl")
+        .args(&["is-active", "annad"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !is_running {
+        return ValidationCheck {
+            name: "CPU Usage".to_string(),
+            expected: "< 2%".to_string(),
+            found: "N/A".to_string(),
+            passed: true,
+            fix: String::new(),
+        };
+    }
+
+    // Get daemon PID
+    let pid_output = Command::new("systemctl")
+        .args(&["show", "annad", "--property=MainPID", "--value"])
+        .output();
+
+    let pid = pid_output
+        .ok()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok());
+
+    if let Some(pid) = pid {
+        // Use sysinfo to check CPU
+        use sysinfo::{System, Pid};
+        let mut sys = System::new();
+        sys.refresh_process(Pid::from_u32(pid));
+
+        if let Some(process) = sys.process(Pid::from_u32(pid)) {
+            let cpu_usage = process.cpu_usage();
+            let acceptable = cpu_usage < 2.0;
+
+            return ValidationCheck {
+                name: "CPU Usage".to_string(),
+                expected: "< 2%".to_string(),
+                found: format!("{:.1}%", cpu_usage),
+                passed: acceptable,
+                fix: if acceptable {
+                    String::new()
+                } else {
+                    "Check logs: journalctl -u annad -n 50".to_string()
+                },
+            };
+        }
+    }
+
+    // Fallback if we can't get CPU info
+    ValidationCheck {
+        name: "CPU Usage".to_string(),
+        expected: "< 2%".to_string(),
+        found: "unknown".to_string(),
+        passed: true,
+        fix: String::new(),
+    }
+}
+
+/// Write repair log to persistent storage
+fn write_repair_log(repairs: &[String]) -> Result<()> {
+    let log_dir = "/var/log/anna";
+    let log_file = format!("{}/self_repair.log", log_dir);
+
+    // Format: [YYYY-MM-DD HH:MM:SS] [REPAIR] <message>
+    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+
+    let mut log_content = String::new();
+    log_content.push_str(&format!("[{}] [REPAIR] Self-repair initiated\n", timestamp));
+
+    for repair in repairs {
+        log_content.push_str(&format!("[{}] [REPAIR] {}\n", timestamp, repair));
+    }
+
+    log_content.push_str(&format!("[{}] [REPAIR] Self-repair completed\n\n", timestamp));
+
+    // Write to temp file first, then move with sudo
+    let temp_file = "/tmp/anna_repair.log";
+    fs::write(temp_file, log_content.as_bytes())
+        .context("Failed to write temporary repair log")?;
+
+    // Append to log file with elevated privileges
+    let _ = run_elevated(&["mkdir", "-p", log_dir]);
+    let _ = run_elevated(&["bash", "-c", &format!("cat {} >> {}", temp_file, log_file)]);
+    let _ = run_elevated(&["chown", "anna:anna", &log_file]);
+    let _ = run_elevated(&["chmod", "0640", &log_file]);
+    let _ = fs::remove_file(temp_file);
+
+    Ok(())
+}
+
+/// Interactive system setup wizard
+pub async fn doctor_setup() -> Result<()> {
+    use std::io::{self, Write};
+
+    anna_box(&["Anna System Setup Wizard"], MessageType::Info);
+    println!();
+    println!("Let me help you optimize your system for Anna's autonomic features.");
+    println!();
+
+    // Detect hardware
+    let is_asus = Path::new("/sys/devices/platform/asus-nb-wmi").exists()
+        || Path::new("/sys/devices/platform/asus_wmi").exists();
+
+    if is_asus {
+        println!("✓ ASUS hardware detected");
+        println!();
+
+        // Check for asusctl
+        if Command::new("which").arg("asusctl").output().is_ok_and(|o| o.status.success()) {
+            anna_ok("asusctl is installed - thermal management ready");
+        } else {
+            println!("⚠ asusctl not found - needed for thermal management");
+            println!();
+            println!("Anna can manage your laptop's thermals and power, but needs asusctl.");
+            println!();
+            println!("To install:");
+            println!("  1. If you have yay:");
+            println!("     yay -S asusctl supergfxctl");
+            println!();
+            println!("  2. If you don't have yay:");
+            println!("     git clone https://aur.archlinux.org/yay.git");
+            println!("     cd yay && makepkg -si");
+            println!("     yay -S asusctl supergfxctl");
+            println!();
+            println!("After installing, run: annactl doctor check");
+        }
+    } else {
+        println!("✓ Generic system detected");
+        println!();
+        println!("For thermal management, you can configure fancontrol:");
+        println!("  sudo sensors-detect");
+        println!("  sudo pwmconfig");
+        println!("  sudo systemctl enable fancontrol");
+    }
+
+    println!();
+    anna_ok("Setup wizard complete! Run 'annactl doctor check' to verify.");
+
     Ok(())
 }

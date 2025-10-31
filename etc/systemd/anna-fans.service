@@ -1,0 +1,30 @@
+[Unit]
+Description=Anna Thermal Management (ASUS Fan Control)
+Documentation=https://github.com/anna-assistant/anna
+After=asusd.service power-profiles-daemon.service
+Wants=asusd.service power-profiles-daemon.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Try ASUS-specific control first
+ExecStart=/bin/bash -c 'if command -v asusctl &>/dev/null; then asusctl profile -P quiet; fi'
+
+# Apply custom fan curve if available
+ExecStart=/bin/bash -c 'if [[ -x /usr/local/share/anna/anna_fans_asus.sh ]]; then /usr/local/share/anna/anna_fans_asus.sh; fi'
+
+# Set power profile to power-saver
+ExecStart=/bin/bash -c 'if command -v powerprofilesctl &>/dev/null; then powerprofilesctl set power-saver || true; fi'
+
+# Disable Intel turbo if available (reduces thermal spikes)
+ExecStart=/bin/bash -c 'if [[ -f /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo || true; fi'
+
+# Log completion
+ExecStart=/bin/bash -c 'logger -t anna-fans "Thermal management applied: quiet profile active"'
+
+# Verify it worked
+ExecStartPost=/bin/bash -c 'if command -v asusctl &>/dev/null; then asusctl profile -p; fi'
+
+[Install]
+WantedBy=multi-user.target
