@@ -76,16 +76,42 @@ for i in $(seq 1 $ITERATIONS); do
     echo "" | tee -a "$LOG_FILE"
 done
 
+# Check journal logs for "RPC socket ready" messages
+echo "─────────────────────────────────────────────────────────────────" | tee -a "$LOG_FILE"
+echo -e "${YELLOW}→${NC} Checking journal logs..." | tee -a "$LOG_FILE"
+
+READY_COUNT=$(sudo journalctl -u annad --since "5 min ago" 2>/dev/null | grep -c "RPC socket ready" || echo "0")
+echo "  Found $READY_COUNT 'RPC socket ready' messages (expected: $ITERATIONS)" | tee -a "$LOG_FILE"
+
+if [ "$READY_COUNT" -lt "$ITERATIONS" ]; then
+    echo -e "${YELLOW}⚠${NC} Fewer socket ready messages than expected" | tee -a "$LOG_FILE"
+fi
+
+# Check for "readonly database" errors
+READONLY_COUNT=$(sudo journalctl -u annad --since "5 min ago" 2>/dev/null | grep -c "readonly database" || echo "0")
+if [ "$READONLY_COUNT" -gt 0 ]; then
+    echo -e "${RED}✗${NC} Found $READONLY_COUNT 'readonly database' errors" | tee -a "$LOG_FILE"
+    ((FAIL++))
+else
+    echo -e "${GREEN}✓${NC} No 'readonly database' errors found" | tee -a "$LOG_FILE"
+fi
+
+echo "" | tee -a "$LOG_FILE"
+
 # Summary
 echo "═════════════════════════════════════════════════════════════════" | tee -a "$LOG_FILE"
 echo "SUMMARY" | tee -a "$LOG_FILE"
 echo "═════════════════════════════════════════════════════════════════" | tee -a "$LOG_FILE"
 echo "  Passed:  $PASS/$ITERATIONS" | tee -a "$LOG_FILE"
 echo "  Failed:  $FAIL/$ITERATIONS" | tee -a "$LOG_FILE"
+echo "  Log Messages: $READY_COUNT/$ITERATIONS" | tee -a "$LOG_FILE"
+echo "  Storage Errors: $READONLY_COUNT" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
 
 if [ $FAIL -eq 0 ]; then
     echo -e "${GREEN}✓ Socket persistence: $PASS/$ITERATIONS${NC}" | tee -a "$LOG_FILE"
+    echo -e "${GREEN}✓ Permissions repaired automatically${NC}" | tee -a "$LOG_FILE"
+    echo -e "${GREEN}✓ Storage writable${NC}" | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"
     echo "Log saved to: $LOG_FILE" | tee -a "$LOG_FILE"
     exit 0
