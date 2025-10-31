@@ -110,7 +110,7 @@ impl RpcServer {
             std::fs::set_permissions(socket_path, perms)?;
         }
 
-        info!("RPC server listening on {:?}", socket_path);
+        info!("RPC socket ready: {}", socket_path.display());
 
         loop {
             match listener.accept().await {

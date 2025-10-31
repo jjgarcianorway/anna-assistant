@@ -75,6 +75,14 @@ async fn main() -> Result<()> {
 
     info!("Anna v0.11.0 daemon starting (event-driven intelligence)");
 
+    // Log effective uid/gid
+    #[cfg(unix)]
+    {
+        let euid = unsafe { libc::geteuid() };
+        let egid = unsafe { libc::getegid() };
+        info!("Running as uid={}, gid={}", euid, egid);
+    }
+
     // Verify running as anna user
     if let Ok(user) = std::env::var("USER") {
         if user != "anna" && user != "root" {

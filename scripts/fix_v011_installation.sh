@@ -85,14 +85,15 @@ else
     exit 1
 fi
 
-# Check socket (wait up to 10 seconds)
+# Check socket (wait up to 15 seconds with exponential backoff)
 SOCKET_FOUND=false
-for i in {1..10}; do
+WAIT_TIMES=(1 1 2 3 4 4)  # Total: 15 seconds
+for wait_time in "${WAIT_TIMES[@]}"; do
     if [ -S /run/anna/annad.sock ]; then
         SOCKET_FOUND=true
         break
     fi
-    sleep 1
+    sleep "$wait_time"
 done
 
 if [ "$SOCKET_FOUND" = true ]; then

@@ -95,7 +95,10 @@
       "Bash(./tests/smoke_v101.sh)",
       "Bash(./target/release/annad:*)",
       "Bash(sudo ls:*)",
-      "Bash(sudo stat:*)"
+      "Bash(sudo stat:*)",
+      "Bash(git push:*)",
+      "Bash(./scripts/create scripts/ci_smoke.sh)",
+      "Bash(/usr/local/bin/annactl version:*)"
     ],
     "deny": [],
     "ask": []

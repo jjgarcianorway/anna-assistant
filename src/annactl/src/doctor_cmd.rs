@@ -232,7 +232,7 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         // Check /var/lib/anna
         if let Ok(metadata) = std::fs::metadata("/var/lib/anna") {
             let uid = metadata.uid();
-            let gid = metadata.gid();
+            let _gid = metadata.gid();
             let mode = metadata.mode() & 0o777;
 
             // Get anna user/group IDs
@@ -262,7 +262,7 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         // Check /var/log/anna
         if let Ok(metadata) = std::fs::metadata("/var/log/anna") {
             let uid = metadata.uid();
-            let gid = metadata.gid();
+            let _gid = metadata.gid();
             let mode = metadata.mode() & 0o777;
 
             let anna_check = Command::new("id")
@@ -391,3 +391,194 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
 }
 
 use std::os::unix::fs::PermissionsExt;
+
+pub fn doctor_repair(skip_confirmation: bool) -> Result<()> {
+    println!("\n╭─ Anna Repair ────────────────────────────────────────────────────");
+    println!("│");
+    println!("│  This will:");
+    println!("│  - Stop annad daemon");
+    println!("│  - Fix directory ownership and permissions");
+    println!("│  - Install/verify CAPABILITIES.toml");
+    println!("│  - Restart daemon");
+    println!("│");
+
+    if !skip_confirmation {
+        println!("│  Continue? [y/N] ");
+        print!("│  > ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut response = String::new();
+        std::io::stdin().read_line(&mut response)?;
+
+        if !response.trim().eq_ignore_ascii_case("y") {
+            println!("│");
+            println!("╰──────────────────────────────────────────────────────────────────");
+            println!("\nRepair cancelled\n");
+            return Ok(());
+        }
+    }
+
+    println!("│");
+    println!("╰──────────────────────────────────────────────────────────────────");
+    println!();
+
+    // Find and run the repair script
+    let script_path = std::env::current_dir()
+        .ok()
+        .and_then(|d| {
+            let p = d.join("scripts/fix_v011_installation.sh");
+            if p.exists() { Some(p) } else { None }
+        })
+        .or_else(|| {
+            // Try relative to binary location
+            std::env::current_exe().ok().and_then(|exe| {
+                let p = exe.parent()?.parent()?.parent()?.join("scripts/fix_v011_installation.sh");
+                if p.exists() { Some(p) } else { None }
+            })
+        });
+
+    if let Some(script) = script_path {
+        println!("→ Running repair script: {}", script.display());
+        println!();
+
+        let status = Command::new("sudo")
+            .arg("bash")
+            .arg(&script)
+            .status()?;
+
+        if status.success() {
+            println!();
+            println!("✓ Repair completed successfully");
+            println!();
+            println!("Recommended: Run 'annactl doctor post' to verify");
+            println!();
+            std::process::exit(0);
+        } else {
+            eprintln!();
+            eprintln!("✗ Repair script failed with exit code: {:?}", status.code());
+            eprintln!();
+            std::process::exit(1);
+        }
+    } else {
+        eprintln!("✗ Repair script not found at scripts/fix_v011_installation.sh");
+        eprintln!("  Run from project root or ensure script is installed");
+        std::process::exit(1);
+    }
+}
+
+pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
+    use std::fs::File;
+    use std::io::Write;
+
+    println!("\n╭─ Anna Diagnostic Report ─────────────────────────────────────────");
+    println!("│");
+
+    // Generate timestamp
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let default_output = format!("/tmp/anna-report-{}.tar.gz", timestamp);
+    let report_path = output_path.unwrap_or(&default_output);
+    let report_dir = format!("/tmp/anna-report-{}", timestamp);
+
+    println!("│  Generating diagnostic report...");
+    println!("│  Output: {}", report_path);
+    println!("│");
+
+    // Create temporary directory
+    std::fs::create_dir_all(&report_dir)?;
+
+    // Collect system information
+    let mut system_info = String::new();
+    system_info.push_str(&format!("Anna Diagnostic Report\n"));
+    system_info.push_str(&format!("Generated: {}\n", timestamp));
+    system_info.push_str(&format!("Hostname: {}\n", hostname::get()?.to_string_lossy()));
+    system_info.push_str(&format!("\n"));
+
+    // OS info
+    if let Ok(os_release) = std::fs::read_to_string("/etc/os-release") {
+        system_info.push_str("OS Information:\n");
+        system_info.push_str(&os_release);
+        system_info.push_str("\n");
+    }
+
+    // Kernel
+    if let Ok(output) = Command::new("uname").arg("-a").output() {
+        system_info.push_str(&format!("Kernel: {}\n", String::from_utf8_lossy(&output.stdout)));
+    }
+
+    File::create(format!("{}/system_info.txt", report_dir))?.write_all(system_info.as_bytes())?;
+
+    // Copy systemd unit file
+    if let Ok(unit) = std::fs::read_to_string("/etc/systemd/system/annad.service") {
+        File::create(format!("{}/annad.service", report_dir))?.write_all(unit.as_bytes())?;
+    }
+
+    // Directory listings
+    let mut dir_listing = String::new();
+    for dir in &["/var/lib/anna", "/var/log/anna", "/run/anna", "/etc/anna", "/usr/lib/anna"] {
+        if let Ok(output) = Command::new("ls").args(&["-laR", dir]).output() {
+            dir_listing.push_str(&format!("\n=== {} ===\n", dir));
+            dir_listing.push_str(&String::from_utf8_lossy(&output.stdout));
+        }
+    }
+    File::create(format!("{}/directory_listings.txt", report_dir))?.write_all(dir_listing.as_bytes())?;
+
+    // Journal logs
+    if let Ok(output) = Command::new("journalctl").args(&["-u", "annad", "-n", "100", "--no-pager"]).output() {
+        File::create(format!("{}/journal.log", report_dir))?.write_all(&output.stdout)?;
+    }
+
+    // annactl outputs
+    let mut annactl_output = String::new();
+
+    // version
+    if let Ok(output) = Command::new("annactl").arg("version").output() {
+        annactl_output.push_str("=== annactl version ===\n");
+        annactl_output.push_str(&String::from_utf8_lossy(&output.stdout));
+        annactl_output.push_str("\n");
+    }
+
+    // status
+    if let Ok(output) = Command::new("annactl").arg("status").output() {
+        annactl_output.push_str("=== annactl status ===\n");
+        annactl_output.push_str(&String::from_utf8_lossy(&output.stdout));
+        annactl_output.push_str("\n");
+    }
+
+    // events
+    if let Ok(output) = Command::new("annactl").args(&["events", "--limit", "10"]).output() {
+        annactl_output.push_str("=== annactl events --limit 10 ===\n");
+        annactl_output.push_str(&String::from_utf8_lossy(&output.stdout));
+        annactl_output.push_str("\n");
+    }
+
+    File::create(format!("{}/annactl_outputs.txt", report_dir))?.write_all(annactl_output.as_bytes())?;
+
+    // Create tarball
+    let status = Command::new("tar")
+        .args(&["-czf", report_path, "-C", "/tmp", &format!("anna-report-{}", timestamp)])
+        .status()?;
+
+    // Cleanup temp directory
+    std::fs::remove_dir_all(&report_dir)?;
+
+    if status.success() {
+        println!("│  ✓ Report generated successfully");
+        println!("│");
+        println!("╰──────────────────────────────────────────────────────────────────");
+        println!();
+        println!("Report saved to: {}", report_path);
+        println!();
+        println!("Share this file when reporting issues or requesting support.");
+        println!();
+        std::process::exit(0);
+    } else {
+        eprintln!("│  ✗ Failed to create tarball");
+        eprintln!("│");
+        eprintln!("╰──────────────────────────────────────────────────────────────────");
+        std::process::exit(1);
+    }
+}

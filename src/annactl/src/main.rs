@@ -124,6 +124,18 @@ enum DoctorCheck {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Repair installation issues
+    Repair {
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        yes: bool,
+    },
+    /// Generate diagnostic report tarball
+    Report {
+        /// Output path for report (default: /tmp/anna-report-<timestamp>.tar.gz)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -242,6 +254,12 @@ async fn main() -> Result<()> {
                 }
                 DoctorCheck::Post { verbose } => {
                     doctor_cmd::doctor_post(verbose)?;
+                }
+                DoctorCheck::Repair { yes } => {
+                    doctor_cmd::doctor_repair(yes)?;
+                }
+                DoctorCheck::Report { output } => {
+                    doctor_cmd::doctor_report(output.as_deref())?;
                 }
             }
             Ok(())
