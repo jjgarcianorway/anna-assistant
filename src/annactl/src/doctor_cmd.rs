@@ -442,7 +442,7 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
 
 use std::os::unix::fs::PermissionsExt;
 
-pub fn doctor_repair(skip_confirmation: bool) -> Result<()> {
+pub fn doctor_repair(_json: bool, skip_confirmation: bool) -> Result<()> {
     println!("\n╭─ Anna Repair ────────────────────────────────────────────────────");
     println!("│");
     println!("│  This will:");

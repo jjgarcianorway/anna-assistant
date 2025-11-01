@@ -1,5 +1,5 @@
 [Unit]
-Description=Anna v0.11.0 Event-Driven Intelligence Daemon
+Description=Anna v0.12.1 Event-Driven Intelligence Daemon (Stability Hardened)
 Documentation=https://github.com/anna-assistant/anna
 After=network.target local-fs.target
 
@@ -17,12 +17,16 @@ AmbientCapabilities=
 CapabilityBoundingSet=
 
 # Execution
-# RuntimeDirectory=anna auto-creates /run/anna with correct permissions
+# Clean stale socket before starting (prevent hangs from previous crashes)
+ExecStartPre=/usr/bin/rm -f /run/anna/annad.sock
 ExecStart=/usr/local/bin/annad
+
+# Restart policy (v0.12.1 stability hardening)
 Restart=on-failure
-RestartSec=10
-StartLimitIntervalSec=30
-StartLimitBurst=8
+RestartSec=1
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
 StandardOutput=journal
 StandardError=journal
 

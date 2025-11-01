@@ -1,6 +1,6 @@
-// Anna v0.11.0 Control CLI - Event-Driven Intelligence Interface
-// Commands: version, status, sensors, net, disk, top, radar, export,
-//           events, watch, capabilities, module, alerts, fix, doctor
+// Anna v0.12.0 Control CLI - Consolidated Interface with JSON Support
+// Commands: version, status, sensors, net, disk, top, events, export,
+//           doctor, radar, classify
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -9,17 +9,14 @@ use serde_json::Value as JsonValue;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
-mod alerts_cmd;
-mod capabilities_cmd;
 mod doctor_cmd;
-mod module_cmd;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
 #[command(name = "annactl")]
-#[command(version, about = "Anna v0.11.0 - Event-Driven Intelligence CLI")]
+#[command(version, about = "Anna v0.12.0 - Event-Driven Intelligence CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -31,82 +28,97 @@ enum Commands {
     Version,
 
     /// Show daemon status and health
-    Status,
-
-    /// Show CPU, memory, temperatures, and battery
-    Sensors,
-
-    /// Show network interfaces and connectivity
-    Net,
-
-    /// Show disk usage and SMART status
-    Disk,
-
-    /// Show top processes by CPU and memory
-    Top,
-
-    /// Show persona radar scores
-    Radar,
-
-    /// Export telemetry data as JSON
-    Export {
-        /// Output to file instead of stdout
+    Status {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show verbose details
         #[arg(short, long)]
-        output: Option<String>,
+        verbose: bool,
     },
 
-    /// Show recent system events (v0.11.0)
-    Events {
-        /// Number of events to show (default: 50)
-        #[arg(short, long, default_value = "50")]
+    /// Show CPU, memory, temperatures, and battery
+    Sensors {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed sensor information
+        #[arg(short, long)]
+        detail: bool,
+    },
+
+    /// Show network interfaces and connectivity
+    Net {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed network information
+        #[arg(short, long)]
+        detail: bool,
+    },
+
+    /// Show disk usage and SMART status
+    Disk {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed disk information
+        #[arg(short, long)]
+        detail: bool,
+    },
+
+    /// Show top processes by CPU and memory
+    Top {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Number of processes to show (default: 10)
+        #[arg(short, long, default_value = "10")]
         limit: usize,
     },
 
-    /// Watch for live system events (v0.11.0)
-    Watch,
-
-    /// Show module capabilities and their status
-    Capabilities,
-
-    /// Enable or disable a telemetry module
-    Module {
-        #[command(subcommand)]
-        action: ModuleAction,
+    /// Show recent system events
+    Events {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Time window (5m, 1h, 1d)
+        #[arg(long)]
+        since: Option<String>,
+        /// Number of events to show (default: 10)
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
     },
 
-    /// Show current system integrity alerts
-    Alerts,
-
-    /// Fix a specific integrity issue
-    Fix {
-        /// Issue ID to fix
-        issue_id: String,
-        /// Skip confirmation prompt
+    /// Export telemetry data
+    Export {
+        /// Output path (default: stdout)
         #[arg(short, long)]
-        yes: bool,
+        path: Option<String>,
+        /// Time window (5m, 1h, 1d)
+        #[arg(long)]
+        since: Option<String>,
+        /// Output as JSON (always JSON for export)
+        #[arg(long)]
+        json: bool,
     },
 
-    /// Run system health checks
+    /// Run system health checks and repairs
     Doctor {
         #[command(subcommand)]
         check: DoctorCheck,
     },
-}
 
-#[derive(Subcommand)]
-enum ModuleAction {
-    /// Enable a module
-    Enable {
-        /// Module name to enable
-        name: String,
+    /// Show radar scores for user classification
+    Radar {
+        #[command(subcommand)]
+        action: RadarAction,
     },
-    /// Disable a module
-    Disable {
-        /// Module name to disable
-        name: String,
-        /// Reason for disabling
-        #[arg(short, long)]
-        reason: Option<String>,
+
+    /// Run user classification
+    Classify {
+        #[command(subcommand)]
+        action: ClassifyAction,
     },
 }
 
@@ -114,27 +126,50 @@ enum ModuleAction {
 enum DoctorCheck {
     /// Run preflight checks before installation
     Pre {
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Run postflight checks after installation
     Post {
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Repair installation issues
     Repair {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
         /// Skip confirmation prompt
         #[arg(short, long)]
         yes: bool,
     },
-    /// Generate diagnostic report tarball
-    Report {
-        /// Output path for report (default: /tmp/anna-report-<timestamp>.tar.gz)
+}
+
+#[derive(Subcommand)]
+enum RadarAction {
+    /// Show radar scores
+    Show {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// User UID or name (default: current user)
         #[arg(short, long)]
-        output: Option<String>,
+        user: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ClassifyAction {
+    /// Run classification for user
+    Run {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// User UID or name (default: current user)
+        #[arg(short, long)]
+        user: Option<String>,
     },
 }
 
@@ -170,96 +205,117 @@ async fn main() -> Result<()> {
             println!("Build: {} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
             Ok(())
         }
-        Commands::Status => {
-            let response = rpc_call("status", None).await?;
-            print_status(&response)?;
-            Ok(())
-        }
-        Commands::Sensors => {
-            let response = rpc_call("sensors", None).await?;
-            print_sensors(&response)?;
-            Ok(())
-        }
-        Commands::Net => {
-            let response = rpc_call("net", None).await?;
-            print_net(&response)?;
-            Ok(())
-        }
-        Commands::Disk => {
-            let response = rpc_call("disk", None).await?;
-            print_disk(&response)?;
-            Ok(())
-        }
-        Commands::Top => {
-            let response = rpc_call("top", None).await?;
-            print_top(&response)?;
-            Ok(())
-        }
-        Commands::Radar => {
-            let response = rpc_call("radar", None).await?;
-            print_radar(&response)?;
-            Ok(())
-        }
-        Commands::Export { output } => {
-            let response = rpc_call("export", None).await?;
-            if let Some(path) = output {
-                std::fs::write(&path, serde_json::to_string_pretty(&response)?)?;
-                println!("✓ Exported to {}", path);
-            } else {
+        Commands::Status { json, verbose } => {
+            let params = serde_json::json!({ "verbose": verbose });
+            let response = rpc_call("status", Some(params)).await?;
+            if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_status(&response, verbose)?;
             }
             Ok(())
         }
-        Commands::Events { limit } => {
+        Commands::Sensors { json, detail } => {
+            let params = serde_json::json!({ "detail": detail });
+            let response = rpc_call("sensors", Some(params)).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_sensors(&response, detail)?;
+            }
+            Ok(())
+        }
+        Commands::Net { json, detail } => {
+            let params = serde_json::json!({ "detail": detail });
+            let response = rpc_call("net", Some(params)).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_net(&response, detail)?;
+            }
+            Ok(())
+        }
+        Commands::Disk { json, detail } => {
+            let params = serde_json::json!({ "detail": detail });
+            let response = rpc_call("disk", Some(params)).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_disk(&response, detail)?;
+            }
+            Ok(())
+        }
+        Commands::Top { json, limit } => {
             let params = serde_json::json!({ "limit": limit });
+            let response = rpc_call("top", Some(params)).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_top(&response, limit)?;
+            }
+            Ok(())
+        }
+        Commands::Events { json, since, limit } => {
+            let params = serde_json::json!({ "since": since, "limit": limit });
             let response = rpc_call("events", Some(params)).await?;
-            print_events(&response)?;
-            Ok(())
-        }
-        Commands::Watch => {
-            print_watch_header();
-            loop {
-                let response = rpc_call("watch", None).await?;
-                print_watch_update(&response)?;
-                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-            }
-        }
-        Commands::Capabilities => {
-            capabilities_cmd::show_capabilities()?;
-            Ok(())
-        }
-        Commands::Module { action } => {
-            match action {
-                ModuleAction::Enable { name } => {
-                    module_cmd::enable_module(&name)?;
-                }
-                ModuleAction::Disable { name, reason } => {
-                    module_cmd::disable_module(&name, reason)?;
-                }
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_events(&response)?;
             }
             Ok(())
         }
-        Commands::Alerts => {
-            alerts_cmd::show_alerts()?;
-            Ok(())
-        }
-        Commands::Fix { issue_id, yes } => {
-            alerts_cmd::fix_issue(&issue_id, yes)?;
+        Commands::Export { path, since, json: _ } => {
+            // Export is always JSON
+            let params = serde_json::json!({ "since": since });
+            let response = rpc_call("export", Some(params)).await?;
+            let output = serde_json::to_string_pretty(&response)?;
+            if let Some(path_str) = path {
+                std::fs::write(&path_str, output)?;
+                println!("✓ Exported to {}", path_str);
+            } else {
+                println!("{}", output);
+            }
             Ok(())
         }
         Commands::Doctor { check } => {
             match check {
-                DoctorCheck::Pre { verbose } => {
-                    doctor_cmd::doctor_pre(verbose)?;
+                DoctorCheck::Pre { json } => {
+                    doctor_cmd::doctor_pre(json)?;
                 }
-                DoctorCheck::Post { verbose } => {
-                    doctor_cmd::doctor_post(verbose)?;
+                DoctorCheck::Post { json } => {
+                    doctor_cmd::doctor_post(json)?;
                 }
-                DoctorCheck::Repair { yes } => {
-                    doctor_cmd::doctor_repair(yes)?;
+                DoctorCheck::Repair { json, yes } => {
+                    doctor_cmd::doctor_repair(json, yes)?;
                 }
-                DoctorCheck::Report { output } => {
-                    doctor_cmd::doctor_report(output.as_deref())?;
+            }
+            Ok(())
+        }
+        Commands::Radar { action } => {
+            match action {
+                RadarAction::Show { json, user } => {
+                    let params = serde_json::json!({ "user": user });
+                    let response = rpc_call("radar", Some(params)).await?;
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        print_radar(&response)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+        Commands::Classify { action } => {
+            match action {
+                ClassifyAction::Run { json, user } => {
+                    let params = serde_json::json!({ "user": user });
+                    let response = rpc_call("classify", Some(params)).await?;
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&response)?);
+                    } else {
+                        print_classify(&response)?;
+                    }
                 }
             }
             Ok(())
@@ -268,11 +324,34 @@ async fn main() -> Result<()> {
 }
 
 async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> {
-    let stream = UnixStream::connect(SOCKET_PATH).await.context(format!(
-        "Failed to connect to annad (socket: {})\n\
-         Is the daemon running? Try: sudo systemctl status annad",
-        SOCKET_PATH
-    ))?;
+    use tokio::time::{timeout, Duration};
+
+    // Configurable timeouts
+    const CONNECT_TIMEOUT_SECS: u64 = 2;
+    const WRITE_TIMEOUT_SECS: u64 = 2;
+    const READ_TIMEOUT_SECS: u64 = 5;
+
+    // Connect with timeout
+    let stream = match timeout(
+        Duration::from_secs(CONNECT_TIMEOUT_SECS),
+        UnixStream::connect(SOCKET_PATH)
+    )
+    .await
+    {
+        Ok(Ok(s)) => s,
+        Ok(Err(e)) => {
+            anyhow::bail!(
+                "Failed to connect to annad (socket: {})\n\
+                 Error: {}\n\
+                 Is the daemon running? Try: sudo systemctl status annad",
+                SOCKET_PATH, e
+            );
+        }
+        Err(_) => {
+            eprintln!("WARN: timeout (connect) - daemon not responding after {}s", CONNECT_TIMEOUT_SECS);
+            std::process::exit(7);
+        }
+    };
 
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
@@ -286,12 +365,34 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
     };
 
     let json = serde_json::to_string(&request)?;
-    writer.write_all(json.as_bytes()).await?;
-    writer.write_all(b"\n").await?;
 
-    // Read response
+    // Write with timeout
+    match timeout(Duration::from_secs(WRITE_TIMEOUT_SECS), async {
+        writer.write_all(json.as_bytes()).await?;
+        writer.write_all(b"\n").await
+    })
+    .await
+    {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => anyhow::bail!("Write error: {}", e),
+        Err(_) => {
+            eprintln!("WARN: timeout (write) - daemon not responding after {}s", WRITE_TIMEOUT_SECS);
+            std::process::exit(7);
+        }
+    }
+
+    // Read response with timeout
     let mut line = String::new();
-    reader.read_line(&mut line).await?;
+    match timeout(Duration::from_secs(READ_TIMEOUT_SECS), reader.read_line(&mut line))
+        .await
+    {
+        Ok(Ok(_)) => {}
+        Ok(Err(e)) => anyhow::bail!("Read error: {}", e),
+        Err(_) => {
+            eprintln!("WARN: timeout (read) - daemon not responding after {}s", READ_TIMEOUT_SECS);
+            std::process::exit(7);
+        }
+    }
 
     let response: RpcResponse = serde_json::from_str(&line)?;
 
@@ -302,7 +403,7 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
     response.result.context("No result in response")
 }
 
-fn print_status(data: &JsonValue) -> Result<()> {
+fn print_status(data: &JsonValue, verbose: bool) -> Result<()> {
     println!("\n╭─ Anna Status ────────────────────────────────");
     println!("│");
     println!("│  Daemon:       {}", data["daemon_state"].as_str().unwrap_or("unknown"));
@@ -316,11 +417,22 @@ fn print_status(data: &JsonValue) -> Result<()> {
         println!("│  Process ID:   {}", pid);
     }
 
+    if verbose {
+        if let Some(socket) = data["socket_path"].as_str() {
+            println!("│  Socket:       {}", socket);
+        }
+        if let Some(uptime) = data["uptime_secs"].as_u64() {
+            let hours = uptime / 3600;
+            let mins = (uptime % 3600) / 60;
+            println!("│  Uptime:       {}h {}m", hours, mins);
+        }
+    }
+
     println!("╰──────────────────────────────────────────────\n");
     Ok(())
 }
 
-fn print_sensors(data: &JsonValue) -> Result<()> {
+fn print_sensors(data: &JsonValue, _detail: bool) -> Result<()> {
     println!("\n╭─ System Sensors ─────────────────────────────");
     println!("│");
 
@@ -400,7 +512,7 @@ fn print_sensors(data: &JsonValue) -> Result<()> {
     Ok(())
 }
 
-fn print_net(data: &JsonValue) -> Result<()> {
+fn print_net(data: &JsonValue, _detail: bool) -> Result<()> {
     println!("\n╭─ Network Interfaces ─────────────────────────");
     println!("│");
 
@@ -436,7 +548,7 @@ fn print_net(data: &JsonValue) -> Result<()> {
     Ok(())
 }
 
-fn print_disk(data: &JsonValue) -> Result<()> {
+fn print_disk(data: &JsonValue, _detail: bool) -> Result<()> {
     println!("\n╭─ Disk Usage ─────────────────────────────────");
     println!("│");
 
@@ -461,13 +573,13 @@ fn print_disk(data: &JsonValue) -> Result<()> {
     Ok(())
 }
 
-fn print_top(data: &JsonValue) -> Result<()> {
+fn print_top(data: &JsonValue, limit: usize) -> Result<()> {
     println!("\n╭─ Top Processes ──────────────────────────────");
     println!("│");
 
     if let Some(by_cpu) = data["by_cpu"].as_array() {
         println!("│  By CPU:");
-        for (i, proc) in by_cpu.iter().take(5).enumerate() {
+        for (i, proc) in by_cpu.iter().take(limit).enumerate() {
             let name = proc["name"].as_str().unwrap_or("?");
             let cpu = proc["cpu_pct"].as_f64().unwrap_or(0.0);
             let pid = proc["pid"].as_u64().unwrap_or(0);
@@ -480,7 +592,7 @@ fn print_top(data: &JsonValue) -> Result<()> {
 
     if let Some(by_mem) = data["by_mem"].as_array() {
         println!("│  By Memory:");
-        for (i, proc) in by_mem.iter().take(5).enumerate() {
+        for (i, proc) in by_mem.iter().take(limit).enumerate() {
             let name = proc["name"].as_str().unwrap_or("?");
             let mem = proc["mem_mb"].as_f64().unwrap_or(0.0);
             let pid = proc["pid"].as_u64().unwrap_or(0);
@@ -521,6 +633,62 @@ fn print_radar(data: &JsonValue) -> Result<()> {
 
     println!("│");
     println!("╰──────────────────────────────────────────────\n");
+    Ok(())
+}
+
+fn print_classify(data: &JsonValue) -> Result<()> {
+    println!("\n╭─ User Classification ────────────────────────");
+    println!("│");
+
+    if let Some(user) = data["user"].as_str() {
+        println!("│  User:        {}", user);
+    }
+    if let Some(uid) = data["uid"].as_u64() {
+        println!("│  UID:         {}", uid);
+    }
+
+    println!("│");
+
+    // System Health Radar
+    if let Some(health) = data["radars"].get("system_health") {
+        println!("│  System Health Radar:");
+        print_radar_categories(health)?;
+    }
+
+    // Usage Habit Radar
+    if let Some(usage) = data["radars"].get("usage_habit") {
+        println!("│  Usage Habit Radar:");
+        print_radar_categories(usage)?;
+    }
+
+    // Network Posture Radar
+    if let Some(network) = data["radars"].get("network_posture") {
+        println!("│  Network Posture Radar:");
+        print_radar_categories(network)?;
+    }
+
+    println!("│");
+    println!("╰──────────────────────────────────────────────\n");
+    Ok(())
+}
+
+fn print_radar_categories(radar: &JsonValue) -> Result<()> {
+    if let Some(categories) = radar["categories"].as_object() {
+        for (name, cat) in categories {
+            let score = cat["score"].as_f64().unwrap_or(0.0);
+            let max = cat["max"].as_f64().unwrap_or(10.0);
+
+            if cat["score"].is_null() {
+                println!("│    {:<20} N/A", name);
+            } else {
+                let _pct = (score / max * 100.0) as f32;
+                let bar_len = (score / max * 15.0) as usize;
+                let bar = "▓".repeat(bar_len) + &"░".repeat(15 - bar_len);
+                println!("│    {:<20} [{}] {:>4.1}/{:.0}", name, bar, score, max);
+            }
+        }
+    }
+    println!("│");
     Ok(())
 }
 

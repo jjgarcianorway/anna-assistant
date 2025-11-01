@@ -141,6 +141,15 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Spawn watchdog heartbeat thread (10s interval)
+    tokio::spawn(async {
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            info!("Watchdog heartbeat: daemon alive");
+        }
+    });
+
     // Wait for RPC server to bind
     tokio::time::sleep(Duration::from_millis(500)).await;
 

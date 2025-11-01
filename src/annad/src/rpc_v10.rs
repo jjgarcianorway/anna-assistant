@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::events::EventEngineState;
 use crate::persona_v10::PersonaRadar;
@@ -139,14 +139,29 @@ impl RpcServer {
 
         // Remove existing socket if present (only if not in use)
         if socket_path.exists() {
-            // Try to connect to check if socket is in use
-            let in_use = tokio::net::UnixStream::connect(socket_path).await.is_ok();
-            if !in_use {
+            // Check if any process has the socket open using lsof
+            let lsof_check = std::process::Command::new("lsof")
+                .arg(socket_path.to_str().unwrap_or(""))
+                .output();
+
+            let socket_in_use = match lsof_check {
+                Ok(output) => output.status.success() && !output.stdout.is_empty(),
+                Err(_) => {
+                    // lsof not available, fall back to connection test
+                    warn!("lsof not available, using connection test for stale socket detection");
+                    tokio::net::UnixStream::connect(socket_path).await.is_ok()
+                }
+            };
+
+            if !socket_in_use {
                 std::fs::remove_file(socket_path)
                     .context("Failed to remove stale socket")?;
                 info!("Removed stale socket: {}", socket_path.display());
             } else {
-                anyhow::bail!("Socket already in use: {:?}", socket_path);
+                anyhow::bail!(
+                    "Socket already in use: {:?} (active process detected)",
+                    socket_path
+                );
             }
         }
 
@@ -165,6 +180,10 @@ impl RpcServer {
         }
 
         info!("RPC socket ready: {}", socket_path.display());
+
+        // Flush stdout to ensure "socket ready" message is immediately visible
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
 
         loop {
             match listener.accept().await {

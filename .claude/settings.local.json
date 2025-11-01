@@ -105,7 +105,20 @@
       "Bash(./scripts/release.sh:*)",
       "Bash(test_auto_commit.txt)",
       "Bash(git remote get-url:*)",
-      "Bash(systemctl is-enabled:*)"
+      "Bash(systemctl is-enabled:*)",
+      "Bash(set -euxo pipefail sudo systemctl status annad --no-pager -l)",
+      "Bash(ss:*)",
+      "Bash(pkill:*)",
+      "Bash(~/.cargo/bin/cargo build:*)",
+      "Bash(rustc:*)",
+      "Bash(systemctl cat:*)",
+      "Bash(lsof -v:*)",
+      "Bash(~/.cargo/bin/cargo clean)",
+      "Bash(pacman:*)",
+      "Bash(curl:*)",
+      "Bash(sh:*)",
+      "Bash(source:*)",
+      "Bash(time annactl status:*)"
     ],
     "deny": [],
     "ask": []

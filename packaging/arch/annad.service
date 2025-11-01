@@ -1,19 +1,27 @@
 [Unit]
-Description=Anna Assistant Daemon
+Description=Anna v0.12.1 Event-Driven Intelligence Daemon (Stability Hardened)
 Documentation=https://github.com/anna-assistant/anna
-After=network.target
+After=network.target local-fs.target
 
 [Service]
 Type=simple
+
+# Clean stale socket before starting (prevent hangs from previous crashes)
+ExecStartPre=/usr/bin/rm -f /run/anna/annad.sock
 ExecStart=/usr/local/bin/annad
-User=root
+
+User=anna
 Group=anna
+
+# Restart policy (v0.12.1 stability hardening)
 Restart=on-failure
-RestartSec=5s
+RestartSec=1
+StartLimitIntervalSec=60
+StartLimitBurst=10
 
 # Runtime directory management
 RuntimeDirectory=anna
-RuntimeDirectoryMode=0770
+RuntimeDirectoryMode=0750
 
 # Security hardening (relaxed for initial stability)
 NoNewPrivileges=true
