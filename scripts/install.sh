@@ -277,24 +277,59 @@ else
     echo "⚠ Service file not found: etc/systemd/annad.service"
 fi
 
+# Show installed version
+echo ""
+echo "→ Checking installed version..."
+if [ -f bin/annactl ]; then
+    INSTALLED_VERSION=$(./bin/annactl --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+    echo "✓ Installing version: $INSTALLED_VERSION"
+else
+    echo "⚠ Could not determine version"
+fi
+
 # Enable and start service
 echo ""
 echo "→ Starting Anna..."
 if sudo systemctl enable --now annad 2>/dev/null; then
     echo "→ Waiting for daemon to initialize..."
-    sleep 3
 
-    # Verify using annactl (the proper way)
-    if annactl status &>/dev/null; then
-        echo "✓ Anna is running and responding"
-    else
-        echo "⚠ Service started but not responding"
+    # Wait up to 10 seconds for socket to appear
+    WAITED=0
+    MAX_WAIT=10
+    while [ $WAITED -lt $MAX_WAIT ]; do
+        if [ -S /run/anna/annad.sock ]; then
+            break
+        fi
+        sleep 1
+        WAITED=$((WAITED + 1))
+    done
+
+    if [ ! -S /run/anna/annad.sock ]; then
+        echo "✗ Socket not created after ${MAX_WAIT}s"
         echo ""
         echo "Diagnostics:"
-        systemctl is-active annad && echo "  • Daemon process: active" || echo "  • Daemon process: inactive"
-        [ -S /run/anna/annad.sock ] && echo "  • Socket: exists" || echo "  • Socket: missing"
+        sudo systemctl status annad --no-pager -l | head -20
         echo ""
         echo "Check logs: sudo journalctl -u annad -n 30"
+        exit 1
+    fi
+
+    # Verify using annactl with timeout
+    echo "→ Testing daemon response..."
+    if timeout 5 annactl status &>/dev/null; then
+        RUNNING_VERSION=$(annactl --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+        echo "✓ Anna is running and responding"
+        echo "✓ Daemon version: $RUNNING_VERSION"
+    else
+        echo "✗ Daemon not responding (timeout after 5s)"
+        echo ""
+        echo "Diagnostics:"
+        systemctl is-active annad && echo "  • Process: active" || echo "  • Process: inactive"
+        [ -S /run/anna/annad.sock ] && echo "  • Socket: exists ($(stat -c '%U:%G %a' /run/anna/annad.sock))" || echo "  • Socket: missing"
+        echo ""
+        echo "Recent logs:"
+        sudo journalctl -u annad -n 15 --no-pager
+        exit 1
     fi
 else
     echo "⚠ Could not start service"
