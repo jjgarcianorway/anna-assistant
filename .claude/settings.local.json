@@ -122,7 +122,10 @@
       "Bash(target/release/annactl:*)",
       "Bash(cargo test:*)",
       "Bash(./tests/verify_v0122.sh:*)",
-      "Bash(./bin/annactl:*)"
+      "Bash(./bin/annactl:*)",
+      "Bash(/usr/local/bin/annactl:*)",
+      "Bash(annactl:*)",
+      "Bash(sudo chmod:*)"
     ],
     "deny": [],
     "ask": []
