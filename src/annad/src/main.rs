@@ -11,6 +11,7 @@ use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 mod capabilities;
+mod collectors_v12;
 mod doctor;
 mod doctor_handler;
 mod events;
@@ -18,6 +19,7 @@ mod integrity;
 mod listeners;
 mod persona_v10;
 mod policy;
+mod radars_v12;
 mod rpc_v10;
 mod storage_v10;
 mod telemetry_v10;

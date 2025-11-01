@@ -118,7 +118,10 @@
       "Bash(curl:*)",
       "Bash(sh:*)",
       "Bash(source:*)",
-      "Bash(time annactl status:*)"
+      "Bash(time annactl status:*)",
+      "Bash(target/release/annactl:*)",
+      "Bash(cargo test:*)",
+      "Bash(./tests/verify_v0122.sh:*)"
     ],
     "deny": [],
     "ask": []

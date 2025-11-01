@@ -1,5 +1,27 @@
--- Anna v0.12.0 Telemetry Schema
+-- Anna v0.12.2 Telemetry Schema
 -- SQLite database for telemetry collection, user classification, and radar scoring
+
+-- Telemetry snapshots table (v0.12.2 focused collectors)
+CREATE TABLE IF NOT EXISTS snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,           -- Unix timestamp
+    data TEXT NOT NULL,             -- JSON snapshot data
+    UNIQUE(ts)
+);
+
+CREATE INDEX IF NOT EXISTS idx_snapshots_ts ON snapshots(ts DESC);
+
+-- System classifications table (v0.12.2 persona detection)
+CREATE TABLE IF NOT EXISTS classifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    persona TEXT NOT NULL,          -- 'laptop', 'workstation', 'server', 'vm', 'unknown'
+    confidence REAL NOT NULL,       -- 0.0 - 1.0
+    evidence TEXT NOT NULL,         -- JSON array of evidence strings
+    UNIQUE(ts)
+);
+
+CREATE INDEX IF NOT EXISTS idx_classifications_ts ON classifications(ts DESC);
 
 -- User tracking table
 CREATE TABLE IF NOT EXISTS users (
@@ -42,40 +64,40 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind);
 
--- Radar scores table (user classification scores)
+-- Radar scores table (v0.12.2 system-level radar scores)
 CREATE TABLE IF NOT EXISTS radar_scores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    uid INTEGER NOT NULL,
-    radar TEXT NOT NULL,
-    category TEXT NOT NULL,
-    score REAL,
+    ts INTEGER NOT NULL,
+    radar_type TEXT NOT NULL,      -- 'health' or 'network'
+    category TEXT NOT NULL,         -- e.g., 'cpu_load', 'net_latency'
+    score REAL,                     -- 0.0 - 10.0 or NULL if missing
     max REAL NOT NULL DEFAULT 10.0,
-    FOREIGN KEY (uid) REFERENCES users(uid) ON DELETE CASCADE
+    description TEXT,
+    UNIQUE(ts, radar_type, category)
 );
 
-CREATE INDEX IF NOT EXISTS idx_radar_scores_uid ON radar_scores(uid);
-CREATE INDEX IF NOT EXISTS idx_radar_scores_radar ON radar_scores(radar);
-CREATE INDEX IF NOT EXISTS idx_radar_scores_ts ON radar_scores(ts);
-CREATE INDEX IF NOT EXISTS idx_radar_scores_uid_radar ON radar_scores(uid, radar, ts);
+CREATE INDEX IF NOT EXISTS idx_radar_scores_ts ON radar_scores(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_radar_scores_type ON radar_scores(radar_type);
 
--- Sample queries for v0.12.0
+-- Cleanup old data
+DELETE FROM snapshots WHERE id NOT IN (
+    SELECT id FROM snapshots ORDER BY ts DESC LIMIT 1000
+);
 
--- Get latest radar scores for a user
--- SELECT radar, category, score, max, ts
+DELETE FROM radar_scores WHERE ts < strftime('%s', 'now', '-7 days');
+
+DELETE FROM classifications WHERE ts < strftime('%s', 'now', '-7 days');
+
+-- Sample queries for v0.12.2
+
+-- Get latest snapshot
+-- SELECT data FROM snapshots ORDER BY ts DESC LIMIT 1;
+
+-- Get latest classification
+-- SELECT persona, confidence, evidence FROM classifications ORDER BY ts DESC LIMIT 1;
+
+-- Get latest radar scores
+-- SELECT radar_type, category, score, max, description
 -- FROM radar_scores
--- WHERE uid = ? AND ts = (SELECT MAX(ts) FROM radar_scores WHERE uid = radar_scores.uid)
--- ORDER BY radar, category;
-
--- Get metric history for the last hour
--- SELECT ts, key, val, unit
--- FROM metrics
--- WHERE key = ? AND ts >= datetime('now', '-1 hour')
--- ORDER BY ts DESC;
-
--- Get recent events
--- SELECT ts, kind, message, meta
--- FROM events
--- WHERE ts >= datetime('now', '-24 hours')
--- ORDER BY ts DESC
--- LIMIT 100;
+-- WHERE ts = (SELECT MAX(ts) FROM radar_scores)
+-- ORDER BY radar_type, category;

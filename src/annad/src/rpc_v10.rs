@@ -249,6 +249,10 @@ impl RpcServer {
         }
 
         let result = match req.method.as_str() {
+            // v0.12.2 CLI methods (collectors & radars)
+            "collect" => self.method_collect(&req.params).await,
+            "classify" => self.method_classify(&req.params).await,
+            "radar_show" => self.method_radar_show(&req.params).await,
             // v0.11.0 CLI methods (event-driven)
             "events" => self.method_events(&req.params).await,
             "watch" => self.method_watch(&req.params).await,
@@ -711,6 +715,144 @@ impl RpcServer {
             "recent_events": recent,
             "pending_count": pending,
             "note": "This is a snapshot. Use 'events' for full history."
+        }))
+    }
+
+    /// v0.12.2: Collect telemetry snapshots
+    async fn method_collect(&self, params: &Option<Value>) -> Result<Value> {
+        use crate::collectors_v12;
+
+        #[derive(Deserialize)]
+        struct CollectParams {
+            #[serde(default)]
+            limit: Option<u32>,
+        }
+
+        let params: CollectParams = if let Some(p) = params {
+            serde_json::from_value(p.clone()).unwrap_or(CollectParams { limit: None })
+        } else {
+            CollectParams { limit: None }
+        };
+
+        // Collect current snapshot
+        let sensors = collectors_v12::collect_sensors()?;
+        let net = collectors_v12::collect_net()?;
+        let disk = collectors_v12::collect_disk()?;
+        let top = collectors_v12::collect_top(10)?;
+
+        let snapshot = serde_json::json!({
+            "ts": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs(),
+            "sensors": sensors,
+            "net": net,
+            "disk": disk,
+            "top": top,
+        });
+
+        // If limit specified, could query history from DB
+        // For now, return current snapshot only
+        Ok(serde_json::json!({
+            "snapshots": [snapshot],
+            "count": 1,
+            "limit": params.limit.unwrap_or(1)
+        }))
+    }
+
+    /// v0.12.2: Classify system persona
+    async fn method_classify(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::collectors_v12;
+        use crate::radars_v12;
+
+        // Collect current data
+        let sensors = collectors_v12::collect_sensors()?;
+        let net = collectors_v12::collect_net()?;
+        let disk = collectors_v12::collect_disk()?;
+
+        // Compute radars
+        let system_health = radars_v12::score_system_health(
+            sensors.cpu.load_avg[0],
+            sensors.cpu.cores.len() as u32,
+            (sensors.mem.free_mb as f64 / sensors.mem.total_mb as f64) * 100.0,
+            disk.disks.iter()
+                .find(|d| d.mount == "/")
+                .map(|d| 100.0 - d.pct)
+                .unwrap_or(50.0),
+            sensors.cpu.cores.first().and_then(|c| c.temp_c),
+        );
+
+        let network_posture = radars_v12::score_network_posture(
+            net.dns_latency_ms,
+            None, // No packet loss data yet
+            net.dns_latency_ms.is_some(),
+        );
+
+        // Simple persona classification
+        let persona = if sensors.power.is_some() {
+            "laptop"
+        } else if sensors.cpu.cores.len() > 8 {
+            "server"
+        } else {
+            "workstation"
+        };
+
+        let confidence = if sensors.power.is_some() { 0.9 } else { 0.7 };
+
+        let mut evidence = Vec::new();
+        if sensors.power.is_some() {
+            evidence.push("Battery detected".to_string());
+        }
+        evidence.push(format!("{} CPU cores", sensors.cpu.cores.len()));
+        evidence.push(format!("{} network interfaces", net.interfaces.len()));
+
+        Ok(serde_json::json!({
+            "persona": persona,
+            "confidence": confidence,
+            "evidence": evidence,
+            "radars": {
+                "system_health": system_health,
+                "network_posture": network_posture,
+            }
+        }))
+    }
+
+    /// v0.12.2: Show radar scores
+    async fn method_radar_show(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::collectors_v12;
+        use crate::radars_v12;
+
+        // Collect current data
+        let sensors = collectors_v12::collect_sensors()?;
+        let net = collectors_v12::collect_net()?;
+        let disk = collectors_v12::collect_disk()?;
+
+        // Compute health radar
+        let health = radars_v12::score_system_health(
+            sensors.cpu.load_avg[0],
+            sensors.cpu.cores.len() as u32,
+            (sensors.mem.free_mb as f64 / sensors.mem.total_mb as f64) * 100.0,
+            disk.disks.iter()
+                .find(|d| d.mount == "/")
+                .map(|d| 100.0 - d.pct)
+                .unwrap_or(50.0),
+            sensors.cpu.cores.first().and_then(|c| c.temp_c),
+        );
+
+        // Compute network radar
+        let network = radars_v12::score_network_posture(
+            net.dns_latency_ms,
+            None, // No packet loss data yet
+            net.dns_latency_ms.is_some(),
+        );
+
+        Ok(serde_json::json!({
+            "health": health,
+            "network": network,
+            "overall": {
+                "health_score": health.overall_score,
+                "network_score": network.overall_score,
+                "combined": (health.overall_score + network.overall_score) / 2.0,
+            }
         }))
     }
 

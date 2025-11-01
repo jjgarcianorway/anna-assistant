@@ -37,6 +37,29 @@ enum Commands {
         verbose: bool,
     },
 
+    /// Collect telemetry snapshots
+    Collect {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Number of snapshots to retrieve (default: 1)
+        #[arg(short, long, default_value = "1")]
+        limit: u32,
+    },
+
+    /// Classify system persona
+    Classify {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show radar scores
+    Radar {
+        #[command(subcommand)]
+        action: RadarAction,
+    },
+
     /// Show CPU, memory, temperatures, and battery
     Sensors {
         /// Output as JSON
@@ -108,18 +131,6 @@ enum Commands {
         #[command(subcommand)]
         check: DoctorCheck,
     },
-
-    /// Show radar scores for user classification
-    Radar {
-        #[command(subcommand)]
-        action: RadarAction,
-    },
-
-    /// Run user classification
-    Classify {
-        #[command(subcommand)]
-        action: ClassifyAction,
-    },
 }
 
 #[derive(Subcommand)]
@@ -154,22 +165,6 @@ enum RadarAction {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-        /// User UID or name (default: current user)
-        #[arg(short, long)]
-        user: Option<String>,
-    },
-}
-
-#[derive(Subcommand)]
-enum ClassifyAction {
-    /// Run classification for user
-    Run {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// User UID or name (default: current user)
-        #[arg(short, long)]
-        user: Option<String>,
     },
 }
 
@@ -292,29 +287,33 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Radar { action } => {
-            match action {
-                RadarAction::Show { json, user } => {
-                    let params = serde_json::json!({ "user": user });
-                    let response = rpc_call("radar", Some(params)).await?;
-                    if json {
-                        println!("{}", serde_json::to_string_pretty(&response)?);
-                    } else {
-                        print_radar(&response)?;
-                    }
-                }
+        Commands::Collect { json, limit } => {
+            let params = serde_json::json!({ "limit": limit });
+            let response = rpc_call("collect", Some(params)).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_collect(&response)?;
             }
             Ok(())
         }
-        Commands::Classify { action } => {
+        Commands::Classify { json } => {
+            let response = rpc_call("classify", None).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&response)?);
+            } else {
+                print_classify(&response)?;
+            }
+            Ok(())
+        }
+        Commands::Radar { action } => {
             match action {
-                ClassifyAction::Run { json, user } => {
-                    let params = serde_json::json!({ "user": user });
-                    let response = rpc_call("classify", Some(params)).await?;
+                RadarAction::Show { json } => {
+                    let response = rpc_call("radar_show", None).await?;
                     if json {
                         println!("{}", serde_json::to_string_pretty(&response)?);
                     } else {
-                        print_classify(&response)?;
+                        print_radar_show(&response)?;
                     }
                 }
             }
@@ -636,15 +635,79 @@ fn print_radar(data: &JsonValue) -> Result<()> {
     Ok(())
 }
 
-fn print_classify(data: &JsonValue) -> Result<()> {
-    println!("\n╭─ User Classification ────────────────────────");
+fn print_collect(data: &JsonValue) -> Result<()> {
+    println!("\n╭─ Telemetry Snapshots ────────────────────────");
     println!("│");
 
-    if let Some(user) = data["user"].as_str() {
-        println!("│  User:        {}", user);
+    let count = data["count"].as_u64().unwrap_or(0);
+    println!("│  Collected {} snapshot(s)", count);
+    println!("│");
+
+    if let Some(snapshots) = data["snapshots"].as_array() {
+        for (i, snap) in snapshots.iter().enumerate() {
+            println!("│  Snapshot {}", i + 1);
+            if let Some(ts) = snap["ts"].as_u64() {
+                use std::time::{Duration, SystemTime, UNIX_EPOCH};
+                let snap_time = UNIX_EPOCH + Duration::from_secs(ts);
+                let age = SystemTime::now().duration_since(snap_time).ok();
+                if let Some(age) = age {
+                    println!("│    Age: {} seconds ago", age.as_secs());
+                }
+            }
+
+            if let Some(sensors) = snap.get("sensors") {
+                if let Some(cpu) = sensors.get("cpu") {
+                    if let Some(load_avg) = cpu["load_avg"].as_array() {
+                        println!("│    CPU Load: {:.2}, {:.2}, {:.2}",
+                            load_avg[0].as_f64().unwrap_or(0.0),
+                            load_avg[1].as_f64().unwrap_or(0.0),
+                            load_avg[2].as_f64().unwrap_or(0.0));
+                    }
+                }
+
+                if let Some(mem) = sensors.get("mem") {
+                    let used = mem["used_mb"].as_u64().unwrap_or(0);
+                    let total = mem["total_mb"].as_u64().unwrap_or(1);
+                    let pct = (used as f64 / total as f64) * 100.0;
+                    println!("│    Memory: {:.1}% used ({} MB / {} MB)", pct, used, total);
+                }
+            }
+
+            if let Some(disk) = snap.get("disk") {
+                if let Some(disks) = disk["disks"].as_array() {
+                    println!("│    Disks: {} mounted", disks.len());
+                }
+            }
+
+            println!("│");
+        }
     }
-    if let Some(uid) = data["uid"].as_u64() {
-        println!("│  UID:         {}", uid);
+
+    println!("╰──────────────────────────────────────────────\n");
+    Ok(())
+}
+
+fn print_classify(data: &JsonValue) -> Result<()> {
+    println!("\n╭─ System Classification ──────────────────────");
+    println!("│");
+
+    if let Some(persona) = data["persona"].as_str() {
+        println!("│  Persona:     {}", persona);
+    }
+    if let Some(confidence) = data["confidence"].as_f64() {
+        println!("│  Confidence:  {:.1}%", confidence * 100.0);
+    }
+
+    println!("│");
+
+    // Evidence
+    if let Some(evidence) = data["evidence"].as_array() {
+        println!("│  Evidence:");
+        for item in evidence {
+            if let Some(s) = item.as_str() {
+                println!("│    • {}", s);
+            }
+        }
     }
 
     println!("│");
@@ -655,16 +718,45 @@ fn print_classify(data: &JsonValue) -> Result<()> {
         print_radar_categories(health)?;
     }
 
-    // Usage Habit Radar
-    if let Some(usage) = data["radars"].get("usage_habit") {
-        println!("│  Usage Habit Radar:");
-        print_radar_categories(usage)?;
-    }
-
     // Network Posture Radar
     if let Some(network) = data["radars"].get("network_posture") {
         println!("│  Network Posture Radar:");
         print_radar_categories(network)?;
+    }
+
+    println!("│");
+    println!("╰──────────────────────────────────────────────\n");
+    Ok(())
+}
+
+fn print_radar_show(data: &JsonValue) -> Result<()> {
+    println!("\n╭─ Radar Scores ───────────────────────────────");
+    println!("│");
+
+    // Health Radar
+    if let Some(health) = data.get("health") {
+        println!("│  Health Radar:");
+        print_radar_categories(health)?;
+    }
+
+    // Network Radar
+    if let Some(network) = data.get("network") {
+        println!("│  Network Radar:");
+        print_radar_categories(network)?;
+    }
+
+    // Overall
+    if let Some(overall) = data.get("overall") {
+        println!("│  Overall Scores:");
+        if let Some(health_score) = overall["health_score"].as_f64() {
+            println!("│    Health:  {:.1}/10.0", health_score);
+        }
+        if let Some(network_score) = overall["network_score"].as_f64() {
+            println!("│    Network: {:.1}/10.0", network_score);
+        }
+        if let Some(combined) = overall["combined"].as_f64() {
+            println!("│    Combined: {:.1}/10.0", combined);
+        }
     }
 
     println!("│");
