@@ -125,7 +125,8 @@
       "Bash(./bin/annactl:*)",
       "Bash(/usr/local/bin/annactl:*)",
       "Bash(annactl:*)",
-      "Bash(sudo chmod:*)"
+      "Bash(sudo chmod:*)",
+      "Bash(.gitignore)"
     ],
     "deny": [],
     "ask": []
