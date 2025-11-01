@@ -156,6 +156,15 @@ enum DoctorCheck {
         #[arg(short, long)]
         yes: bool,
     },
+    /// Run comprehensive health checks
+    Check {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed diagnostics
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -283,6 +292,9 @@ async fn main() -> Result<()> {
                 }
                 DoctorCheck::Repair { json, yes } => {
                     doctor_cmd::doctor_repair(json, yes)?;
+                }
+                DoctorCheck::Check { json, verbose } => {
+                    doctor_cmd::doctor_check(json, verbose).await?;
                 }
             }
             Ok(())

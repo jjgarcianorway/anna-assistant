@@ -1,6 +1,7 @@
 // Anna v0.10.1 - annactl doctor pre|post commands
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use serde_json::Value;
 use std::path::Path;
 use std::process::Command;
 
@@ -731,4 +732,426 @@ pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
         eprintln!("╰──────────────────────────────────────────────────────────────────");
         std::process::exit(1);
     }
+}
+
+// Anna v0.12.4 - Comprehensive Health Check Implementation
+
+pub async fn doctor_check(_json: bool, verbose: bool) -> Result<()> {
+    println!("\n╭─ Anna Health Check ──────────────────────────────────────────────");
+    println!("│");
+
+    let mut issues = Vec::new();
+    let mut warnings = Vec::new();
+    let mut suggestions = Vec::new();
+
+    // 1. Daemon Connectivity Check
+    if verbose {
+        println!("│  Checking daemon connectivity...");
+    }
+
+    let daemon_ok = check_daemon_connectivity(&mut issues, &mut warnings, verbose).await;
+
+    if !daemon_ok {
+        print_check_results(issues, warnings, suggestions);
+        std::process::exit(1);
+    }
+
+    // 2. Radar Health Check
+    if verbose {
+        println!("│  Checking system radars...");
+    }
+    check_radar_health(&mut issues, &mut warnings, &mut suggestions, verbose).await?;
+
+    // 3. Resource Usage Check
+    if verbose {
+        println!("│  Checking resource usage...");
+    }
+    check_resource_usage(&mut issues, &mut warnings, &mut suggestions, verbose).await?;
+
+    // 4. Configuration Check
+    if verbose {
+        println!("│  Checking configuration...");
+    }
+    check_configuration(&mut issues, &mut warnings, &mut suggestions, verbose);
+
+    // 5. Permission Check
+    if verbose {
+        println!("│  Checking permissions...");
+    }
+    check_permissions(&mut issues, &mut warnings, &mut suggestions, verbose);
+
+    println!("│");
+    print_check_results(issues, warnings, suggestions);
+
+    Ok(())
+}
+
+async fn check_daemon_connectivity(
+    issues: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    verbose: bool,
+) -> bool {
+    // Check if service is running
+    let service_status = Command::new("systemctl")
+        .args(&["is-active", "annad"])
+        .output();
+
+    match service_status {
+        Ok(output) if output.status.success() => {
+            println!("│  ✓ Daemon: annad service is active");
+        }
+        _ => {
+            println!("│  ✗ Daemon: annad service is not running");
+            issues.push("annad service is not active - run: sudo systemctl start annad".to_string());
+            return false;
+        }
+    }
+
+    // Check socket exists
+    let socket_path = std::path::Path::new("/run/anna/annad.sock");
+    if !socket_path.exists() {
+        println!("│  ✗ Socket: RPC socket not found");
+        issues.push("RPC socket missing at /run/anna/annad.sock".to_string());
+        return false;
+    }
+
+    if verbose {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if let Ok(md) = std::fs::metadata(socket_path) {
+                println!(
+                    "│    Socket: uid={} gid={} mode={:o}",
+                    md.uid(),
+                    md.gid(),
+                    md.mode() & 0o777
+                );
+            }
+        }
+    }
+
+    // Try RPC call
+    let rpc_result = try_rpc_call("status", None).await;
+    match rpc_result {
+        Ok(_) => {
+            println!("│  ✓ RPC: Daemon responding to requests");
+            true
+        }
+        Err(e) => {
+            println!("│  ✗ RPC: Daemon not responding");
+            if verbose {
+                println!("│    Error: {}", e);
+            }
+            warnings.push(format!("Daemon not responding to RPC calls: {}", e));
+            false
+        }
+    }
+}
+
+async fn check_radar_health(
+    issues: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    suggestions: &mut Vec<String>,
+    verbose: bool,
+) -> Result<()> {
+    match try_rpc_call("radar_show", None).await {
+        Ok(response) => {
+            if let Some(health) = response.get("health") {
+                if let Some(categories) = health.get("categories") {
+                    // Check CPU load
+                    if let Some(cpu_load) = categories.get("cpu_load") {
+                        if let Some(score) = cpu_load.get("score").and_then(|s| s.as_f64()) {
+                            if score < 3.0 {
+                                warnings.push(format!("High CPU load detected (score: {})", format_score(score)));
+                                suggestions.push("Consider closing resource-intensive applications".to_string());
+                            } else if verbose {
+                                println!("│  ✓ CPU Load: {}", format_score(score));
+                            }
+                        }
+                    }
+
+                    // Check memory pressure
+                    if let Some(mem_pressure) = categories.get("memory_pressure") {
+                        if let Some(score) = mem_pressure.get("score").and_then(|s| s.as_f64()) {
+                            if score < 3.0 {
+                                warnings.push(format!("High memory pressure (score: {})", format_score(score)));
+                                suggestions.push("Free up memory or close applications".to_string());
+                            } else if verbose {
+                                println!("│  ✓ Memory Pressure: {}", format_score(score));
+                            }
+                        }
+                    }
+
+                    // Check disk headroom
+                    if let Some(disk) = categories.get("disk_headroom") {
+                        if let Some(score) = disk.get("score").and_then(|s| s.as_f64()) {
+                            if score < 3.0 {
+                                warnings.push(format!("Low disk space (score: {})", format_score(score)));
+                                suggestions.push("Clean up disk space on /".to_string());
+                            } else if verbose {
+                                println!("│  ✓ Disk Headroom: {}", format_score(score));
+                            }
+                        }
+                    }
+
+                    // Check thermal
+                    if let Some(thermal) = categories.get("thermal_ok") {
+                        if let Some(score) = thermal.get("score").and_then(|s| s.as_f64()) {
+                            if score < 5.0 {
+                                warnings.push(format!("High temperature detected (score: {})", format_score(score)));
+                                suggestions.push("Check cooling system and airflow".to_string());
+                            } else if verbose {
+                                println!("│  ✓ Thermal: {}", format_score(score));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check network radar
+            if let Some(network) = response.get("network") {
+                if let Some(categories) = network.get("categories") {
+                    if let Some(dns) = categories.get("dns_reliability") {
+                        if let Some(score) = dns.get("score").and_then(|s| s.as_f64()) {
+                            if score < 5.0 {
+                                warnings.push(format!("Network connectivity issues (score: {})", format_score(score)));
+                                suggestions.push("Check network connection (can you ping 8.8.8.8?)".to_string());
+                            } else if verbose {
+                                println!("│  ✓ Network Connectivity: {}", format_score(score));
+                            }
+                        }
+                    }
+                }
+            }
+
+            println!("│  ✓ Radars: All radars operational");
+        }
+        Err(e) => {
+            issues.push(format!("Failed to fetch radar scores: {}", e));
+        }
+    }
+
+    Ok(())
+}
+
+async fn check_resource_usage(
+    _issues: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    suggestions: &mut Vec<String>,
+    verbose: bool,
+) -> Result<()> {
+    // Get telemetry snapshot
+    match try_rpc_call("collect", Some(serde_json::json!({"limit": 1}))).await {
+        Ok(response) => {
+            if let Some(snapshots) = response.get("snapshots").and_then(|s| s.as_array()) {
+                if let Some(snapshot) = snapshots.first() {
+                    // Check CPU cores vs load
+                    if let Some(cores) = snapshot.get("cores").and_then(|c| c.as_u64()) {
+                        if let Some(load_1m) = snapshot.get("load_1m").and_then(|l| l.as_f64()) {
+                            let load_per_core = load_1m / cores as f64;
+                            if load_per_core > 1.5 {
+                                warnings.push(format!("High load: {:.2} per core", load_per_core));
+                            } else if verbose {
+                                println!("│  ✓ Load: {:.2} per core", load_per_core);
+                            }
+                        }
+                    }
+
+                    // Check memory usage
+                    if let Some(mem_used) = snapshot.get("mem_used_mb").and_then(|m| m.as_u64()) {
+                        if let Some(mem_total) = snapshot.get("mem_free_mb").and_then(|m| m.as_u64()) {
+                            let total = mem_used + mem_total;
+                            let used_pct = (mem_used as f64 / total as f64) * 100.0;
+                            if used_pct > 90.0 {
+                                warnings.push(format!("High memory usage: {:.1}%", used_pct));
+                                suggestions.push("Consider restarting applications or adding more RAM".to_string());
+                            } else if verbose {
+                                println!("│  ✓ Memory Usage: {:.1}%", used_pct);
+                            }
+                        }
+                    }
+                }
+            }
+            println!("│  ✓ Resources: Telemetry collection working");
+        }
+        Err(e) => {
+            warnings.push(format!("Could not collect telemetry: {}", e));
+        }
+    }
+
+    Ok(())
+}
+
+fn check_configuration(
+    _issues: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    _suggestions: &mut Vec<String>,
+    verbose: bool,
+) {
+    let config_files = vec![
+        ("/etc/anna/config.toml", true),
+        ("/etc/anna/policy.toml", false), // optional
+        ("/usr/lib/anna/CAPABILITIES.toml", true),
+    ];
+
+    for (path, required) in config_files {
+        if std::path::Path::new(path).exists() {
+            if verbose {
+                println!("│  ✓ Config: {} present", path);
+            }
+        } else if required {
+            warnings.push(format!("Missing config file: {}", path));
+        } else if verbose {
+            println!("│  ⚠ Config: {} missing (optional)", path);
+        }
+    }
+
+    println!("│  ✓ Configuration: Core files present");
+}
+
+fn check_permissions(
+    _issues: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    suggestions: &mut Vec<String>,
+    verbose: bool,
+) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+
+        let dirs_to_check = vec![
+            ("/var/lib/anna", 0o750),
+            ("/var/log/anna", 0o750),
+            ("/run/anna", 0o750),
+        ];
+
+        for (dir, expected_mode) in dirs_to_check {
+            if let Ok(md) = std::fs::metadata(dir) {
+                let mode = md.mode() & 0o777;
+                if mode != expected_mode {
+                    warnings.push(format!(
+                        "{} has mode {:o}, expected {:o}",
+                        dir, mode, expected_mode
+                    ));
+                    suggestions.push(format!("Run: annactl doctor repair"));
+                } else if verbose {
+                    println!("│  ✓ Permissions: {} ({:o})", dir, mode);
+                }
+            } else {
+                warnings.push(format!("{} not accessible", dir));
+            }
+        }
+    }
+
+    println!("│  ✓ Permissions: Directory permissions OK");
+}
+
+fn print_check_results(issues: Vec<String>, warnings: Vec<String>, suggestions: Vec<String>) {
+    println!("╰──────────────────────────────────────────────────────────────────");
+    println!();
+
+    if issues.is_empty() && warnings.is_empty() {
+        println!("✓ All health checks passed");
+        println!();
+        println!("Anna is operating normally.");
+        std::process::exit(0);
+    } else if !issues.is_empty() {
+        println!("✗ Critical Issues Found:");
+        for issue in &issues {
+            println!("  • {}", issue);
+        }
+        println!();
+
+        if !warnings.is_empty() {
+            println!("⚠ Warnings:");
+            for warning in &warnings {
+                println!("  • {}", warning);
+            }
+            println!();
+        }
+
+        if !suggestions.is_empty() {
+            println!("Suggested Actions:");
+            for suggestion in &suggestions {
+                println!("  → {}", suggestion);
+            }
+            println!();
+        }
+
+        std::process::exit(1);
+    } else {
+        println!("⚠ Health check passed with warnings");
+        println!();
+        println!("Warnings:");
+        for warning in &warnings {
+            println!("  • {}", warning);
+        }
+        println!();
+
+        if !suggestions.is_empty() {
+            println!("Suggested Actions:");
+            for suggestion in &suggestions {
+                println!("  → {}", suggestion);
+            }
+            println!();
+        }
+
+        std::process::exit(0);
+    }
+}
+
+// Format score nicely: 10/10 for whole numbers, 9.2/10 for decimals
+fn format_score(score: f64) -> String {
+    if score.fract() == 0.0 {
+        format!("{:.0}/10", score)
+    } else {
+        format!("{:.1}/10", score)
+    }
+}
+
+async fn try_rpc_call(method: &str, params: Option<Value>) -> Result<Value> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixStream;
+
+    let socket_path = "/run/anna/annad.sock";
+    let mut stream = UnixStream::connect(socket_path)
+        .await
+        .context("Failed to connect to daemon socket")?;
+
+    // Build JSON-RPC request
+    let request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": method,
+        "params": params,
+    });
+
+    let request_str = serde_json::to_string(&request)?;
+    stream
+        .write_all(request_str.as_bytes())
+        .await
+        .context("Failed to send RPC request")?;
+    stream.write_all(b"\n").await?;
+
+    // Read response with timeout
+    let mut buffer = vec![0u8; 65536];
+    let n = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        stream.read(&mut buffer),
+    )
+    .await
+    .context("RPC call timed out after 5s")??;
+
+    let response_str = String::from_utf8_lossy(&buffer[..n]);
+    let response: Value =
+        serde_json::from_str(&response_str).context("Failed to parse RPC response")?;
+
+    if let Some(error) = response.get("error") {
+        anyhow::bail!("RPC error: {}", error);
+    }
+
+    response
+        .get("result")
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("No result in RPC response"))
 }

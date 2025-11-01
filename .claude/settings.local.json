@@ -126,7 +126,8 @@
       "Bash(/usr/local/bin/annactl:*)",
       "Bash(annactl:*)",
       "Bash(sudo chmod:*)",
-      "Bash(.gitignore)"
+      "Bash(.gitignore)",
+      "Bash(src/annactl/src/doctor_cmd.rs)"
     ],
     "deny": [],
     "ask": []
