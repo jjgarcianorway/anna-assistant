@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.5] - 2025-11-02 - Btrfs Phase 2: Automation & CLI
+
+### Added
+
+#### Storage CLI (`annactl storage btrfs show`)
+- Comprehensive Btrfs profile display with full TUI integration
+- Supports `--json`, `--wide`, and `--explain <topic>` flags
+- Topics: snapshots, compression, scrub, balance
+- Displays: layout, mount options, tools, bootloader status, health metrics
+
+#### Automation Scripts
+- `autosnap-pre.sh`: Creates snapshots before pacman operations (read-only, auto-prune to 10)
+- `prune.sh`: Snapshot retention with dual policy (count + age), dry-run support
+- `sdboot-gen.sh`: Generate systemd-boot entries for Btrfs snapshots
+
+#### Pacman Hook
+- `90-btrfs-autosnap.hook`: PreTransaction hook for automatic snapshots
+
+#### Storage Advisor Rules (10 Total)
+Complete `category: "storage"` rules with `fix_cmd`, `fix_risk`, `refs`:
+1. btrfs-layout-missing-snapshots, 2. pacman-autosnap-missing, 3. grub-btrfs-missing-on-grub
+4. sd-boot-snapshots-missing, 5. scrub-overdue, 6. low-free-space
+7. compression-suboptimal, 8. qgroups-disabled, 9. copy-on-write-exceptions, 10. balance-required
+
+#### Documentation
+- `docs/STORAGE-BTRFS.md`: 400+ line comprehensive guide (architecture, usage, troubleshooting)
+- `docs/ADVISOR-ARCH.md`: Added Storage Rules section with examples
+
+#### Testing
+- `tests/arch_btrfs_smoke.sh`: Validates storage features, advisor rules, script availability
+
+### Fixed
+- Daemon version string uses `CARGO_PKG_VERSION` (was hardcoded "v0.11.0")
+- Orphaned v0.12.5 git tag cleaned from history
+
+### Changed
+- TUI module used consistently in new storage command
+- All scripts respect NO_COLOR, CLICOLOR, TERM environment variables
+
+---
+
 ## [0.12.3] - Arch Linux Advisor + Unified TUI - 2025-11-02
 
 ### Major Features

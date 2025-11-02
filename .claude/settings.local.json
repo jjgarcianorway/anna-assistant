@@ -130,7 +130,9 @@
       "Bash(src/annactl/src/doctor_cmd.rs)",
       "Bash(cargo fmt:*)",
       "Bash(./tests/arch_advisor_smoke.sh:*)",
-      "Bash(systemctl:*)"
+      "Bash(systemctl:*)",
+      "Bash(./tests/arch_btrfs_smoke.sh:*)",
+      "Bash(ANNACTL=\"./target/release/annactl\" bash -c 'if $ANNACTL storage --help 2>&1 | grep -q \"\"Show storage profile\"\"; then echo PASS; else echo FAIL; fi')"
     ],
     "deny": [],
     "ask": []

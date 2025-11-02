@@ -290,6 +290,130 @@ yay -Syu  # Update all packages including AUR
 **References:**
 - [Arch Wiki: AUR Helpers](https://wiki.archlinux.org/title/AUR_helpers)
 
+## Storage Rules (Btrfs)
+
+*Added in Anna v0.12.5*
+
+The advisor includes 10 specialized rules for Btrfs filesystems. These rules only trigger when Btrfs is detected as the root filesystem.
+
+### 1. Missing Snapshots (`btrfs-layout-missing-snapshots`)
+
+**Level:** Warning
+**Category:** Storage
+**Trigger:** Btrfs root without snapshot configuration or tool (snapper/timeshift)
+
+Btrfs snapshots are instant, zero-copy backups essential for system recovery. Without snapshots, failed updates or accidental deletions cannot be rolled back.
+
+**Action:**
+```bash
+# Install and configure snapper
+sudo pacman -S snapper
+sudo snapper -c root create-config /
+sudo btrfs subvolume create /.snapshots
+```
+
+**References:**
+- [Arch Wiki: Snapper](https://wiki.archlinux.org/title/Snapper)
+- [Arch Wiki: Btrfs Snapshots](https://wiki.archlinux.org/title/Btrfs#Snapshots)
+
+### 2. Pacman Autosnap Missing (`pacman-autosnap-missing`)
+
+**Level:** Info
+**Category:** Storage
+**Trigger:** No pacman hooks for automatic snapshots
+
+Automatic pre-transaction snapshots allow rollback if package updates break the system.
+
+**Action:**
+```bash
+# Option 1: Install snap-pac (integrates with snapper)
+sudo pacman -S snap-pac
+
+# Option 2: Use Anna's hook
+sudo cp packaging/arch/hooks/90-btrfs-autosnap.hook /etc/pacman.d/hooks/
+sudo cp scripts/btrfs/autosnap-pre.sh /usr/local/bin/ && sudo chmod +x /usr/local/bin/autosnap-pre.sh
+```
+
+**References:**
+- [GitHub: snap-pac](https://github.com/wesbarnett/snap-pac)
+
+### 3-4. Bootloader Snapshot Entries
+
+**GRUB:** `grub-btrfs-missing-on-grub` - Install grub-btrfs for snapshot boot menu entries
+**systemd-boot:** `sd-boot-snapshots-missing` - Use `scripts/btrfs/sdboot-gen.sh` to generate boot entries
+
+### 5. Scrub Overdue (`scrub-overdue`)
+
+**Level:** Warning
+**Category:** Storage
+**Trigger:** Last scrub >30 days ago or never
+
+Regular scrubs detect and repair data corruption before it causes data loss.
+
+**Action:**
+```bash
+# Manual scrub
+sudo btrfs scrub start -Bd /
+
+# Enable monthly auto-scrub
+sudo systemctl enable --now btrfs-scrub@-.timer
+```
+
+### 6. Low Free Space (`low-free-space`)
+
+**Level:** Warning
+**Category:** Storage
+**Trigger:** <10% free space
+
+Btrfs performs poorly when nearly full. Writes may fail when chunks cannot be allocated.
+
+**Action:**
+```bash
+# Delete old snapshots
+sudo snapper -c root list
+sudo snapper -c root delete <id>
+
+# Clear package cache
+sudo pacman -Sc
+
+# Run balance to reclaim chunks
+sudo btrfs balance start -dusage=50 /
+```
+
+### 7. Compression Suboptimal (`compression-suboptimal`)
+
+**Level:** Info
+**Category:** Storage
+**Trigger:** Not using zstd compression
+
+Zstd (level 3) provides 30-50% space savings with minimal CPU overhead.
+
+**Action:**
+```bash
+# Update /etc/fstab to include compress=zstd:3 in mount options
+# Example: UUID=xxx  /  btrfs  rw,noatime,compress=zstd:3,space_cache=v2  0 0
+
+# Remount to apply
+sudo mount -o remount,compress=zstd:3 /
+```
+
+### 8-10. Additional Checks
+
+- **Qgroups Disabled** (`qgroups-disabled`) - Enable quota groups to track snapshot space usage
+- **CoW Exceptions** (`copy-on-write-exceptions`) - Informational: disable CoW for databases/VMs
+- **Balance Required** (`balance-required`) - Metadata chunks full, run targeted balance
+
+**View storage profile:**
+```bash
+annactl storage btrfs show
+annactl storage btrfs show --json
+annactl storage btrfs show --explain snapshots
+```
+
+**References:**
+- [Arch Wiki: Btrfs](https://wiki.archlinux.org/title/Btrfs)
+- [Anna STORAGE-BTRFS.md](./STORAGE-BTRFS.md) - Detailed guide
+
 ## Usage
 
 ### Basic Usage
