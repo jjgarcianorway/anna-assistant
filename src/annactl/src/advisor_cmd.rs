@@ -1,4 +1,4 @@
-// Anna v0.12.3 - Advisor CLI Command
+// Anna v0.12.9 - Advisor CLI Command with distro auto-detection
 
 use anyhow::{Context, Result};
 use anna_common::{header, section, status, Level, TermCaps};
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
+use crate::distro::DistroProvider;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 
@@ -25,6 +26,32 @@ pub struct Advice {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fix_risk: Option<String>,
     pub refs: Vec<String>,
+}
+
+/// Safe wrapper for advisor with error guards
+pub async fn run_advisor_safe(distro: &DistroProvider, json: bool, explain_id: Option<String>) -> Result<()> {
+    // Show distro detection
+    if !json {
+        println!("Detected distribution: {}", distro.as_str());
+    }
+
+    // For now, only Arch is fully implemented
+    // Generic fallback shows a message
+    match distro {
+        DistroProvider::Arch => {
+            run_advisor(json, explain_id).await
+        }
+        _ => {
+            if json {
+                println!("[]"); // Empty advice list
+            } else {
+                println!("\n⚠️  Advisor for {} is not yet implemented", distro.as_str());
+                println!("Supported: Arch Linux");
+                println!("Coming soon: Debian, Fedora, RHEL, OpenSUSE");
+            }
+            Ok(())
+        }
+    }
 }
 
 /// Run Arch advisor and show results

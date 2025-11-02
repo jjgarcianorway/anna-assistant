@@ -284,6 +284,7 @@ impl RpcServer {
             "collect" => self.method_collect(&req.params).await,
             "classify" => self.method_classify(&req.params).await,
             "radar_show" => self.method_radar_show(&req.params).await,
+            "radar_snapshot" => self.method_radar_snapshot(&req.params).await,
             // v0.11.0 CLI methods (event-driven)
             "events" => self.method_events(&req.params).await,
             "watch" => self.method_watch(&req.params).await,
@@ -885,6 +886,24 @@ impl RpcServer {
                 "network_score": network.overall_score,
                 "combined": (health.overall_score + network.overall_score) / 2.0,
             }
+        }))
+    }
+
+    /// v0.12.9: Get all three radar snapshots
+    async fn method_radar_snapshot(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::radar_hardware;
+        use crate::radar_software;
+        use crate::radar_user;
+
+        // Collect all three radars
+        let hardware = radar_hardware::collect_hardware_radar()?;
+        let software = radar_software::collect_software_radar()?;
+        let user = radar_user::collect_user_radar()?;
+
+        Ok(serde_json::json!({
+            "hardware": hardware,
+            "software": software,
+            "user": user,
         }))
     }
 

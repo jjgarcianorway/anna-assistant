@@ -12,7 +12,7 @@ const SOCKET_PATH: &str = "/run/anna/annad.sock";
 /// Health status from daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-enum HealthStatus {
+pub enum HealthStatus {
     Healthy,
     Warning,
     Critical,
@@ -21,46 +21,46 @@ enum HealthStatus {
 
 /// RPC latency metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct RpcLatencyMetrics {
-    avg_ms: f64,
-    p50_ms: u64,
-    p95_ms: u64,
-    p99_ms: u64,
-    min_ms: u64,
-    max_ms: u64,
-    sample_count: usize,
+pub struct RpcLatencyMetrics {
+    pub avg_ms: f64,
+    pub p50_ms: u64,
+    pub p95_ms: u64,
+    pub p99_ms: u64,
+    pub min_ms: u64,
+    pub max_ms: u64,
+    pub sample_count: usize,
 }
 
 /// Memory usage metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct MemoryMetrics {
-    current_mb: f64,
-    peak_mb: f64,
-    limit_mb: u64,
-    vmsize_mb: f64,
-    threads: usize,
+pub struct MemoryMetrics {
+    pub current_mb: f64,
+    pub peak_mb: f64,
+    pub limit_mb: u64,
+    pub vmsize_mb: f64,
+    pub threads: usize,
 }
 
 /// Queue health metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct QueueMetrics {
-    depth: usize,
-    rate_per_sec: f64,
-    oldest_event_sec: u64,
-    total_processed: u64,
+pub struct QueueMetrics {
+    pub depth: usize,
+    pub rate_per_sec: f64,
+    pub oldest_event_sec: u64,
+    pub total_processed: u64,
 }
 
 /// Complete health snapshot from daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct HealthSnapshot {
-    status: HealthStatus,
-    uptime_sec: u64,
-    rpc_latency: Option<RpcLatencyMetrics>,
-    memory: Option<MemoryMetrics>,
-    queue: Option<QueueMetrics>,
-    capabilities_active: usize,
-    capabilities_degraded: usize,
-    timestamp: u64,
+pub struct HealthSnapshot {
+    pub status: HealthStatus,
+    pub uptime_sec: u64,
+    pub rpc_latency: Option<RpcLatencyMetrics>,
+    pub memory: Option<MemoryMetrics>,
+    pub queue: Option<QueueMetrics>,
+    pub capabilities_active: usize,
+    pub capabilities_degraded: usize,
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -240,7 +240,7 @@ fn print_health_watch_display(health: &HealthSnapshot, last: Option<&HealthSnaps
 }
 
 /// Fetch health metrics from daemon via RPC
-async fn fetch_health_metrics() -> Result<HealthSnapshot> {
+pub async fn fetch_health_metrics() -> Result<HealthSnapshot> {
     use tokio::time::{timeout, Duration};
 
     // Connect with timeout

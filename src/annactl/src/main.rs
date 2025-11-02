@@ -10,14 +10,38 @@ use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
+mod action_engine;
+mod actions_cmd;
+mod advisor;
 mod advisor_cmd;
+mod anomaly;
+mod anomaly_cmd;
+mod audit_cmd;
+mod audit_log;
+mod autonomy;
+mod autonomy_cmd;
+mod distro;
 mod doctor_cmd;
 mod error_display;
+mod feedback;
+mod forecast;
+mod forecast_cmd;
 mod health_cmd;
+mod history;
 mod hw_cmd;
+mod learning;
+mod learning_cmd;
+mod profile_cmd;
+mod profiled;
+mod profiled_cmd;
+mod radar_cmd;
 mod reload_cmd;
+mod report_cmd;
 mod snapshot_cmd;
+mod status_cmd;
 mod storage_cmd;
+mod trigger;
+mod trigger_cmd;
 mod watch_mode;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
@@ -66,22 +90,149 @@ enum Commands {
         json: bool,
     },
 
-    /// Show radar scores
+    /// Show radar scores (hardware, software, user)
     Radar {
-        #[command(subcommand)]
-        action: RadarAction,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+
+        /// Filter to specific radar (hardware, software, or user)
+        #[arg(value_name = "FILTER")]
+        filter: Option<String>,
+    },
+
+    /// Generate system health report with recommendations
+    Report {
+        /// Short format (one page)
+        #[arg(short, long)]
+        short: bool,
+
+        /// Verbose format (detailed analysis)
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Profile system performance and radar collection timing
+    Profile {
+        /// Summary format (default)
+        #[arg(short, long)]
+        summary: bool,
+
+        /// Detailed format with analysis
+        #[arg(short, long)]
+        detailed: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Manage autonomous actions
+    Actions {
+        /// List all registered actions
+        #[arg(long)]
+        list: bool,
+
+        /// List only auto-runnable actions
+        #[arg(long)]
+        auto: bool,
+
+        /// Run a specific action (requires action ID)
+        #[arg(long)]
+        run: Option<String>,
+
+        /// Dry-run mode (show what would happen)
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Revert an action (requires action ID)
+        #[arg(long)]
+        revert: Option<String>,
+
+        /// Initialize safe built-in actions
+        #[arg(long)]
+        init: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// View audit log
+    Audit {
+        /// Show summary statistics
+        #[arg(long)]
+        summary: bool,
+
+        /// Show last N entries
+        #[arg(long)]
+        last: Option<usize>,
+
+        /// Filter by actor (auto, user, advisor, scheduler)
+        #[arg(long)]
+        actor: Option<String>,
+
+        /// Export audit log to file
+        #[arg(long)]
+        export: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Generate predictive forecasts
+    Forecast {
+        /// 7-day forecast
+        #[arg(long)]
+        seven_day: bool,
+
+        /// 30-day forecast
+        #[arg(long)]
+        thirty_day: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Detect anomalies
+    Anomalies {
+        /// Show summary only
+        #[arg(long)]
+        summary: bool,
+
+        /// Export anomalies to file
+        #[arg(long)]
+        export: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Show hardware profile (CPU, GPU, storage, network)
     Hw {
-        #[command(subcommand)]
-        action: HwAction,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed device information
+        #[arg(short, long)]
+        wide: bool,
     },
 
-    /// Run Arch Linux advisor (system optimization recommendations)
+    /// Run system advisor (auto-detects distro)
     Advisor {
-        #[command(subcommand)]
-        action: AdvisorAction,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Explain specific advice by ID
+        #[arg(long)]
+        explain: Option<String>,
     },
 
     /// Show storage profile (Btrfs intelligence)
@@ -183,6 +334,94 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+
+    /// Behavior learning and adaptive intelligence
+    Learn {
+        /// Show learning summary
+        #[arg(long)]
+        summary: bool,
+
+        /// Reset all learned weights
+        #[arg(long)]
+        reset: bool,
+
+        /// Show behavioral trend analysis
+        #[arg(long)]
+        trend: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Continuous performance profiling (self-monitoring)
+    Profiled {
+        /// Show current status
+        #[arg(long)]
+        status: bool,
+
+        /// Show summary statistics
+        #[arg(long)]
+        summary: bool,
+
+        /// Rebuild 7-day baseline
+        #[arg(long)]
+        rebuild: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Manage autonomy tiers and action confidence
+    Autonomy {
+        /// Show current autonomy status
+        #[arg(long)]
+        status: bool,
+
+        /// Manually promote to next tier
+        #[arg(long)]
+        promote: bool,
+
+        /// Manually demote to previous tier
+        #[arg(long)]
+        demote: bool,
+
+        /// Set specific tier (observer, assisted, autonomous)
+        #[arg(long)]
+        set_tier: Option<String>,
+
+        /// Show confidence levels for all actions
+        #[arg(long)]
+        confidence: bool,
+
+        /// Check if ready for tier promotion
+        #[arg(long)]
+        check_promotion: bool,
+    },
+
+    /// Threshold-based trigger management
+    Triggers {
+        /// Show trigger summary
+        #[arg(long)]
+        summary: bool,
+
+        /// List all trigger thresholds
+        #[arg(long)]
+        list: bool,
+
+        /// Show recent trigger events
+        #[arg(long)]
+        events: bool,
+
+        /// Simulate trigger checks (dry-run)
+        #[arg(long)]
+        simulate: bool,
+
+        /// Check triggers now and fire if conditions met
+        #[arg(long)]
+        check: bool,
     },
 }
 
@@ -321,20 +560,25 @@ async fn main() -> Result<()> {
             );
             Ok(())
         }
-        Commands::Status { json, verbose, watch } => {
+        Commands::Status { json, verbose: _, watch } => {
             if watch {
                 if json {
                     eprintln!("Warning: JSON output not supported in watch mode");
                 }
-                show_status_watch(verbose).await?;
+                show_status_watch_real().await?;
             } else {
-                let params = serde_json::json!({ "verbose": verbose });
-                let response = rpc_call_with_retry("status", Some(params)).await?;
+                // Real status pipeline: systemctl + health + journal
+                let status = status_cmd::get_status().await?;
+                let exit_code = status.exit_code;
+
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&response)?);
+                    status_cmd::display_status_json(&status)?;
                 } else {
-                    print_status(&response, verbose)?;
+                    status_cmd::display_status(&status)?;
                 }
+
+                // Exit with appropriate code
+                std::process::exit(exit_code);
             }
             Ok(())
         }
@@ -405,18 +649,28 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Hw { action } => {
-            match action {
-                HwAction::Show { json, wide } => {
-                    hw_cmd::show_hardware(json, wide).await?;
-                }
-            }
+        Commands::Hw { json, wide } => {
+            hw_cmd::show_hardware(json, wide).await?;
             Ok(())
         }
-        Commands::Advisor { action } => {
-            match action {
-                AdvisorAction::Arch { json, explain } => {
-                    advisor_cmd::run_advisor(json, explain).await?;
+        Commands::Advisor { json, explain } => {
+            // Auto-detect distro
+            let distro = match distro::detect_distro() {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("⚠️  Failed to detect distribution: {}", e);
+                    eprintln!("Falling back to generic advisor");
+                    distro::DistroProvider::Generic
+                }
+            };
+
+            // Run advisor with guard rails
+            match advisor_cmd::run_advisor_safe(&distro, json, explain).await {
+                Ok(()) => {}
+                Err(e) => {
+                    eprintln!("❌ Advisor failed: {}", e);
+                    eprintln!("This is not critical - Anna daemon continues running");
+                    std::process::exit(1);
                 }
             }
             Ok(())
@@ -465,17 +719,86 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Radar { action } => {
-            match action {
-                RadarAction::Show { json } => {
-                    let response = rpc_call_with_retry("radar_show", None).await?;
-                    if json {
-                        println!("{}", serde_json::to_string_pretty(&response)?);
-                    } else {
-                        print_radar_show(&response)?;
-                    }
-                }
+        Commands::Radar { json, filter } => {
+            radar_cmd::run_radar(json, filter.as_deref()).await?;
+            Ok(())
+        }
+        Commands::Report { short, verbose, json } => {
+            use report_cmd::ReportMode;
+
+            let mode = if json {
+                ReportMode::Json
+            } else if verbose {
+                ReportMode::Verbose
+            } else {
+                ReportMode::Short
+            };
+
+            report_cmd::run_report(mode).await?;
+            Ok(())
+        }
+        Commands::Profile { summary, detailed, json } => {
+            use profile_cmd::ProfileMode;
+
+            let mode = if json {
+                ProfileMode::Json
+            } else if detailed {
+                ProfileMode::Detailed
+            } else {
+                ProfileMode::Summary
+            };
+
+            profile_cmd::run_profile(mode).await?;
+            Ok(())
+        }
+        Commands::Actions { list, auto, run, dry_run, revert, init, json } => {
+            use actions_cmd::ActionsMode;
+
+            if init {
+                actions_cmd::initialize_actions()?;
+                return Ok(());
             }
+
+            let (mode, action_id) = if let Some(ref action_id) = run {
+                (ActionsMode::Run { dry_run }, Some(action_id.clone()))
+            } else if let Some(ref action_id) = revert {
+                (ActionsMode::Revert, Some(action_id.clone()))
+            } else if auto {
+                (ActionsMode::ListAutoRunnable, None)
+            } else {
+                (ActionsMode::List, None)
+            };
+
+            actions_cmd::run_actions(mode, action_id, json)?;
+            Ok(())
+        }
+        Commands::Audit { summary, last, actor, export, json } => {
+            use audit_cmd::AuditMode;
+            use std::path::PathBuf;
+
+            let mode = if summary {
+                AuditMode::Summary
+            } else if let Some(n) = last {
+                AuditMode::Last { n }
+            } else if let Some(actor_name) = actor {
+                AuditMode::Actor { actor: actor_name }
+            } else if let Some(export_path) = export {
+                AuditMode::Export { path: PathBuf::from(export_path) }
+            } else if json {
+                AuditMode::Json
+            } else {
+                AuditMode::Summary  // Default to summary
+            };
+
+            audit_cmd::run_audit(mode)?;
+            Ok(())
+        }
+        Commands::Forecast { seven_day, thirty_day, json } => {
+            forecast_cmd::run_forecast(seven_day, thirty_day, json)?;
+            Ok(())
+        }
+        Commands::Anomalies { summary, export, json } => {
+            anomaly_cmd::run_anomalies(summary, export, json)?;
             Ok(())
         }
         Commands::Health { json, watch } => {
@@ -492,6 +815,63 @@ async fn main() -> Result<()> {
                     reload_cmd::validate_config(path, verbose)?;
                 }
             }
+            Ok(())
+        }
+        Commands::Learn { summary, reset, trend, json } => {
+            use learning_cmd::LearningMode;
+
+            let mode = if reset {
+                LearningMode::Reset
+            } else if trend {
+                LearningMode::Trend
+            } else {
+                LearningMode::Summary  // Default
+            };
+
+            learning_cmd::run_learning(mode, json)?;
+            Ok(())
+        }
+        Commands::Profiled { status, summary, rebuild, json } => {
+            use profiled_cmd::ProfiledMode;
+
+            let mode = if rebuild {
+                ProfiledMode::Rebuild
+            } else if summary {
+                ProfiledMode::Summary
+            } else {
+                ProfiledMode::Status  // Default
+            };
+
+            profiled_cmd::run_profiled(mode, json)?;
+            Ok(())
+        }
+        Commands::Autonomy { status, promote, demote, set_tier, confidence, check_promotion } => {
+            use autonomy_cmd::AutonomyArgs;
+
+            let args = AutonomyArgs {
+                status,
+                promote,
+                demote,
+                set_tier,
+                confidence,
+                check_promotion,
+            };
+
+            autonomy_cmd::execute(&args)?;
+            Ok(())
+        }
+        Commands::Triggers { summary, list, events, simulate, check } => {
+            use trigger_cmd::TriggerArgs;
+
+            let args = TriggerArgs {
+                summary,
+                list,
+                events,
+                simulate,
+                check,
+            };
+
+            trigger_cmd::execute(&args)?;
             Ok(())
         }
     }
@@ -773,6 +1153,88 @@ async fn show_status_watch(verbose: bool) -> Result<()> {
 
             // Store for next iteration
             *last_data.borrow_mut() = Some(data);
+
+            Ok(())
+        }
+    }).await?;
+
+    Ok(())
+}
+
+/// Show real status in watch mode with live updates
+async fn show_status_watch_real() -> Result<()> {
+    use watch_mode::{WatchConfig, WatchMode, print_watch_header, print_watch_footer};
+    use std::time::{Duration, Instant};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let config = WatchConfig {
+        interval: Duration::from_secs(2),
+        use_alternate_screen: true,
+        clear_screen: true,
+    };
+
+    let mut watch = WatchMode::new(config);
+    let start_time = Instant::now();
+    let last_status: Rc<RefCell<Option<status_cmd::SystemStatus>>> = Rc::new(RefCell::new(None));
+
+    watch.run(|iteration| {
+        let elapsed = start_time.elapsed();
+        let last_status = Rc::clone(&last_status);
+
+        async move {
+            let status = status_cmd::get_status().await?;
+
+            // Display watch header
+            print_watch_header("System Status", iteration, elapsed);
+
+            // Display status (compact for watch mode)
+            let green = "\x1b[32m";
+            let yellow = "\x1b[33m";
+            let red = "\x1b[31m";
+            let dim = "\x1b[2m";
+            let reset = "\x1b[0m";
+            let bold = "\x1b[1m";
+
+            let (emoji, color) = match status.exit_code {
+                0 => ("✅", green),
+                1 => ("⚠️", yellow),
+                _ => ("❌", red),
+            };
+
+            println!("{}│{}", dim, reset);
+            println!("{}│{}  {}{} Daemon: {}{}", dim, reset, color, emoji, status.daemon.state, reset);
+
+            if let Some(pid) = status.daemon.pid {
+                print!("{}│{}  {}PID:{} {}   ", dim, reset, bold, reset, pid);
+                if let Some(uptime) = status.daemon.uptime_sec {
+                    let h = uptime / 3600;
+                    let m = (uptime % 3600) / 60;
+                    println!("{}Uptime:{} {}h {}m", bold, reset, h, m);
+                } else {
+                    println!();
+                }
+            }
+
+            if let Some(h) = &status.health {
+                println!("{}│{}  {}RPC p99:{} {} ms   {}Memory:{} {:.1} MB   {}Queue:{} {} events",
+                    dim, reset, bold, reset, h.rpc_p99_ms, bold, reset, h.memory_mb, bold, reset, h.queue_depth);
+            } else {
+                println!("{}│{}  Health: not available", dim, reset);
+            }
+
+            let err_count = status.journal_tail.iter().filter(|e| e.level == "ERROR").count();
+            let warn_count = status.journal_tail.iter().filter(|e| e.level == "WARNING").count();
+            println!("{}│{}  {}Journal:{} {} errors, {} warnings", dim, reset, bold, reset, err_count, warn_count);
+
+            println!("{}│{}", dim, reset);
+            println!("{}│{}  {}", dim, reset, status.advice);
+
+            // Display footer
+            print_watch_footer();
+
+            // Store for next iteration
+            *last_status.borrow_mut() = Some(status);
 
             Ok(())
         }
