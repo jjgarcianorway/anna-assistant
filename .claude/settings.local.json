@@ -128,7 +128,9 @@
       "Bash(sudo chmod:*)",
       "Bash(.gitignore)",
       "Bash(src/annactl/src/doctor_cmd.rs)",
-      "Bash(cargo fmt:*)"
+      "Bash(cargo fmt:*)",
+      "Bash(./tests/arch_advisor_smoke.sh:*)",
+      "Bash(systemctl:*)"
     ],
     "deny": [],
     "ask": []

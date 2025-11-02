@@ -12,6 +12,7 @@ use tokio::net::UnixStream;
 mod advisor_cmd;
 mod doctor_cmd;
 mod hw_cmd;
+mod storage_cmd;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -72,6 +73,12 @@ enum Commands {
     Advisor {
         #[command(subcommand)]
         action: AdvisorAction,
+    },
+
+    /// Show storage profile (Btrfs intelligence)
+    Storage {
+        #[command(subcommand)]
+        action: StorageAction,
     },
 
     /// Show CPU, memory, temperatures, and battery
@@ -217,6 +224,22 @@ enum AdvisorAction {
     },
 }
 
+#[derive(Subcommand)]
+enum StorageAction {
+    /// Show Btrfs storage profile
+    Btrfs {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed subvolume information
+        #[arg(short, long)]
+        wide: bool,
+        /// Explain specific topic (snapshots, compression, scrub, balance)
+        #[arg(long)]
+        explain: Option<String>,
+    },
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RpcRequest {
     jsonrpc: String,
@@ -342,6 +365,14 @@ async fn main() -> Result<()> {
             match action {
                 AdvisorAction::Arch { json, explain } => {
                     advisor_cmd::run_advisor(json, explain).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::Storage { action } => {
+            match action {
+                StorageAction::Btrfs { json, wide, explain } => {
+                    storage_cmd::show_btrfs(json, wide, explain.clone()).await?;
                 }
             }
             Ok(())
