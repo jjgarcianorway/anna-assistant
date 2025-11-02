@@ -136,7 +136,10 @@
       "Bash(for script in scripts/btrfs/prune.sh scripts/btrfs/sdboot-gen.sh)",
       "Bash(do )",
       "Bash($script --help)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(for script in scripts/btrfs/*.sh)",
+      "Bash(while read script)",
+      "Bash(do echo \"=== $script ===\")"
     ],
     "deny": [],
     "ask": []
