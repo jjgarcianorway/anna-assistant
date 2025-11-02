@@ -13,22 +13,29 @@ use tracing_subscriber::EnvFilter;
 mod advisor_v13;
 mod capabilities;
 mod collectors_v12;
+mod config_reload;
 mod doctor;
 mod doctor_handler;
 mod events;
 mod hardware_profile;
+mod health_metrics;
 mod integrity;
 mod listeners;
 mod package_analysis;
 mod persona_v10;
 mod policy;
 mod radars_v12;
+mod rpc_errors;
 mod rpc_v10;
+mod signal_handlers;
+mod snapshot_diff;
 mod storage_btrfs;
 mod storage_v10;
+mod telemetry_snapshot;
 mod telemetry_v10;
 
 use capabilities::CapabilityManager;
+use config_reload::ConfigManager;
 use doctor::DoctorApply;
 use doctor_handler::DoctorHandlerImpl;
 use events::EventEngine;
@@ -36,6 +43,7 @@ use integrity::IntegrityWatchdog;
 use persona_v10::PersonaRadar;
 use policy::PolicyEngine;
 use rpc_v10::RpcServer;
+use signal_handlers::{spawn_sighup_handler, ReloadSignal};
 use storage_v10::StorageManager;
 use telemetry_v10::TelemetryCollector;
 
@@ -130,11 +138,37 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Load configuration
-    let config = DaemonConfig::default();
+    // Load configuration from file
+    let config_manager = match ConfigManager::new("/etc/anna/config.toml") {
+        Ok(mgr) => {
+            info!("Loaded configuration from /etc/anna/config.toml");
+            Arc::new(mgr)
+        }
+        Err(e) => {
+            warn!("Failed to load config file: {}, using defaults", e);
+            match ConfigManager::new("/dev/null") {
+                Ok(mgr) => Arc::new(mgr),
+                Err(_) => anyhow::bail!("Failed to initialize config manager"),
+            }
+        }
+    };
+
+    let loaded_config = config_manager.get().await;
+    let config = DaemonConfig {
+        db_path: loaded_config.daemon.db_path.clone(),
+        socket_path: loaded_config.daemon.socket_path.clone(),
+        poll_interval_secs: loaded_config.daemon.poll_interval_secs,
+        poll_jitter_secs: loaded_config.daemon.poll_jitter_secs,
+    };
 
     // Ensure directories exist
     ensure_directories(&config)?;
+
+    // Setup reload signal handler
+    let reload_signal = ReloadSignal::new();
+    let reload_flag = reload_signal.clone_flag();
+    spawn_sighup_handler(reload_flag)?;
+    info!("SIGHUP handler registered");
 
     // Initialize storage
     info!("Initializing storage at {:?}", config.db_path);
@@ -231,6 +265,32 @@ async fn main() -> Result<()> {
                 }
                 Err(e) => {
                     error!("Integrity watchdog failed: {}", e);
+                }
+            }
+        }
+    });
+
+    // Start config reload checker (runs every 5 seconds)
+    let reload_config_manager = Arc::clone(&config_manager);
+    let reload_checker = reload_signal.clone();
+    tokio::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(5));
+
+        loop {
+            interval.tick().await;
+
+            if reload_checker.is_reload_requested() {
+                info!("Config reload requested - reloading configuration");
+
+                match reload_config_manager.reload().await {
+                    Ok(_) => {
+                        info!("Configuration reloaded successfully");
+                        reload_checker.clear_reload_request();
+                    }
+                    Err(e) => {
+                        error!("Configuration reload failed: {}", e);
+                        // Don't clear the flag - will retry on next tick
+                    }
                 }
             }
         }

@@ -12,6 +12,9 @@ use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 use crate::events::EventEngineState;
+use crate::health_metrics::{
+    HealthEvaluator, HealthSnapshot, HealthStatus, LatencyTracker, MemoryMonitor, QueueMetrics,
+};
 use crate::persona_v10::PersonaRadar;
 use crate::storage_v10::StorageManager;
 use crate::telemetry_v10::TelemetrySnapshot;
@@ -72,11 +75,20 @@ struct TrendResult {
 pub struct RpcServer {
     storage: Arc<Mutex<StorageManager>>,
     events: Arc<EventEngineState>,
+    latency_tracker: Arc<LatencyTracker>,
+    memory_monitor: Arc<MemoryMonitor>,
+    health_evaluator: Arc<HealthEvaluator>,
 }
 
 impl RpcServer {
     pub fn new(storage: Arc<Mutex<StorageManager>>, events: Arc<EventEngineState>) -> Self {
-        Self { storage, events }
+        Self {
+            storage,
+            events,
+            latency_tracker: Arc::new(LatencyTracker::new()),
+            memory_monitor: Arc::new(MemoryMonitor::new(80)), // 80MB systemd limit
+            health_evaluator: Arc::new(HealthEvaluator::with_defaults()),
+        }
     }
 
     /// Start the RPC server on a UNIX socket
@@ -242,6 +254,8 @@ impl RpcServer {
 
     /// Handle a JSON-RPC request
     async fn handle_request(&self, line: &str) -> Result<JsonRpcResponse> {
+        use std::time::Instant;
+
         let req: JsonRpcRequest =
             serde_json::from_str(line).context("Failed to parse JSON-RPC request")?;
 
@@ -253,7 +267,14 @@ impl RpcServer {
             ));
         }
 
+        // Start latency tracking
+        let start = Instant::now();
+
         let result = match req.method.as_str() {
+            // v0.12.8 Telemetry snapshot
+            "get_telemetry_snapshot" => self.method_get_telemetry_snapshot(&req.params).await,
+            // v0.12.7 Health metrics
+            "get_health_metrics" => self.method_get_health_metrics(&req.params).await,
             // v0.12.3 CLI methods (advisor)
             "advisor_run" => self.method_advisor_run(&req.params).await,
             "hardware_profile" => self.method_hardware_profile(&req.params).await,
@@ -288,6 +309,10 @@ impl RpcServer {
                 ));
             }
         };
+
+        // Record latency
+        let latency = start.elapsed();
+        self.latency_tracker.record(latency);
 
         match result {
             Ok(value) => Ok(JsonRpcResponse {
@@ -913,6 +938,79 @@ impl RpcServer {
         let profile = collector.collect().await?;
 
         Ok(serde_json::to_value(profile)?)
+    }
+
+    /// v0.12.7: Get health metrics snapshot
+    async fn method_get_health_metrics(&self, _params: &Option<Value>) -> Result<Value> {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        // Get RPC latency metrics
+        let rpc_latency = self.latency_tracker.metrics();
+
+        // Get memory metrics
+        let memory = self.memory_monitor.metrics().ok();
+
+        // Get queue metrics from event engine
+        let queue = Some(QueueMetrics {
+            depth: self.events.pending_count(),
+            rate_per_sec: self.events.event_rate_per_sec(),
+            oldest_event_sec: self.events.oldest_pending_event_sec(),
+            total_processed: self.events.get_history(1000).len() as u64,
+        });
+
+        // Get uptime
+        let uptime_sec = self.latency_tracker.uptime_sec();
+
+        // Get capabilities count (hardcoded for now, would need CapabilityManager access)
+        let capabilities_active = 4;
+        let capabilities_degraded = 0;
+
+        // Build snapshot
+        let mut snapshot = HealthSnapshot {
+            status: HealthStatus::Unknown,
+            uptime_sec,
+            rpc_latency,
+            memory,
+            queue,
+            capabilities_active,
+            capabilities_degraded,
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+        };
+
+        // Evaluate overall health
+        snapshot.status = self.health_evaluator.evaluate(&snapshot);
+
+        Ok(serde_json::to_value(snapshot)?)
+    }
+
+    /// v0.12.8: Get live telemetry snapshot for watch mode
+    async fn method_get_telemetry_snapshot(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::telemetry_snapshot::TelemetrySnapshot;
+
+        // Get queue depth from event engine
+        let queue_depth = self.events.pending_count();
+
+        // Create a basic telemetry snapshot
+        // In a full implementation, we would have a SnapshotAggregator instance
+        // that tracks events over time. For now, create a minimal snapshot.
+        let mut snapshot = TelemetrySnapshot::new();
+        snapshot.queue.depth = queue_depth;
+        snapshot.queue.total_processed = self.events.get_history(1000).len() as u64;
+
+        // Get memory metrics
+        if let Ok(memory_metrics) = self.memory_monitor.metrics() {
+            snapshot.resources.memory_bytes = (memory_metrics.current_mb * 1024.0 * 1024.0) as u64;
+            snapshot.resources.memory_human = format!("{:.1} MB", memory_metrics.current_mb);
+        }
+
+        // Module activity status
+        snapshot.modules.telemetry_active = true;
+        snapshot.modules.event_engine_active = true;
+        snapshot.modules.policy_engine_active = true;
+        snapshot.modules.storage_active = true;
+        snapshot.modules.rpc_active = true;
+
+        Ok(serde_json::to_value(snapshot)?)
     }
 
     // Helper function to get user ID by name

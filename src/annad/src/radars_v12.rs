@@ -1,7 +1,6 @@
 // Anna v0.12.0 - Radar Scoring System
 // Three radars: System Health, Usage Habit, Network Posture
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

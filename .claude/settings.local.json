@@ -139,7 +139,11 @@
       "Bash(done)",
       "Bash(for script in scripts/btrfs/*.sh)",
       "Bash(while read script)",
-      "Bash(do echo \"=== $script ===\")"
+      "Bash(do echo \"=== $script ===\")",
+      "Bash(./scripts/validate_v0126.sh:*)",
+      "Bash(~/.cargo/bin/cargo check:*)",
+      "Bash(find:*)",
+      "Bash(cargo fix:*)"
     ],
     "deny": [],
     "ask": []

@@ -22,4 +22,5 @@ which = { workspace = true }
 libc = { workspace = true }
 chrono = { workspace = true }
 hostname = { workspace = true }
+rand = { workspace = true }
 anna_common = { path = "../anna_common" }

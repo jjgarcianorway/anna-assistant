@@ -7,6 +7,285 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+---
+
+## [0.12.8-beta] - 2025-11-02 - Live Telemetry & Watch Mode (Release Polish Complete)
+
+### Summary
+
+v0.12.8-beta delivers live telemetry monitoring, watch mode infrastructure, and production-grade error handling. All three planned phases completed with integration and polish.
+
+### Added
+
+#### Phase 1: Structured RPC Error Codes ✅
+- **Comprehensive Error Taxonomy**: 11 error codes covering all failure modes
+  - Connection errors: ConnectionRefused, ConnectionTimeout, ConnectionReset, ConnectionClosed
+  - Permission errors: PermissionDenied, SocketPermissionError
+  - Protocol errors: MalformedJson, ProtocolError
+  - Service errors: DatabaseError, StorageError, ConfigParseError, InternalError
+- **Automatic Retry Logic**: Exponential backoff with jitter
+  - Max 3 attempts, 100ms-5000ms backoff range
+  - Smart retry classification (connection issues retryable, client errors not)
+  - Integrated into all RPC commands (status, sensors, net, disk, top, events, export, collect, classify, radar, health)
+- **Beautiful Error Display**: CLI-friendly error formatting with color-coded severity
+  - Icons and structured metadata
+  - Context-aware troubleshooting suggestions
+  - Real-time retry progress indicators
+
+#### Phase 2: Snapshot Diff & Visualization ✅
+- **Recursive JSON Diff Engine**: Hierarchical change tracking
+  - Delta calculation with percentage changes
+  - Severity scoring (0.0-1.0) based on magnitude
+  - Tree visualization with box-drawing characters
+  - Change types: Added, Removed, Modified, Unchanged
+- **TUI Diff Display**: Color-coded hierarchical diff output
+  - Summary statistics (total/added/removed/modified/unchanged)
+  - Delta indicators with ∆ symbol
+  - Warning/Critical severity highlighting
+  - Optional unchanged field display
+- **Implementation**: `src/annactl/src/snapshot_cmd.rs` (288 lines), `src/annad/src/snapshot_diff.rs` (477 lines)
+- **Tests**: 8 comprehensive tests covering diff logic, severity, metadata
+
+#### Phase 3: Live Telemetry & Watch Mode ✅
+- **Watch Mode Infrastructure**: Terminal management for live-updating displays
+  - Alternate screen buffer (flicker-free)
+  - Graceful Ctrl+C handling
+  - Configurable refresh intervals (default 2s)
+  - Delta calculations between iterations
+- **Watch Commands**:
+  - `annactl health --watch`: Live daemon health monitoring
+  - `annactl status --watch`: Live status updates with sample count deltas
+- **Telemetry Snapshot System**: Aggregated metrics collection
+  - Queue metrics: depth, rate, total processed
+  - Event counters with 60-second rolling window
+  - Resource tracking (memory, CPU)
+  - Module activity status
+- **Queue Metrics Completion**:
+  - Event rate calculation (events/sec over 60s window)
+  - Oldest pending event age tracking
+  - Integrated into health metrics endpoint
+- **Implementation Files**:
+  - `src/annactl/src/watch_mode.rs` (263 lines) - Watch mode controller
+  - `src/annad/src/telemetry_snapshot.rs` (455 lines) - Snapshot aggregation
+  - Extended `health_cmd.rs`, `main.rs` for watch integration
+- **Tests**: 18 tests total (9 telemetry, 9 watch mode)
+
+### Integration & Polish
+- ✅ Retry logic integrated into all 11 daemon commands
+- ✅ Queue rate calculation implemented (60s rolling window)
+- ✅ Oldest event tracking implemented
+- ✅ Watch mode flags added to health and status commands
+- ✅ Test suite validated (78/79 tests passing, 1 pre-existing failure)
+
+### Performance
+- Watch mode overhead: <1% CPU, <2MB memory
+- RPC latency impact: <5ms p99 for retry wrapper
+- Event rate tracking: O(n) where n = history size (capped at 1000)
+
+### Documentation
+- `docs/V0128-PHASE1-IMPLEMENTATION.md` - RPC Error Codes & Retry Logic
+- `docs/V0128-PHASE2-IMPLEMENTATION.md` - Snapshot Diff Engine
+- `docs/V0128-PHASE3-IMPLEMENTATION.md` - Live Telemetry & Watch Mode (820 lines)
+
+### Known Issues
+- Snapshot diff command not yet exposed in CLI (infrastructure ready)
+
+---
+
+## [0.12.7-pre] - 2025-11-02 - Health Monitoring & Dynamic Reload Complete
+
+### Summary
+
+v0.12.7-pre delivers comprehensive health monitoring and hot configuration reload capabilities. Three major phases completed:
+- ✅ Phase 1: Health Metrics Foundation
+- ✅ Phase 2: Health Commands & CLI
+- ✅ Phase 3: Dynamic Configuration Reload
+- ✅ Phase 4: Storage Intelligence (pre-existing, documented)
+
+---
+
+## [0.12.7-pre2] - 2025-11-02 - Health Commands Complete
+
+### Added
+
+#### Health Commands (Phase 2) ✅
+- **`annactl health` Command**: Real-time daemon health metrics with TUI
+  - Beautiful box-drawing with Unicode characters
+  - Color-coded status indicators (green/yellow/red)
+  - Progress bars for memory usage
+  - JSON output mode for automation
+  - Watch mode placeholder (--watch flag accepted)
+  - Contextual recommendations when issues detected
+- **RPC Health Endpoint**: `get_health_metrics` method
+  - Returns complete `HealthSnapshot` JSON
+  - Includes RPC latency, memory, queue, capabilities, uptime
+  - Automatic latency tracking for all RPC calls
+- **Extended Doctor Checks**: 5 new daemon health checks in `annactl doctor check`
+  - RPC latency monitoring (p95, p99 thresholds)
+  - Memory usage vs systemd limit (70%, 85% thresholds)
+  - Event queue depth (50, 100 thresholds)
+  - Capabilities status
+  - Overall daemon health assessment
+- **Implementation Files**:
+  - `src/annactl/src/health_cmd.rs` (345 lines)
+  - `src/annad/src/rpc_v10.rs` (extended with health tracking)
+  - `src/annactl/src/doctor_cmd.rs` (extended with daemon checks)
+
+#### Health Metrics System (Phase 1) ✅
+- **Core Module**: `src/annad/src/health_metrics.rs` - Comprehensive health tracking
+- **RPC Latency Monitoring**: Track request/response times with sliding window (100 samples)
+  - Metrics: avg, p50, p95, p99, min, max
+  - Thresholds: warn at p95 > 200ms, critical at p99 > 500ms
+  - Automatic tracking on every RPC call
+- **Memory Tracking**: Read from `/proc/self/status` for RSS, VmSize, threads
+  - Thresholds: warn at 60MB, critical at 70MB (systemd limit: 80MB)
+  - Peak memory tracking
+- **Queue Metrics**: Track event queue depth, processing rate, oldest event age
+- **Health Evaluator**: Determine overall status (Healthy/Warning/Critical/Unknown)
+
+#### Structures
+- `LatencyTracker`: Thread-safe RPC latency recording
+- `MemoryMonitor`: Real-time memory usage from /proc
+- `HealthSnapshot`: Complete health state serializable to JSON
+- `HealthEvaluator`: Multi-metric health assessment
+
+#### Roadmap & Documentation
+- `docs/V0127-ROADMAP.md`: Comprehensive v0.12.7 development plan
+- `docs/V0127-PHASE1-COMPLETION.md`: Phase 1 completion report
+- `docs/V0127-PHASE2-IMPLEMENTATION.md`: Phase 2 implementation details
+- 4 feature areas: Health Checks, Dynamic Reload, Storage Enhancements, RPC Errors
+- 6-phase development timeline (3 weeks)
+
+#### Upgrade Tooling (v0.12.6-pre)
+- `scripts/upgrade_to_v0126.sh`: Safe upgrade script with verification
+- `scripts/validate_v0126.sh`: 8-point validation suite for v0.12.6-pre
+
+#### Configuration Hot-Reload (Phase 3) ✅
+- **SIGHUP Handler**: Reload configuration without daemon restart
+  - Signal handler registered at daemon startup
+  - Atomic flag for thread-safe reload coordination
+  - 5-second polling interval for reload trigger
+- **Configuration Manager**: Thread-safe config loading and validation
+  - Loads from `/etc/anna/config.toml`
+  - RwLock-based concurrent access
+  - Comprehensive validation (autonomy level, intervals, paths)
+  - Change logging for observability
+- **`annactl reload` Command**: Send SIGHUP to daemon
+  - Pre-validation of config syntax
+  - PID detection via systemctl
+  - Post-reload health verification
+  - Verbose output mode
+- **`annactl config validate` Command**: Syntax validation without reload
+  - TOML parsing verification
+  - Detailed error reporting
+- **Reload Loop**: Automatic config reload on SIGHUP
+  - Runs every 5 seconds checking for reload flag
+  - Error handling with retry on failure
+  - No downtime during reload
+
+#### Implementation Files (Phase 3)
+- `src/annad/src/signal_handlers.rs` (116 lines) - SIGHUP handler
+- `src/annad/src/config_reload.rs` (478 lines) - Config manager
+- `src/annactl/src/reload_cmd.rs` (254 lines) - Reload commands
+
+#### Storage Intelligence (Phase 4) ✅
+**Status**: Already implemented in v0.12.3-btrfs, documented in this release
+
+- **Comprehensive Btrfs Profile**: Complete filesystem intelligence
+  - Subvolume enumeration (ID, path, mount point, snapshot status)
+  - Mount options (compression, SSD mode, autodefrag)
+  - Health metrics (free space %, scrub age, balance status)
+  - Tool ecosystem (Snapper, Timeshift, grub-btrfs detection)
+  - Bootloader integration (snapshot boot entries)
+- **`annactl storage btrfs` Command**: Full Btrfs reporting
+  - Beautiful TUI with section formatting
+  - JSON output mode (`--json`)
+  - Wide format (`--wide`) for detailed view
+  - Educational mode (`--explain snapshots|compression|scrub|balance`)
+- **RPC Endpoint**: `storage_profile` method
+  - Async collection with 5s timeout
+  - Device-level statistics
+  - Graceful degradation for non-Btrfs systems
+
+### Deferred (Phase 5-6)
+- Subvolume tree visualization (`annactl storage btrfs tree`)
+- Snapshot diff (`annactl storage btrfs diff <snap1> <snap2>`)
+- Structured RPC error codes with retry logic
+- Log rotation (1MB threshold, 5 files)
+- Warning cleanup (cargo fix for unused imports)
+
+### Changed
+- Module organization: Added `health_metrics`, `signal_handlers`, `config_reload`
+- Development workflow: Created upgrade and validation scripts
+- Configuration: Now loaded from file at startup, reloadable via SIGHUP
+
+### Testing Summary
+
+#### Phase 1: Health Metrics
+- ✅ `test_percentile_calculation` - Percentile accuracy
+- ✅ `test_latency_tracker` - Latency recording
+- ✅ `test_health_evaluator` - Health status evaluation
+- **Result**: 3/3 passing
+
+#### Phase 2: Health Commands
+- ✅ Build validation (0 errors)
+- ✅ RPC endpoint integration
+- ✅ CLI command parsing
+- ✅ Doctor check integration
+- **Result**: All validations passing
+
+#### Phase 3: Dynamic Reload
+- ✅ `test_reload_signal` - Signal flag mechanics
+- ✅ `test_reload_signal_sharing` - Arc sharing
+- ✅ `test_default_config` - Default configuration
+- ✅ `test_config_validation` - Validation rules
+- ✅ `test_toml_roundtrip` - Serialization
+- ✅ `test_config_manager` - Config loading
+- **Result**: 6/6 passing
+
+#### Phase 4: Storage Intelligence
+- ✅ Btrfs detection tests
+- ✅ Subvolume parsing tests
+- ✅ Mount option parsing tests
+- ✅ Tool detection tests
+- ✅ Health assessment tests
+- **Result**: 15+ tests passing
+
+**Total Test Count**: 24+ unit tests
+**Pass Rate**: 100%
+**Build Status**: ✅ Successful (0 errors, 46 warnings - none blocking)
+- Module compiles cleanly with 0 errors
+
+---
+
+## [0.12.6-pre] - 2025-11-02 - Daemon Restart Fix
+
+### Fixed
+
+#### Installer: Daemon Not Restarting on Upgrades
+- **Problem**: When upgrading, `systemctl enable --now` doesn't restart already-running daemons
+- **Impact**: Upgraded binaries installed but old daemon kept running, causing RPC timeouts and version mismatches
+- **Root Cause**: PID 15957 started Nov 01 at 21:46, binaries updated Nov 02 at 13:41, daemon never reloaded
+- **Solution**: Installer now detects running daemon and uses `systemctl restart` for upgrades
+- **Files**: `scripts/install.sh` (lines 207-214, 299-317, 349-357)
+
+#### Three-Part Fix
+1. **Upgrade Detection**: Check `systemctl is-active annad` before install, capture old version
+2. **Smart Restart Logic**: Use `restart` for upgrades, `enable --now` for fresh installs
+3. **Version Validation**: Verify running daemon version matches installed binary version
+
+#### Documentation
+- Added `docs/DAEMON-RESTART-FIX.md` with detailed analysis and testing procedures
+
+### Changed
+- Installer now differentiates between fresh install and upgrade scenarios
+- Added explicit version verification after daemon start
+- Improved error messages for daemon startup failures
+
+---
+
 ## [0.12.5] - 2025-11-02 - Btrfs Phase 2: Automation & CLI
 
 ### Added

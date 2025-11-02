@@ -1,9 +1,7 @@
 // Anna v0.12.3 - Arch Linux Advisor Engine
 // Deterministic rule-based analysis for system optimization
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 use crate::hardware_profile::HardwareProfile;
 use crate::package_analysis::PackageInventory;

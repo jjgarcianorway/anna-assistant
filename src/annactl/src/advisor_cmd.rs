@@ -1,7 +1,7 @@
 // Anna v0.12.3 - Advisor CLI Command
 
 use anyhow::{Context, Result};
-use anna_common::{header, section, status, table, Level, TermCaps};
+use anna_common::{header, section, status, Level, TermCaps};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};

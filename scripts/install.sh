@@ -204,6 +204,15 @@ else
     echo "✓ Already in anna group"
 fi
 
+# Check if daemon is already running (upgrade scenario)
+DAEMON_WAS_RUNNING=false
+if systemctl is-active --quiet annad 2>/dev/null; then
+    DAEMON_WAS_RUNNING=true
+    OLD_VERSION=$(annactl --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+    echo "→ Detected running daemon (v${OLD_VERSION})"
+    echo "→ Will restart after installing new binaries"
+fi
+
 # Install binaries
 echo ""
 echo "→ Installing binaries..."
@@ -287,53 +296,75 @@ else
     echo "⚠ Could not determine version"
 fi
 
-# Enable and start service
+# Enable and start/restart service
 echo ""
-echo "→ Starting Anna..."
-if sudo systemctl enable --now annad 2>/dev/null; then
-    echo "→ Waiting for daemon to initialize..."
-
-    # Wait up to 10 seconds for socket to appear
-    WAITED=0
-    MAX_WAIT=10
-    while [ $WAITED -lt $MAX_WAIT ]; do
-        if [ -S /run/anna/annad.sock ]; then
-            break
-        fi
-        sleep 1
-        WAITED=$((WAITED + 1))
-    done
-
-    if [ ! -S /run/anna/annad.sock ]; then
-        echo "✗ Socket not created after ${MAX_WAIT}s"
-        echo ""
-        echo "Diagnostics:"
-        sudo systemctl status annad --no-pager -l | head -20
-        echo ""
-        echo "Check logs: sudo journalctl -u annad -n 30"
+if [ "$DAEMON_WAS_RUNNING" = true ]; then
+    echo "→ Restarting Anna with new binaries..."
+    if ! sudo systemctl restart annad 2>/dev/null; then
+        echo "✗ Restart failed"
+        echo "  Check: systemctl status annad"
         exit 1
     fi
-
-    # Verify using annactl with timeout
-    echo "→ Testing daemon response..."
-    if timeout 5 annactl status &>/dev/null; then
-        RUNNING_VERSION=$(annactl --version 2>/dev/null | awk '{print $2}' || echo "unknown")
-        echo "✓ Anna is running and responding"
-        echo "✓ Daemon version: $RUNNING_VERSION"
-    else
-        echo "✗ Daemon not responding (timeout after 5s)"
-        echo ""
-        echo "Diagnostics:"
-        systemctl is-active annad && echo "  • Process: active" || echo "  • Process: inactive"
-        [ -S /run/anna/annad.sock ] && echo "  • Socket: exists ($(stat -c '%U:%G %a' /run/anna/annad.sock))" || echo "  • Socket: missing"
-        echo ""
-        echo "Recent logs:"
-        sudo journalctl -u annad -n 15 --no-pager
+    echo "✓ Daemon restarted"
+else
+    echo "→ Starting Anna..."
+    if ! sudo systemctl enable --now annad 2>/dev/null; then
+        echo "⚠ Could not start service"
+        echo "  Check: systemctl status annad"
         exit 1
+    fi
+    echo "✓ Daemon started"
+fi
+
+echo "→ Waiting for daemon to initialize..."
+
+# Wait up to 10 seconds for socket to appear
+WAITED=0
+MAX_WAIT=10
+while [ $WAITED -lt $MAX_WAIT ]; do
+    if [ -S /run/anna/annad.sock ]; then
+        break
+    fi
+    sleep 1
+    WAITED=$((WAITED + 1))
+done
+
+if [ ! -S /run/anna/annad.sock ]; then
+    echo "✗ Socket not created after ${MAX_WAIT}s"
+    echo ""
+    echo "Diagnostics:"
+    sudo systemctl status annad --no-pager -l | head -20
+    echo ""
+    echo "Check logs: sudo journalctl -u annad -n 30"
+    exit 1
+fi
+
+# Verify using annactl with timeout
+echo "→ Testing daemon response..."
+if timeout 5 annactl status &>/dev/null; then
+    RUNNING_VERSION=$(annactl --version 2>/dev/null | awk '{print $2}' || echo "unknown")
+    echo "✓ Anna is running and responding"
+    echo "✓ Daemon version: $RUNNING_VERSION"
+
+    # Validate version match (if we can determine installed version)
+    if [ -n "$INSTALLED_VERSION" ] && [ "$INSTALLED_VERSION" != "unknown" ]; then
+        if [ "$RUNNING_VERSION" = "$INSTALLED_VERSION" ]; then
+            echo "✓ Version verified: $RUNNING_VERSION"
+        else
+            echo "⚠ Version mismatch: running=$RUNNING_VERSION, installed=$INSTALLED_VERSION"
+            echo "  This may indicate a daemon restart issue"
+        fi
     fi
 else
-    echo "⚠ Could not start service"
-    echo "  Check: systemctl status annad"
+    echo "✗ Daemon not responding (timeout after 5s)"
+    echo ""
+    echo "Diagnostics:"
+    systemctl is-active annad && echo "  • Process: active" || echo "  • Process: inactive"
+    [ -S /run/anna/annad.sock ] && echo "  • Socket: exists ($(stat -c '%U:%G %a' /run/anna/annad.sock))" || echo "  • Socket: missing"
+    echo ""
+    echo "Recent logs:"
+    sudo journalctl -u annad -n 15 --no-pager
+    exit 1
 fi
 
 echo ""

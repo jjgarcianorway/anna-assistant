@@ -3,7 +3,7 @@
 // Centralized event system with debouncing, coalescing, and domain-based routing.
 // Converts system changes into semantic triggers for the doctor/repair pipeline.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -181,6 +181,57 @@ impl EventEngineState {
 
     pub fn pending_count(&self) -> usize {
         self.queue.pending.lock().unwrap().len()
+    }
+
+    /// Calculate event processing rate (events/sec) based on recent history
+    pub fn event_rate_per_sec(&self) -> f64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let hist = self.history.lock().unwrap();
+        if hist.is_empty() {
+            return 0.0;
+        }
+
+        // Get current time as Unix timestamp
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // Count events in last 60 seconds
+        let window_secs = 60;
+        let cutoff = now - window_secs;
+
+        let recent_count = hist
+            .iter()
+            .filter(|result| result.event.timestamp >= cutoff)
+            .count();
+
+        // Calculate rate
+        if recent_count > 0 {
+            recent_count as f64 / window_secs as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// Get age of oldest pending event in seconds
+    pub fn oldest_pending_event_sec(&self) -> u64 {
+        use std::time::Instant;
+
+        let pending = self.queue.pending.lock().unwrap();
+        if pending.is_empty() {
+            return 0;
+        }
+
+        // Find oldest first_seen timestamp
+        let oldest = pending
+            .values()
+            .map(|p| p.first_seen)
+            .min()
+            .unwrap_or_else(Instant::now);
+
+        oldest.elapsed().as_secs()
     }
 }
 

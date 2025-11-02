@@ -1,7 +1,7 @@
 // Anna v0.12.0 - Lightweight Telemetry Collectors
 // Optional-aware collectors: sensors, net, disk, top
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;

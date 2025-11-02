@@ -839,25 +839,31 @@ pub async fn doctor_check(_json: bool, verbose: bool) -> Result<()> {
         std::process::exit(1);
     }
 
-    // 2. Radar Health Check
+    // 2. Daemon Health Metrics Check (v0.12.7)
+    if verbose {
+        println!("│  Checking daemon health metrics...");
+    }
+    check_daemon_health_metrics(&mut issues, &mut warnings, &mut suggestions, verbose).await;
+
+    // 3. Radar Health Check
     if verbose {
         println!("│  Checking system radars...");
     }
     check_radar_health(&mut issues, &mut warnings, &mut suggestions, verbose).await?;
 
-    // 3. Resource Usage Check
+    // 4. Resource Usage Check
     if verbose {
         println!("│  Checking resource usage...");
     }
     check_resource_usage(&mut issues, &mut warnings, &mut suggestions, verbose).await?;
 
-    // 4. Configuration Check
+    // 5. Configuration Check
     if verbose {
         println!("│  Checking configuration...");
     }
     check_configuration(&mut issues, &mut warnings, &mut suggestions, verbose);
 
-    // 5. Permission Check
+    // 6. Permission Check
     if verbose {
         println!("│  Checking permissions...");
     }
@@ -928,6 +934,130 @@ async fn check_daemon_connectivity(
             }
             warnings.push(format!("Daemon not responding to RPC calls: {}", e));
             false
+        }
+    }
+}
+
+async fn check_daemon_health_metrics(
+    _issues: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+    suggestions: &mut Vec<String>,
+    verbose: bool,
+) {
+    // Try to fetch health metrics from daemon
+    match try_rpc_call("get_health_metrics", None).await {
+        Ok(response) => {
+            // Parse health snapshot
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "PascalCase")]
+            #[allow(dead_code)]
+            enum HealthStatus {
+                Healthy,
+                Warning,
+                Critical,
+                Unknown,
+            }
+
+            #[derive(serde::Deserialize)]
+            struct HealthSnapshot {
+                status: HealthStatus,
+                rpc_latency: Option<RpcLatencyMetrics>,
+                memory: Option<MemoryMetrics>,
+                queue: Option<QueueMetrics>,
+                capabilities_degraded: usize,
+            }
+
+            #[derive(serde::Deserialize)]
+            struct RpcLatencyMetrics {
+                p95_ms: u64,
+                p99_ms: u64,
+            }
+
+            #[derive(serde::Deserialize)]
+            struct MemoryMetrics {
+                current_mb: f64,
+                limit_mb: u64,
+            }
+
+            #[derive(serde::Deserialize)]
+            struct QueueMetrics {
+                depth: usize,
+            }
+
+            if let Ok(snapshot) = serde_json::from_value::<HealthSnapshot>(response) {
+                // Check RPC latency
+                if let Some(ref latency) = snapshot.rpc_latency {
+                    if latency.p99_ms > 500 {
+                        warnings.push(format!(
+                            "High RPC latency: p99={}ms (threshold: 500ms)",
+                            latency.p99_ms
+                        ));
+                        suggestions.push("Daemon may be under heavy load".to_string());
+                    } else if latency.p95_ms > 200 {
+                        warnings.push(format!(
+                            "Elevated RPC latency: p95={}ms (threshold: 200ms)",
+                            latency.p95_ms
+                        ));
+                    } else if verbose {
+                        println!(
+                            "│  ✓ RPC Latency: p95={}ms p99={}ms",
+                            latency.p95_ms, latency.p99_ms
+                        );
+                    }
+                }
+
+                // Check memory usage
+                if let Some(ref memory) = snapshot.memory {
+                    let mem_pct = (memory.current_mb / memory.limit_mb as f64) * 100.0;
+                    if mem_pct > 85.0 {
+                        warnings.push(format!(
+                            "High memory usage: {:.1}MB / {}MB ({:.0}%)",
+                            memory.current_mb, memory.limit_mb, mem_pct
+                        ));
+                        suggestions.push("Daemon approaching systemd memory limit".to_string());
+                    } else if mem_pct > 70.0 {
+                        warnings.push(format!(
+                            "Elevated memory usage: {:.1}MB / {}MB ({:.0}%)",
+                            memory.current_mb, memory.limit_mb, mem_pct
+                        ));
+                    } else if verbose {
+                        println!(
+                            "│  ✓ Memory Usage: {:.1}MB / {}MB ({:.0}%)",
+                            memory.current_mb, memory.limit_mb, mem_pct
+                        );
+                    }
+                }
+
+                // Check queue depth
+                if let Some(ref queue) = snapshot.queue {
+                    if queue.depth > 100 {
+                        warnings.push(format!("Event queue backlog: {} events", queue.depth));
+                        suggestions.push("Events may be processed with delay".to_string());
+                    } else if queue.depth > 50 {
+                        warnings.push(format!("Elevated queue depth: {} events", queue.depth));
+                    } else if verbose {
+                        println!("│  ✓ Queue Depth: {} events", queue.depth);
+                    }
+                }
+
+                // Check capabilities
+                if snapshot.capabilities_degraded > 0 {
+                    warnings.push(format!(
+                        "{} capabilities degraded",
+                        snapshot.capabilities_degraded
+                    ));
+                    suggestions.push("Run: annactl capabilities".to_string());
+                } else if verbose {
+                    println!("│  ✓ Capabilities: All active");
+                }
+
+                println!("│  ✓ Health Metrics: Daemon health monitored");
+            } else {
+                warnings.push("Could not parse health metrics response".to_string());
+            }
+        }
+        Err(e) => {
+            warnings.push(format!("Could not fetch health metrics: {}", e));
         }
     }
 }

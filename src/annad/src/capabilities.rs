@@ -6,9 +6,9 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 const CAPABILITIES_PATH: &str = "/usr/lib/anna/CAPABILITIES.toml";
 const MODULES_CONFIG_PATH: &str = "/etc/anna/modules.yaml";

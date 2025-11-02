@@ -6,13 +6,19 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
 mod advisor_cmd;
 mod doctor_cmd;
+mod error_display;
+mod health_cmd;
 mod hw_cmd;
+mod reload_cmd;
+mod snapshot_cmd;
 mod storage_cmd;
+mod watch_mode;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -38,6 +44,9 @@ enum Commands {
         /// Show verbose details
         #[arg(short, long)]
         verbose: bool,
+        /// Watch mode (update every 2s)
+        #[arg(short, long)]
+        watch: bool,
     },
 
     /// Collect telemetry snapshots
@@ -152,6 +161,29 @@ enum Commands {
         #[command(subcommand)]
         check: DoctorCheck,
     },
+
+    /// Show daemon health metrics
+    Health {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Watch mode (update every 1s)
+        #[arg(short, long)]
+        watch: bool,
+    },
+
+    /// Reload daemon configuration (sends SIGHUP)
+    Reload {
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Validate configuration file
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -240,6 +272,19 @@ enum StorageAction {
     },
 }
 
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// Validate configuration file syntax
+    Validate {
+        /// Path to config file (default: /etc/anna/config.toml)
+        #[arg(short, long)]
+        path: Option<String>,
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RpcRequest {
     jsonrpc: String,
@@ -276,19 +321,26 @@ async fn main() -> Result<()> {
             );
             Ok(())
         }
-        Commands::Status { json, verbose } => {
-            let params = serde_json::json!({ "verbose": verbose });
-            let response = rpc_call("status", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
+        Commands::Status { json, verbose, watch } => {
+            if watch {
+                if json {
+                    eprintln!("Warning: JSON output not supported in watch mode");
+                }
+                show_status_watch(verbose).await?;
             } else {
-                print_status(&response, verbose)?;
+                let params = serde_json::json!({ "verbose": verbose });
+                let response = rpc_call_with_retry("status", Some(params)).await?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&response)?);
+                } else {
+                    print_status(&response, verbose)?;
+                }
             }
             Ok(())
         }
         Commands::Sensors { json, detail } => {
             let params = serde_json::json!({ "detail": detail });
-            let response = rpc_call("sensors", Some(params)).await?;
+            let response = rpc_call_with_retry("sensors", Some(params)).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -298,7 +350,7 @@ async fn main() -> Result<()> {
         }
         Commands::Net { json, detail } => {
             let params = serde_json::json!({ "detail": detail });
-            let response = rpc_call("net", Some(params)).await?;
+            let response = rpc_call_with_retry("net", Some(params)).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -308,7 +360,7 @@ async fn main() -> Result<()> {
         }
         Commands::Disk { json, detail } => {
             let params = serde_json::json!({ "detail": detail });
-            let response = rpc_call("disk", Some(params)).await?;
+            let response = rpc_call_with_retry("disk", Some(params)).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -318,7 +370,7 @@ async fn main() -> Result<()> {
         }
         Commands::Top { json, limit } => {
             let params = serde_json::json!({ "limit": limit });
-            let response = rpc_call("top", Some(params)).await?;
+            let response = rpc_call_with_retry("top", Some(params)).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -328,7 +380,7 @@ async fn main() -> Result<()> {
         }
         Commands::Events { json, since, limit } => {
             let params = serde_json::json!({ "since": since, "limit": limit });
-            let response = rpc_call("events", Some(params)).await?;
+            let response = rpc_call_with_retry("events", Some(params)).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -343,7 +395,7 @@ async fn main() -> Result<()> {
         } => {
             // Export is always JSON
             let params = serde_json::json!({ "since": since });
-            let response = rpc_call("export", Some(params)).await?;
+            let response = rpc_call_with_retry("export", Some(params)).await?;
             let output = serde_json::to_string_pretty(&response)?;
             if let Some(path_str) = path {
                 std::fs::write(&path_str, output)?;
@@ -396,7 +448,7 @@ async fn main() -> Result<()> {
         }
         Commands::Collect { json, limit } => {
             let params = serde_json::json!({ "limit": limit });
-            let response = rpc_call("collect", Some(params)).await?;
+            let response = rpc_call_with_retry("collect", Some(params)).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -405,7 +457,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Commands::Classify { json } => {
-            let response = rpc_call("classify", None).await?;
+            let response = rpc_call_with_retry("classify", None).await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&response)?);
             } else {
@@ -416,7 +468,7 @@ async fn main() -> Result<()> {
         Commands::Radar { action } => {
             match action {
                 RadarAction::Show { json } => {
-                    let response = rpc_call("radar_show", None).await?;
+                    let response = rpc_call_with_retry("radar_show", None).await?;
                     if json {
                         println!("{}", serde_json::to_string_pretty(&response)?);
                     } else {
@@ -426,7 +478,167 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
+        Commands::Health { json, watch } => {
+            health_cmd::show_health(json, watch).await?;
+            Ok(())
+        }
+        Commands::Reload { verbose } => {
+            reload_cmd::reload_config(verbose).await?;
+            Ok(())
+        }
+        Commands::Config { action } => {
+            match action {
+                ConfigAction::Validate { path, verbose } => {
+                    reload_cmd::validate_config(path, verbose)?;
+                }
+            }
+            Ok(())
+        }
     }
+}
+
+/// RPC call with retry logic and exponential backoff
+async fn rpc_call_with_retry(method: &str, params: Option<JsonValue>) -> Result<JsonValue> {
+    use error_display::{display_error, display_retry_attempt, display_retry_exhausted, display_retry_success, RetryInfo, RpcError, RpcErrorCode};
+    use std::time::Duration;
+
+    // Retry policy
+    const MAX_ATTEMPTS: u32 = 3;
+    const INITIAL_DELAY_MS: u64 = 100;
+    const MAX_DELAY_MS: u64 = 5000;
+    const BACKOFF_MULTIPLIER: f64 = 2.0;
+    const JITTER_FACTOR: f64 = 0.1;
+
+    let start_time = Instant::now();
+    let mut last_error: Option<anyhow::Error> = None;
+
+    for attempt in 0..MAX_ATTEMPTS {
+        match rpc_call(method, params.clone()).await {
+            Ok(result) => {
+                // Success!
+                if attempt > 0 {
+                    display_retry_success(attempt + 1, start_time.elapsed());
+                }
+                return Ok(result);
+            }
+            Err(e) => {
+                // Classify error
+                let rpc_error = classify_error(&e);
+                let is_retryable = is_error_retryable(&e);
+
+                last_error = Some(e);
+
+                // Show error on first attempt or if not retryable
+                if attempt == 0 || !is_retryable {
+                    let retry_info = if is_retryable && attempt < MAX_ATTEMPTS - 1 {
+                        Some(RetryInfo {
+                            attempt,
+                            max_attempts: MAX_ATTEMPTS,
+                            elapsed: start_time.elapsed(),
+                            next_delay: Some(calculate_delay(attempt, INITIAL_DELAY_MS, MAX_DELAY_MS, BACKOFF_MULTIPLIER, JITTER_FACTOR)),
+                        })
+                    } else {
+                        None
+                    };
+                    display_error(&rpc_error, retry_info.as_ref());
+                }
+
+                // If not retryable or last attempt, give up
+                if !is_retryable || attempt >= MAX_ATTEMPTS - 1 {
+                    if attempt > 0 {
+                        display_retry_exhausted(attempt + 1, start_time.elapsed());
+                    }
+                    return Err(last_error.unwrap());
+                }
+
+                // Calculate delay and wait
+                let delay = calculate_delay(attempt, INITIAL_DELAY_MS, MAX_DELAY_MS, BACKOFF_MULTIPLIER, JITTER_FACTOR);
+                display_retry_attempt(attempt, MAX_ATTEMPTS, delay);
+                tokio::time::sleep(delay).await;
+                print!("\r"); // Clear the retry message
+            }
+        }
+    }
+
+    // Should never reach here, but just in case
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("All retry attempts failed")))
+}
+
+/// Calculate exponential backoff delay with jitter
+fn calculate_delay(attempt: u32, initial_ms: u64, max_ms: u64, multiplier: f64, jitter: f64) -> std::time::Duration {
+    use rand::Rng;
+
+    let base_delay = initial_ms as f64 * multiplier.powi(attempt as i32);
+    let capped_delay = base_delay.min(max_ms as f64);
+
+    let mut rng = rand::thread_rng();
+    let jitter_range = capped_delay * jitter;
+    let jitter_value = rng.gen_range(-jitter_range..=jitter_range);
+    let final_delay = (capped_delay + jitter_value).max(0.0);
+
+    std::time::Duration::from_millis(final_delay as u64)
+}
+
+/// Classify anyhow::Error into structured RpcError
+fn classify_error(e: &anyhow::Error) -> error_display::RpcError {
+    use error_display::{RpcError, RpcErrorCode};
+
+    let error_str = format!("{}", e);
+    let error_lower = error_str.to_lowercase();
+
+    let code = if error_lower.contains("connection refused") || error_lower.contains("no such file") {
+        RpcErrorCode::ConnectionRefused
+    } else if error_lower.contains("timeout") {
+        RpcErrorCode::ConnectionTimeout
+    } else if error_lower.contains("permission denied") {
+        RpcErrorCode::PermissionDenied
+    } else if error_lower.contains("connection reset") {
+        RpcErrorCode::ConnectionReset
+    } else if error_lower.contains("broken pipe") {
+        RpcErrorCode::ConnectionClosed
+    } else if error_lower.contains("invalid json") || error_lower.contains("malformed") {
+        RpcErrorCode::MalformedJson
+    } else if error_lower.contains("database") {
+        RpcErrorCode::DatabaseError
+    } else if error_lower.contains("storage") {
+        RpcErrorCode::StorageError
+    } else if error_lower.contains("config") {
+        RpcErrorCode::ConfigParseError
+    } else {
+        RpcErrorCode::InternalError
+    };
+
+    RpcError::new(code).with_context(error_str)
+}
+
+/// Check if error is retryable
+fn is_error_retryable(e: &anyhow::Error) -> bool {
+    let error_str = format!("{}", e).to_lowercase();
+
+    // Connection issues - retryable
+    if error_str.contains("connection refused")
+        || error_str.contains("connection reset")
+        || error_str.contains("timeout")
+        || error_str.contains("broken pipe") {
+        return true;
+    }
+
+    // Resource issues - retryable
+    if error_str.contains("resource busy")
+        || error_str.contains("try again") {
+        return true;
+    }
+
+    // Client errors - not retryable
+    if error_str.contains("permission denied")
+        || error_str.contains("no such file")
+        || error_str.contains("invalid")
+        || error_str.contains("malformed") {
+        return false;
+    }
+
+    // Default: don't retry unless explicitly identified as retryable
+    false
 }
 
 async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> {
@@ -520,6 +732,98 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
     }
 
     response.result.context("No result in response")
+}
+
+/// Show status in watch mode with live updates
+async fn show_status_watch(verbose: bool) -> Result<()> {
+    use watch_mode::{WatchConfig, WatchMode, print_watch_header, print_watch_footer};
+    use std::time::{Duration, Instant};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let config = WatchConfig {
+        interval: Duration::from_secs(2),
+        use_alternate_screen: true,
+        clear_screen: true,
+    };
+
+    let mut watch = WatchMode::new(config);
+    let start_time = Instant::now();
+    let last_data: Rc<RefCell<Option<JsonValue>>> = Rc::new(RefCell::new(None));
+
+    watch.run(|iteration| {
+        let elapsed = start_time.elapsed();
+        let last_data = Rc::clone(&last_data);
+
+        async move {
+            let params = serde_json::json!({ "verbose": verbose });
+            let data = rpc_call_with_retry("status", Some(params)).await?;
+
+            // Get previous data for delta calculation
+            let prev_data = last_data.borrow().clone();
+
+            // Display watch header
+            print_watch_header("Daemon Status", iteration, elapsed);
+
+            // Display status with deltas
+            print_status_watch_display(&data, prev_data.as_ref(), verbose)?;
+
+            // Display footer
+            print_watch_footer();
+
+            // Store for next iteration
+            *last_data.borrow_mut() = Some(data);
+
+            Ok(())
+        }
+    }).await?;
+
+    Ok(())
+}
+
+/// Display status in watch mode with delta indicators
+fn print_status_watch_display(data: &JsonValue, last: Option<&JsonValue>, verbose: bool) -> Result<()> {
+    use watch_mode::format_count_delta;
+
+    let dim = "\x1b[2m";
+    let reset = "\x1b[0m";
+    let bold = "\x1b[1m";
+
+    println!("{}│{}", dim, reset);
+    println!("{}│{}  {}Daemon:{} {}", dim, reset, bold, reset,
+        data["daemon_state"].as_str().unwrap_or("unknown"));
+    println!("{}│{}  {}DB Path:{} {}", dim, reset, bold, reset,
+        data["db_path"].as_str().unwrap_or("unknown"));
+
+    // Sample count with delta
+    let sample_count = data["sample_count"].as_u64().unwrap_or(0);
+    print!("{}│{}  {}Sample Count:{} {}", dim, reset, bold, reset, sample_count);
+    if let Some(last) = last {
+        let last_count = last["sample_count"].as_u64().unwrap_or(0);
+        if sample_count != last_count {
+            let delta = format_count_delta(last_count, sample_count);
+            print!("  ({})", delta);
+        }
+    }
+    println!();
+
+    // Loop load
+    println!("{}│{}  {}Loop Load:{} {:.1}%", dim, reset, bold, reset,
+        data["loop_load_pct"].as_f64().unwrap_or(0.0));
+
+    if let Some(pid) = data["annad_pid"].as_u64() {
+        println!("{}│{}  {}Process ID:{} {}", dim, reset, bold, reset, pid);
+    }
+
+    if verbose {
+        if let Some(uptime) = data["uptime_secs"].as_u64() {
+            let hours = uptime / 3600;
+            let mins = (uptime % 3600) / 60;
+            println!("{}│{}  {}Uptime:{} {}h {}m", dim, reset, bold, reset, hours, mins);
+        }
+    }
+
+    Ok(())
 }
 
 fn print_status(data: &JsonValue, verbose: bool) -> Result<()> {

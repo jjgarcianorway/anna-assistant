@@ -3,7 +3,7 @@
 // Watches for network interface and IP address changes.
 // In full implementation, this would use netlink. For now, it's a placeholder.
 
-use crate::events::{create_event, EventDomain, SystemEvent};
+use crate::events::{SystemEvent, create_event, EventDomain};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
