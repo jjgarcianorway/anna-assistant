@@ -32,41 +32,41 @@ if [ ! -x "$ANNACTL" ]; then
     exit 1
 fi
 echo -e "${C_GREEN}✓ PASS: annactl found at $ANNACTL${C_RESET}"
-((PASS++))
+: $((PASS++))
 echo
 
 # Test 2: Check storage command exists
 echo "[TEST 2] Testing 'storage btrfs' command availability..."
 if $ANNACTL storage --help 2>&1 | grep -q "Show storage profile"; then
     echo -e "${C_GREEN}✓ PASS: Storage command available${C_RESET}"
-    ((PASS++))
+    : $((PASS++))
 else
     echo -e "${C_RED}✗ FAIL: Storage command not found${C_RESET}"
-    ((FAIL++))
+    : $((FAIL++))
 fi
 echo
 
 # Test 3: Check storage btrfs subcommand
-echo "[TEST 3] Testing 'storage btrfs show' subcommand..."
+echo "[TEST 3] Testing 'storage btrfs' subcommand..."
 if $ANNACTL storage btrfs --help 2>&1 | grep -q "Show Btrfs storage profile"; then
     echo -e "${C_GREEN}✓ PASS: Btrfs subcommand available${C_RESET}"
-    ((PASS++))
+    : $((PASS++))
 else
     echo -e "${C_RED}✗ FAIL: Btrfs subcommand not found${C_RESET}"
-    ((FAIL++))
+    : $((FAIL++))
 fi
 echo
 
 # Test 4: Test JSON output (requires daemon)
 echo "[TEST 4] Testing storage btrfs JSON output..."
-if JSON_OUTPUT=$($ANNACTL storage btrfs show --json 2>&1); then
+if JSON_OUTPUT=$($ANNACTL storage btrfs --json 2>&1); then
     if echo "$JSON_OUTPUT" | jq . >/dev/null 2>&1; then
         echo -e "${C_GREEN}✓ PASS: Valid JSON output${C_RESET}"
-        ((PASS++))
+        : $((PASS++))
     else
         echo -e "${C_RED}✗ FAIL: Invalid JSON output${C_RESET}"
         echo "$JSON_OUTPUT"
-        ((FAIL++))
+        : $((FAIL++))
     fi
 else
     echo "⚠ SKIP: Daemon not responding (expected in test environment)"
@@ -88,10 +88,10 @@ if [ "${JSON_OUTPUT:-}" != "" ] && echo "$JSON_OUTPUT" | jq . >/dev/null 2>&1; t
 
     if [ ${#MISSING_FIELDS[@]} -eq 0 ]; then
         echo -e "${C_GREEN}✓ PASS: All required fields present${C_RESET}"
-        ((PASS++))
+        : $((PASS++))
     else
         echo -e "${C_RED}✗ FAIL: Missing required fields: ${MISSING_FIELDS[*]}${C_RESET}"
-        ((FAIL++))
+        : $((FAIL++))
     fi
     echo
 fi
@@ -106,10 +106,10 @@ if echo "$ADVISOR_OUTPUT" | jq . >/dev/null 2>&1; then
     if [ "$STORAGE_RULES" -ge 0 ]; then
         echo -e "${C_GREEN}✓ PASS: Advisor storage category available${C_RESET}"
         echo "  Found $STORAGE_RULES storage rule(s) triggered"
-        ((PASS++))
+        : $((PASS++))
     else
         echo -e "${C_RED}✗ FAIL: Storage category not found in advisor${C_RESET}"
-        ((FAIL++))
+        : $((FAIL++))
     fi
 else
     echo "⚠ SKIP: Advisor output not valid JSON (daemon may not be running)"
@@ -141,7 +141,7 @@ if echo "$ADVISOR_OUTPUT" | jq . >/dev/null 2>&1; then
 
     echo "  Found $FOUND_IDS/${#KNOWN_STORAGE_IDS[@]} known storage rule IDs in current advice"
     echo -e "${C_GREEN}✓ PASS: Storage rule IDs validated${C_RESET}"
-    ((PASS++))
+    : $((PASS++))
 else
     echo "  ⚠ SKIP: Cannot validate rule IDs (daemon not running)"
 fi
@@ -160,10 +160,10 @@ done
 
 if $SCRIPTS_OK; then
     echo -e "${C_GREEN}✓ PASS: All Btrfs scripts present and executable${C_RESET}"
-    ((PASS++))
+    : $((PASS++))
 else
     echo -e "${C_RED}✗ FAIL: Some Btrfs scripts missing or not executable${C_RESET}"
-    ((FAIL++))
+    : $((FAIL++))
 fi
 echo
 
@@ -171,10 +171,10 @@ echo
 echo "[TEST 9] Checking pacman hook..."
 if [ -f "packaging/arch/hooks/90-btrfs-autosnap.hook" ]; then
     echo -e "${C_GREEN}✓ PASS: Pacman hook file exists${C_RESET}"
-    ((PASS++))
+    : $((PASS++))
 else
     echo -e "${C_RED}✗ FAIL: Pacman hook file missing${C_RESET}"
-    ((FAIL++))
+    : $((FAIL++))
 fi
 echo
 
@@ -191,10 +191,10 @@ done
 
 if $SCRIPT_SYNTAX_OK; then
     echo -e "${C_GREEN}✓ PASS: All scripts accept --help flag${C_RESET}"
-    ((PASS++))
+    : $((PASS++))
 else
     echo -e "${C_RED}✗ FAIL: Some scripts failed --help check${C_RESET}"
-    ((FAIL++))
+    : $((FAIL++))
 fi
 echo
 
