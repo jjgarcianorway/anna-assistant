@@ -1,0 +1,27 @@
+# Anna v0.12.5 - Btrfs Automatic Snapshot Hook
+# Creates snapshots before pacman package operations
+#
+# Installation:
+#   sudo cp 90-btrfs-autosnap.hook /etc/pacman.d/hooks/
+#   sudo cp scripts/btrfs/autosnap-pre.sh /usr/local/bin/
+#   sudo chmod +x /usr/local/bin/autosnap-pre.sh
+#
+# Notes:
+#   - Triggers on all package Install, Upgrade, and Remove operations
+#   - Creates read-only snapshots in /.snapshots/
+#   - Automatically prunes old snapshots (keeps last 10)
+#   - Requires btrfs-progs package
+#   - Silent during pacman operations, verbose when run manually
+
+[Trigger]
+Operation = Upgrade
+Operation = Install
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Creating Btrfs snapshot before package operation...
+Depends = btrfs-progs
+When = PreTransaction
+Exec = /usr/local/bin/autosnap-pre.sh
