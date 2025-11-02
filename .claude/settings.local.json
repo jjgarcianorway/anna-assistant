@@ -149,7 +149,8 @@
       "Bash(then)",
       "Bash(ssh-add:*)",
       "Bash(else)",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(git show-ref:*)"
     ],
     "deny": [],
     "ask": []
