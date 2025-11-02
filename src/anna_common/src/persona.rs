@@ -3,7 +3,7 @@
 //! Personas are pre-configured bundles of UI preferences that adapt Anna's
 //! communication style to different user contexts (dev, ops, gamer, minimal).
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,8 +32,8 @@ pub struct PersonaTraits {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PersonaMode {
-    Auto,   // Auto-detect based on context
-    Fixed,  // User explicitly set, don't change
+    Auto,  // Auto-detect based on context
+    Fixed, // User explicitly set, don't change
 }
 
 /// Current persona state
@@ -41,7 +41,7 @@ pub enum PersonaMode {
 pub struct PersonaState {
     pub current: String,
     pub mode: PersonaMode,
-    pub applied_at: String,  // ISO 8601 timestamp
+    pub applied_at: String, // ISO 8601 timestamp
 }
 
 /// Bundled personas (from personas.yaml)
@@ -52,7 +52,8 @@ pub fn bundled_personas() -> HashMap<String, Persona> {
         "dev".to_string(),
         Persona {
             name: "dev".to_string(),
-            description: "For developers: detailed logs, technical terms welcome, lots of context".to_string(),
+            description: "For developers: detailed logs, technical terms welcome, lots of context"
+                .to_string(),
             traits: PersonaTraits {
                 verbosity: 4,
                 emojis: true,
@@ -94,7 +95,8 @@ pub fn bundled_personas() -> HashMap<String, Persona> {
         "minimal".to_string(),
         Persona {
             name: "minimal".to_string(),
-            description: "For minimalists: terse output, no colors, no emojis, just facts".to_string(),
+            description: "For minimalists: terse output, no colors, no emojis, just facts"
+                .to_string(),
             traits: PersonaTraits {
                 verbosity: 1,
                 emojis: false,
@@ -112,8 +114,7 @@ pub fn get_persona_state() -> Result<PersonaState> {
     let state_path = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .context("Cannot determine home directory")?;
-    let state_path = std::path::PathBuf::from(state_path)
-        .join(".config/anna/state.json");
+    let state_path = std::path::PathBuf::from(state_path).join(".config/anna/state.json");
 
     if state_path.exists() {
         let content = std::fs::read_to_string(&state_path)?;
@@ -163,7 +164,7 @@ pub fn save_persona_state(state: &PersonaState) -> Result<()> {
 /// Default persona state
 fn default_persona_state() -> PersonaState {
     PersonaState {
-        current: "dev".to_string(),  // Default to dev persona
+        current: "dev".to_string(), // Default to dev persona
         mode: PersonaMode::Auto,
         applied_at: chrono::Utc::now().to_rfc3339(),
     }
@@ -174,8 +175,15 @@ pub fn set_persona(name: &str, mode: PersonaMode) -> Result<()> {
     // Validate persona exists
     let personas = bundled_personas();
     if !personas.contains_key(name) {
-        bail!("Unknown persona '{}'. Available: {}", name,
-              personas.keys().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+        bail!(
+            "Unknown persona '{}'. Available: {}",
+            name,
+            personas
+                .keys()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     let state = PersonaState {
@@ -197,7 +205,10 @@ fn apply_persona_to_config(persona: &Persona) -> Result<()> {
     use crate::config_governance::set_user_config;
 
     set_user_config("ui.emojis", serde_json::json!(persona.traits.emojis))?;
-    set_user_config("ui.colors", serde_json::json!(persona.traits.colorfulness > 1))?;
+    set_user_config(
+        "ui.colors",
+        serde_json::json!(persona.traits.colorfulness > 1),
+    )?;
     set_user_config("ui.verbosity", serde_json::json!(persona.traits.verbosity))?;
 
     Ok(())
@@ -212,7 +223,8 @@ pub fn explain_persona_choice() -> String {
     // - User's typical interaction patterns
 
     "I don't profile yet; I'm using your explicit selection or the default. \
-     In the future, I'll learn from your patterns to suggest better fits.".to_string()
+     In the future, I'll learn from your patterns to suggest better fits."
+        .to_string()
 }
 
 #[cfg(test)]

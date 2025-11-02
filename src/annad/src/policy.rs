@@ -14,9 +14,9 @@ const POLICY_PATH: &str = "/etc/anna/policy.toml";
 /// Policy decision for an event
 #[derive(Debug, Clone, PartialEq)]
 pub enum PolicyDecision {
-    AutoRepair,   // Automatic repair allowed
-    AlertOnly,    // Create alert, wait for user
-    NoAction,     // No action needed
+    AutoRepair, // Automatic repair allowed
+    AlertOnly,  // Create alert, wait for user
+    NoAction,   // No action needed
 }
 
 /// Policy configuration
@@ -68,8 +68,8 @@ impl PolicyEngine {
         let content = fs::read_to_string(POLICY_PATH)
             .context(format!("Failed to read policy file: {}", POLICY_PATH))?;
 
-        let config: PolicyConfig = toml::from_str(&content)
-            .context("Failed to parse policy.toml")?;
+        let config: PolicyConfig =
+            toml::from_str(&content).context("Failed to parse policy.toml")?;
 
         info!("Policy engine loaded: v{}", config.policy.version);
 
@@ -127,7 +127,10 @@ impl PolicyEngine {
         }
 
         // auto=true, check if operation is allowed
-        if domain_policy.forbidden_operations.contains(&operation.to_string()) {
+        if domain_policy
+            .forbidden_operations
+            .contains(&operation.to_string())
+        {
             info!(
                 "Policy: {} for {} → AlertOnly (domain forbids this operation)",
                 operation, domain
@@ -149,7 +152,10 @@ impl PolicyEngine {
         }
 
         // Check if operation is in domain's allowed list
-        if domain_policy.allowed_operations.contains(&operation.to_string()) {
+        if domain_policy
+            .allowed_operations
+            .contains(&operation.to_string())
+        {
             info!(
                 "Policy: {} for {} → AutoRepair (domain allows this operation)",
                 operation, domain

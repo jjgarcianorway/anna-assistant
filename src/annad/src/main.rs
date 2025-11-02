@@ -10,17 +10,21 @@ use tokio::time;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
+mod advisor_v13;
 mod capabilities;
 mod collectors_v12;
 mod doctor;
 mod doctor_handler;
 mod events;
+mod hardware_profile;
 mod integrity;
 mod listeners;
+mod package_analysis;
 mod persona_v10;
 mod policy;
 mod radars_v12;
 mod rpc_v10;
+mod storage_btrfs;
 mod storage_v10;
 mod telemetry_v10;
 
@@ -29,8 +33,8 @@ use doctor::DoctorApply;
 use doctor_handler::DoctorHandlerImpl;
 use events::EventEngine;
 use integrity::IntegrityWatchdog;
-use policy::PolicyEngine;
 use persona_v10::PersonaRadar;
+use policy::PolicyEngine;
 use rpc_v10::RpcServer;
 use storage_v10::StorageManager;
 use telemetry_v10::TelemetryCollector;
@@ -67,8 +71,7 @@ async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .with_target(false)
         .with_thread_ids(false)
@@ -96,15 +99,26 @@ async fn main() -> Result<()> {
     match CapabilityManager::new() {
         Ok(cap_mgr) => {
             let checks = cap_mgr.check_all();
-            let active = checks.iter().filter(|c| c.status == capabilities::ModuleStatus::Active).count();
-            let degraded = checks.iter().filter(|c| c.status == capabilities::ModuleStatus::Degraded).count();
+            let active = checks
+                .iter()
+                .filter(|c| c.status == capabilities::ModuleStatus::Active)
+                .count();
+            let degraded = checks
+                .iter()
+                .filter(|c| c.status == capabilities::ModuleStatus::Degraded)
+                .count();
             info!("Capabilities: {} active, {} degraded", active, degraded);
 
-            for check in checks.iter().filter(|c| c.status == capabilities::ModuleStatus::Degraded) {
+            for check in checks
+                .iter()
+                .filter(|c| c.status == capabilities::ModuleStatus::Degraded)
+            {
                 if check.required {
-                    warn!("Required module '{}' degraded: {}",
+                    warn!(
+                        "Required module '{}' degraded: {}",
                         check.module_name,
-                        check.reason.as_ref().unwrap_or(&"Unknown".to_string()));
+                        check.reason.as_ref().unwrap_or(&"Unknown".to_string())
+                    );
                 }
             }
         }
@@ -122,8 +136,7 @@ async fn main() -> Result<()> {
     // Initialize storage
     info!("Initializing storage at {:?}", config.db_path);
     let storage = Arc::new(Mutex::new(
-        StorageManager::new(&config.db_path)
-            .context("Failed to initialize storage")?,
+        StorageManager::new(&config.db_path).context("Failed to initialize storage")?,
     ));
 
     // Initialize event engine (before RPC server so it can access events)
@@ -134,7 +147,10 @@ async fn main() -> Result<()> {
 
     // Start RPC server
     info!("Starting RPC server at {:?}", config.socket_path);
-    let rpc_server = Arc::new(RpcServer::new(Arc::clone(&storage), Arc::clone(&event_engine_shared)));
+    let rpc_server = Arc::new(RpcServer::new(
+        Arc::clone(&storage),
+        Arc::clone(&event_engine_shared),
+    ));
     let rpc_socket = config.socket_path.clone();
 
     tokio::spawn(async move {
@@ -232,14 +248,12 @@ async fn main() -> Result<()> {
 fn ensure_directories(config: &DaemonConfig) -> Result<()> {
     // /var/lib/anna
     if let Some(parent) = config.db_path.parent() {
-        std::fs::create_dir_all(parent)
-            .context("Failed to create state directory")?;
+        std::fs::create_dir_all(parent).context("Failed to create state directory")?;
     }
 
     // /run/anna
     if let Some(parent) = config.socket_path.parent() {
-        std::fs::create_dir_all(parent)
-            .context("Failed to create runtime directory")?;
+        std::fs::create_dir_all(parent).context("Failed to create runtime directory")?;
     }
 
     Ok(())
@@ -302,8 +316,7 @@ async fn run_collection_loop(
 
         // Exponential backoff on failures (max 5 minutes)
         if failure_count > 0 {
-            backoff_secs = (config.poll_interval_secs * 2u64.pow(failure_count))
-                .min(300);
+            backoff_secs = (config.poll_interval_secs * 2u64.pow(failure_count)).min(300);
             warn!(
                 "Backing off to {}s after {} failures",
                 backoff_secs, failure_count
@@ -313,7 +326,7 @@ async fn run_collection_loop(
         // Sleep with jitter
         let jitter = rand::random::<f64>() * config.poll_jitter_secs as f64;
         let sleep_duration = Duration::from_secs_f64(
-            backoff_secs as f64 + jitter - (config.poll_jitter_secs as f64 / 2.0)
+            backoff_secs as f64 + jitter - (config.poll_jitter_secs as f64 / 2.0),
         );
 
         time::sleep(sleep_duration).await;
@@ -334,7 +347,10 @@ async fn update_persona_scores(
         .map(|s| (s.name.clone(), s.score, s.evidence.clone()))
         .collect();
 
-    storage.lock().await.store_persona_scores(snapshot.ts, &scores_data)?;
+    storage
+        .lock()
+        .await
+        .store_persona_scores(snapshot.ts, &scores_data)?;
 
     // Log top 3 scores
     let mut sorted_scores = scores.clone();

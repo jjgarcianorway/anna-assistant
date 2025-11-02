@@ -42,9 +42,7 @@ pub fn doctor_pre(verbose: bool) -> Result<()> {
     if verbose {
         println!("│  Checking disk space...");
     }
-    let df_output = Command::new("df")
-        .args(&["--output=avail", "/"])
-        .output();
+    let df_output = Command::new("df").args(&["--output=avail", "/"]).output();
 
     if let Ok(output) = df_output {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -54,7 +52,10 @@ pub fn doctor_pre(verbose: bool) -> Result<()> {
                 if avail_mb >= 200 {
                     println!("│  ✓ Disk: {} MB available on /", avail_mb);
                 } else {
-                    println!("│  ✗ Disk: Only {} MB available on / (need 200 MB)", avail_mb);
+                    println!(
+                        "│  ✗ Disk: Only {} MB available on / (need 200 MB)",
+                        avail_mb
+                    );
                     all_ok = false;
                     failures.push("Insufficient disk space on / (< 200 MB)");
                 }
@@ -75,7 +76,10 @@ pub fn doctor_pre(verbose: bool) -> Result<()> {
                 if avail_mb >= 200 {
                     println!("│  ✓ Disk: {} MB available on /var", avail_mb);
                 } else {
-                    println!("│  ✗ Disk: Only {} MB available on /var (need 200 MB)", avail_mb);
+                    println!(
+                        "│  ✗ Disk: Only {} MB available on /var (need 200 MB)",
+                        avail_mb
+                    );
                     all_ok = false;
                     failures.push("Insufficient disk space on /var (< 200 MB)");
                 }
@@ -237,9 +241,7 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
             let mode = metadata.mode() & 0o777;
 
             // Get anna user/group IDs
-            let anna_check = Command::new("id")
-                .args(&["-u", "anna"])
-                .output();
+            let anna_check = Command::new("id").args(&["-u", "anna"]).output();
 
             let anna_uid: u32 = if let Ok(output) = anna_check {
                 String::from_utf8_lossy(&output.stdout)
@@ -253,8 +255,14 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
             if uid == anna_uid && mode == 0o750 {
                 println!("│  ✓ Ownership: /var/lib/anna correct (anna:anna, 0750)");
             } else {
-                println!("│  ⚠ Ownership: /var/lib/anna incorrect (uid={} mode={:o})", uid, mode);
-                degraded.push(format!("/var/lib/anna wrong ownership: expected anna:anna 0750, got uid={} mode={:o}", uid, mode));
+                println!(
+                    "│  ⚠ Ownership: /var/lib/anna incorrect (uid={} mode={:o})",
+                    uid, mode
+                );
+                degraded.push(format!(
+                    "/var/lib/anna wrong ownership: expected anna:anna 0750, got uid={} mode={:o}",
+                    uid, mode
+                ));
             }
         } else {
             println!("│  ⚠ Directory: /var/lib/anna not readable");
@@ -266,9 +274,7 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
             let _gid = metadata.gid();
             let mode = metadata.mode() & 0o777;
 
-            let anna_check = Command::new("id")
-                .args(&["-u", "anna"])
-                .output();
+            let anna_check = Command::new("id").args(&["-u", "anna"]).output();
 
             let anna_uid: u32 = if let Ok(output) = anna_check {
                 String::from_utf8_lossy(&output.stdout)
@@ -282,8 +288,14 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
             if uid == anna_uid && mode == 0o750 {
                 println!("│  ✓ Ownership: /var/log/anna correct (anna:anna, 0750)");
             } else {
-                println!("│  ⚠ Ownership: /var/log/anna incorrect (uid={} mode={:o})", uid, mode);
-                degraded.push(format!("/var/log/anna wrong ownership: expected anna:anna 0750, got uid={} mode={:o}", uid, mode));
+                println!(
+                    "│  ⚠ Ownership: /var/log/anna incorrect (uid={} mode={:o})",
+                    uid, mode
+                );
+                degraded.push(format!(
+                    "/var/log/anna wrong ownership: expected anna:anna 0750, got uid={} mode={:o}",
+                    uid, mode
+                ));
             }
         } else {
             println!("│  ⚠ Directory: /var/log/anna not readable");
@@ -322,7 +334,13 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
             {
                 use std::os::unix::fs::MetadataExt;
                 if let Ok(md) = std::fs::metadata(socket_path) {
-                    println!("│  ✓ Socket: {} (uid={} gid={} mode={:o})", socket_path, md.uid(), md.gid(), md.mode() & 0o777);
+                    println!(
+                        "│  ✓ Socket: {} (uid={} gid={} mode={:o})",
+                        socket_path,
+                        md.uid(),
+                        md.gid(),
+                        md.mode() & 0o777
+                    );
                 } else {
                     println!("│  ✓ Socket: {} present", socket_path);
                 }
@@ -355,11 +373,21 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
         // Show DB and dir info
         if verbose {
             if let Ok(md) = std::fs::metadata(db_dir) {
-                println!("│    DB dir: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777);
+                println!(
+                    "│    DB dir: uid={} gid={} mode={:o}",
+                    md.uid(),
+                    md.gid(),
+                    md.mode() & 0o777
+                );
             }
             if db_path.exists() {
                 if let Ok(md) = std::fs::metadata(db_path) {
-                    println!("│    DB file: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777);
+                    println!(
+                        "│    DB file: uid={} gid={} mode={:o}",
+                        md.uid(),
+                        md.gid(),
+                        md.mode() & 0o777
+                    );
                 }
             }
         }
@@ -371,11 +399,26 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
             }
             Err(e) => {
                 let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-                println!("│  ⚠ Database: {} not writable (errno: {}, {})", db_dir.display(), errno, e);
+                println!(
+                    "│  ⚠ Database: {} not writable (errno: {}, {})",
+                    db_dir.display(),
+                    errno,
+                    e
+                );
                 if let Ok(md) = std::fs::metadata(db_dir) {
-                    println!("│    Directory: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777);
+                    println!(
+                        "│    Directory: uid={} gid={} mode={:o}",
+                        md.uid(),
+                        md.gid(),
+                        md.mode() & 0o777
+                    );
                 }
-                degraded.push(format!("{} not writable: errno {} - {}", db_dir.display(), errno, e));
+                degraded.push(format!(
+                    "{} not writable: errno {} - {}",
+                    db_dir.display(),
+                    errno,
+                    e
+                ));
             }
         }
     }
@@ -415,7 +458,10 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
     }
 
     if !missing_optional.is_empty() {
-        println!("│  ⚠ Optional dependencies missing: {}", missing_optional.join(", "));
+        println!(
+            "│  ⚠ Optional dependencies missing: {}",
+            missing_optional.join(", ")
+        );
         println!("│    Some telemetry modules will be degraded");
     }
 
@@ -491,9 +537,7 @@ pub fn doctor_repair(_json: bool, skip_confirmation: bool) -> Result<()> {
             .args(&["chown", "-R", "anna:anna", dir])
             .status();
 
-        let chmod_status = Command::new("sudo")
-            .args(&["chmod", "0750", dir])
-            .status();
+        let chmod_status = Command::new("sudo").args(&["chmod", "0750", dir]).status();
 
         if chown_status.is_ok() && chmod_status.is_ok() {
             println!("  ✓ Fixed {}", dir);
@@ -561,18 +605,31 @@ pub fn doctor_repair(_json: bool, skip_confirmation: bool) -> Result<()> {
                 .args(&["-u", "anna"])
                 .output()
                 .ok()
-                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok())
+                .and_then(|o| {
+                    String::from_utf8_lossy(&o.stdout)
+                        .trim()
+                        .parse::<u32>()
+                        .ok()
+                })
                 .unwrap_or(1003);
 
             let anna_gid = Command::new("id")
                 .args(&["-g", "anna"])
                 .output()
                 .ok()
-                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok())
+                .and_then(|o| {
+                    String::from_utf8_lossy(&o.stdout)
+                        .trim()
+                        .parse::<u32>()
+                        .ok()
+                })
                 .unwrap_or(1003);
 
             if mode != 0o660 {
-                println!("  ⚠ Socket mode incorrect: {:o} (expected: 660), fixing...", mode);
+                println!(
+                    "  ⚠ Socket mode incorrect: {:o} (expected: 660), fixing...",
+                    mode
+                );
                 let chmod_status = Command::new("sudo")
                     .args(&["chmod", "0660", socket_path])
                     .status()?;
@@ -645,7 +702,10 @@ pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
     let mut system_info = String::new();
     system_info.push_str(&format!("Anna Diagnostic Report\n"));
     system_info.push_str(&format!("Generated: {}\n", timestamp));
-    system_info.push_str(&format!("Hostname: {}\n", hostname::get()?.to_string_lossy()));
+    system_info.push_str(&format!(
+        "Hostname: {}\n",
+        hostname::get()?.to_string_lossy()
+    ));
     system_info.push_str(&format!("\n"));
 
     // OS info
@@ -657,7 +717,10 @@ pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
 
     // Kernel
     if let Ok(output) = Command::new("uname").arg("-a").output() {
-        system_info.push_str(&format!("Kernel: {}\n", String::from_utf8_lossy(&output.stdout)));
+        system_info.push_str(&format!(
+            "Kernel: {}\n",
+            String::from_utf8_lossy(&output.stdout)
+        ));
     }
 
     File::create(format!("{}/system_info.txt", report_dir))?.write_all(system_info.as_bytes())?;
@@ -669,16 +732,26 @@ pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
 
     // Directory listings
     let mut dir_listing = String::new();
-    for dir in &["/var/lib/anna", "/var/log/anna", "/run/anna", "/etc/anna", "/usr/lib/anna"] {
+    for dir in &[
+        "/var/lib/anna",
+        "/var/log/anna",
+        "/run/anna",
+        "/etc/anna",
+        "/usr/lib/anna",
+    ] {
         if let Ok(output) = Command::new("ls").args(&["-laR", dir]).output() {
             dir_listing.push_str(&format!("\n=== {} ===\n", dir));
             dir_listing.push_str(&String::from_utf8_lossy(&output.stdout));
         }
     }
-    File::create(format!("{}/directory_listings.txt", report_dir))?.write_all(dir_listing.as_bytes())?;
+    File::create(format!("{}/directory_listings.txt", report_dir))?
+        .write_all(dir_listing.as_bytes())?;
 
     // Journal logs
-    if let Ok(output) = Command::new("journalctl").args(&["-u", "annad", "-n", "100", "--no-pager"]).output() {
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["-u", "annad", "-n", "100", "--no-pager"])
+        .output()
+    {
         File::create(format!("{}/journal.log", report_dir))?.write_all(&output.stdout)?;
     }
 
@@ -700,17 +773,27 @@ pub fn doctor_report(output_path: Option<&str>) -> Result<()> {
     }
 
     // events
-    if let Ok(output) = Command::new("annactl").args(&["events", "--limit", "10"]).output() {
+    if let Ok(output) = Command::new("annactl")
+        .args(&["events", "--limit", "10"])
+        .output()
+    {
         annactl_output.push_str("=== annactl events --limit 10 ===\n");
         annactl_output.push_str(&String::from_utf8_lossy(&output.stdout));
         annactl_output.push_str("\n");
     }
 
-    File::create(format!("{}/annactl_outputs.txt", report_dir))?.write_all(annactl_output.as_bytes())?;
+    File::create(format!("{}/annactl_outputs.txt", report_dir))?
+        .write_all(annactl_output.as_bytes())?;
 
     // Create tarball
     let status = Command::new("tar")
-        .args(&["-czf", report_path, "-C", "/tmp", &format!("anna-report-{}", timestamp)])
+        .args(&[
+            "-czf",
+            report_path,
+            "-C",
+            "/tmp",
+            &format!("anna-report-{}", timestamp),
+        ])
         .status()?;
 
     // Cleanup temp directory
@@ -802,7 +885,8 @@ async fn check_daemon_connectivity(
         }
         _ => {
             println!("│  ✗ Daemon: annad service is not running");
-            issues.push("annad service is not active - run: sudo systemctl start annad".to_string());
+            issues
+                .push("annad service is not active - run: sudo systemctl start annad".to_string());
             return false;
         }
     }
@@ -862,8 +946,13 @@ async fn check_radar_health(
                     if let Some(cpu_load) = categories.get("cpu_load") {
                         if let Some(score) = cpu_load.get("score").and_then(|s| s.as_f64()) {
                             if score < 3.0 {
-                                warnings.push(format!("High CPU load detected (score: {})", format_score(score)));
-                                suggestions.push("Consider closing resource-intensive applications".to_string());
+                                warnings.push(format!(
+                                    "High CPU load detected (score: {})",
+                                    format_score(score)
+                                ));
+                                suggestions.push(
+                                    "Consider closing resource-intensive applications".to_string(),
+                                );
                             } else if verbose {
                                 println!("│  ✓ CPU Load: {}", format_score(score));
                             }
@@ -874,8 +963,12 @@ async fn check_radar_health(
                     if let Some(mem_pressure) = categories.get("memory_pressure") {
                         if let Some(score) = mem_pressure.get("score").and_then(|s| s.as_f64()) {
                             if score < 3.0 {
-                                warnings.push(format!("High memory pressure (score: {})", format_score(score)));
-                                suggestions.push("Free up memory or close applications".to_string());
+                                warnings.push(format!(
+                                    "High memory pressure (score: {})",
+                                    format_score(score)
+                                ));
+                                suggestions
+                                    .push("Free up memory or close applications".to_string());
                             } else if verbose {
                                 println!("│  ✓ Memory Pressure: {}", format_score(score));
                             }
@@ -886,7 +979,10 @@ async fn check_radar_health(
                     if let Some(disk) = categories.get("disk_headroom") {
                         if let Some(score) = disk.get("score").and_then(|s| s.as_f64()) {
                             if score < 3.0 {
-                                warnings.push(format!("Low disk space (score: {})", format_score(score)));
+                                warnings.push(format!(
+                                    "Low disk space (score: {})",
+                                    format_score(score)
+                                ));
                                 suggestions.push("Clean up disk space on /".to_string());
                             } else if verbose {
                                 println!("│  ✓ Disk Headroom: {}", format_score(score));
@@ -898,7 +994,10 @@ async fn check_radar_health(
                     if let Some(thermal) = categories.get("thermal_ok") {
                         if let Some(score) = thermal.get("score").and_then(|s| s.as_f64()) {
                             if score < 5.0 {
-                                warnings.push(format!("High temperature detected (score: {})", format_score(score)));
+                                warnings.push(format!(
+                                    "High temperature detected (score: {})",
+                                    format_score(score)
+                                ));
                                 suggestions.push("Check cooling system and airflow".to_string());
                             } else if verbose {
                                 println!("│  ✓ Thermal: {}", format_score(score));
@@ -914,8 +1013,13 @@ async fn check_radar_health(
                     if let Some(dns) = categories.get("dns_reliability") {
                         if let Some(score) = dns.get("score").and_then(|s| s.as_f64()) {
                             if score < 5.0 {
-                                warnings.push(format!("Network connectivity issues (score: {})", format_score(score)));
-                                suggestions.push("Check network connection (can you ping 8.8.8.8?)".to_string());
+                                warnings.push(format!(
+                                    "Network connectivity issues (score: {})",
+                                    format_score(score)
+                                ));
+                                suggestions.push(
+                                    "Check network connection (can you ping 8.8.8.8?)".to_string(),
+                                );
                             } else if verbose {
                                 println!("│  ✓ Network Connectivity: {}", format_score(score));
                             }
@@ -959,12 +1063,17 @@ async fn check_resource_usage(
 
                     // Check memory usage
                     if let Some(mem_used) = snapshot.get("mem_used_mb").and_then(|m| m.as_u64()) {
-                        if let Some(mem_total) = snapshot.get("mem_free_mb").and_then(|m| m.as_u64()) {
+                        if let Some(mem_total) =
+                            snapshot.get("mem_free_mb").and_then(|m| m.as_u64())
+                        {
                             let total = mem_used + mem_total;
                             let used_pct = (mem_used as f64 / total as f64) * 100.0;
                             if used_pct > 90.0 {
                                 warnings.push(format!("High memory usage: {:.1}%", used_pct));
-                                suggestions.push("Consider restarting applications or adding more RAM".to_string());
+                                suggestions.push(
+                                    "Consider restarting applications or adding more RAM"
+                                        .to_string(),
+                                );
                             } else if verbose {
                                 println!("│  ✓ Memory Usage: {:.1}%", used_pct);
                             }
@@ -1135,12 +1244,9 @@ async fn try_rpc_call(method: &str, params: Option<Value>) -> Result<Value> {
 
     // Read response with timeout
     let mut buffer = vec![0u8; 65536];
-    let n = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        stream.read(&mut buffer),
-    )
-    .await
-    .context("RPC call timed out after 5s")??;
+    let n = tokio::time::timeout(std::time::Duration::from_secs(5), stream.read(&mut buffer))
+        .await
+        .context("RPC call timed out after 5s")??;
 
     let response_str = String::from_utf8_lossy(&buffer[..n]);
     let response: Value =

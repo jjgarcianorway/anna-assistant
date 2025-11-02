@@ -7,7 +7,7 @@
 //!
 //! All configuration changes go through annactl to maintain consistency.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
@@ -32,9 +32,9 @@ pub struct ConfigValue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ConfigOrigin {
-    System,   // /etc/anna/anna.yml
-    User,     // ~/.config/anna/prefs.yml
-    Runtime,  // Command-line flag or environment variable
+    System,  // /etc/anna/anna.yml
+    User,    // ~/.config/anna/prefs.yml
+    Runtime, // Command-line flag or environment variable
 }
 
 /// Effective configuration with origin tracking
@@ -42,7 +42,7 @@ pub enum ConfigOrigin {
 pub struct EffectiveConfig {
     pub values: HashMap<String, serde_json::Value>,
     pub origins: HashMap<String, ConfigOrigin>,
-    pub merged_at: String,  // ISO 8601 timestamp
+    pub merged_at: String, // ISO 8601 timestamp
 }
 
 /// Configuration paths
@@ -74,8 +74,8 @@ fn load_yaml_config(path: &Path) -> Result<HashMap<String, serde_json::Value>> {
         return Ok(HashMap::new());
     }
 
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
     // Parse YAML
     let yaml: serde_yaml::Value = serde_yaml::from_str(&content)
@@ -157,10 +157,8 @@ pub fn merge_configs(
 pub fn load_effective_config() -> Result<EffectiveConfig> {
     let paths = ConfigPaths::new()?;
 
-    let system = load_yaml_config(&paths.system_default)
-        .unwrap_or_else(|_| HashMap::new());
-    let user = load_yaml_config(&paths.user_prefs)
-        .unwrap_or_else(|_| HashMap::new());
+    let system = load_yaml_config(&paths.system_default).unwrap_or_else(|_| HashMap::new());
+    let user = load_yaml_config(&paths.user_prefs).unwrap_or_else(|_| HashMap::new());
     let runtime = HashMap::new(); // Populated by CLI flags
 
     Ok(merge_configs(system, user, runtime))
@@ -180,8 +178,7 @@ pub fn save_effective_snapshot(config: &EffectiveConfig) -> Result<()> {
     }
 
     // Serialize to JSON
-    let json = serde_json::to_string_pretty(config)
-        .context("Failed to serialize config")?;
+    let json = serde_json::to_string_pretty(config).context("Failed to serialize config")?;
 
     // Try to write with file locking
     let mut file = OpenOptions::new()
@@ -220,14 +217,14 @@ pub fn set_user_config(key: &str, value: serde_json::Value) -> Result<()> {
 
     // Ensure user config directory exists
     if let Some(parent) = paths.user_prefs.parent() {
-        fs::create_dir_all(parent)
-            .context("Failed to create user config directory")?;
+        fs::create_dir_all(parent).context("Failed to create user config directory")?;
     }
 
     // Load existing user prefs
     let mut user_config = if paths.user_prefs.exists() {
         let content = fs::read_to_string(&paths.user_prefs)?;
-        serde_yaml::from_str(&content).unwrap_or_else(|_| serde_yaml::Value::Mapping(Default::default()))
+        serde_yaml::from_str(&content)
+            .unwrap_or_else(|_| serde_yaml::Value::Mapping(Default::default()))
     } else {
         serde_yaml::Value::Mapping(Default::default())
     };
@@ -236,14 +233,12 @@ pub fn set_user_config(key: &str, value: serde_json::Value) -> Result<()> {
     set_nested_value(&mut user_config, key, value)?;
 
     // Serialize to YAML
-    let yaml = serde_yaml::to_string(&user_config)
-        .context("Failed to serialize config")?;
+    let yaml = serde_yaml::to_string(&user_config).context("Failed to serialize config")?;
 
     // Write with banner
     let content = format!("{}\n{}", CONFIG_BANNER, yaml);
 
-    fs::write(&paths.user_prefs, content)
-        .context("Failed to write user prefs")?;
+    fs::write(&paths.user_prefs, content).context("Failed to write user prefs")?;
 
     // Regenerate effective snapshot
     let effective = load_effective_config()?;
@@ -253,7 +248,11 @@ pub fn set_user_config(key: &str, value: serde_json::Value) -> Result<()> {
 }
 
 /// Set nested value in YAML structure using dot notation
-fn set_nested_value(root: &mut serde_yaml::Value, key: &str, value: serde_json::Value) -> Result<()> {
+fn set_nested_value(
+    root: &mut serde_yaml::Value,
+    key: &str,
+    value: serde_json::Value,
+) -> Result<()> {
     let parts: Vec<&str> = key.split('.').collect();
 
     if parts.is_empty() {
@@ -261,9 +260,7 @@ fn set_nested_value(root: &mut serde_yaml::Value, key: &str, value: serde_json::
     }
 
     // Convert JSON value to YAML value
-    let yaml_value: serde_yaml::Value = serde_json::from_str(
-        &serde_json::to_string(&value)?
-    )?;
+    let yaml_value: serde_yaml::Value = serde_json::from_str(&serde_json::to_string(&value)?)?;
 
     // Navigate to the right place in the tree
     let mut current = root;
@@ -295,11 +292,15 @@ fn set_nested_value(root: &mut serde_yaml::Value, key: &str, value: serde_json::
 pub fn get_config_value(key: &str) -> Result<ConfigValue> {
     let effective = load_effective_config()?;
 
-    let value = effective.values.get(key)
+    let value = effective
+        .values
+        .get(key)
         .ok_or_else(|| anyhow::anyhow!("Configuration key '{}' not found", key))?
         .clone();
 
-    let origin = effective.origins.get(key)
+    let origin = effective
+        .origins
+        .get(key)
         .copied()
         .unwrap_or(ConfigOrigin::System);
 
@@ -325,7 +326,10 @@ pub fn reset_user_config(key: Option<&str>) -> Result<()> {
         }
     } else {
         // Reset all - just recreate with banner and empty structure
-        let content = format!("{}\n# User preferences (examples):\n# ui:\n#   emojis: true\n#   colors: true\n", CONFIG_BANNER);
+        let content = format!(
+            "{}\n# User preferences (examples):\n# ui:\n#   emojis: true\n#   colors: true\n",
+            CONFIG_BANNER
+        );
         fs::write(&paths.user_prefs, content)?;
     }
 
@@ -397,9 +401,21 @@ mod tests {
 
         let effective = merge_configs(system, user, runtime);
 
-        assert_eq!(effective.values.get("ui.colors"), Some(&serde_json::json!(true)));
-        assert_eq!(effective.values.get("ui.emojis"), Some(&serde_json::json!(false)));
-        assert_eq!(effective.origins.get("ui.colors"), Some(&ConfigOrigin::System));
-        assert_eq!(effective.origins.get("ui.emojis"), Some(&ConfigOrigin::User));
+        assert_eq!(
+            effective.values.get("ui.colors"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            effective.values.get("ui.emojis"),
+            Some(&serde_json::json!(false))
+        );
+        assert_eq!(
+            effective.origins.get("ui.colors"),
+            Some(&ConfigOrigin::System)
+        );
+        assert_eq!(
+            effective.origins.get("ui.emojis"),
+            Some(&ConfigOrigin::User)
+        );
     }
 }

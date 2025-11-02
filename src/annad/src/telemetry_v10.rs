@@ -222,8 +222,12 @@ impl TelemetryCollector {
         if let Ok(content) = fs::read_to_string("/etc/os-release") {
             for line in content.lines() {
                 if line.starts_with("PRETTY_NAME=") {
-                    return Ok(line.split('=').nth(1).unwrap_or("unknown")
-                        .trim_matches('"').to_string());
+                    return Ok(line
+                        .split('=')
+                        .nth(1)
+                        .unwrap_or("unknown")
+                        .trim_matches('"')
+                        .to_string());
                 }
             }
         }
@@ -288,7 +292,10 @@ impl TelemetryCollector {
                                     let temp_c = temp_millideg as f32 / 1000.0;
 
                                     // Try to match to a core (heuristic: temp1=core0, etc.)
-                                    if let Some(idx_str) = temp_str.strip_prefix("temp").and_then(|s| s.split('_').next()) {
+                                    if let Some(idx_str) = temp_str
+                                        .strip_prefix("temp")
+                                        .and_then(|s| s.split('_').next())
+                                    {
                                         if let Ok(idx) = idx_str.parse::<usize>() {
                                             if idx > 0 && idx <= cores.len() {
                                                 cores[idx - 1].temp_c = Some(temp_c);
@@ -325,7 +332,11 @@ impl TelemetryCollector {
                 if let Ok(count_str) = fs::read_to_string(&throttle_path) {
                     if let Ok(count) = count_str.trim().parse::<u64>() {
                         if count > 0 {
-                            flags.push(format!("{}: {} throttles", cpu_name.to_string_lossy(), count));
+                            flags.push(format!(
+                                "{}: {} throttles",
+                                cpu_name.to_string_lossy(),
+                                count
+                            ));
                         }
                     }
                 }
@@ -381,7 +392,9 @@ impl TelemetryCollector {
 
             let mount = disk.mount_point().to_string_lossy().to_string();
             let device = disk.name().to_string_lossy().to_string();
-            let fstype = format!("{:?}", disk.file_system()).trim_matches('"').to_string();
+            let fstype = format!("{:?}", disk.file_system())
+                .trim_matches('"')
+                .to_string();
 
             // Read IO stats from /sys/block if available
             let (read_iops, write_iops) = self.read_disk_iostats(&device).unwrap_or((0, 0));
@@ -427,19 +440,21 @@ impl TelemetryCollector {
             let tx_bytes = data.total_transmitted();
 
             // Calculate rates
-            let (rx_kbps, tx_kbps) = if let Some((last_rx, last_tx)) = self.last_net_stats.get(iface_name.as_str()) {
-                let rx_delta = rx_bytes.saturating_sub(*last_rx) as f64;
-                let tx_delta = tx_bytes.saturating_sub(*last_tx) as f64;
-                (
-                    (rx_delta / elapsed_secs) / 1024.0,
-                    (tx_delta / elapsed_secs) / 1024.0,
-                )
-            } else {
-                (0.0, 0.0)
-            };
+            let (rx_kbps, tx_kbps) =
+                if let Some((last_rx, last_tx)) = self.last_net_stats.get(iface_name.as_str()) {
+                    let rx_delta = rx_bytes.saturating_sub(*last_rx) as f64;
+                    let tx_delta = tx_bytes.saturating_sub(*last_tx) as f64;
+                    (
+                        (rx_delta / elapsed_secs) / 1024.0,
+                        (tx_delta / elapsed_secs) / 1024.0,
+                    )
+                } else {
+                    (0.0, 0.0)
+                };
 
             // Update last stats
-            self.last_net_stats.insert(iface_name.to_string(), (rx_bytes, tx_bytes));
+            self.last_net_stats
+                .insert(iface_name.to_string(), (rx_bytes, tx_bytes));
 
             // Read additional info from /sys/class/net/<iface>/
             let (link_state, ipv4, ipv6, mac, vpn_flag) = self.read_net_sysfs(iface_name)?;
@@ -461,7 +476,10 @@ impl TelemetryCollector {
         Ok(nets)
     }
 
-    fn read_net_sysfs(&self, iface: &str) -> Result<(String, Option<String>, Option<String>, String, bool)> {
+    fn read_net_sysfs(
+        &self,
+        iface: &str,
+    ) -> Result<(String, Option<String>, Option<String>, String, bool)> {
         let sysfs_path = Path::new("/sys/class/net").join(iface);
 
         // Link state
@@ -480,7 +498,8 @@ impl TelemetryCollector {
         let (ipv4, ipv6) = self.parse_ip_addr(iface)?;
 
         // VPN flag: check if iface name matches common patterns
-        let vpn_flag = iface.starts_with("tun") || iface.starts_with("wg") || iface.starts_with("vpn");
+        let vpn_flag =
+            iface.starts_with("tun") || iface.starts_with("wg") || iface.starts_with("vpn");
 
         Ok((link_state, ipv4, ipv6, mac, vpn_flag))
     }
@@ -599,7 +618,9 @@ impl TelemetryCollector {
     }
 
     fn collect_processes(&self) -> Result<Vec<ProcessMetrics>> {
-        let mut processes: Vec<ProcessMetrics> = self.sys.processes()
+        let mut processes: Vec<ProcessMetrics> = self
+            .sys
+            .processes()
             .values()
             .map(|proc| ProcessMetrics {
                 pid: proc.pid().as_u32(),

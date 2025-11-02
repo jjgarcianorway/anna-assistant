@@ -28,8 +28,11 @@ const WATCH_PATHS: &[&str] = &[
 
 /// Spawn config listener task
 pub fn spawn_listener(tx: mpsc::UnboundedSender<SystemEvent>) -> JoinHandle<()> {
-    info!("Starting config listener (poll interval: {}s, {} files)",
-        POLL_INTERVAL_SECS, WATCH_PATHS.len());
+    info!(
+        "Starting config listener (poll interval: {}s, {} files)",
+        POLL_INTERVAL_SECS,
+        WATCH_PATHS.len()
+    );
 
     tokio::spawn(async move {
         if let Err(e) = watch_config(tx).await {

@@ -80,9 +80,18 @@ impl IntegrityWatchdog {
         self.write_alerts(&alerts)?;
 
         // Log summary
-        let critical = alerts.iter().filter(|a| matches!(a.severity, AlertSeverity::Critical)).count();
-        let errors = alerts.iter().filter(|a| matches!(a.severity, AlertSeverity::Error)).count();
-        let warnings = alerts.iter().filter(|a| matches!(a.severity, AlertSeverity::Warning)).count();
+        let critical = alerts
+            .iter()
+            .filter(|a| matches!(a.severity, AlertSeverity::Critical))
+            .count();
+        let errors = alerts
+            .iter()
+            .filter(|a| matches!(a.severity, AlertSeverity::Error))
+            .count();
+        let warnings = alerts
+            .iter()
+            .filter(|a| matches!(a.severity, AlertSeverity::Warning))
+            .count();
 
         if critical > 0 || errors > 0 {
             warn!(
@@ -265,7 +274,9 @@ impl IntegrityWatchdog {
                             check.reason.as_ref().unwrap_or(&"Unknown".to_string())
                         ),
                         fix_command: check.action.clone(),
-                        impact: check.impact.unwrap_or_else(|| "Core functionality impaired".to_string()),
+                        impact: check
+                            .impact
+                            .unwrap_or_else(|| "Core functionality impaired".to_string()),
                     });
                 } else {
                     // Optional module degraded - warning
@@ -280,7 +291,9 @@ impl IntegrityWatchdog {
                             check.reason.as_ref().unwrap_or(&"Unknown".to_string())
                         ),
                         fix_command: check.action.clone(),
-                        impact: check.impact.unwrap_or_else(|| "Feature unavailable".to_string()),
+                        impact: check
+                            .impact
+                            .unwrap_or_else(|| "Feature unavailable".to_string()),
                     });
                 }
             }
@@ -293,9 +306,7 @@ impl IntegrityWatchdog {
         let mut alerts = Vec::new();
 
         // Check if anna user exists
-        let output = std::process::Command::new("id")
-            .arg("anna")
-            .output();
+        let output = std::process::Command::new("id").arg("anna").output();
 
         if output.is_err() || !output.unwrap().status.success() {
             alerts.push(IntegrityAlert {
@@ -353,11 +364,10 @@ impl IntegrityWatchdog {
             alerts: alerts.to_vec(),
         };
 
-        let json = serde_json::to_string_pretty(&alerts_file)
-            .context("Failed to serialize alerts")?;
+        let json =
+            serde_json::to_string_pretty(&alerts_file).context("Failed to serialize alerts")?;
 
-        std::fs::write(&self.alerts_path, json)
-            .context("Failed to write alerts.json")?;
+        std::fs::write(&self.alerts_path, json).context("Failed to write alerts.json")?;
 
         Ok(())
     }
@@ -368,11 +378,11 @@ impl IntegrityWatchdog {
             return Ok(Vec::new());
         }
 
-        let content = std::fs::read_to_string(&self.alerts_path)
-            .context("Failed to read alerts.json")?;
+        let content =
+            std::fs::read_to_string(&self.alerts_path).context("Failed to read alerts.json")?;
 
-        let alerts_file: AlertsFile = serde_json::from_str(&content)
-            .context("Failed to parse alerts.json")?;
+        let alerts_file: AlertsFile =
+            serde_json::from_str(&content).context("Failed to parse alerts.json")?;
 
         Ok(alerts_file.alerts)
     }

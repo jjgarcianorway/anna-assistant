@@ -7,6 +7,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.3] - Arch Linux Advisor + Unified TUI - 2025-11-02
+
+### Major Features
+
+#### 1. Arch Linux Advisor (10 Rules)
+Complete system analysis engine providing actionable optimization recommendations:
+
+**Advisor Rules:**
+1. **NVIDIA Kernel Headers** - Detects nvidia-dkms without linux-headers
+2. **Vulkan Stack** - Ensures vulkan-icd-loader and vendor ICD installed
+3. **Microcode** - Checks AMD/Intel microcode packages and age
+4. **CPU Governor** - Advises optimal governor for laptops
+5. **NVMe I/O Scheduler** - Recommends 'none' scheduler for NVMe SSDs
+6. **TLP/Power Management** - Detects missing or conflicting power tools on laptops
+7. **ZRAM/Swap** - Recommends ZRAM on low-memory systems (<8GB)
+8. **Wayland Acceleration** - Checks NVIDIA DRM modesetting for Wayland
+9. **AUR Helpers** - Suggests yay/paru when AUR packages detected
+10. **Orphan Packages** - Identifies packages no longer needed
+
+**Features:**
+- Deterministic rules (same system → same advice)
+- Privacy-preserving (all analysis local, no network calls)
+- Fast execution (100-300ms after data collection)
+- No root required (graceful degradation)
+- Rich JSON schema with `explain`, `fix_cmd`, `fix_risk` fields
+
+**Commands:**
+```bash
+annactl advisor arch              # Pretty TUI output
+annactl advisor arch --json       # Machine-readable JSON
+annactl advisor arch --explain <id>  # Detailed explanation
+```
+
+**Documentation:** See `docs/ADVISOR-ARCH.md` (500+ lines)
+
+#### 2. Unified Terminal UX Toolkit
+Cross-project terminal styling with retro DOS/Borland aesthetic:
+
+**Rust Module** (`src/anna_common/src/tui.rs`):
+- `header()`, `section()`, `status()`, `kv()`, `table()`, `progress_bar()`
+- Runtime capability detection (color, emoji, UTF-8, terminal width)
+- Three rendering modes: Full, Degraded, Minimal (ASCII fallback)
+- Respects NO_COLOR, CLICOLOR, LANG environment variables
+
+**Bash Toolkit** (`scripts/lib/style.sh`):
+- Parallel implementation for shell scripts
+- Functions: `st_header`, `st_section`, `st_status`, `st_kv`, `st_bullet`
+- Auto-detects capabilities on source
+
+**Documentation:** See `docs/STYLE-GUIDE.md` (630+ lines)
+
+#### 3. Hardware & Package Collectors
+Foundation for advisor and future intelligence features:
+
+**Hardware Profile** (`annactl hw show`):
+- CPU, GPU, storage, network, memory, battery detection
+- Parses: lspci, lsblk, dmidecode, nvidia-smi, udevadm
+- Async with 2s per-tool timeout, 5s overall budget
+- Graceful degradation (no root required)
+
+**Package Inventory**:
+- All packages, orphans, AUR packages, groups
+- Recent events from `/var/log/pacman.log`
+- AUR detection via pacman -Si sampling (100 packages)
+
+**RPC Endpoints:**
+- `advisor_run` - Run all advisor rules
+- `hardware_profile` - Get hardware fingerprint
+- `package_inventory` - Get package analysis
+
+### Enhancements
+
+- **CLI:** New commands `annactl advisor` and `annactl hw`
+- **Tests:** 13 unit tests for advisor rules, 9 tests for TUI module
+- **Smoke Test:** `tests/arch_advisor_smoke.sh` validates JSON output
+- **Caching:** 24h TTL for hardware, 5m TTL for packages
+
+### Documentation
+
+- `docs/ADVISOR-ARCH.md` - Complete advisor guide (500+ lines)
+- `docs/STYLE-GUIDE.md` - TUI style guide (630+ lines)
+- JSON schemas for all advisor output
+
+### Test Results
+
+```bash
+# Build
+cargo build --release           # ✓ Success (34 warnings, 0 errors)
+
+# Unit Tests
+cargo test --bin annad advisor  # ✓ 13/13 passed
+cargo test -p anna_common tui   # ✓ 9/9 passed
+
+# Smoke Test
+./tests/arch_advisor_smoke.sh   # ✓ 8/8 passed
+```
+
+### Migration from 0.12.2
+
+```bash
+# Rebuild and install
+cargo build --release --bin annad --bin annactl
+sudo systemctl restart annad
+
+# Test new features
+annactl hw show
+annactl advisor arch
+annactl advisor arch --json | jq .
+```
+
+### Known Limitations
+
+- AUR detection limited to sampling (100 packages max)
+- NVMe scheduler cannot be read without root (advisory is informational)
+- Auto-apply not yet implemented (manual execution required)
+
+---
+
 ## [0.9.6-alpha.7] - Stability: Run as System User - 2025-10-30
 
 ###  Critical Fix: No More Root

@@ -32,3 +32,4 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 tempfile = "3.8"
 rand = "0.8"
 async-trait = "0.1"
+anna_common = { path = "../anna_common" }

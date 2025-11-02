@@ -31,41 +31,50 @@ impl StorageManager {
             Self::check_dir_writable(parent)?;
         }
 
-        let conn = Connection::open(db_path)
-            .with_context(|| {
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::MetadataExt;
+        let conn = Connection::open(db_path).with_context(|| {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
 
-                    let process_uid = unsafe { libc::getuid() };
-                    let process_gid = unsafe { libc::getgid() };
+                let process_uid = unsafe { libc::getuid() };
+                let process_gid = unsafe { libc::getgid() };
 
-                    let metadata_info = if let Ok(md) = std::fs::metadata(db_path) {
-                        format!("DB file: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777)
-                    } else {
-                        "DB file does not exist yet".to_string()
-                    };
+                let metadata_info = if let Ok(md) = std::fs::metadata(db_path) {
+                    format!(
+                        "DB file: uid={} gid={} mode={:o}",
+                        md.uid(),
+                        md.gid(),
+                        md.mode() & 0o777
+                    )
+                } else {
+                    "DB file does not exist yet".to_string()
+                };
 
-                    let parent_info = if let Some(parent) = db_path.parent() {
-                        if let Ok(md) = std::fs::metadata(parent) {
-                            format!(" | Parent dir: uid={} gid={} mode={:o}", md.uid(), md.gid(), md.mode() & 0o777)
-                        } else {
-                            String::new()
-                        }
+                let parent_info = if let Some(parent) = db_path.parent() {
+                    if let Ok(md) = std::fs::metadata(parent) {
+                        format!(
+                            " | Parent dir: uid={} gid={} mode={:o}",
+                            md.uid(),
+                            md.gid(),
+                            md.mode() & 0o777
+                        )
                     } else {
                         String::new()
-                    };
+                    }
+                } else {
+                    String::new()
+                };
 
-                    format!(
-                        "Failed to open telemetry database at {:?}. Process: uid={} gid={}. {}{}",
-                        db_path, process_uid, process_gid, metadata_info, parent_info
-                    )
-                }
-                #[cfg(not(unix))]
-                {
-                    format!("Failed to open telemetry database at {:?}", db_path)
-                }
-            })?;
+                format!(
+                    "Failed to open telemetry database at {:?}. Process: uid={} gid={}. {}{}",
+                    db_path, process_uid, process_gid, metadata_info, parent_info
+                )
+            }
+            #[cfg(not(unix))]
+            {
+                format!("Failed to open telemetry database at {:?}", db_path)
+            }
+        })?;
 
         // Initialize schema
         Self::init_schema(&conn)?;
@@ -102,7 +111,11 @@ impl StorageManager {
                 Err(e) => {
                     anyhow::bail!(
                         "Directory {:?} is not writable: {}. Owner: uid={} gid={} mode={:o}",
-                        dir, e, uid, gid, mode
+                        dir,
+                        e,
+                        uid,
+                        gid,
+                        mode
                     )
                 }
             }
@@ -447,7 +460,8 @@ impl StorageManager {
         let conn = self.conn.lock().unwrap();
         let cutoff_ts = (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs() - (window_min as u64 * 60)) as i64;
+            .as_secs()
+            - (window_min as u64 * 60)) as i64;
 
         let mut stmt = conn.prepare(
             "SELECT ts, host_id, kernel, distro, uptime_s FROM snapshot WHERE ts >= ? ORDER BY ts ASC"
@@ -483,7 +497,8 @@ impl StorageManager {
     }
 
     fn query_cpu_metrics(&self, conn: &Connection, ts: u64) -> Result<CpuMetrics> {
-        let mut stmt = conn.prepare("SELECT core, util_pct, temp_c FROM cpu WHERE ts = ? ORDER BY core")?;
+        let mut stmt =
+            conn.prepare("SELECT core, util_pct, temp_c FROM cpu WHERE ts = ? ORDER BY core")?;
         let cores: Vec<CpuCore> = stmt
             .query_map(params![ts], |row| {
                 Ok(CpuCore {
@@ -590,7 +605,7 @@ impl StorageManager {
 
     fn query_gpu_metrics(&self, conn: &Connection, ts: u64) -> Result<Vec<GpuMetrics>> {
         let mut stmt = conn.prepare(
-            "SELECT device_id, util_pct, temp_c, mem_used_mb, mem_total_mb FROM gpu WHERE ts = ?"
+            "SELECT device_id, util_pct, temp_c, mem_used_mb, mem_total_mb FROM gpu WHERE ts = ?",
         )?;
 
         let gpus: Vec<GpuMetrics> = stmt
@@ -629,9 +644,8 @@ impl StorageManager {
     }
 
     fn query_systemd_units(&self, conn: &Connection, ts: u64) -> Result<Vec<SystemdUnit>> {
-        let mut stmt = conn.prepare(
-            "SELECT unit, load, active, sub FROM systemd_unit WHERE ts = ?"
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT unit, load, active, sub FROM systemd_unit WHERE ts = ?")?;
 
         let units: Vec<SystemdUnit> = stmt
             .query_map(params![ts], |row| {
@@ -648,7 +662,11 @@ impl StorageManager {
     }
 
     /// Store persona scores
-    pub fn store_persona_scores(&self, ts: u64, scores: &[(String, f32, Vec<String>)]) -> Result<()> {
+    pub fn store_persona_scores(
+        &self,
+        ts: u64,
+        scores: &[(String, f32, Vec<String>)],
+    ) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let tx = conn.unchecked_transaction()?;
 
@@ -675,17 +693,16 @@ impl StorageManager {
             .flatten();
 
         if let Some(ts) = latest_ts {
-            let mut stmt = conn.prepare(
-                "SELECT name, score, evidence_json FROM persona_scores WHERE ts = ?"
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT name, score, evidence_json FROM persona_scores WHERE ts = ?")?;
 
             let scores: Vec<(String, f32, Vec<String>)> = stmt
                 .query_map(params![ts], |row| {
                     let name: String = row.get(0)?;
                     let score: f32 = row.get(1)?;
                     let evidence_json: String = row.get(2)?;
-                    let evidence: Vec<String> = serde_json::from_str(&evidence_json)
-                        .unwrap_or_else(|_| Vec::new());
+                    let evidence: Vec<String> =
+                        serde_json::from_str(&evidence_json).unwrap_or_else(|_| Vec::new());
 
                     Ok((name, score, evidence))
                 })?

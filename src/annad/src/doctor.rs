@@ -55,10 +55,13 @@ impl DoctorApply {
         // Create system user
         let status = Command::new("useradd")
             .args(&[
-                "-r",                    // System user
-                "-s", "/usr/bin/nologin", // No login shell
-                "-d", "/var/lib/anna",   // Home directory
-                "-c", "Anna Assistant",  // Comment
+                "-r", // System user
+                "-s",
+                "/usr/bin/nologin", // No login shell
+                "-d",
+                "/var/lib/anna", // Home directory
+                "-c",
+                "Anna Assistant", // Comment
                 "anna",
             ])
             .status()
@@ -85,8 +88,7 @@ impl DoctorApply {
 
         for (path, mode, description) in dirs {
             if !Path::new(path).exists() {
-                fs::create_dir_all(path)
-                    .with_context(|| format!("Failed to create {}", path))?;
+                fs::create_dir_all(path).with_context(|| format!("Failed to create {}", path))?;
                 self.log(&format!("  Created {}: {}", description, path));
             }
 
@@ -147,8 +149,7 @@ WantedBy=multi-user.target
 "#;
 
         let unit_path = "/etc/systemd/system/annad.service";
-        fs::write(unit_path, unit_content)
-            .context("Failed to write systemd unit")?;
+        fs::write(unit_path, unit_content).context("Failed to write systemd unit")?;
 
         self.log(&format!("  Installed {}", unit_path));
         Ok(())

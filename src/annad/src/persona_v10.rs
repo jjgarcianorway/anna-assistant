@@ -103,17 +103,38 @@ impl PersonaRadar {
         let bin_paths = vec!["/usr/bin", "/usr/local/bin", "/bin"];
 
         let common_programs = vec![
-            "vim", "nvim", "emacs", "nano",
-            "tmux", "screen",
-            "zsh", "fish", "bash",
-            "i3", "sway", "bspwm", "awesome", "xmonad",
-            "polybar", "waybar",
-            "rofi", "dmenu",
-            "firefox", "chromium", "chrome",
-            "code", "subl", "atom",
-            "git", "docker", "ansible",
-            "steam", "vlc", "gimp",
-            "systemctl", "journalctl",
+            "vim",
+            "nvim",
+            "emacs",
+            "nano",
+            "tmux",
+            "screen",
+            "zsh",
+            "fish",
+            "bash",
+            "i3",
+            "sway",
+            "bspwm",
+            "awesome",
+            "xmonad",
+            "polybar",
+            "waybar",
+            "rofi",
+            "dmenu",
+            "firefox",
+            "chromium",
+            "chrome",
+            "code",
+            "subl",
+            "atom",
+            "git",
+            "docker",
+            "ansible",
+            "steam",
+            "vlc",
+            "gimp",
+            "systemctl",
+            "journalctl",
         ];
 
         for bin_path in bin_paths {
@@ -131,32 +152,25 @@ impl PersonaRadar {
     /// Count installed packages (distro-specific)
     fn count_packages() -> Result<usize> {
         // Try pacman (Arch)
-        if let Ok(output) = std::process::Command::new("pacman")
-            .args(&["-Q"])
-            .output()
-        {
+        if let Ok(output) = std::process::Command::new("pacman").args(&["-Q"]).output() {
             if output.status.success() {
                 return Ok(output.stdout.split(|&b| b == b'\n').count());
             }
         }
 
         // Try dpkg (Debian/Ubuntu)
-        if let Ok(output) = std::process::Command::new("dpkg")
-            .args(&["-l"])
-            .output()
-        {
+        if let Ok(output) = std::process::Command::new("dpkg").args(&["-l"]).output() {
             if output.status.success() {
-                return Ok(output.stdout.split(|&b| b == b'\n').filter(|line| {
-                    line.starts_with(b"ii")
-                }).count());
+                return Ok(output
+                    .stdout
+                    .split(|&b| b == b'\n')
+                    .filter(|line| line.starts_with(b"ii"))
+                    .count());
             }
         }
 
         // Try rpm (Fedora/RHEL)
-        if let Ok(output) = std::process::Command::new("rpm")
-            .args(&["-qa"])
-            .output()
-        {
+        if let Ok(output) = std::process::Command::new("rpm").args(&["-qa"]).output() {
             if output.status.success() {
                 return Ok(output.stdout.split(|&b| b == b'\n').count());
             }
@@ -183,8 +197,8 @@ impl PersonaRadar {
     /// Detect window manager from running processes
     fn detect_window_manager(processes: &HashSet<String>) -> Option<String> {
         let wm_names = vec![
-            "i3", "sway", "bspwm", "awesome", "xmonad", "dwm",
-            "kwin", "mutter", "openbox", "fluxbox",
+            "i3", "sway", "bspwm", "awesome", "xmonad", "dwm", "kwin", "mutter", "openbox",
+            "fluxbox",
         ];
 
         for wm in wm_names {
@@ -199,8 +213,14 @@ impl PersonaRadar {
     /// Check if GUI session is running
     fn has_gui_session(processes: &HashSet<String>) -> bool {
         let gui_indicators = vec![
-            "Xorg", "X", "wayland", "kwin", "mutter", "gnome-shell",
-            "plasmashell", "xfce4-panel",
+            "Xorg",
+            "X",
+            "wayland",
+            "kwin",
+            "mutter",
+            "gnome-shell",
+            "plasmashell",
+            "xfce4-panel",
         ];
 
         gui_indicators.iter().any(|&ind| processes.contains(ind))
@@ -213,7 +233,11 @@ impl PersonaRadar {
             .output()?;
 
         if output.status.success() {
-            Ok(output.stdout.split(|&b| b == b'\n').filter(|line| !line.is_empty()).count())
+            Ok(output
+                .stdout
+                .split(|&b| b == b'\n')
+                .filter(|line| !line.is_empty())
+                .count())
         } else {
             Ok(0)
         }
@@ -226,7 +250,9 @@ impl PersonaRadar {
         // User crontab
         if let Ok(output) = std::process::Command::new("crontab").args(&["-l"]).output() {
             if output.status.success() {
-                count += output.stdout.split(|&b| b == b'\n')
+                count += output
+                    .stdout
+                    .split(|&b| b == b'\n')
                     .filter(|line| !line.is_empty() && !line.starts_with(b"#"))
                     .count();
             }
@@ -269,7 +295,10 @@ impl PersonaRadar {
 
         // Minimal distro
         let minimal_distros = vec!["alpine", "void", "arch", "gentoo"];
-        if minimal_distros.iter().any(|d| ev.distro.to_lowercase().contains(d)) {
+        if minimal_distros
+            .iter()
+            .any(|d| ev.distro.to_lowercase().contains(d))
+        {
             score += 1.5;
             evidence.push(format!("Minimal distro: {}", ev.distro));
         }
@@ -522,10 +551,12 @@ impl PersonaRadar {
         }
 
         // High RAM usage (GUI heavy)
-        let gui_ram_mb: f64 = ev.running_processes
+        let gui_ram_mb: f64 = ev
+            .running_processes
             .iter()
             .filter(|p| p.contains("plasma") || p.contains("gnome") || p.contains("electron"))
-            .count() as f64 * 500.0; // Estimate 500MB per heavy GUI process
+            .count() as f64
+            * 500.0; // Estimate 500MB per heavy GUI process
 
         if gui_ram_mb > 4000.0 {
             score += 1.5;
@@ -565,7 +596,12 @@ impl PersonaRadar {
         if !ev.has_gui_session {
             score += 2.0;
             evidence.push("No GUI session".to_string());
-        } else if ev.window_manager.as_ref().map(|w| w.starts_with("i3") || w.starts_with("sway")).unwrap_or(false) {
+        } else if ev
+            .window_manager
+            .as_ref()
+            .map(|w| w.starts_with("i3") || w.starts_with("sway"))
+            .unwrap_or(false)
+        {
             score += 1.0;
         }
 
@@ -634,7 +670,11 @@ mod tests {
             distro: "Arch Linux".to_string(),
             uptime_s: 86400 * 7, // 7 days
             cpu: CpuMetrics {
-                cores: vec![CpuCore { core: 0, util_pct: 50.0, temp_c: Some(42.0) }],
+                cores: vec![CpuCore {
+                    core: 0,
+                    util_pct: 50.0,
+                    temp_c: Some(42.0),
+                }],
                 load_avg: [1.0, 1.0, 1.0],
                 throttle_flags: Vec::new(),
             },

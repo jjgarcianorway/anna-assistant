@@ -9,7 +9,9 @@ use serde_json::Value as JsonValue;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
+mod advisor_cmd;
 mod doctor_cmd;
+mod hw_cmd;
 
 const SOCKET_PATH: &str = "/run/anna/annad.sock";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -58,6 +60,18 @@ enum Commands {
     Radar {
         #[command(subcommand)]
         action: RadarAction,
+    },
+
+    /// Show hardware profile (CPU, GPU, storage, network)
+    Hw {
+        #[command(subcommand)]
+        action: HwAction,
+    },
+
+    /// Run Arch Linux advisor (system optimization recommendations)
+    Advisor {
+        #[command(subcommand)]
+        action: AdvisorAction,
     },
 
     /// Show CPU, memory, temperatures, and battery
@@ -177,6 +191,32 @@ enum RadarAction {
     },
 }
 
+#[derive(Subcommand)]
+enum HwAction {
+    /// Show hardware profile
+    Show {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show detailed device information
+        #[arg(short, long)]
+        wide: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum AdvisorAction {
+    /// Run Arch Linux advisor
+    Arch {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+        /// Explain specific advice by ID
+        #[arg(long)]
+        explain: Option<String>,
+    },
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RpcRequest {
     jsonrpc: String,
@@ -206,7 +246,11 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Version => {
             println!("Anna v{} - Event-Driven Intelligence", VERSION);
-            println!("Build: {} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            println!(
+                "Build: {} {}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            );
             Ok(())
         }
         Commands::Status { json, verbose } => {
@@ -269,7 +313,11 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Export { path, since, json: _ } => {
+        Commands::Export {
+            path,
+            since,
+            json: _,
+        } => {
             // Export is always JSON
             let params = serde_json::json!({ "since": since });
             let response = rpc_call("export", Some(params)).await?;
@@ -279,6 +327,22 @@ async fn main() -> Result<()> {
                 println!("✓ Exported to {}", path_str);
             } else {
                 println!("{}", output);
+            }
+            Ok(())
+        }
+        Commands::Hw { action } => {
+            match action {
+                HwAction::Show { json, wide } => {
+                    hw_cmd::show_hardware(json, wide).await?;
+                }
+            }
+            Ok(())
+        }
+        Commands::Advisor { action } => {
+            match action {
+                AdvisorAction::Arch { json, explain } => {
+                    advisor_cmd::run_advisor(json, explain).await?;
+                }
             }
             Ok(())
         }
@@ -345,7 +409,7 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
     // Connect with timeout
     let stream = match timeout(
         Duration::from_secs(CONNECT_TIMEOUT_SECS),
-        UnixStream::connect(SOCKET_PATH)
+        UnixStream::connect(SOCKET_PATH),
     )
     .await
     {
@@ -355,11 +419,15 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
                 "Failed to connect to annad (socket: {})\n\
                  Error: {}\n\
                  Is the daemon running? Try: sudo systemctl status annad",
-                SOCKET_PATH, e
+                SOCKET_PATH,
+                e
             );
         }
         Err(_) => {
-            eprintln!("WARN: timeout (connect) - daemon not responding after {}s", CONNECT_TIMEOUT_SECS);
+            eprintln!(
+                "WARN: timeout (connect) - daemon not responding after {}s",
+                CONNECT_TIMEOUT_SECS
+            );
             std::process::exit(7);
         }
     };
@@ -387,20 +455,29 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
         Ok(Ok(_)) => {}
         Ok(Err(e)) => anyhow::bail!("Write error: {}", e),
         Err(_) => {
-            eprintln!("WARN: timeout (write) - daemon not responding after {}s", WRITE_TIMEOUT_SECS);
+            eprintln!(
+                "WARN: timeout (write) - daemon not responding after {}s",
+                WRITE_TIMEOUT_SECS
+            );
             std::process::exit(7);
         }
     }
 
     // Read response with timeout
     let mut line = String::new();
-    match timeout(Duration::from_secs(READ_TIMEOUT_SECS), reader.read_line(&mut line))
-        .await
+    match timeout(
+        Duration::from_secs(READ_TIMEOUT_SECS),
+        reader.read_line(&mut line),
+    )
+    .await
     {
         Ok(Ok(_)) => {}
         Ok(Err(e)) => anyhow::bail!("Read error: {}", e),
         Err(_) => {
-            eprintln!("WARN: timeout (read) - daemon not responding after {}s", READ_TIMEOUT_SECS);
+            eprintln!(
+                "WARN: timeout (read) - daemon not responding after {}s",
+                READ_TIMEOUT_SECS
+            );
             std::process::exit(7);
         }
     }
@@ -417,11 +494,26 @@ async fn rpc_call(method: &str, params: Option<JsonValue>) -> Result<JsonValue> 
 fn print_status(data: &JsonValue, verbose: bool) -> Result<()> {
     println!("\n╭─ Anna Status ────────────────────────────────");
     println!("│");
-    println!("│  Daemon:       {}", data["daemon_state"].as_str().unwrap_or("unknown"));
-    println!("│  DB Path:      {}", data["db_path"].as_str().unwrap_or("unknown"));
-    println!("│  Last Sample:  {} seconds ago", data["last_sample_age_s"].as_u64().unwrap_or(0));
-    println!("│  Sample Count: {}", data["sample_count"].as_u64().unwrap_or(0));
-    println!("│  Loop Load:    {:.1}%", data["loop_load_pct"].as_f64().unwrap_or(0.0));
+    println!(
+        "│  Daemon:       {}",
+        data["daemon_state"].as_str().unwrap_or("unknown")
+    );
+    println!(
+        "│  DB Path:      {}",
+        data["db_path"].as_str().unwrap_or("unknown")
+    );
+    println!(
+        "│  Last Sample:  {} seconds ago",
+        data["last_sample_age_s"].as_u64().unwrap_or(0)
+    );
+    println!(
+        "│  Sample Count: {}",
+        data["sample_count"].as_u64().unwrap_or(0)
+    );
+    println!(
+        "│  Loop Load:    {:.1}%",
+        data["loop_load_pct"].as_f64().unwrap_or(0.0)
+    );
     println!("│");
 
     if let Some(pid) = data["annad_pid"].as_u64() {
@@ -456,10 +548,10 @@ fn print_sensors(data: &JsonValue, _detail: bool) -> Result<()> {
                 let temp = core["temp_c"].as_f64();
 
                 let bar = progress_bar(util as f32, 20);
-                let temp_str = temp.map(|t| format!(" {}°C", t as i32))
-                    .unwrap_or_default();
+                let temp_str = temp.map(|t| format!(" {}°C", t as i32)).unwrap_or_default();
 
-                println!("│    Core {}: {} {:>5.1}%{}",
+                println!(
+                    "│    Core {}: {} {:>5.1}%{}",
                     core["core"].as_u64().unwrap_or(0),
                     bar,
                     util,
@@ -469,7 +561,8 @@ fn print_sensors(data: &JsonValue, _detail: bool) -> Result<()> {
         }
 
         if let Some(load) = cpu["load_avg"].as_array() {
-            println!("│    Load: {:.2}, {:.2}, {:.2}",
+            println!(
+                "│    Load: {:.2}, {:.2}, {:.2}",
                 load[0].as_f64().unwrap_or(0.0),
                 load[1].as_f64().unwrap_or(0.0),
                 load[2].as_f64().unwrap_or(0.0)
@@ -486,14 +579,20 @@ fn print_sensors(data: &JsonValue, _detail: bool) -> Result<()> {
         let pct = (used / total * 100.0) as f32;
 
         let bar = progress_bar(pct, 20);
-        println!("│  Memory: {} {:>5.1}%  ({:.1}/{:.1} GB)", bar, pct, used, total);
+        println!(
+            "│  Memory: {} {:>5.1}%  ({:.1}/{:.1} GB)",
+            bar, pct, used, total
+        );
 
         if let Some(swap_total) = mem["swap_total_mb"].as_u64() {
             if swap_total > 0 {
                 let swap_used = mem["swap_used_mb"].as_u64().unwrap_or(0) as f64 / 1024.0;
                 let swap_pct = (swap_used / (swap_total as f64 / 1024.0) * 100.0) as f32;
                 let swap_bar = progress_bar(swap_pct, 20);
-                println!("│  Swap:   {} {:>5.1}%  ({:.1} GB)", swap_bar, swap_pct, swap_used);
+                println!(
+                    "│  Swap:   {} {:>5.1}%  ({:.1} GB)",
+                    swap_bar, swap_pct, swap_used
+                );
             }
         }
     }
@@ -670,10 +769,12 @@ fn print_collect(data: &JsonValue) -> Result<()> {
             if let Some(sensors) = snap.get("sensors") {
                 if let Some(cpu) = sensors.get("cpu") {
                     if let Some(load_avg) = cpu["load_avg"].as_array() {
-                        println!("│    CPU Load: {:.2}, {:.2}, {:.2}",
+                        println!(
+                            "│    CPU Load: {:.2}, {:.2}, {:.2}",
                             load_avg[0].as_f64().unwrap_or(0.0),
                             load_avg[1].as_f64().unwrap_or(0.0),
-                            load_avg[2].as_f64().unwrap_or(0.0));
+                            load_avg[2].as_f64().unwrap_or(0.0)
+                        );
                     }
                 }
 
@@ -854,7 +955,10 @@ fn print_events(data: &JsonValue) -> Result<()> {
             println!("│  {} {:<10}  {:<12}  {}", icon, domain, time_str, cause);
 
             if alerts > 0 {
-                println!("│     └─ {} alerts, action: {} ({}ms)", alerts, action, duration);
+                println!(
+                    "│     └─ {} alerts, action: {} ({}ms)",
+                    alerts, action, duration
+                );
             } else {
                 println!("│     └─ no alerts, action: {} ({}ms)", action, duration);
             }

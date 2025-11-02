@@ -95,8 +95,8 @@ impl RpcServer {
                 // Set ownership and mode on parent directory
                 #[cfg(unix)]
                 {
-                    use std::os::unix::fs::PermissionsExt;
                     use std::os::unix::fs::MetadataExt;
+                    use std::os::unix::fs::PermissionsExt;
 
                     // Get anna user/group IDs
                     let anna_uid = Self::get_user_id("anna").unwrap_or(1003);
@@ -111,8 +111,13 @@ impl RpcServer {
                     std::fs::set_permissions(parent, perms)?;
 
                     let md = std::fs::metadata(parent)?;
-                    info!("Socket directory created: {:?} (uid={} gid={} mode={:o})",
-                          parent, md.uid(), md.gid(), md.mode() & 0o777);
+                    info!(
+                        "Socket directory created: {:?} (uid={} gid={} mode={:o})",
+                        parent,
+                        md.uid(),
+                        md.gid(),
+                        md.mode() & 0o777
+                    );
                 }
                 #[cfg(not(unix))]
                 {
@@ -124,8 +129,13 @@ impl RpcServer {
                 {
                     use std::os::unix::fs::MetadataExt;
                     if let Ok(md) = std::fs::metadata(parent) {
-                        info!("Socket directory exists: {:?} (uid={} gid={} mode={:o})",
-                              parent, md.uid(), md.gid(), md.mode() & 0o777);
+                        info!(
+                            "Socket directory exists: {:?} (uid={} gid={} mode={:o})",
+                            parent,
+                            md.uid(),
+                            md.gid(),
+                            md.mode() & 0o777
+                        );
                     }
                 }
             }
@@ -154,8 +164,7 @@ impl RpcServer {
             };
 
             if !socket_in_use {
-                std::fs::remove_file(socket_path)
-                    .context("Failed to remove stale socket")?;
+                std::fs::remove_file(socket_path).context("Failed to remove stale socket")?;
                 info!("Removed stale socket: {}", socket_path.display());
             } else {
                 anyhow::bail!(
@@ -218,11 +227,7 @@ impl RpcServer {
                 Ok(resp) => resp,
                 Err(e) => {
                     error!("Request handling error: {}", e);
-                    self.error_response(
-                        Value::Null,
-                        -32603,
-                        format!("Internal error: {}", e),
-                    )
+                    self.error_response(Value::Null, -32603, format!("Internal error: {}", e))
                 }
             };
 
@@ -237,8 +242,8 @@ impl RpcServer {
 
     /// Handle a JSON-RPC request
     async fn handle_request(&self, line: &str) -> Result<JsonRpcResponse> {
-        let req: JsonRpcRequest = serde_json::from_str(line)
-            .context("Failed to parse JSON-RPC request")?;
+        let req: JsonRpcRequest =
+            serde_json::from_str(line).context("Failed to parse JSON-RPC request")?;
 
         if req.jsonrpc != "2.0" {
             return Ok(self.error_response(
@@ -249,6 +254,11 @@ impl RpcServer {
         }
 
         let result = match req.method.as_str() {
+            // v0.12.3 CLI methods (advisor)
+            "advisor_run" => self.method_advisor_run(&req.params).await,
+            "hardware_profile" => self.method_hardware_profile(&req.params).await,
+            "package_inventory" => self.method_package_inventory(&req.params).await,
+            "storage_profile" => self.method_storage_profile(&req.params).await,
             // v0.12.2 CLI methods (collectors & radars)
             "collect" => self.method_collect(&req.params).await,
             "classify" => self.method_classify(&req.params).await,
@@ -346,12 +356,11 @@ impl RpcServer {
             window_min: u32,
         }
 
-        let params: TrendParams = serde_json::from_value(
-            params.clone().unwrap_or(serde_json::json!({
+        let params: TrendParams =
+            serde_json::from_value(params.clone().unwrap_or(serde_json::json!({
                 "metric": "cpu_util",
                 "window_min": 30
-            })),
-        )?;
+            })))?;
 
         let storage = self.storage.lock().await;
         let snapshots = storage.query_history(params.window_min)?;
@@ -367,9 +376,7 @@ impl RpcServer {
             "cpu_util" => {
                 let mut values: Vec<f64> = snapshots
                     .iter()
-                    .flat_map(|s| {
-                        s.cpu.cores.iter().map(|c| c.util_pct as f64)
-                    })
+                    .flat_map(|s| s.cpu.cores.iter().map(|c| c.util_pct as f64))
                     .collect();
 
                 values.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -382,7 +389,8 @@ impl RpcServer {
                 // Simple trend: compare first half to second half
                 let mid = values.len() / 2;
                 let first_half_avg = values[..mid].iter().sum::<f64>() / mid as f64;
-                let second_half_avg = values[mid..].iter().sum::<f64>() / (values.len() - mid) as f64;
+                let second_half_avg =
+                    values[mid..].iter().sum::<f64>() / (values.len() - mid) as f64;
 
                 let trend = if (second_half_avg - first_half_avg).abs() < 5.0 {
                     "stable"
@@ -428,14 +436,11 @@ impl RpcServer {
             .cores
             .iter()
             .filter_map(|c| c.temp_c)
-            .sum::<f32>() / snapshot.cpu.cores.len() as f32;
+            .sum::<f32>()
+            / snapshot.cpu.cores.len() as f32;
 
-        let cpu_util_avg = snapshot
-            .cpu
-            .cores
-            .iter()
-            .map(|c| c.util_pct)
-            .sum::<f32>() / snapshot.cpu.cores.len() as f32;
+        let cpu_util_avg = snapshot.cpu.cores.iter().map(|c| c.util_pct).sum::<f32>()
+            / snapshot.cpu.cores.len() as f32;
 
         let cpu_state = if cpu_temp_avg > 80.0 {
             "error"
@@ -774,7 +779,8 @@ impl RpcServer {
             sensors.cpu.load_avg[0],
             sensors.cpu.cores.len() as u32,
             (sensors.mem.free_mb as f64 / sensors.mem.total_mb as f64) * 100.0,
-            disk.disks.iter()
+            disk.disks
+                .iter()
                 .find(|d| d.mount == "/")
                 .map(|d| 100.0 - d.pct)
                 .unwrap_or(50.0),
@@ -831,7 +837,8 @@ impl RpcServer {
             sensors.cpu.load_avg[0],
             sensors.cpu.cores.len() as u32,
             (sensors.mem.free_mb as f64 / sensors.mem.total_mb as f64) * 100.0,
-            disk.disks.iter()
+            disk.disks
+                .iter()
                 .find(|d| d.mount == "/")
                 .map(|d| 100.0 - d.pct)
                 .unwrap_or(50.0),
@@ -856,19 +863,65 @@ impl RpcServer {
         }))
     }
 
+    /// v0.12.3: Get hardware profile
+    async fn method_hardware_profile(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::hardware_profile::HardwareCollector;
+
+        let collector = HardwareCollector::new();
+        let profile = collector.collect().await?;
+
+        Ok(serde_json::to_value(profile)?)
+    }
+
+    /// v0.12.3: Get package inventory
+    async fn method_package_inventory(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::package_analysis::PackageCollector;
+
+        let collector = PackageCollector::new();
+        let inventory = collector.collect().await?;
+
+        Ok(serde_json::to_value(inventory)?)
+    }
+
+    /// v0.12.3: Run Arch advisor
+    async fn method_advisor_run(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::advisor_v13::ArchAdvisor;
+        use crate::hardware_profile::HardwareCollector;
+        use crate::package_analysis::PackageCollector;
+        use crate::storage_btrfs::BtrfsCollector;
+
+        // Collect hardware and package data
+        let hw_collector = HardwareCollector::new();
+        let pkg_collector = PackageCollector::new();
+        let btrfs_collector = BtrfsCollector::new();
+
+        let hw_profile = hw_collector.collect().await?;
+        let pkg_inventory = pkg_collector.collect().await?;
+        let btrfs_profile = btrfs_collector.collect().await.ok();
+
+        // Run advisor (including storage rules if Btrfs detected)
+        let advice = ArchAdvisor::run(&hw_profile, &pkg_inventory, btrfs_profile.as_ref());
+
+        Ok(serde_json::to_value(advice)?)
+    }
+
+    /// v0.12.3-btrfs: Get storage/btrfs profile
+    async fn method_storage_profile(&self, _params: &Option<Value>) -> Result<Value> {
+        use crate::storage_btrfs::BtrfsCollector;
+
+        let collector = BtrfsCollector::new();
+        let profile = collector.collect().await?;
+
+        Ok(serde_json::to_value(profile)?)
+    }
+
     // Helper function to get user ID by name
     #[cfg(unix)]
     fn get_user_id(username: &str) -> Option<u32> {
         use std::process::Command;
-        let output = Command::new("id")
-            .args(&["-u", username])
-            .output()
-            .ok()?;
+        let output = Command::new("id").args(&["-u", username]).output().ok()?;
         if output.status.success() {
-            String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .parse()
-                .ok()
+            String::from_utf8_lossy(&output.stdout).trim().parse().ok()
         } else {
             None
         }
@@ -878,15 +931,9 @@ impl RpcServer {
     #[cfg(unix)]
     fn get_group_id(groupname: &str) -> Option<u32> {
         use std::process::Command;
-        let output = Command::new("id")
-            .args(&["-g", groupname])
-            .output()
-            .ok()?;
+        let output = Command::new("id").args(&["-g", groupname]).output().ok()?;
         if output.status.success() {
-            String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .parse()
-                .ok()
+            String::from_utf8_lossy(&output.stdout).trim().parse().ok()
         } else {
             None
         }
@@ -898,12 +945,10 @@ impl RpcServer {
         use std::ffi::CString;
         use std::os::unix::ffi::OsStrExt;
 
-        let path_cstr = CString::new(path.as_os_str().as_bytes())
-            .context("Invalid path for chown")?;
+        let path_cstr =
+            CString::new(path.as_os_str().as_bytes()).context("Invalid path for chown")?;
 
-        let result = unsafe {
-            libc::chown(path_cstr.as_ptr(), uid, gid)
-        };
+        let result = unsafe { libc::chown(path_cstr.as_ptr(), uid, gid) };
 
         if result == 0 {
             Ok(())
@@ -940,7 +985,8 @@ mod tests {
         let events = Arc::new(engine.shared_state());
         let server = RpcServer::new(storage, events);
 
-        let response = server.error_response(Value::Number(1.into()), -32600, "Test error".to_string());
+        let response =
+            server.error_response(Value::Number(1.into()), -32600, "Test error".to_string());
 
         assert!(response.error.is_some());
         assert_eq!(response.error.unwrap().code, -32600);

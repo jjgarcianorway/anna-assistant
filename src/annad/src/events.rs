@@ -14,12 +14,12 @@ use tracing::{debug, info, warn};
 /// Event domains (subsystems that can trigger doctor checks)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EventDomain {
-    Packages,  // Package manager changes
-    Config,    // /etc configuration drift
-    Devices,   // USB, block, net, bluetooth hotplug
-    Network,   // Link state, IP address changes
-    Storage,   // Mount/unmount, filesystem changes
-    Kernel,    // Kernel/initramfs updates
+    Packages, // Package manager changes
+    Config,   // /etc configuration drift
+    Devices,  // USB, block, net, bluetooth hotplug
+    Network,  // Link state, IP address changes
+    Storage,  // Mount/unmount, filesystem changes
+    Kernel,   // Kernel/initramfs updates
 }
 
 impl EventDomain {
@@ -51,8 +51,8 @@ impl EventDomain {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemEvent {
     pub domain: EventDomain,
-    pub cause: String,        // What triggered this event
-    pub timestamp: i64,       // Unix timestamp
+    pub cause: String,                     // What triggered this event
+    pub timestamp: i64,                    // Unix timestamp
     pub metadata: HashMap<String, String>, // Additional context
 }
 
@@ -176,11 +176,7 @@ pub struct EventEngineState {
 impl EventEngineState {
     pub fn get_history(&self, limit: usize) -> Vec<EventResult> {
         let hist = self.history.lock().unwrap();
-        hist.iter()
-            .rev()
-            .take(limit)
-            .cloned()
-            .collect()
+        hist.iter().rev().take(limit).cloned().collect()
     }
 
     pub fn pending_count(&self) -> usize {
@@ -224,12 +220,11 @@ impl EventEngine {
     }
 
     /// Start the event processing loop
-    pub async fn run(
-        mut self,
-        doctor_handler: Arc<dyn DoctorHandler + Send + Sync>,
-    ) -> Result<()> {
-        info!("Event engine starting (debounce: {}ms, cooldown: {}s)",
-            self.queue.debounce_ms, self.queue.cooldown_secs);
+    pub async fn run(mut self, doctor_handler: Arc<dyn DoctorHandler + Send + Sync>) -> Result<()> {
+        info!(
+            "Event engine starting (debounce: {}ms, cooldown: {}s)",
+            self.queue.debounce_ms, self.queue.cooldown_secs
+        );
 
         let queue = Arc::clone(&self.queue);
         let history = Arc::clone(&self.history);
@@ -255,11 +250,7 @@ impl EventEngine {
             }
 
             for (domain, events) in ready {
-                info!(
-                    "Processing {} events for domain {:?}",
-                    events.len(),
-                    domain
-                );
+                info!("Processing {} events for domain {:?}", events.len(), domain);
 
                 // Merge causes
                 let causes: Vec<String> = events.iter().map(|e| e.cause.clone()).collect();
@@ -281,7 +272,9 @@ impl EventEngine {
 
                         info!(
                             "Domain {:?} processed in {}ms: {} alerts, action: {}",
-                            domain, duration_ms, result.doctor_result.alerts_found,
+                            domain,
+                            duration_ms,
+                            result.doctor_result.alerts_found,
                             result.doctor_result.action_taken
                         );
 
@@ -303,11 +296,7 @@ impl EventEngine {
     /// Get recent event history
     pub fn get_history(&self, limit: usize) -> Vec<EventResult> {
         let hist = self.history.lock().unwrap();
-        hist.iter()
-            .rev()
-            .take(limit)
-            .cloned()
-            .collect()
+        hist.iter().rev().take(limit).cloned().collect()
     }
 
     /// Get pending event count

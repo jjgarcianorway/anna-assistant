@@ -16,7 +16,10 @@ const POLL_INTERVAL_SECS: u64 = 5;
 
 /// Spawn storage listener task
 pub fn spawn_listener(tx: mpsc::UnboundedSender<SystemEvent>) -> JoinHandle<()> {
-    info!("Starting storage listener (poll interval: {}s)", POLL_INTERVAL_SECS);
+    info!(
+        "Starting storage listener (poll interval: {}s)",
+        POLL_INTERVAL_SECS
+    );
 
     tokio::spawn(async move {
         if let Err(e) = watch_mountinfo(tx).await {

@@ -167,7 +167,10 @@ fn parse_sensors_output(output: &str) -> Vec<f64> {
     let mut temps = Vec::new();
     for line in output.lines() {
         if line.contains("°C") {
-            if let Some(temp_str) = line.split_whitespace().find(|s| s.starts_with('+') || s.starts_with('-')) {
+            if let Some(temp_str) = line
+                .split_whitespace()
+                .find(|s| s.starts_with('+') || s.starts_with('-'))
+            {
                 let temp_str = temp_str.trim_start_matches('+').trim_end_matches("°C");
                 if let Ok(temp) = temp_str.parse::<f64>() {
                     temps.push(temp);
@@ -292,7 +295,10 @@ fn collect_interfaces() -> Result<Vec<InterfaceData>> {
 }
 
 fn find_default_route() -> Option<String> {
-    let output = Command::new("ip").args(&["route", "show", "default"]).output().ok()?;
+    let output = Command::new("ip")
+        .args(&["route", "show", "default"])
+        .output()
+        .ok()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     stdout.lines().next().map(|s| s.to_string())
 }
@@ -323,7 +329,9 @@ fn check_dns_latency() -> Option<f64> {
 pub fn collect_disk() -> Result<DiskData> {
     let mut disks = Vec::new();
 
-    let output = Command::new("df").args(&["-BG", "--output=source,target,size,used,pcent"]).output()?;
+    let output = Command::new("df")
+        .args(&["-BG", "--output=source,target,size,used,pcent"])
+        .output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     for line in stdout.lines().skip(1) {
@@ -348,7 +356,7 @@ pub fn collect_disk() -> Result<DiskData> {
             pct,
             used_gb,
             total_gb,
-            inode_pct: None, // TODO: add inode check
+            inode_pct: None,    // TODO: add inode check
             smart_status: None, // TODO: add smartctl check
         });
     }

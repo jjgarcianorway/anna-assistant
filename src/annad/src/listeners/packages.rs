@@ -18,7 +18,10 @@ const POLL_INTERVAL_SECS: u64 = 5;
 
 /// Spawn packages listener task
 pub fn spawn_listener(tx: mpsc::UnboundedSender<SystemEvent>) -> JoinHandle<()> {
-    info!("Starting packages listener (poll interval: {}s)", POLL_INTERVAL_SECS);
+    info!(
+        "Starting packages listener (poll interval: {}s)",
+        POLL_INTERVAL_SECS
+    );
 
     tokio::spawn(async move {
         if let Err(e) = watch_packages(tx).await {
@@ -31,7 +34,10 @@ pub fn spawn_listener(tx: mpsc::UnboundedSender<SystemEvent>) -> JoinHandle<()> 
 async fn watch_packages(tx: mpsc::UnboundedSender<SystemEvent>) -> Result<()> {
     // Check if pacman database exists
     if !Path::new(PACMAN_DB_PATH).exists() {
-        warn!("Pacman database not found at {}, packages listener disabled", PACMAN_DB_PATH);
+        warn!(
+            "Pacman database not found at {}, packages listener disabled",
+            PACMAN_DB_PATH
+        );
         return Ok(());
     }
 

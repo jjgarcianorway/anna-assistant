@@ -18,10 +18,7 @@ pub struct DoctorHandlerImpl {
 }
 
 impl DoctorHandlerImpl {
-    pub fn new(
-        integrity: Arc<Mutex<IntegrityWatchdog>>,
-        policy: Arc<Mutex<PolicyEngine>>,
-    ) -> Self {
+    pub fn new(integrity: Arc<Mutex<IntegrityWatchdog>>, policy: Arc<Mutex<PolicyEngine>>) -> Self {
         Self { integrity, policy }
     }
 }
@@ -119,7 +116,10 @@ impl DoctorHandlerImpl {
             .count();
 
         if cleared > 0 {
-            info!("Auto-repair cleared {} warnings for domain {}", cleared, domain);
+            info!(
+                "Auto-repair cleared {} warnings for domain {}",
+                cleared, domain
+            );
         } else {
             warn!("No auto-repairable alerts found for domain {}", domain);
         }

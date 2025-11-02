@@ -38,7 +38,7 @@ pub struct TerminalCapabilities {
 }
 
 /// Global terminal capabilities
-static TERM_CAPS: Lazy<TerminalCapabilities> = Lazy::new(detect_terminal_capabilities);
+pub static TERM_CAPS: Lazy<TerminalCapabilities> = Lazy::new(detect_terminal_capabilities);
 
 /// Global configuration state
 static CONFIG_OVERRIDE: Lazy<Mutex<Option<crate::config::AnnaConfig>>> =
@@ -99,14 +99,14 @@ fn detect_terminal_capabilities() -> TerminalCapabilities {
 
 /// ANSI color codes (pastel palette for dark terminals)
 mod colors {
-    pub const CYAN: &str = "\x1b[38;5;87m";      // Headers, narrative
-    pub const GREEN: &str = "\x1b[38;5;120m";    // Success
-    pub const YELLOW: &str = "\x1b[38;5;228m";   // Warnings
-    pub const RED: &str = "\x1b[38;5;210m";      // Errors
-    pub const BLUE: &str = "\x1b[38;5;111m";     // Info
-    pub const GRAY: &str = "\x1b[38;5;245m";     // Secondary
-    pub const BOLD: &str = "\x1b[1m";            // Bold
-    pub const RESET: &str = "\x1b[0m";           // Reset
+    pub const CYAN: &str = "\x1b[38;5;87m"; // Headers, narrative
+    pub const GREEN: &str = "\x1b[38;5;120m"; // Success
+    pub const YELLOW: &str = "\x1b[38;5;228m"; // Warnings
+    pub const RED: &str = "\x1b[38;5;210m"; // Errors
+    pub const BLUE: &str = "\x1b[38;5;111m"; // Info
+    pub const GRAY: &str = "\x1b[38;5;245m"; // Secondary
+    pub const BOLD: &str = "\x1b[1m"; // Bold
+    pub const RESET: &str = "\x1b[0m"; // Reset
 }
 
 /// Emoji for each message type (with ASCII fallbacks)
@@ -224,7 +224,12 @@ pub fn anna_say(message: AnnaMessage) {
     // Emoji/icon
     let emoji = message.msg_type.emoji(use_emoji);
     if use_color {
-        parts.push(format!("{}{}{}", message.msg_type.color(), emoji, colors::RESET));
+        parts.push(format!(
+            "{}{}{}",
+            message.msg_type.color(),
+            emoji,
+            colors::RESET
+        ));
     } else {
         parts.push(emoji.to_string());
     }
@@ -240,7 +245,12 @@ pub fn anna_say(message: AnnaMessage) {
 
     // The actual message text
     if use_color {
-        parts.push(format!("{}{}{}", message.msg_type.color(), message.text, colors::RESET));
+        parts.push(format!(
+            "{}{}{}",
+            message.msg_type.color(),
+            message.text,
+            colors::RESET
+        ));
     } else {
         parts.push(message.text.clone());
     }
@@ -302,7 +312,14 @@ pub fn anna_box(lines: &[&str], box_type: MessageType) {
     let reset = if use_color { colors::RESET } else { "" };
 
     // Top border
-    println!("{}{}{}{}{}", color, tl, h.to_string().repeat(box_width - 2), tr, reset);
+    println!(
+        "{}{}{}{}{}",
+        color,
+        tl,
+        h.to_string().repeat(box_width - 2),
+        tr,
+        reset
+    );
 
     // Content lines (centered)
     for line in lines {
@@ -310,7 +327,9 @@ pub fn anna_box(lines: &[&str], box_type: MessageType) {
         let padding_right = box_width - 2 - line.len() - padding;
         println!(
             "{}{}{}{}{}{}{}",
-            color, v, reset,
+            color,
+            v,
+            reset,
             " ".repeat(padding),
             line,
             " ".repeat(padding_right),
@@ -319,7 +338,14 @@ pub fn anna_box(lines: &[&str], box_type: MessageType) {
     }
 
     // Bottom border
-    println!("{}{}{}{}{}", color, bl, h.to_string().repeat(box_width - 2), br, reset);
+    println!(
+        "{}{}{}{}{}",
+        color,
+        bl,
+        h.to_string().repeat(box_width - 2),
+        br,
+        reset
+    );
 }
 
 #[cfg(test)]

@@ -89,15 +89,12 @@ pub fn save_config(config: &AnnaConfig) -> Result<()> {
 
     // Create parent directory if needed
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .context("Failed to create config directory")?;
+        fs::create_dir_all(parent).context("Failed to create config directory")?;
     }
 
-    let yaml = serde_yaml::to_string(config)
-        .context("Failed to serialize config")?;
+    let yaml = serde_yaml::to_string(config).context("Failed to serialize config")?;
 
-    fs::write(&path, yaml)
-        .context("Failed to write config file")?;
+    fs::write(&path, yaml).context("Failed to write config file")?;
 
     Ok(())
 }

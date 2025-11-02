@@ -121,11 +121,10 @@ impl CapabilityManager {
     /// Load capability registry and user config
     pub fn new() -> Result<Self> {
         let registry = Self::load_registry(CAPABILITIES_PATH)?;
-        let user_config = Self::load_user_config(MODULES_CONFIG_PATH)
-            .unwrap_or_else(|e| {
-                warn!("Failed to load modules.yaml: {}, using defaults", e);
-                ModulesConfig::default()
-            });
+        let user_config = Self::load_user_config(MODULES_CONFIG_PATH).unwrap_or_else(|e| {
+            warn!("Failed to load modules.yaml: {}, using defaults", e);
+            ModulesConfig::default()
+        });
 
         Ok(Self {
             registry,
@@ -134,17 +133,15 @@ impl CapabilityManager {
     }
 
     fn load_registry(path: &str) -> Result<CapabilitiesRegistry> {
-        let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read {}", path))?;
-        toml::from_str(&content)
-            .with_context(|| format!("Failed to parse {}", path))
+        let content =
+            std::fs::read_to_string(path).with_context(|| format!("Failed to read {}", path))?;
+        toml::from_str(&content).with_context(|| format!("Failed to parse {}", path))
     }
 
     fn load_user_config(path: &str) -> Result<ModulesConfig> {
-        let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read {}", path))?;
-        serde_yaml::from_str(&content)
-            .with_context(|| format!("Failed to parse {}", path))
+        let content =
+            std::fs::read_to_string(path).with_context(|| format!("Failed to read {}", path))?;
+        serde_yaml::from_str(&content).with_context(|| format!("Failed to parse {}", path))
     }
 
     /// Check all module capabilities and return results
@@ -157,12 +154,10 @@ impl CapabilityManager {
         }
 
         // Sort: required first, then alphabetical
-        results.sort_by(|a, b| {
-            match (a.required, b.required) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.module_name.cmp(&b.module_name),
-            }
+        results.sort_by(|a, b| match (a.required, b.required) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.module_name.cmp(&b.module_name),
         });
 
         results
@@ -376,16 +371,13 @@ pub fn disable_module(module_name: &str, reason: Option<String>) -> Result<()> {
 
 fn load_or_create_modules_config() -> Result<ModulesConfig> {
     match std::fs::read_to_string(MODULES_CONFIG_PATH) {
-        Ok(content) => serde_yaml::from_str(&content)
-            .context("Failed to parse modules.yaml"),
+        Ok(content) => serde_yaml::from_str(&content).context("Failed to parse modules.yaml"),
         Err(_) => Ok(ModulesConfig::default()),
     }
 }
 
 fn save_modules_config(config: &ModulesConfig) -> Result<()> {
-    let content = serde_yaml::to_string(config)
-        .context("Failed to serialize modules.yaml")?;
-    std::fs::write(MODULES_CONFIG_PATH, content)
-        .context("Failed to write modules.yaml")?;
+    let content = serde_yaml::to_string(config).context("Failed to serialize modules.yaml")?;
+    std::fs::write(MODULES_CONFIG_PATH, content).context("Failed to write modules.yaml")?;
     Ok(())
 }

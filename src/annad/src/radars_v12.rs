@@ -57,10 +57,7 @@ pub fn score_system_health(
             category: "cpu_load".to_string(),
             score: Some(cpu_score),
             max: 10.0,
-            description: format!(
-                "Load {:.2} per core ({}  cores)",
-                load_per_core, num_cores
-            ),
+            description: format!("Load {:.2} per core ({}  cores)", load_per_core, num_cores),
         },
     );
 
@@ -129,10 +126,7 @@ pub fn score_system_health(
         },
     );
 
-    let overall_score = categories
-        .values()
-        .filter_map(|s| s.score)
-        .sum::<f64>()
+    let overall_score = categories.values().filter_map(|s| s.score).sum::<f64>()
         / categories.values().filter(|s| s.score.is_some()).count() as f64;
 
     RadarResult {
@@ -220,11 +214,12 @@ pub fn score_usage_habit(
         },
     );
 
-    let overall_score = categories
-        .values()
-        .filter_map(|s| s.score)
-        .sum::<f64>()
-        / categories.values().filter(|s| s.score.is_some()).count().max(1) as f64;
+    let overall_score = categories.values().filter_map(|s| s.score).sum::<f64>()
+        / categories
+            .values()
+            .filter(|s| s.score.is_some())
+            .count()
+            .max(1) as f64;
 
     RadarResult {
         name: "Usage Habit".to_string(),
@@ -305,11 +300,12 @@ pub fn score_network_posture(
         },
     );
 
-    let overall_score = categories
-        .values()
-        .filter_map(|s| s.score)
-        .sum::<f64>()
-        / categories.values().filter(|s| s.score.is_some()).count().max(1) as f64;
+    let overall_score = categories.values().filter_map(|s| s.score).sum::<f64>()
+        / categories
+            .values()
+            .filter(|s| s.score.is_some())
+            .count()
+            .max(1) as f64;
 
     RadarResult {
         name: "Network Posture".to_string(),
@@ -341,7 +337,13 @@ pub fn classify_user(
 
     radars.insert(
         "system_health".to_string(),
-        score_system_health(load_avg_1m, num_cores, mem_free_pct, root_free_pct, cpu_temp_c),
+        score_system_health(
+            load_avg_1m,
+            num_cores,
+            mem_free_pct,
+            root_free_pct,
+            cpu_temp_c,
+        ),
     );
 
     radars.insert(

@@ -1,6 +1,6 @@
 //! Privilege escalation with friendly user interaction
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::io::{self, Write};
 use std::process::Command;
 
@@ -49,7 +49,9 @@ pub fn needs_privilege(path: &str) -> bool {
         "/lib/systemd/",
     ];
 
-    privileged_paths.iter().any(|prefix| path.starts_with(prefix))
+    privileged_paths
+        .iter()
+        .any(|prefix| path.starts_with(prefix))
 }
 
 /// Request privilege escalation with friendly explanation
@@ -69,10 +71,7 @@ pub fn request_privilege(request: PrivilegeRequest) -> Result<()> {
     let config = crate::config::load_config();
 
     // Explain why we need privileges
-    crate::messaging::anna_narrative(format!(
-        "I need administrator rights to {}",
-        request.reason
-    ));
+    crate::messaging::anna_narrative(format!("I need administrator rights to {}", request.reason));
 
     // Ask for confirmation if configured
     if config.confirm_privilege {
@@ -123,13 +122,11 @@ pub fn execute_with_privilege_if_needed(
     reason: &str,
 ) -> Result<()> {
     // Check if any argument contains a privileged path
-    let needs_priv = args.iter().any(|arg| needs_privilege(arg))
-        || needs_privilege(command);
+    let needs_priv = args.iter().any(|arg| needs_privilege(arg)) || needs_privilege(command);
 
     if needs_priv && !is_root() {
         // Need to escalate
-        let request = PrivilegeRequest::new(reason, command)
-            .with_args(args.to_vec());
+        let request = PrivilegeRequest::new(reason, command).with_args(args.to_vec());
         request_privilege(request)
     } else {
         // Run directly
@@ -139,7 +136,10 @@ pub fn execute_with_privilege_if_needed(
             .context("Failed to execute command")?;
 
         if !status.success() {
-            bail!("Command failed with exit code: {}", status.code().unwrap_or(-1));
+            bail!(
+                "Command failed with exit code: {}",
+                status.code().unwrap_or(-1)
+            );
         }
 
         Ok(())
@@ -168,10 +168,8 @@ mod tests {
 
     #[test]
     fn test_privilege_request_creation() {
-        let req = PrivilegeRequest::new(
-            "install system files",
-            "cp"
-        ).with_args(vec!["source".to_string(), "/etc/dest".to_string()]);
+        let req = PrivilegeRequest::new("install system files", "cp")
+            .with_args(vec!["source".to_string(), "/etc/dest".to_string()]);
 
         assert_eq!(req.reason, "install system files");
         assert_eq!(req.command, "cp");
