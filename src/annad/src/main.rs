@@ -78,7 +78,10 @@ async fn main() -> Result<()> {
         .with_line_number(false)
         .init();
 
-    info!("Anna v0.11.0 daemon starting (event-driven intelligence)");
+    info!(
+        "Anna v{} daemon starting (event-driven intelligence)",
+        env!("CARGO_PKG_VERSION")
+    );
 
     // Log effective uid/gid
     #[cfg(unix)]
