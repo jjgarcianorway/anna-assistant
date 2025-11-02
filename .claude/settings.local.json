@@ -143,7 +143,13 @@
       "Bash(./scripts/validate_v0126.sh:*)",
       "Bash(~/.cargo/bin/cargo check:*)",
       "Bash(find:*)",
-      "Bash(cargo fix:*)"
+      "Bash(cargo fix:*)",
+      "Bash(git show:*)",
+      "Bash(if [ -z \"$SSH_AUTH_SOCK:-\" ])",
+      "Bash(then)",
+      "Bash(ssh-add:*)",
+      "Bash(else)",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []
