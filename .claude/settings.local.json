@@ -132,7 +132,11 @@
       "Bash(./tests/arch_advisor_smoke.sh:*)",
       "Bash(systemctl:*)",
       "Bash(./tests/arch_btrfs_smoke.sh:*)",
-      "Bash(ANNACTL=\"./target/release/annactl\" bash -c 'if $ANNACTL storage --help 2>&1 | grep -q \"\"Show storage profile\"\"; then echo PASS; else echo FAIL; fi')"
+      "Bash(ANNACTL=\"./target/release/annactl\" bash -c 'if $ANNACTL storage --help 2>&1 | grep -q \"\"Show storage profile\"\"; then echo PASS; else echo FAIL; fi')",
+      "Bash(for script in scripts/btrfs/prune.sh scripts/btrfs/sdboot-gen.sh)",
+      "Bash(do )",
+      "Bash($script --help)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
