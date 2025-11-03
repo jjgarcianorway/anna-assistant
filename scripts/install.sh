@@ -41,8 +41,8 @@ ensure_rust_toolchain() {
   echo "→ Installing Rust toolchain for fallback build"
   if command -v pacman >/dev/null 2>&1; then
     ensure_pkg base-devel
-    ensure_pkg cargo
-    ensure_pkg rustup
+    # Install rust package which provides cargo (don't install rustup, they conflict)
+    ensure_pkg rust
   elif command -v apt >/dev/null 2>&1; then
     sudo apt update
     sudo apt install -y build-essential cargo rustc
@@ -94,14 +94,29 @@ download_and_verify_tarball() {
   fi
 
   say "→ Downloading tarball and checksum…"
-  curl -fsSL "$tar_url" -o "$tmp/anna.tar.gz"
-  curl -fsSL "$checksum_url" -o "$tmp/anna.tar.gz.sha256"
+  if ! curl -fsSL "$tar_url" -o "$tmp/anna.tar.gz"; then
+    say "✗ Failed to download tarball"
+    return 1
+  fi
+
+  if ! curl -fsSL "$checksum_url" -o "$tmp/anna.tar.gz.sha256"; then
+    say "✗ Failed to download checksum"
+    return 1
+  fi
+
+  # Verify files were actually downloaded
+  if [[ ! -s "$tmp/anna.tar.gz" || ! -s "$tmp/anna.tar.gz.sha256" ]]; then
+    say "✗ Downloaded files are empty"
+    return 1
+  fi
 
   say "→ Verifying checksum…"
-  (cd "$tmp" && sha256sum -c anna.tar.gz.sha256) || {
+  if ! (cd "$tmp" && sha256sum -c anna.tar.gz.sha256 2>&1); then
     say "✗ Checksum verification failed"
+    say "  Checksum file contents:"
+    cat "$tmp/anna.tar.gz.sha256" | head -3
     return 1
-  }
+  fi
 
   say "→ Extracting tarball…"
   tar -xzf "$tmp/anna.tar.gz" -C "$tmp"
