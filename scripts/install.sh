@@ -94,32 +94,32 @@ download_and_verify_tarball() {
   fi
 
   say "→ Downloading tarball and checksum…"
-  if ! curl -fsSL "$tar_url" -o "$tmp/anna.tar.gz"; then
+  if ! curl -fsSL "$tar_url" -o "$tmp/anna-linux-x86_64.tar.gz"; then
     say "✗ Failed to download tarball"
     return 1
   fi
 
-  if ! curl -fsSL "$checksum_url" -o "$tmp/anna.tar.gz.sha256"; then
+  if ! curl -fsSL "$checksum_url" -o "$tmp/anna-linux-x86_64.tar.gz.sha256"; then
     say "✗ Failed to download checksum"
     return 1
   fi
 
   # Verify files were actually downloaded
-  if [[ ! -s "$tmp/anna.tar.gz" || ! -s "$tmp/anna.tar.gz.sha256" ]]; then
+  if [[ ! -s "$tmp/anna-linux-x86_64.tar.gz" || ! -s "$tmp/anna-linux-x86_64.tar.gz.sha256" ]]; then
     say "✗ Downloaded files are empty"
     return 1
   fi
 
   say "→ Verifying checksum…"
-  if ! (cd "$tmp" && sha256sum -c anna.tar.gz.sha256 2>&1); then
+  if ! (cd "$tmp" && sha256sum -c anna-linux-x86_64.tar.gz.sha256 2>&1); then
     say "✗ Checksum verification failed"
     say "  Checksum file contents:"
-    cat "$tmp/anna.tar.gz.sha256" | head -3
+    cat "$tmp/anna-linux-x86_64.tar.gz.sha256" | head -3
     return 1
   fi
 
   say "→ Extracting tarball…"
-  tar -xzf "$tmp/anna.tar.gz" -C "$tmp"
+  tar -xzf "$tmp/anna-linux-x86_64.tar.gz" -C "$tmp"
 
   if [[ ! -f "$tmp/annad" || ! -f "$tmp/annactl" ]]; then
     say "✗ Binaries not found in tarball"
