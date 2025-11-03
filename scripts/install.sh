@@ -71,9 +71,62 @@ title() {
 
 select_release() {
   local api="https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15"
-  # Get latest release OR prerelease (exclude only drafts)
-  # Sort by version number to get true latest
-  curl -fsSL "$api" | jq -r '.[] | select(.draft==false) | .tag_name' | sort -V | tail -n1
+
+  # Get highest version tag
+  local latest_tag
+  latest_tag=$(curl -fsSL "$api" | jq -r '.[] | select(.draft==false) | .tag_name' | sort -Vr | head -n1)
+
+  if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
+    return 1
+  fi
+
+  # Check if latest tag has assets
+  local assets_check
+  assets_check=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$latest_tag" | \
+                 jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
+
+  if [[ -n "$assets_check" && "$assets_check" != "null" ]]; then
+    # Latest tag has assets - use it
+    echo "$latest_tag"
+    return 0
+  fi
+
+  # Latest tag exists but no assets yet - wait for build
+  echo ""
+  echo "⚠ Latest release $latest_tag found, but binaries not yet available"
+  echo "  GitHub Actions is likely still building the release (~2 minutes)"
+  echo ""
+  echo "Options:"
+  echo "  1. Wait 2 minutes and run installer again"
+  echo "  2. Press Enter to wait here (will check every 15 seconds for 5 minutes)"
+  echo "  3. Press Ctrl+C to exit and build from source manually"
+  echo ""
+  read -p "Wait for build? [Y/n] " -n 1 -r
+  echo
+
+  if [[ $REPLY =~ ^[Nn]$ ]]; then
+    return 1
+  fi
+
+  # Wait for assets (check every 15 seconds, max 5 minutes)
+  say "→ Waiting for GitHub Actions to build $latest_tag..."
+  for i in {1..20}; do
+    sleep 15
+    assets_check=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$latest_tag" | \
+                   jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
+
+    if [[ -n "$assets_check" && "$assets_check" != "null" ]]; then
+      say "✓ Build complete! Binaries now available for $latest_tag"
+      echo "$latest_tag"
+      return 0
+    fi
+
+    echo "  Still waiting... ($((i * 15))s elapsed)"
+  done
+
+  echo "✗ Timeout waiting for build after 5 minutes"
+  echo "  Check GitHub Actions: https://github.com/$OWNER/$REPO/actions"
+  return 1
 }
 
 download_and_verify_tarball() {
