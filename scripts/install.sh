@@ -5,6 +5,30 @@
 
 set -Eeuo pipefail
 
+ensure_pkg() {
+  local pkg="$1"
+  if ! command -v "$pkg" >/dev/null 2>&1; then
+    echo "→ Installing missing dependency: $pkg"
+    if command -v pacman >/dev/null 2>&1; then
+      sudo pacman -Sy --noconfirm "$pkg"
+    elif command -v apt >/dev/null 2>&1; then
+      sudo apt update && sudo apt install -y "$pkg"
+    elif command -v dnf >/dev/null 2>&1; then
+      sudo dnf install -y "$pkg"
+    elif command -v zypper >/dev/null 2>&1; then
+      sudo zypper install -y "$pkg"
+    else
+      echo "✗ Unsupported package manager; install '$pkg' manually."
+      exit 1
+    fi
+  fi
+}
+
+# Required tools - auto-install if missing
+for dep in curl jq sudo systemctl; do
+  ensure_pkg "$dep"
+done
+
 ORG="jjgarcianorway"
 REPO="anna-assistant"
 BIN_DIR="/usr/local/bin"
@@ -14,13 +38,6 @@ FROM_LOCAL=false
 
 cleanup() { rm -rf "$TMP"; }
 trap cleanup EXIT
-
-require() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "ERROR: Missing '$1'. Install with: sudo pacman -S $1"
-    exit 1
-  }
-}
 
 say() { printf "%s\n" "$*"; }
 title() {
@@ -44,11 +61,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-require curl
-require jq
-require sudo || true
-require systemctl
 
 get_latest_tag() {
   curl -sSfL "https://api.github.com/repos/${ORG}/${REPO}/releases/latest" | jq -r '.tag_name'
