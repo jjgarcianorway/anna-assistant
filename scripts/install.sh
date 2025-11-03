@@ -234,6 +234,26 @@ wait_rpc() {
   return 1
 }
 
+auto_repair() {
+  say "→ Running system health check…"
+  # Run doctor check (non-interactive, exits 0 if OK, 1 if critical issues)
+  if "$BIN_DIR/annactl" doctor check >/dev/null 2>&1; then
+    say "✓ Health check passed"
+    return 0
+  else
+    say "⚠ Health issues detected, running auto-repair…"
+    # Run repair with --yes flag (non-interactive)
+    if "$BIN_DIR/annactl" doctor repair --yes >/dev/null 2>&1; then
+      say "✓ Auto-repair completed successfully"
+      return 0
+    else
+      echo "⚠ Auto-repair encountered issues (continuing anyway)"
+      echo "  Run manually: annactl doctor check --verbose"
+      return 0  # Don't fail install
+    fi
+  fi
+}
+
 verify_versions() {
   local expected_tag="$1"
   local annactl_ver
@@ -284,10 +304,13 @@ fi
 INSTALLED_TAG=$(cat "$TMPDIR/installed_tag" 2>/dev/null || echo "unknown")
 verify_versions "$INSTALLED_TAG"
 
+# Run auto-repair to fix any issues
+auto_repair
+
 echo ""
 echo "✓ Installation complete"
 echo ""
 echo "Next steps:"
 echo "  annactl status"
-echo "  annactl advise --limit 5"
 echo "  annactl report"
+echo "  annactl doctor check  # Verify system health"
