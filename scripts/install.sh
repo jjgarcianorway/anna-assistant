@@ -1,10 +1,123 @@
 #!/usr/bin/env bash
-# Anna Installer — zero-arg
-# Downloads tarball from GitHub releases (including prereleases), verifies checksum
-# Falls back to local build with Rust toolchain auto-install
-
+# ╔═══════════════════════════════════════════════════════════════════════╗
+# ║                    Anna Assistant Installer                           ║
+# ║              The Most Beautiful Installer in History                  ║
+# ╚═══════════════════════════════════════════════════════════════════════╝
 set -Eeuo pipefail
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🎨 BEAUTIFUL TERMINAL COLORS
+# ═══════════════════════════════════════════════════════════════════════════
+if [[ -t 1 ]]; then
+  # Pastel colors for dark terminals
+  RESET='\033[0m'
+  BOLD='\033[1m'
+  DIM='\033[2m'
+
+  # Main colors
+  CYAN='\033[96m'      # Bright cyan for headers
+  GREEN='\033[92m'     # Success
+  YELLOW='\033[93m'    # Warning
+  RED='\033[91m'       # Error
+  BLUE='\033[94m'      # Info
+  MAGENTA='\033[95m'   # Accent
+  GRAY='\033[90m'      # Dimmed text
+  WHITE='\033[97m'     # Bright white
+else
+  RESET='' BOLD='' DIM='' CYAN='' GREEN='' YELLOW='' RED='' BLUE='' MAGENTA='' GRAY='' WHITE=''
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🎯 BEAUTIFUL OUTPUT FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+clear_screen() {
+  clear
+  echo ""
+}
+
+print_header() {
+  echo -e "${CYAN}${BOLD}"
+  echo "╔═══════════════════════════════════════════════════════════════════════╗"
+  echo "║                                                                       ║"
+  echo "║                        🤖  Anna Assistant                             ║"
+  echo "║                   Event-Driven Intelligence                           ║"
+  echo "║                                                                       ║"
+  echo "╚═══════════════════════════════════════════════════════════════════════╝"
+  echo -e "${RESET}"
+  echo ""
+}
+
+print_section() {
+  local title="$1"
+  echo ""
+  echo -e "${CYAN}${BOLD}━━━ $title ${RESET}"
+  echo ""
+}
+
+print_step() {
+  local emoji="$1"
+  local text="$2"
+  echo -e "${BLUE}  $emoji  ${WHITE}$text${RESET}"
+}
+
+print_substep() {
+  local text="$1"
+  echo -e "${GRAY}     ↳ $text${RESET}"
+}
+
+print_success() {
+  local text="$1"
+  echo -e "${GREEN}  ✓  $text${RESET}"
+}
+
+print_warning() {
+  local text="$1"
+  echo -e "${YELLOW}  ⚠  $text${RESET}"
+}
+
+print_error() {
+  local text="$1"
+  echo -e "${RED}  ✗  $text${RESET}"
+}
+
+print_info() {
+  local text="$1"
+  echo -e "${CYAN}  ℹ  $text${RESET}"
+}
+
+spinner() {
+  local pid=$1
+  local message=$2
+  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+
+  echo -ne "${BLUE}  "
+  while kill -0 $pid 2>/dev/null; do
+    for i in $(seq 0 9); do
+      echo -ne "\r${BLUE}  ${spinstr:$i:1}  ${WHITE}$message...${RESET}"
+      sleep 0.1
+    done
+  done
+  echo -ne "\r${GREEN}  ✓  ${WHITE}$message${RESET}\n"
+}
+
+progress_bar() {
+  local current=$1
+  local total=$2
+  local width=50
+  local percentage=$((current * 100 / total))
+  local filled=$((width * current / total))
+  local empty=$((width - filled))
+
+  printf "\r${BLUE}  ["
+  printf "${GREEN}%0.s█" $(seq 1 $filled)
+  printf "${GRAY}%0.s░" $(seq 1 $empty)
+  printf "${BLUE}] ${WHITE}%3d%%${RESET}" $percentage
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 📦 CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
 OWNER="jjgarcianorway"
 REPO="anna-assistant"
 BIN_DIR="/usr/local/bin"
@@ -14,63 +127,38 @@ TMPDIR="$(mktemp -d)"
 cleanup() { rm -rf "$TMPDIR"; }
 trap cleanup EXIT
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔧 DEPENDENCY MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════
+
 ensure_pkg() {
   local pkg="$1"
   if ! command -v "$pkg" >/dev/null 2>&1; then
-    echo "→ Installing missing dependency: $pkg"
+    print_step "📦" "Installing $pkg"
     if command -v pacman >/dev/null 2>&1; then
-      sudo pacman -Sy --noconfirm "$pkg"
+      sudo pacman -Sy --noconfirm "$pkg" >/dev/null 2>&1
     elif command -v apt >/dev/null 2>&1; then
-      sudo apt update && sudo apt install -y "$pkg"
+      sudo apt update >/dev/null 2>&1 && sudo apt install -y "$pkg" >/dev/null 2>&1
     elif command -v dnf >/dev/null 2>&1; then
-      sudo dnf install -y "$pkg"
+      sudo dnf install -y "$pkg" >/dev/null 2>&1
     elif command -v zypper >/dev/null 2>&1; then
-      sudo zypper install -y "$pkg"
+      sudo zypper install -y "$pkg" >/dev/null 2>&1
     else
-      echo "✗ Unsupported package manager; install '$pkg' manually"
+      print_error "Unsupported package manager; install '$pkg' manually"
       exit 1
     fi
+    print_success "$pkg installed"
   fi
 }
 
-ensure_rust_toolchain() {
-  if command -v cargo >/dev/null 2>&1; then
-    return 0
-  fi
-
-  echo "→ Installing Rust toolchain for fallback build"
-  if command -v pacman >/dev/null 2>&1; then
-    ensure_pkg base-devel
-    # Install rust package which provides cargo (don't install rustup, they conflict)
-    ensure_pkg rust
-  elif command -v apt >/dev/null 2>&1; then
-    sudo apt update
-    sudo apt install -y build-essential cargo rustc
-  elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y cargo rust
-  elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y cargo rust
-  else
-    echo "✗ Cannot install Rust toolchain on this distro"
-    exit 1
-  fi
-}
-
-# Required tools - auto-install if missing
-for dep in curl jq sudo systemctl; do
-  ensure_pkg "$dep"
-done
-
-say() { printf "%s\n" "$*"; }
-title() {
-  printf "╭─────────────────────────────────────────╮\n"
-  printf "│  Anna Assistant Installer              │\n"
-  printf "│  Event-Driven Intelligence             │\n"
-  printf "╰─────────────────────────────────────────╯\n"
-}
+# ═══════════════════════════════════════════════════════════════════════════
+# 🌐 RELEASE SELECTION
+# ═══════════════════════════════════════════════════════════════════════════
 
 select_release() {
   local api="https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15"
+
+  print_step "🔍" "Finding latest release"
 
   # Get highest version tag
   local latest_tag
@@ -80,54 +168,67 @@ select_release() {
     return 1
   fi
 
+  print_substep "Latest version: ${MAGENTA}$latest_tag${RESET}"
+
   # Check if latest tag has assets
   local assets_check
   assets_check=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$latest_tag" | \
                  jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
 
   if [[ -n "$assets_check" && "$assets_check" != "null" ]]; then
-    # Latest tag has assets - use it
+    print_success "Assets available for $latest_tag"
     echo "$latest_tag"
     return 0
   fi
 
-  # Latest tag exists but no assets yet - wait for build
+  # Latest tag exists but no assets yet
   echo ""
-  echo "⚠ Latest release $latest_tag found, but binaries not yet available"
-  echo "  GitHub Actions is likely still building the release (~2 minutes)"
+  print_warning "Release $latest_tag found, but binaries not ready yet"
   echo ""
-  echo "Options:"
-  echo "  1. Wait 2 minutes and run installer again"
-  echo "  2. Press Enter to wait here (will check every 15 seconds for 5 minutes)"
-  echo "  3. Press Ctrl+C to exit and build from source manually"
+  echo -e "${GRAY}  GitHub Actions needs ~2 minutes to build and upload binaries${RESET}"
   echo ""
-  read -p "Wait for build? [Y/n] " -n 1 -r
+  echo -e "${CYAN}  Options:${RESET}"
+  echo -e "    ${WHITE}[Y]${RESET} Wait here (polls every 10s for up to 3 minutes)"
+  echo -e "    ${WHITE}[N]${RESET} Exit and try again later"
+  echo ""
+
+  read -p "  $(echo -e ${CYAN}❯${RESET}) Wait for build? [Y/n]: " -n 1 -r
   echo
 
   if [[ $REPLY =~ ^[Nn]$ ]]; then
     return 1
   fi
 
-  # Wait for assets (check every 15 seconds, max 5 minutes)
-  say "→ Waiting for GitHub Actions to build $latest_tag..."
-  for i in {1..20}; do
-    sleep 15
+  # Animated waiting
+  print_step "⏳" "Waiting for GitHub Actions to build $latest_tag"
+  echo ""
+
+  for i in {1..18}; do  # 18 * 10s = 3 minutes
+    sleep 10
     assets_check=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$latest_tag" | \
                    jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
 
+    progress_bar $i 18
+
     if [[ -n "$assets_check" && "$assets_check" != "null" ]]; then
-      say "✓ Build complete! Binaries now available for $latest_tag"
+      echo ""
+      echo ""
+      print_success "Build complete! Assets now available"
       echo "$latest_tag"
       return 0
     fi
-
-    echo "  Still waiting... ($((i * 15))s elapsed)"
   done
 
-  echo "✗ Timeout waiting for build after 5 minutes"
-  echo "  Check GitHub Actions: https://github.com/$OWNER/$REPO/actions"
+  echo ""
+  echo ""
+  print_error "Timeout after 3 minutes"
+  print_info "Check: https://github.com/$OWNER/$REPO/actions"
   return 1
 }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 📥 DOWNLOAD AND VERIFY
+# ═══════════════════════════════════════════════════════════════════════════
 
 download_and_verify_tarball() {
   local tag="$1"
@@ -135,7 +236,8 @@ download_and_verify_tarball() {
   local tmp="$TMPDIR/anna"
   mkdir -p "$tmp"
 
-  say "→ Fetching assets for $tag…"
+  print_step "📡" "Downloading release $tag"
+
   local assets
   assets=$(curl -fsSL "$api")
 
@@ -143,71 +245,76 @@ download_and_verify_tarball() {
   tar_url=$(echo "$assets" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .browser_download_url')
   checksum_url=$(echo "$assets" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz.sha256") | .browser_download_url')
 
-  if [[ -z "$tar_url" || "$tar_url" == "null" || -z "$checksum_url" || "$checksum_url" == "null" ]]; then
-    say "✗ Tarball assets not found for $tag"
+  if [[ -z "$tar_url" || "$tar_url" == "null" ]]; then
+    print_error "Assets not found for $tag"
     return 1
   fi
 
-  say "→ Downloading tarball and checksum…"
-  if ! curl -fsSL "$tar_url" -o "$tmp/anna-linux-x86_64.tar.gz"; then
-    say "✗ Failed to download tarball"
+  # Download with progress
+  print_substep "Downloading tarball..."
+  curl -fsSL "$tar_url" -o "$tmp/anna-linux-x86_64.tar.gz" 2>/dev/null &
+  spinner $! "Downloading tarball"
+
+  print_substep "Downloading checksum..."
+  curl -fsSL "$checksum_url" -o "$tmp/anna-linux-x86_64.tar.gz.sha256" 2>/dev/null &
+  spinner $! "Downloading checksum"
+
+  print_step "🔐" "Verifying integrity"
+  if (cd "$tmp" && sha256sum -c anna-linux-x86_64.tar.gz.sha256 >/dev/null 2>&1); then
+    print_success "Checksum verified"
+  else
+    print_error "Checksum verification failed"
     return 1
   fi
 
-  if ! curl -fsSL "$checksum_url" -o "$tmp/anna-linux-x86_64.tar.gz.sha256"; then
-    say "✗ Failed to download checksum"
-    return 1
-  fi
-
-  # Verify files were actually downloaded
-  if [[ ! -s "$tmp/anna-linux-x86_64.tar.gz" || ! -s "$tmp/anna-linux-x86_64.tar.gz.sha256" ]]; then
-    say "✗ Downloaded files are empty"
-    return 1
-  fi
-
-  say "→ Verifying checksum…"
-  if ! (cd "$tmp" && sha256sum -c anna-linux-x86_64.tar.gz.sha256 2>&1); then
-    say "✗ Checksum verification failed"
-    say "  Checksum file contents:"
-    cat "$tmp/anna-linux-x86_64.tar.gz.sha256" | head -3
-    return 1
-  fi
-
-  say "→ Extracting tarball…"
-  tar -xzf "$tmp/anna-linux-x86_64.tar.gz" -C "$tmp"
+  print_step "📦" "Extracting binaries"
+  tar -xzf "$tmp/anna-linux-x86_64.tar.gz" -C "$tmp" 2>/dev/null
 
   if [[ ! -f "$tmp/annad" || ! -f "$tmp/annactl" ]]; then
-    say "✗ Binaries not found in tarball"
+    print_error "Binaries not found in tarball"
     return 1
   fi
 
   sudo install -m 0755 "$tmp/annad" "$BIN_DIR/annad"
   sudo install -m 0755 "$tmp/annactl" "$BIN_DIR/annactl"
-  say "→ Installed binaries from GitHub release $tag"
 
+  print_success "Binaries installed to $BIN_DIR"
   echo "$tag" > "$TMPDIR/installed_tag"
   return 0
 }
 
-build_local() {
-  say "→ Building from source (fallback)"
-  ensure_rust_toolchain
-
-  cargo build --release --bin annad --bin annactl
-  sudo install -m 0755 target/release/annad "$BIN_DIR/annad"
-  sudo install -m 0755 target/release/annactl "$BIN_DIR/annactl"
-  say "→ Installed binaries from local build"
-
-  # Record version from Cargo.toml
-  local version
-  version=$(grep -m1 '^version = "' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
-  echo "v$version" > "$TMPDIR/installed_tag"
-}
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚙️  SYSTEM CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════
 
 configure_systemd() {
-  say "→ Configuring systemd service…"
+  print_step "⚙️ " "Configuring system"
 
+  # Create anna user
+  if ! id anna &>/dev/null; then
+    print_substep "Creating anna user..."
+    sudo useradd -r -s /usr/bin/nologin anna 2>/dev/null
+    print_success "User 'anna' created"
+  else
+    print_substep "User 'anna' already exists"
+  fi
+
+  # Create directories
+  print_substep "Setting up directories..."
+  sudo mkdir -p /var/lib/anna /run/anna /var/log/anna /etc/anna
+  sudo chown anna:anna /var/lib/anna /run/anna /var/log/anna
+  sudo chmod 0770 /var/lib/anna /run/anna /var/log/anna
+
+  # Add user to anna group
+  if ! groups | grep -q anna; then
+    print_substep "Adding $USER to 'anna' group..."
+    sudo usermod -aG anna "$USER"
+    print_warning "You'll need to logout/login for group membership to take effect"
+  fi
+
+  # Install systemd service
   if [[ ! -f /etc/systemd/system/annad.service ]]; then
+    print_substep "Installing systemd service..."
     sudo tee /etc/systemd/system/annad.service > /dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
@@ -220,182 +327,159 @@ ExecStart=/usr/local/bin/annad
 Restart=on-failure
 RestartSec=10s
 
-# Runtime directory
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
 
-# User/Group
 User=anna
 Group=anna
 UMask=0000
 
-# Security
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/anna
+ReadWritePaths=/var/lib/anna /var/log/anna
 
-# Resource limits
 MemoryMax=100M
 TasksMax=100
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    say "→ Created service file"
   fi
 
-  # Create anna user/group if needed
-  if ! id anna &>/dev/null; then
-    sudo useradd -r -s /usr/bin/nologin anna
-    say "→ Created anna user"
-  fi
-
-  # Create directories with correct permissions
-  sudo mkdir -p /var/lib/anna /run/anna
-  sudo chown anna:anna /var/lib/anna /run/anna
-  sudo chmod 0770 /var/lib/anna /run/anna
-
-  # Add current user to anna group for socket access
-  if ! groups | grep -q anna; then
-    sudo usermod -aG anna "$USER"
-    say "→ Added $USER to anna group (logout/login for effect)"
-  fi
-
-  # Restart daemon
+  print_substep "Starting daemon..."
   sudo systemctl daemon-reload
-  sudo systemctl enable --now "$SERVICE"
-  sudo systemctl restart "$SERVICE"
-  say "→ Service restarted"
+  sudo systemctl enable --now annad >/dev/null 2>&1
+  sudo systemctl restart annad >/dev/null 2>&1
+
+  print_success "Daemon configured and started"
 }
 
-wait_rpc() {
-  say "→ Waiting for RPC socket…"
+# ═══════════════════════════════════════════════════════════════════════════
+# 🏥 HEALTH VERIFICATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+wait_for_daemon() {
+  print_step "🏥" "Waiting for daemon to be ready"
+
   for i in {1..20}; do
     if timeout 2 "$BIN_DIR/annactl" version >/dev/null 2>&1; then
-      say "✓ Daemon responding and CLI reachable"
+      print_success "Daemon is responding"
       return 0
     fi
     sleep 0.5
   done
 
-  echo "✗ Daemon active but RPC not responding"
-  echo "  Check logs: sudo journalctl -u $SERVICE -n 50 --no-pager"
-  echo "  Check socket: ls -la /run/anna/annad.sock"
-  echo "  Check permissions: groups (should include 'anna')"
+  print_error "Daemon not responding"
+  print_info "Check logs: journalctl -u annad -n 30"
   return 1
 }
 
-auto_repair() {
-  echo ""
-  echo "╭─────────────────────────────────────────────────────────────────╮"
-  echo "│  🔍 System Health Check                                         │"
-  echo "╰─────────────────────────────────────────────────────────────────╯"
-  echo ""
-  echo "Anna is now verifying system integrity..."
-  echo ""
-
-  # Run doctor check with full output
-  if "$BIN_DIR/annactl" doctor check --verbose 2>&1; then
-    echo ""
-    echo "✅ All health checks passed - Anna is fully operational"
-    echo ""
-    return 0
-  else
-    local exit_code=$?
-    echo ""
-    echo "⚠️  Issues detected during health check"
-    echo ""
-    echo "╭─────────────────────────────────────────────────────────────────╮"
-    echo "│  🔧 Auto-Repair                                                 │"
-    echo "╰─────────────────────────────────────────────────────────────────╯"
-    echo ""
-    echo "Anna will now attempt to fix these issues automatically."
-    echo "You'll see exactly what is being fixed and why."
-    echo ""
-    sleep 1
-
-    # Run repair with full output
-    if "$BIN_DIR/annactl" doctor repair --yes 2>&1; then
-      echo ""
-      echo "✅ Auto-repair completed successfully"
-      echo ""
-      echo "All issues have been resolved. Anna is now operational."
-      echo ""
-      return 0
-    else
-      echo ""
-      echo "⚠️  Some issues could not be auto-repaired"
-      echo ""
-      echo "This is usually due to permission constraints."
-      echo "Anna will continue to operate, but some features may be degraded."
-      echo ""
-      echo "To investigate further, run:"
-      echo "  annactl doctor check --verbose"
-      echo ""
-      return 0  # Don't fail install
-    fi
-  fi
-}
-
 verify_versions() {
-  local expected_tag="$1"
-  local annactl_ver
+  local expected="$1"
+  local actual
 
-  say "→ Verifying installed versions…"
+  print_step "🔍" "Verifying installation"
 
-  # Extract version from annactl (talks to running daemon via RPC)
-  annactl_ver=$("$BIN_DIR/annactl" version 2>/dev/null | head -1 | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?' || echo "unknown")
+  actual=$("$BIN_DIR/annactl" -V 2>/dev/null | grep -oP 'v?[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?' | head -1)
 
-  echo ""
-  echo "→ Installed version: $annactl_ver"
-  echo "   Expected:         $expected_tag"
+  print_substep "Expected: ${MAGENTA}$expected${RESET}"
+  print_substep "Installed: ${MAGENTA}$actual${RESET}"
 
-  if [[ "$annactl_ver" == "$expected_tag" ]]; then
-    say "✓ Version verification passed"
+  if [[ "$actual" == "$expected" || "$actual" == "${expected#v}" ]]; then
+    print_success "Version verification passed"
     return 0
   else
-    echo "✗ Version mismatch detected"
-    echo "  Expected $expected_tag but got $annactl_ver"
-    echo "  This may indicate a build or release issue"
-    echo "  Continuing anyway, but please report this"
-    return 0  # Don't fail install, just warn
+    print_warning "Version mismatch (expected $expected, got $actual)"
+    print_info "This may indicate a build issue - please report"
+    return 0  # Don't fail, just warn
   fi
 }
 
-# Main installation flow
-title
+run_health_check() {
+  print_section "🩺 Health Check & Auto-Repair"
 
-TAG=$(select_release)
-if [[ -z "$TAG" || "$TAG" == "null" ]]; then
-  echo "✗ No releases found on GitHub"
-  build_local
-else
-  say "→ Latest release: $TAG"
-  if ! download_and_verify_tarball "$TAG"; then
-    say "→ Tarball download failed, falling back to local build"
-    build_local
+  print_info "Anna will now check her own health and fix any issues..."
+  echo ""
+
+  "$BIN_DIR/annactl" doctor check --verbose 2>&1 || {
+    echo ""
+    print_warning "Issues detected - running auto-repair"
+    echo ""
+    "$BIN_DIR/annactl" doctor repair --yes 2>&1
+    echo ""
+  }
+
+  print_success "Health check complete"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🎉 MAIN INSTALLATION FLOW
+# ═══════════════════════════════════════════════════════════════════════════
+
+main() {
+  clear_screen
+  print_header
+
+  print_section "🚀 Installation Starting"
+
+  # Check dependencies
+  print_step "🔧" "Checking dependencies"
+  for dep in curl jq sudo systemctl; do
+    ensure_pkg "$dep"
+  done
+
+  # Select and download release
+  print_section "📦 Fetching Latest Release"
+
+  TAG=$(select_release)
+  if [[ -z "$TAG" || "$TAG" == "null" ]]; then
+    print_error "No releases found"
+    exit 1
   fi
-fi
 
-configure_systemd
+  echo ""
+  download_and_verify_tarball "$TAG" || exit 1
 
-if ! wait_rpc; then
-  exit 2
-fi
+  # Configure system
+  echo ""
+  print_section "⚙️  System Configuration"
+  configure_systemd
 
-# Get the tag we installed
-INSTALLED_TAG=$(cat "$TMPDIR/installed_tag" 2>/dev/null || echo "unknown")
-verify_versions "$INSTALLED_TAG"
+  # Wait for daemon
+  echo ""
+  wait_for_daemon || exit 2
 
-# Run auto-repair to fix any issues
-auto_repair
+  # Verify installation
+  echo ""
+  INSTALLED_TAG=$(cat "$TMPDIR/installed_tag" 2>/dev/null || echo "$TAG")
+  verify_versions "$INSTALLED_TAG"
 
-echo ""
-echo "✓ Installation complete"
-echo ""
-echo "Next steps:"
-echo "  annactl status"
-echo "  annactl report"
-echo "  annactl doctor check  # Verify system health"
+  # Health check
+  echo ""
+  run_health_check
+
+  # Success!
+  echo ""
+  echo ""
+  echo -e "${GREEN}${BOLD}"
+  echo "╔═══════════════════════════════════════════════════════════════════════╗"
+  echo "║                                                                       ║"
+  echo "║                   ✨  Installation Complete! ✨                       ║"
+  echo "║                                                                       ║"
+  echo "║              Anna is now running and ready to assist                  ║"
+  echo "║                                                                       ║"
+  echo "╚═══════════════════════════════════════════════════════════════════════╝"
+  echo -e "${RESET}"
+  echo ""
+  echo -e "${CYAN}  Next Steps:${RESET}"
+  echo -e "    ${WHITE}annactl status${RESET}   ${GRAY}# Check Anna's current state${RESET}"
+  echo -e "    ${WHITE}annactl report${RESET}   ${GRAY}# Get system health report${RESET}"
+  echo -e "    ${WHITE}annactl --help${RESET}   ${GRAY}# See all available commands${RESET}"
+  echo ""
+  echo -e "${GRAY}  Documentation: docs/V1.0-QUICKSTART.md${RESET}"
+  echo ""
+}
+
+main "$@"
