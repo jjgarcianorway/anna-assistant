@@ -158,72 +158,31 @@ ensure_pkg() {
 select_release() {
   local api="https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15"
 
-  print_step "🔍" "Finding latest release"
+  print_step "🔍" "Finding latest release with assets" >&2
 
-  # Get highest version tag
+  # Get all releases with asset counts
+  local releases_json
+  releases_json=$(curl -fsSL "$api" 2>/dev/null)
+
+  if [[ -z "$releases_json" || "$releases_json" == "null" ]]; then
+    print_error "Failed to fetch releases from GitHub" >&2
+    return 1
+  fi
+
+  # Find highest version tag that has the required asset
   local latest_tag
-  latest_tag=$(curl -fsSL "$api" | jq -r '.[] | select(.draft==false) | .tag_name' | sort -Vr | head -n1)
+  latest_tag=$(echo "$releases_json" | jq -r '.[] | select(.draft==false) | select(.assets[] | .name=="anna-linux-x86_64.tar.gz") | .tag_name' | sort -Vr | head -n1)
 
   if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
+    print_error "No releases found with uploaded assets" >&2
+    print_info "GitHub Actions may still be building the latest release" >&2
     return 1
   fi
 
-  print_substep "Latest version: ${MAGENTA}$latest_tag${RESET}"
-
-  # Check if latest tag has assets
-  local assets_check
-  assets_check=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$latest_tag" | \
-                 jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
-
-  if [[ -n "$assets_check" && "$assets_check" != "null" ]]; then
-    print_success "Assets available for $latest_tag"
-    echo "$latest_tag"
-    return 0
-  fi
-
-  # Latest tag exists but no assets yet
-  echo ""
-  print_warning "Release $latest_tag found, but binaries not ready yet"
-  echo ""
-  echo -e "${GRAY}  GitHub Actions needs ~2 minutes to build and upload binaries${RESET}"
-  echo ""
-  echo -e "${CYAN}  Options:${RESET}"
-  echo -e "    ${WHITE}[Y]${RESET} Wait here (polls every 10s for up to 3 minutes)"
-  echo -e "    ${WHITE}[N]${RESET} Exit and try again later"
-  echo ""
-
-  read -p "  $(echo -e ${CYAN}❯${RESET}) Wait for build? [Y/n]: " -n 1 -r
-  echo
-
-  if [[ $REPLY =~ ^[Nn]$ ]]; then
-    return 1
-  fi
-
-  # Animated waiting
-  print_step "⏳" "Waiting for GitHub Actions to build $latest_tag"
-  echo ""
-
-  for i in {1..18}; do  # 18 * 10s = 3 minutes
-    sleep 10
-    assets_check=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$latest_tag" | \
-                   jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
-
-    progress_bar $i 18
-
-    if [[ -n "$assets_check" && "$assets_check" != "null" ]]; then
-      echo ""
-      echo ""
-      print_success "Build complete! Assets now available"
-      echo "$latest_tag"
-      return 0
-    fi
-  done
-
-  echo ""
-  echo ""
-  print_error "Timeout after 3 minutes"
-  print_info "Check: https://github.com/$OWNER/$REPO/actions"
-  return 1
+  print_substep "Latest version: ${MAGENTA}$latest_tag${RESET}" >&2
+  print_success "Assets available for $latest_tag" >&2
+  echo "$latest_tag"
+  return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
