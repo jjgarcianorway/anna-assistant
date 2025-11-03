@@ -288,20 +288,52 @@ wait_rpc() {
 }
 
 auto_repair() {
-  say "→ Running system health check…"
-  # Run doctor check (non-interactive, exits 0 if OK, 1 if critical issues)
-  if "$BIN_DIR/annactl" doctor check >/dev/null 2>&1; then
-    say "✓ Health check passed"
+  echo ""
+  echo "╭─────────────────────────────────────────────────────────────────╮"
+  echo "│  🔍 System Health Check                                         │"
+  echo "╰─────────────────────────────────────────────────────────────────╯"
+  echo ""
+  echo "Anna is now verifying system integrity..."
+  echo ""
+
+  # Run doctor check with full output
+  if "$BIN_DIR/annactl" doctor check --verbose 2>&1; then
+    echo ""
+    echo "✅ All health checks passed - Anna is fully operational"
+    echo ""
     return 0
   else
-    say "⚠ Health issues detected, running auto-repair…"
-    # Run repair with --yes flag (non-interactive)
-    if "$BIN_DIR/annactl" doctor repair --yes >/dev/null 2>&1; then
-      say "✓ Auto-repair completed successfully"
+    local exit_code=$?
+    echo ""
+    echo "⚠️  Issues detected during health check"
+    echo ""
+    echo "╭─────────────────────────────────────────────────────────────────╮"
+    echo "│  🔧 Auto-Repair                                                 │"
+    echo "╰─────────────────────────────────────────────────────────────────╯"
+    echo ""
+    echo "Anna will now attempt to fix these issues automatically."
+    echo "You'll see exactly what is being fixed and why."
+    echo ""
+    sleep 1
+
+    # Run repair with full output
+    if "$BIN_DIR/annactl" doctor repair --yes 2>&1; then
+      echo ""
+      echo "✅ Auto-repair completed successfully"
+      echo ""
+      echo "All issues have been resolved. Anna is now operational."
+      echo ""
       return 0
     else
-      echo "⚠ Auto-repair encountered issues (continuing anyway)"
-      echo "  Run manually: annactl doctor check --verbose"
+      echo ""
+      echo "⚠️  Some issues could not be auto-repaired"
+      echo ""
+      echo "This is usually due to permission constraints."
+      echo "Anna will continue to operate, but some features may be degraded."
+      echo ""
+      echo "To investigate further, run:"
+      echo "  annactl doctor check --verbose"
+      echo ""
       return 0  # Don't fail install
     fi
   fi
