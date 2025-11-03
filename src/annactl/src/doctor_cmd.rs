@@ -1,26 +1,30 @@
 // Anna v0.10.1 - annactl doctor pre|post commands
 
 use anyhow::{Context, Result};
-use serde_json::Value;
+use anna_common::beautiful::colors::*;
+use anna_common::beautiful::boxes::*;
 use std::path::Path;
 use std::process::Command;
 
 pub fn doctor_pre(verbose: bool) -> Result<()> {
-    println!("\n╭─ Anna Preflight Checks ──────────────────────────────────────────");
-    println!("│");
+    // Beautiful header
+    println!("\n{DIM}{TOP_LEFT}{}{TOP_RIGHT}",
+        HORIZONTAL.repeat(70));
+    println!("{VERTICAL}{RESET}  {CYAN}{BOLD}🩺  Anna Preflight Checks{RESET}                                      {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
 
     let mut all_ok = true;
     let mut failures = Vec::new();
 
     // 1. OS/Arch check
     if verbose {
-        println!("│  Checking OS/architecture...");
+        println!("{VERTICAL}{RESET}  {DIM}→ Checking OS/architecture...{RESET}                                    {DIM}{VERTICAL}{RESET}");
     }
     let is_linux = cfg!(target_os = "linux");
     if is_linux {
-        println!("│  ✓ OS: Linux");
+        println!("{VERTICAL}{RESET}  {GREEN}✓{RESET} {BOLD}OS:{RESET} Linux                                                       {DIM}{VERTICAL}{RESET}");
     } else {
-        println!("│  ✗ OS: Not Linux (unsupported)");
+        println!("{VERTICAL}{RESET}  {RED}✗{RESET} {BOLD}OS:{RESET} Not Linux (unsupported)                                   {DIM}{VERTICAL}{RESET}");
         all_ok = false;
         failures.push("Operating system not supported (Linux required)");
     }
