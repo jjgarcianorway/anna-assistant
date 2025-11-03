@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Anna Installer — zero-arg
-# Always fetch latest GitHub release assets unless --from-local is passed
-# Verifies versions, restarts daemon, waits for RPC
+# Fetches newest release including prereleases, falls back to local build
+# Self-healing dependencies, 0770 socket permissions
 
 set -Eeuo pipefail
 
@@ -29,15 +29,11 @@ for dep in curl jq sudo systemctl; do
   ensure_pkg "$dep"
 done
 
-ORG="jjgarcianorway"
+OWNER="jjgarcianorway"
 REPO="anna-assistant"
 BIN_DIR="/usr/local/bin"
 SERVICE="annad"
-TMP="$(mktemp -d)"
-FROM_LOCAL=false
-
-cleanup() { rm -rf "$TMP"; }
-trap cleanup EXIT
+DO_LOCAL_BUILD=""
 
 say() { printf "%s\n" "$*"; }
 title() {
@@ -47,70 +43,65 @@ title() {
   printf "╰─────────────────────────────────────────╯\n"
 }
 
-# Check for --from-local flag
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --from-local)
-      FROM_LOCAL=true
-      shift
-      ;;
-    *)
-      echo "Unknown option: $1"
-      echo "Usage: $0 [--from-local]"
-      exit 1
-      ;;
-  esac
-done
+title
 
-get_latest_tag() {
-  curl -sSfL "https://api.github.com/repos/${ORG}/${REPO}/releases/latest" | jq -r '.tag_name'
+# Resolve newest release including prereleases (non-draft)
+LATEST_JSON="$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15")" || {
+  echo "ERROR: unable to query releases; falling back to local build"
+  DO_LOCAL_BUILD=1
 }
 
-download_release() {
-  local tag="$1"
-  say "→ Fetching assets for ${tag}…"
-  curl -sSfL "https://api.github.com/repos/${ORG}/${REPO}/releases/tags/${tag}" > "$TMP/meta.json"
+if [ -z "$DO_LOCAL_BUILD" ]; then
+  TAG="$(echo "$LATEST_JSON" | jq -r '[.[] | select(.draft==false)][0].tag_name')"
+  ASSETS_URL="$(echo "$LATEST_JSON" | jq -r '[.[] | select(.draft==false)][0].assets_url')"
+fi
 
-  local annad_url annactl_url
-  annad_url=$(jq -r '.assets[] | select(.name|test("^annad-.*-x86_64$")) | .browser_download_url' "$TMP/meta.json")
-  annactl_url=$(jq -r '.assets[] | select(.name|test("^annactl-.*-x86_64$")) | .browser_download_url' "$TMP/meta.json")
+if [ -z "$TAG" ] || [ "$TAG" = "null" ] || [ -z "$ASSETS_URL" ] || [ "$ASSETS_URL" = "null" ]; then
+  echo "ERROR: no suitable release found; falling back to local build"
+  DO_LOCAL_BUILD=1
+fi
 
-  if [[ -z "$annad_url" || -z "$annactl_url" ]]; then
-    echo "ERROR: No assets found for ${tag}"
-    echo "This usually means the GitHub Actions build hasn't completed yet."
-    echo "Wait a few minutes and try again, or build from source with:"
-    echo "  cargo build --release"
-    echo "  sudo install -m 0755 target/release/annad ${BIN_DIR}/annad"
-    echo "  sudo install -m 0755 target/release/annactl ${BIN_DIR}/annactl"
-    exit 1
+if [ -z "$DO_LOCAL_BUILD" ]; then
+  echo "→ Latest release: $TAG"
+  ASSETS="$(curl -fsSL "$ASSETS_URL")" || ASSETS=""
+  URL_ANNAD="$(echo "$ASSETS" | jq -r '.[] | select(.name=="annad") | .browser_download_url')"
+  URL_ANNACTL="$(echo "$ASSETS" | jq -r '.[] | select(.name=="annactl") | .browser_download_url')"
+
+  if [ -z "$URL_ANNAD" ] || [ "$URL_ANNAD" = "null" ] || [ -z "$URL_ANNACTL" ] || [ "$URL_ANNACTL" = "null" ]; then
+    echo "ERROR: no assets found for $TAG; falling back to local build"
+    DO_LOCAL_BUILD=1
   fi
+fi
 
-  say "→ Downloading binaries…"
-  curl -sSfL "$annad_url" -o "$TMP/annad"
-  curl -sSfL "$annactl_url" -o "$TMP/annactl"
-  chmod +x "$TMP/annad" "$TMP/annactl"
-}
+if [ -z "$DO_LOCAL_BUILD" ]; then
+  say "→ Downloading binaries from $TAG…"
+  tmpdir="$(mktemp -d)"
+  curl -fsSL "$URL_ANNAD"   -o "$tmpdir/annad"   || DO_LOCAL_BUILD=1
+  curl -fsSL "$URL_ANNACTL" -o "$tmpdir/annactl" || DO_LOCAL_BUILD=1
 
-build_local() {
-  say "→ Building from local source…"
+  if [ -z "$DO_LOCAL_BUILD" ]; then
+    sudo install -m 0755 "$tmpdir/annad"   "$BIN_DIR/annad"
+    sudo install -m 0755 "$tmpdir/annactl" "$BIN_DIR/annactl"
+    rm -rf "$tmpdir"
+    say "→ Installed binaries from GitHub release"
+  else
+    rm -rf "$tmpdir"
+  fi
+fi
+
+if [ -n "$DO_LOCAL_BUILD" ]; then
+  say "→ Building from source (fallback)"
   cargo build --release --bin annad --bin annactl
-  cp target/release/annad "$TMP/annad"
-  cp target/release/annactl "$TMP/annactl"
-  chmod +x "$TMP/annad" "$TMP/annactl"
-}
+  sudo install -m 0755 target/release/annad   "$BIN_DIR/annad"
+  sudo install -m 0755 target/release/annactl "$BIN_DIR/annactl"
+  say "→ Installed binaries from local build"
+fi
 
-install_binaries() {
-  say "→ Installing binaries to ${BIN_DIR}…"
-  sudo install -m 0755 "$TMP/annad"   "${BIN_DIR}/annad"
-  sudo install -m 0755 "$TMP/annactl" "${BIN_DIR}/annactl"
-}
+# Configure systemd service
+say "→ Configuring systemd service…"
 
-ensure_systemd() {
-  say "→ Configuring systemd service…"
-
-  # Create service file if it doesn't exist
-  if [[ ! -f /etc/systemd/system/annad.service ]]; then
-    sudo tee /etc/systemd/system/annad.service > /dev/null <<'EOF'
+if [[ ! -f /etc/systemd/system/annad.service ]]; then
+  sudo tee /etc/systemd/system/annad.service > /dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
 Documentation=https://github.com/jjgarcianorway/anna-assistant
@@ -126,10 +117,10 @@ RestartSec=10s
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
 
-# User/Group (create if needed)
+# User/Group
 User=anna
 Group=anna
-UMask=0027
+UMask=0000
 
 # Security
 NoNewPrivileges=true
@@ -145,71 +136,53 @@ TasksMax=100
 [Install]
 WantedBy=multi-user.target
 EOF
-    say "→ Created service file"
-  fi
-
-  # Create anna user/group if needed
-  if ! id anna &>/dev/null; then
-    sudo useradd -r -s /usr/bin/nologin anna
-    say "→ Created anna user"
-  fi
-
-  # Create directories
-  sudo mkdir -p /var/lib/anna /run/anna
-  sudo chown anna:anna /var/lib/anna /run/anna
-  sudo chmod 0750 /var/lib/anna /run/anna
-
-  # Add current user to anna group for socket access
-  if ! groups | grep -q anna; then
-    sudo usermod -aG anna "$USER"
-    say "→ Added $USER to anna group (logout/login for effect)"
-  fi
-
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now "${SERVICE}"
-  sudo systemctl restart "${SERVICE}"
-  say "→ Service restarted"
-}
-
-wait_rpc() {
-  say "→ Waiting for RPC socket…"
-  # Wait up to 10s for RPC socket to respond via annactl
-  for i in {1..20}; do
-    if timeout 2 annactl version >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 0.5
-  done
-  return 1
-}
-
-title
-
-if [[ "$FROM_LOCAL" == "true" ]]; then
-  build_local
-else
-  TAG="$(get_latest_tag)"
-  say "→ Latest release: ${TAG}"
-  download_release "$TAG"
+  say "→ Created service file"
 fi
 
-install_binaries
-ensure_systemd
-
-if wait_rpc; then
-  say "✓ Daemon responding and CLI reachable"
-else
-  echo "✗ Daemon active but RPC not responding"
-  echo "  Check logs: sudo journalctl -u ${SERVICE} -n 50 --no-pager"
-  echo "  Check socket: ls -la /run/anna/annad.sock"
-  echo "  Check permissions: groups (should include 'anna')"
-  exit 2
+# Create anna user/group if needed
+if ! id anna &>/dev/null; then
+  sudo useradd -r -s /usr/bin/nologin anna
+  say "→ Created anna user"
 fi
+
+# Create directories with correct permissions
+sudo mkdir -p /var/lib/anna /run/anna
+sudo chown anna:anna /var/lib/anna /run/anna
+sudo chmod 0770 /var/lib/anna /run/anna
+
+# Add current user to anna group for socket access
+if ! groups | grep -q anna; then
+  sudo usermod -aG anna "$USER"
+  say "→ Added $USER to anna group (logout/login for effect)"
+fi
+
+# Restart daemon
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$SERVICE"
+sudo systemctl restart "$SERVICE"
+say "→ Service restarted"
+
+# Wait for RPC socket (10s timeout)
+say "→ Waiting for RPC socket…"
+for i in {1..20}; do
+  if timeout 2 "$BIN_DIR/annactl" version >/dev/null 2>&1; then
+    say "✓ Daemon responding and CLI reachable"
+    break
+  fi
+  sleep 0.5
+  if [ $i -eq 20 ]; then
+    echo "✗ Daemon active but RPC not responding"
+    echo "  Check logs: sudo journalctl -u $SERVICE -n 50 --no-pager"
+    echo "  Check socket: ls -la /run/anna/annad.sock"
+    echo "  Check permissions: groups (should include 'anna')"
+    exit 2
+  fi
+done
 
 echo ""
 echo "→ Installed versions:"
-echo "   annad:   $(${BIN_DIR}/annad --version 2>/dev/null || echo 'n/a')"
-echo "   annactl: $(${BIN_DIR}/annactl version 2>/dev/null || echo 'n/a')"
+echo "   annad:   $("$BIN_DIR/annad" --version 2>/dev/null || echo 'n/a')"
+echo "   annactl: $("$BIN_DIR/annactl" version 2>/dev/null || echo 'n/a')"
 echo ""
 echo "✓ Installation complete"
 echo ""

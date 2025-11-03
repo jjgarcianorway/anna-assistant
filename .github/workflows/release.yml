@@ -1,77 +1,22 @@
-name: Release
-
+name: release
 on:
   push:
     tags:
-      - 'v*.*.*'
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
+      - 'v*'
 jobs:
-  build-x86_64:
-    name: Build x86_64 Linux
-    runs-on: ubuntu-latest
-
+  build-and-release:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build release binary
-        run: |
-          cargo build --release --verbose
-          ls -la target/release/
-
-      - name: Verify binaries exist
-        run: |
-          test -f target/release/annad || (echo "annad not found" && exit 1)
-          test -f target/release/annactl || (echo "annactl not found" && exit 1)
-
-      - name: Create release archive
-        run: |
-          mkdir -p dist
-          cd target/release
-          tar -czf ../../dist/anna-linux-x86_64.tar.gz annad annactl
-          cd ../../dist
-          sha256sum anna-linux-x86_64.tar.gz > anna-linux-x86_64.tar.gz.sha256
-          echo "Created archive:"
-          ls -lh anna-linux-x86_64.tar.gz
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: anna-linux-x86_64
-          path: |
-            dist/anna-linux-x86_64.tar.gz
-            dist/anna-linux-x86_64.tar.gz.sha256
-
-      - name: Create GitHub Release
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binaries
+        run: cargo build --release --bin annad --bin annactl
+      - name: Upload assets to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          prerelease: true
           files: |
-            dist/anna-linux-x86_64.tar.gz
-            dist/anna-linux-x86_64.tar.gz.sha256
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          body: |
-            ## Anna Assistant Release
-
-            Pre-compiled binaries for Linux x86_64
-
-            ### Installation
-
-            ```bash
-            git clone https://github.com/jjgarcianorway/anna-assistant.git
-            cd anna-assistant
-            ./scripts/install.sh
-            ```
-
-            The installer will automatically download and install this release.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            target/release/annad
+            target/release/annactl

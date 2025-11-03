@@ -32,3 +32,4 @@ Thumbs.db
 # Local config overrides
 /local_config.toml
 .release-message
+bin/
