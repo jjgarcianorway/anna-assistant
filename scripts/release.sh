@@ -19,6 +19,7 @@ next_rc() {
   # Fetch remote tags and find the highest RC tag
   latest=$(git ls-remote --tags origin 'refs/tags/v*' | \
            awk -F/ '{print $3}' | \
+           grep -v '\^{}' | \
            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' | \
            sort -V | \
            tail -n1)
