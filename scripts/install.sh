@@ -71,7 +71,9 @@ title() {
 
 select_release() {
   local api="https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15"
-  curl -fsSL "$api" | jq -r '.[] | select(.draft==false) | .tag_name' | head -n1
+  # Get latest release OR prerelease (exclude only drafts)
+  # Sort by version number to get true latest
+  curl -fsSL "$api" | jq -r '.[] | select(.draft==false) | .tag_name' | sort -V | tail -n1
 }
 
 download_and_verify_tarball() {
