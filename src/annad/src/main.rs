@@ -31,6 +31,7 @@ mod policy;
 mod radars_v12;
 mod rpc_errors;
 mod rpc_v10;
+mod self_healing;
 mod signal_handlers;
 mod snapshot_diff;
 mod storage_btrfs;
@@ -108,6 +109,13 @@ async fn main() -> Result<()> {
         if user != "anna" && user != "root" {
             warn!("Running as user '{}' (expected 'anna')", user);
         }
+    }
+
+    // Run self-healing checks and auto-repair
+    match self_healing::self_heal() {
+        Ok(true) => info!("Self-healing: all systems operational"),
+        Ok(false) => warn!("Self-healing: some issues detected and resolved"),
+        Err(e) => error!("Self-healing failed: {}", e),
     }
 
     // Check capabilities on startup
