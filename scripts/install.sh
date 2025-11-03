@@ -234,27 +234,23 @@ wait_rpc() {
 
 verify_versions() {
   local expected_tag="$1"
-  local annad_ver annactl_ver
+  local annactl_ver
 
   say "→ Verifying installed versions…"
 
-  # Extract version from annactl
+  # Extract version from annactl (talks to running daemon via RPC)
   annactl_ver=$("$BIN_DIR/annactl" version 2>/dev/null | head -1 | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?' || echo "unknown")
 
-  # Extract version from annad logs (it prints version on startup)
-  annad_ver=$("$BIN_DIR/annad" --version 2>&1 | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?' | head -1 || echo "unknown")
-
   echo ""
-  echo "→ Installed versions:"
-  echo "   Expected:  $expected_tag"
-  echo "   annad:     $annad_ver"
-  echo "   annactl:   $annactl_ver"
+  echo "→ Installed version: $annactl_ver"
+  echo "   Expected:         $expected_tag"
 
   if [[ "$annactl_ver" == "$expected_tag" ]]; then
     say "✓ Version verification passed"
     return 0
   else
     echo "✗ Version mismatch detected"
+    echo "  Expected $expected_tag but got $annactl_ver"
     echo "  This may indicate a build or release issue"
     echo "  Continuing anyway, but please report this"
     return 0  # Don't fail install, just warn
