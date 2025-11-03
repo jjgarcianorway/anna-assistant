@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Anna Release Script — zero-arg
-# Auto-bump RC tags, update Cargo.toml, build, tag, push, upload assets
+# Detects next RC from remote tags, builds tarball + checksum, never recreates tags
 
 set -Eeuo pipefail
 
@@ -12,85 +12,128 @@ die() { printf "ERROR: %s\n" "$*" >&2; exit 1; }
 
 require() { command -v "$1" >/dev/null 2>&1 || die "Missing '$1'"; }
 require git
-require awk
-require sed
 require cargo
+require tar
+require sha256sum
 
-# 1) Compute next RC tag from Cargo.toml or git tags
-CURRENT="$(grep -m1 '^version = "' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
-BASE="${CURRENT%%-rc.*}"
-RC_NUM="$(git tag --list 'v'"$BASE"'-rc.*' | sed -E 's/.*-rc\.([0-9]+)$/\1/' | sort -n | tail -1)"
-NEXT_RC=$(( ${RC_NUM:-0} + 1 ))
-TAG="v${BASE}-rc.${NEXT_RC}"
+# Compute next RC from remote tags (never recreate existing tags)
+next_rc() {
+  local latest
+  # Fetch remote tags and find the highest RC tag
+  latest=$(git ls-remote --tags origin 'refs/tags/v*' | \
+           awk -F/ '{print $3}' | \
+           grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' | \
+           sort -V | \
+           tail -n1)
 
-say "→ Current version: $CURRENT"
-say "→ Next release tag: $TAG"
+  if [[ -z "$latest" ]]; then
+    # No RC tags exist, start with rc.1
+    echo "v1.0.0-rc.1"
+    return
+  fi
 
-# 2) Set version in Cargo.toml
-sed -i -E 's/^version = ".*"$/version = "'"${BASE}-rc.${NEXT_RC}"'"/' Cargo.toml
-say "→ Updated Cargo.toml to ${BASE}-rc.${NEXT_RC}"
+  # Extract base and RC number
+  local base="${latest%-rc.*}"
+  local rc_num="${latest##*-rc.}"
 
-# 3) Commit, tag, push
-git add -A
+  # Bump RC number
+  echo "${base}-rc.$((rc_num + 1))"
+}
+
+NEW_TAG=$(next_rc)
+NEW_VER="${NEW_TAG#v}"  # Remove 'v' prefix for Cargo.toml
+
+say "→ Computed next release: $NEW_TAG"
+
+# Check if tag already exists locally
+if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+  die "Tag $NEW_TAG already exists locally. Fetch and sync with remote first."
+fi
+
+# Update Cargo.toml
+say "→ Updating Cargo.toml to $NEW_VER"
+sed -i -E 's/^version = ".*"$/version = "'"$NEW_VER"'"/' Cargo.toml
+
+# Build release binaries
+say "→ Building release binaries…"
+cargo build --release --bin annad --bin annactl
+
+# Create dist directory and package tarball
+say "→ Packaging tarball…"
+mkdir -p dist
+cp target/release/annad dist/
+cp target/release/annactl dist/
+tar -C dist -czf dist/anna-linux-x86_64.tar.gz annad annactl
+
+# Generate checksum
+say "→ Generating checksum…"
+(cd dist && sha256sum anna-linux-x86_64.tar.gz > anna-linux-x86_64.tar.gz.sha256)
+
+# Show checksum for verification
+say "→ Checksum:"
+cat dist/anna-linux-x86_64.tar.gz.sha256
+
+# Commit changes
+say "→ Committing changes…"
+git add Cargo.toml
 if ! git diff --cached --quiet; then
-  git commit -m "chore(release): ${TAG}
+  git commit -m "chore(release): $NEW_TAG
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-  say "→ Committed changes"
+  say "→ Committed"
 else
   say "→ No changes to commit"
 fi
 
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-  say "✗ Tag $TAG already exists locally"
-  exit 1
-fi
+# Create annotated tag
+say "→ Creating tag $NEW_TAG…"
+git tag -a "$NEW_TAG" -m "$NEW_TAG
 
-git tag -a "${TAG}" -m "${TAG}
-
-$(cat .release-notes-v1.0-draft.md 2>/dev/null || echo 'Release candidate')
+$(cat .release-notes-v1.0-draft.md 2>/dev/null || echo 'Release candidate - complete RC pipeline')
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-say "→ Created tag ${TAG}"
-
+# Push branch and tags
+say "→ Pushing to origin…"
 git push origin HEAD:main --tags
-say "→ Pushed to origin with tags"
 
-# 4) Build artifacts locally so we can upload with gh if present
-say "→ Building release binaries…"
-cargo build --release --bin annad --bin annactl
-mkdir -p dist
-cp target/release/annad target/release/annactl dist/
-say "→ Binaries built in dist/"
-
-# 5) Create or update GitHub Release and upload assets if gh exists
+# Upload assets with gh if available
 if command -v gh >/dev/null 2>&1; then
-  say "→ Creating GitHub release with gh CLI…"
+  say "→ Uploading assets with gh CLI…"
 
-  # Try to create release, if it exists, upload to it
-  if gh release create "${TAG}" dist/annad dist/annactl \
+  # Try to create release
+  if gh release create "$NEW_TAG" \
+       dist/anna-linux-x86_64.tar.gz \
+       dist/anna-linux-x86_64.tar.gz.sha256 \
        --prerelease \
-       --title "${TAG}" \
+       --title "$NEW_TAG" \
        --notes-file .release-notes-v1.0-draft.md 2>/dev/null; then
     say "→ GitHub release created with assets"
   else
+    # Release exists, upload assets
     say "→ Release exists, uploading assets…"
-    gh release upload "${TAG}" dist/annad dist/annactl --clobber
+    gh release upload "$NEW_TAG" \
+       dist/anna-linux-x86_64.tar.gz \
+       dist/anna-linux-x86_64.tar.gz.sha256 \
+       --clobber
     say "→ Assets uploaded"
   fi
 else
-  say "→ gh CLI not found; CI will publish assets via GitHub Actions"
+  say "→ gh CLI not found; GitHub Actions will upload assets"
 fi
 
 echo ""
-echo "✔ Release ${TAG} prepared and pushed"
-echo "▶ Tag: ${TAG}"
-echo "▶ Binaries: dist/annad, dist/annactl"
+echo "✔ Release $NEW_TAG prepared and pushed"
+echo "▶ Tag: $NEW_TAG"
+echo "▶ Assets:"
+echo "  - dist/anna-linux-x86_64.tar.gz"
+echo "  - dist/anna-linux-x86_64.tar.gz.sha256"
 echo ""
-echo "Next: Wait for CI to attach assets, then run installer:"
-echo "  sudo ./scripts/install.sh"
+echo "Next:"
+echo "  1. Wait for GitHub Actions to complete (~2 min)"
+echo "  2. Verify assets appear in release: https://github.com/jjgarcianorway/anna-assistant/releases/tag/$NEW_TAG"
+echo "  3. Test installer: sudo ./scripts/install.sh"

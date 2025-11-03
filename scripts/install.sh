@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
 # Anna Installer — zero-arg
-# Fetches newest release including prereleases, falls back to local build
-# Self-healing dependencies, 0770 socket permissions
+# Downloads tarball from GitHub releases (including prereleases), verifies checksum
+# Falls back to local build with Rust toolchain auto-install
 
 set -Eeuo pipefail
+
+OWNER="jjgarcianorway"
+REPO="anna-assistant"
+BIN_DIR="/usr/local/bin"
+SERVICE="annad"
+TMPDIR="$(mktemp -d)"
+
+cleanup() { rm -rf "$TMPDIR"; }
+trap cleanup EXIT
 
 ensure_pkg() {
   local pkg="$1"
@@ -18,9 +27,32 @@ ensure_pkg() {
     elif command -v zypper >/dev/null 2>&1; then
       sudo zypper install -y "$pkg"
     else
-      echo "✗ Unsupported package manager; install '$pkg' manually."
+      echo "✗ Unsupported package manager; install '$pkg' manually"
       exit 1
     fi
+  fi
+}
+
+ensure_rust_toolchain() {
+  if command -v cargo >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "→ Installing Rust toolchain for fallback build"
+  if command -v pacman >/dev/null 2>&1; then
+    ensure_pkg base-devel
+    ensure_pkg cargo
+    ensure_pkg rustup
+  elif command -v apt >/dev/null 2>&1; then
+    sudo apt update
+    sudo apt install -y build-essential cargo rustc
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y cargo rust
+  elif command -v zypper >/dev/null 2>&1; then
+    sudo zypper install -y cargo rust
+  else
+    echo "✗ Cannot install Rust toolchain on this distro"
+    exit 1
   fi
 }
 
@@ -28,12 +60,6 @@ ensure_pkg() {
 for dep in curl jq sudo systemctl; do
   ensure_pkg "$dep"
 done
-
-OWNER="jjgarcianorway"
-REPO="anna-assistant"
-BIN_DIR="/usr/local/bin"
-SERVICE="annad"
-DO_LOCAL_BUILD=""
 
 say() { printf "%s\n" "$*"; }
 title() {
@@ -43,65 +69,76 @@ title() {
   printf "╰─────────────────────────────────────────╯\n"
 }
 
-title
-
-# Resolve newest release including prereleases (non-draft)
-LATEST_JSON="$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15")" || {
-  echo "ERROR: unable to query releases; falling back to local build"
-  DO_LOCAL_BUILD=1
+select_release() {
+  local api="https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15"
+  curl -fsSL "$api" | jq -r '.[] | select(.draft==false) | .tag_name' | head -n1
 }
 
-if [ -z "$DO_LOCAL_BUILD" ]; then
-  TAG="$(echo "$LATEST_JSON" | jq -r '[.[] | select(.draft==false)][0].tag_name')"
-  ASSETS_URL="$(echo "$LATEST_JSON" | jq -r '[.[] | select(.draft==false)][0].assets_url')"
-fi
+download_and_verify_tarball() {
+  local tag="$1"
+  local api="https://api.github.com/repos/$OWNER/$REPO/releases/tags/$tag"
+  local tmp="$TMPDIR/anna"
+  mkdir -p "$tmp"
 
-if [ -z "$TAG" ] || [ "$TAG" = "null" ] || [ -z "$ASSETS_URL" ] || [ "$ASSETS_URL" = "null" ]; then
-  echo "ERROR: no suitable release found; falling back to local build"
-  DO_LOCAL_BUILD=1
-fi
+  say "→ Fetching assets for $tag…"
+  local assets
+  assets=$(curl -fsSL "$api")
 
-if [ -z "$DO_LOCAL_BUILD" ]; then
-  echo "→ Latest release: $TAG"
-  ASSETS="$(curl -fsSL "$ASSETS_URL")" || ASSETS=""
-  URL_ANNAD="$(echo "$ASSETS" | jq -r '.[] | select(.name=="annad") | .browser_download_url')"
-  URL_ANNACTL="$(echo "$ASSETS" | jq -r '.[] | select(.name=="annactl") | .browser_download_url')"
+  local tar_url checksum_url
+  tar_url=$(echo "$assets" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .browser_download_url')
+  checksum_url=$(echo "$assets" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz.sha256") | .browser_download_url')
 
-  if [ -z "$URL_ANNAD" ] || [ "$URL_ANNAD" = "null" ] || [ -z "$URL_ANNACTL" ] || [ "$URL_ANNACTL" = "null" ]; then
-    echo "ERROR: no assets found for $TAG; falling back to local build"
-    DO_LOCAL_BUILD=1
+  if [[ -z "$tar_url" || "$tar_url" == "null" || -z "$checksum_url" || "$checksum_url" == "null" ]]; then
+    say "✗ Tarball assets not found for $tag"
+    return 1
   fi
-fi
 
-if [ -z "$DO_LOCAL_BUILD" ]; then
-  say "→ Downloading binaries from $TAG…"
-  tmpdir="$(mktemp -d)"
-  curl -fsSL "$URL_ANNAD"   -o "$tmpdir/annad"   || DO_LOCAL_BUILD=1
-  curl -fsSL "$URL_ANNACTL" -o "$tmpdir/annactl" || DO_LOCAL_BUILD=1
+  say "→ Downloading tarball and checksum…"
+  curl -fsSL "$tar_url" -o "$tmp/anna.tar.gz"
+  curl -fsSL "$checksum_url" -o "$tmp/anna.tar.gz.sha256"
 
-  if [ -z "$DO_LOCAL_BUILD" ]; then
-    sudo install -m 0755 "$tmpdir/annad"   "$BIN_DIR/annad"
-    sudo install -m 0755 "$tmpdir/annactl" "$BIN_DIR/annactl"
-    rm -rf "$tmpdir"
-    say "→ Installed binaries from GitHub release"
-  else
-    rm -rf "$tmpdir"
+  say "→ Verifying checksum…"
+  (cd "$tmp" && sha256sum -c anna.tar.gz.sha256) || {
+    say "✗ Checksum verification failed"
+    return 1
+  }
+
+  say "→ Extracting tarball…"
+  tar -xzf "$tmp/anna.tar.gz" -C "$tmp"
+
+  if [[ ! -f "$tmp/annad" || ! -f "$tmp/annactl" ]]; then
+    say "✗ Binaries not found in tarball"
+    return 1
   fi
-fi
 
-if [ -n "$DO_LOCAL_BUILD" ]; then
+  sudo install -m 0755 "$tmp/annad" "$BIN_DIR/annad"
+  sudo install -m 0755 "$tmp/annactl" "$BIN_DIR/annactl"
+  say "→ Installed binaries from GitHub release $tag"
+
+  echo "$tag" > "$TMPDIR/installed_tag"
+  return 0
+}
+
+build_local() {
   say "→ Building from source (fallback)"
+  ensure_rust_toolchain
+
   cargo build --release --bin annad --bin annactl
-  sudo install -m 0755 target/release/annad   "$BIN_DIR/annad"
+  sudo install -m 0755 target/release/annad "$BIN_DIR/annad"
   sudo install -m 0755 target/release/annactl "$BIN_DIR/annactl"
   say "→ Installed binaries from local build"
-fi
 
-# Configure systemd service
-say "→ Configuring systemd service…"
+  # Record version from Cargo.toml
+  local version
+  version=$(grep -m1 '^version = "' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+  echo "v$version" > "$TMPDIR/installed_tag"
+}
 
-if [[ ! -f /etc/systemd/system/annad.service ]]; then
-  sudo tee /etc/systemd/system/annad.service > /dev/null <<'EOF'
+configure_systemd() {
+  say "→ Configuring systemd service…"
+
+  if [[ ! -f /etc/systemd/system/annad.service ]]; then
+    sudo tee /etc/systemd/system/annad.service > /dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
 Documentation=https://github.com/jjgarcianorway/anna-assistant
@@ -136,53 +173,104 @@ TasksMax=100
 [Install]
 WantedBy=multi-user.target
 EOF
-  say "→ Created service file"
-fi
-
-# Create anna user/group if needed
-if ! id anna &>/dev/null; then
-  sudo useradd -r -s /usr/bin/nologin anna
-  say "→ Created anna user"
-fi
-
-# Create directories with correct permissions
-sudo mkdir -p /var/lib/anna /run/anna
-sudo chown anna:anna /var/lib/anna /run/anna
-sudo chmod 0770 /var/lib/anna /run/anna
-
-# Add current user to anna group for socket access
-if ! groups | grep -q anna; then
-  sudo usermod -aG anna "$USER"
-  say "→ Added $USER to anna group (logout/login for effect)"
-fi
-
-# Restart daemon
-sudo systemctl daemon-reload
-sudo systemctl enable --now "$SERVICE"
-sudo systemctl restart "$SERVICE"
-say "→ Service restarted"
-
-# Wait for RPC socket (10s timeout)
-say "→ Waiting for RPC socket…"
-for i in {1..20}; do
-  if timeout 2 "$BIN_DIR/annactl" version >/dev/null 2>&1; then
-    say "✓ Daemon responding and CLI reachable"
-    break
+    say "→ Created service file"
   fi
-  sleep 0.5
-  if [ $i -eq 20 ]; then
-    echo "✗ Daemon active but RPC not responding"
-    echo "  Check logs: sudo journalctl -u $SERVICE -n 50 --no-pager"
-    echo "  Check socket: ls -la /run/anna/annad.sock"
-    echo "  Check permissions: groups (should include 'anna')"
-    exit 2
-  fi
-done
 
-echo ""
-echo "→ Installed versions:"
-echo "   annad:   $("$BIN_DIR/annad" --version 2>/dev/null || echo 'n/a')"
-echo "   annactl: $("$BIN_DIR/annactl" version 2>/dev/null || echo 'n/a')"
+  # Create anna user/group if needed
+  if ! id anna &>/dev/null; then
+    sudo useradd -r -s /usr/bin/nologin anna
+    say "→ Created anna user"
+  fi
+
+  # Create directories with correct permissions
+  sudo mkdir -p /var/lib/anna /run/anna
+  sudo chown anna:anna /var/lib/anna /run/anna
+  sudo chmod 0770 /var/lib/anna /run/anna
+
+  # Add current user to anna group for socket access
+  if ! groups | grep -q anna; then
+    sudo usermod -aG anna "$USER"
+    say "→ Added $USER to anna group (logout/login for effect)"
+  fi
+
+  # Restart daemon
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now "$SERVICE"
+  sudo systemctl restart "$SERVICE"
+  say "→ Service restarted"
+}
+
+wait_rpc() {
+  say "→ Waiting for RPC socket…"
+  for i in {1..20}; do
+    if timeout 2 "$BIN_DIR/annactl" version >/dev/null 2>&1; then
+      say "✓ Daemon responding and CLI reachable"
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  echo "✗ Daemon active but RPC not responding"
+  echo "  Check logs: sudo journalctl -u $SERVICE -n 50 --no-pager"
+  echo "  Check socket: ls -la /run/anna/annad.sock"
+  echo "  Check permissions: groups (should include 'anna')"
+  return 1
+}
+
+verify_versions() {
+  local expected_tag="$1"
+  local annad_ver annactl_ver
+
+  say "→ Verifying installed versions…"
+
+  # Extract version from annactl
+  annactl_ver=$("$BIN_DIR/annactl" version 2>/dev/null | head -1 | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?' || echo "unknown")
+
+  # Extract version from annad logs (it prints version on startup)
+  annad_ver=$("$BIN_DIR/annad" --version 2>&1 | grep -oP 'v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?' | head -1 || echo "unknown")
+
+  echo ""
+  echo "→ Installed versions:"
+  echo "   Expected:  $expected_tag"
+  echo "   annad:     $annad_ver"
+  echo "   annactl:   $annactl_ver"
+
+  if [[ "$annactl_ver" == "$expected_tag" ]]; then
+    say "✓ Version verification passed"
+    return 0
+  else
+    echo "✗ Version mismatch detected"
+    echo "  This may indicate a build or release issue"
+    echo "  Continuing anyway, but please report this"
+    return 0  # Don't fail install, just warn
+  fi
+}
+
+# Main installation flow
+title
+
+TAG=$(select_release)
+if [[ -z "$TAG" || "$TAG" == "null" ]]; then
+  echo "✗ No releases found on GitHub"
+  build_local
+else
+  say "→ Latest release: $TAG"
+  if ! download_and_verify_tarball "$TAG"; then
+    say "→ Tarball download failed, falling back to local build"
+    build_local
+  fi
+fi
+
+configure_systemd
+
+if ! wait_rpc; then
+  exit 2
+fi
+
+# Get the tag we installed
+INSTALLED_TAG=$(cat "$TMPDIR/installed_tag" 2>/dev/null || echo "unknown")
+verify_versions "$INSTALLED_TAG"
+
 echo ""
 echo "✓ Installation complete"
 echo ""

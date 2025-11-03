@@ -4,19 +4,29 @@ on:
     tags:
       - 'v*'
 jobs:
-  build-and-release:
+  build-upload:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+
       - name: Build release binaries
         run: cargo build --release --bin annad --bin annactl
-      - name: Upload assets to GitHub Release
+
+      - name: Package tarball and generate checksum
+        run: |
+          mkdir -p dist
+          cp target/release/annad dist/
+          cp target/release/annactl dist/
+          tar -C dist -czf dist/anna-linux-x86_64.tar.gz annad annactl
+          ( cd dist && sha256sum anna-linux-x86_64.tar.gz > anna-linux-x86_64.tar.gz.sha256 )
+
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          prerelease: true
           files: |
-            target/release/annad
-            target/release/annactl
+            dist/anna-linux-x86_64.tar.gz
+            dist/anna-linux-x86_64.tar.gz.sha256
+          prerelease: ${{ contains(github.ref_name, '-rc.') }}
