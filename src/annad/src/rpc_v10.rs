@@ -153,10 +153,10 @@ impl RpcServer {
             }
         }
 
-        // Set process umask to 0007 for socket creation (results in 0660)
+        // Set process umask to 0000 for socket creation (results in 0777, then chmod to 0770)
         #[cfg(unix)]
         unsafe {
-            libc::umask(0o007);
+            libc::umask(0o000);
         }
 
         // Remove existing socket if present (only if not in use)
@@ -188,6 +188,16 @@ impl RpcServer {
 
         let listener = UnixListener::bind(socket_path)
             .with_context(|| format!("Failed to bind UNIX socket at {:?}", socket_path))?;
+
+        // Set socket permissions to 0770 (owner+group rwx, others none)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(socket_path)?.permissions();
+            perms.set_mode(0o770);
+            std::fs::set_permissions(socket_path, perms)?;
+            info!("Socket permissions set to 0770: {}", socket_path.display());
+        }
 
         // fsync the parent directory to ensure socket entry is persisted
         #[cfg(unix)]

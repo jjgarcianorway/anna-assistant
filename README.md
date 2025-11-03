@@ -1,39 +1,96 @@
-# Anna Assistant - Next Generation
+# Anna Assistant v1.0 "Hildegard"
 
-**Minimal, Contract-Driven Linux System Assistant**
+**Autonomy-First, Wiki-Native, Rollback-Safe System Assistant**
 
-Version: 0.9.0
+Version: 1.0.0-rc.1
 Target: Arch Linux
 Language: Rust + Bash
 
 ---
 
-## 60-Second Quickstart
-
-**Install → Verify → Demo → Uninstall**
+## One Command Install
 
 ```bash
-# Requirements: Arch Linux, bash, systemd, polkit
-# Install Rust if needed:
-sudo pacman -S rust cargo systemd
-
-# 1. Install Anna (builds, installs, starts daemon)
-cd anna-assistant && ./scripts/install.sh
-
-# 2. Verify installation
-annactl status
-annactl doctor
-
-# 3. Try configuration
-annactl config list
-annactl config set user telemetry.local_store off
-annactl config get telemetry.local_store
-
-# 4. Uninstall (creates backup in ~/Documents/)
-./scripts/uninstall.sh
+# Fetch and install the latest release from GitHub
+sudo ./scripts/install.sh
 ```
 
-That's it! The installer is idempotent and safe to re-run.
+The installer:
+- Always fetches the latest GitHub release assets
+- Installs binaries to `/usr/local/bin`
+- Creates systemd service with proper socket permissions (mode 0770, group 'anna')
+- Waits for RPC to respond before completing
+
+**From local build:**
+```bash
+sudo ./scripts/install.sh --from-local
+```
+
+## One Command Release
+
+```bash
+# Auto-detect version, create/bump RC tag, push with tags
+./scripts/release.sh
+```
+
+The release script:
+- Auto-detects version from `Cargo.toml`
+- If version ends with `-rc.N`, bumps to `-rc.(N+1)`
+- Otherwise creates `-rc.1` tag
+- Synthesizes commit message from `.release-notes-v1.0-draft.md`
+- Updates README version automatically
+- No flags, no prompts, idempotent
+
+---
+
+## Quick Start
+
+```bash
+# 1. Check daemon status
+annactl status
+
+# 2. Get recommendations
+annactl advise --limit 5
+
+# 3. Apply an action (dry-run first)
+annactl apply <action-id> --dry-run
+annactl apply <action-id>
+
+# 4. Generate system report
+annactl report
+```
+
+**Core Commands:**
+- `status` - System overview with facts, policy, radars
+- `advise` - Wiki-grounded recommendations with citations
+- `apply` - Safe execution with policy enforcement and rollback tokens
+- `report` - Narrative one-pager with top recommendations
+- `version` - Version info
+- `help` - Command help
+
+See `V1.0-QUICKSTART.md` for comprehensive usage guide.
+
+---
+
+## Troubleshooting
+
+**Daemon active but RPC not responding:**
+```bash
+# Check logs
+sudo journalctl -u annad -n 50 --no-pager
+
+# Check socket
+ls -la /run/anna/annad.sock
+# Should show: srwxrwx--- 1 anna anna (mode 0770)
+
+# Check permissions
+groups  # Should include 'anna'
+# If not, logout/login after install
+
+# Verify versions match
+annad --version
+annactl version
+```
 
 ---
 

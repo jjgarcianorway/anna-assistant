@@ -150,7 +150,13 @@
       "Bash(ssh-add:*)",
       "Bash(else)",
       "Bash(fi)",
-      "Bash(git show-ref:*)"
+      "Bash(git show-ref:*)",
+      "Bash(jq:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git checkout:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
