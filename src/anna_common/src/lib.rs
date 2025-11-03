@@ -3,7 +3,10 @@
 //! Shared messaging, formatting, and utilities for Anna Assistant.
 //! This library provides a unified interface for human-friendly output
 //! across all Anna components (installer, annactl, annad).
+//!
+//! "Born from bash, blossoming into reason."
 
+pub mod beautiful;
 pub mod config;
 pub mod config_governance;
 pub mod locale;

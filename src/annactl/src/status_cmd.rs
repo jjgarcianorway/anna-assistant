@@ -287,63 +287,101 @@ fn determine_status(
     (0, "System healthy. No action needed.".to_string())
 }
 
-/// Display status in human-friendly format
+/// Display status in beautiful format
 pub fn display_status(status: &SystemStatus) -> Result<()> {
-    let green = "\x1b[32m";
-    let yellow = "\x1b[33m";
-    let red = "\x1b[31m";
-    let reset = "\x1b[0m";
+    use anna_common::beautiful::*;
+    use anna_common::beautiful::colors::*;
+    use anna_common::beautiful::boxes::*;
 
-    // Header with emoji
-    let (emoji, color) = match status.exit_code {
-        0 => ("✅", green),
-        1 => ("⚠️", yellow),
-        _ => ("❌", red),
+    // Beautiful header
+    let title = match status.exit_code {
+        0 => "Anna System Status — Healthy",
+        1 => "Anna System Status — Degraded",
+        _ => "Anna System Status — Not Running",
     };
 
-    println!(
-        "\n{}{} Anna daemon is {} — {}{}",
-        color,
-        emoji,
-        status.daemon.state,
-        status.advice,
-        reset
-    );
+    let (emoji, color) = match status.exit_code {
+        0 => ("✅", GREEN),
+        1 => ("⚠️ ", YELLOW),
+        _ => ("❌", RED),
+    };
 
-    // Daemon info
-    if let Some(pid) = status.daemon.pid {
-        print!("• PID: {}   ", pid);
-        if let Some(uptime) = status.daemon.uptime_sec {
-            let hours = uptime / 3600;
-            let mins = (uptime % 3600) / 60;
-            print!("Uptime: {}h {}m   ", hours, mins);
+    // Top border
+    println!("\n{DIM}{TOP_LEFT}{}{}",
+        HORIZONTAL.repeat(60),
+        TOP_RIGHT);
+    println!("{VERTICAL}{RESET}  {color}{BOLD}{emoji} {title}{RESET:<48}  {DIM}{VERTICAL}{RESET}");
+    println!("{DIM}{VERTICAL}{RESET}                                                              {DIM}{VERTICAL}{RESET}");
+
+    // Daemon section
+    match &status.daemon.state[..] {
+        "active" => {
+            if let Some(pid) = status.daemon.pid {
+                print!("{DIM}{VERTICAL}{RESET}  {BOLD}Daemon:{RESET} {GREEN}running{RESET}");
+                print!("  {DIM}│{RESET}  {BOLD}PID:{RESET} {}", pid);
+
+                if let Some(uptime) = status.daemon.uptime_sec {
+                    let hours = uptime / 3600;
+                    let mins = (uptime % 3600) / 60;
+                    print!("  {DIM}│{RESET}  {BOLD}Uptime:{RESET} {}h {}m", hours, mins);
+                }
+                println!("  {DIM}{VERTICAL}{RESET}");
+            } else {
+                println!("{DIM}{VERTICAL}{RESET}  {BOLD}Daemon:{RESET} {GREEN}running{RESET} (PID unknown)                            {DIM}{VERTICAL}{RESET}");
+            }
+        }
+        "inactive" => {
+            println!("{DIM}{VERTICAL}{RESET}  {BOLD}Daemon:{RESET} {YELLOW}inactive{RESET}                                          {DIM}{VERTICAL}{RESET}");
+        }
+        "failed" => {
+            println!("{DIM}{VERTICAL}{RESET}  {BOLD}Daemon:{RESET} {RED}failed{RESET}                                            {DIM}{VERTICAL}{RESET}");
+        }
+        _ => {
+            println!("{DIM}{VERTICAL}{RESET}  {BOLD}Daemon:{RESET} {GRAY}{}{RESET}                                   {DIM}{VERTICAL}{RESET}", status.daemon.state);
         }
     }
 
-    // Health summary
+    // Health section
     if let Some(h) = &status.health {
-        println!(
-            "RPC p99: {} ms   Memory: {:.1} MB   Queue: {} events",
-            h.rpc_p99_ms, h.memory_mb, h.queue_depth
-        );
+        let rpc_color = if h.rpc_p99_ms < 100 { GREEN } else if h.rpc_p99_ms < 500 { YELLOW } else { RED };
+        let mem_color = if h.memory_mb < 30.0 { GREEN } else if h.memory_mb < 60.0 { YELLOW } else { RED };
+        let queue_color = if h.queue_depth < 10 { GREEN } else if h.queue_depth < 50 { YELLOW } else { RED };
+
+        println!("{DIM}{VERTICAL}{RESET}  {BOLD}RPC p99:{RESET} {rpc_color}{} ms{RESET}  {DIM}│{RESET}  {BOLD}Memory:{RESET} {mem_color}{:.1} MB{RESET}  {DIM}│{RESET}  {BOLD}Queue:{RESET} {queue_color}{}{RESET} events  {DIM}{VERTICAL}{RESET}",
+            h.rpc_p99_ms, h.memory_mb, h.queue_depth);
     } else {
-        println!("Health: not available");
+        println!("{DIM}{VERTICAL}{RESET}  {BOLD}Health:{RESET} {GRAY}not available{RESET}                                     {DIM}{VERTICAL}{RESET}");
     }
 
-    // Journal tail
+    // Journal section
     let error_count = status.journal_tail.iter().filter(|e| e.level == "ERROR").count();
     let warn_count = status.journal_tail.iter().filter(|e| e.level == "WARNING").count();
 
-    if error_count > 0 || warn_count > 0 {
-        println!(
-            "• Journal: {} errors, {} warnings in recent logs",
-            error_count, warn_count
-        );
+    let journal_color = if error_count > 0 { RED } else if warn_count > 0 { YELLOW } else { GREEN };
+    let journal_msg = if error_count > 0 {
+        format!("{} errors, {} warnings", error_count, warn_count)
+    } else if warn_count > 0 {
+        format!("{} warnings", warn_count)
     } else {
-        println!("• Journal: no errors or warnings");
+        "all clear".to_string()
+    };
+
+    println!("{DIM}{VERTICAL}{RESET}  {BOLD}Journal:{RESET} {journal_color}{journal_msg}{RESET}                                      {DIM}{VERTICAL}{RESET}");
+
+    // Divider
+    println!("{DIM}{VERTICAL}{RESET}                                                              {DIM}{VERTICAL}{RESET}");
+
+    // Advice section
+    let advice_lines: Vec<&str> = status.advice.lines().collect();
+    for line in advice_lines {
+        println!("{DIM}{VERTICAL}{RESET}  {line:<60}  {DIM}{VERTICAL}{RESET}");
     }
 
-    println!();
+    // Bottom border
+    println!("{DIM}{BOTTOM_LEFT}{}{}",
+        HORIZONTAL.repeat(60),
+        BOTTOM_RIGHT);
+    println!("{RESET}");
 
     Ok(())
 }
