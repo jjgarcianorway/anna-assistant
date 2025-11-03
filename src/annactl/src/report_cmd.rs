@@ -3,7 +3,8 @@
 //! Generate natural language system health reports
 
 use anyhow::{Context, Result};
-use anna_common::{header, section, TermCaps};
+use anna_common::beautiful::colors::*;
+use anna_common::beautiful::boxes::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -273,109 +274,152 @@ fn generate_recommendations(snapshot: &RadarSnapshot) -> Vec<Recommendation> {
 
 /// Print short report (one-page summary)
 fn print_short_report(report: &SystemReport) {
-    let caps = TermCaps::detect();
+    // Beautiful header
+    println!("\n{DIM}{TOP_LEFT}{}{TOP_RIGHT}",
+        HORIZONTAL.repeat(70));
+    println!("{VERTICAL}{RESET}  {CYAN}{BOLD}📊  System Health Report{RESET}                                   {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
 
-    println!("{}", header(&caps, "System Health Report"));
-    println!();
-
-    // Overall health
-    let health_color = match report.overall_health {
-        9..=10 => "\x1b[32m",
-        7..=8 => "\x1b[36m",
-        5..=6 => "\x1b[33m",
-        3..=4 => "\x1b[35m",
-        _ => "\x1b[31m",
+    // Overall health with beautiful bar
+    let (health_color, health_emoji) = match report.overall_health {
+        9..=10 => (GREEN, "✨"),
+        7..=8 => (CYAN, "✓"),
+        5..=6 => (YELLOW, "⚠"),
+        3..=4 => (MAGENTA, "⚡"),
+        _ => (RED, "✗"),
     };
-    println!("  {}Overall Health: {}/10\x1b[0m", health_color, report.overall_health);
-    println!();
 
-    // Narrative
-    println!("{}", section(&caps, "Summary"));
-    println!();
-    println!("  {}", report.narrative);
-    println!();
+    let health_bar = "█".repeat(report.overall_health as usize);
+    let empty_bar = "░".repeat(10 - report.overall_health as usize);
 
-    // Radar scores
-    println!("{}", section(&caps, "Radar Scores"));
-    println!();
-    println!("  Hardware:  {}/10", report.radar_scores.hardware);
-    println!("  Software:  {}/10", report.radar_scores.software);
-    println!("  User:      {}/10", report.radar_scores.user);
-    println!();
+    println!("{VERTICAL}{RESET}  {BOLD}Overall Health:{RESET} {health_color}{health_emoji} {}/10{RESET}  [{health_color}{health_bar}{GRAY}{empty_bar}{RESET}]  {DIM}{VERTICAL}{RESET}",
+        report.overall_health);
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
+
+    // Narrative in a nice box
+    println!("{VERTICAL}{RESET}  {BOLD}Summary{RESET}                                                           {DIM}{VERTICAL}{RESET}");
+
+    // Word wrap narrative to 62 chars
+    let words: Vec<&str> = report.narrative.split_whitespace().collect();
+    let mut current_line = String::new();
+
+    for word in words {
+        if current_line.len() + word.len() + 1 > 62 {
+            println!("{VERTICAL}{RESET}  {current_line:<62}  {DIM}{VERTICAL}{RESET}");
+            current_line = word.to_string();
+        } else {
+            if !current_line.is_empty() {
+                current_line.push(' ');
+            }
+            current_line.push_str(word);
+        }
+    }
+    if !current_line.is_empty() {
+        println!("{VERTICAL}{RESET}  {current_line:<62}  {DIM}{VERTICAL}{RESET}");
+    }
+
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
+
+    // Radar scores with color coding
+    println!("{VERTICAL}{RESET}  {BOLD}Radar Scores{RESET}                                                      {DIM}{VERTICAL}{RESET}");
+
+    let hw_color = if report.radar_scores.hardware >= 7 { GREEN } else if report.radar_scores.hardware >= 5 { YELLOW } else { RED };
+    let sw_color = if report.radar_scores.software >= 7 { GREEN } else if report.radar_scores.software >= 5 { YELLOW } else { RED };
+    let usr_color = if report.radar_scores.user >= 7 { GREEN } else if report.radar_scores.user >= 5 { YELLOW } else { RED };
+
+    println!("{VERTICAL}{RESET}  {BOLD}Hardware:{RESET} {hw_color}{}/10{RESET}  {DIM}│{RESET}  {BOLD}Software:{RESET} {sw_color}{}/10{RESET}  {DIM}│{RESET}  {BOLD}User:{RESET} {usr_color}{}/10{RESET}    {DIM}{VERTICAL}{RESET}",
+        report.radar_scores.hardware,
+        report.radar_scores.software,
+        report.radar_scores.user);
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
 
     // Trends (if available)
     if let Some(ref trends) = report.trends {
-        let trend_emoji = match trends.direction.as_str() {
-            "improving" => "↑",
-            "declining" => "↓",
-            _ => "→",
+        let (trend_emoji, trend_color) = match trends.direction.as_str() {
+            "improving" => ("↑", GREEN),
+            "declining" => ("↓", RED),
+            _ => ("→", CYAN),
         };
 
-        let trend_color = match trends.direction.as_str() {
-            "improving" => "\x1b[32m",
-            "declining" => "\x1b[31m",
-            _ => "\x1b[36m",
-        };
-
-        println!("{}", section(&caps, "Trends"));
-        println!();
-        println!("  {}{}  {}\x1b[0m",
-                 trend_color,
-                 trend_emoji,
-                 trends.direction);
+        println!("{VERTICAL}{RESET}  {BOLD}Trends{RESET}                                                            {DIM}{VERTICAL}{RESET}");
+        println!("{VERTICAL}{RESET}  {trend_color}{trend_emoji}  {}{RESET}                                                   {DIM}{VERTICAL}{RESET}",
+            trends.direction);
 
         if trends.change_7d != 0 {
-            println!("  7-day:  {:+}/10", trends.change_7d);
+            let change_color = if trends.change_7d > 0 { GREEN } else { RED };
+            println!("{VERTICAL}{RESET}  7-day:  {change_color}{:+}/10{RESET}                                                {DIM}{VERTICAL}{RESET}",
+                trends.change_7d);
         }
         if trends.change_30d != 0 {
-            println!("  30-day: {:+}/10", trends.change_30d);
+            let change_color = if trends.change_30d > 0 { GREEN } else { RED };
+            println!("{VERTICAL}{RESET}  30-day: {change_color}{:+}/10{RESET}                                               {DIM}{VERTICAL}{RESET}",
+                trends.change_30d);
         }
-        println!();
+        println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
     }
 
     // Top recommendations
     if !report.recommendations.is_empty() {
-        println!("{}", section(&caps, "Top Actions"));
-        println!();
+        println!("{VERTICAL}{RESET}  {BOLD}💡 Recommendations{RESET}                                                {DIM}{VERTICAL}{RESET}");
+        println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
 
-        for (i, rec) in report.recommendations.iter().enumerate() {
+        for (i, rec) in report.recommendations.iter().take(3).enumerate() {
             let priority_color = match rec.priority.as_str() {
-                "critical" => "\x1b[31m",
-                "high" => "\x1b[33m",
-                "medium" => "\x1b[36m",
-                _ => "\x1b[37m",
+                "critical" => RED,
+                "high" => YELLOW,
+                "medium" => CYAN,
+                _ => WHITE,
             };
 
-            println!("  {}. {} {}[{}]\x1b[0m {}",
-                     i + 1,
-                     rec.emoji,
-                     priority_color,
-                     rec.priority.to_uppercase(),
-                     rec.title);
-            println!("     → {}", rec.action);
-            println!("     Impact: {}", rec.impact);
-            println!();
+            println!("{VERTICAL}{RESET}  {BOLD}{}. {}{RESET} {priority_color}[{}]{RESET} {}               {DIM}{VERTICAL}{RESET}",
+                i + 1,
+                rec.emoji,
+                rec.priority.to_uppercase(),
+                rec.title);
+            println!("{VERTICAL}{RESET}     {DIM}→{RESET} {}                            {DIM}{VERTICAL}{RESET}",
+                rec.action);
+            println!("{VERTICAL}{RESET}     {DIM}Impact:{RESET} {}                       {DIM}{VERTICAL}{RESET}",
+                rec.impact);
+
+            if i < 2 && i < report.recommendations.len() - 1 {
+                println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
+            }
         }
     }
+
+    // Beautiful footer
+    println!("{DIM}{BOTTOM_LEFT}{}{BOTTOM_RIGHT}",
+        HORIZONTAL.repeat(70));
+    println!("{RESET}");
 }
 
 /// Print verbose report (detailed analysis)
 fn print_verbose_report(report: &SystemReport) {
     print_short_report(report);
 
-    let caps = TermCaps::detect();
-
     // Additional details in verbose mode
-    println!("{}", section(&caps, "Detailed Analysis"));
-    println!();
+    println!("\n{DIM}{TOP_LEFT}{}{TOP_RIGHT}",
+        HORIZONTAL.repeat(70));
+    println!("{VERTICAL}{RESET}  {CYAN}{BOLD}📋  Detailed Analysis{RESET}                                        {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
 
     for rec in &report.recommendations {
-        println!("  {} {}", rec.emoji, rec.title);
-        println!("    Category: {}", rec.category);
-        println!("    Priority: {}", rec.priority);
-        println!("    Reason:   {}", rec.reason);
-        println!("    Action:   {}", rec.action);
-        println!("    Impact:   {}", rec.impact);
-        println!();
+        println!("{VERTICAL}{RESET}  {BOLD}{} {}{RESET}                                              {DIM}{VERTICAL}{RESET}",
+            rec.emoji, rec.title);
+        println!("{VERTICAL}{RESET}    {DIM}Category:{RESET} {}                                       {DIM}{VERTICAL}{RESET}",
+            rec.category);
+        println!("{VERTICAL}{RESET}    {DIM}Priority:{RESET} {}                                       {DIM}{VERTICAL}{RESET}",
+            rec.priority);
+        println!("{VERTICAL}{RESET}    {DIM}Reason:{RESET}   {}                                       {DIM}{VERTICAL}{RESET}",
+            rec.reason);
+        println!("{VERTICAL}{RESET}    {DIM}Action:{RESET}   {}                                       {DIM}{VERTICAL}{RESET}",
+            rec.action);
+        println!("{VERTICAL}{RESET}    {DIM}Impact:{RESET}   {}                                       {DIM}{VERTICAL}{RESET}",
+            rec.impact);
+        println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
     }
+
+    println!("{DIM}{BOTTOM_LEFT}{}{BOTTOM_RIGHT}",
+        HORIZONTAL.repeat(70));
+    println!("{RESET}");
 }
