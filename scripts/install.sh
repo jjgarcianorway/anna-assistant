@@ -46,8 +46,8 @@ info "Downloading $LATEST..."
 MAX_WAIT=300
 elapsed=0
 while [ $elapsed -lt $MAX_WAIT ]; do
-    if curl -fsSL -o "$TMPDIR/anna.tar.gz" "$ASSET_URL" 2>/dev/null && \
-       curl -fsSL -o "$TMPDIR/anna.tar.gz.sha256" "$CHECKSUM_URL" 2>/dev/null; then
+    if curl -fsSL -o "$TMPDIR/anna-linux-x86_64.tar.gz" "$ASSET_URL" 2>/dev/null && \
+       curl -fsSL -o "$TMPDIR/anna-linux-x86_64.tar.gz.sha256" "$CHECKSUM_URL" 2>/dev/null; then
         break
     fi
 
@@ -59,14 +59,14 @@ while [ $elapsed -lt $MAX_WAIT ]; do
     elapsed=$((elapsed + 10))
 done
 
-[[ -f "$TMPDIR/anna.tar.gz" ]] || error "Download failed after ${MAX_WAIT}s"
+[[ -f "$TMPDIR/anna-linux-x86_64.tar.gz" ]] || error "Download failed after ${MAX_WAIT}s"
 
 success "Downloaded"
 
 # Verify checksum
 info "Verifying checksum..."
 cd "$TMPDIR"
-if sha256sum -c anna.tar.gz.sha256 2>&1 | grep -q OK; then
+if sha256sum -c anna-linux-x86_64.tar.gz.sha256 2>&1 | grep -q OK; then
     success "Checksum OK"
 else
     error "Checksum verification failed"
@@ -75,7 +75,7 @@ cd - >/dev/null
 
 # Extract
 info "Extracting..."
-tar -xzf "$TMPDIR/anna.tar.gz" -C "$TMPDIR"
+tar -xzf "$TMPDIR/anna-linux-x86_64.tar.gz" -C "$TMPDIR"
 [[ -f "$TMPDIR/annad" && -f "$TMPDIR/annactl" ]] || error "Tarball missing binaries"
 
 # Install
