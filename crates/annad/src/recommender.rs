@@ -52,7 +52,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_shell_enhancements(facts));
     advice.extend(check_cli_tools(facts));
     advice.extend(check_gaming_setup());
-    advice.extend(check_desktop_environment());
+    advice.extend(check_desktop_environment(facts));
     advice.extend(check_terminal_and_fonts());
     advice.extend(check_firmware_tools());
     advice.extend(check_media_tools());
@@ -132,6 +132,11 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_cad_software());
     advice.extend(check_markdown_tools());
     advice.extend(check_note_taking());
+
+    // NEW: Intelligent behavior-based recommendations
+    advice.extend(check_container_orchestration());
+    advice.extend(check_python_enhancements());
+    advice.extend(check_git_workflow_tools());
 
     advice
 }
@@ -1365,19 +1370,22 @@ fn check_gaming_setup() -> Vec<Advice> {
 }
 
 /// Rule 18: Check desktop environment and display server setup
-fn check_desktop_environment() -> Vec<Advice> {
+fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
-    // Detect display server (Wayland vs X11)
-    let wayland_session = std::env::var("WAYLAND_DISPLAY").is_ok() ||
-                         std::env::var("XDG_SESSION_TYPE").map(|v| v == "wayland").unwrap_or(false);
+    // Use desktop environment from SystemFacts (more reliable than env vars when running as root)
+    let desktop_env = facts.desktop_environment.as_ref()
+        .map(|de| de.to_lowercase())
+        .unwrap_or_default();
 
-    // Detect desktop environment
-    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_lowercase();
-    let session_desktop = std::env::var("DESKTOP_SESSION").unwrap_or_default().to_lowercase();
+    // Detect display server from SystemFacts
+    let display_server = facts.display_server.as_ref()
+        .map(|ds| ds.to_lowercase())
+        .unwrap_or_default();
+    let wayland_session = display_server.contains("wayland");
 
     // Check for GNOME
-    if desktop_env.contains("gnome") || session_desktop.contains("gnome") {
+    if desktop_env.contains("gnome") {
         // GNOME-specific recommendations
         let has_extension_manager = Command::new("pacman")
             .args(&["-Q", "gnome-shell-extensions"])
@@ -1422,7 +1430,7 @@ fn check_desktop_environment() -> Vec<Advice> {
     }
 
     // Check for KDE Plasma
-    if desktop_env.contains("kde") || session_desktop.contains("plasma") {
+    if desktop_env.contains("kde") || desktop_env.contains("plasma") {
         // Check for KDE applications
         let has_dolphin = Command::new("pacman")
             .args(&["-Q", "dolphin"])
@@ -1665,7 +1673,7 @@ fn check_desktop_environment() -> Vec<Advice> {
     }
 
     // Check for Cinnamon desktop environment
-    if desktop_env.contains("cinnamon") || session_desktop.contains("cinnamon") {
+    if desktop_env.contains("cinnamon") {
         // Check for Nemo file manager (Cinnamon's default)
         let has_nemo = Command::new("pacman")
             .args(&["-Q", "nemo"])
@@ -1731,7 +1739,7 @@ fn check_desktop_environment() -> Vec<Advice> {
     }
 
     // Check for XFCE desktop environment
-    if desktop_env.contains("xfce") || session_desktop.contains("xfce") {
+    if desktop_env.contains("xfce") {
         // Check for Thunar file manager
         let has_thunar = Command::new("pacman")
             .args(&["-Q", "thunar"])
@@ -1797,7 +1805,7 @@ fn check_desktop_environment() -> Vec<Advice> {
     }
 
     // Check for MATE desktop environment
-    if desktop_env.contains("mate") || session_desktop.contains("mate") {
+    if desktop_env.contains("mate") {
         // Check for Caja file manager
         let has_caja = Command::new("pacman")
             .args(&["-Q", "caja"])
@@ -5887,6 +5895,103 @@ fn check_note_taking() -> Vec<Advice> {
                 priority: Priority::Optional,
                 category: "productivity".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Note-taking_organizers".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for container orchestration needs based on docker usage
+fn check_container_orchestration() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if docker is heavily used
+    let docker_usage = check_command_usage(&["docker run", "docker-compose", "docker build"]);
+
+    if docker_usage > 50 {
+        // Check for docker-compose
+        let has_compose = Command::new("which")
+            .arg("docker-compose")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_compose {
+            result.push(Advice {
+                id: "containers-compose".to_string(),
+                title: "Install Docker Compose for multi-container applications".to_string(),
+                reason: format!("You use docker heavily ({}+ times in history)! Docker Compose simplifies running multi-container apps. Define services in YAML, manage with one command. Essential for development environments, microservices, complex stacks. 'docker-compose up' beats managing containers manually!", docker_usage),
+                action: "Install Docker Compose".to_string(),
+                command: Some("pacman -S --noconfirm docker-compose".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Docker_Compose".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Python development enhancements based on usage
+fn check_python_enhancements() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let python_usage = check_command_usage(&["python", "python3", "pip", "poetry", "virtualenv"]);
+
+    if python_usage > 30 {
+        // Check for pyenv (Python version manager)
+        let has_pyenv = Command::new("which")
+            .arg("pyenv")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_pyenv {
+            result.push(Advice {
+                id: "python-pyenv".to_string(),
+                title: "Install pyenv for managing multiple Python versions".to_string(),
+                reason: format!("You code in Python regularly ({}+ commands)! pyenv lets you install and switch between Python versions easily. Per-project Python versions, test across versions, use latest features. Like nvm for Node, but for Python. Essential for serious Python dev!", python_usage),
+                action: "Install pyenv".to_string(),
+                command: Some("yay -S --noconfirm pyenv".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Multiple_versions".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Git workflow enhancements based on usage patterns
+fn check_git_workflow_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let git_usage = check_command_usage(&["git commit", "git push", "git pull", "git log"]);
+
+    if git_usage > 50 {
+        // Check for lazygit (Git TUI)
+        let has_lazygit = Command::new("which")
+            .arg("lazygit")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_lazygit {
+            result.push(Advice {
+                id: "git-lazygit".to_string(),
+                title: "Install lazygit for visual Git operations".to_string(),
+                reason: format!("You're a Git power user ({}+ commands)! lazygit is a gorgeous TUI for Git. Visual staging, committing, branching, rebasing. See your repo status at a glance. Much faster than memorizing git commands. Vim-like keybindings, highly productive!", git_usage),
+                action: "Install lazygit".to_string(),
+                command: Some("pacman -S --noconfirm lazygit".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Tips_and_tricks".to_string()],
             });
         }
     }
