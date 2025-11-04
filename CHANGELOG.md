@@ -5,6 +5,25 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.3] - 2025-11-04
+
+### Added
+- Emojis throughout CLI output for better visual appeal
+  - 💻 Development tools, 🎨 Beautification, ⚡ Performance
+  - 💡 Reasons, 📋 Commands, 🔧 Maintenance, ✨ Suggestions
+- Better spacing between advice items for improved readability
+
+### Changed
+- Report command now fetches real-time data from daemon
+- Improved Go language detection - only triggers on actual .go files
+- Better explanations with context-aware emoji prefixes
+
+### Fixed
+- Double "v" in version string (was "vv1.0.0-beta.2", now "v1.0.0-beta.3")
+- Inconsistent advice counts between report and advise commands
+
+---
+
 ## [1.0.0-beta.2] - 2025-11-04
 
 ### Fixed
