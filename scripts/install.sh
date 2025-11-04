@@ -103,9 +103,18 @@ echo -e "${GREEN}${CHECK}${RESET} Downloaded annactl"
 # Verify binaries are executable
 chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
 
-# Verify version matches
-ANNAD_VERSION=$("$TEMP_DIR/annad" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
-ANNACTL_VERSION=$("$TEMP_DIR/annactl" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
+# Verify version matches (disable errexit temporarily for version checks)
+set +e
+ANNAD_VERSION=$("$TEMP_DIR/annad" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+if [ -z "$ANNAD_VERSION" ]; then
+    ANNAD_VERSION="unknown"
+fi
+
+ANNACTL_VERSION=$("$TEMP_DIR/annactl" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+if [ -z "$ANNACTL_VERSION" ]; then
+    ANNACTL_VERSION="unknown"
+fi
+set -e
 
 if [ "$ANNAD_VERSION" != "$TAG" ]; then
     echo -e "${YELLOW}${WARN} Version mismatch: annad reports ${ANNAD_VERSION}, expected ${TAG}${RESET}"
