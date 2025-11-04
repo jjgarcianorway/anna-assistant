@@ -26,6 +26,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_shell_enhancements(facts));
     advice.extend(check_cli_tools(facts));
     advice.extend(check_gaming_setup());
+    advice.extend(check_desktop_environment());
 
     advice
 }
@@ -1130,6 +1131,309 @@ fn check_gaming_setup() -> Vec<Advice> {
             category: "gaming".to_string(),
             wiki_refs: vec!["https://wiki.archlinux.org/title/Lutris".to_string()],
         });
+    }
+
+    result
+}
+
+/// Rule 18: Check desktop environment and display server setup
+fn check_desktop_environment() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Detect display server (Wayland vs X11)
+    let wayland_session = std::env::var("WAYLAND_DISPLAY").is_ok() ||
+                         std::env::var("XDG_SESSION_TYPE").map(|v| v == "wayland").unwrap_or(false);
+
+    // Detect desktop environment
+    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_lowercase();
+    let session_desktop = std::env::var("DESKTOP_SESSION").unwrap_or_default().to_lowercase();
+
+    // Check for GNOME
+    if desktop_env.contains("gnome") || session_desktop.contains("gnome") {
+        // GNOME-specific recommendations
+        let has_extension_manager = Command::new("pacman")
+            .args(&["-Q", "gnome-shell-extensions"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_extension_manager {
+            result.push(Advice {
+                id: "gnome-extensions".to_string(),
+                title: "Install GNOME Extensions support".to_string(),
+                reason: "GNOME Extensions let you customize your desktop with features like system monitors, clipboard managers, and window tiling. They're like apps for your desktop environment - you can add the features you want!".to_string(),
+                action: "Install GNOME Shell extensions support".to_string(),
+                command: Some("pacman -S --noconfirm gnome-shell-extensions".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/GNOME#Extensions".to_string()],
+            });
+        }
+
+        // Check for GNOME Tweaks
+        let has_tweaks = Command::new("pacman")
+            .args(&["-Q", "gnome-tweaks"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_tweaks {
+            result.push(Advice {
+                id: "gnome-tweaks".to_string(),
+                title: "Install GNOME Tweaks for more customization".to_string(),
+                reason: "GNOME Tweaks gives you access to tons of settings that aren't in the default settings app. Change fonts, themes, window behavior, and more. It's essential for making GNOME truly yours!".to_string(),
+                action: "Install GNOME Tweaks".to_string(),
+                command: Some("pacman -S --noconfirm gnome-tweaks".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/GNOME#Customization".to_string()],
+            });
+        }
+    }
+
+    // Check for KDE Plasma
+    if desktop_env.contains("kde") || session_desktop.contains("plasma") {
+        // Check for KDE applications
+        let has_dolphin = Command::new("pacman")
+            .args(&["-Q", "dolphin"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_dolphin {
+            result.push(Advice {
+                id: "kde-dolphin".to_string(),
+                title: "Install Dolphin file manager".to_string(),
+                reason: "Dolphin is KDE's powerful file manager. It has tabs, split views, terminal integration, and tons of features. If you're using KDE, Dolphin makes file management a breeze!".to_string(),
+                action: "Install Dolphin file manager".to_string(),
+                command: Some("pacman -S --noconfirm dolphin".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/KDE#Dolphin".to_string()],
+            });
+        }
+
+        // Check for Konsole
+        let has_konsole = Command::new("pacman")
+            .args(&["-Q", "konsole"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_konsole {
+            result.push(Advice {
+                id: "kde-konsole".to_string(),
+                title: "Install Konsole terminal emulator".to_string(),
+                reason: "Konsole is KDE's feature-rich terminal. It integrates beautifully with Plasma, supports tabs and splits, and has great customization options. Perfect for KDE users!".to_string(),
+                action: "Install Konsole".to_string(),
+                command: Some("pacman -S --noconfirm konsole".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Konsole".to_string()],
+            });
+        }
+    }
+
+    // Check for i3 window manager
+    let has_i3 = Command::new("pacman")
+        .args(&["-Q", "i3-wm"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false) || desktop_env.contains("i3");
+
+    if has_i3 {
+        // Check for i3status
+        let has_i3status = Command::new("pacman")
+            .args(&["-Q", "i3status"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_i3status {
+            result.push(Advice {
+                id: "i3-status".to_string(),
+                title: "Install i3status or alternative status bar".to_string(),
+                reason: "i3 doesn't show system info by default. i3status gives you a status bar with battery, network, time, and more. Or try i3blocks or polybar for even more customization!".to_string(),
+                action: "Install i3status for system information".to_string(),
+                command: Some("pacman -S --noconfirm i3status".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/I3#i3status".to_string()],
+            });
+        }
+
+        // Check for rofi (application launcher)
+        let has_rofi = Command::new("pacman")
+            .args(&["-Q", "rofi"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_rofi {
+            result.push(Advice {
+                id: "i3-rofi".to_string(),
+                title: "Install Rofi application launcher".to_string(),
+                reason: "Rofi is a beautiful, fast app launcher that's way better than dmenu. It can launch apps, switch windows, and even run custom scripts. It's a must-have for i3 users!".to_string(),
+                action: "Install Rofi".to_string(),
+                command: Some("pacman -S --noconfirm rofi".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Rofi".to_string()],
+            });
+        }
+    }
+
+    // Check for Hyprland (Wayland compositor)
+    let has_hyprland = Command::new("pacman")
+        .args(&["-Q", "hyprland"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false) || desktop_env.contains("hyprland");
+
+    if has_hyprland {
+        // Check for waybar
+        let has_waybar = Command::new("pacman")
+            .args(&["-Q", "waybar"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_waybar {
+            result.push(Advice {
+                id: "hyprland-waybar".to_string(),
+                title: "Install Waybar for Hyprland".to_string(),
+                reason: "Waybar is the most popular status bar for Hyprland. It shows workspaces, system info, network status, and looks gorgeous with tons of customization options. Essential for any Hyprland setup!".to_string(),
+                action: "Install Waybar".to_string(),
+                command: Some("pacman -S --noconfirm waybar".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
+            });
+        }
+
+        // Check for wofi (Wayland rofi alternative)
+        let has_wofi = Command::new("pacman")
+            .args(&["-Q", "wofi"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_wofi {
+            result.push(Advice {
+                id: "hyprland-wofi".to_string(),
+                title: "Install Wofi application launcher for Wayland".to_string(),
+                reason: "Wofi is like Rofi but for Wayland. It's a fast, beautiful app launcher that works perfectly with Hyprland. Launch apps with a keystroke - way faster than hunting through menus!".to_string(),
+                action: "Install Wofi".to_string(),
+                command: Some("pacman -S --noconfirm wofi".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Wofi".to_string()],
+            });
+        }
+
+        // Check for mako (notification daemon)
+        let has_mako = Command::new("pacman")
+            .args(&["-Q", "mako"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mako {
+            result.push(Advice {
+                id: "hyprland-mako".to_string(),
+                title: "Install Mako notification daemon".to_string(),
+                reason: "Hyprland needs a notification daemon to show desktop notifications (like battery warnings, app alerts, etc.). Mako is lightweight and looks great with minimal configuration!".to_string(),
+                action: "Install Mako for notifications".to_string(),
+                command: Some("pacman -S --noconfirm mako".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Desktop_notifications#Mako".to_string()],
+            });
+        }
+    }
+
+    // Check for Sway (i3-compatible Wayland compositor)
+    let has_sway = Command::new("pacman")
+        .args(&["-Q", "sway"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false) || desktop_env.contains("sway");
+
+    if has_sway {
+        // Waybar for sway too
+        let has_waybar = Command::new("pacman")
+            .args(&["-Q", "waybar"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_waybar {
+            result.push(Advice {
+                id: "sway-waybar".to_string(),
+                title: "Install Waybar for Sway".to_string(),
+                reason: "Sway works great with Waybar for a status bar. It's highly customizable and shows all your system info beautifully. Way better than the default swaybar!".to_string(),
+                action: "Install Waybar".to_string(),
+                command: Some("pacman -S --noconfirm waybar".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Sway#Waybar".to_string()],
+            });
+        }
+
+        // Wofi for sway
+        let has_wofi = Command::new("pacman")
+            .args(&["-Q", "wofi"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_wofi {
+            result.push(Advice {
+                id: "sway-wofi".to_string(),
+                title: "Install Wofi launcher for Sway".to_string(),
+                reason: "Wofi is perfect for Sway - it's a Wayland-native app launcher that integrates beautifully. Much more modern than dmenu!".to_string(),
+                action: "Install Wofi".to_string(),
+                command: Some("pacman -S --noconfirm wofi".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Sway#Application_launchers".to_string()],
+            });
+        }
+    }
+
+    // Display server recommendations
+    if wayland_session {
+        // Check for XWayland (for running X11 apps on Wayland)
+        let has_xwayland = Command::new("pacman")
+            .args(&["-Q", "xorg-xwayland"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_xwayland {
+            result.push(Advice {
+                id: "xwayland".to_string(),
+                title: "Install XWayland for X11 app compatibility".to_string(),
+                reason: "You're running Wayland, but many apps still use X11. XWayland lets you run those X11 apps on your Wayland session - best of both worlds! Without it, some apps might not work at all.".to_string(),
+                action: "Install XWayland".to_string(),
+                command: Some("pacman -S --noconfirm xorg-xwayland".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
+            });
+        }
     }
 
     result
