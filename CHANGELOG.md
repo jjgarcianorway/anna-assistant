@@ -5,6 +5,25 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.4] - 2025-11-04
+
+### Added
+- Category-based colors for advice titles (💻 blue, 🎨 pink, ⚡ yellow, 🎵 purple)
+- Comprehensive FACTS_CATALOG.md documenting all telemetry to collect
+- Implementation roadmap with 3 phases for v1.0.0-rc.1, v1.0.0, v1.1.0+
+
+### Changed
+- **Smarter Python detection** - requires BOTH .py files AND python/pip command usage
+- **Smarter Rust detection** - requires BOTH .rs files AND cargo command usage
+- Grayed out reasons and commands for better visual hierarchy
+- Improved advice explanations with context
+
+### Fixed
+- False positive development tool recommendations
+- Better color contrast and readability in advice output
+
+---
+
 ## [1.0.0-beta.3] - 2025-11-04
 
 ### Added
