@@ -68,10 +68,17 @@ impl Level {
 
 /// Format a header
 pub fn header(text: &str) -> String {
-    let text_len = strip_ansi(text).len();
-    let total_width = text_len + 4; // 2 spaces padding on each side
+    let visible_len = strip_ansi(text).len();
+    let total_width = visible_len + 4; // 2 spaces padding on each side
     let border = "─".repeat(total_width);
-    let padding = " ".repeat(total_width - text_len - 2);
+
+    // Calculate padding based on visible length
+    let padding_needed = if visible_len < total_width - 4 {
+        total_width - visible_len - 4
+    } else {
+        0
+    };
+    let padding = " ".repeat(padding_needed);
 
     format!(
         "{}{}╭{}╮\n│  {}{}  │\n╰{}╯{}",
@@ -133,8 +140,14 @@ pub fn boxed(lines: &[&str]) -> String {
     let mut result = vec![top];
     for line in lines {
         let visible_len = strip_ansi(line).len();
-        let padding = " ".repeat(max_len - visible_len);
-        result.push(format!("{}│{} {}{} │{}", Colors::BLUE, Colors::RESET, line, padding, Colors::RESET));
+        let padding = " ".repeat(max_len.saturating_sub(visible_len));
+        result.push(format!("{}│{} {}{} {}│{}",
+            Colors::BLUE,
+            Colors::RESET,
+            line,
+            padding,
+            Colors::BLUE,
+            Colors::RESET));
     }
     result.push(bottom);
 

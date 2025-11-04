@@ -5,6 +5,51 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.8] - 2025-11-04
+
+### 🚀 Major Quality of Life Improvements!
+
+Anna just got a whole lot smarter and prettier!
+
+### What's New
+
+**🎨 Fixed box formatting forever!**
+- Those annoying misaligned boxes on the right side? Gone! ANSI color codes are now properly handled everywhere.
+- Headers, boxes, and all terminal output now look pixel-perfect.
+
+**🔐 Security First!**
+- **Firewall detection** - Anna checks if you have a firewall (UFW) and helps you set one up if you don't. Essential for security, especially on laptops!
+- Anna now warns you if your firewall is installed but not turned on.
+
+**📡 Better Networking!**
+- **NetworkManager detection** - If you have WiFi but no NetworkManager, Anna will suggest installing it. Makes connecting to networks so much easier!
+- Checks if NetworkManager is enabled and ready to use.
+
+**📦 Unlock the Full Power of Arch!**
+- **AUR helper recommendations** - Anna now suggests installing 'yay' or 'paru' if you don't have one. This gives you access to over 85,000 community packages!
+- Explains what the AUR is in plain English - no jargon!
+
+**⚡ Lightning-Fast Downloads!**
+- **Reflector for mirror optimization** - Anna suggests installing reflector to find the fastest mirrors near you.
+- Checks if your mirror list is old (30+ days) and offers to update it.
+- Can make your downloads 10x faster if you're on slow mirrors!
+
+### Why This Release Rocks
+- **5 new detection rules** covering security, networking, and performance
+- **Box formatting finally perfect** - no more visual glitches
+- **Every message in plain English** - accessible to everyone
+- **Smarter recommendations** - Anna understands your system better
+
+### Technical Details
+- Fixed ANSI escape code handling in boxed() function
+- Added `check_firewall()` with UFW and iptables detection
+- Added `check_network_manager()` with WiFi card detection
+- Added `check_aur_helper()` suggesting yay/paru
+- Added `check_reflector()` with mirror age checking
+- All new features include Arch Wiki citations
+
+---
+
 ## [1.0.0-beta.7] - 2025-11-04
 
 ### 🎉 Anna Speaks Human Now!

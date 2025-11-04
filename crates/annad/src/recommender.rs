@@ -19,6 +19,8 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_systemd_health());
     advice.extend(check_network_manager(facts));
     advice.extend(check_firewall());
+    advice.extend(check_aur_helper());
+    advice.extend(check_reflector());
 
     advice
 }
@@ -517,6 +519,90 @@ fn check_firewall() -> Vec<Advice> {
                     category: "security".to_string(),
                     wiki_refs: vec!["https://wiki.archlinux.org/title/Uncomplicated_Firewall".to_string()],
                 });
+            }
+        }
+    }
+
+    result
+}
+/// Rule 11: Check for AUR helper
+fn check_aur_helper() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if yay is installed
+    let has_yay = Command::new("pacman")
+        .args(&["-Q", "yay"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check if paru is installed
+    let has_paru = Command::new("pacman")
+        .args(&["-Q", "paru"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_yay && !has_paru {
+        result.push(Advice {
+            id: "aur-helper".to_string(),
+            title: "Install an AUR helper to access thousands more packages".to_string(),
+            reason: "The AUR (Arch User Repository) has over 85,000 community packages that aren't in the official repos. An AUR helper like 'yay' or 'paru' makes it super easy to install them - just like using pacman. Think of it as unlocking the full power of Arch!".to_string(),
+            action: "Install yay to access AUR packages easily".to_string(),
+            command: Some("pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm".to_string()),
+            risk: RiskLevel::Medium,
+            priority: Priority::Recommended,
+            category: "development".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/AUR_helpers".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 12: Check for reflector (mirror optimization)
+fn check_reflector() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if reflector is installed
+    let has_reflector = Command::new("pacman")
+        .args(&["-Q", "reflector"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_reflector {
+        result.push(Advice {
+            id: "reflector".to_string(),
+            title: "Speed up downloads with better mirrors".to_string(),
+            reason: "Reflector automatically finds the fastest Arch mirrors near you and updates your mirror list. This can make package downloads much faster - sometimes 10x faster if you're currently using a slow mirror!".to_string(),
+            action: "Install reflector to optimize your mirror list".to_string(),
+            command: Some("pacman -S --noconfirm reflector".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Reflector".to_string()],
+        });
+    } else {
+        // Check when mirrorlist was last updated
+        if let Ok(metadata) = std::fs::metadata("/etc/pacman.d/mirrorlist") {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(elapsed) = modified.elapsed() {
+                    let days_old = elapsed.as_secs() / 86400;
+                    if days_old > 30 {
+                        result.push(Advice {
+                            id: "reflector-update".to_string(),
+                            title: format!("Your mirror list is {} days old", days_old),
+                            reason: "Your mirror list hasn't been updated in over a month. Mirrors can change speed over time, and new faster ones might be available. Running reflector will find you the best mirrors right now.".to_string(),
+                            action: "Update your mirror list with reflector".to_string(),
+                            command: Some("reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist".to_string()),
+                            risk: RiskLevel::Medium,
+                            priority: Priority::Recommended,
+                            category: "performance".to_string(),
+                            wiki_refs: vec!["https://wiki.archlinux.org/title/Reflector".to_string()],
+                        });
+                    }
+                }
             }
         }
     }
