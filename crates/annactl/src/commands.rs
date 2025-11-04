@@ -71,42 +71,27 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
     let mut client = match RpcClient::connect().await {
         Ok(c) => c,
         Err(_) => {
-            println!(
-                "{}",
-                beautiful::status(Level::Error, "Daemon not running")
-            );
+            println!("{}", beautiful::status(Level::Error, "Daemon not running"));
             println!();
-            println!(
-                "{}",
-                beautiful::status(Level::Info, "Start with: sudo systemctl start annad")
-            );
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
             return Ok(());
         }
     };
 
-    println!(
-        "{}",
-        beautiful::status(Level::Info, "Taking a look at your system...")
-    );
+    println!("{}", beautiful::status(Level::Info, "Taking a look at your system..."));
     println!();
 
-    // Get advice from daemon with user context for multi-user systems
+    // Get advice with user context
     let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
-
-    // Detect desktop environment
     let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
         .or_else(|_| std::env::var("DESKTOP_SESSION"))
         .ok();
-
-    // Get shell
     let shell = std::env::var("SHELL")
         .unwrap_or_else(|_| "bash".to_string())
         .split('/')
         .last()
         .unwrap_or("bash")
         .to_string();
-
-    // Detect display server (Wayland vs X11)
     let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
         Some("wayland".to_string())
     } else if std::env::var("DISPLAY").is_ok() {
@@ -115,7 +100,6 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         None
     };
 
-    // Get advice with user context
     let advice_data = client.call(Method::GetAdviceWithContext {
         username,
         desktop_env,
@@ -132,70 +116,185 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         }
 
         if advice_list.is_empty() {
-            println!(
-                "{}",
-                beautiful::status(Level::Success, "Your system looks great! I don't have any suggestions right now.")
-            );
+            println!("{}", beautiful::status(Level::Success,
+                "Your system looks great! I don't have any suggestions right now."));
             return Ok(());
         }
 
-        // Group by risk level
-        let mut critical = Vec::new();
-        let mut warnings = Vec::new();
-        let mut info = Vec::new();
+        // Group by category first
+        let mut by_category: std::collections::HashMap<String, Vec<&anna_common::Advice>> =
+            std::collections::HashMap::new();
 
         for advice in &advice_list {
-            match advice.risk {
-                anna_common::RiskLevel::High => critical.push(advice),
-                anna_common::RiskLevel::Medium => warnings.push(advice),
-                anna_common::RiskLevel::Low => info.push(advice),
-            }
+            by_category.entry(advice.category.clone())
+                .or_insert_with(Vec::new)
+                .push(advice);
         }
+
+        // Sort categories by importance
+        let category_order = vec![
+            "security", "drivers", "updates", "maintenance", "cleanup",
+            "performance", "power", "development", "desktop", "gaming",
+            "multimedia", "hardware", "networking", "beautification",
+        ];
 
         let mut counter = 1;
 
-        // Display critical items
-        if !critical.is_empty() {
-            println!("{}", section("🚨 Critical"));
-            println!();
-            for advice in critical {
-                display_advice_item(counter, advice, Level::Error);
-                counter += 1;
+        // Display each category in a beautiful box
+        for category in category_order {
+            if let Some(items) = by_category.get(category) {
+                if items.is_empty() {
+                    continue;
+                }
+
+                // Category header with box and emoji
+                let (emoji, color_code, title) = get_category_style(category);
+
+                println!();
+                let box_width = 80;
+                let category_title = format!(" {} {} ", emoji, title);
+                let title_len = console::measure_text_width(&category_title);
+                let left_pad = (box_width - title_len) / 2;
+                let right_pad = box_width - title_len - left_pad;
+
+                println!("\x1b[90m{}\x1b[0m", format!("╭{}╮", "─".repeat(box_width)));
+                println!("\x1b[90m│\x1b[0m{}{}\x1b[1m{}\x1b[0m{}\x1b[90m│\x1b[0m",
+                    " ".repeat(left_pad),
+                    color_code,
+                    category_title,
+                    " ".repeat(right_pad)
+                );
+                println!("\x1b[90m{}\x1b[0m", format!("╰{}╯", "─".repeat(box_width)));
+                println!();
+
+                // Sort items within category by priority then risk
+                let mut sorted_items = items.clone();
+                sorted_items.sort_by(|a, b| {
+                    b.priority.cmp(&a.priority)
+                        .then(b.risk.cmp(&a.risk))
+                });
+
+                for advice in sorted_items {
+                    display_advice_item_enhanced(counter, advice);
+                    counter += 1;
+                    println!(); // Extra space between items
+                }
             }
         }
 
-        // Display warnings
-        if !warnings.is_empty() {
-            println!("{}", section("🔧 Recommended"));
-            println!();
-            for advice in warnings {
-                display_advice_item(counter, advice, Level::Warning);
-                counter += 1;
+        // Display any remaining categories not in the predefined order
+        for (category, items) in by_category {
+            if !category_order.contains(&category.as_str()) && !items.is_empty() {
+                println!();
+                let (emoji, color_code, title) = get_category_style(&category);
+                let box_width = 80;
+                let category_title = format!(" {} {} ", emoji, title);
+                let title_len = console::measure_text_width(&category_title);
+                let left_pad = (box_width - title_len) / 2;
+                let right_pad = box_width - title_len - left_pad;
+
+                println!("\x1b[90m{}\x1b[0m", format!("╭{}╮", "─".repeat(box_width)));
+                println!("\x1b[90m│\x1b[0m{}{}\x1b[1m{}\x1b[0m{}\x1b[90m│\x1b[0m",
+                    " ".repeat(left_pad),
+                    color_code,
+                    category_title,
+                    " ".repeat(right_pad)
+                );
+                println!("\x1b[90m{}\x1b[0m", format!("╰{}╯", "─".repeat(box_width)));
+                println!();
+
+                let mut sorted_items = items.clone();
+                sorted_items.sort_by(|a, b| b.priority.cmp(&a.priority).then(b.risk.cmp(&a.risk)));
+
+                for advice in sorted_items {
+                    display_advice_item_enhanced(counter, advice);
+                    counter += 1;
+                    println!();
+                }
             }
         }
 
-        // Display info
-        if !info.is_empty() {
-            println!("{}", section("✨ Optional"));
-            println!();
-            for advice in info {
-                display_advice_item(counter, advice, Level::Info);
-                counter += 1;
-            }
-        }
-
+        // Summary at the end
+        println!();
+        println!("\x1b[90m{}\x1b[0m", "═".repeat(80));
+        println!();
         let msg = if advice_list.len() == 1 {
-            "Found 1 thing that could make your system better!".to_string()
+            format!("📋 Found {} recommendation across {} categories",
+                advice_list.len(), by_category.len())
         } else {
-            format!("Found {} things that could make your system better!", advice_list.len())
+            format!("📋 Found {} recommendations across {} categories",
+                advice_list.len(), by_category.len())
         };
-        println!(
-            "{}",
-            beautiful::status(Level::Success, &msg)
-        );
+        println!("\x1b[1m{}\x1b[0m", msg);
+        println!();
+        println!("{}", beautiful::status(Level::Info,
+            "Use 'annactl apply --nums <number>' to apply specific recommendations"));
+        println!("{}", beautiful::status(Level::Info,
+            "Use 'annactl apply --nums 1-5' to apply a range"));
+        println!();
     }
 
     Ok(())
+}
+
+/// Get category styling (emoji, ANSI color code, display title)
+fn get_category_style(category: &str) -> (&'static str, &'static str, String) {
+    match category {
+        "security" => ("🔒", "\x1b[91m", "SECURITY".to_string()), // Bright red
+        "drivers" => ("🔌", "\x1b[95m", "DRIVERS & HARDWARE".to_string()), // Bright magenta
+        "updates" => ("📦", "\x1b[94m", "SYSTEM UPDATES".to_string()), // Bright blue
+        "maintenance" => ("🔧", "\x1b[96m", "SYSTEM MAINTENANCE".to_string()), // Bright cyan
+        "cleanup" => ("🧹", "\x1b[36m", "CLEANUP & OPTIMIZATION".to_string()), // Cyan
+        "performance" => ("⚡", "\x1b[93m", "PERFORMANCE".to_string()), // Bright yellow
+        "power" => ("🔋", "\x1b[33m", "POWER MANAGEMENT".to_string()), // Yellow
+        "development" => ("💻", "\x1b[95m", "DEVELOPMENT TOOLS".to_string()), // Bright magenta
+        "desktop" => ("🖥️", "\x1b[34m", "DESKTOP ENVIRONMENT".to_string()), // Blue
+        "gaming" => ("🎮", "\x1b[95m", "GAMING".to_string()), // Bright magenta
+        "multimedia" => ("🎬", "\x1b[35m", "MULTIMEDIA".to_string()), // Magenta
+        "hardware" => ("🔌", "\x1b[93m", "HARDWARE SUPPORT".to_string()), // Bright yellow
+        "networking" => ("📡", "\x1b[96m", "NETWORKING".to_string()), // Bright cyan
+        "beautification" => ("🎨", "\x1b[95m", "TERMINAL & CLI TOOLS".to_string()), // Bright magenta
+        _ => ("💡", "\x1b[36m", category.to_uppercase()), // Cyan
+    }
+}
+
+/// Enhanced display for a single advice item
+fn display_advice_item_enhanced(number: usize, advice: &anna_common::Advice) {
+    // Priority and risk badges using ANSI codes
+    let priority_badge = match advice.priority {
+        anna_common::Priority::Mandatory => "\x1b[101m\x1b[97m\x1b[1m  CRITICAL  \x1b[0m", // Bright red bg, white text
+        anna_common::Priority::Recommended => "\x1b[103m\x1b[30m\x1b[1m RECOMMENDED \x1b[0m", // Bright yellow bg, black text
+        anna_common::Priority::Optional => "\x1b[104m\x1b[97m\x1b[1m  OPTIONAL  \x1b[0m", // Bright blue bg, white text
+        anna_common::Priority::Cosmetic => "\x1b[100m\x1b[97m\x1b[1m  COSMETIC  \x1b[0m", // Bright black bg, white text
+    };
+
+    let risk_badge = match advice.risk {
+        anna_common::RiskLevel::High => "\x1b[41m\x1b[97m\x1b[1m HIGH RISK \x1b[0m", // Red bg, white text
+        anna_common::RiskLevel::Medium => "\x1b[43m\x1b[30m\x1b[1m MED RISK \x1b[0m", // Yellow bg, black text
+        anna_common::RiskLevel::Low => "\x1b[42m\x1b[97m\x1b[1m LOW RISK \x1b[0m", // Green bg, white text
+    };
+
+    // Number and title
+    println!("\x1b[90m\x1b[1m[{}]\x1b[0m  \x1b[1m\x1b[97m{}\x1b[0m", number, advice.title);
+
+    // Badges
+    println!("    {} {}", priority_badge, risk_badge);
+    println!();
+
+    // Reason - wrapped with proper indentation
+    let reason = wrap_text(&advice.reason, 72, "    ");
+    println!("\x1b[90m{}\x1b[0m", reason);
+
+    // Command if available
+    if let Some(ref cmd) = advice.command {
+        println!();
+        println!("    \x1b[96m\x1b[1mAction:\x1b[0m");
+        println!("    \x1b[92m❯\x1b[0m \x1b[97m{}\x1b[0m", cmd);
+    }
+
+    // ID for applying (smaller, less prominent)
+    println!();
+    println!("    \x1b[90m\x1b[3mID: {}\x1b[0m", advice.id);
 }
 
 pub async fn apply(id: Option<String>, nums: Option<String>, auto: bool, dry_run: bool) -> Result<()> {

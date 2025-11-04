@@ -1233,3 +1233,54 @@ This provides the foundation for safe autonomous operation and rollback capabili
 
 This provides the foundation for truly intelligent, sysadmin-level system analysis!
 
+
+## [1.0.0-beta.24] - 2025-01-XX
+
+### 🎨 Beautiful Category-Based Advise Output! 🎨
+
+**MAJOR UX IMPROVEMENT!** Completely redesigned `annactl advise` output with category boxes, priority badges, risk badges, and visual hierarchy!
+
+### ✨ Added
+
+**Category-Based Organization**
+- Recommendations grouped by category with beautiful boxes
+- 14 predefined categories sorted by importance:
+  - Security, Drivers, Updates, Maintenance, Cleanup
+  - Performance, Power, Development, Desktop, Gaming
+  - Multimedia, Hardware, Networking, Beautification
+- Each category gets unique emoji and color
+- Automatic fallback for unlisted categories
+
+**Beautiful Category Headers**
+- 80-character wide boxes with centered titles
+- Category-specific emojis (🔒 Security, ⚡ Performance, 💻 Development, etc.)
+- Color-coded titles (red for security, yellow for performance, etc.)
+- Proper spacing between categories for easy scanning
+
+**Enhanced Item Display**
+- Priority badges: CRITICAL, RECOMMENDED, OPTIONAL, COSMETIC
+- Risk badges: HIGH RISK, MED RISK, LOW RISK
+- Color-coded backgrounds (red, yellow, green, blue)
+- Bold titles for quick scanning
+- Wrapped text with proper indentation (72 chars)
+- Actions highlighted with ❯ symbol
+- ID shown subtly in italics
+
+**Smart Sorting**
+- Categories sorted by importance (security first)
+- Within each category: sort by priority, then risk
+- Highest priority and risk items shown first
+
+**Better Summary**
+- Shows total recommendations and category count
+- Usage instructions at bottom
+- Visual separator with double-line (═)
+
+**Fixed Issues**
+- RiskLevel now implements Ord for proper sorting
+- Box titles properly padded and centered
+- All ANSI codes use proper escapes
+- Consistent spacing throughout
+
+This makes long advice lists MUCH easier to scan and understand!
+
