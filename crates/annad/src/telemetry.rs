@@ -66,8 +66,20 @@ pub async fn collect_facts() -> Result<SystemFacts> {
 }
 
 fn get_hostname() -> Result<String> {
-    let output = Command::new("hostname").output()?;
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    // Try hostname command first
+    if let Ok(output) = Command::new("hostname").output() {
+        if output.status.success() {
+            return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+        }
+    }
+
+    // Fallback: read /etc/hostname
+    if let Ok(hostname) = std::fs::read_to_string("/etc/hostname") {
+        return Ok(hostname.trim().to_string());
+    }
+
+    // Last resort
+    Ok("unknown".to_string())
 }
 
 fn get_kernel_version() -> Result<String> {
@@ -157,8 +169,10 @@ fn find_orphan_packages() -> Result<Vec<String>> {
         .arg("-Qdtq")
         .output()?;
 
+    // pacman returns exit code 1 when no orphans found, which is fine
     let orphans = String::from_utf8_lossy(&output.stdout)
         .lines()
+        .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
         .collect();
 
