@@ -32,6 +32,10 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_media_tools());
     advice.extend(check_audio_system());
     advice.extend(check_power_management());
+    advice.extend(check_gamepad_support());
+    advice.extend(check_usb_automount());
+    advice.extend(check_bluetooth());
+    advice.extend(check_wifi_setup());
 
     advice
 }
@@ -1713,6 +1717,261 @@ fn check_power_management() -> Vec<Advice> {
                 category: "power".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Powertop".to_string()],
             });
+        }
+    }
+
+    result
+}
+
+/// Rule 24: Check gamepad and controller support
+fn check_gamepad_support() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for gamepad support packages
+    let has_steam = Command::new("pacman")
+        .args(&["-Q", "steam"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check if any gamepad-related packages are installed
+    let has_xpadneo = Command::new("pacman")
+        .args(&["-Q", "xpadneo-dkms"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_xone = Command::new("pacman")
+        .args(&["-Q", "xone-dkms"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // If user has Steam but no Xbox controller drivers
+    if has_steam && !has_xpadneo && !has_xone {
+        result.push(Advice {
+            id: "gamepad-xbox".to_string(),
+            title: "Install Xbox controller drivers for better support".to_string(),
+            reason: "If you use Xbox controllers (especially Xbox One/Series), the default kernel drivers have limited functionality. xpadneo or xone give you full support - battery level, rumble, proper button mapping, and better wireless connectivity!".to_string(),
+            action: "Install xpadneo for Xbox controller support".to_string(),
+            command: Some("paru -S --noconfirm xpadneo-dkms".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "gaming".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad".to_string()],
+        });
+    }
+
+    // Check for antimicrox (gamepad to keyboard/mouse mapping)
+    let has_antimicrox = Command::new("pacman")
+        .args(&["-Q", "antimicrox"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_steam && !has_antimicrox {
+        result.push(Advice {
+            id: "gamepad-antimicrox".to_string(),
+            title: "Install AntiMicroX for gamepad mapping".to_string(),
+            reason: "AntiMicroX lets you map gamepad buttons to keyboard and mouse actions. Super useful for games without native controller support, or for using your controller outside of games!".to_string(),
+            action: "Install AntiMicroX".to_string(),
+            command: Some("pacman -S --noconfirm antimicrox".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "gaming".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad#Button_mapping".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 25: Check USB automount setup
+fn check_usb_automount() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for udisks2 (required for automounting)
+    let has_udisks2 = Command::new("pacman")
+        .args(&["-Q", "udisks2"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_udisks2 {
+        result.push(Advice {
+            id: "udisks2".to_string(),
+            title: "Install udisks2 for USB drive management".to_string(),
+            reason: "udisks2 handles mounting and unmounting USB drives, external hard drives, and SD cards. Most file managers depend on it for automatic mounting. Without it, you'll have to mount drives manually with command line!".to_string(),
+            action: "Install udisks2".to_string(),
+            command: Some("pacman -S --noconfirm udisks2".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks".to_string()],
+        });
+    } else {
+        // If they have udisks2, suggest udiskie for automatic mounting
+        let has_udiskie = Command::new("pacman")
+            .args(&["-Q", "udiskie"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_udiskie {
+            result.push(Advice {
+                id: "udiskie".to_string(),
+                title: "Install udiskie for automatic USB mounting".to_string(),
+                reason: "udiskie automatically mounts USB drives when you plug them in and unmounts when you unplug. No more clicking 'mount' every time! Just plug and play. It's especially great for minimal window managers without built-in automounting.".to_string(),
+                action: "Install udiskie".to_string(),
+                command: Some("pacman -S --noconfirm udiskie".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks#Udiskie".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 26: Check Bluetooth setup
+fn check_bluetooth() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Bluetooth hardware
+    let has_bluetooth_hw = Command::new("rfkill")
+        .args(&["list", "bluetooth"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| !s.is_empty() && s.contains("bluetooth"))
+        .unwrap_or(false);
+
+    if has_bluetooth_hw {
+        // Check if bluez is installed
+        let has_bluez = Command::new("pacman")
+            .args(&["-Q", "bluez"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_bluez {
+            result.push(Advice {
+                id: "bluetooth-bluez".to_string(),
+                title: "Install BlueZ for Bluetooth support".to_string(),
+                reason: "Your system has Bluetooth hardware, but BlueZ (the Linux Bluetooth stack) isn't installed! Without it, you can't connect any Bluetooth devices - headphones, mice, keyboards, game controllers, etc. BlueZ is essential for Bluetooth to work at all.".to_string(),
+                action: "Install BlueZ and enable bluetooth service".to_string(),
+                command: Some("pacman -S --noconfirm bluez bluez-utils && systemctl enable --now bluetooth.service".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Mandatory,
+                category: "hardware".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
+            });
+        } else {
+            // Check for GUI tools
+            let has_blueman = Command::new("pacman")
+                .args(&["-Q", "blueman"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_blueman {
+                result.push(Advice {
+                    id: "bluetooth-blueman".to_string(),
+                    title: "Install Blueman for easy Bluetooth management".to_string(),
+                    reason: "Blueman gives you a nice GUI to manage Bluetooth devices. Pair headphones, connect mice, transfer files - all with a simple interface. Much friendlier than command-line bluetoothctl!".to_string(),
+                    action: "Install Blueman".to_string(),
+                    command: Some("pacman -S --noconfirm blueman".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "hardware".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth#Blueman".to_string()],
+                });
+            }
+        }
+    }
+
+    result
+}
+
+/// Rule 27: Check WiFi firmware and setup
+fn check_wifi_setup() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for WiFi hardware
+    let has_wifi = Command::new("iw")
+        .arg("dev")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.contains("Interface"))
+        .unwrap_or(false);
+
+    if has_wifi {
+        // Check for common firmware packages
+        let has_linux_firmware = Command::new("pacman")
+            .args(&["-Q", "linux-firmware"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_linux_firmware {
+            result.push(Advice {
+                id: "wifi-firmware".to_string(),
+                title: "Install linux-firmware for WiFi support".to_string(),
+                reason: "Your system has WiFi hardware, but the firmware package isn't installed! WiFi cards need firmware to work, and linux-firmware contains drivers for most WiFi chips (Intel, Realtek, Atheros, Broadcom). Without it, your WiFi probably doesn't work at all!".to_string(),
+                action: "Install linux-firmware".to_string(),
+                command: Some("pacman -S --noconfirm linux-firmware".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Mandatory,
+                category: "hardware".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Wireless#WiFi".to_string()],
+            });
+        }
+
+        // Check for Intel WiFi specific firmware
+        let cpu_info = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+        let is_intel_cpu = cpu_info.to_lowercase().contains("intel");
+
+        if is_intel_cpu {
+            let _has_intel_ucode = Command::new("pacman")
+                .args(&["-Q", "linux-firmware-iwlwifi"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            // Note: linux-firmware-iwlwifi might not exist as separate package in all repos
+            // This is informational - could be used for future Intel-specific WiFi advice
+        }
+
+        // Check for network management GUI
+        let has_nm = Command::new("pacman")
+            .args(&["-Q", "networkmanager"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if has_nm {
+            let has_nm_applet = Command::new("pacman")
+                .args(&["-Q", "network-manager-applet"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_nm_applet {
+                result.push(Advice {
+                    id: "wifi-nm-applet".to_string(),
+                    title: "Install NetworkManager applet for WiFi management".to_string(),
+                    reason: "You have NetworkManager but no system tray applet! The applet gives you a nice GUI to connect to WiFi networks, see signal strength, and manage connections. Much easier than using nmcli commands!".to_string(),
+                    action: "Install network-manager-applet".to_string(),
+                    command: Some("pacman -S --noconfirm network-manager-applet".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "networking".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager#nm-applet".to_string()],
+                });
+            }
         }
     }
 
