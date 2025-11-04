@@ -260,14 +260,18 @@ annactl advise --mode=recommended --category=security --limit=5
 
 ## 📊 Current Status
 
-**Version**: v1.0.0-beta.27
-**Status**: Beta - Feature-rich and stable!
+**Version**: v1.0.0-beta.30 🧠
+**Status**: Beta - Feature-rich, stable, and incredibly intelligent!
 
 ### What's Working
 
+✅ **Deep system intelligence** - understands your development profile, gaming setup, network config, and user preferences
 ✅ **130+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
-✅ **Behavior-based intelligence** - analyzes your command history to understand Docker, Python, Git usage patterns
+✅ **Context-aware recommendations** - tailored to YOUR specific workflow and system state
+✅ **Dynamic categories** - 12 categories with Arch Wiki links, plain English names, only shows what's relevant to you
+✅ **Workflow bundles** - one-command installation of complete dev stacks with rollback support
 ✅ **Boot performance analysis** - tracks boot time, slow services, failed units, suggests optimizations
+✅ **Advanced telemetry** - 30+ collection functions tracking languages, projects, services, disk trends, preferences
 ✅ **AUR helper intelligence** - detects AUR packages, recommends helpers (yay/paru), offers alternatives
 ✅ **Package cache management** - monitors cache size, suggests cleanup strategies with paccache
 ✅ **Kernel parameter optimization** - analyzes boot parameters, suggests SSD optimizations
