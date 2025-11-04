@@ -383,6 +383,7 @@ async fn detect_common_file_types() -> Vec<String> {
 }
 
 /// Enhanced: Analyze process CPU time to understand user behavior
+#[allow(dead_code)]
 pub async fn analyze_process_cpu_time() -> Vec<ProcessUsage> {
     let mut process_usage = Vec::new();
     
@@ -420,6 +421,7 @@ pub async fn analyze_process_cpu_time() -> Vec<ProcessUsage> {
 
 /// Process usage information for behavior analysis
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ProcessUsage {
     pub command: String,
     pub user: String,
@@ -429,6 +431,7 @@ pub struct ProcessUsage {
 }
 
 /// Enhanced: Deep bash history analysis with frequency, recency, and patterns
+#[allow(dead_code)]
 pub async fn analyze_bash_history_deep() -> BashHistoryAnalysis {
     let mut analysis = BashHistoryAnalysis::default();
     
@@ -467,6 +470,7 @@ pub async fn analyze_bash_history_deep() -> BashHistoryAnalysis {
 
 /// Comprehensive bash history analysis
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct BashHistoryAnalysis {
     pub command_frequency: HashMap<String, usize>,
     pub tool_categories: HashMap<String, Vec<String>>, // category -> tools
@@ -476,6 +480,7 @@ pub struct BashHistoryAnalysis {
 }
 
 impl BashHistoryAnalysis {
+    #[allow(dead_code)]
     fn parse_history(&mut self, contents: &str, _username: &str) {
         for line in contents.lines() {
             self.total_commands += 1;
@@ -498,6 +503,7 @@ impl BashHistoryAnalysis {
         self.unique_commands = self.command_frequency.len();
     }
     
+    #[allow(dead_code)]
     fn categorize_tool(&mut self, cmd: &str) {
         let category = match cmd {
             "vim" | "nvim" | "nano" | "emacs" | "code" => "editor",
@@ -518,6 +524,7 @@ impl BashHistoryAnalysis {
             .push(cmd.to_string());
     }
     
+    #[allow(dead_code)]
     fn calculate_scores(&mut self) {
         // Detect workflow patterns
         if self.command_frequency.get("git").unwrap_or(&0) > &20 {
@@ -552,6 +559,7 @@ impl BashHistoryAnalysis {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WorkflowPattern {
     pub name: String,
     pub confidence: f32, // 0.0 to 1.0
@@ -559,6 +567,7 @@ pub struct WorkflowPattern {
 }
 
 /// Deep system configuration analysis - sysadmin perspective
+#[allow(dead_code)]
 pub async fn analyze_system_configuration() -> SystemConfigAnalysis {
     let mut analysis = SystemConfigAnalysis::default();
     
@@ -593,6 +602,7 @@ pub async fn analyze_system_configuration() -> SystemConfigAnalysis {
 }
 
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct SystemConfigAnalysis {
     pub bootloader: String,
     pub init_system: String,
@@ -606,6 +616,7 @@ pub struct SystemConfigAnalysis {
 }
 
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct SwapInfo {
     pub enabled: bool,
     pub total_mb: u64,
@@ -614,6 +625,7 @@ pub struct SwapInfo {
     pub zswap_enabled: bool,
 }
 
+#[allow(dead_code)]
 fn detect_bootloader() -> String {
     if Path::new("/boot/grub").exists() {
         "GRUB".to_string()
@@ -626,6 +638,7 @@ fn detect_bootloader() -> String {
     }
 }
 
+#[allow(dead_code)]
 fn detect_init_system() -> String {
     if Path::new("/run/systemd/system").exists() {
         "systemd".to_string()
@@ -634,6 +647,7 @@ fn detect_init_system() -> String {
     }
 }
 
+#[allow(dead_code)]
 async fn get_failed_services() -> Vec<String> {
     if let Ok(output) = Command::new("systemctl")
         .args(&["--failed", "--no-pager", "--no-legend"])
@@ -649,6 +663,7 @@ async fn get_failed_services() -> Vec<String> {
     }
 }
 
+#[allow(dead_code)]
 fn check_firewall_active() -> bool {
     Command::new("systemctl")
         .args(&["is-active", "ufw"])
@@ -663,6 +678,7 @@ fn check_firewall_active() -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)]
 fn detect_mac_system() -> Option<String> {
     if Path::new("/sys/fs/selinux").exists() {
         Some("SELinux".to_string())
@@ -673,6 +689,7 @@ fn detect_mac_system() -> Option<String> {
     }
 }
 
+#[allow(dead_code)]
 fn analyze_swap() -> SwapInfo {
     let mut info = SwapInfo::default();
     
@@ -702,6 +719,7 @@ fn analyze_swap() -> SwapInfo {
     info
 }
 
+#[allow(dead_code)]
 fn get_boot_time() -> String {
     if let Ok(output) = Command::new("systemd-analyze").output() {
         String::from_utf8_lossy(&output.stdout)
@@ -714,6 +732,7 @@ fn get_boot_time() -> String {
     }
 }
 
+#[allow(dead_code)]
 fn get_io_schedulers() -> HashMap<String, String> {
     let mut schedulers = HashMap::new();
     
@@ -741,6 +760,7 @@ fn get_io_schedulers() -> HashMap<String, String> {
     schedulers
 }
 
+#[allow(dead_code)]
 fn get_important_kernel_params() -> HashMap<String, String> {
     let mut params = HashMap::new();
     

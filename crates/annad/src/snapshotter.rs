@@ -309,6 +309,7 @@ impl Snapshotter {
     }
 
     /// List all snapshots
+    #[allow(dead_code)]
     pub async fn list_snapshots(&self) -> Result<Vec<Snapshot>> {
         if !self.is_enabled() {
             return Ok(Vec::new());
@@ -325,6 +326,7 @@ impl Snapshotter {
     }
 
     /// List Btrfs snapshots
+    #[allow(dead_code)]
     async fn list_btrfs_snapshots(&self) -> Result<Vec<Snapshot>> {
         let snapshot_dir = Path::new(&self.config.snapshots.snapshot_path);
         if !snapshot_dir.exists() {
@@ -371,6 +373,7 @@ impl Snapshotter {
     }
 
     /// List Timeshift snapshots
+    #[allow(dead_code)]
     async fn list_timeshift_snapshots(&self) -> Result<Vec<Snapshot>> {
         let output = Command::new("timeshift")
             .args(&["--list", "--scripted"])
@@ -403,6 +406,7 @@ impl Snapshotter {
     }
 
     /// List rsync snapshots
+    #[allow(dead_code)]
     async fn list_rsync_snapshots(&self) -> Result<Vec<Snapshot>> {
         let snapshot_dir = Path::new(&self.config.snapshots.snapshot_path);
         if !snapshot_dir.exists() {
@@ -458,6 +462,7 @@ impl Snapshotter {
     }
 
     /// Clean up old snapshots based on retention policy
+    #[allow(dead_code)]
     pub async fn cleanup_old_snapshots(&self) -> Result<usize> {
         if !self.is_enabled() {
             return Ok(0);
@@ -485,6 +490,7 @@ impl Snapshotter {
     }
 
     /// Delete a specific snapshot
+    #[allow(dead_code)]
     async fn delete_snapshot(&self, snapshot: &Snapshot) -> Result<()> {
         match snapshot.method {
             SnapshotMethod::Btrfs => {

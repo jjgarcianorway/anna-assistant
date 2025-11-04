@@ -10,6 +10,7 @@ use tracing::{info, warn};
 
 /// Notification urgency level
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum NotificationUrgency {
     Low,
     Normal,
@@ -117,6 +118,7 @@ async fn send_terminal_broadcast(message: &str) {
 #[derive(Debug)]
 struct UserSession {
     username: String,
+    #[allow(dead_code)]
     uid: u32,
 }
 

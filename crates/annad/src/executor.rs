@@ -127,6 +127,7 @@ async fn execute_command(command: &str) -> Result<String> {
 }
 
 /// Create a rollback token for an action with snapshot info
+#[allow(dead_code)]
 pub fn create_rollback_token(
     action: &Action,
     rollback_cmd: Option<String>,
