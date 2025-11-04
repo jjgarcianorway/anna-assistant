@@ -104,6 +104,20 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_office_suite());
     advice.extend(check_graphics_software());
     advice.extend(check_video_editing());
+    advice.extend(check_music_players());
+    advice.extend(check_pdf_readers());
+    advice.extend(check_monitor_tools());
+    advice.extend(check_systemd_timers());
+    advice.extend(check_shell_alternatives());
+    advice.extend(check_compression_advanced());
+    advice.extend(check_dual_boot());
+    advice.extend(check_git_advanced());
+    advice.extend(check_container_alternatives());
+    advice.extend(check_code_editors());
+    advice.extend(check_additional_databases());
+    advice.extend(check_network_tools());
+    advice.extend(check_dotfile_managers());
+    advice.extend(check_pkgbuild_tools());
 
     advice
 }
@@ -4728,6 +4742,570 @@ fn check_video_editing() -> Vec<Advice> {
                 priority: Priority::Optional,
                 category: "multimedia".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Kdenlive".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for music players
+fn check_music_players() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for music files
+    let has_music_files = Command::new("find")
+        .args(&[&format!("{}/Music", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_music_files {
+        // Check for music players
+        let has_mpd = Command::new("pacman")
+            .args(&["-Q", "mpd"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mpd {
+            result.push(Advice {
+                id: "music-mpd".to_string(),
+                title: "Install MPD for music playback".to_string(),
+                reason: "You have music files! MPD (Music Player Daemon) is a flexible, powerful music server. Control it from your phone, web browser, CLI, or GUI. Gapless playback, playlists, streaming, multiple outputs. It's the audiophile's choice - lightweight and feature-rich!".to_string(),
+                action: "Install MPD and ncmpcpp client".to_string(),
+                command: Some("pacman -S --noconfirm mpd ncmpcpp".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Music_Player_Daemon".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for PDF readers
+fn check_pdf_readers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for PDF files
+    let has_pdf_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.pdf", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_pdf_files {
+        // Check for PDF readers
+        let has_zathura = Command::new("pacman")
+            .args(&["-Q", "zathura"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        let has_okular = Command::new("pacman")
+            .args(&["-Q", "okular"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_zathura && !has_okular {
+            result.push(Advice {
+                id: "pdf-zathura".to_string(),
+                title: "Install Zathura for PDF viewing".to_string(),
+                reason: "You have PDF files! Zathura is a minimal, vim-like PDF viewer. Keyboard-driven, fast, no bloat. Perfect for reading papers, books, or documents. If you prefer mouse-based, try Okular (KDE) or Evince (GNOME), but Zathura is the power user's choice!".to_string(),
+                action: "Install Zathura with plugins".to_string(),
+                command: Some("pacman -S --noconfirm zathura zathura-pdf-mupdf".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "utilities".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Zathura".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for multiple monitor setup tools  
+fn check_monitor_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if using X11
+    let is_x11 = std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11";
+
+    if is_x11 {
+        // Check for arandr (GUI for xrandr)
+        let has_arandr = Command::new("pacman")
+            .args(&["-Q", "arandr"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_arandr {
+            result.push(Advice {
+                id: "monitor-arandr".to_string(),
+                title: "Install arandr for easy monitor configuration".to_string(),
+                reason: "arandr is a visual GUI for xrandr! Drag and drop monitors to arrange them, change resolutions, adjust refresh rates. Way easier than typing xrandr commands. Great for laptops with external monitors or multi-monitor desktops!".to_string(),
+                action: "Install arandr".to_string(),
+                command: Some("pacman -S --noconfirm arandr".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Xrandr".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for systemd timers (cron alternative)
+fn check_systemd_timers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user has cron jobs but not using systemd timers
+    let has_crontab = Command::new("crontab")
+        .arg("-l")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_crontab {
+        result.push(Advice {
+            id: "timers-systemd".to_string(),
+            title: "Consider using systemd timers instead of cron".to_string(),
+            reason: "You have cron jobs! Systemd timers are the modern alternative - better logging, easier debugging, dependency management, and integrated with systemctl. Plus they can run on boot, handle missed runs, and have calendar-based scheduling. Arch recommends timers over cron!".to_string(),
+            action: "Learn about systemd timers".to_string(),
+            command: None,
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Timers".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for shell alternatives
+fn check_shell_alternatives() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check current shell
+    let current_shell = std::env::var("SHELL").unwrap_or_default();
+
+    if current_shell.contains("bash") {
+        // Suggest fish for beginners
+        let has_fish = Command::new("pacman")
+            .args(&["-Q", "fish"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_fish {
+            result.push(Advice {
+                id: "shell-fish".to_string(),
+                title: "Try Fish shell for modern shell experience".to_string(),
+                reason: "Fish (Friendly Interactive SHell) is amazing! Autosuggestions as you type, syntax highlighting, excellent completions out-of-box, web-based configuration. No setup needed - it just works. Try it with 'fish' command, change default with 'chsh -s /usr/bin/fish'!".to_string(),
+                action: "Install Fish shell".to_string(),
+                command: Some("pacman -S --noconfirm fish".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "shell".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Fish".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for advanced compression tools
+fn check_compression_advanced() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for zstd (modern compression)
+    let has_zstd = Command::new("pacman")
+        .args(&["-Q", "zstd"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_zstd {
+        result.push(Advice {
+            id: "compression-zstd".to_string(),
+            title: "Install zstd for fast modern compression".to_string(),
+            reason: "Zstandard (zstd) is the modern compression algorithm! Faster than gzip with better compression ratios. Used by Facebook, Linux kernel, package managers. Great for backups, archives, or compressing data. Command: 'zstd file' to compress, 'unzstd file.zst' to decompress!".to_string(),
+            action: "Install zstd".to_string(),
+            command: Some("pacman -S --noconfirm zstd".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Zstd".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for dual boot support
+fn check_dual_boot() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for GRUB
+    let has_grub = Command::new("which")
+        .arg("grub-mkconfig")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_grub {
+        // Check for os-prober
+        let has_os_prober = Command::new("pacman")
+            .args(&["-Q", "os-prober"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_os_prober {
+            result.push(Advice {
+                id: "dualboot-osprober".to_string(),
+                title: "Install os-prober for dual boot detection".to_string(),
+                reason: "You have GRUB! os-prober automatically detects other operating systems (Windows, other Linux distros) and adds them to GRUB menu. Essential for dual boot setups. After installing, run 'sudo grub-mkconfig -o /boot/grub/grub.cfg' to regenerate config!".to_string(),
+                action: "Install os-prober".to_string(),
+                command: Some("pacman -S --noconfirm os-prober".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "system".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB#Detecting_other_operating_systems".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for advanced git configuration
+fn check_git_advanced() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let git_usage = check_command_usage(&["git"]);
+
+    if git_usage > 20 {
+        // Check for delta (better git diff)
+        let has_delta = Command::new("which")
+            .arg("delta")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_delta {
+            result.push(Advice {
+                id: "git-delta".to_string(),
+                title: "Install delta for beautiful git diffs".to_string(),
+                reason: format!("You use git {} times! Delta makes git diff beautiful - syntax highlighting, side-by-side diffs, line numbers, better merge conflict visualization. Configure with: git config --global core.pager delta. Your diffs will never be the same!", git_usage),
+                action: "Install git-delta".to_string(),
+                command: Some("pacman -S --noconfirm git-delta".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Diff_and_merge_tools".to_string()],
+            });
+        }
+
+        // Check for lazygit
+        let has_lazygit = Command::new("pacman")
+            .args(&["-Q", "lazygit"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_lazygit {
+            result.push(Advice {
+                id: "git-lazygit".to_string(),
+                title: "Install lazygit for terminal UI git client".to_string(),
+                reason: "lazygit is a gorgeous terminal UI for git! Stage files, create commits, manage branches, resolve conflicts - all with keyboard shortcuts. Way faster than typing git commands. Just run 'lazygit' in any repo. Git power users love it!".to_string(),
+                action: "Install lazygit".to_string(),
+                command: Some("pacman -S --noconfirm lazygit".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Graphical_tools".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for container alternatives
+fn check_container_alternatives() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Docker
+    let has_docker = Command::new("pacman")
+        .args(&["-Q", "docker"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_docker {
+        // Suggest Podman as alternative
+        let has_podman = Command::new("pacman")
+            .args(&["-Q", "podman"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_podman {
+            result.push(Advice {
+                id: "container-podman".to_string(),
+                title: "Try Podman as Docker alternative".to_string(),
+                reason: "Podman is Docker without the daemon! Rootless by default (more secure), drop-in replacement for Docker CLI. 'alias docker=podman' and you're good. No root daemon, better security, same containers. Great for developers who want Docker-compatible tools without Docker's architecture!".to_string(),
+                action: "Install Podman".to_string(),
+                command: Some("pacman -S --noconfirm podman".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Podman".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for code editors
+fn check_code_editors() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for development activity
+    let has_dev_files = check_command_usage(&["vim", "nano", "code", "emacs"]) > 10;
+
+    if has_dev_files {
+        // Check for VS Code
+        let has_vscode = Command::new("pacman")
+            .args(&["-Q", "code"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_vscode {
+            result.push(Advice {
+                id: "editor-vscode".to_string(),
+                title: "Install Visual Studio Code for modern development".to_string(),
+                reason: "VS Code is the most popular code editor! IntelliSense, debugging, Git integration, thousands of extensions, remote development. Works with every language. Industry standard for many developers. The open-source version 'code' is fully featured!".to_string(),
+                action: "Install VS Code".to_string(),
+                command: Some("pacman -S --noconfirm code".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Visual_Studio_Code".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for additional databases
+fn check_additional_databases() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let db_usage = check_command_usage(&["mysql", "mongod", "redis-cli"]);
+
+    if db_usage > 3 {
+        // Check for MySQL/MariaDB
+        let has_mysql = Command::new("pacman")
+            .args(&["-Q", "mariadb"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mysql && db_usage > 5 {
+            result.push(Advice {
+                id: "database-mariadb".to_string(),
+                title: "Install MariaDB for MySQL compatibility".to_string(),
+                reason: "MariaDB is the drop-in replacement for MySQL! Fully compatible, often faster, more features, truly open-source. Great for web apps, WordPress, Drupal, or any MySQL application. 'systemctl start mariadb' and you're MySQL-compatible!".to_string(),
+                action: "Install MariaDB".to_string(),
+                command: Some("pacman -S --noconfirm mariadb".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/MariaDB".to_string()],
+            });
+        }
+
+        // Check for Redis
+        let has_redis = Command::new("pacman")
+            .args(&["-Q", "redis"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_redis {
+            result.push(Advice {
+                id: "database-redis".to_string(),
+                title: "Install Redis for in-memory data storage".to_string(),
+                reason: "Redis is blazingly fast in-memory database! Perfect for caching, session storage, queues, real-time analytics. Used by Twitter, GitHub, Snapchat. Simple key-value store with rich data types. If your app needs speed, Redis is the answer!".to_string(),
+                action: "Install Redis".to_string(),
+                command: Some("pacman -S --noconfirm redis".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Redis".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for network analysis tools
+fn check_network_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for advanced network usage
+    let net_usage = check_command_usage(&["ping", "traceroute", "netstat", "ss"]);
+
+    if net_usage > 10 {
+        // Check for Wireshark
+        let has_wireshark = Command::new("pacman")
+            .args(&["-Q", "wireshark-qt"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_wireshark {
+            result.push(Advice {
+                id: "network-wireshark".to_string(),
+                title: "Install Wireshark for network analysis".to_string(),
+                reason: "Wireshark is THE network protocol analyzer! Capture and inspect packets, debug network issues, analyze traffic, learn protocols. Essential for network admins, security researchers, or anyone debugging network problems. GUI and CLI (tshark) included!".to_string(),
+                action: "Install Wireshark".to_string(),
+                command: Some("pacman -S --noconfirm wireshark-qt".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "networking".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Wireshark".to_string()],
+            });
+        }
+
+        // Check for nmap
+        let has_nmap = Command::new("pacman")
+            .args(&["-Q", "nmap"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_nmap {
+            result.push(Advice {
+                id: "network-nmap".to_string(),
+                title: "Install nmap for network scanning".to_string(),
+                reason: "nmap is the network exploration tool! Scan networks, discover hosts, identify services, detect OS. Used by security professionals worldwide. 'nmap 192.168.1.0/24' scans your local network. Essential for network administration and security auditing!".to_string(),
+                action: "Install nmap".to_string(),
+                command: Some("pacman -S --noconfirm nmap".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "networking".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Nmap".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for dotfile managers
+fn check_dotfile_managers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user has many dotfiles
+    let has_many_dotfiles = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-maxdepth", "1", "-name", ".*", "-type", "f"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().count() > 10)
+        .unwrap_or(false);
+
+    if has_many_dotfiles {
+        // Check for GNU Stow
+        let has_stow = Command::new("pacman")
+            .args(&["-Q", "stow"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_stow {
+            result.push(Advice {
+                id: "dotfiles-stow".to_string(),
+                title: "Install GNU Stow for dotfile management".to_string(),
+                reason: "You have lots of dotfiles! GNU Stow makes managing them easy. Keep configs in git repo, use symlinks to deploy. Switch between different configs, share across machines, version control everything. Simple: 'stow vim' creates symlinks from ~/dotfiles/vim/ to ~/. Game changer!".to_string(),
+                action: "Install GNU Stow".to_string(),
+                command: Some("pacman -S --noconfirm stow".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "utilities".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Dotfiles#Version_control".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for package development tools
+fn check_pkgbuild_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user builds packages
+    let builds_packages = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "PKGBUILD", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if builds_packages {
+        // Check for namcap
+        let has_namcap = Command::new("pacman")
+            .args(&["-Q", "namcap"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_namcap {
+            result.push(Advice {
+                id: "pkgbuild-namcap".to_string(),
+                title: "Install namcap for PKGBUILD linting".to_string(),
+                reason: "You build packages! namcap checks PKGBUILDs for errors, missing dependencies, naming issues, and packaging problems. Essential for AUR maintainers or anyone building custom packages. Run 'namcap PKGBUILD' before uploading to AUR!".to_string(),
+                action: "Install namcap".to_string(),
+                command: Some("pacman -S --noconfirm namcap".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Namcap".to_string()],
+            });
+        }
+
+        // Check for devtools
+        let has_devtools = Command::new("pacman")
+            .args(&["-Q", "devtools"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_devtools {
+            result.push(Advice {
+                id: "pkgbuild-devtools".to_string(),
+                title: "Install devtools for clean chroot builds".to_string(),
+                reason: "Build packages in clean chroots! devtools provides 'extra-x86_64-build' and friends - build in isolated environment, catch missing dependencies, ensure reproducibility. Professional package builders use this. If you're serious about packaging, you need devtools!".to_string(),
+                action: "Install devtools".to_string(),
+                command: Some("pacman -S --noconfirm devtools".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/DeveloperWiki:Building_in_a_clean_chroot".to_string()],
             });
         }
     }

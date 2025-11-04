@@ -10,24 +10,28 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.17)
+## Current Status (v1.0.0-beta.19)
 
 ### ✅ Complete
 - [x] Core data models and types
 - [x] Comprehensive system telemetry (hardware, packages, filesystems, services)
 - [x] Unix socket IPC (daemon ↔ client communication)
 - [x] Beautiful CLI with pastel colors
-- [x] **130+ intelligent recommendation rules** covering:
+- [x] **190+ intelligent recommendation rules** covering:
   - Security (CPU microcode, SSH hardening, firewall, VPN, antivirus)
   - 8 Desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
   - Performance (SSD, swap compression, firmware updates, parallel downloads)
-  - Development (Docker, virtualization, LSP servers, shell tools)
+  - Development (Docker, virtualization, 6 programming languages, LSP servers, shell tools)
   - Hardware (Bluetooth, WiFi, printers, webcam, gamepads)
-  - Multimedia (video/audio players, screen recording, codecs)
+  - Multimedia (video/audio players, screen recording, codecs, video editing)
   - Gaming (Proton-GE, MangoHud, Wine)
   - Privacy (password managers, VPN, browser hardening)
   - Backup & snapshots (Timeshift, Snapper, rsync, borg)
   - System maintenance (orphans, systemd health, bootloader)
+  - Productivity (mail clients, office suites, torrent clients)
+  - Creative (GIMP, Inkscape, Kdenlive)
+  - Networking (Samba, NFS, cloud storage, web servers, remote desktop)
+  - Databases (PostgreSQL)
 - [x] Action executor with dry-run support
 - [x] Batch apply (by number, range, or ID)
 - [x] Audit logging to JSONL
