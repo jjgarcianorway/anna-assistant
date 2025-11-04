@@ -1,16 +1,15 @@
-# Simple Workflow - Just 2 Scripts
+# Simple Workflow
 
-## For Developers (Local Testing)
-
-```bash
-./scripts/release.sh              # Builds & pushes to GitHub
-sudo ./scripts/install.sh --local # Installs from local build
-```
-
-## For End Users
+## You make changes, then:
 
 ```bash
-sudo ./scripts/install.sh   # Downloads latest from GitHub
+./scripts/release.sh      # Builds, commits, tags, pushes, creates GitHub release
+sudo ./scripts/install.sh # Downloads and installs latest GitHub release
 ```
 
-That's it. Two scripts, zero confusion.
+Done.
+
+- `release.sh` = everything (build, git, release)
+- `install.sh` = download from GitHub and install
+
+That's it.

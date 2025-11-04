@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Anna Installer
-# Usage: sudo ./scripts/install.sh          (downloads from GitHub)
-#        sudo ./scripts/install.sh --local  (uses local build)
+# Anna Installer - Downloads from GitHub
 set -Eeuo pipefail
 
 OWNER="jjgarcianorway"
@@ -12,82 +10,19 @@ info() { echo "→ $*"; }
 success() { echo "✓ $*"; }
 error() { echo "✗ ERROR: $*" >&2; exit 1; }
 
-# Must run as root
-[[ $EUID -eq 0 ]] || error "Run as root: sudo $0"
-
-# Check for --local flag
-USE_LOCAL=false
-if [[ "${1:-}" == "--local" ]]; then
-    USE_LOCAL=true
-fi
-
-echo ""
-echo "═══════════════════════════════════════════"
-if [[ "$USE_LOCAL" == "true" ]]; then
-    echo "  Anna Installer - Local Build"
-else
-    echo "  Anna Installer - Download from GitHub"
-fi
-echo "═══════════════════════════════════════════"
-echo ""
-
-# LOCAL INSTALL
-if [[ "$USE_LOCAL" == "true" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-    if [[ ! -f "$REPO_ROOT/target/release/annad" || ! -f "$REPO_ROOT/target/release/annactl" ]]; then
-        error "No binaries at target/release/ - run: ./scripts/release.sh"
-    fi
-
-    info "Using local binaries..."
-    systemctl stop annad 2>/dev/null || true
-
-    install -m 755 "$REPO_ROOT/target/release/annad" /usr/local/bin/annad
-    install -m 755 "$REPO_ROOT/target/release/annactl" /usr/local/bin/annactl
-
-    mkdir -p /etc/anna/policies.d /var/lib/anna/{telemetry,backups} /var/log/anna /run/anna
-    chmod 755 /etc/anna /etc/anna/policies.d /var/lib/anna /var/lib/anna/telemetry /var/lib/anna/backups /var/log/anna /run/anna
-
-    VERSION=$("$REPO_ROOT/target/release/annactl" --version | awk '{print $NF}')
-    echo "v$VERSION" > /etc/anna/version
-
-    cat > /etc/systemd/system/annad.service <<'EOF'
-[Unit]
-Description=Anna Assistant Daemon
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/annad
-Restart=on-failure
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable annad 2>/dev/null || true
-    systemctl start annad 2>/dev/null || true
-
-    echo ""
-    echo "══════════════════════════════════════════════"
-    echo "  ✓ Installation Complete!"
-    echo "══════════════════════════════════════════════"
-    echo ""
-    echo "Version: v$VERSION (local build)"
-    echo "Check:   annactl status"
-    echo ""
-    exit 0
-fi
-
-# GITHUB DOWNLOAD
+require() { command -v "$1" >/dev/null 2>&1 || error "Missing: $1"; }
 require curl
 require tar
 require sha256sum
+
+# Must run as root
+[[ $EUID -eq 0 ]] || error "Run as root: sudo $0"
+
+echo ""
+echo "═══════════════════════════════════════════"
+echo "  Anna Installer"
+echo "═══════════════════════════════════════════"
+echo ""
 
 info "Finding latest release..."
 LATEST=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases" 2>/dev/null | \
