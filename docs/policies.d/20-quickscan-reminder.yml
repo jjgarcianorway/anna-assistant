@@ -1,7 +1,0 @@
-# Quickscan Reminder Policy
-# Triggers when last quickscan was more than 24 hours ago
-
-when: "telemetry.last_quickscan_hours > 24"
-then:
-  type: send_alert
-enabled: true

@@ -1,388 +1,76 @@
-# Anna Assistant v1.0 "Hildegard"
+# Anna Assistant
 
-**Autonomy-First, Wiki-Native, Rollback-Safe System Assistant**
+**A Simple, Intelligent Linux System Assistant**
 
-Version: 1.0.0-rc.1
-Target: Arch Linux
-Language: Rust + Bash
+## Project Scope
 
----
+Anna Assistant is designed to be a lightweight, privacy-focused system assistant for Linux that helps users maintain and optimize their systems through intelligent recommendations and safe automation.
 
-## One Command Install
+### Core Principles
 
-```bash
-# Fetch and install the latest release from GitHub
-sudo ./scripts/install.sh
-```
+1. **Simplicity First** - Clean, minimal codebase with clear architecture
+2. **Privacy & Security** - All processing happens locally, no external APIs or telemetry
+3. **Safety by Design** - Actions require explicit user consent, with full rollback capability
+4. **Intelligence** - Context-aware recommendations based on actual system state
+5. **Beautiful UX** - Calm, elegant terminal interface that respects users' time
 
-The installer:
-- Always fetches the latest GitHub release assets
-- Installs binaries to `/usr/local/bin`
-- Creates systemd service with proper socket permissions (mode 0770, group 'anna')
-- Waits for RPC to respond before completing
+### What Anna Does
 
-**From local build:**
-```bash
-sudo ./scripts/install.sh --from-local
-```
+- **System Health Monitoring** - Continuously observes system state and identifies issues
+- **Intelligent Recommendations** - Provides actionable advice based on official distribution documentation
+- **Safe Automation** - Executes approved actions with full audit trail and rollback support
+- **Learning & Adaptation** - Understands user patterns and tailors recommendations accordingly
 
-## One Command Release
+### What Anna Does NOT Do
 
-```bash
-# Auto-detect version, create/bump RC tag, push with tags
-./scripts/release.sh
-```
+- ❌ Phone home or send telemetry data
+- ❌ Make system changes without explicit permission
+- ❌ Use AI/LLM services (everything runs locally)
+- ❌ Require complex configuration or setup
+- ❌ Clutter your system with unnecessary processes
 
-The release script:
-- Auto-detects version from `Cargo.toml`
-- If version ends with `-rc.N`, bumps to `-rc.(N+1)`
-- Otherwise creates `-rc.1` tag
-- Synthesizes commit message from `.release-notes-v1.0-draft.md`
-- Updates README version automatically
-- No flags, no prompts, idempotent
+### Target Platform
 
----
+**Primary**: Arch Linux
+**Future**: Debian, Ubuntu, Fedora
 
-## Quick Start
-
-```bash
-# 1. Check daemon status
-annactl status
-
-# 2. Get recommendations
-annactl advise --limit 5
-
-# 3. Apply an action (dry-run first)
-annactl apply <action-id> --dry-run
-annactl apply <action-id>
-
-# 4. Generate system report
-annactl report
-```
-
-**Core Commands:**
-- `status` - System overview with facts, policy, radars
-- `advise` - Wiki-grounded recommendations with citations
-- `apply` - Safe execution with policy enforcement and rollback tokens
-- `report` - Narrative one-pager with top recommendations
-- `version` - Version info
-- `help` - Command help
-
-See `V1.0-QUICKSTART.md` for comprehensive usage guide.
-
----
-
-## Troubleshooting
-
-**Daemon active but RPC not responding:**
-```bash
-# Check logs
-sudo journalctl -u annad -n 50 --no-pager
-
-# Check socket
-ls -la /run/anna/annad.sock
-# Should show: srwxrwx--- 1 anna anna (mode 0770)
-
-# Check permissions
-groups  # Should include 'anna'
-# If not, logout/login after install
-
-# Verify versions match
-annad --version
-annactl version
-```
-
----
-
-## Overview
-
-Anna is a production-grade Linux assistant designed with strict architectural contracts:
-
-- **annad**: Root daemon handling privileged operations via Unix socket (`/run/anna/annad.sock`)
-- **annactl**: Non-privileged CLI client for user interaction
-- **Polkit integration**: All privilege elevation through standard system dialogs
-- **Zero external dependencies**: No web frameworks, AI models, or cloud services
-- **Test-driven**: Every feature validated through QA harness
-
----
-
-## Architecture
+### Architecture (Planned)
 
 ```
-┌─────────────────┐
-│    annactl      │  (user space, no privileges)
-│   (CLI client)  │
-└────────┬────────┘
-         │ Unix Socket
-         │ /run/anna/annad.sock
-         ▼
-┌─────────────────┐
-│     annad       │  (root daemon)
-│  (privileged)   │
-└─────────────────┘
-         │
-         ▼
-    /etc/anna/
-  (config, policy)
+┌─────────────┐
+│   annactl   │  CLI client (user space)
+└──────┬──────┘
+       │ Unix Socket
+       │
+┌──────▼──────┐
+│    annad    │  System daemon (privileged)
+└─────────────┘
+       │
+       ├─ System Monitors
+       ├─ Recommendation Engine
+       ├─ Action Executor
+       └─ State Manager
 ```
 
----
+### Development Status
 
-## Quick Start
+🚧 **Project Reset** - Starting fresh with clean design
 
-### Prerequisites
+Previous iterations taught us valuable lessons about what works and what doesn't. This version focuses on getting the fundamentals right:
 
-```bash
-# Arch Linux
-sudo pacman -S rust cargo systemd
+1. ✅ Clear, simple architecture
+2. ✅ Comprehensive test coverage from day one
+3. ✅ Documentation-driven development
+4. ✅ Security and safety as core requirements, not afterthoughts
 
-# Verify
-rustc --version
-cargo --version
-```
+### Contributing
 
-### Installation
+This project is currently in early design phase. Contributions welcome once the initial architecture is established.
 
-```bash
-# Clone and build
-git clone <repository>
-cd anna-assistant
-
-# Run installer
-./scripts/install.sh
-```
-
-The installer will:
-1. ✓ Check requirements
-2. ✓ Compile binaries
-3. ✓ Install to /usr/local/bin
-4. ✓ Create systemd service
-5. ✓ Enable and start daemon
-6. ✓ Run diagnostics
-
-### Basic Usage
-
-```bash
-# Check daemon status
-annactl status
-
-# Run diagnostics
-annactl doctor
-
-# Ping daemon
-annactl ping
-
-# View configuration
-annactl config
-
-# Get help
-annactl --help
-```
-
----
-
-## Development
-
-### Build from Source
-
-```bash
-# Debug build
-cargo build
-
-# Release build
-cargo build --release
-
-# Binaries appear in:
-#   target/debug/annad
-#   target/debug/annactl
-```
-
-### Run Tests
-
-```bash
-# Full QA validation
-./tests/qa_runner.sh
-
-# Individual components
-cargo test
-cargo clippy
-```
-
-### Project Structure
-
-```
-anna-assistant/
-├── Cargo.toml              # Workspace definition
-├── src/
-│   ├── annad/              # Daemon (root process)
-│   │   ├── src/
-│   │   │   ├── main.rs     # Entry point
-│   │   │   ├── config.rs   # Configuration loading
-│   │   │   ├── rpc.rs      # Unix socket RPC
-│   │   │   └── diagnostics.rs # System checks
-│   │   └── Cargo.toml
-│   └── annactl/            # CLI client (user process)
-│       ├── src/
-│       │   └── main.rs
-│       └── Cargo.toml
-├── config/
-│   └── default.toml        # Default configuration
-├── etc/
-│   └── systemd/
-│       └── annad.service   # Systemd unit
-├── scripts/
-│   ├── install.sh          # Installation script
-│   └── uninstall.sh        # Safe uninstaller
-├── tests/
-│   └── qa_runner.sh        # QA test harness
-└── docs/
-    └── (documentation)
-```
-
----
-
-## Configuration
-
-Location: `/etc/anna/config.toml`
-
-```toml
-[daemon]
-socket_path = "/run/anna.sock"
-pid_file = "/run/anna.pid"
-
-[autonomy]
-tier = 0        # 0=manual, 1=low-risk
-enabled = false
-
-[logging]
-level = "info"
-directory = "/var/log/anna"
-```
-
----
-
-## Service Management
-
-```bash
-# Status
-sudo systemctl status annad
-
-# Restart
-sudo systemctl restart annad
-
-# Stop
-sudo systemctl stop annad
-
-# View logs
-sudo journalctl -u annad -f
-```
-
----
-
-## Uninstallation
-
-```bash
-./scripts/uninstall.sh
-```
-
-This will:
-- Stop and disable service
-- Back up config to `~/Documents/anna_backup_<timestamp>/`
-- Remove all binaries and files
-- Clean up socket
-
----
-
-## Contract Guarantees
-
-This implementation adheres to the following immutable contracts:
-
-1. **Privilege Separation**: Daemon runs as root, CLI never requires sudo
-2. **Communication**: Unix socket at `/run/anna.sock` with 0666 permissions
-3. **Configuration**: Single source of truth at `/etc/anna/config.toml`
-4. **Installation**: Reproducible on clean Arch Linux VM
-5. **Testing**: All features validated through `qa_runner.sh`
-6. **No Magic**: Zero dynamic code generation, no external APIs
-7. **Modularity**: Each component is independently testable
-8. **Safety**: Uninstaller creates timestamped backups
-
----
-
-## Autonomy Tiers
-
-- **Tier 0**: Manual only (default) - All actions require explicit user approval
-- **Tier 1**: Low-risk automation - Read-only diagnostics, logging, telemetry
-- **Tier 2+**: (Not implemented) - Reserved for future capability expansion
-
----
-
-## Troubleshooting
-
-### Daemon won't start
-
-```bash
-# Check logs
-sudo journalctl -u annad -n 50
-
-# Verify socket
-ls -la /run/anna.sock
-
-# Run diagnostics
-annactl doctor
-```
-
-### Connection refused
-
-```bash
-# Ensure daemon is running
-sudo systemctl status annad
-
-# Check socket permissions
-ls -la /run/anna.sock
-# Should show: srw-rw-rw- 1 root root
-```
-
-### Configuration issues
-
-```bash
-# Validate config syntax
-annactl config
-
-# Reset to defaults
-sudo rm /etc/anna/config.toml
-sudo systemctl restart annad
-```
-
----
-
-## Contributing
-
-This is a contract-driven project. Before contributing:
-
-1. Review the architectural contracts above
-2. Ensure all tests pass: `./tests/qa_runner.sh`
-3. Follow the existing code structure
-4. No external frameworks or dependencies without discussion
-5. All features must be testable and documented
-
----
-
-## License
+### License
 
 MIT
 
 ---
 
-## Version History
-
-**0.9.0** (Current)
-- Initial Next-Gen implementation
-- Core daemon/client architecture
-- Unix socket RPC
-- Basic diagnostics
-- Installation/uninstallation scripts
-- QA test harness
-
----
-
-**Built with discipline. Zero compromise on contracts.**
+**Built with Rust • Designed for Humans • Privacy First**
