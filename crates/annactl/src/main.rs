@@ -70,6 +70,17 @@ enum Commands {
     /// List available workflow bundles
     Bundles,
 
+    /// Rollback a workflow bundle
+    Rollback {
+        /// Bundle name to rollback
+        #[arg(long)]
+        bundle: String,
+
+        /// Dry run (show what would be removed)
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Generate system health report
     Report {
         /// Show only specific category
@@ -97,6 +108,7 @@ async fn main() -> Result<()> {
         Commands::Advise { risk, mode, category, limit } => commands::advise(risk, mode, category, limit).await,
         Commands::Apply { id, nums, bundle, auto, dry_run } => commands::apply(id, nums, bundle, auto, dry_run).await,
         Commands::Bundles => commands::bundles().await,
+        Commands::Rollback { bundle, dry_run } => commands::rollback(&bundle, dry_run).await,
         Commands::Report { category } => commands::report(category).await,
         Commands::Doctor => commands::doctor().await,
         Commands::Config { set } => commands::config(set).await,

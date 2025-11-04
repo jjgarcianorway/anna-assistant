@@ -151,6 +151,10 @@ annactl bundles
 # Install a complete development stack in one command
 annactl apply --bundle "Python Development Stack"
 
+# Rollback a bundle if needed
+annactl rollback --bundle "Python Development Stack"
+annactl rollback --bundle "Container Development Stack" --dry-run  # Preview
+
 # Apply recommendations by number
 annactl apply --nums 1        # Apply first recommendation
 annactl apply --nums 1-5      # Apply recommendations 1 through 5

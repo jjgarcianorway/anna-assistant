@@ -254,6 +254,73 @@ pub struct AuditEntry {
     pub success: bool,
 }
 
+/// Bundle installation status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BundleStatus {
+    Completed,
+    Partial,
+    Failed,
+}
+
+/// Bundle installation history entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BundleHistoryEntry {
+    pub bundle_name: String,
+    pub installed_items: Vec<String>, // advice IDs
+    pub installed_at: DateTime<Utc>,
+    pub installed_by: String, // username
+    pub status: BundleStatus,
+    pub rollback_available: bool,
+}
+
+/// Bundle history storage
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BundleHistory {
+    pub entries: Vec<BundleHistoryEntry>,
+}
+
+impl BundleHistory {
+    /// Path to bundle history file
+    pub fn history_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("/var/lib/anna/bundle_history.json")
+    }
+
+    /// Load bundle history from disk
+    pub fn load() -> Result<Self, std::io::Error> {
+        let path = Self::history_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let content = std::fs::read_to_string(path)?;
+        serde_json::from_str(&content).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+        })
+    }
+
+    /// Save bundle history to disk
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        let path = Self::history_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, content)
+    }
+
+    /// Add a new bundle installation entry
+    pub fn add_entry(&mut self, entry: BundleHistoryEntry) {
+        self.entries.push(entry);
+    }
+
+    /// Get the most recent installation of a bundle
+    pub fn get_latest(&self, bundle_name: &str) -> Option<&BundleHistoryEntry> {
+        self.entries
+            .iter()
+            .rev()
+            .find(|e| e.bundle_name == bundle_name && e.status == BundleStatus::Completed)
+    }
+}
+
 /// RPC Request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcRequest {

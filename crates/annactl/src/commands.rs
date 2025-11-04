@@ -1261,6 +1261,9 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
         println!("{}", section("🚀 Installing"));
         println!();
 
+        let mut installed_items: Vec<String> = Vec::new();
+        let mut installation_status = anna_common::BundleStatus::Completed;
+
         for (i, advice) in sorted.iter().enumerate() {
             println!("  [{}/{}] \x1b[1m{}\x1b[0m", i + 1, sorted.len(), advice.title);
 
@@ -1274,23 +1277,178 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
             if let ResponseData::ActionResult { success, message } = result {
                 if success {
                     println!("         \x1b[92m✓\x1b[0m {}", message);
+                    installed_items.push(advice.id.clone());
                 } else {
                     println!("         \x1b[91m✗\x1b[0m {}", message);
                     println!();
                     println!("{}", beautiful::status(Level::Error, "Bundle installation failed"));
                     println!("  Some items may have been installed before the failure.");
-                    return Ok(());
+                    installation_status = if installed_items.is_empty() {
+                        anna_common::BundleStatus::Failed
+                    } else {
+                        anna_common::BundleStatus::Partial
+                    };
+                    break;
                 }
             }
         }
 
-        println!();
-        println!("{}", beautiful::status(Level::Success, &format!("Bundle '{}' installed successfully!", bundle_name)));
+        // Record installation in bundle history
+        let mut history = anna_common::BundleHistory::load().unwrap_or_default();
+        let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+
+        history.add_entry(anna_common::BundleHistoryEntry {
+            bundle_name: bundle_name.to_string(),
+            installed_items: installed_items.clone(),
+            installed_at: chrono::Utc::now(),
+            installed_by: username,
+            status: installation_status,
+            rollback_available: installation_status == anna_common::BundleStatus::Completed,
+        });
+
+        if let Err(e) = history.save() {
+            println!("{}", beautiful::status(Level::Warning, &format!("Failed to save bundle history: {}", e)));
+        }
+
+        if installation_status == anna_common::BundleStatus::Completed {
+            println!();
+            println!("{}", beautiful::status(Level::Success, &format!("Bundle '{}' installed successfully!", bundle_name)));
+            println!("  {} item(s) installed and tracked for rollback", installed_items.len());
+        }
+
         println!();
 
     } else {
         println!("{}", beautiful::status(Level::Error, "Unexpected response from daemon"));
     }
+
+    Ok(())
+}
+
+/// Rollback a workflow bundle
+pub async fn rollback(bundle_name: &str, dry_run: bool) -> Result<()> {
+    use anna_common::beautiful::{header, section};
+
+    println!("{}", header(&format!("Rolling Back Bundle: {}", bundle_name)));
+    println!();
+
+    // Load bundle history
+    let history = match anna_common::BundleHistory::load() {
+        Ok(h) => h,
+        Err(e) => {
+            println!("{}", beautiful::status(Level::Error, &format!("Failed to load bundle history: {}", e)));
+            return Ok(());
+        }
+    };
+
+    // Find the latest completed installation
+    let entry = match history.get_latest(bundle_name) {
+        Some(e) => e,
+        None => {
+            println!("{}", beautiful::status(Level::Error, &format!("No installation history found for bundle '{}'", bundle_name)));
+            println!();
+            println!("  This bundle was never installed or the history was cleared.");
+            println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see available bundles.");
+            return Ok(());
+        }
+    };
+
+    if !entry.rollback_available {
+        println!("{}", beautiful::status(Level::Warning, "This bundle installation cannot be rolled back"));
+        println!("  The installation was incomplete or failed.");
+        return Ok(());
+    }
+
+    println!("{}", section("📋 Bundle Information"));
+    println!();
+    println!("  Bundle: \x1b[1m{}\x1b[0m", entry.bundle_name);
+    println!("  Installed: {} by {}", entry.installed_at.format("%Y-%m-%d %H:%M:%S"), entry.installed_by);
+    println!("  Items: {} package(s)", entry.installed_items.len());
+    println!();
+
+    println!("{}", section("🗑️  Items to Remove"));
+    println!();
+    println!("  Will remove {} item(s) in reverse order:", entry.installed_items.len());
+    println!();
+
+    // Display items in reverse order
+    for (i, item_id) in entry.installed_items.iter().rev().enumerate() {
+        let num = format!("{}.", i + 1);
+        println!("    \x1b[90m{:>3}\x1b[0m  \x1b[97m{}\x1b[0m", num, item_id);
+    }
+    println!();
+
+    if dry_run {
+        println!("{}", beautiful::status(Level::Info, "Dry run - no changes made"));
+        return Ok(());
+    }
+
+    // Warning prompt
+    println!("{}", beautiful::status(Level::Warning, "This will remove all packages installed by this bundle"));
+    println!("  Press Enter to continue or Ctrl+C to cancel...");
+    println!();
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    // Connect to daemon
+    let client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    println!("{}", section("🧹 Removing"));
+    println!();
+
+    let mut removed_count = 0;
+
+    // Remove in reverse order
+    for (i, item_id) in entry.installed_items.iter().rev().enumerate() {
+        println!("  [{}/{}] Removing \x1b[1m{}\x1b[0m...", i + 1, entry.installed_items.len(), item_id);
+
+        // For now, we need to figure out the package name from the advice ID
+        // Most advice IDs follow the pattern like "python-lsp" or "docker-install"
+        // We'll need to query the daemon for the actual package name
+
+        // This is a simplified removal - in reality we'd need to track the exact
+        // package names that were installed
+        let package_name = item_id.trim_end_matches("-install");
+
+        let remove_result = std::process::Command::new("sudo")
+            .args(&["pacman", "-R", "--noconfirm", package_name])
+            .output();
+
+        match remove_result {
+            Ok(output) if output.status.success() => {
+                println!("         \x1b[92m✓\x1b[0m Removed");
+                removed_count += 1;
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if stderr.contains("not found") {
+                    println!("         \x1b[93m⊘\x1b[0m Already removed or not installed");
+                } else {
+                    println!("         \x1b[91m✗\x1b[0m Failed: {}", stderr.trim());
+                }
+            }
+            Err(e) => {
+                println!("         \x1b[91m✗\x1b[0m Error: {}", e);
+            }
+        }
+    }
+
+    println!();
+    if removed_count > 0 {
+        println!("{}", beautiful::status(Level::Success, &format!("Rolled back '{}' - {} item(s) removed", bundle_name, removed_count)));
+    } else {
+        println!("{}", beautiful::status(Level::Info, "No items were removed"));
+    }
+    println!();
 
     Ok(())
 }

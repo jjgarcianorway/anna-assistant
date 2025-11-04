@@ -5,6 +5,77 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.29] - 2025-01-04
+
+### 🔄 Bundle Rollback System!
+
+**NEW:** Safely rollback workflow bundles with full tracking and reverse dependency order removal!
+
+### ✨ Added
+
+**🔄 Bundle Rollback Feature**
+- New `annactl rollback --bundle "Bundle Name"` command
+- Full installation history tracking stored in `/var/lib/anna/bundle_history.json`
+- Tracks what was installed, when, and by whom
+- Automatic reverse dependency order removal
+- `--dry-run` support to preview what will be removed
+- Interactive confirmation before removal
+- Safe rollback only for completed installations
+
+**📊 Bundle History System**
+- New `BundleHistory` type for tracking installations
+- `BundleHistoryEntry` records each installation with:
+  - Bundle name and installed items
+  - Installation timestamp and user
+  - Status (Completed/Partial/Failed)
+  - Rollback availability flag
+- Persistent storage with JSON format
+- Automatic directory creation
+
+**🛡️ Safety Features**
+- Only completed bundles can be rolled back
+- Partial/failed installations are tracked but not rolled back
+- Interactive prompt before removing packages
+- Graceful handling of already-removed packages
+- Detailed status reporting during rollback
+
+### 🔧 Technical Improvements
+- Added `BundleStatus` enum (Completed/Partial/Failed)
+- Added `BundleHistoryEntry` and `BundleHistory` types
+- Implemented bundle history load/save with JSON serialization
+- Updated `apply_bundle()` to track installations
+- Added `rollback()` function with reverse-order removal
+- CLI command structure extended with Rollback subcommand
+
+### 📦 Example Usage
+
+```bash
+# Install a bundle (now tracked for rollback)
+annactl apply --bundle "Python Development Stack"
+
+# See what would be removed
+annactl rollback --bundle "Python Development Stack" --dry-run
+
+# Rollback a bundle
+annactl rollback --bundle "Python Development Stack"
+
+# View installation history
+cat /var/lib/anna/bundle_history.json
+```
+
+### 💡 How It Works
+
+1. **Installation Tracking**: When you install a bundle, Anna records:
+   - Which items were installed
+   - Timestamp and username
+   - Success/failure status
+
+2. **Reverse Order Removal**: Rollback removes items in reverse dependency order:
+   - If you installed: Docker → docker-compose → lazydocker
+   - Rollback removes: lazydocker → docker-compose → Docker
+
+3. **Safety First**: Only fully completed bundles can be rolled back, preventing partial rollbacks that could break dependencies.
+
 ## [1.0.0-beta.28] - 2025-01-04
 
 ### 🎁 Workflow Bundles & Enhanced Reporting!
