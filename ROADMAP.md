@@ -10,27 +10,45 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-alpha.3)
+## Current Status (v1.0.0-beta.17)
 
 ### ✅ Complete
 - [x] Core data models and types
-- [x] Basic system telemetry (hardware, packages)
+- [x] Comprehensive system telemetry (hardware, packages, filesystems, services)
 - [x] Unix socket IPC (daemon ↔ client communication)
 - [x] Beautiful CLI with pastel colors
-- [x] 5 basic recommendation rules
+- [x] **130+ intelligent recommendation rules** covering:
+  - Security (CPU microcode, SSH hardening, firewall, VPN, antivirus)
+  - 8 Desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
+  - Performance (SSD, swap compression, firmware updates, parallel downloads)
+  - Development (Docker, virtualization, LSP servers, shell tools)
+  - Hardware (Bluetooth, WiFi, printers, webcam, gamepads)
+  - Multimedia (video/audio players, screen recording, codecs)
+  - Gaming (Proton-GE, MangoHud, Wine)
+  - Privacy (password managers, VPN, browser hardening)
+  - Backup & snapshots (Timeshift, Snapper, rsync, borg)
+  - System maintenance (orphans, systemd health, bootloader)
 - [x] Action executor with dry-run support
+- [x] Batch apply (by number, range, or ID)
 - [x] Audit logging to JSONL
+- [x] Automatic system monitoring and refresh
+- [x] Smart notifications (GUI via notify-send, terminal via wall)
+- [x] Filesystem watcher (detects package changes, reboots, config edits)
 - [x] Install script with version embedding
 - [x] GitHub Actions release pipeline
+- [x] Plain English system reports
+- [x] Arch Wiki citations for all recommendations
+- [x] Multi-user support with personalized advice
+- [x] Priority-based recommendation system
+- [x] Risk level categorization
 
 ### 🚧 In Progress
-- [ ] **Enhanced Telemetry** - Behavioral analysis
-- [ ] **Intelligent Recommender** - Priority-based suggestions
-- [ ] **Comprehensive Rules** - 20+ recommendation types
+- [ ] **Policy-based auto-apply** - Autonomous execution of low-risk fixes
+- [ ] **Arch Wiki caching** - Offline documentation access
 
 ---
 
-## Phase 1: Intelligent Telemetry (CURRENT)
+## Phase 1: Intelligent Telemetry ✅ COMPLETED
 
 ### Goal
 Make Anna understand your system deeply by analyzing:
@@ -77,7 +95,7 @@ Make Anna understand your system deeply by analyzing:
 
 ---
 
-## Phase 2: Priority-Based Recommendations
+## Phase 2: Priority-Based Recommendations ✅ COMPLETED
 
 ### Recommendation Categories & Priorities
 
@@ -132,7 +150,7 @@ Examples:
 
 ---
 
-## Phase 3: Smart Recommendation Engine
+## Phase 3: Smart Recommendation Engine ✅ COMPLETED
 
 ### Rule Structure
 
@@ -189,18 +207,18 @@ Recommendations:
 
 ---
 
-## Phase 4: Arch Wiki Integration
+## Phase 4: Arch Wiki Integration 🚧 IN PROGRESS
 
-### Local Wiki Cache
-- Download wiki pages for installed packages
-- Cache recommendations with wiki citations
-- Update weekly via cron/systemd timer
+### Local Wiki Cache (Planned)
+- [ ] Download wiki pages for installed packages
+- [ ] Cache recommendations with wiki citations
+- [ ] Update weekly via cron/systemd timer
 
-### Wiki-Grounded Advice
+### Wiki-Grounded Advice ✅ COMPLETED
 Every recommendation includes:
-- Direct link to relevant wiki page
-- Citation of specific wiki section
-- Command examples from wiki
+- [x] Direct link to relevant wiki page
+- [x] Citation of specific wiki section (in explanations)
+- [x] Command examples from wiki
 
 Example:
 ```
@@ -213,45 +231,51 @@ Command: pacman -S amd-ucode
 
 ---
 
-## Phase 5: Advanced Features
+## Phase 5: Advanced Features 🚧 IN PROGRESS
 
-### Autonomous Tiers
-- **Tier 0** (default): Advise only
-- **Tier 1**: Auto-apply Low risk + Mandatory priority
-- **Tier 2**: Auto-apply Low/Medium risk
-- **Tier 3**: Fully autonomous (with safeguards)
+### Autonomous Tiers (Planned)
+- [x] **Tier 0** (default): Advise only - IMPLEMENTED
+- [ ] **Tier 1**: Auto-apply Low risk + Mandatory priority
+- [ ] **Tier 2**: Auto-apply Low/Medium risk
+- [ ] **Tier 3**: Fully autonomous (with safeguards)
 
-### Rollback System
-- Snapshot before risky operations
-- Rollback tokens for reversible actions
-- Audit log of all changes
+### Rollback System (Planned)
+- [ ] Snapshot before risky operations
+- [ ] Rollback tokens for reversible actions
+- [x] Audit log of all changes - IMPLEMENTED
 
-### Periodic Monitoring
-- Refresh telemetry every 6 hours
-- New recommendations based on behavior changes
-- Alert on new security issues
+### Periodic Monitoring ✅ COMPLETED
+- [x] Refresh telemetry automatically via filesystem watcher
+- [x] New recommendations based on system changes
+- [x] Alert on new critical issues via notifications
 
 ---
 
 ## Implementation Order
 
-### Next Steps (Immediate)
+### Completed ✅
 1. ✅ Fix compilation errors (add new fields to SystemFacts)
 2. ✅ Implement enhanced telemetry functions
 3. ✅ Update recommender with priority system
-4. ✅ Add 20+ intelligent rules
+4. ✅ Add 130+ intelligent rules (far exceeded 20+ goal!)
+5. ✅ Systemd service file
+6. ✅ Periodic telemetry refresh (via filesystem watcher)
+7. ✅ Command history analysis
+8. ✅ Development tool detection
+9. ✅ Package recommendation based on usage
+10. ✅ Beautification suggestions
+11. ✅ Desktop environment detection (8 DEs supported)
+12. ✅ Gaming optimizations
+13. ✅ Privacy & security tools
+14. ✅ Backup & snapshot integration
+15. ✅ Multi-user support with personalized recommendations
 
-### Short Term (This Week)
-5. Systemd service file
-6. Periodic telemetry refresh
-7. Command history analysis
-8. Development tool detection
-
-### Medium Term
-9. Wiki caching system
-10. More sophisticated behavior analysis
-11. Package recommendation based on usage
-12. Beautification suggestions
+### Next Steps (Short Term)
+16. [ ] Wiki caching system (offline documentation)
+17. [ ] Policy-based auto-apply (Tier 1-3 autonomy)
+18. [ ] Rollback system with snapshots
+19. [ ] More sophisticated behavior analysis
+20. [ ] Performance benchmarking and optimization
 
 ---
 
