@@ -1,14 +1,20 @@
 //! Action Executor - Safely executes system commands with rollback support
 
-use anna_common::{Action, Advice, AuditEntry, RollbackToken};
+use anna_common::{Action, Advice, AuditEntry, Config, RollbackToken};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use std::process::Stdio;
 use tokio::process::Command;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
-/// Execute an action based on advice
-pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
+use crate::snapshotter::{Snapshotter, Snapshot};
+
+/// Execute an action based on advice with snapshot support
+pub async fn execute_action_with_snapshot(
+    advice: &Advice,
+    dry_run: bool,
+    config: Option<&Config>,
+) -> Result<(Action, Option<Snapshot>)> {
     let action_id = format!("action_{}", uuid::Uuid::new_v4());
 
     info!("Executing action: {} (dry_run={})", advice.id, dry_run);
@@ -21,7 +27,7 @@ pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
     };
 
     if dry_run {
-        return Ok(Action {
+        let action = Action {
             id: action_id,
             advice_id: advice.id.clone(),
             command: command.clone(),
@@ -29,16 +35,35 @@ pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
             success: true,
             output: format!("[DRY RUN] Would execute: {}", command),
             error: None,
-        });
+        };
+        return Ok((action, None));
+    }
+
+    // Create snapshot if configured and risk level requires it
+    let mut snapshot = None;
+    if let Some(cfg) = config {
+        let snapshotter = Snapshotter::new(cfg.clone());
+        if snapshotter.should_snapshot_for_risk(advice.risk) {
+            info!("Creating snapshot before executing {} (risk: {:?})", advice.id, advice.risk);
+            match snapshotter.create_snapshot(&format!("Before: {}", advice.title)).await {
+                Ok(snap) => {
+                    info!("Snapshot created: {}", snap.id);
+                    snapshot = Some(snap);
+                }
+                Err(e) => {
+                    warn!("Failed to create snapshot: {}. Proceeding anyway.", e);
+                }
+            }
+        }
     }
 
     // Execute the command
     let result = execute_command(command).await;
 
-    match result {
+    let action = match result {
         Ok(output) => {
             info!("Action {} completed successfully", action_id);
-            Ok(Action {
+            Action {
                 id: action_id,
                 advice_id: advice.id.clone(),
                 command: command.clone(),
@@ -46,11 +71,11 @@ pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
                 success: true,
                 output,
                 error: None,
-            })
+            }
         }
         Err(e) => {
             error!("Action {} failed: {}", action_id, e);
-            Ok(Action {
+            Action {
                 id: action_id,
                 advice_id: advice.id.clone(),
                 command: command.clone(),
@@ -58,9 +83,17 @@ pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
                 success: false,
                 output: String::new(),
                 error: Some(e.to_string()),
-            })
+            }
         }
-    }
+    };
+
+    Ok((action, snapshot))
+}
+
+/// Execute an action based on advice (backward compatibility)
+pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
+    let (action, _snapshot) = execute_action_with_snapshot(advice, dry_run, None).await?;
+    Ok(action)
 }
 
 /// Execute a shell command safely
@@ -93,16 +126,19 @@ async fn execute_command(command: &str) -> Result<String> {
     }
 }
 
-/// Create a rollback token for an action
-#[allow(dead_code)]
-pub fn create_rollback_token(action: &Action, rollback_cmd: Option<String>) -> RollbackToken {
+/// Create a rollback token for an action with snapshot info
+pub fn create_rollback_token(
+    action: &Action,
+    rollback_cmd: Option<String>,
+    snapshot: Option<&Snapshot>,
+) -> RollbackToken {
     RollbackToken {
         action_id: action.id.clone(),
         advice_id: action.advice_id.clone(),
         executed_at: action.executed_at,
         command: action.command.clone(),
         rollback_command: rollback_cmd,
-        snapshot_before: None, // TODO: Add filesystem snapshots
+        snapshot_before: snapshot.map(|s| s.id.clone()),
     }
 }
 

@@ -1115,3 +1115,61 @@ Anna is now **intelligent, personalized, and production-ready** for testing!
 
 This lays the foundation for the TUI dashboard and autonomous operation!
 
+
+## [1.0.0-beta.22] - 2025-01-XX
+
+### 📸 Snapshot & Rollback System - Safe Execution! 📸
+
+**MAJOR NEW FEATURE!** Implemented comprehensive snapshot management for safe action execution with rollback capability!
+
+### ✨ Added
+
+**Snapshot Manager Module**
+- Created `snapshotter.rs` with multi-backend support
+- Three snapshot methods supported:
+  - **Btrfs**: Native subvolume snapshots (read-only, instant)
+  - **Timeshift**: Integration with popular backup tool
+  - **Rsync**: Incremental backups of critical directories
+- Automatic snapshot creation before risky operations
+- Configurable risk-level triggers (Medium/High by default)
+- Snapshot retention policies with automatic cleanup
+- Snapshot metadata tracking (ID, timestamp, description, size)
+
+**Enhanced Executor**
+- `execute_action_with_snapshot()`: New function with snapshot support
+- Automatic snapshot creation based on risk level
+- Rollback token generation with snapshot IDs
+- Graceful degradation if snapshot fails (warns but proceeds)
+- Backward compatibility maintained for existing code
+
+**Snapshot Features**
+- List all snapshots with metadata
+- Automatic cleanup of old snapshots (configurable max count)
+- Size tracking for disk space management
+- Timestamp-based naming scheme
+- Support for custom descriptions
+
+**Safety Features**
+- Snapshots created BEFORE executing risky commands
+- Risk-based triggers (Low/Medium/High)
+- Category-based blocking (bootloader, kernel blocked by default)
+- Read-only Btrfs snapshots prevent accidental modification
+- Metadata preservation for audit trails
+
+### 🔧 Configuration Integration
+- Snapshot settings in config.toml:
+  - `snapshots.enabled` - Enable/disable snapshots
+  - `snapshots.method` - Choose backend (btrfs/timeshift/rsync)
+  - `snapshots.max_snapshots` - Retention count
+  - `snapshots.snapshot_risk_levels` - Which risks trigger snapshots
+  - `snapshots.auto_snapshot_on_risk` - Auto-snapshot toggle
+
+### 📚 Technical Details
+- Async snapshot creation with tokio
+- Proper error handling and logging
+- Filesystem type detection for Btrfs
+- Directory size calculation with `du`
+- Graceful handling of missing tools (timeshift, etc.)
+
+This provides the foundation for safe autonomous operation and rollback capability!
+

@@ -85,6 +85,7 @@ mod executor;
 mod audit;
 mod watcher;
 mod notifier;
+mod snapshotter;
 
 use anyhow::Result;
 use rpc_server::DaemonState;
