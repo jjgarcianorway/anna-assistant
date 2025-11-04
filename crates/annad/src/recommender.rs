@@ -17,6 +17,8 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_trim_timer(facts));
     advice.extend(check_pacman_config());
     advice.extend(check_systemd_health());
+    advice.extend(check_network_manager(facts));
+    advice.extend(check_firewall());
 
     advice
 }
@@ -401,6 +403,121 @@ fn check_systemd_health() -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Analyzing_the_system_state".to_string()],
             });
+        }
+    }
+
+    result
+}
+/// Rule 9: Check for NetworkManager
+fn check_network_manager(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if system has wifi
+    let has_wifi = facts.network_interfaces.iter().any(|iface| iface.starts_with("wl"));
+
+    if has_wifi {
+        // Check if NetworkManager is installed
+        let has_nm = Command::new("pacman")
+            .args(&["-Q", "networkmanager"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_nm {
+            result.push(Advice {
+                id: "networkmanager".to_string(),
+                title: "Install NetworkManager for easier WiFi".to_string(),
+                reason: "You have a wireless card, but NetworkManager isn't installed. NetworkManager makes it super easy to connect to WiFi networks, switch between them, and manage VPNs. It's especially helpful if you use a laptop or move between different networks.".to_string(),
+                action: "Install NetworkManager to simplify network management".to_string(),
+                command: Some("pacman -S --noconfirm networkmanager && systemctl enable --now NetworkManager".to_string()),
+                risk: RiskLevel::Medium,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
+            });
+        } else {
+            // Check if it's enabled
+            let is_enabled = Command::new("systemctl")
+                .args(&["is-enabled", "NetworkManager"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !is_enabled {
+                result.push(Advice {
+                    id: "networkmanager-enable".to_string(),
+                    title: "Enable NetworkManager".to_string(),
+                    reason: "You have NetworkManager installed, but it's not running yet. Without it running, you can't use its nice WiFi management features.".to_string(),
+                    action: "Start NetworkManager so you can manage your WiFi connections".to_string(),
+                    command: Some("systemctl enable --now NetworkManager".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "maintenance".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
+                });
+            }
+        }
+    }
+
+    result
+}
+
+/// Rule 10: Check for firewall
+fn check_firewall() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if ufw is installed
+    let has_ufw = Command::new("pacman")
+        .args(&["-Q", "ufw"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_ufw {
+        // Check if ufw is enabled
+        let ufw_status = Command::new("ufw")
+            .arg("status")
+            .output();
+
+        if let Ok(output) = ufw_status {
+            let status = String::from_utf8_lossy(&output.stdout);
+            if status.contains("Status: inactive") {
+                result.push(Advice {
+                    id: "ufw-enable".to_string(),
+                    title: "Turn on your firewall".to_string(),
+                    reason: "You have UFW (Uncomplicated Firewall) installed, but it's not turned on. A firewall acts like a security guard for your computer, blocking unwanted network connections while allowing the ones you trust.".to_string(),
+                    action: "Enable UFW to protect your system from network threats".to_string(),
+                    command: Some("ufw enable".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Mandatory,
+                    category: "security".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Uncomplicated_Firewall".to_string()],
+                });
+            }
+        }
+    } else {
+        // Check if iptables is being actively used
+        let iptables_rules = Command::new("iptables")
+            .args(&["-L", "-n"])
+            .output();
+
+        if let Ok(output) = iptables_rules {
+            let rules = String::from_utf8_lossy(&output.stdout);
+            // If only default policies exist, no firewall is configured
+            let lines: Vec<&str> = rules.lines().collect();
+            if lines.len() < 10 {  // Very few rules = probably no firewall
+                result.push(Advice {
+                    id: "firewall-missing".to_string(),
+                    title: "Set up a firewall for security".to_string(),
+                    reason: "Your system doesn't have a firewall configured yet. A firewall protects you by controlling which network connections are allowed in and out of your computer. It's especially important if you connect to public WiFi or run any services.".to_string(),
+                    action: "Install and configure UFW (Uncomplicated Firewall)".to_string(),
+                    command: Some("pacman -S --noconfirm ufw && ufw default deny && ufw enable".to_string()),
+                    risk: RiskLevel::Medium,
+                    priority: Priority::Mandatory,
+                    category: "security".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Uncomplicated_Firewall".to_string()],
+                });
+            }
         }
     }
 
