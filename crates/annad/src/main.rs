@@ -4,9 +4,12 @@
 
 mod telemetry;
 mod recommender;
+mod rpc_server;
 
 use anyhow::Result;
+use rpc_server::DaemonState;
 use std::env;
+use std::sync::Arc;
 use tracing::{info, Level};
 use tracing_subscriber;
 
@@ -37,11 +40,26 @@ async fn main() -> Result<()> {
     let advice = recommender::generate_advice(&facts);
     info!("Generated {} recommendations", advice.len());
 
+    // Initialize daemon state
+    let state = Arc::new(DaemonState::new(
+        format!("v{}", VERSION),
+        facts,
+        advice,
+    ));
+
     info!("Anna Daemon ready");
 
-    // Keep running (will add RPC server later)
-    tokio::signal::ctrl_c().await?;
-    info!("Shutting down gracefully");
+    // Start RPC server
+    tokio::select! {
+        result = rpc_server::start_server(state) => {
+            if let Err(e) = result {
+                tracing::error!("RPC server error: {}", e);
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
+            info!("Shutting down gracefully");
+        }
+    }
 
     Ok(())
 }

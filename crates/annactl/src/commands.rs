@@ -1,38 +1,189 @@
 //! CLI command implementations
 
-use anna_common::{header, section, kv, boxed, Level, beautiful};
+use anna_common::ipc::{Method, ResponseData};
+use anna_common::{beautiful, boxed, header, kv, section, Level};
 use anyhow::Result;
+
+use crate::rpc_client::RpcClient;
 
 pub async fn status() -> Result<()> {
     println!("{}", header("Anna Status"));
     println!();
-    println!("{}", section("System"));
-    println!("  {}", kv("Hostname", "localhost"));
-    println!("  {}", kv("Kernel", "6.6.0-arch1-1"));
-    println!();
-    println!("{}", section("Daemon"));
-    println!("  {}", beautiful::status(Level::Success, "Running"));
-    println!("  {}", kv("Version", env!("ANNA_VERSION")));
-    println!();
-    println!("{}", beautiful::status(Level::Info, "All systems operational"));
+
+    // Try to connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!(
+                "{}",
+                beautiful::status(Level::Error, "Daemon not running")
+            );
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    // Get status from daemon
+    let status_data = client.call(Method::Status).await?;
+
+    if let ResponseData::Status(status) = status_data {
+        println!("{}", section("System"));
+
+        // Get system facts for display
+        let facts_data = client.call(Method::GetFacts).await?;
+        if let ResponseData::Facts(facts) = facts_data {
+            println!("  {}", kv("Hostname", &facts.hostname));
+            println!("  {}", kv("Kernel", &facts.kernel));
+        }
+
+        println!();
+        println!("{}", section("Daemon"));
+        println!("  {}", beautiful::status(Level::Success, "Running"));
+        println!("  {}", kv("Version", &status.version));
+        println!("  {}", kv("Uptime", &format!("{}s", status.uptime_seconds)));
+        println!();
+
+        if status.pending_recommendations > 0 {
+            println!(
+                "{}",
+                beautiful::status(
+                    Level::Info,
+                    &format!("{} recommendations pending", status.pending_recommendations)
+                )
+            );
+        } else {
+            println!(
+                "{}",
+                beautiful::status(Level::Info, "All systems operational")
+            );
+        }
+    }
 
     Ok(())
 }
 
-pub async fn advise(_risk: Option<String>) -> Result<()> {
+pub async fn advise(risk_filter: Option<String>) -> Result<()> {
     println!("{}", header("System Recommendations"));
     println!();
-    println!("{}", beautiful::status(Level::Info, "Analyzing system..."));
+
+    // Connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!(
+                "{}",
+                beautiful::status(Level::Error, "Daemon not running")
+            );
+            println!();
+            println!(
+                "{}",
+                beautiful::status(Level::Info, "Start with: sudo systemctl start annad")
+            );
+            return Ok(());
+        }
+    };
+
+    println!(
+        "{}",
+        beautiful::status(Level::Info, "Analyzing system...")
+    );
     println!();
-    println!("{}", section("Critical"));
-    println!("  {} Install AMD microcode", beautiful::status(Level::Warning, "→"));
-    println!("    Risk: Low | Wiki: https://wiki.archlinux.org/title/Microcode");
-    println!();
-    println!("{}", section("Maintenance"));
-    println!("  {} 5 orphaned packages found", beautiful::status(Level::Info, "→"));
-    println!("    Risk: Medium | Can free ~100MB");
-    println!();
-    println!("{}", beautiful::status(Level::Success, "2 recommendations generated"));
+
+    // Get advice from daemon
+    let advice_data = client.call(Method::GetAdvice).await?;
+
+    if let ResponseData::Advice(mut advice_list) = advice_data {
+        // Filter by risk level if specified
+        if let Some(ref risk) = risk_filter {
+            advice_list.retain(|a| {
+                format!("{:?}", a.risk).to_lowercase() == risk.to_lowercase()
+            });
+        }
+
+        if advice_list.is_empty() {
+            println!(
+                "{}",
+                beautiful::status(Level::Success, "No recommendations at this time")
+            );
+            return Ok(());
+        }
+
+        // Group by risk level
+        let mut critical = Vec::new();
+        let mut warnings = Vec::new();
+        let mut info = Vec::new();
+
+        for advice in &advice_list {
+            match advice.risk {
+                anna_common::RiskLevel::High => critical.push(advice),
+                anna_common::RiskLevel::Medium => warnings.push(advice),
+                anna_common::RiskLevel::Low => info.push(advice),
+            }
+        }
+
+        // Display critical items
+        if !critical.is_empty() {
+            println!("{}", section("Critical"));
+            for advice in critical {
+                println!(
+                    "  {} {}",
+                    beautiful::status(Level::Error, "⚠"),
+                    advice.title
+                );
+                println!("    {}", advice.reason);
+                if let Some(ref cmd) = advice.command {
+                    println!("    Command: {}", cmd);
+                }
+                for wiki in &advice.wiki_refs {
+                    println!("    Wiki: {}", wiki);
+                }
+            }
+            println!();
+        }
+
+        // Display warnings
+        if !warnings.is_empty() {
+            println!("{}", section("Maintenance"));
+            for advice in warnings {
+                println!(
+                    "  {} {}",
+                    beautiful::status(Level::Warning, "→"),
+                    advice.title
+                );
+                println!("    {}", advice.reason);
+                if let Some(ref cmd) = advice.command {
+                    println!("    Command: {}", cmd);
+                }
+            }
+            println!();
+        }
+
+        // Display info
+        if !info.is_empty() {
+            println!("{}", section("Suggestions"));
+            for advice in info {
+                println!(
+                    "  {} {}",
+                    beautiful::status(Level::Info, "→"),
+                    advice.title
+                );
+                println!("    {}", advice.reason);
+                if let Some(ref cmd) = advice.command {
+                    println!("    Command: {}", cmd);
+                }
+            }
+            println!();
+        }
+
+        println!(
+            "{}",
+            beautiful::status(
+                Level::Success,
+                &format!("{} recommendations generated", advice_list.len())
+            )
+        );
+    }
 
     Ok(())
 }

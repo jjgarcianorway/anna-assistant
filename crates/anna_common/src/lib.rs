@@ -5,6 +5,8 @@
 
 pub mod types;
 pub mod beautiful;
+pub mod ipc;
 
 pub use types::*;
 pub use beautiful::*;
+pub use ipc::*;

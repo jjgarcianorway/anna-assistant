@@ -3,6 +3,7 @@
 //! Provides user interface to interact with the Anna daemon.
 
 mod commands;
+mod rpc_client;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
