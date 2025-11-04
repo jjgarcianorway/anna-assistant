@@ -183,6 +183,31 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             }
         }
 
+        Method::Refresh => {
+            info!("Manual refresh requested");
+            // Re-collect facts and regenerate advice
+            match crate::telemetry::collect_facts().await {
+                Ok(facts) => {
+                    let mut advice = crate::recommender::generate_advice(&facts);
+                    advice.extend(crate::intelligent_recommender::generate_intelligent_advice(&facts));
+
+                    // Update state
+                    *state.facts.write().await = facts;
+                    *state.advice.write().await = advice.clone();
+
+                    info!("Advice manually refreshed: {} recommendations", advice.len());
+                    Ok(ResponseData::ActionResult {
+                        success: true,
+                        message: format!("System scanned! Found {} recommendations", advice.len()),
+                    })
+                }
+                Err(e) => {
+                    tracing::error!("Failed to refresh advice: {}", e);
+                    Err(format!("Failed to refresh: {}", e))
+                }
+            }
+        }
+
         Method::GetConfig => {
             let config = state.config.read().await.clone();
             Ok(ResponseData::Config(config))

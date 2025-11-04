@@ -378,3 +378,41 @@ pub async fn config(_set: Option<String>) -> Result<()> {
 
     Ok(())
 }
+
+/// Refresh system scan and regenerate advice
+pub async fn refresh() -> Result<()> {
+    println!("{}", header("Refreshing System Scan"));
+    println!();
+
+    // Connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!(
+                "{}",
+                beautiful::status(Level::Error, "Daemon not running")
+            );
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    println!("{}", beautiful::status(Level::Info, "Scanning system..."));
+
+    // Call refresh method
+    let response = client.call(Method::Refresh).await?;
+
+    if let ResponseData::ActionResult { success, message } = response {
+        if success {
+            println!();
+            println!("{}", beautiful::status(Level::Success, &message));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Run 'annactl advise' to see updated recommendations"));
+        } else {
+            println!("{}", beautiful::status(Level::Error, &message));
+        }
+    }
+
+    Ok(())
+}

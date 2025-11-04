@@ -53,6 +53,9 @@ enum Commands {
     /// Run system diagnostics
     Doctor,
 
+    /// Refresh system scan and regenerate advice
+    Refresh,
+
     /// Configure Anna settings
     Config {
         /// Set a configuration value (key=value)
@@ -71,6 +74,7 @@ async fn main() -> Result<()> {
         Commands::Apply { id, auto, dry_run } => commands::apply(id, auto, dry_run).await,
         Commands::Report => commands::report().await,
         Commands::Doctor => commands::doctor().await,
+        Commands::Refresh => commands::refresh().await,
         Commands::Config { set } => commands::config(set).await,
     }
 }

@@ -47,3 +47,6 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 # Terminal formatting
 owo-colors = "4.0"
 console = "0.15"
+
+# File system watching
+notify = "6.1"

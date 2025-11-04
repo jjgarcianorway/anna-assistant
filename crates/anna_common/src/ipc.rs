@@ -41,6 +41,9 @@ pub enum Method {
     /// Set configuration value
     SetConfig { key: String, value: String },
 
+    /// Refresh system facts and advice
+    Refresh,
+
     /// Ping daemon (health check)
     Ping,
 }
