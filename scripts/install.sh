@@ -32,8 +32,8 @@ LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/git/refs/tags
 [[ -n "$LATEST_TAG" ]] || error "No tags found"
 
 info "Checking if $LATEST_TAG has assets..."
-HAS_ASSETS=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$LATEST_TAG" 2>/dev/null | \
-             jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
+RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$LATEST_TAG" 2>/dev/null || echo "{}")
+HAS_ASSETS=$(echo "$RELEASE_JSON" | jq -r '.assets[]? | select(.name=="anna-linux-x86_64.tar.gz") | .name' 2>/dev/null || echo "")
 
 if [[ -z "$HAS_ASSETS" ]]; then
     echo ""
