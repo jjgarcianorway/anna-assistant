@@ -197,7 +197,7 @@ annactl advise --mode=recommended --category=security --limit=5
 
 ## 📊 Current Status
 
-**Version**: v1.0.0-beta.25
+**Version**: v1.0.0-beta.26
 **Status**: Beta - Feature-rich and stable!
 
 ### What's Working

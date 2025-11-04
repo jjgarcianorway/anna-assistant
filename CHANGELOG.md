@@ -5,6 +5,39 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.26] - 2025-01-04
+
+### 🎨 Software Alternatives - Choose What You Love!
+
+**THE FEATURE YOU ASKED FOR:** Instead of "install X", Anna now offers 2-3 alternatives for most tools!
+
+### ✨ Added
+
+**🔄 Software Alternatives System**
+- New `Alternative` type with name, description, and install command
+- Visual display with ★ for recommended option, ○ for alternatives
+- Wrapped descriptions for readability
+- Install commands shown for each option
+
+**🛠️ Tools with Alternatives (5 major categories)**
+- **Status bars**: Waybar, eww, yambar
+- **Application launchers**: Wofi, Rofi (Wayland), Fuzzel
+- **Notification daemons**: Mako, Dunst, SwayNC
+- **Terminal emulators**: Alacritty, Kitty, WezTerm
+- **Web browsers**: Firefox, Chromium, LibreWolf
+
+### 🎯 Why This Matters
+- User choice > forced recommendations
+- See trade-offs at a glance (performance vs features)
+- Learn about alternatives you might not know
+- Better UX: "choose what fits you" vs "install this one thing"
+
+### 🔧 Technical
+- Added `alternatives: Vec<Alternative>` field to `Advice` struct
+- Backward compatible with `#[serde(default)]`
+- Enhanced `display_advice_item_enhanced()` to show alternatives
+- All existing advice gets empty alternatives by default
+
 ## [1.0.0-beta.25] - 2025-01-04
 
 ### 🧠 MAJOR UX OVERHAUL - Smart Filtering & Intelligence!

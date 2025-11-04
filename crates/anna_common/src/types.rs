@@ -115,6 +115,14 @@ pub struct StorageDevice {
     pub mount_point: String,
 }
 
+/// Alternative software option
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Alternative {
+    pub name: String,
+    pub description: String,
+    pub install_command: String,
+}
+
 /// A single piece of advice from the recommendation engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Advice {
@@ -127,6 +135,42 @@ pub struct Advice {
     pub priority: Priority,
     pub wiki_refs: Vec<String>,
     pub category: String, // "security", "drivers", "development", "media", "beautification", etc.
+    #[serde(default)]
+    pub alternatives: Vec<Alternative>,
+}
+
+impl Advice {
+    /// Create a builder for constructing Advice with optional alternatives
+    pub fn new(
+        id: String,
+        title: String,
+        reason: String,
+        action: String,
+        command: Option<String>,
+        risk: RiskLevel,
+        priority: Priority,
+        wiki_refs: Vec<String>,
+        category: String,
+    ) -> Self {
+        Self {
+            id,
+            title,
+            reason,
+            action,
+            command,
+            risk,
+            priority,
+            wiki_refs,
+            category,
+            alternatives: Vec::new(),
+        }
+    }
+
+    /// Add alternatives to this advice
+    pub fn with_alternatives(mut self, alternatives: Vec<Alternative>) -> Self {
+        self.alternatives = alternatives;
+        self
+    }
 }
 
 /// An action to be executed

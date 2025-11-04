@@ -60,6 +60,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
             });
         }
@@ -75,6 +76,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
             });
         }
@@ -90,6 +92,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
             });
         }
@@ -111,6 +114,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust".to_string()],
             });
         }
@@ -126,6 +130,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust".to_string()],
             });
         }
@@ -145,6 +150,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js".to_string()],
             });
         }
@@ -162,6 +168,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Go".to_string()],
             });
         }
@@ -181,6 +188,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git".to_string()],
             });
         }
@@ -196,6 +204,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git".to_string()],
             });
         }
@@ -214,6 +223,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
             });
         }
@@ -228,6 +238,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
             });
         }
@@ -246,6 +257,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Neovim".to_string()],
             });
         }
@@ -274,7 +286,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Cosmetic,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
         });
     }
 
@@ -289,7 +302,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Cosmetic,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
         });
     }
 
@@ -304,7 +318,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "performance".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
         });
     }
 
@@ -319,7 +334,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "usability".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
         });
     }
 
@@ -334,7 +350,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Cosmetic,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
         });
     }
 
@@ -349,7 +366,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Cosmetic,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/System_monitor".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/System_monitor".to_string()],
         });
     }
 
@@ -364,7 +382,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "usability".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Utilities".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Utilities".to_string()],
         });
     }
 
@@ -378,7 +397,8 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "usability".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Utilities".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Utilities".to_string()],
         });
     }
 
@@ -400,7 +420,8 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "media".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Mpv".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Mpv".to_string()],
         });
     }
 
@@ -415,7 +436,8 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "media".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Music_player".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Music_player".to_string()],
         });
     }
 
@@ -430,7 +452,8 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "media".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Feh".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Feh".to_string()],
         });
     }
 
@@ -452,7 +475,8 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Cosmetic,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Prompts".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Prompts".to_string()],
         });
     }
 
@@ -468,6 +492,7 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "usability".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Autosuggestions".to_string()],
             });
         }
@@ -482,6 +507,7 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "usability".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Syntax_highlighting".to_string()],
             });
         }
@@ -523,6 +549,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "beautification".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec![],
             });
         }
@@ -541,6 +568,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "beautification".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec![],
             });
         }
@@ -566,6 +594,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Configuration".to_string()],
             });
         }
@@ -587,6 +616,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "beautification".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec![],
             });
         }
@@ -622,6 +652,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "gaming".to_string(),
+                alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad".to_string()],
             });
         }
@@ -638,7 +669,8 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "hardware".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
         });
     }
 
@@ -670,7 +702,8 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Medium,
             priority: Priority::Recommended,
             category: "hardware".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Network_configuration/Wireless".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Network_configuration/Wireless".to_string()],
         });
     }
 
@@ -685,7 +718,8 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "hardware".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks".to_string()],
         });
     }
 
@@ -700,7 +734,8 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "networking".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
         });
     }
 
@@ -718,7 +753,8 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "power".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/TLP".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/TLP".to_string()],
         });
     }
 
@@ -744,7 +780,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
         });
     }
 
@@ -759,7 +796,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Picom".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Picom".to_string()],
         });
     }
 
@@ -780,7 +818,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Alacritty".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Alacritty".to_string()],
         });
     }
 
@@ -795,7 +834,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/I3#i3blocks".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/I3#i3blocks".to_string()],
         });
     }
 
@@ -810,7 +850,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
         });
     }
 
@@ -826,7 +867,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec![format!("https://wiki.archlinux.org/title/{}", launcher.to_uppercase())],
+            alternatives: Vec::new(),
+                wiki_refs: vec![format!("https://wiki.archlinux.org/title/{}", launcher.to_uppercase())],
         });
     }
 
@@ -842,7 +884,8 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Desktop_notifications".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Desktop_notifications".to_string()],
         });
     }
 
@@ -864,7 +907,8 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Patched_packages".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Patched_packages".to_string()],
         });
     }
 
@@ -879,7 +923,8 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Emoji_and_symbols".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Emoji_and_symbols".to_string()],
         });
     }
 
@@ -894,7 +939,8 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "beautification".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Chinese,_Japanese,_Korean,_Vietnamese".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Chinese,_Japanese,_Korean,_Vietnamese".to_string()],
         });
     }
 
@@ -909,7 +955,8 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Font_configuration".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Font_configuration".to_string()],
         });
     }
 
@@ -931,7 +978,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "multimedia".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Youtube-dl".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Youtube-dl".to_string()],
         });
     }
 
@@ -946,7 +994,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "multimedia".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/FFmpeg".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/FFmpeg".to_string()],
         });
     }
 
@@ -961,7 +1010,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "multimedia".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/VLC_media_player".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/VLC_media_player".to_string()],
         });
     }
 
@@ -976,7 +1026,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "multimedia".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/ImageMagick".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/ImageMagick".to_string()],
         });
     }
 
@@ -992,7 +1043,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#Wayland".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#Wayland".to_string()],
         });
     } else if !using_wayland && !package_installed("scrot") && !package_installed("maim") {
         result.push(Advice {
@@ -1004,7 +1056,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "desktop".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#X11".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#X11".to_string()],
         });
     }
 
@@ -1019,7 +1072,8 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "multimedia".to_string(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/GStreamer".to_string()],
+            alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/GStreamer".to_string()],
         });
     }
 

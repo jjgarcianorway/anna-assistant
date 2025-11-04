@@ -131,8 +131,8 @@ pub async fn advise(
                 // Smart mode: Show high priority + limited lower priority
                 // Keep all Mandatory and Recommended
                 // Limit Optional and Cosmetic
-                let mut mandatory: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Mandatory)).cloned().collect();
-                let mut recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
+                let mandatory: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Mandatory)).cloned().collect();
+                let recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
                 let mut optional: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Optional)).cloned().collect();
                 let mut cosmetic: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Cosmetic)).cloned().collect();
 
@@ -388,6 +388,22 @@ fn display_advice_item_enhanced(number: usize, advice: &anna_common::Advice) {
         println!();
         println!("    \x1b[96m\x1b[1mAction:\x1b[0m");
         println!("    \x1b[92m❯\x1b[0m \x1b[97m{}\x1b[0m", cmd);
+    }
+
+    // Show alternatives if available
+    if !advice.alternatives.is_empty() {
+        println!();
+        println!("    \x1b[96m\x1b[1mAlternatives:\x1b[0m");
+        for (i, alt) in advice.alternatives.iter().enumerate() {
+            let marker = if i == 0 { "\x1b[92m★\x1b[0m" } else { "\x1b[90m○\x1b[0m" };
+            println!("    {} \x1b[97m{}\x1b[0m", marker, alt.name);
+            let desc_wrapped = wrap_text(&alt.description, 68, "      ");
+            println!("\x1b[90m{}\x1b[0m", desc_wrapped);
+            println!("      \x1b[90m\x1b[3m{}\x1b[0m", alt.install_command);
+            if i < advice.alternatives.len() - 1 {
+                println!();
+            }
+        }
     }
 
     // ID for applying (smaller, less prominent)
