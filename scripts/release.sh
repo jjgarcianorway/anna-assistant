@@ -105,38 +105,14 @@ else
     git push origin HEAD:main --tags || true
 fi
 
-# Wait for CI
-info "Waiting for GitHub Actions to build release assets..."
 echo ""
-
-TIMEOUT=600
-INTERVAL=10
-elapsed=0
-
-while [ $elapsed -lt $TIMEOUT ]; do
-    release_json=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$VER" 2>/dev/null || echo '{}')
-    has_tarball=$(echo "$release_json" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name' 2>/dev/null || true)
-    has_checksum=$(echo "$release_json" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz.sha256") | .name' 2>/dev/null || true)
-
-    if [[ "$has_tarball" == "anna-linux-x86_64.tar.gz" && "$has_checksum" == "anna-linux-x86_64.tar.gz.sha256" ]]; then
-        echo ""
-        success "Release assets ready!"
-        echo ""
-        echo "══════════════════════════════════════════════"
-        echo "  ✓ Release $VER Complete!"
-        echo "══════════════════════════════════════════════"
-        echo ""
-        echo "Release: https://github.com/$OWNER/$REPO/releases/tag/$VER"
-        echo "Install: sudo ./scripts/install.sh"
-        echo ""
-        exit 0
-    fi
-
-    printf "\r  Waiting for CI... %ds / %ds" $elapsed $TIMEOUT
-    sleep $INTERVAL
-    elapsed=$((elapsed + INTERVAL))
-done
-
+echo "══════════════════════════════════════════════"
+echo "  ✓ Release $VER Complete!"
+echo "══════════════════════════════════════════════"
 echo ""
+echo "GitHub Actions is building the release assets now."
+echo "Check: https://github.com/$OWNER/$REPO/actions"
 echo ""
-error "Timeout after ${TIMEOUT}s. Check: https://github.com/$OWNER/$REPO/actions"
+echo "When ready (2-3 minutes), install with:"
+echo "  sudo ./scripts/install.sh"
+echo ""
