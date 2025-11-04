@@ -37,13 +37,14 @@ print_header() {
     echo -e "${GRAY}Anna speaks plain English, explains everything she suggests,"
     echo -e "and keeps your system secure, fast, and well-maintained.${RESET}"
     echo
-    echo -e "${BOLD}${BLUE}What Anna does:${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Monitors system security (microcode, firewall, updates)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Detects hardware needs (Bluetooth, WiFi, gamepad drivers)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Suggests desktop improvements (status bars, launchers, fonts)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Recommends development tools based on your actual projects${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Finds missing configs and optimizations${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Automatically refreshes on system changes${RESET}"
+    echo -e "${BOLD}${BLUE}What Anna does (130+ detection rules):${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}System security (SSH hardening, firewall, microcode, updates)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}8 desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Hardware support (printers, webcams, gamepads, Bluetooth, WiFi)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Development tools (Docker, virtualization, LSP servers, gaming)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Laptop optimization (battery, touchpad, backlight, power management)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Privacy & security (VPN, password managers, backups, encryption)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Automatically monitors and refreshes on system changes${RESET}"
     echo
     echo -e "${CYAN}${ARROW}${RESET} ${BOLD}Starting installation...${RESET}"
     echo

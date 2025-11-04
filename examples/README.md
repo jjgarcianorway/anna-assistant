@@ -23,7 +23,7 @@ annactl status
 
 → Daemon
   ✓ Running
-  Version: v1.0.0-beta.12
+  Version: v1.0.0-beta.17
   Uptime: 3600s
 
 ℹ 5 recommendations pending

@@ -16,42 +16,64 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 
 ### 🔒 **Security & Updates**
 - Detects missing CPU microcode (Spectre/Meltdown protection)
+- Comprehensive SSH hardening (10 security rules)
 - Checks firewall status (UFW/iptables)
 - Monitors for available system updates
-- Warns about security vulnerabilities with clear explanations
+- VPN setup (WireGuard, OpenVPN)
+- Password manager recommendations (KeePassXC)
+- Rootkit detection (rkhunter)
+- Antivirus scanning (ClamAV)
+- LUKS encryption awareness
 
 ### ⚡ **Performance**
 - Suggests Btrfs compression (save 20-30% disk space!)
 - Optimizes mirror lists with Reflector
 - Enables parallel downloads in pacman (5x faster)
-- Recommends SSD TRIM for longevity
-- Power management for laptops (TLP)
+- Recommends SSD TRIM for longevity (fstrim timer, noatime, discard)
+- Power management for laptops (TLP, powertop)
+- Swap compression with zram (faster, less wear)
+- Firmware updates (fwupd)
+- DNS optimization (systemd-resolved)
+- Journal size management
 
 ### 💻 **Development**
 - Detects which languages you actually use (Python, Rust, Go, JavaScript)
 - Suggests LSP servers and tools for your workflow
 - Finds missing configurations (git, bat, starship, zoxide)
 - Build optimization (sccache for Rust)
+- Docker & Docker Compose setup
+- Virtualization (QEMU/KVM, virt-manager, libvirt)
+- Shell productivity tools (fzf, tmux, bash-completion)
+- Archive utilities (zip, rar, p7zip, unarchiver)
 
 ### 🎨 **Desktop & Terminal**
 - Modern GPU-accelerated terminals (Alacritty, Kitty, WezTerm)
-- Desktop environment-specific recommendations (i3, Sway, Hyprland)
+- **8 desktop environments** (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
 - Status bars (Waybar, i3blocks) for tiling WMs
 - Application launchers (Rofi, Wofi)
 - Notification daemons (Dunst, Mako)
 - Compositor support (Picom for X11, XWayland compatibility)
 - Screenshot tools (grim/slurp for Wayland, maim/scrot for X11)
+- Laptop-specific (touchpad, backlight, battery optimization)
+- Webcam support (v4l-utils)
+- Audio enhancements (EasyEffects, pavucontrol)
 
 ### 🎮 **Hardware & Gaming**
 - Gamepad driver detection (Xbox, PlayStation, Nintendo controllers)
 - Steam and gaming optimizations
 - Hardware accelerated video decoding
+- Proton-GE for better game compatibility
+- MangoHud performance overlay
+- Wine for Windows applications
 
 ### 🔌 **Hardware Support**
 - Bluetooth stack setup (bluez)
 - WiFi firmware detection and installation
 - USB automount (udisks2)
 - NetworkManager for easy WiFi management
+- Printer setup (CUPS)
+- Webcam support (v4l-utils)
+- Multiple monitor configuration
 
 ### 🎬 **Multimedia**
 - Video players (VLC, mpv) with codec support
@@ -59,6 +81,8 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 - YouTube downloader (yt-dlp)
 - Image manipulation (ImageMagick)
 - GStreamer plugins for media playback
+- Screen recording (OBS Studio, SimpleScreenRecorder)
+- Audio enhancements (EasyEffects, pavucontrol)
 
 ### 🔤 **Fonts & Rendering**
 - Nerd Fonts for terminal icons
@@ -70,8 +94,20 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 - Cleans up orphaned packages
 - Monitors systemd health
 - Checks GPU drivers
+- System snapshots (Timeshift, Snapper, snap-pac)
+- Backup solutions (rsync, borg, duplicity)
+- Locale and timezone configuration
+- NTP time synchronization
+- Bootloader optimization (GRUB timeout, quiet boot)
 - **Automatic refresh** on system changes (package installs, reboots, config changes)
 - **Smart notifications** (GUI via notify-send, terminal via wall)
+
+### 🔐 **Privacy & Productivity**
+- Browser recommendations (Firefox, Chromium hardening)
+- Password managers (KeePassXC, Bitwarden)
+- VPN tools (WireGuard, OpenVPN)
+- Android integration (KDE Connect, scrcpy)
+- System monitoring tools (htop, btop, iotop)
 
 ---
 
