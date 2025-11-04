@@ -5,6 +5,27 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.6] - 2025-11-04
+
+### Added
+- **Btrfs compression detection** - recommends compress=zstd for 20-30% space savings
+- **Btrfs noatime optimization** - improves I/O performance
+- **TRIM timer check** - ensures SSD health and longevity
+- **pacman.conf optimizations**:
+  - Color output for better readability
+  - ParallelDownloads for 5x+ faster package installs
+- **systemd failed units detection** - monitors system health
+
+### Why This Matters
+- Btrfs compression saves 100s of GB with minimal CPU cost
+- TRIM prevents SSD performance degradation over time
+- Parallel downloads makes system updates much faster
+- Failed systemd units indicate problems that need attention
+
+All recommendations include Arch Wiki citations and clear explanations.
+
+---
+
 ## [1.0.0-beta.5] - 2025-11-04
 
 ### Added
