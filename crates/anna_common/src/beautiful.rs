@@ -3,6 +3,25 @@
 //! Provides consistent, elegant output formatting for Anna Assistant.
 //! Uses pastel colors and Unicode box drawing.
 
+/// Strip ANSI escape codes from a string to get visible length
+fn strip_ansi(s: &str) -> String {
+    let mut result = String::new();
+    let mut in_escape = false;
+
+    for ch in s.chars() {
+        if ch == '\x1b' {
+            in_escape = true;
+        } else if in_escape {
+            if ch == 'm' {
+                in_escape = false;
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
 
 /// ANSI color codes - pastel palette
 pub struct Colors;
@@ -49,11 +68,19 @@ impl Level {
 
 /// Format a header
 pub fn header(text: &str) -> String {
+    let text_len = strip_ansi(text).len();
+    let total_width = text_len + 4; // 2 spaces padding on each side
+    let border = "─".repeat(total_width);
+    let padding = " ".repeat(total_width - text_len - 2);
+
     format!(
-        "{}{}╭─────────────────────────────────────────────╮\n│  {}  │\n╰─────────────────────────────────────────────╯{}",
+        "{}{}╭{}╮\n│  {}{}  │\n╰{}╯{}",
         Colors::BOLD,
         Colors::BLUE,
+        border,
         text,
+        padding,
+        border,
         Colors::RESET
     )
 }
@@ -94,13 +121,19 @@ pub fn kv(key: &str, value: &str) -> String {
 
 /// Format a box around text
 pub fn boxed(lines: &[&str]) -> String {
-    let max_len = lines.iter().map(|l| l.len()).max().unwrap_or(0);
+    // Calculate max visible length (without ANSI codes)
+    let max_len = lines.iter()
+        .map(|l| strip_ansi(l).len())
+        .max()
+        .unwrap_or(0);
+
     let top = format!("{}╭{}╮{}", Colors::BLUE, "─".repeat(max_len + 2), Colors::RESET);
     let bottom = format!("{}╰{}╯{}", Colors::BLUE, "─".repeat(max_len + 2), Colors::RESET);
 
     let mut result = vec![top];
     for line in lines {
-        let padding = " ".repeat(max_len - line.len());
+        let visible_len = strip_ansi(line).len();
+        let padding = " ".repeat(max_len - visible_len);
         result.push(format!("{}│{} {}{} │{}", Colors::BLUE, Colors::RESET, line, padding, Colors::RESET));
     }
     result.push(bottom);
