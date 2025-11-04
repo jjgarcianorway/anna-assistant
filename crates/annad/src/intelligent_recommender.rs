@@ -24,6 +24,18 @@ pub fn generate_intelligent_advice(facts: &SystemFacts) -> Vec<Advice> {
     // Missing configs for installed packages
     advice.extend(check_missing_configs());
 
+    // Hardware support (gamepad, bluetooth, wifi, etc.)
+    advice.extend(recommend_hardware_support(facts));
+
+    // Desktop environment and display server enhancements
+    advice.extend(recommend_desktop_enhancements(facts));
+
+    // Font and rendering improvements
+    advice.extend(recommend_fonts(facts));
+
+    // Multimedia tools (video players, downloaders, etc.)
+    advice.extend(recommend_multimedia_tools(facts));
+
     advice
 }
 
@@ -578,6 +590,437 @@ fn check_missing_configs() -> Vec<Advice> {
                 wiki_refs: vec![],
             });
         }
+    }
+
+    result
+}
+
+/// Recommend hardware support packages
+fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Gamepad support
+    if !package_installed("xboxdrv") && !package_installed("xpadneo-dkms") {
+        // Check if USB game controllers are present
+        let has_gamepad = Command::new("lsusb")
+            .output()
+            .map(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                output.contains("Xbox") || output.contains("PlayStation") ||
+                output.contains("Nintendo") || output.contains("Gamepad") ||
+                output.contains("Controller")
+            })
+            .unwrap_or(false);
+
+        if has_gamepad {
+            result.push(Advice {
+                id: "gamepad-drivers".to_string(),
+                title: "Install gamepad drivers for controller support".to_string(),
+                reason: "Game controller detected via USB. xpadneo provides kernel drivers for Xbox controllers, and jstest tools let you test/calibrate any gamepad.".to_string(),
+                action: "Install gamepad drivers and testing utilities".to_string(),
+                command: Some("pacman -S --noconfirm jstest-gtk linuxconsole".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "gaming".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad".to_string()],
+            });
+        }
+    }
+
+    // Bluetooth support
+    if !package_installed("bluez") && !package_installed("bluez-utils") {
+        result.push(Advice {
+            id: "bluetooth-stack".to_string(),
+            title: "Install Bluetooth support".to_string(),
+            reason: "No Bluetooth software stack detected. bluez provides the core Bluetooth protocol stack and bluez-utils gives you bluetoothctl for pairing devices.".to_string(),
+            action: "Install Bluetooth stack and utilities".to_string(),
+            command: Some("pacman -S --noconfirm bluez bluez-utils && systemctl enable bluetooth".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
+        });
+    }
+
+    // WiFi firmware - check for common WiFi chipsets
+    let wifi_firmware_needed = Command::new("lspci")
+        .output()
+        .map(|o| {
+            let output = String::from_utf8_lossy(&o.stdout).to_lowercase();
+            // Intel WiFi
+            if output.contains("wireless") && output.contains("intel") {
+                !package_installed("linux-firmware")
+            } else if output.contains("qualcomm") || output.contains("atheros") {
+                !package_installed("linux-firmware")
+            } else if output.contains("broadcom") {
+                !package_installed("broadcom-wl") && !package_installed("linux-firmware")
+            } else {
+                false
+            }
+        })
+        .unwrap_or(false);
+
+    if wifi_firmware_needed {
+        result.push(Advice {
+            id: "wifi-firmware".to_string(),
+            title: "Install WiFi firmware".to_string(),
+            reason: "WiFi hardware detected but firmware may be missing. linux-firmware contains drivers for Intel, Qualcomm, and Atheros chipsets.".to_string(),
+            action: "Install WiFi firmware package".to_string(),
+            command: Some("pacman -S --noconfirm linux-firmware".to_string()),
+            risk: RiskLevel::Medium,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Network_configuration/Wireless".to_string()],
+        });
+    }
+
+    // USB automount with udisks2
+    if !package_installed("udisks2") {
+        result.push(Advice {
+            id: "usb-automount".to_string(),
+            title: "Enable USB drive automount".to_string(),
+            reason: "udisks2 provides automatic mounting of USB drives and external media. Without it, you'll need to manually mount drives with the mount command.".to_string(),
+            action: "Install udisks2 for automatic USB mounting".to_string(),
+            command: Some("pacman -S --noconfirm udisks2".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks".to_string()],
+        });
+    }
+
+    // NetworkManager for easier WiFi management
+    if !package_installed("networkmanager") && !package_installed("iwd") {
+        result.push(Advice {
+            id: "network-manager".to_string(),
+            title: "Install NetworkManager for WiFi management".to_string(),
+            reason: "No network management daemon detected. NetworkManager provides easy WiFi configuration via nmcli or GUI applets.".to_string(),
+            action: "Install NetworkManager and enable it".to_string(),
+            command: Some("pacman -S --noconfirm networkmanager && systemctl enable NetworkManager".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
+        });
+    }
+
+    // Power management for laptops
+    let is_laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
+                    std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+
+    if is_laptop && !package_installed("tlp") {
+        result.push(Advice {
+            id: "laptop-power-management".to_string(),
+            title: "Install TLP for laptop power management".to_string(),
+            reason: "Laptop battery detected. TLP automatically optimizes power settings to extend battery life without manual configuration.".to_string(),
+            action: "Install TLP for better battery life".to_string(),
+            command: Some("pacman -S --noconfirm tlp && systemctl enable tlp".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "power".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/TLP".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Recommend desktop environment and display server enhancements
+fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Detect display server
+    let using_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+    let using_x11 = std::env::var("DISPLAY").is_ok() && !using_wayland;
+
+    // XWayland for running X11 apps on Wayland
+    if using_wayland && !package_installed("xorg-xwayland") {
+        result.push(Advice {
+            id: "xwayland".to_string(),
+            title: "Install XWayland for X11 app compatibility".to_string(),
+            reason: "You're using Wayland, but some apps only work on X11. XWayland lets you run X11 apps seamlessly on Wayland.".to_string(),
+            action: "Install XWayland compatibility layer".to_string(),
+            command: Some("pacman -S --noconfirm xorg-xwayland".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
+        });
+    }
+
+    // Compositor for X11 (picom for window effects)
+    if using_x11 && !package_installed("picom") {
+        result.push(Advice {
+            id: "x11-compositor".to_string(),
+            title: "Install Picom compositor for window effects".to_string(),
+            reason: "You're on X11. Picom adds transparency, shadows, smooth window transitions, and fixes screen tearing.".to_string(),
+            action: "Install Picom compositor".to_string(),
+            command: Some("pacman -S --noconfirm picom".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Picom".to_string()],
+        });
+    }
+
+    // Terminal recommendations based on DE
+    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+        .or_else(|_| std::env::var("DESKTOP_SESSION"))
+        .unwrap_or_default()
+        .to_lowercase();
+
+    // Modern terminal emulators
+    if !package_installed("alacritty") && !package_installed("kitty") && !package_installed("wezterm") {
+        result.push(Advice {
+            id: "modern-terminal".to_string(),
+            title: "Install a modern GPU-accelerated terminal".to_string(),
+            reason: "Modern terminals like Alacritty, Kitty, or WezTerm offer GPU acceleration, true color, ligatures, and better performance than xterm.".to_string(),
+            action: "Install Alacritty terminal emulator".to_string(),
+            command: Some("pacman -S --noconfirm alacritty".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Alacritty".to_string()],
+        });
+    }
+
+    // Status bars for tiling WMs
+    if desktop_env.contains("i3") && !package_installed("i3status") && !package_installed("i3blocks") {
+        result.push(Advice {
+            id: "i3-status-bar".to_string(),
+            title: "Install i3status or i3blocks for i3 status bar".to_string(),
+            reason: "You're using i3 window manager. i3blocks provides a customizable status bar with system info.".to_string(),
+            action: "Install i3blocks for status bar".to_string(),
+            command: Some("pacman -S --noconfirm i3blocks".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/I3#i3blocks".to_string()],
+        });
+    }
+
+    if (desktop_env.contains("sway") || desktop_env.contains("hyprland")) &&
+       !package_installed("waybar") && !package_installed("yambar") {
+        result.push(Advice {
+            id: "wayland-status-bar".to_string(),
+            title: "Install Waybar for Wayland status bar".to_string(),
+            reason: "You're using a Wayland compositor. Waybar provides a highly customizable status bar with system monitoring.".to_string(),
+            action: "Install Waybar".to_string(),
+            command: Some("pacman -S --noconfirm waybar".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
+        });
+    }
+
+    // Application launcher
+    if !package_installed("rofi") && !package_installed("wofi") && !package_installed("dmenu") {
+        let launcher = if using_wayland { "wofi" } else { "rofi" };
+        result.push(Advice {
+            id: "app-launcher".to_string(),
+            title: format!("Install {} application launcher", launcher),
+            reason: format!("{} provides a fast, keyboard-driven app launcher. Essential for tiling window managers.", launcher),
+            action: format!("Install {} launcher", launcher),
+            command: Some(format!("pacman -S --noconfirm {}", launcher)),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec![format!("https://wiki.archlinux.org/title/{}", launcher.to_uppercase())],
+        });
+    }
+
+    // Notification daemon
+    if !package_installed("dunst") && !package_installed("mako") {
+        let notif_daemon = if using_wayland { "mako" } else { "dunst" };
+        result.push(Advice {
+            id: "notification-daemon".to_string(),
+            title: format!("Install {} notification daemon", notif_daemon),
+            reason: "No notification daemon detected. You won't see application notifications without one.".to_string(),
+            action: format!("Install {} for desktop notifications", notif_daemon),
+            command: Some(format!("pacman -S --noconfirm {}", notif_daemon)),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Desktop_notifications".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Recommend font packages
+fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Nerd Fonts for terminal icons
+    if !package_installed("ttf-nerd-fonts-symbols") && !package_installed("ttf-jetbrains-mono-nerd") {
+        result.push(Advice {
+            id: "nerd-fonts".to_string(),
+            title: "Install Nerd Fonts for terminal icons".to_string(),
+            reason: "Nerd Fonts add icons and glyphs to terminals. Required for modern prompts like Starship, and status bars that show icons.".to_string(),
+            action: "Install Nerd Fonts".to_string(),
+            command: Some("pacman -S --noconfirm ttf-jetbrains-mono-nerd".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Patched_packages".to_string()],
+        });
+    }
+
+    // Emoji fonts
+    if !package_installed("noto-fonts-emoji") {
+        result.push(Advice {
+            id: "emoji-fonts".to_string(),
+            title: "Install emoji font support".to_string(),
+            reason: "Without emoji fonts, emoji characters show as empty boxes. Noto Emoji provides comprehensive emoji rendering.".to_string(),
+            action: "Install Noto Emoji fonts".to_string(),
+            command: Some("pacman -S --noconfirm noto-fonts-emoji".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Emoji_and_symbols".to_string()],
+        });
+    }
+
+    // Asian fonts for international text
+    if !package_installed("noto-fonts-cjk") {
+        result.push(Advice {
+            id: "cjk-fonts".to_string(),
+            title: "Install CJK (Chinese, Japanese, Korean) fonts".to_string(),
+            reason: "Websites and apps with Asian text will show empty boxes without CJK fonts. Noto CJK provides comprehensive coverage.".to_string(),
+            action: "Install Noto CJK fonts".to_string(),
+            command: Some("pacman -S --noconfirm noto-fonts-cjk".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Chinese,_Japanese,_Korean,_Vietnamese".to_string()],
+        });
+    }
+
+    // Font rendering improvements
+    if !package_installed("freetype2") {
+        result.push(Advice {
+            id: "font-rendering".to_string(),
+            title: "Ensure font rendering library is installed".to_string(),
+            reason: "FreeType provides font rendering. Should be installed, but checking to ensure proper font display.".to_string(),
+            action: "Install FreeType font rendering".to_string(),
+            command: Some("pacman -S --noconfirm freetype2".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Font_configuration".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Recommend multimedia tools
+fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // yt-dlp for downloading videos
+    if !package_installed("yt-dlp") {
+        result.push(Advice {
+            id: "yt-dlp".to_string(),
+            title: "Install yt-dlp for downloading videos".to_string(),
+            reason: "yt-dlp downloads videos from YouTube, Twitch, and 1000+ sites. It's the actively maintained fork of youtube-dl.".to_string(),
+            action: "Install yt-dlp video downloader".to_string(),
+            command: Some("pacman -S --noconfirm yt-dlp".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Youtube-dl".to_string()],
+        });
+    }
+
+    // FFmpeg for video processing
+    if !package_installed("ffmpeg") {
+        result.push(Advice {
+            id: "ffmpeg".to_string(),
+            title: "Install FFmpeg for video/audio processing".to_string(),
+            reason: "FFmpeg is essential for converting, editing, and streaming media. Many apps depend on it for video playback and encoding.".to_string(),
+            action: "Install FFmpeg".to_string(),
+            command: Some("pacman -S --noconfirm ffmpeg".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/FFmpeg".to_string()],
+        });
+    }
+
+    // VLC as alternative video player (more codec support than mpv)
+    if !package_installed("vlc") && !package_installed("mpv") {
+        result.push(Advice {
+            id: "vlc".to_string(),
+            title: "Install VLC media player".to_string(),
+            reason: "VLC plays virtually any video or audio format without additional codecs. It's the Swiss Army knife of media players.".to_string(),
+            action: "Install VLC media player".to_string(),
+            command: Some("pacman -S --noconfirm vlc".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/VLC_media_player".to_string()],
+        });
+    }
+
+    // Image manipulation
+    if !package_installed("imagemagick") {
+        result.push(Advice {
+            id: "imagemagick".to_string(),
+            title: "Install ImageMagick for image editing".to_string(),
+            reason: "ImageMagick provides command-line image editing: resize, convert, composite, annotate. Essential for batch operations.".to_string(),
+            action: "Install ImageMagick".to_string(),
+            command: Some("pacman -S --noconfirm imagemagick".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/ImageMagick".to_string()],
+        });
+    }
+
+    // Screenshot tools
+    let using_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+    if using_wayland && !package_installed("grim") && !package_installed("slurp") {
+        result.push(Advice {
+            id: "wayland-screenshot".to_string(),
+            title: "Install grim + slurp for Wayland screenshots".to_string(),
+            reason: "You're on Wayland. grim captures screenshots and slurp lets you select screen regions. Essential for taking screenshots.".to_string(),
+            action: "Install Wayland screenshot tools".to_string(),
+            command: Some("pacman -S --noconfirm grim slurp".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#Wayland".to_string()],
+        });
+    } else if !using_wayland && !package_installed("scrot") && !package_installed("maim") {
+        result.push(Advice {
+            id: "x11-screenshot".to_string(),
+            title: "Install scrot or maim for X11 screenshots".to_string(),
+            reason: "You're on X11. scrot or maim provide screenshot capabilities. Bind to a key for quick captures.".to_string(),
+            action: "Install screenshot tool".to_string(),
+            command: Some("pacman -S --noconfirm maim".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#X11".to_string()],
+        });
+    }
+
+    // Audio/video codecs
+    if !package_installed("gstreamer") {
+        result.push(Advice {
+            id: "gstreamer-plugins".to_string(),
+            title: "Install GStreamer multimedia framework".to_string(),
+            reason: "GStreamer provides audio/video codec support for many applications. Required for media playback in GTK apps.".to_string(),
+            action: "Install GStreamer and common plugins".to_string(),
+            command: Some("pacman -S --noconfirm gstreamer gst-plugins-good gst-plugins-bad gst-plugins-ugly".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/GStreamer".to_string()],
+        });
     }
 
     result

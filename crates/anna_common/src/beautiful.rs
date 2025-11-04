@@ -3,7 +3,7 @@
 //! Now using owo-colors and console for robust, battle-tested formatting!
 
 use owo_colors::OwoColorize;
-use console::{measure_text_width, Term};
+use console::{Term, measure_text_width, strip_ansi_codes};
 
 /// Status level for messages
 #[derive(Debug, Clone, Copy)]
@@ -25,22 +25,31 @@ impl Level {
     }
 }
 
-/// Format a header with proper box drawing
+/// Format a header with beautiful box drawing
 pub fn header(text: &str) -> String {
-    let visible_width = measure_text_width(text);
-    let padding = 2;
-    let total_width = visible_width + (padding * 2);
+    // Measure the VISIBLE width (without ANSI codes)
+    let text_width = measure_text_width(text);
+    let padding = 2; // Space on each side
+    let inner_width = text_width + (padding * 2);
 
-    let top = format!("╭{}╮", "─".repeat(total_width));
-    let middle = format!("│ {} │", text);
-    let bottom = format!("╰{}╯", "─".repeat(total_width));
+    // Build the box components as strings
+    let top_line = format!("╭{}╮", "─".repeat(inner_width));
+    let bottom_line = format!("╰{}╯", "─".repeat(inner_width));
 
-    format!(
-        "{}\n{}\n{}",
-        top.bold().blue(),
-        middle.bold().blue(),
-        bottom.bold().blue()
-    )
+    // For the middle line, build it with proper spacing then color each part
+    let middle_plain = format!("│ {} │", text);
+
+    // Apply colors using format! to avoid lifetime issues
+    let colored_top = format!("{}", top_line.cyan());
+    let colored_middle = format!("{}{}{}{}",
+        "│".cyan(),
+        " ",
+        text.bold().bright_cyan(),
+        format!(" {}", "│").cyan()
+    );
+    let colored_bottom = format!("{}", bottom_line.cyan());
+
+    format!("\n{}\n{}\n{}\n", colored_top, colored_middle, colored_bottom)
 }
 
 /// Format a section title
@@ -64,33 +73,14 @@ pub fn kv(key: &str, value: &str) -> String {
     format!("{}: {}", key.bright_black(), value)
 }
 
-/// Format a box around text with proper width calculation
+/// Format a box around text - DEPRECATED, use simple formatting instead
+#[deprecated(note = "Use simple formatting instead of boxes")]
 pub fn boxed(lines: &[&str]) -> String {
-    // Calculate max visible width (console handles all unicode properly)
-    let max_width = lines.iter()
-        .map(|line| measure_text_width(line))
-        .max()
-        .unwrap_or(0);
-
-    let top = format!("╭{}╮", "─".repeat(max_width + 2));
-    let bottom = format!("╰{}╯", "─".repeat(max_width + 2));
-
-    let mut result = vec![top.blue().to_string()];
-
-    for line in lines {
-        let visible_width = measure_text_width(line);
-        let padding_needed = max_width - visible_width;
-        let padding = " ".repeat(padding_needed);
-        result.push(format!("{} {}{} {}",
-            "│".blue(),
-            line,
-            padding,
-            "│".blue()
-        ));
-    }
-
-    result.push(bottom.blue().to_string());
-    result.join("\n")
+    // Just return lines with simple indentation
+    lines.iter()
+        .map(|line| format!("   {}", line))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Get terminal width for responsive formatting
@@ -105,14 +95,20 @@ mod tests {
     #[test]
     fn test_header_formatting() {
         let h = header("Test Header");
-        assert!(h.contains("╭"));
-        assert!(h.contains("╯"));
+        // Strip ANSI codes to test the actual box structure
+        let stripped = strip_ansi_codes(&h);
+        assert!(stripped.contains("╭"));
+        assert!(stripped.contains("╯"));
+        assert!(stripped.contains("│"));
+        assert!(stripped.contains("Test Header"));
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_box_with_ansi() {
         let lines = vec!["Hello", "World"];
         let boxed = boxed(&lines);
-        assert!(boxed.contains("│"));
+        assert!(boxed.contains("Hello"));
+        assert!(boxed.contains("World"));
     }
 }

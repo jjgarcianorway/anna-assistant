@@ -1,6 +1,81 @@
-//! Anna Daemon - System assistant daemon
+//! Anna Daemon - Autonomous System Administrator
 //!
-//! Collects telemetry, provides recommendations, and executes approved actions.
+//! The Anna daemon (`annad`) is the core of the Anna Assistant system. It runs as a systemd service
+//! and provides intelligent system monitoring and recommendations for Arch Linux.
+//!
+//! # Architecture
+//!
+//! ```text
+//! ┌─────────────────────────────────────────┐
+//! │           annad (Daemon)                │
+//! │                                         │
+//! │  ┌──────────┐  ┌───────────────────┐  │
+//! │  │Telemetry │  │   Recommenders    │  │
+//! │  │Collector │  │ • System-wide     │  │
+//! │  └────┬─────┘  │ • Intelligent     │  │
+//! │       │        │ • Context-aware   │  │
+//! │       ▼        └─────────┬─────────┘  │
+//! │  ┌──────────┐            │            │
+//! │  │  Facts   │◄───────────┘            │
+//! │  │  Cache   │                         │
+//! │  └────┬─────┘            ▼            │
+//! │       │        ┌───────────────────┐  │
+//! │       └───────►│  Advice Store     │  │
+//! │                └─────────┬─────────┘  │
+//! │                          │            │
+//! │  ┌──────────┐            │            │
+//! │  │ Watcher  │            │            │
+//! │  │(inotify) │            ▼            │
+//! │  └────┬─────┘  ┌───────────────────┐  │
+//! │       │        │   RPC Server      │  │
+//! │       └───────►│ (Unix Socket)     │  │
+//! │                └─────────┬─────────┘  │
+//! └──────────────────────────┼───────────-┘
+//!                            │
+//!                            ▼
+//!                    /run/anna/anna.sock
+//!                            │
+//!                            ▼
+//!                     ┌──────────────┐
+//!                     │   annactl    │
+//!                     │   (Client)   │
+//!                     └──────────────┘
+//! ```
+//!
+//! # Features
+//!
+//! - **System Telemetry**: Collects comprehensive system facts (hardware, packages, configs)
+//! - **Intelligent Recommendations**: 50+ detection rules for security, performance, hardware
+//! - **Auto-Refresh**: Monitors filesystem changes and automatically updates recommendations
+//! - **Smart Notifications**: Alerts users of critical issues via GUI or terminal
+//! - **IPC Server**: Serves requests from `annactl` via Unix socket
+//! - **Audit Logging**: Records all applied actions to `/var/log/anna/audit.jsonl`
+//!
+//! # Modules
+//!
+//! - `telemetry` - System fact collection
+//! - `recommender` - System-wide detection rules
+//! - `intelligent_recommender` - Behavior-based, context-aware recommendations
+//! - `rpc_server` - Unix socket IPC server
+//! - `executor` - Safe command execution with audit logging
+//! - `audit` - Audit trail management
+//! - `watcher` - Filesystem monitoring with inotify
+//! - `notifier` - User notification system (GUI + terminal)
+//!
+//! # Usage
+//!
+//! The daemon is typically run as a systemd service:
+//!
+//! ```bash
+//! sudo systemctl start annad
+//! sudo systemctl enable annad
+//! ```
+//!
+//! For development/testing:
+//!
+//! ```bash
+//! sudo ./target/debug/annad
+//! ```
 
 mod telemetry;
 mod recommender;

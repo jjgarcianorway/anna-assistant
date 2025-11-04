@@ -34,9 +34,13 @@ enum Commands {
 
     /// Apply recommendations
     Apply {
-        /// Apply specific advice by ID
+        /// Apply specific advice by ID (string ID like "orphan-packages")
         #[arg(long)]
         id: Option<String>,
+
+        /// Apply by number or range (e.g., "1", "1-5", "1,3,5-7")
+        #[arg(long)]
+        nums: Option<String>,
 
         /// Auto-apply all allowed actions
         #[arg(long)]
@@ -53,9 +57,6 @@ enum Commands {
     /// Run system diagnostics
     Doctor,
 
-    /// Refresh system scan and regenerate advice
-    Refresh,
-
     /// Configure Anna settings
     Config {
         /// Set a configuration value (key=value)
@@ -71,10 +72,9 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Status => commands::status().await,
         Commands::Advise { risk } => commands::advise(risk).await,
-        Commands::Apply { id, auto, dry_run } => commands::apply(id, auto, dry_run).await,
+        Commands::Apply { id, nums, auto, dry_run } => commands::apply(id, nums, auto, dry_run).await,
         Commands::Report => commands::report().await,
         Commands::Doctor => commands::doctor().await,
-        Commands::Refresh => commands::refresh().await,
         Commands::Config { set } => commands::config(set).await,
     }
 }

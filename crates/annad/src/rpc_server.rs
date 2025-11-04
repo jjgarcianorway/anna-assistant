@@ -145,6 +145,55 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             Ok(ResponseData::Advice(advice))
         }
 
+        Method::GetAdviceWithContext { username, desktop_env, shell, display_server } => {
+            // Filter advice based on user context
+            let all_advice = state.advice.read().await.clone();
+            let total_count = all_advice.len();
+
+            let filtered_advice: Vec<_> = all_advice.into_iter()
+                .filter(|advice| {
+                    // System-wide advice (security, updates, etc.) - show to everyone
+                    if matches!(advice.category.as_str(), "security" | "updates" | "performance" | "cleanup") {
+                        return true;
+                    }
+
+                    // Desktop-specific advice - filter by user's DE
+                    if advice.category == "desktop" {
+                        if let Some(ref de) = desktop_env {
+                            let de_lower = de.to_lowercase();
+                            // Check if advice ID matches user's DE
+                            return advice.id.contains(&de_lower) ||
+                                   advice.title.to_lowercase().contains(&de_lower);
+                        }
+                        return false;
+                    }
+
+                    // Gaming advice - show to all (they chose to install Steam)
+                    if advice.category == "gaming" {
+                        return true;
+                    }
+
+                    // Shell-specific advice
+                    if advice.id.contains("shell") || advice.id.contains("zsh") || advice.id.contains("bash") {
+                        return advice.title.to_lowercase().contains(&shell.to_lowercase());
+                    }
+
+                    // Display server specific (Wayland/X11)
+                    if advice.id.contains("wayland") || advice.id.contains("xwayland") {
+                        return display_server.is_some();
+                    }
+
+                    // Everything else - show to all
+                    true
+                })
+                .collect();
+
+            info!("Filtered advice for user {}: {} -> {} items",
+                  username, total_count, filtered_advice.len());
+
+            Ok(ResponseData::Advice(filtered_advice))
+        }
+
         Method::ApplyAction { advice_id, dry_run } => {
             // Find the advice
             let advice_list = state.advice.read().await;

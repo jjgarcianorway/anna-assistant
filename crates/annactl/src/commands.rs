@@ -90,8 +90,38 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
     );
     println!();
 
-    // Get advice from daemon
-    let advice_data = client.call(Method::GetAdvice).await?;
+    // Get advice from daemon with user context for multi-user systems
+    let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+
+    // Detect desktop environment
+    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+        .or_else(|_| std::env::var("DESKTOP_SESSION"))
+        .ok();
+
+    // Get shell
+    let shell = std::env::var("SHELL")
+        .unwrap_or_else(|_| "bash".to_string())
+        .split('/')
+        .last()
+        .unwrap_or("bash")
+        .to_string();
+
+    // Detect display server (Wayland vs X11)
+    let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        Some("wayland".to_string())
+    } else if std::env::var("DISPLAY").is_ok() {
+        Some("x11".to_string())
+    } else {
+        None
+    };
+
+    // Get advice with user context
+    let advice_data = client.call(Method::GetAdviceWithContext {
+        username,
+        desktop_env,
+        shell,
+        display_server,
+    }).await?;
 
     if let ResponseData::Advice(mut advice_list) = advice_data {
         // Filter by risk level if specified
@@ -168,7 +198,7 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn apply(id: Option<String>, auto: bool, dry_run: bool) -> Result<()> {
+pub async fn apply(id: Option<String>, nums: Option<String>, auto: bool, dry_run: bool) -> Result<()> {
     println!("{}", header("Apply Recommendations"));
     println!();
 
@@ -217,6 +247,79 @@ pub async fn apply(id: Option<String>, auto: bool, dry_run: bool) -> Result<()> 
         return Ok(());
     }
 
+    // If nums provided, apply by index
+    if let Some(nums_str) = nums {
+        // First get all advice to map indices
+        let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+        let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+            .or_else(|_| std::env::var("DESKTOP_SESSION"))
+            .ok();
+        let shell = std::env::var("SHELL")
+            .unwrap_or_else(|_| "bash".to_string())
+            .split('/')
+            .last()
+            .unwrap_or("bash")
+            .to_string();
+        let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
+            Some("wayland".to_string())
+        } else if std::env::var("DISPLAY").is_ok() {
+            Some("x11".to_string())
+        } else {
+            None
+        };
+
+        let advice_data = client.call(Method::GetAdviceWithContext {
+            username,
+            desktop_env,
+            shell,
+            display_server,
+        }).await?;
+
+        if let ResponseData::Advice(advice_list) = advice_data {
+            // Parse the nums string (e.g., "1,3,5-7")
+            let indices = parse_number_ranges(&nums_str)?;
+
+            // Apply each advice by index
+            let mut success_count = 0;
+            let mut fail_count = 0;
+
+            for idx in indices {
+                if idx < 1 || idx > advice_list.len() {
+                    println!("{}", beautiful::status(Level::Warning,
+                        &format!("Index {} out of range (1-{})", idx, advice_list.len())));
+                    fail_count += 1;
+                    continue;
+                }
+
+                let advice = &advice_list[idx - 1];
+                println!("{}", beautiful::status(Level::Info,
+                    &format!("{}. Applying: {}", idx, advice.title)));
+
+                let result = client.call(Method::ApplyAction {
+                    advice_id: advice.id.clone(),
+                    dry_run,
+                }).await?;
+
+                if let ResponseData::ActionResult { success, message } = result {
+                    if success {
+                        println!("   {}", beautiful::status(Level::Success, &message));
+                        success_count += 1;
+                    } else {
+                        println!("   {}", beautiful::status(Level::Error, &message));
+                        fail_count += 1;
+                    }
+                }
+                println!();
+            }
+
+            println!();
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Applied {} successfully, {} failed", success_count, fail_count)));
+        }
+
+        return Ok(());
+    }
+
     // Auto mode not yet implemented
     if auto {
         println!(
@@ -227,7 +330,7 @@ pub async fn apply(id: Option<String>, auto: bool, dry_run: bool) -> Result<()> 
             "{}",
             beautiful::status(
                 Level::Info,
-                "Use --id <advice-id> to apply specific recommendations"
+                "Use --id <advice-id> or --nums <numbers> to apply recommendations"
             )
         );
         return Ok(());
@@ -238,19 +341,66 @@ pub async fn apply(id: Option<String>, auto: bool, dry_run: bool) -> Result<()> 
         "{}",
         beautiful::status(
             Level::Info,
-            "Use --id <advice-id> to apply a specific recommendation"
+            "Use --id <advice-id> to apply a specific recommendation by ID"
         )
+    );
+    println!(
+        "{}",
+        beautiful::status(Level::Info, "Use --nums <range> to apply by number (e.g., 1, 1-5, 1,3,5-7)")
     );
     println!(
         "{}",
         beautiful::status(Level::Info, "Use --dry-run to see what would happen")
     );
     println!();
-    println!("{}", beautiful::status(Level::Info, "Example:"));
+    println!("{}", beautiful::status(Level::Info, "Examples:"));
     println!("  annactl apply --id orphan-packages --dry-run");
-    println!("  annactl apply --id orphan-packages");
+    println!("  annactl apply --nums 1");
+    println!("  annactl apply --nums 1-5");
+    println!("  annactl apply --nums 1,3,5-7");
 
     Ok(())
+}
+
+/// Parse number ranges like "1", "1-5", "1,3,5-7" into a list of indices
+fn parse_number_ranges(input: &str) -> Result<Vec<usize>> {
+    let mut result = Vec::new();
+
+    for part in input.split(',') {
+        let part = part.trim();
+
+        if part.contains('-') {
+            // Range like "1-5"
+            let range_parts: Vec<&str> = part.split('-').collect();
+            if range_parts.len() != 2 {
+                anyhow::bail!("Invalid range format: {}", part);
+            }
+
+            let start: usize = range_parts[0].trim().parse()
+                .map_err(|_| anyhow::anyhow!("Invalid number: {}", range_parts[0]))?;
+            let end: usize = range_parts[1].trim().parse()
+                .map_err(|_| anyhow::anyhow!("Invalid number: {}", range_parts[1]))?;
+
+            if start > end {
+                anyhow::bail!("Invalid range: {} > {}", start, end);
+            }
+
+            for i in start..=end {
+                result.push(i);
+            }
+        } else {
+            // Single number
+            let num: usize = part.parse()
+                .map_err(|_| anyhow::anyhow!("Invalid number: {}", part))?;
+            result.push(num);
+        }
+    }
+
+    // Remove duplicates and sort
+    result.sort_unstable();
+    result.dedup();
+
+    Ok(result)
 }
 
 pub async fn report() -> Result<()> {
@@ -331,43 +481,6 @@ pub async fn config(_set: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// Refresh system scan and regenerate advice
-pub async fn refresh() -> Result<()> {
-    println!("{}", header("Refreshing System Scan"));
-    println!();
-
-    // Connect to daemon
-    let mut client = match RpcClient::connect().await {
-        Ok(c) => c,
-        Err(_) => {
-            println!(
-                "{}",
-                beautiful::status(Level::Error, "Daemon not running")
-            );
-            println!();
-            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
-            return Ok(());
-        }
-    };
-
-    println!("{}", beautiful::status(Level::Info, "Scanning system..."));
-
-    // Call refresh method
-    let response = client.call(Method::Refresh).await?;
-
-    if let ResponseData::ActionResult { success, message } = response {
-        if success {
-            println!();
-            println!("{}", beautiful::status(Level::Success, &message));
-            println!();
-            println!("{}", beautiful::status(Level::Info, "Run 'annactl advise' to see updated recommendations"));
-        } else {
-            println!("{}", beautiful::status(Level::Error, &message));
-        }
-    }
-
-    Ok(())
-}
 
 /// Display a single advice item with numbering and proper formatting
 fn display_advice_item(number: usize, advice: &anna_common::Advice, _level: Level) {
@@ -444,7 +557,7 @@ fn wrap_text(text: &str, width: usize, indent: &str) -> String {
 }
 
 /// Generate a plain English system health summary
-fn generate_plain_english_report(status: &anna_common::ipc::StatusData, facts: &anna_common::SystemFacts, advice: &[anna_common::Advice]) {
+fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: &anna_common::SystemFacts, advice: &[anna_common::Advice]) {
     use anna_common::RiskLevel;
     
     println!("{}", section("💭 What I think about your system"));

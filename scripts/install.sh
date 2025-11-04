@@ -27,9 +27,25 @@ else
 fi
 
 print_header() {
-    echo -e "${BOLD}${BLUE}${BOX_TL}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_TR}${RESET}"
-    echo -e "${BOLD}${BLUE}${BOX_V}    Anna Assistant Installer v1.0        ${BOX_V}${RESET}"
-    echo -e "${BOLD}${BLUE}${BOX_BL}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_BR}${RESET}"
+    echo
+    echo -e "${BOLD}${CYAN}╭──────────────────────────────────────────────────────╮${RESET}"
+    echo -e "${BOLD}${CYAN}│${RESET}     ${BOLD}${BLUE}🌟 Anna Assistant${RESET} ${CYAN}Installation${RESET}        ${BOLD}${CYAN}│${RESET}"
+    echo -e "${BOLD}${CYAN}├──────────────────────────────────────────────────────┤${RESET}"
+    echo -e "${BOLD}${CYAN}│${RESET}  ${GRAY}Your friendly Arch Linux system administrator${RESET}   ${BOLD}${CYAN}│${RESET}"
+    echo -e "${BOLD}${CYAN}╰──────────────────────────────────────────────────────╯${RESET}"
+    echo
+    echo -e "${GRAY}Anna speaks plain English, explains everything she suggests,"
+    echo -e "and keeps your system secure, fast, and well-maintained.${RESET}"
+    echo
+    echo -e "${BOLD}${BLUE}What Anna does:${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Monitors system security (microcode, firewall, updates)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Detects hardware needs (Bluetooth, WiFi, gamepad drivers)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Suggests desktop improvements (status bars, launchers, fonts)${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Recommends development tools based on your actual projects${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Finds missing configs and optimizations${RESET}"
+    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Automatically refreshes on system changes${RESET}"
+    echo
+    echo -e "${CYAN}${ARROW}${RESET} ${BOLD}Starting installation...${RESET}"
     echo
 }
 
@@ -52,12 +68,35 @@ fi
 
 echo -e "${GREEN}${CHECK}${RESET} Running as root"
 
-# Check dependencies
-command -v curl >/dev/null 2>&1 || error_exit "curl is required (install with: pacman -S curl)"
-command -v jq >/dev/null 2>&1 || error_exit "jq is required (install with: pacman -S jq)"
-command -v tar >/dev/null 2>&1 || error_exit "tar is required"
+# Check and install dependencies
+echo -e "${CYAN}${ARROW}${RESET} Checking dependencies..."
 
-echo -e "${GREEN}${CHECK}${RESET} Dependencies satisfied"
+MISSING_DEPS=()
+
+if ! command -v curl >/dev/null 2>&1; then
+    MISSING_DEPS+=("curl")
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+    MISSING_DEPS+=("jq")
+fi
+
+if ! command -v tar >/dev/null 2>&1; then
+    MISSING_DEPS+=("tar")
+fi
+
+if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+    echo -e "${YELLOW}${WARN}${RESET} Missing dependencies: ${MISSING_DEPS[*]}"
+    echo -e "${CYAN}${ARROW}${RESET} Installing missing packages..."
+
+    if pacman -Sy --noconfirm "${MISSING_DEPS[@]}" 2>/dev/null; then
+        echo -e "${GREEN}${CHECK}${RESET} Dependencies installed"
+    else
+        error_exit "Failed to install dependencies. Please install manually: pacman -S ${MISSING_DEPS[*]}"
+    fi
+else
+    echo -e "${GREEN}${CHECK}${RESET} All dependencies satisfied"
+fi
 
 # Detect architecture
 ARCH=$(uname -m)

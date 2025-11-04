@@ -36,6 +36,26 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_usb_automount());
     advice.extend(check_bluetooth());
     advice.extend(check_wifi_setup());
+    advice.extend(check_snapshot_systems(facts));
+    advice.extend(check_docker_support(facts));
+    advice.extend(check_virtualization_support(facts));
+    advice.extend(check_printer_support());
+    advice.extend(check_archive_tools());
+    advice.extend(check_monitoring_tools());
+    advice.extend(check_firmware_updates());
+    advice.extend(check_ssd_optimizations(facts));
+    advice.extend(check_swap_compression());
+    advice.extend(check_dns_configuration());
+    advice.extend(check_journal_size());
+    advice.extend(check_aur_helper_safety());
+    advice.extend(check_locale_timezone());
+    advice.extend(check_laptop_optimizations(facts));
+    advice.extend(check_webcam_support());
+    advice.extend(check_audio_enhancements());
+    advice.extend(check_shell_productivity());
+    advice.extend(check_filesystem_maintenance(facts));
+    advice.extend(check_kernel_parameters());
+    advice.extend(check_bootloader_optimization());
 
     advice
 }
@@ -707,6 +727,129 @@ fn check_ssh_config() -> Vec<Advice> {
                 priority: Priority::Mandatory,
                 category: "security".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+            });
+        }
+
+        // Check for Protocol version (SSH-1 is insecure)
+        let allows_protocol_1 = config.lines().any(|l| {
+            l.trim().starts_with("Protocol") &&
+            l.contains("1") &&
+            !l.trim().starts_with("#")
+        });
+
+        if allows_protocol_1 {
+            result.push(Advice {
+                id: "ssh-protocol-2-only".to_string(),
+                title: "Use SSH Protocol 2 only".to_string(),
+                reason: "SSH Protocol 1 has known security vulnerabilities and should never be used. Protocol 2 has been the standard since 2006 and is much more secure with better encryption. Modern OpenSSH versions default to Protocol 2 only, but your config explicitly allows Protocol 1.".to_string(),
+                action: "Remove Protocol 1 support from SSH config".to_string(),
+                command: Some("sed -i 's/^#\\?Protocol.*/Protocol 2/' /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::High,
+                priority: Priority::Mandatory,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Configuration".to_string()],
+            });
+        }
+
+        // Check for X11 forwarding (security risk if not needed)
+        let x11_forwarding = config.lines().any(|l| {
+            l.trim().starts_with("X11Forwarding") &&
+            l.contains("yes") &&
+            !l.trim().starts_with("#")
+        });
+
+        if x11_forwarding {
+            result.push(Advice {
+                id: "ssh-disable-x11-forwarding".to_string(),
+                title: "Consider disabling X11 forwarding in SSH".to_string(),
+                reason: "X11 forwarding allows remote systems to interact with your X server, which can be a security risk if compromised. Unless you specifically need to run graphical applications over SSH, it's safer to disable this feature.".to_string(),
+                action: "Set 'X11Forwarding no' in SSH config".to_string(),
+                command: Some("sed -i 's/^#\\?X11Forwarding.*/X11Forwarding no/' /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#X11_forwarding".to_string()],
+            });
+        }
+
+        // Check for MaxAuthTries (limit brute force attempts)
+        let has_max_auth_tries = config.lines().any(|l| {
+            l.trim().starts_with("MaxAuthTries") &&
+            !l.trim().starts_with("#")
+        });
+
+        if !has_max_auth_tries {
+            result.push(Advice {
+                id: "ssh-max-auth-tries".to_string(),
+                title: "Limit SSH authentication attempts".to_string(),
+                reason: "Setting MaxAuthTries limits how many password attempts someone can make before being disconnected. This slows down brute-force attacks. The default is 6, but setting it to 3 is more secure - legitimate users rarely need more than 3 tries!".to_string(),
+                action: "Add 'MaxAuthTries 3' to SSH config".to_string(),
+                command: Some("echo 'MaxAuthTries 3' >> /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Protection".to_string()],
+            });
+        }
+
+        // Check for ClientAliveInterval (detect dead connections)
+        let has_client_alive = config.lines().any(|l| {
+            l.trim().starts_with("ClientAliveInterval") &&
+            !l.trim().starts_with("#")
+        });
+
+        if !has_client_alive {
+            result.push(Advice {
+                id: "ssh-client-alive-interval".to_string(),
+                title: "Configure SSH connection timeouts".to_string(),
+                reason: "ClientAliveInterval makes the server send keepalive messages to detect dead connections. This prevents abandoned SSH sessions from staying open forever, which is both a security and resource management issue. Setting it to 300 seconds (5 minutes) is a good balance.".to_string(),
+                action: "Add connection timeout settings to SSH".to_string(),
+                command: Some("echo -e 'ClientAliveInterval 300\\nClientAliveCountMax 2' >> /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Keep_alive".to_string()],
+            });
+        }
+
+        // Check for AllowUsers/AllowGroups (whitelist approach)
+        let has_allow_users = config.lines().any(|l| {
+            (l.trim().starts_with("AllowUsers") || l.trim().starts_with("AllowGroups")) &&
+            !l.trim().starts_with("#")
+        });
+
+        if !has_allow_users {
+            result.push(Advice {
+                id: "ssh-allowusers-consideration".to_string(),
+                title: "Consider using AllowUsers for SSH access control".to_string(),
+                reason: "Instead of letting any user SSH in, you can whitelist specific users with 'AllowUsers username'. This is the most secure approach - even if someone creates a new user account on your system, they won't be able to SSH in unless you explicitly allow them. Great for single-user or small team systems!".to_string(),
+                action: "Review if you should add 'AllowUsers' directive".to_string(),
+                command: None, // Manual review needed
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+            });
+        }
+
+        // Check for default SSH port (22)
+        let uses_default_port = !config.lines().any(|l| {
+            l.trim().starts_with("Port") &&
+            !l.contains("22") &&
+            !l.trim().starts_with("#")
+        });
+
+        if uses_default_port {
+            result.push(Advice {
+                id: "ssh-non-default-port".to_string(),
+                title: "Consider changing SSH to non-default port".to_string(),
+                reason: "Running SSH on port 22 (the default) means your server gets hammered by automated bot attacks 24/7. Changing to a non-standard port (like 2222 or 22222) drastically reduces these attacks. It's 'security through obscurity' but it works surprisingly well for reducing noise and log spam! Just make sure you remember the new port.".to_string(),
+                action: "Consider changing SSH port from 22 to something else".to_string(),
+                command: None, // Manual decision needed
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Protection".to_string()],
             });
         }
     }
@@ -1445,6 +1588,204 @@ fn check_desktop_environment() -> Vec<Advice> {
         }
     }
 
+    // Check for Cinnamon desktop environment
+    if desktop_env.contains("cinnamon") || session_desktop.contains("cinnamon") {
+        // Check for Nemo file manager (Cinnamon's default)
+        let has_nemo = Command::new("pacman")
+            .args(&["-Q", "nemo"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_nemo {
+            result.push(Advice {
+                id: "cinnamon-nemo".to_string(),
+                title: "Install Nemo file manager".to_string(),
+                reason: "Nemo is Cinnamon's official file manager. It's a fork of Nautilus with extra features like dual pane view, better customization, and Cinnamon-specific integrations. Essential for the full Cinnamon experience!".to_string(),
+                action: "Install Nemo file manager".to_string(),
+                command: Some("pacman -S --noconfirm nemo".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Cinnamon#File_manager".to_string()],
+            });
+        }
+
+        // Check for GNOME Terminal (commonly used with Cinnamon)
+        let has_gnome_terminal = Command::new("pacman")
+            .args(&["-Q", "gnome-terminal"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_gnome_terminal {
+            result.push(Advice {
+                id: "cinnamon-terminal".to_string(),
+                title: "Install GNOME Terminal for Cinnamon".to_string(),
+                reason: "GNOME Terminal is the recommended terminal for Cinnamon. It integrates well with the desktop, supports tabs, profiles, and has good keyboard shortcut support.".to_string(),
+                action: "Install GNOME Terminal".to_string(),
+                command: Some("pacman -S --noconfirm gnome-terminal".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/GNOME/Tips_and_tricks#Terminal".to_string()],
+            });
+        }
+
+        // Check for Cinnamon screensaver
+        let has_screensaver = Command::new("pacman")
+            .args(&["-Q", "cinnamon-screensaver"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_screensaver {
+            result.push(Advice {
+                id: "cinnamon-screensaver".to_string(),
+                title: "Install Cinnamon screensaver".to_string(),
+                reason: "Cinnamon's screensaver provides screen locking and power saving features. It's important for security (locks your screen when you're away) and extends your monitor's life.".to_string(),
+                action: "Install Cinnamon screensaver".to_string(),
+                command: Some("pacman -S --noconfirm cinnamon-screensaver".to_string()),
+                risk: RiskLevel::Medium,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Cinnamon".to_string()],
+            });
+        }
+    }
+
+    // Check for XFCE desktop environment
+    if desktop_env.contains("xfce") || session_desktop.contains("xfce") {
+        // Check for Thunar file manager
+        let has_thunar = Command::new("pacman")
+            .args(&["-Q", "thunar"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_thunar {
+            result.push(Advice {
+                id: "xfce-thunar".to_string(),
+                title: "Install Thunar file manager".to_string(),
+                reason: "Thunar is XFCE's official file manager. It's fast, lightweight, and has great plugin support for bulk renaming, custom actions, and archive management. Perfect for XFCE's philosophy of being light but powerful!".to_string(),
+                action: "Install Thunar file manager".to_string(),
+                command: Some("pacman -S --noconfirm thunar".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Thunar".to_string()],
+            });
+        }
+
+        // Check for xfce4-terminal
+        let has_xfce_terminal = Command::new("pacman")
+            .args(&["-Q", "xfce4-terminal"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_xfce_terminal {
+            result.push(Advice {
+                id: "xfce-terminal".to_string(),
+                title: "Install xfce4-terminal".to_string(),
+                reason: "xfce4-terminal is XFCE's native terminal emulator. It's lightweight, has dropdown mode support, and integrates perfectly with XFCE. Much better than using xterm!".to_string(),
+                action: "Install xfce4-terminal".to_string(),
+                command: Some("pacman -S --noconfirm xfce4-terminal".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Xfce#Terminal".to_string()],
+            });
+        }
+
+        // Check for xfce4-goodies (collection of plugins and extras)
+        let has_goodies = Command::new("pacman")
+            .args(&["-Q", "xfce4-goodies"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_goodies {
+            result.push(Advice {
+                id: "xfce-goodies".to_string(),
+                title: "Install xfce4-goodies collection".to_string(),
+                reason: "XFCE Goodies includes tons of useful plugins: panel plugins for weather, system monitoring, CPU graphs, battery indicators, and more. Think of it as the 'complete XFCE experience' package that makes your desktop actually useful!".to_string(),
+                action: "Install xfce4-goodies".to_string(),
+                command: Some("pacman -S --noconfirm xfce4-goodies".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Xfce#Extras".to_string()],
+            });
+        }
+    }
+
+    // Check for MATE desktop environment
+    if desktop_env.contains("mate") || session_desktop.contains("mate") {
+        // Check for Caja file manager
+        let has_caja = Command::new("pacman")
+            .args(&["-Q", "caja"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_caja {
+            result.push(Advice {
+                id: "mate-caja".to_string(),
+                title: "Install Caja file manager".to_string(),
+                reason: "Caja is MATE's official file manager (a fork of the classic GNOME 2 Nautilus). It's reliable, well-tested, and has all the features you need: tabs, bookmarks, extensions, and spatial mode. It's the authentic MATE experience!".to_string(),
+                action: "Install Caja file manager".to_string(),
+                command: Some("pacman -S --noconfirm caja".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/MATE#File_manager".to_string()],
+            });
+        }
+
+        // Check for MATE Terminal
+        let has_mate_terminal = Command::new("pacman")
+            .args(&["-Q", "mate-terminal"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mate_terminal {
+            result.push(Advice {
+                id: "mate-terminal".to_string(),
+                title: "Install MATE Terminal".to_string(),
+                reason: "MATE Terminal is the official terminal for MATE desktop. It's based on the classic GNOME 2 terminal with modern improvements. Supports tabs, profiles, transparency, and integrates perfectly with MATE.".to_string(),
+                action: "Install MATE Terminal".to_string(),
+                command: Some("pacman -S --noconfirm mate-terminal".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/MATE".to_string()],
+            });
+        }
+
+        // Check for MATE utilities
+        let has_mate_utils = Command::new("pacman")
+            .args(&["-Q", "mate-utils"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mate_utils {
+            result.push(Advice {
+                id: "mate-utils".to_string(),
+                title: "Install MATE utilities collection".to_string(),
+                reason: "MATE Utils includes essential desktop tools: screenshot utility, search tool, dictionary, system log viewer, and disk usage analyzer. These are the 'everyday tools' that make MATE actually productive!".to_string(),
+                action: "Install MATE utilities".to_string(),
+                command: Some("pacman -S --noconfirm mate-utils".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "desktop".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/MATE".to_string()],
+            });
+        }
+    }
+
     result
 }
 
@@ -1973,6 +2314,1360 @@ fn check_wifi_setup() -> Vec<Advice> {
                 });
             }
         }
+    }
+
+    result
+}
+
+/// Check for snapshot/backup system (Timeshift, Snapper)
+fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user has Btrfs (best for snapshots)
+    let has_btrfs = facts.storage_devices.iter().any(|dev| dev.filesystem.to_lowercase().contains("btrfs"));
+
+    // Check for existing snapshot tools
+    let has_timeshift = Command::new("pacman")
+        .args(&["-Q", "timeshift"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_snapper = Command::new("pacman")
+        .args(&["-Q", "snapper"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // If no snapshot tool is installed, recommend one
+    if !has_timeshift && !has_snapper {
+        if has_btrfs {
+            // Recommend Snapper for Btrfs users (more native integration)
+            result.push(Advice {
+                id: "snapshot-snapper-btrfs".to_string(),
+                title: "Install Snapper for Btrfs snapshots".to_string(),
+                reason: "You're using Btrfs but have no snapshot system! Snapper automatically creates snapshots before package updates, so you can rollback if something breaks. Think of it as an 'undo button' for your entire system. It integrates perfectly with Btrfs and can save you from disastrous updates!".to_string(),
+                action: "Install Snapper for automatic Btrfs snapshots".to_string(),
+                command: Some("pacman -S --noconfirm snapper snap-pac".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper".to_string()],
+            });
+
+            result.push(Advice {
+                id: "snapshot-snapper-grub".to_string(),
+                title: "Add Snapper integration to GRUB bootloader".to_string(),
+                reason: "After installing Snapper, add grub-btrfs to boot from snapshots. If an update breaks your system, you can boot from a snapshot at the GRUB menu and restore your system. It's like having a time machine for your entire OS!".to_string(),
+                action: "Install grub-btrfs for snapshot booting".to_string(),
+                command: Some("pacman -S --noconfirm grub-btrfs".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Boot_to_snapshots".to_string()],
+            });
+        } else {
+            // Recommend Timeshift for non-Btrfs users (works with ext4)
+            result.push(Advice {
+                id: "snapshot-timeshift".to_string(),
+                title: "Install Timeshift for system snapshots".to_string(),
+                reason: "You have no snapshot/backup system! Timeshift creates incremental snapshots of your system, so you can restore if something goes wrong. It works great with ext4 using rsync. Think of it as 'System Restore' for Linux - it can save you from bad updates, misconfigurations, or accidental deletions!".to_string(),
+                action: "Install Timeshift for system backups".to_string(),
+                command: Some("pacman -S --noconfirm timeshift".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Timeshift".to_string()],
+            });
+        }
+    }
+
+    // If they have Snapper but not snap-pac (pre/post hooks)
+    if has_snapper {
+        let has_snappac = Command::new("pacman")
+            .args(&["-Q", "snap-pac"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_snappac {
+            result.push(Advice {
+                id: "snapshot-snap-pac".to_string(),
+                title: "Install snap-pac for automatic pacman snapshots".to_string(),
+                reason: "You have Snapper but not snap-pac! snap-pac automatically creates snapshots before and after every pacman transaction. This means you can always rollback bad package updates. It's like having an 'undo' button for every system change!".to_string(),
+                action: "Install snap-pac for pacman integration".to_string(),
+                command: Some("pacman -S --noconfirm snap-pac".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Automatic_snapshots".to_string()],
+            });
+        }
+
+        // Check if snapper is actually configured
+        let snapper_configs = std::path::Path::new("/etc/snapper/configs");
+        if !snapper_configs.exists() || std::fs::read_dir(snapper_configs).map(|mut d| d.next().is_none()).unwrap_or(true) {
+            result.push(Advice {
+                id: "snapshot-snapper-config".to_string(),
+                title: "Configure Snapper for your root filesystem".to_string(),
+                reason: "You installed Snapper but haven't configured it yet! You need to create a config for your root subvolume. Run 'sudo snapper -c root create-config /' to set it up, then it will start taking automatic snapshots. Without configuration, Snapper won't do anything!".to_string(),
+                action: "Create Snapper configuration".to_string(),
+                command: Some("snapper -c root create-config /".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Configuration".to_string()],
+            });
+        }
+    }
+
+    // If they have Snapper and Btrfs, suggest grub-btrfs if not installed
+    if has_snapper && has_btrfs {
+        let has_grub_btrfs = Command::new("pacman")
+            .args(&["-Q", "grub-btrfs"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_grub_btrfs {
+            result.push(Advice {
+                id: "snapshot-grub-btrfs".to_string(),
+                title: "Add snapshot boot support with grub-btrfs".to_string(),
+                reason: "You have Snapper creating snapshots, but you can't boot from them yet! Install grub-btrfs to add snapshot entries to your GRUB menu. If a system update breaks everything, you can reboot and select a snapshot from before the update. It's your escape hatch!".to_string(),
+                action: "Install grub-btrfs".to_string(),
+                command: Some("pacman -S --noconfirm grub-btrfs && grub-mkconfig -o /boot/grub/grub.cfg".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Boot_to_snapshots".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Docker and container support
+fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if Docker is installed
+    let has_docker = Command::new("pacman")
+        .args(&["-Q", "docker"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check if user has docker in command history (wants to use it)
+    let uses_docker = facts.frequently_used_commands.iter()
+        .any(|cmd| cmd.command.contains("docker"));
+
+    // Check if user has container-related files
+    let has_dockerfile = facts.common_file_types.iter()
+        .any(|t| t.contains("docker") || t.contains("container"));
+
+    if !has_docker && (uses_docker || has_dockerfile) {
+        result.push(Advice {
+            id: "docker-install".to_string(),
+            title: "Install Docker for containerization".to_string(),
+            reason: "You seem to be working with containers (Dockerfiles found or docker commands in history), but Docker isn't installed! Docker lets you run applications in isolated containers - perfect for development, testing, and deploying apps consistently across systems.".to_string(),
+            action: "Install Docker".to_string(),
+            command: Some("pacman -S --noconfirm docker".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "development".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
+        });
+    }
+
+    if has_docker {
+        // Check if Docker service is enabled
+        let docker_enabled = Command::new("systemctl")
+            .args(&["is-enabled", "docker"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !docker_enabled {
+            result.push(Advice {
+                id: "docker-enable-service".to_string(),
+                title: "Enable Docker service".to_string(),
+                reason: "You have Docker installed but the service isn't enabled! Docker needs its daemon running to work. Enabling it makes Docker start automatically on boot, so you don't have to start it manually every time.".to_string(),
+                action: "Enable and start Docker service".to_string(),
+                command: Some("systemctl enable --now docker".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Installation".to_string()],
+            });
+        }
+
+        // Check if user is in docker group
+        let current_user = std::env::var("SUDO_USER").unwrap_or_else(|_| std::env::var("USER").unwrap_or_default());
+        if !current_user.is_empty() {
+            let in_docker_group = Command::new("groups")
+                .arg(&current_user)
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).contains("docker"))
+                .unwrap_or(false);
+
+            if !in_docker_group {
+                result.push(Advice {
+                    id: "docker-user-group".to_string(),
+                    title: "Add your user to docker group".to_string(),
+                    reason: format!("You're not in the 'docker' group, so you need to use 'sudo' for every Docker command! Adding yourself to the docker group lets you run Docker without sudo. Much more convenient for development! (You'll need to log out and back in for this to take effect)"),
+                    action: format!("Add user '{}' to docker group", current_user),
+                    command: Some(format!("usermod -aG docker {}", current_user)),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "development".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Installation".to_string()],
+                });
+            }
+        }
+
+        // Suggest Docker Compose
+        let has_compose = Command::new("pacman")
+            .args(&["-Q", "docker-compose"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_compose {
+            result.push(Advice {
+                id: "docker-compose".to_string(),
+                title: "Install Docker Compose for multi-container apps".to_string(),
+                reason: "You have Docker but not Docker Compose! Compose makes it easy to define and run multi-container applications with a simple YAML file. Instead of running multiple 'docker run' commands, you define everything in docker-compose.yml and start it all with one command. Essential for modern development!".to_string(),
+                action: "Install Docker Compose".to_string(),
+                command: Some("pacman -S --noconfirm docker-compose".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Docker_Compose".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for virtualization support (QEMU/KVM)
+fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if CPU supports virtualization
+    let cpu_has_virt = facts.cpu_model.to_lowercase().contains("amd") ||
+                       facts.cpu_model.to_lowercase().contains("intel");
+
+    if !cpu_has_virt {
+        return result; // No virtualization support
+    }
+
+    // Check if virtualization is enabled in BIOS
+    let virt_enabled = std::path::Path::new("/dev/kvm").exists();
+
+    if !virt_enabled {
+        result.push(Advice {
+            id: "virtualization-enable-bios".to_string(),
+            title: "Enable virtualization in BIOS".to_string(),
+            reason: "Your CPU supports virtualization (KVM), but /dev/kvm doesn't exist! This means virtualization is disabled in your BIOS/UEFI. You need to enable Intel VT-x (Intel) or AMD-V (AMD) in your BIOS settings to use virtual machines with hardware acceleration. Without it, VMs will be extremely slow!".to_string(),
+            action: "Reboot and enable VT-x/AMD-V in BIOS".to_string(),
+            command: None, // Manual BIOS change required
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/KVM#Checking_support".to_string()],
+        });
+        return result; // Don't suggest KVM tools if virtualization is disabled
+    }
+
+    // Check for QEMU
+    let has_qemu = Command::new("pacman")
+        .args(&["-Q", "qemu-full"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check if user seems interested in virtualization
+    let uses_virt = facts.frequently_used_commands.iter()
+        .any(|cmd| cmd.command.contains("qemu") || cmd.command.contains("virt") || cmd.command.contains("kvm"));
+
+    if !has_qemu && (uses_virt || virt_enabled) {
+        result.push(Advice {
+            id: "qemu-install".to_string(),
+            title: "Install QEMU for virtual machines".to_string(),
+            reason: "Your system supports hardware virtualization (KVM), but QEMU isn't installed! QEMU with KVM gives you near-native performance for running virtual machines. Perfect for testing different Linux distros, running Windows VMs, or development environments. With KVM, VMs run almost as fast as bare metal!".to_string(),
+            action: "Install QEMU with full system emulation".to_string(),
+            command: Some("pacman -S --noconfirm qemu-full".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/QEMU".to_string()],
+        });
+    }
+
+    if has_qemu {
+        // Suggest virt-manager for GUI management
+        let has_virt_manager = Command::new("pacman")
+            .args(&["-Q", "virt-manager"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_virt_manager {
+            result.push(Advice {
+                id: "virt-manager".to_string(),
+                title: "Install virt-manager for easy VM management".to_string(),
+                reason: "You have QEMU but no graphical manager! virt-manager provides a beautiful GUI for creating and managing VMs. It's way easier than typing QEMU commands - just click to create VMs, attach ISOs, configure networks, etc. Think of it as VirtualBox but for KVM!".to_string(),
+                action: "Install virt-manager".to_string(),
+                command: Some("pacman -S --noconfirm virt-manager".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "system".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Virt-manager".to_string()],
+            });
+        }
+
+        // Check if libvirt service is running
+        let libvirt_running = Command::new("systemctl")
+            .args(&["is-active", "libvirtd"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !libvirt_running {
+            result.push(Advice {
+                id: "libvirt-enable".to_string(),
+                title: "Enable libvirt service for VM management".to_string(),
+                reason: "You have QEMU installed but libvirtd service isn't running! Libvirt provides the management layer for VMs - it's what virt-manager and other tools use to control QEMU. Start it to manage your virtual machines properly.".to_string(),
+                action: "Enable and start libvirtd".to_string(),
+                command: Some("systemctl enable --now libvirtd".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "system".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Libvirt#Installation".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for printer support (CUPS)
+fn check_printer_support() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if CUPS is installed
+    let has_cups = Command::new("pacman")
+        .args(&["-Q", "cups"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check for USB printers (lsusb)
+    let has_printer = Command::new("lsusb")
+        .output()
+        .map(|o| {
+            let output = String::from_utf8_lossy(&o.stdout).to_lowercase();
+            output.contains("printer") || output.contains("canon") || 
+            output.contains("hp") || output.contains("epson") || 
+            output.contains("brother")
+        })
+        .unwrap_or(false);
+
+    if !has_cups && has_printer {
+        result.push(Advice {
+            id: "cups-install".to_string(),
+            title: "Install CUPS for printer support".to_string(),
+            reason: "A printer was detected via USB, but CUPS isn't installed! CUPS (Common Unix Printing System) is what Linux uses to manage printers. Without it, you can't print anything. It provides a web interface at http://localhost:631 for easy printer setup.".to_string(),
+            action: "Install CUPS printing system".to_string(),
+            command: Some("pacman -S --noconfirm cups".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/CUPS".to_string()],
+        });
+    }
+
+    if has_cups {
+        // Check if CUPS service is enabled
+        let cups_enabled = Command::new("systemctl")
+            .args(&["is-enabled", "cups"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !cups_enabled {
+            result.push(Advice {
+                id: "cups-enable-service".to_string(),
+                title: "Enable CUPS service for printing".to_string(),
+                reason: "CUPS is installed but not enabled! The CUPS service needs to be running for printers to work. Enable it so it starts automatically on boot, then you can access the web interface at http://localhost:631 to add printers.".to_string(),
+                action: "Enable and start CUPS".to_string(),
+                command: Some("systemctl enable --now cups".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "hardware".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/CUPS#Installation".to_string()],
+            });
+        }
+
+        // Suggest printer drivers
+        let has_gutenprint = Command::new("pacman")
+            .args(&["-Q", "gutenprint"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_gutenprint {
+            result.push(Advice {
+                id: "printer-drivers".to_string(),
+                title: "Install Gutenprint for wide printer support".to_string(),
+                reason: "You have CUPS but no printer drivers! Gutenprint provides drivers for hundreds of printer models (Canon, Epson, HP, etc.). Without proper drivers, your printer might not work or print at low quality. Think of it as the 'universal driver pack' for printers.".to_string(),
+                action: "Install Gutenprint drivers".to_string(),
+                command: Some("pacman -S --noconfirm gutenprint".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "hardware".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/CUPS#Printer_drivers".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for archive management tools
+fn check_archive_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for common archive formats support
+    let has_unzip = Command::new("pacman")
+        .args(&["-Q", "unzip"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_unrar = Command::new("pacman")
+        .args(&["-Q", "unrar"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_p7zip = Command::new("pacman")
+        .args(&["-Q", "p7zip"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_unzip {
+        result.push(Advice {
+            id: "archive-unzip".to_string(),
+            title: "Install unzip for ZIP archive support".to_string(),
+            reason: "You don't have unzip installed! ZIP is one of the most common archive formats - downloaded files, GitHub repos, Windows files all use it. Without unzip, you can't extract .zip files. It's a tiny package that you'll definitely need.".to_string(),
+            action: "Install unzip".to_string(),
+            command: Some("pacman -S --noconfirm unzip".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Archiving_and_compression".to_string()],
+        });
+    }
+
+    if !has_unrar {
+        result.push(Advice {
+            id: "archive-unrar".to_string(),
+            title: "Install unrar for RAR archive support".to_string(),
+            reason: "No RAR support detected! RAR files are super common, especially for downloads, game files, and Windows software. Without unrar, .rar files will just sit there looking useless. Small install, huge convenience!".to_string(),
+            action: "Install unrar".to_string(),
+            command: Some("pacman -S --noconfirm unrar".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Archiving_and_compression".to_string()],
+        });
+    }
+
+    if !has_p7zip {
+        result.push(Advice {
+            id: "archive-p7zip".to_string(),
+            title: "Install p7zip for 7z archive support".to_string(),
+            reason: "7z archives offer better compression than ZIP but you can't extract them! p7zip handles .7z files which are increasingly popular for software distribution and large file compression. It also provides better ZIP handling than the basic unzip command.".to_string(),
+            action: "Install p7zip".to_string(),
+            command: Some("pacman -S --noconfirm p7zip".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Archiving_and_compression".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for system monitoring tools
+fn check_monitoring_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for htop (better than top)
+    let has_htop = Command::new("pacman")
+        .args(&["-Q", "htop"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_htop {
+        result.push(Advice {
+            id: "monitoring-htop".to_string(),
+            title: "Install htop for interactive process monitoring".to_string(),
+            reason: "'top' is okay, but htop is WAY better! It's colorful, interactive, shows CPU cores individually, makes it easy to kill processes, and generally makes system monitoring actually pleasant. You can sort by memory, CPU, or any column with a keystroke. Every Linux user should have this!".to_string(),
+            action: "Install htop".to_string(),
+            command: Some("pacman -S --noconfirm htop".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Htop".to_string()],
+        });
+    }
+
+    // Check for btop (even better than htop)
+    let has_btop = Command::new("pacman")
+        .args(&["-Q", "btop"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_btop && has_htop {
+        result.push(Advice {
+            id: "monitoring-btop".to_string(),
+            title: "Consider btop for gorgeous system monitoring".to_string(),
+            reason: "You have htop, but btop is the next evolution! It's like htop on steroids - beautiful graphs, detailed stats, disk I/O, network monitoring, GPU stats, all in a stunning TUI. It's eye candy AND functional. If you like htop, you'll love btop!".to_string(),
+            action: "Install btop".to_string(),
+            command: Some("pacman -S --noconfirm btop".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Btop".to_string()],
+        });
+    }
+
+    // Check for iotop (disk I/O monitoring)
+    let has_iotop = Command::new("pacman")
+        .args(&["-Q", "iotop"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_iotop {
+        result.push(Advice {
+            id: "monitoring-iotop".to_string(),
+            title: "Install iotop to monitor disk I/O".to_string(),
+            reason: "When your system is slow and disk activity is high, iotop tells you exactly which process is hammering your disk! It's like 'top' but for disk I/O. Essential for debugging slow systems or figuring out what's writing to your SSD constantly.".to_string(),
+            action: "Install iotop".to_string(),
+            command: Some("pacman -S --noconfirm iotop".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Iotop".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for firmware update tools (fwupd)
+fn check_firmware_updates() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if fwupd is installed
+    let has_fwupd = Command::new("pacman")
+        .args(&["-Q", "fwupd"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_fwupd {
+        result.push(Advice {
+            id: "firmware-fwupd".to_string(),
+            title: "Install fwupd for automatic firmware updates".to_string(),
+            reason: "Your system hardware probably has firmware that needs updates! fwupd provides firmware updates for your motherboard, SSD, GPU, USB devices, and more - all from within Linux. It's like Windows Update but for your hardware firmware. Keeping firmware updated fixes bugs, improves performance, and patches security vulnerabilities.".to_string(),
+            action: "Install fwupd for firmware management".to_string(),
+            command: Some("pacman -S --noconfirm fwupd".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "maintenance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fwupd".to_string()],
+        });
+    } else {
+        // Suggest running firmware check
+        result.push(Advice {
+            id: "firmware-check-updates".to_string(),
+            title: "Check for available firmware updates".to_string(),
+            reason: "You have fwupd installed - run 'fwupdmgr get-updates' to check if your hardware has firmware updates available! This checks your motherboard, SSD, peripherals, and more for security patches and improvements.".to_string(),
+            action: "Check for firmware updates".to_string(),
+            command: Some("fwupdmgr refresh && fwupdmgr get-updates".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "maintenance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fwupd#Usage".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for SSD optimizations
+fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if any storage device is an SSD
+    let has_ssd = facts.storage_devices.iter().any(|dev| {
+        // SSDs are typically nvme or have "ssd" in name
+        dev.name.contains("nvme") || dev.filesystem.to_lowercase().contains("ssd")
+    });
+
+    // Better SSD detection via /sys/block
+    let ssd_detected = std::fs::read_dir("/sys/block")
+        .ok()
+        .map(|entries| {
+            entries.filter_map(|e| e.ok()).any(|entry| {
+                let path = entry.path().join("queue/rotational");
+                std::fs::read_to_string(path)
+                    .map(|content| content.trim() == "0")
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+
+    if !has_ssd && !ssd_detected {
+        return result; // No SSD detected
+    }
+
+    // Check for noatime mount option
+    let fstab_content = std::fs::read_to_string("/etc/fstab").unwrap_or_default();
+    let has_noatime = fstab_content.lines().any(|line| {
+        !line.trim().starts_with('#') && 
+        (line.contains("noatime") || line.contains("relatime"))
+    });
+
+    if !has_noatime {
+        result.push(Advice {
+            id: "ssd-noatime".to_string(),
+            title: "Enable noatime for SSD performance".to_string(),
+            reason: "You have an SSD but 'noatime' isn't set in fstab! By default, Linux updates the access time every time you read a file, which causes extra writes. For SSDs, this is pure overhead with no benefit. Adding 'noatime' to mount options reduces writes and improves performance. It's the #1 SSD optimization!".to_string(),
+            action: "Add noatime to fstab mount options".to_string(),
+            command: None, // Manual fstab edit needed
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fstab#atime_options".to_string()],
+        });
+    }
+
+    // Check for discard support (continuous TRIM)
+    let has_discard = fstab_content.lines().any(|line| {
+        !line.trim().starts_with('#') && line.contains("discard")
+    });
+
+    if !has_discard {
+        result.push(Advice {
+            id: "ssd-discard-option".to_string(),
+            title: "Consider enabling continuous TRIM (discard)".to_string(),
+            reason: "Your SSD could benefit from the 'discard' mount option! This enables continuous TRIM, which tells the SSD about deleted blocks immediately instead of waiting for a weekly timer. Modern SSDs handle this well and it keeps performance more consistent. Alternative to the periodic fstrim.timer.".to_string(),
+            action: "Add discard to mount options (or keep fstrim.timer)".to_string(),
+            command: None, // Manual decision - discard vs fstrim.timer
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Solid_state_drive#Continuous_TRIM".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for swap compression (zram/zswap)
+fn check_swap_compression() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if zram is loaded
+    let has_zram = std::path::Path::new("/dev/zram0").exists();
+
+    // Check if zswap is enabled
+    let zswap_enabled = std::fs::read_to_string("/sys/module/zswap/parameters/enabled")
+        .map(|s| s.trim() == "Y")
+        .unwrap_or(false);
+
+    if !has_zram && !zswap_enabled {
+        result.push(Advice {
+            id: "swap-zram".to_string(),
+            title: "Consider zram for compressed swap in RAM".to_string(),
+            reason: "zram creates a compressed swap device in RAM! Instead of swapping to disk (slow), data gets compressed in RAM first. This can double your effective RAM and makes swapping much faster. Perfect for systems with limited RAM - you get the memory benefits of swap without the disk slowdown!".to_string(),
+            action: "Install zram-generator for automatic zram".to_string(),
+            command: Some("pacman -S --noconfirm zram-generator".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Zram".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check DNS configuration (systemd-resolved)
+fn check_dns_configuration() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if systemd-resolved is available but not used
+    let has_resolved = std::path::Path::new("/usr/lib/systemd/systemd-resolved").exists();
+    let resolved_active = Command::new("systemctl")
+        .args(&["is-active", "systemd-resolved"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check current DNS setup
+    let resolv_conf = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
+    let using_stub_resolver = resolv_conf.contains("127.0.0.53");
+
+    if has_resolved && !resolved_active && !using_stub_resolver {
+        result.push(Advice {
+            id: "dns-systemd-resolved".to_string(),
+            title: "Consider systemd-resolved for modern DNS".to_string(),
+            reason: "systemd-resolved provides modern DNS with caching, DNSSEC validation, and per-interface DNS settings. It's faster than traditional DNS (caches queries) and more secure (validates DNSSEC). Especially useful with NetworkManager or multiple network interfaces!".to_string(),
+            action: "Enable systemd-resolved".to_string(),
+            command: Some("systemctl enable --now systemd-resolved && ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd-resolved".to_string()],
+        });
+    }
+
+    // Check for public DNS servers
+    if !resolv_conf.contains("127.0.0.") {
+        let using_isp_dns = !resolv_conf.contains("1.1.1.1") && 
+                           !resolv_conf.contains("8.8.8.8") && 
+                           !resolv_conf.contains("9.9.9.9");
+
+        if using_isp_dns {
+            result.push(Advice {
+                id: "dns-public-servers".to_string(),
+                title: "Consider using public DNS servers".to_string(),
+                reason: "You're using your ISP's DNS servers, which may be slow, unreliable, or log your queries! Public DNS like Cloudflare (1.1.1.1), Google (8.8.8.8), or Quad9 (9.9.9.9) are usually faster, more reliable, and respect privacy better. Cloudflare is the fastest with strong privacy!".to_string(),
+                action: "Consider switching to public DNS".to_string(),
+                command: None, // Manual decision on which DNS to use
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "networking".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Domain_name_resolution".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check systemd journal size
+fn check_journal_size() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check journal size
+    let journal_size = Command::new("journalctl")
+        .args(&["--disk-usage"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            // Parse "Archived and active journals take up 512.0M in the file system."
+            output.split_whitespace()
+                .find(|s| s.ends_with("M") || s.ends_with("G"))
+                .and_then(|s| {
+                    let num: String = s.chars().take_while(|c| c.is_numeric() || *c == '.').collect();
+                    num.parse::<f64>().ok().map(|n| {
+                        if s.ends_with("G") { n * 1024.0 } else { n }
+                    })
+                })
+        });
+
+    if let Some(size_mb) = journal_size {
+        if size_mb > 500.0 {
+            result.push(Advice {
+                id: "journal-large-size".to_string(),
+                title: format!("Journal logs are using {:.0}MB of disk space", size_mb),
+                reason: format!("Your systemd journal has grown to {:.0}MB! Journal logs accumulate over time and can waste significant disk space. You can safely clean old logs - they're mainly useful for debugging recent issues. systemd can automatically limit journal size.", size_mb),
+                action: "Clean old journal logs and set size limit".to_string(),
+                command: Some("journalctl --vacuum-size=100M && echo 'SystemMaxUse=100M' >> /etc/systemd/journald.conf".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit".to_string()],
+            });
+        }
+    }
+
+    // Check if journal size limit is configured
+    let journald_conf = std::fs::read_to_string("/etc/systemd/journald.conf").unwrap_or_default();
+    let has_size_limit = journald_conf.lines().any(|line| {
+        !line.trim().starts_with('#') && line.contains("SystemMaxUse")
+    });
+
+    if !has_size_limit {
+        result.push(Advice {
+            id: "journal-set-limit".to_string(),
+            title: "Set systemd journal size limit".to_string(),
+            reason: "No journal size limit is configured! Without a limit, logs can grow indefinitely and fill your disk over time. Setting 'SystemMaxUse=100M' in journald.conf keeps logs under control while still keeping enough history for troubleshooting. Set it and forget it!".to_string(),
+            action: "Configure journal size limit".to_string(),
+            command: Some("echo 'SystemMaxUse=100M' >> /etc/systemd/journald.conf && systemctl restart systemd-journald".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "maintenance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check AUR helper safety
+fn check_aur_helper_safety() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check which AUR helper is installed
+    let has_yay = Command::new("pacman").args(&["-Q", "yay"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let has_paru = Command::new("pacman").args(&["-Q", "paru"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let has_pikaur = Command::new("pacman").args(&["-Q", "pikaur"]).output().map(|o| o.status.success()).unwrap_or(false);
+
+    if has_yay || has_paru || has_pikaur {
+        result.push(Advice {
+            id: "aur-safety-reminder".to_string(),
+            title: "AUR Safety Reminder: Always review PKGBUILDs".to_string(),
+            reason: "You're using an AUR helper - that's great! But remember: ALWAYS review the PKGBUILD before installing AUR packages. AUR packages can run any code during installation, so malicious packages could compromise your system. Think of it like downloading a random script from the internet - check it first!".to_string(),
+            action: "Always review PKGBUILDs (use --editmenu or --show)".to_string(),
+            command: None, // Educational reminder
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "security".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/AUR_helpers#Safety".to_string()],
+        });
+
+        // Check if user has devel packages installed (needs regular updates)
+        let devel_packages = Command::new("pacman")
+            .args(&["-Qq"])
+            .output()
+            .ok()
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .filter(|line| line.ends_with("-git") || line.ends_with("-svn") || line.ends_with("-hg"))
+                    .count()
+            })
+            .unwrap_or(0);
+
+        if devel_packages > 0 {
+            result.push(Advice {
+                id: "aur-devel-update".to_string(),
+                title: format!("You have {} -git/-svn development packages", devel_packages),
+                reason: "Development packages (-git, -svn, -hg) don't get automatic updates! They track upstream development, so you need to rebuild them periodically to get new features and fixes. Run your AUR helper with the devel flag (yay -Syu --devel or paru -Syu --devel) to update them.".to_string(),
+                action: "Rebuild development packages regularly".to_string(),
+                command: if has_yay { Some("yay -Syu --devel".to_string()) } else if has_paru { Some("paru -Syu --devel".to_string()) } else { None },
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/AUR_helpers".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check locale and timezone configuration
+fn check_locale_timezone() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if locale is configured
+    let locale_conf = std::fs::read_to_string("/etc/locale.conf").unwrap_or_default();
+    if locale_conf.is_empty() || !locale_conf.contains("LANG=") {
+        result.push(Advice {
+            id: "locale-not-set".to_string(),
+            title: "System locale is not configured".to_string(),
+            reason: "Your system locale isn't properly set! This affects how dates, times, numbers, and currency are displayed. It can cause weird formatting in applications and sometimes break programs that expect a specific locale. Set it to match your language/region (e.g., en_US.UTF-8 for US English).".to_string(),
+            action: "Configure system locale".to_string(),
+            command: Some("echo 'LANG=en_US.UTF-8' > /etc/locale.conf && locale-gen".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Locale".to_string()],
+        });
+    }
+
+    // Check timezone
+    let tz_link = std::fs::read_link("/etc/localtime").ok();
+    if tz_link.is_none() {
+        result.push(Advice {
+            id: "timezone-not-set".to_string(),
+            title: "System timezone is not configured".to_string(),
+            reason: "Your timezone isn't set! This means your system clock shows UTC time instead of your local time. It affects file timestamps, logs, scheduled tasks, and anything time-related. Set it to your actual timezone so times make sense!".to_string(),
+            action: "Set system timezone".to_string(),
+            command: Some("timedatectl set-timezone America/New_York".to_string()), // Example
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/System_time#Time_zone".to_string()],
+        });
+    }
+
+    // Check if NTP is enabled for time sync
+    let ntp_enabled = Command::new("timedatectl")
+        .args(&["show", "--property=NTP", "--value"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "yes")
+        .unwrap_or(false);
+
+    if !ntp_enabled {
+        result.push(Advice {
+            id: "ntp-not-enabled".to_string(),
+            title: "Automatic time synchronization is disabled".to_string(),
+            reason: "NTP (Network Time Protocol) isn't enabled! Your system clock will drift over time, leading to incorrect timestamps. This can break SSL certificates, cause authentication failures, and mess up logs. Enable NTP to keep your clock accurate automatically - systemd-timesyncd does this perfectly!".to_string(),
+            action: "Enable NTP time synchronization".to_string(),
+            command: Some("timedatectl set-ntp true".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd-timesyncd".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for laptop-specific optimizations
+fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if this is a laptop (has battery)
+    let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
+                      std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+
+    if !has_battery {
+        return result; // Not a laptop
+    }
+
+    // Check for powertop
+    let has_powertop = Command::new("pacman")
+        .args(&["-Q", "powertop"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_powertop {
+        result.push(Advice {
+            id: "laptop-powertop".to_string(),
+            title: "Install powertop for battery optimization".to_string(),
+            reason: "You're on a laptop but don't have powertop! Powertop shows detailed power consumption and can auto-tune your system for better battery life. It can easily add 1-2 hours of battery by optimizing USB power, CPU C-states, and more. Run 'powertop --auto-tune' for automatic optimizations!".to_string(),
+            action: "Install powertop".to_string(),
+            command: Some("pacman -S --noconfirm powertop".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Powertop".to_string()],
+        });
+    }
+
+    // Check for touchpad drivers (libinput)
+    let has_libinput = Command::new("pacman")
+        .args(&["-Q", "xf86-input-libinput"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_libinput {
+        result.push(Advice {
+            id: "laptop-touchpad".to_string(),
+            title: "Install libinput for modern touchpad support".to_string(),
+            reason: "You're on a laptop and need good touchpad drivers! libinput is the modern input driver that handles touchpads, trackpoints, and gestures. It provides smooth scrolling, multi-finger gestures, palm detection, and tap-to-click. Essential for a good laptop experience!".to_string(),
+            action: "Install xf86-input-libinput".to_string(),
+            command: Some("pacman -S --noconfirm xf86-input-libinput".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Libinput".to_string()],
+        });
+    }
+
+    // Check for backlight control
+    let has_backlight_control = Command::new("which")
+        .arg("brightnessctl")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false) || Command::new("which")
+        .arg("light")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_backlight_control {
+        result.push(Advice {
+            id: "laptop-backlight".to_string(),
+            title: "Install brightnessctl for screen brightness control".to_string(),
+            reason: "You can't easily control your laptop screen brightness! brightnessctl lets you adjust brightness from the command line or bind it to keyboard shortcuts. Essential for laptops - you'll want to dim the screen to save battery or brighten it in sunlight.".to_string(),
+            action: "Install brightnessctl".to_string(),
+            command: Some("pacman -S --noconfirm brightnessctl".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Backlight".to_string()],
+        });
+    }
+
+    // Check for laptop-mode-tools (advanced power management)
+    let has_laptop_mode = Command::new("pacman")
+        .args(&["-Q", "laptop-mode-tools"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_laptop_mode && !facts.dev_tools_detected.iter().any(|t| t == "tlp") {
+        result.push(Advice {
+            id: "laptop-mode-tools".to_string(),
+            title: "Consider laptop-mode-tools for advanced power saving".to_string(),
+            reason: "Want even more battery life? laptop-mode-tools provides aggressive power management: spins down HDDs, manages CPU frequency, controls device power states, and more. It's more configurable than TLP but requires more setup. Great for squeezing every minute out of your battery!".to_string(),
+            action: "Install laptop-mode-tools".to_string(),
+            command: Some("pacman -S --noconfirm laptop-mode-tools".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Laptop_Mode_Tools".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for webcam support
+fn check_webcam_support() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if webcam exists
+    let has_webcam = std::path::Path::new("/dev/video0").exists() ||
+                     std::path::Path::new("/dev/video1").exists();
+
+    if !has_webcam {
+        return result; // No webcam detected
+    }
+
+    // Check for v4l-utils
+    let has_v4l = Command::new("pacman")
+        .args(&["-Q", "v4l-utils"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_v4l {
+        result.push(Advice {
+            id: "webcam-v4l-utils".to_string(),
+            title: "Install v4l-utils for webcam control".to_string(),
+            reason: "You have a webcam but no tools to control it! v4l-utils provides v4l2-ctl for adjusting brightness, contrast, focus, and other camera settings. Super useful for video calls - you can tweak your camera to look good in any lighting!".to_string(),
+            action: "Install v4l-utils".to_string(),
+            command: Some("pacman -S --noconfirm v4l-utils".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "hardware".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Webcam_setup".to_string()],
+        });
+    }
+
+    // Suggest cheese for testing
+    let has_cheese = Command::new("pacman")
+        .args(&["-Q", "cheese"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_cheese {
+        result.push(Advice {
+            id: "webcam-cheese".to_string(),
+            title: "Install Cheese for webcam testing".to_string(),
+            reason: "Want to test your webcam? Cheese is a simple, fast webcam viewer. Perfect for checking if your camera works, adjusting position, or just making sure you look good before a video call! It can also take photos and videos.".to_string(),
+            action: "Install Cheese webcam viewer".to_string(),
+            command: Some("pacman -S --noconfirm cheese".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Webcam_setup#Cheese".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for audio enhancements
+fn check_audio_enhancements() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if PipeWire or PulseAudio is running
+    let has_pipewire = Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_pulseaudio = Command::new("systemctl")
+        .args(&["--user", "is-active", "pulseaudio"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_pipewire && !has_pulseaudio {
+        return result; // No audio server detected
+    }
+
+    // Check for EasyEffects (PipeWire) or PulseEffects (PulseAudio)
+    let has_easyeffects = Command::new("pacman")
+        .args(&["-Q", "easyeffects"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_pipewire && !has_easyeffects {
+        result.push(Advice {
+            id: "audio-easyeffects".to_string(),
+            title: "Install EasyEffects for audio enhancement".to_string(),
+            reason: "You're using PipeWire but missing EasyEffects! It's an amazing audio processor that can add bass boost, equalizer, noise reduction, reverb, and more. Make cheap headphones sound expensive, improve microphone quality, or just make everything sound better. It's like having a professional audio engineer built in!".to_string(),
+            action: "Install EasyEffects".to_string(),
+            command: Some("pacman -S --noconfirm easyeffects".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "audio".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/PipeWire#EasyEffects".to_string()],
+        });
+    }
+
+    // Check for pavucontrol (volume control GUI)
+    let has_pavucontrol = Command::new("pacman")
+        .args(&["-Q", "pavucontrol"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_pavucontrol {
+        result.push(Advice {
+            id: "audio-pavucontrol".to_string(),
+            title: "Install pavucontrol for advanced volume control".to_string(),
+            reason: "You have no GUI volume mixer! pavucontrol lets you control volume per-application, switch audio devices, adjust balance, and manage recording sources. Way better than basic volume controls - you can route Discord to headphones while music plays on speakers!".to_string(),
+            action: "Install pavucontrol".to_string(),
+            command: Some("pacman -S --noconfirm pavucontrol".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "audio".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/PulseAudio#pavucontrol".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for shell productivity tools
+fn check_shell_productivity() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for bash/zsh completion
+    let shell = std::env::var("SHELL").unwrap_or_default();
+    
+    if shell.contains("bash") {
+        let has_completion = Command::new("pacman")
+            .args(&["-Q", "bash-completion"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_completion {
+            result.push(Advice {
+                id: "shell-bash-completion".to_string(),
+                title: "Install bash-completion for better tab completion".to_string(),
+                reason: "You're missing bash-completion! This adds intelligent tab-completion for commands, options, and file paths. Press tab and it completes git commands, package names, SSH hosts, and hundreds of other things. Makes the terminal SO much faster!".to_string(),
+                action: "Install bash-completion".to_string(),
+                command: Some("pacman -S --noconfirm bash-completion".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "utilities".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Bash#Tab_completion".to_string()],
+            });
+        }
+    }
+
+    // Check for fzf (fuzzy finder)
+    let has_fzf = Command::new("pacman")
+        .args(&["-Q", "fzf"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_fzf {
+        result.push(Advice {
+            id: "shell-fzf".to_string(),
+            title: "Install fzf for fuzzy finding".to_string(),
+            reason: "fzf is a GAME CHANGER for terminal productivity! It adds fuzzy search to command history (Ctrl+R), file finding, directory jumping, and more. Instead of scrolling through history or typing paths, just type a few letters and fzf finds what you want. Every power user has this!".to_string(),
+            action: "Install fzf fuzzy finder".to_string(),
+            command: Some("pacman -S --noconfirm fzf".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fzf".to_string()],
+        });
+    }
+
+    // Check for tmux/screen
+    let has_tmux = Command::new("pacman")
+        .args(&["-Q", "tmux"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_screen = Command::new("pacman")
+        .args(&["-Q", "screen"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_tmux && !has_screen {
+        result.push(Advice {
+            id: "shell-tmux".to_string(),
+            title: "Install tmux for terminal multiplexing".to_string(),
+            reason: "tmux is essential for terminal work! It lets you split your terminal into panes, create multiple windows, and most importantly - detach and reattach sessions. Start a long process over SSH, disconnect, come back later and it's still running! Also great for organizing workflows with split panes.".to_string(),
+            action: "Install tmux".to_string(),
+            command: Some("pacman -S --noconfirm tmux".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Tmux".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check filesystem maintenance
+fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for ext4 filesystems that might need fsck
+    let has_ext4 = facts.storage_devices.iter().any(|dev| 
+        dev.filesystem.to_lowercase().contains("ext4") || 
+        dev.filesystem.to_lowercase().contains("ext3")
+    );
+
+    if has_ext4 {
+        result.push(Advice {
+            id: "filesystem-fsck-reminder".to_string(),
+            title: "Reminder: Run fsck on ext4 filesystems periodically".to_string(),
+            reason: "You're using ext4 - remember to run filesystem checks occasionally! Modern ext4 is reliable, but errors can accumulate over time from power failures or hardware issues. Boot from a live USB and run 'fsck -f /dev/sdXY' on unmounted filesystems yearly to catch problems early.".to_string(),
+            action: "Schedule periodic filesystem checks".to_string(),
+            command: None, // Must be done from live USB
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "maintenance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fsck".to_string()],
+        });
+    }
+
+    // Check for Btrfs scrub
+    let has_btrfs = facts.storage_devices.iter().any(|dev| 
+        dev.filesystem.to_lowercase().contains("btrfs")
+    );
+
+    if has_btrfs {
+        result.push(Advice {
+            id: "filesystem-btrfs-scrub".to_string(),
+            title: "Run Btrfs scrub for data integrity".to_string(),
+            reason: "You're using Btrfs - run scrubs regularly! Scrub reads all data and metadata, verifies checksums, and repairs corruption automatically. It's like a health check for your filesystem. Run 'btrfs scrub start /' monthly to catch bit rot and disk errors before they cause data loss.".to_string(),
+            action: "Start Btrfs scrub".to_string(),
+            command: Some("btrfs scrub start /".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "maintenance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Scrub".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check kernel parameters
+fn check_kernel_parameters() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Read current kernel parameters
+    let cmdline = std::fs::read_to_string("/proc/cmdline").unwrap_or_default();
+
+    // Check for quiet parameter (reduces boot messages)
+    if !cmdline.contains("quiet") {
+        result.push(Advice {
+            id: "kernel-quiet-boot".to_string(),
+            title: "Add 'quiet' kernel parameter for cleaner boot".to_string(),
+            reason: "Your boot shows all kernel messages! Adding 'quiet' to kernel parameters makes boot look cleaner by hiding verbose kernel output. You'll still see important errors, but not the flood of driver messages. Makes your system look more polished!".to_string(),
+            action: "Add 'quiet' to GRUB_CMDLINE_LINUX in /etc/default/grub".to_string(),
+            command: None, // Manual GRUB config edit
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Kernel_parameters".to_string()],
+        });
+    }
+
+    // Check for splash (boot splash screen)
+    if !cmdline.contains("splash") {
+        result.push(Advice {
+            id: "kernel-splash-screen".to_string(),
+            title: "Add 'splash' for graphical boot screen".to_string(),
+            reason: "Want a pretty boot screen instead of text? Add 'splash' kernel parameter and install plymouth for a graphical boot animation. Makes your system boot look professional and modern instead of showing raw text. Purely cosmetic but nice!".to_string(),
+            action: "Add 'splash' parameter and install plymouth".to_string(),
+            command: None, // Requires plymouth setup
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Plymouth".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check bootloader optimization
+fn check_bootloader_optimization() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check GRUB timeout
+    let grub_config = std::fs::read_to_string("/etc/default/grub").unwrap_or_default();
+    
+    if grub_config.contains("GRUB_TIMEOUT=5") || grub_config.contains("GRUB_TIMEOUT=10") {
+        result.push(Advice {
+            id: "bootloader-reduce-timeout".to_string(),
+            title: "Reduce GRUB timeout for faster boot".to_string(),
+            reason: "Your GRUB waits 5-10 seconds before booting! If you have one OS and don't need to pick kernels, reduce GRUB_TIMEOUT to 1 or 2 seconds. Saves time on every boot! You can still access the menu by holding Shift during boot if needed.".to_string(),
+            action: "Set GRUB_TIMEOUT=1 in /etc/default/grub".to_string(),
+            command: Some("sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub && grub-mkconfig -o /boot/grub/grub.cfg".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "performance".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB/Tips_and_tricks#Speeding_up_GRUB".to_string()],
+        });
+    }
+
+    // Check for GRUB background
+    if !grub_config.contains("GRUB_BACKGROUND") {
+        result.push(Advice {
+            id: "bootloader-custom-background".to_string(),
+            title: "Consider adding custom GRUB background".to_string(),
+            reason: "Your GRUB menu is plain! You can set a custom background image with GRUB_BACKGROUND in /etc/default/grub. Makes your bootloader look personalized and professional. Any PNG/JPG image works!".to_string(),
+            action: "Set GRUB_BACKGROUND=/path/to/image.png".to_string(),
+            command: None, // Needs image file path
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB/Tips_and_tricks#Background_image_and_bitmap_fonts".to_string()],
+        });
     }
 
     result

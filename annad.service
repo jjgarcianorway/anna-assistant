@@ -1,25 +1,70 @@
+# Anna Assistant Daemon - Systemd Service Unit
+#
+# Anna is a friendly, intelligent system administrator for Arch Linux
+# that monitors your system and provides personalized recommendations.
+#
+# Installation:
+#   sudo cp annad.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now annad
+#
+# Management:
+#   sudo systemctl status annad    # Check status
+#   sudo systemctl restart annad   # Restart daemon
+#   sudo systemctl stop annad      # Stop daemon
+#   journalctl -u annad -f         # View logs
+#
+# Configuration:
+#   Use 'annactl config' to manage Anna's settings
+#
+# Documentation:
+#   https://github.com/jjgarcianorway/anna-assistant/blob/main/README.md
+
 [Unit]
-Description=Anna Assistant Daemon
+Description=Anna Assistant - Autonomous System Administrator for Arch Linux
 Documentation=https://github.com/jjgarcianorway/anna-assistant
-After=network.target
+Documentation=https://wiki.archlinux.org/
+After=network.target local-fs.target
+
+# Ensure critical system services are available
+Wants=systemd-journald.service
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/annad
+
+# Restart policy - automatically recover from failures
 Restart=on-failure
 RestartSec=10s
+StartLimitBurst=3
+StartLimitIntervalSec=60s
 
 # Security hardening
+# Prevent privilege escalation
 NoNewPrivileges=true
+
+# Use private /tmp directory
 PrivateTmp=true
 
-# Logging
+# Logging configuration
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=annad
+SyslogLevel=info
 
 # Resource limits
+# File descriptors for filesystem watching and IPC
 LimitNOFILE=65536
+
+# Nice level (0 = default priority)
+Nice=0
+
+# Working directory for daemon
+WorkingDirectory=/tmp
+
+# Create runtime directory for socket
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target

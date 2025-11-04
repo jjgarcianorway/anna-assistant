@@ -82,10 +82,17 @@ async fn send_gui_notification(title: &str, message: &str, urgency: Notification
 
 /// Send terminal broadcast using wall
 async fn send_terminal_broadcast(message: &str) {
+    // Simple box without ANSI codes for wall (broadcast to all terminals)
+    let width = 50;
+    let top = format!("╭{}╮", "─".repeat(width));
+    let title = format!("│ ⚠️  Anna Assistant Alert{} │", " ".repeat(width - 26));
+    let bottom = format!("╰{}╯", "─".repeat(width));
+
     let formatted_message = format!(
-        "\n╭{}╮\n│ ⚠️  Anna Assistant Alert │\n╰{}╯\n\n{}\n\nRun 'annactl advise' for details.\n",
-        "─".repeat(30),
-        "─".repeat(30),
+        "\n{}\n{}\n{}\n\n{}\n\nRun 'annactl advise' for details.\n",
+        top,
+        title,
+        bottom,
         message
     );
 

@@ -14,9 +14,10 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 
 ## ✨ What Anna Does
 
-### 🔒 **Security**
+### 🔒 **Security & Updates**
 - Detects missing CPU microcode (Spectre/Meltdown protection)
 - Checks firewall status (UFW/iptables)
+- Monitors for available system updates
 - Warns about security vulnerabilities with clear explanations
 
 ### ⚡ **Performance**
@@ -24,27 +25,53 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 - Optimizes mirror lists with Reflector
 - Enables parallel downloads in pacman (5x faster)
 - Recommends SSD TRIM for longevity
+- Power management for laptops (TLP)
 
 ### 💻 **Development**
-- Detects which languages you actually use (Python, Rust, Go)
+- Detects which languages you actually use (Python, Rust, Go, JavaScript)
 - Suggests LSP servers and tools for your workflow
 - Finds missing configurations (git, bat, starship, zoxide)
+- Build optimization (sccache for Rust)
 
-### 🎨 **Beautification**
-- Enables colorful terminal output
-- Suggests modern CLI tools (eza, bat, ripgrep, fd)
-- Recommends shell enhancements
+### 🎨 **Desktop & Terminal**
+- Modern GPU-accelerated terminals (Alacritty, Kitty, WezTerm)
+- Desktop environment-specific recommendations (i3, Sway, Hyprland)
+- Status bars (Waybar, i3blocks) for tiling WMs
+- Application launchers (Rofi, Wofi)
+- Notification daemons (Dunst, Mako)
+- Compositor support (Picom for X11, XWayland compatibility)
+- Screenshot tools (grim/slurp for Wayland, maim/scrot for X11)
+
+### 🎮 **Hardware & Gaming**
+- Gamepad driver detection (Xbox, PlayStation, Nintendo controllers)
+- Steam and gaming optimizations
+- Hardware accelerated video decoding
+
+### 🔌 **Hardware Support**
+- Bluetooth stack setup (bluez)
+- WiFi firmware detection and installation
+- USB automount (udisks2)
+- NetworkManager for easy WiFi management
+
+### 🎬 **Multimedia**
+- Video players (VLC, mpv) with codec support
+- FFmpeg for media processing
+- YouTube downloader (yt-dlp)
+- Image manipulation (ImageMagick)
+- GStreamer plugins for media playback
+
+### 🔤 **Fonts & Rendering**
+- Nerd Fonts for terminal icons
+- Emoji font support
+- CJK (Chinese, Japanese, Korean) fonts
+- Better font rendering
 
 ### 🧹 **Maintenance**
 - Cleans up orphaned packages
 - Monitors systemd health
 - Checks GPU drivers
-- Detects system updates
-
-### 📦 **Power User Features**
-- AUR helper recommendations (yay/paru)
-- NetworkManager setup for WiFi
-- Comprehensive system checks
+- **Automatic refresh** on system changes (package installs, reboots, config changes)
+- **Smart notifications** (GUI via notify-send, terminal via wall)
 
 ---
 
@@ -71,8 +98,19 @@ annactl advise
 # Check Anna's status
 annactl status
 
-# Get a full system health report
+# Get a full system health report (in plain English!)
 annactl report
+
+# Apply recommendations by number
+annactl apply --nums 1        # Apply first recommendation
+annactl apply --nums 1-5      # Apply recommendations 1 through 5
+annactl apply --nums 1,3,5-7  # Apply multiple recommendations
+
+# Apply by ID
+annactl apply --id orphan-packages
+
+# See what would happen without actually doing it
+annactl apply --nums 1 --dry-run
 ```
 
 ---
@@ -93,28 +131,29 @@ annactl report
 
 ## 📊 Current Status
 
-**Version**: v1.0.0-beta.8
-**Status**: Beta - Ready for testing!
+**Version**: v1.0.0-beta.16
+**Status**: Beta - Feature-rich and stable!
 
 ### What's Working
 
-✅ **12 intelligent detection rules** covering security, performance, and usability
-✅ **Human-friendly messages** - every word in plain English
-✅ **Perfect terminal formatting** - beautiful pastel colors
-✅ **Smart detection** - only suggests what you actually need
+✅ **110+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
+✅ **Automatic system monitoring** - refreshes advice on package changes, reboots, config edits
+✅ **Multi-user support** - personalized advice based on desktop environment, shell, display server
+✅ **Batch apply** - apply recommendations by number, range (1-5), or multiple (1,3,5-7)
+✅ **Smart notifications** - GUI notifications (notify-send) and terminal broadcasts (wall) for critical issues
+✅ **Plain English reports** - conversational system health summaries
+✅ **Human-friendly messages** - every word in plain English with clear explanations
+✅ **Perfect terminal formatting** - beautiful pastel colors with numbered advice
+✅ **Context-aware** - only suggests what you actually need based on your usage
 ✅ **Automatic installation** - one command and you're done
-✅ **Background daemon** - runs quietly, always ready
+✅ **Background daemon** - runs quietly, always watching your system
 ✅ **Arch Wiki citations** - every recommendation has references
-✅ **Priority system** - Mandatory > Recommended > Optional > Cosmetic
+✅ **Risk levels** - High (critical) > Medium (recommended) > Low (optional)
 
 ### Coming Soon
 
-🚧 **SSH hardening detection** - check for weak algorithms
-🚧 **Professional system reports** - detailed admin-style analysis
-🚧 **Shell beautification** - oh-my-zsh, starship, oh-my-posh
-🚧 **Snapshot systems** - Timeshift, Snapper recommendations
-🚧 **Gaming support** - Steam, multilib, gamemode detection
-🚧 **Desktop environment context** - Hyprland, GNOME, KDE specific advice
+🚧 **Policy-based auto-apply** - let Anna automatically fix low-risk issues
+🚧 **Arch Wiki caching** - offline access to documentation
 
 ---
 
@@ -202,7 +241,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📜 License
 
-MIT License - See [LICENSE](LICENSE) for details.
+**GNU General Public License v3.0 (GPLv3)**
+
+Anna Assistant is free and open source software licensed under GPLv3.
+
+This means:
+- ✅ **Free to use, fork, and share**
+- ✅ **Must cite original source** when distributing
+- ✅ **Must remain open source** (copyleft protection)
+- ✅ **Must disclose modifications**
+
+This ensures Anna remains free for everyone while protecting the work and giving proper attribution.
+
+See [LICENSE](LICENSE) for full details.
 
 ---
 

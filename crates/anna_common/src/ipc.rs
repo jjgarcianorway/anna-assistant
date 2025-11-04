@@ -32,6 +32,14 @@ pub enum Method {
     /// Get recommendations
     GetAdvice,
 
+    /// Get recommendations with user context (for multi-user systems)
+    GetAdviceWithContext {
+        username: String,
+        desktop_env: Option<String>,
+        shell: String,
+        display_server: Option<String>,
+    },
+
     /// Apply an action by advice ID
     ApplyAction { advice_id: String, dry_run: bool },
 
