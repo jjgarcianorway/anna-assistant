@@ -85,6 +85,27 @@ pub struct SystemFacts {
     pub dev_tools_detected: Vec<String>, // git, docker, vim, etc.
     pub media_usage: MediaUsageProfile,
     pub common_file_types: Vec<String>, // .py, .rs, .js, .mp4, etc.
+
+    // Boot Performance
+    pub boot_time_seconds: Option<f64>,
+    pub slow_services: Vec<SystemdService>, // services taking >5s to start
+    pub failed_services: Vec<String>,
+
+    // Package Management
+    pub aur_packages: usize,
+    pub aur_helper: Option<String>, // yay, paru, aurutils, etc.
+    pub package_cache_size_gb: f64,
+    pub last_system_upgrade: Option<DateTime<Utc>>,
+
+    // Kernel & Boot Parameters
+    pub kernel_parameters: Vec<String>,
+}
+
+/// Systemd service information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemdService {
+    pub name: String,
+    pub time_seconds: f64,
 }
 
 /// Command usage statistics
@@ -137,6 +158,12 @@ pub struct Advice {
     pub category: String, // "security", "drivers", "development", "media", "beautification", etc.
     #[serde(default)]
     pub alternatives: Vec<Alternative>,
+    #[serde(default)]
+    pub depends_on: Vec<String>, // IDs of advice that should be applied first
+    #[serde(default)]
+    pub related_to: Vec<String>, // IDs of related advice (suggestions, not dependencies)
+    #[serde(default)]
+    pub bundle: Option<String>, // Workflow bundle name (e.g., "Python Dev Stack")
 }
 
 impl Advice {
@@ -163,12 +190,33 @@ impl Advice {
             wiki_refs,
             category,
             alternatives: Vec::new(),
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
         }
     }
 
     /// Add alternatives to this advice
     pub fn with_alternatives(mut self, alternatives: Vec<Alternative>) -> Self {
         self.alternatives = alternatives;
+        self
+    }
+
+    /// Add dependencies (advice IDs that should be applied first)
+    pub fn with_dependencies(mut self, depends_on: Vec<String>) -> Self {
+        self.depends_on = depends_on;
+        self
+    }
+
+    /// Add related advice IDs
+    pub fn with_related(mut self, related_to: Vec<String>) -> Self {
+        self.related_to = related_to;
+        self
+    }
+
+    /// Set workflow bundle
+    pub fn with_bundle(mut self, bundle: String) -> Self {
+        self.bundle = Some(bundle);
         self
     }
 }

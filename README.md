@@ -197,13 +197,19 @@ annactl advise --mode=recommended --category=security --limit=5
 
 ## 📊 Current Status
 
-**Version**: v1.0.0-beta.26
+**Version**: v1.0.0-beta.27
 **Status**: Beta - Feature-rich and stable!
 
 ### What's Working
 
 ✅ **130+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
 ✅ **Behavior-based intelligence** - analyzes your command history to understand Docker, Python, Git usage patterns
+✅ **Boot performance analysis** - tracks boot time, slow services, failed units, suggests optimizations
+✅ **AUR helper intelligence** - detects AUR packages, recommends helpers (yay/paru), offers alternatives
+✅ **Package cache management** - monitors cache size, suggests cleanup strategies with paccache
+✅ **Kernel parameter optimization** - analyzes boot parameters, suggests SSD optimizations
+✅ **Dependency chains & workflow bundles** - groups related advice, smart ordering foundation
+✅ **Software alternatives system** - offers 2-3 tool options with trade-offs explained
 ✅ **Smart filtering system** - 4 display modes (smart/critical/recommended/all) + category filters + limits
 ✅ **Enhanced health reports** - sysadmin-level insights with hardware specs, storage analysis, dev tools detection
 ✅ **Automatic system monitoring** - refreshes advice on package changes, reboots, config edits

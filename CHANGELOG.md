@@ -5,6 +5,119 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.27] - 2025-01-04
+
+### 🚀 Advanced Telemetry & Intelligent Recommendations!
+
+**GAME CHANGER:** Anna now analyzes boot performance, AUR usage, package cache, kernel parameters, and understands workflow dependencies!
+
+### ✨ Added
+
+**⚡ Boot Performance Analysis**
+- Tracks total boot time using `systemd-analyze time`
+- Detects slow-starting services (>5 seconds)
+- Identifies failed systemd services
+- Recommends disabling `NetworkManager-wait-online` and other slow services
+- Links to Arch Wiki boot optimization guides
+
+**🎯 AUR Helper Intelligence**
+- Counts AUR packages vs official repos using `pacman -Qm`
+- Detects which AUR helper is installed (yay, paru, aurutils, pikaur, aura, trizen)
+- Suggests installing AUR helper if you have AUR packages but no helper
+- Recommends paru over yay for users with 20+ AUR packages (faster, Rust-based)
+- Offers 3 alternatives with trade-offs explained
+
+**💾 Package Cache Intelligence**
+- Monitors `/var/cache/pacman/pkg/` size with `du`
+- Warns when cache exceeds 5GB
+- Suggests `paccache` for safe cleanup
+- Offers 3 cleanup strategies:
+  - Keep last 3 versions (safe default)
+  - Keep last 1 version (aggressive, saves more space)
+  - Remove all uninstalled packages
+- Auto-suggests installing `pacman-contrib` if needed
+
+**🔧 Kernel Parameter Optimization**
+- Parses `/proc/cmdline` for current boot parameters
+- Suggests `noatime` for SSD systems (reduces wear)
+- Recommends `quiet` parameter for cleaner boot screen
+- Links to Arch Wiki kernel parameter documentation
+
+**🔗 Dependency Chains & Workflow Bundles**
+- Added 3 new fields to Advice struct:
+  - `depends_on: Vec<String>` - IDs that must be applied first
+  - `related_to: Vec<String>` - Suggestions for related advice
+  - `bundle: Option<String>` - Workflow bundle name
+- Foundation for smart ordering and grouped recommendations
+- Example: "Container Development Stack" (Docker → docker-compose → lazydocker)
+
+### 📊 Enhanced Telemetry (10 New Fields)
+
+**Boot Performance**
+- `boot_time_seconds: Option<f64>`
+- `slow_services: Vec<SystemdService>`
+- `failed_services: Vec<String>`
+
+**Package Management**
+- `aur_packages: usize`
+- `aur_helper: Option<String>`
+- `package_cache_size_gb: f64`
+- `last_system_upgrade: Option<DateTime<Utc>>`
+
+**Kernel & Boot**
+- `kernel_parameters: Vec<String>`
+
+**Advice Metadata**
+- `depends_on: Vec<String>`
+- `related_to: Vec<String>`
+- `bundle: Option<String>`
+
+### 🛠️ New Detection Functions
+
+- `get_boot_time()` - Parse systemd-analyze output
+- `get_slow_services()` - Find services taking >5s to start
+- `get_failed_services()` - List failed systemd units
+- `count_aur_packages()` - Count foreign packages
+- `detect_aur_helper()` - Find installed AUR helper
+- `get_package_cache_size()` - Calculate cache size in GB
+- `get_last_upgrade_time()` - Parse pacman.log timestamps
+- `get_kernel_parameters()` - Read /proc/cmdline
+- `check_boot_performance()` - Generate boot recommendations
+- `check_package_cache()` - Generate cache recommendations
+- `check_aur_helper_usage()` - Generate AUR helper recommendations
+- `check_kernel_params_optimization()` - Generate kernel parameter recommendations
+
+### 🎯 Real-World Impact
+
+**Boot Optimization Example:**
+```
+[15] Disable slow service: NetworkManager-wait-online.service (12.3s)
+     RECOMMENDED   LOW RISK
+
+     NetworkManager-wait-online delays boot waiting for network.
+     Most systems don't need this.
+
+     ❯ systemctl disable NetworkManager-wait-online.service
+```
+
+**Package Cache Cleanup Example:**
+```
+[23] Package cache is large (8.4 GB)
+     RECOMMENDED   LOW RISK
+
+     Alternatives:
+     ★ Keep last 3 versions - Safe default
+     ○ Keep last 1 version - More aggressive
+     ○ Remove uninstalled packages
+```
+
+### 🔧 Technical
+
+- Added `SystemdService` type for boot analysis
+- All new telemetry functions are async-compatible
+- Dependency tracking foundation for future auto-ordering
+- Workflow bundles enable "install complete stack" features
+
 ## [1.0.0-beta.26] - 2025-01-04
 
 ### 🎨 Software Alternatives - Choose What You Love!

@@ -62,6 +62,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -78,6 +81,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -94,6 +100,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -116,6 +125,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -132,6 +144,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -152,6 +167,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -170,6 +188,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Go".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -190,6 +211,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -206,6 +230,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -225,6 +252,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
+                            depends_on: vec!["docker-install".to_string()],
+                related_to: vec!["lazydocker-install".to_string()],
+                bundle: Some("Container Development Stack".to_string()),
             });
         }
 
@@ -240,6 +270,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -259,6 +292,9 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Neovim".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -288,7 +324,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // cat → bat (syntax highlighting)
@@ -304,7 +343,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // grep → ripgrep (faster, smarter)
@@ -320,7 +362,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // find → fd (modern, intuitive)
@@ -336,7 +381,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "usability".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // du → dust (visual disk usage)
@@ -352,7 +400,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // top/htop → btop (beautiful system monitor)
@@ -368,7 +419,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/System_monitor".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // General shell enhancements
@@ -384,7 +438,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "usability".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Utilities".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if !command_exists("zoxide") {
@@ -399,7 +456,10 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
             category: "usability".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Utilities".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -422,7 +482,10 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
             category: "media".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Mpv".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Audio files without player
@@ -438,7 +501,10 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
             category: "media".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Music_player".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Images without viewer
@@ -454,7 +520,10 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
             category: "media".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Feh".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -477,7 +546,10 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Prompts".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Zsh enhancements (if using zsh)
@@ -494,6 +566,9 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 category: "usability".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Autosuggestions".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -509,6 +584,9 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 category: "usability".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Syntax_highlighting".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -551,6 +629,9 @@ fn check_missing_configs() -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec![],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -570,6 +651,9 @@ fn check_missing_configs() -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec![],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -596,6 +680,9 @@ fn check_missing_configs() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Configuration".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -618,6 +705,9 @@ fn check_missing_configs() -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec![],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -654,6 +744,9 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 category: "gaming".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -671,7 +764,10 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // WiFi firmware - check for common WiFi chipsets
@@ -704,7 +800,10 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Network_configuration/Wireless".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // USB automount with udisks2
@@ -720,7 +819,10 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // NetworkManager for easier WiFi management
@@ -736,7 +838,10 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Power management for laptops
@@ -755,7 +860,10 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
             category: "power".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/TLP".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -782,7 +890,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Compositor for X11 (picom for window effects)
@@ -798,7 +909,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Picom".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Terminal recommendations based on DE
@@ -820,7 +934,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Alacritty".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Status bars for tiling WMs
@@ -836,7 +953,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/I3#i3blocks".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if (desktop_env.contains("sway") || desktop_env.contains("hyprland")) &&
@@ -852,7 +972,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Application launcher
@@ -869,7 +992,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec![format!("https://wiki.archlinux.org/title/{}", launcher.to_uppercase())],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Notification daemon
@@ -886,7 +1012,10 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Desktop_notifications".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -909,7 +1038,10 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Patched_packages".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Emoji fonts
@@ -925,7 +1057,10 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Emoji_and_symbols".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Asian fonts for international text
@@ -941,7 +1076,10 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Chinese,_Japanese,_Korean,_Vietnamese".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Font rendering improvements
@@ -957,7 +1095,10 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Font_configuration".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -980,7 +1121,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Youtube-dl".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // FFmpeg for video processing
@@ -996,7 +1140,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/FFmpeg".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // VLC as alternative video player (more codec support than mpv)
@@ -1012,7 +1159,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/VLC_media_player".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Image manipulation
@@ -1028,7 +1178,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/ImageMagick".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Screenshot tools
@@ -1045,7 +1198,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#Wayland".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     } else if !using_wayland && !package_installed("scrot") && !package_installed("maim") {
         result.push(Advice {
             id: "x11-screenshot".to_string(),
@@ -1058,7 +1214,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#X11".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Audio/video codecs
@@ -1074,7 +1233,10 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GStreamer".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result

@@ -169,6 +169,9 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Microcode".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     } else if is_intel {
@@ -190,6 +193,9 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Microcode".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -223,7 +229,10 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NVIDIA".to_string()],
-                    });
+                                    depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
                 }
             }
             "AMD" => {
@@ -245,7 +254,10 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/AMDGPU".to_string()],
-                    });
+                                    depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
                 }
             }
             _ => {}
@@ -278,7 +290,10 @@ fn check_orphan_packages(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman/Tips_and_tricks".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -311,6 +326,9 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         } else {
             // Check mount options for compression
@@ -334,7 +352,10 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                         category: "performance".to_string(),
                         alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Compression".to_string()],
-                    });
+                                    depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
                 }
 
                 // Check for noatime (performance optimization)
@@ -350,7 +371,10 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                         category: "performance".to_string(),
                         alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Mount_options".to_string()],
-                    });
+                                    depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
                 }
             }
 
@@ -366,6 +390,9 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Scrub".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -410,6 +437,9 @@ fn check_system_updates() -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/System_maintenance".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -448,6 +478,9 @@ fn check_trim_timer(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Solid_state_drive#TRIM".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -474,6 +507,9 @@ fn check_pacman_config() -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman#Enabling_color_output".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -490,6 +526,9 @@ fn check_pacman_config() -> Vec<Advice> {
                 category: "performance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman#Enabling_parallel_downloads".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -534,6 +573,9 @@ fn check_systemd_health() -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Analyzing_the_system_state".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -567,6 +609,9 @@ fn check_network_manager(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         } else {
             // Check if it's enabled
@@ -588,7 +633,10 @@ fn check_network_manager(facts: &SystemFacts) -> Vec<Advice> {
                     category: "maintenance".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -627,7 +675,10 @@ fn check_firewall() -> Vec<Advice> {
                     category: "security".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Uncomplicated_Firewall".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     } else {
@@ -652,7 +703,10 @@ fn check_firewall() -> Vec<Advice> {
                     category: "security".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Uncomplicated_Firewall".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -689,7 +743,10 @@ fn check_aur_helper() -> Vec<Advice> {
             category: "development".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/AUR_helpers".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -718,7 +775,10 @@ fn check_reflector() -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Reflector".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     } else {
         // Check when mirrorlist was last updated
         if let Ok(metadata) = std::fs::metadata("/etc/pacman.d/mirrorlist") {
@@ -737,7 +797,10 @@ fn check_reflector() -> Vec<Advice> {
                             category: "performance".to_string(),
                             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Reflector".to_string()],
-                        });
+                                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
                     }
                 }
             }
@@ -783,6 +846,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -809,7 +875,10 @@ fn check_ssh_config() -> Vec<Advice> {
                     category: "security".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Force_public_key_authentication".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
 
@@ -832,6 +901,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -854,6 +926,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Configuration".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -876,6 +951,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#X11_forwarding".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -897,6 +975,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Protection".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -918,6 +999,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Keep_alive".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -939,6 +1023,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -961,6 +1048,9 @@ fn check_ssh_config() -> Vec<Advice> {
                 category: "security".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Protection".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1006,7 +1096,10 @@ fn check_swap() -> Vec<Advice> {
                                     category: "maintenance".to_string(),
                                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Swap".to_string()],
-                                });
+                                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
                             }
                         }
                     }
@@ -1032,7 +1125,10 @@ fn check_swap() -> Vec<Advice> {
                     category: "performance".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zram".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -1071,7 +1167,10 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                     category: "beautification".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Starship".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
 
@@ -1094,6 +1193,9 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Autosuggestions".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1116,6 +1218,9 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Syntax_highlighting".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     } else if shell.contains("bash") {
@@ -1138,6 +1243,9 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Starship".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1153,7 +1261,10 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -1189,6 +1300,9 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://github.com/eza-community/eza".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1213,6 +1327,9 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "beautification".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://github.com/sharkdp/bat".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1237,6 +1354,9 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "performance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://github.com/BurntSushi/ripgrep".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1261,6 +1381,9 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                 category: "performance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://github.com/sharkdp/fd".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1284,7 +1407,10 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://github.com/junegunn/fzf".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -1320,7 +1446,10 @@ fn check_gaming_setup() -> Vec<Advice> {
                     category: "gaming".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Official_repositories#multilib".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
 
@@ -1343,6 +1472,9 @@ fn check_gaming_setup() -> Vec<Advice> {
                 category: "gaming".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Gamemode".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1365,6 +1497,9 @@ fn check_gaming_setup() -> Vec<Advice> {
                 category: "gaming".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/MangoHud".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1387,6 +1522,9 @@ fn check_gaming_setup() -> Vec<Advice> {
                 category: "gaming".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Gamescope".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1410,7 +1548,10 @@ fn check_gaming_setup() -> Vec<Advice> {
             category: "gaming".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Lutris".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -1452,6 +1593,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GNOME#Extensions".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1474,6 +1618,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GNOME#Customization".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1499,6 +1646,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/KDE#Dolphin".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1521,6 +1671,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Konsole".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1552,6 +1705,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/I3#i3status".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1574,6 +1730,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rofi".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1621,6 +1780,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                     },
                 ],
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1659,6 +1821,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                     },
                 ],
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wofi".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1697,6 +1862,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                     },
                 ],
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Desktop_notifications#Mako".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1728,6 +1896,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Sway#Waybar".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1750,6 +1921,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Sway#Application_launchers".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1775,6 +1949,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1800,6 +1977,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Cinnamon#File_manager".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1822,6 +2002,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GNOME/Tips_and_tricks#Terminal".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1844,6 +2027,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Cinnamon".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1869,6 +2055,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Thunar".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1891,6 +2080,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Xfce#Terminal".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1913,6 +2105,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Xfce#Extras".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -1938,6 +2133,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/MATE#File_manager".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1960,6 +2158,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/MATE".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -1982,6 +2183,9 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/MATE".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2041,7 +2245,10 @@ fn check_terminal_and_fonts() -> Vec<Advice> {
                 },
             ],
                 wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Terminal_emulators".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for nerd fonts (for powerline, starship, etc.)
@@ -2065,7 +2272,10 @@ fn check_terminal_and_fonts() -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Patched_fonts".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -2094,7 +2304,10 @@ fn check_firmware_tools() -> Vec<Advice> {
             category: "security".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fwupd".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -2123,7 +2336,10 @@ fn check_media_tools() -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Mpv".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for yt-dlp (youtube-dl fork)
@@ -2145,7 +2361,10 @@ fn check_media_tools() -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Yt-dlp".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for ffmpeg (video processing)
@@ -2167,7 +2386,10 @@ fn check_media_tools() -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/FFmpeg".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -2203,7 +2425,10 @@ fn check_audio_system() -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/PipeWire".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // If they have PipeWire, check for additional useful tools
@@ -2226,6 +2451,9 @@ fn check_audio_system() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/PulseAudio#pavucontrol".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2261,6 +2489,9 @@ fn check_power_management() -> Vec<Advice> {
                 category: "power".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/TLP".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -2283,6 +2514,9 @@ fn check_power_management() -> Vec<Advice> {
                 category: "power".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Powertop".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2327,7 +2561,10 @@ fn check_gamepad_support() -> Vec<Advice> {
             category: "gaming".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for antimicrox (gamepad to keyboard/mouse mapping)
@@ -2349,7 +2586,10 @@ fn check_gamepad_support() -> Vec<Advice> {
             category: "gaming".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Gamepad#Button_mapping".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -2378,7 +2618,10 @@ fn check_usb_automount() -> Vec<Advice> {
             category: "desktop".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     } else {
         // If they have udisks2, suggest udiskie for automatic mounting
         let has_udiskie = Command::new("pacman")
@@ -2399,6 +2642,9 @@ fn check_usb_automount() -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Udisks#Udiskie".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2439,6 +2685,9 @@ fn check_bluetooth() -> Vec<Advice> {
                 category: "hardware".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         } else {
             // Check for GUI tools
@@ -2460,7 +2709,10 @@ fn check_bluetooth() -> Vec<Advice> {
                     category: "hardware".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Bluetooth#Blueman".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -2501,6 +2753,9 @@ fn check_wifi_setup() -> Vec<Advice> {
                 category: "hardware".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wireless#WiFi".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -2545,7 +2800,10 @@ fn check_wifi_setup() -> Vec<Advice> {
                     category: "networking".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager#nm-applet".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -2588,6 +2846,9 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
 
             result.push(Advice {
@@ -2601,6 +2862,9 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Boot_to_snapshots".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         } else {
             // Recommend Timeshift for non-Btrfs users (works with ext4)
@@ -2615,6 +2879,9 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Timeshift".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2639,6 +2906,9 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Automatic_snapshots".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -2656,6 +2926,9 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Configuration".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2680,6 +2953,9 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Snapper#Boot_to_snapshots".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2718,7 +2994,10 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
             category: "development".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: vec!["docker-compose-install".to_string(), "lazydocker-install".to_string()],
+                bundle: Some("Container Development Stack".to_string()),
+            });
     }
 
     if has_docker {
@@ -2741,6 +3020,9 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Installation".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -2765,7 +3047,10 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                     category: "development".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Installation".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
 
@@ -2788,6 +3073,9 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Docker_Compose".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2822,7 +3110,10 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/KVM#Checking_support".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
         return result; // Don't suggest KVM tools if virtualization is disabled
     }
 
@@ -2849,7 +3140,10 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/QEMU".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if has_qemu {
@@ -2872,6 +3166,9 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
                 category: "system".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Virt-manager".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -2894,6 +3191,9 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
                 category: "system".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Libvirt#Installation".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -2935,7 +3235,10 @@ fn check_printer_support() -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/CUPS".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if has_cups {
@@ -2958,6 +3261,9 @@ fn check_printer_support() -> Vec<Advice> {
                 category: "hardware".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/CUPS#Installation".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -2980,6 +3286,9 @@ fn check_printer_support() -> Vec<Advice> {
                 category: "hardware".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/CUPS#Printer_drivers".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -3022,7 +3331,10 @@ fn check_archive_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Archiving_and_compression".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if !has_unrar {
@@ -3037,7 +3349,10 @@ fn check_archive_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Archiving_and_compression".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if !has_p7zip {
@@ -3052,7 +3367,10 @@ fn check_archive_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Archiving_and_compression".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3081,7 +3399,10 @@ fn check_monitoring_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Htop".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for btop (even better than htop)
@@ -3103,7 +3424,10 @@ fn check_monitoring_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btop".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for iotop (disk I/O monitoring)
@@ -3125,7 +3449,10 @@ fn check_monitoring_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Iotop".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3154,7 +3481,10 @@ fn check_firmware_updates() -> Vec<Advice> {
             category: "maintenance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fwupd".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     } else {
         // Suggest running firmware check
         result.push(Advice {
@@ -3168,7 +3498,10 @@ fn check_firmware_updates() -> Vec<Advice> {
             category: "maintenance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fwupd#Usage".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3220,7 +3553,10 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fstab#atime_options".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for discard support (continuous TRIM)
@@ -3240,7 +3576,10 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Solid_state_drive#Continuous_TRIM".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3270,7 +3609,10 @@ fn check_swap_compression() -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zram".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3304,7 +3646,10 @@ fn check_dns_configuration() -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd-resolved".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for public DNS servers
@@ -3325,6 +3670,9 @@ fn check_dns_configuration() -> Vec<Advice> {
                 category: "networking".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Domain_name_resolution".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -3367,6 +3715,9 @@ fn check_journal_size() -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -3389,7 +3740,10 @@ fn check_journal_size() -> Vec<Advice> {
             category: "maintenance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3416,7 +3770,10 @@ fn check_aur_helper_safety() -> Vec<Advice> {
             category: "security".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/AUR_helpers#Safety".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
 
         // Check if user has devel packages installed (needs regular updates)
         let devel_packages = Command::new("pacman")
@@ -3443,6 +3800,9 @@ fn check_aur_helper_safety() -> Vec<Advice> {
                 category: "maintenance".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/AUR_helpers".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -3468,7 +3828,10 @@ fn check_locale_timezone() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Locale".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check timezone
@@ -3485,7 +3848,10 @@ fn check_locale_timezone() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/System_time#Time_zone".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check if NTP is enabled for time sync
@@ -3507,7 +3873,10 @@ fn check_locale_timezone() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd-timesyncd".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3544,7 +3913,10 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Powertop".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for touchpad drivers (libinput)
@@ -3566,7 +3938,10 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Libinput".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for backlight control
@@ -3592,7 +3967,10 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Backlight".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for laptop-mode-tools (advanced power management)
@@ -3614,7 +3992,10 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Laptop_Mode_Tools".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3651,7 +4032,10 @@ fn check_webcam_support() -> Vec<Advice> {
             category: "hardware".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Webcam_setup".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Suggest cheese for testing
@@ -3673,7 +4057,10 @@ fn check_webcam_support() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Webcam_setup#Cheese".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3719,7 +4106,10 @@ fn check_audio_enhancements() -> Vec<Advice> {
             category: "audio".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/PipeWire#EasyEffects".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for pavucontrol (volume control GUI)
@@ -3741,7 +4131,10 @@ fn check_audio_enhancements() -> Vec<Advice> {
             category: "audio".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/PulseAudio#pavucontrol".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3773,6 +4166,9 @@ fn check_shell_productivity() -> Vec<Advice> {
                 category: "utilities".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Bash#Tab_completion".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -3796,7 +4192,10 @@ fn check_shell_productivity() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fzf".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for tmux/screen
@@ -3824,7 +4223,10 @@ fn check_shell_productivity() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Tmux".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3852,7 +4254,10 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
             category: "maintenance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fsck".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for Btrfs scrub
@@ -3872,7 +4277,10 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
             category: "maintenance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Scrub".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3898,7 +4306,10 @@ fn check_kernel_parameters() -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Kernel_parameters".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for splash (boot splash screen)
@@ -3914,7 +4325,10 @@ fn check_kernel_parameters() -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Plymouth".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3939,7 +4353,10 @@ fn check_bootloader_optimization() -> Vec<Advice> {
             category: "performance".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB/Tips_and_tricks#Speeding_up_GRUB".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for GRUB background
@@ -3955,7 +4372,10 @@ fn check_bootloader_optimization() -> Vec<Advice> {
             category: "beautification".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB/Tips_and_tricks#Background_image_and_bitmap_fonts".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -3991,7 +4411,10 @@ fn check_vpn_tools() -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/WireGuard".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for NetworkManager VPN plugins
@@ -4013,7 +4436,10 @@ fn check_vpn_tools() -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager#VPN_support".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4041,7 +4467,10 @@ fn check_browser_recommendations() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Firefox#Privacy".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     if !has_firefox && !has_chromium && !has_chrome {
@@ -4072,7 +4501,10 @@ fn check_browser_recommendations() -> Vec<Advice> {
                 },
             ],
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Firefox".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4101,7 +4533,10 @@ fn check_security_tools() -> Vec<Advice> {
             category: "security".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rkhunter".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for ClamAV (antivirus)
@@ -4123,7 +4558,10 @@ fn check_security_tools() -> Vec<Advice> {
             category: "security".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/ClamAV".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for LUKS encrypted partitions
@@ -4145,7 +4583,10 @@ fn check_security_tools() -> Vec<Advice> {
             category: "security".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Dm-crypt".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4174,7 +4615,10 @@ fn check_backup_solutions() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rsync".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for borg backup
@@ -4196,7 +4640,10 @@ fn check_backup_solutions() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Borg_backup".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4225,7 +4672,10 @@ fn check_screen_recording() -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Open_Broadcaster_Software".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for SimpleScreenRecorder (lighter alternative)
@@ -4247,7 +4697,10 @@ fn check_screen_recording() -> Vec<Advice> {
             category: "multimedia".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#SimpleScreenRecorder".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4283,7 +4736,10 @@ fn check_password_managers() -> Vec<Advice> {
             category: "security".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/KeePass".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4313,7 +4769,10 @@ fn check_gaming_enhancements() -> Vec<Advice> {
             category: "gaming".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Steam#Proton".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
 
         // Check for MangoHud (performance overlay)
         let has_mangohud = Command::new("pacman")
@@ -4334,6 +4793,9 @@ fn check_gaming_enhancements() -> Vec<Advice> {
                 category: "gaming".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/MangoHud".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4357,7 +4819,10 @@ fn check_gaming_enhancements() -> Vec<Advice> {
             category: "gaming".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wine".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4386,7 +4851,10 @@ fn check_android_integration() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/KDE_Connect".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for scrcpy (screen mirroring)
@@ -4408,7 +4876,10 @@ fn check_android_integration() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Android#Screen_mirroring".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4441,6 +4912,9 @@ fn check_text_editors() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Neovim".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4477,7 +4951,10 @@ fn check_mail_clients() -> Vec<Advice> {
             category: "productivity".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Thunderbird".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4506,7 +4983,10 @@ fn check_file_sharing() -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Samba".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for NFS utilities
@@ -4528,7 +5008,10 @@ fn check_file_sharing() -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/NFS".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4557,7 +5040,10 @@ fn check_cloud_storage() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rclone".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4597,6 +5083,9 @@ fn check_golang_dev() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Go".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         } else {
             // Check for gopls (Go LSP)
@@ -4618,7 +5107,10 @@ fn check_golang_dev() -> Vec<Advice> {
                     category: "development".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Go#Language_Server".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -4659,6 +5151,9 @@ fn check_java_dev() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Java".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -4681,6 +5176,9 @@ fn check_java_dev() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Java#Maven".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4722,6 +5220,9 @@ fn check_nodejs_dev() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -4744,6 +5245,9 @@ fn check_nodejs_dev() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js#TypeScript".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4777,6 +5281,9 @@ fn check_databases() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/PostgreSQL".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4817,6 +5324,9 @@ fn check_web_servers() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Nginx".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4847,7 +5357,10 @@ fn check_remote_desktop() -> Vec<Advice> {
             category: "networking".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/TigerVNC".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -4884,6 +5397,9 @@ fn check_torrent_clients() -> Vec<Advice> {
                 category: "utilities".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/QBittorrent".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4922,6 +5438,9 @@ fn check_office_suite() -> Vec<Advice> {
                 category: "productivity".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/LibreOffice".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -4960,6 +5479,9 @@ fn check_graphics_software() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GIMP".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -4982,6 +5504,9 @@ fn check_graphics_software() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Inkscape".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5020,6 +5545,9 @@ fn check_video_editing() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Kdenlive".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5058,6 +5586,9 @@ fn check_music_players() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Music_Player_Daemon".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5102,6 +5633,9 @@ fn check_pdf_readers() -> Vec<Advice> {
                 category: "utilities".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zathura".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5136,6 +5670,9 @@ fn check_monitor_tools() -> Vec<Advice> {
                 category: "desktop".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Xrandr".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5166,7 +5703,10 @@ fn check_systemd_timers() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Timers".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -5199,6 +5739,9 @@ fn check_shell_alternatives() -> Vec<Advice> {
                 category: "shell".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Fish".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5229,7 +5772,10 @@ fn check_compression_advanced() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Zstd".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -5266,6 +5812,9 @@ fn check_dual_boot() -> Vec<Advice> {
                 category: "system".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB#Detecting_other_operating_systems".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5299,6 +5848,9 @@ fn check_git_advanced() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Diff_and_merge_tools".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5321,6 +5873,9 @@ fn check_git_advanced() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Graphical_tools".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5359,6 +5914,9 @@ fn check_container_alternatives() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Podman".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5393,6 +5951,9 @@ fn check_code_editors() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Visual_Studio_Code".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5426,6 +5987,9 @@ fn check_additional_databases() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/MariaDB".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5448,6 +6012,9 @@ fn check_additional_databases() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Redis".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5482,6 +6049,9 @@ fn check_network_tools() -> Vec<Advice> {
                 category: "networking".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wireshark".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5504,6 +6074,9 @@ fn check_network_tools() -> Vec<Advice> {
                 category: "networking".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Nmap".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5542,6 +6115,9 @@ fn check_dotfile_managers() -> Vec<Advice> {
                 category: "utilities".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Dotfiles#Version_control".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5580,6 +6156,9 @@ fn check_pkgbuild_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Namcap".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5602,6 +6181,9 @@ fn check_pkgbuild_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/DeveloperWiki:Building_in_a_clean_chroot".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5635,6 +6217,9 @@ fn check_python_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Package_management".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5657,6 +6242,9 @@ fn check_python_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Virtual_environment".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5679,6 +6267,9 @@ fn check_python_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#IPython".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5712,6 +6303,9 @@ fn check_rust_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust#Cargo".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
 
@@ -5734,6 +6328,9 @@ fn check_rust_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust#Security".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -5764,7 +6361,10 @@ fn check_terminal_multiplexers() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Tmux".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -5805,7 +6405,10 @@ fn check_image_viewers() -> Vec<Advice> {
                     category: "multimedia".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Feh".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         } else if is_wayland {
             let has_imv = Command::new("pacman")
@@ -5826,7 +6429,10 @@ fn check_image_viewers() -> Vec<Advice> {
                     category: "multimedia".to_string(),
                     alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#Image_viewers".to_string()],
-                });
+                                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
             }
         }
     }
@@ -5857,7 +6463,10 @@ fn check_documentation_tools() -> Vec<Advice> {
             category: "utilities".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Tldr-pages".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -5886,7 +6495,10 @@ fn check_disk_management() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/S.M.A.R.T.".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     // Check for gparted
@@ -5908,7 +6520,10 @@ fn check_disk_management() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/GParted".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -5937,7 +6552,10 @@ fn check_communication_apps() -> Vec<Advice> {
             category: "communication".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Discord".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -5969,6 +6587,9 @@ fn check_scientific_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Jupyter".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6006,6 +6627,9 @@ fn check_3d_tools() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Blender".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6044,6 +6668,9 @@ fn check_audio_production() -> Vec<Advice> {
                 category: "multimedia".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Audacity".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6074,7 +6701,10 @@ fn check_system_monitoring_advanced() -> Vec<Advice> {
             category: "system".to_string(),
             alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Stress_testing".to_string()],
-        });
+                        depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
     }
 
     result
@@ -6110,6 +6740,9 @@ fn check_cad_software() -> Vec<Advice> {
                 category: "engineering".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/FreeCAD".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6148,6 +6781,9 @@ fn check_markdown_tools() -> Vec<Advice> {
                 category: "utilities".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Markdown".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6188,6 +6824,9 @@ fn check_note_taking() -> Vec<Advice> {
                 category: "productivity".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Note-taking_organizers".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6222,6 +6861,9 @@ fn check_container_orchestration() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Docker_Compose".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6255,6 +6897,9 @@ fn check_python_enhancements() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Multiple_versions".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }
@@ -6288,6 +6933,9 @@ fn check_git_workflow_tools() -> Vec<Advice> {
                 category: "development".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Tips_and_tricks".to_string()],
+                            depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
             });
         }
     }

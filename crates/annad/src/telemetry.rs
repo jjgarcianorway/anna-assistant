@@ -2,7 +2,7 @@
 //!
 //! Gathers hardware, software, and system state information.
 
-use anna_common::{CommandUsage, MediaUsageProfile, StorageDevice, SystemFacts};
+use anna_common::{CommandUsage, MediaUsageProfile, StorageDevice, SystemFacts, SystemdService};
 use anyhow::Result;
 use chrono::Utc;
 use sysinfo::System;
@@ -62,6 +62,20 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         dev_tools_detected: detect_dev_tools(),
         media_usage: analyze_media_usage().await,
         common_file_types: detect_common_file_types().await,
+
+        // Boot Performance
+        boot_time_seconds: get_boot_time(),
+        slow_services: get_slow_services(),
+        failed_services: get_failed_services(),
+
+        // Package Management
+        aur_packages: count_aur_packages(),
+        aur_helper: detect_aur_helper(),
+        package_cache_size_gb: get_package_cache_size(),
+        last_system_upgrade: get_last_upgrade_time(),
+
+        // Kernel & Boot Parameters
+        kernel_parameters: get_kernel_parameters(),
     })
 }
 
@@ -578,19 +592,19 @@ pub async fn analyze_system_configuration() -> SystemConfigAnalysis {
     analysis.init_system = detect_init_system();
     
     // Analyze failed services
-    analysis.failed_services = get_failed_services().await;
-    
+    analysis.failed_services = get_failed_services();
+
     // Analyze security: firewall status
     analysis.firewall_active = check_firewall_active();
-    
+
     // Analyze SELinux/AppArmor
     analysis.mac_system = detect_mac_system();
-    
+
     // Check for swap
     analysis.swap_info = analyze_swap();
-    
-    // Check systemd boot time
-    analysis.boot_time = get_boot_time();
+
+    // Check systemd boot time (store as String for the old struct)
+    analysis.boot_time = get_boot_time().map(|t| format!("{:.2}s", t)).unwrap_or_else(|| "Unknown".to_string());
     
     // Analyze disk I/O scheduler
     analysis.io_schedulers = get_io_schedulers();
@@ -647,21 +661,6 @@ fn detect_init_system() -> String {
     }
 }
 
-#[allow(dead_code)]
-async fn get_failed_services() -> Vec<String> {
-    if let Ok(output) = Command::new("systemctl")
-        .args(&["--failed", "--no-pager", "--no-legend"])
-        .output()
-    {
-        String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(|line| line.split_whitespace().next().unwrap_or("").to_string())
-            .filter(|s| !s.is_empty())
-            .collect()
-    } else {
-        vec![]
-    }
-}
 
 #[allow(dead_code)]
 fn check_firewall_active() -> bool {
@@ -719,18 +718,6 @@ fn analyze_swap() -> SwapInfo {
     info
 }
 
-#[allow(dead_code)]
-fn get_boot_time() -> String {
-    if let Ok(output) = Command::new("systemd-analyze").output() {
-        String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .unwrap_or("Unknown")
-            .to_string()
-    } else {
-        "Unknown".to_string()
-    }
-}
 
 #[allow(dead_code)]
 fn get_io_schedulers() -> HashMap<String, String> {
@@ -784,4 +771,182 @@ fn get_important_kernel_params() -> HashMap<String, String> {
     }
     
     params
+}
+
+/// Get boot time in seconds using systemd-analyze
+fn get_boot_time() -> Option<f64> {
+    let output = Command::new("systemd-analyze")
+        .arg("time")
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    // Parse output like: "Startup finished in 2.153s (kernel) + 15.234s (userspace) = 17.387s"
+    for line in text.lines() {
+        if line.contains("=") {
+            if let Some(total_part) = line.split('=').nth(1) {
+                let time_str = total_part.trim().replace("s", "");
+                if let Ok(seconds) = time_str.parse::<f64>() {
+                    return Some(seconds);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Get services that take longer than 5 seconds to start
+fn get_slow_services() -> Vec<SystemdService> {
+    let mut services = Vec::new();
+
+    let output = match Command::new("systemd-analyze").arg("blame").output() {
+        Ok(o) if o.status.success() => o,
+        _ => return services,
+    };
+
+    let text = String::from_utf8_lossy(&output.stdout);
+
+    for line in text.lines().take(20) {  // Only check top 20 slowest
+        // Parse lines like: "15.234s NetworkManager.service"
+        let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        if parts.len() >= 2 {
+            let time_str = parts[0].replace("ms", "").replace("s", "");
+            if let Ok(mut time) = time_str.parse::<f64>() {
+                // Convert ms to seconds if needed
+                if parts[0].contains("ms") {
+                    time /= 1000.0;
+                }
+
+                if time >= 5.0 {
+                    services.push(SystemdService {
+                        name: parts[1].to_string(),
+                        time_seconds: time,
+                    });
+                }
+            }
+        }
+    }
+
+    services
+}
+
+/// Get list of failed systemd services
+fn get_failed_services() -> Vec<String> {
+    let mut failed = Vec::new();
+
+    let output = match Command::new("systemctl")
+        .args(&["--failed", "--no-pager", "--no-legend"])
+        .output()
+    {
+        Ok(o) => o,
+        _ => return failed,
+    };
+
+    let text = String::from_utf8_lossy(&output.stdout);
+
+    for line in text.lines() {
+        let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        if !parts.is_empty() {
+            failed.push(parts[0].to_string());
+        }
+    }
+
+    failed
+}
+
+/// Count AUR packages by checking /var/lib/pacman/local for packages not in official repos
+fn count_aur_packages() -> usize {
+    // Quick approximation: check for common AUR helpers first
+    let aur_list = Command::new("pacman")
+        .args(&["-Qm"])  // List foreign packages (not in sync database)
+        .output();
+
+    if let Ok(output) = aur_list {
+        if output.status.success() {
+            return String::from_utf8_lossy(&output.stdout).lines().count();
+        }
+    }
+
+    0
+}
+
+/// Detect which AUR helper is installed
+fn detect_aur_helper() -> Option<String> {
+    let helpers = vec![
+        "yay",
+        "paru",
+        "aurutils",
+        "pikaur",
+        "aura",
+        "trizen",
+    ];
+
+    for helper in helpers {
+        if Command::new("which").arg(helper).output().ok()?.status.success() {
+            return Some(helper.to_string());
+        }
+    }
+
+    None
+}
+
+/// Get package cache size in GB
+fn get_package_cache_size() -> f64 {
+    let output = Command::new("du")
+        .args(&["-sb", "/var/cache/pacman/pkg"])
+        .output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            if let Some(size_str) = text.split_whitespace().next() {
+                if let Ok(bytes) = size_str.parse::<u64>() {
+                    return bytes as f64 / 1024.0 / 1024.0 / 1024.0;  // Convert to GB
+                }
+            }
+        }
+    }
+
+    0.0
+}
+
+/// Get last system upgrade time from pacman log
+fn get_last_upgrade_time() -> Option<chrono::DateTime<chrono::Utc>> {
+    let log_path = "/var/log/pacman.log";
+    let contents = std::fs::read_to_string(log_path).ok()?;
+
+    // Find the most recent "starting full system upgrade" or "upgraded" entry
+    for line in contents.lines().rev() {
+        if line.contains("starting full system upgrade") || line.contains("upgraded") {
+            // Parse timestamp like: [2025-01-04T17:23:45+0000]
+            if let Some(timestamp_str) = line.split('[').nth(1) {
+                if let Some(timestamp) = timestamp_str.split(']').next() {
+                    // Parse ISO 8601 timestamp
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(timestamp) {
+                        return Some(dt.with_timezone(&chrono::Utc));
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Get kernel parameters from /proc/cmdline
+fn get_kernel_parameters() -> Vec<String> {
+    if let Ok(cmdline) = std::fs::read_to_string("/proc/cmdline") {
+        return cmdline
+            .trim()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+    }
+
+    Vec::new()
 }
