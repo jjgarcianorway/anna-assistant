@@ -311,23 +311,22 @@ pub async fn advise(
         println!("  annactl advise --limit=10         Limit number of results");
         println!();
 
-        // List available categories with counts
+        // List available categories with counts (only categories that exist on this system)
         let mut cat_list: Vec<_> = by_category.keys().collect();
         cat_list.sort();
         if !cat_list.is_empty() {
             println!("\x1b[1m\x1b[96mAvailable Categories:\x1b[0m");
-            print!("  ");
-            for (i, cat) in cat_list.iter().enumerate() {
+            println!();
+            for cat in cat_list.iter() {
                 let count = by_category.get(*cat).map(|v| v.len()).unwrap_or(0);
-                print!("\x1b[36m{}\x1b[0m ({})", cat, count);
-                if i < cat_list.len() - 1 {
-                    print!(", ");
-                }
-                if (i + 1) % 4 == 0 && i < cat_list.len() - 1 {
-                    print!("\n  ");
+                // Get friendly name and description
+                if let Some(info) = anna_common::CategoryInfo::get_by_id(cat) {
+                    println!("  \x1b[36m{}\x1b[0m ({} items) - {}",
+                        info.display_name, count, info.description);
+                } else {
+                    println!("  \x1b[36m{}\x1b[0m ({})", cat, count);
                 }
             }
-            println!();
             println!();
         }
     }
@@ -1047,19 +1046,13 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
         if !sorted_cats.is_empty() {
             println!("   \x1b[38;5;240mBy category:\x1b[0m");
             for (cat, count) in sorted_cats {
-                let cat_name = match cat.as_str() {
-                    "security" => "Security",
-                    "performance" => "Performance",
-                    "updates" => "Updates",
-                    "gaming" => "Gaming",
-                    "desktop" => "Desktop",
-                    "multimedia" => "Multimedia",
-                    "hardware" => "Hardware",
-                    "beautification" => "Terminal & CLI",
-                    "development" => "Development",
-                    _ => cat,
+                // Get friendly category name from CategoryInfo
+                let cat_display = if let Some(info) = anna_common::CategoryInfo::get_by_id(cat) {
+                    info.display_name
+                } else {
+                    cat.clone()
                 };
-                println!("   \x1b[38;5;240m  • {} suggestions about {}\x1b[0m", count, cat_name);
+                println!("   \x1b[38;5;240m  • {} suggestions about {}\x1b[0m", count, cat_display);
             }
             println!();
         }

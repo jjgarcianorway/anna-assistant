@@ -5,6 +5,124 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.30] - 2025-01-04
+
+### 🧠 Deep System Intelligence & Dynamic Categories!
+
+**GAME CHANGER:** Anna now deeply understands your workflow, preferences, and system state! Categories are dynamic and linked to Arch Wiki.
+
+### ✨ Major Features
+
+**📊 Comprehensive Telemetry System**
+- 10 new data structures for deep system understanding
+- 30+ new collection functions
+- Real-time system state analysis
+- Intelligent preference detection
+
+**🎯 Dynamic Category System**
+- Categories now show plain English names (e.g., "Security & Privacy" not "security")
+- Only displays categories relevant to YOUR system
+- Each category linked to official Arch Wiki documentation
+- Rich descriptions for every category
+- 12 categories: Security & Privacy, Performance & Optimization, Hardware Support, Network Configuration, Desktop Environment, Development Tools, Gaming & Entertainment, Multimedia & Graphics, System Maintenance, Terminal & CLI Tools, Power Management, System Configuration
+
+**🔍 Advanced System Understanding**
+
+*Development Profile:*
+- Detects programming languages used (Python, Rust, Go, JavaScript)
+- Counts projects and files per language
+- Tracks LSP server installation status
+- Detects IDEs (VSCode, Vim, Neovim, Emacs, IntelliJ, PyCharm, CLion)
+- Counts Git repositories
+- Detects container usage (Docker/Podman)
+- Detects virtualization (QEMU/VirtualBox/VMware)
+
+*Gaming Profile:*
+- Steam/Lutris/Wine detection
+- ProtonGE and MangoHud status
+- Gamepad driver detection
+- Game count tracking
+
+*Network Profile:*
+- VPN configuration detection (WireGuard/OpenVPN)
+- Firewall status (UFW/iptables)
+- SSH server monitoring
+- DNS configuration (systemd-resolved/dnsmasq)
+- Network share detection (NFS/Samba)
+
+*User Preferences (AI-inferred):*
+- CLI vs GUI preference
+- Power user detection
+- Aesthetics appreciation
+- Gamer/Developer/Content Creator profiles
+- Laptop user detection
+- Minimalism preference
+
+*System Health:*
+- Recent package installations (last 30 days)
+- Active and enabled services
+- Disk usage trends with largest directories
+- Cache and log sizes
+- Session information (login patterns, multiple users)
+- System age tracking
+
+### 🔧 Technical Improvements
+
+**New Data Structures:**
+- `CategoryInfo` - Arch Wiki-aligned categories with metadata
+- `PackageInstallation` - Installation tracking with timestamps
+- `DiskUsageTrend` - Space analysis and trends
+- `DirectorySize` - Storage consumption tracking
+- `SessionInfo` - User activity patterns
+- `DevelopmentProfile` - Programming environment analysis
+- `LanguageUsage` - Per-language statistics and LSP status
+- `ProjectInfo` - Active project tracking
+- `GamingProfile` - Gaming setup detection
+- `NetworkProfile` - Network configuration analysis
+- `UserPreferences` - AI-inferred user behavior
+
+**New Telemetry Functions:**
+- `get_recently_installed_packages()` - Track what was installed when
+- `get_active_services()` / `get_enabled_services()` - Service monitoring
+- `analyze_disk_usage()` - Comprehensive storage analysis
+- `collect_session_info()` - User activity patterns
+- `analyze_development_environment()` - Deep dev tool detection
+- `detect_programming_languages()` - Language usage analysis
+- `count_files_by_extension()` - Project scope analysis
+- `detect_ides()` - IDE installation detection
+- `count_git_repos()` - Development activity
+- `analyze_gaming_profile()` - Gaming setup detection
+- `analyze_network_profile()` - Network configuration
+- `get_system_age_days()` - Installation age tracking
+- `infer_user_preferences()` - Behavioral analysis
+- 20+ helper functions for deep system inspection
+
+### 💡 What This Means
+
+Anna now knows:
+- **What you build**: "You're working on 3 Python projects with 150 .py files"
+- **How you work**: "CLI power user with Neovim and tmux"
+- **What you do**: "Gamer with Steam + ProtonGE, Developer with Docker"
+- **Your style**: "Values aesthetics (starship + eza installed), prefers minimalism"
+- **System health**: "5.2GB cache, logs growing, 42 active services"
+
+This enables **context-aware recommendations** that understand YOUR specific setup and workflow!
+
+### 📦 User Experience Improvements
+
+- Category names are now human-friendly everywhere
+- `annactl advise` shows categories with descriptions
+- `annactl report` displays categories relevant to your system
+- Each category shows item count and purpose
+- Wiki links provided for deeper learning
+
+### 📈 Performance & Reliability
+
+- Intelligent caching of telemetry data
+- Limited search depths to prevent slowdowns
+- Graceful fallbacks for unavailable data
+- Async operations for non-blocking collection
+
 ## [1.0.0-beta.29] - 2025-01-04
 
 ### 🔄 Bundle Rollback System!

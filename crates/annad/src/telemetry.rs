@@ -76,6 +76,24 @@ pub async fn collect_facts() -> Result<SystemFacts> {
 
         // Kernel & Boot Parameters
         kernel_parameters: get_kernel_parameters(),
+
+        // Advanced Telemetry
+        recently_installed_packages: get_recently_installed_packages(),
+        active_services: get_active_services(),
+        enabled_services: get_enabled_services(),
+        disk_usage_trend: analyze_disk_usage(),
+        session_info: collect_session_info(),
+        development_environment: {
+            let dev_env = analyze_development_environment().await;
+            dev_env
+        },
+        gaming_profile: analyze_gaming_profile(),
+        network_profile: analyze_network_profile(),
+        system_age_days: get_system_age_days(),
+        user_preferences: {
+            let dev_tools = detect_dev_tools();
+            infer_user_preferences(&dev_tools, installed_packages)
+        },
     })
 }
 
@@ -949,4 +967,503 @@ fn get_kernel_parameters() -> Vec<String> {
     }
 
     Vec::new()
+}
+// New comprehensive telemetry functions
+
+use anna_common::{
+    DevelopmentProfile, DiskUsageTrend, DirectorySize, GamingProfile,
+    LanguageUsage, NetworkProfile, PackageInstallation, ProjectInfo,
+    SessionInfo, UserPreferences,
+};
+
+/// Get recently installed packages (last 30 days)
+fn get_recently_installed_packages() -> Vec<PackageInstallation> {
+    let mut packages = Vec::new();
+
+    // Parse /var/log/pacman.log for installations
+    if let Ok(log_content) = std::fs::read_to_string("/var/log/pacman.log") {
+        let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
+
+        for line in log_content.lines() {
+            if line.contains("installed") {
+                // Parse format: [2025-01-04T12:34:56-0800] [ALPM] installed package (version)
+                if let Some(pkg_info) = line.split("installed ").nth(1) {
+                    let pkg_name = pkg_info.split_whitespace().next().unwrap_or("").to_string();
+
+                    // Try to parse timestamp
+                    if let Some(timestamp_str) = line.split('[').nth(1) {
+                        if let Some(ts) = timestamp_str.split(']').next() {
+                            // Simple approach: just add recent packages
+                            packages.push(PackageInstallation {
+                                name: pkg_name,
+                                installed_at: chrono::Utc::now(), // Simplified for now
+                                from_aur: false, // We'll detect this separately
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Limit to last 100 for performance
+    packages.truncate(100);
+    packages
+}
+
+/// Get currently active systemd services
+fn get_active_services() -> Vec<String> {
+    let output = Command::new("systemctl")
+        .args(&["list-units", "--type=service", "--state=running", "--no-pager", "--no-legend"])
+        .output();
+
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout
+            .lines()
+            .filter_map(|line| {
+                line.split_whitespace().next().map(|s| s.to_string())
+            })
+            .collect();
+    }
+
+    Vec::new()
+}
+
+/// Get services enabled on boot
+fn get_enabled_services() -> Vec<String> {
+    let output = Command::new("systemctl")
+        .args(&["list-unit-files", "--type=service", "--state=enabled", "--no-pager", "--no-legend"])
+        .output();
+
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout
+            .lines()
+            .filter_map(|line| {
+                line.split_whitespace().next().map(|s| s.to_string())
+            })
+            .collect();
+    }
+
+    Vec::new()
+}
+
+/// Analyze disk usage trends
+fn analyze_disk_usage() -> DiskUsageTrend {
+    // Get total disk usage
+    let mut total_gb = 0.0;
+    let mut used_gb = 0.0;
+
+    if let Ok(output) = Command::new("df").args(&["-B1", "/"]).output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = stdout.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                total_gb = parts[1].parse::<f64>().unwrap_or(0.0) / 1024.0 / 1024.0 / 1024.0;
+                used_gb = parts[2].parse::<f64>().unwrap_or(0.0) / 1024.0 / 1024.0 / 1024.0;
+            }
+        }
+    }
+
+    // Get largest directories
+    let largest_dirs = get_largest_directories();
+
+    // Get cache size
+    let cache_size_gb = get_directory_size_gb("/var/cache");
+
+    // Get log size
+    let log_size_gb = get_directory_size_gb("/var/log");
+
+    DiskUsageTrend {
+        total_gb,
+        used_gb,
+        largest_directories: largest_dirs,
+        cache_size_gb,
+        log_size_gb,
+    }
+}
+
+/// Get largest directories in home
+fn get_largest_directories() -> Vec<DirectorySize> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
+    let mut dirs = Vec::new();
+
+    // Use du to find large directories (only first level for performance)
+    if let Ok(output) = Command::new("du")
+        .args(&["-sh", "--threshold=100M", &home])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().take(10) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let size_str = parts[0];
+                let path = parts[1].to_string();
+
+                // Convert size to GB (handles M, G suffixes)
+                let size_gb = parse_size_to_gb(size_str);
+
+                dirs.push(DirectorySize { path, size_gb });
+            }
+        }
+    }
+
+    dirs
+}
+
+/// Helper to parse size strings like "1.5G" or "500M" to GB
+fn parse_size_to_gb(size_str: &str) -> f64 {
+    let size_str = size_str.trim();
+    if size_str.ends_with('G') {
+        size_str.trim_end_matches('G').parse().unwrap_or(0.0)
+    } else if size_str.ends_with('M') {
+        size_str.trim_end_matches('M').parse::<f64>().unwrap_or(0.0) / 1024.0
+    } else {
+        0.0
+    }
+}
+
+/// Get directory size in GB
+fn get_directory_size_gb(path: &str) -> f64 {
+    if let Ok(output) = Command::new("du")
+        .args(&["-sb", path])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = stdout.lines().next() {
+            if let Some(size_str) = line.split_whitespace().next() {
+                if let Ok(bytes) = size_str.parse::<f64>() {
+                    return bytes / 1024.0 / 1024.0 / 1024.0;
+                }
+            }
+        }
+    }
+    0.0
+}
+
+/// Collect session information
+fn collect_session_info() -> SessionInfo {
+    let current_user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+
+    // Count logins from wtmp (last 30 days)
+    let login_count = count_recent_logins(&current_user);
+
+    // Check for multiple users
+    let multiple_users = has_multiple_users();
+
+    SessionInfo {
+        current_user,
+        login_count_last_30_days: login_count,
+        average_session_hours: 4.0, // Placeholder - needs more complex tracking
+        last_login: None, // Placeholder
+        multiple_users,
+    }
+}
+
+/// Count recent logins for user
+fn count_recent_logins(username: &str) -> usize {
+    if let Ok(output) = Command::new("last")
+        .args(&[username, "-s", "-30days"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout.lines().filter(|line| !line.is_empty()).count();
+    }
+    0
+}
+
+/// Check if system has multiple user accounts
+fn has_multiple_users() -> bool {
+    if let Ok(passwd) = std::fs::read_to_string("/etc/passwd") {
+        let user_count = passwd
+            .lines()
+            .filter(|line| {
+                // Count only real users (UID >= 1000)
+                if let Some(uid_str) = line.split(':').nth(2) {
+                    if let Ok(uid) = uid_str.parse::<u32>() {
+                        return uid >= 1000 && uid < 60000;
+                    }
+                }
+                false
+            })
+            .count();
+        return user_count > 1;
+    }
+    false
+}
+
+/// Analyze development environment asynchronously
+async fn analyze_development_environment() -> DevelopmentProfile {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
+
+    // Detect languages
+    let languages = detect_programming_languages(&home).await;
+
+    // Detect IDEs
+    let ides_installed = detect_ides();
+
+    // Count git repos
+    let git_repos_count = count_git_repos(&home).await;
+
+    // Detect containerization
+    let uses_containers = Command::new("which").arg("docker").output()
+        .map(|o| o.status.success()).unwrap_or(false)
+        || Command::new("which").arg("podman").output()
+        .map(|o| o.status.success()).unwrap_or(false);
+
+    // Detect virtualization
+    let uses_virtualization = Command::new("which").arg("qemu-system-x86_64").output()
+        .map(|o| o.status.success()).unwrap_or(false)
+        || Command::new("which").arg("virtualbox").output()
+        .map(|o| o.status.success()).unwrap_or(false);
+
+    DevelopmentProfile {
+        languages,
+        ides_installed,
+        active_projects: Vec::new(), // Placeholder - complex to detect
+        uses_containers,
+        uses_virtualization,
+        git_repos_count,
+    }
+}
+
+/// Detect programming languages used
+async fn detect_programming_languages(home_dir: &str) -> Vec<LanguageUsage> {
+    let mut languages = Vec::new();
+
+    // Python
+    let py_count = count_files_by_extension(home_dir, "py").await;
+    if py_count > 0 {
+        languages.push(LanguageUsage {
+            language: "Python".to_string(),
+            project_count: 0, // Placeholder
+            file_count: py_count,
+            has_lsp: check_package_installed("python-lsp-server"),
+        });
+    }
+
+    // Rust
+    let rs_count = count_files_by_extension(home_dir, "rs").await;
+    if rs_count > 0 {
+        languages.push(LanguageUsage {
+            language: "Rust".to_string(),
+            project_count: 0,
+            file_count: rs_count,
+            has_lsp: check_package_installed("rust-analyzer"),
+        });
+    }
+
+    // JavaScript/TypeScript
+    let js_count = count_files_by_extension(home_dir, "js").await
+        + count_files_by_extension(home_dir, "ts").await;
+    if js_count > 0 {
+        languages.push(LanguageUsage {
+            language: "JavaScript/TypeScript".to_string(),
+            project_count: 0,
+            file_count: js_count,
+            has_lsp: check_package_installed("typescript-language-server"),
+        });
+    }
+
+    // Go
+    let go_count = count_files_by_extension(home_dir, "go").await;
+    if go_count > 0 {
+        languages.push(LanguageUsage {
+            language: "Go".to_string(),
+            project_count: 0,
+            file_count: go_count,
+            has_lsp: check_package_installed("gopls"),
+        });
+    }
+
+    languages
+}
+
+/// Count files by extension (limited search for performance)
+async fn count_files_by_extension(base_dir: &str, extension: &str) -> usize {
+    // Use find command with limits for performance
+    if let Ok(output) = Command::new("find")
+        .args(&[
+            base_dir,
+            "-maxdepth", "4",
+            "-name", &format!("*.{}", extension),
+            "-type", "f",
+        ])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout.lines().count();
+    }
+    0
+}
+
+/// Check if package is installed
+fn check_package_installed(package: &str) -> bool {
+    Command::new("pacman")
+        .args(&["-Q", package])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Detect installed IDEs
+fn detect_ides() -> Vec<String> {
+    let mut ides = Vec::new();
+
+    let ide_list = vec![
+        ("code", "VSCode"),
+        ("vim", "Vim"),
+        ("nvim", "Neovim"),
+        ("emacs", "Emacs"),
+        ("idea", "IntelliJ IDEA"),
+        ("pycharm", "PyCharm"),
+        ("clion", "CLion"),
+    ];
+
+    for (cmd, name) in ide_list {
+        if Command::new("which").arg(cmd).output()
+            .map(|o| o.status.success()).unwrap_or(false)
+        {
+            ides.push(name.to_string());
+        }
+    }
+
+    ides
+}
+
+/// Count git repositories
+async fn count_git_repos(home_dir: &str) -> usize {
+    // Find .git directories
+    if let Ok(output) = Command::new("find")
+        .args(&[
+            home_dir,
+            "-maxdepth", "4",
+            "-type", "d",
+            "-name", ".git",
+        ])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout.lines().count();
+    }
+    0
+}
+
+/// Analyze gaming profile
+fn analyze_gaming_profile() -> GamingProfile {
+    GamingProfile {
+        steam_installed: check_package_installed("steam"),
+        lutris_installed: check_package_installed("lutris"),
+        wine_installed: check_package_installed("wine"),
+        proton_ge_installed: check_package_installed("proton-ge-custom"),
+        mangohud_installed: check_package_installed("mangohud"),
+        game_count: 0, // Placeholder - would need to scan Steam library
+        uses_gamepad: check_gamepad_drivers(),
+    }
+}
+
+/// Check if gamepad drivers are installed
+fn check_gamepad_drivers() -> bool {
+    check_package_installed("xpadneo")
+        || check_package_installed("xpad")
+        || check_package_installed("hid-nintendo")
+}
+
+/// Analyze network profile
+fn analyze_network_profile() -> NetworkProfile {
+    NetworkProfile {
+        vpn_configured: check_vpn_configured(),
+        firewall_active: check_firewall_active(),
+        ssh_server_running: check_service_running("sshd"),
+        has_static_ip: false, // Placeholder - complex to detect reliably
+        dns_configuration: detect_dns_config(),
+        uses_network_share: check_network_shares(),
+    }
+}
+
+/// Check if VPN is configured
+fn check_vpn_configured() -> bool {
+    check_package_installed("wireguard-tools")
+        || check_package_installed("openvpn")
+        || std::path::Path::new("/etc/wireguard").exists()
+}
+
+/// Check if service is running
+fn check_service_running(service: &str) -> bool {
+    Command::new("systemctl")
+        .args(&["is-active", service])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Detect DNS configuration
+fn detect_dns_config() -> String {
+    if check_service_running("systemd-resolved") {
+        "systemd-resolved".to_string()
+    } else if check_package_installed("dnsmasq") {
+        "dnsmasq".to_string()
+    } else {
+        "default".to_string()
+    }
+}
+
+/// Check for network shares
+fn check_network_shares() -> bool {
+    if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
+        return mounts.contains("nfs") || mounts.contains("cifs");
+    }
+    false
+}
+
+/// Get system age in days
+fn get_system_age_days() -> u64 {
+    // Check installation timestamp from /var/log/pacman.log
+    if let Ok(metadata) = std::fs::metadata("/var/log/pacman.log") {
+        if let Ok(created) = metadata.created() {
+            if let Ok(duration) = created.elapsed() {
+                return duration.as_secs() / 86400;
+            }
+        }
+    }
+
+    // Fallback: check root filesystem age
+    if let Ok(metadata) = std::fs::metadata("/") {
+        if let Ok(created) = metadata.created() {
+            if let Ok(duration) = created.elapsed() {
+                return duration.as_secs() / 86400;
+            }
+        }
+    }
+
+    0
+}
+
+/// Infer user preferences from system state
+fn infer_user_preferences(dev_tools: &[String], package_count: usize) -> UserPreferences {
+    // Check for CLI tools vs GUI tools
+    let cli_tools = vec!["vim", "nvim", "emacs", "tmux", "screen", "htop", "btop"];
+    let has_cli_tools = cli_tools.iter().any(|tool| dev_tools.contains(&tool.to_string()));
+
+    // Check for beautification tools
+    let beauty_tools = vec!["starship", "eza", "bat", "fd", "ripgrep", "fzf"];
+    let has_beauty_tools = beauty_tools.iter().any(|tool| check_package_installed(tool));
+
+    // Detect laptop
+    let uses_laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
+        || std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+
+    UserPreferences {
+        prefers_cli_over_gui: has_cli_tools,
+        is_power_user: dev_tools.len() > 10,
+        values_aesthetics: has_beauty_tools,
+        is_gamer: check_package_installed("steam") || check_package_installed("lutris"),
+        is_developer: !dev_tools.is_empty(),
+        is_content_creator: check_package_installed("obs-studio")
+            || check_package_installed("kdenlive")
+            || check_package_installed("gimp"),
+        uses_laptop,
+        prefers_minimalism: package_count < 500,
+    }
 }

@@ -51,6 +51,98 @@ impl AutonomyTier {
     }
 }
 
+/// Category metadata with Arch Wiki alignment
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryInfo {
+    pub id: String,
+    pub display_name: String,
+    pub wiki_url: String,
+    pub description: String,
+}
+
+impl CategoryInfo {
+    pub fn get_all() -> Vec<Self> {
+        vec![
+            Self {
+                id: "security".to_string(),
+                display_name: "Security & Privacy".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Security".to_string(),
+                description: "Protect your system from threats".to_string(),
+            },
+            Self {
+                id: "performance".to_string(),
+                display_name: "Performance & Optimization".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Improving_performance".to_string(),
+                description: "Make your system faster".to_string(),
+            },
+            Self {
+                id: "hardware".to_string(),
+                display_name: "Hardware Support".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Hardware".to_string(),
+                description: "Drivers and hardware configuration".to_string(),
+            },
+            Self {
+                id: "networking".to_string(),
+                display_name: "Network Configuration".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+                description: "WiFi, Ethernet, VPN setup".to_string(),
+            },
+            Self {
+                id: "desktop".to_string(),
+                display_name: "Desktop Environment".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Desktop_environment".to_string(),
+                description: "GUI and window managers".to_string(),
+            },
+            Self {
+                id: "development".to_string(),
+                display_name: "Development Tools".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/List_of_applications/Development".to_string(),
+                description: "Programming and build tools".to_string(),
+            },
+            Self {
+                id: "gaming".to_string(),
+                display_name: "Gaming & Entertainment".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Gaming".to_string(),
+                description: "Steam, emulators, and games".to_string(),
+            },
+            Self {
+                id: "multimedia".to_string(),
+                display_name: "Multimedia & Graphics".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/List_of_applications/Multimedia".to_string(),
+                description: "Video, audio, and image tools".to_string(),
+            },
+            Self {
+                id: "maintenance".to_string(),
+                display_name: "System Maintenance".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+                description: "Keep your system healthy".to_string(),
+            },
+            Self {
+                id: "beautification".to_string(),
+                display_name: "Terminal & CLI Tools".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Command-line_shell".to_string(),
+                description: "Modern command-line experience".to_string(),
+            },
+            Self {
+                id: "power".to_string(),
+                display_name: "Power Management".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/Power_management".to_string(),
+                description: "Battery and energy saving".to_string(),
+            },
+            Self {
+                id: "system".to_string(),
+                display_name: "System Configuration".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/System_configuration".to_string(),
+                description: "Core system settings".to_string(),
+            },
+        ]
+    }
+
+    pub fn get_by_id(id: &str) -> Option<Self> {
+        Self::get_all().into_iter().find(|c| c.id == id)
+    }
+}
+
 /// System facts collected by telemetry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemFacts {
@@ -99,6 +191,118 @@ pub struct SystemFacts {
 
     // Kernel & Boot Parameters
     pub kernel_parameters: Vec<String>,
+
+    // Advanced Telemetry for Better Understanding
+    pub recently_installed_packages: Vec<PackageInstallation>, // last 30 days
+    pub active_services: Vec<String>, // currently running systemd services
+    pub enabled_services: Vec<String>, // services enabled on boot
+    pub disk_usage_trend: DiskUsageTrend,
+    pub session_info: SessionInfo,
+    pub development_environment: DevelopmentProfile,
+    pub gaming_profile: GamingProfile,
+    pub network_profile: NetworkProfile,
+    pub system_age_days: u64, // days since installation
+    pub user_preferences: UserPreferences, // detected preferences
+}
+
+/// Package installation record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageInstallation {
+    pub name: String,
+    pub installed_at: DateTime<Utc>,
+    pub from_aur: bool,
+}
+
+/// Disk usage trend information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskUsageTrend {
+    pub total_gb: f64,
+    pub used_gb: f64,
+    pub largest_directories: Vec<DirectorySize>, // top 10 space consumers
+    pub cache_size_gb: f64, // total cache size
+    pub log_size_gb: f64, // /var/log size
+}
+
+/// Directory size information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DirectorySize {
+    pub path: String,
+    pub size_gb: f64,
+}
+
+/// Session information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionInfo {
+    pub current_user: String,
+    pub login_count_last_30_days: usize,
+    pub average_session_hours: f64,
+    pub last_login: Option<DateTime<Utc>>,
+    pub multiple_users: bool, // more than one user account
+}
+
+/// Development environment profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevelopmentProfile {
+    pub languages: Vec<LanguageUsage>, // detected languages with project counts
+    pub ides_installed: Vec<String>, // vscode, vim, emacs, intellij, etc.
+    pub active_projects: Vec<ProjectInfo>, // detected project directories
+    pub uses_containers: bool, // Docker/Podman usage
+    pub uses_virtualization: bool, // QEMU/VirtualBox/VMware
+    pub git_repos_count: usize,
+}
+
+/// Programming language usage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LanguageUsage {
+    pub language: String,
+    pub project_count: usize,
+    pub file_count: usize,
+    pub has_lsp: bool, // language server installed
+}
+
+/// Project information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectInfo {
+    pub path: String,
+    pub language: String,
+    pub last_modified: DateTime<Utc>,
+    pub has_git: bool,
+}
+
+/// Gaming profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GamingProfile {
+    pub steam_installed: bool,
+    pub lutris_installed: bool,
+    pub wine_installed: bool,
+    pub proton_ge_installed: bool,
+    pub mangohud_installed: bool,
+    pub game_count: usize, // detected games
+    pub uses_gamepad: bool, // gamepad detected or drivers installed
+}
+
+/// Network profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkProfile {
+    pub vpn_configured: bool, // WireGuard, OpenVPN, etc.
+    pub firewall_active: bool,
+    pub ssh_server_running: bool,
+    pub has_static_ip: bool,
+    pub dns_configuration: String, // systemd-resolved, dnsmasq, etc.
+    pub uses_network_share: bool, // NFS, Samba mounts
+}
+
+/// User preferences detected from system
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserPreferences {
+    pub prefers_cli_over_gui: bool, // based on command usage
+    pub is_power_user: bool, // based on tool complexity
+    pub values_aesthetics: bool, // has beautification tools
+    pub is_gamer: bool,
+    pub is_developer: bool,
+    pub is_content_creator: bool, // multimedia tools
+    pub uses_laptop: bool, // based on hardware
+    pub prefers_minimalism: bool, // based on package count and choices
 }
 
 /// Systemd service information
