@@ -12,7 +12,7 @@ pub async fn status() -> Result<()> {
     println!();
     println!("{}", section("Daemon"));
     println!("  {}", beautiful::status(Level::Success, "Running"));
-    println!("  {}", kv("Version", env!("CARGO_PKG_VERSION")));
+    println!("  {}", kv("Version", env!("ANNA_VERSION")));
     println!();
     println!("{}", beautiful::status(Level::Info, "All systems operational"));
 

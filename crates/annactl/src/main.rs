@@ -7,10 +7,13 @@ mod commands;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+// Version is embedded at build time
+const VERSION: &str = env!("ANNA_VERSION");
+
 #[derive(Parser)]
 #[command(name = "annactl")]
 #[command(about = "Anna Assistant - Autonomous system administrator", long_about = None)]
-#[command(version)]
+#[command(version = VERSION)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+
+    - name: Set ANNA_VERSION environment variable
+      run: |
+        echo "ANNA_VERSION=${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_ENV
+
+    - name: Build release binaries with embedded version
+      run: |
+        cargo build --release --verbose
+        echo "Build complete - version $ANNA_VERSION embedded"
+
+    - name: Verify embedded version in annad
+      run: |
+        ANNAD_VERSION=$(./target/release/annad --version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+        echo "annad reports version: $ANNAD_VERSION"
+        if [ "$ANNAD_VERSION" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+          echo "ERROR: Version mismatch!"
+          echo "Expected: ${{ steps.get_version.outputs.VERSION }}"
+          echo "Got: $ANNAD_VERSION"
+          exit 1
+        fi
+        echo "✓ annad version verified"
+
+    - name: Verify embedded version in annactl
+      run: |
+        ANNACTL_VERSION=$(./target/release/annactl --version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+        echo "annactl reports version: $ANNACTL_VERSION"
+        if [ "$ANNACTL_VERSION" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+          echo "ERROR: Version mismatch!"
+          echo "Expected: ${{ steps.get_version.outputs.VERSION }}"
+          echo "Got: $ANNACTL_VERSION"
+          exit 1
+        fi
+        echo "✓ annactl version verified"
+
+    - name: Prepare release artifacts
+      run: |
+        mkdir -p release
+        cp target/release/annad release/annad-x86_64-linux
+        cp target/release/annactl release/annactl-x86_64-linux
+        chmod +x release/*
+        ls -lh release/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release/annad-x86_64-linux
+          release/annactl-x86_64-linux
+        body: |
+          # Anna Assistant ${{ steps.get_version.outputs.VERSION }}
+
+          ## Installation
+
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.sh | sudo sh
+          ```
+
+          ## What's New
+
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+          ## Verify Installation
+
+          ```bash
+          annactl --version
+          annactl status
+          ```
+
+          ---
+
+          **Built with Rust • Powered by Arch Wiki • Privacy First**
+        draft: false
+        prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Release Summary
+      run: |
+        echo "::notice::Release ${{ steps.get_version.outputs.VERSION }} published successfully!"
+        echo "::notice::Download: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.VERSION }}"
