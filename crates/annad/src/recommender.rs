@@ -3,7 +3,33 @@
 //! Analyzes system facts and generates actionable advice with Arch Wiki citations.
 
 use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
+use std::path::Path;
 use std::process::Command;
+
+/// Helper function to check command usage in shell history
+fn check_command_usage(commands: &[&str]) -> usize {
+    let mut count = 0;
+
+    // Try to read bash history
+    if let Ok(home) = std::env::var("HOME") {
+        let bash_history = Path::new(&home).join(".bash_history");
+        if let Ok(contents) = std::fs::read_to_string(bash_history) {
+            for cmd in commands {
+                count += contents.lines().filter(|line| line.contains(cmd)).count();
+            }
+        }
+
+        // Also try zsh history
+        let zsh_history = Path::new(&home).join(".zsh_history");
+        if let Ok(contents) = std::fs::read_to_string(zsh_history) {
+            for cmd in commands {
+                count += contents.lines().filter(|line| line.contains(cmd)).count();
+            }
+        }
+    }
+
+    count
+}
 
 /// Generate advice based on system facts
 pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
@@ -64,6 +90,20 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_password_managers());
     advice.extend(check_gaming_enhancements());
     advice.extend(check_android_integration());
+    advice.extend(check_text_editors());
+    advice.extend(check_mail_clients());
+    advice.extend(check_file_sharing());
+    advice.extend(check_cloud_storage());
+    advice.extend(check_golang_dev());
+    advice.extend(check_java_dev());
+    advice.extend(check_nodejs_dev());
+    advice.extend(check_databases());
+    advice.extend(check_web_servers());
+    advice.extend(check_remote_desktop());
+    advice.extend(check_torrent_clients());
+    advice.extend(check_office_suite());
+    advice.extend(check_graphics_software());
+    advice.extend(check_video_editing());
 
     advice
 }
@@ -4096,6 +4136,600 @@ fn check_android_integration() -> Vec<Advice> {
             category: "utilities".to_string(),
             wiki_refs: vec!["https://wiki.archlinux.org/title/Android#Screen_mirroring".to_string()],
         });
+    }
+
+    result
+}
+
+/// Check for text editor improvements (Vim/Neovim)
+fn check_text_editors() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check command history for vim usage
+    let vim_usage = check_command_usage(&["vim", "vi"]);
+
+    if vim_usage > 10 {
+        // User uses vim frequently, suggest neovim
+        let has_neovim = Command::new("pacman")
+            .args(&["-Q", "neovim"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_neovim {
+            result.push(Advice {
+                id: "editor-neovim".to_string(),
+                title: "Upgrade to Neovim for modern Vim experience".to_string(),
+                reason: format!("You use vim {} times in your history! Neovim is vim with modern features: built-in LSP support, better async performance, Lua scripting, Tree-sitter for syntax highlighting, and an active plugin ecosystem. It's fully compatible with vim configs but way more powerful. Think of it as vim 2.0!", vim_usage),
+                action: "Install Neovim".to_string(),
+                command: Some("pacman -S --noconfirm neovim".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Neovim".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for mail clients
+fn check_mail_clients() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user has email-related packages but no GUI client
+    let has_thunderbird = Command::new("pacman")
+        .args(&["-Q", "thunderbird"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_evolution = Command::new("pacman")
+        .args(&["-Q", "evolution"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_thunderbird && !has_evolution {
+        result.push(Advice {
+            id: "mail-thunderbird".to_string(),
+            title: "Install Thunderbird for email management".to_string(),
+            reason: "Need an email client? Thunderbird is Mozilla's excellent email app! It handles multiple accounts (Gmail, Outlook, custom IMAP), has great spam filtering, calendar integration, and full PGP encryption support. Modern, fast, and privacy-focused. Perfect for managing all your email in one place!".to_string(),
+            action: "Install Thunderbird".to_string(),
+            command: Some("pacman -S --noconfirm thunderbird".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "productivity".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Thunderbird".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for file sharing (Samba/NFS)
+fn check_file_sharing() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Samba (Windows file sharing)
+    let has_samba = Command::new("pacman")
+        .args(&["-Q", "samba"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_samba {
+        result.push(Advice {
+            id: "fileshare-samba".to_string(),
+            title: "Install Samba for Windows file sharing".to_string(),
+            reason: "Samba lets you share files with Windows computers on your network! Super useful for mixed Windows/Linux environments. Share folders, access Windows shares, print to network printers. It's how Linux speaks 'Windows file sharing' - essential for home networks or offices with Windows machines!".to_string(),
+            action: "Install Samba".to_string(),
+            command: Some("pacman -S --noconfirm samba".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Samba".to_string()],
+        });
+    }
+
+    // Check for NFS utilities
+    let has_nfs = Command::new("pacman")
+        .args(&["-Q", "nfs-utils"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_nfs {
+        result.push(Advice {
+            id: "fileshare-nfs".to_string(),
+            title: "Install NFS for Unix/Linux file sharing".to_string(),
+            reason: "NFS (Network File System) is the native Linux/Unix way to share files across networks! Much faster than Samba for Linux-to-Linux sharing. Great for home servers, NAS devices, or accessing files from multiple Linux machines. Works seamlessly with proper permissions!".to_string(),
+            action: "Install NFS utilities".to_string(),
+            command: Some("pacman -S --noconfirm nfs-utils".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/NFS".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for cloud storage tools
+fn check_cloud_storage() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for rclone (universal cloud sync)
+    let has_rclone = Command::new("pacman")
+        .args(&["-Q", "rclone"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_rclone {
+        result.push(Advice {
+            id: "cloud-rclone".to_string(),
+            title: "Install rclone for cloud storage sync".to_string(),
+            reason: "rclone is like rsync for cloud storage! It supports 40+ cloud providers (Google Drive, Dropbox, OneDrive, S3, Backblaze, etc.). Sync, copy, mount cloud storage as local drive, encrypt files, compare directories. Think of it as the Swiss Army knife for cloud storage. One tool to rule them all!".to_string(),
+            action: "Install rclone".to_string(),
+            command: Some("pacman -S --noconfirm rclone".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Rclone".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for programming language support - Go
+fn check_golang_dev() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Go files
+    let has_go_files = Path::new(&format!("{}/.cache", std::env::var("HOME").unwrap_or_default())).exists()
+        && Command::new("find")
+            .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.go", "-type", "f"])
+            .output()
+            .map(|o| !o.stdout.is_empty())
+            .unwrap_or(false);
+
+    let go_usage = check_command_usage(&["go"]);
+
+    if has_go_files || go_usage > 5 {
+        // Check for Go compiler
+        let has_go = Command::new("pacman")
+            .args(&["-Q", "go"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_go {
+            result.push(Advice {
+                id: "dev-go".to_string(),
+                title: "Install Go compiler for Go development".to_string(),
+                reason: format!("You have Go files or use 'go' commands ({} times)! Install the Go compiler to build and run Go programs. Go is fast, simple, and great for concurrent programming, web services, and system tools. 'go run main.go' and you're off!", go_usage),
+                action: "Install Go".to_string(),
+                command: Some("pacman -S --noconfirm go".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Go".to_string()],
+            });
+        } else {
+            // Check for gopls (Go LSP)
+            let has_gopls = Command::new("which")
+                .arg("gopls")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_gopls {
+                result.push(Advice {
+                    id: "dev-gopls".to_string(),
+                    title: "Install gopls for Go LSP support".to_string(),
+                    reason: "You're developing in Go but missing gopls (Go Language Server)! It provides autocomplete, go-to-definition, refactoring, and error checking in your editor. Works with VSCode, Neovim, Emacs, any LSP-compatible editor. Makes Go development SO much better!".to_string(),
+                    action: "Install gopls via go install".to_string(),
+                    command: Some("go install golang.org/x/tools/gopls@latest".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "development".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Go#Language_Server".to_string()],
+                });
+            }
+        }
+    }
+
+    result
+}
+
+/// Check for Java development
+fn check_java_dev() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Java files
+    let has_java_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.java", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    let java_usage = check_command_usage(&["java", "javac", "mvn", "gradle"]);
+
+    if has_java_files || java_usage > 5 {
+        // Check for JDK
+        let has_jdk = Command::new("pacman")
+            .args(&["-Q", "jdk-openjdk"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_jdk {
+            result.push(Advice {
+                id: "dev-java-jdk".to_string(),
+                title: "Install OpenJDK for Java development".to_string(),
+                reason: format!("You have Java files or use Java commands ({} times)! OpenJDK is the open-source Java Development Kit - compile and run Java programs, build Android apps, develop enterprise software. 'javac Main.java && java Main' - Java everywhere!", java_usage),
+                action: "Install OpenJDK".to_string(),
+                command: Some("pacman -S --noconfirm jdk-openjdk".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Java".to_string()],
+            });
+        }
+
+        // Check for Maven
+        let has_maven = Command::new("pacman")
+            .args(&["-Q", "maven"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_maven {
+            result.push(Advice {
+                id: "dev-maven".to_string(),
+                title: "Install Maven for Java project management".to_string(),
+                reason: "Maven is the standard build tool for Java! It handles dependencies, builds projects, runs tests, packages JARs. Essential for any serious Java development. If you see a pom.xml file, you need Maven!".to_string(),
+                action: "Install Maven".to_string(),
+                command: Some("pacman -S --noconfirm maven".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Java#Maven".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Node.js development
+fn check_nodejs_dev() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for JavaScript/TypeScript files and package.json
+    let has_package_json = Path::new(&format!("{}/package.json", std::env::var("HOME").unwrap_or_default())).exists()
+        || Command::new("find")
+            .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "package.json", "-type", "f"])
+            .output()
+            .map(|o| !o.stdout.is_empty())
+            .unwrap_or(false);
+
+    let node_usage = check_command_usage(&["node", "npm", "npx", "yarn"]);
+
+    if has_package_json || node_usage > 5 {
+        // Check for Node.js
+        let has_nodejs = Command::new("pacman")
+            .args(&["-Q", "nodejs"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_nodejs {
+            result.push(Advice {
+                id: "dev-nodejs".to_string(),
+                title: "Install Node.js for JavaScript development".to_string(),
+                reason: format!("You have Node.js projects or use node/npm commands ({} times)! Node.js runs JavaScript outside browsers - build web apps, CLIs, servers, desktop apps with Electron. Comes with npm for package management. JavaScript everywhere!", node_usage),
+                action: "Install Node.js and npm".to_string(),
+                command: Some("pacman -S --noconfirm nodejs npm".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js".to_string()],
+            });
+        }
+
+        // Check for TypeScript
+        let has_typescript = Command::new("npm")
+            .args(&["list", "-g", "typescript"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_typescript {
+            result.push(Advice {
+                id: "dev-typescript".to_string(),
+                title: "Install TypeScript for type-safe JavaScript".to_string(),
+                reason: "TypeScript adds types to JavaScript - catch bugs before runtime, better IDE support, clearer code. Used by major frameworks (Angular, Vue 3, NestJS). If you're doing serious JavaScript development, TypeScript makes everything better!".to_string(),
+                action: "Install TypeScript globally".to_string(),
+                command: Some("npm install -g typescript".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js#TypeScript".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for database support
+fn check_databases() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let db_usage = check_command_usage(&["psql", "mysql", "mongod", "redis-cli", "sqlite3"]);
+
+    if db_usage > 5 {
+        // Check for PostgreSQL
+        let has_postgresql = Command::new("pacman")
+            .args(&["-Q", "postgresql"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_postgresql {
+            result.push(Advice {
+                id: "database-postgresql".to_string(),
+                title: "Install PostgreSQL database".to_string(),
+                reason: "PostgreSQL is the world's most advanced open-source database! ACID-compliant, supports JSON, full-text search, geospatial data, and advanced indexing. Great for web apps, data analytics, anything needing a robust relational database. The database developers love!".to_string(),
+                action: "Install PostgreSQL".to_string(),
+                command: Some("pacman -S --noconfirm postgresql".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/PostgreSQL".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for web servers
+fn check_web_servers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user is doing web development
+    let has_html_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.html", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    let web_usage = check_command_usage(&["nginx", "apache", "httpd"]);
+
+    if has_html_files || web_usage > 3 {
+        // Check for nginx
+        let has_nginx = Command::new("pacman")
+            .args(&["-Q", "nginx"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_nginx {
+            result.push(Advice {
+                id: "webserver-nginx".to_string(),
+                title: "Install nginx web server".to_string(),
+                reason: "nginx is a fast, lightweight web server and reverse proxy! Perfect for serving static sites, acting as a load balancer, or proxying to Node.js/Python apps. Used by 40% of the busiest websites. Easy to configure, incredibly fast, and rock-solid stable!".to_string(),
+                action: "Install nginx".to_string(),
+                command: Some("pacman -S --noconfirm nginx".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Nginx".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for remote desktop tools
+fn check_remote_desktop() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for SSH but suggest VNC for GUI access
+    let has_tigervnc = Command::new("pacman")
+        .args(&["-Q", "tigervnc"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_tigervnc {
+        result.push(Advice {
+            id: "remote-vnc".to_string(),
+            title: "Install TigerVNC for remote desktop access".to_string(),
+            reason: "Need to access your desktop remotely? TigerVNC lets you control your Linux desktop from anywhere! Great for remote work, helping family/friends with tech support, or accessing your home PC from laptop. SSH is for terminal, VNC is for full desktop. Works cross-platform!".to_string(),
+            action: "Install TigerVNC".to_string(),
+            command: Some("pacman -S --noconfirm tigervnc".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/TigerVNC".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for torrent clients
+fn check_torrent_clients() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for torrent files
+    let has_torrent_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.torrent", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_torrent_files {
+        // Check for qBittorrent
+        let has_qbittorrent = Command::new("pacman")
+            .args(&["-Q", "qbittorrent"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_qbittorrent {
+            result.push(Advice {
+                id: "torrent-qbittorrent".to_string(),
+                title: "Install qBittorrent for torrent downloads".to_string(),
+                reason: "You have torrent files! qBittorrent is an excellent, ad-free torrent client. Clean interface, built-in search, RSS support, sequential downloading, and full torrent creation. It's like uTorrent but open-source and without the bloat. Perfect for Linux ISOs and other legal torrents!".to_string(),
+                action: "Install qBittorrent".to_string(),
+                command: Some("pacman -S --noconfirm qbittorrent".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "utilities".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/QBittorrent".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for office suites
+fn check_office_suite() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for office documents
+    let has_office_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.docx", "-o", "-name", "*.xlsx", "-o", "-name", "*.pptx", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_office_files {
+        // Check for LibreOffice
+        let has_libreoffice = Command::new("pacman")
+            .args(&["-Q", "libreoffice-fresh"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_libreoffice {
+            result.push(Advice {
+                id: "office-libreoffice".to_string(),
+                title: "Install LibreOffice for document editing".to_string(),
+                reason: "You have Office documents! LibreOffice is a full-featured office suite - Writer (Word), Calc (Excel), Impress (PowerPoint), plus Draw and Base. Opens Microsoft Office files, exports to PDF, fully compatible. It's the gold standard for open-source office software!".to_string(),
+                action: "Install LibreOffice".to_string(),
+                command: Some("pacman -S --noconfirm libreoffice-fresh".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "productivity".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/LibreOffice".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for graphics software
+fn check_graphics_software() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for image files
+    let has_image_files = Command::new("find")
+        .args(&[&format!("{}/Pictures", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_image_files {
+        // Check for GIMP
+        let has_gimp = Command::new("pacman")
+            .args(&["-Q", "gimp"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_gimp {
+            result.push(Advice {
+                id: "graphics-gimp".to_string(),
+                title: "Install GIMP for photo editing".to_string(),
+                reason: "GIMP is the open-source Photoshop! Professional photo editing, retouching, image manipulation, graphic design. Layers, masks, filters, brushes, everything you need. Used by professional designers and photographers. If you edit images, you need GIMP!".to_string(),
+                action: "Install GIMP".to_string(),
+                command: Some("pacman -S --noconfirm gimp".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/GIMP".to_string()],
+            });
+        }
+
+        // Check for Inkscape (vector graphics)
+        let has_inkscape = Command::new("pacman")
+            .args(&["-Q", "inkscape"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_inkscape {
+            result.push(Advice {
+                id: "graphics-inkscape".to_string(),
+                title: "Install Inkscape for vector graphics".to_string(),
+                reason: "Inkscape is the open-source Illustrator! Create logos, icons, diagrams, illustrations - anything that needs to scale without losing quality. SVG-native, professional features, used by designers worldwide. Perfect companion to GIMP!".to_string(),
+                action: "Install Inkscape".to_string(),
+                command: Some("pacman -S --noconfirm inkscape".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Inkscape".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for video editing software
+fn check_video_editing() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for video files
+    let has_video_files = Command::new("find")
+        .args(&[&format!("{}/Videos", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_video_files {
+        // Check for Kdenlive
+        let has_kdenlive = Command::new("pacman")
+            .args(&["-Q", "kdenlive"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_kdenlive {
+            result.push(Advice {
+                id: "video-kdenlive".to_string(),
+                title: "Install Kdenlive for video editing".to_string(),
+                reason: "You have video files! Kdenlive is a powerful, intuitive video editor. Multi-track editing, effects, transitions, color correction, audio mixing. Great for YouTube videos, family movies, or professional projects. It's like Adobe Premiere but free and open-source!".to_string(),
+                action: "Install Kdenlive".to_string(),
+                command: Some("pacman -S --noconfirm kdenlive".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Kdenlive".to_string()],
+            });
+        }
     }
 
     result
