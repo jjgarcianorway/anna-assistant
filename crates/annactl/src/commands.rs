@@ -144,36 +144,51 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
 
         // Display warnings
         if !warnings.is_empty() {
-            println!("{}", section("Maintenance"));
+            println!("{}", section("🔧 Maintenance"));
             for advice in warnings {
+                let emoji = match advice.category.as_str() {
+                    "security" => "🔒",
+                    "updates" => "📦",
+                    "cleanup" => "🧹",
+                    _ => "⚙️",
+                };
                 println!(
-                    "  {} {}",
+                    "  {} {} {}",
+                    emoji,
                     beautiful::status(Level::Warning, "→"),
                     advice.title
                 );
-                println!("    {}", advice.reason);
+                println!("    💡 {}", advice.reason);
                 if let Some(ref cmd) = advice.command {
-                    println!("    Command: {}", cmd);
+                    println!("    📋 Command: {}", cmd);
                 }
+                println!();
             }
-            println!();
         }
 
         // Display info
         if !info.is_empty() {
-            println!("{}", section("Suggestions"));
+            println!("{}", section("✨ Suggestions"));
             for advice in info {
+                let emoji = match advice.category.as_str() {
+                    "development" => "💻",
+                    "beautification" => "🎨",
+                    "performance" => "⚡",
+                    "media" => "🎵",
+                    _ => "💡",
+                };
                 println!(
-                    "  {} {}",
+                    "  {} {} {}",
+                    emoji,
                     beautiful::status(Level::Info, "→"),
                     advice.title
                 );
-                println!("    {}", advice.reason);
+                println!("    📖 {}", advice.reason);
                 if let Some(ref cmd) = advice.command {
-                    println!("    Command: {}", cmd);
+                    println!("    📋 Command: {}", cmd);
                 }
+                println!();
             }
-            println!();
         }
 
         println!(
@@ -277,17 +292,59 @@ pub async fn report() -> Result<()> {
     println!("{}", header("System Health Report"));
     println!();
 
+    // Connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!(
+                "{}",
+                beautiful::status(Level::Error, "Daemon not running")
+            );
+            println!();
+            println!(
+                "{}",
+                beautiful::status(Level::Info, "Start with: sudo systemctl start annad")
+            );
+            return Ok(());
+        }
+    };
+
+    // Get status and advice count
+    let status_data = client.call(Method::Status).await?;
+    let advice_data = client.call(Method::GetAdvice).await?;
+
+    let (version, uptime, pending) = if let ResponseData::Status(status) = status_data {
+        (status.version.clone(), status.uptime_seconds, status.pending_recommendations)
+    } else {
+        ("unknown".to_string(), 0, 0)
+    };
+
+    let advice_count = if let ResponseData::Advice(advice_list) = advice_data {
+        advice_list.len()
+    } else {
+        0
+    };
+
+    let health = if pending > 5 {
+        "⚠️  Needs Attention"
+    } else if pending > 0 {
+        "✓ Good"
+    } else {
+        "✓ Excellent"
+    };
+
     let report_lines = vec![
-        "Anna Assistant v1.0.0-alpha.1",
-        "",
-        "System: Healthy",
-        "Recommendations: 2 pending",
-        "Last check: Just now",
-        "",
-        "Run 'annactl advise' for details",
+        format!("📊 Anna Assistant {}", version),
+        String::new(),
+        format!("System Health: {}", health),
+        format!("Recommendations: {} pending", advice_count),
+        format!("Uptime: {}s", uptime),
+        String::new(),
+        "Run 'annactl advise' for details".to_string(),
     ];
 
-    println!("{}", boxed(&report_lines));
+    let report_strings: Vec<&str> = report_lines.iter().map(|s| s.as_str()).collect();
+    println!("{}", boxed(&report_strings));
 
     Ok(())
 }

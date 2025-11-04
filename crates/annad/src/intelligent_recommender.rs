@@ -131,15 +131,13 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
         }
     }
 
-    // Go development
-    if facts.common_file_types.iter().any(|t| t == "go") ||
-       facts.dev_tools_detected.iter().any(|t| t == "go") {
-
+    // Go development - ONLY trigger if actual .go files found
+    if facts.common_file_types.iter().any(|t| t == "go") {
         if !package_installed("gopls") {
             result.push(Advice {
                 id: "gopls".to_string(),
                 title: "Install gopls language server".to_string(),
-                reason: "Go development detected - gopls is the official Go language server".to_string(),
+                reason: "Go development detected (.go files found) - gopls is the official Go language server".to_string(),
                 action: "Install gopls for Go editor integration".to_string(),
                 command: Some("go install golang.org/x/tools/gopls@latest".to_string()),
                 risk: RiskLevel::Low,

@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     // Handle --version flag
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 && (args[1] == "--version" || args[1] == "-V") {
-        println!("annad v{}", VERSION);
+        println!("annad {}", VERSION);
         return Ok(());
     }
 
@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
         .with_max_level(Level::INFO)
         .init();
 
-    info!("Anna Daemon v{} starting", VERSION);
+    info!("Anna Daemon {} starting", VERSION);
 
     // Collect initial system facts
     let facts = telemetry::collect_facts().await?;
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
 
     // Initialize daemon state
     let state = Arc::new(DaemonState::new(
-        format!("v{}", VERSION),
+        VERSION.to_string(),
         facts,
         advice,
     ).await?);
