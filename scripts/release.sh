@@ -66,11 +66,53 @@ git tag -a "$TAG" -m "Release $TAG - Anna Assistant"
 
 echo -e "${GREEN}✓${RESET} Tag created"
 
+# Extract release notes from CHANGELOG.md
+echo -e "${CYAN}→${RESET} Extracting release notes from CHANGELOG.md..."
+
+# Find the section for this version in CHANGELOG.md
+RELEASE_NOTES=$(awk "/## \[${VERSION}\]/,/^## \[/" CHANGELOG.md | sed '$d' | tail -n +2)
+
+if [ -z "$RELEASE_NOTES" ]; then
+    echo -e "${YELLOW}⚠${RESET}  No changelog entry found for ${VERSION}"
+    RELEASE_NOTES="Release ${TAG}"
+else
+    echo -e "${GREEN}✓${RESET} Found release notes"
+
+    # Save to temporary file for GitHub release
+    echo "$RELEASE_NOTES" > /tmp/anna-release-notes.txt
+
+    # Display preview
+    echo
+    echo -e "${BOLD}${CYAN}Release Notes Preview:${RESET}"
+    echo -e "${GRAY}────────────────────────────────────────────${RESET}"
+    echo "$RELEASE_NOTES" | head -20
+    if [ $(echo "$RELEASE_NOTES" | wc -l) -gt 20 ]; then
+        echo -e "${GRAY}... (truncated for preview)${RESET}"
+    fi
+    echo -e "${GRAY}────────────────────────────────────────────${RESET}"
+    echo
+fi
+
 # Push tag
 echo -e "${CYAN}→${RESET} Pushing tag to origin..."
 git push origin "$TAG"
 
 echo -e "${GREEN}✓${RESET} Tag pushed"
+
+# Create GitHub release with notes (if gh CLI is available)
+if command -v gh >/dev/null 2>&1; then
+    echo -e "${CYAN}→${RESET} Creating GitHub release..."
+    if [ -f /tmp/anna-release-notes.txt ]; then
+        gh release create "$TAG" \
+            --title "🎉 Anna Assistant ${TAG}" \
+            --notes-file /tmp/anna-release-notes.txt \
+            --prerelease 2>/dev/null && echo -e "${GREEN}✓${RESET} GitHub release created" || echo -e "${YELLOW}⚠${RESET}  Manual release creation needed"
+        rm -f /tmp/anna-release-notes.txt
+    fi
+else
+    echo -e "${YELLOW}⚠${RESET}  gh CLI not found - you'll need to create the GitHub release manually"
+    echo -e "    ${GRAY}Install with: pacman -S github-cli${RESET}"
+fi
 
 echo
 echo -e "${BOLD}${GREEN}╭─────────────────────────────────────────────╮${RESET}"
