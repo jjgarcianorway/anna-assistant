@@ -153,14 +153,15 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
                     _ => "⚙️",
                 };
                 println!(
-                    "  {} {} {}",
+                    "  {} {} {}\x1b[1m{}\x1b[0m",
                     emoji,
                     beautiful::status(Level::Warning, "→"),
+                    "\x1b[38;5;228m",  // Yellow
                     advice.title
                 );
-                println!("    💡 {}", advice.reason);
+                println!("    \x1b[38;5;250m💡 {}\x1b[0m", advice.reason);
                 if let Some(ref cmd) = advice.command {
-                    println!("    📋 Command: {}", cmd);
+                    println!("    \x1b[38;5;159m📋 Command:\x1b[0m \x1b[38;5;250m{}\x1b[0m", cmd);
                 }
                 println!();
             }
@@ -170,22 +171,23 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         if !info.is_empty() {
             println!("{}", section("✨ Suggestions"));
             for advice in info {
-                let emoji = match advice.category.as_str() {
-                    "development" => "💻",
-                    "beautification" => "🎨",
-                    "performance" => "⚡",
-                    "media" => "🎵",
-                    _ => "💡",
+                let (emoji, color) = match advice.category.as_str() {
+                    "development" => ("💻", "\x1b[38;5;117m"),  // Blue
+                    "beautification" => ("🎨", "\x1b[38;5;213m"),  // Pink
+                    "performance" => ("⚡", "\x1b[38;5;226m"),  // Bright yellow
+                    "media" => ("🎵", "\x1b[38;5;183m"),  // Purple
+                    _ => ("💡", "\x1b[38;5;159m"),  // Cyan
                 };
                 println!(
-                    "  {} {} {}",
+                    "  {} {} {}\x1b[1m{}\x1b[0m",
                     emoji,
                     beautiful::status(Level::Info, "→"),
+                    color,
                     advice.title
                 );
-                println!("    📖 {}", advice.reason);
+                println!("    \x1b[38;5;250m📖 {}\x1b[0m", advice.reason);
                 if let Some(ref cmd) = advice.command {
-                    println!("    📋 Command: {}", cmd);
+                    println!("    \x1b[38;5;159m📋 Command:\x1b[0m \x1b[38;5;250m{}\x1b[0m", cmd);
                 }
                 println!();
             }

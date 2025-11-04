@@ -28,16 +28,18 @@ pub fn generate_intelligent_advice(facts: &SystemFacts) -> Vec<Advice> {
 fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
-    // Python development
-    if facts.common_file_types.iter().any(|t| t == "python") ||
-       facts.dev_tools_detected.iter().any(|t| t == "python3") {
+    // Python development - ONLY if actual .py files found AND recent python usage in commands
+    let has_python_files = facts.common_file_types.iter().any(|t| t == "python");
+    let uses_python = facts.frequently_used_commands.iter()
+        .any(|cmd| cmd.command.contains("python") || cmd.command.contains("pip"));
 
+    if has_python_files && uses_python {
         // LSP server for editor integration
         if !package_installed("python-lsp-server") {
             result.push(Advice {
                 id: "python-lsp".to_string(),
                 title: "Install Python LSP server".to_string(),
-                reason: "Python development detected - LSP provides autocomplete, linting, and go-to-definition".to_string(),
+                reason: "Active Python development detected (.py files + python command usage) - LSP provides autocomplete, linting, and go-to-definition".to_string(),
                 action: "Install python-lsp-server for better editor integration".to_string(),
                 command: Some("pacman -S --noconfirm python-lsp-server".to_string()),
                 risk: RiskLevel::Low,
@@ -52,7 +54,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
             result.push(Advice {
                 id: "python-black".to_string(),
                 title: "Install Black code formatter".to_string(),
-                reason: "Python development detected - Black auto-formats code to PEP 8 standard".to_string(),
+                reason: "Active Python development detected - Black auto-formats code to PEP 8 standard".to_string(),
                 action: "Install python-black for consistent code formatting".to_string(),
                 command: Some("pacman -S --noconfirm python-black".to_string()),
                 risk: RiskLevel::Low,
@@ -67,7 +69,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
             result.push(Advice {
                 id: "ipython".to_string(),
                 title: "Install IPython for enhanced Python REPL".to_string(),
-                reason: "Python development detected - IPython provides better interactive shell".to_string(),
+                reason: "Active Python development detected - IPython provides better interactive shell".to_string(),
                 action: "Install ipython for improved Python REPL experience".to_string(),
                 command: Some("pacman -S --noconfirm ipython".to_string()),
                 risk: RiskLevel::Low,
@@ -78,15 +80,17 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
         }
     }
 
-    // Rust development
-    if facts.common_file_types.iter().any(|t| t == "rust") ||
-       facts.dev_tools_detected.iter().any(|t| t == "cargo") {
+    // Rust development - check for actual .rs files AND cargo usage
+    let has_rust_files = facts.common_file_types.iter().any(|t| t == "rust");
+    let uses_cargo = facts.frequently_used_commands.iter()
+        .any(|cmd| cmd.command.contains("cargo"));
 
+    if has_rust_files && uses_cargo {
         if !package_installed("rust-analyzer") {
             result.push(Advice {
                 id: "rust-analyzer".to_string(),
                 title: "Install rust-analyzer LSP".to_string(),
-                reason: "Rust development detected - rust-analyzer provides IDE-like features".to_string(),
+                reason: "Active Rust development detected (.rs files + cargo usage) - rust-analyzer provides IDE-like features".to_string(),
                 action: "Install rust-analyzer for autocomplete and inline documentation".to_string(),
                 command: Some("pacman -S --noconfirm rust-analyzer".to_string()),
                 risk: RiskLevel::Low,
@@ -101,7 +105,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
             result.push(Advice {
                 id: "sccache".to_string(),
                 title: "Install sccache for faster Rust builds".to_string(),
-                reason: "Rust development detected - sccache caches compiled crates".to_string(),
+                reason: "Active Rust development detected - sccache caches compiled crates, significantly speeds up rebuilds".to_string(),
                 action: "Install sccache to speed up compilation times".to_string(),
                 command: Some("pacman -S --noconfirm sccache".to_string()),
                 risk: RiskLevel::Low,
