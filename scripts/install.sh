@@ -228,13 +228,24 @@ fi
 
 echo
 
+# Helper function to repeat a character (handles UTF-8)
+repeat_char() {
+    local char="$1"
+    local count="$2"
+    local result=""
+    for ((i=0; i<count; i++)); do
+        result="${result}${char}"
+    done
+    echo -n "$result"
+}
+
 # Calculate box width properly
 BOX_WIDTH=60
 TITLE_TEXT="   Installation Complete! ${TAG}   "
 # Use printf to create properly sized box
-printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_TL}" "$(printf '%*s' $((BOX_WIDTH-2)) '' | tr ' ' "${BOX_H}")" "${BOX_TR}"
+printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_TL}" "$(repeat_char "${BOX_H}" $((BOX_WIDTH-2)))" "${BOX_TR}"
 printf "${BOLD}${GREEN}%s%-*s%s${RESET}\n" "${BOX_V}" $((BOX_WIDTH-2)) "${TITLE_TEXT}" "${BOX_V}"
-printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_BL}" "$(printf '%*s' $((BOX_WIDTH-2)) '' | tr ' ' "${BOX_H}")" "${BOX_BR}"
+printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_BL}" "$(repeat_char "${BOX_H}" $((BOX_WIDTH-2)))" "${BOX_BR}"
 echo
 echo -e "${BOLD}${CYAN}What Anna Can Do:${RESET}"
 echo
