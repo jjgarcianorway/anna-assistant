@@ -62,6 +62,7 @@ impl RpcClient {
     }
 
     /// Ping the daemon (health check)
+    #[allow(dead_code)]
     pub async fn ping(&mut self) -> Result<()> {
         self.call(Method::Ping).await?;
         Ok(())
