@@ -411,7 +411,7 @@ fn display_advice_item_enhanced(number: usize, advice: &anna_common::Advice) {
     println!("    \x1b[90m\x1b[3mID: {}\x1b[0m", advice.id);
 }
 
-pub async fn apply(id: Option<String>, nums: Option<String>, auto: bool, dry_run: bool) -> Result<()> {
+pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<String>, auto: bool, dry_run: bool) -> Result<()> {
     println!("{}", header("Apply Recommendations"));
     println!();
 
@@ -431,6 +431,11 @@ pub async fn apply(id: Option<String>, nums: Option<String>, auto: bool, dry_run
             return Ok(());
         }
     };
+
+    // If bundle provided, apply all advice in the bundle
+    if let Some(bundle_name) = bundle {
+        return apply_bundle(&mut client, &bundle_name, dry_run).await;
+    }
 
     // If specific ID provided, apply that one
     if let Some(advice_id) = id {
@@ -616,8 +621,13 @@ fn parse_number_ranges(input: &str) -> Result<Vec<usize>> {
     Ok(result)
 }
 
-pub async fn report() -> Result<()> {
-    println!("{}", header("📊 System Health Report"));
+pub async fn report(category: Option<String>) -> Result<()> {
+    let title = if let Some(ref cat) = category {
+        format!("📊 System Health Report - {}", cat)
+    } else {
+        "📊 System Health Report".to_string()
+    };
+    println!("{}", header(&title));
     println!();
 
     // Connect to daemon
@@ -656,11 +666,25 @@ pub async fn report() -> Result<()> {
         return Ok(());
     };
 
-    let advice_list = if let ResponseData::Advice(a) = advice_data {
+    let mut advice_list = if let ResponseData::Advice(a) = advice_data {
         a
     } else {
         Vec::new()
     };
+
+    // Filter by category if specified
+    if let Some(ref cat) = category {
+        advice_list.retain(|a| a.category.to_lowercase() == cat.to_lowercase());
+
+        if advice_list.is_empty() {
+            println!("{}", beautiful::status(Level::Info, &format!("No recommendations found for category '{}'", cat)));
+            println!();
+            println!("  Available categories: security, performance, updates, gaming, desktop,");
+            println!("                       multimedia, hardware, development, beautification");
+            println!();
+            return Ok(());
+        }
+    }
 
     // Generate plain English summary
     generate_plain_english_report(&status, &facts, &advice_list);
@@ -1053,4 +1077,271 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
         println!("   Keep doing what you're doing - your system is well maintained!");
     }
     println!();
+}
+/// List available workflow bundles
+pub async fn bundles() -> Result<()> {
+    use anna_common::beautiful::{header, section};
+
+    println!("{}", header("Workflow Bundles"));
+    println!();
+    println!("  \x1b[90mInstall complete development stacks with one command!\x1b[0m");
+    println!();
+
+    // Connect to daemon to get advice
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    // Get all advice
+    let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+        .or_else(|_| std::env::var("DESKTOP_SESSION"))
+        .ok();
+    let shell = std::env::var("SHELL")
+        .unwrap_or_else(|_| "bash".to_string())
+        .split('/')
+        .last()
+        .unwrap_or("bash")
+        .to_string();
+
+    let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        Some("wayland".to_string())
+    } else if std::env::var("DISPLAY").is_ok() {
+        Some("x11".to_string())
+    } else {
+        None
+    };
+
+    let result = client
+        .call(Method::GetAdviceWithContext {
+            username,
+            desktop_env,
+            shell,
+            display_server,
+        })
+        .await?;
+
+    if let ResponseData::Advice(advice_list) = result {
+        // Group by bundle
+        let mut bundles: std::collections::HashMap<String, Vec<anna_common::Advice>> = std::collections::HashMap::new();
+
+        for advice in advice_list {
+            if let Some(ref bundle_name) = advice.bundle {
+                bundles.entry(bundle_name.clone()).or_insert_with(Vec::new).push(advice);
+            }
+        }
+
+        if bundles.is_empty() {
+            println!("  \x1b[93m⚠\x1b[0m  No workflow bundles available for your system right now.");
+            println!("     Install some base tools (Docker, Python, Rust) to see bundle suggestions!");
+            println!();
+            return Ok(());
+        }
+
+        println!("{}", section("📦 Available Bundles"));
+        println!();
+
+        for (bundle_name, items) in bundles.iter() {
+            println!("  \x1b[1m{}\x1b[0m", bundle_name);
+            println!("  \x1b[90m{} recommendation(s)\x1b[0m", items.len());
+            println!();
+
+            // Show what's included
+            for (i, item) in items.iter().enumerate() {
+                let marker = if !item.depends_on.is_empty() {
+                    "  ├─"
+                } else {
+                    "  •"
+                };
+                println!("    {} \x1b[38;5;159m{}\x1b[0m", marker, item.title);
+
+                if i == items.len() - 1 {
+                    println!();
+                }
+            }
+
+            // Show install command
+            println!("    \x1b[96m❯\x1b[0m  annactl apply --bundle \"{}\"", bundle_name);
+            println!();
+        }
+
+        println!("{}", section("💡 Tips"));
+        println!();
+        println!("  • Bundles install tools in dependency order");
+        println!("  • Use \x1b[38;5;159m--dry-run\x1b[0m to see what will be installed");
+        println!("  • Dependencies are automatically installed first");
+        println!();
+
+    } else {
+        println!("{}", beautiful::status(Level::Error, "Unexpected response from daemon"));
+    }
+
+    Ok(())
+}
+
+/// Apply all advice in a bundle with dependency resolution
+async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) -> Result<()> {
+    use anna_common::beautiful::{header, section};
+
+    println!("{}", header(&format!("Installing Bundle: {}", bundle_name)));
+    println!();
+
+    // Get all advice
+    let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+    let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+        .or_else(|_| std::env::var("DESKTOP_SESSION"))
+        .ok();
+    let shell = std::env::var("SHELL")
+        .unwrap_or_else(|_| "bash".to_string())
+        .split('/')
+        .last()
+        .unwrap_or("bash")
+        .to_string();
+
+    let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        Some("wayland".to_string())
+    } else if std::env::var("DISPLAY").is_ok() {
+        Some("x11".to_string())
+    } else {
+        None
+    };
+
+    let result = client
+        .call(Method::GetAdviceWithContext {
+            username,
+            desktop_env,
+            shell,
+            display_server,
+        })
+        .await?;
+
+    if let ResponseData::Advice(advice_list) = result {
+        // Find all advice in this bundle
+        let bundle_advice: Vec<_> = advice_list
+            .iter()
+            .filter(|a| a.bundle.as_ref().map(|b| b == bundle_name).unwrap_or(false))
+            .collect();
+
+        if bundle_advice.is_empty() {
+            println!("{}", beautiful::status(Level::Error, &format!("Bundle '{}' not found", bundle_name)));
+            println!();
+            println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see available bundles.");
+            return Ok(());
+        }
+
+        // Sort by dependencies (topological sort)
+        let sorted = topological_sort(&bundle_advice);
+
+        println!("{}", section("📦 Bundle Contents"));
+        println!();
+        println!("  Will install {} item(s) in dependency order:", sorted.len());
+        println!();
+
+        for (i, advice) in sorted.iter().enumerate() {
+            let num = format!("{}.", i + 1);
+            println!("    \x1b[90m{:>3}\x1b[0m  \x1b[97m{}\x1b[0m", num, advice.title);
+            if !advice.depends_on.is_empty() {
+                println!("         \x1b[90m↳ Depends on: {}\x1b[0m", advice.depends_on.join(", "));
+            }
+        }
+        println!();
+
+        if dry_run {
+            println!("{}", beautiful::status(Level::Info, "Dry run - no changes made"));
+            return Ok(());
+        }
+
+        // Apply each in order
+        println!("{}", section("🚀 Installing"));
+        println!();
+
+        for (i, advice) in sorted.iter().enumerate() {
+            println!("  [{}/{}] \x1b[1m{}\x1b[0m", i + 1, sorted.len(), advice.title);
+
+            let result = client
+                .call(Method::ApplyAction {
+                    advice_id: advice.id.clone(),
+                    dry_run: false,
+                })
+                .await?;
+
+            if let ResponseData::ActionResult { success, message } = result {
+                if success {
+                    println!("         \x1b[92m✓\x1b[0m {}", message);
+                } else {
+                    println!("         \x1b[91m✗\x1b[0m {}", message);
+                    println!();
+                    println!("{}", beautiful::status(Level::Error, "Bundle installation failed"));
+                    println!("  Some items may have been installed before the failure.");
+                    return Ok(());
+                }
+            }
+        }
+
+        println!();
+        println!("{}", beautiful::status(Level::Success, &format!("Bundle '{}' installed successfully!", bundle_name)));
+        println!();
+
+    } else {
+        println!("{}", beautiful::status(Level::Error, "Unexpected response from daemon"));
+    }
+
+    Ok(())
+}
+
+/// Topological sort for dependency resolution
+fn topological_sort(advice: &[&anna_common::Advice]) -> Vec<anna_common::Advice> {
+    use std::collections::{HashMap, VecDeque};
+
+    // Build adjacency list and in-degree map
+    let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+    let mut in_degree: HashMap<String, usize> = HashMap::new();
+    let mut id_to_advice: HashMap<String, anna_common::Advice> = HashMap::new();
+
+    for item in advice {
+        id_to_advice.insert(item.id.clone(), (*item).clone());
+        graph.entry(item.id.clone()).or_insert_with(Vec::new);
+        in_degree.entry(item.id.clone()).or_insert(0);
+
+        for dep in &item.depends_on {
+            graph.entry(dep.clone()).or_insert_with(Vec::new).push(item.id.clone());
+            *in_degree.entry(item.id.clone()).or_insert(0) += 1;
+        }
+    }
+
+    // Kahn's algorithm for topological sort
+    let mut queue: VecDeque<String> = VecDeque::new();
+    let mut result: Vec<anna_common::Advice> = Vec::new();
+
+    // Find all nodes with in-degree 0
+    for (id, &degree) in &in_degree {
+        if degree == 0 {
+            queue.push_back(id.clone());
+        }
+    }
+
+    while let Some(id) = queue.pop_front() {
+        if let Some(advice) = id_to_advice.get(&id) {
+            result.push(advice.clone());
+        }
+
+        if let Some(neighbors) = graph.get(&id) {
+            for neighbor in neighbors {
+                if let Some(degree) = in_degree.get_mut(neighbor) {
+                    *degree -= 1;
+                    if *degree == 0 {
+                        queue.push_back(neighbor.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    result
 }

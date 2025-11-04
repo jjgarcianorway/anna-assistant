@@ -5,6 +5,56 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.28] - 2025-01-04
+
+### 🎁 Workflow Bundles & Enhanced Reporting!
+
+**NEW:** One-command workflow bundle installation with smart dependency resolution! Plus enhanced report command with category filtering.
+
+### ✨ Added
+
+**📦 Workflow Bundle System**
+- New `annactl bundles` command to list available workflow bundles
+- Install complete development stacks with `annactl apply --bundle "Bundle Name"`
+- Smart dependency resolution using Kahn's algorithm (topological sort)
+- Bundles install tools in the correct order automatically
+- Three predefined bundles:
+  - "Container Development Stack" (Docker → docker-compose → lazydocker)
+  - "Python Development Stack" (python-lsp-server, python-black, ipython)
+  - "Rust Development Stack" (rust-analyzer)
+- `--dry-run` support to preview what will be installed
+- Progress tracking showing X/Y items during installation
+
+**📊 Enhanced Report Command**
+- New `--category` flag to filter reports by category
+- `annactl report --category security` shows only security recommendations
+- `annactl report --category development` shows only dev tools
+- Helpful error message listing available categories if category not found
+- Report output speaks plain English with sysadmin-level insights
+
+### 🔧 Technical Improvements
+- Added `bundles()` function with bundle grouping and display
+- Added `apply_bundle()` function with dependency resolution
+- Added `topological_sort()` implementing Kahn's algorithm for dependency ordering
+- Bundle metadata integration across Docker, Python, and Rust recommendations
+- Category parameter support in report generation
+
+### 📦 Example Usage
+
+```bash
+# List available bundles
+annactl bundles
+
+# Install a complete workflow bundle
+annactl apply --bundle "Python Development Stack"
+
+# Preview what will be installed
+annactl apply --bundle "Container Development Stack" --dry-run
+
+# Get a focused report on security issues
+annactl report --category security
+```
+
 ## [1.0.0-beta.27] - 2025-01-04
 
 ### 🚀 Advanced Telemetry & Intelligent Recommendations!

@@ -37,6 +37,10 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 - Journal size management
 
 ### 💻 **Development**
+- **Workflow bundles** - Install complete dev stacks with one command!
+  - Container Development Stack (Docker → docker-compose → lazydocker)
+  - Python Development Stack (python-lsp-server, python-black, ipython)
+  - Rust Development Stack (rust-analyzer)
 - Detects which languages you actually use (Python, Rust, Go, JavaScript)
 - Suggests LSP servers and tools for your workflow
 - Finds missing configurations (git, bat, starship, zoxide)
@@ -136,6 +140,16 @@ annactl status
 
 # Get a full system health report with sysadmin-level insights
 annactl report
+
+# Get a focused report on specific category
+annactl report --category security      # Only security recommendations
+annactl report --category development   # Only dev tools
+
+# List available workflow bundles
+annactl bundles
+
+# Install a complete development stack in one command
+annactl apply --bundle "Python Development Stack"
 
 # Apply recommendations by number
 annactl apply --nums 1        # Apply first recommendation

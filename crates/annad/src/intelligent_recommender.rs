@@ -63,8 +63,8 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
                             depends_on: Vec::new(),
-                related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("Python Development Stack".to_string()),
+                related_to: vec!["python-black".to_string(), "ipython".to_string()],
             });
         }
 
@@ -82,8 +82,8 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
                             depends_on: Vec::new(),
-                related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("Python Development Stack".to_string()),
+                related_to: vec!["python-lsp".to_string(), "ipython".to_string()],
             });
         }
 
@@ -101,8 +101,8 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python".to_string()],
                             depends_on: Vec::new(),
-                related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("Python Development Stack".to_string()),
+                related_to: vec!["python-lsp".to_string(), "python-black".to_string()],
             });
         }
     }
@@ -127,7 +127,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("Rust Development Stack".to_string()),
             });
         }
 

@@ -54,6 +54,10 @@ enum Commands {
         #[arg(long)]
         nums: Option<String>,
 
+        /// Apply all advice in a workflow bundle (e.g., "Container Development Stack")
+        #[arg(long)]
+        bundle: Option<String>,
+
         /// Auto-apply all allowed actions
         #[arg(long)]
         auto: bool,
@@ -63,8 +67,15 @@ enum Commands {
         dry_run: bool,
     },
 
+    /// List available workflow bundles
+    Bundles,
+
     /// Generate system health report
-    Report,
+    Report {
+        /// Show only specific category
+        #[arg(long)]
+        category: Option<String>,
+    },
 
     /// Run system diagnostics
     Doctor,
@@ -84,8 +95,9 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Status => commands::status().await,
         Commands::Advise { risk, mode, category, limit } => commands::advise(risk, mode, category, limit).await,
-        Commands::Apply { id, nums, auto, dry_run } => commands::apply(id, nums, auto, dry_run).await,
-        Commands::Report => commands::report().await,
+        Commands::Apply { id, nums, bundle, auto, dry_run } => commands::apply(id, nums, bundle, auto, dry_run).await,
+        Commands::Bundles => commands::bundles().await,
+        Commands::Report { category } => commands::report(category).await,
         Commands::Doctor => commands::doctor().await,
         Commands::Config { set } => commands::config(set).await,
     }
