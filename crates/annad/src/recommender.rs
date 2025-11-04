@@ -27,6 +27,11 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_cli_tools(facts));
     advice.extend(check_gaming_setup());
     advice.extend(check_desktop_environment());
+    advice.extend(check_terminal_and_fonts());
+    advice.extend(check_firmware_tools());
+    advice.extend(check_media_tools());
+    advice.extend(check_audio_system());
+    advice.extend(check_power_management());
 
     advice
 }
@@ -1432,6 +1437,281 @@ fn check_desktop_environment() -> Vec<Advice> {
                 priority: Priority::Recommended,
                 category: "desktop".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#XWayland".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 19: Check terminal emulators and font rendering
+fn check_terminal_and_fonts() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for modern terminal emulators
+    let has_alacritty = Command::new("pacman")
+        .args(&["-Q", "alacritty"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_kitty = Command::new("pacman")
+        .args(&["-Q", "kitty"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_wezterm = Command::new("pacman")
+        .args(&["-Q", "wezterm"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Only suggest if they don't have any modern terminal
+    if !has_alacritty && !has_kitty && !has_wezterm {
+        result.push(Advice {
+            id: "modern-terminal".to_string(),
+            title: "Try a modern GPU-accelerated terminal emulator".to_string(),
+            reason: "Modern terminals like Alacritty, Kitty, or WezTerm use your GPU for rendering, making them incredibly fast and smooth. They support true color, have better font rendering, and can handle huge outputs without lag. Try one and you'll never go back!".to_string(),
+            action: "Install a modern terminal (Alacritty recommended)".to_string(),
+            command: Some("pacman -S --noconfirm alacritty".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Terminal_emulators".to_string()],
+        });
+    }
+
+    // Check for nerd fonts (for powerline, starship, etc.)
+    let has_nerd_fonts = Command::new("pacman")
+        .args(&["-Ss", "ttf-nerd-fonts"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.contains("[installed]"))
+        .unwrap_or(false);
+
+    if !has_nerd_fonts {
+        result.push(Advice {
+            id: "nerd-fonts".to_string(),
+            title: "Install Nerd Fonts for beautiful terminal icons".to_string(),
+            reason: "Nerd Fonts include thousands of glyphs and icons that make your terminal look amazing. They're essential for Starship prompt, file managers like lsd/eza, and many terminal apps. Without them, you'll see broken squares instead of cool icons!".to_string(),
+            action: "Install Nerd Fonts".to_string(),
+            command: Some("pacman -S --noconfirm ttf-nerd-fonts-symbols-mono".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fonts#Patched_fonts".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 20: Check firmware update tools
+fn check_firmware_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for fwupd (firmware updates)
+    let has_fwupd = Command::new("pacman")
+        .args(&["-Q", "fwupd"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_fwupd {
+        result.push(Advice {
+            id: "fwupd".to_string(),
+            title: "Install fwupd for firmware updates".to_string(),
+            reason: "Firmware updates are important for security and hardware stability! fwupd lets you update device firmware (BIOS, SSD, USB devices, etc.) right from Linux. Many vendors now support it officially. Keep your hardware up to date!".to_string(),
+            action: "Install fwupd for firmware management".to_string(),
+            command: Some("pacman -S --noconfirm fwupd".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "security".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Fwupd".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 21: Check media players and downloaders
+fn check_media_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for mpv (modern video player)
+    let has_mpv = Command::new("pacman")
+        .args(&["-Q", "mpv"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_mpv {
+        result.push(Advice {
+            id: "mpv".to_string(),
+            title: "Install mpv media player".to_string(),
+            reason: "mpv is a powerful, lightweight video player that plays everything. It's keyboard-driven, highly customizable, and handles any format you throw at it. It's also great for streaming and can be controlled via scripts!".to_string(),
+            action: "Install mpv".to_string(),
+            command: Some("pacman -S --noconfirm mpv".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Mpv".to_string()],
+        });
+    }
+
+    // Check for yt-dlp (youtube-dl fork)
+    let has_ytdlp = Command::new("pacman")
+        .args(&["-Q", "yt-dlp"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_ytdlp {
+        result.push(Advice {
+            id: "yt-dlp".to_string(),
+            title: "Install yt-dlp for downloading videos".to_string(),
+            reason: "yt-dlp is the best way to download videos from YouTube and hundreds of other sites. It's actively maintained (unlike youtube-dl), supports playlist downloads, can extract audio, and has tons of options. Essential tool for media archiving!".to_string(),
+            action: "Install yt-dlp".to_string(),
+            command: Some("pacman -S --noconfirm yt-dlp".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Yt-dlp".to_string()],
+        });
+    }
+
+    // Check for ffmpeg (video processing)
+    let has_ffmpeg = Command::new("pacman")
+        .args(&["-Q", "ffmpeg"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_ffmpeg {
+        result.push(Advice {
+            id: "ffmpeg".to_string(),
+            title: "Install FFmpeg for video/audio processing".to_string(),
+            reason: "FFmpeg is the Swiss Army knife of media processing. Convert videos, extract audio, resize, crop, merge files - it can do everything! Many apps depend on it, so it's practically essential for any media work.".to_string(),
+            action: "Install FFmpeg".to_string(),
+            command: Some("pacman -S --noconfirm ffmpeg".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/FFmpeg".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 22: Check audio system
+fn check_audio_system() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if PipeWire is installed
+    let has_pipewire = Command::new("pacman")
+        .args(&["-Q", "pipewire"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_pulseaudio = Command::new("pacman")
+        .args(&["-Q", "pulseaudio"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Suggest PipeWire if they're still on PulseAudio
+    if has_pulseaudio && !has_pipewire {
+        result.push(Advice {
+            id: "pipewire".to_string(),
+            title: "Consider switching to PipeWire audio system".to_string(),
+            reason: "PipeWire is the modern replacement for PulseAudio. It has lower latency, better Bluetooth support, and can handle both audio AND video routing. Most distros are switching to it - it's more reliable and feature-rich than PulseAudio!".to_string(),
+            action: "Switch to PipeWire (requires removal of PulseAudio)".to_string(),
+            command: Some("pacman -S --noconfirm pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber".to_string()),
+            risk: RiskLevel::Medium,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/PipeWire".to_string()],
+        });
+    }
+
+    // If they have PipeWire, check for additional useful tools
+    if has_pipewire {
+        let has_pavucontrol = Command::new("pacman")
+            .args(&["-Q", "pavucontrol"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_pavucontrol {
+            result.push(Advice {
+                id: "pavucontrol".to_string(),
+                title: "Install PulseAudio Volume Control (works with PipeWire)".to_string(),
+                reason: "pavucontrol gives you a GUI to control audio devices, application volumes, and routing. Even though it says PulseAudio, it works perfectly with PipeWire! Much easier than command-line audio management.".to_string(),
+                action: "Install pavucontrol".to_string(),
+                command: Some("pacman -S --noconfirm pavucontrol".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/PulseAudio#pavucontrol".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 23: Check power management for laptops
+fn check_power_management() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if system is a laptop (has battery)
+    let is_laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
+                    std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+
+    if is_laptop {
+        // Check for TLP
+        let has_tlp = Command::new("pacman")
+            .args(&["-Q", "tlp"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_tlp {
+            result.push(Advice {
+                id: "laptop-tlp".to_string(),
+                title: "Install TLP for better laptop battery life".to_string(),
+                reason: "TLP automatically optimizes your laptop's power settings. It can significantly extend your battery life by managing CPU frequencies, disk write behavior, USB power, and more. Just install it and forget it - it works automatically!".to_string(),
+                action: "Install TLP for power management".to_string(),
+                command: Some("pacman -S --noconfirm tlp && systemctl enable tlp.service".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "power".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/TLP".to_string()],
+            });
+        }
+
+        // Check for powertop
+        let has_powertop = Command::new("pacman")
+            .args(&["-Q", "powertop"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_powertop {
+            result.push(Advice {
+                id: "laptop-powertop".to_string(),
+                title: "Install powertop to analyze power consumption".to_string(),
+                reason: "powertop shows you exactly what's draining your battery. It lists processes, devices, and can even suggest tuning options. Great for diagnosing battery issues and seeing the impact of your power settings!".to_string(),
+                action: "Install powertop".to_string(),
+                command: Some("pacman -S --noconfirm powertop".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "power".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Powertop".to_string()],
             });
         }
     }
