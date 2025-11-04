@@ -167,7 +167,8 @@
       "Bash(then annactl --version)",
       "Bash(else echo \"annactl not found in PATH\")",
       "Bash(./scripts/verify_versions.sh:*)",
-      "Bash(ANNA_EXPERIMENTAL=1 ./target/release/annactl:*)"
+      "Bash(ANNA_EXPERIMENTAL=1 ./target/release/annactl:*)",
+      "Bash(./scripts/check-version-consistency.sh:*)"
     ],
     "deny": [],
     "ask": []

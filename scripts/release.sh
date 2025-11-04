@@ -1,180 +1,142 @@
 #!/usr/bin/env bash
-# Anna Release Script — Smart Version Bumping
-# Only bumps version if there are actual code changes
-# GitHub Actions handles building and uploading binaries
+# Anna Auto-Release Script - Zero Interaction Required
 set -Eeuo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$repo_root"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 OWNER="jjgarcianorway"
 REPO="anna-assistant"
 
-say() { printf "%s\n" "$*"; }
-die() { printf "ERROR: %s\n" "$*" >&2; exit 1; }
+# Simple output
+info() { echo "→ $*"; }
+success() { echo "✓ $*"; }
+error() { echo "✗ ERROR: $*" >&2; exit 1; }
 
-require() { command -v "$1" >/dev/null 2>&1 || die "Missing '$1'"; }
+require() { command -v "$1" >/dev/null 2>&1 || error "Missing: $1"; }
 require git
 require curl
 require jq
+require cargo
 
-# Compute next RC from GitHub API (never recreate existing tags)
-next_rc() {
-  local latest
+echo ""
+echo "═══════════════════════════════════════════"
+echo "  Anna Auto-Release (Zero Interaction)"
+echo "═══════════════════════════════════════════"
+echo ""
 
-  # Fetch tags from GitHub API
-  latest=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/git/refs/tags" 2>/dev/null | \
-           jq -r '.[].ref' | \
-           sed 's|refs/tags/||' | \
-           grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' | \
-           sort -V | \
-           tail -n1)
+# Read VERSION file
+[[ -f VERSION ]] || error "VERSION file not found"
+VER=$(cat VERSION | tr -d '[:space:]')
+[[ -n "$VER" ]] || error "VERSION file is empty"
+[[ "$VER" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || error "Invalid VERSION format: $VER"
 
-  if [[ -z "$latest" || "$latest" == "null" ]]; then
-    # No RC tags exist, start with rc.1
-    echo "v1.0.0-rc.1"
-    return
-  fi
+info "Target version: $VER"
 
-  # Extract base and RC number
-  local base="${latest%-rc.*}"
-  local rc_num="${latest##*-rc.}"
+# Check if release already complete
+info "Checking if release already exists..."
+if git ls-remote --tags origin | grep -q "refs/tags/$VER$"; then
+    release_json=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$VER" 2>/dev/null || echo '{}')
+    has_tarball=$(echo "$release_json" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name' 2>/dev/null || true)
 
-  # Bump RC number
-  echo "${base}-rc.$((rc_num + 1))"
-}
-
-# Get current version from Cargo.toml
-say "→ Reading current version from Cargo.toml..."
-CURRENT_VER=$(grep -E '^version = ".*"' Cargo.toml | head -1 | sed -E 's/.*"(.*)".*/\1/')
-CURRENT_TAG="v${CURRENT_VER}"
-
-say "→ Current version in Cargo.toml: $CURRENT_TAG"
-
-# Check if there are any changes since last tag
-if git rev-parse "$CURRENT_TAG" >/dev/null 2>&1; then
-  # Tag exists, check for changes
-  say "→ Checking for code changes since $CURRENT_TAG..."
-  CHANGES=$(git diff "$CURRENT_TAG" --stat -- ':!Cargo.toml' ':!docs/*.md' | wc -l)
-
-  if [[ "$CHANGES" -eq 0 ]]; then
-    say ""
-    say "✓ No code changes since $CURRENT_TAG"
-    say "✓ Version $CURRENT_TAG is up to date"
-    say ""
-    say "→ Nothing to release. To force a release, make a code change first."
-    say "  (Documentation-only changes don't trigger releases)"
-    exit 0
-  fi
-
-  say "→ Found $CHANGES changed files since $CURRENT_TAG"
+    if [[ "$has_tarball" == "anna-linux-x86_64.tar.gz" ]]; then
+        success "Release $VER already complete - nothing to do"
+        echo ""
+        echo "Release URL: https://github.com/$OWNER/$REPO/releases/tag/$VER"
+        exit 0
+    fi
 fi
 
-say "→ Fetching latest tag from GitHub API..."
-NEW_TAG=$(next_rc)
-NEW_VER="${NEW_TAG#v}"  # Remove 'v' prefix for Cargo.toml
+# Auto-fix Cargo.toml if needed
+info "Syncing Cargo.toml with VERSION..."
+VERSION_NO_V="${VER#v}"
+CARGO_VERSION=$(grep -E '^\s*version\s*=' Cargo.toml | head -1 | sed -E 's/.*"(.*)".*/\1/')
 
-say "→ Latest remote tag: ${NEW_TAG%-rc.*}-rc.$((${NEW_TAG##*-rc.} - 1))"
-say "→ Next release will be: $NEW_TAG"
-
-# Check if tag already exists locally
-if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
-  die "Tag $NEW_TAG already exists locally. Fetch and sync with remote first."
+if [[ "$CARGO_VERSION" != "$VERSION_NO_V" ]]; then
+    info "Updating Cargo.toml from $CARGO_VERSION to $VERSION_NO_V"
+    sed -i -E "s/^version = \".*\"/version = \"$VERSION_NO_V\"/" Cargo.toml
 fi
 
-# Verify build succeeds before committing
-say "→ Verifying build succeeds..."
-if ! cargo build --release --bin annad --bin annactl >/dev/null 2>&1; then
-  die "Build failed. Fix errors before releasing."
+# Build and verify
+info "Building binaries..."
+if ! cargo build --release --bin annad --bin annactl 2>&1 | tail -3; then
+    error "Build failed"
 fi
-say "→ Build successful"
 
-# Update Cargo.toml
-say "→ Updating Cargo.toml to $NEW_VER"
-sed -i -E 's/^version = ".*"$/version = "'"$NEW_VER"'"/' Cargo.toml
+info "Verifying versions..."
+annactl_ver=$(./target/release/annactl --version 2>/dev/null | awk '{print $NF}' || echo "UNKNOWN")
+[[ "$annactl_ver" == "$VERSION_NO_V" ]] || error "annactl version mismatch: $annactl_ver != $VERSION_NO_V"
 
-# Verify the version was updated correctly
-UPDATED_VER=$(grep -E '^version = ".*"' Cargo.toml | head -1 | sed -E 's/.*"(.*)".*/\1/')
-if [[ "$UPDATED_VER" != "$NEW_VER" ]]; then
-  die "Failed to update Cargo.toml version (expected $NEW_VER, got $UPDATED_VER)"
-fi
-say "→ Verified Cargo.toml updated to $NEW_VER"
+success "Build complete, versions verified"
 
-# Commit changes
-say "→ Committing Cargo.toml update…"
-git add Cargo.toml
-if ! git diff --cached --quiet; then
-  git commit -m "chore(release): bump version to $NEW_TAG
+# Auto-commit if there are changes
+info "Checking for uncommitted changes..."
+if [[ -n "$(git status --porcelain)" ]]; then
+    info "Auto-committing changes..."
+    git add -A
+    git commit -m "chore(release): prepare release $VER
+
+- Updated VERSION to $VER
+- Synced Cargo.toml
+- Auto-commit by release script
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-  say "→ Committed"
+    success "Changes committed"
+fi
+
+# Create and push tag
+if ! git rev-parse "$VER" >/dev/null 2>&1; then
+    info "Creating tag $VER..."
+    git tag -a "$VER" -m "Release $VER
+
+Automated release
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+    info "Pushing commit and tag..."
+    git push origin HEAD:main --tags || error "Push failed"
+    success "Tag $VER pushed"
 else
-  say "→ No changes to commit"
+    info "Tag $VER already exists locally"
+    info "Pushing to ensure remote is synced..."
+    git push origin HEAD:main --tags || true
 fi
 
-# Create annotated tag
-say "→ Creating tag $NEW_TAG…"
-git tag -a "$NEW_TAG" -m "$NEW_TAG
-
-$(cat .release-notes-v1.0-draft.md 2>/dev/null || echo 'Release candidate - automated RC pipeline')
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# Push branch and tags
-say "→ Pushing to origin…"
-git push origin HEAD:main --tags
-
+# Wait for CI
+info "Waiting for GitHub Actions to build release assets..."
 echo ""
-echo "✔ Release $NEW_TAG created and pushed"
-echo "▶ Tag: $NEW_TAG"
-echo ""
-say "→ Waiting for GitHub Actions to build and upload assets..."
 
-# Wait for GitHub Actions to complete (up to 5 minutes)
-for i in {1..60}; do
-  sleep 5
+TIMEOUT=600
+INTERVAL=10
+elapsed=0
 
-  # Check if release has assets
-  assets=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$NEW_TAG" 2>/dev/null | \
-           jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name' 2>/dev/null)
+while [ $elapsed -lt $TIMEOUT ]; do
+    release_json=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$VER" 2>/dev/null || echo '{}')
+    has_tarball=$(echo "$release_json" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name' 2>/dev/null || true)
+    has_checksum=$(echo "$release_json" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz.sha256") | .name' 2>/dev/null || true)
 
-  if [[ "$assets" == "anna-linux-x86_64.tar.gz" ]]; then
-    echo ""
-    echo "✔ GitHub Actions completed successfully"
-    echo "✔ Assets uploaded: anna-linux-x86_64.tar.gz"
-    echo ""
-    echo "Release is ready!"
-    echo "  → https://github.com/$OWNER/$REPO/releases/tag/$NEW_TAG"
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📋 POST-RELEASE CHECKLIST"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-    echo "1. Test the installer:"
-    echo "   sudo ./scripts/install.sh"
-    echo ""
-    echo "2. Verify version sync:"
-    echo "   ./scripts/verify_versions.sh"
-    echo ""
-    echo "3. Confirm installation:"
-    echo "   annactl version --check"
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-    exit 0
-  fi
+    if [[ "$has_tarball" == "anna-linux-x86_64.tar.gz" && "$has_checksum" == "anna-linux-x86_64.tar.gz.sha256" ]]; then
+        echo ""
+        success "Release assets ready!"
+        echo ""
+        echo "══════════════════════════════════════════════"
+        echo "  ✓ Release $VER Complete!"
+        echo "══════════════════════════════════════════════"
+        echo ""
+        echo "Release: https://github.com/$OWNER/$REPO/releases/tag/$VER"
+        echo "Install: sudo ./scripts/install.sh"
+        echo ""
+        exit 0
+    fi
 
-  printf "\r  ⏳ Waiting for build... (%ds)" $((i * 5))
+    printf "\r  Waiting for CI... %ds / %ds" $elapsed $TIMEOUT
+    sleep $INTERVAL
+    elapsed=$((elapsed + INTERVAL))
 done
 
 echo ""
-echo "⚠ GitHub Actions is taking longer than expected"
-echo "  Check manually: https://github.com/$OWNER/$REPO/actions"
-echo "  Release page: https://github.com/$OWNER/$REPO/releases/tag/$NEW_TAG"
 echo ""
-echo "The installer will wait for assets to be available before installing."
-echo ""
+error "Timeout after ${TIMEOUT}s. Check: https://github.com/$OWNER/$REPO/actions"
