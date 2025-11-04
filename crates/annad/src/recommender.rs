@@ -21,6 +21,8 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_firewall());
     advice.extend(check_aur_helper());
     advice.extend(check_reflector());
+    advice.extend(check_ssh_config());
+    advice.extend(check_swap());
 
     advice
 }
@@ -603,6 +605,165 @@ fn check_reflector() -> Vec<Advice> {
                         });
                     }
                 }
+            }
+        }
+    }
+
+    result
+}
+/// Rule 13: Check SSH configuration and hardening
+fn check_ssh_config() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if SSH server is installed
+    let has_sshd = Command::new("pacman")
+        .args(&["-Q", "openssh"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_sshd {
+        // No SSH server, nothing to check
+        return result;
+    }
+
+    // Check if sshd_config exists
+    if let Ok(config) = std::fs::read_to_string("/etc/ssh/sshd_config") {
+        // Check for root login
+        let permits_root = config.lines().any(|l| {
+            l.trim().starts_with("PermitRootLogin") &&
+            !l.contains("no") &&
+            !l.trim().starts_with("#")
+        });
+
+        if permits_root {
+            result.push(Advice {
+                id: "ssh-no-root-login".to_string(),
+                title: "Disable direct root login via SSH".to_string(),
+                reason: "Your SSH server allows direct root login, which is a security risk. If someone guesses or cracks your root password, they have complete control. It's much safer to log in as a regular user and then use 'sudo' when you need admin rights.".to_string(),
+                action: "Set 'PermitRootLogin no' in /etc/ssh/sshd_config".to_string(),
+                command: Some("sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::Medium,
+                priority: Priority::Mandatory,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+            });
+        }
+
+        // Check for password authentication
+        let password_auth = config.lines().any(|l| {
+            l.trim().starts_with("PasswordAuthentication") &&
+            l.contains("yes") &&
+            !l.trim().starts_with("#")
+        });
+
+        if password_auth {
+            // Only suggest if user has SSH keys set up
+            if std::path::Path::new("/root/.ssh/authorized_keys").exists() ||
+               std::path::Path::new(&format!("/home/{}/.ssh/authorized_keys",
+                   std::env::var("SUDO_USER").unwrap_or_default())).exists() {
+                result.push(Advice {
+                    id: "ssh-key-only".to_string(),
+                    title: "Use SSH keys instead of passwords".to_string(),
+                    reason: "Password authentication over SSH can be brute-forced by attackers. SSH keys are much more secure - they're like having a 4096-character password that's impossible to guess. Since you already have SSH keys set up, you can safely disable password login.".to_string(),
+                    action: "Disable password authentication in SSH".to_string(),
+                    command: Some("sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                    risk: RiskLevel::Medium,
+                    priority: Priority::Recommended,
+                    category: "security".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Force_public_key_authentication".to_string()],
+                });
+            }
+        }
+
+        // Check for empty passwords
+        let permits_empty = config.lines().any(|l| {
+            l.trim().starts_with("PermitEmptyPasswords") &&
+            l.contains("yes") &&
+            !l.trim().starts_with("#")
+        });
+
+        if permits_empty {
+            result.push(Advice {
+                id: "ssh-no-empty-passwords".to_string(),
+                title: "Disable empty passwords for SSH".to_string(),
+                reason: "Your SSH configuration allows accounts with empty passwords to log in. This is extremely dangerous - anyone could access your system without any authentication at all!".to_string(),
+                action: "Set 'PermitEmptyPasswords no' immediately".to_string(),
+                command: Some("sed -i 's/^#\\?PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::High,
+                priority: Priority::Mandatory,
+                category: "security".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Deny".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 14: Check swap configuration
+fn check_swap() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if swap is active
+    let swap_output = Command::new("swapon")
+        .arg("--show")
+        .output();
+
+    if let Ok(output) = swap_output {
+        let swap_info = String::from_utf8_lossy(&output.stdout);
+
+        if swap_info.lines().count() <= 1 {
+            // No swap configured
+            // Check available RAM
+            let mem_output = Command::new("free")
+                .args(&["-m"])
+                .output();
+
+            if let Ok(mem) = mem_output {
+                let mem_info = String::from_utf8_lossy(&mem.stdout);
+                if let Some(line) = mem_info.lines().nth(1) {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() > 1 {
+                        if let Ok(total_ram) = parts[1].parse::<u32>() {
+                            if total_ram < 16000 {
+                                // Less than 16GB RAM, suggest swap
+                                result.push(Advice {
+                                    id: "swap-create".to_string(),
+                                    title: "Consider adding swap space".to_string(),
+                                    reason: format!("You have {}MB of RAM and no swap configured. Swap acts like emergency memory when RAM gets full. Without it, the system might freeze or crash if you run too many programs at once. Even with modern RAM amounts, swap is useful for hibernation and as a safety net.", total_ram),
+                                    action: "Create a swap file or partition".to_string(),
+                                    command: Some("# Create 4GB swapfile: dd if=/dev/zero of=/swapfile bs=1M count=4096 && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile".to_string()),
+                                    risk: RiskLevel::Low,
+                                    priority: Priority::Recommended,
+                                    category: "maintenance".to_string(),
+                                    wiki_refs: vec!["https://wiki.archlinux.org/title/Swap".to_string()],
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Check for zram (compressed RAM swap)
+            let has_zram = Command::new("pacman")
+                .args(&["-Q", "zram-generator"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_zram && swap_info.contains("/swapfile") || swap_info.contains("/dev/sd") {
+                result.push(Advice {
+                    id: "zram-suggest".to_string(),
+                    title: "Consider using zram for faster swap".to_string(),
+                    reason: "You're using traditional disk-based swap. Zram creates a compressed swap area in RAM itself, which is much faster. It's especially great for systems with limited RAM or SSDs (less wear). Think of it as having more RAM by compressing less-used memory.".to_string(),
+                    action: "Install zram-generator for compressed RAM swap".to_string(),
+                    command: Some("pacman -S --noconfirm zram-generator".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "performance".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Zram".to_string()],
+                });
             }
         }
     }

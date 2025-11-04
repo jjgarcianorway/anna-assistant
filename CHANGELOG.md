@@ -5,6 +5,55 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.9] - 2025-11-04
+
+### 🔐 Security Hardening & System Intelligence!
+
+Anna gets even smarter with SSH security checks and memory management!
+
+### What's New
+
+**🛡️ SSH Hardening Detection!**
+- **Checks for root login** - Warns if SSH allows direct root access (huge security risk!)
+- **Password vs Key authentication** - Suggests switching to SSH keys if you have them set up
+- **Empty password detection** - Critical alert if empty passwords are allowed
+- Explains security implications in plain English
+- All checks are Mandatory priority for your safety
+
+**💾 Smart Swap Management!**
+- **Detects missing swap** - Suggests adding swap if you have <16GB RAM
+- **Zram recommendations** - Suggests compressed RAM swap for better performance
+- Explains what swap is and why it matters (no more mysterious crashes!)
+- Context-aware suggestions based on your RAM and current setup
+
+**📝 Amazing Documentation!**
+- **Complete README overhaul** - Now visitors will actually want to try Anna!
+- Shows all features organized by category
+- Includes real example messages
+- Explains the philosophy and approach
+- Beautiful formatting with emoji throughout
+
+**🚀 Automated Release Notes!**
+- Release script now auto-extracts notes from CHANGELOG
+- GitHub releases get full, enthusiastic descriptions
+- Shows preview during release process
+- All past releases updated with proper notes
+
+### Why This Release Matters
+- **Security-first** - SSH hardening can prevent system compromises
+- **Better stability** - Swap detection helps prevent crashes
+- **Professional presentation** - README makes Anna accessible to everyone
+- **14 detection rules total** - Growing smarter every release!
+
+### Technical Details
+- Added `check_ssh_config()` with sshd_config parsing
+- Added `check_swap()` with RAM detection and zram suggestions
+- Enhanced release.sh to extract and display CHANGELOG entries
+- Updated all release notes retroactively with gh CLI
+- Improved README with clear examples and philosophy
+
+---
+
 ## [1.0.0-beta.8] - 2025-11-04
 
 ### 🚀 Major Quality of Life Improvements!
