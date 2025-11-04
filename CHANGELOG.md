@@ -5,6 +5,55 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.10] - 2025-11-04
+
+### ✨ The Ultimate Terminal Experience!
+
+Anna now helps you build the most beautiful, powerful terminal setup possible!
+
+### What's New
+
+**🎨 Shell Enhancements Galore!**
+- **Starship prompt** - Beautiful, fast prompts for zsh and bash with git status, language versions, and gorgeous colors
+- **zsh-autosuggestions** - Autocomplete commands from your history as you type!
+- **zsh-syntax-highlighting** - Commands turn green when valid, red when invalid - catch typos instantly
+- **Smart bash → zsh upgrade** - Suggests trying zsh with clear explanations of benefits
+- All context-aware based on your current shell
+
+**🚀 Modern CLI Tools Revolution!**
+- **eza replaces ls** - Colors, icons, git integration, tree views built-in
+- **bat replaces cat** - Syntax highlighting, line numbers, git integration for viewing files
+- **ripgrep replaces grep** - 10x-100x faster code searching with smart defaults
+- **fd replaces find** - Intuitive syntax, respects .gitignore, blazing fast
+- **fzf fuzzy finder** - Game-changing fuzzy search for files, history, everything!
+- Smart detection - only suggests tools you actually use based on command history
+
+**🎉 Beautiful Release Notes!**
+- Install script now shows proper formatted release notes
+- Colored output with emoji and hierarchy
+- Parses markdown beautifully in the terminal
+- Falls back to summary if API fails
+
+**🔧 Release Automation Fixes!**
+- Removed `--prerelease` flag - all releases now marked as "latest"
+- Fixed installer getting stuck on beta.6
+- Better jq-based JSON parsing
+
+### Why This Release is HUGE
+
+**16 intelligent detection rules** across security, performance, development, and beautification!
+
+Anna can now transform your terminal from basic to breathtaking. She checks what tools you actually use and suggests modern, faster, prettier replacements - all explained in plain English.
+
+### Technical Details
+- Added `check_shell_enhancements()` with shell detection
+- Added `check_cli_tools()` with command history analysis
+- Enhanced install.sh with proper markdown parsing
+- Fixed release.sh to mark releases as latest
+- Over 240 lines of new detection code
+
+---
+
 ## [1.0.0-beta.9] - 2025-11-04
 
 ### 🔐 Security Hardening & System Intelligence!

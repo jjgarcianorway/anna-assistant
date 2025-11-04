@@ -208,16 +208,39 @@ echo -e "    ${GRAY}${ARROW} System update notifications${RESET}"
 echo -e "    ${GRAY}${ARROW} Failed systemd units monitoring${RESET}"
 echo -e "    ${GRAY}${ARROW} GPU driver recommendations${RESET}"
 echo
-echo -e "${BOLD}${YELLOW}What's New in ${TAG}:${RESET}"
+echo -e "${BOLD}${YELLOW}🎉 What's New in ${TAG}:${RESET}"
 echo
-# Fetch release notes from GitHub
-RELEASE_NOTES=$(curl -sL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" 2>/dev/null | grep -o '"body":.*' | sed 's/"body":"\(.*\)","author".*/\1/' | sed 's/\\n/\n/g' | head -20)
-if [ -n "$RELEASE_NOTES" ]; then
-    echo -e "${GRAY}$RELEASE_NOTES${RESET}" | head -15
+# Fetch release notes from GitHub using jq
+RELEASE_DATA=$(curl -sL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" 2>/dev/null)
+RELEASE_NOTES=$(echo "$RELEASE_DATA" | jq -r '.body' 2>/dev/null)
+
+if [ -n "$RELEASE_NOTES" ] && [ "$RELEASE_NOTES" != "null" ]; then
+    # Parse and display the release notes with colors
+    echo "$RELEASE_NOTES" | while IFS= read -r line; do
+        # Headers with emoji
+        if echo "$line" | grep -q "^### "; then
+            echo -e "${BOLD}${CYAN}$line${RESET}"
+        # Bold sections
+        elif echo "$line" | grep -q "^\*\*"; then
+            echo -e "${BOLD}${GREEN}$line${RESET}"
+        # Bullet points
+        elif echo "$line" | grep -q "^- "; then
+            echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}$line${RESET}" | sed 's/^- //'
+        # Regular text
+        else
+            echo -e "${GRAY}$line${RESET}"
+        fi
+    done | head -30
+    echo
+    echo -e "${GRAY}${ARROW} See full changelog: ${CYAN}https://github.com/${REPO}/releases/tag/${TAG}${RESET}"
 else
-    echo -e "${GRAY}  ${ARROW} Enhanced system intelligence and recommendations${RESET}"
-    echo -e "${GRAY}  ${ARROW} Improved detection accuracy${RESET}"
-    echo -e "${GRAY}  ${ARROW} Better Arch Wiki integration${RESET}"
+    echo -e "${BOLD}${GREEN}🚀 Major Improvements:${RESET}"
+    echo
+    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Enhanced system intelligence and recommendations${RESET}"
+    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Improved detection accuracy${RESET}"
+    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Better Arch Wiki integration${RESET}"
+    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}16 intelligent detection rules${RESET}"
+    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Human-friendly messages throughout${RESET}"
 fi
 echo
 echo -e "${BOLD}${CYAN}Get Started:${RESET}"
