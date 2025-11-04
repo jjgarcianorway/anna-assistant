@@ -547,14 +547,14 @@ fn check_missing_configs() -> Vec<Advice> {
         if !has_username {
             result.push(Advice {
                 id: "git-config".to_string(),
-                title: "Configure Git identity".to_string(),
-                reason: "Git is installed but user.name and user.email are not set - required for commits".to_string(),
-                action: "Set Git user name and email for commit attribution".to_string(),
-                command: Some("git config --global user.name 'Your Name' && git config --global user.email 'you@example.com'".to_string()),
+                title: "Set your Git identity for commits".to_string(),
+                reason: "Git needs to know who you are when you make commits. Your name and email show up in the commit history so people know who authored the changes. This is separate from authentication (SSH keys or gh CLI) - it's just for commit attribution. If you try to commit without this, git will complain!".to_string(),
+                action: "Configure your name and email for git commits".to_string(),
+                command: Some("git config --global user.name 'Your Name' && git config --global user.email 'your.email@example.com'".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "development".to_string(),
-                wiki_refs: vec!["https://wiki.archlinux.org/title/Git".to_string()],
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Configuration".to_string()],
             });
         }
     }
