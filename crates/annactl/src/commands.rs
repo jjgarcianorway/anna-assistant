@@ -63,7 +63,12 @@ pub async fn status() -> Result<()> {
     Ok(())
 }
 
-pub async fn advise(risk_filter: Option<String>) -> Result<()> {
+pub async fn advise(
+    risk_filter: Option<String>,
+    mode: String,
+    category_filter: Option<String>,
+    limit: usize,
+) -> Result<()> {
     println!("{}", header("System Recommendations"));
     println!();
 
@@ -108,11 +113,74 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
     }).await?;
 
     if let ResponseData::Advice(mut advice_list) = advice_data {
+        // Apply filtering based on mode
+        match mode.as_str() {
+            "critical" => {
+                // Only show Mandatory priority items
+                advice_list.retain(|a| matches!(a.priority, anna_common::Priority::Mandatory));
+                println!("{}", beautiful::status(Level::Info, "Showing CRITICAL recommendations only (use --mode=all to see everything)"));
+                println!();
+            }
+            "recommended" => {
+                // Show Mandatory + Recommended
+                advice_list.retain(|a| matches!(a.priority, anna_common::Priority::Mandatory | anna_common::Priority::Recommended));
+                println!("{}", beautiful::status(Level::Info, "Showing CRITICAL + RECOMMENDED (use --mode=all to see everything)"));
+                println!();
+            }
+            "smart" => {
+                // Smart mode: Show high priority + limited lower priority
+                // Keep all Mandatory and Recommended
+                // Limit Optional and Cosmetic
+                let mut mandatory: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Mandatory)).cloned().collect();
+                let mut recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
+                let mut optional: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Optional)).cloned().collect();
+                let mut cosmetic: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Cosmetic)).cloned().collect();
+
+                // Take top 10 optional and top 5 cosmetic
+                optional.truncate(10);
+                cosmetic.truncate(5);
+
+                advice_list = mandatory;
+                advice_list.extend(recommended);
+                advice_list.extend(optional);
+                advice_list.extend(cosmetic);
+
+                let total_hidden = advice_list.len();
+                println!("{}", beautiful::status(Level::Info,
+                    &format!("Showing SMART filtered view (use --mode=all to see {} more recommendations)", total_hidden)));
+                println!();
+            }
+            "all" => {
+                // Show everything
+                println!("{}", beautiful::status(Level::Info, "Showing ALL recommendations"));
+                println!();
+            }
+            _ => {
+                println!("{}", beautiful::status(Level::Warning,
+                    &format!("Unknown mode '{}', using 'smart'", mode)));
+                println!();
+            }
+        }
+
         // Filter by risk level if specified
         if let Some(ref risk) = risk_filter {
             advice_list.retain(|a| {
                 format!("{:?}", a.risk).to_lowercase() == risk.to_lowercase()
             });
+        }
+
+        // Filter by category if specified
+        if let Some(ref cat) = category_filter {
+            advice_list.retain(|a| a.category.to_lowercase() == cat.to_lowercase());
+        }
+
+        // Apply limit if not 0
+        if limit > 0 && advice_list.len() > limit {
+            let hidden = advice_list.len() - limit;
+            advice_list.truncate(limit);
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Showing first {} of {} recommendations (use --limit=0 to see all)", limit, limit + hidden)));
+            println!();
         }
 
         if advice_list.is_empty() {
@@ -227,11 +295,41 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         };
         println!("\x1b[1m{}\x1b[0m", msg);
         println!();
-        println!("{}", beautiful::status(Level::Info,
-            "Use 'annactl apply --nums <number>' to apply specific recommendations"));
-        println!("{}", beautiful::status(Level::Info,
-            "Use 'annactl apply --nums 1-5' to apply a range"));
+
+        // Show helpful tips based on mode
+        println!("\x1b[38;5;250m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m");
         println!();
+        println!("\x1b[1m\x1b[96mQuick Actions:\x1b[0m");
+        println!("  annactl apply --nums <number>     Apply specific recommendation");
+        println!("  annactl apply --nums 1-5          Apply a range");
+        println!("  annactl apply --nums 1,3,5        Apply multiple");
+        println!();
+        println!("\x1b[1m\x1b[96mFiltering Options:\x1b[0m");
+        println!("  annactl advise --mode=critical    Show only critical items");
+        println!("  annactl advise --mode=all         Show all recommendations");
+        println!("  annactl advise --category=security  Show specific category");
+        println!("  annactl advise --limit=10         Limit number of results");
+        println!();
+
+        // List available categories with counts
+        let mut cat_list: Vec<_> = by_category.keys().collect();
+        cat_list.sort();
+        if !cat_list.is_empty() {
+            println!("\x1b[1m\x1b[96mAvailable Categories:\x1b[0m");
+            print!("  ");
+            for (i, cat) in cat_list.iter().enumerate() {
+                let count = by_category.get(*cat).map(|v| v.len()).unwrap_or(0);
+                print!("\x1b[36m{}\x1b[0m ({})", cat, count);
+                if i < cat_list.len() - 1 {
+                    print!(", ");
+                }
+                if (i + 1) % 4 == 0 && i < cat_list.len() - 1 {
+                    print!("\n  ");
+                }
+            }
+            println!();
+            println!();
+        }
     }
 
     Ok(())

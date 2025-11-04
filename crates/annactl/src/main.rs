@@ -30,6 +30,18 @@ enum Commands {
         /// Show only specific risk level
         #[arg(long)]
         risk: Option<String>,
+
+        /// Display mode: smart (default), critical, recommended, all
+        #[arg(long, default_value = "smart")]
+        mode: String,
+
+        /// Show specific category only
+        #[arg(long)]
+        category: Option<String>,
+
+        /// Maximum number of recommendations to show (0 = no limit)
+        #[arg(long, default_value = "25")]
+        limit: usize,
     },
 
     /// Apply recommendations
@@ -71,7 +83,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Status => commands::status().await,
-        Commands::Advise { risk } => commands::advise(risk).await,
+        Commands::Advise { risk, mode, category, limit } => commands::advise(risk, mode, category, limit).await,
         Commands::Apply { id, nums, auto, dry_run } => commands::apply(id, nums, auto, dry_run).await,
         Commands::Report => commands::report().await,
         Commands::Doctor => commands::doctor().await,
