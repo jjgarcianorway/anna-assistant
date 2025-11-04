@@ -128,13 +128,13 @@ The installer automatically:
 ### Try It Out
 
 ```bash
-# See what Anna suggests for your system
+# See what Anna suggests for your system (smart mode - ~25 most relevant items)
 annactl advise
 
 # Check Anna's status
 annactl status
 
-# Get a full system health report (in plain English!)
+# Get a full system health report with sysadmin-level insights
 annactl report
 
 # Apply recommendations by number
@@ -149,6 +149,32 @@ annactl apply --id orphan-packages
 annactl apply --nums 1 --dry-run
 ```
 
+### 🎯 Smart Filtering
+
+Anna shows ~25 most relevant recommendations by default to avoid overwhelming you:
+
+```bash
+# Display modes
+annactl advise                      # Smart mode (default) - ~25 best items
+annactl advise --mode=critical      # Only security/critical issues
+annactl advise --mode=recommended   # Critical + recommended
+annactl advise --mode=all           # Show everything
+
+# Filter by category
+annactl advise --category=security  # Only security recommendations
+annactl advise --category=development  # Only dev tools
+annactl advise --category=multimedia   # Only media-related
+
+# Limit results
+annactl advise --limit=10           # Show only 10 items
+annactl advise --limit=50           # Show 50 items
+
+# Combine filters
+annactl advise --mode=recommended --category=security --limit=5
+```
+
+**Available categories**: security, drivers, system, development, media, desktop, beautification, fonts, productivity, gaming, hardware
+
 ---
 
 ## 🎯 Why Anna?
@@ -157,22 +183,29 @@ annactl apply --nums 1 --dry-run
 
 > "Your SSD needs regular 'TRIM' operations to stay fast and last longer. Think of it like taking out the trash - it tells the SSD which data blocks are no longer in use."
 
-**She's smart about context** - Anna won't suggest Python tools just because you have Python installed. She checks if you *actually use* Python by analyzing your command history and files.
+**She's smart about context** - Anna won't suggest Python tools just because you have Python installed. She analyzes your command history to see if you *actually use* Python (30+ times → suggests pyenv), Docker (50+ times → suggests docker-compose), or Git (50+ times → suggests lazygit).
+
+**She learns from your behavior** - Anna examines your shell history and system usage patterns to provide intelligent, context-aware recommendations that match how you actually use your computer.
 
 **Every suggestion is backed by Arch Wiki** - All recommendations link to official documentation so you can learn more.
 
 **Beautiful terminal experience** - Pastel colors, perfect formatting, emoji where it helps. The best-looking CLI you'll use.
 
+**Smart filtering prevents overwhelm** - Shows ~25 most relevant items by default, with modes and filters to find exactly what you need.
+
 ---
 
 ## 📊 Current Status
 
-**Version**: v1.0.0-beta.17
+**Version**: v1.0.0-beta.25
 **Status**: Beta - Feature-rich and stable!
 
 ### What's Working
 
 ✅ **130+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
+✅ **Behavior-based intelligence** - analyzes your command history to understand Docker, Python, Git usage patterns
+✅ **Smart filtering system** - 4 display modes (smart/critical/recommended/all) + category filters + limits
+✅ **Enhanced health reports** - sysadmin-level insights with hardware specs, storage analysis, dev tools detection
 ✅ **Automatic system monitoring** - refreshes advice on package changes, reboots, config edits
 ✅ **Multi-user support** - personalized advice based on desktop environment, shell, display server
 ✅ **Batch apply** - apply recommendations by number, range (1-5), or multiple (1,3,5-7)
@@ -180,7 +213,7 @@ annactl apply --nums 1 --dry-run
 ✅ **Plain English reports** - conversational system health summaries
 ✅ **Human-friendly messages** - every word in plain English with clear explanations
 ✅ **Perfect terminal formatting** - beautiful pastel colors with numbered advice
-✅ **Context-aware** - only suggests what you actually need based on your usage
+✅ **Context-aware** - only suggests what you actually need based on your system configuration
 ✅ **Automatic installation** - one command and you're done
 ✅ **Background daemon** - runs quietly, always watching your system
 ✅ **Arch Wiki citations** - every recommendation has references
@@ -237,8 +270,36 @@ Anna says:
 
 Anna won't spam you with irrelevant suggestions. She checks:
 - Do you have the hardware? (SSD → TRIM suggestions)
-- Do you actually use this? (Python files + Python commands → Python tools)
+- Do you actually use this? (50+ docker commands → docker-compose suggestion)
 - Is it already configured? (NetworkManager installed → check if enabled)
+- What's your desktop environment? (Only suggests tools for your actual DE, not KDE tools on GNOME)
+
+### Enhanced System Reports
+
+The `annactl report` command provides sysadmin-level insights:
+
+```
+📊 System Health Report
+
+   Hardware:
+     CPU: AMD Ryzen 9 5900X (12 cores)
+     RAM: 32.0 GB total
+     GPU: NVIDIA GeForce RTX 3080
+     ✓ ext4 on / - 450.5/1000.0 GB (45% full)
+     ⚠️  btrfs on /home - 920.3/1000.0 GB (92% full)
+
+   Software:
+     Kernel: 6.17.6-arch1-1
+     Packages: 1,847 installed
+     Orphans: 23 packages can be removed
+     Desktop: KDE Plasma (Wayland)
+     Shell: zsh
+
+   Development Tools:
+     git, docker, python3, rustc, go, node
+```
+
+Color-coded storage indicators show at-a-glance health (✓ healthy, ● warning, ⚠️ critical).
 
 ### She Prioritizes
 

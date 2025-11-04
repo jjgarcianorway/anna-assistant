@@ -843,13 +843,88 @@ fn wrap_text(text: &str, width: usize, indent: &str) -> String {
     result.join("\n")
 }
 
-/// Generate a plain English system health summary
+/// Generate a plain English system health summary with sysadmin-level insights
 fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: &anna_common::SystemFacts, advice: &[anna_common::Advice]) {
     use anna_common::RiskLevel;
-    
-    println!("{}", section("💭 What I think about your system"));
+
+    // First, show system health metrics
+    println!("{}", section("🔍 System Health Analysis"));
     println!();
-    
+
+    // CPU and Memory
+    println!("   \x1b[1mHardware:\x1b[0m");
+    println!("     CPU: {} ({} cores)", facts.cpu_model, facts.cpu_cores);
+    println!("     RAM: {:.1} GB total", facts.total_memory_gb);
+    if let Some(ref gpu) = facts.gpu_vendor {
+        println!("     GPU: {}", gpu);
+    }
+    println!();
+
+    // Storage analysis
+    println!("   \x1b[1mStorage:\x1b[0m");
+    for device in &facts.storage_devices {
+        let used_percent = if device.size_gb > 0.0 {
+            (device.used_gb / device.size_gb * 100.0) as u8
+        } else {
+            0
+        };
+        let status_icon = if used_percent > 90 {
+            "\x1b[91m⚠️\x1b[0m"
+        } else if used_percent > 70 {
+            "\x1b[93m●\x1b[0m"
+        } else {
+            "\x1b[92m✓\x1b[0m"
+        };
+        println!("     {} {} on {} - {:.1}/{:.1} GB ({}% full)",
+            status_icon, device.filesystem, device.mount_point,
+            device.used_gb, device.size_gb, used_percent);
+    }
+    println!();
+
+    // Software environment
+    println!("   \x1b[1mSoftware Environment:\x1b[0m");
+    println!("     Kernel: {}", facts.kernel);
+    println!("     Packages: {} installed", facts.installed_packages);
+    if !facts.orphan_packages.is_empty() {
+        println!("     Orphaned: \x1b[93m{} packages\x1b[0m (can be cleaned)", facts.orphan_packages.len());
+    }
+    if let Some(ref de) = facts.desktop_environment {
+        println!("     Desktop: {}", de);
+    }
+    if let Some(ref ds) = facts.display_server {
+        println!("     Display: {}", ds);
+    }
+    println!("     Shell: {}", facts.shell);
+    println!();
+
+    // Development environment detection
+    if !facts.dev_tools_detected.is_empty() {
+        println!("   \x1b[1mDevelopment Tools Detected:\x1b[0m");
+        print!("     ");
+        for (i, tool) in facts.dev_tools_detected.iter().enumerate() {
+            print!("{}", tool);
+            if i < facts.dev_tools_detected.len() - 1 {
+                print!(", ");
+            }
+        }
+        println!();
+        println!();
+    }
+
+    // Network capabilities
+    println!("   \x1b[1mNetwork:\x1b[0m");
+    if facts.has_wifi {
+        println!("     \x1b[92m✓\x1b[0m WiFi available");
+    }
+    if facts.has_ethernet {
+        println!("     \x1b[92m✓\x1b[0m Ethernet available");
+    }
+    println!("     {} network interfaces detected", facts.network_interfaces.len());
+    println!();
+
+    println!("{}", section("💭 Overall Assessment"));
+    println!();
+
     // Overall assessment
     let critical = advice.iter().filter(|a| matches!(a.risk, RiskLevel::High)).count();
     let recommended = advice.iter().filter(|a| matches!(a.risk, RiskLevel::Medium)).count();

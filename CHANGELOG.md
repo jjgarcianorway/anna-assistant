@@ -5,6 +5,80 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.25] - 2025-01-04
+
+### 🧠 MAJOR UX OVERHAUL - Smart Filtering & Intelligence!
+
+**THE BIG PROBLEM SOLVED:** 80+ recommendations was overwhelming. Now you see ~25 most relevant by default!
+
+### ✨ Added
+
+**🎯 Smart Filtering System**
+- **Smart Mode (default)**: Shows ~25 most relevant recommendations
+- **Critical Mode** (`--mode=critical`): Security & mandatory items only
+- **Recommended Mode** (`--mode=recommended`): Critical + recommended items
+- **All Mode** (`--mode=all`): Everything for power users
+- **Category Filter** (`--category=security`): Focus on specific categories
+- **Limit Control** (`--limit=10`): Control number of results
+
+**🧠 Intelligent Behavior-Based Detection (3 new rules)**
+- Docker power users → docker-compose recommendations (50+ docker commands)
+- Python developers → pyenv suggestions (30+ python commands)
+- Git power users → lazygit recommendations (50+ git commands)
+
+**📊 Enhanced Report Command**
+- Sysadmin-level system health analysis
+- Hardware specs (CPU, RAM, GPU)
+- Storage analysis with visual indicators
+- Software environment details
+- Development tools detection
+- Network capabilities overview
+- Color-coded status indicators
+
+**🎨 Better Discoverability**
+- Helpful footer with command examples
+- Category list with item counts
+- Clear filtering indicators
+- Quick action guide
+
+### 🐛 Fixed
+- Desktop environment detection now works when daemon runs as root
+- No more irrelevant suggestions (KDE tips on GNOME systems)
+- Installer box rendering with proper width calculation
+- Removed unused functions causing build warnings
+
+### 🔧 Changed
+- Default `annactl advise` now shows smart-filtered view (was: show all)
+- Recommendations sorted by relevance and priority
+- Better visual hierarchy in output
+
+## [1.0.0-beta.24] - 2025-01-04
+
+### ✨ Added
+
+**🎨 Beautiful Category-Based Output**
+- 80-character boxes with centered, color-coded category titles
+- 14 organized categories with emojis
+- Priority badges (CRITICAL, RECOMMENDED, OPTIONAL, COSMETIC)
+- Risk level indicators (HIGH RISK, MED RISK, LOW RISK)
+- Smart sorting by priority and risk within categories
+
+**⚙️ Configuration System**
+- TOML-based configuration at `~/.config/anna/config.toml`
+- 6 sections: General, Autonomy, Notifications, Snapshots, Learning, Categories
+- Auto-creation with sensible defaults
+
+**💾 Snapshot & Rollback System**
+- Multi-backend support: Btrfs, Timeshift, rsync
+- Automatic snapshots before risky operations
+- Retention policies with automatic cleanup
+
+**📊 Deep Telemetry Foundation**
+- Process CPU time tracking
+- Bash/zsh history parsing
+- Workflow pattern detection
+- System configuration analysis
+
 ## [1.0.0-beta.20] - 2025-01-XX
 
 ### 🌟 Professional Coverage - 220+ Rules, 95%+ Wiki Coverage! 🌟
