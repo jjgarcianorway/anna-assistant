@@ -38,12 +38,12 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
             result.push(Advice {
                 id: "microcode-amd".to_string(),
                 title: "Install AMD microcode".to_string(),
-                reason: "AMD CPU detected without microcode updates installed".to_string(),
+                reason: "AMD CPU detected without microcode updates - critical for security patches and CPU bug fixes".to_string(),
                 action: "Install amd-ucode package for CPU security and stability fixes".to_string(),
                 command: Some("pacman -S --noconfirm amd-ucode".to_string()),
                 risk: RiskLevel::Low,
-                priority: Priority::Recommended,
-                category: "maintenance".to_string(),
+                priority: Priority::Mandatory,
+                category: "security".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Microcode".to_string()],
             });
         }
@@ -58,12 +58,12 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
             result.push(Advice {
                 id: "microcode-intel".to_string(),
                 title: "Install Intel microcode".to_string(),
-                reason: "Intel CPU detected without microcode updates installed".to_string(),
+                reason: "Intel CPU detected without microcode updates - critical for security patches (Spectre/Meltdown) and CPU bug fixes".to_string(),
                 action: "Install intel-ucode package for CPU security and stability fixes".to_string(),
                 command: Some("pacman -S --noconfirm intel-ucode".to_string()),
                 risk: RiskLevel::Low,
-                priority: Priority::Recommended,
-                category: "maintenance".to_string(),
+                priority: Priority::Mandatory,
+                category: "security".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Microcode".to_string()],
             });
         }

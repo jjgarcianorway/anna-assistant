@@ -21,6 +21,9 @@ pub fn generate_intelligent_advice(facts: &SystemFacts) -> Vec<Advice> {
     // Shell enhancements
     advice.extend(recommend_shell_enhancements(facts));
 
+    // Missing configs for installed packages
+    advice.extend(check_missing_configs());
+
     advice
 }
 
@@ -489,4 +492,93 @@ fn command_exists(cmd: &str) -> bool {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+/// Check for installed packages missing their configuration files
+fn check_missing_configs() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // bat without config
+    if package_installed("bat") {
+        let config_path = std::path::Path::new("/root/.config/bat/config");
+        if !config_path.exists() {
+            result.push(Advice {
+                id: "bat-config".to_string(),
+                title: "Configure bat (syntax highlighter)".to_string(),
+                reason: "bat is installed but not configured - add theme and options for better output".to_string(),
+                action: "Create bat config with theme and paging options".to_string(),
+                command: Some("mkdir -p ~/.config/bat && bat --generate-config-file".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec![],
+            });
+        }
+    }
+
+    // starship without config
+    if package_installed("starship") {
+        let config_path = std::path::Path::new("/root/.config/starship.toml");
+        if !config_path.exists() {
+            result.push(Advice {
+                id: "starship-config".to_string(),
+                title: "Configure Starship prompt".to_string(),
+                reason: "Starship is installed but not configured - customize your prompt appearance".to_string(),
+                action: "Create starship config and add to shell init".to_string(),
+                command: Some("starship preset nerd-font-symbols > ~/.config/starship.toml".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec![],
+            });
+        }
+    }
+
+    // git without user config
+    if package_installed("git") {
+        let output = Command::new("git")
+            .args(&["config", "--global", "user.name"])
+            .output();
+
+        let has_username = output
+            .map(|o| o.status.success() && !o.stdout.is_empty())
+            .unwrap_or(false);
+
+        if !has_username {
+            result.push(Advice {
+                id: "git-config".to_string(),
+                title: "Configure Git identity".to_string(),
+                reason: "Git is installed but user.name and user.email are not set - required for commits".to_string(),
+                action: "Set Git user name and email for commit attribution".to_string(),
+                command: Some("git config --global user.name 'Your Name' && git config --global user.email 'you@example.com'".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Git".to_string()],
+            });
+        }
+    }
+
+    // zoxide without shell integration
+    if package_installed("zoxide") {
+        // Check if zoxide is sourced in shell rc
+        let bashrc = std::fs::read_to_string("/root/.bashrc").unwrap_or_default();
+        let zshrc = std::fs::read_to_string("/root/.zshrc").unwrap_or_default();
+
+        if !bashrc.contains("zoxide") && !zshrc.contains("zoxide") {
+            result.push(Advice {
+                id: "zoxide-integration".to_string(),
+                title: "Enable zoxide shell integration".to_string(),
+                reason: "zoxide is installed but not integrated into your shell - won't work without hook".to_string(),
+                action: "Add zoxide initialization to shell rc file".to_string(),
+                command: Some("echo 'eval \"$(zoxide init bash)\"' >> ~/.bashrc".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "beautification".to_string(),
+                wiki_refs: vec![],
+            });
+        }
+    }
+
+    result
 }
