@@ -181,8 +181,47 @@ echo -e "${BOLD}${GREEN}${BOX_TL}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H
 echo -e "${BOLD}${GREEN}${BOX_V}   Installation Complete! ${TAG}         ${BOX_V}${RESET}"
 echo -e "${BOLD}${GREEN}${BOX_BL}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_BR}${RESET}"
 echo
-echo -e "${GRAY}Try it out:${RESET}"
-echo -e "  ${CYAN}${ARROW}${RESET} annactl --version"
-echo -e "  ${CYAN}${ARROW}${RESET} annactl status"
-echo -e "  ${CYAN}${ARROW}${RESET} annactl advise"
+echo -e "${BOLD}${CYAN}What Anna Can Do:${RESET}"
+echo
+echo -e "  ${BOLD}${BLUE}🔒 Security${RESET}"
+echo -e "    ${GRAY}${ARROW} CPU microcode updates (Spectre/Meltdown protection)${RESET}"
+echo -e "    ${GRAY}${ARROW} Missing security patches detection${RESET}"
+echo
+echo -e "  ${BOLD}${BLUE}⚡ Performance${RESET}"
+echo -e "    ${GRAY}${ARROW} Btrfs compression (20-30% space savings)${RESET}"
+echo -e "    ${GRAY}${ARROW} SSD TRIM optimization${RESET}"
+echo -e "    ${GRAY}${ARROW} pacman parallel downloads (5x faster)${RESET}"
+echo
+echo -e "  ${BOLD}${BLUE}💻 Development${RESET}"
+echo -e "    ${GRAY}${ARROW} Smart detection of active projects (Python, Rust, Go)${RESET}"
+echo -e "    ${GRAY}${ARROW} LSP servers for your actual workflow${RESET}"
+echo -e "    ${GRAY}${ARROW} Missing config detection (git, bat, starship, zoxide)${RESET}"
+echo
+echo -e "  ${BOLD}${BLUE}🎨 Beautification${RESET}"
+echo -e "    ${GRAY}${ARROW} Modern CLI tools (eza, bat, ripgrep, fd, fzf)${RESET}"
+echo -e "    ${GRAY}${ARROW} Shell enhancements (starship, zoxide)${RESET}"
+echo -e "    ${GRAY}${ARROW} Colorful terminal output${RESET}"
+echo
+echo -e "  ${BOLD}${BLUE}🧹 Maintenance${RESET}"
+echo -e "    ${GRAY}${ARROW} Orphaned packages cleanup${RESET}"
+echo -e "    ${GRAY}${ARROW} System update notifications${RESET}"
+echo -e "    ${GRAY}${ARROW} Failed systemd units monitoring${RESET}"
+echo -e "    ${GRAY}${ARROW} GPU driver recommendations${RESET}"
+echo
+echo -e "${BOLD}${YELLOW}What's New in ${TAG}:${RESET}"
+echo
+# Fetch release notes from GitHub
+RELEASE_NOTES=$(curl -sL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" 2>/dev/null | grep -o '"body":.*' | sed 's/"body":"\(.*\)","author".*/\1/' | sed 's/\\n/\n/g' | head -20)
+if [ -n "$RELEASE_NOTES" ]; then
+    echo -e "${GRAY}$RELEASE_NOTES${RESET}" | head -15
+else
+    echo -e "${GRAY}  ${ARROW} Enhanced system intelligence and recommendations${RESET}"
+    echo -e "${GRAY}  ${ARROW} Improved detection accuracy${RESET}"
+    echo -e "${GRAY}  ${ARROW} Better Arch Wiki integration${RESET}"
+fi
+echo
+echo -e "${BOLD}${CYAN}Get Started:${RESET}"
+echo -e "  ${CYAN}${ARROW}${RESET} annactl status      ${GRAY}# Check daemon status${RESET}"
+echo -e "  ${CYAN}${ARROW}${RESET} annactl advise      ${GRAY}# Get personalized recommendations${RESET}"
+echo -e "  ${CYAN}${ARROW}${RESET} annactl report      ${GRAY}# System health overview${RESET}"
 echo
