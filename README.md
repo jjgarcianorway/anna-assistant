@@ -98,16 +98,20 @@ crates/
 
 ## 📊 Current Status
 
-**Version**: 1.0.0-alpha.1
-**Status**: Early Development
+**Version**: 1.0.0-beta.1
+**Status**: Beta - Feature Complete, Ready for Testing
 
-✅ Core data models
-✅ System telemetry collection
-✅ Recommendation engine (5 rules)
+✅ Core data models & types
+✅ Enhanced telemetry (behavior analysis, command history)
+✅ Intelligent recommendation engine (20+ rules)
+✅ Priority system (Mandatory → Cosmetic)
 ✅ Beautiful CLI interface
-🚧 Unix socket IPC (planned)
-🚧 Action executor (planned)
+✅ Unix socket IPC (daemon ↔ client)
+✅ Action executor with dry-run
+✅ Audit logging (JSONL)
+✅ Systemd service
 🚧 Arch Wiki caching (planned)
+🚧 Autonomous execution tiers (planned)
 
 ## 🤝 Contributing
 
