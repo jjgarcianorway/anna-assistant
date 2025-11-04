@@ -41,6 +41,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "console",
  "serde",
  "serde_json",
  "tokio",
