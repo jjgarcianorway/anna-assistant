@@ -14,6 +14,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_orphan_packages(facts));
     advice.extend(check_btrfs_maintenance(facts));
     advice.extend(check_system_updates());
+    advice.extend(check_trim_timer(facts));
+    advice.extend(check_pacman_config());
+    advice.extend(check_systemd_health());
 
     advice
 }
@@ -178,11 +181,50 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs".to_string()],
             });
         } else {
+            // Check mount options for compression
+            let mount_output = Command::new("findmnt")
+                .args(&["-rno", "OPTIONS", "/"])
+                .output();
+
+            if let Ok(output) = mount_output {
+                let options = String::from_utf8_lossy(&output.stdout);
+
+                // Check for compression
+                if !options.contains("compress") {
+                    result.push(Advice {
+                        id: "btrfs-compression".to_string(),
+                        title: "Enable Btrfs compression".to_string(),
+                        reason: "Btrfs compression saves disk space (typically 20-30%) with minimal CPU overhead".to_string(),
+                        action: "Add compress=zstd mount option to /etc/fstab for root filesystem".to_string(),
+                        command: Some("# Add 'compress=zstd:3' to root mount options in /etc/fstab, then remount".to_string()),
+                        risk: RiskLevel::Medium,
+                        priority: Priority::Recommended,
+                        category: "performance".to_string(),
+                        wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Compression".to_string()],
+                    });
+                }
+
+                // Check for noatime (performance optimization)
+                if !options.contains("noatime") && !options.contains("relatime") {
+                    result.push(Advice {
+                        id: "btrfs-noatime".to_string(),
+                        title: "Enable noatime for Btrfs".to_string(),
+                        reason: "noatime improves performance by not updating access time on file reads".to_string(),
+                        action: "Add noatime mount option to /etc/fstab for better I/O performance".to_string(),
+                        command: Some("# Add 'noatime' to root mount options in /etc/fstab, then remount".to_string()),
+                        risk: RiskLevel::Low,
+                        priority: Priority::Optional,
+                        category: "performance".to_string(),
+                        wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Mount_options".to_string()],
+                    });
+                }
+            }
+
             // Suggest regular scrub
             result.push(Advice {
                 id: "btrfs-scrub".to_string(),
                 title: "Run Btrfs scrub".to_string(),
-                reason: "Regular scrubbing maintains filesystem integrity".to_string(),
+                reason: "Regular scrubbing maintains filesystem integrity and detects silent corruption".to_string(),
                 action: "Run a Btrfs scrub to detect and fix data corruption".to_string(),
                 command: Some("btrfs scrub start /".to_string()),
                 risk: RiskLevel::Low,
@@ -220,6 +262,114 @@ fn check_system_updates() -> Vec<Advice> {
                 priority: Priority::Recommended,
                 category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/System_maintenance".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 6: Check TRIM timer for SSDs
+fn check_trim_timer(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if any SSD is present
+    let has_ssd = facts.storage_devices.iter().any(|d| {
+        d.name.starts_with("/dev/sd") || d.name.starts_with("/dev/nvme")
+    });
+
+    if has_ssd {
+        // Check if fstrim.timer is enabled
+        let timer_status = Command::new("systemctl")
+            .args(&["is-enabled", "fstrim.timer"])
+            .output();
+
+        let is_enabled = timer_status
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !is_enabled {
+            result.push(Advice {
+                id: "fstrim-timer".to_string(),
+                title: "Enable TRIM timer for SSD".to_string(),
+                reason: "SSD detected without TRIM timer - TRIM maintains SSD performance and longevity".to_string(),
+                action: "Enable weekly TRIM operation for optimal SSD health".to_string(),
+                command: Some("systemctl enable --now fstrim.timer".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Solid_state_drive#TRIM".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 7: Check pacman configuration
+fn check_pacman_config() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Read pacman.conf
+    if let Ok(config) = std::fs::read_to_string("/etc/pacman.conf") {
+        // Check for Color
+        if !config.lines().any(|l| l.trim() == "Color") {
+            result.push(Advice {
+                id: "pacman-color".to_string(),
+                title: "Enable colored output in pacman".to_string(),
+                reason: "Colored pacman output makes updates easier to read and understand".to_string(),
+                action: "Uncomment 'Color' in /etc/pacman.conf".to_string(),
+                command: Some("sed -i 's/^#Color/Color/' /etc/pacman.conf".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman#Enabling_color_output".to_string()],
+            });
+        }
+
+        // Check for ParallelDownloads
+        if !config.lines().any(|l| l.trim().starts_with("ParallelDownloads")) {
+            result.push(Advice {
+                id: "pacman-parallel".to_string(),
+                title: "Enable parallel downloads in pacman".to_string(),
+                reason: "Parallel downloads significantly speed up package installation (5x+ faster)".to_string(),
+                action: "Add 'ParallelDownloads = 5' to /etc/pacman.conf".to_string(),
+                command: Some("echo 'ParallelDownloads = 5' >> /etc/pacman.conf".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "performance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman#Enabling_parallel_downloads".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Rule 8: Check systemd health
+fn check_systemd_health() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for failed units
+    let failed_output = Command::new("systemctl")
+        .args(&["--failed", "--no-pager", "--no-legend"])
+        .output();
+
+    if let Ok(output) = failed_output {
+        let failed = String::from_utf8_lossy(&output.stdout);
+        let failed_count = failed.lines().filter(|l| !l.is_empty()).count();
+
+        if failed_count > 0 {
+            result.push(Advice {
+                id: "systemd-failed".to_string(),
+                title: format!("{} failed systemd units", failed_count),
+                reason: format!("{} systemd services/timers have failed - may indicate system issues", failed_count),
+                action: "Review failed units with 'systemctl --failed' and fix issues".to_string(),
+                command: Some("systemctl --failed".to_string()),
+                risk: RiskLevel::Medium,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Analyzing_the_system_state".to_string()],
             });
         }
     }
