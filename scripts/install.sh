@@ -110,6 +110,18 @@ if [ "$ANNACTL_VERSION" != "$TAG" ]; then
     echo -e "${YELLOW}${WARN} Version mismatch: annactl reports ${ANNACTL_VERSION}, expected ${TAG}${RESET}"
 fi
 
+echo -e "${CYAN}${ARROW}${RESET} Stopping any running instances..."
+
+# Stop systemd service if exists
+systemctl stop annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad service" || true
+
+# Kill any remaining processes
+pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
+pkill -x annactl 2>/dev/null || true
+
+# Wait for processes to fully stop
+sleep 1
+
 echo -e "${CYAN}${ARROW}${RESET} Installing to ${INSTALL_DIR}..."
 
 # Create install directory if needed
@@ -121,6 +133,13 @@ cp "$TEMP_DIR/annactl" "$INSTALL_DIR/annactl"
 chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
 
 echo -e "${GREEN}${CHECK}${RESET} Binaries installed"
+
+# Restart service if it was enabled before
+if systemctl is-enabled --quiet annad 2>/dev/null; then
+    echo -e "${CYAN}${ARROW}${RESET} Restarting annad service..."
+    systemctl start annad
+    echo -e "${GREEN}${CHECK}${RESET} Service restarted"
+fi
 
 # Verify installation
 if ! command -v annactl >/dev/null 2>&1; then
