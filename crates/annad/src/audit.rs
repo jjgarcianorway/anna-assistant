@@ -51,6 +51,7 @@ impl AuditLogger {
     }
 
     /// Read all audit entries (for debugging/reports)
+    #[allow(dead_code)]
     pub async fn read_all(&self) -> Result<Vec<AuditEntry>> {
         if !self.log_path.exists() {
             return Ok(vec![]);
@@ -70,6 +71,7 @@ impl AuditLogger {
     }
 
     /// Get the path to the audit log
+    #[allow(dead_code)]
     pub fn path(&self) -> &Path {
         &self.log_path
     }

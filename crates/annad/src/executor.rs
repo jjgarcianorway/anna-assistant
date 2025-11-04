@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use std::process::Stdio;
 use tokio::process::Command;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 /// Execute an action based on advice
 pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
@@ -94,6 +94,7 @@ async fn execute_command(command: &str) -> Result<String> {
 }
 
 /// Create a rollback token for an action
+#[allow(dead_code)]
 pub fn create_rollback_token(action: &Action, rollback_cmd: Option<String>) -> RollbackToken {
     RollbackToken {
         action_id: action.id.clone(),
