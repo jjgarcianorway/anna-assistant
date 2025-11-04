@@ -106,7 +106,7 @@ if command -v gh >/dev/null 2>&1; then
         gh release create "$TAG" \
             --title "🎉 Anna Assistant ${TAG}" \
             --notes-file /tmp/anna-release-notes.txt \
-            --prerelease 2>/dev/null && echo -e "${GREEN}✓${RESET} GitHub release created" || echo -e "${YELLOW}⚠${RESET}  Manual release creation needed"
+            --latest 2>/dev/null && echo -e "${GREEN}✓${RESET} GitHub release created" || echo -e "${YELLOW}⚠${RESET}  Manual release creation needed"
         rm -f /tmp/anna-release-notes.txt
     fi
 else

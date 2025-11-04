@@ -23,6 +23,8 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_reflector());
     advice.extend(check_ssh_config());
     advice.extend(check_swap());
+    advice.extend(check_shell_enhancements(facts));
+    advice.extend(check_cli_tools(facts));
 
     advice
 }
@@ -766,6 +768,246 @@ fn check_swap() -> Vec<Advice> {
                 });
             }
         }
+    }
+
+    result
+}
+/// Rule 15: Check for shell enhancements
+fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Get user's shell
+    let shell = std::env::var("SHELL").unwrap_or_default();
+
+    if shell.contains("zsh") {
+        // Check for oh-my-zsh
+        let omz_path = std::path::Path::new("/root/.oh-my-zsh");
+        let has_omz = omz_path.exists();
+
+        if !has_omz {
+            // Check for starship
+            let has_starship = Command::new("pacman")
+                .args(&["-Q", "starship"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_starship {
+                result.push(Advice {
+                    id: "shell-prompt".to_string(),
+                    title: "Make your terminal beautiful with Starship".to_string(),
+                    reason: "You're using zsh but your prompt is probably pretty basic. Starship is a blazing-fast, customizable prompt that shows git status, programming language versions, and looks gorgeous. It's like giving your terminal a makeover!".to_string(),
+                    action: "Install Starship prompt for a beautiful terminal".to_string(),
+                    command: Some("pacman -S --noconfirm starship && echo 'eval \"$(starship init zsh)\"' >> ~/.zshrc".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "beautification".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Starship".to_string()],
+                });
+            }
+        }
+
+        // Check for zsh-autosuggestions
+        let has_autosuggestions = Command::new("pacman")
+            .args(&["-Q", "zsh-autosuggestions"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_autosuggestions {
+            result.push(Advice {
+                id: "zsh-autosuggestions".to_string(),
+                title: "Get smart command suggestions in zsh".to_string(),
+                reason: "As you type commands, zsh-autosuggestions will suggest completions based on your command history. It's like having autocomplete for your terminal - super helpful and saves tons of typing!".to_string(),
+                action: "Install zsh-autosuggestions".to_string(),
+                command: Some("pacman -S --noconfirm zsh-autosuggestions && echo 'source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh' >> ~/.zshrc".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Autosuggestions".to_string()],
+            });
+        }
+
+        // Check for zsh-syntax-highlighting
+        let has_highlighting = Command::new("pacman")
+            .args(&["-Q", "zsh-syntax-highlighting"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_highlighting {
+            result.push(Advice {
+                id: "zsh-syntax-highlighting".to_string(),
+                title: "Add syntax highlighting to zsh".to_string(),
+                reason: "This plugin colors your commands as you type them - valid commands are green, invalid ones are red. It helps catch typos before you hit enter and makes the terminal much easier to read.".to_string(),
+                action: "Install zsh-syntax-highlighting".to_string(),
+                command: Some("pacman -S --noconfirm zsh-syntax-highlighting && echo 'source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh' >> ~/.zshrc".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Syntax_highlighting".to_string()],
+            });
+        }
+    } else if shell.contains("bash") {
+        // Check for starship on bash
+        let has_starship = Command::new("pacman")
+            .args(&["-Q", "starship"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_starship {
+            result.push(Advice {
+                id: "bash-starship".to_string(),
+                title: "Upgrade your bash prompt with Starship".to_string(),
+                reason: "Your bash prompt is probably showing just basic info. Starship makes it beautiful and informative, showing git status, programming languages, and more. Works great with bash!".to_string(),
+                action: "Install Starship prompt".to_string(),
+                command: Some("pacman -S --noconfirm starship && echo 'eval \"$(starship init bash)\"' >> ~/.bashrc".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Starship".to_string()],
+            });
+        }
+
+        // Suggest upgrading to zsh
+        result.push(Advice {
+            id: "upgrade-to-zsh".to_string(),
+            title: "Consider upgrading from bash to zsh".to_string(),
+            reason: "You're using bash, which is great! But zsh offers powerful features like better tab completion, spelling correction, and tons of plugins. Many developers make the switch and never look back. It's not required, but if you want a more powerful shell, zsh is worth trying.".to_string(),
+            action: "Install zsh and try it out".to_string(),
+            command: Some("pacman -S --noconfirm zsh && chsh -s /bin/zsh".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 16: Check for modern CLI tool alternatives
+fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check command history for common tools
+    let commands: Vec<String> = facts.frequently_used_commands
+        .iter()
+        .map(|c| c.command.clone())
+        .collect();
+
+    // ls → eza
+    if commands.iter().any(|c| c.starts_with("ls ") || c == "ls") {
+        let has_eza = Command::new("pacman")
+            .args(&["-Q", "eza"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_eza {
+            result.push(Advice {
+                id: "cli-eza".to_string(),
+                title: "Replace 'ls' with 'eza' for beautiful file listings".to_string(),
+                reason: "You use 'ls' a lot. Eza is a modern replacement with colors, icons, git integration, and tree views built-in. It's faster and much prettier than plain ls. Once you try it, you won't go back!".to_string(),
+                action: "Install eza as a better 'ls'".to_string(),
+                command: Some("pacman -S --noconfirm eza && echo \"alias ls='eza'\" >> ~/.zshrc".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec!["https://github.com/eza-community/eza".to_string()],
+            });
+        }
+    }
+
+    // cat → bat
+    if commands.iter().any(|c| c.starts_with("cat ") || c == "cat") {
+        let has_bat = Command::new("pacman")
+            .args(&["-Q", "bat"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_bat {
+            result.push(Advice {
+                id: "cli-bat".to_string(),
+                title: "Replace 'cat' with 'bat' for syntax-highlighted viewing".to_string(),
+                reason: "You frequently use 'cat' to view files. Bat is like cat but with syntax highlighting, line numbers, and git integration. It makes reading code and config files so much easier!".to_string(),
+                action: "Install bat as a better 'cat'".to_string(),
+                command: Some("pacman -S --noconfirm bat && echo \"alias cat='bat'\" >> ~/.zshrc".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "beautification".to_string(),
+                wiki_refs: vec!["https://github.com/sharkdp/bat".to_string()],
+            });
+        }
+    }
+
+    // grep → ripgrep
+    if commands.iter().any(|c| c.contains("grep")) {
+        let has_ripgrep = Command::new("pacman")
+            .args(&["-Q", "ripgrep"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_ripgrep {
+            result.push(Advice {
+                id: "cli-ripgrep".to_string(),
+                title: "Use 'ripgrep' for lightning-fast code searching".to_string(),
+                reason: "You use grep a lot. Ripgrep (command: 'rg') is 10x-100x faster than grep, automatically skips .gitignore files, and has better defaults. It's a game-changer for searching code!".to_string(),
+                action: "Install ripgrep for faster searching".to_string(),
+                command: Some("pacman -S --noconfirm ripgrep".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "performance".to_string(),
+                wiki_refs: vec!["https://github.com/BurntSushi/ripgrep".to_string()],
+            });
+        }
+    }
+
+    // find → fd
+    if commands.iter().any(|c| c.starts_with("find ")) {
+        let has_fd = Command::new("pacman")
+            .args(&["-Q", "fd"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_fd {
+            result.push(Advice {
+                id: "cli-fd".to_string(),
+                title: "Replace 'find' with 'fd' for easier file searching".to_string(),
+                reason: "You use 'find' command. Fd is a simpler, faster alternative with intuitive syntax. Instead of 'find . -name \"*.txt\"' you just type 'fd txt'. It's also much faster and respects .gitignore by default.".to_string(),
+                action: "Install fd as a better 'find'".to_string(),
+                command: Some("pacman -S --noconfirm fd".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "performance".to_string(),
+                wiki_refs: vec!["https://github.com/sharkdp/fd".to_string()],
+            });
+        }
+    }
+
+    // Check for fzf (fuzzy finder)
+    let has_fzf = Command::new("pacman")
+        .args(&["-Q", "fzf"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_fzf {
+        result.push(Advice {
+            id: "cli-fzf".to_string(),
+            title: "Install 'fzf' for fuzzy finding everything".to_string(),
+            reason: "Fzf is a game-changer - it adds fuzzy finding to your terminal. Search command history with Ctrl+R, find files instantly, and integrate with other tools. It's one of those tools you wonder how you lived without!".to_string(),
+            action: "Install fzf for fuzzy finding".to_string(),
+            command: Some("pacman -S --noconfirm fzf".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "beautification".to_string(),
+            wiki_refs: vec!["https://github.com/junegunn/fzf".to_string()],
+        });
     }
 
     result
