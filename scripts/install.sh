@@ -24,13 +24,26 @@ echo "  Anna Installer"
 echo "═══════════════════════════════════════════"
 echo ""
 
-info "Finding latest release..."
-LATEST=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases" 2>/dev/null | \
-         jq -r '.[] | select(.draft==false) | select(.assets[] | .name=="anna-linux-x86_64.tar.gz") | .tag_name' | \
-         head -1)
+info "Finding latest tag..."
+LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/git/refs/tags" 2>/dev/null | \
+             jq -r '.[].ref' | sed 's|refs/tags/||' | \
+             grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' | sort -V | tail -1)
 
-[[ -n "$LATEST" ]] || error "No releases found with assets"
+[[ -n "$LATEST_TAG" ]] || error "No tags found"
 
+info "Checking if $LATEST_TAG has assets..."
+HAS_ASSETS=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$LATEST_TAG" 2>/dev/null | \
+             jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name')
+
+if [[ -z "$HAS_ASSETS" ]]; then
+    echo ""
+    error "Latest version $LATEST_TAG has no release assets yet. Wait 2-3 minutes for CI to finish."
+    echo ""
+    echo "Check: https://github.com/$OWNER/$REPO/actions"
+    exit 1
+fi
+
+LATEST="$LATEST_TAG"
 success "Latest release: $LATEST"
 
 # Download with retry
