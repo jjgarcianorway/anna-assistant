@@ -10,7 +10,7 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.20)
+## Current Status (v1.0.0-beta.21)
 
 ### ✅ Complete
 - [x] Core data models and types
@@ -45,9 +45,12 @@ Anna should be an intelligent, autonomous system administrator that:
 - [x] Multi-user support with personalized advice
 - [x] Priority-based recommendation system
 - [x] Risk level categorization
+- [x] **Configuration system** - TOML-based settings with annactl config command
 
 ### 🚧 In Progress
-- [ ] **Policy-based auto-apply** - Autonomous execution of low-risk fixes
+- [ ] **Apply & Rollback system** - Safe execution with snapshot support
+- [ ] **TUI Dashboard** - Interactive configuration interface
+- [ ] **Learning system** - Track user behavior and adapt
 - [ ] **Arch Wiki caching** - Offline documentation access
 
 ---

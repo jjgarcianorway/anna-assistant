@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0-beta.20"
+version = "1.0.0-beta.21"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -50,3 +50,6 @@ console = "0.15"
 
 # File system watching
 notify = "6.1"
+
+# Configuration
+toml = "0.8"

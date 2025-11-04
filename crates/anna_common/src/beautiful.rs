@@ -29,23 +29,25 @@ impl Level {
 pub fn header(text: &str) -> String {
     // Measure the VISIBLE width (without ANSI codes)
     let text_width = measure_text_width(text);
-    let padding = 2; // Space on each side
+    let padding = 3; // More space on each side for better readability
     let inner_width = text_width + (padding * 2);
 
     // Build the box components as strings
     let top_line = format!("╭{}╮", "─".repeat(inner_width));
     let bottom_line = format!("╰{}╯", "─".repeat(inner_width));
 
-    // For the middle line, build it with proper spacing then color each part
-    let middle_plain = format!("│ {} │", text);
+    // Build padding strings
+    let left_padding = " ".repeat(padding);
+    let right_padding = " ".repeat(padding);
 
     // Apply colors using format! to avoid lifetime issues
     let colored_top = format!("{}", top_line.cyan());
-    let colored_middle = format!("{}{}{}{}",
+    let colored_middle = format!("{}{}{}{}{}",
         "│".cyan(),
-        " ",
+        left_padding,
         text.bold().bright_cyan(),
-        format!(" {}", "│").cyan()
+        right_padding,
+        "│".cyan()
     );
     let colored_bottom = format!("{}", bottom_line.cyan());
 

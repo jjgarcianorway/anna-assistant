@@ -1059,3 +1059,59 @@ Anna is now **intelligent, personalized, and production-ready** for testing!
 - Multi-user support
 - Plugin system
 - Machine learning for better predictions
+
+## [1.0.0-beta.21] - 2025-01-XX
+
+### 🎛️ Configuration System - TOML-based Settings! 🎛️
+
+**MAJOR NEW FEATURE!** Implemented comprehensive configuration system with TOML support for user preferences and automation!
+
+### ✨ Added
+
+**Configuration Module**
+- Created `config.rs` in anna_common with full TOML serialization/deserialization
+- Configuration file automatically created at `~/.config/anna/config.toml`
+- Structured configuration with multiple sections:
+  - General settings (refresh interval, verbosity, emoji, colors)
+  - Autonomy configuration (tier levels, auto-apply rules, risk filtering)
+  - Notification preferences (desktop, terminal, priority filtering)
+  - Snapshot settings (method, retention, auto-snapshot triggers)
+  - Learning preferences (behavior tracking, history analysis)
+  - Category filters (enable/disable recommendation categories)
+  - User profiles (multi-user system support)
+
+**Enhanced annactl config Command**
+- Display all current configuration settings beautifully organized
+- Set individual config values: `annactl config --set key=value`
+- Supported configuration keys:
+  - `autonomy_tier` (0-3): Control auto-apply behavior
+  - `snapshots_enabled` (true/false): Enable/disable snapshots
+  - `snapshot_method` (btrfs/timeshift/rsync/none): Choose snapshot backend
+  - `learning_enabled` (true/false): Enable/disable behavior learning
+  - `desktop_notifications` (true/false): Control notifications
+  - `refresh_interval` (seconds): Set telemetry refresh frequency
+- Validation on all settings with helpful error messages
+- Beautiful output showing all configuration sections
+
+**Configuration Features**
+- Autonomy tiers: Advise Only, Safe Auto-Apply, Semi-Autonomous, Fully Autonomous
+- Risk-based filtering for auto-apply
+- Category-based allow/blocklists
+- Snapshot integration planning (method selection, retention policies)
+- Learning system configuration (command history days, usage thresholds)
+- Notification customization (urgency levels, event filtering)
+- Multi-user profiles for personalized recommendations
+
+### 🔧 Changed
+- Added `toml` dependency to workspace
+- Updated anna_common to export config module
+- Enhanced config command from stub to fully functional
+
+### 📚 Technical Details
+- Config validation ensures safe values (min 60s refresh, min 1 snapshot, etc.)
+- Default configuration provides sensible security-first defaults
+- TOML format allows easy manual editing
+- Auto-creates config directory structure on first use
+
+This lays the foundation for the TUI dashboard and autonomous operation!
+
