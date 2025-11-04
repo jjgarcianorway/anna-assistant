@@ -20,88 +20,11 @@ require sha256sum
 
 echo ""
 echo "═══════════════════════════════════════════"
-echo "  Anna Auto-Installer"
+echo "  Anna Installer - Download from GitHub"
 echo "═══════════════════════════════════════════"
 echo ""
 
-# Check if running from source directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-LOCAL_ANNAD="$REPO_ROOT/target/release/annad"
-LOCAL_ANNACTL="$REPO_ROOT/target/release/annactl"
-
-# Use local binaries if available
-if [[ -f "$LOCAL_ANNAD" && -f "$LOCAL_ANNACTL" ]]; then
-    info "Found local binaries, using local build..."
-
-    # Stop service if running
-    if systemctl is-active annad >/dev/null 2>&1; then
-        info "Stopping annad service..."
-        systemctl stop annad
-    fi
-
-    # Install local binaries
-    info "Installing local binaries to /usr/local/bin..."
-    install -m 755 "$LOCAL_ANNAD" /usr/local/bin/annad
-    install -m 755 "$LOCAL_ANNACTL" /usr/local/bin/annactl
-
-    # Create directories
-    info "Creating directories..."
-    mkdir -p /etc/anna/policies.d
-    mkdir -p /var/lib/anna/{telemetry,backups}
-    mkdir -p /var/log/anna
-    mkdir -p /run/anna
-
-    chmod 755 /etc/anna /etc/anna/policies.d
-    chmod 755 /var/lib/anna /var/lib/anna/telemetry /var/lib/anna/backups
-    chmod 755 /var/log/anna /run/anna
-
-    # Get version from binary
-    LOCAL_VERSION=$("$LOCAL_ANNACTL" --version 2>/dev/null | awk '{print $NF}')
-    echo "v$LOCAL_VERSION" > /etc/anna/version
-
-    # Install systemd service
-    if command -v systemctl >/dev/null 2>&1; then
-        info "Installing systemd service..."
-
-        cat > /etc/systemd/system/annad.service <<'EOF'
-[Unit]
-Description=Anna Assistant Daemon
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/annad
-Restart=on-failure
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-        systemctl daemon-reload
-        systemctl enable annad.service 2>/dev/null || true
-        systemctl start annad.service 2>/dev/null || true
-    fi
-
-    success "Local installation complete: v$LOCAL_VERSION"
-
-    echo ""
-    echo "══════════════════════════════════════════════"
-    echo "  ✓ Installation Complete!"
-    echo "══════════════════════════════════════════════"
-    echo ""
-    echo "Version: v$LOCAL_VERSION (local build)"
-    echo "Check:   annactl status"
-    echo ""
-
-    exit 0
-fi
-
-# Fall back to GitHub release
-info "No local binaries found, downloading from GitHub..."
+# Download from GitHub release
 info "Finding latest release..."
 LATEST=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases" 2>/dev/null | \
          jq -r '.[] | select(.draft==false) | select(.assets[] | .name=="anna-linux-x86_64.tar.gz") | .tag_name' | \
