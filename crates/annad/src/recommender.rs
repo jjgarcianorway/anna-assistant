@@ -40,9 +40,9 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
         if !installed {
             result.push(Advice {
                 id: "microcode-amd".to_string(),
-                title: "Install AMD microcode".to_string(),
-                reason: "AMD CPU detected without microcode updates - critical for security patches and CPU bug fixes".to_string(),
-                action: "Install amd-ucode package for CPU security and stability fixes".to_string(),
+                title: "Install CPU security updates".to_string(),
+                reason: "Your AMD processor needs microcode updates to protect against security vulnerabilities like Spectre and Meltdown. Think of it like a security patch for your CPU itself.".to_string(),
+                action: "Install the amd-ucode package to keep your CPU secure".to_string(),
                 command: Some("pacman -S --noconfirm amd-ucode".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Mandatory,
@@ -60,9 +60,9 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
         if !installed {
             result.push(Advice {
                 id: "microcode-intel".to_string(),
-                title: "Install Intel microcode".to_string(),
-                reason: "Intel CPU detected without microcode updates - critical for security patches (Spectre/Meltdown) and CPU bug fixes".to_string(),
-                action: "Install intel-ucode package for CPU security and stability fixes".to_string(),
+                title: "Install CPU security updates".to_string(),
+                reason: "Your Intel processor needs microcode updates to protect against security vulnerabilities like Spectre and Meltdown. Think of it like a security patch for your CPU itself.".to_string(),
+                action: "Install the intel-ucode package to keep your CPU secure".to_string(),
                 command: Some("pacman -S --noconfirm intel-ucode".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Mandatory,
@@ -92,9 +92,9 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                 if !has_driver {
                     result.push(Advice {
                         id: "nvidia-driver".to_string(),
-                        title: "Install NVIDIA proprietary driver".to_string(),
-                        reason: "NVIDIA GPU detected without proprietary driver".to_string(),
-                        action: "Install nvidia package for optimal graphics performance".to_string(),
+                        title: "Install NVIDIA graphics driver".to_string(),
+                        reason: "I found an NVIDIA graphics card, but it's not using the official driver yet. Your graphics will be much faster and smoother with the proper driver installed.".to_string(),
+                        action: "Install the nvidia driver for better gaming and graphics performance".to_string(),
                         command: Some("pacman -S --noconfirm nvidia nvidia-utils".to_string()),
                         risk: RiskLevel::Medium,
                 priority: Priority::Recommended,
@@ -113,9 +113,9 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                 if !has_vulkan {
                     result.push(Advice {
                         id: "amd-vulkan".to_string(),
-                        title: "Install AMD Vulkan driver".to_string(),
-                        reason: "AMD GPU detected without Vulkan support".to_string(),
-                        action: "Install vulkan-radeon for modern graphics API support".to_string(),
+                        title: "Add Vulkan support for your AMD GPU".to_string(),
+                        reason: "Your AMD graphics card can run modern games and apps using Vulkan (a high-performance graphics API), but the driver isn't installed yet.".to_string(),
+                        action: "Install vulkan-radeon for better gaming performance".to_string(),
                         command: Some("pacman -S --noconfirm vulkan-radeon".to_string()),
                         risk: RiskLevel::Low,
                 priority: Priority::Recommended,
@@ -137,11 +137,17 @@ fn check_orphan_packages(facts: &SystemFacts) -> Vec<Advice> {
 
     if !facts.orphan_packages.is_empty() {
         let count = facts.orphan_packages.len();
+        let msg = if count == 1 {
+            "Clean up 1 unused package".to_string()
+        } else {
+            format!("Clean up {} unused packages", count)
+        };
         result.push(Advice {
             id: "orphan-packages".to_string(),
-            title: format!("Remove {} orphaned packages", count),
-            reason: format!("{} packages were installed as dependencies but are no longer needed", count),
-            action: "Remove orphaned packages to free disk space and reduce clutter".to_string(),
+            title: msg,
+            reason: format!("You have {} {} that were installed to support other software, but nothing needs them anymore. They're just taking up space.",
+                count, if count == 1 { "package" } else { "packages" }),
+            action: "Remove unused packages to free up disk space".to_string(),
             command: Some("pacman -Rns --noconfirm $(pacman -Qdtq)".to_string()),
             risk: RiskLevel::Medium,
                 priority: Priority::Recommended,
@@ -171,9 +177,9 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
         if !has_progs {
             result.push(Advice {
                 id: "btrfs-progs".to_string(),
-                title: "Install Btrfs utilities".to_string(),
-                reason: "Btrfs filesystem detected without maintenance tools".to_string(),
-                action: "Install btrfs-progs for filesystem maintenance and health checks".to_string(),
+                title: "Install tools for your Btrfs filesystem".to_string(),
+                reason: "You're using Btrfs for your storage, but you don't have the maintenance tools installed yet. These help keep your filesystem healthy and let you check for problems.".to_string(),
+                action: "Install btrfs-progs to maintain your filesystem".to_string(),
                 command: Some("pacman -S --noconfirm btrfs-progs".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
@@ -193,9 +199,9 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 if !options.contains("compress") {
                     result.push(Advice {
                         id: "btrfs-compression".to_string(),
-                        title: "Enable Btrfs compression".to_string(),
-                        reason: "Btrfs compression saves disk space (typically 20-30%) with minimal CPU overhead".to_string(),
-                        action: "Add compress=zstd mount option to /etc/fstab for root filesystem".to_string(),
+                        title: "Save disk space with Btrfs compression".to_string(),
+                        reason: "Btrfs can automatically compress your files as it saves them. You'll typically get 20-30% of your disk space back, and it barely uses any extra CPU power. It's almost like free storage!".to_string(),
+                        action: "Enable transparent compression in /etc/fstab".to_string(),
                         command: Some("# Add 'compress=zstd:3' to root mount options in /etc/fstab, then remount".to_string()),
                         risk: RiskLevel::Medium,
                         priority: Priority::Recommended,
@@ -208,9 +214,9 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 if !options.contains("noatime") && !options.contains("relatime") {
                     result.push(Advice {
                         id: "btrfs-noatime".to_string(),
-                        title: "Enable noatime for Btrfs".to_string(),
-                        reason: "noatime improves performance by not updating access time on file reads".to_string(),
-                        action: "Add noatime mount option to /etc/fstab for better I/O performance".to_string(),
+                        title: "Speed up file access with noatime".to_string(),
+                        reason: "Every time you read a file, Linux normally writes down when you accessed it. The 'noatime' option turns this off, making your disk faster since it doesn't need to write timestamps constantly.".to_string(),
+                        action: "Add noatime to /etc/fstab for faster file operations".to_string(),
                         command: Some("# Add 'noatime' to root mount options in /etc/fstab, then remount".to_string()),
                         risk: RiskLevel::Low,
                         priority: Priority::Optional,
@@ -223,9 +229,9 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
             // Suggest regular scrub
             result.push(Advice {
                 id: "btrfs-scrub".to_string(),
-                title: "Run Btrfs scrub".to_string(),
-                reason: "Regular scrubbing maintains filesystem integrity and detects silent corruption".to_string(),
-                action: "Run a Btrfs scrub to detect and fix data corruption".to_string(),
+                title: "Check your filesystem for problems".to_string(),
+                reason: "Btrfs has a built-in health check called 'scrub' that reads through all your data to make sure nothing has gotten corrupted. It's like a regular checkup for your files.".to_string(),
+                action: "Run a scrub to verify your filesystem is healthy".to_string(),
                 command: Some("btrfs scrub start /".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
@@ -252,11 +258,23 @@ fn check_system_updates() -> Vec<Advice> {
         let update_count = updates.lines().count();
 
         if update_count > 0 {
+            let msg = if update_count == 1 {
+                "1 package update available".to_string()
+            } else {
+                format!("{} package updates available", update_count)
+            };
+            let package_str = if update_count == 1 {
+                "1 package".to_string()
+            } else {
+                format!("{} packages", update_count)
+            };
             result.push(Advice {
                 id: "system-updates".to_string(),
-                title: format!("{} system updates available", update_count),
-                reason: format!("{} packages have updates available", update_count),
-                action: "Update system to get latest features and security fixes".to_string(),
+                title: msg,
+                reason: format!("There {} {} waiting to be updated. Updates usually include security fixes, bug fixes, and new features.",
+                    if update_count == 1 { "is" } else { "are" },
+                    package_str),
+                action: "Update your system to stay secure and up-to-date".to_string(),
                 command: Some("pacman -Syu --noconfirm".to_string()),
                 risk: RiskLevel::Medium,
                 priority: Priority::Recommended,
@@ -291,9 +309,9 @@ fn check_trim_timer(facts: &SystemFacts) -> Vec<Advice> {
         if !is_enabled {
             result.push(Advice {
                 id: "fstrim-timer".to_string(),
-                title: "Enable TRIM timer for SSD".to_string(),
-                reason: "SSD detected without TRIM timer - TRIM maintains SSD performance and longevity".to_string(),
-                action: "Enable weekly TRIM operation for optimal SSD health".to_string(),
+                title: "Keep your SSD healthy with TRIM".to_string(),
+                reason: "I noticed you have a solid-state drive. SSDs need regular 'TRIM' operations to stay fast and last longer. Think of it like taking out the trash - it tells the SSD which data blocks are no longer in use.".to_string(),
+                action: "Enable automatic weekly TRIM to keep your SSD running smoothly".to_string(),
                 command: Some("systemctl enable --now fstrim.timer".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
@@ -316,9 +334,9 @@ fn check_pacman_config() -> Vec<Advice> {
         if !config.lines().any(|l| l.trim() == "Color") {
             result.push(Advice {
                 id: "pacman-color".to_string(),
-                title: "Enable colored output in pacman".to_string(),
-                reason: "Colored pacman output makes updates easier to read and understand".to_string(),
-                action: "Uncomment 'Color' in /etc/pacman.conf".to_string(),
+                title: "Make pacman output colorful".to_string(),
+                reason: "Right now pacman (the package manager) shows everything in plain text. Turning on colors makes it much easier to see what's being installed, updated, or removed.".to_string(),
+                action: "Enable colored output in pacman".to_string(),
                 command: Some("sed -i 's/^#Color/Color/' /etc/pacman.conf".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
@@ -331,9 +349,9 @@ fn check_pacman_config() -> Vec<Advice> {
         if !config.lines().any(|l| l.trim().starts_with("ParallelDownloads")) {
             result.push(Advice {
                 id: "pacman-parallel".to_string(),
-                title: "Enable parallel downloads in pacman".to_string(),
-                reason: "Parallel downloads significantly speed up package installation (5x+ faster)".to_string(),
-                action: "Add 'ParallelDownloads = 5' to /etc/pacman.conf".to_string(),
+                title: "Download packages 5x faster".to_string(),
+                reason: "By default, pacman downloads one package at a time. Enabling parallel downloads lets it download 5 packages simultaneously, making updates much faster.".to_string(),
+                action: "Enable parallel downloads in pacman".to_string(),
                 command: Some("echo 'ParallelDownloads = 5' >> /etc/pacman.conf".to_string()),
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
@@ -360,11 +378,23 @@ fn check_systemd_health() -> Vec<Advice> {
         let failed_count = failed.lines().filter(|l| !l.is_empty()).count();
 
         if failed_count > 0 {
+            let msg = if failed_count == 1 {
+                "1 system service has failed".to_string()
+            } else {
+                format!("{} system services have failed", failed_count)
+            };
+            let count_str = if failed_count == 1 {
+                "a".to_string()
+            } else {
+                failed_count.to_string()
+            };
             result.push(Advice {
                 id: "systemd-failed".to_string(),
-                title: format!("{} failed systemd units", failed_count),
-                reason: format!("{} systemd services/timers have failed - may indicate system issues", failed_count),
-                action: "Review failed units with 'systemctl --failed' and fix issues".to_string(),
+                title: msg,
+                reason: format!("I found {} background {} that tried to start but failed. This could mean something isn't working properly on your system.",
+                    count_str,
+                    if failed_count == 1 { "service" } else { "services" }),
+                action: "Take a look at what failed so you can fix any problems".to_string(),
                 command: Some("systemctl --failed".to_string()),
                 risk: RiskLevel::Medium,
                 priority: Priority::Recommended,

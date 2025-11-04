@@ -86,7 +86,7 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
 
     println!(
         "{}",
-        beautiful::status(Level::Info, "Analyzing system...")
+        beautiful::status(Level::Info, "Taking a look at your system...")
     );
     println!();
 
@@ -104,7 +104,7 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         if advice_list.is_empty() {
             println!(
                 "{}",
-                beautiful::status(Level::Success, "No recommendations at this time")
+                beautiful::status(Level::Success, "Your system looks great! I don't have any suggestions right now.")
             );
             return Ok(());
         }
@@ -193,12 +193,14 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
             }
         }
 
+        let msg = if advice_list.len() == 1 {
+            "Found 1 thing that could make your system better!".to_string()
+        } else {
+            format!("Found {} things that could make your system better!", advice_list.len())
+        };
         println!(
             "{}",
-            beautiful::status(
-                Level::Success,
-                &format!("{} recommendations generated", advice_list.len())
-            )
+            beautiful::status(Level::Success, &msg)
         );
     }
 

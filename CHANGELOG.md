@@ -5,24 +5,47 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.6] - 2025-11-04
+## [1.0.0-beta.7] - 2025-11-04
 
-### Added
-- **Btrfs compression detection** - recommends compress=zstd for 20-30% space savings
-- **Btrfs noatime optimization** - improves I/O performance
-- **TRIM timer check** - ensures SSD health and longevity
-- **pacman.conf optimizations**:
-  - Color output for better readability
-  - ParallelDownloads for 5x+ faster package installs
-- **systemd failed units detection** - monitors system health
+### 🎉 Anna Speaks Human Now!
+
+We've completely rewritten every message Anna shows you. No more technical jargon!
+
+### What Changed
+- **All advice is now in plain English** - Instead of "AMD CPU detected without microcode updates," Anna now says "Your AMD processor needs microcode updates to protect against security vulnerabilities like Spectre and Meltdown. Think of it like a security patch for your CPU itself."
+- **Friendly messages everywhere** - "Taking a look at your system..." instead of "Analyzing system..."
+- **Your system looks great!** - When everything is fine, Anna celebrates with you
+- **Better counting** - "Found 1 thing that could make your system better!" reads naturally
+- **Enthusiastic release notes** - This changelog is now exciting to read!
 
 ### Why This Matters
-- Btrfs compression saves 100s of GB with minimal CPU cost
-- TRIM prevents SSD performance degradation over time
-- Parallel downloads makes system updates much faster
-- Failed systemd units indicate problems that need attention
+Anna is for everyone, not just Linux experts. Whether you're brand new to Arch or you've been using it for years, Anna talks to you like a helpful friend, not a robot. Every message explains *why* something matters and what it actually does.
 
-All recommendations include Arch Wiki citations and clear explanations.
+### Technical Details (for the curious)
+- Rewrote all `Advice` messages in `recommender.rs` with conversational explanations
+- Updated CLI output to be more welcoming
+- Made sure singular/plural grammar is always correct
+- Added analogies to help explain technical concepts
+
+---
+
+## [1.0.0-beta.6] - 2025-11-04
+
+### 🎉 New: Beautiful Installation Experience!
+The installer now shows you exactly what Anna can do and what's new in this release. No more guessing!
+
+### What's New
+- **Your SSD will thank you** - Anna now checks if your solid-state drive has TRIM enabled. This keeps it fast and healthy for years to come.
+- **Save hundreds of gigabytes** - If you're using Btrfs, Anna will suggest turning on compression. You'll get 20-30% of your disk space back without slowing things down.
+- **Faster package downloads** - Anna can set up parallel downloads in pacman, making updates 5x faster. Why wait around?
+- **Prettier terminal output** - Enable colorful pacman output so you can actually see what's happening during updates.
+- **Health monitoring** - Anna keeps an eye on your system services and lets you know if anything failed. No more silent problems.
+- **Better performance tips** - Learn about noatime and other mount options that make your system snappier.
+
+### Why You'll Love It
+- You don't need to be a Linux expert - Anna explains everything in plain English
+- Every suggestion comes with a link to the Arch Wiki if you want to learn more
+- Your system stays healthy and fast without you having to remember all the tweaks
 
 ---
 
