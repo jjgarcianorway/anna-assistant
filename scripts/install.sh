@@ -145,14 +145,24 @@ chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
 
 # Verify version matches (disable errexit temporarily for version checks)
 set +e
-ANNAD_VERSION=$("$TEMP_DIR/annad" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+ANNAD_VERSION=$("$TEMP_DIR/annad" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
 if [ -z "$ANNAD_VERSION" ]; then
     ANNAD_VERSION="unknown"
+else
+    # Add v prefix if not present
+    if [[ ! "$ANNAD_VERSION" =~ ^v ]]; then
+        ANNAD_VERSION="v${ANNAD_VERSION}"
+    fi
 fi
 
-ANNACTL_VERSION=$("$TEMP_DIR/annactl" --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+ANNACTL_VERSION=$("$TEMP_DIR/annactl" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
 if [ -z "$ANNACTL_VERSION" ]; then
     ANNACTL_VERSION="unknown"
+else
+    # Add v prefix if not present
+    if [[ ! "$ANNACTL_VERSION" =~ ^v ]]; then
+        ANNACTL_VERSION="v${ANNACTL_VERSION}"
+    fi
 fi
 set -e
 
