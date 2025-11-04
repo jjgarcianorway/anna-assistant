@@ -1173,3 +1173,63 @@ This lays the foundation for the TUI dashboard and autonomous operation!
 
 This provides the foundation for safe autonomous operation and rollback capability!
 
+
+## [1.0.0-beta.23] - 2025-01-XX
+
+### 🔍 Enhanced Telemetry - Deep System Intelligence! 🔍
+
+**MAJOR ENHANCEMENT!** Added comprehensive system analysis from a sysadmin perspective with CPU time tracking, deep bash history analysis, and system configuration insights!
+
+### ✨ Added
+
+**Process CPU Time Analysis**
+- Track actual CPU time per process for user behavior understanding
+- Filter user processes vs system processes
+- CPU and memory percentage tracking
+- Identify what users actually spend time doing
+
+**Deep Bash History Analysis**
+- Multi-user bash/zsh history parsing
+- Command frequency analysis across all users
+- Tool categorization (editor, vcs, container, development, etc.)
+- Workflow pattern detection with confidence scores
+- Detect: Version Control Heavy, Container Development, Software Development patterns
+- Evidence-based pattern matching
+
+**System Configuration Analysis** (sysadmin perspective)
+- Bootloader detection (GRUB, systemd-boot, rEFInd)
+- Init system verification
+- Failed systemd services detection
+- Firewall status (ufw/firewalld)
+- MAC system detection (SELinux/AppArmor)
+- Swap analysis (size, usage, swappiness, zswap)
+- Boot time analysis (systemd-analyze)
+- I/O scheduler per device
+- Important kernel parameters tracking
+
+**Swap Deep Dive**
+- Total/used swap in MB
+- Swappiness value
+- Zswap detection and status
+- Recommendations based on swap configuration
+
+**I/O Scheduler Analysis**
+- Per-device scheduler detection
+- Identify if using optimal schedulers for SSD/HDD
+- Foundation for SSD optimization recommendations
+
+**Kernel Parameter Tracking**
+- Command line parameters
+- Important sysctl values (swappiness, ip_forward, etc.)
+- Security and performance parameter analysis
+
+### 🔧 Technical Details
+- All analysis functions are async for performance
+- Processes are filtered by CPU time (>0.1%)
+- Bash history supports both bash and zsh formats
+- Workflow patterns calculated with confidence scores (0.0-1.0)
+- System config analysis covers bootloader, init, security, performance
+- Graceful handling of missing files/permissions
+
+This provides the foundation for truly intelligent, sysadmin-level system analysis!
+
