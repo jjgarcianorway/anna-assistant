@@ -10,6 +10,50 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
+**🧠 NEW in Beta.30:** Anna now deeply understands your workflow! She detects your programming languages, development tools, gaming setup, network configuration, and infers your preferences (CLI vs GUI, power user, aesthetics) to provide context-aware recommendations tailored specifically to YOUR system.
+
+---
+
+## 🧠 Deep System Intelligence (Beta.30)
+
+Anna now has comprehensive understanding of your system:
+
+**Development Profile Detection:**
+- Scans for Python, Rust, Go, JavaScript projects with file counts
+- Checks LSP server installation (rust-analyzer, python-lsp-server, etc.)
+- Detects IDEs: VSCode, Vim, Neovim, Emacs, IntelliJ, PyCharm, CLion
+- Counts Git repositories and active projects
+- Monitors Docker/Podman and virtualization usage
+
+**Gaming Profile:**
+- Steam, Lutris, Wine, ProtonGE detection
+- MangoHud and gamepad driver checking
+- Game library awareness
+
+**Network Intelligence:**
+- VPN configuration (WireGuard/OpenVPN)
+- Firewall and SSH server status
+- DNS setup detection (systemd-resolved/dnsmasq)
+
+**User Preferences (AI-Inferred):**
+- CLI power user or GUI enthusiast
+- Aesthetics appreciation (detects starship, eza, bat)
+- Gamer/Developer/Content Creator profiles
+- Laptop user detection
+- Minimalism preference
+
+**System Health:**
+- Recent package installations (last 30 days)
+- Active and enabled services monitoring
+- Disk usage trends with largest directories
+- Cache and log size tracking
+- Session patterns and system age
+
+**Dynamic Categories with Arch Wiki Links:**
+- 12 categories in plain English
+- Only shows categories relevant to YOUR system
+- Direct links to official Arch Wiki documentation
+
 ---
 
 ## ✨ What Anna Does
@@ -132,18 +176,19 @@ The installer automatically:
 ### Try It Out
 
 ```bash
-# See what Anna suggests for your system (smart mode - ~25 most relevant items)
+# See what Anna suggests for your system (context-aware and intelligent!)
 annactl advise
 
-# Check Anna's status
+# Check Anna's status and see what she understands about your system
 annactl status
 
 # Get a full system health report with sysadmin-level insights
 annactl report
 
-# Get a focused report on specific category
-annactl report --category security      # Only security recommendations
-annactl report --category development   # Only dev tools
+# Get a focused report on specific category (plain English names!)
+annactl report --category security      # "Security & Privacy" recommendations
+annactl report --category development   # "Development Tools" suggestions
+annactl report --category gaming        # "Gaming & Entertainment" setup
 
 # List available workflow bundles
 annactl bundles
