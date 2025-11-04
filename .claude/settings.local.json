@@ -171,7 +171,8 @@
       "Bash(./scripts/check-version-consistency.sh:*)",
       "Bash(getent group:*)",
       "Bash(./fix_socket.sh)",
-      "Bash(./tests/verify_socket_fix.sh:*)"
+      "Bash(./tests/verify_socket_fix.sh:*)",
+      "Bash(.githooks/pre-push)"
     ],
     "deny": [],
     "ask": []
