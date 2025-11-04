@@ -33,3 +33,9 @@ Thumbs.db
 /local_config.toml
 .release-message
 bin/
+
+# Backup and draft files
+*.bak
+*.backup
+*-draft.md
+*DRAFT*
