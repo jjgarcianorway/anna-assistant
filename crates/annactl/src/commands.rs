@@ -714,50 +714,6 @@ pub async fn config(set: Option<String>) -> Result<()> {
     Ok(())
 }
 
-
-/// Display a single advice item with numbering and proper formatting
-fn display_advice_item(number: usize, advice: &anna_common::Advice, _level: Level) {
-    
-    // Number and title
-    let (emoji, color) = match advice.category.as_str() {
-        "security" => ("🔒", "\x1b[38;5;196m"),  // Red
-        "performance" => ("⚡", "\x1b[38;5;226m"), // Yellow
-        "updates" => ("📦", "\x1b[38;5;117m"),    // Blue
-        "cleanup" => ("🧹", "\x1b[38;5;159m"),    // Cyan
-        "development" => ("💻", "\x1b[38;5;141m"), // Purple
-        "beautification" => ("🎨", "\x1b[38;5;213m"), // Pink
-        "gaming" => ("🎮", "\x1b[38;5;201m"),     // Magenta
-        "desktop" => ("🖥️", "\x1b[38;5;117m"),    // Blue
-        "multimedia" => ("🎬", "\x1b[38;5;183m"), // Light purple
-        "hardware" => ("🔌", "\x1b[38;5;208m"),   // Orange
-        "networking" => ("📡", "\x1b[38;5;87m"),  // Cyan
-        "power" => ("🔋", "\x1b[38;5;220m"),      // Gold
-        _ => ("💡", "\x1b[38;5;159m"),            // Cyan
-    };
-
-    println!("\x1b[1m\x1b[38;5;250m{}.\x1b[0m {} {}{}\x1b[0m", 
-        number, 
-        emoji,
-        color,
-        advice.title
-    );
-    
-    // Reason - wrap text at 80 chars with proper indentation
-    let reason = wrap_text(&advice.reason, 76, "   ");
-    println!("\x1b[38;5;250m{}\x1b[0m", reason);
-    println!();
-    
-    // Command if available
-    if let Some(ref cmd) = advice.command {
-        println!("   \x1b[38;5;117m→ Run:\x1b[0m \x1b[38;5;159m{}\x1b[0m", cmd);
-        println!();
-    }
-    
-    // ID for applying
-    println!("   \x1b[38;5;240m[ID: {}]\x1b[0m", advice.id);
-    println!();
-}
-
 /// Wrap text at specified width with indentation
 fn wrap_text(text: &str, width: usize, indent: &str) -> String {
     let mut result = Vec::new();
