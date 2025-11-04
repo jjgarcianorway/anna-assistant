@@ -21,9 +21,15 @@ Anna is a local-first, privacy-focused system assistant that understands your Ar
 
 ## 🚀 Quick Start
 
-### Installation (Alpha)
+### Installation
 
-For now, build from source:
+**One-Command Install:**
+
+```bash
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
+```
+
+**Or build from source:**
 
 ```bash
 # Clone repository

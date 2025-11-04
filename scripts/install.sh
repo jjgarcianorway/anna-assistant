@@ -42,7 +42,12 @@ print_header
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    error_exit "Please run as root (use sudo)"
+    echo -e "${RED}${CROSS} This installer requires root privileges${RESET}" >&2
+    echo >&2
+    echo -e "${GRAY}Please run with sudo:${RESET}" >&2
+    echo -e "  ${CYAN}curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | sudo sh${RESET}" >&2
+    echo >&2
+    exit 1
 fi
 
 echo -e "${GREEN}${CHECK}${RESET} Running as root"
