@@ -11,3 +11,5 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+owo-colors = { workspace = true }
+console = { workspace = true }

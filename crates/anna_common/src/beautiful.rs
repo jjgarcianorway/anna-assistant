@@ -1,41 +1,9 @@
-//! Beautiful terminal output primitives
+//! Beautiful terminal output using proper libraries
 //!
-//! Provides consistent, elegant output formatting for Anna Assistant.
-//! Uses pastel colors and Unicode box drawing.
+//! Now using owo-colors and console for robust, battle-tested formatting!
 
-/// Strip ANSI escape codes from a string to get visible length
-fn strip_ansi(s: &str) -> String {
-    let mut result = String::new();
-    let mut in_escape = false;
-
-    for ch in s.chars() {
-        if ch == '\x1b' {
-            in_escape = true;
-        } else if in_escape {
-            if ch == 'm' {
-                in_escape = false;
-            }
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-/// ANSI color codes - pastel palette
-pub struct Colors;
-
-impl Colors {
-    pub const RESET: &'static str = "\x1b[0m";
-    pub const BLUE: &'static str = "\x1b[38;5;117m";      // Pastel blue
-    pub const GREEN: &'static str = "\x1b[38;5;120m";     // Pastel green
-    pub const YELLOW: &'static str = "\x1b[38;5;228m";    // Pastel yellow
-    pub const RED: &'static str = "\x1b[38;5;210m";       // Pastel red
-    pub const GRAY: &'static str = "\x1b[38;5;250m";      // Light gray
-    pub const CYAN: &'static str = "\x1b[38;5;159m";      // Pastel cyan
-    pub const BOLD: &'static str = "\x1b[1m";
-}
+use owo_colors::OwoColorize;
+use console::{measure_text_width, Term};
 
 /// Status level for messages
 #[derive(Debug, Clone, Copy)]
@@ -55,103 +23,79 @@ impl Level {
             Level::Error => "✗",
         }
     }
-
-    pub fn color(&self) -> &'static str {
-        match self {
-            Level::Info => Colors::CYAN,
-            Level::Success => Colors::GREEN,
-            Level::Warning => Colors::YELLOW,
-            Level::Error => Colors::RED,
-        }
-    }
 }
 
-/// Format a header
+/// Format a header with proper box drawing
 pub fn header(text: &str) -> String {
-    let visible_len = strip_ansi(text).len();
-    let total_width = visible_len + 4; // 2 spaces padding on each side
-    let border = "─".repeat(total_width);
+    let visible_width = measure_text_width(text);
+    let padding = 2;
+    let total_width = visible_width + (padding * 2);
 
-    // Calculate padding based on visible length
-    let padding_needed = if visible_len < total_width - 4 {
-        total_width - visible_len - 4
-    } else {
-        0
-    };
-    let padding = " ".repeat(padding_needed);
+    let top = format!("╭{}╮", "─".repeat(total_width));
+    let middle = format!("│ {} │", text);
+    let bottom = format!("╰{}╯", "─".repeat(total_width));
 
     format!(
-        "{}{}╭{}╮\n│  {}{}  │\n╰{}╯{}",
-        Colors::BOLD,
-        Colors::BLUE,
-        border,
-        text,
-        padding,
-        border,
-        Colors::RESET
+        "{}\n{}\n{}",
+        top.bold().blue(),
+        middle.bold().blue(),
+        bottom.bold().blue()
     )
 }
 
 /// Format a section title
 pub fn section(text: &str) -> String {
-    format!(
-        "{}{}{} {}{}",
-        Colors::BOLD,
-        Colors::CYAN,
-        "→",
-        text,
-        Colors::RESET
-    )
+    format!("{} {}", "→".cyan().bold(), text.bold().cyan())
 }
 
 /// Format a status message
 pub fn status(level: Level, message: &str) -> String {
-    format!(
-        "{}{} {}{}",
-        level.color(),
-        level.symbol(),
-        message,
-        Colors::RESET
-    )
+    let symbol = level.symbol();
+    match level {
+        Level::Info => format!("{} {}", symbol.cyan(), message),
+        Level::Success => format!("{} {}", symbol.green(), message),
+        Level::Warning => format!("{} {}", symbol.yellow(), message),
+        Level::Error => format!("{} {}", symbol.red(), message),
+    }
 }
 
 /// Format a key-value pair
 pub fn kv(key: &str, value: &str) -> String {
-    format!(
-        "{}{}:{} {}",
-        Colors::GRAY,
-        key,
-        Colors::RESET,
-        value
-    )
+    format!("{}: {}", key.bright_black(), value)
 }
 
-/// Format a box around text
+/// Format a box around text with proper width calculation
 pub fn boxed(lines: &[&str]) -> String {
-    // Calculate max visible length (without ANSI codes)
-    let max_len = lines.iter()
-        .map(|l| strip_ansi(l).len())
+    // Calculate max visible width (console handles all unicode properly)
+    let max_width = lines.iter()
+        .map(|line| measure_text_width(line))
         .max()
         .unwrap_or(0);
 
-    let top = format!("{}╭{}╮{}", Colors::BLUE, "─".repeat(max_len + 2), Colors::RESET);
-    let bottom = format!("{}╰{}╯{}", Colors::BLUE, "─".repeat(max_len + 2), Colors::RESET);
+    let top = format!("╭{}╮", "─".repeat(max_width + 2));
+    let bottom = format!("╰{}╯", "─".repeat(max_width + 2));
 
-    let mut result = vec![top];
+    let mut result = vec![top.blue().to_string()];
+
     for line in lines {
-        let visible_len = strip_ansi(line).len();
-        let padding = " ".repeat(max_len.saturating_sub(visible_len));
-        result.push(format!("{}│{} {}{} {}│{}",
-            Colors::BLUE,
-            Colors::RESET,
+        let visible_width = measure_text_width(line);
+        let padding_needed = max_width - visible_width;
+        let padding = " ".repeat(padding_needed);
+        result.push(format!("{} {}{} {}",
+            "│".blue(),
             line,
             padding,
-            Colors::BLUE,
-            Colors::RESET));
+            "│".blue()
+        ));
     }
-    result.push(bottom);
 
+    result.push(bottom.blue().to_string());
     result.join("\n")
+}
+
+/// Get terminal width for responsive formatting
+pub fn terminal_width() -> usize {
+    Term::stdout().size().1 as usize
 }
 
 #[cfg(test)]
@@ -159,8 +103,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_status() {
-        let msg = status(Level::Success, "Test passed");
-        assert!(msg.contains("✓"));
+    fn test_header_formatting() {
+        let h = header("Test Header");
+        assert!(h.contains("╭"));
+        assert!(h.contains("╯"));
+    }
+
+    #[test]
+    fn test_box_with_ansi() {
+        let lines = vec!["Hello", "World"];
+        let boxed = boxed(&lines);
+        assert!(boxed.contains("│"));
     }
 }
