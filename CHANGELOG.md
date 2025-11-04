@@ -5,6 +5,26 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.5] - 2025-11-04
+
+### Added
+- **Missing config detection** - detects installed packages without configuration:
+  - bat without ~/.config/bat/config
+  - starship without ~/.config/starship.toml
+  - git without user.name/user.email
+  - zoxide without shell integration
+- Better microcode explanations (Spectre/Meltdown patches)
+
+### Changed
+- **Microcode now Mandatory priority** (was Recommended) - critical for CPU security
+- Microcode category changed to "security" (was "maintenance")
+
+### Fixed
+- Box formatting now handles ANSI color codes correctly
+- Header boxes dynamically size to content
+
+---
+
 ## [1.0.0-beta.4] - 2025-11-04
 
 ### Added
