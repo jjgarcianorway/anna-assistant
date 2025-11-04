@@ -25,6 +25,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_swap());
     advice.extend(check_shell_enhancements(facts));
     advice.extend(check_cli_tools(facts));
+    advice.extend(check_gaming_setup());
 
     advice
 }
@@ -1007,6 +1008,127 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
             priority: Priority::Recommended,
             category: "beautification".to_string(),
             wiki_refs: vec!["https://github.com/junegunn/fzf".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Rule 17: Check for gaming setup
+fn check_gaming_setup() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if Steam is installed
+    let has_steam = Command::new("pacman")
+        .args(&["-Q", "steam"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_steam {
+        // Check if multilib repository is enabled
+        if let Ok(pacman_conf) = std::fs::read_to_string("/etc/pacman.conf") {
+            let multilib_enabled = pacman_conf.lines().any(|l| {
+                l.trim() == "[multilib]" && !l.trim().starts_with("#")
+            });
+
+            if !multilib_enabled {
+                result.push(Advice {
+                    id: "multilib-repo".to_string(),
+                    title: "Enable multilib repository for gaming".to_string(),
+                    reason: "You have Steam installed, but the multilib repository isn't enabled. Many games need 32-bit libraries (lib32) to run properly. Without multilib, some games just won't work!".to_string(),
+                    action: "Enable the multilib repository in pacman.conf".to_string(),
+                    command: Some("sed -i '/\\[multilib\\]/,/Include/s/^#//' /etc/pacman.conf && pacman -Sy".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "gaming".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Official_repositories#multilib".to_string()],
+                });
+            }
+        }
+
+        // Check for gamemode
+        let has_gamemode = Command::new("pacman")
+            .args(&["-Q", "gamemode"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_gamemode {
+            result.push(Advice {
+                id: "gamemode".to_string(),
+                title: "Install GameMode for better gaming performance".to_string(),
+                reason: "GameMode temporarily optimizes your system for gaming by adjusting CPU governor, I/O priority, and other settings. It can give you a noticeable FPS boost in games. Most modern games support it automatically!".to_string(),
+                action: "Install gamemode to optimize gaming performance".to_string(),
+                command: Some("pacman -S --noconfirm gamemode lib32-gamemode".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "gaming".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Gamemode".to_string()],
+            });
+        }
+
+        // Check for mangohud
+        let has_mangohud = Command::new("pacman")
+            .args(&["-Q", "mangohud"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mangohud {
+            result.push(Advice {
+                id: "mangohud".to_string(),
+                title: "Install MangoHud for in-game performance overlay".to_string(),
+                reason: "MangoHud shows FPS, CPU/GPU usage, temperatures, and more right in your games. It's super helpful for monitoring performance and looks really cool! Works with Vulkan and OpenGL games.".to_string(),
+                action: "Install mangohud for gaming metrics overlay".to_string(),
+                command: Some("pacman -S --noconfirm mangohud lib32-mangohud".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "gaming".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/MangoHud".to_string()],
+            });
+        }
+
+        // Check for gamescope (Steam Deck compositor)
+        let has_gamescope = Command::new("pacman")
+            .args(&["-Q", "gamescope"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_gamescope {
+            result.push(Advice {
+                id: "gamescope".to_string(),
+                title: "Install Gamescope for better game compatibility".to_string(),
+                reason: "Gamescope is the compositor used by Steam Deck. It can help with games that have resolution or window mode issues, and lets you run games in a contained environment with custom resolutions and upscaling.".to_string(),
+                action: "Install gamescope for advanced gaming features".to_string(),
+                command: Some("pacman -S --noconfirm gamescope".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "gaming".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Gamescope".to_string()],
+            });
+        }
+    }
+
+    // Check for Lutris (GOG, Epic, etc.)
+    let has_lutris = Command::new("pacman")
+        .args(&["-Q", "lutris"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_steam && !has_lutris {
+        result.push(Advice {
+            id: "lutris".to_string(),
+            title: "Install Lutris for non-Steam games".to_string(),
+            reason: "You have Steam, but if you also play games from GOG, Epic Games Store, or want to run Windows games outside of Steam, Lutris makes it super easy. It handles Wine configuration and has installers for tons of games.".to_string(),
+            action: "Install Lutris for managing all your games".to_string(),
+            command: Some("pacman -S --noconfirm lutris wine-staging".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "gaming".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Lutris".to_string()],
         });
     }
 
