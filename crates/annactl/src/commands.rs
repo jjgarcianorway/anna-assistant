@@ -141,7 +141,7 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         let mut counter = 1;
 
         // Display each category in a beautiful box
-        for category in category_order {
+        for &category in &category_order {
             if let Some(items) = by_category.get(category) {
                 if items.is_empty() {
                     continue;
@@ -183,7 +183,7 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
         }
 
         // Display any remaining categories not in the predefined order
-        for (category, items) in by_category {
+        for (category, items) in &by_category {
             if !category_order.contains(&category.as_str()) && !items.is_empty() {
                 println!();
                 let (emoji, color_code, title) = get_category_style(&category);
