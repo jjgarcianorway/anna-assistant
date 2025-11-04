@@ -2,7 +2,7 @@
 //!
 //! Analyzes system facts and generates actionable advice with Arch Wiki citations.
 
-use anna_common::{Advice, RiskLevel, SystemFacts};
+use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use std::process::Command;
 
 /// Generate advice based on system facts
@@ -42,6 +42,8 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
                 action: "Install amd-ucode package for CPU security and stability fixes".to_string(),
                 command: Some("pacman -S --noconfirm amd-ucode".to_string()),
                 risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Microcode".to_string()],
             });
         }
@@ -60,6 +62,8 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
                 action: "Install intel-ucode package for CPU security and stability fixes".to_string(),
                 command: Some("pacman -S --noconfirm intel-ucode".to_string()),
                 risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Microcode".to_string()],
             });
         }
@@ -90,7 +94,9 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                         action: "Install nvidia package for optimal graphics performance".to_string(),
                         command: Some("pacman -S --noconfirm nvidia nvidia-utils".to_string()),
                         risk: RiskLevel::Medium,
-                        wiki_refs: vec!["https://wiki.archlinux.org/title/NVIDIA".to_string()],
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/NVIDIA".to_string()],
                     });
                 }
             }
@@ -109,7 +115,9 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                         action: "Install vulkan-radeon for modern graphics API support".to_string(),
                         command: Some("pacman -S --noconfirm vulkan-radeon".to_string()),
                         risk: RiskLevel::Low,
-                        wiki_refs: vec!["https://wiki.archlinux.org/title/AMDGPU".to_string()],
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/AMDGPU".to_string()],
                     });
                 }
             }
@@ -133,7 +141,9 @@ fn check_orphan_packages(facts: &SystemFacts) -> Vec<Advice> {
             action: "Remove orphaned packages to free disk space and reduce clutter".to_string(),
             command: Some("pacman -Rns --noconfirm $(pacman -Qdtq)".to_string()),
             risk: RiskLevel::Medium,
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman/Tips_and_tricks".to_string()],
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman/Tips_and_tricks".to_string()],
         });
     }
 
@@ -163,6 +173,8 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 action: "Install btrfs-progs for filesystem maintenance and health checks".to_string(),
                 command: Some("pacman -S --noconfirm btrfs-progs".to_string()),
                 risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs".to_string()],
             });
         } else {
@@ -174,6 +186,8 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                 action: "Run a Btrfs scrub to detect and fix data corruption".to_string(),
                 command: Some("btrfs scrub start /".to_string()),
                 risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Btrfs#Scrub".to_string()],
             });
         }
@@ -203,6 +217,8 @@ fn check_system_updates() -> Vec<Advice> {
                 action: "Update system to get latest features and security fixes".to_string(),
                 command: Some("pacman -Syu --noconfirm".to_string()),
                 risk: RiskLevel::Medium,
+                priority: Priority::Recommended,
+                category: "maintenance".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/System_maintenance".to_string()],
             });
         }

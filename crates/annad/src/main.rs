@@ -5,6 +5,8 @@
 mod telemetry;
 mod recommender;
 mod rpc_server;
+mod executor;
+mod audit;
 
 use anyhow::Result;
 use rpc_server::DaemonState;
@@ -45,7 +47,7 @@ async fn main() -> Result<()> {
         format!("v{}", VERSION),
         facts,
         advice,
-    ));
+    ).await?);
 
     info!("Anna Daemon ready");
 

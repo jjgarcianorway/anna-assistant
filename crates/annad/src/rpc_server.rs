@@ -1,5 +1,7 @@
 //! RPC Server - Unix socket server for daemon-client communication
 
+use crate::audit::AuditLogger;
+use crate::executor;
 use anna_common::ipc::{ConfigData, Method, Request, Response, ResponseData, StatusData};
 use anna_common::{Advice, SystemFacts};
 use anyhow::{Context, Result};
@@ -19,17 +21,21 @@ pub struct DaemonState {
     pub facts: RwLock<SystemFacts>,
     pub advice: RwLock<Vec<Advice>>,
     pub config: RwLock<ConfigData>,
+    pub audit_logger: AuditLogger,
 }
 
 impl DaemonState {
-    pub fn new(version: String, facts: SystemFacts, advice: Vec<Advice>) -> Self {
-        Self {
+    pub async fn new(version: String, facts: SystemFacts, advice: Vec<Advice>) -> Result<Self> {
+        let audit_logger = AuditLogger::new().await?;
+
+        Ok(Self {
             version,
             start_time: std::time::Instant::now(),
             facts: RwLock::new(facts),
             advice: RwLock::new(advice),
             config: RwLock::new(ConfigData::default()),
-        }
+            audit_logger,
+        })
     }
 }
 
@@ -140,14 +146,40 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
         }
 
         Method::ApplyAction { advice_id, dry_run } => {
-            if dry_run {
-                Ok(ResponseData::ActionResult {
-                    success: true,
-                    message: format!("Would apply action: {}", advice_id),
-                })
-            } else {
-                // TODO: Actually execute actions
-                Err("Action execution not yet implemented".to_string())
+            // Find the advice
+            let advice_list = state.advice.read().await;
+            let advice = advice_list.iter().find(|a| a.id == advice_id);
+
+            match advice {
+                Some(adv) => {
+                    // Execute the action
+                    match executor::execute_action(adv, dry_run).await {
+                        Ok(action) => {
+                            // Log to audit
+                            let audit_entry = executor::create_audit_entry(&action, "annactl");
+                            if let Err(e) = state.audit_logger.log(&audit_entry).await {
+                                warn!("Failed to log audit entry: {}", e);
+                            }
+
+                            let message = if action.success {
+                                if dry_run {
+                                    action.output
+                                } else {
+                                    format!("Action completed successfully:\n{}", action.output)
+                                }
+                            } else {
+                                format!("Action failed: {}", action.error.unwrap_or_default())
+                            };
+
+                            Ok(ResponseData::ActionResult {
+                                success: action.success,
+                                message,
+                            })
+                        }
+                        Err(e) => Err(format!("Failed to execute action: {}", e)),
+                    }
+                }
+                None => Err(format!("Advice not found: {}", advice_id)),
             }
         }
 

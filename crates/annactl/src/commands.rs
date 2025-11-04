@@ -188,11 +188,87 @@ pub async fn advise(risk_filter: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn apply(_id: Option<String>, _auto: bool, _dry_run: bool) -> Result<()> {
+pub async fn apply(id: Option<String>, auto: bool, dry_run: bool) -> Result<()> {
     println!("{}", header("Apply Recommendations"));
     println!();
-    println!("{}", beautiful::status(Level::Info, "This feature requires a running daemon"));
-    println!("{}", beautiful::status(Level::Info, "Coming in next iteration"));
+
+    // Connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!(
+                "{}",
+                beautiful::status(Level::Error, "Daemon not running")
+            );
+            println!();
+            println!(
+                "{}",
+                beautiful::status(Level::Info, "Start with: sudo systemctl start annad")
+            );
+            return Ok(());
+        }
+    };
+
+    // If specific ID provided, apply that one
+    if let Some(advice_id) = id {
+        println!(
+            "{}",
+            beautiful::status(
+                Level::Info,
+                &format!("Applying advice: {}", advice_id)
+            )
+        );
+
+        let result = client
+            .call(Method::ApplyAction {
+                advice_id: advice_id.clone(),
+                dry_run,
+            })
+            .await?;
+
+        if let ResponseData::ActionResult { success, message } = result {
+            if success {
+                println!("{}", beautiful::status(Level::Success, &message));
+            } else {
+                println!("{}", beautiful::status(Level::Error, &message));
+            }
+        }
+
+        return Ok(());
+    }
+
+    // Auto mode not yet implemented
+    if auto {
+        println!(
+            "{}",
+            beautiful::status(Level::Warning, "Auto-apply not yet implemented")
+        );
+        println!(
+            "{}",
+            beautiful::status(
+                Level::Info,
+                "Use --id <advice-id> to apply specific recommendations"
+            )
+        );
+        return Ok(());
+    }
+
+    // Show usage
+    println!(
+        "{}",
+        beautiful::status(
+            Level::Info,
+            "Use --id <advice-id> to apply a specific recommendation"
+        )
+    );
+    println!(
+        "{}",
+        beautiful::status(Level::Info, "Use --dry-run to see what would happen")
+    );
+    println!();
+    println!("{}", beautiful::status(Level::Info, "Example:"));
+    println!("  annactl apply --id orphan-packages --dry-run");
+    println!("  annactl apply --id orphan-packages");
 
     Ok(())
 }
