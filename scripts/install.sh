@@ -217,9 +217,14 @@ if ! command -v annactl >/dev/null 2>&1; then
 fi
 
 echo
-echo -e "${BOLD}${GREEN}${BOX_TL}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_TR}${RESET}"
-echo -e "${BOLD}${GREEN}${BOX_V}   Installation Complete! ${TAG}         ${BOX_V}${RESET}"
-echo -e "${BOLD}${GREEN}${BOX_BL}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_H}${BOX_BR}${RESET}"
+
+# Calculate box width properly
+BOX_WIDTH=60
+TITLE_TEXT="   Installation Complete! ${TAG}   "
+# Use printf to create properly sized box
+printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_TL}" "$(printf '%*s' $((BOX_WIDTH-2)) '' | tr ' ' "${BOX_H}")" "${BOX_TR}"
+printf "${BOLD}${GREEN}%s%-*s%s${RESET}\n" "${BOX_V}" $((BOX_WIDTH-2)) "${TITLE_TEXT}" "${BOX_V}"
+printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_BL}" "$(printf '%*s' $((BOX_WIDTH-2)) '' | tr ' ' "${BOX_H}")" "${BOX_BR}"
 echo
 echo -e "${BOLD}${CYAN}What Anna Can Do:${RESET}"
 echo
