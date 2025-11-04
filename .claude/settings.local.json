@@ -170,7 +170,8 @@
       "Bash(ANNA_EXPERIMENTAL=1 ./target/release/annactl:*)",
       "Bash(./scripts/check-version-consistency.sh:*)",
       "Bash(getent group:*)",
-      "Bash(./fix_socket.sh)"
+      "Bash(./fix_socket.sh)",
+      "Bash(./tests/verify_socket_fix.sh:*)"
     ],
     "deny": [],
     "ask": []

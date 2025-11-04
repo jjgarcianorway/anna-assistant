@@ -42,6 +42,23 @@ jobs:
       - name: Build release binaries
         run: cargo build --release --bin annad --bin annactl
 
+      - name: Verify socket ownership fix
+        run: |
+          echo "Verifying socket ownership fix is present..."
+          if grep -q "Socket group ownership set to anna" src/annad/src/rpc_v10.rs; then
+            echo "✓ Socket fix present in source"
+          else
+            echo "✗ CRITICAL: Socket fix missing from source!"
+            exit 1
+          fi
+
+          if strings target/release/annad | grep -q "Socket group ownership set to anna"; then
+            echo "✓ Socket fix compiled into binary"
+          else
+            echo "✗ CRITICAL: Socket fix not in binary!"
+            exit 1
+          fi
+
       - name: Verify embedded versions
         run: |
           VERSION=$(cat VERSION | tr -d '[:space:]' | sed 's/^v//')
