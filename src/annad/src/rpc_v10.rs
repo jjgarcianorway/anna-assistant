@@ -197,6 +197,14 @@ impl RpcServer {
             perms.set_mode(0o770);
             std::fs::set_permissions(socket_path, perms)?;
             info!("Socket permissions set to 0770: {}", socket_path.display());
+
+            // Set socket group ownership to 'anna' so users in anna group can connect
+            let anna_gid = Self::get_group_id("anna").unwrap_or(967);
+            if let Err(e) = Self::chown_path(socket_path, 0, anna_gid) {
+                warn!("Failed to set socket group ownership: {}", e);
+            } else {
+                info!("Socket group ownership set to anna (gid={})", anna_gid);
+            }
         }
 
         // fsync the parent directory to ensure socket entry is persisted

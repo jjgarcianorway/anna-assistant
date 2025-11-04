@@ -168,7 +168,9 @@
       "Bash(else echo \"annactl not found in PATH\")",
       "Bash(./scripts/verify_versions.sh:*)",
       "Bash(ANNA_EXPERIMENTAL=1 ./target/release/annactl:*)",
-      "Bash(./scripts/check-version-consistency.sh:*)"
+      "Bash(./scripts/check-version-consistency.sh:*)",
+      "Bash(getent group:*)",
+      "Bash(./fix_socket.sh)"
     ],
     "deny": [],
     "ask": []
