@@ -73,8 +73,14 @@ impl Default for DaemonConfig {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Check for --doctor-apply mode
+    // Check for --version flag
     let args: Vec<String> = std::env::args().collect();
+    if args.contains(&"--version".to_string()) {
+        println!("annad {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    // Check for --doctor-apply mode
     if args.contains(&"--doctor-apply".to_string()) {
         let verbose = args.contains(&"--verbose".to_string());
         let doctor = DoctorApply::new(verbose);
