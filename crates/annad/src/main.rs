@@ -4,6 +4,7 @@
 
 mod telemetry;
 mod recommender;
+mod intelligent_recommender;
 mod rpc_server;
 mod executor;
 mod audit;
@@ -39,8 +40,13 @@ async fn main() -> Result<()> {
     info!("System facts collected: {} packages installed", facts.installed_packages);
 
     // Generate recommendations
-    let advice = recommender::generate_advice(&facts);
-    info!("Generated {} recommendations", advice.len());
+    let mut advice = recommender::generate_advice(&facts);
+
+    // Add intelligent, behavior-based recommendations
+    advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
+
+    info!("Generated {} recommendations ({} intelligent)", advice.len(),
+          advice.iter().filter(|a| a.category == "development" || a.category == "beautification").count());
 
     // Initialize daemon state
     let state = Arc::new(DaemonState::new(

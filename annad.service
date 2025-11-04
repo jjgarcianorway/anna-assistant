@@ -1,0 +1,25 @@
+[Unit]
+Description=Anna Assistant Daemon
+Documentation=https://github.com/jjgarcianorway/anna-assistant
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/annad
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=annad
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -148,11 +148,27 @@ chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
 
 echo -e "${GREEN}${CHECK}${RESET} Binaries installed"
 
-# Restart service if it was enabled before
+# Install systemd service
+echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
+
+# Download service file from GitHub
+curl -L -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" 2>/dev/null || error_exit "Failed to download service file"
+
+cp "$TEMP_DIR/annad.service" /etc/systemd/system/annad.service
+chmod 644 /etc/systemd/system/annad.service
+
+systemctl daemon-reload
+echo -e "${GREEN}${CHECK}${RESET} Service file installed"
+
+# Enable and start service
 if systemctl is-enabled --quiet annad 2>/dev/null; then
     echo -e "${CYAN}${ARROW}${RESET} Restarting annad service..."
-    systemctl start annad
+    systemctl restart annad
     echo -e "${GREEN}${CHECK}${RESET} Service restarted"
+else
+    echo -e "${CYAN}${ARROW}${RESET} Enabling and starting annad service..."
+    systemctl enable --now annad
+    echo -e "${GREEN}${CHECK}${RESET} Service enabled and started"
 fi
 
 # Verify installation
