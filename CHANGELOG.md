@@ -5,6 +5,59 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.17] - 2025-01-XX
+
+### 🌐 Privacy, Security & Gaming - Reaching 80% Wiki Coverage!
+
+**High-impact features!** VPN, browsers, security tools, backups, screen recording, password managers, gaming enhancements, and mobile integration!
+
+### ✨ Added
+
+**🔒 VPN & Networking (2 new rules)**
+- WireGuard modern VPN support
+- NetworkManager VPN plugin recommendations
+
+**🌐 Browser Recommendations (2 new rules)**
+- Firefox/Chromium installation detection
+- uBlock Origin privacy extension reminder
+
+**🛡️ Security Tools (3 new rules)**
+- rkhunter for rootkit detection
+- ClamAV antivirus for file scanning
+- LUKS encryption passphrase backup reminder
+
+**💾 Backup Solutions (2 new rules)**
+- rsync for file synchronization
+- BorgBackup for encrypted deduplicated backups
+
+**🎥 Screen Recording (2 new rules)**
+- OBS Studio for professional recording/streaming
+- SimpleScreenRecorder for easy captures
+
+**🔐 Password Managers (1 new rule)**
+- KeePassXC for secure password storage
+
+**🎮 Gaming Enhancements (3 new rules)**
+- Proton-GE for better Windows game compatibility
+- MangoHud for in-game performance overlay
+- Wine for Windows application support
+
+**📱 Android Integration (2 new rules)**
+- KDE Connect for phone notifications and file sharing
+- scrcpy for Android screen mirroring
+
+### 🔄 Changed
+- Detection rule count increased from 110+ to 130+ (+18%)
+- Arch Wiki coverage improved from 70% to ~80%
+- Enhanced privacy and security recommendations
+
+### 📚 Documentation
+- README.md updated to v1.0.0-beta.17
+- Wiki coverage analysis added
+- CHANGELOG.md updated with beta.17 features
+
+---
+
 ## [1.0.0-beta.16] - 2025-01-XX
 
 ### 💻 Laptop, Audio, Shell & Bootloader Enhancements!

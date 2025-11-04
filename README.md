@@ -131,12 +131,12 @@ annactl apply --nums 1 --dry-run
 
 ## 📊 Current Status
 
-**Version**: v1.0.0-beta.16
+**Version**: v1.0.0-beta.17
 **Status**: Beta - Feature-rich and stable!
 
 ### What's Working
 
-✅ **110+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
+✅ **130+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
 ✅ **Automatic system monitoring** - refreshes advice on package changes, reboots, config edits
 ✅ **Multi-user support** - personalized advice based on desktop environment, shell, display server
 ✅ **Batch apply** - apply recommendations by number, range (1-5), or multiple (1,3,5-7)

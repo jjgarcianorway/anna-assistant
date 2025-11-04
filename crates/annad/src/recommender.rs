@@ -56,6 +56,14 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_filesystem_maintenance(facts));
     advice.extend(check_kernel_parameters());
     advice.extend(check_bootloader_optimization());
+    advice.extend(check_vpn_tools());
+    advice.extend(check_browser_recommendations());
+    advice.extend(check_security_tools());
+    advice.extend(check_backup_solutions());
+    advice.extend(check_screen_recording());
+    advice.extend(check_password_managers());
+    advice.extend(check_gaming_enhancements());
+    advice.extend(check_android_integration());
 
     advice
 }
@@ -3667,6 +3675,426 @@ fn check_bootloader_optimization() -> Vec<Advice> {
             priority: Priority::Optional,
             category: "beautification".to_string(),
             wiki_refs: vec!["https://wiki.archlinux.org/title/GRUB/Tips_and_tricks#Background_image_and_bitmap_fonts".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for VPN tools
+fn check_vpn_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for WireGuard
+    let has_wireguard = Command::new("pacman")
+        .args(&["-Q", "wireguard-tools"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check for OpenVPN
+    let has_openvpn = Command::new("pacman")
+        .args(&["-Q", "openvpn"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_wireguard && !has_openvpn {
+        result.push(Advice {
+            id: "vpn-wireguard".to_string(),
+            title: "Consider installing WireGuard for modern VPN".to_string(),
+            reason: "WireGuard is the modern, fast, and secure VPN protocol! It's built into the Linux kernel, incredibly fast (faster than OpenVPN), and super easy to configure. Perfect for secure remote access, privacy, or connecting to VPN services. Way simpler than OpenVPN!".to_string(),
+            action: "Install WireGuard tools".to_string(),
+            command: Some("pacman -S --noconfirm wireguard-tools".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/WireGuard".to_string()],
+        });
+    }
+
+    // Check for NetworkManager VPN plugins
+    let has_nm_vpn = Command::new("pacman")
+        .args(&["-Q", "networkmanager-openvpn"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_openvpn && !has_nm_vpn {
+        result.push(Advice {
+            id: "vpn-nm-plugin".to_string(),
+            title: "Install NetworkManager VPN plugin".to_string(),
+            reason: "You have OpenVPN but no NetworkManager plugin! The plugin adds VPN support to NetworkManager's GUI - you can import .ovpn files and connect to VPNs with a single click instead of command line. Much more convenient!".to_string(),
+            action: "Install NetworkManager OpenVPN plugin".to_string(),
+            command: Some("pacman -S --noconfirm networkmanager-openvpn".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "networking".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/NetworkManager#VPN_support".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check browser recommendations
+fn check_browser_recommendations() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for browsers
+    let has_firefox = Command::new("pacman").args(&["-Q", "firefox"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let has_chromium = Command::new("pacman").args(&["-Q", "chromium"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let has_chrome = Command::new("pacman").args(&["-Q", "google-chrome"]).output().map(|o| o.status.success()).unwrap_or(false);
+
+    if has_firefox {
+        // Suggest uBlock Origin reminder
+        result.push(Advice {
+            id: "browser-firefox-ublock".to_string(),
+            title: "Reminder: Install uBlock Origin in Firefox".to_string(),
+            reason: "You have Firefox! Make sure to install uBlock Origin extension for ad blocking and privacy. It's the best ad blocker - blocks ads, trackers, and malware. Essential for web browsing today! Also consider Privacy Badger and HTTPS Everywhere.".to_string(),
+            action: "Install uBlock Origin from Firefox Add-ons".to_string(),
+            command: None, // Browser extension
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Firefox#Privacy".to_string()],
+        });
+    }
+
+    if !has_firefox && !has_chromium && !has_chrome {
+        result.push(Advice {
+            id: "browser-install".to_string(),
+            title: "Install a web browser".to_string(),
+            reason: "No web browser detected! Firefox is open-source, privacy-focused, and has great extension support. Chromium is Google's open-source browser (Chrome without Google services). You need one to browse the web!".to_string(),
+            action: "Install Firefox or Chromium".to_string(),
+            command: Some("pacman -S --noconfirm firefox".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Firefox".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check security tools
+fn check_security_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for rkhunter (rootkit detection)
+    let has_rkhunter = Command::new("pacman")
+        .args(&["-Q", "rkhunter"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_rkhunter {
+        result.push(Advice {
+            id: "security-rkhunter".to_string(),
+            title: "Consider rkhunter for rootkit detection".to_string(),
+            reason: "rkhunter scans your system for rootkits, backdoors, and security issues! It checks for suspicious files, hidden processes, and system modifications. Run it monthly to catch compromises early. Think of it as a security health check!".to_string(),
+            action: "Install rkhunter".to_string(),
+            command: Some("pacman -S --noconfirm rkhunter".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "security".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Rkhunter".to_string()],
+        });
+    }
+
+    // Check for ClamAV (antivirus)
+    let has_clamav = Command::new("pacman")
+        .args(&["-Q", "clamav"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_clamav {
+        result.push(Advice {
+            id: "security-clamav".to_string(),
+            title: "Consider ClamAV for antivirus scanning".to_string(),
+            reason: "While Linux malware is rare, ClamAV is useful for scanning files from Windows users or downloaded files! It catches Windows viruses in shared files, email attachments, and USB drives. Protects your Windows-using friends when you share files!".to_string(),
+            action: "Install ClamAV".to_string(),
+            command: Some("pacman -S --noconfirm clamav".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "security".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/ClamAV".to_string()],
+        });
+    }
+
+    // Check for LUKS encrypted partitions
+    let has_encrypted = Command::new("lsblk")
+        .args(&["-o", "TYPE"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).contains("crypt"))
+        .unwrap_or(false);
+
+    if has_encrypted {
+        result.push(Advice {
+            id: "security-luks-reminder".to_string(),
+            title: "LUKS encryption detected - Remember your backup!".to_string(),
+            reason: "You're using LUKS encryption - great for security! Remember: if you lose your encryption password, your data is GONE FOREVER. Make sure you have a secure backup of your passphrase. Consider using a password manager or writing it down in a safe place!".to_string(),
+            action: "Verify you have passphrase backup".to_string(),
+            command: None, // Manual reminder
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "security".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Dm-crypt".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check backup solutions
+fn check_backup_solutions() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for rsync (basic backup)
+    let has_rsync = Command::new("pacman")
+        .args(&["-Q", "rsync"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_rsync {
+        result.push(Advice {
+            id: "backup-rsync".to_string(),
+            title: "Install rsync for file synchronization and backups".to_string(),
+            reason: "You don't have rsync! It's THE tool for backups and file syncing - efficient, incremental, and powerful. Perfect for backing up to external drives, NAS, or remote servers. Everyone should have this! 'rsync -av source/ destination/' is all you need for basic backups.".to_string(),
+            action: "Install rsync".to_string(),
+            command: Some("pacman -S --noconfirm rsync".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Rsync".to_string()],
+        });
+    }
+
+    // Check for borg backup
+    let has_borg = Command::new("pacman")
+        .args(&["-Q", "borg"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_borg && has_rsync {
+        result.push(Advice {
+            id: "backup-borg".to_string(),
+            title: "Consider BorgBackup for encrypted backups".to_string(),
+            reason: "Borg is an AMAZING backup tool! It does deduplication (saves tons of space), encryption, compression, and makes backups super fast. You can keep dozens of snapshots without using much disk space. Way better than rsync for regular backups!".to_string(),
+            action: "Install BorgBackup".to_string(),
+            command: Some("pacman -S --noconfirm borg".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Borg_backup".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check screen recording tools
+fn check_screen_recording() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for OBS Studio
+    let has_obs = Command::new("pacman")
+        .args(&["-Q", "obs-studio"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_obs {
+        result.push(Advice {
+            id: "recording-obs".to_string(),
+            title: "Install OBS Studio for screen recording and streaming".to_string(),
+            reason: "OBS Studio is THE tool for screen recording, streaming, and video capture! Record tutorials, gameplay, video calls, or live stream to Twitch/YouTube. It's professional-grade software used by streamers worldwide. Captures screen, webcam, audio, and more with tons of customization!".to_string(),
+            action: "Install OBS Studio".to_string(),
+            command: Some("pacman -S --noconfirm obs-studio".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Open_Broadcaster_Software".to_string()],
+        });
+    }
+
+    // Check for SimpleScreenRecorder (lighter alternative)
+    let has_ssr = Command::new("pacman")
+        .args(&["-Q", "simplescreenrecorder"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_obs && !has_ssr {
+        result.push(Advice {
+            id: "recording-ssr".to_string(),
+            title: "Or try SimpleScreenRecorder for easy recording".to_string(),
+            reason: "Want something simpler than OBS? SimpleScreenRecorder is lightweight and easy - just open, select area, and record! Great for quick screen recordings, tutorials, or capturing bugs. Less features than OBS but way simpler to use!".to_string(),
+            action: "Install SimpleScreenRecorder".to_string(),
+            command: Some("pacman -S --noconfirm simplescreenrecorder".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "multimedia".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture#SimpleScreenRecorder".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check password managers
+fn check_password_managers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for KeePassXC
+    let has_keepass = Command::new("pacman")
+        .args(&["-Q", "keepassxc"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check for Bitwarden
+    let has_bitwarden = Command::new("pacman")
+        .args(&["-Q", "bitwarden"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_keepass && !has_bitwarden {
+        result.push(Advice {
+            id: "password-manager-keepass".to_string(),
+            title: "Install a password manager (KeePassXC recommended)".to_string(),
+            reason: "You don't have a password manager! In 2025, this is ESSENTIAL for security! KeePassXC stores all passwords in an encrypted database - you only need to remember one master password. Generate strong unique passwords for every site, sync across devices, auto-fill forms. Stop reusing passwords!".to_string(),
+            action: "Install KeePassXC".to_string(),
+            command: Some("pacman -S --noconfirm keepassxc".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "security".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/KeePass".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check gaming enhancements
+fn check_gaming_enhancements() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if Steam is installed
+    let has_steam = Command::new("pacman")
+        .args(&["-Q", "steam"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_steam {
+        // Check for Proton-GE (better Windows game compatibility)
+        result.push(Advice {
+            id: "gaming-proton-ge".to_string(),
+            title: "Consider Proton-GE for better game compatibility".to_string(),
+            reason: "You have Steam! Proton-GE is a community version of Proton with extra patches, better codec support, and fixes for specific games. Many Windows games run better on Proton-GE than stock Proton! Install via ProtonUp-Qt for easy management.".to_string(),
+            action: "Install ProtonUp-Qt to manage Proton-GE".to_string(),
+            command: Some("pacman -S --noconfirm protonup-qt".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "gaming".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Steam#Proton".to_string()],
+        });
+
+        // Check for MangoHud (performance overlay)
+        let has_mangohud = Command::new("pacman")
+            .args(&["-Q", "mangohud"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_mangohud {
+            result.push(Advice {
+                id: "gaming-mangohud".to_string(),
+                title: "Install MangoHud for in-game performance overlay".to_string(),
+                reason: "MangoHud shows FPS, CPU/GPU usage, temps, and more while gaming! It's like MSI Afterburner for Linux - see exactly how your games perform. Launch games with 'mangohud %command%' in Steam to enable it. Essential for PC gamers!".to_string(),
+                action: "Install MangoHud".to_string(),
+                command: Some("pacman -S --noconfirm mangohud".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "gaming".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/MangoHud".to_string()],
+            });
+        }
+    }
+
+    // Check for Wine
+    let has_wine = Command::new("pacman")
+        .args(&["-Q", "wine"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_wine && !has_steam {
+        result.push(Advice {
+            id: "gaming-wine".to_string(),
+            title: "Install Wine to run Windows applications".to_string(),
+            reason: "Wine lets you run Windows programs on Linux! Great for games, old software, or Windows-only apps. For gaming, Steam's Proton is easier, but Wine works for non-Steam games and applications. 'wine program.exe' is all you need!".to_string(),
+            action: "Install Wine".to_string(),
+            command: Some("pacman -S --noconfirm wine".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "gaming".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Wine".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check Android integration
+fn check_android_integration() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for KDE Connect
+    let has_kdeconnect = Command::new("pacman")
+        .args(&["-Q", "kdeconnect"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_kdeconnect {
+        result.push(Advice {
+            id: "mobile-kdeconnect".to_string(),
+            title: "Install KDE Connect for phone integration".to_string(),
+            reason: "KDE Connect is AMAZING for phone integration! Get phone notifications on your PC, send/receive texts, share clipboard, transfer files, use phone as remote control, and more. Works with Android (and iOS via third-party). Makes your phone and PC work together seamlessly!".to_string(),
+            action: "Install KDE Connect".to_string(),
+            command: Some("pacman -S --noconfirm kdeconnect".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/KDE_Connect".to_string()],
+        });
+    }
+
+    // Check for scrcpy (screen mirroring)
+    let has_scrcpy = Command::new("pacman")
+        .args(&["-Q", "scrcpy"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_scrcpy {
+        result.push(Advice {
+            id: "mobile-scrcpy".to_string(),
+            title: "Install scrcpy for Android screen mirroring".to_string(),
+            reason: "scrcpy mirrors your Android screen to your PC with low latency! Control your phone from your computer - great for demos, testing apps, or just using your phone on a big screen. Works over USB or WiFi. Super smooth and fast!".to_string(),
+            action: "Install scrcpy".to_string(),
+            command: Some("pacman -S --noconfirm scrcpy".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Android#Screen_mirroring".to_string()],
         });
     }
 
