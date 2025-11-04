@@ -495,108 +495,142 @@ pub fn doctor_post(verbose: bool) -> Result<()> {
 use std::os::unix::fs::PermissionsExt;
 
 pub fn doctor_repair(_json: bool, skip_confirmation: bool) -> Result<()> {
-    println!("\n╭─ Anna Repair ────────────────────────────────────────────────────");
-    println!("│");
-    println!("│  This will:");
-    println!("│  - Stop annad daemon");
-    println!("│  - Fix directory ownership and permissions");
-    println!("│  - Install/verify CAPABILITIES.toml");
-    println!("│  - Restart daemon");
-    println!("│");
+    println!();
+    println!("{DIM}{TOP_LEFT}{}{TOP_RIGHT}", HORIZONTAL.repeat(70));
+    println!("{VERTICAL}{RESET}  {CYAN}{BOLD}🔧 Anna Repair{RESET}                                                    {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}  This will:                                                          {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}  • Stop annad daemon                                                 {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}  • Fix directory ownership and permissions                           {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}  • Remove stale socket                                               {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}  • Restart daemon                                                    {DIM}{VERTICAL}{RESET}");
+    println!("{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
 
     if !skip_confirmation {
-        println!("│  Continue? [y/N] ");
-        print!("│  > ");
+        println!("{VERTICAL}{RESET}  {YELLOW}Continue? [y/N]{RESET}                                                   {DIM}{VERTICAL}{RESET}");
+        print!("{VERTICAL}{RESET}  {DIM}>{RESET} ");
         std::io::Write::flush(&mut std::io::stdout())?;
 
         let mut response = String::new();
         std::io::stdin().read_line(&mut response)?;
 
         if !response.trim().eq_ignore_ascii_case("y") {
-            println!("│");
-            println!("╰──────────────────────────────────────────────────────────────────");
-            println!("\nRepair cancelled\n");
+            println!("{DIM}{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
+            println!("{DIM}{BOTTOM_LEFT}{}{BOTTOM_RIGHT}", HORIZONTAL.repeat(70));
+            println!();
+            println!("Repair cancelled");
+            println!();
             return Ok(());
         }
     }
 
-    println!("│");
-    println!("╰──────────────────────────────────────────────────────────────────");
+    println!("{DIM}{VERTICAL}{RESET}                                                                      {DIM}{VERTICAL}{RESET}");
+    println!("{DIM}{BOTTOM_LEFT}{}{BOTTOM_RIGHT}", HORIZONTAL.repeat(70));
     println!();
 
     // Step 1: Stop service
-    println!("→ Stopping annad service...");
+    print!("{BLUE}→{RESET} Stopping annad service...");
+    std::io::Write::flush(&mut std::io::stdout())?;
     let stop_status = Command::new("sudo")
         .args(&["systemctl", "stop", "annad"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()?;
 
     if !stop_status.success() {
-        eprintln!("⚠ Failed to stop service (continuing anyway)");
+        println!(" {YELLOW}⚠{RESET}");
+        println!("  {DIM}Service was not running{RESET}");
+    } else {
+        println!(" {GREEN}✓{RESET}");
     }
 
     // Step 2: Fix permissions on directories
-    println!("→ Fixing directory permissions...");
-    let dirs = vec!["/var/lib/anna", "/var/log/anna", "/run/anna"];
+    println!("{BLUE}→{RESET} Fixing directory permissions...");
+    // Note: /run/anna is created by systemd via RuntimeDirectory, so we skip it
+    let dirs = vec!["/var/lib/anna", "/var/log/anna"];
     for dir in &dirs {
         let chown_status = Command::new("sudo")
             .args(&["chown", "-R", "anna:anna", dir])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status();
 
-        let chmod_status = Command::new("sudo").args(&["chmod", "0750", dir]).status();
+        let chmod_status = Command::new("sudo")
+            .args(&["chmod", "0750", dir])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
 
         if chown_status.is_ok() && chmod_status.is_ok() {
-            println!("  ✓ Fixed {}", dir);
+            println!("  {GREEN}✓{RESET} {}", dir);
         } else {
-            eprintln!("  ⚠ Failed to fix {}", dir);
+            println!("  {YELLOW}⚠{RESET} Failed to fix {}", dir);
         }
     }
 
     // Step 3: Remove stale socket
-    println!("→ Removing stale socket...");
+    print!("{BLUE}→{RESET} Checking for stale socket...");
+    std::io::Write::flush(&mut std::io::stdout())?;
     let socket_path = "/run/anna/annad.sock";
     if Path::new(socket_path).exists() {
         let rm_status = Command::new("sudo")
             .args(&["rm", "-f", socket_path])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()?;
         if rm_status.success() {
-            println!("  ✓ Removed {}", socket_path);
+            println!(" {GREEN}✓{RESET}");
+            println!("  {DIM}Removed stale socket{RESET}");
         }
     } else {
-        println!("  (socket does not exist)");
+        println!(" {DIM}(none found){RESET}");
     }
 
     // Step 4: Start service
-    println!("→ Starting annad service...");
+    print!("{BLUE}→{RESET} Starting annad service...");
+    std::io::Write::flush(&mut std::io::stdout())?;
     let start_status = Command::new("sudo")
         .args(&["systemctl", "start", "annad"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status()?;
 
     if !start_status.success() {
-        eprintln!("\n✗ Failed to start service");
-        eprintln!("  Check: sudo journalctl -u annad -n 30\n");
+        println!(" {RED}✗{RESET}");
+        println!();
+        println!("{RED}Failed to start service{RESET}");
+        println!("  Check: {DIM}sudo journalctl -u annad -n 30{RESET}");
+        println!();
         std::process::exit(1);
+    } else {
+        println!(" {GREEN}✓{RESET}");
     }
 
     // Step 5: Poll for socket (10 seconds)
-    println!("→ Waiting for socket (up to 10s)...");
+    print!("{BLUE}→{RESET} Waiting for socket...");
+    std::io::Write::flush(&mut std::io::stdout())?;
     let mut socket_found = false;
     for i in 1..=10 {
         std::thread::sleep(std::time::Duration::from_secs(1));
         if Path::new(socket_path).exists() {
             socket_found = true;
-            println!("  ✓ Socket appeared after {}s", i);
+            println!(" {GREEN}✓{RESET} {DIM}({}s){RESET}", i);
             break;
         }
     }
 
     if !socket_found {
-        eprintln!("\n⚠ Socket did not appear after 10s");
-        eprintln!("  Check: sudo journalctl -u annad -n 30\n");
+        println!(" {RED}✗{RESET}");
+        println!();
+        println!("{YELLOW}Socket did not appear after 10s{RESET}");
+        println!("  Check: {DIM}sudo journalctl -u annad -n 30{RESET}");
+        println!();
         std::process::exit(1);
     }
 
     // Step 6: Verify socket permissions and ownership
-    println!("→ Verifying socket permissions...");
+    print!("{BLUE}→{RESET} Verifying socket permissions...");
+    std::io::Write::flush(&mut std::io::stdout())?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
@@ -630,51 +664,51 @@ pub fn doctor_repair(_json: bool, skip_confirmation: bool) -> Result<()> {
                 })
                 .unwrap_or(1003);
 
+            let mut fixes_needed = false;
+
             if mode != 0o660 {
-                println!(
-                    "  ⚠ Socket mode incorrect: {:o} (expected: 660), fixing...",
-                    mode
-                );
-                let chmod_status = Command::new("sudo")
-                    .args(&["chmod", "0660", socket_path])
-                    .status()?;
-                if chmod_status.success() {
-                    println!("  ✓ Fixed socket mode to 0660");
-                }
-            } else {
-                println!("  ✓ Socket mode correct: {:o}", mode);
+                fixes_needed = true;
             }
 
             if uid != anna_uid || gid != anna_gid {
-                println!("  ⚠ Socket ownership incorrect: uid={} gid={} (expected: anna:anna), fixing...", uid, gid);
-                let chown_status = Command::new("sudo")
-                    .args(&["chown", "anna:anna", socket_path])
-                    .status()?;
-                if chown_status.success() {
-                    println!("  ✓ Fixed socket ownership to anna:anna");
+                fixes_needed = true;
+            }
+
+            if fixes_needed {
+                println!(" {YELLOW}⚠{RESET}");
+                if mode != 0o660 {
+                    let chmod_status = Command::new("sudo")
+                        .args(&["chmod", "0660", socket_path])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status()?;
+                    if chmod_status.success() {
+                        println!("  {GREEN}✓{RESET} Fixed socket mode to 0660");
+                    }
+                }
+
+                if uid != anna_uid || gid != anna_gid {
+                    let chown_status = Command::new("sudo")
+                        .args(&["chown", "anna:anna", socket_path])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status()?;
+                    if chown_status.success() {
+                        println!("  {GREEN}✓{RESET} Fixed socket ownership");
+                    }
                 }
             } else {
-                println!("  ✓ Socket ownership correct: anna:anna");
+                println!(" {GREEN}✓{RESET}");
             }
         }
     }
 
-    // Step 7: Verify systemd RuntimeDirectoryMode
-    println!("→ Verifying systemd configuration...");
-    let unit_path = "/etc/systemd/system/annad.service";
-    if let Ok(contents) = std::fs::read_to_string(unit_path) {
-        if contents.contains("RuntimeDirectoryMode=0750") {
-            println!("  ✓ RuntimeDirectoryMode=0750 present in service file");
-        } else {
-            println!("  ⚠ RuntimeDirectoryMode=0750 not found in service file");
-            println!("    Expected: RuntimeDirectoryMode=0750");
-        }
-    }
-
     println!();
-    println!("✓ Repair completed successfully");
+    println!("{GREEN}✓ Repair completed successfully{RESET}");
     println!();
-    println!("Recommended: Run 'annactl doctor post --verbose' to verify");
+    println!("{DIM}Next steps:{RESET}");
+    println!("  • Run {CYAN}annactl status{RESET} to verify");
+    println!("  • Run {CYAN}annactl doctor check{RESET} for full health check");
     println!();
     std::process::exit(0);
 }

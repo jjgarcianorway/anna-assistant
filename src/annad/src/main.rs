@@ -226,15 +226,9 @@ async fn main() -> Result<()> {
         Err(e) => {
             warn!("Failed to load policy.toml: {}", e);
             warn!("Starting with default policy (alert-only mode)");
-            // Create minimal default - will try to load again in future
-            match PolicyEngine::new() {
-                Ok(engine) => Arc::new(Mutex::new(engine)),
-                Err(_) => {
-                    error!("Cannot initialize policy engine, using fallback");
-                    // For now, just try again - in production this would need a hardcoded fallback
-                    return Err(e);
-                }
-            }
+            // Create safe default policy
+            let engine = PolicyEngine::new_default();
+            Arc::new(Mutex::new(engine))
         }
     };
 

@@ -9,6 +9,256 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🧹 Project Cleanup (2025-11-03)
+
+**Critical security fix and codebase cleanup to remove obsolete features**
+
+#### Fixed
+- **Security**: install.sh version download vulnerability - script now enforces minimum version >= v1.0.0-rc.15
+  - Added `version_gte()` comparison function with proper semver + rc suffix support
+  - Prevents accidental downgrades when GitHub releases are misordered
+  - Shows minimum version requirement during installation
+
+#### Removed
+- **Obsolete experimental commands** (no longer functional or maintained):
+  - `collect`, `classify` - Replaced by better telemetry systems
+  - `sensors`, `net`, `disk`, `top` - Basic monitoring replaced by integrated systems
+  - `events`, `export` - Superseded by report/status commands
+  - `profile` - Redundant with other profiling tools
+  - `health`, `reload` - Integrated into status/doctor commands
+  - `learn`, `profiled`, `autonomy`, `triggers` - Experimental features never finalized
+  - `actions`, `audit`, `forecast`, `anomalies` - Incomplete implementations
+
+#### Retained Commands
+- **Core stable commands**: `version`, `status`, `doctor`, `advisor`, `report`, `apply`, `rollback`, `config`
+- **Experimental (ANNA_EXPERIMENTAL=1)**: `radar`, `hw`, `storage` - These are functional and maintained
+
+#### Impact
+- Reduced command surface from 29 to 11 commands
+- Cleaner help output (`annactl --help`)
+- 213 warnings reduced to manageable set
+- Build time and binary size reduced
+- Clearer user experience with only working commands visible
+
+---
+
+### v1.4.0-alpha "Synchronization & Web GUI" - Phase 3.1: Sync Foundation
+
+**Anna v1.4 Phase 3.1 establishes the synchronization infrastructure for real-time config updates across daemon, TUI, and future GUI.**
+
+This release introduces:
+- **Event-driven architecture** for configuration synchronization
+- **Config API module** with unified read/write/watch interface
+- **Automatic change detection** and diff generation
+- **Snapshot creation** before every config change
+- **Checksum-based conflict detection**
+- **TUI integration** with sync-aware save operations
+
+---
+
+#### 1. Configuration API Module ✅
+
+**Unified interface for configuration management with synchronization**
+
+- **Event System** (`src/anna_common/src/config_api.rs`)
+  - `ConfigUpdateEvent`: Tracks changes with timestamps, source, actor
+  - `ConfigEvent` enum: Updated, ValidationError, ReloadRequest, SnapshotCreated
+  - `EventSource`: Tui, Gui, Daemon, Remote, External
+  - `Actor`: User, System, Scheduler
+
+- **Core API Functions**:
+  - `save_with_sync()`: Atomic write with event emission
+  - `watch_config_dir()`: File system monitoring (placeholder for Phase 3.2)
+  - `calculate_checksum()`: SHA-256 content hashing
+  - `create_snapshot()`: Pre-change backup creation
+  - `emit_event()`: Broadcast config changes
+
+- **Change Detection**:
+  - Automatic diffing between old and new configurations
+  - Field-level tracking with old/new values
+  - ChangeSet structure for granular updates
+  - Hash-based conflict detection
+
+- **Validated Configuration**:
+  - `ValidatedConfig` struct with checksum and mtime
+  - `load()`: Load with validation
+  - `is_stale()`: Check for external modifications
+  - `reload_if_stale()`: Conditional reload
+
+- **Benefits**:
+  - Consistent config management across all components
+  - Event-driven architecture enables live sync
+  - Automatic snapshot creation before changes
+  - Conflict detection prevents data loss
+  - Full audit trail of all modifications
+
+---
+
+#### 2. TUI Synchronization Integration ✅
+
+**Config TUI now uses sync-aware save operations**
+
+- **Updated Save Flow** (`src/annactl/src/config_cmd.rs`)
+  - Replaced direct YAML writes with `config_api::save_with_sync()`
+  - Automatic event emission on apply
+  - Snapshot creation before config writes
+  - EventSource::Tui and Actor::User tracking
+
+- **Event Flow**:
+  ```
+  User applies config in TUI
+    ↓
+  config_api::save_with_sync()
+    ↓
+    ├─→ Create snapshot
+    ├─→ Detect changes (diff)
+    ├─→ Atomic write
+    ├─→ Emit ConfigUpdateEvent
+    └─→ Return SyncResult
+  ```
+
+---
+
+#### 3. Synchronization Architecture Documentation ✅
+
+**Complete design document for sync system**
+
+- **Architecture Document** (`docs/SYNC-ARCHITECTURE.md`)
+  - Event-driven synchronization model
+  - Message protocol specifications (JSON schemas)
+  - File watching strategy with debouncing
+  - Conflict resolution approach
+  - Security model (local-first, consent-driven)
+  - Performance targets
+  - Testing strategy
+
+- **Security Guarantees**:
+  - Local-first: All data stays on user's machine
+  - Consent-driven: Explicit flags for remote operations
+  - Auditable: Every change logged with full context
+  - SSH-based remote: Uses existing user keys
+  - No telemetry, no cloud dependencies
+
+---
+
+#### 4. Unit Tests ✅
+
+**Comprehensive test coverage for config API**
+
+- Event serialization (Tui, Gui, Daemon, Remote, External)
+- Actor serialization (User, System, Scheduler)
+- Change detection (field-level diffs)
+- Checksum consistency (deterministic hashing)
+- Checksum sensitivity (detects modifications)
+
+---
+
+#### What's Next: Phase 3.2
+
+**Upcoming features for v1.4.0-beta**:
+
+1. **File Watching** (notify crate integration)
+   - Watch `~/.config/anna/` directory
+   - Debounce events (200ms window)
+   - Trigger reload on validated changes
+
+2. **Daemon Sync Broadcaster**
+   - Listen for ConfigUpdateEvent
+   - Reload config when received
+   - Broadcast to connected clients
+
+3. **TUI Live Refresh**
+   - Subscribe to config events
+   - Auto-reload on external changes
+   - Show notification when updated
+
+4. **Enhanced Slider Editing**
+   - `←→` keys adjust values
+   - Real-time numeric feedback
+   - Visual position indicator
+
+5. **Profile Import/Export**
+   ```bash
+   annactl config --import profile.yaml
+   annactl config --export mysetup.yaml
+   ```
+
+6. **Remote Configuration**
+   ```bash
+   annactl config --remote user@host
+   ```
+
+---
+
+### v1.3.0 "Configurator & Profiles" - Interactive Configuration TUI
+
+**Anna v1.3.0 introduces a beautiful, interactive TUI for configuring Anna through 7 intuitive sections.**
+
+This release makes Anna's configuration accessible and user-friendly through:
+- **Interactive TUI** built with ratatui for terminal-based configuration
+- **7 Configuration Sections**: Profile, Priorities, Desktop, Safety, Scheduler, Modules, Review
+- **Three-Panel Layout**: Sidebar navigation + Center content + Contextual help
+- **Live Preview**: See changes before applying them
+- **Safe Apply**: Automatic snapshot creation before configuration changes
+- **Keyboard Navigation**: Intuitive vim-like keyboard shortcuts
+
+---
+
+#### 1. Interactive Configurator TUI ✅
+
+**Beautiful terminal interface for Anna configuration**
+
+- **TUI Architecture** (`src/annactl/src/config_cmd.rs`)
+  - Three-panel layout: Navigation (14 cols) + Content (42+ cols) + Help (23 cols)
+  - Pastel color palette matching Anna's beautiful aesthetic
+  - Rounded borders, Unicode symbols, elegant typography
+  - Real-time state management with dirty flag tracking
+
+- **Configuration Sections**:
+  1. **Profile Selection**: Choose from bundled profiles (minimal, beautiful, workstation, gaming, server)
+  2. **User Priorities**: Adjust performance, responsiveness, battery, aesthetics, stability sliders
+  3. **Desktop & Terminal**: Configure aesthetic improvements, theme application, diff previews
+  4. **Safety & Rollback**: Set snapshot retention, confirmation policies, view audit logs
+  5. **Scheduler**: Configure fact collection intervals, quiet hours, scheduled tasks
+  6. **Modules**: Enable/disable advisor modules (editor-ux, desktop-env, graphics, etc.)
+  7. **Review & Apply**: Preview all changes before writing to configuration files
+
+- **Configuration Backend** (`src/anna_common/src/configurator.rs`)
+  - Unified configuration system with master config and priorities
+  - YAML-based configuration files in `~/.config/anna/`
+  - Profile templates for common use cases
+  - Safe save operations with validation
+
+- **Keyboard Shortcuts**:
+  - `↑↓` or `j/k`: Navigate sections
+  - `Tab`: Next section
+  - `1-7`: Jump to specific section
+  - `Space`: Toggle checkboxes
+  - `Enter`: Apply changes
+  - `q`: Quit
+
+- **CLI Commands**:
+  ```bash
+  annactl config                    # Launch interactive TUI
+  annactl config --validate         # Validate config syntax (experimental)
+  ```
+
+- **Color Palette**:
+  - Pastel Blue (#89b4fa): Headers, focus
+  - Pastel Green (#a6e3a1): Success, enabled
+  - Pastel Yellow (#f9e2af): Warnings, attention
+  - Pastel Pink (#f5c2e7): Accent, highlights
+  - Muted Text (#a6adc8): Help text, labels
+
+- **Benefits**:
+  - No manual YAML editing required
+  - Visual feedback and validation
+  - Contextual help with Arch Wiki references
+  - Safe configuration with rollback support
+  - Beautiful, calm user experience
+
+---
+
 ### v0.14.0-alpha "Orion III" - Phase 2.2: Behavioral Learning & Self-Monitoring
 
 **Anna v0.14.0 "Orion III" Phase 2.2 completes the self-awareness layer through adaptive learning and continuous self-monitoring.**

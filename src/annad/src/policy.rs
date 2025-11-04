@@ -39,7 +39,7 @@ struct PolicyRoot {
     always_forbidden: ForbiddenOperations,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct DomainPolicy {
     auto: bool,
     reason: String,
@@ -77,6 +77,46 @@ impl PolicyEngine {
             config,
             cache: HashMap::new(),
         })
+    }
+
+    /// Create a default safe policy (alert-only mode)
+    pub fn new_default() -> Self {
+        let default_domain = DomainPolicy {
+            auto: false,
+            reason: "Default safe policy - alerts only".to_string(),
+            allowed_operations: vec![],
+            forbidden_operations: vec![],
+        };
+
+        let config = PolicyConfig {
+            policy: PolicyRoot {
+                version: "1.0.0".to_string(),
+                description: "Default safe policy (alert-only mode)".to_string(),
+                packages: default_domain.clone(),
+                config: default_domain.clone(),
+                devices: default_domain.clone(),
+                network: default_domain.clone(),
+                storage: default_domain.clone(),
+                kernel: default_domain.clone(),
+                always_allowed: AllowedOperations {
+                    operations: vec![],
+                },
+                always_forbidden: ForbiddenOperations {
+                    operations: vec![
+                        "rm_rf".to_string(),
+                        "format".to_string(),
+                        "dd".to_string(),
+                    ],
+                },
+            },
+        };
+
+        info!("Policy engine initialized with default safe policy");
+
+        Self {
+            config,
+            cache: HashMap::new(),
+        }
     }
 
     /// Determine policy decision for a domain

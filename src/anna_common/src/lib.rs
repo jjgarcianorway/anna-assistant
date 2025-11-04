@@ -8,7 +8,9 @@
 
 pub mod beautiful;
 pub mod config;
+pub mod config_api;
 pub mod config_governance;
+pub mod configurator;
 pub mod locale;
 pub mod messaging;
 pub mod persona;
@@ -20,6 +22,12 @@ pub use config_governance::{
     ensure_banners, get_config_value, load_effective_config, reset_user_config,
     save_effective_snapshot, set_user_config, ConfigOrigin, ConfigPaths, ConfigValue,
     EffectiveConfig, CONFIG_BANNER,
+};
+pub use configurator::{
+    bundled_profiles, list_profiles, load_master_config, load_priorities_config, load_profile,
+    save_master_config, save_priorities_config, save_profile, AutonomyLevel, ConfirmationPolicy,
+    DesktopConfig, MasterConfig, ModulesConfig, PrioritiesConfig, Priority, PrivacyMode,
+    ProfileTemplate, QuietHours, SafetyConfig, ScheduledTask, SchedulerConfig, StabilityLevel,
 };
 pub use locale::{detect_locale, format_duration, format_timestamp, LocaleInfo};
 pub use messaging::{

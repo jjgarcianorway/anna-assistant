@@ -16,10 +16,12 @@ mod advisor;
 mod advisor_cmd;
 mod anomaly;
 mod anomaly_cmd;
+mod apply_cmd;
 mod audit_cmd;
 mod audit_log;
 mod autonomy;
 mod autonomy_cmd;
+mod config_cmd;
 mod distro;
 mod doctor_cmd;
 mod error_display;
@@ -37,6 +39,7 @@ mod profiled_cmd;
 mod radar_cmd;
 mod reload_cmd;
 mod report_cmd;
+mod rollback_cmd;
 mod snapshot_cmd;
 mod status_cmd;
 mod storage_cmd;
@@ -55,10 +58,36 @@ struct Cli {
     command: Commands,
 }
 
+/// Check if experimental features are enabled
+fn experimental_enabled() -> bool {
+    std::env::var("ANNA_EXPERIMENTAL").is_ok()
+}
+
+/// Guard for experimental commands - exit with helpful message if not enabled
+macro_rules! require_experimental {
+    ($cmd:expr) => {
+        if !experimental_enabled() {
+            use anna_common::beautiful::*;
+            eprintln!("{}", error(&format!("'{}' is an experimental command", $cmd)));
+            eprintln!("{}",  info(&format!("Enable with: ANNA_EXPERIMENTAL=1 annactl {}", $cmd)));
+            eprintln!("{}",  substep("Experimental commands are under active development"));
+            std::process::exit(1);
+        }
+    };
+}
+
 #[derive(Subcommand)]
 enum Commands {
+    // ═══════════════════════════════════════════════════════════════
+    // CORE COMMANDS (Stable - Always Available)
+    // ═══════════════════════════════════════════════════════════════
+
     /// Show version information
-    Version,
+    Version {
+        /// Check if all versions are in sync (installed, source, GitHub)
+        #[arg(long)]
+        check: bool,
+    },
 
     /// Show daemon status and health
     Status {
@@ -73,32 +102,20 @@ enum Commands {
         watch: bool,
     },
 
-    /// Collect telemetry snapshots
-    Collect {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Number of snapshots to retrieve (default: 1)
-        #[arg(short, long, default_value = "1")]
-        limit: u32,
+    /// Run system health checks and repairs
+    Doctor {
+        #[command(subcommand)]
+        check: DoctorCheck,
     },
 
-    /// Classify system persona
-    Classify {
+    /// Run system advisor (auto-detects distro)
+    Advisor {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-    },
-
-    /// Show radar scores (hardware, software, user)
-    Radar {
-        /// Output as JSON
+        /// Explain specific advice by ID
         #[arg(long)]
-        json: bool,
-
-        /// Filter to specific radar (hardware, software, or user)
-        #[arg(value_name = "FILTER")]
-        filter: Option<String>,
+        explain: Option<String>,
     },
 
     /// Generate system health report with recommendations
@@ -116,106 +133,77 @@ enum Commands {
         json: bool,
     },
 
-    /// Profile system performance and radar collection timing
-    Profile {
-        /// Summary format (default)
-        #[arg(short, long)]
-        summary: bool,
-
-        /// Detailed format with analysis
-        #[arg(short, long)]
-        detailed: bool,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Manage autonomous actions
-    Actions {
-        /// List all registered actions
-        #[arg(long)]
-        list: bool,
-
-        /// List only auto-runnable actions
-        #[arg(long)]
-        auto: bool,
-
-        /// Run a specific action (requires action ID)
-        #[arg(long)]
-        run: Option<String>,
-
+    /// Apply recommended system improvements
+    Apply {
         /// Dry-run mode (show what would happen)
         #[arg(long)]
         dry_run: bool,
 
-        /// Revert an action (requires action ID)
-        #[arg(long)]
-        revert: Option<String>,
+        /// Skip confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
 
-        /// Initialize safe built-in actions
+        /// Apply specific recommendation by ID
         #[arg(long)]
-        init: bool,
+        id: Option<String>,
 
+        /// Auto-apply all low-risk recommendations
+        #[arg(long)]
+        auto: bool,
+    },
+
+    /// Rollback autonomous actions
+    Rollback {
+        /// Rollback the last applied action
+        #[arg(long)]
+        last: bool,
+
+        /// Rollback specific action by ID
+        #[arg(long)]
+        id: Option<String>,
+
+        /// Show rollback history
+        #[arg(long)]
+        list: bool,
+
+        /// Dry-run mode (preview without executing)
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Interactive configuration editor (TUI)
+    Config {
+        /// Validate configuration file
+        #[arg(long)]
+        validate: bool,
+
+        /// Path to config file (for validation)
+        #[arg(short, long)]
+        path: Option<String>,
+
+        /// Show verbose output (for validation)
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXPERIMENTAL COMMANDS (Require ANNA_EXPERIMENTAL=1)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// [EXPERIMENTAL] Show radar scores (hardware, software, user)
+    #[command(hide = true)]
+    Radar {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// Filter to specific radar (hardware, software, or user)
+        #[arg(value_name = "FILTER")]
+        filter: Option<String>,
     },
 
-    /// View audit log
-    Audit {
-        /// Show summary statistics
-        #[arg(long)]
-        summary: bool,
-
-        /// Show last N entries
-        #[arg(long)]
-        last: Option<usize>,
-
-        /// Filter by actor (auto, user, advisor, scheduler)
-        #[arg(long)]
-        actor: Option<String>,
-
-        /// Export audit log to file
-        #[arg(long)]
-        export: Option<String>,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Generate predictive forecasts
-    Forecast {
-        /// 7-day forecast
-        #[arg(long)]
-        seven_day: bool,
-
-        /// 30-day forecast
-        #[arg(long)]
-        thirty_day: bool,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Detect anomalies
-    Anomalies {
-        /// Show summary only
-        #[arg(long)]
-        summary: bool,
-
-        /// Export anomalies to file
-        #[arg(long)]
-        export: Option<String>,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Show hardware profile (CPU, GPU, storage, network)
+    /// [EXPERIMENTAL] Show hardware profile (CPU, GPU, storage, network)
+    #[command(hide = true)]
     Hw {
         /// Output as JSON
         #[arg(long)]
@@ -225,203 +213,11 @@ enum Commands {
         wide: bool,
     },
 
-    /// Run system advisor (auto-detects distro)
-    Advisor {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Explain specific advice by ID
-        #[arg(long)]
-        explain: Option<String>,
-    },
-
-    /// Show storage profile (Btrfs intelligence)
+    /// [EXPERIMENTAL] Show storage profile (Btrfs intelligence)
+    #[command(hide = true)]
     Storage {
         #[command(subcommand)]
         action: StorageAction,
-    },
-
-    /// Show CPU, memory, temperatures, and battery
-    Sensors {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Show detailed sensor information
-        #[arg(short, long)]
-        detail: bool,
-    },
-
-    /// Show network interfaces and connectivity
-    Net {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Show detailed network information
-        #[arg(short, long)]
-        detail: bool,
-    },
-
-    /// Show disk usage and SMART status
-    Disk {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Show detailed disk information
-        #[arg(short, long)]
-        detail: bool,
-    },
-
-    /// Show top processes by CPU and memory
-    Top {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Number of processes to show (default: 10)
-        #[arg(short, long, default_value = "10")]
-        limit: usize,
-    },
-
-    /// Show recent system events
-    Events {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Time window (5m, 1h, 1d)
-        #[arg(long)]
-        since: Option<String>,
-        /// Number of events to show (default: 10)
-        #[arg(short, long, default_value = "10")]
-        limit: usize,
-    },
-
-    /// Export telemetry data
-    Export {
-        /// Output path (default: stdout)
-        #[arg(short, long)]
-        path: Option<String>,
-        /// Time window (5m, 1h, 1d)
-        #[arg(long)]
-        since: Option<String>,
-        /// Output as JSON (always JSON for export)
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Run system health checks and repairs
-    Doctor {
-        #[command(subcommand)]
-        check: DoctorCheck,
-    },
-
-    /// Show daemon health metrics
-    Health {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Watch mode (update every 1s)
-        #[arg(short, long)]
-        watch: bool,
-    },
-
-    /// Reload daemon configuration (sends SIGHUP)
-    Reload {
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
-    },
-
-    /// Validate configuration file
-    Config {
-        #[command(subcommand)]
-        action: ConfigAction,
-    },
-
-    /// Behavior learning and adaptive intelligence
-    Learn {
-        /// Show learning summary
-        #[arg(long)]
-        summary: bool,
-
-        /// Reset all learned weights
-        #[arg(long)]
-        reset: bool,
-
-        /// Show behavioral trend analysis
-        #[arg(long)]
-        trend: bool,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Continuous performance profiling (self-monitoring)
-    Profiled {
-        /// Show current status
-        #[arg(long)]
-        status: bool,
-
-        /// Show summary statistics
-        #[arg(long)]
-        summary: bool,
-
-        /// Rebuild 7-day baseline
-        #[arg(long)]
-        rebuild: bool,
-
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Manage autonomy tiers and action confidence
-    Autonomy {
-        /// Show current autonomy status
-        #[arg(long)]
-        status: bool,
-
-        /// Manually promote to next tier
-        #[arg(long)]
-        promote: bool,
-
-        /// Manually demote to previous tier
-        #[arg(long)]
-        demote: bool,
-
-        /// Set specific tier (observer, assisted, autonomous)
-        #[arg(long)]
-        set_tier: Option<String>,
-
-        /// Show confidence levels for all actions
-        #[arg(long)]
-        confidence: bool,
-
-        /// Check if ready for tier promotion
-        #[arg(long)]
-        check_promotion: bool,
-    },
-
-    /// Threshold-based trigger management
-    Triggers {
-        /// Show trigger summary
-        #[arg(long)]
-        summary: bool,
-
-        /// List all trigger thresholds
-        #[arg(long)]
-        list: bool,
-
-        /// Show recent trigger events
-        #[arg(long)]
-        events: bool,
-
-        /// Simulate trigger checks (dry-run)
-        #[arg(long)]
-        simulate: bool,
-
-        /// Check triggers now and fire if conditions met
-        #[arg(long)]
-        check: bool,
     },
 }
 
@@ -460,42 +256,6 @@ enum DoctorCheck {
 }
 
 #[derive(Subcommand)]
-enum RadarAction {
-    /// Show radar scores
-    Show {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-#[derive(Subcommand)]
-enum HwAction {
-    /// Show hardware profile
-    Show {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Show detailed device information
-        #[arg(short, long)]
-        wide: bool,
-    },
-}
-
-#[derive(Subcommand)]
-enum AdvisorAction {
-    /// Run Arch Linux advisor
-    Arch {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Explain specific advice by ID
-        #[arg(long)]
-        explain: Option<String>,
-    },
-}
-
-#[derive(Subcommand)]
 enum StorageAction {
     /// Show Btrfs storage profile
     Btrfs {
@@ -508,19 +268,6 @@ enum StorageAction {
         /// Explain specific topic (snapshots, compression, scrub, balance)
         #[arg(long)]
         explain: Option<String>,
-    },
-}
-
-#[derive(Subcommand)]
-enum ConfigAction {
-    /// Validate configuration file syntax
-    Validate {
-        /// Path to config file (default: /etc/anna/config.toml)
-        #[arg(short, long)]
-        path: Option<String>,
-        /// Show verbose output
-        #[arg(short, long)]
-        verbose: bool,
     },
 }
 
@@ -551,13 +298,58 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Version => {
+        Commands::Version { check } => {
+            use anna_common::beautiful::*;
+
             println!("Anna v{} - Event-Driven Intelligence", VERSION);
             println!(
                 "Build: {} {}",
                 env!("CARGO_PKG_NAME"),
                 env!("CARGO_PKG_VERSION")
             );
+
+            if check {
+                println!();
+                println!("{}", section("Version Sync Check"));
+
+                // Check if versions script exists and run it
+                let script_path = std::path::Path::new("./scripts/verify_versions.sh");
+                if script_path.exists() {
+                    println!("{}", info("Running comprehensive version check..."));
+                    println!();
+
+                    let status = std::process::Command::new("bash")
+                        .arg(script_path)
+                        .status();
+
+                    match status {
+                        Ok(exit_status) => {
+                            if !exit_status.success() {
+                                eprintln!();
+                                eprintln!("{}", warning("Version mismatch detected!"));
+                                eprintln!("{}", substep("Run the recommended actions above to fix"));
+                                std::process::exit(1);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("{}", error(&format!("Failed to run version check: {}", e)));
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    eprintln!("{}", warning("Version check script not found at ./scripts/verify_versions.sh"));
+                    eprintln!("{}", info("Performing basic version check..."));
+                    println!();
+
+                    // Basic check: just show current version
+                    println!("{}", info(&format!("Installed version: {}", VERSION)));
+
+                    // Warn that we can't do a full check
+                    println!();
+                    println!("{}", substep("For full version validation, run: ./scripts/verify_versions.sh"));
+                }
+            }
+
             Ok(())
         }
         Commands::Status { json, verbose: _, watch } => {
@@ -582,74 +374,41 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Sensors { json, detail } => {
-            let params = serde_json::json!({ "detail": detail });
-            let response = rpc_call_with_retry("sensors", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
+        Commands::Apply { dry_run, yes, id, auto } => {
+            use apply_cmd::ApplyMode;
+
+            let mode = if let Some(id) = id {
+                ApplyMode::Specific(id)
+            } else if auto {
+                ApplyMode::Auto
+            } else if dry_run {
+                ApplyMode::DryRun
             } else {
-                print_sensors(&response, detail)?;
-            }
+                ApplyMode::Interactive
+            };
+
+            apply_cmd::run_apply(mode, dry_run, yes).await?;
             Ok(())
         }
-        Commands::Net { json, detail } => {
-            let params = serde_json::json!({ "detail": detail });
-            let response = rpc_call_with_retry("net", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
+        Commands::Rollback { last, id, list, dry_run } => {
+            use rollback_cmd::RollbackMode;
+
+            let mode = if list {
+                RollbackMode::List
+            } else if let Some(id) = id {
+                RollbackMode::Specific(id)
+            } else if last {
+                RollbackMode::Last
             } else {
-                print_net(&response, detail)?;
-            }
-            Ok(())
-        }
-        Commands::Disk { json, detail } => {
-            let params = serde_json::json!({ "detail": detail });
-            let response = rpc_call_with_retry("disk", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            } else {
-                print_disk(&response, detail)?;
-            }
-            Ok(())
-        }
-        Commands::Top { json, limit } => {
-            let params = serde_json::json!({ "limit": limit });
-            let response = rpc_call_with_retry("top", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            } else {
-                print_top(&response, limit)?;
-            }
-            Ok(())
-        }
-        Commands::Events { json, since, limit } => {
-            let params = serde_json::json!({ "since": since, "limit": limit });
-            let response = rpc_call_with_retry("events", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            } else {
-                print_events(&response)?;
-            }
-            Ok(())
-        }
-        Commands::Export {
-            path,
-            since,
-            json: _,
-        } => {
-            // Export is always JSON
-            let params = serde_json::json!({ "since": since });
-            let response = rpc_call_with_retry("export", Some(params)).await?;
-            let output = serde_json::to_string_pretty(&response)?;
-            if let Some(path_str) = path {
-                std::fs::write(&path_str, output)?;
-                println!("✓ Exported to {}", path_str);
-            } else {
-                println!("{}", output);
-            }
+                // Default to showing list if no flags specified
+                RollbackMode::List
+            };
+
+            rollback_cmd::run_rollback(mode, dry_run)?;
             Ok(())
         }
         Commands::Hw { json, wide } => {
+            require_experimental!("hw");
             hw_cmd::show_hardware(json, wide).await?;
             Ok(())
         }
@@ -676,6 +435,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Commands::Storage { action } => {
+            require_experimental!("storage");
             match action {
                 StorageAction::Btrfs { json, wide, explain } => {
                     storage_cmd::show_btrfs(json, wide, explain.clone()).await?;
@@ -700,26 +460,8 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Collect { json, limit } => {
-            let params = serde_json::json!({ "limit": limit });
-            let response = rpc_call_with_retry("collect", Some(params)).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            } else {
-                print_collect(&response)?;
-            }
-            Ok(())
-        }
-        Commands::Classify { json } => {
-            let response = rpc_call_with_retry("classify", None).await?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            } else {
-                print_classify(&response)?;
-            }
-            Ok(())
-        }
         Commands::Radar { json, filter } => {
+            require_experimental!("radar");
             radar_cmd::run_radar(json, filter.as_deref()).await?;
             Ok(())
         }
@@ -737,141 +479,15 @@ async fn main() -> Result<()> {
             report_cmd::run_report(mode).await?;
             Ok(())
         }
-        Commands::Profile { summary, detailed, json } => {
-            use profile_cmd::ProfileMode;
-
-            let mode = if json {
-                ProfileMode::Json
-            } else if detailed {
-                ProfileMode::Detailed
+        Commands::Config { validate, path, verbose } => {
+            if validate {
+                // Validate mode (experimental, requires flag)
+                require_experimental!("config validate");
+                reload_cmd::validate_config(path, verbose)?;
             } else {
-                ProfileMode::Summary
-            };
-
-            profile_cmd::run_profile(mode).await?;
-            Ok(())
-        }
-        Commands::Actions { list, auto, run, dry_run, revert, init, json } => {
-            use actions_cmd::ActionsMode;
-
-            if init {
-                actions_cmd::initialize_actions()?;
-                return Ok(());
+                // Interactive TUI mode (stable)
+                config_cmd::run_configurator()?;
             }
-
-            let (mode, action_id) = if let Some(ref action_id) = run {
-                (ActionsMode::Run { dry_run }, Some(action_id.clone()))
-            } else if let Some(ref action_id) = revert {
-                (ActionsMode::Revert, Some(action_id.clone()))
-            } else if auto {
-                (ActionsMode::ListAutoRunnable, None)
-            } else {
-                (ActionsMode::List, None)
-            };
-
-            actions_cmd::run_actions(mode, action_id, json)?;
-            Ok(())
-        }
-        Commands::Audit { summary, last, actor, export, json } => {
-            use audit_cmd::AuditMode;
-            use std::path::PathBuf;
-
-            let mode = if summary {
-                AuditMode::Summary
-            } else if let Some(n) = last {
-                AuditMode::Last { n }
-            } else if let Some(actor_name) = actor {
-                AuditMode::Actor { actor: actor_name }
-            } else if let Some(export_path) = export {
-                AuditMode::Export { path: PathBuf::from(export_path) }
-            } else if json {
-                AuditMode::Json
-            } else {
-                AuditMode::Summary  // Default to summary
-            };
-
-            audit_cmd::run_audit(mode)?;
-            Ok(())
-        }
-        Commands::Forecast { seven_day, thirty_day, json } => {
-            forecast_cmd::run_forecast(seven_day, thirty_day, json)?;
-            Ok(())
-        }
-        Commands::Anomalies { summary, export, json } => {
-            anomaly_cmd::run_anomalies(summary, export, json)?;
-            Ok(())
-        }
-        Commands::Health { json, watch } => {
-            health_cmd::show_health(json, watch).await?;
-            Ok(())
-        }
-        Commands::Reload { verbose } => {
-            reload_cmd::reload_config(verbose).await?;
-            Ok(())
-        }
-        Commands::Config { action } => {
-            match action {
-                ConfigAction::Validate { path, verbose } => {
-                    reload_cmd::validate_config(path, verbose)?;
-                }
-            }
-            Ok(())
-        }
-        Commands::Learn { summary, reset, trend, json } => {
-            use learning_cmd::LearningMode;
-
-            let mode = if reset {
-                LearningMode::Reset
-            } else if trend {
-                LearningMode::Trend
-            } else {
-                LearningMode::Summary  // Default
-            };
-
-            learning_cmd::run_learning(mode, json)?;
-            Ok(())
-        }
-        Commands::Profiled { status, summary, rebuild, json } => {
-            use profiled_cmd::ProfiledMode;
-
-            let mode = if rebuild {
-                ProfiledMode::Rebuild
-            } else if summary {
-                ProfiledMode::Summary
-            } else {
-                ProfiledMode::Status  // Default
-            };
-
-            profiled_cmd::run_profiled(mode, json)?;
-            Ok(())
-        }
-        Commands::Autonomy { status, promote, demote, set_tier, confidence, check_promotion } => {
-            use autonomy_cmd::AutonomyArgs;
-
-            let args = AutonomyArgs {
-                status,
-                promote,
-                demote,
-                set_tier,
-                confidence,
-                check_promotion,
-            };
-
-            autonomy_cmd::execute(&args)?;
-            Ok(())
-        }
-        Commands::Triggers { summary, list, events, simulate, check } => {
-            use trigger_cmd::TriggerArgs;
-
-            let args = TriggerArgs {
-                summary,
-                list,
-                events,
-                simulate,
-                check,
-            };
-
-            trigger_cmd::execute(&args)?;
             Ok(())
         }
     }

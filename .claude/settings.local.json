@@ -160,7 +160,14 @@
       "Bash(git fetch:*)",
       "Bash(./annactl:*)",
       "Bash(./scripts/cleanup_docs.sh:*)",
-      "Bash(sudo -l)"
+      "Bash(sudo -l)",
+      "Bash(ANNA_EXPERIMENTAL=1 ./target/release/annactl radar:*)",
+      "Bash(./scripts/verify_release_workflow.sh:*)",
+      "Bash(if command -v annactl)",
+      "Bash(then annactl --version)",
+      "Bash(else echo \"annactl not found in PATH\")",
+      "Bash(./scripts/verify_versions.sh:*)",
+      "Bash(ANNA_EXPERIMENTAL=1 ./target/release/annactl:*)"
     ],
     "deny": [],
     "ask": []

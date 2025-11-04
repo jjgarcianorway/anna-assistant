@@ -77,7 +77,7 @@ pub async fn run_advisor(json: bool, explain_id: Option<String>) -> Result<()> {
 }
 
 /// Fetch advisor results from daemon
-async fn fetch_advisor_results() -> Result<Vec<Advice>> {
+pub async fn fetch_advisor_results() -> Result<Vec<Advice>> {
     let mut stream = UnixStream::connect(SOCKET_PATH)
         .await
         .context("Failed to connect to annad - is it running?")?;

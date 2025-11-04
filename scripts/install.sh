@@ -157,32 +157,98 @@ ensure_pkg() {
 
 select_release() {
   local api="https://api.github.com/repos/$OWNER/$REPO/releases?per_page=15"
+  local max_retries=3
+  local retry_delay=10
+  local min_version="v1.0.0-rc.15"  # Minimum acceptable version
 
-  print_step "🔍" "Finding latest release with assets" >&2
+  print_step "🔍" "Finding latest release with assets (min: $min_version)" >&2
 
-  # Get all releases with asset counts
-  local releases_json
-  releases_json=$(curl -fsSL "$api" 2>/dev/null)
+  for attempt in $(seq 1 $max_retries); do
+    # Get all releases with asset counts
+    local releases_json
+    releases_json=$(curl -fsSL "$api" 2>/dev/null)
 
-  if [[ -z "$releases_json" || "$releases_json" == "null" ]]; then
-    print_error "Failed to fetch releases from GitHub" >&2
-    return 1
+    if [[ -z "$releases_json" || "$releases_json" == "null" ]]; then
+      if [[ $attempt -lt $max_retries ]]; then
+        print_warning "Failed to fetch releases (attempt $attempt/$max_retries)" >&2
+        print_substep "Retrying in ${retry_delay}s..." >&2
+        sleep $retry_delay
+        continue
+      else
+        print_error "Failed to fetch releases from GitHub after $max_retries attempts" >&2
+        return 1
+      fi
+    fi
+
+    # Get all tags with assets, filter by minimum version, then sort
+    local latest_tag
+    latest_tag=$(echo "$releases_json" | \
+      jq -r '.[] | select(.draft==false) | select(.assets[] | .name=="anna-linux-x86_64.tar.gz") | .tag_name' | \
+      while read tag; do
+        # Compare versions (strip 'v' prefix for comparison)
+        if version_gte "${tag#v}" "${min_version#v}"; then
+          echo "$tag"
+        fi
+      done | \
+      sort -Vr | head -n1)
+
+    if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
+      if [[ $attempt -lt $max_retries ]]; then
+        print_warning "No releases >= $min_version with assets found yet (attempt $attempt/$max_retries)" >&2
+        print_info "GitHub Actions may still be building..." >&2
+        print_substep "Retrying in ${retry_delay}s..." >&2
+        sleep $retry_delay
+        continue
+      else
+        print_error "No releases >= $min_version found with uploaded assets after $max_retries attempts" >&2
+        print_info "Please wait for GitHub Actions to complete, then try again" >&2
+        print_info "Check: https://github.com/$OWNER/$REPO/actions" >&2
+        return 1
+      fi
+    fi
+
+    # Success!
+    print_substep "Latest version: ${MAGENTA}$latest_tag${RESET}" >&2
+    print_success "Assets available for $latest_tag" >&2
+    echo "$latest_tag"
+    return 0
+  done
+
+  return 1
+}
+
+# Version comparison function (semver with -rc.N support)
+version_gte() {
+  local ver1="$1"
+  local ver2="$2"
+
+  # Split version and rc suffix
+  local v1_base="${ver1%%-rc.*}"
+  local v1_rc="${ver1##*-rc.}"
+  [[ "$v1_rc" == "$ver1" ]] && v1_rc=""
+
+  local v2_base="${ver2%%-rc.*}"
+  local v2_rc="${ver2##*-rc.}"
+  [[ "$v2_rc" == "$ver2" ]] && v2_rc=""
+
+  # Compare base versions
+  if [[ "$v1_base" != "$v2_base" ]]; then
+    printf '%s\n' "$v1_base" "$v2_base" | sort -Vr | head -n1 | grep -q "^$v1_base$"
+    return $?
   fi
 
-  # Find highest version tag that has the required asset
-  local latest_tag
-  latest_tag=$(echo "$releases_json" | jq -r '.[] | select(.draft==false) | select(.assets[] | .name=="anna-linux-x86_64.tar.gz") | .tag_name' | sort -Vr | head -n1)
-
-  if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
-    print_error "No releases found with uploaded assets" >&2
-    print_info "GitHub Actions may still be building the latest release" >&2
-    return 1
+  # If base versions equal, compare rc numbers
+  if [[ -z "$v1_rc" && -z "$v2_rc" ]]; then
+    return 0  # Both stable
+  elif [[ -z "$v1_rc" ]]; then
+    return 0  # v1 is stable, v2 is rc -> v1 >= v2
+  elif [[ -z "$v2_rc" ]]; then
+    return 1  # v1 is rc, v2 is stable -> v1 < v2
+  else
+    # Both are rc, compare rc numbers
+    [[ "$v1_rc" -ge "$v2_rc" ]]
+    return $?
   fi
-
-  print_substep "Latest version: ${MAGENTA}$latest_tag${RESET}" >&2
-  print_success "Assets available for $latest_tag" >&2
-  echo "$latest_tag"
-  return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -205,7 +271,16 @@ download_and_verify_tarball() {
   checksum_url=$(echo "$assets" | jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz.sha256") | .browser_download_url')
 
   if [[ -z "$tar_url" || "$tar_url" == "null" ]]; then
-    print_error "Assets not found for $tag"
+    print_error "Assets not found for $tag" >&2
+    print_error "This release may not have been built by GitHub Actions" >&2
+    print_info "Only install releases that have been built and published properly" >&2
+    print_info "Check: https://github.com/$OWNER/$REPO/releases/tag/$tag" >&2
+    return 1
+  fi
+
+  if [[ -z "$checksum_url" || "$checksum_url" == "null" ]]; then
+    print_error "Checksum file not found for $tag" >&2
+    print_error "Cannot verify integrity without checksum" >&2
     return 1
   fi
 
@@ -356,21 +431,19 @@ verify_versions() {
   fi
 }
 
-run_health_check() {
-  print_section "🩺 Health Check & Auto-Repair"
+verify_daemon_ready() {
+  print_section "🩺 Final Verification"
 
-  print_info "Anna will now check her own health and fix any issues..."
-  echo ""
+  print_step "🏥" "Verifying Anna's health"
 
-  "$BIN_DIR/annactl" doctor check --verbose 2>&1 || {
-    echo ""
-    print_warning "Issues detected - running auto-repair"
-    echo ""
-    "$BIN_DIR/annactl" doctor repair --yes 2>&1
-    echo ""
-  }
-
-  print_success "Health check complete"
+  # Quick check that daemon is responding
+  if "$BIN_DIR/annactl" version >/dev/null 2>&1; then
+    print_success "Anna is healthy and responding"
+  else
+    print_error "Daemon not responding properly"
+    print_info "You can run 'annactl doctor check' to diagnose issues"
+    return 1
+  fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -415,9 +488,9 @@ main() {
   INSTALLED_TAG=$(cat "$TMPDIR/installed_tag" 2>/dev/null || echo "$TAG")
   verify_versions "$INSTALLED_TAG"
 
-  # Health check
+  # Verify daemon is ready
   echo ""
-  run_health_check
+  verify_daemon_ready || exit 2
 
   # Success!
   echo ""

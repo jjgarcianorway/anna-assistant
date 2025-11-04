@@ -7,6 +7,9 @@ set -Eeuo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+OWNER="jjgarcianorway"
+REPO="anna-assistant"
+
 say() { printf "%s\n" "$*"; }
 die() { printf "ERROR: %s\n" "$*" >&2; exit 1; }
 
@@ -18,11 +21,9 @@ require jq
 # Compute next RC from GitHub API (never recreate existing tags)
 next_rc() {
   local latest
-  local owner="jjgarcianorway"
-  local repo="anna-assistant"
 
   # Fetch tags from GitHub API
-  latest=$(curl -fsSL "https://api.github.com/repos/$owner/$repo/git/refs/tags" 2>/dev/null | \
+  latest=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/git/refs/tags" 2>/dev/null | \
            jq -r '.[].ref' | \
            sed 's|refs/tags/||' | \
            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' | \
@@ -81,9 +82,23 @@ if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
   die "Tag $NEW_TAG already exists locally. Fetch and sync with remote first."
 fi
 
+# Verify build succeeds before committing
+say "→ Verifying build succeeds..."
+if ! cargo build --release --bin annad --bin annactl >/dev/null 2>&1; then
+  die "Build failed. Fix errors before releasing."
+fi
+say "→ Build successful"
+
 # Update Cargo.toml
 say "→ Updating Cargo.toml to $NEW_VER"
 sed -i -E 's/^version = ".*"$/version = "'"$NEW_VER"'"/' Cargo.toml
+
+# Verify the version was updated correctly
+UPDATED_VER=$(grep -E '^version = ".*"' Cargo.toml | head -1 | sed -E 's/.*"(.*)".*/\1/')
+if [[ "$UPDATED_VER" != "$NEW_VER" ]]; then
+  die "Failed to update Cargo.toml version (expected $NEW_VER, got $UPDATED_VER)"
+fi
+say "→ Verified Cargo.toml updated to $NEW_VER"
 
 # Commit changes
 say "→ Committing Cargo.toml update…"
@@ -117,13 +132,49 @@ echo ""
 echo "✔ Release $NEW_TAG created and pushed"
 echo "▶ Tag: $NEW_TAG"
 echo ""
-echo "Next:"
-echo "  1. Wait for GitHub Actions to build and upload binaries (~2 min)"
-echo "  2. Check: https://github.com/jjgarcianorway/anna-assistant/releases/tag/$NEW_TAG"
-echo "  3. Test installer: sudo ./scripts/install.sh"
+say "→ Waiting for GitHub Actions to build and upload assets..."
+
+# Wait for GitHub Actions to complete (up to 5 minutes)
+for i in {1..60}; do
+  sleep 5
+
+  # Check if release has assets
+  assets=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPO/releases/tags/$NEW_TAG" 2>/dev/null | \
+           jq -r '.assets[] | select(.name=="anna-linux-x86_64.tar.gz") | .name' 2>/dev/null)
+
+  if [[ "$assets" == "anna-linux-x86_64.tar.gz" ]]; then
+    echo ""
+    echo "✔ GitHub Actions completed successfully"
+    echo "✔ Assets uploaded: anna-linux-x86_64.tar.gz"
+    echo ""
+    echo "Release is ready!"
+    echo "  → https://github.com/$OWNER/$REPO/releases/tag/$NEW_TAG"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📋 POST-RELEASE CHECKLIST"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "1. Test the installer:"
+    echo "   sudo ./scripts/install.sh"
+    echo ""
+    echo "2. Verify version sync:"
+    echo "   ./scripts/verify_versions.sh"
+    echo ""
+    echo "3. Confirm installation:"
+    echo "   annactl version --check"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    exit 0
+  fi
+
+  printf "\r  ⏳ Waiting for build... (%ds)" $((i * 5))
+done
+
 echo ""
-echo "GitHub Actions will:"
-echo "  - Build annad and annactl with embedded version $NEW_VER"
-echo "  - Package anna-linux-x86_64.tar.gz + .sha256"
-echo "  - Upload to release as prerelease"
+echo "⚠ GitHub Actions is taking longer than expected"
+echo "  Check manually: https://github.com/$OWNER/$REPO/actions"
+echo "  Release page: https://github.com/$OWNER/$REPO/releases/tag/$NEW_TAG"
+echo ""
+echo "The installer will wait for assets to be available before installing."
 echo ""
