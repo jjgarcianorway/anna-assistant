@@ -118,6 +118,20 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_network_tools());
     advice.extend(check_dotfile_managers());
     advice.extend(check_pkgbuild_tools());
+    advice.extend(check_python_tools());
+    advice.extend(check_rust_tools());
+    advice.extend(check_terminal_multiplexers());
+    advice.extend(check_image_viewers());
+    advice.extend(check_documentation_tools());
+    advice.extend(check_disk_management());
+    advice.extend(check_communication_apps());
+    advice.extend(check_scientific_tools());
+    advice.extend(check_3d_tools());
+    advice.extend(check_audio_production());
+    advice.extend(check_system_monitoring_advanced());
+    advice.extend(check_cad_software());
+    advice.extend(check_markdown_tools());
+    advice.extend(check_note_taking());
 
     advice
 }
@@ -5306,6 +5320,573 @@ fn check_pkgbuild_tools() -> Vec<Advice> {
                 priority: Priority::Optional,
                 category: "development".to_string(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/DeveloperWiki:Building_in_a_clean_chroot".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Python development tools
+fn check_python_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let python_usage = check_command_usage(&["python", "python3", "pip"]);
+
+    if python_usage > 10 {
+        // Check for poetry
+        let has_poetry = Command::new("which")
+            .arg("poetry")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_poetry {
+            result.push(Advice {
+                id: "python-poetry".to_string(),
+                title: "Install Poetry for Python dependency management".to_string(),
+                reason: format!("You use Python {} times! Poetry is THE modern Python package manager. No more pip freeze, no more requirements.txt hell. Dependency resolution, virtual environments, publishing - all in one tool. 'poetry add requests' just works!", python_usage),
+                action: "Install Poetry".to_string(),
+                command: Some("pacman -S --noconfirm python-poetry".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Package_management".to_string()],
+            });
+        }
+
+        // Check for virtualenv
+        let has_virtualenv = Command::new("pacman")
+            .args(&["-Q", "python-virtualenv"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_virtualenv {
+            result.push(Advice {
+                id: "python-virtualenv".to_string(),
+                title: "Install virtualenv for isolated Python environments".to_string(),
+                reason: "Virtual environments are essential for Python development! Isolate project dependencies, avoid conflicts, test different versions. Every Python developer needs this. 'python -m venv myenv' creates isolated environment!".to_string(),
+                action: "Install python-virtualenv".to_string(),
+                command: Some("pacman -S --noconfirm python-virtualenv".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Virtual_environment".to_string()],
+            });
+        }
+
+        // Check for ipython
+        let has_ipython = Command::new("pacman")
+            .args(&["-Q", "ipython"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_ipython {
+            result.push(Advice {
+                id: "python-ipython".to_string(),
+                title: "Install IPython for enhanced Python REPL".to_string(),
+                reason: "IPython is Python REPL on steroids! Syntax highlighting, tab completion, magic commands, inline plots, history. Way better than plain 'python' prompt. Data scientists and developers love it. Try 'ipython' and never go back!".to_string(),
+                action: "Install IPython".to_string(),
+                command: Some("pacman -S --noconfirm ipython".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Python#IPython".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Rust development tools
+fn check_rust_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let rust_usage = check_command_usage(&["cargo", "rustc"]);
+
+    if rust_usage > 10 {
+        // Check for cargo-watch
+        let has_cargo_watch = Command::new("which")
+            .arg("cargo-watch")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_cargo_watch {
+            result.push(Advice {
+                id: "rust-cargo-watch".to_string(),
+                title: "Install cargo-watch for automatic rebuilds".to_string(),
+                reason: format!("You use Rust {} times! cargo-watch automatically rebuilds on file changes. 'cargo watch -x check -x test' runs checks and tests on every save. Essential for fast development iterations. No more manual cargo build!", rust_usage),
+                action: "Install cargo-watch".to_string(),
+                command: Some("pacman -S --noconfirm cargo-watch".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Rust#Cargo".to_string()],
+            });
+        }
+
+        // Check for cargo-audit
+        let has_cargo_audit = Command::new("which")
+            .arg("cargo-audit")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_cargo_audit {
+            result.push(Advice {
+                id: "rust-cargo-audit".to_string(),
+                title: "Install cargo-audit for security vulnerability scanning".to_string(),
+                reason: "cargo-audit checks your Cargo.lock for known security vulnerabilities! Scans against RustSec database, finds CVEs in dependencies. 'cargo audit' shows security issues. Essential for production Rust code!".to_string(),
+                action: "Install cargo-audit".to_string(),
+                command: Some("cargo install cargo-audit".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Rust#Security".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for terminal multiplexers
+fn check_terminal_multiplexers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for tmux
+    let has_tmux = Command::new("pacman")
+        .args(&["-Q", "tmux"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_tmux {
+        result.push(Advice {
+            id: "terminal-tmux".to_string(),
+            title: "Install tmux for terminal multiplexing".to_string(),
+            reason: "tmux is a terminal multiplexer! Split terminals, detach sessions, work across SSH disconnects, multiple windows. Essential for remote work and power users. 'tmux new -s mysession' creates session, Ctrl+b d detaches. Never lose your work again!".to_string(),
+            action: "Install tmux".to_string(),
+            command: Some("pacman -S --noconfirm tmux".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Tmux".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for image viewers
+fn check_image_viewers() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for image files
+    let has_images = Command::new("find")
+        .args(&[&format!("{}/Pictures", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_images {
+        // Check display server
+        let is_x11 = std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11";
+        let is_wayland = std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland";
+
+        if is_x11 {
+            let has_feh = Command::new("pacman")
+                .args(&["-Q", "feh"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_feh {
+                result.push(Advice {
+                    id: "image-feh".to_string(),
+                    title: "Install feh for lightweight image viewing".to_string(),
+                    reason: "You have images! feh is a fast, lightweight image viewer for X11. View images, set wallpapers, create slideshows. Keyboard-driven, minimal, perfect for tiling WMs. 'feh image.jpg' or 'feh --bg-scale wallpaper.jpg' to set wallpaper!".to_string(),
+                    action: "Install feh".to_string(),
+                    command: Some("pacman -S --noconfirm feh".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "multimedia".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Feh".to_string()],
+                });
+            }
+        } else if is_wayland {
+            let has_imv = Command::new("pacman")
+                .args(&["-Q", "imv"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !has_imv {
+                result.push(Advice {
+                    id: "image-imv".to_string(),
+                    title: "Install imv for Wayland image viewing".to_string(),
+                    reason: "You have images and use Wayland! imv is a fast image viewer for Wayland (also works on X11). Lightweight, keyboard-driven, supports multiple formats. Like feh but for Wayland. 'imv image.jpg' to view!".to_string(),
+                    action: "Install imv".to_string(),
+                    command: Some("pacman -S --noconfirm imv".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "multimedia".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Wayland#Image_viewers".to_string()],
+                });
+            }
+        }
+    }
+
+    result
+}
+
+/// Check for documentation tools
+fn check_documentation_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for tldr (simplified man pages)
+    let has_tldr = Command::new("which")
+        .arg("tldr")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_tldr {
+        result.push(Advice {
+            id: "docs-tldr".to_string(),
+            title: "Install tldr for quick command examples".to_string(),
+            reason: "tldr gives you practical command examples! Simpler than man pages, shows common use cases. 'tldr tar' shows how to actually use tar. Community-driven, works offline, way faster than googling. Every command should have a tldr page!".to_string(),
+            action: "Install tldr".to_string(),
+            command: Some("pacman -S --noconfirm tldr".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "utilities".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Tldr-pages".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for disk management tools
+fn check_disk_management() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for SMART monitoring
+    let has_smartmontools = Command::new("pacman")
+        .args(&["-Q", "smartmontools"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_smartmontools {
+        result.push(Advice {
+            id: "disk-smartmontools".to_string(),
+            title: "Install smartmontools for disk health monitoring".to_string(),
+            reason: "SMART monitoring detects disk failures before they happen! Check disk health, temperature, error counts. 'smartctl -a /dev/sda' shows all info. Essential for data safety - know when your disk is dying before you lose data!".to_string(),
+            action: "Install smartmontools".to_string(),
+            command: Some("pacman -S --noconfirm smartmontools".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/S.M.A.R.T.".to_string()],
+        });
+    }
+
+    // Check for gparted
+    let has_gparted = Command::new("pacman")
+        .args(&["-Q", "gparted"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_gparted {
+        result.push(Advice {
+            id: "disk-gparted".to_string(),
+            title: "Install GParted for partition management".to_string(),
+            reason: "GParted is the best GUI for disk partitioning! Resize, move, create, delete partitions. Supports all filesystems. Way easier than fdisk/parted. Essential for dual boot, adding disks, or managing storage. Visual, safe, powerful!".to_string(),
+            action: "Install GParted".to_string(),
+            command: Some("pacman -S --noconfirm gparted".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/GParted".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for communication apps
+fn check_communication_apps() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Discord
+    let has_discord = Command::new("pacman")
+        .args(&["-Q", "discord"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_discord {
+        result.push(Advice {
+            id: "chat-discord".to_string(),
+            title: "Install Discord for gaming and community chat".to_string(),
+            reason: "Discord is THE platform for gaming communities, developer groups, and online communities. Voice chat, screen sharing, servers, bots. Whether you're gaming, learning, or collaborating - Discord is where communities live!".to_string(),
+            action: "Install Discord".to_string(),
+            command: Some("pacman -S --noconfirm discord".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "communication".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Discord".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for scientific computing tools
+fn check_scientific_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let python_usage = check_command_usage(&["python", "python3"]);
+
+    if python_usage > 20 {
+        // Check for Jupyter
+        let has_jupyter = Command::new("pacman")
+            .args(&["-Q", "jupyter-notebook"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_jupyter {
+            result.push(Advice {
+                id: "science-jupyter".to_string(),
+                title: "Install Jupyter for interactive Python notebooks".to_string(),
+                reason: "Jupyter notebooks are essential for data science! Interactive Python, inline plots, markdown notes, shareable. Used by researchers, data scientists, educators worldwide. 'jupyter notebook' starts web interface. Perfect for analysis, teaching, or exploration!".to_string(),
+                action: "Install Jupyter Notebook".to_string(),
+                command: Some("pacman -S --noconfirm jupyter-notebook".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "development".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Jupyter".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for 3D graphics tools
+fn check_3d_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for image files that might indicate 3D work
+    let does_graphics = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.blend", "-o", "-name", "*.obj", "-o", "-name", "*.stl"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if does_graphics {
+        let has_blender = Command::new("pacman")
+            .args(&["-Q", "blender"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_blender {
+            result.push(Advice {
+                id: "3d-blender".to_string(),
+                title: "Install Blender for 3D modeling and animation".to_string(),
+                reason: "You have 3D files! Blender is THE free 3D creation suite. Modeling, sculpting, animation, rendering, video editing, game creation. Used by professionals for movies, games, architecture. Industry-standard, open-source, incredibly powerful!".to_string(),
+                action: "Install Blender".to_string(),
+                command: Some("pacman -S --noconfirm blender".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Blender".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for audio production tools
+fn check_audio_production() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for audio files
+    let has_audio_files = Command::new("find")
+        .args(&[&format!("{}/Music", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_audio_files {
+        // Check for Audacity
+        let has_audacity = Command::new("pacman")
+            .args(&["-Q", "audacity"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_audacity {
+            result.push(Advice {
+                id: "audio-audacity".to_string(),
+                title: "Install Audacity for audio editing".to_string(),
+                reason: "You have audio files! Audacity is the free audio editor. Record, edit, mix, add effects, export to any format. Perfect for podcasts, music editing, audio cleanup. Simple interface, professional results. The go-to audio editor!".to_string(),
+                action: "Install Audacity".to_string(),
+                command: Some("pacman -S --noconfirm audacity".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "multimedia".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Audacity".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for system monitoring advanced
+fn check_system_monitoring_advanced() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for s-tui (stress terminal UI)
+    let has_stui = Command::new("pacman")
+        .args(&["-Q", "s-tui"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_stui {
+        result.push(Advice {
+            id: "monitor-stui".to_string(),
+            title: "Install s-tui for CPU stress testing and monitoring".to_string(),
+            reason: "s-tui is a terminal UI for CPU stress testing! Monitor CPU frequency, temperature, power, utilization in real-time. Built-in stress test. Great for testing cooling, overclocking, or just seeing your CPU at full load. Beautiful TUI interface!".to_string(),
+            action: "Install s-tui".to_string(),
+            command: Some("pacman -S --noconfirm s-tui stress".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "system".to_string(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Stress_testing".to_string()],
+        });
+    }
+
+    result
+}
+
+/// Check for CAD software
+fn check_cad_software() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for CAD files
+    let has_cad_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.scad", "-o", "-name", "*.FCStd"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_cad_files {
+        let has_freecad = Command::new("pacman")
+            .args(&["-Q", "freecad"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_freecad {
+            result.push(Advice {
+                id: "cad-freecad".to_string(),
+                title: "Install FreeCAD for parametric 3D modeling".to_string(),
+                reason: "You have CAD files! FreeCAD is open-source parametric CAD. Design parts, assemblies, mechanical systems. Great for 3D printing, engineering, product design. Like SolidWorks but free. Parametric means you can easily modify designs!".to_string(),
+                action: "Install FreeCAD".to_string(),
+                command: Some("pacman -S --noconfirm freecad".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "engineering".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/FreeCAD".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for markdown viewers
+fn check_markdown_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for markdown files
+    let has_markdown = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.md", "-type", "f"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    if has_markdown {
+        // Check for glow (markdown renderer)
+        let has_glow = Command::new("which")
+            .arg("glow")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_glow {
+            result.push(Advice {
+                id: "markdown-glow".to_string(),
+                title: "Install glow for beautiful markdown rendering".to_string(),
+                reason: "You have markdown files! glow renders markdown beautifully in the terminal. Syntax highlighting, styled text, images. Read READMEs, documentation, notes in style. 'glow README.md' or just 'glow' to browse. Way better than raw markdown!".to_string(),
+                action: "Install glow".to_string(),
+                command: Some("pacman -S --noconfirm glow".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "utilities".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Markdown".to_string()],
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Note-taking apps
+fn check_note_taking() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for many text/markdown files
+    let has_notes = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.md", "-o", "-name", "*.txt", "-type", "f"])
+        .output()
+        .map(|o| {
+            let count = String::from_utf8_lossy(&o.stdout).lines().count();
+            count > 20
+        })
+        .unwrap_or(false);
+
+    if has_notes {
+        let has_obsidian = Command::new("pacman")
+            .args(&["-Q", "obsidian"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_obsidian {
+            result.push(Advice {
+                id: "notes-obsidian".to_string(),
+                title: "Install Obsidian for powerful note-taking".to_string(),
+                reason: "You have lots of notes! Obsidian is a powerful knowledge base using markdown files. Backlinks, graph view, plugins, themes. Local-first, your files stay yours. Perfect for PKM (Personal Knowledge Management), research, or journaling. Build your second brain!".to_string(),
+                action: "Install Obsidian".to_string(),
+                command: Some("pacman -S --noconfirm obsidian".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "productivity".to_string(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Note-taking_organizers".to_string()],
             });
         }
     }

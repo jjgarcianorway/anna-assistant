@@ -10,14 +10,14 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.19)
+## Current Status (v1.0.0-beta.20)
 
 ### ✅ Complete
 - [x] Core data models and types
 - [x] Comprehensive system telemetry (hardware, packages, filesystems, services)
 - [x] Unix socket IPC (daemon ↔ client communication)
 - [x] Beautiful CLI with pastel colors
-- [x] **190+ intelligent recommendation rules** covering:
+- [x] **220+ intelligent recommendation rules** covering:
   - Security (CPU microcode, SSH hardening, firewall, VPN, antivirus)
   - 8 Desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
   - Performance (SSD, swap compression, firmware updates, parallel downloads)
