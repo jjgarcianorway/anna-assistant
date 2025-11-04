@@ -9,6 +9,7 @@ mod rpc_server;
 mod executor;
 mod audit;
 mod watcher;
+mod notifier;
 
 use anyhow::Result;
 use rpc_server::DaemonState;
@@ -119,6 +120,9 @@ async fn refresh_advice(state: &Arc<DaemonState>) {
         Ok(facts) => {
             let mut advice = recommender::generate_advice(&facts);
             advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
+
+            // Check for critical issues and notify users
+            notifier::check_and_notify_critical(&advice).await;
 
             // Update state
             *state.facts.write().await = facts;
