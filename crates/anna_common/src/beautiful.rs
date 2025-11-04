@@ -3,7 +3,7 @@
 //! Now using owo-colors and console for robust, battle-tested formatting!
 
 use owo_colors::OwoColorize;
-use console::{Term, measure_text_width, strip_ansi_codes};
+use console::{Term, measure_text_width};
 
 /// Status level for messages
 #[derive(Debug, Clone, Copy)]
