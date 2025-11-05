@@ -5,6 +5,199 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.33] - 2025-01-05
+
+### 📚 Smart Recommendations & Wiki Integration!
+
+**WORKFLOW-AWARE:** Anna now suggests packages based on YOUR workflow and displays wiki links for learning!
+
+### ✨ Major Features
+
+**🎯 Smart Package Recommendation Engine**
+- Analyzes your development profile and suggests missing LSP servers
+- Recommends gaming enhancements based on detected games/platforms
+- Suggests desktop environment-specific tools
+- Proposes networking tools based on your setup
+- Recommends laptop power management tools
+- Content creation tool suggestions
+
+**📖 Wiki Link Display**
+- Every recommendation now shows relevant Arch Wiki links
+- Beautiful "📚 Learn More" section with clickable URLs
+- Direct links to official documentation
+- Category-specific wiki pages
+
+**🧠 Workflow Detection**
+- Python developers → pyright LSP server
+- Rust developers → rust-analyzer
+- Go developers → gopls
+- TypeScript/JavaScript → typescript-language-server
+- Steam users → ProtonGE, MangoHud
+- Laptop users → TLP, powertop
+- And many more!
+
+### 🔧 Technical Details
+
+**Smart Recommender Module:**
+- `smart_recommender.rs` - New module with workflow-based logic
+- Analyzes `DevelopmentProfile`, `GamingProfile`, `NetworkProfile`
+- Detects missing LSP servers by language
+- Context-aware package suggestions
+- Integration with existing recommendation pipeline
+
+**Recommendation Categories:**
+- Development tools (LSP servers, debuggers, container tools)
+- Gaming enhancements (Proton-GE, MangoHud, gamepad support)
+- Desktop environment tools (GNOME Tweaks, KDE themes)
+- Network tools (WireGuard, OpenSSH)
+- Content creation (OBS plugins)
+- Laptop utilities (TLP, powertop)
+
+**Functions:**
+```rust
+pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice>
+fn recommend_for_development(profile: &DevelopmentProfile) -> Vec<Advice>
+fn recommend_for_gaming(profile: &GamingProfile) -> Vec<Advice>
+fn recommend_for_desktop(de: &str) -> Vec<Advice>
+fn recommend_for_networking(profile: &NetworkProfile) -> Vec<Advice>
+fn recommend_for_content_creation() -> Vec<Advice>
+fn recommend_for_laptop() -> Vec<Advice>
+```
+
+### 💡 What This Means
+
+**For Developers:**
+- Automatic detection of missing language servers
+- Never miss essential development tools
+- LSP suggestions for Python, Rust, Go, TypeScript
+- Container tool recommendations (docker-compose)
+- Debugger suggestions (GDB for C/C++)
+
+**For Gamers:**
+- ProtonGE recommendations for better game compatibility
+- MangoHud for performance monitoring
+- Gamepad driver suggestions
+- Steam-specific enhancements
+
+**For Everyone:**
+- Learn more with integrated wiki links
+- Discover tools you didn't know existed
+- Category-specific recommendations
+- Laptop-specific power management
+- Desktop environment enhancements
+
+### 📊 Example Recommendations
+
+**Development:**
+```
+[1]  Install Rust Language Server (rust-analyzer)
+
+  RECOMMENDED  LOW RISK
+
+  You have 45 Rust files but no LSP server installed. rust-analyzer
+  provides excellent IDE features for Rust development.
+
+  Action:
+  ❯ sudo pacman -S rust-analyzer
+
+  📚 Learn More:
+  https://wiki.archlinux.org/title/Rust
+
+  ID: rust-analyzer
+```
+
+**Gaming:**
+```
+[5]  Install MangoHud for in-game performance overlay
+
+  OPTIONAL  LOW RISK
+
+  MangoHud shows FPS, GPU/CPU usage, and temperatures in games.
+  Great for monitoring performance.
+
+  Action:
+  ❯ sudo pacman -S mangohud
+
+  📚 Learn More:
+  https://wiki.archlinux.org/title/Gaming#Performance_overlays
+
+  ID: mangohud
+```
+
+**Laptop:**
+```
+[7]  Install TLP for better battery life
+
+  RECOMMENDED  LOW RISK
+
+  TLP is an advanced power management tool that can significantly
+  extend your laptop's battery life.
+
+  Action:
+  ❯ sudo pacman -S tlp && sudo systemctl enable tlp
+
+  📚 Learn More:
+  https://wiki.archlinux.org/title/TLP
+
+  ID: tlp-power
+```
+
+### 🎨 UI Enhancements
+
+**Wiki Link Section:**
+- Beautiful "📚 Learn More" header
+- Blue italic links for easy scanning
+- Multiple wiki references when relevant
+- Category wiki pages included
+
+**Recommendation Quality:**
+- Context-aware descriptions
+- File counts in explanations ("You have 45 Rust files...")
+- Platform-specific suggestions
+- Clear installation commands
+
+### 🏗️ Infrastructure
+
+**New Module:**
+- `crates/annad/src/smart_recommender.rs` - 280+ lines
+- Integrated into advice generation pipeline
+- Works alongside existing recommenders
+- Updates on system refresh
+
+**Integration Points:**
+- Called during initial advice generation
+- Included in refresh_advice() updates
+- Uses existing SystemFacts data
+- Seamless with learning system (can be dismissed)
+
+### 📝 Notes
+
+- Smart recommendations respect feedback system
+- Can be dismissed like any other advice
+- Learning system tracks preferences
+- All recommendations have wiki links
+- Low-risk, high-value suggestions
+
+### 🎯 Detection Examples
+
+**Detects:**
+- 50+ Python files → suggests pyright
+- Steam installed → suggests ProtonGE
+- Laptop detected → suggests TLP
+- C/C++ projects → suggests GDB
+- Docker usage → suggests docker-compose
+- GNOME desktop → suggests gnome-tweaks
+- No VPN → suggests WireGuard
+
+### 🚀 Future Enhancements
+
+Planned improvements:
+- ML-based package suggestions
+- Community package recommendations
+- AUR package smart detection
+- Workflow bundle creation from suggestions
+- Installation success tracking
+
 ## [1.0.0-beta.32] - 2025-01-05
 
 ### 🧠 Learning System & Health Scoring!

@@ -417,6 +417,15 @@ fn display_advice_item_enhanced(number: usize, advice: &anna_common::Advice) {
         }
     }
 
+    // Wiki references if available
+    if !advice.wiki_refs.is_empty() {
+        println!();
+        println!("    \x1b[96m\x1b[1m📚 Learn More:\x1b[0m");
+        for wiki_ref in &advice.wiki_refs {
+            println!("    \x1b[94m\x1b[3m{}\x1b[0m", wiki_ref);
+        }
+    }
+
     // ID for applying (smaller, less prominent)
     println!();
     println!("    \x1b[90m\x1b[3mID: {}\x1b[0m", advice.id);

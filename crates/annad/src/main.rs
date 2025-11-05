@@ -80,6 +80,7 @@
 mod telemetry;
 mod recommender;
 mod intelligent_recommender;
+mod smart_recommender;
 mod rpc_server;
 mod executor;
 mod audit;
@@ -125,8 +126,13 @@ async fn main() -> Result<()> {
     // Add intelligent, behavior-based recommendations
     advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
 
-    info!("Generated {} recommendations ({} intelligent)", advice.len(),
-          advice.iter().filter(|a| a.category == "development" || a.category == "beautification").count());
+    // Add smart package recommendations based on workflow
+    advice.extend(smart_recommender::generate_smart_recommendations(&facts));
+
+    info!("Generated {} recommendations ({} intelligent, {} smart)", advice.len(),
+          advice.iter().filter(|a| a.category == "development" || a.category == "beautification").count(),
+          advice.iter().filter(|a| a.id.starts_with("python-lsp") || a.id.starts_with("rust-analyzer") ||
+                                    a.id.starts_with("proton") || a.id.starts_with("mangohud")).count());
 
     // Initialize daemon state
     let state = Arc::new(DaemonState::new(
@@ -213,6 +219,7 @@ async fn refresh_advice(state: &Arc<DaemonState>) {
         Ok(facts) => {
             let mut advice = recommender::generate_advice(&facts);
             advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
+            advice.extend(smart_recommender::generate_smart_recommendations(&facts));
 
             // Check for critical issues and notify users
             notifier::check_and_notify_critical(&advice).await;
