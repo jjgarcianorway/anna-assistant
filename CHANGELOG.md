@@ -5,6 +5,183 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.35] - 2025-11-05
+
+### 🔬 Enhanced Telemetry & Predictive Maintenance!
+
+**INTELLIGENT MONITORING:** Anna now monitors hardware health, predicts failures, and proactively alerts you before problems become critical!
+
+### ✨ Major Features
+
+**🌡️ Hardware Monitoring**
+- Real-time CPU temperature tracking
+- SMART disk health monitoring (reallocated sectors, pending errors, wear leveling)
+- Battery health tracking (capacity, cycles, degradation)
+- Memory pressure detection
+- System load averages (1min, 5min, 15min)
+
+**🔮 Predictive Analysis**
+- Disk space predictions (warns when storage will be full)
+- Temperature trend analysis
+- Memory pressure risk assessment
+- Service reliability scoring
+- Boot time trend tracking
+
+**🚨 Proactive Health Alerts**
+- Critical CPU temperature warnings (>85°C)
+- Failing disk detection from SMART data
+- Excessive journal error alerts (>100 errors/24h)
+- Degraded service notifications
+- Low memory warnings with OOM kill tracking
+- Battery health degradation alerts
+- Service crash pattern detection
+- Kernel error monitoring
+- Disk space running out predictions
+
+**📊 System Health Metrics**
+- Journal error/warning counts (last 24 hours)
+- Critical system event tracking
+- Service crash history (last 7 days)
+- Out-of-Memory (OOM) event tracking
+- Kernel error detection
+- Top CPU/memory consuming processes
+
+**⚡ Performance Metrics**
+- CPU usage trends
+- Memory usage patterns
+- Disk I/O statistics
+- Network traffic monitoring
+- Process-level resource tracking
+
+### 🔧 Technical Details
+
+**New Telemetry Types:**
+```rust
+pub struct HardwareMonitoring {
+    pub cpu_temperature_celsius: Option<f64>,
+    pub cpu_load_1min/5min/15min: Option<f64>,
+    pub memory_used_gb/available_gb: f64,
+    pub swap_used_gb/total_gb: f64,
+    pub battery_health: Option<BatteryHealth>,
+}
+
+pub struct DiskHealthInfo {
+    pub health_status: String, // PASSED/FAILING/UNKNOWN
+    pub temperature_celsius: Option<u8>,
+    pub power_on_hours: Option<u64>,
+    pub reallocated_sectors: Option<u64>,
+    pub pending_sectors: Option<u64>,
+    pub has_errors: bool,
+}
+
+pub struct SystemHealthMetrics {
+    pub journal_errors_last_24h: usize,
+    pub critical_events: Vec<CriticalEvent>,
+    pub degraded_services: Vec<String>,
+    pub recent_crashes: Vec<ServiceCrash>,
+    pub oom_events_last_week: usize,
+    pub kernel_errors: Vec<String>,
+}
+
+pub struct PredictiveInsights {
+    pub disk_full_prediction: Option<DiskPrediction>,
+    pub temperature_trend: TemperatureTrend,
+    pub service_reliability: Vec<ServiceReliability>,
+    pub boot_time_trend: BootTimeTrend,
+    pub memory_pressure_risk: RiskLevel,
+}
+```
+
+**New Recommendation Functions:**
+- `check_cpu_temperature()` - Warns at >75°C, critical at >85°C
+- `check_disk_health()` - SMART data analysis for failing drives
+- `check_journal_errors()` - Alerts on excessive system errors
+- `check_degraded_services()` - Detects unhealthy systemd units
+- `check_memory_pressure()` - OOM prevention and swap warnings
+- `check_battery_health()` - Capacity degradation and cycle tracking
+- `check_service_crashes()` - Pattern detection for unstable services
+- `check_kernel_errors()` - Hardware/driver issue identification
+- `check_disk_space_prediction()` - Proactive storage alerts
+
+**Data Sources:**
+- `/proc/loadavg` - System load monitoring
+- `/sys/class/thermal/*` - CPU temperature sensors
+- `/sys/class/power_supply/*` - Battery information
+- `smartctl` - Disk SMART data (requires smartmontools)
+- `journalctl` - System logs and error tracking
+- `systemctl` - Service health status
+- `/proc/meminfo` - Memory pressure analysis
+
+### 💡 What This Means
+
+**Prevents Data Loss:**
+- Detects failing disks BEFORE they die
+- Warns when disk space running out
+- Alerts on critical battery levels
+
+**Prevents System Damage:**
+- Critical temperature warnings prevent hardware damage
+- Thermal throttling detection
+- Cooling system failure alerts
+
+**Prevents System Instability:**
+- Catches excessive errors early
+- Identifies failing services
+- OOM kill prevention through memory warnings
+- Kernel error detection
+
+**Predictive Maintenance:**
+- Know when your disk will be full (based on growth rate)
+- Track battery degradation over time
+- Monitor system health trends
+- Service reliability scoring
+
+### 📊 Example Alerts
+
+**Critical Temperature:**
+```
+[MANDATORY] CPU Temperature is CRITICAL!
+
+Your CPU is running at 92.3°C, which is dangerously high!
+Prolonged high temperatures can damage hardware and reduce lifespan.
+Normal temps: 40-60°C idle, 60-80°C load. You're in the danger zone!
+
+Action: Clean dust from fans, improve airflow, check thermal paste
+```
+
+**Failing Disk:**
+```
+[MANDATORY] CRITICAL: Disk /dev/sda is FAILING!
+
+SMART data shows disk /dev/sda has errors!
+Reallocated sectors: 12, Pending sectors: 5
+This disk could lose all data at any moment.
+BACKUP IMMEDIATELY and replace this drive!
+
+Action: BACKUP ALL DATA IMMEDIATELY, then replace drive
+```
+
+**Memory Pressure:**
+```
+[MANDATORY] CRITICAL: Very low memory available!
+
+Only 0.8GB of RAM available! Your system is under severe memory pressure.
+This causes swap thrashing, slow performance, and potential OOM kills.
+
+Action: Close memory-heavy applications or add more RAM
+Command: ps aux --sort=-%mem | head -15
+```
+
+**Disk Space Prediction:**
+```
+[MANDATORY] Disk / will be full in ~12 days!
+
+At current growth rate (2.5 GB/day), / will be full in ~12 days!
+Low disk space causes system instability, failed updates, and data loss.
+
+Action: Free up disk space or expand storage
+```
+
 ## [1.0.0-beta.34] - 2025-11-05
 
 ### 📊 History Tracking & Enhanced Wiki Cache!

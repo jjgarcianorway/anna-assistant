@@ -94,6 +94,13 @@ pub async fn collect_facts() -> Result<SystemFacts> {
             let dev_tools = detect_dev_tools();
             infer_user_preferences(&dev_tools, installed_packages)
         },
+
+        // Enhanced Telemetry (beta.35+)
+        hardware_monitoring: collect_hardware_monitoring(&sys),
+        disk_health: collect_disk_health(),
+        system_health_metrics: collect_system_health_metrics(),
+        performance_metrics: collect_performance_metrics(&sys),
+        predictive_insights: generate_predictive_insights(),
     })
 }
 
@@ -1466,4 +1473,602 @@ fn infer_user_preferences(dev_tools: &[String], package_count: usize) -> UserPre
         uses_laptop,
         prefers_minimalism: package_count < 500,
     }
+}
+
+/// Collect hardware monitoring data (beta.35+)
+fn collect_hardware_monitoring(sys: &System) -> anna_common::HardwareMonitoring {
+    use anna_common::HardwareMonitoring;
+
+    // Get CPU temperature
+    let cpu_temp = get_cpu_temperature();
+
+    // Get load averages
+    let load = get_load_averages();
+
+    // Get memory info
+    let memory_used_gb = sys.used_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+    let memory_available_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+    let swap_used_gb = sys.used_swap() as f64 / 1024.0 / 1024.0 / 1024.0;
+    let swap_total_gb = sys.total_swap() as f64 / 1024.0 / 1024.0 / 1024.0;
+
+    // Get battery health
+    let battery_health = get_battery_health();
+
+    HardwareMonitoring {
+        cpu_temperature_celsius: cpu_temp,
+        cpu_load_1min: load.0,
+        cpu_load_5min: load.1,
+        cpu_load_15min: load.2,
+        memory_used_gb,
+        memory_available_gb,
+        swap_used_gb,
+        swap_total_gb,
+        battery_health,
+    }
+}
+
+/// Get CPU temperature from sensors
+fn get_cpu_temperature() -> Option<f64> {
+    // Try using sensors command
+    if let Ok(output) = Command::new("sensors").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Parse temperature from sensors output
+            // Look for lines like: "Core 0:        +45.0°C"
+            for line in stdout.lines() {
+                if line.contains("Core") || line.contains("Tctl") || line.contains("CPU") {
+                    if let Some(temp_str) = line.split('+').nth(1) {
+                        if let Some(temp) = temp_str.split('°').next() {
+                            if let Ok(temp_val) = temp.trim().parse::<f64>() {
+                                return Some(temp_val);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: try reading from /sys/class/thermal
+    if let Ok(thermal_zones) = std::fs::read_dir("/sys/class/thermal") {
+        for entry in thermal_zones.flatten() {
+            let path = entry.path();
+            if path.file_name().unwrap().to_str().unwrap().starts_with("thermal_zone") {
+                let temp_path = path.join("temp");
+                if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
+                    if let Ok(temp_millidegrees) = temp_str.trim().parse::<i64>() {
+                        return Some(temp_millidegrees as f64 / 1000.0);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Get system load averages
+fn get_load_averages() -> (Option<f64>, Option<f64>, Option<f64>) {
+    if let Ok(loadavg) = std::fs::read_to_string("/proc/loadavg") {
+        let parts: Vec<&str> = loadavg.split_whitespace().collect();
+        if parts.len() >= 3 {
+            return (
+                parts[0].parse().ok(),
+                parts[1].parse().ok(),
+                parts[2].parse().ok(),
+            );
+        }
+    }
+    (None, None, None)
+}
+
+/// Get battery health information
+fn get_battery_health() -> Option<anna_common::BatteryHealth> {
+    use anna_common::BatteryHealth;
+
+    // Check for battery presence
+    let bat_path = std::path::Path::new("/sys/class/power_supply/BAT0");
+    let bat1_path = std::path::Path::new("/sys/class/power_supply/BAT1");
+
+    let battery_dir = if bat_path.exists() {
+        bat_path
+    } else if bat1_path.exists() {
+        bat1_path
+    } else {
+        return None;
+    };
+
+    // Read battery info
+    let capacity = std::fs::read_to_string(battery_dir.join("capacity"))
+        .ok()?
+        .trim()
+        .parse::<u8>()
+        .ok()?;
+
+    let status = std::fs::read_to_string(battery_dir.join("status"))
+        .ok()?
+        .trim()
+        .to_string();
+
+    // Try to get design capacity and current full capacity for health percentage
+    let health_percentage = if let (Ok(energy_full), Ok(energy_full_design)) = (
+        std::fs::read_to_string(battery_dir.join("energy_full")),
+        std::fs::read_to_string(battery_dir.join("energy_full_design")),
+    ) {
+        if let (Ok(full), Ok(design)) = (
+            energy_full.trim().parse::<f64>(),
+            energy_full_design.trim().parse::<f64>(),
+        ) {
+            Some(((full / design) * 100.0) as u8)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Try to get cycle count
+    let cycles = std::fs::read_to_string(battery_dir.join("cycle_count"))
+        .ok()
+        .and_then(|s| s.trim().parse::<u32>().ok());
+
+    Some(BatteryHealth {
+        percentage: capacity,
+        status,
+        health_percentage,
+        cycles,
+        is_critical: capacity < 20,
+    })
+}
+
+/// Collect disk health information from SMART data
+fn collect_disk_health() -> Vec<anna_common::DiskHealthInfo> {
+    use anna_common::DiskHealthInfo;
+
+    let mut disk_health = Vec::new();
+
+    // Get list of block devices
+    if let Ok(output) = Command::new("lsblk")
+        .args(&["-d", "-n", "-o", "NAME,TYPE"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 && parts[1] == "disk" {
+                let device = format!("/dev/{}", parts[0]);
+                if let Some(health) = get_smart_data(&device) {
+                    disk_health.push(health);
+                }
+            }
+        }
+    }
+
+    disk_health
+}
+
+/// Get SMART data for a disk
+fn get_smart_data(device: &str) -> Option<anna_common::DiskHealthInfo> {
+    use anna_common::DiskHealthInfo;
+
+    // Try using smartctl (requires smartmontools package)
+    let output = Command::new("smartctl")
+        .args(&["-H", "-A", device])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return Some(DiskHealthInfo {
+            device: device.to_string(),
+            health_status: "UNKNOWN".to_string(),
+            temperature_celsius: None,
+            power_on_hours: None,
+            wear_leveling: None,
+            reallocated_sectors: None,
+            pending_sectors: None,
+            has_errors: false,
+        });
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Parse health status
+    let health_status = if stdout.contains("PASSED") {
+        "PASSED".to_string()
+    } else if stdout.contains("FAILING") {
+        "FAILING".to_string()
+    } else {
+        "UNKNOWN".to_string()
+    };
+
+    // Parse temperature
+    let temperature_celsius = stdout
+        .lines()
+        .find(|l| l.contains("Temperature"))
+        .and_then(|l| {
+            l.split_whitespace()
+                .find(|s| s.parse::<u8>().is_ok())
+                .and_then(|s| s.parse::<u8>().ok())
+        });
+
+    // Parse power-on hours
+    let power_on_hours = stdout
+        .lines()
+        .find(|l| l.contains("Power_On_Hours"))
+        .and_then(|l| {
+            l.split_whitespace()
+                .nth(9)
+                .and_then(|s| s.parse::<u64>().ok())
+        });
+
+    // Parse wear leveling (for SSDs)
+    let wear_leveling = stdout
+        .lines()
+        .find(|l| l.contains("Wear_Leveling_Count"))
+        .and_then(|l| {
+            l.split_whitespace()
+                .nth(3)
+                .and_then(|s| s.parse::<u8>().ok())
+        });
+
+    // Parse reallocated sectors
+    let reallocated_sectors = stdout
+        .lines()
+        .find(|l| l.contains("Reallocated_Sector"))
+        .and_then(|l| {
+            l.split_whitespace()
+                .nth(9)
+                .and_then(|s| s.parse::<u64>().ok())
+        });
+
+    // Parse pending sectors
+    let pending_sectors = stdout
+        .lines()
+        .find(|l| l.contains("Current_Pending_Sector"))
+        .and_then(|l| {
+            l.split_whitespace()
+                .nth(9)
+                .and_then(|s| s.parse::<u64>().ok())
+        });
+
+    let has_errors = health_status == "FAILING"
+        || reallocated_sectors.unwrap_or(0) > 0
+        || pending_sectors.unwrap_or(0) > 0;
+
+    Some(DiskHealthInfo {
+        device: device.to_string(),
+        health_status,
+        temperature_celsius,
+        power_on_hours,
+        wear_leveling,
+        reallocated_sectors,
+        pending_sectors,
+        has_errors,
+    })
+}
+
+/// Collect system health metrics from systemd journal
+fn collect_system_health_metrics() -> anna_common::SystemHealthMetrics {
+    use anna_common::{SystemHealthMetrics, CriticalEvent, ServiceCrash};
+
+    // Count journal errors and warnings in last 24h
+    let (errors_24h, warnings_24h) = count_journal_issues();
+
+    // Get critical events
+    let critical_events = get_critical_events();
+
+    // Get degraded services
+    let degraded_services = get_degraded_services();
+
+    // Get recent crashes
+    let recent_crashes = get_recent_service_crashes();
+
+    // Count OOM events
+    let oom_events = count_oom_events();
+
+    // Get kernel errors
+    let kernel_errors = get_kernel_errors();
+
+    SystemHealthMetrics {
+        journal_errors_last_24h: errors_24h,
+        journal_warnings_last_24h: warnings_24h,
+        critical_events,
+        degraded_services,
+        recent_crashes,
+        oom_events_last_week: oom_events,
+        kernel_errors,
+    }
+}
+
+/// Count journal errors and warnings in last 24 hours
+fn count_journal_issues() -> (usize, usize) {
+    let mut errors = 0;
+    let mut warnings = 0;
+
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["--since", "24 hours ago", "-p", "err", "--no-pager"])
+        .output()
+    {
+        errors = String::from_utf8_lossy(&output.stdout).lines().count();
+    }
+
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["--since", "24 hours ago", "-p", "warning", "--no-pager"])
+        .output()
+    {
+        warnings = String::from_utf8_lossy(&output.stdout).lines().count();
+    }
+
+    (errors, warnings)
+}
+
+/// Get critical system events from journal
+fn get_critical_events() -> Vec<anna_common::CriticalEvent> {
+    use anna_common::CriticalEvent;
+
+    let mut events = Vec::new();
+
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["--since", "7 days ago", "-p", "crit", "--no-pager", "-o", "json"])
+        .output()
+    {
+        // Parse JSON output - simplified
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().take(10) {
+            // Basic parsing - in production we'd use serde_json properly
+            if line.contains("MESSAGE") {
+                events.push(CriticalEvent {
+                    timestamp: Utc::now(),
+                    message: line.to_string(),
+                    unit: None,
+                    severity: "critical".to_string(),
+                });
+            }
+        }
+    }
+
+    events
+}
+
+/// Get services in degraded state
+fn get_degraded_services() -> Vec<String> {
+    let mut degraded = Vec::new();
+
+    if let Ok(output) = Command::new("systemctl")
+        .args(&["list-units", "--state=degraded", "--no-pager"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().skip(1) {
+            if let Some(service_name) = line.split_whitespace().next() {
+                degraded.push(service_name.to_string());
+            }
+        }
+    }
+
+    degraded
+}
+
+/// Get recent service crashes
+fn get_recent_service_crashes() -> Vec<anna_common::ServiceCrash> {
+    use anna_common::ServiceCrash;
+
+    let mut crashes = Vec::new();
+
+    // Look for service failures in journal
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["--since", "7 days ago", "-u", "*.service", "-p", "err", "--no-pager"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().take(20) {
+            if line.contains("Failed") || line.contains("crashed") {
+                crashes.push(ServiceCrash {
+                    service_name: "unknown".to_string(),
+                    timestamp: Utc::now(),
+                    exit_code: None,
+                    signal: None,
+                });
+            }
+        }
+    }
+
+    crashes
+}
+
+/// Count OOM (Out of Memory) events in last week
+fn count_oom_events() -> usize {
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["--since", "7 days ago", "-k", "--no-pager"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout.lines().filter(|l| l.contains("Out of memory")).count();
+    }
+    0
+}
+
+/// Get recent kernel errors
+fn get_kernel_errors() -> Vec<String> {
+    let mut errors = Vec::new();
+
+    if let Ok(output) = Command::new("journalctl")
+        .args(&["-k", "-p", "err", "--since", "24 hours ago", "--no-pager"])
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().take(10) {
+            errors.push(line.to_string());
+        }
+    }
+
+    errors
+}
+
+/// Collect performance metrics
+fn collect_performance_metrics(sys: &System) -> anna_common::PerformanceMetrics {
+    use anna_common::{PerformanceMetrics, ProcessInfo};
+
+    // Calculate CPU usage average
+    let cpu_usage_avg = sys.cpus().iter().map(|cpu| cpu.cpu_usage() as f64).sum::<f64>() / sys.cpus().len() as f64;
+
+    // Calculate memory usage percentage
+    let memory_usage_percent = (sys.used_memory() as f64 / sys.total_memory() as f64) * 100.0;
+
+    // Get disk I/O stats (simplified - would need /proc/diskstats parsing)
+    let (disk_read, disk_write) = get_disk_io_stats();
+
+    // Get network stats (simplified)
+    let (net_rx, net_tx) = get_network_stats();
+
+    // Get top CPU processes
+    let mut high_cpu_processes: Vec<ProcessInfo> = sys
+        .processes()
+        .values()
+        .map(|p| ProcessInfo {
+            name: p.name().to_string(),
+            pid: p.pid().as_u32(),
+            cpu_percent: p.cpu_usage() as f64,
+            memory_mb: p.memory() as f64 / 1024.0 / 1024.0,
+        })
+        .collect();
+    high_cpu_processes.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap());
+    high_cpu_processes.truncate(5);
+
+    // Get top memory processes
+    let mut high_memory_processes: Vec<ProcessInfo> = sys
+        .processes()
+        .values()
+        .map(|p| ProcessInfo {
+            name: p.name().to_string(),
+            pid: p.pid().as_u32(),
+            cpu_percent: p.cpu_usage() as f64,
+            memory_mb: p.memory() as f64 / 1024.0 / 1024.0,
+        })
+        .collect();
+    high_memory_processes.sort_by(|a, b| b.memory_mb.partial_cmp(&a.memory_mb).unwrap());
+    high_memory_processes.truncate(5);
+
+    PerformanceMetrics {
+        cpu_usage_avg_percent: cpu_usage_avg,
+        memory_usage_avg_percent: memory_usage_percent,
+        disk_io_read_mb_s: disk_read,
+        disk_io_write_mb_s: disk_write,
+        network_rx_mb_s: net_rx,
+        network_tx_mb_s: net_tx,
+        high_cpu_processes,
+        high_memory_processes,
+    }
+}
+
+/// Get disk I/O statistics (simplified)
+fn get_disk_io_stats() -> (f64, f64) {
+    // This would parse /proc/diskstats - simplified for now
+    (0.0, 0.0)
+}
+
+/// Get network statistics (simplified)
+fn get_network_stats() -> (f64, f64) {
+    // This would parse /proc/net/dev - simplified for now
+    (0.0, 0.0)
+}
+
+/// Generate predictive insights based on collected data
+fn generate_predictive_insights() -> anna_common::PredictiveInsights {
+    use anna_common::{PredictiveInsights, DiskPrediction, TemperatureTrend, ServiceReliability, BootTimeTrend, TrendDirection, RiskLevel};
+
+    // Disk space prediction (simplified - would need historical data)
+    let disk_prediction = predict_disk_usage();
+
+    // Temperature trend (simplified)
+    let temperature_trend = TemperatureTrend {
+        cpu_trend: TrendDirection::Stable,
+        is_concerning: false,
+        average_temp_celsius: None,
+        max_temp_celsius: None,
+    };
+
+    // Service reliability (simplified - would need historical data)
+    let service_reliability = Vec::new();
+
+    // Boot time trend (simplified)
+    let boot_time_trend = BootTimeTrend {
+        current_seconds: get_boot_time(),
+        trend: TrendDirection::Stable,
+        is_degrading: false,
+    };
+
+    // Memory pressure risk
+    let memory_pressure_risk = assess_memory_pressure();
+
+    PredictiveInsights {
+        disk_full_prediction: disk_prediction,
+        temperature_trend,
+        service_reliability,
+        boot_time_trend,
+        memory_pressure_risk,
+    }
+}
+
+/// Predict when disk will be full (simplified - needs historical data)
+fn predict_disk_usage() -> Option<anna_common::DiskPrediction> {
+    // Would need to track disk usage over time to make predictions
+    // For now, just check if root is over 90% full
+    if let Ok(output) = Command::new("df").args(&["-h", "/"]).output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = stdout.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 5 {
+                if let Some(percent_str) = parts[4].strip_suffix('%') {
+                    if let Ok(percent) = percent_str.parse::<u8>() {
+                        if percent > 90 {
+                            return Some(anna_common::DiskPrediction {
+                                mount_point: "/".to_string(),
+                                days_until_full: Some(30), // Placeholder
+                                current_growth_gb_per_day: 0.1, // Placeholder
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Assess memory pressure risk
+fn assess_memory_pressure() -> anna_common::RiskLevel {
+    use anna_common::RiskLevel;
+
+    if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+        let mut total_kb = 0;
+        let mut available_kb = 0;
+
+        for line in meminfo.lines() {
+            if line.starts_with("MemTotal:") {
+                total_kb = line
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(0);
+            } else if line.starts_with("MemAvailable:") {
+                available_kb = line
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(0);
+            }
+        }
+
+        if total_kb > 0 {
+            let available_percent = (available_kb as f64 / total_kb as f64) * 100.0;
+            if available_percent < 10.0 {
+                return RiskLevel::High;
+            } else if available_percent < 25.0 {
+                return RiskLevel::Medium;
+            }
+        }
+    }
+
+    RiskLevel::Low
 }

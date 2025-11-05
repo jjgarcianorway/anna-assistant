@@ -35,6 +35,17 @@ fn check_command_usage(commands: &[&str]) -> usize {
 pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     let mut advice = Vec::new();
 
+    // Enhanced telemetry-based checks (beta.35+)
+    advice.extend(check_cpu_temperature(facts));
+    advice.extend(check_disk_health(facts));
+    advice.extend(check_journal_errors(facts));
+    advice.extend(check_degraded_services(facts));
+    advice.extend(check_memory_pressure(facts));
+    advice.extend(check_battery_health(facts));
+    advice.extend(check_service_crashes(facts));
+    advice.extend(check_kernel_errors(facts));
+    advice.extend(check_disk_space_prediction(facts));
+
     advice.extend(check_microcode(facts));
     advice.extend(check_gpu_drivers(facts));
     advice.extend(check_orphan_packages(facts));
@@ -6937,6 +6948,387 @@ fn check_git_workflow_tools() -> Vec<Advice> {
                 related_to: Vec::new(),
                 bundle: None,
             });
+        }
+    }
+
+    result
+}
+
+// ============================================================================
+// Enhanced Telemetry Recommendations (beta.35+)
+// ============================================================================
+
+/// Check CPU temperature and warn if too high
+fn check_cpu_temperature(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if let Some(temp) = facts.hardware_monitoring.cpu_temperature_celsius {
+        if temp > 85.0 {
+            result.push(Advice {
+                id: "cpu-temperature-critical".to_string(),
+                title: "CPU Temperature is CRITICAL!".to_string(),
+                reason: format!("Your CPU is running at {:.1}°C, which is dangerously high! Prolonged high temperatures can damage your hardware, reduce lifespan, and cause thermal throttling (slower performance). Normal temps: 40-60°C idle, 60-80°C load. You're in the danger zone!", temp),
+                action: "Clean dust from fans, improve airflow, check thermal paste, verify cooling system".to_string(),
+                command: None,
+                risk: RiskLevel::Low,
+                priority: Priority::Mandatory,
+                category: "hardware".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Fan_speed_control".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        } else if temp > 75.0 {
+            result.push(Advice {
+                id: "cpu-temperature-high".to_string(),
+                title: "CPU Temperature is High".to_string(),
+                reason: format!("Your CPU is running at {:.1}°C, which is higher than ideal. This can cause thermal throttling and reduced performance. Consider cleaning dust from fans or improving case airflow.", temp),
+                action: "Monitor temperature, consider cleaning cooling system".to_string(),
+                command: None,
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "hardware".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Fan_speed_control".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        }
+    }
+
+    result
+}
+
+/// Check disk health from SMART data
+fn check_disk_health(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    for disk in &facts.disk_health {
+        if disk.has_errors || disk.health_status == "FAILING" {
+            result.push(Advice {
+                id: format!("disk-health-failing-{}", disk.device.replace("/dev/", "")),
+                title: format!("CRITICAL: Disk {} is FAILING!", disk.device),
+                reason: format!("SMART data shows disk {} has errors! Reallocated sectors: {}, Pending sectors: {}. This disk is failing and could lose all data at any moment. BACKUP IMMEDIATELY and replace this drive!",
+                    disk.device,
+                    disk.reallocated_sectors.unwrap_or(0),
+                    disk.pending_sectors.unwrap_or(0)),
+                action: "BACKUP ALL DATA IMMEDIATELY, then replace this drive".to_string(),
+                command: None,
+                risk: RiskLevel::Low,
+                priority: Priority::Mandatory,
+                category: "hardware".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/S.M.A.R.T.".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        } else if disk.reallocated_sectors.unwrap_or(0) > 0 {
+            result.push(Advice {
+                id: format!("disk-health-reallocated-{}", disk.device.replace("/dev/", "")),
+                title: format!("Disk {} has reallocated sectors", disk.device),
+                reason: format!("Disk {} has {} reallocated sectors. This means the disk detected bad sectors and remapped them. This is an early warning sign - backup your data and monitor closely!",
+                    disk.device, disk.reallocated_sectors.unwrap_or(0)),
+                action: "Backup data and monitor disk health regularly with smartctl".to_string(),
+                command: Some(format!("sudo smartctl -a {}", disk.device)),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "hardware".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/S.M.A.R.T.".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for excessive journal errors
+fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let errors = facts.system_health_metrics.journal_errors_last_24h;
+
+    if errors > 100 {
+        result.push(Advice {
+            id: "journal-errors-excessive".to_string(),
+            title: format!("EXCESSIVE system errors detected ({} in 24h)", errors),
+            reason: format!("Your system logged {} errors in the last 24 hours! This is abnormal and indicates serious problems. Normal systems have very few errors. Check journalctl to identify failing services or hardware issues.", errors),
+            action: "Review system journal for errors and fix underlying issues".to_string(),
+            command: Some("journalctl -p err --since '24 hours ago' --no-pager".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Mandatory,
+            category: "maintenance".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Journal".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    } else if errors > 20 {
+        result.push(Advice {
+            id: "journal-errors-many".to_string(),
+            title: format!("Multiple system errors detected ({} in 24h)", errors),
+            reason: format!("Your system has {} errors in the last 24 hours. While not critical, this is worth investigating to prevent future problems.", errors),
+            action: "Review system journal to identify error sources".to_string(),
+            command: Some("journalctl -p err --since '24 hours ago' --no-pager | head -50".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "maintenance".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd/Journal".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    result
+}
+
+/// Check for degraded services
+fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.system_health_metrics.degraded_services.is_empty() {
+        let services_list = facts.system_health_metrics.degraded_services.join(", ");
+        result.push(Advice {
+            id: "degraded-services".to_string(),
+            title: "Services in degraded state detected".to_string(),
+            reason: format!("The following services are in a degraded state: {}. Degraded services may not function properly and should be investigated.", services_list),
+            action: "Check service status and logs to identify issues".to_string(),
+            command: Some("systemctl status --failed".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    result
+}
+
+/// Check for high memory pressure
+fn check_memory_pressure(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    match facts.predictive_insights.memory_pressure_risk {
+        RiskLevel::High => {
+            let available_gb = facts.hardware_monitoring.memory_available_gb;
+            result.push(Advice {
+                id: "memory-pressure-critical".to_string(),
+                title: "CRITICAL: Very low memory available!".to_string(),
+                reason: format!("Only {:.1}GB of RAM available! Your system is under severe memory pressure. This causes swap thrashing, slow performance, and potential OOM kills. Close unnecessary programs or add more RAM.", available_gb),
+                action: "Close memory-heavy applications or add more RAM".to_string(),
+                command: Some("ps aux --sort=-%mem | head -15".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Mandatory,
+                category: "performance".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Improving_performance#Memory".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        },
+        RiskLevel::Medium => {
+            let available_gb = facts.hardware_monitoring.memory_available_gb;
+            result.push(Advice {
+                id: "memory-pressure-moderate".to_string(),
+                title: "Low memory available".to_string(),
+                reason: format!("Only {:.1}GB of RAM available. Your system may start swapping soon, which degrades performance. Consider closing some applications.", available_gb),
+                action: "Monitor memory usage and close unnecessary applications".to_string(),
+                command: Some("ps aux --sort=-%mem | head -10".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "performance".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Improving_performance#Memory".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        },
+        _ => {}
+    }
+
+    // Check OOM events
+    if facts.system_health_metrics.oom_events_last_week > 0 {
+        result.push(Advice {
+            id: "oom-events-detected".to_string(),
+            title: format!("{} Out-of-Memory kills in the last week!", facts.system_health_metrics.oom_events_last_week),
+            reason: format!("The kernel killed {} processes due to memory exhaustion! This means you're running out of RAM regularly. Add more RAM, reduce workload, or enable zram/swap.", facts.system_health_metrics.oom_events_last_week),
+            action: "Add more RAM or enable swap/zram compression".to_string(),
+            command: Some("journalctl -k --since '7 days ago' | grep -i 'out of memory'".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Mandatory,
+            category: "performance".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Improving_performance#Memory".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    result
+}
+
+/// Check battery health for laptops
+fn check_battery_health(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if let Some(battery) = &facts.hardware_monitoring.battery_health {
+        // Check for critical battery
+        if battery.is_critical {
+            result.push(Advice {
+                id: "battery-critical".to_string(),
+                title: "Battery critically low!".to_string(),
+                reason: format!("Battery at {}%! Plug in your charger immediately to avoid data loss.", battery.percentage),
+                action: "Plug in AC power immediately".to_string(),
+                command: None,
+                risk: RiskLevel::Low,
+                priority: Priority::Mandatory,
+                category: "power".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Laptop".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        }
+
+        // Check battery health degradation
+        if let Some(health) = battery.health_percentage {
+            if health < 60 {
+                result.push(Advice {
+                    id: "battery-health-poor".to_string(),
+                    title: "Battery health degraded significantly".to_string(),
+                    reason: format!("Battery capacity at {}% of design capacity. Your battery holds much less charge than when new. Consider replacing the battery for better runtime.", health),
+                    action: "Consider replacing battery or plan for shorter runtime".to_string(),
+                    command: None,
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "power".to_string(),
+                    alternatives: Vec::new(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Laptop#Battery".to_string()],
+                    depends_on: Vec::new(),
+                    related_to: Vec::new(),
+                    bundle: None,
+                });
+            }
+        }
+
+        // Check high cycle count
+        if let Some(cycles) = battery.cycles {
+            if cycles > 500 {
+                result.push(Advice {
+                    id: "battery-high-cycles".to_string(),
+                    title: format!("Battery has {} charge cycles", cycles),
+                    reason: format!("Your battery has completed {} charge cycles. Most laptop batteries are rated for 300-500 cycles before significant degradation. Monitor battery health closely.", cycles),
+                    action: "Monitor battery health and plan for eventual replacement".to_string(),
+                    command: Some("cat /sys/class/power_supply/BAT0/cycle_count".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "power".to_string(),
+                    alternatives: Vec::new(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/Laptop#Battery".to_string()],
+                    depends_on: Vec::new(),
+                    related_to: Vec::new(),
+                    bundle: None,
+                });
+            }
+        }
+    }
+
+    result
+}
+
+/// Check for recent service crashes
+fn check_service_crashes(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let crashes = facts.system_health_metrics.recent_crashes.len();
+
+    if crashes > 5 {
+        result.push(Advice {
+            id: "service-crashes-many".to_string(),
+            title: format!("{} service crashes detected in the last week", crashes),
+            reason: format!("Multiple services have crashed recently ({} crashes). This indicates system instability. Check logs to identify failing services and fix root causes.", crashes),
+            action: "Review service crash logs and fix unstable services".to_string(),
+            command: Some("journalctl -p err --since '7 days ago' | grep -i failed".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Journal".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    result
+}
+
+/// Check for kernel errors
+fn check_kernel_errors(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.system_health_metrics.kernel_errors.is_empty() {
+        result.push(Advice {
+            id: "kernel-errors-detected".to_string(),
+            title: "Kernel errors detected".to_string(),
+            reason: format!("{} kernel errors found in the last 24 hours. Kernel errors can indicate hardware problems, driver issues, or system instability. Review dmesg for details.", facts.system_health_metrics.kernel_errors.len()),
+            action: "Review kernel log for hardware or driver issues".to_string(),
+            command: Some("journalctl -k -p err --since '24 hours ago' --no-pager".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "system".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Kernel_parameters".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    result
+}
+
+/// Check disk space predictions
+fn check_disk_space_prediction(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if let Some(prediction) = &facts.predictive_insights.disk_full_prediction {
+        if let Some(days) = prediction.days_until_full {
+            if days < 30 {
+                result.push(Advice {
+                    id: format!("disk-space-low-{}", prediction.mount_point.replace("/", "root")),
+                    title: format!("Disk {} will be full in ~{} days!", prediction.mount_point, days),
+                    reason: format!("At current growth rate ({:.2} GB/day), {} will be full in ~{} days! Low disk space causes system instability, failed updates, and data loss. Clean up now!",
+                        prediction.current_growth_gb_per_day, prediction.mount_point, days),
+                    action: "Free up disk space or expand storage".to_string(),
+                    command: Some(format!("df -h {} && du -sh /* 2>/dev/null | sort -hr | head -20", prediction.mount_point)),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Mandatory,
+                    category: "maintenance".to_string(),
+                    alternatives: Vec::new(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem".to_string()],
+                    depends_on: Vec::new(),
+                    related_to: Vec::new(),
+                    bundle: None,
+                });
+            }
         }
     }
 

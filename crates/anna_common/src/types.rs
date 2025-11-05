@@ -4,8 +4,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Risk level for actions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum RiskLevel {
+    #[default]
     Low = 0,
     Medium = 1,
     High = 2,
@@ -203,6 +204,13 @@ pub struct SystemFacts {
     pub network_profile: NetworkProfile,
     pub system_age_days: u64, // days since installation
     pub user_preferences: UserPreferences, // detected preferences
+
+    // Enhanced Telemetry (beta.35+)
+    pub hardware_monitoring: HardwareMonitoring,
+    pub disk_health: Vec<DiskHealthInfo>,
+    pub system_health_metrics: SystemHealthMetrics,
+    pub performance_metrics: PerformanceMetrics,
+    pub predictive_insights: PredictiveInsights,
 }
 
 /// Package installation record
@@ -338,6 +346,149 @@ pub struct StorageDevice {
     pub size_gb: f64,
     pub used_gb: f64,
     pub mount_point: String,
+}
+
+/// Hardware monitoring data (beta.35+)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HardwareMonitoring {
+    pub cpu_temperature_celsius: Option<f64>,
+    pub cpu_load_1min: Option<f64>,
+    pub cpu_load_5min: Option<f64>,
+    pub cpu_load_15min: Option<f64>,
+    pub memory_used_gb: f64,
+    pub memory_available_gb: f64,
+    pub swap_used_gb: f64,
+    pub swap_total_gb: f64,
+    pub battery_health: Option<BatteryHealth>,
+}
+
+/// Battery health information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatteryHealth {
+    pub percentage: u8,
+    pub status: String, // Charging, Discharging, Full
+    pub health_percentage: Option<u8>, // 0-100, capacity vs design capacity
+    pub cycles: Option<u32>,
+    pub is_critical: bool, // < 20%
+}
+
+/// Disk health information from SMART data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskHealthInfo {
+    pub device: String, // /dev/sda, /dev/nvme0n1
+    pub health_status: String, // PASSED, FAILING, UNKNOWN
+    pub temperature_celsius: Option<u8>,
+    pub power_on_hours: Option<u64>,
+    pub wear_leveling: Option<u8>, // 0-100 for SSDs
+    pub reallocated_sectors: Option<u64>,
+    pub pending_sectors: Option<u64>,
+    pub has_errors: bool,
+}
+
+/// System health metrics from journal and systemd
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SystemHealthMetrics {
+    pub journal_errors_last_24h: usize,
+    pub journal_warnings_last_24h: usize,
+    pub critical_events: Vec<CriticalEvent>,
+    pub degraded_services: Vec<String>, // services in degraded state
+    pub recent_crashes: Vec<ServiceCrash>,
+    pub oom_events_last_week: usize, // Out of memory kills
+    pub kernel_errors: Vec<String>, // Recent kernel errors
+}
+
+/// Critical system event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CriticalEvent {
+    pub timestamp: DateTime<Utc>,
+    pub message: String,
+    pub unit: Option<String>, // systemd unit involved
+    pub severity: String, // error, critical, emergency
+}
+
+/// Service crash information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceCrash {
+    pub service_name: String,
+    pub timestamp: DateTime<Utc>,
+    pub exit_code: Option<i32>,
+    pub signal: Option<String>,
+}
+
+/// Performance metrics trends
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PerformanceMetrics {
+    pub cpu_usage_avg_percent: f64,
+    pub memory_usage_avg_percent: f64,
+    pub disk_io_read_mb_s: f64,
+    pub disk_io_write_mb_s: f64,
+    pub network_rx_mb_s: f64,
+    pub network_tx_mb_s: f64,
+    pub high_cpu_processes: Vec<ProcessInfo>,
+    pub high_memory_processes: Vec<ProcessInfo>,
+}
+
+/// Process information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessInfo {
+    pub name: String,
+    pub pid: u32,
+    pub cpu_percent: f64,
+    pub memory_mb: f64,
+}
+
+/// Predictive insights based on trends
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PredictiveInsights {
+    pub disk_full_prediction: Option<DiskPrediction>,
+    pub temperature_trend: TemperatureTrend,
+    pub service_reliability: Vec<ServiceReliability>,
+    pub boot_time_trend: BootTimeTrend,
+    pub memory_pressure_risk: RiskLevel,
+}
+
+/// Disk space prediction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskPrediction {
+    pub mount_point: String,
+    pub days_until_full: Option<u32>, // None if not trending toward full
+    pub current_growth_gb_per_day: f64,
+}
+
+/// Temperature trend analysis
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TemperatureTrend {
+    pub cpu_trend: TrendDirection,
+    pub is_concerning: bool, // true if trending up significantly
+    pub average_temp_celsius: Option<f64>,
+    pub max_temp_celsius: Option<f64>,
+}
+
+/// Trend direction
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum TrendDirection {
+    #[default]
+    Stable,
+    Rising,
+    Falling,
+    Unknown,
+}
+
+/// Service reliability tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceReliability {
+    pub service_name: String,
+    pub reliability_score: f64, // 0.0-1.0
+    pub failures_last_30_days: usize,
+    pub is_unreliable: bool, // true if score < 0.8
+}
+
+/// Boot time trend
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BootTimeTrend {
+    pub current_seconds: Option<f64>,
+    pub trend: TrendDirection,
+    pub is_degrading: bool, // true if boot time increasing
 }
 
 /// Alternative software option
