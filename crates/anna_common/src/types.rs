@@ -1082,12 +1082,61 @@ impl LearnedPreferences {
         dismisses.sort_by(|a, b| b.1.cmp(a.1));
         let dismisses_categories: Vec<String> = dismisses.iter().take(5).map(|(k, _)| (*k).clone()).collect();
 
+        // Calculate average response time (time between viewing and applying)
+        let mut response_times: Vec<i64> = Vec::new();
+        let mut sorted_events = log.events.clone();
+        sorted_events.sort_by_key(|e| e.timestamp);
+
+        for window in sorted_events.windows(2) {
+            if window[0].event_type == FeedbackType::Viewed &&
+               window[1].event_type == FeedbackType::Applied &&
+               window[0].advice_id == window[1].advice_id {
+                let duration = window[1].timestamp - window[0].timestamp;
+                response_times.push(duration.num_minutes());
+            }
+        }
+
+        let avg_response_time_minutes = if !response_times.is_empty() {
+            response_times.iter().sum::<i64>() as f64 / response_times.len() as f64
+        } else {
+            0.0
+        };
+
+        // Infer risk preference from applied categories
+        // Security/maintenance categories typically have lower risk
+        let low_risk_categories = ["security", "maintenance", "cleanup", "updates"];
+        let low_risk_applications: usize = category_applications.iter()
+            .filter(|(cat, _)| low_risk_categories.contains(&cat.as_str()))
+            .map(|(_, count)| count)
+            .sum();
+        let total_applications: usize = category_applications.values().sum();
+
+        let prefers_low_risk = if total_applications > 5 {
+            (low_risk_applications as f64 / total_applications as f64) > 0.6
+        } else {
+            false // Not enough data
+        };
+
+        // Calculate power user level based on variety and volume of applications
+        let categories_used = category_applications.len();
+        let power_user_level = if total_applications > 50 && categories_used > 10 {
+            9 // Power user
+        } else if total_applications > 30 && categories_used > 7 {
+            7 // Advanced
+        } else if total_applications > 15 && categories_used > 5 {
+            6 // Intermediate
+        } else if total_applications > 5 {
+            5 // Regular user
+        } else {
+            3 // New user
+        };
+
         Self {
             prefers_categories,
             dismisses_categories,
-            avg_response_time_minutes: 0.0, // TODO: Calculate from timestamps
-            prefers_low_risk: false,        // TODO: Calculate from risk levels
-            power_user_level: 5,            // Default mid-level
+            avg_response_time_minutes,
+            prefers_low_risk,
+            power_user_level,
             last_updated: chrono::Utc::now(),
         }
     }
@@ -1212,6 +1261,33 @@ impl SystemHealthScore {
         // Overall score is weighted average
         let overall_score = (security_score as f64 * 0.4 + performance_score as f64 * 0.3 + maintenance_score as f64 * 0.3) as u8;
 
+        // Calculate health trend based on current state
+        // Future enhancement: track historical scores for accurate trend analysis
+        let health_trend = if critical_issues > 0 {
+            // Critical issues present = system declining
+            HealthTrend::Declining
+        } else if overall_score >= 90 && security_issues == 0 && maintenance_issues < 3 {
+            // High score, no security issues, minimal maintenance = improving or stable
+            if total_issues == 0 {
+                HealthTrend::Stable
+            } else {
+                HealthTrend::Improving
+            }
+        } else if overall_score >= 70 {
+            // Good score but some issues = stable
+            HealthTrend::Stable
+        } else if overall_score >= 50 {
+            // Below good but not critical = could be declining
+            if security_issues > 3 || maintenance_issues > 8 {
+                HealthTrend::Declining
+            } else {
+                HealthTrend::Stable
+            }
+        } else {
+            // Low score = declining
+            HealthTrend::Declining
+        };
+
         Self {
             overall_score,
             security_score,
@@ -1220,7 +1296,7 @@ impl SystemHealthScore {
             timestamp: chrono::Utc::now(),
             issues_count: total_issues,
             critical_issues,
-            health_trend: HealthTrend::Stable, // TODO: Calculate from history
+            health_trend,
             security_details,
             performance_details,
             maintenance_details,
