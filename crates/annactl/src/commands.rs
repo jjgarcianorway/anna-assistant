@@ -2250,20 +2250,46 @@ pub async fn wiki_cache(force: bool) -> Result<()> {
 
     // Request cache update via RPC
     println!("{}", beautiful::status(Level::Info, "Updating Arch Wiki cache..."));
-    println!("  This will download 40+ common Arch Wiki pages for offline access.");
-    println!("  Please wait, this may take a few moments...");
+    println!("  This will download \x1b[1m88+ essential Arch Wiki pages\x1b[0m for offline access.");
+    println!("  Progress details are logged by the daemon.");
     println!();
+    println!("  \x1b[2mTip: Watch progress in another terminal:\x1b[0m");
+    println!("       \x1b[38;5;159mjournalctl -u annad -f\x1b[0m");
+    println!();
+
+    use std::io::{self, Write};
+    print!("  \x1b[38;5;226m⏳\x1b[0m Downloading wiki pages");
+    io::stdout().flush()?;
+
+    // Spawn progress animation
+    let animation_handle = tokio::spawn(async {
+        let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+        let mut i = 0;
+        loop {
+            print!("\r  \x1b[38;5;226m{}\x1b[0m Downloading wiki pages... ", frames[i % frames.len()]);
+            io::stdout().flush().ok();
+            tokio::time::sleep(tokio::time::Duration::from_millis(80)).await;
+            i += 1;
+        }
+    });
 
     let response = client
         .call(Method::UpdateWikiCache)
         .await
         .context("Failed to update wiki cache")?;
 
+    // Stop animation
+    animation_handle.abort();
+    print!("\r\x1b[K"); // Clear line
+    io::stdout().flush()?;
+
     match response {
         ResponseData::ActionResult { success, message } => {
             if success {
-                println!("{}", beautiful::status(Level::Success, "Wiki cache updated!"));
+                println!("{}", beautiful::status(Level::Success, "Wiki cache updated successfully!"));
                 println!("  {}", message);
+                println!();
+                println!("  \x1b[2m88 essential pages cached for offline use\x1b[0m");
             } else {
                 println!("{}", beautiful::status(Level::Error, "Failed to update cache"));
                 println!("  {}", message);
