@@ -5,6 +5,39 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.52] - 2025-11-05
+
+### ✨ TUI Enhancements
+
+**Ignore/Dismiss Keyboard Shortcuts:**
+- Added 'd' key to ignore recommendations by category
+- Added 'i' key to ignore recommendations by priority
+- Works in both Dashboard and Details views
+- Immediate visual feedback with status messages
+- Automatically refreshes view after ignoring
+- Footer shortcuts updated to show new options
+
+**User Experience:**
+- Press 'd' to dismiss all recommendations in the same category
+- Press 'i' to dismiss all recommendations with the same priority
+- Returns to Dashboard view after ignoring from Details
+- Color-coded status messages (yellow for success, red for errors)
+
+### 🔧 Technical Details
+
+**Modified Functions:**
+- `handle_dashboard_keys()` - Added 'd' and 'i' handlers (lines 301-343)
+- `handle_details_keys()` - Added 'd' and 'i' handlers (lines 414-460)
+- Footer rendering - Updated shortcuts display for both views
+
+**Files Modified:**
+- tui.rs: Added ignore keyboard shortcuts to TUI interface
+
+**Integration:**
+- Uses existing IgnoreFilters system from anna_common
+- Triggers automatic refresh by adjusting last_update timestamp
+- Consistent behavior between Dashboard and Details views
+
 ## [1.0.0-beta.51] - 2025-11-05
 
 ### 🎯 User-Requested Features

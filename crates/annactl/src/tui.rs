@@ -298,6 +298,49 @@ impl Tui {
                 self.sort_advice();
                 self.status_message = Some(("Sorted by Risk Level".to_string(), Color::Cyan));
             }
+            KeyCode::Char('d') => {
+                // Dismiss/ignore current advice
+                if let Some(advice) = self.selected_advice() {
+                    // Add to ignore filters by category
+                    if let Ok(mut filters) = anna_common::IgnoreFilters::load() {
+                        filters.ignore_category(&advice.category);
+                        if let Err(e) = filters.save() {
+                            self.status_message = Some((
+                                format!("Failed to save ignore filter: {}", e),
+                                Color::Red
+                            ));
+                        } else {
+                            self.status_message = Some((
+                                format!("Ignored category: {}", advice.category),
+                                Color::Yellow
+                            ));
+                            // Mark for refresh on next cycle
+                            self.last_update = std::time::Instant::now() - std::time::Duration::from_secs(5);
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('i') => {
+                // Ignore by priority
+                if let Some(advice) = self.selected_advice() {
+                    if let Ok(mut filters) = anna_common::IgnoreFilters::load() {
+                        filters.ignore_priority(advice.priority);
+                        if let Err(e) = filters.save() {
+                            self.status_message = Some((
+                                format!("Failed to save ignore filter: {}", e),
+                                Color::Red
+                            ));
+                        } else {
+                            self.status_message = Some((
+                                format!("Ignored priority: {:?}", advice.priority),
+                                Color::Yellow
+                            ));
+                            // Mark for refresh on next cycle
+                            self.last_update = std::time::Instant::now() - std::time::Duration::from_secs(5);
+                        }
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -365,6 +408,53 @@ impl Tui {
                             "This recommendation is informational only - no action to apply".to_string(),
                             Color::Yellow
                         ));
+                    }
+                }
+            }
+            KeyCode::Char('d') => {
+                // Dismiss/ignore current advice by category
+                if let Some(advice) = self.selected_advice() {
+                    // Add to ignore filters by category
+                    if let Ok(mut filters) = anna_common::IgnoreFilters::load() {
+                        filters.ignore_category(&advice.category);
+                        if let Err(e) = filters.save() {
+                            self.status_message = Some((
+                                format!("Failed to save ignore filter: {}", e),
+                                Color::Red
+                            ));
+                        } else {
+                            self.status_message = Some((
+                                format!("Ignored category: {}", advice.category),
+                                Color::Yellow
+                            ));
+                            // Mark for refresh on next cycle
+                            self.last_update = std::time::Instant::now() - std::time::Duration::from_secs(5);
+                            // Return to dashboard
+                            self.view_mode = ViewMode::Dashboard;
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('i') => {
+                // Ignore by priority
+                if let Some(advice) = self.selected_advice() {
+                    if let Ok(mut filters) = anna_common::IgnoreFilters::load() {
+                        filters.ignore_priority(advice.priority);
+                        if let Err(e) = filters.save() {
+                            self.status_message = Some((
+                                format!("Failed to save ignore filter: {}", e),
+                                Color::Red
+                            ));
+                        } else {
+                            self.status_message = Some((
+                                format!("Ignored priority: {:?}", advice.priority),
+                                Color::Yellow
+                            ));
+                            // Mark for refresh on next cycle
+                            self.last_update = std::time::Instant::now() - std::time::Duration::from_secs(5);
+                            // Return to dashboard
+                            self.view_mode = ViewMode::Dashboard;
+                        }
                     }
                 }
             }
@@ -1043,6 +1133,8 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
             (" c ", " Category  "),
             (" p ", " Priority  "),
             (" r ", " Risk  "),
+            (" d ", " Ignore Cat  "),
+            (" i ", " Ignore Pri  "),
         ],
         "Details" => {
             // Check if selected advice has a command (actionable)
@@ -1054,11 +1146,15 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
                 vec![
                     (" Esc ", " Back  "),
                     (" a ", " Apply  "),
+                    (" d ", " Ignore Cat  "),
+                    (" i ", " Ignore Pri  "),
                     (" q ", " Quit  "),
                 ]
             } else {
                 vec![
                     (" Esc ", " Back  "),
+                    (" d ", " Ignore Cat  "),
+                    (" i ", " Ignore Pri  "),
                     (" q ", " Quit  "),
                 ]
             }
