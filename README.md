@@ -4,7 +4,26 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.57 (November 2025)
+**Current Version:** Beta.58 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.58
+
+**🔧 Critical Apply Command Fix:**
+- Fixed apply command hanging on package installations
+- Added `--noconfirm` to all 35 pacman/yay commands
+- Commands now run non-interactively as intended
+- No more frozen terminals waiting for user input!
+
+**🐛 Bug Fixes:**
+- CLI apply command works properly now
+- TUI apply no longer hangs during package installation
+- Both interfaces can install packages automatically
+
+**Files Fixed:**
+- `recommender.rs` - 19 commands fixed
+- `smart_recommender.rs` - 16 commands fixed
 
 ---
 

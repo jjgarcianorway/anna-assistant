@@ -5,6 +5,56 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.58] - 2025-11-05
+
+### 🔧 Critical Apply Command Fix
+
+**Fixed Hanging Apply Commands:**
+- Apply command was hanging because pacman/yay needed `--noconfirm` flag
+- Fixed all 35 commands missing the flag across the codebase
+- CLI and TUI apply commands now work without hanging
+- Package installations run non-interactively as intended
+
+**User Experience Before Fix:**
+```bash
+annactl apply 25
+# Would hang with: ":: Proceed with installation? [Y/n]"
+# User couldn't see progress and thought it was dead
+```
+
+**User Experience After Fix:**
+- Commands execute automatically without prompts
+- Clean installation without user interaction needed
+- No more frozen terminals waiting for input
+
+**Files Modified:**
+- `recommender.rs` - Fixed 19 pacman/yay commands
+- `smart_recommender.rs` - Fixed 16 pacman/yay commands
+- `rpc_server.rs` - Added debug logging for history tracking
+
+**Affected Commands:**
+- `sudo pacman -S <package>` → `sudo pacman -S --noconfirm <package>`
+- `yay -S <package>` → `yay -S --noconfirm <package>`
+- All package installation commands across TLP, timeshift, bluetooth, etc.
+
+**User Feedback Implemented:**
+- "It has finished but I thought it was dead" - FIXED! ✅
+- "With command line it fails" - FIXED! ✅
+- "Tried to apply from TUI and it is just hanging" - FIXED! ✅
+
+### 🔍 History Investigation (In Progress)
+
+**Added Debug Logging:**
+- Added detailed logging to RPC server for history recording
+- Logs show when history is being recorded and saved
+- Helps diagnose why history might not be persisting
+- Path: `/var/log/anna/application_history.jsonl`
+
+**Next Steps:**
+- User to test with: `annactl apply <number>`
+- Check logs with: `journalctl -u annad | grep history`
+- Verify file permissions on `/var/log/anna/`
+
 ## [1.0.0-beta.57] - 2025-11-05
 
 ### 🔕 Smart Notification System (Anti-Spam)

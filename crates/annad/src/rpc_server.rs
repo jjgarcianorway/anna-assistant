@@ -212,6 +212,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
                             // Record to application history (only for actual execution, not dry-run)
                             if !dry_run {
+                                info!("Recording application history for: {}", adv.id);
                                 let history_entry = anna_common::HistoryEntry {
                                     advice_id: adv.id.clone(),
                                     advice_title: adv.title.clone(),
@@ -227,8 +228,11 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
                                 let mut history = anna_common::ApplicationHistory::load().unwrap_or_default();
                                 history.record(history_entry);
-                                if let Err(e) = history.save() {
-                                    warn!("Failed to save application history: {}", e);
+                                info!("History entries before save: {}", history.entries.len());
+                                match history.save() {
+                                    Ok(()) => info!("Application history saved successfully to: {:?}",
+                                        anna_common::ApplicationHistory::history_path()),
+                                    Err(e) => warn!("Failed to save application history: {}", e),
                                 }
                             }
 
