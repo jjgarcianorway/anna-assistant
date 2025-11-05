@@ -1414,8 +1414,8 @@ pub async fn rollback(bundle_name: &str, dry_run: bool) -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
-    // Connect to daemon
-    let client = match RpcClient::connect().await {
+    // Connect to daemon (not currently used but validates daemon is running)
+    let _client = match RpcClient::connect().await {
         Ok(c) => c,
         Err(_) => {
             println!("{}", beautiful::status(Level::Error, "Daemon not running"));
