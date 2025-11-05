@@ -91,6 +91,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_usb_automount());
     advice.extend(check_bluetooth());
     advice.extend(check_wifi_setup());
+    advice.extend(check_network_quality(facts));
     advice.extend(check_snapshot_systems(facts));
     advice.extend(check_docker_support(facts));
     advice.extend(check_virtualization_support(facts));
@@ -3052,6 +3053,135 @@ fn check_wifi_setup() -> Vec<Advice> {
             popularity: 50,
             });
             }
+        }
+    }
+
+    result
+}
+
+/// Check network quality (latency and packet loss)
+fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check latency
+    if let Some(latency) = facts.performance_metrics.average_latency_ms {
+        if latency > 150.0 {
+            result.push(Advice {
+                id: "high-network-latency".to_string(),
+                title: "High network latency detected".to_string(),
+                reason: format!(
+                    "Your network latency is {:.0}ms, which is quite high! This can make web browsing feel sluggish, video calls choppy, and online gaming frustrating. Good latency is usually under 50ms. High latency can be caused by: WiFi interference, being far from your router, ISP congestion, or using VPN/proxy servers.",
+                    latency
+                ),
+                action: "Investigate and improve network latency".to_string(),
+                command: None, // Informational only
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "networking".to_string(),
+                alternatives: vec![
+                    Alternative {
+                        name: "Move closer to router".to_string(),
+                        description: "Physical distance significantly impacts WiFi latency".to_string(),
+                        install_command: String::new(),
+                    },
+                    Alternative {
+                        name: "Use Ethernet".to_string(),
+                        description: "Wired connection typically has lower latency than WiFi".to_string(),
+                        install_command: String::new(),
+                    },
+                    Alternative {
+                        name: "Change WiFi channel".to_string(),
+                        description: "Reduce interference by using less congested channel".to_string(),
+                        install_command: String::new(),
+                    },
+                ],
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Network_configuration".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+                popularity: 10,
+            });
+        } else if latency > 80.0 {
+            result.push(Advice {
+                id: "moderate-network-latency".to_string(),
+                title: "Moderate network latency".to_string(),
+                reason: format!(
+                    "Your network latency is {:.0}ms. This is acceptable for most tasks, but could be better. For video calls and gaming, aim for under 50ms. Consider switching to Ethernet if you're on WiFi, or check if your ISP is experiencing issues.",
+                    latency
+                ),
+                action: "Consider optimizing network connection".to_string(),
+                command: None,
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "networking".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Network_configuration".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+                popularity: 10,
+            });
+        }
+    }
+
+    // Check packet loss
+    if let Some(packet_loss) = facts.performance_metrics.packet_loss_percent {
+        if packet_loss > 5.0 {
+            result.push(Advice {
+                id: "high-packet-loss".to_string(),
+                title: "Significant packet loss detected".to_string(),
+                reason: format!(
+                    "Your network is experiencing {:.1}% packet loss! Any packet loss above 2-3% is problematic. This causes: stuttering video, disconnects in video calls, lag spikes in games, and slow downloads. Common causes: WiFi interference, weak signal, router problems, or ISP issues.",
+                    packet_loss
+                ),
+                action: "Diagnose and fix packet loss issues".to_string(),
+                command: None,
+                risk: RiskLevel::Medium,
+                priority: Priority::Recommended,
+                category: "networking".to_string(),
+                alternatives: vec![
+                    Alternative {
+                        name: "Use Ethernet".to_string(),
+                        description: "Wired connections have virtually zero packet loss".to_string(),
+                        install_command: String::new(),
+                    },
+                    Alternative {
+                        name: "Check router/cables".to_string(),
+                        description: "Faulty hardware can cause packet loss".to_string(),
+                        install_command: String::new(),
+                    },
+                    Alternative {
+                        name: "Contact ISP".to_string(),
+                        description: "Persistent packet loss may indicate ISP problems".to_string(),
+                        install_command: String::new(),
+                    },
+                ],
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Network_Debugging".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+                popularity: 15,
+            });
+        } else if packet_loss > 1.0 {
+            result.push(Advice {
+                id: "minor-packet-loss".to_string(),
+                title: "Minor packet loss detected".to_string(),
+                reason: format!(
+                    "Your network has {:.1}% packet loss. While not critical, ideally you want 0% packet loss. This minor loss might occasionally cause brief hiccups in video calls or online games. Worth investigating if it persists.",
+                    packet_loss
+                ),
+                action: "Monitor network stability".to_string(),
+                command: None,
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "networking".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Network_Debugging".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+                popularity: 10,
+            });
         }
     }
 

@@ -453,6 +453,11 @@ pub struct PerformanceMetrics {
     pub network_tx_mb_s: f64,
     pub high_cpu_processes: Vec<ProcessInfo>,
     pub high_memory_processes: Vec<ProcessInfo>,
+    // Network quality metrics
+    #[serde(default)]
+    pub average_latency_ms: Option<f64>, // Ping to 8.8.8.8 or gateway
+    #[serde(default)]
+    pub packet_loss_percent: Option<f64>, // Packet loss percentage
 }
 
 /// Process information

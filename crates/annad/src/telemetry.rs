@@ -2220,6 +2220,9 @@ fn collect_performance_metrics(sys: &System) -> anna_common::PerformanceMetrics 
     // Get network stats (simplified)
     let (net_rx, net_tx) = get_network_stats();
 
+    // Get network quality metrics (latency and packet loss)
+    let (latency, packet_loss) = get_network_quality_stats();
+
     // Get top CPU processes
     let mut high_cpu_processes: Vec<ProcessInfo> = sys
         .processes()
@@ -2257,6 +2260,8 @@ fn collect_performance_metrics(sys: &System) -> anna_common::PerformanceMetrics 
         network_tx_mb_s: net_tx,
         high_cpu_processes,
         high_memory_processes,
+        average_latency_ms: latency,
+        packet_loss_percent: packet_loss,
     }
 }
 
@@ -2270,6 +2275,68 @@ fn get_disk_io_stats() -> (f64, f64) {
 fn get_network_stats() -> (f64, f64) {
     // This would parse /proc/net/dev - simplified for now
     (0.0, 0.0)
+}
+
+/// Get network quality metrics (latency and packet loss)
+fn get_network_quality_stats() -> (Option<f64>, Option<f64>) {
+    use std::process::Command;
+
+    // Try to ping Google DNS (8.8.8.8) or fallback to gateway
+    let ping_target = "8.8.8.8";
+    let ping_count = "4"; // 4 pings for statistical relevance
+
+    // Execute ping command with timeout
+    let output = Command::new("ping")
+        .args(&["-c", ping_count, "-W", "2", ping_target]) // 2 second timeout
+        .output();
+
+    if let Ok(result) = output {
+        if result.status.success() {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+
+            // Parse latency from ping output
+            // Example line: "rtt min/avg/max/mdev = 12.345/15.678/20.123/2.456 ms"
+            let latency = if let Some(rtt_line) = stdout.lines().find(|l| l.contains("rtt min/avg/max/mdev")) {
+                // Extract average latency (second value)
+                if let Some(values) = rtt_line.split('=').nth(1) {
+                    let parts: Vec<&str> = values.trim().split('/').collect();
+                    if parts.len() >= 2 {
+                        // Parse the average (second value)
+                        parts[1].trim().parse::<f64>().ok()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Parse packet loss from ping output
+            // Example line: "4 packets transmitted, 4 received, 0% packet loss, time 3005ms"
+            let packet_loss = if let Some(loss_line) = stdout.lines().find(|l| l.contains("packet loss")) {
+                // Extract packet loss percentage
+                if let Some(percent_part) = loss_line.split(',').nth(2) {
+                    // Extract number before '%'
+                    if let Some(loss_str) = percent_part.trim().split('%').next() {
+                        loss_str.trim().parse::<f64>().ok()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            return (latency, packet_loss);
+        }
+    }
+
+    // If ping fails, return None for both metrics
+    (None, None)
 }
 
 /// Generate predictive insights based on collected data
