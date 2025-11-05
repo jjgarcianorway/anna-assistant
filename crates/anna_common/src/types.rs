@@ -238,6 +238,14 @@ pub struct SystemFacts {
     pub locale_info: LocaleInfo, // timezone, language settings
     #[serde(default)]
     pub pacman_hooks: Vec<String>, // installed pacman hooks
+
+    // Audio System (beta.43+)
+    #[serde(default)]
+    pub audio_system: Option<String>, // PulseAudio, PipeWire, ALSA
+    #[serde(default)]
+    pub audio_server_running: bool, // Audio server is active
+    #[serde(default)]
+    pub pipewire_session_manager: Option<String>, // WirePlumber, pipewire-media-session
 }
 
 /// Package installation record

@@ -85,7 +85,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_terminal_and_fonts());
     advice.extend(check_firmware_tools());
     advice.extend(check_media_tools());
-    advice.extend(check_audio_system());
+    advice.extend(check_audio_system(facts));
     advice.extend(check_power_management());
     advice.extend(check_gamepad_support());
     advice.extend(check_usb_automount());
@@ -2631,68 +2631,148 @@ fn check_media_tools() -> Vec<Advice> {
     result
 }
 
-/// Rule 22: Check audio system
-fn check_audio_system() -> Vec<Advice> {
+/// Rule 22: Check audio system (beta.43+ with enhanced telemetry)
+fn check_audio_system(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
-    // Check if PipeWire is installed
-    let has_pipewire = Command::new("pacman")
-        .args(&["-Q", "pipewire"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    // Use new audio telemetry
+    let audio_system = facts.audio_system.as_deref().unwrap_or("Unknown");
+    let audio_running = facts.audio_server_running;
+    let session_manager = facts.pipewire_session_manager.as_deref();
 
-    let has_pulseaudio = Command::new("pacman")
-        .args(&["-Q", "pulseaudio"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-
-    // Suggest PipeWire if they're still on PulseAudio
-    if has_pulseaudio && !has_pipewire {
-        result.push(Advice {
-            id: "pipewire".to_string(),
-            title: "Consider switching to PipeWire audio system".to_string(),
-            reason: "PipeWire is the modern replacement for PulseAudio. It has lower latency, better Bluetooth support, and can handle both audio AND video routing. Most distros are switching to it - it's more reliable and feature-rich than PulseAudio!".to_string(),
-            action: "Switch to PipeWire (requires removal of PulseAudio)".to_string(),
-            command: Some("pacman -S --noconfirm pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber".to_string()),
-            risk: RiskLevel::Medium,
-            priority: Priority::Optional,
-            category: "multimedia".to_string(),
-            alternatives: Vec::new(),
-                wiki_refs: vec!["https://wiki.archlinux.org/title/PipeWire".to_string()],
-                        depends_on: Vec::new(),
-                related_to: Vec::new(),
-                bundle: None,
-            popularity: 50,
-            });
+    // Recommend PipeWire upgrade if still on PulseAudio
+    if audio_system.contains("PulseAudio") && !audio_system.contains("(not running)") {
+        result.push(
+            Advice::new(
+                "upgrade-to-pipewire".to_string(),
+                "Upgrade to PipeWire audio system".to_string(),
+                "PipeWire is the modern replacement for PulseAudio with lower latency (as low as 5ms), better Bluetooth codec support (AAC, aptX, LDAC), simultaneous JACK and PulseAudio compatibility, and professional-grade audio/video routing capabilities. Most major distributions have switched to PipeWire as the default.".to_string(),
+                "Install PipeWire and session manager".to_string(),
+                Some("sudo pacman -S --noconfirm pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber && systemctl --user enable --now pipewire pipewire-pulse wireplumber".to_string()),
+                RiskLevel::Medium,
+                Priority::Recommended,
+                vec![
+                    "https://wiki.archlinux.org/title/PipeWire".to_string(),
+                    "https://wiki.archlinux.org/title/PipeWire#Migrating_from_PulseAudio".to_string(),
+                ],
+                "multimedia".to_string(),
+            )
+            .with_popularity(75)
+        );
     }
 
-    // If they have PipeWire, check for additional useful tools
-    if has_pipewire {
-        let has_pavucontrol = Command::new("pacman")
-            .args(&["-Q", "pavucontrol"])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+    // Check for PipeWire without session manager
+    if audio_system.contains("PipeWire") && session_manager.is_none() {
+        result.push(
+            Advice::new(
+                "install-wireplumber".to_string(),
+                "Install WirePlumber session manager for PipeWire".to_string(),
+                "PipeWire requires a session manager to handle device routing and policy. WirePlumber is the modern, Lua-based session manager that replaced pipewire-media-session. Without it, your audio may not work correctly!".to_string(),
+                "Install WirePlumber and enable the service".to_string(),
+                Some("sudo pacman -S --noconfirm wireplumber && systemctl --user enable --now wireplumber".to_string()),
+                RiskLevel::Low,
+                Priority::Mandatory,
+                vec![
+                    "https://wiki.archlinux.org/title/PipeWire#WirePlumber".to_string(),
+                ],
+                "multimedia".to_string(),
+            )
+            .with_popularity(80)
+        );
+    }
 
-        if !has_pavucontrol {
-            result.push(Advice {
-                id: "pavucontrol".to_string(),
-                title: "Install PulseAudio Volume Control (works with PipeWire)".to_string(),
-                reason: "pavucontrol gives you a GUI to control audio devices, application volumes, and routing. Even though it says PulseAudio, it works perfectly with PipeWire! Much easier than command-line audio management.".to_string(),
-                action: "Install pavucontrol".to_string(),
-                command: Some("pacman -S --noconfirm pavucontrol".to_string()),
-                risk: RiskLevel::Low,
-                priority: Priority::Recommended,
-                category: "multimedia".to_string(),
-                alternatives: Vec::new(),
-                wiki_refs: vec!["https://wiki.archlinux.org/title/PulseAudio#pavucontrol".to_string()],
-                            depends_on: Vec::new(),
-                related_to: Vec::new(),
-                bundle: None,
-            popularity: 50,
-            });
+    // Warn about legacy pipewire-media-session
+    if let Some(manager) = session_manager {
+        if manager.contains("pipewire-media-session") {
+            result.push(
+                Advice::new(
+                    "upgrade-to-wireplumber".to_string(),
+                    "Upgrade to WirePlumber from pipewire-media-session".to_string(),
+                    "pipewire-media-session is deprecated and no longer maintained. WirePlumber is the official replacement with better device handling, policy management, and Bluetooth support.".to_string(),
+                    "Replace pipewire-media-session with WirePlumber".to_string(),
+                    Some("sudo pacman -S --noconfirm wireplumber && systemctl --user disable --now pipewire-media-session && systemctl --user enable --now wireplumber".to_string()),
+                    RiskLevel::Low,
+                    Priority::Recommended,
+                    vec![
+                        "https://wiki.archlinux.org/title/PipeWire#WirePlumber".to_string(),
+                    ],
+                    "multimedia".to_string(),
+                )
+                .with_popularity(70)
+            );
+        }
+    }
+
+    // Check for audio server not running
+    if !audio_running && audio_system != "ALSA" {
+        result.push(
+            Advice::new(
+                "start-audio-server".to_string(),
+                format!("{} audio server is not running", audio_system),
+                format!("Your {} is installed but not currently running. This means applications won't be able to play audio. The audio server should start automatically when you log in.", audio_system),
+                "Start the audio server".to_string(),
+                if audio_system.contains("PipeWire") {
+                    Some("systemctl --user start pipewire pipewire-pulse wireplumber".to_string())
+                } else {
+                    Some("systemctl --user start pulseaudio".to_string())
+                },
+                RiskLevel::Low,
+                Priority::Recommended,
+                vec![
+                    if audio_system.contains("PipeWire") {
+                        "https://wiki.archlinux.org/title/PipeWire#Installation"
+                    } else {
+                        "https://wiki.archlinux.org/title/PulseAudio"
+                    }.to_string(),
+                ],
+                "multimedia".to_string(),
+            )
+            .with_popularity(85)
+        );
+    }
+
+    // Suggest pavucontrol for GUI volume control
+    if audio_system.contains("PipeWire") || audio_system.contains("PulseAudio") {
+        if !is_package_installed("pavucontrol") {
+            result.push(
+                Advice::new(
+                    "install-pavucontrol".to_string(),
+                    "Install pavucontrol for GUI audio management".to_string(),
+                    "pavucontrol (PulseAudio Volume Control) provides a graphical interface to manage audio devices, application volumes, and audio routing. It works perfectly with both PipeWire and PulseAudio, making it much easier than command-line tools.".to_string(),
+                    "Install pavucontrol".to_string(),
+                    Some("sudo pacman -S --noconfirm pavucontrol".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/PulseAudio#Front-ends".to_string(),
+                    ],
+                    "multimedia".to_string(),
+                )
+                .with_popularity(65)
+            );
+        }
+    }
+
+    // Suggest Bluetooth audio codecs for PipeWire
+    if audio_system.contains("PipeWire") && facts.bluetooth_status.available {
+        if !is_package_installed("libldac") {
+            result.push(
+                Advice::new(
+                    "install-bluetooth-codecs".to_string(),
+                    "Install high-quality Bluetooth audio codecs".to_string(),
+                    "PipeWire supports advanced Bluetooth codecs like LDAC (Sony Hi-Res), aptX, and AAC for much better wireless audio quality than standard SBC. Installing codec libraries enables these automatically.".to_string(),
+                    "Install Bluetooth audio codec libraries".to_string(),
+                    Some("sudo pacman -S --noconfirm libldac libfreeaptx".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/Bluetooth_headset#Bluetooth_audio_codecs".to_string(),
+                        "https://wiki.archlinux.org/title/PipeWire#Bluetooth_devices".to_string(),
+                    ],
+                    "multimedia".to_string(),
+                )
+                .with_popularity(60)
+            );
         }
     }
 

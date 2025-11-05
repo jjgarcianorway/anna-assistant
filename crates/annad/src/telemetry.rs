@@ -130,6 +130,11 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         swap_config: analyze_swap_configuration(),
         locale_info: collect_locale_info(),
         pacman_hooks: detect_pacman_hooks(),
+
+        // Audio System (beta.43+)
+        audio_system: detect_audio_system(),
+        audio_server_running: check_audio_server_running(),
+        pipewire_session_manager: detect_pipewire_session_manager(),
     })
 }
 
@@ -2265,15 +2270,122 @@ fn collect_performance_metrics(sys: &System) -> anna_common::PerformanceMetrics 
     }
 }
 
-/// Get disk I/O statistics (simplified)
+/// Get disk I/O statistics from /proc/diskstats
 fn get_disk_io_stats() -> (f64, f64) {
-    // This would parse /proc/diskstats - simplified for now
+    use std::fs;
+
+    // Read /proc/diskstats
+    let diskstats = match fs::read_to_string("/proc/diskstats") {
+        Ok(content) => content,
+        Err(_) => return (0.0, 0.0),
+    };
+
+    let mut total_read_sectors = 0u64;
+    let mut total_write_sectors = 0u64;
+
+    for line in diskstats.lines() {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 14 {
+            continue;
+        }
+
+        // Skip loop devices and partitions (we only want main disks)
+        let device_name = fields[2];
+        if device_name.starts_with("loop") || device_name.starts_with("ram") {
+            continue;
+        }
+
+        // Skip partitions - only count whole disks (sda, nvme0n1, etc, not sda1, nvme0n1p1)
+        if device_name.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            && !device_name.contains("nvme") {
+            continue;
+        }
+        if device_name.contains("nvme") && device_name.contains('p') {
+            continue;
+        }
+
+        // Field 5: sectors read (512 bytes each)
+        if let Ok(sectors_read) = fields[5].parse::<u64>() {
+            total_read_sectors += sectors_read;
+        }
+
+        // Field 9: sectors written
+        if let Ok(sectors_written) = fields[9].parse::<u64>() {
+            total_write_sectors += sectors_written;
+        }
+    }
+
+    // Convert sectors to MB (512 bytes per sector)
+    // Note: These are cumulative values since boot, not rates
+    // For rates, we'd need to track previous values and time delta
+    let read_mb = (total_read_sectors as f64 * 512.0) / 1024.0 / 1024.0;
+    let write_mb = (total_write_sectors as f64 * 512.0) / 1024.0 / 1024.0;
+
+    // For now, return cumulative totals divided by uptime to get rough average
+    // This gives MB/s average over system uptime
+    if let Ok(uptime_str) = fs::read_to_string("/proc/uptime") {
+        if let Some(uptime_secs) = uptime_str.split_whitespace().next() {
+            if let Ok(uptime) = uptime_secs.parse::<f64>() {
+                if uptime > 0.0 {
+                    return (read_mb / uptime, write_mb / uptime);
+                }
+            }
+        }
+    }
+
     (0.0, 0.0)
 }
 
-/// Get network statistics (simplified)
+/// Get network statistics from /proc/net/dev
 fn get_network_stats() -> (f64, f64) {
-    // This would parse /proc/net/dev - simplified for now
+    use std::fs;
+
+    // Read /proc/net/dev
+    let netdev = match fs::read_to_string("/proc/net/dev") {
+        Ok(content) => content,
+        Err(_) => return (0.0, 0.0),
+    };
+
+    let mut total_rx_bytes = 0u64;
+    let mut total_tx_bytes = 0u64;
+
+    for line in netdev.lines().skip(2) {  // Skip header lines
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 10 {
+            continue;
+        }
+
+        // Skip loopback interface
+        if parts[0].starts_with("lo:") {
+            continue;
+        }
+
+        // Bytes received (field 1 after interface name)
+        if let Ok(rx_bytes) = parts[1].parse::<u64>() {
+            total_rx_bytes += rx_bytes;
+        }
+
+        // Bytes transmitted (field 9 after interface name)
+        if let Ok(tx_bytes) = parts[9].parse::<u64>() {
+            total_tx_bytes += tx_bytes;
+        }
+    }
+
+    // Convert to MB
+    let rx_mb = total_rx_bytes as f64 / 1024.0 / 1024.0;
+    let tx_mb = total_tx_bytes as f64 / 1024.0 / 1024.0;
+
+    // Calculate MB/s average over uptime
+    if let Ok(uptime_str) = fs::read_to_string("/proc/uptime") {
+        if let Some(uptime_secs) = uptime_str.split_whitespace().next() {
+            if let Ok(uptime) = uptime_secs.parse::<f64>() {
+                if uptime > 0.0 {
+                    return (rx_mb / uptime, tx_mb / uptime);
+                }
+            }
+        }
+    }
+
     (0.0, 0.0)
 }
 
@@ -2807,4 +2919,153 @@ fn detect_pacman_hooks() -> Vec<String> {
     }
 
     hooks
+}
+
+/// Detect audio system (beta.43+)
+fn detect_audio_system() -> Option<String> {
+    // Check for PipeWire (modern audio server)
+    if Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("PipeWire".to_string());
+    }
+
+    // Check for PipeWire using ps (fallback)
+    if Command::new("pgrep")
+        .arg("pipewire")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("PipeWire".to_string());
+    }
+
+    // Check for PulseAudio (traditional audio server)
+    if Command::new("systemctl")
+        .args(&["--user", "is-active", "pulseaudio.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("PulseAudio".to_string());
+    }
+
+    // Check for PulseAudio using pulseaudio command
+    if Command::new("pgrep")
+        .arg("pulseaudio")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("PulseAudio".to_string());
+    }
+
+    // Fallback: check if packages are installed
+    if package_installed("pipewire") {
+        return Some("PipeWire (not running)".to_string());
+    }
+
+    if package_installed("pulseaudio") {
+        return Some("PulseAudio (not running)".to_string());
+    }
+
+    // Default to ALSA if nothing else detected
+    Some("ALSA".to_string())
+}
+
+/// Check if audio server is currently running (beta.43+)
+fn check_audio_server_running() -> bool {
+    // Check PipeWire
+    if Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    // Check PulseAudio
+    if Command::new("systemctl")
+        .args(&["--user", "is-active", "pulseaudio.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    // Check using pgrep as fallback
+    Command::new("pgrep")
+        .arg("-x")
+        .arg("pipewire|pulseaudio")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Detect PipeWire session manager (beta.43+)
+fn detect_pipewire_session_manager() -> Option<String> {
+    // Only relevant if PipeWire is the audio system
+    if let Some(audio) = detect_audio_system() {
+        if !audio.contains("PipeWire") {
+            return None;
+        }
+    } else {
+        return None;
+    }
+
+    // Check for WirePlumber (modern session manager)
+    if Command::new("systemctl")
+        .args(&["--user", "is-active", "wireplumber.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("WirePlumber".to_string());
+    }
+
+    // Check using pgrep
+    if Command::new("pgrep")
+        .arg("wireplumber")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("WirePlumber".to_string());
+    }
+
+    // Check for pipewire-media-session (legacy)
+    if Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire-media-session.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("pipewire-media-session".to_string());
+    }
+
+    // Check using pgrep
+    if Command::new("pgrep")
+        .arg("pipewire-media-session")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        return Some("pipewire-media-session".to_string());
+    }
+
+    // Check if packages are installed
+    if package_installed("wireplumber") {
+        return Some("WirePlumber (not running)".to_string());
+    }
+
+    if package_installed("pipewire-media-session") {
+        return Some("pipewire-media-session (not running)".to_string());
+    }
+
+    None
 }
