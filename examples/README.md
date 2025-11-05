@@ -66,36 +66,45 @@ annactl advise
    [ID: orphan-packages]
 ```
 
-### Filter by Risk Level
+### Filter by Category or Mode
 
 ```bash
-# Show only critical recommendations
-annactl advise --risk high
+# Show only security recommendations
+annactl advise security
 
-# Show only optional improvements  
-annactl advise --risk low
+# Show only critical priority items
+annactl advise --mode critical
+
+# Show all recommendations (not just smart selection)
+annactl advise --mode all
+
+# Limit results
+annactl advise --limit 10
 ```
 
 ### Apply Recommendations
 
 ```bash
 # Apply a single recommendation by number
-annactl apply --nums 1
-
-# Apply by ID
-annactl apply --id amd-microcode
+annactl apply 1
 
 # Dry run to see what would happen
-annactl apply --nums 1 --dry-run
+annactl apply 1 --dry-run
 
 # Apply multiple recommendations
-annactl apply --nums 1,2,5
+annactl apply 1,2,5
 
 # Apply a range
-annactl apply --nums 1-5
+annactl apply 1-5
 
 # Apply complex selections
-annactl apply --nums 1,3,5-7,10
+annactl apply 1,3,5-7,10
+
+# Apply a workflow bundle
+annactl apply --bundle hyprland-setup
+
+# Auto-apply all safe recommendations
+annactl apply --auto
 ```
 
 ### System Health Report
@@ -149,14 +158,17 @@ annactl doctor
 ### View Configuration
 
 ```bash
-# See current settings
+# Interactive configuration TUI
 annactl config
 
+# Get a specific setting
+annactl config get autonomy_tier
+
 # Set autonomy tier (0-3)
-annactl config --set autonomy_tier=1
+annactl config set autonomy_tier 1
 
 # Enable/disable auto-update checking
-annactl config --set auto_update_check=true
+annactl config set auto_update_check true
 ```
 
 ## Advanced Examples
@@ -208,7 +220,7 @@ sudo systemctl enable --now annad
 #!/bin/bash
 # Check if Anna has critical recommendations
 
-annactl advise --risk high > /tmp/anna_critical.txt
+annactl advise --mode critical > /tmp/anna_critical.txt
 
 if [ -s /tmp/anna_critical.txt ]; then
     echo "⚠️  Critical system issues detected!"
@@ -226,7 +238,7 @@ fi
 # Add to crontab
 # Run Anna check every 6 hours and email if critical issues found
 
-0 */6 * * * /usr/local/bin/annactl advise --risk high | mail -s "Anna Critical Alerts" admin@example.com
+0 */6 * * * /usr/local/bin/annactl advise --mode critical | mail -s "Anna Critical Alerts" admin@example.com
 ```
 
 #### Git Hook Integration
@@ -237,11 +249,11 @@ fi
 # Ensure system is healthy before pushing
 
 echo "Running Anna system check..."
-CRITICAL=$(annactl advise --risk high 2>/dev/null | wc -l)
+CRITICAL=$(annactl advise --mode critical 2>/dev/null | wc -l)
 
 if [ "$CRITICAL" -gt 10 ]; then
     echo "⚠️  Critical system issues detected. Fix them first!"
-    annactl advise --risk high
+    annactl advise --mode critical
     exit 1
 fi
 
