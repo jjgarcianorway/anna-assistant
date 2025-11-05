@@ -1,7 +1,7 @@
 //! CLI command implementations
 
 use anna_common::ipc::{Method, ResponseData};
-use anna_common::{beautiful, header, kv, section, Level};
+use anna_common::{beautiful, header, kv, section, Level, Priority};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -139,10 +139,77 @@ pub async fn status() -> Result<()> {
         }
     }
 
+    // Show recent activity from audit log
+    if let Ok(entries) = read_recent_audit_entries(10).await {
+        if !entries.is_empty() {
+            println!("{}", section("Recent Activity"));
+            for entry in entries.iter().take(10) {
+                let time_str = entry.timestamp.format("%Y-%m-%d %H:%M:%S").to_string();
+                let status_icon = if entry.success {
+                    "\x1b[92m✓\x1b[0m"
+                } else {
+                    "\x1b[91m✗\x1b[0m"
+                };
+
+                // Color the action type based on what it is
+                let action_color = match entry.action_type.as_str() {
+                    "apply" => "\x1b[96m", // Cyan
+                    "install" => "\x1b[92m", // Green
+                    "remove" => "\x1b[93m", // Yellow
+                    "update" => "\x1b[95m", // Magenta
+                    _ => "\x1b[0m", // Default
+                };
+
+                println!("  {} \x1b[90m{}\x1b[0m {}{}\x1b[0m",
+                    status_icon,
+                    time_str,
+                    action_color,
+                    entry.action_type
+                );
+
+                // Show details on next line, indented
+                let details = if entry.details.len() > 60 {
+                    format!("{}...", &entry.details[..57])
+                } else {
+                    entry.details.clone()
+                };
+                println!("      \x1b[90m{}\x1b[0m", details);
+            }
+            println!();
+        }
+    }
+
     // Check for updates (non-spammy, once per day)
     check_and_notify_updates().await;
 
     Ok(())
+}
+
+/// Read recent audit entries from the audit log
+async fn read_recent_audit_entries(count: usize) -> Result<Vec<anna_common::AuditEntry>> {
+    use tokio::fs;
+
+    let audit_path = std::path::Path::new("/var/log/anna/audit.jsonl");
+
+    if !audit_path.exists() {
+        return Ok(vec![]);
+    }
+
+    let content = fs::read_to_string(audit_path).await?;
+
+    let mut entries: Vec<anna_common::AuditEntry> = content
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect();
+
+    // Sort by timestamp (newest first)
+    entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+    // Take the last N entries
+    entries.truncate(count);
+
+    Ok(entries)
 }
 
 pub async fn advise(
@@ -1541,7 +1608,6 @@ fn wrap_text(text: &str, width: usize, indent: &str) -> String {
 
 /// Generate a plain English system health summary with sysadmin-level insights
 fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: &anna_common::SystemFacts, advice: &[anna_common::Advice]) {
-    use anna_common::Priority;
 
     // First, show system health metrics
     println!("{}", section("🔍 System Health Analysis"));
@@ -1842,6 +1908,34 @@ pub async fn bundles() -> Result<()> {
     println!("  \x1b[90mInstall complete development stacks with one command!\x1b[0m");
     println!();
 
+    // Show installed bundles first if any exist
+    if let Ok(history) = anna_common::BundleHistory::load() {
+        if !history.entries.is_empty() {
+            println!("{}", section("📦 Installed Bundles"));
+            println!();
+
+            let installed: Vec<_> = history.entries.iter()
+                .filter(|e| e.status == anna_common::BundleStatus::Completed && e.rollback_available)
+                .collect();
+
+            if !installed.is_empty() {
+                for (i, entry) in installed.iter().enumerate() {
+                    let rollback_id = i + 1;
+                    println!("  \x1b[1;96m[#{}]\x1b[0m \x1b[1m{}\x1b[0m", rollback_id, entry.bundle_name);
+                    println!("      Installed: {} by {}",
+                        entry.installed_at.format("%Y-%m-%d %H:%M:%S"),
+                        entry.installed_by
+                    );
+                    println!("      Items: {} package(s)", entry.installed_items.len());
+                    println!();
+                }
+                println!("  \x1b[90mTo rollback:\x1b[0m annactl rollback <bundle-name> \x1b[90mor\x1b[0m annactl rollback #<number>");
+                println!();
+            }
+        }
+    }
+
+
     // Connect to daemon to get advice
     let mut client = match RpcClient::connect().await {
         Ok(c) => c,
@@ -2080,12 +2174,9 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
     Ok(())
 }
 
-/// Rollback a workflow bundle
-pub async fn rollback(bundle_name: &str, dry_run: bool) -> Result<()> {
+/// Rollback a workflow bundle (by name or #number)
+pub async fn rollback(bundle_identifier: &str, dry_run: bool) -> Result<()> {
     use anna_common::beautiful::{header, section};
-
-    println!("{}", header(&format!("Rolling Back Bundle: {}", bundle_name)));
-    println!();
 
     // Load bundle history
     let history = match anna_common::BundleHistory::load() {
@@ -2096,17 +2187,49 @@ pub async fn rollback(bundle_name: &str, dry_run: bool) -> Result<()> {
         }
     };
 
-    // Find the latest completed installation
-    let entry = match history.get_latest(bundle_name) {
-        Some(e) => e,
-        None => {
-            println!("{}", beautiful::status(Level::Error, &format!("No installation history found for bundle '{}'", bundle_name)));
-            println!();
-            println!("  This bundle was never installed or the history was cleared.");
-            println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see available bundles.");
-            return Ok(());
+    // Check if identifier is a number (#1, #2, etc.)
+    let entry = if bundle_identifier.starts_with('#') {
+        // Parse the number
+        let num_str = &bundle_identifier[1..];
+        match num_str.parse::<usize>() {
+            Ok(num) if num > 0 => {
+                // Get installed bundles in order
+                let installed: Vec<_> = history.entries.iter()
+                    .filter(|e| e.status == anna_common::BundleStatus::Completed && e.rollback_available)
+                    .collect();
+
+                if num > installed.len() {
+                    println!("{}", beautiful::status(Level::Error, &format!("Bundle #{} not found", num)));
+                    println!();
+                    println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see installed bundles.");
+                    return Ok(());
+                }
+
+                installed[num - 1]
+            }
+            _ => {
+                println!("{}", beautiful::status(Level::Error, &format!("Invalid bundle number: {}", bundle_identifier)));
+                println!();
+                println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see installed bundles with numbers.");
+                return Ok(());
+            }
+        }
+    } else {
+        // Look up by name
+        match history.get_latest(bundle_identifier) {
+            Some(e) => e,
+            None => {
+                println!("{}", beautiful::status(Level::Error, &format!("No installation history found for bundle '{}'", bundle_identifier)));
+                println!();
+                println!("  This bundle was never installed or the history was cleared.");
+                println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see available bundles.");
+                return Ok(());
+            }
         }
     };
+
+    println!("{}", header(&format!("Rolling Back Bundle: {}", entry.bundle_name)));
+    println!();
 
     if !entry.rollback_available {
         println!("{}", beautiful::status(Level::Warning, "This bundle installation cannot be rolled back"));
@@ -2199,7 +2322,7 @@ pub async fn rollback(bundle_name: &str, dry_run: bool) -> Result<()> {
 
     println!();
     if removed_count > 0 {
-        println!("{}", beautiful::status(Level::Success, &format!("Rolled back '{}' - {} item(s) removed", bundle_name, removed_count)));
+        println!("{}", beautiful::status(Level::Success, &format!("Rolled back '{}' - {} item(s) removed", entry.bundle_name, removed_count)));
     } else {
         println!("{}", beautiful::status(Level::Info, "No items were removed"));
     }

@@ -5,6 +5,42 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.51] - 2025-11-05
+
+### 🎯 User-Requested Features
+
+**Recent Activity in Status:**
+- Status command now shows last 10 audit log entries
+- Displays timestamp, action type, and details
+- Color-coded actions (apply, install, remove, update)
+- Success/failure indicators
+
+**Bundle Rollback with Numbers:**
+- Bundle rollback now accepts numbered IDs: `#1`, `#2`, `#3`
+- Bundles command shows installed bundles with [#1], [#2], [#3]
+- Still supports rollback by name for backwards compatibility
+- Easy rollback: `annactl rollback #1`
+
+**Code Cleanup:**
+- Removed duplicate `Priority` imports
+- Centralized imports at module level
+- Cleaner, more maintainable code
+
+### 🔧 Technical Details
+
+**New Function:**
+- `read_recent_audit_entries()` - Reads and sorts audit log
+- Handles missing log files gracefully
+- Returns most recent N entries
+
+**Enhanced Functions:**
+- `bundles()` - Now shows installed bundles with numbered IDs
+- `rollback()` - Accepts both `#number` and `bundle-name`
+
+**Files Modified:**
+- commands.rs: Added audit display, bundle numbering, import cleanup
+- All compilation warnings fixed
+
 ## [1.0.0-beta.50] - 2025-11-05
 
 ### ✨ Quality & Polish

@@ -4,22 +4,28 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.50 (November 2025)
+**Current Version:** Beta.51 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.50
+## 🎯 What's New in Beta.51
 
-**✨ Quality & Polish Release:**
+**🎯 User-Requested Features:**
+- Status command shows last 10 audit entries (recent activity)
+- Bundle rollback now supports numbered IDs: `annactl rollback #1`
+- Bundles command shows installed bundles with [#1], [#2], [#3] IDs
+- Code cleanup - removed duplicate imports
+
+**🎯 Previous Releases:**
+
+**Beta.50 - Quality & Polish:**
 - Fixed confusing count messages in advise command
-- Centralized category names - TUI and CLI now use same names
-- Clearer display: "Showing 25 recommendations (30 hidden by filters)"
-- All categories now have consistent emojis across all interfaces
+- Centralized category names across all UIs
+- Consistent emojis everywhere
 
-**🎯 Previous: Beta.49 - Critical Bug Fixes:**
+**Beta.49 - Critical Bug Fixes:**
 - Fixed ignore filters not applied in report, health, and TUI
-- All commands now consistently respect your ignore settings
-- Status shows filtered count, TUI shows active filter count
+- All commands consistently respect ignore settings
 
 ---
 
