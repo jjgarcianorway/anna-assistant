@@ -3,8 +3,47 @@
 use anna_common::ipc::{Method, ResponseData};
 use anna_common::{beautiful, header, kv, section, Level};
 use anyhow::{Context, Result};
+use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::rpc_client::RpcClient;
+
+/// Check for updates and show notification banner (non-spammy, once per day)
+async fn check_and_notify_updates() {
+    // Cache file to track last check
+    let cache_file = PathBuf::from("/tmp/anna-update-check");
+
+    // Check if we already checked today
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    if let Ok(content) = std::fs::read_to_string(&cache_file) {
+        if let Ok(last_check) = content.trim().parse::<u64>() {
+            // If checked within last 24 hours, skip
+            if now - last_check < 86400 {
+                return;
+            }
+        }
+    }
+
+    // Check for updates
+    if let Ok(update_info) = anna_common::updater::check_for_updates().await {
+        if update_info.is_update_available {
+            // Show update banner
+            println!();
+            println!("\x1b[38;5;226m╭─────────────────────────────────────────────────────────────╮\x1b[0m");
+            println!("\x1b[38;5;226m│\x1b[0m  \x1b[1m📦 Update Available\x1b[0m: {} → {}  \x1b[38;5;226m│\x1b[0m",
+                update_info.current_version, update_info.latest_version);
+            println!("\x1b[38;5;226m│\x1b[0m  Run \x1b[38;5;159mannactl update --install\x1b[0m to upgrade                 \x1b[38;5;226m│\x1b[0m");
+            println!("\x1b[38;5;226m╰─────────────────────────────────────────────────────────────╯\x1b[0m");
+        }
+
+        // Update cache file
+        let _ = std::fs::write(&cache_file, now.to_string());
+    }
+}
 
 pub async fn status() -> Result<()> {
     println!("{}", header("Anna Status"));
@@ -59,6 +98,9 @@ pub async fn status() -> Result<()> {
             );
         }
     }
+
+    // Check for updates (non-spammy, once per day)
+    check_and_notify_updates().await;
 
     Ok(())
 }
@@ -360,6 +402,9 @@ pub async fn advise(
             println!();
         }
     }
+
+    // Check for updates (non-spammy, once per day)
+    check_and_notify_updates().await;
 
     Ok(())
 }
@@ -867,6 +912,9 @@ pub async fn report(category: Option<String>) -> Result<()> {
 
     // Generate plain English summary
     generate_plain_english_report(&status, &facts, &advice_list);
+
+    // Check for updates (non-spammy, once per day)
+    check_and_notify_updates().await;
 
     Ok(())
 }
