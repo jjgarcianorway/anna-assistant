@@ -18,3 +18,5 @@ anyhow = { workspace = true }
 clap = { workspace = true }
 chrono = { workspace = true }
 console = { workspace = true }
+ratatui = { workspace = true }
+crossterm = { workspace = true }

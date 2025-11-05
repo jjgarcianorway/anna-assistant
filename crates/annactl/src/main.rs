@@ -3,6 +3,7 @@
 //! Provides user interface to interact with the Anna daemon.
 
 mod commands;
+mod dashboard;
 mod rpc_client;
 
 use anyhow::Result;
@@ -148,6 +149,9 @@ enum Commands {
         #[arg(long)]
         detailed: bool,
     },
+
+    /// Open interactive TUI dashboard
+    Dashboard,
 }
 
 #[tokio::main]
@@ -168,5 +172,6 @@ async fn main() -> Result<()> {
         Commands::Health => commands::health().await,
         Commands::Dismiss { id, num } => commands::dismiss(id, num).await,
         Commands::History { days, detailed } => commands::history(days, detailed).await,
+        Commands::Dashboard => dashboard::run().await,
     }
 }

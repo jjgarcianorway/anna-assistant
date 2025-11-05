@@ -5,6 +5,150 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.38] - 2025-11-05
+
+### 📊 Interactive TUI Dashboard!
+
+**REAL-TIME MONITORING:** Beautiful terminal dashboard with live system health visualization!
+
+### ✨ Major Features
+
+**📺 Interactive TUI Dashboard**
+- `annactl dashboard` - Launch full-screen interactive dashboard
+- Real-time system health monitoring
+- Live hardware metrics (CPU temp, load, memory, disk)
+- Interactive recommendations panel
+- Keyboard-driven navigation (↑/↓ or j/k)
+- Auto-refresh every 2 seconds
+- Color-coded health indicators
+
+**🎨 Beautiful UI Components**
+- Health score gauge with color coding (🟢 90-100, 🟡 70-89, 🔴 <70)
+- Hardware monitoring panel:
+  - CPU temperature with thermal warnings
+  - Load averages (1min, 5min, 15min)
+  - Memory usage with pressure indicators
+  - SMART disk health status
+  - Package statistics
+- Recommendations panel:
+  - Priority-colored advice (🔴 Mandatory, 🟡 Recommended, 🟢 Optional)
+  - Scrollable list
+  - Visual selection highlight
+- Status bar with keyboard shortcuts
+- Live timestamp in header
+
+**⌨️ Keyboard Controls**
+- `q` or `Esc` - Quit dashboard
+- `↑` or `k` - Navigate up in recommendations
+- `↓` or `j` - Navigate down in recommendations
+- Auto-refresh - Updates every 2 seconds
+
+**📈 Real-Time Health Monitoring**
+- System health score (0-100 scale)
+- CPU temperature tracking with alerts
+- Memory pressure detection
+- Disk health from SMART data
+- Failed services monitoring
+- Package health indicators
+
+### 🔧 Technical Details
+
+**Dashboard Architecture:**
+- Built with ratatui (modern TUI framework)
+- Crossterm for terminal control
+- Async RPC client for daemon communication
+- Non-blocking event handling
+- Efficient render loop with 100ms tick rate
+
+**Health Score Algorithm:**
+```
+Base: 100 points
+
+Deductions:
+- Critical advice:  -15 points each
+- Recommended advice: -5 points each
+- CPU temp >85°C:  -20 points
+- CPU temp >75°C:  -10 points
+- Failing disks:   -25 points each
+- Memory >95%:     -15 points
+- Memory >85%:     -5 points
+```
+
+**UI Layout:**
+```
+┌─────────────────────────────────────┐
+│  Header (version, time)             │
+├─────────────────────────────────────┤
+│  Health Score Gauge                 │
+├──────────────┬──────────────────────┤
+│  Hardware    │  Recommendations     │
+│  Monitoring  │  (scrollable)        │
+│              │                      │
+├──────────────┴──────────────────────┤
+│  Footer (keyboard shortcuts)        │
+└─────────────────────────────────────┘
+```
+
+**Dependencies Added:**
+- `ratatui 0.26` - TUI framework
+- `crossterm 0.27` - Terminal control
+
+### 📋 Example Usage
+
+**Launch Dashboard:**
+```bash
+# Start interactive dashboard
+annactl dashboard
+
+# Dashboard shows:
+# - Live health score
+# - CPU temperature and load
+# - Memory usage
+# - Disk health
+# - Active recommendations
+# - Package statistics
+```
+
+**Dashboard Features:**
+- Auto-connects to Anna daemon
+- Shows error if daemon not running
+- Gracefully restores terminal on exit
+- Updates data every 2 seconds
+- Responsive keyboard input
+- Clean exit with q or Esc
+
+### 💡 What This Means
+
+**At-a-Glance System Health:**
+- No need to run multiple commands
+- All critical metrics in one view
+- Color-coded warnings grab attention
+- Real-time updates keep you informed
+
+**Better User Experience:**
+- Visual, not just text output
+- Interactive navigation
+- Professional terminal UI
+- Feels like a modern monitoring tool
+
+**Perfect for:**
+- System administrators monitoring health
+- Checking system status quickly
+- Watching metrics in real-time
+- Learning what Anna monitors
+- Impressive demos!
+
+### 🚀 What's Next
+
+The dashboard foundation is in place. Future enhancements could include:
+- Additional panels (network, processes, logs)
+- Charts and graphs (sparklines, histograms)
+- Action execution from dashboard (apply fixes)
+- Custom views and layouts
+- Export/save dashboard state
+
+---
+
 ## [1.0.0-beta.37] - 2025-11-05
 
 ### 🔧 Auto-Fix Engine & Enhanced Installation!
