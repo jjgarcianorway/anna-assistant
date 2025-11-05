@@ -34,6 +34,61 @@ This document tracks requested features and improvements from user feedback.
 - [ ] Or show with strikethrough/greyed out
 - [ ] Refresh only updates other items
 
+### 2a. Smart Advice Dependencies & Bundle Awareness
+**Status:** 📋 TODO
+
+**User Insight:** *"some advices might apply other advices... for example fixing brightness keys and volume implies installing sound stack or brightnessctl... so other advices will need to be removed if a bundle is applied"*
+
+**Issue:** Applying one recommendation can satisfy multiple others, creating redundancy.
+
+**Examples:**
+- Apply "Setup Hyprland volume controls" → Installs wpctl/pamixer
+  - Should remove: "Install audio control tools"
+  - Should remove: "Configure volume keys"
+- Apply "Setup Gaming Environment" → Installs Steam, Lutris, Wine
+  - Should remove: "Install Steam"
+  - Should remove: "Install Wine"
+  - Should remove: "Setup Proton"
+
+**Solution:**
+- [ ] Add `satisfies: []` field to advice - list of advice IDs this satisfies
+- [ ] Add `satisfied_by: []` field to advice - what can satisfy this
+- [ ] When applying advice, check what it satisfies:
+  ```rust
+  applied_advice.satisfies.iter().for_each(|id| {
+      advice_list.retain(|a| a.id != id);
+  });
+  ```
+- [ ] Bundle applications automatically mark related advice as satisfied
+- [ ] Show user: "✓ Applied X which also satisfies: Y, Z"
+- [ ] Smart filtering: Don't show advice already satisfied by bundles
+
+**Example Implementation:**
+```rust
+Advice {
+    id: "hyprland-volume-setup",
+    title: "Setup Hyprland volume controls",
+    satisfies: vec![
+        "install-wpctl",
+        "install-pamixer",
+        "configure-volume-keys",
+        "audio-control-missing"
+    ],
+    // ... rest of advice
+}
+```
+
+**When Applied:**
+```
+✓ Applied: Setup Hyprland volume controls
+→ This also satisfied:
+  - Install audio control tools
+  - Configure volume keys
+  - Audio control recommendation
+
+Removed 3 redundant recommendations from list.
+```
+
 ### 3. Improve "Multiple System Errors" Details  
 **Status:** ✅ PARTIALLY DONE
 
