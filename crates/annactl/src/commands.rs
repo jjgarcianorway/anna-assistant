@@ -2855,6 +2855,7 @@ pub async fn history(days: i64, detailed: bool) -> Result<()> {
                 status_icon,
                 entry.advice_title
             );
+            println!("      \x1b[90mID:\x1b[0m       \x1b[38;5;159m{}\x1b[0m", entry.advice_id);
             println!("      Category: \x1b[96m{}\x1b[0m", entry.category);
             println!("      Applied:  \x1b[90m{}\x1b[0m", entry.applied_at.format("%Y-%m-%d %H:%M:%S"));
 

@@ -156,12 +156,18 @@ async fn get_active_sessions() -> Result<Vec<UserSession>, std::io::Error> {
     Ok(sessions)
 }
 
-/// Check if there are any critical issues and notify
+/// Check if there are any critical SECURITY issues and notify
+/// Only notifies for Priority::Mandatory in "Security & Privacy" category
+/// This prevents spam while ensuring critical security issues are seen
 pub async fn check_and_notify_critical(advice: &[anna_common::Advice]) {
-    use anna_common::RiskLevel;
-    
+    use anna_common::Priority;
+
+    // ONLY notify for MANDATORY security issues
     let critical: Vec<_> = advice.iter()
-        .filter(|a| matches!(a.risk, RiskLevel::High))
+        .filter(|a| {
+            matches!(a.priority, Priority::Mandatory) &&
+            a.category == "Security & Privacy"
+        })
         .collect();
 
     if critical.is_empty() {
@@ -170,26 +176,27 @@ pub async fn check_and_notify_critical(advice: &[anna_common::Advice]) {
 
     let count = critical.len();
     let title = if count == 1 {
-        "Critical System Issue Detected"
+        "🔒 Critical Security Issue Detected"
     } else {
-        "Critical System Issues Detected"
+        "🔒 Critical Security Issues Detected"
     };
 
     let message = if count == 1 {
-        format!("Anna detected 1 critical issue:\n\n• {}", critical[0].title)
+        format!("Anna detected 1 CRITICAL SECURITY issue:\n\n• {}\n\nThis requires immediate attention!", critical[0].title)
     } else {
         let issues: Vec<String> = critical.iter()
             .take(3)
             .map(|a| format!("• {}", a.title))
             .collect();
-        let mut msg = format!("Anna detected {} critical issues:\n\n", count);
+        let mut msg = format!("Anna detected {} CRITICAL SECURITY issues:\n\n", count);
         msg.push_str(&issues.join("\n"));
         if count > 3 {
             msg.push_str(&format!("\n... and {} more", count - 3));
         }
+        msg.push_str("\n\nThese require immediate attention!");
         msg
     };
 
-    info!("Sending critical notification for {} issues", count);
+    info!("Sending critical SECURITY notification for {} issues (wall + GUI)", count);
     send_notification(title, &message, NotificationUrgency::Critical).await;
 }
