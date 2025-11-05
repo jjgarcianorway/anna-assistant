@@ -178,8 +178,15 @@ fn verify_binary(binary_path: &Path, expected_version: &str) -> Result<()> {
 fn backup_current_binaries() -> Result<()> {
     info!("Backing up current binaries");
 
-    std::fs::create_dir_all(BACKUP_DIR)
-        .context("Failed to create backup directory")?;
+    // Create backup directory with sudo
+    let status = Command::new("sudo")
+        .args(&["mkdir", "-p", BACKUP_DIR])
+        .status()
+        .context("Failed to execute mkdir")?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to create backup directory with sudo");
+    }
 
     let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
 
@@ -189,10 +196,24 @@ fn backup_current_binaries() -> Result<()> {
     let annad_backup = Path::new(BACKUP_DIR).join(format!("annad.{}", timestamp));
     let annactl_backup = Path::new(BACKUP_DIR).join(format!("annactl.{}", timestamp));
 
-    std::fs::copy(&annad_src, &annad_backup)
+    // Copy with sudo to backup directory
+    let status_annad = Command::new("sudo")
+        .args(&["cp", annad_src.to_str().unwrap(), annad_backup.to_str().unwrap()])
+        .status()
         .context("Failed to backup annad")?;
-    std::fs::copy(&annactl_src, &annactl_backup)
+
+    if !status_annad.success() {
+        anyhow::bail!("Failed to backup annad");
+    }
+
+    let status_annactl = Command::new("sudo")
+        .args(&["cp", annactl_src.to_str().unwrap(), annactl_backup.to_str().unwrap()])
+        .status()
         .context("Failed to backup annactl")?;
+
+    if !status_annactl.success() {
+        anyhow::bail!("Failed to backup annactl");
+    }
 
     info!("Binaries backed up to {}", BACKUP_DIR);
     Ok(())
