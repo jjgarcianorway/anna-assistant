@@ -197,17 +197,39 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
         Method::ApplyAction { advice_id, dry_run } => {
             // Find the advice
             let advice_list = state.advice.read().await;
-            let advice = advice_list.iter().find(|a| a.id == advice_id);
+            let advice = advice_list.iter().find(|a| a.id == advice_id).cloned();
 
             match advice {
                 Some(adv) => {
                     // Execute the action
-                    match executor::execute_action(adv, dry_run).await {
+                    match executor::execute_action(&adv, dry_run).await {
                         Ok(action) => {
                             // Log to audit
                             let audit_entry = executor::create_audit_entry(&action, "annactl");
                             if let Err(e) = state.audit_logger.log(&audit_entry).await {
                                 warn!("Failed to log audit entry: {}", e);
+                            }
+
+                            // Record to application history (only for actual execution, not dry-run)
+                            if !dry_run {
+                                let history_entry = anna_common::HistoryEntry {
+                                    advice_id: adv.id.clone(),
+                                    advice_title: adv.title.clone(),
+                                    category: adv.category.clone(),
+                                    applied_at: chrono::Utc::now(),
+                                    applied_by: "annactl".to_string(),
+                                    command_run: adv.command.clone(),
+                                    success: action.success,
+                                    output: action.output.clone(),
+                                    health_score_before: None, // TODO: Could capture from current facts
+                                    health_score_after: None,
+                                };
+
+                                let mut history = anna_common::ApplicationHistory::load().unwrap_or_default();
+                                history.record(history_entry);
+                                if let Err(e) = history.save() {
+                                    warn!("Failed to save application history: {}", e);
+                                }
                             }
 
                             let message = if action.success {

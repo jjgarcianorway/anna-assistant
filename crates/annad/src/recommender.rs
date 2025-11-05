@@ -80,6 +80,8 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_ssh_config());
     advice.extend(check_swap());
     advice.extend(check_shell_enhancements(facts));
+    advice.extend(check_status_bar(facts));
+    advice.extend(check_config_files());
     advice.extend(check_cli_tools(facts));
     advice.extend(check_gaming_setup());
     advice.extend(check_desktop_environment(facts));
@@ -1573,6 +1575,220 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             popularity: 50,
             });
+    }
+
+    // Check for oh-my-posh (PowerShell-style prompt)
+    let has_oh_my_posh = Command::new("pacman")
+        .args(&["-Q", "oh-my-posh"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_oh_my_posh {
+        result.push(Advice {
+            id: "oh-my-posh-prompt".to_string(),
+            title: "Try oh-my-posh for a PowerShell-style prompt".to_string(),
+            reason: "Oh-my-posh brings beautiful, customizable prompts with themes from the PowerShell world. It has tons of pre-made themes and works across bash, zsh, and fish. Great alternative to Starship if you want something different!".to_string(),
+            action: "Install oh-my-posh prompt engine".to_string(),
+            command: Some("yay -S --noconfirm oh-my-posh".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "Shell & Terminal".to_string(),
+            alternatives: vec![
+                Alternative {
+                    name: "Starship".to_string(),
+                    description: "Rust-based, minimal prompt (recommended)".to_string(),
+                    install_command: "pacman -S starship".to_string(),
+                },
+                Alternative {
+                    name: "Powerlevel10k".to_string(),
+                    description: "Fast zsh theme with wizard setup".to_string(),
+                    install_command: "yay -S zsh-theme-powerlevel10k-git".to_string(),
+                },
+            ],
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Zsh#Prompts".to_string()],
+            depends_on: Vec::new(),
+            related_to: vec!["shell-prompt".to_string(), "bash-starship".to_string()],
+            bundle: Some("shell-beautification".to_string()),
+            popularity: 35,
+        });
+    }
+
+    result
+}
+
+/// Check for waybar/status bars (for WMs without one)
+fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if user has a WM (not DE with built-in bar) via package groups
+    let wms_needing_bar = vec!["i3", "sway", "hyprland", "bspwm", "dwm", "xmonad"];
+    let has_wm_needing_bar = facts.package_groups.iter().any(|group| {
+        wms_needing_bar.iter().any(|wm| group.to_lowercase().contains(wm))
+    });
+
+    if !has_wm_needing_bar {
+        return result;
+    }
+
+    // Check for waybar (Wayland) - check if command exists
+    let has_waybar = Command::new("which")
+        .arg("waybar")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check for i3status/polybar (X11)
+    let has_i3status = Command::new("which")
+        .arg("i3status")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let has_polybar = Command::new("which")
+        .arg("polybar")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_waybar && !has_i3status && !has_polybar {
+        // Recommend based on display server
+        if facts.display_server.as_deref() == Some("wayland") {
+            result.push(Advice {
+                id: "install-waybar".to_string(),
+                title: "Install Waybar for your Wayland WM".to_string(),
+                reason: "You're using a window manager that doesn't come with a status bar. Waybar is the best status bar for Wayland compositors - it's highly customizable, shows system info, workspaces, and looks beautiful. Without it, you won't see battery, network, or time!".to_string(),
+                action: "Install and configure Waybar".to_string(),
+                command: Some("pacman -S --noconfirm waybar && mkdir -p ~/.config/waybar && cp /etc/xdg/waybar/* ~/.config/waybar/".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Desktop Environment".to_string(),
+                alternatives: vec![
+                    Alternative {
+                        name: "yambar".to_string(),
+                        description: "Lightweight Wayland bar".to_string(),
+                        install_command: "pacman -S yambar".to_string(),
+                    },
+                    Alternative {
+                        name: "eww".to_string(),
+                        description: "Widgets for any window manager".to_string(),
+                        install_command: "yay -S eww".to_string(),
+                    },
+                ],
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Waybar".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: Some("wayland-essentials".to_string()),
+                popularity: 80,
+            });
+        } else {
+            result.push(Advice {
+                id: "install-polybar".to_string(),
+                title: "Install Polybar for your window manager".to_string(),
+                reason: "Your WM doesn't have a built-in status bar. Polybar is a fast, customizable bar for X11 window managers. It shows workspaces, system info, and can be themed to match your setup. Essential for i3/bspwm users!".to_string(),
+                action: "Install Polybar".to_string(),
+                command: Some("pacman -S --noconfirm polybar".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Desktop Environment".to_string(),
+                alternatives: vec![
+                    Alternative {
+                        name: "i3status".to_string(),
+                        description: "Simple, built-in status for i3".to_string(),
+                        install_command: "pacman -S i3status".to_string(),
+                    },
+                    Alternative {
+                        name: "lemonbar".to_string(),
+                        description: "Minimal bar for scripting enthusiasts".to_string(),
+                        install_command: "yay -S lemonbar".to_string(),
+                    },
+                ],
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Polybar".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: Some("wm-essentials".to_string()),
+                popularity: 75,
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for config file improvements (vimrc, bashrc, etc.)
+fn check_config_files() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for .vimrc
+    let vimrc_path = std::path::Path::new(&std::env::var("HOME").unwrap_or_default()).join(".vimrc");
+    if vimrc_path.exists() {
+        let vimrc_size = std::fs::metadata(&vimrc_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        // If vimrc is very small (< 500 bytes), suggest improvements
+        if vimrc_size < 500 {
+            result.push(Advice {
+                id: "improve-vimrc".to_string(),
+                title: "Enhance your .vimrc configuration".to_string(),
+                reason: "Your .vimrc is pretty minimal. A well-configured vim makes editing so much better! Add line numbers, syntax highlighting, smart indentation, and better search. These are quality-of-life improvements every vim user should have.".to_string(),
+                action: "Add essential vim configurations".to_string(),
+                command: None, // Informational - user should customize
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "Development Tools".to_string(),
+                alternatives: vec![
+                    Alternative {
+                        name: "neovim".to_string(),
+                        description: "Modern vim with better defaults".to_string(),
+                        install_command: "pacman -S neovim".to_string(),
+                    },
+                ],
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Vim".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+                popularity: 60,
+            });
+        }
+    }
+
+    // Check for .bashrc/.zshrc
+    let shell = std::env::var("SHELL").unwrap_or_default();
+    let rcfile = if shell.contains("zsh") {
+        ".zshrc"
+    } else {
+        ".bashrc"
+    };
+
+    let rc_path = std::path::Path::new(&std::env::var("HOME").unwrap_or_default()).join(rcfile);
+    if rc_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&rc_path) {
+            // Check for useful aliases
+            let has_aliases = content.contains("alias");
+
+            if !has_aliases || content.lines().filter(|l| l.contains("alias")).count() < 3 {
+                result.push(Advice {
+                    id: format!("improve-{}", rcfile),
+                    title: format!("Add useful aliases to your {}", rcfile),
+                    reason: format!("Your {} could use some helpful aliases! Common ones like 'll' for 'ls -lah', 'update' for system updates, or 'grep' with colors save tons of typing. Every power user has their favorite aliases.", rcfile),
+                    action: format!("Consider adding useful aliases to {}", rcfile),
+                    command: None, // Informational
+                    risk: RiskLevel::Low,
+                    priority: Priority::Optional,
+                    category: "Shell & Terminal".to_string(),
+                    alternatives: Vec::new(),
+                    wiki_refs: vec![
+                        "https://wiki.archlinux.org/title/Bash#Aliases".to_string(),
+                        "https://wiki.archlinux.org/title/Zsh#Aliases".to_string(),
+                    ],
+                    depends_on: Vec::new(),
+                    related_to: Vec::new(),
+                    bundle: None,
+                    popularity: 70,
+                });
+            }
+        }
     }
 
     result

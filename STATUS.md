@@ -218,7 +218,27 @@ alias at='annactl dashboard'
 
 ---
 
-## 🎉 **Beta.43 Highlights** (Latest Release)
+## 🎉 **Beta.44 Highlights** (Latest Release)
+
+### TUI Visual Improvements
+- 🎨 **Category Headers** - Press 'c' to see grouped recommendations with colored separators
+- 🎨 **Smart Color Coding** - Text colors adapt to sort mode (category/priority/risk)
+- 🎨 **Risk Badges** - Visual indicators (✓/⚠) on all items
+- 🎨 **Priority Differentiation** - Color-coded by priority level
+
+### Update System Fixed
+- ✅ **GitHub Integration** - `annactl update` now works with releases
+- ✅ **Automatic Backup** - Previous versions saved to /var/lib/anna/backup/
+- ✅ **Safe Installation** - Proper sudo permissions and error handling
+
+### Smart Notifications
+- 📬 **Terminal-Only Updates** - No wall spam, once-per-day check
+- 📬 **Beautiful Banners** - Update notifications after status/advise/report
+- 📬 **Non-Intrusive** - 24-hour cache prevents API spam
+
+---
+
+## 🎉 **Beta.43 Highlights**
 
 ### New Telemetry (8+ fields)
 - 📊 **Disk I/O metrics** - Real-time read/write MB/s
@@ -248,5 +268,5 @@ alias at='annactl dashboard'
 
 ---
 
-**Last Updated**: Beta.43 (November 2025)
+**Last Updated**: Beta.44 (November 2025)
 **Status**: Production-ready for daily Arch Linux use
