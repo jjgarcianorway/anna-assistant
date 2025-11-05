@@ -106,13 +106,14 @@ fi
 
 echo -e "${GREEN}${CHECK}${RESET} Architecture: ${ARCH}"
 
-# Fetch latest release info
+# Fetch latest release info (including prereleases since we're in beta)
 echo -e "${CYAN}${ARROW}${RESET} Fetching latest release from GitHub..."
-RELEASE_JSON=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest")
+# Get first release from list (sorted by date, includes prereleases)
+RELEASE_JSON=$(curl -s "https://api.github.com/repos/${REPO}/releases" | jq '.[0]')
 TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
 
 if [ "$TAG" = "null" ] || [ -z "$TAG" ]; then
-    error_exit "No releases found - this may be an alpha/beta version"
+    error_exit "No releases found - check your internet connection"
 fi
 
 echo -e "${GREEN}${CHECK}${RESET} Found release: ${BOLD}${TAG}${RESET}"
