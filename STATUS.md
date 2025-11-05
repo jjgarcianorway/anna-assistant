@@ -27,6 +27,21 @@ Anna can now group related recommendations into **workflow bundles**:
 
 Use `annactl bundles` to see available workflow bundles for your system!
 
+### Recommendation Scoring System
+Intelligent prioritization combines multiple factors:
+- **Priority** (400 points) - Mandatory > Recommended > Optional > Cosmetic
+- **Risk Level** (300 points) - High risk = needs attention
+- **Popularity** (300 points) - Community adoption score (0-100)
+
+**Total Score Range: 0-1000 points**
+- 900-1000: Critical (act immediately)
+- 750-899: High Priority (important)
+- 500-749: Recommended (beneficial)
+- 300-499: Beneficial (nice to have)
+- 0-299: Optional (low priority)
+
+Recommendations are sorted by: Category → Priority → Risk → Popularity
+
 ### Future Enhancements
 - [ ] Expand offline cache to 100+ pages
 - [ ] Add wiki section excerpts to TUI
@@ -155,7 +170,7 @@ alias at='annactl dashboard'
 | Arch Wiki Integration | ✅ | 95% | Industry-leading wiki citation |
 | Command Simplicity | ✅ | 100% | Intuitive, well-documented |
 | Telemetry | ✅ | 97% | World-class system understanding |
-| Recommendations | ✅ | 100% | 230+ intelligent rules |
+| Recommendations | ✅ | 100% | 230+ rules with smart scoring |
 | TUI | ✅ | 95% | Feature-rich, category badges |
 | Learning | ✅ | 90% | User preference detection |
 | Autonomy | ✅ | 90% | 20 tasks across 3 tiers |

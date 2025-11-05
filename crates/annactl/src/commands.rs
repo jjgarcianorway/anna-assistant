@@ -265,11 +265,12 @@ pub async fn advise(
                 println!("{}", "=".repeat(60));
                 println!();
 
-                // Sort items within category by priority then risk
+                // Sort items within category by priority, then risk, then popularity
                 let mut sorted_items = items.clone();
                 sorted_items.sort_by(|a, b| {
                     b.priority.cmp(&a.priority)
                         .then(b.risk.cmp(&a.risk))
+                        .then(b.popularity.cmp(&a.popularity))
                 });
 
                 for advice in sorted_items {
@@ -296,7 +297,11 @@ pub async fn advise(
                 println!();
 
                 let mut sorted_items = items.clone();
-                sorted_items.sort_by(|a, b| b.priority.cmp(&a.priority).then(b.risk.cmp(&a.risk)));
+                sorted_items.sort_by(|a, b| {
+                    b.priority.cmp(&a.priority)
+                        .then(b.risk.cmp(&a.risk))
+                        .then(b.popularity.cmp(&a.popularity))
+                });
 
                 for advice in sorted_items {
                     display_advice_item_enhanced(counter, advice);

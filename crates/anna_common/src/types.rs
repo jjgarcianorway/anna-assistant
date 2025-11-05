@@ -705,6 +705,44 @@ impl Advice {
             _ => "Rare",
         }
     }
+
+    /// Calculate composite recommendation score (0-1000)
+    /// Combines priority, risk, and popularity into a single sortable value
+    /// Higher score = more important recommendation
+    pub fn compute_score(&self) -> u32 {
+        // Priority weight: 400 points (most important factor)
+        let priority_score = match self.priority {
+            Priority::Mandatory => 400,
+            Priority::Recommended => 250,
+            Priority::Optional => 100,
+            Priority::Cosmetic => 50,
+        };
+
+        // Risk weight: 300 points (security/stability concerns)
+        let risk_score = match self.risk {
+            RiskLevel::High => 300,    // High risk items need attention
+            RiskLevel::Medium => 150,
+            RiskLevel::Low => 50,
+        };
+
+        // Popularity weight: 300 points (community adoption)
+        // Scale popularity (0-100) to (0-300)
+        let popularity_score = (self.popularity as u32 * 3);
+
+        priority_score + risk_score + popularity_score
+    }
+
+    /// Get score category label
+    pub fn score_category(&self) -> &'static str {
+        let score = self.compute_score();
+        match score {
+            900..=1000 => "Critical",
+            750..=899 => "High Priority",
+            500..=749 => "Recommended",
+            300..=499 => "Beneficial",
+            _ => "Optional",
+        }
+    }
 }
 
 /// An action to be executed
