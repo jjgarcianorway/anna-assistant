@@ -113,6 +113,9 @@ pub async fn advise(
     }).await?;
 
     if let ResponseData::Advice(mut advice_list) = advice_data {
+        // Track original total for display
+        let total_available = advice_list.len();
+
         // Apply filtering based on mode
         match mode.as_str() {
             "critical" => {
@@ -140,15 +143,19 @@ pub async fn advise(
                 optional.truncate(10);
                 cosmetic.truncate(5);
 
+                let new_list_size = mandatory.len() + recommended.len() + optional.len() + cosmetic.len();
+                let hidden_count = total_available - new_list_size;
+
                 advice_list = mandatory;
                 advice_list.extend(recommended);
                 advice_list.extend(optional);
                 advice_list.extend(cosmetic);
 
-                let total_hidden = advice_list.len();
-                println!("{}", beautiful::status(Level::Info,
-                    &format!("Showing SMART filtered view (use --mode=all to see {} more recommendations)", total_hidden)));
-                println!();
+                if hidden_count > 0 {
+                    println!("{}", beautiful::status(Level::Info,
+                        &format!("Showing SMART filtered view (use --mode=all to see {} more recommendations)", hidden_count)));
+                    println!();
+                }
             }
             "all" => {
                 // Show everything
@@ -186,19 +193,35 @@ pub async fn advise(
             advice_list.retain(|a| a.category.to_lowercase() == cat.to_lowercase());
         }
 
+        // Track count before limit
+        let count_before_limit = advice_list.len();
+
         // Apply limit if not 0
         if limit > 0 && advice_list.len() > limit {
-            let hidden = advice_list.len() - limit;
             advice_list.truncate(limit);
-            println!("{}", beautiful::status(Level::Info,
-                &format!("Showing first {} of {} recommendations (use --limit=0 to see all)", limit, limit + hidden)));
-            println!();
         }
 
         if advice_list.is_empty() {
             println!("{}", beautiful::status(Level::Success,
                 "Your system looks great! I don't have any suggestions right now."));
             return Ok(());
+        }
+
+        // Always show total count
+        if count_before_limit > advice_list.len() {
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Showing {} of {} total recommendations (use --limit=0 to see all)", advice_list.len(), count_before_limit)));
+            println!();
+        } else if count_before_limit < total_available {
+            // Filtered by mode/category/risk
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Showing {} recommendations ({} total available)", advice_list.len(), total_available)));
+            println!();
+        } else {
+            // Showing all
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Showing all {} recommendations", advice_list.len())));
+            println!();
         }
 
         // Group by category first
