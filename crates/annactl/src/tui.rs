@@ -70,6 +70,10 @@ struct Tui {
     sort_mode: SortMode,
     /// Pending action to apply (advice_id)
     pending_apply: Option<String>,
+    /// Mapping from list index to advice index (when headers are present)
+    list_to_advice_map: Vec<Option<usize>>,
+    /// Scroll offset for details view
+    details_scroll: u16,
 }
 
 /// Get category emoji and color for display (standardized names)
@@ -112,6 +116,8 @@ impl Tui {
             status_message: None,
             sort_mode: SortMode::Priority, // Default: sort by priority
             pending_apply: None,
+            list_to_advice_map: Vec::new(),
+            details_scroll: 0,
         }
     }
 
@@ -190,7 +196,16 @@ impl Tui {
 
     /// Get currently selected advice
     fn selected_advice(&self) -> Option<&Advice> {
-        self.list_state.selected().and_then(|i| self.advice.get(i))
+        self.list_state.selected().and_then(|list_idx| {
+            // If we have a mapping, use it; otherwise, use direct indexing
+            if !self.list_to_advice_map.is_empty() {
+                self.list_to_advice_map.get(list_idx)
+                    .and_then(|opt| opt.as_ref())
+                    .and_then(|&advice_idx| self.advice.get(advice_idx))
+            } else {
+                self.advice.get(list_idx)
+            }
+        })
     }
 
     /// Execute pending apply action if any
@@ -206,21 +221,22 @@ impl Tui {
                 ResponseData::ActionResult { success, message } => {
                     if success {
                         self.status_message = Some((
-                            format!("✓ {}", message),
+                            format!("✓ Action completed successfully: {}", message),
                             Color::Green
                         ));
-                        // Refresh advice list after successful apply
-                        let _ = self.update().await;
+                        // Don't refresh immediately - let auto-refresh handle it after a few seconds
+                        // This gives the user time to see the success message
                     } else {
                         self.status_message = Some((
-                            format!("✗ {}", message),
+                            format!("✗ Action failed: {}", message),
                             Color::Red
                         ));
+                        // Still don't refresh on failure - the advice remains to retry if needed
                     }
                 }
                 _ => {
                     self.status_message = Some((
-                        "Unexpected response from daemon".to_string(),
+                        "Unexpected response from daemon - please check logs".to_string(),
                         Color::Red
                     ));
                 }
@@ -247,21 +263,14 @@ impl Tui {
         match key {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
             KeyCode::Down | KeyCode::Char('j') => {
-                if !self.advice.is_empty() {
-                    let i = self.list_state.selected().unwrap_or(0);
-                    let next = (i + 1).min(self.advice.len() - 1);
-                    self.list_state.select(Some(next));
-                }
+                self.move_selection_down();
             }
             KeyCode::Up | KeyCode::Char('k') => {
-                if !self.advice.is_empty() {
-                    let i = self.list_state.selected().unwrap_or(0);
-                    let prev = i.saturating_sub(1);
-                    self.list_state.select(Some(prev));
-                }
+                self.move_selection_up();
             }
             KeyCode::Enter => {
                 if self.selected_advice().is_some() {
+                    self.details_scroll = 0; // Reset scroll when entering details
                     self.view_mode = ViewMode::Details;
                 }
             }
@@ -285,13 +294,59 @@ impl Tui {
         }
     }
 
+    /// Move selection down, skipping headers
+    fn move_selection_down(&mut self) {
+        if self.list_to_advice_map.is_empty() {
+            return;
+        }
+
+        let current = self.list_state.selected().unwrap_or(0);
+        let max = self.list_to_advice_map.len() - 1;
+
+        // Find next selectable item (not a header)
+        for next in (current + 1)..=max {
+            if self.list_to_advice_map[next].is_some() {
+                self.list_state.select(Some(next));
+                return;
+            }
+        }
+        // If no next item found, stay at current
+    }
+
+    /// Move selection up, skipping headers
+    fn move_selection_up(&mut self) {
+        if self.list_to_advice_map.is_empty() {
+            return;
+        }
+
+        let current = self.list_state.selected().unwrap_or(0);
+
+        // Find previous selectable item (not a header)
+        for prev in (0..current).rev() {
+            if self.list_to_advice_map[prev].is_some() {
+                self.list_state.select(Some(prev));
+                return;
+            }
+        }
+        // If no previous item found, stay at current
+    }
+
     /// Handle keys in details view
     fn handle_details_keys(&mut self, key: KeyCode) {
         match key {
             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace => {
                 self.view_mode = ViewMode::Dashboard;
+                self.details_scroll = 0; // Reset scroll when leaving details
             }
-            KeyCode::Char('a') | KeyCode::Char('y') => {
+            KeyCode::Down | KeyCode::Char('j') => {
+                // Scroll down in details
+                self.details_scroll = self.details_scroll.saturating_add(1);
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                // Scroll up in details
+                self.details_scroll = self.details_scroll.saturating_sub(1);
+            }
+            KeyCode::Char('a') => {
                 // Only enter apply confirmation mode if there's a command to apply
                 if let Some(advice) = self.selected_advice() {
                     if advice.command.is_some() {
@@ -299,7 +354,7 @@ impl Tui {
                     } else {
                         // Informational advice - no action to apply
                         self.status_message = Some((
-                            "This is informational only - no action to apply".to_string(),
+                            "This recommendation is informational only - no action to apply".to_string(),
                             Color::Yellow
                         ));
                     }
@@ -448,7 +503,7 @@ fn draw_dashboard(f: &mut Frame, tui: &mut Tui) {
 }
 
 /// Draw details view for selected recommendation
-fn draw_details(f: &mut Frame, tui: &Tui) {
+fn draw_details(f: &mut Frame, tui: &mut Tui) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -474,6 +529,8 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
         let risk_str = format!("Risk: {:?}", advice.risk);
         let popularity_str = format!("{} ({})", advice.popularity_stars(), advice.popularity_label());
 
+        let is_informational = advice.command.is_none();
+
         let mut lines = vec![
             Line::from(Span::styled(&advice.title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
             Line::from(""),
@@ -487,38 +544,56 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
                 Span::styled(popularity_str, Style::default().fg(Color::Yellow)),
             ]),
             Line::from(""),
-            Line::from(Span::styled("Why:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
-            Line::from(""),
         ];
 
-        // Word wrap the reason
-        for chunk in textwrap::wrap(&advice.reason, 70) {
+        // Add special banner for informational items
+        if is_informational {
+            lines.push(Line::from(vec![
+                Span::styled("ℹ  INFORMATIONAL NOTICE  ", Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)),
+                Span::styled(" - No action required, this is for your awareness", Style::default().fg(Color::Cyan)),
+            ]));
+            lines.push(Line::from(""));
+        }
+
+        lines.push(Line::from(Span::styled(
+            if is_informational { "Details:" } else { "Why this matters:" },
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        )));
+        lines.push(Line::from(""));
+
+        // Word wrap the reason with better formatting for informational items
+        let wrap_width = if chunks[1].width > 10 { chunks[1].width - 8 } else { 60 };
+        for chunk in textwrap::wrap(&advice.reason, wrap_width as usize) {
             lines.push(Line::from(format!("  {}", chunk)));
         }
 
         // Action to take
         lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled("What to do:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+        lines.push(Line::from(Span::styled(
+            if is_informational { "What you should know:" } else { "Recommended action:" },
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        )));
         lines.push(Line::from(""));
-        for chunk in textwrap::wrap(&advice.action, 70) {
+        for chunk in textwrap::wrap(&advice.action, wrap_width as usize) {
             lines.push(Line::from(format!("  {}", chunk)));
         }
 
         // Command if present
         if let Some(ref cmd) = advice.command {
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled("Command:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(Span::styled("Command to execute:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(format!("  $ {}", cmd), Style::default().fg(Color::Cyan))));
-        } else {
-            lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled("ℹ Informational only - no command to execute", Style::default().fg(Color::Gray))));
         }
 
         // Alternatives if present
         if !advice.alternatives.is_empty() {
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled("Alternatives:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(Span::styled("Alternative approaches:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(""));
             for alt in &advice.alternatives {
                 lines.push(Line::from(format!("  • {}: {}", alt.name, alt.description)));
             }
@@ -527,17 +602,32 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
         // Wiki references
         if !advice.wiki_refs.is_empty() {
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled("Arch Wiki:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(Span::styled("Documentation (Arch Wiki):", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(""));
             for wiki in &advice.wiki_refs {
                 lines.push(Line::from(Span::styled(format!("  🔗 {}", wiki), Style::default().fg(Color::Blue))));
             }
+        }
+
+        // Add scrolling hint if content is long
+        if lines.len() > 20 {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  ↑/↓ or j/k to scroll",
+                Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)
+            )));
         }
 
         let details = Paragraph::new(lines)
             .block(Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(" Recommendation Details "))
+                .title(if is_informational {
+                    " Information Notice "
+                } else {
+                    " Recommendation Details "
+                }))
+            .scroll((tui.details_scroll, 0))
             .wrap(Wrap { trim: true });
 
         f.render_widget(details, chunks[1]);
@@ -623,21 +713,74 @@ fn draw_health_score(f: &mut Frame, area: Rect, tui: &Tui) {
     let score = tui.calculate_health_score();
     let color = Tui::health_color(score);
 
-    let status_text = match score {
-        90..=100 => "Excellent",
-        70..=89 => "Good",
-        50..=69 => "Fair",
-        30..=49 => "Poor",
-        _ => "Critical",
+    // Count items by current sort mode for contextual information
+    let (status_text, detail_text) = match tui.sort_mode {
+        SortMode::Priority => {
+            let critical = tui.advice.iter().filter(|a| matches!(a.priority, Priority::Mandatory)).count();
+            let recommended = tui.advice.iter().filter(|a| matches!(a.priority, Priority::Recommended)).count();
+            let optional = tui.advice.iter().filter(|a| matches!(a.priority, Priority::Optional)).count();
+            let cosmetic = tui.advice.iter().filter(|a| matches!(a.priority, Priority::Cosmetic)).count();
+
+            let status = if critical > 0 {
+                format!("Critical: {} issue{}", critical, if critical == 1 { "" } else { "s" })
+            } else if score >= 90 {
+                "Excellent".to_string()
+            } else if score >= 70 {
+                "Good".to_string()
+            } else if score >= 50 {
+                "Fair".to_string()
+            } else {
+                "Needs Attention".to_string()
+            };
+
+            let detail = format!("  🔴{} 🟡{} 🟢{} ⚪{}", critical, recommended, optional, cosmetic);
+            (status, detail)
+        },
+        SortMode::Risk => {
+            let high = tui.advice.iter().filter(|a| matches!(a.risk, RiskLevel::High)).count();
+            let medium = tui.advice.iter().filter(|a| matches!(a.risk, RiskLevel::Medium)).count();
+            let low = tui.advice.iter().filter(|a| matches!(a.risk, RiskLevel::Low)).count();
+
+            let status = if score >= 90 {
+                "Excellent".to_string()
+            } else if score >= 70 {
+                "Good".to_string()
+            } else if score >= 50 {
+                "Fair".to_string()
+            } else {
+                "Needs Attention".to_string()
+            };
+
+            let detail = format!("  High:{} Med:{} Low:{}", high, medium, low);
+            (status, detail)
+        },
+        SortMode::Category => {
+            let categories: std::collections::HashSet<_> = tui.advice.iter()
+                .map(|a| &a.category)
+                .collect();
+
+            let status = if score >= 90 {
+                "Excellent".to_string()
+            } else if score >= 70 {
+                "Good".to_string()
+            } else if score >= 50 {
+                "Fair".to_string()
+            } else {
+                "Needs Attention".to_string()
+            };
+
+            let detail = format!("  {} categories affected", categories.len());
+            (status, detail)
+        },
     };
 
     let gauge = Gauge::default()
         .block(Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(color))
-            .title(" System Health "))
+            .title(" System Health Score "))
         .gauge_style(Style::default().fg(color))
-        .label(format!("{}/100 - {}", score, status_text))
+        .label(format!("{}/100 - {}{}", score, status_text, detail_text))
         .ratio(score as f64 / 100.0);
 
     f.render_widget(gauge, area);
@@ -753,15 +896,17 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
             .block(Block::default().borders(Borders::ALL).title(" Recommendations "))
             .alignment(Alignment::Center);
         f.render_widget(no_advice, area);
+        tui.list_to_advice_map.clear();
         return;
     }
 
     let mut items: Vec<ListItem> = Vec::new();
+    let mut mapping: Vec<Option<usize>> = Vec::new();
 
     // Add category headers when sorted by category
     if tui.sort_mode == SortMode::Category {
         let mut last_category = "";
-        for advice in &tui.advice {
+        for (advice_idx, advice) in tui.advice.iter().enumerate() {
             // Add category header if changed
             if advice.category != last_category {
                 last_category = &advice.category;
@@ -776,15 +921,36 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
                     ),
                 ]);
                 items.push(ListItem::new(header));
+                mapping.push(None); // Header is not selectable
             }
 
             // Add the recommendation item
             items.push(create_recommendation_item(advice, tui.sort_mode));
+            mapping.push(Some(advice_idx)); // Map this list item to advice index
         }
     } else {
-        // No headers for other sort modes
-        for advice in &tui.advice {
+        // No headers for other sort modes - direct 1:1 mapping
+        for (advice_idx, advice) in tui.advice.iter().enumerate() {
             items.push(create_recommendation_item(advice, tui.sort_mode));
+            mapping.push(Some(advice_idx));
+        }
+    }
+
+    // Update the mapping
+    tui.list_to_advice_map = mapping;
+
+    // Ensure selection is valid and points to a selectable item
+    if let Some(selected) = tui.list_state.selected() {
+        if selected >= tui.list_to_advice_map.len() || tui.list_to_advice_map[selected].is_none() {
+            // Find first selectable item
+            if let Some(first_selectable) = tui.list_to_advice_map.iter().position(|opt| opt.is_some()) {
+                tui.list_state.select(Some(first_selectable));
+            }
+        }
+    } else if !tui.list_to_advice_map.is_empty() {
+        // No selection, select first selectable item
+        if let Some(first_selectable) = tui.list_to_advice_map.iter().position(|opt| opt.is_some()) {
+            tui.list_state.select(Some(first_selectable));
         }
     }
 
@@ -823,30 +989,39 @@ fn create_recommendation_item(advice: &Advice, sort_mode: SortMode) -> ListItem<
     let popularity_stars = advice.popularity_stars();
 
     // Choose text color based on sort mode
-    let text_color = match sort_mode {
-        SortMode::Category => category_color,
-        SortMode::Priority => match advice.priority {
+    let (text_color, show_category_name) = match sort_mode {
+        SortMode::Category => (category_color, false), // Category already shown in header
+        SortMode::Priority => (match advice.priority {
             Priority::Mandatory => Color::Red,
             Priority::Recommended => Color::Yellow,
             Priority::Optional => Color::Green,
             Priority::Cosmetic => Color::Gray,
-        },
-        SortMode::Risk => risk_badge.1,
+        }, false),
+        SortMode::Risk => (Color::White, true), // Show category name for clarity
     };
 
-    let content = Line::from(vec![
+    let mut spans = vec![
         Span::raw(priority_icon),
         Span::raw(" "),
         Span::styled(risk_badge.0, Style::default().fg(risk_badge.1)),
         Span::raw(" "),
         Span::styled(category_emoji, Style::default().fg(category_color)),
         Span::raw(" "),
-        Span::styled(&advice.title, Style::default().fg(text_color)),
-        Span::raw("  "),
-        Span::styled(popularity_stars, Style::default().fg(Color::Yellow)),
-    ]);
+    ];
 
-    ListItem::new(content)
+    // When sorted by risk, show category name in brackets for clarity
+    if show_category_name {
+        spans.push(Span::styled(
+            format!("[{}] ", advice.category),
+            Style::default().fg(category_color)
+        ));
+    }
+
+    spans.push(Span::styled(&advice.title, Style::default().fg(text_color)));
+    spans.push(Span::raw("  "));
+    spans.push(Span::styled(popularity_stars, Style::default().fg(Color::Yellow)));
+
+    ListItem::new(Line::from(spans))
 }
 
 /// Draw footer with keyboard shortcuts
@@ -870,7 +1045,7 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
             if has_command {
                 vec![
                     (" Esc ", " Back  "),
-                    (" a/y ", " Apply  "),
+                    (" a ", " Apply  "),
                     (" q ", " Quit  "),
                 ]
             } else {

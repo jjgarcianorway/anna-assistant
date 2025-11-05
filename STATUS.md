@@ -177,9 +177,10 @@ alias at='annactl dashboard'
 |---------|--------|----------|-------|
 | Arch Wiki Integration | ✅ | 95% | Industry-leading wiki citation |
 | Command Simplicity | ✅ | 100% | Intuitive, well-documented |
+| Command Execution | ✅ | 100% | Full shell syntax support |
 | Telemetry | ✅ | 97% | World-class system understanding |
 | Recommendations | ✅ | 100% | **280+ rules** with smart scoring |
-| TUI | ✅ | 95% | Feature-rich, category badges |
+| TUI | ✅ | 98% | Scrollable, context-aware, polished |
 | Learning | ✅ | 90% | User preference detection |
 | Autonomy | ✅ | 90% | 20 tasks across 3 tiers |
 | Safety | ✅ | 100% | Dry-run, risk levels, rollback |
@@ -218,23 +219,28 @@ alias at='annactl dashboard'
 
 ---
 
-## 🎉 **Beta.44 Highlights** (Latest Release)
+## 🎉 **Beta.49 Highlights** (Latest Release)
 
-### TUI Visual Improvements
-- 🎨 **Category Headers** - Press 'c' to see grouped recommendations with colored separators
-- 🎨 **Smart Color Coding** - Text colors adapt to sort mode (category/priority/risk)
-- 🎨 **Risk Badges** - Visual indicators (✓/⚠) on all items
-- 🎨 **Priority Differentiation** - Color-coded by priority level
+### Critical Bug Fixes
+- 🔧 **Command Execution** - Fixed shell syntax support for `$(...)`, `&&`, `|`, and complex commands
+- 🔧 **TUI Navigation** - Fixed category header selection bug and wrong advice display
+- 🔧 **Applied Advice** - Items now stay visible until action completes
 
-### Update System Fixed
-- ✅ **GitHub Integration** - `annactl update` now works with releases
-- ✅ **Automatic Backup** - Previous versions saved to /var/lib/anna/backup/
-- ✅ **Safe Installation** - Proper sudo permissions and error handling
+### TUI Experience Overhaul
+- ⌨️ **Smart Navigation** - Category headers no longer selectable, smooth keyboard navigation
+- 📜 **Scrollable Details** - Use ↑/↓ or j/k to scroll through long recommendation details
+- 🎯 **Simplified Controls** - Apply shortcut changed from "a/y" to just "a" for clarity
+- 📊 **Context-Aware Health** - Health score shows relevant breakdown based on sort mode
+- 🏷️ **Risk Sort Clarity** - Category names shown in brackets when sorted by risk
+- 💬 **Clear Messages** - All user-facing messages extremely clear and actionable
+- 🎨 **Informational Banner** - Special highlighting for informational-only recommendations
+- 📐 **Better Wrapping** - Text wraps based on terminal width dynamically
 
-### Smart Notifications
-- 📬 **Terminal-Only Updates** - No wall spam, once-per-day check
-- 📬 **Beautiful Banners** - Update notifications after status/advise/report
-- 📬 **Non-Intrusive** - 24-hour cache prevents API spam
+### User Experience Improvements
+- ✨ **Priority Sort** - Shows 🔴 Critical, 🟡 Recommended, 🟢 Optional, ⚪ Cosmetic counts
+- ✨ **Risk Sort** - Shows High/Med/Low risk breakdown with categories
+- ✨ **Category Sort** - Shows number of affected categories
+- ✨ **Visual Hierarchy** - Each view optimized for clarity and understanding
 
 ---
 
@@ -268,5 +274,5 @@ alias at='annactl dashboard'
 
 ---
 
-**Last Updated**: Beta.44 (November 2025)
+**Last Updated**: Beta.49 (November 2025)
 **Status**: Production-ready for daily Arch Linux use

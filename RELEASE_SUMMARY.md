@@ -1,45 +1,59 @@
-# Anna Assistant v1.0.0-beta.41 - Release Summary
+# Anna Assistant v1.0.0-beta.49 - Release Summary
 
-## 🎮 Multi-GPU Support & Comprehensive System Intelligence!
+## 🎯 TUI Polish & Command Execution Fixes!
 
-This release brings **comprehensive GPU detection** for Intel, AMD, and Nvidia, along with major polish and consistency improvements.
+This release brings **major improvements** to the interactive TUI with better navigation, scrolling, and context-aware displays, plus critical fixes for command execution.
 
 ---
 
-## 🆕 What's New in Beta.41
+## 🆕 What's New in Beta.49
 
-### Multi-GPU Detection & Recommendations
+### Critical Bug Fixes
 
-**Intel GPU Support:**
-- Automatic detection of Intel integrated graphics via lspci and i915 kernel module
-- Vulkan support recommendations (`vulkan-intel`)
-- Hardware video acceleration for modern GPUs (`intel-media-driver`)
-- Hardware video acceleration for legacy GPUs (`libva-intel-driver`)
+**Command Execution Fixed** 🔧
+- Fixed shell command execution to support complex syntax
+- Now properly handles `$(...)` command substitution
+- Shell operators like `&&`, `||`, and `|` work correctly
+- Pacman commands with nested commands now execute properly
+- Multi-command operations fully supported
 
-**AMD/ATI GPU Support:**
-- Enhanced AMD graphics detection via lspci and kernel modules
-- Identifies modern `amdgpu` vs legacy `radeon` drivers
-- Suggests driver upgrade path for compatible GPUs
-- Hardware video acceleration (`libva-mesa-driver`, `mesa-vdpau`)
+### TUI Experience Overhaul
 
-**Complete GPU Coverage:**
-- Anna now supports Intel, AMD, and Nvidia GPUs
-- Tailored recommendations based on your specific hardware
-- Video acceleration setup for smooth playback and lower power consumption
+**Navigation Improvements:**
+- Category headers are no longer selectable - navigation automatically skips them
+- Fixed critical indexing bug where entering a title would show the wrong advice
+- Smooth keyboard navigation with up/down or j/k keys
+- Details view now scrollable for long content
 
-### Category Consistency & Polish
+**Simplified Controls:**
+- Changed apply shortcut from "a/y" to just "a" for clarity
+- Clear, intuitive keyboard shortcuts throughout
+- Better visual feedback for all actions
 
-- All category names properly styled with emojis and colors
-- Added explicit mappings for utilities, system, productivity, audio, shell, communication, engineering
-- Fixed capitalization throughout
-- Consistent visual hierarchy
+**Enhanced Details View:**
+- Scrollable content with ↑/↓ or j/k keys
+- Special banner for informational notices
+- Better word wrapping based on terminal width
+- Context-aware headings ("Why this matters" vs "Details")
+- Clear distinction between actionable and informational items
 
-### Documentation Updates
+**Context-Aware Health Display:**
+- Health score now shows relevant breakdown based on sort mode
+- When sorted by **Priority**: Shows 🔴 Critical, 🟡 Recommended, 🟢 Optional, ⚪ Cosmetic counts
+- When sorted by **Risk**: Shows High/Med/Low risk breakdown
+- When sorted by **Category**: Shows number of categories affected
+- Always displays current filtered view, not total system state
 
-- Consolidated duplicate sections in README
-- All references updated to current version
-- Clear version separation in "What's New"
-- Shell script improvements (install.sh, uninstall.sh, release.sh)
+**Better Sorting:**
+- When sorted by Risk, category names shown in brackets for clarity
+- Color coding improved to reduce confusion
+- Each sort mode has appropriate visual hierarchy
+
+**Improved Feedback:**
+- Applied advice stays visible until action completes
+- Success/failure messages are extremely clear
+- No premature disappearance of items
+- User has time to read results before list refreshes
 
 ---
 
@@ -54,7 +68,7 @@ This release brings **comprehensive GPU detection** for Intel, AMD, and Nvidia, 
 - Password manager suggestions
 
 ### 💻 Development
-- **220+ detection rules** for comprehensive system analysis
+- **280+ detection rules** for comprehensive system analysis
 - Language detection (Python, Rust, Go, JavaScript, Java, C++)
 - LSP server recommendations
 - Docker & virtualization support
@@ -72,7 +86,7 @@ This release brings **comprehensive GPU detection** for Intel, AMD, and Nvidia, 
 - Steam, Lutris, Wine setup
 - ProtonGE recommendations
 - MangoHud for performance monitoring
-- GPU driver optimization
+- GPU driver optimization (Intel, AMD, Nvidia)
 
 ### 🔧 System Maintenance
 - Orphan package cleanup
@@ -80,6 +94,14 @@ This release brings **comprehensive GPU detection** for Intel, AMD, and Nvidia, 
 - Package cache management
 - Systemd health monitoring
 - Boot performance optimization
+
+### 🖥️ Interactive TUI
+- Real-time system dashboard
+- Sortable recommendations (by Category, Priority, Risk)
+- Detailed recommendation view with scrolling
+- Context-aware health metrics
+- Keyboard-driven navigation
+- Apply confirmation with safety checks
 
 ---
 
@@ -93,7 +115,15 @@ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/s
 
 ### Upgrade from Previous Version
 
-The same command works for upgrades - the installer automatically:
+```bash
+# Same command works for upgrades
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
+
+# Or use Anna's built-in updater
+annactl update
+```
+
+The installer automatically:
 1. Stops the old daemon
 2. Installs new binaries
 3. Restarts the daemon
@@ -106,6 +136,9 @@ The same command works for upgrades - the installer automatically:
 ```bash
 # Get personalized recommendations
 annactl advise
+
+# Interactive TUI (NEW & IMPROVED!)
+annactl tui
 
 # Filter by category
 annactl advise security
@@ -134,54 +167,61 @@ annactl report
 
 ## 🔄 Upgrade Notes
 
-### From Beta.30-40
-- All your configuration is preserved
-- Recommendations will be refreshed automatically
-- New Intel/AMD GPU recommendations will appear if applicable
-- Category display may look slightly different (better organized)
+### From Beta.45-48
+- All configuration preserved automatically
+- TUI navigation is now more intuitive
+- Shell commands will execute correctly (especially pacman with $(...))
+- Health score provides better context
+- Details view scrolling available for long content
 
 ### Configuration
-Anna's config is stored in `/etc/anna/config.toml`
+Anna's config is stored in `~/.config/anna/config.toml` (user) or `/etc/anna/config.toml` (system-wide)
 
 ---
 
-## 🐛 Bug Fixes (Beta.40-41)
+## 🐛 Bug Fixes (Beta.49)
 
-**CI/CD Improvements:**
-- Fixed all compiler warnings that blocked releases
-- Disabled `-D warnings` flag temporarily (will be re-enabled after cleanup)
-- CI builds now complete successfully
+**Critical Fixes:**
+- ✅ Fixed command execution for shell syntax (`$(...)`, `&&`, `|`)
+- ✅ Fixed TUI category header selection bug
+- ✅ Fixed wrong advice showing when navigating categories
+- ✅ Fixed applied advice disappearing prematurely
 
-**Box Rendering (Beta.40):**
-- Replaced Unicode box characters with universal separators
-- Works perfectly in all terminals now
-- Clean, professional output
+**TUI Improvements:**
+- ✅ Category headers no longer selectable
+- ✅ Correct advice-to-index mapping throughout
+- ✅ Details view scrolling for long content
+- ✅ Improved informational notice display
+- ✅ Better word wrapping for all terminal sizes
+- ✅ Context-aware health score display
+- ✅ Clearer risk sort with category indicators
 
-**Category Consistency:**
-- All categories now properly capitalized and styled
-- Comprehensive emoji and color mappings
-- Better visual organization
+**User Experience:**
+- ✅ Simplified apply shortcut (just "a" now)
+- ✅ All user messages extremely clear and actionable
+- ✅ Better visual hierarchy in all views
+- ✅ Consistent keyboard navigation patterns
 
 ---
 
 ## 🔮 What's Next
 
-### Short Term (Beta.42-45)
-- Additional window manager support (leftwm, river, etc.)
-- More desktop environment detection
-- Enhanced battery optimization for laptops
-- Post-quantum SSH configuration
+### Short Term (Beta.50-52)
+- Ignore/dismiss functionality in TUI
+- Category and priority filtering
+- Rollback by history number
+- Enhanced UI dialogs (whiptail/zenity/gum)
 
-### Mid Term (Beta.46-50)
-- Autonomy tiers (automatic maintenance with user approval)
-- Arch Wiki offline cache
-- Rollback system for failed operations
-- Enhanced telemetry and predictive insights
+### Mid Term (Beta.53-60)
+- Bundle rollback system
+- Community data integration (privacy-preserving)
+- Enhanced relevance filtering
+- Workflow bundle expansion
 
 ### Long Term (v1.0.0)
 - Full autonomy mode (with safety guardrails)
-- Machine learning-based recommendations
-- Multi-system support (manage multiple Arch machines)
+- Learning system refinements
+- Multi-system support
 - Plugin system for community extensions
 
 ---
@@ -199,15 +239,18 @@ Anna's config is stored in `/etc/anna/config.toml`
 **Built with:**
 - Rust 🦀 - For speed, safety, and reliability
 - Tokio - Async runtime
-- owo-colors - Beautiful terminal colors
+- Ratatui - Beautiful TUI framework
+- Crossterm - Cross-platform terminal control
+- owo-colors - Terminal color support
 - Arch Wiki - Source of truth for all recommendations
 
 **Philosophy:**
-- Privacy First - Your data stays on your system
-- Non-Intrusive - Anna suggests, you decide
-- Arch-Native - Follows Arch philosophy and Wiki
-- Transparent - Full audit logs, clear explanations
+- **Privacy First** - Your data stays on your system
+- **Non-Intrusive** - Anna suggests, you decide
+- **Arch-Native** - Follows Arch philosophy and Wiki
+- **Transparent** - Full audit logs, clear explanations
+- **User-Focused** - Interface must be extremely clear
 
 ---
 
-**Anna v1.0.0-beta.41** - Making Arch Linux easier, one recommendation at a time! 🌟
+**Anna v1.0.0-beta.49** - Making Arch Linux easier, one recommendation at a time! 🌟

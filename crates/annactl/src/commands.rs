@@ -1524,7 +1524,7 @@ fn wrap_text(text: &str, width: usize, indent: &str) -> String {
 
 /// Generate a plain English system health summary with sysadmin-level insights
 fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: &anna_common::SystemFacts, advice: &[anna_common::Advice]) {
-    use anna_common::RiskLevel;
+    use anna_common::Priority;
 
     // First, show system health metrics
     println!("{}", section("🔍 System Health Analysis"));
@@ -1692,11 +1692,11 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
     println!("{}", section("💭 Overall Assessment"));
     println!();
 
-    // Overall assessment
-    let critical_issues: Vec<_> = advice.iter().filter(|a| matches!(a.risk, RiskLevel::High)).collect();
+    // Overall assessment - use Priority (not RiskLevel) to be consistent with TUI
+    let critical_issues: Vec<_> = advice.iter().filter(|a| matches!(a.priority, Priority::Mandatory)).collect();
     let critical = critical_issues.len();
-    let recommended = advice.iter().filter(|a| matches!(a.risk, RiskLevel::Medium)).count();
-    let optional = advice.iter().filter(|a| matches!(a.risk, RiskLevel::Low)).count();
+    let recommended = advice.iter().filter(|a| matches!(a.priority, Priority::Recommended)).count();
+    let optional = advice.iter().filter(|a| matches!(a.priority, Priority::Optional)).count();
 
     if critical == 0 && recommended == 0 && optional == 0 {
         println!("   Your system is in great shape! Everything looks secure and well-maintained.");

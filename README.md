@@ -4,11 +4,32 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.43 (November 2025)
+**Current Version:** Beta.48 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.43
+## 🎯 What's New in Beta.48
+
+**🎯 Ignore System:**
+- Ignore entire categories (e.g., "Desktop Customization")
+- Ignore priority levels (e.g., all "Optional" items)
+- Commands: `annactl ignore category/priority/show/reset`
+- TUI integration for easy filtering
+
+**✨ UI/UX Improvements:**
+- Fixed TUI health display - now shows "Score: 0/100 - Critical (2 issues)"
+- Status command shows category breakdown
+- Update command shows installed version and friendly messages
+- Report and TUI critical counts now consistent
+
+**🔧 Apply System Refinements:**
+- Cache-based number system guarantees exact match with advise display
+- Sequential history rollback numbers ([#1], [#2], [#3])
+- Simplified, reliable operation
+
+---
+
+## 🎯 Previous Release (Beta.43)
 
 **🧠 Advanced Telemetry (8 New Categories):**
 - **CPU Microcode Status** - Detects missing Intel/AMD security updates

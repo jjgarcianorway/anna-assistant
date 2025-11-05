@@ -98,19 +98,16 @@ pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
 
 /// Execute a shell command safely
 async fn execute_command(command: &str) -> Result<String> {
-    // Parse command into program and args
-    let parts: Vec<&str> = command.split_whitespace().collect();
-    if parts.is_empty() {
+    if command.trim().is_empty() {
         return Err(anyhow::anyhow!("Empty command"));
     }
 
-    let program = parts[0];
-    let args = &parts[1..];
+    info!("Executing shell command: {}", command);
 
-    info!("Executing: {} {:?}", program, args);
-
-    let output = Command::new(program)
-        .args(args)
+    // Execute through shell to support complex syntax like $(...), &&, |, etc.
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()

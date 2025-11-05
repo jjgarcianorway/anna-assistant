@@ -10,28 +10,36 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.45)
+## Current Status (v1.0.0-beta.48)
 
-### 📝 Recent User Feedback & Ideas (To Be Implemented)
+### 📝 Recent User Feedback & Ideas
 
-**Apply & Number System** ✅ FIXED in beta.45
-- ✅ Apply numbers must match advise display exactly
+**Apply & Number System** ✅ COMPLETED (beta.45)
+- ✅ Apply numbers match advise display exactly
 - ✅ Simple sequential numbering (1, 2, 3...)
-- ✅ Numbers update when items are applied/removed
 - ✅ Cache-based system for reliability
+- ✅ Sequential history rollback numbers ([#1], [#2], [#3])
 
-**TUI Enhancements** 🚧 IN PROGRESS
-- [ ] Add "ignore/dismiss" option in TUI (not just apply)
-- [ ] Show ignored/dismissed items with option to un-ignore
+**Category & Priority Filtering** ✅ COMPLETED (beta.46)
+- ✅ Ignore entire categories via `annactl ignore category <name>`
+- ✅ Ignore priority levels via `annactl ignore priority <level>`
+- ✅ Show ignored filters with `annactl ignore show`
+- ✅ Reset all filters with `annactl ignore reset`
+- ✅ Integrated into advise command filtering
+- [ ] TUI integration for ignore/dismiss
 - [ ] Keyboard shortcut to dismiss (e.g., 'd' key)
-- [ ] Visual indicator for dismissed items
+- [ ] Show ignored items with option to un-ignore
 
-**Category & Priority Filtering** 🔥 HIGH PRIORITY
-- [ ] Allow ignoring entire categories (e.g., "Cosmetic" category)
-- [ ] Allow ignoring priority levels (e.g., all "Optional" items)
-- [ ] Mark as "nice to have" vs "must have"
-- [ ] Revert ignore settings from CLI or TUI
-- [ ] Commands: `annactl ignore category <name>`, `annactl show ignored`
+**Display Consistency** ✅ FIXED (beta.48)
+- ✅ Report and TUI use same Priority field for critical count
+- ✅ TUI health: "Score: 0/100 - Critical (2 issues)"
+- ✅ Status command shows category breakdown
+- ✅ Update command shows installed version
+
+**Update Command** ✅ COMPLETED (beta.47)
+- ✅ Shows installed version upfront
+- ✅ Friendly messages when no updates available
+- ✅ Better error handling
 
 **Display Improvements**
 - [ ] Show grand total even when displaying limited results
@@ -71,7 +79,7 @@ Anna should be an intelligent, autonomous system administrator that:
 **Million Things to Improve** (User's Words!)
 - [ ] (This section will grow as more feedback comes in)
 
-## Current Status (v1.0.0-beta.45)
+## Feature Completion Status (v1.0.0-beta.49)
 
 ### ✅ Complete
 - [x] Core data models and types

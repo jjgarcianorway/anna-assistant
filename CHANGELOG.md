@@ -5,6 +5,93 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.48] - 2025-11-05
+
+### 🐛 Critical Bug Fixes
+
+**Display Consistency:**
+- Fixed critical count mismatch between TUI and report command
+- Both now use `Priority::Mandatory` field (was mixing Priority and RiskLevel)
+- TUI health gauge now shows: "Score: 0/100 - Critical (2 issues)"
+- Clear indication of both score AND issue count
+
+### ✨ UI/UX Improvements
+
+**Update Command:**
+- Now shows installed version before checking for updates
+- Friendly message: "No updates available - you're on the latest development version!"
+- Better error handling distinguishing network issues from missing releases
+
+**Status Command:**
+- Added category breakdown showing top 10 categories with counts
+- Example: "Security · 15", "Packages · 23"
+- Respects ignore filters when calculating
+
+**TUI Health Display:**
+- Changed from confusing "0/100" to clear "Score: 0/100"
+- Shows critical issue count when score is low
+- Title changed from "System Health" to "System Health Score"
+
+### 📚 Documentation
+
+- Updated README to beta.48 with latest features
+- Updated ROADMAP to track completed features
+- Documented ignore system commands
+
+## [1.0.0-beta.47] - 2025-11-05
+
+### ✨ Improvements
+
+**Update Command Enhancements:**
+- Shows installed version upfront
+- Friendly messaging for development versions
+- Clear distinction between network errors and missing releases
+
+**Status Command:**
+- Added category breakdown display
+- Shows top 10 categories with recommendation counts
+- Integrated with ignore filters
+
+## [1.0.0-beta.46] - 2025-11-05
+
+### 🎯 New Features
+
+**Category & Priority Ignore System:**
+- Ignore entire categories: `annactl ignore category "Desktop Customization"`
+- Ignore priority levels: `annactl ignore priority Optional`
+- View filters: `annactl ignore show`
+- Remove filters: `annactl ignore unignore category <name>`
+- Reset all: `annactl ignore reset`
+- Storage: `~/.config/anna/ignore_filters.json`
+
+**History Improvements:**
+- Sequential rollback numbers ([#1], [#2], [#3])
+- Added "Applied by" field
+- Better formatting and alignment
+
+### 📚 Documentation
+
+- Added "Recent User Feedback & Ideas" section to ROADMAP
+- Tracking all pending improvements
+- User feedback preserved for future work
+
+## [1.0.0-beta.45] - 2025-11-05
+
+### 🎯 Critical Fix - Apply Numbers
+
+**Advice Display Cache System:**
+- Created `AdviceDisplayCache` to save exact display order
+- `advise` command saves IDs to `~/.cache/anna/advice_display_cache.json`
+- `apply` command reads from cache - GUARANTEED match
+- Removed 200+ lines of complex filtering code
+- Simple, reliable, cache-based approach
+
+**What This Fixes:**
+- Apply numbers now ALWAYS match what's shown in advise
+- No more "applied wrong advice" issues
+- No more complex state replication
+- User feedback: "apply must work with the right numbers!"
+
 ## [1.0.0-beta.44] - 2025-11-05
 
 ### 🎉 System Completeness & Quality Release!
