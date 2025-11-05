@@ -224,6 +224,18 @@ pub async fn advise(
             }
         }
 
+        // Apply ignore filters (categories and priorities)
+        if let Ok(filters) = anna_common::IgnoreFilters::load() {
+            let original_count = advice_list.len();
+            advice_list.retain(|a| !filters.should_filter(a));
+            let filtered_count = original_count - advice_list.len();
+            if filtered_count > 0 {
+                println!("{}", beautiful::status(Level::Info,
+                    &format!("Hiding {} items by your ignore filters (use 'annactl ignore show' to see)", filtered_count)));
+                println!();
+            }
+        }
+
         // Filter by risk level if specified
         if let Some(ref risk) = risk_filter {
             advice_list.retain(|a| {
@@ -2892,6 +2904,133 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                 Level::Info,
                 "Check your internet connection and try again"
             ));
+        }
+    }
+
+    Ok(())
+}
+/// Manage ignore filters
+pub async fn ignore(action: crate::IgnoreAction) -> Result<()> {
+    use anna_common::beautiful::{header, section};
+    use crate::IgnoreAction;
+
+    match action {
+        IgnoreAction::Show => {
+            println!("{}", header("Ignore Filters"));
+            println!();
+
+            let filters = anna_common::IgnoreFilters::load().unwrap_or_default();
+
+            println!("{}", section("Current Filters"));
+            println!();
+            println!("{}", filters.get_ignored_summary());
+            println!();
+
+            if !filters.ignored_categories.is_empty() || !filters.ignored_priorities.is_empty() {
+                println!("{}", section("Commands"));
+                println!();
+                println!("  annactl ignore unignore category <name>  # Remove category filter");
+                println!("  annactl ignore unignore priority <level> # Remove priority filter");
+                println!("  annactl ignore reset                      # Clear all filters");
+                println!();
+            }
+        }
+
+        IgnoreAction::Category { name } => {
+            let mut filters = anna_common::IgnoreFilters::load().unwrap_or_default();
+
+            filters.ignore_category(&name);
+            filters.save()?;
+
+            println!("{}", beautiful::status(Level::Success,
+                &format!("Category '{}' is now ignored", name)));
+            println!();
+            println!("Run 'annactl advise' to see updated recommendations");
+        }
+
+        IgnoreAction::Priority { level } => {
+            use anna_common::Priority;
+
+            let priority = match level.to_lowercase().as_str() {
+                "mandatory" => Priority::Mandatory,
+                "recommended" => Priority::Recommended,
+                "optional" => Priority::Optional,
+                "cosmetic" => Priority::Cosmetic,
+                _ => {
+                    println!("{}", beautiful::status(Level::Error,
+                        &format!("Unknown priority level: {}", level)));
+                    println!();
+                    println!("Valid levels: Mandatory, Recommended, Optional, Cosmetic");
+                    return Ok(());
+                }
+            };
+
+            let mut filters = anna_common::IgnoreFilters::load().unwrap_or_default();
+
+            filters.ignore_priority(priority);
+            filters.save()?;
+
+            println!("{}", beautiful::status(Level::Success,
+                &format!("Priority '{}' is now ignored", level)));
+            println!();
+            println!("Run 'annactl advise' to see updated recommendations");
+        }
+
+        IgnoreAction::Unignore { filter_type, value } => {
+            let mut filters = anna_common::IgnoreFilters::load().unwrap_or_default();
+
+            match filter_type.to_lowercase().as_str() {
+                "category" => {
+                    filters.unignore_category(&value);
+                    filters.save()?;
+
+                    println!("{}", beautiful::status(Level::Success,
+                        &format!("Category '{}' is no longer ignored", value)));
+                }
+                "priority" => {
+                    use anna_common::Priority;
+
+                    let priority = match value.to_lowercase().as_str() {
+                        "mandatory" => Priority::Mandatory,
+                        "recommended" => Priority::Recommended,
+                        "optional" => Priority::Optional,
+                        "cosmetic" => Priority::Cosmetic,
+                        _ => {
+                            println!("{}", beautiful::status(Level::Error,
+                                &format!("Unknown priority level: {}", value)));
+                            return Ok(());
+                        }
+                    };
+
+                    filters.unignore_priority(priority);
+                    filters.save()?;
+
+                    println!("{}", beautiful::status(Level::Success,
+                        &format!("Priority '{}' is no longer ignored", value)));
+                }
+                _ => {
+                    println!("{}", beautiful::status(Level::Error,
+                        &format!("Unknown filter type: {}", filter_type)));
+                    println!();
+                    println!("Valid types: category, priority");
+                    return Ok(());
+                }
+            }
+
+            println!();
+            println!("Run 'annactl advise' to see updated recommendations");
+        }
+
+        IgnoreAction::Reset => {
+            let mut filters = anna_common::IgnoreFilters::load().unwrap_or_default();
+
+            filters.reset_all();
+            filters.save()?;
+
+            println!("{}", beautiful::status(Level::Success,
+                "All ignore filters have been cleared"));
+            println!();
+            println!("Run 'annactl advise' to see all recommendations");
         }
     }
 

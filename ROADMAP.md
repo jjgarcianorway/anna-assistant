@@ -10,7 +10,68 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.43)
+## Current Status (v1.0.0-beta.45)
+
+### 📝 Recent User Feedback & Ideas (To Be Implemented)
+
+**Apply & Number System** ✅ FIXED in beta.45
+- ✅ Apply numbers must match advise display exactly
+- ✅ Simple sequential numbering (1, 2, 3...)
+- ✅ Numbers update when items are applied/removed
+- ✅ Cache-based system for reliability
+
+**TUI Enhancements** 🚧 IN PROGRESS
+- [ ] Add "ignore/dismiss" option in TUI (not just apply)
+- [ ] Show ignored/dismissed items with option to un-ignore
+- [ ] Keyboard shortcut to dismiss (e.g., 'd' key)
+- [ ] Visual indicator for dismissed items
+
+**Category & Priority Filtering** 🔥 HIGH PRIORITY
+- [ ] Allow ignoring entire categories (e.g., "Cosmetic" category)
+- [ ] Allow ignoring priority levels (e.g., all "Optional" items)
+- [ ] Mark as "nice to have" vs "must have"
+- [ ] Revert ignore settings from CLI or TUI
+- [ ] Commands: `annactl ignore category <name>`, `annactl show ignored`
+
+**Display Improvements**
+- [ ] Show grand total even when displaying limited results
+  - Example: "Showing 25 of 150 recommendations"
+- [ ] Better indication of filtered vs total items
+
+**Relevance & Applicability**
+- [ ] Ensure recommendations only apply to user's actual system
+- [ ] No irrelevant suggestions for hardware/software not present
+- [ ] Better context detection for recommendations
+
+**Rollback System**
+- ✅ Sequential history numbers (#1, #2, #3) - DONE in beta.45
+- [ ] Rollback command: `annactl rollback #3` (undo specific action)
+- [ ] Rollback by number from history list
+- [ ] Start fresh: first applied = #1, then #2, etc.
+
+**Auto-Update & Notifications**
+- [x] Anna should auto-update herself (Tier 3 autonomy)
+- [ ] User receives notification when update completes
+- [ ] Release notes displayed after update
+- [ ] Terminal notification (not wall spam)
+- [ ] Beautiful update banner in CLI
+
+**Documentation**
+- [ ] Update ALL .md files after each version
+- [ ] Keep README, ROADMAP, CONTRIBUTING up-to-date
+- [ ] Version numbers consistent across all docs
+- [ ] Features list current and accurate
+
+**Command Simplicity**
+- [x] `annactl tui` not `annactl dashboard` - tui is shorter
+- [x] Simple number-based operations (1, 2, 3 not complex IDs)
+- [ ] Easy to use, not complicated command line
+- [ ] Keep everything intuitive
+
+**Million Things to Improve** (User's Words!)
+- [ ] (This section will grow as more feedback comes in)
+
+## Current Status (v1.0.0-beta.45)
 
 ### ✅ Complete
 - [x] Core data models and types

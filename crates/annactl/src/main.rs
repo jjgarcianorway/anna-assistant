@@ -186,8 +186,51 @@ enum Commands {
         check: bool,
     },
 
+    /// Manage ignore filters (categories and priorities)
+    ///
+    /// Examples:
+    ///   annactl ignore show                      # Show current filters
+    ///   annactl ignore category "Cosmetic"       # Ignore category
+    ///   annactl ignore priority Optional         # Ignore priority
+    ///   annactl ignore unignore category Desktop # Remove filter
+    ///   annactl ignore reset                     # Clear all filters
+    Ignore {
+        #[command(subcommand)]
+        action: IgnoreAction,
+    },
+
     /// Open interactive TUI for browsing and applying recommendations
     Tui,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IgnoreAction {
+    /// Show current ignore filters
+    Show,
+
+    /// Ignore a category
+    Category {
+        /// Category name to ignore
+        name: String,
+    },
+
+    /// Ignore a priority level (Mandatory, Recommended, Optional, Cosmetic)
+    Priority {
+        /// Priority level to ignore
+        level: String,
+    },
+
+    /// Remove a filter
+    Unignore {
+        /// Type: 'category' or 'priority'
+        filter_type: String,
+
+        /// Value to un-ignore
+        value: String,
+    },
+
+    /// Reset all ignore filters
+    Reset,
 }
 
 #[tokio::main]
@@ -213,6 +256,7 @@ async fn main() -> Result<()> {
         Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,
         Commands::History { days, detailed } => commands::history(days, detailed).await,
         Commands::Update { install, check } => commands::update(install, check).await,
+        Commands::Ignore { action } => commands::ignore(action).await,
         Commands::Tui => tui::run().await,
     }
 }
