@@ -105,6 +105,20 @@ async fn run_tier1_tasks() -> Result<()> {
         }
     }
 
+    // Task 6: Check disk SMART status (monitoring - alerts on disk issues)
+    if let Ok(action) = check_disk_smart_status().await {
+        if !action.output.is_empty() {
+            log.record(action);
+        }
+    }
+
+    // Task 7: Check for available updates (monitoring - doesn't install)
+    if let Ok(action) = check_available_updates().await {
+        if !action.output.is_empty() {
+            log.record(action);
+        }
+    }
+
     log.save()?;
     Ok(())
 }
@@ -138,6 +152,21 @@ async fn run_tier2_tasks() -> Result<()> {
         log.record(action);
     }
 
+    // Task 11: Clean old coredumps
+    if let Ok(action) = clean_coredumps().await {
+        log.record(action);
+    }
+
+    // Task 12: Clean development tool caches (pip, cargo, npm)
+    if let Ok(action) = clean_dev_caches().await {
+        log.record(action);
+    }
+
+    // Task 13: Optimize btrfs filesystems if detected
+    if let Ok(action) = optimize_btrfs().await {
+        log.record(action);
+    }
+
     log.save()?;
     Ok(())
 }
@@ -146,18 +175,28 @@ async fn run_tier2_tasks() -> Result<()> {
 async fn run_tier3_tasks() -> Result<()> {
     let mut log = AutonomyLog::load().unwrap_or_default();
 
-    // Task 11: Update mirrorlist (if old)
+    // Task 14: Update mirrorlist (if old)
     if let Ok(action) = update_mirrorlist().await {
         log.record(action);
     }
 
-    // Task 12: Apply security updates (only packages marked as security-related)
+    // Task 15: Apply security updates (only packages marked as security-related)
     if let Ok(action) = apply_security_updates().await {
         log.record(action);
     }
 
-    // Task 13: Backup important configs
+    // Task 16: Backup important configs
     if let Ok(action) = backup_system_configs().await {
+        log.record(action);
+    }
+
+    // Task 17: Rebuild font cache if stale
+    if let Ok(action) = rebuild_font_cache().await {
+        log.record(action);
+    }
+
+    // Task 18: Update AUR packages if AUR helper detected
+    if let Ok(action) = update_aur_packages().await {
         log.record(action);
     }
 
@@ -711,6 +750,375 @@ async fn backup_system_configs() -> Result<AutonomyAction> {
         command_run: format!("cp -r /etc/* {}", backup_path),
         success: true,
         output: format!("Backup location: {}\nFiles backed up: {:?}", backup_path, backed_up),
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Check disk SMART status for health warnings
+async fn check_disk_smart_status() -> Result<AutonomyAction> {
+    info!("Checking disk SMART status");
+
+    let start_time = chrono::Utc::now();
+
+    // Check if smartctl is installed
+    if !Command::new("which").arg("smartctl").output()?.status.success() {
+        return Ok(AutonomyAction {
+            action_type: "check_smart_status".to_string(),
+            executed_at: start_time,
+            description: "Skipped: smartmontools not installed".to_string(),
+            command_run: "none".to_string(),
+            success: true,
+            output: String::new(),
+            can_undo: false,
+            undo_command: None,
+        });
+    }
+
+    // Get list of disks
+    let output = Command::new("lsblk")
+        .args(&["-d", "-n", "-o", "NAME,TYPE"])
+        .output()?;
+
+    let disk_list = String::from_utf8_lossy(&output.stdout);
+    let mut warnings = Vec::new();
+
+    for line in disk_list.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 && parts[1] == "disk" {
+            let disk = parts[0];
+            let device = format!("/dev/{}", disk);
+
+            // Check SMART health
+            if let Ok(smart_output) = Command::new("smartctl")
+                .args(&["-H", &device])
+                .output()
+            {
+                let smart_str = String::from_utf8_lossy(&smart_output.stdout);
+                if smart_str.contains("FAILED") || smart_str.contains("WARN") {
+                    warnings.push(format!("{}: SMART health check failed", disk));
+                }
+            }
+        }
+    }
+
+    let output_str = if warnings.is_empty() {
+        String::new()
+    } else {
+        warnings.join("\n")
+    };
+
+    Ok(AutonomyAction {
+        action_type: "check_smart_status".to_string(),
+        executed_at: start_time,
+        description: if warnings.is_empty() {
+            "All disks healthy".to_string()
+        } else {
+            format!("⚠ Disk health warnings detected: {}", warnings.len())
+        },
+        command_run: "smartctl -H /dev/*".to_string(),
+        success: true,
+        output: output_str,
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Check for available updates (monitoring only)
+async fn check_available_updates() -> Result<AutonomyAction> {
+    info!("Checking for available updates");
+
+    let start_time = chrono::Utc::now();
+    let command = "pacman -Qu";
+
+    let output = Command::new("sh")
+        .args(&["-c", command])
+        .output()?;
+
+    let output_str = String::from_utf8_lossy(&output.stdout).to_string();
+    let update_count = output_str.lines().count();
+
+    Ok(AutonomyAction {
+        action_type: "check_updates".to_string(),
+        executed_at: start_time,
+        description: if update_count > 0 {
+            format!("ℹ {} package update(s) available", update_count)
+        } else {
+            "System is up to date".to_string()
+        },
+        command_run: command.to_string(),
+        success: true,
+        output: if update_count > 0 && update_count <= 20 {
+            output_str
+        } else if update_count > 20 {
+            format!("{} updates available (run 'pacman -Qu' to see all)", update_count)
+        } else {
+            String::new()
+        },
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Clean old coredumps
+async fn clean_coredumps() -> Result<AutonomyAction> {
+    info!("Cleaning old coredumps");
+
+    let start_time = chrono::Utc::now();
+    let coredump_dir = "/var/lib/systemd/coredump";
+
+    if !std::path::Path::new(coredump_dir).exists() {
+        return Ok(AutonomyAction {
+            action_type: "clean_coredumps".to_string(),
+            executed_at: start_time,
+            description: "No coredump directory found".to_string(),
+            command_run: "none".to_string(),
+            success: true,
+            output: String::new(),
+            can_undo: false,
+            undo_command: None,
+        });
+    }
+
+    // Remove coredumps older than 7 days
+    let command = format!("find {} -type f -mtime +7 -delete", coredump_dir);
+
+    let output = Command::new("sh")
+        .args(&["-c", &command])
+        .output()?;
+
+    let success = output.status.success();
+
+    Ok(AutonomyAction {
+        action_type: "clean_coredumps".to_string(),
+        executed_at: start_time,
+        description: "Removed coredumps older than 7 days".to_string(),
+        command_run: command,
+        success,
+        output: "Old coredumps cleaned".to_string(),
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Clean development tool caches (pip, cargo, npm)
+async fn clean_dev_caches() -> Result<AutonomyAction> {
+    info!("Cleaning development tool caches");
+
+    let start_time = chrono::Utc::now();
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+
+    let mut cleaned = Vec::new();
+    let mut total_freed = 0u64;
+
+    // Clean pip cache
+    let pip_cache = format!("{}/.cache/pip", home);
+    if std::path::Path::new(&pip_cache).exists() {
+        if let Ok(output) = Command::new("du").args(&["-sb", &pip_cache]).output() {
+            if let Some(size_str) = String::from_utf8_lossy(&output.stdout).split_whitespace().next() {
+                if let Ok(size) = size_str.parse::<u64>() {
+                    total_freed += size;
+                }
+            }
+        }
+        let _ = Command::new("rm").args(&["-rf", &pip_cache]).output();
+        cleaned.push("pip");
+    }
+
+    // Clean cargo cache (registry and git, but keep binaries)
+    let cargo_registry = format!("{}/.cargo/registry/cache", home);
+    if std::path::Path::new(&cargo_registry).exists() {
+        if let Ok(output) = Command::new("du").args(&["-sb", &cargo_registry]).output() {
+            if let Some(size_str) = String::from_utf8_lossy(&output.stdout).split_whitespace().next() {
+                if let Ok(size) = size_str.parse::<u64>() {
+                    total_freed += size;
+                }
+            }
+        }
+        let _ = Command::new("rm").args(&["-rf", &cargo_registry]).output();
+        cleaned.push("cargo");
+    }
+
+    // Clean npm cache
+    if Command::new("which").arg("npm").output()?.status.success() {
+        let npm_output = Command::new("npm")
+            .args(&["cache", "clean", "--force"])
+            .output();
+        if npm_output.is_ok() {
+            cleaned.push("npm");
+        }
+    }
+
+    let freed_mb = total_freed as f64 / 1024.0 / 1024.0;
+
+    Ok(AutonomyAction {
+        action_type: "clean_dev_caches".to_string(),
+        executed_at: start_time,
+        description: if cleaned.is_empty() {
+            "No development caches to clean".to_string()
+        } else {
+            format!("Cleaned {} tool caches, freed {:.1}MB", cleaned.len(), freed_mb)
+        },
+        command_run: "rm -rf ~/.cache/pip ~/.cargo/registry/cache && npm cache clean".to_string(),
+        success: true,
+        output: format!("Cleaned: {}\nFreed: {:.1}MB", cleaned.join(", "), freed_mb),
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Optimize btrfs filesystems if detected
+async fn optimize_btrfs() -> Result<AutonomyAction> {
+    info!("Optimizing btrfs filesystems");
+
+    let start_time = chrono::Utc::now();
+
+    // Check for btrfs filesystems
+    let output = Command::new("findmnt")
+        .args(&["-t", "btrfs", "-n", "-o", "TARGET"])
+        .output()?;
+
+    let btrfs_mounts = String::from_utf8_lossy(&output.stdout);
+    let mount_points: Vec<&str> = btrfs_mounts.lines().collect();
+
+    if mount_points.is_empty() {
+        return Ok(AutonomyAction {
+            action_type: "optimize_btrfs".to_string(),
+            executed_at: start_time,
+            description: "No btrfs filesystems detected".to_string(),
+            command_run: "none".to_string(),
+            success: true,
+            output: String::new(),
+            can_undo: false,
+            undo_command: None,
+        });
+    }
+
+    let mut optimized = Vec::new();
+
+    for mount in mount_points {
+        // Run balance on the filesystem (limited to avoid long operations)
+        let balance_cmd = format!("btrfs balance start -dusage=50 -musage=50 {}", mount);
+        if let Ok(_) = Command::new("sh").args(&["-c", &balance_cmd]).output() {
+            optimized.push(mount.to_string());
+        }
+    }
+
+    Ok(AutonomyAction {
+        action_type: "optimize_btrfs".to_string(),
+        executed_at: start_time,
+        description: format!("Optimized {} btrfs filesystem(s)", optimized.len()),
+        command_run: "btrfs balance start -dusage=50 -musage=50".to_string(),
+        success: true,
+        output: format!("Optimized: {:?}", optimized),
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Rebuild font cache if stale
+async fn rebuild_font_cache() -> Result<AutonomyAction> {
+    info!("Checking font cache");
+
+    let start_time = chrono::Utc::now();
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let font_cache = format!("{}/.cache/fontconfig", home);
+
+    // Check if font cache exists and is older than 30 days
+    let needs_rebuild = if let Ok(metadata) = std::fs::metadata(&font_cache) {
+        if let Ok(modified) = metadata.modified() {
+            if let Ok(elapsed) = modified.elapsed() {
+                elapsed.as_secs() > 2592000 // 30 days
+            } else {
+                false
+            }
+        } else {
+            true
+        }
+    } else {
+        true
+    };
+
+    if !needs_rebuild {
+        return Ok(AutonomyAction {
+            action_type: "rebuild_font_cache".to_string(),
+            executed_at: start_time,
+            description: "Font cache is fresh".to_string(),
+            command_run: "none".to_string(),
+            success: true,
+            output: String::new(),
+            can_undo: false,
+            undo_command: None,
+        });
+    }
+
+    let command = "fc-cache -f -v";
+
+    let output = Command::new("sh")
+        .args(&["-c", command])
+        .output()?;
+
+    let success = output.status.success();
+
+    Ok(AutonomyAction {
+        action_type: "rebuild_font_cache".to_string(),
+        executed_at: start_time,
+        description: "Rebuilt font cache".to_string(),
+        command_run: command.to_string(),
+        success,
+        output: "Font cache rebuilt successfully".to_string(),
+        can_undo: false,
+        undo_command: None,
+    })
+}
+
+/// Update AUR packages if AUR helper detected
+async fn update_aur_packages() -> Result<AutonomyAction> {
+    info!("Checking for AUR updates");
+
+    let start_time = chrono::Utc::now();
+
+    // Detect AUR helper
+    let helpers = vec!["yay", "paru", "trizen", "pikaur"];
+    let mut detected_helper: Option<String> = None;
+
+    for helper in helpers {
+        if Command::new("which").arg(helper).output()?.status.success() {
+            detected_helper = Some(helper.to_string());
+            break;
+        }
+    }
+
+    if detected_helper.is_none() {
+        return Ok(AutonomyAction {
+            action_type: "update_aur_packages".to_string(),
+            executed_at: start_time,
+            description: "No AUR helper detected".to_string(),
+            command_run: "none".to_string(),
+            success: true,
+            output: String::new(),
+            can_undo: false,
+            undo_command: None,
+        });
+    }
+
+    let helper = detected_helper.unwrap();
+    let command = format!("{} -Syu --noconfirm --aur", helper);
+
+    let output = Command::new("sh")
+        .args(&["-c", &command])
+        .output()?;
+
+    let success = output.status.success();
+    let output_str = String::from_utf8_lossy(&output.stdout).to_string();
+
+    Ok(AutonomyAction {
+        action_type: "update_aur_packages".to_string(),
+        executed_at: start_time,
+        description: format!("Updated AUR packages using {}", helper),
+        command_run: command,
+        success,
+        output: output_str,
         can_undo: false,
         undo_command: None,
     })

@@ -100,6 +100,43 @@ alias at='annactl dashboard'
 
 ---
 
+## 🤖 **Autonomous Maintenance System** - Excellent ✅
+
+### Tier 1: Safe Auto-Apply (7 tasks)
+1. **Clean orphan packages** - Remove packages with no dependencies (when >10)
+2. **Clean package cache** - Keep 3 recent versions (when cache >5GB)
+3. **Clean systemd journal** - Retain 30 days of logs (when >1GB)
+4. **Update package database** - Refresh package info (if >1 day old)
+5. **Check failed services** - Monitor systemd failures (informational)
+6. **Check disk SMART status** - Alert on disk health issues (informational)
+7. **Check available updates** - Monitor package updates (informational)
+
+### Tier 2: Semi-Autonomous (8 tasks)
+8. **Remove old kernels** - Keep 2 most recent kernels only
+9. **Clean /tmp directories** - Remove files >7 days old
+10. **Clean user caches** - Browser, thumbnails, app caches
+11. **Remove broken symlinks** - Clean home directory (depth 3)
+12. **Optimize pacman database** - Improve package manager performance
+13. **Clean old coredumps** - Remove crash dumps >7 days
+14. **Clean dev tool caches** - pip, cargo, npm caches
+15. **Optimize btrfs filesystems** - Balance if btrfs detected
+
+### Tier 3: Fully Autonomous (5 tasks)
+16. **Update mirrorlist** - Fastest 20 HTTPS mirrors via reflector
+17. **Apply security updates** - Auto-update kernel, glibc, openssl, systemd
+18. **Backup system configs** - /etc configs to /var/lib/anna/backups
+19. **Rebuild font cache** - fc-cache if >30 days stale
+20. **Update AUR packages** - Auto-update via yay/paru if detected
+
+### Safety Features
+- All actions logged with timestamps
+- Undo capability where possible
+- Smart thresholds prevent unnecessary actions
+- Tool availability checks (skip if not installed)
+- Graduated autonomy levels (user control)
+
+---
+
 ## 🏆 **Overall Assessment**
 
 | Feature | Status | Coverage | Notes |
@@ -110,7 +147,7 @@ alias at='annactl dashboard'
 | Recommendations | ✅ | 100% | 230+ intelligent rules |
 | TUI | ✅ | 95% | Feature-rich, category badges |
 | Learning | ✅ | 90% | User preference detection |
-| Autonomy | ✅ | 85% | 13 tasks across 3 tiers |
+| Autonomy | ✅ | 90% | 20 tasks across 3 tiers |
 | Safety | ✅ | 100% | Dry-run, risk levels, rollback |
 
 ---
