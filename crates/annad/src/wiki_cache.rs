@@ -8,6 +8,7 @@ use std::process::Command;
 use tracing::{info, warn};
 
 /// Fetch and cache a wiki page
+#[allow(dead_code)]
 pub async fn fetch_and_cache_page(url: &str, title: &str) -> Result<WikiCacheEntry> {
     info!("Fetching wiki page: {}", url);
 
@@ -104,6 +105,7 @@ fn calculate_checksum(content: &str) -> String {
 }
 
 /// Update wiki cache for commonly referenced pages
+#[allow(dead_code)]
 pub async fn update_common_pages() -> Result<()> {
     info!("Updating wiki cache for common pages");
 
@@ -204,6 +206,7 @@ pub async fn update_common_pages() -> Result<()> {
 }
 
 /// Get wiki content for a URL (from cache or fetch)
+#[allow(dead_code)]
 pub async fn get_wiki_content(url: &str) -> Option<String> {
     // Try to load from cache first
     if let Ok(cache) = WikiCache::load() {
@@ -233,6 +236,7 @@ pub async fn get_wiki_content(url: &str) -> Option<String> {
 }
 
 /// Check if wiki cache needs refresh
+#[allow(dead_code)]
 pub fn needs_refresh() -> bool {
     if let Ok(cache) = WikiCache::load() {
         return cache.needs_refresh();

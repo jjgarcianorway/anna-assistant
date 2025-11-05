@@ -2,7 +2,7 @@
 //!
 //! Analyzes user's workflow and suggests useful packages
 
-use anna_common::{Advice, Alternative, Priority, RiskLevel, SystemFacts};
+use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use tracing::info;
 
 /// Generate smart package recommendations based on detected workflow

@@ -7520,7 +7520,7 @@ fn check_hyprland_nvidia_config(facts: &SystemFacts) -> Vec<Advice> {
 
 /// Check Wayland + Nvidia configuration
 fn check_wayland_nvidia_config(facts: &SystemFacts) -> Vec<Advice> {
-    let mut result = Vec::new();
+    let result = Vec::new();
 
     if facts.display_server.as_deref() != Some("wayland") || !facts.is_nvidia {
         return result;

@@ -5,7 +5,7 @@
 use anna_common::{AutonomyAction, AutonomyLog, AutonomyTier, Config};
 use anyhow::Result;
 use std::process::Command;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Execute autonomous maintenance tasks based on tier
 pub async fn run_autonomous_maintenance() -> Result<()> {
@@ -372,6 +372,7 @@ async fn update_mirrorlist() -> Result<AutonomyAction> {
 }
 
 /// Get recent autonomous actions
+#[allow(dead_code)]
 pub fn get_recent_actions(count: usize) -> Vec<AutonomyAction> {
     if let Ok(log) = AutonomyLog::load() {
         return log.recent(count).into_iter().cloned().collect();

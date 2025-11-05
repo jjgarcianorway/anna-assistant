@@ -1237,7 +1237,7 @@ fn get_kernel_parameters() -> Vec<String> {
 
 use anna_common::{
     DevelopmentProfile, DiskUsageTrend, DirectorySize, GamingProfile,
-    LanguageUsage, NetworkProfile, PackageInstallation, ProjectInfo,
+    LanguageUsage, NetworkProfile, PackageInstallation,
     SessionInfo, UserPreferences,
 };
 
@@ -1247,7 +1247,7 @@ fn get_recently_installed_packages() -> Vec<PackageInstallation> {
 
     // Parse /var/log/pacman.log for installations
     if let Ok(log_content) = std::fs::read_to_string("/var/log/pacman.log") {
-        let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
+        let _thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
 
         for line in log_content.lines() {
             if line.contains("installed") {
@@ -1257,7 +1257,7 @@ fn get_recently_installed_packages() -> Vec<PackageInstallation> {
 
                     // Try to parse timestamp
                     if let Some(timestamp_str) = line.split('[').nth(1) {
-                        if let Some(ts) = timestamp_str.split(']').next() {
+                        if let Some(_ts) = timestamp_str.split(']').next() {
                             // Simple approach: just add recent packages
                             packages.push(PackageInstallation {
                                 name: pkg_name,
@@ -1881,7 +1881,6 @@ fn get_battery_health() -> Option<anna_common::BatteryHealth> {
 
 /// Collect disk health information from SMART data
 fn collect_disk_health() -> Vec<anna_common::DiskHealthInfo> {
-    use anna_common::DiskHealthInfo;
 
     let mut disk_health = Vec::new();
 
@@ -2007,7 +2006,7 @@ fn get_smart_data(device: &str) -> Option<anna_common::DiskHealthInfo> {
 
 /// Collect system health metrics from systemd journal
 fn collect_system_health_metrics() -> anna_common::SystemHealthMetrics {
-    use anna_common::{SystemHealthMetrics, CriticalEvent, ServiceCrash};
+    use anna_common::SystemHealthMetrics;
 
     // Count journal errors and warnings in last 24h
     let (errors_24h, warnings_24h) = count_journal_issues();
@@ -2233,7 +2232,7 @@ fn get_network_stats() -> (f64, f64) {
 
 /// Generate predictive insights based on collected data
 fn generate_predictive_insights() -> anna_common::PredictiveInsights {
-    use anna_common::{PredictiveInsights, DiskPrediction, TemperatureTrend, ServiceReliability, BootTimeTrend, TrendDirection, RiskLevel};
+    use anna_common::{PredictiveInsights, TemperatureTrend, BootTimeTrend, TrendDirection};
 
     // Disk space prediction (simplified - would need historical data)
     let disk_prediction = predict_disk_usage();
