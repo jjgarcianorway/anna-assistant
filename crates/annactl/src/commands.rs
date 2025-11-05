@@ -28,7 +28,10 @@ async fn check_and_notify_updates() {
         }
     }
 
-    // Check for updates
+    // IMMEDIATELY update cache to prevent spam on failures
+    let _ = std::fs::write(&cache_file, now.to_string());
+
+    // Check for updates (silently fail if network issue)
     if let Ok(update_info) = anna_common::updater::check_for_updates().await {
         if update_info.is_update_available {
             // Show update banner
@@ -39,10 +42,8 @@ async fn check_and_notify_updates() {
             println!("\x1b[38;5;226m│\x1b[0m  Run \x1b[38;5;159mannactl update --install\x1b[0m to upgrade                 \x1b[38;5;226m│\x1b[0m");
             println!("\x1b[38;5;226m╰─────────────────────────────────────────────────────────────╯\x1b[0m");
         }
-
-        // Update cache file
-        let _ = std::fs::write(&cache_file, now.to_string());
     }
+    // If check fails, we already updated cache, so won't spam
 }
 
 pub async fn status() -> Result<()> {
