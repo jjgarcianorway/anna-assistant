@@ -1356,6 +1356,117 @@ fn check_ssh_config() -> Vec<Advice> {
             popularity: 50,
             });
         }
+
+        // Check for post-quantum resistant SSH keys
+        // Ed25519 is currently quantum-resistant (256-bit security)
+        // RSA-4096 provides ~140-bit post-quantum security
+        if let Ok(key_output) = Command::new("sh")
+            .arg("-c")
+            .arg("ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub 2>/dev/null")
+            .output()
+        {
+            let keys_info = String::from_utf8_lossy(&key_output.stdout);
+            let has_ed25519 = keys_info.contains("ED25519");
+            let has_weak_keys = keys_info.contains("RSA") &&
+                keys_info.lines().any(|l| {
+                    l.contains("RSA") && l.split_whitespace().next()
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .map(|bits| bits < 3072)
+                        .unwrap_or(false)
+                });
+
+            if !has_ed25519 {
+                result.push(Advice {
+                    id: "ssh-ed25519-keys".to_string(),
+                    title: "Generate Ed25519 SSH host keys for better security".to_string(),
+                    reason: "Ed25519 keys are faster, more secure, and resistant to many quantum computing attacks. They provide 256-bit security with much smaller key sizes than RSA. Modern SSH servers should use Ed25519 as the primary key type. Your server is missing Ed25519 keys!".to_string(),
+                    action: "Generate Ed25519 host keys for SSH server".to_string(),
+                    command: Some("ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' && systemctl restart sshd".to_string()),
+                    risk: RiskLevel::Low,
+                    priority: Priority::Recommended,
+                    category: "Security & Privacy".to_string(),
+                    alternatives: Vec::new(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Host_keys".to_string()],
+                    depends_on: Vec::new(),
+                    related_to: vec!["ssh-no-root-login".to_string()],
+                    bundle: Some("ssh-hardening".to_string()),
+                    popularity: 70,
+                });
+            }
+
+            if has_weak_keys {
+                result.push(Advice {
+                    id: "ssh-strong-rsa-keys".to_string(),
+                    title: "Replace weak RSA SSH keys with 4096-bit keys".to_string(),
+                    reason: "Your SSH server has RSA keys smaller than 3072 bits. For post-quantum security, RSA keys should be at least 3072 bits, preferably 4096 bits. Weak keys are vulnerable to faster cracking with modern computers and quantum advances.".to_string(),
+                    action: "Regenerate SSH RSA host keys with 4096 bits".to_string(),
+                    command: Some("ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N '' && systemctl restart sshd".to_string()),
+                    risk: RiskLevel::Medium,
+                    priority: Priority::Recommended,
+                    category: "Security & Privacy".to_string(),
+                    alternatives: vec![
+                        Alternative {
+                            name: "Switch to Ed25519 only".to_string(),
+                            description: "Use only Ed25519 keys (recommended)".to_string(),
+                            install_command: "ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ''".to_string(),
+                        },
+                    ],
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Host_keys".to_string()],
+                    depends_on: Vec::new(),
+                    related_to: vec!["ssh-ed25519-keys".to_string()],
+                    bundle: Some("ssh-hardening".to_string()),
+                    popularity: 65,
+                });
+            }
+        }
+
+        // Check for modern cipher and KEX algorithms
+        if !config.contains("Ciphers") || config.contains("arcfour") || config.contains("3des") {
+            result.push(Advice {
+                id: "ssh-modern-ciphers".to_string(),
+                title: "Configure modern SSH ciphers and algorithms".to_string(),
+                reason: "Your SSH config uses default or outdated ciphers. Modern ciphers like chacha20-poly1305 and AES-GCM are faster and more secure. Old ciphers like 3DES and arcfour have known vulnerabilities and should never be used!".to_string(),
+                action: "Add modern cipher configuration to sshd_config".to_string(),
+                command: Some("echo -e '\\n# Modern ciphers and KEX algorithms\\nCiphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\\nMACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256\\nKexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256' >> /etc/ssh/sshd_config && systemctl restart sshd".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Security & Privacy".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Encryption".to_string()],
+                depends_on: Vec::new(),
+                related_to: vec!["ssh-no-root-login".to_string()],
+                bundle: Some("ssh-hardening".to_string()),
+                popularity: 60,
+            });
+        }
+    }
+
+    // Recommend ssh-audit tool
+    if !is_package_installed("ssh-audit") {
+        // Only recommend if SSH server is running
+        if Command::new("systemctl")
+            .args(&["is-active", "sshd"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            result.push(Advice {
+                id: "install-ssh-audit".to_string(),
+                title: "Install ssh-audit to analyze SSH security".to_string(),
+                reason: "ssh-audit is an excellent tool that analyzes your SSH server configuration and finds security issues. It checks for weak algorithms, outdated protocols, and gives you a security grade. Since you're running an SSH server, this tool helps you verify it's properly hardened. Run 'ssh-audit localhost' after installing!".to_string(),
+                action: "Install ssh-audit security auditing tool".to_string(),
+                command: Some("pacman -S --noconfirm ssh-audit".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Optional,
+                category: "Security & Privacy".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/OpenSSH#Protection".to_string()],
+                depends_on: Vec::new(),
+                related_to: vec!["ssh-no-root-login".to_string(), "ssh-modern-ciphers".to_string()],
+                bundle: Some("ssh-hardening".to_string()),
+                popularity: 55,
+            });
+        }
     }
 
     result
@@ -1707,6 +1818,52 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("wm-essentials".to_string()),
+                popularity: 75,
+            });
+        }
+    }
+
+    // Check if bar is installed but not configured to autostart
+    if has_waybar || has_polybar {
+        let bar_name = if has_waybar { "waybar" } else { "polybar" };
+
+        // Check common autostart locations
+        let home = std::env::var("HOME").unwrap_or_default();
+        let autostart_locations = vec![
+            format!("{}/.config/sway/config", home),
+            format!("{}/.config/hypr/hyprland.conf", home),
+            format!("{}/.config/i3/config", home),
+            format!("{}/.config/bspwm/bspwmrc", home),
+        ];
+
+        let mut bar_in_config = false;
+        for location in autostart_locations {
+            if let Ok(content) = std::fs::read_to_string(&location) {
+                if content.contains(bar_name) {
+                    bar_in_config = true;
+                    break;
+                }
+            }
+        }
+
+        if !bar_in_config {
+            result.push(Advice {
+                id: format!("configure-{}-autostart", bar_name),
+                title: format!("Configure {} to start automatically", bar_name),
+                reason: format!("You have {} installed, but it's not configured to start automatically with your window manager! You need to add it to your WM config so it launches when you log in. Without this, you won't see your status bar unless you manually run '{}'.", bar_name, bar_name),
+                action: format!("Add {} to WM autostart configuration", bar_name),
+                command: None, // Informational - depends on WM
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Desktop Environment".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec![
+                    "https://wiki.archlinux.org/title/Sway#Autostart".to_string(),
+                    "https://wiki.archlinux.org/title/I3#Autostart".to_string(),
+                ],
+                depends_on: Vec::new(),
+                related_to: vec!["install-waybar".to_string(), "install-polybar".to_string()],
+                bundle: None,
                 popularity: 75,
             });
         }
