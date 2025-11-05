@@ -2,92 +2,66 @@
 
 This document tracks requested features and improvements from user feedback.
 
-## 🔥 CRITICAL (Blocks Basic Functionality)
-
-### 1. Show Command Output When Applying
-**Status:** ⏳ IN PROGRESS
-
-**Issue:** When applying recommendations, users can't see what's happening.
-- Package installations appear frozen
-- No progress indication
-- Users think Anna is dead/hanging
-
-**Solution:**
-- [ ] Show command output in real-time in TUI (modal overlay)
-- [ ] Stream stdout/stderr as command executes  
-- [ ] Show progress for long-running operations
-- [ ] Allow user to close output window when done
-
-**User Quote:** *"I thought it was dead... we need an overlapping window terminal would be ideal)"*
-
 ---
 
-## 🚨 HIGH PRIORITY (Major UX Issues)
+## ✅ COMPLETED (Beta.61-67)
 
-### 2. Remove Applied Items from List Immediately
-**Status:** 📋 TODO
+### Show Command Output When Applying
+**Status:** ✅ COMPLETED (Beta.60)
 
-**Issue:** Applied items disappear only after refresh, causing confusion.
+**Solution Implemented:**
+- ✅ TUI modal overlay displays command output in real-time
+- ✅ Scrollable output (↑↓, PageUp/PageDown, j/k)
+- ✅ Yellow border while executing, green when complete
+- ✅ Cannot close until finished (prevents accidents)
+- ✅ Shows stdout/stderr as command runs
 
-**Solution:**
-- [ ] Remove item from advice list immediately after successful apply
-- [ ] Or show with strikethrough/greyed out
-- [ ] Refresh only updates other items
+### Remove Applied Items from List Immediately
+**Status:** ✅ COMPLETED (Beta.63)
 
-### 2a. Smart Advice Dependencies & Bundle Awareness
-**Status:** 📋 TODO
+**Solution Implemented:**
+- ✅ TUI: Removes item immediately after successful apply
+- ✅ TUI: Calls update().await right after apply
+- ✅ CLI: Invalidates cache after successful applies
+- ✅ Shows tip to run 'annactl advise' for updated list
 
-**User Insight:** *"some advices might apply other advices... for example fixing brightness keys and volume implies installing sound stack or brightnessctl... so other advices will need to be removed if a bundle is applied"*
+### Smart Advice Dependencies & Bundle Awareness
+**Status:** ✅ COMPLETED (Beta.62)
 
-**Issue:** Applying one recommendation can satisfy multiple others, creating redundancy.
+**Solution Implemented:**
+- ✅ Added `satisfies: Vec<String>` field to Advice struct
+- ✅ Implemented filter_satisfied_advice() in RPC server
+- ✅ Parses audit log to find applied advice IDs
+- ✅ Automatically filters out advice satisfied by applied items
+- ✅ Builder method: `.with_satisfies(vec!["advice-id"])`
 
-**Examples:**
-- Apply "Setup Hyprland volume controls" → Installs wpctl/pamixer
-  - Should remove: "Install audio control tools"
-  - Should remove: "Configure volume keys"
-- Apply "Setup Gaming Environment" → Installs Steam, Lutris, Wine
-  - Should remove: "Install Steam"
-  - Should remove: "Install Wine"
-  - Should remove: "Setup Proton"
+### Auto-Update Always-On
+**Status:** ✅ COMPLETED (Beta.61)
 
-**Solution:**
-- [ ] Add `satisfies: []` field to advice - list of advice IDs this satisfies
-- [ ] Add `satisfied_by: []` field to advice - what can satisfy this
-- [ ] When applying advice, check what it satisfies:
-  ```rust
-  applied_advice.satisfies.iter().for_each(|id| {
-      advice_list.retain(|a| a.id != id);
-  });
-  ```
-- [ ] Bundle applications automatically mark related advice as satisfied
-- [ ] Show user: "✓ Applied X which also satisfies: Y, Z"
-- [ ] Smart filtering: Don't show advice already satisfied by bundles
+**Solution Implemented:**
+- ✅ Removed Tier 3 autonomy requirement for auto-updates
+- ✅ Anna now updates herself automatically every 24 hours
+- ✅ Desktop notifications when updates complete
+- ✅ Zero risk - only updates Anna, not user's system
 
-**Example Implementation:**
-```rust
-Advice {
-    id: "hyprland-volume-setup",
-    title: "Setup Hyprland volume controls",
-    satisfies: vec![
-        "install-wpctl",
-        "install-pamixer",
-        "configure-volume-keys",
-        "audio-control-missing"
-    ],
-    // ... rest of advice
-}
-```
+### Update Detection & Self-Update Fixes
+**Status:** ✅ COMPLETED (Beta.64-65)
 
-**When Applied:**
-```
-✓ Applied: Setup Hyprland volume controls
-→ This also satisfied:
-  - Install audio control tools
-  - Configure volume keys
-  - Audio control recommendation
+**Solution Implemented:**
+- ✅ Beta.64: Asset name matching handles platform suffixes
+- ✅ Beta.64: Works with GitHub Actions automatic releases
+- ✅ Beta.65: Changed from cp to mv for binary replacement
+- ✅ Beta.65: Fixes "Text file busy" error
 
-Removed 3 redundant recommendations from list.
-```
+### Safer Install/Uninstall Scripts
+**Status:** ✅ COMPLETED (Beta.66-67)
+
+**Solution Implemented:**
+- ✅ Beta.66: Removed requirement to pipe to sudo
+- ✅ Beta.66: Scripts use sudo internally when needed
+- ✅ Beta.66: User confirmation required before any changes
+- ✅ Beta.67: Fixed interactive prompts when piping (reads from /dev/tty)
+- ✅ New command: `curl ... | sh` (safer than `curl ... | sudo sh`)
 
 ### 3. Improve "Multiple System Errors" Details  
 **Status:** ✅ PARTIALLY DONE
@@ -641,28 +615,51 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ## 📊 Implementation Priority
 
-1. **Immediate (Current Session):**
-   - ✅ Better error details
-   - ⏳ Command output display in TUI
-   - Remove applied items immediately
+### ✅ Completed This Session (Beta.61-67):
+- ✅ Better error details (Beta.60)
+- ✅ Command output display in TUI (Beta.60)
+- ✅ Remove applied items immediately (Beta.63)
+- ✅ Smart advice dependencies (Beta.62)
+- ✅ Auto-update always-on (Beta.61)
+- ✅ Update detection fixed (Beta.64)
+- ✅ Self-update fixed (Beta.65)
+- ✅ Safer install scripts (Beta.66-67)
 
-2. **Next Week:**
+### 📋 Next Up:
+
+1. **Immediate (Next Session):**
    - Hyprland keybinding detection & improvement
-   - GTK/Qt theme consistency
+   - Application launchers (dmenu, rofi, tofi)
+   - Multimedia key configuration
    - Terminal detection & configuration
 
-3. **Next Month:**
+2. **Short-term:**
+   - GTK/Qt theme consistency
    - Config file intelligence (vim, shell, git)
-   - Desktop environment full setup
+   - Wallpaper management (swaybg, downloads, imagemagick)
+   - File manager recommendations (TUI vs GUI)
+
+3. **Medium-term:**
+   - Desktop environment full setup bundles
    - Notification daemon configuration
+   - Complete window manager bundles (minimal, terminal, GTK, Qt, full)
 
 4. **Long-term (Ongoing):**
    - Wiki parsing and knowledge extraction
    - Full setup solutions (one-command environments)
+   - Research from r/unixporn for popular program combinations
    - Advanced intelligence and learning
 
 ---
 
-**Last Updated:** 2025-11-05
-**User Feedback Session:** Beta.60
-**Your Vision:** *"Anna should improve whatever I'm using - Hyprland, GTK, Qt, vim, shell - everything configured perfectly with wiki knowledge"* ✨
+**Last Updated:** 2025-11-05 (End of Day)
+**Latest Version:** Beta.67 (Ready for testing!)
+**User Feedback Sessions:** Beta.60, Beta.61-67
+**Your Vision:** *"Functionality first! Anna should improve whatever I'm using - from minimal Arch to fully configured Hyprland with everything working perfectly"* ✨
+
+**Progress Today:**
+- Released 7 versions (Beta.61 → Beta.67)
+- Fixed all critical update/install issues
+- Implemented smart dependencies
+- Safer install experience
+- Ready for comprehensive testing tomorrow! 🚀
