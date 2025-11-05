@@ -5,6 +5,136 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.43] - 2025-11-05
+
+### 🚀 Major Intelligence & Autonomy Upgrade!
+
+**COMPREHENSIVE TELEMETRY:** 8 new telemetry categories for smarter recommendations!
+**AUTONOMOUS MAINTENANCE:** Expanded from 6 to 13 intelligent maintenance tasks!
+**ARCH WIKI INTEGRATION:** Working offline cache with 40+ common pages!
+
+### ✨ New Telemetry Categories
+
+**Extended System Detection:**
+- **CPU Microcode Status**: Detects Intel/AMD microcode packages and versions (critical for security)
+- **Battery Information**: Health, capacity, cycle count, charge status (laptop optimization)
+- **Backup Systems**: Detects timeshift, rsync, borg, restic, and other backup tools
+- **Bluetooth Status**: Hardware detection, service status, connected devices
+- **SSD Information**: TRIM status detection, device identification, optimization opportunities
+- **Swap Configuration**: Type (partition/file/zram), size, usage, swappiness analysis
+- **Locale Information**: Timezone, locale, keymap, language for regional recommendations
+- **Pacman Hooks**: Detects installed hooks to understand system automation level
+
+### 🤖 Expanded Autonomy System
+
+**13 Autonomous Tasks** (up from 6):
+
+**Tier 1 (Safe Auto Apply) - Added:**
+- Update package database automatically (pacman -Sy) when older than 1 day
+- Check for failed systemd services and log for user attention
+
+**Tier 2 (Semi-Autonomous) - Added:**
+- Clean user cache directories (Firefox, Chromium, npm, yarn, thumbnails)
+- Remove broken symlinks from home directory (maxdepth 3)
+- Optimize pacman database for better performance
+
+**Tier 3 (Fully Autonomous) - Added:**
+- Apply security updates automatically (kernel, glibc, openssl, systemd, sudo, openssh)
+- Backup important system configs before changes (/etc/pacman.conf, fstab, etc.)
+
+### 🧠 New Smart Recommendations
+
+**Using New Telemetry Data:**
+- **Microcode Updates**: Mandatory recommendations for missing Intel/AMD microcode (security critical)
+- **Battery Optimization**: TLP recommendations, battery health warnings for laptops
+- **Backup System Checks**: Warns if no backup system installed, suggests automation
+- **Bluetooth Setup**: Enable bluetooth service, install blueman GUI for management
+- **SSD TRIM Status**: Automatically detects SSDs without TRIM and recommends fstrim.timer
+- **Swap Optimization**: Recommends zram for better performance, adjusts swappiness for desktops
+- **Timezone Configuration**: Detects unconfigured (UTC) timezones
+- **Pacman Hooks**: Suggests useful hooks like auto-listing orphaned packages
+
+### 🌐 Arch Wiki Cache (Fixed!)
+
+**Now Fully Functional:**
+- Added `UpdateWikiCache` RPC method to IPC protocol
+- Implemented daemon-side cache update handler
+- Wired up `annactl wiki-cache` command properly
+- Downloads 40+ common Arch Wiki pages for offline access
+- Categories: Security, Performance, Hardware, Desktop Environments, Development, Gaming, Power Management, Troubleshooting
+
+### 🎨 UI/UX Improvements
+
+**Installer Updates:**
+- Updated "What's New" section with current features (was showing outdated info)
+- Better formatting and categorization of features
+- Highlights key capabilities: telemetry, autonomy, wiki integration
+
+**TUI Enhancements:**
+- Added sorting by category/priority/risk (hotkeys: c, p, r)
+- Popularity indicators showing how common each recommendation is (★★★★☆)
+- Detailed health score explanations showing what affects each score
+
+### 📊 System Health Score Improvements
+
+**Detailed Explanations Added:**
+- **Security Score**: Lists specific issues found, shows ✓ for perfect scores
+- **Performance Score**: Disk usage per drive, orphaned package counts, optimization opportunities
+- **Maintenance Score**: Pending tasks, cache sizes, specific actionable items
+- Each score now includes contextual details explaining the rating
+
+### 🐛 Bug Fixes
+
+**Build & Compilation:**
+- Fixed Advice struct field name mismatches (links→wiki_refs, tags removed)
+- Fixed bundle parameter type issues (String vs Option<String>)
+- Resolved CPU model borrow checker errors in telemetry
+- All new code compiles cleanly with proper error handling
+
+### 💡 What This Means
+
+**Smarter Recommendations:**
+- Anna now understands your system at a much deeper level
+- Recommendations are targeted and relevant to your actual configuration
+- Critical security items (microcode) are properly prioritized
+
+**More Autonomous:**
+- System maintains itself better with 13 automated tasks
+- Graduated autonomy tiers let you choose your comfort level
+- Security updates can be applied automatically (Tier 3)
+
+**Better Documentation:**
+- Offline Arch Wiki access works properly
+- 40+ common pages cached for quick reference
+- No more broken wiki cache functionality
+
+### 🔧 Technical Details
+
+**Code Statistics:**
+- ~770 lines of new functionality
+- 8 new telemetry collection functions (~385 lines)
+- 8 new autonomous maintenance tasks (~342 lines)
+- 8 new recommendation functions using telemetry data
+- All with comprehensive error handling and logging
+
+**Architecture Improvements:**
+- Telemetry data structures properly defined in anna_common
+- RPC methods for wiki cache updates
+- Builder pattern usage for Advice construction
+- Proper use of SystemFacts fields throughout
+
+### 📚 Files Changed
+
+- `crates/anna_common/src/types.rs`: Added 8 new telemetry struct definitions (+70 lines)
+- `crates/annad/src/telemetry.rs`: Added 8 telemetry collection functions (+385 lines)
+- `crates/annad/src/autonomy.rs`: Added 8 new maintenance tasks (+342 lines)
+- `crates/annad/src/recommender.rs`: Added 8 new recommendation functions
+- `crates/annad/src/rpc_server.rs`: Added wiki cache RPC handler
+- `crates/annad/src/wiki_cache.rs`: Removed dead code markers
+- `crates/anna_common/src/ipc.rs`: Added UpdateWikiCache method
+- `crates/annactl/src/commands.rs`: Implemented wiki cache command
+- `scripts/install.sh`: Updated "What's New" section
+
 ## [1.0.0-beta.42] - 2025-11-05
 
 ### 🎯 Major TUI Overhaul & Auto-Update!

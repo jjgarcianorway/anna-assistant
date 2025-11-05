@@ -4,33 +4,38 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.41 (November 2025)
+**Current Version:** Beta.43 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.40-41
+## 🎯 What's New in Beta.43
 
-**Multi-GPU Support (Beta.41):**
-- Intel integrated graphics detection and recommendations
-- AMD/ATI GPU detection with driver recommendations
-- Hardware video acceleration setup for Intel and AMD
-- Legacy radeon driver detection with upgrade suggestions
+**🧠 Advanced Telemetry (8 New Categories):**
+- **CPU Microcode Status** - Detects missing Intel/AMD security updates
+- **Battery Health** - Monitoring for laptops with TLP recommendations
+- **Backup Systems** - Detects timeshift, rsync, borg, restic
+- **Bluetooth** - Hardware detection and device tracking
+- **SSD TRIM** - Automatic detection and optimization
+- **Swap Configuration** - Analyzes type, size, swappiness, zram
+- **Locale/Timezone** - Regional settings detection
+- **Pacman Hooks** - Identifies installed automation
 
-**Polish & Consistency (Beta.40):**
-- Fixed box drawing rendering issues - now works perfectly in all terminals!
-- Replaced Unicode box characters with simple, universal separators
-- All category names properly capitalized and styled
-- Updated all documentation to reflect latest features
-- Fixed CI build issues
-- Cleaner, more professional output across all commands
+**🤖 Autonomous Maintenance (13 Tasks):**
+- **Tier 1 (Safe):** Package DB updates, failed service monitoring
+- **Tier 2 (Extended):** User cache cleanup, broken symlinks, pacman optimization
+- **Tier 3 (Full):** Security updates, config backups
+- Graduated autonomy levels - choose your comfort level
 
-**Context-Aware Recommendations (Beta.39):**
-- Automatic detection of your window manager (Hyprland, i3, sway, bspwm, dwm, etc.)
-- Desktop environment detection (GNOME, KDE, XFCE)
-- Nvidia GPU detection with driver version tracking
-- Hyprland+Nvidia specific configuration recommendations
-- WM-specific utility suggestions (rofi for i3, waybar for sway)
-- Interactive TUI dashboard with real-time metrics
+**🌐 Arch Wiki Integration:**
+- Working offline cache with 40+ common pages
+- Background updates via daemon RPC
+- Quick access to security, performance, and troubleshooting docs
+
+**🎨 UI/UX Improvements:**
+- TUI sorting by category/priority/risk (hotkeys: c, p, r)
+- Popularity indicators (★★★★☆) for recommendations
+- Detailed health score explanations
+- Updated installer with current features
 
 ---
 

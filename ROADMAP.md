@@ -10,14 +10,15 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.42)
+## Current Status (v1.0.0-beta.43)
 
 ### ✅ Complete
 - [x] Core data models and types
+- [x] **Extended telemetry (8 new categories)** - microcode, battery, backups, bluetooth, SSD/TRIM, swap, locale, pacman hooks
 - [x] Comprehensive system telemetry (hardware, packages, filesystems, services)
 - [x] Unix socket IPC (daemon ↔ client communication)
 - [x] Beautiful CLI with pastel colors and universal compatibility
-- [x] **220+ intelligent recommendation rules** covering:
+- [x] **230+ intelligent recommendation rules** covering:
   - Security (CPU microcode, SSH hardening, firewall, VPN, antivirus)
   - 8 Desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
   - Performance (SSD, swap compression, firmware updates, parallel downloads)
@@ -53,14 +54,18 @@ Anna should be an intelligent, autonomous system administrator that:
 - [x] **Interactive TUI** - Full-featured terminal UI with scrolling, details view, and apply confirmation
 - [x] **Auto-update system** - `annactl update` command with GitHub API integration and safe updates
 
-### 🚧 In Progress (Beta.43)
-- [ ] **TUI sorting** - Sort recommendations by category/risk/priority with hotkeys
-- [ ] **Popularity indicators** - Show how commonly each recommendation is applied by users
-- [ ] **Autonomy tiers** - Graduated automatic maintenance (Tier 0-3)
-- [ ] **Learning system** - Track user behavior and adapt
-- [ ] **Arch Wiki caching** - Offline documentation access
+- [x] **TUI sorting** - Sort recommendations by category/risk/priority with hotkeys (c, p, r)
+- [x] **Popularity indicators** - Star ratings (★★★★☆) showing how common each recommendation is
+- [x] **Autonomy system (13 tasks)** - Graduated automatic maintenance across 3 tiers
+- [x] **Arch Wiki caching** - Working offline cache with 40+ common pages via RPC
+- [x] **Health score details** - Comprehensive explanations for each score component
 
-### 📋 Planned Features (Beta.44+)
+### 🚧 In Progress (Beta.44)
+- [ ] **Learning system** - Track user behavior and adapt recommendations
+- [ ] **Bundle system** - Pre-configured package groups (Gaming, Development, Content Creation)
+- [ ] **Recommendation feedback** - User rating system for improving suggestions
+
+### 📋 Planned Features (Beta.45+)
 - [ ] **Enhanced UI dialogs** - Consider whiptail/dialog/kdialog/zenity/gum for better interactivity
 - [ ] **Workflow bundles** - Pre-configured package bundles (Gaming, Development, Content Creation)
 - [ ] **Bundle rollback** - Easily uninstall entire bundles

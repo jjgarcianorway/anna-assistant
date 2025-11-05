@@ -46,6 +46,16 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_kernel_errors(facts));
     advice.extend(check_disk_space_prediction(facts));
 
+    // Extended telemetry-based checks (beta.43+)
+    advice.extend(check_microcode_updates(facts));
+    advice.extend(check_battery_optimization(facts));
+    advice.extend(check_backup_system_presence(facts));
+    advice.extend(check_bluetooth_setup(facts));
+    advice.extend(check_ssd_trim_status(facts));
+    advice.extend(check_swap_optimization(facts));
+    advice.extend(check_locale_configuration(facts));
+    advice.extend(check_pacman_hooks_recommendations(facts));
+
     // Environment-specific recommendations (beta.39+)
     advice.extend(check_hyprland_nvidia_config(facts));
     advice.extend(check_wayland_nvidia_config(facts));
@@ -7839,4 +7849,290 @@ fn is_package_installed(package: &str) -> bool {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+/// Check microcode updates using new telemetry (beta.43+)
+fn check_microcode_updates(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.microcode_status.microcode_installed && facts.microcode_status.vendor != "Unknown" {
+        let package = if facts.microcode_status.vendor == "Intel" {
+            "intel-ucode"
+        } else {
+            "amd-ucode"
+        };
+
+        result.push(Advice::new(
+            format!("microcode-{}-install", facts.microcode_status.vendor.to_lowercase()),
+            format!("Install {} CPU Microcode Updates", facts.microcode_status.vendor),
+            format!(
+                "Your {} CPU does not have microcode updates installed. Microcode updates fix critical CPU bugs and security vulnerabilities (Spectre, Meltdown, etc.) at the hardware level.",
+                facts.microcode_status.vendor
+            ),
+            format!("Install {} package for essential CPU security updates", package),
+            Some(format!("sudo pacman -S {}", package)),
+            RiskLevel::Low,
+            Priority::Mandatory,
+            vec![
+                "https://wiki.archlinux.org/title/Microcode".to_string(),
+            ],
+            "security".to_string(),
+        ).with_popularity(95)
+         .with_popularity(95));
+    }
+
+    result
+}
+
+/// Check battery optimization for laptops (beta.43+)
+fn check_battery_optimization(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if let Some(ref battery) = facts.battery_info {
+        if !battery.present {
+            return result;
+        }
+
+        if let Some(health) = battery.health_percent {
+            if health < 80.0 {
+                result.push(Advice::new(
+                    "battery-health-warning".to_string(),
+                    "Battery Health Degraded".to_string(),
+                    format!(
+                        "Your battery health is at {:.1}% of its original capacity. Battery health below 80% means significantly shorter battery life.",
+                        health
+                    ),
+                    "Consider battery replacement or use power management tools (TLP) to optimize remaining capacity".to_string(),
+                    None,
+                    RiskLevel::Low,
+                    Priority::Cosmetic,
+                    vec!["https://wiki.archlinux.org/title/Laptop".to_string()],
+                    "power".to_string(),
+                ).with_popularity(60));
+            }
+        }
+
+        if !Command::new("which").arg("tlp").output().map(|o| o.status.success()).unwrap_or(false) {
+            result.push(Advice::new(
+                "tlp-battery-management".to_string(),
+                "Install TLP for Advanced Battery Management".to_string(),
+                "TLP automatically adjusts power settings based on AC/battery power, significantly extending laptop battery life through CPU frequency scaling, disk power management, USB autosuspend, and more.".to_string(),
+                "Install and enable TLP service for automatic power optimization".to_string(),
+                Some("sudo pacman -S tlp && sudo systemctl enable --now tlp".to_string()),
+                RiskLevel::Low,
+                Priority::Recommended,
+                vec!["https://wiki.archlinux.org/title/TLP".to_string()],
+                "power".to_string(),
+            ).with_bundle("Laptop Essentials".to_string())
+             .with_popularity(85));
+        }
+    }
+
+    result
+}
+
+/// Check for backup system presence (beta.43+)
+fn check_backup_system_presence(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if facts.backup_systems.is_empty() {
+        result.push(Advice::new(
+            "no-backup-system".to_string(),
+            "No Backup System Detected".to_string(),
+            "No backup tools installed. You risk losing all data from hardware failure, accidental deletion, or system corruption. Regular backups are essential for data protection.".to_string(),
+            "Install Timeshift for system snapshots or rsync/borg/restic for file backups".to_string(),
+            Some("sudo pacman -S timeshift  # For system snapshots".to_string()),
+            RiskLevel::Medium,
+            Priority::Recommended,
+            vec!["https://wiki.archlinux.org/title/System_backup".to_string()],
+            "maintenance".to_string(),
+        ).with_bundle("System Safety Essentials".to_string())
+         .with_popularity(70));
+    } else {
+        result.push(Advice::new(
+            "automate-backups".to_string(),
+            format!("Automate Your Backups (Detected: {})", facts.backup_systems.join(", ")),
+            format!(
+                "You have {} installed. Manual backups are often forgotten - automate them with systemd timers or cron to run daily/weekly.",
+                facts.backup_systems.join(" and ")
+            ),
+            "Set up systemd timers or cron jobs for automatic backup scheduling".to_string(),
+            Some("sudo systemctl enable --now cronie  # Enable cron for scheduled backups".to_string()),
+            RiskLevel::Low,
+            Priority::Optional,
+            vec!["https://wiki.archlinux.org/title/Systemd/Timers".to_string()],
+            "maintenance".to_string(),
+        ).with_popularity(50));
+    }
+
+    result
+}
+
+/// Check Bluetooth setup (beta.43+)
+fn check_bluetooth_setup(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if facts.bluetooth_status.available && !facts.bluetooth_status.enabled {
+        result.push(Advice::new(
+            "bluetooth-enable".to_string(),
+            "Bluetooth Hardware Detected But Not Enabled".to_string(),
+            "Your system has Bluetooth hardware but the service is not running. Enable it to use wireless mice, keyboards, headphones, and speakers.".to_string(),
+            "Install bluez packages and enable bluetooth service".to_string(),
+            Some("sudo pacman -S bluez bluez-utils && sudo systemctl enable --now bluetooth".to_string()),
+            RiskLevel::Low,
+            Priority::Optional,
+            vec!["https://wiki.archlinux.org/title/Bluetooth".to_string()],
+            "hardware".to_string(),
+        ).with_popularity(65));
+    }
+
+    if facts.bluetooth_status.enabled && !facts.bluetooth_status.connected_devices.is_empty() {
+        if !Command::new("which").arg("blueman-manager").output().map(|o| o.status.success()).unwrap_or(false) {
+            result.push(Advice::new(
+                "blueman-gui".to_string(),
+                "Install Blueman for Bluetooth GUI Management".to_string(),
+                format!(
+                    "You have {} Bluetooth device(s) connected. Blueman provides a user-friendly system tray applet and GUI for managing connections.",
+                    facts.bluetooth_status.connected_devices.len()
+                ),
+                "Install Blueman for convenient Bluetooth management instead of command-line tools".to_string(),
+                Some("sudo pacman -S blueman".to_string()),
+                RiskLevel::Low,
+                Priority::Cosmetic,
+                vec!["https://wiki.archlinux.org/title/Bluetooth#Graphical".to_string()],
+                "usability".to_string(),
+            ).with_popularity(55));
+        }
+    }
+
+    result
+}
+
+/// Check SSD TRIM status using new telemetry (beta.43+)
+fn check_ssd_trim_status(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    for ssd in &facts.ssd_info {
+        if !ssd.trim_enabled {
+            result.push(Advice::new(
+                format!("ssd-trim-{}", ssd.device.replace("/dev/", "")),
+                format!("Enable TRIM for SSD: {}", ssd.device),
+                format!(
+                    "TRIM not enabled for SSD '{}' ({}). Without TRIM, write performance degrades over time as the drive fills up.",
+                    ssd.device, ssd.model
+                ),
+                "Enable fstrim.timer for weekly TRIM operations to maintain SSD performance and longevity".to_string(),
+                Some("sudo systemctl enable --now fstrim.timer".to_string()),
+                RiskLevel::Low,
+                Priority::Recommended,
+                vec!["https://wiki.archlinux.org/title/Solid_state_drive#TRIM".to_string()],
+                "performance".to_string(),
+            ).with_bundle("SSD Optimization".to_string())
+             .with_popularity(85));
+        }
+    }
+
+    result
+}
+
+/// Check swap optimization using new telemetry (beta.43+)
+fn check_swap_optimization(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.swap_config.swap_enabled && facts.total_memory_gb < 16.0 {
+        result.push(Advice::new(
+            "no-swap-low-memory".to_string(),
+            "No Swap Configured with Limited RAM".to_string(),
+            format!(
+                "You have {:.1}GB RAM with no swap. Swap acts as emergency memory and is required for hibernation. zram (compressed RAM swap) is recommended for modern systems.",
+                facts.total_memory_gb
+            ),
+            "Set up zram for fast compressed swap in RAM".to_string(),
+            Some("sudo pacman -S zram-generator".to_string()),
+            RiskLevel::Low,
+            Priority::Optional,
+            vec!["https://wiki.archlinux.org/title/Zram".to_string()],
+            "system".to_string(),
+        ).with_popularity(60));
+    }
+
+    if facts.swap_config.swap_enabled && facts.swap_config.swappiness > 60 {
+        result.push(Advice::new(
+            "swappiness-too-high".to_string(),
+            "Swappiness Value Too High for Desktop Use".to_string(),
+            format!(
+                "Swappiness is {} (default: 60). Lower values (10-20) provide better desktop responsiveness by keeping applications in RAM rather than swapping to disk.",
+                facts.swap_config.swappiness
+            ),
+            "Lower swappiness to 10 for better desktop performance".to_string(),
+            Some("echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf && sudo sysctl -p /etc/sysctl.d/99-swappiness.conf".to_string()),
+            RiskLevel::Low,
+            Priority::Optional,
+            vec!["https://wiki.archlinux.org/title/Swap#Swappiness".to_string()],
+            "performance".to_string(),
+        ).with_popularity(45));
+    }
+
+    if facts.swap_config.swap_enabled && !facts.swap_config.zram_enabled && facts.swap_config.swap_type != "zram" {
+        result.push(Advice::new(
+            "consider-zram".to_string(),
+            "Consider Switching to zram for Better Performance".to_string(),
+            format!(
+                "You're using {} swap. zram provides compressed swap in RAM which is much faster and improves responsiveness (great for 8GB+ RAM systems).",
+                facts.swap_config.swap_type
+            ),
+            "Switch to zram for faster swap performance".to_string(),
+            Some("sudo pacman -S zram-generator && sudo systemctl start systemd-zram-setup@zram0.service".to_string()),
+            RiskLevel::Low,
+            Priority::Cosmetic,
+            vec!["https://wiki.archlinux.org/title/Zram".to_string()],
+            "performance".to_string(),
+        ).with_bundle("Performance Optimization".to_string())
+         .with_popularity(55));
+    }
+
+    result
+}
+
+/// Check locale configuration (beta.43+)
+fn check_locale_configuration(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if facts.locale_info.timezone == "UTC" || facts.locale_info.timezone == "Unknown" {
+        result.push(Advice::new(
+            "configure-timezone".to_string(),
+            "Configure System Timezone".to_string(),
+            "System timezone is UTC or unconfigured. Setting your local timezone ensures accurate timestamps in applications, logs, and files.".to_string(),
+            "Set your local timezone using timedatectl".to_string(),
+            Some("timedatectl list-timezones | grep -i <region> && sudo timedatectl set-timezone <timezone>".to_string()),
+            RiskLevel::Low,
+            Priority::Optional,
+            vec!["https://wiki.archlinux.org/title/System_time#Time_zone".to_string()],
+            "system".to_string(),
+        ).with_popularity(40));
+    }
+
+    result
+}
+
+/// Check pacman hooks recommendations (beta.43+)
+fn check_pacman_hooks_recommendations(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.pacman_hooks.iter().any(|h| h.contains("orphans")) {
+        result.push(Advice::new(
+            "pacman-hook-orphans".to_string(),
+            "Add Pacman Hook to List Orphan Packages".to_string(),
+            "Create a pacman hook that automatically lists orphaned packages after package operations, helping identify packages to remove and keep your system clean.".to_string(),
+            "Create hook to automatically show orphaned packages after pacman operations".to_string(),
+            Some("echo '[Trigger]\\nOperation = Remove\\nOperation = Install\\nOperation = Upgrade\\nType = Package\\nTarget = *\\n\\n[Action]\\nDescription = Listing orphaned packages...\\nWhen = PostTransaction\\nExec = /bin/sh -c \"/usr/bin/pacman -Qtdq || echo No orphans found\"' | sudo tee /etc/pacman.d/hooks/orphans.hook".to_string()),
+            RiskLevel::Low,
+            Priority::Cosmetic,
+            vec!["https://wiki.archlinux.org/title/Pacman#Hooks".to_string()],
+            "maintenance".to_string(),
+        ).with_bundle("Pacman Enhancements".to_string())
+         .with_popularity(35));
+    }
+
+    result
 }

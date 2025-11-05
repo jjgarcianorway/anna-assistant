@@ -298,13 +298,26 @@ if [ -n "$RELEASE_NOTES" ] && [ "$RELEASE_NOTES" != "null" ]; then
     echo
     echo -e "${GRAY}${ARROW} See full changelog: ${CYAN}https://github.com/${REPO}/releases/tag/${TAG}${RESET}"
 else
-    echo -e "${BOLD}${GREEN}🚀 Major Improvements:${RESET}"
+    echo -e "${BOLD}${GREEN}🚀 Latest Features (Beta.43+):${RESET}"
     echo
-    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Enhanced system intelligence and recommendations${RESET}"
-    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Improved detection accuracy${RESET}"
-    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Better Arch Wiki integration${RESET}"
-    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}16 intelligent detection rules${RESET}"
-    echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}Human-friendly messages throughout${RESET}"
+    echo -e "  ${BOLD}${BLUE}Advanced Telemetry:${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}CPU microcode status detection${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Battery health monitoring for laptops${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Bluetooth device tracking${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}SSD TRIM status and optimization${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Swap/zram configuration analysis${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Backup system detection${RESET}"
+    echo
+    echo -e "  ${BOLD}${BLUE}Autonomous Maintenance (13 tasks):${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Automatic orphan package cleanup${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Package cache management${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Journal log rotation${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Security updates (Tier 3)${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Config backups and more...${RESET}"
+    echo
+    echo -e "  ${BOLD}${BLUE}Arch Wiki Integration:${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Offline cache of 40+ common wiki pages${RESET}"
+    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Smart recommendations with wiki citations${RESET}"
 fi
 echo
 echo -e "${BOLD}${CYAN}Get Started:${RESET}"
