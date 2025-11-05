@@ -133,7 +133,12 @@ impl Tui {
 
         // Get recommendations
         match self.client.call(Method::GetAdvice).await? {
-            ResponseData::Advice(advice) => {
+            ResponseData::Advice(mut advice) => {
+                // Apply ignore filters
+                if let Ok(filters) = anna_common::IgnoreFilters::load() {
+                    advice.retain(|a| !filters.should_filter(a));
+                }
+
                 self.advice = advice;
                 // Sort based on current mode
                 self.sort_advice();
@@ -1077,6 +1082,18 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
             SortMode::Risk => "  Sort: Risk",
         };
         spans.push(Span::styled(sort_text, Style::default().fg(Color::Cyan)));
+
+        // Add filter indicator if filters are active
+        if let Ok(filters) = anna_common::IgnoreFilters::load() {
+            let total_filters = filters.ignored_categories.len() + filters.ignored_priorities.len();
+            if total_filters > 0 {
+                spans.push(Span::raw("  │  "));
+                spans.push(Span::styled(
+                    format!("🔍 {} filter{}", total_filters, if total_filters == 1 { "" } else { "s" }),
+                    Style::default().fg(Color::Yellow)
+                ));
+            }
+        }
     }
 
     spans.push(Span::raw("  Auto-refresh: 2s"));

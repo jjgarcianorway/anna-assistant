@@ -85,41 +85,51 @@ pub async fn status() -> Result<()> {
         println!();
 
         if status.pending_recommendations > 0 {
-            println!(
-                "{}",
-                beautiful::status(
-                    Level::Info,
-                    &format!("{} recommendations pending", status.pending_recommendations)
-                )
-            );
-            println!();
-
             // Get advice list to show category breakdown
             let advice_data = client.call(Method::GetAdvice).await?;
             if let ResponseData::Advice(mut advice_list) = advice_data {
-                // Apply ignore filters
+                // Apply ignore filters FIRST
                 if let Ok(filters) = anna_common::IgnoreFilters::load() {
                     advice_list.retain(|a| !filters.should_filter(a));
                 }
 
-                // Group by category and count
-                let mut category_counts = std::collections::HashMap::new();
-                for advice in &advice_list {
-                    *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
-                }
+                // NOW show the count (filtered count, not daemon's total count)
+                if !advice_list.is_empty() {
+                    println!(
+                        "{}",
+                        beautiful::status(
+                            Level::Info,
+                            &format!("{} recommendations pending", advice_list.len())
+                        )
+                    );
+                    println!();
 
-                // Sort categories by count (descending)
-                let mut categories: Vec<_> = category_counts.iter().collect();
-                categories.sort_by(|a, b| b.1.cmp(a.1));
+                    // Group by category and count
+                    let mut category_counts = std::collections::HashMap::new();
+                    for advice in &advice_list {
+                        *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
+                    }
 
-                println!("{}", section("Categories"));
-                for (category, count) in categories.iter().take(10) {
-                    println!("  {} \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", category, count);
+                    // Sort categories by count (descending)
+                    let mut categories: Vec<_> = category_counts.iter().collect();
+                    categories.sort_by(|a, b| b.1.cmp(a.1));
+
+                    println!("{}", section("Categories"));
+                    for (category, count) in categories.iter().take(10) {
+                        println!("  {} \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", category, count);
+                    }
+                    if categories.len() > 10 {
+                        println!("  \x1b[90m... and {} more\x1b[0m", categories.len() - 10);
+                    }
+                    println!();
+                } else {
+                    // All advice is filtered out
+                    println!(
+                        "{}",
+                        beautiful::status(Level::Info, "All recommendations filtered by your ignore settings")
+                    );
+                    println!();
                 }
-                if categories.len() > 10 {
-                    println!("  \x1b[90m... and {} more\x1b[0m", categories.len() - 10);
-                }
-                println!();
             }
         } else {
             println!(
@@ -867,6 +877,18 @@ pub async fn report(category: Option<String>) -> Result<()> {
             println!("                       multimedia, hardware, development, beautification");
             println!();
             return Ok(());
+        }
+    }
+
+    // Apply ignore filters
+    if let Ok(filters) = anna_common::IgnoreFilters::load() {
+        let original_count = advice_list.len();
+        advice_list.retain(|a| !filters.should_filter(a));
+        let filtered_count = original_count - advice_list.len();
+        if filtered_count > 0 {
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Hiding {} items by your ignore filters", filtered_count)));
+            println!();
         }
     }
 
@@ -2470,11 +2492,16 @@ pub async fn health() -> Result<()> {
         return Ok(());
     };
 
-    let advice_list = if let ResponseData::Advice(a) = advice_data {
+    let mut advice_list = if let ResponseData::Advice(a) = advice_data {
         a
     } else {
         Vec::new()
     };
+
+    // Apply ignore filters before calculating health score
+    if let Ok(filters) = anna_common::IgnoreFilters::load() {
+        advice_list.retain(|a| !filters.should_filter(a));
+    }
 
     // Calculate health score
     let score = anna_common::SystemHealthScore::calculate(&facts, &advice_list);

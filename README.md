@@ -4,32 +4,35 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.48 (November 2025)
+**Current Version:** Beta.49 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.48
+## 🎯 What's New in Beta.49
 
-**🎯 Ignore System:**
-- Ignore entire categories (e.g., "Desktop Customization")
-- Ignore priority levels (e.g., all "Optional" items)
+**🐛 Critical Bug Fixes:**
+- Fixed ignore filters not applied in `report` command
+- Fixed ignore filters not applied in `health` command
+- Fixed ignore filters not applied in TUI
+- All commands now consistently respect your ignore settings
+
+**✨ Consistency Improvements:**
+- Status command shows filtered count (matches category breakdown)
+- Report command excludes ignored recommendations
+- Health score calculated from filtered recommendations only
+- TUI footer shows active filter count: "🔍 2 filters"
+
+---
+
+## 🎯 Previous Releases
+
+**Beta.48 - Ignore System & Display Fixes:**
+- Ignore entire categories and priority levels
 - Commands: `annactl ignore category/priority/show/reset`
-- TUI integration for easy filtering
+- Fixed TUI health display: "Score: 0/100 - Critical (2 issues)"
+- Cache-based apply system with sequential numbering
 
-**✨ UI/UX Improvements:**
-- Fixed TUI health display - now shows "Score: 0/100 - Critical (2 issues)"
-- Status command shows category breakdown
-- Update command shows installed version and friendly messages
-- Report and TUI critical counts now consistent
-
-**🔧 Apply System Refinements:**
-- Cache-based number system guarantees exact match with advise display
-- Sequential history rollback numbers ([#1], [#2], [#3])
-- Simplified, reliable operation
-
----
-
-## 🎯 Previous Release (Beta.43)
+**Beta.43 - Advanced Telemetry:**
 
 **🧠 Advanced Telemetry (8 New Categories):**
 - **CPU Microcode Status** - Detects missing Intel/AMD security updates

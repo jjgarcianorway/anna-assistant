@@ -5,6 +5,42 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.49] - 2025-11-05
+
+### 🐛 Critical Bug Fixes
+
+**Ignore Filters Consistency:**
+- Fixed: `report` command now applies ignore filters (was showing all advice)
+- Fixed: `health` command now applies ignore filters (was including filtered items in score)
+- Fixed: TUI now applies ignore filters (was showing all recommendations)
+- Result: ALL commands now consistently respect user's ignore settings
+
+**Count Display Accuracy:**
+- Fixed: `status` command shows filtered count instead of total
+- Fixed: Status count now matches category breakdown
+- Added: Message when all recommendations are filtered out
+- TUI footer shows active filter count: "🔍 2 filters"
+
+### ✨ User Experience
+
+**Visual Feedback:**
+- TUI displays filter count in footer when filters active
+- Consistent messaging across all commands
+- Clear indication when items are hidden by filters
+
+### 🔧 Technical Details
+
+**Files Modified:**
+- `commands.rs`: Added filter application to report() and health()
+- `tui.rs`: Added filter application to refresh() and filter indicator to footer
+- `commands.rs`: Restructured status() to show filtered count
+
+**Quality Check Results:**
+- Comprehensive codebase review completed
+- 3 critical issues fixed
+- 2 high-priority issues resolved
+- Filter integration now 100% consistent
+
 ## [1.0.0-beta.48] - 2025-11-05
 
 ### 🐛 Critical Bug Fixes
