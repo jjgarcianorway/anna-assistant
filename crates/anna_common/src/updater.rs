@@ -79,11 +79,23 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
         .context("No assets in release")?;
 
     let annad_asset = assets.iter()
-        .find(|a| a["name"].as_str() == Some("annad"))
+        .find(|a| {
+            if let Some(name) = a["name"].as_str() {
+                name == "annad" || name.starts_with("annad-")
+            } else {
+                false
+            }
+        })
         .context("annad binary not found in release")?;
 
     let annactl_asset = assets.iter()
-        .find(|a| a["name"].as_str() == Some("annactl"))
+        .find(|a| {
+            if let Some(name) = a["name"].as_str() {
+                name == "annactl" || name.starts_with("annactl-")
+            } else {
+                false
+            }
+        })
         .context("annactl binary not found in release")?;
 
     let download_url_annad = annad_asset["browser_download_url"].as_str()

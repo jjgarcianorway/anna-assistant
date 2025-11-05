@@ -4,7 +4,27 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.63 (November 2025)
+**Current Version:** Beta.64 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.64
+
+**🔧 Update Detection Fixed:**
+- Fixed updater not finding new releases
+- Asset name matching now handles platform suffixes
+- Updater now finds "annad-x86_64-linux" and "annactl-x86_64-linux" assets
+- `annactl update` now correctly detects Beta.61-64 releases
+
+**The Problem:**
+- Updater was looking for exact names "annad" and "annactl"
+- GitHub Actions creates "annad-x86_64-linux" and "annactl-x86_64-linux"
+- Update checker was failing silently
+
+**The Fix:**
+- Updated asset matching to check `starts_with("annad-")` and `starts_with("annactl-")`
+- Works with both old naming (exact) and new naming (with suffix)
+- Now properly detects all releases from Beta.61 onwards
 
 ---
 
