@@ -9202,12 +9202,27 @@ fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
     let errors = facts.system_health_metrics.journal_errors_last_24h;
 
     if errors > 100 {
+        // Get actual error samples to show user
+        let error_samples = Command::new("journalctl")
+            .args(&["-p", "err", "--since", "24 hours ago", "--no-pager", "-n", "5"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        let sample_preview = if !error_samples.is_empty() {
+            let lines: Vec<&str> = error_samples.lines().take(3).collect();
+            format!("\n\n📋 Recent error samples:\n{}", lines.join("\n"))
+        } else {
+            String::new()
+        };
+
         result.push(Advice {
             id: "journal-errors-excessive".to_string(),
             title: format!("EXCESSIVE system errors detected ({} in 24h)", errors),
-            reason: format!("Your system logged {} errors in the last 24 hours! This is abnormal and indicates serious problems. Normal systems have very few errors. Check journalctl to identify failing services or hardware issues.", errors),
-            action: "Review system journal for errors and fix underlying issues".to_string(),
-            command: Some("journalctl -p err --since '24 hours ago' --no-pager".to_string()),
+            reason: format!("Your system logged {} errors in the last 24 hours! This is abnormal and indicates serious problems. Normal systems have very few errors. Check journalctl to identify failing services or hardware issues.{}", errors, sample_preview),
+            action: "View full error log to diagnose issues".to_string(),
+            command: Some("journalctl -p err --since '24 hours ago' --no-pager | less".to_string()),
             risk: RiskLevel::Low,
             priority: Priority::Mandatory,
             category: "System Maintenance".to_string(),
@@ -9219,12 +9234,27 @@ fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
             popularity: 50,
         });
     } else if errors > 20 {
+        // Get actual error samples to show user
+        let error_samples = Command::new("journalctl")
+            .args(&["-p", "err", "--since", "24 hours ago", "--no-pager", "-n", "3"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        let sample_preview = if !error_samples.is_empty() {
+            let lines: Vec<&str> = error_samples.lines().take(3).collect();
+            format!("\n\n📋 Recent error samples:\n{}", lines.join("\n"))
+        } else {
+            String::new()
+        };
+
         result.push(Advice {
             id: "journal-errors-many".to_string(),
             title: format!("Multiple system errors detected ({} in 24h)", errors),
-            reason: format!("Your system has {} errors in the last 24 hours. While not critical, this is worth investigating to prevent future problems.", errors),
-            action: "Review system journal to identify error sources".to_string(),
-            command: Some("journalctl -p err --since '24 hours ago' --no-pager | head -50".to_string()),
+            reason: format!("Your system has {} errors in the last 24 hours. While not critical, this is worth investigating to prevent future problems.{}\n\n💡 Tip: After viewing, these errors will remain until you fix the underlying issue. Anna will stop warning once errors drop below 20/day.", errors, sample_preview),
+            action: "View error log to identify issues".to_string(),
+            command: Some("journalctl -p err --since '24 hours ago' --no-pager | less".to_string()),
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "System Maintenance".to_string(),
