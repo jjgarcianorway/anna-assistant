@@ -79,11 +79,11 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
         .context("No assets in release")?;
 
     let annad_asset = assets.iter()
-        .find(|a| a["name"].as_str() == Some("annad-x86_64-linux"))
+        .find(|a| a["name"].as_str() == Some("annad"))
         .context("annad binary not found in release")?;
 
     let annactl_asset = assets.iter()
-        .find(|a| a["name"].as_str() == Some("annactl-x86_64-linux"))
+        .find(|a| a["name"].as_str() == Some("annactl"))
         .context("annactl binary not found in release")?;
 
     let download_url_annad = annad_asset["browser_download_url"].as_str()
@@ -226,21 +226,37 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
 
     // Stop daemon (will be restarted by systemd)
     info!("Stopping daemon for update...");
-    let _ = Command::new("systemctl")
-        .args(&["stop", "annad"])
+    let _ = Command::new("sudo")
+        .args(&["systemctl", "stop", "annad"])
         .output();
 
-    // Replace binaries
+    // Replace binaries (use sudo cp to avoid permission issues)
     info!("Installing new binaries...");
-    std::fs::copy(&temp_annad, Path::new(INSTALL_DIR).join("annad"))
+    let annad_dest = Path::new(INSTALL_DIR).join("annad");
+    let annactl_dest = Path::new(INSTALL_DIR).join("annactl");
+
+    let status_annad = Command::new("sudo")
+        .args(&["cp", temp_annad.to_str().unwrap(), annad_dest.to_str().unwrap()])
+        .status()
         .context("Failed to install annad")?;
-    std::fs::copy(&temp_annactl, Path::new(INSTALL_DIR).join("annactl"))
+
+    if !status_annad.success() {
+        anyhow::bail!("Failed to install annad binary");
+    }
+
+    let status_annactl = Command::new("sudo")
+        .args(&["cp", temp_annactl.to_str().unwrap(), annactl_dest.to_str().unwrap()])
+        .status()
         .context("Failed to install annactl")?;
+
+    if !status_annactl.success() {
+        anyhow::bail!("Failed to install annactl binary");
+    }
 
     // Restart daemon
     info!("Restarting daemon...");
-    let _ = Command::new("systemctl")
-        .args(&["start", "annad"])
+    let _ = Command::new("sudo")
+        .args(&["systemctl", "start", "annad"])
         .output();
 
     // Clean up temp files
