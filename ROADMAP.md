@@ -10,18 +10,19 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.22)
+## Current Status (v1.0.0-beta.41)
 
 ### ✅ Complete
 - [x] Core data models and types
 - [x] Comprehensive system telemetry (hardware, packages, filesystems, services)
 - [x] Unix socket IPC (daemon ↔ client communication)
-- [x] Beautiful CLI with pastel colors
+- [x] Beautiful CLI with pastel colors and universal compatibility
 - [x] **220+ intelligent recommendation rules** covering:
   - Security (CPU microcode, SSH hardening, firewall, VPN, antivirus)
   - 8 Desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
   - Performance (SSD, swap compression, firmware updates, parallel downloads)
   - Development (Docker, virtualization, 6 programming languages, LSP servers, shell tools)
+  - **Multi-GPU Support (Intel, AMD/ATI, Nvidia)** - Hardware detection and driver recommendations
   - Hardware (Bluetooth, WiFi, printers, webcam, gamepads)
   - Multimedia (video/audio players, screen recording, codecs, video editing)
   - Gaming (Proton-GE, MangoHud, Wine)
@@ -39,7 +40,7 @@ Anna should be an intelligent, autonomous system administrator that:
 - [x] Smart notifications (GUI via notify-send, terminal via wall)
 - [x] Filesystem watcher (detects package changes, reboots, config edits)
 - [x] Install script with version embedding
-- [x] GitHub Actions release pipeline
+- [x] GitHub Actions release pipeline with automated binary builds
 - [x] Plain English system reports
 - [x] Arch Wiki citations for all recommendations
 - [x] Multi-user support with personalized advice
@@ -47,8 +48,11 @@ Anna should be an intelligent, autonomous system administrator that:
 - [x] Risk level categorization
 - [x] **Configuration system** - TOML-based settings with annactl config command
 - [x] **Snapshot system** - Btrfs/Timeshift/rsync support for safe rollback
+- [x] **Category consistency** - All categories properly styled with emojis and colors
+- [x] **Hardware video acceleration** - Recommendations for Intel, AMD, and Nvidia GPUs
 
 ### 🚧 In Progress
+- [ ] **Autonomy tiers** - Graduated automatic maintenance (Tier 0-3)
 - [ ] **TUI Dashboard** - Interactive configuration interface
 - [ ] **Learning system** - Track user behavior and adapt
 - [ ] **Arch Wiki caching** - Offline documentation access
