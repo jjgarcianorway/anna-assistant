@@ -4,7 +4,30 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.64 (November 2025)
+**Current Version:** Beta.65 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.65
+
+**🔧 Self-Update Fix (Text File Busy Error):**
+- Fixed "Text file busy" error when updating annactl
+- Changed from `cp` to `mv` for binary replacement
+- `mv` can replace a running binary, `cp` cannot
+- Self-update now works reliably!
+
+**The Problem:**
+- `annactl update --install` runs annactl binary
+- Old updater used `cp` to replace annactl while it's running
+- Linux prevents overwriting a running executable with `cp`
+- Error: "cp: cannot create regular file: Text file busy"
+
+**The Fix:**
+- Use `sudo mv -f` instead of `sudo cp`
+- `mv` atomically replaces the file (directory entry changes, inode stays same)
+- Running process continues with old inode
+- Next execution uses new binary
+- Reliable self-update!
 
 ---
 

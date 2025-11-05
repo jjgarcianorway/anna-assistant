@@ -267,13 +267,14 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
         .args(&["systemctl", "stop", "annad"])
         .output();
 
-    // Replace binaries (use sudo cp to avoid permission issues)
+    // Replace binaries (use sudo mv to avoid "text file busy" error)
+    // mv can replace a running binary, cp cannot
     info!("Installing new binaries...");
     let annad_dest = Path::new(INSTALL_DIR).join("annad");
     let annactl_dest = Path::new(INSTALL_DIR).join("annactl");
 
     let status_annad = Command::new("sudo")
-        .args(&["cp", temp_annad.to_str().unwrap(), annad_dest.to_str().unwrap()])
+        .args(&["mv", "-f", temp_annad.to_str().unwrap(), annad_dest.to_str().unwrap()])
         .status()
         .context("Failed to install annad")?;
 
@@ -282,7 +283,7 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
     }
 
     let status_annactl = Command::new("sudo")
-        .args(&["cp", temp_annactl.to_str().unwrap(), annactl_dest.to_str().unwrap()])
+        .args(&["mv", "-f", temp_annactl.to_str().unwrap(), annactl_dest.to_str().unwrap()])
         .status()
         .context("Failed to install annactl")?;
 
