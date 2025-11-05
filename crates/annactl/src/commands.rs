@@ -301,22 +301,24 @@ pub async fn advise(
             return Ok(());
         }
 
-        // Always show total count
+        // Clear, simple count display
+        println!("{}", beautiful::status(Level::Info,
+            &format!("Showing {} recommendation{}", advice_list.len(), if advice_list.len() == 1 { "" } else { "s" })));
+
+        // Show what was filtered if anything
+        let total_filtered = total_available - count_before_limit;
+        if total_filtered > 0 {
+            println!("{}", beautiful::status(Level::Info,
+                &format!("  ({} hidden by filters)", total_filtered)));
+        }
+
+        // Show if limited
         if count_before_limit > advice_list.len() {
             println!("{}", beautiful::status(Level::Info,
-                &format!("Showing {} of {} total recommendations (use --limit=0 to see all)", advice_list.len(), count_before_limit)));
-            println!();
-        } else if count_before_limit < total_available {
-            // Filtered by mode/category/risk
-            println!("{}", beautiful::status(Level::Info,
-                &format!("Showing {} recommendations ({} total available)", advice_list.len(), total_available)));
-            println!();
-        } else {
-            // Showing all
-            println!("{}", beautiful::status(Level::Info,
-                &format!("Showing all {} recommendations", advice_list.len())));
-            println!();
+                &format!("  ({} more available, use --limit=0 to see all)", count_before_limit - advice_list.len())));
         }
+
+        println!();
 
         // Group by category first
         let mut by_category: std::collections::HashMap<String, Vec<&anna_common::Advice>> =
@@ -328,15 +330,8 @@ pub async fn advise(
                 .push(advice);
         }
 
-        // Sort categories by importance (using standardized names)
-        let category_order = vec![
-            "Security & Privacy", "Hardware Support", "System Maintenance",
-            "Performance & Optimization", "Power Management", "Development Tools",
-            "Desktop Environment", "Gaming & Entertainment", "Multimedia & Graphics",
-            "Network Configuration", "Utilities", "System Configuration",
-            "Productivity", "Terminal & CLI Tools", "Communication",
-            "Engineering & CAD", "Desktop Customization",
-        ];
+        // Sort categories by importance (using centralized category order)
+        let category_order = anna_common::get_category_order();
 
         // Build the complete ordered list for display AND cache
         let mut ordered_advice_list: Vec<&anna_common::Advice> = Vec::new();

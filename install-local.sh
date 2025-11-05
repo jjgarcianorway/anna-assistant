@@ -8,7 +8,7 @@ echo "   For production, use one of these methods:"
 echo "   - annactl update --install"
 echo "   - curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh"
 echo ""
-echo "🔄 Installing Anna Assistant beta.49..."
+echo "🔄 Installing Anna Assistant beta.50..."
 echo
 
 # Stop daemon

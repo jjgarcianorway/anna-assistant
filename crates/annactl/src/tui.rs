@@ -76,28 +76,31 @@ struct Tui {
     details_scroll: u16,
 }
 
-/// Get category emoji and color for display (standardized names)
+/// Get category emoji and color for display (using centralized categories)
 fn get_category_emoji_color(category: &str) -> (&'static str, Color) {
-    match category {
-        "Security & Privacy" => ("🔒", Color::LightRed),
-        "Hardware Support" => ("🔌", Color::LightYellow),
-        "Package Management" => ("📦", Color::LightBlue),
-        "System Maintenance" => ("🔧", Color::LightCyan),
-        "System Performance" => ("⚡", Color::LightYellow),
-        "Power Management" => ("🔋", Color::Yellow),
-        "Development Tools" => ("💻", Color::LightMagenta),
-        "Desktop Environment" => ("🖥️", Color::Blue),
-        "Gaming & Entertainment" => ("🎮", Color::Magenta),
-        "Multimedia & Graphics" => ("🎬", Color::Magenta),
-        "Network Configuration" => ("📡", Color::LightCyan),
-        "System Utilities" => ("🛠️", Color::Cyan),
-        "Shell & Terminal" => ("🐚", Color::LightCyan),
-        "Communication & Social" => ("💬", Color::LightBlue),
-        "Beautification & Theming" => ("🎨", Color::LightMagenta),
-        "Productivity & Office" => ("📊", Color::LightGreen),
-        "Audio & Sound" => ("🔊", Color::Magenta),
-        _ => ("💡", Color::Cyan),
-    }
+    let emoji = anna_common::get_category_emoji(category);
+    let color = match category {
+        "Security & Privacy" => Color::LightRed,
+        "Hardware Support" => Color::LightYellow,
+        "Package Management" => Color::LightBlue,
+        "System Maintenance" => Color::LightCyan,
+        "Performance & Optimization" => Color::LightYellow,
+        "Power Management" => Color::Yellow,
+        "Development Tools" => Color::LightMagenta,
+        "Desktop Environment" => Color::Blue,
+        "Gaming & Entertainment" => Color::Magenta,
+        "Multimedia & Graphics" => Color::Magenta,
+        "Network Configuration" => Color::LightCyan,
+        "System Utilities" | "Desktop Utilities" | "Utilities" => Color::Cyan,
+        "Shell & Terminal" | "Terminal & CLI Tools" => Color::LightCyan,
+        "Communication" => Color::LightBlue,
+        "Desktop Customization" => Color::LightMagenta,
+        "Productivity" => Color::LightGreen,
+        "Engineering & CAD" => Color::LightBlue,
+        "System Configuration" => Color::Cyan,
+        _ => Color::Cyan,
+    };
+    (emoji, color)
 }
 
 impl Tui {

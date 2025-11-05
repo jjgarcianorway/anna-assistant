@@ -4,23 +4,22 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.49 (November 2025)
+**Current Version:** Beta.50 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.49
+## 🎯 What's New in Beta.50
 
-**🐛 Critical Bug Fixes:**
-- Fixed ignore filters not applied in `report` command
-- Fixed ignore filters not applied in `health` command
-- Fixed ignore filters not applied in TUI
+**✨ Quality & Polish Release:**
+- Fixed confusing count messages in advise command
+- Centralized category names - TUI and CLI now use same names
+- Clearer display: "Showing 25 recommendations (30 hidden by filters)"
+- All categories now have consistent emojis across all interfaces
+
+**🎯 Previous: Beta.49 - Critical Bug Fixes:**
+- Fixed ignore filters not applied in report, health, and TUI
 - All commands now consistently respect your ignore settings
-
-**✨ Consistency Improvements:**
-- Status command shows filtered count (matches category breakdown)
-- Report command excludes ignored recommendations
-- Health score calculated from filtered recommendations only
-- TUI footer shows active filter count: "🔍 2 filters"
+- Status shows filtered count, TUI shows active filter count
 
 ---
 
