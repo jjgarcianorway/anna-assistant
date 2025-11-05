@@ -287,27 +287,14 @@ pub async fn advise(
             "Engineering & CAD", "Desktop Customization",
         ];
 
-        let mut counter = 1;
+        // Build the complete ordered list for display AND cache
+        let mut ordered_advice_list: Vec<&anna_common::Advice> = Vec::new();
 
-        // Display each category in a beautiful box
         for &category in &category_order {
             if let Some(items) = by_category.get(category) {
                 if items.is_empty() {
                     continue;
                 }
-
-                // Category header - clean and compatible
-                let (emoji, color_code, title) = get_category_style(category);
-
-                println!();
-                println!();
-                println!("{}{} \x1b[1m{}\x1b[0m",
-                    color_code,
-                    emoji,
-                    title
-                );
-                println!("{}", "=".repeat(60));
-                println!();
 
                 // Sort items within category by priority, then risk, then popularity
                 let mut sorted_items = items.clone();
@@ -317,29 +304,13 @@ pub async fn advise(
                         .then(b.popularity.cmp(&a.popularity))
                 });
 
-                for advice in sorted_items {
-                    display_advice_item_enhanced(counter, advice);
-                    counter += 1;
-                    println!(); // Extra space between items
-                }
+                ordered_advice_list.extend(sorted_items);
             }
         }
 
-        // Display any remaining categories not in the predefined order
+        // Add any remaining categories not in the predefined order
         for (category, items) in &by_category {
             if !category_order.contains(&category.as_str()) && !items.is_empty() {
-                println!();
-                println!();
-                let (emoji, color_code, title) = get_category_style(&category);
-
-                println!("{}{} \x1b[1m{}\x1b[0m",
-                    color_code,
-                    emoji,
-                    title
-                );
-                println!("{}", "=".repeat(60));
-                println!();
-
                 let mut sorted_items = items.clone();
                 sorted_items.sort_by(|a, b| {
                     b.priority.cmp(&a.priority)
@@ -347,12 +318,42 @@ pub async fn advise(
                         .then(b.popularity.cmp(&a.popularity))
                 });
 
-                for advice in sorted_items {
-                    display_advice_item_enhanced(counter, advice);
-                    counter += 1;
-                    println!();
-                }
+                ordered_advice_list.extend(sorted_items);
             }
+        }
+
+        // Save the display order to cache for apply command
+        let advice_ids: Vec<String> = ordered_advice_list.iter().map(|a| a.id.clone()).collect();
+        if let Err(e) = anna_common::AdviceDisplayCache::save(advice_ids) {
+            // Non-fatal, just warn
+            eprintln!("Warning: Failed to save advice cache: {}", e);
+        }
+
+        // Now display everything
+        let mut counter = 1;
+        let mut current_category = String::new();
+
+        for advice in &ordered_advice_list {
+            // Display category header if changed
+            if advice.category != current_category {
+                current_category = advice.category.clone();
+
+                let (emoji, color_code, title) = get_category_style(&current_category);
+
+                println!();
+                println!();
+                println!("{}{} \x1b[1m{}\x1b[0m",
+                    color_code,
+                    emoji,
+                    title
+                );
+                println!("{}", "=".repeat(60));
+                println!();
+            }
+
+            display_advice_item_enhanced(counter, advice);
+            counter += 1;
+            println!(); // Extra space between items
         }
 
         // Summary at the end
@@ -575,190 +576,107 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
 
     // If nums provided, apply by index
     if let Some(nums_str) = nums {
-        println!("{}", beautiful::status(Level::Warning,
-            "⚠️  Using numbers is DEPRECATED and may apply wrong items!"));
-        println!("{}", beautiful::status(Level::Warning,
-            "   Numbers change based on filtering. Use IDs instead!"));
-        println!();
         println!("{}", beautiful::status(Level::Info,
-            "Run 'annactl advise' to see IDs, then use:"));
-        println!("   annactl apply --id <advice-id>");
+            "Applying by number - loading cache..."));
         println!();
 
-        // Still support it but with strong warning
-        println!("{}", beautiful::status(Level::Warning,
-            "Continuing with numbers at your own risk..."));
-        println!();
-
-        // First get all advice to map indices - MUST USE SAME FILTERING AS ADVISE!
-        let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
-        let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
-            .or_else(|_| std::env::var("DESKTOP_SESSION"))
-            .ok();
-        let shell = std::env::var("SHELL")
-            .unwrap_or_else(|_| "bash".to_string())
-            .split('/')
-            .last()
-            .unwrap_or("bash")
-            .to_string();
-        let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
-            Some("wayland".to_string())
-        } else if std::env::var("DISPLAY").is_ok() {
-            Some("x11".to_string())
-        } else {
-            None
+        // Load the cached display order
+        let cache = match anna_common::AdviceDisplayCache::load() {
+            Ok(c) => c,
+            Err(e) => {
+                println!("{}", beautiful::status(Level::Error, &format!("Cache error: {}", e)));
+                println!();
+                println!("Run '\x1b[38;5;159mannactl advise\x1b[0m' first to refresh the list.");
+                return Ok(());
+            }
         };
 
-        let advice_data = client.call(Method::GetAdviceWithContext {
-            username,
-            desktop_env,
-            shell,
-            display_server,
-        }).await?;
+        // Parse the nums string (e.g., "1,3,5-7")
+        let indices = parse_number_ranges(&nums_str)?;
 
-        if let ResponseData::Advice(mut advice_list) = advice_data {
-            // CRITICAL: Apply same filtering as advise command to match displayed numbers!
+        // Show what WILL be applied
+        println!("{}", beautiful::status(Level::Info, "Items to be applied:"));
+        println!();
 
-            // Filter dismissed items (same as advise)
-            if let Ok(log) = anna_common::UserFeedbackLog::load() {
-                advice_list.retain(|a| !log.was_dismissed(&a.id));
+        let mut valid_ids = Vec::new();
+        for idx in &indices {
+            if let Some(advice_id) = cache.get_id_by_number(*idx) {
+                println!("   \x1b[1m{}. {}\x1b[0m", idx, advice_id);
+                valid_ids.push(advice_id.to_string());
+            } else {
+                println!("   \x1b[91m❌ Number {} is out of range (1-{})\x1b[0m", idx, cache.len());
             }
-
-            // Apply smart mode filtering by default (same as advise default)
-            let mandatory: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Mandatory)).cloned().collect();
-            let recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
-            let mut optional: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Optional)).cloned().collect();
-            let mut cosmetic: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Cosmetic)).cloned().collect();
-
-            optional.truncate(10);
-            cosmetic.truncate(5);
-
-            advice_list = mandatory;
-            advice_list.extend(recommended);
-            advice_list.extend(optional);
-            advice_list.extend(cosmetic);
-
-            // CRITICAL: Sort exactly like advise command!
-            // Group by category, then sort within category
-            let mut by_category: std::collections::HashMap<String, Vec<anna_common::Advice>> =
-                std::collections::HashMap::new();
-
-            for advice in advice_list {
-                by_category.entry(advice.category.clone())
-                    .or_insert_with(Vec::new)
-                    .push(advice);
-            }
-
-            // Sort in same category order as advise
-            let category_order = vec![
-                "Security & Privacy", "Hardware Support", "System Maintenance", "Performance & Optimization",
-                "Power Management", "Development Tools", "Desktop Environment", "Gaming & Entertainment",
-                "Multimedia & Graphics", "Network Configuration", "Utilities", "System Configuration",
-                "Productivity", "Terminal & CLI Tools", "Communication", "Engineering & CAD",
-                "Desktop Customization",
-            ];
-
-            // Rebuild list in display order
-            let mut ordered_advice_list = Vec::new();
-            for category in &category_order {
-                if let Some(mut items) = by_category.remove(*category) {
-                    // Sort within category
-                    items.sort_by(|a, b| {
-                        b.priority.cmp(&a.priority)
-                            .then(b.risk.cmp(&a.risk))
-                            .then(b.popularity.cmp(&a.popularity))
-                    });
-                    ordered_advice_list.extend(items);
-                }
-            }
-
-            // Add any remaining categories
-            for (_, mut items) in by_category {
-                items.sort_by(|a, b| {
-                    b.priority.cmp(&a.priority)
-                        .then(b.risk.cmp(&a.risk))
-                        .then(b.popularity.cmp(&a.popularity))
-                });
-                ordered_advice_list.extend(items);
-            }
-
-            let advice_list = ordered_advice_list;
-            // Parse the nums string (e.g., "1,3,5-7")
-            let indices = parse_number_ranges(&nums_str)?;
-
-            // First, show what WILL be applied for user confirmation
-            println!("{}", beautiful::status(Level::Info, "Items to be applied:"));
-            println!();
-            for idx in &indices {
-                if *idx < 1 || *idx > advice_list.len() {
-                    println!("   \x1b[91m❌ Index {} is out of range (1-{})\x1b[0m", idx, advice_list.len());
-                    continue;
-                }
-                let advice = &advice_list[*idx - 1];
-                println!("   \x1b[1m{}. {}\x1b[0m", idx, advice.title);
-                println!("      \x1b[2mID: {}\x1b[0m", advice.id);
-                if let Some(cmd) = &advice.command {
-                    println!("      \x1b[38;5;159m→ {}\x1b[0m", cmd);
-                }
-                println!();
-            }
-
-            // Require confirmation unless dry-run
-            if !dry_run {
-                println!();
-                use std::io::{self, Write};
-                print!("   \x1b[1;93mProceed with applying these items? (y/N):\x1b[0m ");
-                io::stdout().flush()?;
-
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                let input = input.trim().to_lowercase();
-
-                if input != "y" && input != "yes" {
-                    println!();
-                    println!("{}", beautiful::status(Level::Info, "Cancelled by user"));
-                    return Ok(());
-                }
-                println!();
-            }
-
-            // Apply each advice by index
-            let mut success_count = 0;
-            let mut fail_count = 0;
-
-            for idx in indices {
-                if idx < 1 || idx > advice_list.len() {
-                    println!("{}", beautiful::status(Level::Warning,
-                        &format!("Index {} out of range (1-{})", idx, advice_list.len())));
-                    fail_count += 1;
-                    continue;
-                }
-
-                let advice = &advice_list[idx - 1];
-                println!("{}", beautiful::status(Level::Info,
-                    &format!("{}. Applying: {} (ID: {})", idx, advice.title, advice.id)));
-
-                let result = client.call(Method::ApplyAction {
-                    advice_id: advice.id.clone(),
-                    dry_run,
-                }).await?;
-
-                if let ResponseData::ActionResult { success, message } = result {
-                    if success {
-                        println!("   {}", beautiful::status(Level::Success, &message));
-                        success_count += 1;
-                    } else {
-                        println!("   {}", beautiful::status(Level::Error, &message));
-                        fail_count += 1;
-                    }
-                }
-                println!();
-            }
-
-            println!();
-            println!("{}", beautiful::status(Level::Info,
-                &format!("Applied {} successfully, {} failed", success_count, fail_count)));
         }
+        if valid_ids.is_empty() {
+            println!("{}", beautiful::status(Level::Error, "No valid items to apply"));
+            return Ok(());
+        }
+
+        // Require confirmation unless dry-run
+        if !dry_run {
+            println!();
+            use std::io::{self, Write};
+            print!("   \x1b[1;93mProceed with applying these items? (y/N):\x1b[0m ");
+            io::stdout().flush()?;
+
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            let input = input.trim().to_lowercase();
+
+            if input != "y" && input != "yes" {
+                println!();
+                println!("{}", beautiful::status(Level::Info, "Cancelled by user"));
+                return Ok(());
+            }
+            println!();
+        }
+
+        // Apply each advice by ID
+        let mut success_count = 0;
+        let mut fail_count = 0;
+
+        for advice_id in valid_ids {
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Applying: {}", advice_id)));
+
+            let result = client.call(Method::ApplyAction {
+                advice_id: advice_id.clone(),
+                dry_run,
+            }).await?;
+
+            if let ResponseData::ActionResult { success, message } = result {
+                if success {
+                    println!("   {}", beautiful::status(Level::Success, &message));
+                    success_count += 1;
+
+                    // Record application in feedback log
+                    let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+                    // Get advice details to know the category
+                    let advice_data = client.call(Method::GetAdvice).await?;
+                    if let ResponseData::Advice(advice_list) = advice_data {
+                        if let Some(advice) = advice_list.iter().find(|a| a.id == advice_id) {
+                            let mut log = anna_common::UserFeedbackLog::load().unwrap_or_default();
+                            log.record(anna_common::FeedbackEvent {
+                                advice_id: advice_id.clone(),
+                                advice_category: advice.category.clone(),
+                                event_type: anna_common::FeedbackType::Applied,
+                                timestamp: chrono::Utc::now(),
+                                username,
+                            });
+                            let _ = log.save(); // Ignore errors
+                        }
+                    }
+                } else {
+                    println!("   {}", beautiful::status(Level::Error, &message));
+                    fail_count += 1;
+                }
+            }
+            println!();
+        }
+
+        println!();
+        println!("{}", beautiful::status(Level::Info,
+            &format!("Applied {} successfully, {} failed", success_count, fail_count)));
 
         return Ok(());
     }
@@ -2844,29 +2762,31 @@ pub async fn history(days: i64, detailed: bool) -> Result<()> {
 
         let recent = history.recent(10);
         for (i, entry) in recent.iter().enumerate() {
+            let rollback_num = i + 1;
             let status_icon = if entry.success {
                 "\x1b[92m✓\x1b[0m"
             } else {
                 "\x1b[91m✗\x1b[0m"
             };
 
-            println!("  [{}] {} \x1b[1m{}\x1b[0m",
-                i + 1,
+            println!("  \x1b[1;96m[#{}]\x1b[0m {} \x1b[1m{}\x1b[0m",
+                rollback_num,
                 status_icon,
                 entry.advice_title
             );
-            println!("      \x1b[90mID:\x1b[0m       \x1b[38;5;159m{}\x1b[0m", entry.advice_id);
-            println!("      Category: \x1b[96m{}\x1b[0m", entry.category);
-            println!("      Applied:  \x1b[90m{}\x1b[0m", entry.applied_at.format("%Y-%m-%d %H:%M:%S"));
+            println!("       \x1b[90mID:\x1b[0m       \x1b[38;5;159m{}\x1b[0m", entry.advice_id);
+            println!("       Category: \x1b[96m{}\x1b[0m", entry.category);
+            println!("       Applied:  \x1b[90m{}\x1b[0m", entry.applied_at.format("%Y-%m-%d %H:%M:%S"));
+            println!("       By:       \x1b[90m{}\x1b[0m", entry.applied_by);
 
             if let (Some(before), Some(after)) = (entry.health_score_before, entry.health_score_after) {
                 let diff = after as i16 - before as i16;
                 if diff > 0 {
-                    println!("      Health:   {} → {} \x1b[92m(+{})\x1b[0m", before, after, diff);
+                    println!("       Health:   {} → {} \x1b[92m(+{})\x1b[0m", before, after, diff);
                 } else if diff < 0 {
-                    println!("      Health:   {} → {} \x1b[91m({})\x1b[0m", before, after, diff);
+                    println!("       Health:   {} → {} \x1b[91m({})\x1b[0m", before, after, diff);
                 } else {
-                    println!("      Health:   {} → {}", before, after);
+                    println!("       Health:   {} → {}", before, after);
                 }
             }
 
