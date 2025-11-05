@@ -7468,18 +7468,37 @@ fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     if !facts.system_health_metrics.degraded_services.is_empty() {
-        let services_list = facts.system_health_metrics.degraded_services.join(", ");
+        // Format service list nicely
+        let services_list = facts.system_health_metrics.degraded_services
+            .iter()
+            .map(|s| format!("  • {}", s))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let reason = format!(
+            "{} service{} in degraded/failed state:\n\n{}\n\n{}",
+            facts.system_health_metrics.degraded_services.len(),
+            if facts.system_health_metrics.degraded_services.len() == 1 { "" } else { "s" },
+            services_list,
+            "Degraded services may not function properly. Check logs to identify configuration issues, missing dependencies, or permission problems."
+        );
+
         result.push(Advice {
             id: "degraded-services".to_string(),
-            title: "Services in degraded state detected".to_string(),
-            reason: format!("The following services are in a degraded state: {}. Degraded services may not function properly and should be investigated.", services_list),
-            action: "Check service status and logs to identify issues".to_string(),
-            command: Some("systemctl status --failed".to_string()),
+            title: format!("{} Service{} in Degraded State",
+                facts.system_health_metrics.degraded_services.len(),
+                if facts.system_health_metrics.degraded_services.len() == 1 { "" } else { "s" }),
+            reason,
+            action: "Check status with: systemctl status <service-name> for each failed service".to_string(),
+            command: None, // Informational - user should check each service individually
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "system".to_string(),
             alternatives: Vec::new(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage".to_string()],
+            wiki_refs: vec![
+                "https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage".to_string(),
+                "https://wiki.archlinux.org/title/Systemd#Investigating_failed_services".to_string(),
+            ],
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
@@ -7639,17 +7658,48 @@ fn check_service_crashes(facts: &SystemFacts) -> Vec<Advice> {
     let crashes = facts.system_health_metrics.recent_crashes.len();
 
     if crashes > 5 {
+        // List actual services that crashed
+        let crash_list = facts.system_health_metrics.recent_crashes
+            .iter()
+            .take(15)  // Show up to 15 crashes
+            .map(|crash| {
+                let exit_info = if let Some(code) = crash.exit_code {
+                    format!("(exit code: {})", code)
+                } else if let Some(ref sig) = crash.signal {
+                    format!("(signal: {})", sig)
+                } else {
+                    String::new()
+                };
+                format!("  • {} {} - {}",
+                    crash.service_name,
+                    exit_info,
+                    crash.timestamp.format("%Y-%m-%d %H:%M"))
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let reason = format!(
+            "{} service crash{} detected in the last week:\n\n{}\n\n{}",
+            crashes,
+            if crashes == 1 { "" } else { "es" },
+            crash_list,
+            "Multiple service crashes indicate system instability. Common causes: misconfiguration, resource exhaustion, software bugs, or failing hardware."
+        );
+
         result.push(Advice {
             id: "service-crashes-many".to_string(),
-            title: format!("{} service crashes detected in the last week", crashes),
-            reason: format!("Multiple services have crashed recently ({} crashes). This indicates system instability. Check logs to identify failing services and fix root causes.", crashes),
-            action: "Review service crash logs and fix unstable services".to_string(),
-            command: Some("journalctl -p err --since '7 days ago' | grep -i failed".to_string()),
+            title: format!("{} Service Crash{} in Last Week", crashes, if crashes == 1 { "" } else { "es" }),
+            reason,
+            action: "Review crash details with: systemctl status <service-name> and journalctl -u <service-name>".to_string(),
+            command: None, // Informational - user needs to check specific services
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "system".to_string(),
             alternatives: Vec::new(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Systemd#Journal".to_string()],
+            wiki_refs: vec![
+                "https://wiki.archlinux.org/title/Systemd#Journal".to_string(),
+                "https://wiki.archlinux.org/title/Systemd#Analyzing_the_system_state".to_string(),
+            ],
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
@@ -7665,17 +7715,38 @@ fn check_kernel_errors(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     if !facts.system_health_metrics.kernel_errors.is_empty() {
+        // Get actual kernel errors for display
+        let error_list = facts.system_health_metrics.kernel_errors
+            .iter()
+            .take(10)  // Show up to 10 most recent errors
+            .map(|err| format!("  • {}", err))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let reason = format!(
+            "{} kernel error{} found in the last 24 hours:\n\n{}\n\n{}",
+            facts.system_health_metrics.kernel_errors.len(),
+            if facts.system_health_metrics.kernel_errors.len() == 1 { "" } else { "s" },
+            error_list,
+            "Kernel errors can indicate hardware problems (RAM, disk, CPU), driver issues, or firmware bugs. Common causes: failing hardware, incompatible kernel modules, ACPI issues."
+        );
+
         result.push(Advice {
             id: "kernel-errors-detected".to_string(),
-            title: "Kernel errors detected".to_string(),
-            reason: format!("{} kernel errors found in the last 24 hours. Kernel errors can indicate hardware problems, driver issues, or system instability. Review dmesg for details.", facts.system_health_metrics.kernel_errors.len()),
-            action: "Review kernel log for hardware or driver issues".to_string(),
-            command: Some("journalctl -k -p err --since '24 hours ago' --no-pager".to_string()),
+            title: format!("{} Kernel Error{} Detected",
+                facts.system_health_metrics.kernel_errors.len(),
+                if facts.system_health_metrics.kernel_errors.len() == 1 { "" } else { "s" }),
+            reason,
+            action: "Review full kernel log with: journalctl -k -p err --since '24 hours ago'".to_string(),
+            command: None, // Informational only - user should review logs manually
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "system".to_string(),
             alternatives: Vec::new(),
-            wiki_refs: vec!["https://wiki.archlinux.org/title/Kernel_parameters".to_string()],
+            wiki_refs: vec![
+                "https://wiki.archlinux.org/title/Kernel_parameters".to_string(),
+                "https://wiki.archlinux.org/title/Dmesg".to_string(),
+            ],
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,

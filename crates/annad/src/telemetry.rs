@@ -1780,18 +1780,25 @@ fn collect_hardware_monitoring(sys: &System) -> anna_common::HardwareMonitoring 
 
 /// Get CPU temperature from sensors
 fn get_cpu_temperature() -> Option<f64> {
-    // Try using sensors command
+    let mut cpu_temps = Vec::new();
+
+    // Try using sensors command (most reliable)
     if let Ok(output) = Command::new("sensors").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             // Parse temperature from sensors output
-            // Look for lines like: "Core 0:        +45.0°C"
+            // Look for lines like: "Core 0:        +45.0°C" or "Tctl:         +50.0°C"
             for line in stdout.lines() {
-                if line.contains("Core") || line.contains("Tctl") || line.contains("CPU") {
+                // Only look at CPU-related sensors, skip GPU, disk, etc.
+                if line.contains("Core") || line.contains("Tctl") || line.contains("Tccd")
+                    || (line.contains("CPU") && !line.contains("fan")) {
                     if let Some(temp_str) = line.split('+').nth(1) {
                         if let Some(temp) = temp_str.split('°').next() {
                             if let Ok(temp_val) = temp.trim().parse::<f64>() {
-                                return Some(temp_val);
+                                // Sanity check: CPU temps should be between 0-120°C
+                                if temp_val > 0.0 && temp_val < 120.0 {
+                                    cpu_temps.push(temp_val);
+                                }
                             }
                         }
                     }
@@ -1800,22 +1807,44 @@ fn get_cpu_temperature() -> Option<f64> {
         }
     }
 
-    // Fallback: try reading from /sys/class/thermal
+    // If we got CPU temps from sensors, return the maximum
+    if !cpu_temps.is_empty() {
+        return cpu_temps.iter().copied().fold(f64::NEG_INFINITY, f64::max).into();
+    }
+
+    // Fallback: try reading from /sys/class/thermal (less reliable, might get GPU/other sensors)
     if let Ok(thermal_zones) = std::fs::read_dir("/sys/class/thermal") {
         for entry in thermal_zones.flatten() {
             let path = entry.path();
             if path.file_name().unwrap().to_str().unwrap().starts_with("thermal_zone") {
-                let temp_path = path.join("temp");
-                if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
-                    if let Ok(temp_millidegrees) = temp_str.trim().parse::<i64>() {
-                        return Some(temp_millidegrees as f64 / 1000.0);
+                // Check the type to ensure it's a CPU sensor
+                let type_path = path.join("type");
+                if let Ok(sensor_type) = std::fs::read_to_string(&type_path) {
+                    let sensor_type = sensor_type.trim().to_lowercase();
+                    // Only read if it's explicitly a CPU sensor
+                    if sensor_type.contains("cpu") || sensor_type.contains("x86_pkg_temp")
+                        || sensor_type.contains("coretemp") {
+                        let temp_path = path.join("temp");
+                        if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
+                            if let Ok(temp_millidegrees) = temp_str.trim().parse::<i64>() {
+                                let temp = temp_millidegrees as f64 / 1000.0;
+                                if temp > 0.0 && temp < 120.0 {
+                                    cpu_temps.push(temp);
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    None
+    // Return maximum CPU temp if we found any
+    if !cpu_temps.is_empty() {
+        Some(cpu_temps.iter().copied().fold(f64::NEG_INFINITY, f64::max))
+    } else {
+        None
+    }
 }
 
 /// Get system load averages

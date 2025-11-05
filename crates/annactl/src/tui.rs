@@ -70,6 +70,36 @@ struct Tui {
     sort_mode: SortMode,
 }
 
+/// Get category emoji and color for display
+fn get_category_emoji_color(category: &str) -> (&'static str, Color) {
+    match category {
+        "security" => ("🔒", Color::LightRed),
+        "drivers" => ("🔌", Color::LightMagenta),
+        "updates" => ("📦", Color::LightBlue),
+        "maintenance" => ("🔧", Color::LightCyan),
+        "cleanup" => ("🧹", Color::Cyan),
+        "performance" => ("⚡", Color::LightYellow),
+        "power" => ("🔋", Color::Yellow),
+        "development" => ("💻", Color::LightMagenta),
+        "desktop" => ("🖥️", Color::Blue),
+        "gaming" => ("🎮", Color::LightMagenta),
+        "multimedia" => ("🎬", Color::Magenta),
+        "hardware" => ("🔌", Color::LightYellow),
+        "networking" => ("📡", Color::LightCyan),
+        "beautification" => ("🎨", Color::LightMagenta),
+        "utilities" => ("🛠️", Color::Cyan),
+        "system" => ("⚙️", Color::LightBlue),
+        "productivity" => ("📊", Color::LightGreen),
+        "audio" => ("🔊", Color::Magenta),
+        "shell" => ("🐚", Color::LightCyan),
+        "communication" => ("💬", Color::LightBlue),
+        "engineering" => ("📐", Color::LightMagenta),
+        "usability" => ("✨", Color::LightCyan),
+        "media" => ("📹", Color::Magenta),
+        _ => ("💡", Color::Cyan),
+    }
+}
+
 impl Tui {
     fn new(client: RpcClient) -> Self {
         let mut list_state = ListState::default();
@@ -229,8 +259,18 @@ impl Tui {
                 self.view_mode = ViewMode::Dashboard;
             }
             KeyCode::Char('a') | KeyCode::Char('y') => {
-                // Enter apply confirmation mode
-                self.view_mode = ViewMode::ApplyConfirm;
+                // Only enter apply confirmation mode if there's a command to apply
+                if let Some(advice) = self.selected_advice() {
+                    if advice.command.is_some() {
+                        self.view_mode = ViewMode::ApplyConfirm;
+                    } else {
+                        // Informational advice - no action to apply
+                        self.status_message = Some((
+                            "This is informational only - no action to apply".to_string(),
+                            Color::Yellow
+                        ));
+                    }
+                }
             }
             _ => {}
         }
@@ -363,7 +403,7 @@ fn draw_dashboard(f: &mut Frame, tui: &mut Tui) {
     draw_recommendations(f, main_chunks[1], tui);
 
     // Footer
-    draw_footer(f, chunks[3], "Dashboard", tui.sort_mode);
+    draw_footer(f, chunks[3], "Dashboard", tui.sort_mode, tui);
 }
 
 /// Draw details view for selected recommendation
@@ -388,6 +428,8 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
             Priority::Cosmetic => "⚪ COSMETIC",
         };
 
+        let (category_emoji, category_color) = get_category_emoji_color(&advice.category);
+        let category_str = format!("{} {}", category_emoji, advice.category.to_uppercase());
         let risk_str = format!("Risk: {:?}", advice.risk);
         let popularity_str = format!("{} ({})", advice.popularity_stars(), advice.popularity_label());
 
@@ -396,6 +438,8 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
             Line::from(""),
             Line::from(vec![
                 Span::styled(priority_str, Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("  │  "),
+                Span::styled(category_str, Style::default().fg(category_color)),
                 Span::raw("  │  "),
                 Span::styled(risk_str, Style::default().fg(Color::Gray)),
                 Span::raw("  │  "),
@@ -436,7 +480,7 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
         f.render_widget(details, chunks[1]);
     }
 
-    draw_footer(f, chunks[2], "Details", tui.sort_mode);
+    draw_footer(f, chunks[2], "Details", tui.sort_mode, tui);
 }
 
 /// Draw apply confirmation dialog
@@ -487,7 +531,7 @@ fn draw_apply_confirm(f: &mut Frame, tui: &Tui) {
         f.render_widget(confirm, chunks[1]);
     }
 
-    draw_footer(f, chunks[2], "Confirm", tui.sort_mode);
+    draw_footer(f, chunks[2], "Confirm", tui.sort_mode, tui);
 }
 
 /// Draw header with logo and info
@@ -666,10 +710,13 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
                 Priority::Cosmetic => Color::Gray,
             };
 
+            let (category_emoji, category_color) = get_category_emoji_color(&advice.category);
             let popularity_stars = advice.popularity_stars();
 
             let content = Line::from(vec![
                 Span::raw(priority_icon),
+                Span::raw(" "),
+                Span::styled(category_emoji, Style::default().fg(category_color)),
                 Span::raw(" "),
                 Span::styled(&advice.title, Style::default().fg(priority_color)),
                 Span::raw("  "),
@@ -697,7 +744,7 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
 }
 
 /// Draw footer with keyboard shortcuts
-fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode) {
+fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: &Tui) {
     let shortcuts = match mode {
         "Dashboard" => vec![
             (" q/Esc ", " Quit  "),
@@ -708,11 +755,25 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode) {
             (" p ", " Priority  "),
             (" r ", " Risk  "),
         ],
-        "Details" => vec![
-            (" Esc ", " Back  "),
-            (" a/y ", " Apply  "),
-            (" q ", " Quit  "),
-        ],
+        "Details" => {
+            // Check if selected advice has a command (actionable)
+            let has_command = tui.selected_advice()
+                .map(|a| a.command.is_some())
+                .unwrap_or(false);
+
+            if has_command {
+                vec![
+                    (" Esc ", " Back  "),
+                    (" a/y ", " Apply  "),
+                    (" q ", " Quit  "),
+                ]
+            } else {
+                vec![
+                    (" Esc ", " Back  "),
+                    (" q ", " Quit  "),
+                ]
+            }
+        },
         "Confirm" => vec![
             (" Y ", " Yes  "),
             (" N ", " No  "),
@@ -738,6 +799,12 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode) {
     }
 
     spans.push(Span::raw("  Auto-refresh: 2s"));
+
+    // Add status message if present
+    if let Some((ref msg, color)) = tui.status_message {
+        spans.push(Span::raw("  │  "));
+        spans.push(Span::styled(msg, Style::default().fg(color).add_modifier(Modifier::BOLD)));
+    }
 
     let footer = Paragraph::new(Line::from(spans))
         .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Gray)))
