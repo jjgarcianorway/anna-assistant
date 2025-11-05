@@ -4,7 +4,16 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.67 (November 2025)
+**Current Version:** Beta.68 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.68
+
+**🔧 Installer Asset Selection Fixed:**
+- Fixed jq query in install.sh to properly select binaries
+- Now uses exact name matching with fallback to suffixed names
+- Prevents selecting wrong asset when multiple matches exist
 
 ---
 

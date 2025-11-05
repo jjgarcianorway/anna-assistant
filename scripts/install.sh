@@ -125,9 +125,9 @@ fi
 
 echo -e "${GREEN}${CHECK}${RESET} Found release: ${BOLD}${TAG}${RESET}"
 
-# Get asset URLs
-ANNAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | contains("annad")) | .browser_download_url')
-ANNACTL_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | contains("annactl")) | .browser_download_url')
+# Get asset URLs (prefer exact names, fallback to suffixed names)
+ANNAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "annad" or .name | startswith("annad-")) | .browser_download_url' | head -1)
+ANNACTL_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "annactl" or .name | startswith("annactl-")) | .browser_download_url' | head -1)
 
 if [ -z "$ANNAD_URL" ] || [ -z "$ANNACTL_URL" ]; then
     error_exit "Release assets not found - build may still be in progress"
