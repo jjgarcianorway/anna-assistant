@@ -4,7 +4,38 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.65 (November 2025)
+**Current Version:** Beta.66 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.66
+
+**🔒 Safer Install/Uninstall Scripts:**
+- No more piping to `sudo` in curl commands!
+- Scripts now use sudo internally when needed
+- User confirmation required before any changes
+- Much safer and more transparent
+
+**User Experience:**
+- Before: `curl ... | sudo sh` (scary! pipe untrusted code to root!)
+- After: `curl ... | sh` (safer! script asks for confirmation first)
+- Shows what will be done before asking for sudo
+- User can review and confirm each step
+
+**Security Benefits:**
+- No blind execution as root
+- User sees exactly what will be changed
+- Can cancel before any sudo operations
+- Standard best practice for install scripts
+
+**New Commands:**
+```bash
+# Install (asks for confirmation)
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sh
+
+# Uninstall (asks for confirmation)
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/uninstall.sh | sh
+```
 
 ---
 
@@ -338,8 +369,8 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 ### Installation
 
 ```bash
-# Install Anna (requires root)
-curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
+# Install Anna (will ask for sudo when needed)
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sh
 ```
 
 This will:
@@ -544,10 +575,10 @@ Special thanks to:
 
 **Installation:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sh
 ```
 
 **Uninstallation:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/uninstall.sh | sudo sh
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/uninstall.sh | sh
 ```

@@ -39,14 +39,9 @@ error_exit() {
 
 print_header
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}${CROSS} This uninstaller requires root privileges${RESET}" >&2
-    echo >&2
-    echo -e "${GRAY}Please run with sudo:${RESET}" >&2
-    echo -e "  ${CYAN}curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/uninstall.sh | sudo sh${RESET}" >&2
-    echo >&2
-    exit 1
+# Check if sudo is available
+if ! command -v sudo >/dev/null 2>&1; then
+    error_exit "sudo is required but not installed. Please install sudo first."
 fi
 
 # Ask for confirmation
@@ -72,19 +67,19 @@ echo
 # Stop and disable service
 if systemctl is-active --quiet annad 2>/dev/null; then
     echo -e "${CYAN}${ARROW}${RESET} Stopping annad service..."
-    systemctl stop annad
+    sudo systemctl stop annad
     echo -e "${GREEN}${CHECK}${RESET} Service stopped"
 fi
 
 if systemctl is-enabled --quiet annad 2>/dev/null; then
     echo -e "${CYAN}${ARROW}${RESET} Disabling annad service..."
-    systemctl disable annad
+    sudo systemctl disable annad
     echo -e "${GREEN}${CHECK}${RESET} Service disabled"
 fi
 
 # Kill any remaining processes
-pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
-pkill -x annactl 2>/dev/null || true
+sudo pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
+sudo pkill -x annactl 2>/dev/null || true
 
 # Wait for processes to fully stop
 sleep 1
@@ -92,15 +87,15 @@ sleep 1
 # Remove systemd service
 if [ -f /etc/systemd/system/annad.service ]; then
     echo -e "${CYAN}${ARROW}${RESET} Removing systemd service..."
-    rm -f /etc/systemd/system/annad.service
-    systemctl daemon-reload
+    sudo rm -f /etc/systemd/system/annad.service
+    sudo systemctl daemon-reload
     echo -e "${GREEN}${CHECK}${RESET} Service file removed"
 fi
 
 # Remove binaries
 echo -e "${CYAN}${ARROW}${RESET} Removing binaries..."
-rm -f "${INSTALL_DIR}/annad"
-rm -f "${INSTALL_DIR}/annactl"
+sudo rm -f "${INSTALL_DIR}/annad"
+sudo rm -f "${INSTALL_DIR}/annactl"
 echo -e "${GREEN}${CHECK}${RESET} Binaries removed"
 
 # Ask about user data
@@ -121,22 +116,22 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${CYAN}${ARROW}${RESET} Removing user data..."
 
     if [ -d /etc/anna ]; then
-        rm -rf /etc/anna
+        sudo rm -rf /etc/anna
         echo -e "${GREEN}${CHECK}${RESET} Configuration removed"
     fi
 
     if [ -d /var/log/anna ]; then
-        rm -rf /var/log/anna
+        sudo rm -rf /var/log/anna
         echo -e "${GREEN}${CHECK}${RESET} Logs removed"
     fi
 
     if [ -d /run/anna ]; then
-        rm -rf /run/anna
+        sudo rm -rf /run/anna
         echo -e "${GREEN}${CHECK}${RESET} Runtime data removed"
     fi
 
     if [ -d /var/cache/anna ]; then
-        rm -rf /var/cache/anna
+        sudo rm -rf /var/cache/anna
         echo -e "${GREEN}${CHECK}${RESET} Cache removed"
     fi
 else
@@ -156,7 +151,7 @@ echo
 echo -e "${GRAY}Thanks for using Anna! We're sorry to see you go.${RESET}"
 echo
 echo -e "${CYAN}${INFO}${RESET} ${BOLD}To reinstall Anna in the future:${RESET}"
-echo -e "  ${CYAN}curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | sudo sh${RESET}"
+echo -e "  ${CYAN}curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | sh${RESET}"
 echo
 echo -e "${CYAN}${INFO}${RESET} ${BOLD}Got feedback? We'd love to hear it:${RESET}"
 echo -e "  ${CYAN}https://github.com/${REPO}/issues${RESET}"

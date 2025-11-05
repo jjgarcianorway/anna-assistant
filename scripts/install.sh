@@ -56,17 +56,24 @@ error_exit() {
 
 print_header
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}${CROSS} This installer requires root privileges${RESET}" >&2
-    echo >&2
-    echo -e "${GRAY}Please run with sudo:${RESET}" >&2
-    echo -e "  ${CYAN}curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | sudo sh${RESET}" >&2
-    echo >&2
-    exit 1
+# Check if sudo is available
+if ! command -v sudo >/dev/null 2>&1; then
+    error_exit "sudo is required but not installed. Please install sudo first."
 fi
 
-echo -e "${GREEN}${CHECK}${RESET} Running as root"
+# Ask for confirmation before installing
+echo -e "${BOLD}${YELLOW}This will install Anna Assistant to ${INSTALL_DIR}${RESET}"
+echo -e "${GRAY}The following operations will require sudo privileges:${RESET}"
+echo -e "  ${ARROW} Install binaries to ${INSTALL_DIR}"
+echo -e "  ${ARROW} Install systemd service"
+echo -e "  ${ARROW} Enable and start the daemon"
+echo
+read -p "$(echo -e ${BOLD}${YELLOW}Continue with installation? [y/N]:${RESET} )" -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}${INFO} Installation cancelled by user${RESET}"
+    exit 0
+fi
 
 # Check and install dependencies
 echo -e "${CYAN}${ARROW}${RESET} Checking dependencies..."
@@ -89,10 +96,10 @@ if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
     echo -e "${YELLOW}${WARN}${RESET} Missing dependencies: ${MISSING_DEPS[*]}"
     echo -e "${CYAN}${ARROW}${RESET} Installing missing packages..."
 
-    if pacman -Sy --noconfirm "${MISSING_DEPS[@]}" 2>/dev/null; then
+    if sudo pacman -Sy --noconfirm "${MISSING_DEPS[@]}" 2>/dev/null; then
         echo -e "${GREEN}${CHECK}${RESET} Dependencies installed"
     else
-        error_exit "Failed to install dependencies. Please install manually: pacman -S ${MISSING_DEPS[*]}"
+        error_exit "Failed to install dependencies. Please install manually: sudo pacman -S ${MISSING_DEPS[*]}"
     fi
 else
     echo -e "${GREEN}${CHECK}${RESET} All dependencies satisfied"
@@ -177,11 +184,11 @@ fi
 echo -e "${CYAN}${ARROW}${RESET} Stopping any running instances..."
 
 # Stop systemd service if exists
-systemctl stop annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad service" || true
+sudo systemctl stop annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad service" || true
 
 # Kill any remaining processes
-pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
-pkill -x annactl 2>/dev/null || true
+sudo pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
+sudo pkill -x annactl 2>/dev/null || true
 
 # Wait for processes to fully stop
 sleep 1
@@ -189,12 +196,12 @@ sleep 1
 echo -e "${CYAN}${ARROW}${RESET} Installing to ${INSTALL_DIR}..."
 
 # Create install directory if needed
-mkdir -p "$INSTALL_DIR"
+sudo mkdir -p "$INSTALL_DIR"
 
 # Install binaries
-cp "$TEMP_DIR/annad" "$INSTALL_DIR/annad"
-cp "$TEMP_DIR/annactl" "$INSTALL_DIR/annactl"
-chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
+sudo cp "$TEMP_DIR/annad" "$INSTALL_DIR/annad"
+sudo cp "$TEMP_DIR/annactl" "$INSTALL_DIR/annactl"
+sudo chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
 
 echo -e "${GREEN}${CHECK}${RESET} Binaries installed"
 
@@ -204,20 +211,20 @@ echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
 # Download service file from GitHub
 curl -L -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" 2>/dev/null || error_exit "Failed to download service file"
 
-cp "$TEMP_DIR/annad.service" /etc/systemd/system/annad.service
-chmod 644 /etc/systemd/system/annad.service
+sudo cp "$TEMP_DIR/annad.service" /etc/systemd/system/annad.service
+sudo chmod 644 /etc/systemd/system/annad.service
 
-systemctl daemon-reload
+sudo systemctl daemon-reload
 echo -e "${GREEN}${CHECK}${RESET} Service file installed"
 
 # Enable and start service
 if systemctl is-enabled --quiet annad 2>/dev/null; then
     echo -e "${CYAN}${ARROW}${RESET} Restarting annad service..."
-    systemctl restart annad
+    sudo systemctl restart annad
     echo -e "${GREEN}${CHECK}${RESET} Service restarted"
 else
     echo -e "${CYAN}${ARROW}${RESET} Enabling and starting annad service..."
-    systemctl enable --now annad
+    sudo systemctl enable --now annad
     echo -e "${GREEN}${CHECK}${RESET} Service enabled and started"
 fi
 
