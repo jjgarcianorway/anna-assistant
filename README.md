@@ -4,7 +4,31 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.59 (November 2025)
+**Current Version:** Beta.60 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.60
+
+**🖥️ TUI Command Output Display (CRITICAL FEATURE!):**
+- Shows real-time command output when applying recommendations
+- Modal overlay window displays stdout/stderr
+- Scrollable output (↑↓, PageUp/PageDown)
+- Yellow border while executing, green when complete
+- Can't close until command finishes (prevents accidents)
+- No more "is it dead?" moments!
+
+**User Experience:**
+- Before: Apply → frozen screen → "is Anna dead?"
+- After: Apply → see live pacman output → watch progress → ✓ Complete
+
+**How It Works:**
+1. Press 'a' on recommendation
+2. Confirm with 'y'
+3. NEW: Output window opens showing command execution
+4. Watch real-time output as packages install
+5. Scroll through output if needed
+6. Press 'q' when ✓ Complete shows
 
 ---
 

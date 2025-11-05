@@ -35,6 +35,8 @@ enum ViewMode {
     Details,
     /// Confirmation dialog for applying a recommendation
     ApplyConfirm,
+    /// Output display showing command execution in real-time
+    OutputDisplay,
 }
 
 /// Sort mode for recommendations
@@ -74,6 +76,14 @@ struct Tui {
     list_to_advice_map: Vec<Option<usize>>,
     /// Scroll offset for details view
     details_scroll: u16,
+    /// Command output buffer for OutputDisplay view
+    output_buffer: Vec<String>,
+    /// Scroll offset for output view
+    output_scroll: u16,
+    /// Is command still executing?
+    output_executing: bool,
+    /// Title for output window
+    output_title: String,
 }
 
 /// Get category emoji and color for display (using centralized categories)
@@ -121,6 +131,10 @@ impl Tui {
             pending_apply: None,
             list_to_advice_map: Vec::new(),
             details_scroll: 0,
+            output_buffer: Vec::new(),
+            output_scroll: 0,
+            output_executing: false,
+            output_title: String::new(),
         }
     }
 
@@ -227,26 +241,41 @@ impl Tui {
                 dry_run: false
             }).await? {
                 ResponseData::ActionResult { success, message } => {
+                    // Add output lines to buffer
+                    self.output_buffer.push(String::new());
+                    for line in message.lines() {
+                        self.output_buffer.push(line.to_string());
+                    }
+                    self.output_buffer.push(String::new());
+
                     if success {
+                        self.output_buffer.push("✓ Action completed successfully!".to_string());
                         self.status_message = Some((
-                            format!("✓ Action completed successfully: {}", message),
+                            "✓ Action completed successfully".to_string(),
                             Color::Green
                         ));
+                        // Mark as finished
+                        self.output_executing = false;
                         // Don't refresh immediately - let auto-refresh handle it after a few seconds
                         // This gives the user time to see the success message
                     } else {
+                        self.output_buffer.push("✗ Action failed!".to_string());
                         self.status_message = Some((
-                            format!("✗ Action failed: {}", message),
+                            "✗ Action failed".to_string(),
                             Color::Red
                         ));
+                        // Mark as finished (even on failure)
+                        self.output_executing = false;
                         // Still don't refresh on failure - the advice remains to retry if needed
                     }
                 }
                 _ => {
+                    self.output_buffer.push("✗ Unexpected response from daemon".to_string());
                     self.status_message = Some((
                         "Unexpected response from daemon - please check logs".to_string(),
                         Color::Red
                     ));
+                    self.output_executing = false;
                 }
             }
         }
@@ -261,6 +290,7 @@ impl Tui {
                     ViewMode::Dashboard => self.handle_dashboard_keys(key.code),
                     ViewMode::Details => self.handle_details_keys(key.code),
                     ViewMode::ApplyConfirm => self.handle_confirm_keys(key.code),
+                    ViewMode::OutputDisplay => self.handle_output_keys(key.code),
                 }
             }
         }
@@ -467,18 +497,56 @@ impl Tui {
         match key {
             KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
                 // Apply the recommendation
-                if let Some(advice) = self.selected_advice() {
+                // Clone data first to avoid borrow issues
+                if let Some(advice) = self.selected_advice().cloned() {
                     // Set pending action to be executed in async context
                     self.pending_apply = Some(advice.id.clone());
-                    self.status_message = Some((
-                        "Applying...".to_string(),
-                        Color::Yellow
-                    ));
+                    self.output_title = format!("Applying: {}", advice.title);
+                    self.output_buffer.clear();
+                    self.output_buffer.push(format!("→ Executing: {}", advice.command.as_ref().unwrap_or(&"N/A".to_string())));
+                    self.output_buffer.push(String::new());
+                    self.output_executing = true;
+                    self.output_scroll = 0;
+                    // Switch to output display view to show progress
+                    self.view_mode = ViewMode::OutputDisplay;
                 }
-                self.view_mode = ViewMode::Dashboard;
             }
             KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                 self.view_mode = ViewMode::Dashboard;
+            }
+            _ => {}
+        }
+    }
+
+    /// Handle keys in output display view
+    fn handle_output_keys(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Char('q') | KeyCode::Esc => {
+                // Only allow closing if command finished executing
+                if !self.output_executing {
+                    self.view_mode = ViewMode::Dashboard;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                // Scroll down in output
+                if self.output_scroll < self.output_buffer.len().saturating_sub(1) as u16 {
+                    self.output_scroll += 1;
+                }
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                // Scroll up in output
+                self.output_scroll = self.output_scroll.saturating_sub(1);
+            }
+            KeyCode::PageDown => {
+                // Scroll down by page
+                self.output_scroll = self.output_scroll.saturating_add(10);
+                if self.output_scroll >= self.output_buffer.len() as u16 {
+                    self.output_scroll = self.output_buffer.len().saturating_sub(1) as u16;
+                }
+            }
+            KeyCode::PageUp => {
+                // Scroll up by page
+                self.output_scroll = self.output_scroll.saturating_sub(10);
             }
             _ => {}
         }
@@ -563,6 +631,7 @@ fn draw(f: &mut Frame, tui: &mut Tui) {
         ViewMode::Dashboard => draw_dashboard(f, tui),
         ViewMode::Details => draw_details(f, tui),
         ViewMode::ApplyConfirm => draw_apply_confirm(f, tui),
+        ViewMode::OutputDisplay => draw_output_display(f, tui),
     }
 }
 
@@ -783,6 +852,74 @@ fn draw_apply_confirm(f: &mut Frame, tui: &Tui) {
     }
 
     draw_footer(f, chunks[2], "Confirm", tui.sort_mode, tui);
+}
+
+/// Draw command output display view
+fn draw_output_display(f: &mut Frame, tui: &Tui) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),      // Header
+            Constraint::Min(10),        // Output
+            Constraint::Length(3),      // Footer
+        ])
+        .split(f.size());
+
+    draw_header(f, chunks[0]);
+
+    // Build output lines with scrolling
+    let output_lines: Vec<Line> = tui.output_buffer
+        .iter()
+        .skip(tui.output_scroll as usize)
+        .map(|line| Line::from(line.as_str()))
+        .collect();
+
+    // Add status indicator at the end
+    let mut final_lines = output_lines;
+    if tui.output_executing {
+        final_lines.push(Line::from(""));
+        final_lines.push(Line::from(Span::styled("⏳ Executing...", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+    } else {
+        final_lines.push(Line::from(""));
+        final_lines.push(Line::from(Span::styled("✓ Complete", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))));
+        final_lines.push(Line::from(""));
+        final_lines.push(Line::from(Span::styled("Press 'q' or ESC to close", Style::default().fg(Color::Gray))));
+    }
+
+    let title = format!(" {} ", tui.output_title);
+    let border_color = if tui.output_executing { Color::Yellow } else { Color::Green };
+
+    let output = Paragraph::new(final_lines)
+        .block(Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(border_color))
+            .title(title))
+        .wrap(Wrap { trim: false });
+
+    f.render_widget(output, chunks[1]);
+
+    // Custom footer for output view
+    let footer_text = if tui.output_executing {
+        vec![
+            Span::styled(" ⏳ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw("Command is executing... "),
+            Span::styled("↑↓", Style::default().fg(Color::Cyan)),
+            Span::raw(" Scroll"),
+        ]
+    } else {
+        vec![
+            Span::styled(" [q] ", Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" Close  "),
+            Span::styled("↑↓", Style::default().fg(Color::Cyan)),
+            Span::raw(" Scroll"),
+        ]
+    };
+
+    let footer = Paragraph::new(Line::from(footer_text))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
+        .alignment(Alignment::Left);
+
+    f.render_widget(footer, chunks[2]);
 }
 
 /// Draw header with logo and info
