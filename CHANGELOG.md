@@ -5,6 +5,134 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.34] - 2025-11-05
+
+### 📊 History Tracking & Enhanced Wiki Cache!
+
+**ANALYTICS:** Track your system improvements over time! See success rates, top categories, and health improvements.
+
+### ✨ Major Features
+
+**📈 Application History Tracking**
+- Persistent JSONL-based history at `/var/log/anna/application_history.jsonl`
+- Tracks every recommendation you apply with full details
+- Records success/failure status and health score changes
+- Command-level audit trail with timestamps
+
+**📊 Analytics & Insights**
+- Success rate calculations with visual progress bars
+- Top category analysis - see what you optimize most
+- Average health improvement tracking
+- Period-based statistics (last N days)
+- Detailed entry view for troubleshooting
+
+**🖥️ New `annactl history` Command**
+- `--days N` - Show history for last N days (default: 30)
+- `--detailed` - Show full command output and details
+- Beautiful visual bars for success rates
+- Category popularity ranking with charts
+- Health score improvement trends
+
+**📚 Massively Expanded Wiki Cache**
+- Increased from 15 to 40+ essential Arch Wiki pages
+- Categories: Installation, Security, Package Management, Hardware, Desktop Environments
+- Development tools (Python, Rust, Node.js, Docker, Git)
+- Gaming pages (Gaming, Steam, Wine)
+- Network configuration (SSH, Firewall, Wireless)
+- Power management for laptops (TLP, powertop)
+- Troubleshooting resources (FAQ, Debugging)
+
+### 🔧 Technical Details
+
+**History Module:**
+```rust
+pub struct HistoryEntry {
+    pub advice_id: String,
+    pub advice_title: String,
+    pub category: String,
+    pub applied_at: DateTime<Utc>,
+    pub applied_by: String,
+    pub command_run: Option<String>,
+    pub success: bool,
+    pub output: String,
+    pub health_score_before: Option<u8>,
+    pub health_score_after: Option<u8>,
+}
+
+pub struct ApplicationHistory {
+    pub entries: Vec<HistoryEntry>,
+}
+
+impl ApplicationHistory {
+    pub fn success_rate(&self) -> f64
+    pub fn top_categories(&self, count: usize) -> Vec<(String, usize)>
+    pub fn average_health_improvement(&self) -> Option<f64>
+    pub fn period_stats(&self, days: i64) -> PeriodStats
+}
+```
+
+**Wiki Cache Expansion:**
+- Essential guides (Installation, General recommendations, System maintenance)
+- Security hardening resources
+- Complete hardware driver documentation (NVIDIA, Intel, AMD)
+- All major desktop environments (GNOME, KDE, Xfce)
+- Development language resources
+- Gaming optimization guides
+- Network and SSH configuration
+- Laptop power management
+
+### 💡 What This Means
+
+**Track Your Progress:**
+- See how many recommendations you've applied
+- Monitor your success rate over time
+- Identify which categories you optimize most
+- Measure actual health score improvements
+
+**Data-Driven Decisions:**
+- Understand which optimizations work best
+- See trends in your system maintenance
+- Identify patterns in failures for better troubleshooting
+
+**Enhanced Offline Access:**
+- 40+ essential Arch Wiki pages cached locally
+- Faster access to documentation
+- Work offline with full wiki resources
+- Curated selection of most useful pages
+
+### 📊 Example Usage
+
+**View Recent History:**
+```bash
+annactl history --days 7
+```
+
+**Detailed Output:**
+```bash
+annactl history --days 30 --detailed
+```
+
+**Example Output:**
+```
+📊 Last 30 Days
+
+  Total Applications:  42
+  Successful:          39
+  Failed:              3
+  Success Rate:        92.9%
+
+  ████████████████████████████████████░░░░
+
+  📈 Top Categories:
+     1. security           15  ████████████████████
+     2. performance        12  ████████████████
+     3. hardware           8   ███████████
+     4. packages           5   ███████
+     5. development        2   ███
+
+  Average Health Improvement: +5.3 points
+```
+
 ## [1.0.0-beta.33] - 2025-01-05
 
 ### 📚 Smart Recommendations & Wiki Integration!

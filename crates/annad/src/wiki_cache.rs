@@ -109,23 +109,68 @@ pub async fn update_common_pages() -> Result<()> {
 
     let mut cache = WikiCache::load().unwrap_or_default();
 
-    // List of commonly referenced pages
+    // List of essential and commonly referenced pages
     let common_pages = vec![
+        // Essential/Installation
+        ("https://wiki.archlinux.org/title/Installation_guide", "Installation guide"),
+        ("https://wiki.archlinux.org/title/General_recommendations", "General recommendations"),
+
+        // Security & System
         ("https://wiki.archlinux.org/title/Security", "Security"),
-        ("https://wiki.archlinux.org/title/Improving_performance", "Improving performance"),
         ("https://wiki.archlinux.org/title/System_maintenance", "System maintenance"),
-        ("https://wiki.archlinux.org/title/Power_management", "Power management"),
+        ("https://wiki.archlinux.org/title/Improving_performance", "Improving performance"),
+
+        // Package Management
         ("https://wiki.archlinux.org/title/Pacman", "Pacman"),
+        ("https://wiki.archlinux.org/title/Pacman/Tips_and_tricks", "Pacman tips and tricks"),
+        ("https://wiki.archlinux.org/title/AUR_helpers", "AUR helpers"),
+        ("https://wiki.archlinux.org/title/Arch_User_Repository", "Arch User Repository"),
+
+        // System Core
         ("https://wiki.archlinux.org/title/Systemd", "Systemd"),
         ("https://wiki.archlinux.org/title/Kernel_parameters", "Kernel parameters"),
-        ("https://wiki.archlinux.org/title/Docker", "Docker"),
-        ("https://wiki.archlinux.org/title/Python", "Python"),
-        ("https://wiki.archlinux.org/title/Rust", "Rust"),
-        ("https://wiki.archlinux.org/title/Gaming", "Gaming"),
+        ("https://wiki.archlinux.org/title/Users_and_groups", "Users and groups"),
+
+        // Hardware & Drivers
+        ("https://wiki.archlinux.org/title/Hardware", "Hardware"),
+        ("https://wiki.archlinux.org/title/Xorg", "Xorg"),
+        ("https://wiki.archlinux.org/title/Wayland", "Wayland"),
+        ("https://wiki.archlinux.org/title/NVIDIA", "NVIDIA"),
+        ("https://wiki.archlinux.org/title/Intel_graphics", "Intel graphics"),
+        ("https://wiki.archlinux.org/title/AMDGPU", "AMDGPU"),
+
+        // Network
+        ("https://wiki.archlinux.org/title/Network_configuration", "Network configuration"),
+        ("https://wiki.archlinux.org/title/Wireless_network_configuration", "Wireless network configuration"),
         ("https://wiki.archlinux.org/title/Firewall", "Firewall"),
         ("https://wiki.archlinux.org/title/SSH", "SSH"),
-        ("https://wiki.archlinux.org/title/Hardware", "Hardware"),
+
+        // Desktop Environment
         ("https://wiki.archlinux.org/title/Desktop_environment", "Desktop environment"),
+        ("https://wiki.archlinux.org/title/GNOME", "GNOME"),
+        ("https://wiki.archlinux.org/title/KDE", "KDE"),
+        ("https://wiki.archlinux.org/title/Xfce", "Xfce"),
+
+        // Development
+        ("https://wiki.archlinux.org/title/Python", "Python"),
+        ("https://wiki.archlinux.org/title/Rust", "Rust"),
+        ("https://wiki.archlinux.org/title/Node.js", "Node.js"),
+        ("https://wiki.archlinux.org/title/Docker", "Docker"),
+        ("https://wiki.archlinux.org/title/Git", "Git"),
+
+        // Gaming & Multimedia
+        ("https://wiki.archlinux.org/title/Gaming", "Gaming"),
+        ("https://wiki.archlinux.org/title/Steam", "Steam"),
+        ("https://wiki.archlinux.org/title/Wine", "Wine"),
+
+        // Power & Laptop
+        ("https://wiki.archlinux.org/title/Power_management", "Power management"),
+        ("https://wiki.archlinux.org/title/Laptop", "Laptop"),
+        ("https://wiki.archlinux.org/title/TLP", "TLP"),
+
+        // Troubleshooting
+        ("https://wiki.archlinux.org/title/FAQ", "FAQ"),
+        ("https://wiki.archlinux.org/title/Debugging", "Debugging"),
     ];
 
     for (url, title) in common_pages {

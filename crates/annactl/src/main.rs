@@ -125,6 +125,17 @@ enum Commands {
         #[arg(long)]
         num: Option<usize>,
     },
+
+    /// View application history and analytics
+    History {
+        /// Number of days to show (default: 30)
+        #[arg(long, default_value = "30")]
+        days: i64,
+
+        /// Show detailed entries
+        #[arg(long)]
+        detailed: bool,
+    },
 }
 
 #[tokio::main]
@@ -144,5 +155,6 @@ async fn main() -> Result<()> {
         Commands::WikiCache { force } => commands::wiki_cache(force).await,
         Commands::Health => commands::health().await,
         Commands::Dismiss { id, num } => commands::dismiss(id, num).await,
+        Commands::History { days, detailed } => commands::history(days, detailed).await,
     }
 }

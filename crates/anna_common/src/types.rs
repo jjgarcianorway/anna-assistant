@@ -938,3 +938,168 @@ pub struct RpcResponse {
     pub data: serde_json::Value,
     pub error: Option<String>,
 }
+
+/// History entry for an applied recommendation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoryEntry {
+    pub advice_id: String,
+    pub advice_title: String,
+    pub category: String,
+    pub applied_at: DateTime<Utc>,
+    pub applied_by: String,
+    pub command_run: Option<String>,
+    pub success: bool,
+    pub output: String,
+    pub health_score_before: Option<u8>,
+    pub health_score_after: Option<u8>,
+}
+
+/// Application history log
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ApplicationHistory {
+    pub entries: Vec<HistoryEntry>,
+}
+
+impl ApplicationHistory {
+    /// Get path to history file
+    pub fn history_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("/var/log/anna/application_history.jsonl")
+    }
+
+    /// Load history from disk
+    pub fn load() -> Result<Self, std::io::Error> {
+        let path = Self::history_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+
+        let content = std::fs::read_to_string(path)?;
+        let mut entries = Vec::new();
+
+        for line in content.lines() {
+            if let Ok(entry) = serde_json::from_str::<HistoryEntry>(line) {
+                entries.push(entry);
+            }
+        }
+
+        Ok(Self { entries })
+    }
+
+    /// Save history to disk
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        let path = Self::history_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let mut content = String::new();
+        for entry in &self.entries {
+            if let Ok(json) = serde_json::to_string(entry) {
+                content.push_str(&json);
+                content.push('\n');
+            }
+        }
+
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    /// Record an application
+    pub fn record(&mut self, entry: HistoryEntry) {
+        self.entries.push(entry);
+    }
+
+    /// Get recent applications
+    pub fn recent(&self, count: usize) -> Vec<&HistoryEntry> {
+        self.entries.iter().rev().take(count).collect()
+    }
+
+    /// Get applications from the last N days
+    pub fn last_n_days(&self, days: i64) -> Vec<&HistoryEntry> {
+        let cutoff = Utc::now() - chrono::Duration::days(days);
+        self.entries
+            .iter()
+            .filter(|e| e.applied_at > cutoff)
+            .collect()
+    }
+
+    /// Calculate success rate
+    pub fn success_rate(&self) -> f64 {
+        if self.entries.is_empty() {
+            return 0.0;
+        }
+        let successful = self.entries.iter().filter(|e| e.success).count();
+        (successful as f64 / self.entries.len() as f64) * 100.0
+    }
+
+    /// Get most applied categories
+    pub fn top_categories(&self, count: usize) -> Vec<(String, usize)> {
+        let mut category_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+
+        for entry in &self.entries {
+            *category_counts.entry(entry.category.clone()).or_insert(0) += 1;
+        }
+
+        let mut counts: Vec<_> = category_counts.into_iter().collect();
+        counts.sort_by(|a, b| b.1.cmp(&a.1));
+        counts.into_iter().take(count).collect()
+    }
+
+    /// Calculate average health improvement
+    pub fn average_health_improvement(&self) -> Option<f64> {
+        let mut improvements = Vec::new();
+
+        for entry in &self.entries {
+            if let (Some(before), Some(after)) = (entry.health_score_before, entry.health_score_after) {
+                improvements.push((after as i16 - before as i16) as f64);
+            }
+        }
+
+        if improvements.is_empty() {
+            return None;
+        }
+
+        Some(improvements.iter().sum::<f64>() / improvements.len() as f64)
+    }
+
+    /// Get statistics for a time period
+    pub fn period_stats(&self, days: i64) -> PeriodStats {
+        let entries = self.last_n_days(days);
+        
+        let total = entries.len();
+        let successful = entries.iter().filter(|e| e.success).count();
+        let failed = total - successful;
+
+        let mut category_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        for entry in &entries {
+            *category_counts.entry(entry.category.clone()).or_insert(0) += 1;
+        }
+
+        let top_category = category_counts
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(cat, count)| (cat, count));
+
+        PeriodStats {
+            total_applications: total,
+            successful_applications: successful,
+            failed_applications: failed,
+            success_rate: if total > 0 { (successful as f64 / total as f64) * 100.0 } else { 0.0 },
+            top_category,
+            days,
+        }
+    }
+}
+
+/// Statistics for a time period
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeriodStats {
+    pub total_applications: usize,
+    pub successful_applications: usize,
+    pub failed_applications: usize,
+    pub success_rate: f64,
+    pub top_category: Option<(String, usize)>,
+    pub days: i64,
+}
