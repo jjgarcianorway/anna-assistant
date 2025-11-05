@@ -10,7 +10,7 @@ Anna should be an intelligent, autonomous system administrator that:
 
 ---
 
-## Current Status (v1.0.0-beta.41)
+## Current Status (v1.0.0-beta.42)
 
 ### ✅ Complete
 - [x] Core data models and types
@@ -50,12 +50,22 @@ Anna should be an intelligent, autonomous system administrator that:
 - [x] **Snapshot system** - Btrfs/Timeshift/rsync support for safe rollback
 - [x] **Category consistency** - All categories properly styled with emojis and colors
 - [x] **Hardware video acceleration** - Recommendations for Intel, AMD, and Nvidia GPUs
+- [x] **Interactive TUI** - Full-featured terminal UI with scrolling, details view, and apply confirmation
+- [x] **Auto-update system** - `annactl update` command with GitHub API integration and safe updates
 
-### 🚧 In Progress
+### 🚧 In Progress (Beta.43)
+- [ ] **TUI sorting** - Sort recommendations by category/risk/priority with hotkeys
+- [ ] **Popularity indicators** - Show how commonly each recommendation is applied by users
 - [ ] **Autonomy tiers** - Graduated automatic maintenance (Tier 0-3)
-- [ ] **TUI Dashboard** - Interactive configuration interface
 - [ ] **Learning system** - Track user behavior and adapt
 - [ ] **Arch Wiki caching** - Offline documentation access
+
+### 📋 Planned Features (Beta.44+)
+- [ ] **Enhanced UI dialogs** - Consider whiptail/dialog/kdialog/zenity/gum for better interactivity
+- [ ] **Workflow bundles** - Pre-configured package bundles (Gaming, Development, Content Creation)
+- [ ] **Bundle rollback** - Easily uninstall entire bundles
+- [ ] **Recommendation statistics** - Track success rates and user feedback
+- [ ] **Community data integration** - Learn from other Anna users (privacy-preserving)
 
 ---
 

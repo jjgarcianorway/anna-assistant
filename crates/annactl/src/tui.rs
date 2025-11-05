@@ -23,7 +23,7 @@ use std::io;
 use std::time::{Duration, Instant};
 
 use crate::rpc_client::RpcClient;
-use anna_common::{Advice, Priority, SystemFacts};
+use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use anna_common::ipc::{Method, ResponseData};
 
 /// Current view/mode of the TUI
@@ -35,6 +35,17 @@ enum ViewMode {
     Details,
     /// Confirmation dialog for applying a recommendation
     ApplyConfirm,
+}
+
+/// Sort mode for recommendations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SortMode {
+    /// Sort by category
+    Category,
+    /// Sort by priority (Critical → Recommended → Optional)
+    Priority,
+    /// Sort by risk level (Low → Medium → High)
+    Risk,
 }
 
 /// TUI state and data
@@ -55,6 +66,8 @@ struct Tui {
     view_mode: ViewMode,
     /// Status message to display
     status_message: Option<(String, Color)>,
+    /// Current sort mode
+    sort_mode: SortMode,
 }
 
 impl Tui {
@@ -71,6 +84,7 @@ impl Tui {
             should_quit: false,
             view_mode: ViewMode::Dashboard,
             status_message: None,
+            sort_mode: SortMode::Priority, // Default: sort by priority
         }
     }
 
@@ -88,6 +102,8 @@ impl Tui {
         match self.client.call(Method::GetAdvice).await? {
             ResponseData::Advice(advice) => {
                 self.advice = advice;
+                // Sort based on current mode
+                self.sort_advice();
                 // Reset selection if needed
                 if self.advice.is_empty() {
                     self.list_state.select(None);
@@ -100,6 +116,49 @@ impl Tui {
 
         self.last_update = Instant::now();
         Ok(())
+    }
+
+    /// Sort advice based on current sort mode
+    fn sort_advice(&mut self) {
+        match self.sort_mode {
+            SortMode::Category => {
+                self.advice.sort_by(|a, b| a.category.cmp(&b.category));
+            }
+            SortMode::Priority => {
+                self.advice.sort_by(|a, b| {
+                    // Mandatory > Recommended > Optional > Cosmetic
+                    let order_a = match a.priority {
+                        Priority::Mandatory => 0,
+                        Priority::Recommended => 1,
+                        Priority::Optional => 2,
+                        Priority::Cosmetic => 3,
+                    };
+                    let order_b = match b.priority {
+                        Priority::Mandatory => 0,
+                        Priority::Recommended => 1,
+                        Priority::Optional => 2,
+                        Priority::Cosmetic => 3,
+                    };
+                    order_a.cmp(&order_b)
+                });
+            }
+            SortMode::Risk => {
+                self.advice.sort_by(|a, b| {
+                    // Low > Medium > High
+                    let order_a = match a.risk {
+                        RiskLevel::Low => 0,
+                        RiskLevel::Medium => 1,
+                        RiskLevel::High => 2,
+                    };
+                    let order_b = match b.risk {
+                        RiskLevel::Low => 0,
+                        RiskLevel::Medium => 1,
+                        RiskLevel::High => 2,
+                    };
+                    order_a.cmp(&order_b)
+                });
+            }
+        }
     }
 
     /// Get currently selected advice
@@ -142,6 +201,22 @@ impl Tui {
                 if self.selected_advice().is_some() {
                     self.view_mode = ViewMode::Details;
                 }
+            }
+            // Sort mode hotkeys
+            KeyCode::Char('c') => {
+                self.sort_mode = SortMode::Category;
+                self.sort_advice();
+                self.status_message = Some(("Sorted by Category".to_string(), Color::Cyan));
+            }
+            KeyCode::Char('p') => {
+                self.sort_mode = SortMode::Priority;
+                self.sort_advice();
+                self.status_message = Some(("Sorted by Priority".to_string(), Color::Cyan));
+            }
+            KeyCode::Char('r') => {
+                self.sort_mode = SortMode::Risk;
+                self.sort_advice();
+                self.status_message = Some(("Sorted by Risk Level".to_string(), Color::Cyan));
             }
             _ => {}
         }
@@ -288,7 +363,7 @@ fn draw_dashboard(f: &mut Frame, tui: &mut Tui) {
     draw_recommendations(f, main_chunks[1], tui);
 
     // Footer
-    draw_footer(f, chunks[3], "Dashboard");
+    draw_footer(f, chunks[3], "Dashboard", tui.sort_mode);
 }
 
 /// Draw details view for selected recommendation
@@ -358,7 +433,7 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
         f.render_widget(details, chunks[1]);
     }
 
-    draw_footer(f, chunks[2], "Details");
+    draw_footer(f, chunks[2], "Details", tui.sort_mode);
 }
 
 /// Draw apply confirmation dialog
@@ -409,7 +484,7 @@ fn draw_apply_confirm(f: &mut Frame, tui: &Tui) {
         f.render_widget(confirm, chunks[1]);
     }
 
-    draw_footer(f, chunks[2], "Confirm");
+    draw_footer(f, chunks[2], "Confirm", tui.sort_mode);
 }
 
 /// Draw header with logo and info
@@ -615,13 +690,16 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
 }
 
 /// Draw footer with keyboard shortcuts
-fn draw_footer(f: &mut Frame, area: Rect, mode: &str) {
+fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode) {
     let shortcuts = match mode {
         "Dashboard" => vec![
             (" q/Esc ", " Quit  "),
             (" ↑/k ", " Up  "),
             (" ↓/j ", " Down  "),
             (" Enter ", " Details  "),
+            (" c ", " Category  "),
+            (" p ", " Priority  "),
+            (" r ", " Risk  "),
         ],
         "Details" => vec![
             (" Esc ", " Back  "),
@@ -641,6 +719,17 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str) {
         spans.push(Span::styled(key, Style::default().fg(Color::Black).bg(Color::Gray)));
         spans.push(Span::raw(desc));
     }
+
+    // Add sort mode indicator
+    if mode == "Dashboard" {
+        let sort_text = match sort_mode {
+            SortMode::Category => "  Sort: Category",
+            SortMode::Priority => "  Sort: Priority",
+            SortMode::Risk => "  Sort: Risk",
+        };
+        spans.push(Span::styled(sort_text, Style::default().fg(Color::Cyan)));
+    }
+
     spans.push(Span::raw("  Auto-refresh: 2s"));
 
     let footer = Paragraph::new(Line::from(spans))
