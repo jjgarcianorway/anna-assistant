@@ -75,6 +75,27 @@ impl AuditLogger {
     pub fn path(&self) -> &Path {
         &self.log_path
     }
+
+    /// Get all successfully applied advice IDs from audit log
+    pub async fn get_applied_advice_ids(&self) -> Result<Vec<String>> {
+        let entries = self.read_all().await?;
+
+        let advice_ids: Vec<String> = entries
+            .into_iter()
+            .filter(|entry| entry.success && entry.action_type == "apply_action")
+            .filter_map(|entry| {
+                // Parse advice_id from details string: "Executed command '...' from advice <advice_id>"
+                if let Some(pos) = entry.details.rfind(" from advice ") {
+                    let advice_id = entry.details[(pos + 13)..].trim();
+                    Some(advice_id.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(advice_ids)
+    }
 }
 
 #[cfg(test)]

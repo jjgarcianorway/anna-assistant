@@ -39,6 +39,43 @@ impl DaemonState {
     }
 }
 
+/// Filter advice to remove items satisfied by previously applied advice
+async fn filter_satisfied_advice(advice: Vec<Advice>, audit_logger: &AuditLogger, all_advice: &[Advice]) -> Vec<Advice> {
+    // Get all applied advice IDs from audit log
+    let applied_ids = match audit_logger.get_applied_advice_ids().await {
+        Ok(ids) => ids,
+        Err(e) => {
+            warn!("Failed to get applied advice IDs: {}", e);
+            return advice; // Return unfiltered if we can't check
+        }
+    };
+
+    // Build a set of satisfied advice IDs by checking what each applied advice satisfies
+    let mut satisfied_ids = std::collections::HashSet::new();
+    for applied_id in &applied_ids {
+        // Find the applied advice in the full advice list
+        if let Some(applied_advice) = all_advice.iter().find(|a| &a.id == applied_id) {
+            // Add all advice IDs that this applied advice satisfies
+            for satisfied_id in &applied_advice.satisfies {
+                satisfied_ids.insert(satisfied_id.clone());
+            }
+        }
+    }
+
+    // Filter out satisfied advice
+    let original_count = advice.len();
+    let filtered: Vec<Advice> = advice
+        .into_iter()
+        .filter(|adv| !satisfied_ids.contains(&adv.id))
+        .collect();
+
+    if filtered.len() < original_count {
+        info!("Filtered out {} satisfied advice items", original_count - filtered.len());
+    }
+
+    filtered
+}
+
 /// Start the RPC server
 pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
     // Ensure socket directory exists
@@ -141,8 +178,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
         }
 
         Method::GetAdvice => {
-            let advice = state.advice.read().await.clone();
-            Ok(ResponseData::Advice(advice))
+            let all_advice = state.advice.read().await.clone();
+            let filtered_advice = filter_satisfied_advice(all_advice.clone(), &state.audit_logger, &all_advice).await;
+            Ok(ResponseData::Advice(filtered_advice))
         }
 
         Method::GetAdviceWithContext { username, desktop_env, shell, display_server } => {
@@ -150,7 +188,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             let all_advice = state.advice.read().await.clone();
             let total_count = all_advice.len();
 
-            let filtered_advice: Vec<_> = all_advice.into_iter()
+            let context_filtered: Vec<_> = all_advice.clone().into_iter()
                 .filter(|advice| {
                     // System-wide advice (security, updates, etc.) - show to everyone
                     if matches!(advice.category.as_str(), "security" | "updates" | "performance" | "cleanup") {
@@ -187,6 +225,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                     true
                 })
                 .collect();
+
+            // Also filter out satisfied advice
+            let filtered_advice = filter_satisfied_advice(context_filtered, &state.audit_logger, &all_advice).await;
 
             info!("Filtered advice for user {}: {} -> {} items",
                   username, total_count, filtered_advice.len());

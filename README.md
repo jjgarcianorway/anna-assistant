@@ -4,7 +4,30 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.61 (November 2025)
+**Current Version:** Beta.62 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.62
+
+**🔗 Smart Advice Dependencies:**
+- Advice can now satisfy other advice when applied
+- Bundles automatically remove individual recommendations they include
+- Example: Installing "Hyprland Setup Bundle" removes individual package advice
+- Prevents duplicate or redundant recommendations
+- Intelligent filtering based on application history
+
+**Technical Implementation:**
+- Added `satisfies: Vec<String>` field to Advice struct
+- Filters advice based on audit log of applied actions
+- When advice is applied, satisfied advice is automatically hidden
+- Works with builder pattern: `.with_satisfies(vec!["advice-id"])`
+
+**User Experience:**
+- Before: Apply bundle → still see individual package recommendations
+- After: Apply bundle → related individual advice automatically removed
+- Cleaner, more organized recommendation list
+- No more redundant suggestions
 
 ---
 

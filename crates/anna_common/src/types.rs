@@ -634,6 +634,8 @@ pub struct Advice {
     pub related_to: Vec<String>, // IDs of related advice (suggestions, not dependencies)
     #[serde(default)]
     pub bundle: Option<String>, // Workflow bundle name (e.g., "Python Dev Stack")
+    #[serde(default)]
+    pub satisfies: Vec<String>, // IDs of advice that are satisfied/replaced by this advice (e.g., bundles that replace individual packages)
     /// Popularity score (0-100): how commonly this recommendation is needed/applied
     /// 90-100: Essential (microcode, drivers, security basics)
     /// 70-89: Very common (dev tools, popular packages)
@@ -671,6 +673,7 @@ impl Advice {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50, // Default: common
         }
     }
@@ -696,6 +699,12 @@ impl Advice {
     /// Set workflow bundle
     pub fn with_bundle(mut self, bundle: String) -> Self {
         self.bundle = Some(bundle);
+        self
+    }
+
+    /// Set advice IDs that this advice satisfies/replaces
+    pub fn with_satisfies(mut self, satisfies: Vec<String>) -> Self {
+        self.satisfies = satisfies;
         self
     }
 

@@ -217,6 +217,7 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -242,6 +243,7 @@ fn check_microcode(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -279,6 +281,7 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                                     depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
                 }
@@ -305,6 +308,7 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
                                     depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
                 }
@@ -346,6 +350,7 @@ fn check_intel_gpu_support(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -379,6 +384,7 @@ fn check_intel_gpu_support(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -414,6 +420,7 @@ fn check_amd_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -441,6 +448,7 @@ fn check_amd_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -578,6 +586,7 @@ fn check_orphan_packages(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -615,6 +624,7 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else {
@@ -642,6 +652,7 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                                     depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
                 }
@@ -662,6 +673,7 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                                     depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
                 }
@@ -682,6 +694,7 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -730,6 +743,7 @@ fn check_system_updates() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -772,6 +786,7 @@ fn check_trim_timer(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -802,6 +817,7 @@ fn check_pacman_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -822,6 +838,7 @@ fn check_pacman_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -870,6 +887,7 @@ fn check_systemd_health() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -907,6 +925,7 @@ fn check_network_manager(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else {
@@ -932,6 +951,7 @@ fn check_network_manager(facts: &SystemFacts) -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -975,6 +995,7 @@ fn check_firewall() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -1004,6 +1025,7 @@ fn check_firewall() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -1045,6 +1067,7 @@ fn check_aur_helper() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -1078,6 +1101,7 @@ fn check_reflector() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     } else {
@@ -1101,6 +1125,7 @@ fn check_reflector() -> Vec<Advice> {
                                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
                     }
@@ -1151,6 +1176,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1181,6 +1207,7 @@ fn check_ssh_config() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -1208,6 +1235,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1234,6 +1262,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1260,6 +1289,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1285,6 +1315,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1310,6 +1341,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1335,6 +1367,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1361,6 +1394,7 @@ fn check_ssh_config() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1398,6 +1432,7 @@ fn check_ssh_config() -> Vec<Advice> {
                     depends_on: Vec::new(),
                     related_to: vec!["ssh-no-root-login".to_string()],
                     bundle: Some("ssh-hardening".to_string()),
+            satisfies: Vec::new(),
                     popularity: 70,
                 });
             }
@@ -1423,6 +1458,7 @@ fn check_ssh_config() -> Vec<Advice> {
                     depends_on: Vec::new(),
                     related_to: vec!["ssh-ed25519-keys".to_string()],
                     bundle: Some("ssh-hardening".to_string()),
+            satisfies: Vec::new(),
                     popularity: 65,
                 });
             }
@@ -1444,6 +1480,7 @@ fn check_ssh_config() -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: vec!["ssh-no-root-login".to_string()],
                 bundle: Some("ssh-hardening".to_string()),
+            satisfies: Vec::new(),
                 popularity: 60,
             });
         }
@@ -1472,6 +1509,7 @@ fn check_ssh_config() -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: vec!["ssh-no-root-login".to_string(), "ssh-modern-ciphers".to_string()],
                 bundle: Some("ssh-hardening".to_string()),
+            satisfies: Vec::new(),
                 popularity: 55,
             });
         }
@@ -1521,6 +1559,7 @@ fn check_swap() -> Vec<Advice> {
                                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
                             }
@@ -1551,6 +1590,7 @@ fn check_swap() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -1594,6 +1634,7 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -1621,6 +1662,7 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1647,6 +1689,7 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1673,6 +1716,7 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -1692,6 +1736,7 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -1729,6 +1774,7 @@ fn check_shell_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: vec!["shell-prompt".to_string(), "bash-starship".to_string()],
             bundle: Some("shell-beautification".to_string()),
+            satisfies: Vec::new(),
             popularity: 35,
         });
     }
@@ -1798,6 +1844,7 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("wayland-essentials".to_string()),
+            satisfies: Vec::new(),
                 popularity: 80,
             });
         } else {
@@ -1826,6 +1873,7 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("wm-essentials".to_string()),
+            satisfies: Vec::new(),
                 popularity: 75,
             });
         }
@@ -1872,6 +1920,7 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: vec!["install-waybar".to_string(), "install-polybar".to_string()],
                 bundle: None,
+            satisfies: Vec::new(),
                 popularity: 75,
             });
         }
@@ -1902,6 +1951,7 @@ fn check_sysctl_parameters() -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("security-hardening".to_string()),
+            satisfies: Vec::new(),
                 popularity: 60,
             });
         }
@@ -1921,6 +1971,7 @@ fn check_sysctl_parameters() -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: vec!["kernel-dmesg-restrict".to_string()],
                 bundle: Some("security-hardening".to_string()),
+            satisfies: Vec::new(),
                 popularity: 60,
             });
         }
@@ -1940,6 +1991,7 @@ fn check_sysctl_parameters() -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("security-hardening".to_string()),
+            satisfies: Vec::new(),
                 popularity: 70,
             });
         }
@@ -1984,6 +2036,7 @@ fn check_flatpak() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 75,
         });
     }
@@ -2011,6 +2064,7 @@ fn check_essential_cli_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: vec!["install-exa".to_string()],
             bundle: Some("cli-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 85,
         });
     }
@@ -2031,6 +2085,7 @@ fn check_essential_cli_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: vec!["install-bat".to_string()],
             bundle: Some("cli-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 80,
         });
     }
@@ -2051,6 +2106,7 @@ fn check_essential_cli_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: Some("cli-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 90,
         });
     }
@@ -2071,6 +2127,7 @@ fn check_essential_cli_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: Some("cli-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 75,
         });
     }
@@ -2091,6 +2148,7 @@ fn check_essential_cli_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: Some("cli-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 70,
         });
     }
@@ -2124,6 +2182,7 @@ fn check_system_monitors() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 85,
         });
     }
@@ -2151,6 +2210,7 @@ fn check_arch_specific_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: Some("security-hardening".to_string()),
+            satisfies: Vec::new(),
             popularity: 70,
         });
     }
@@ -2171,6 +2231,7 @@ fn check_arch_specific_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 75,
         });
     }
@@ -2191,6 +2252,7 @@ fn check_arch_specific_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 80,
         });
     }
@@ -2224,6 +2286,7 @@ fn check_git_enhancements() -> Vec<Advice> {
             depends_on: vec!["git".to_string()],
             related_to: vec!["install-git-delta".to_string()],
             bundle: Some("git-tools".to_string()),
+            satisfies: Vec::new(),
             popularity: 80,
         });
     }
@@ -2244,6 +2307,7 @@ fn check_git_enhancements() -> Vec<Advice> {
             depends_on: vec!["git".to_string()],
             related_to: vec!["install-lazygit".to_string()],
             bundle: Some("git-tools".to_string()),
+            satisfies: Vec::new(),
             popularity: 75,
         });
     }
@@ -2287,6 +2351,7 @@ fn check_screenshot_tools() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: Some("desktop-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 85,
         });
     }
@@ -2330,6 +2395,7 @@ fn check_password_manager() -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: Some("security-essentials".to_string()),
+            satisfies: Vec::new(),
             popularity: 80,
         });
     }
@@ -2370,6 +2436,7 @@ fn check_config_files() -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
                 popularity: 60,
             });
         }
@@ -2407,6 +2474,7 @@ fn check_config_files() -> Vec<Advice> {
                     depends_on: Vec::new(),
                     related_to: Vec::new(),
                     bundle: None,
+            satisfies: Vec::new(),
                     popularity: 70,
                 });
             }
@@ -2449,6 +2517,7 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2477,6 +2546,7 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2505,6 +2575,7 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2533,6 +2604,7 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2560,6 +2632,7 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -2600,6 +2673,7 @@ fn check_gaming_setup() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -2627,6 +2701,7 @@ fn check_gaming_setup() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2653,6 +2728,7 @@ fn check_gaming_setup() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2679,6 +2755,7 @@ fn check_gaming_setup() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2706,6 +2783,7 @@ fn check_gaming_setup() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -2752,6 +2830,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2778,6 +2857,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2807,6 +2887,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2833,6 +2914,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2868,6 +2950,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2894,6 +2977,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2945,6 +3029,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -2987,6 +3072,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3029,6 +3115,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3064,6 +3151,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3090,6 +3178,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3119,6 +3208,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3148,6 +3238,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3174,6 +3265,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3200,6 +3292,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3229,6 +3322,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3255,6 +3349,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3281,6 +3376,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3310,6 +3406,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3336,6 +3433,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3362,6 +3460,7 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3425,6 +3524,7 @@ fn check_terminal_and_fonts() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3453,6 +3553,7 @@ fn check_terminal_and_fonts() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3486,6 +3587,7 @@ fn check_firmware_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3519,6 +3621,7 @@ fn check_media_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3545,6 +3648,7 @@ fn check_media_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3571,6 +3675,7 @@ fn check_media_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3757,6 +3862,7 @@ fn check_power_management() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3783,6 +3889,7 @@ fn check_power_management() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3831,6 +3938,7 @@ fn check_gamepad_support() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3857,6 +3965,7 @@ fn check_gamepad_support() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -3890,6 +3999,7 @@ fn check_usb_automount() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     } else {
@@ -3915,6 +4025,7 @@ fn check_usb_automount() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -3959,6 +4070,7 @@ fn check_bluetooth() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else {
@@ -3984,6 +4096,7 @@ fn check_bluetooth() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -4029,6 +4142,7 @@ fn check_wifi_setup() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4077,6 +4191,7 @@ fn check_wifi_setup() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -4126,6 +4241,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
                 popularity: 10,
             });
         } else if latency > 80.0 {
@@ -4146,6 +4262,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
                 popularity: 10,
             });
         }
@@ -4187,6 +4304,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
                 popularity: 15,
             });
         } else if packet_loss > 1.0 {
@@ -4207,6 +4325,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
                 popularity: 10,
             });
         }
@@ -4253,6 +4372,7 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
 
@@ -4270,6 +4390,7 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else {
@@ -4288,6 +4409,7 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4316,6 +4438,7 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4337,6 +4460,7 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4365,6 +4489,7 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4407,6 +4532,7 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: vec!["docker-compose-install".to_string(), "lazydocker-install".to_string()],
                 bundle: Some("container-dev".to_string()),
+            satisfies: Vec::new(),
                 popularity: 75, // Docker is very popular for development
             });
     }
@@ -4434,6 +4560,7 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4462,6 +4589,7 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -4489,6 +4617,7 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("container-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4527,6 +4656,7 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         return result; // Don't suggest KVM tools if virtualization is disabled
@@ -4558,6 +4688,7 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4585,6 +4716,7 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4611,6 +4743,7 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4770,6 +4903,7 @@ fn check_printer_support() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4797,6 +4931,7 @@ fn check_printer_support() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4823,6 +4958,7 @@ fn check_printer_support() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -4869,6 +5005,7 @@ fn check_archive_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4888,6 +5025,7 @@ fn check_archive_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4907,6 +5045,7 @@ fn check_archive_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4940,6 +5079,7 @@ fn check_monitoring_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4966,6 +5106,7 @@ fn check_monitoring_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -4992,6 +5133,7 @@ fn check_monitoring_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5025,6 +5167,7 @@ fn check_firmware_updates() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     } else {
@@ -5043,6 +5186,7 @@ fn check_firmware_updates() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5099,6 +5243,7 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5123,6 +5268,7 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5157,6 +5303,7 @@ fn check_swap_compression() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5195,6 +5342,7 @@ fn check_dns_configuration() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5220,6 +5368,7 @@ fn check_dns_configuration() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -5266,6 +5415,7 @@ fn check_journal_size() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -5292,6 +5442,7 @@ fn check_journal_size() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5323,6 +5474,7 @@ fn check_aur_helper_safety() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
 
@@ -5354,6 +5506,7 @@ fn check_aur_helper_safety() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -5383,6 +5536,7 @@ fn check_locale_timezone() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5404,6 +5558,7 @@ fn check_locale_timezone() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5430,6 +5585,7 @@ fn check_locale_timezone() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5471,6 +5627,7 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5497,6 +5654,7 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5527,6 +5685,7 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5553,6 +5712,7 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5594,6 +5754,7 @@ fn check_webcam_support() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5620,6 +5781,7 @@ fn check_webcam_support() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5670,6 +5832,7 @@ fn check_audio_enhancements() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5696,6 +5859,7 @@ fn check_audio_enhancements() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5732,6 +5896,7 @@ fn check_shell_productivity() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -5759,6 +5924,7 @@ fn check_shell_productivity() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5791,6 +5957,7 @@ fn check_shell_productivity() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5823,6 +5990,7 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5847,6 +6015,7 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5877,6 +6046,7 @@ fn check_kernel_parameters() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5897,6 +6067,7 @@ fn check_kernel_parameters() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5926,6 +6097,7 @@ fn check_bootloader_optimization() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5946,6 +6118,7 @@ fn check_bootloader_optimization() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -5986,6 +6159,7 @@ fn check_vpn_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6012,6 +6186,7 @@ fn check_vpn_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6044,6 +6219,7 @@ fn check_browser_recommendations() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6079,6 +6255,7 @@ fn check_browser_recommendations() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6112,6 +6289,7 @@ fn check_security_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6138,6 +6316,7 @@ fn check_security_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6164,6 +6343,7 @@ fn check_security_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6394,6 +6574,7 @@ fn check_backup_solutions() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6420,6 +6601,7 @@ fn check_backup_solutions() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6453,6 +6635,7 @@ fn check_screen_recording() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6479,6 +6662,7 @@ fn check_screen_recording() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6519,6 +6703,7 @@ fn check_password_managers() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6553,6 +6738,7 @@ fn check_gaming_enhancements() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
 
@@ -6578,6 +6764,7 @@ fn check_gaming_enhancements() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -6605,6 +6792,7 @@ fn check_gaming_enhancements() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6765,6 +6953,7 @@ fn check_android_integration() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6791,6 +6980,7 @@ fn check_android_integration() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6828,6 +7018,7 @@ fn check_text_editors() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -6868,6 +7059,7 @@ fn check_mail_clients() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6901,6 +7093,7 @@ fn check_file_sharing() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6927,6 +7120,7 @@ fn check_file_sharing() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -6960,6 +7154,7 @@ fn check_cloud_storage() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -7004,6 +7199,7 @@ fn check_golang_dev() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else {
@@ -7029,6 +7225,7 @@ fn check_golang_dev() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -7074,6 +7271,7 @@ fn check_java_dev() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7100,6 +7298,7 @@ fn check_java_dev() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7145,6 +7344,7 @@ fn check_nodejs_dev() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("nodejs-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7171,6 +7371,7 @@ fn check_nodejs_dev() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("nodejs-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7428,6 +7629,7 @@ fn check_databases() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("web-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7472,6 +7674,7 @@ fn check_web_servers() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7506,6 +7709,7 @@ fn check_remote_desktop() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -7547,6 +7751,7 @@ fn check_torrent_clients() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7589,6 +7794,7 @@ fn check_office_suite() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7631,6 +7837,7 @@ fn check_graphics_software() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7657,6 +7864,7 @@ fn check_graphics_software() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7699,6 +7907,7 @@ fn check_video_editing() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7741,6 +7950,7 @@ fn check_music_players() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7789,6 +7999,7 @@ fn check_pdf_readers() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7827,6 +8038,7 @@ fn check_monitor_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7861,6 +8073,7 @@ fn check_systemd_timers() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -7898,6 +8111,7 @@ fn check_shell_alternatives() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -7932,6 +8146,7 @@ fn check_compression_advanced() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -7973,6 +8188,7 @@ fn check_dual_boot() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8010,6 +8226,7 @@ fn check_git_advanced() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8036,6 +8253,7 @@ fn check_git_advanced() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8078,6 +8296,7 @@ fn check_container_alternatives() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8116,6 +8335,7 @@ fn check_code_editors() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8153,6 +8373,7 @@ fn check_additional_databases() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8179,6 +8400,7 @@ fn check_additional_databases() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8217,6 +8439,7 @@ fn check_network_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8243,6 +8466,7 @@ fn check_network_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8285,6 +8509,7 @@ fn check_dotfile_managers() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8327,6 +8552,7 @@ fn check_pkgbuild_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8353,6 +8579,7 @@ fn check_pkgbuild_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8390,6 +8617,7 @@ fn check_python_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("python-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8416,6 +8644,7 @@ fn check_python_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("python-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8442,6 +8671,7 @@ fn check_python_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("python-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8479,6 +8709,7 @@ fn check_rust_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("rust-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8505,6 +8736,7 @@ fn check_rust_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("rust-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8539,6 +8771,7 @@ fn check_terminal_multiplexers() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -8584,6 +8817,7 @@ fn check_image_viewers() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -8609,6 +8843,7 @@ fn check_image_viewers() -> Vec<Advice> {
                                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
             }
@@ -8644,6 +8879,7 @@ fn check_documentation_tools() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -8677,6 +8913,7 @@ fn check_disk_management() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -8703,6 +8940,7 @@ fn check_disk_management() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -8736,6 +8974,7 @@ fn check_communication_apps() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -8772,6 +9011,7 @@ fn check_scientific_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8813,6 +9053,7 @@ fn check_3d_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8855,6 +9096,7 @@ fn check_audio_production() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8889,6 +9131,7 @@ fn check_system_monitoring_advanced() -> Vec<Advice> {
                         depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
     }
@@ -8929,6 +9172,7 @@ fn check_cad_software() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -8971,6 +9215,7 @@ fn check_markdown_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9015,6 +9260,7 @@ fn check_note_taking() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9052,6 +9298,7 @@ fn check_python_enhancements() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: Some("python-dev".to_string()),
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9089,6 +9336,7 @@ fn check_git_workflow_tools() -> Vec<Advice> {
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9121,6 +9369,7 @@ fn check_cpu_temperature(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else if temp > 75.0 {
@@ -9138,6 +9387,7 @@ fn check_cpu_temperature(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9169,6 +9419,7 @@ fn check_disk_health(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         } else if disk.reallocated_sectors.unwrap_or(0) > 0 {
@@ -9187,6 +9438,7 @@ fn check_disk_health(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9231,6 +9483,7 @@ fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     } else if errors > 20 {
@@ -9263,6 +9516,7 @@ fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -9309,6 +9563,7 @@ fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -9337,6 +9592,7 @@ fn check_memory_pressure(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         },
@@ -9356,6 +9612,7 @@ fn check_memory_pressure(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         },
@@ -9378,6 +9635,7 @@ fn check_memory_pressure(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -9406,6 +9664,7 @@ fn check_battery_health(facts: &SystemFacts) -> Vec<Advice> {
                 depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
             });
         }
@@ -9427,6 +9686,7 @@ fn check_battery_health(facts: &SystemFacts) -> Vec<Advice> {
                     depends_on: Vec::new(),
                     related_to: Vec::new(),
                     bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
                 });
             }
@@ -9449,6 +9709,7 @@ fn check_battery_health(facts: &SystemFacts) -> Vec<Advice> {
                     depends_on: Vec::new(),
                     related_to: Vec::new(),
                     bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
                 });
             }
@@ -9510,6 +9771,7 @@ fn check_service_crashes(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -9557,6 +9819,7 @@ fn check_kernel_errors(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
         });
     }
@@ -9586,6 +9849,7 @@ fn check_disk_space_prediction(facts: &SystemFacts) -> Vec<Advice> {
                     depends_on: Vec::new(),
                     related_to: Vec::new(),
                     bundle: None,
+            satisfies: Vec::new(),
             popularity: 50,
                 });
             }
@@ -9636,6 +9900,7 @@ fn check_hyprland_nvidia_config(facts: &SystemFacts) -> Vec<Advice> {
             depends_on: vec![],
             related_to: vec![],
             bundle: Some("hyprland-nvidia".to_string()),
+            satisfies: Vec::new(),
             popularity: 60, // Common for Nvidia+Wayland users
         });
     }
@@ -9679,6 +9944,7 @@ fn check_window_manager_recommendations(facts: &SystemFacts) -> Vec<Advice> {
                     depends_on: vec![],
                     related_to: vec![],
                     bundle: Some("i3-setup".to_string()),
+            satisfies: Vec::new(),
                     popularity: 80, // Very common for i3 users
                 });
             }
@@ -9710,6 +9976,7 @@ fn check_desktop_environment_specific(facts: &SystemFacts) -> Vec<Advice> {
                     depends_on: vec![],
                     related_to: vec![],
                     bundle: Some("gnome-enhancements".to_string()),
+            satisfies: Vec::new(),
                     popularity: 85, // Very popular among GNOME users
                 });
             }
