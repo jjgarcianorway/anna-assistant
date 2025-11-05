@@ -20,15 +20,16 @@ Anna should be an intelligent, autonomous system administrator that:
 - ✅ Cache-based system for reliability
 - ✅ Sequential history rollback numbers ([#1], [#2], [#3])
 
-**Category & Priority Filtering** ✅ COMPLETED (beta.46)
+**Category & Priority Filtering** ✅ COMPLETED (beta.46-53)
 - ✅ Ignore entire categories via `annactl ignore category <name>`
 - ✅ Ignore priority levels via `annactl ignore priority <level>`
 - ✅ Show ignored filters with `annactl ignore show`
 - ✅ Reset all filters with `annactl ignore reset`
 - ✅ Integrated into advise command filtering
-- [ ] TUI integration for ignore/dismiss
-- [ ] Keyboard shortcut to dismiss (e.g., 'd' key)
-- [ ] Show ignored items with option to un-ignore
+- ✅ TUI integration for ignore/dismiss (beta.52)
+- ✅ Keyboard shortcut to dismiss ('d' and 'i' keys) (beta.52)
+- ✅ Show ignored items with option to un-ignore (beta.53)
+- ✅ Show dismissed items with option to un-dismiss (beta.53)
 
 **Display Consistency** ✅ FIXED (beta.48)
 - ✅ Report and TUI use same Priority field for critical count
@@ -41,28 +42,29 @@ Anna should be an intelligent, autonomous system administrator that:
 - ✅ Friendly messages when no updates available
 - ✅ Better error handling
 
-**Display Improvements**
-- [ ] Show grand total even when displaying limited results
+**Display Improvements** ✅ COMPLETED (beta.53)
+- ✅ Show grand total even when displaying limited results (beta.53)
   - Example: "Showing 25 of 150 recommendations"
-- [ ] Better indication of filtered vs total items
+- ✅ Better indication of filtered vs total items (beta.53)
+- ✅ List hidden recommendations command (beta.53)
 
 **Relevance & Applicability**
 - [ ] Ensure recommendations only apply to user's actual system
 - [ ] No irrelevant suggestions for hardware/software not present
 - [ ] Better context detection for recommendations
 
-**Rollback System**
+**Rollback System** ✅ COMPLETED (beta.45-51)
 - ✅ Sequential history numbers (#1, #2, #3) - DONE in beta.45
-- [ ] Rollback command: `annactl rollback #3` (undo specific action)
-- [ ] Rollback by number from history list
-- [ ] Start fresh: first applied = #1, then #2, etc.
+- ✅ Rollback command: `annactl rollback #1` (undo specific bundle) - DONE in beta.51
+- ✅ Rollback by number from history list - DONE in beta.51
+- ✅ Bundle IDs with sequential numbering - DONE in beta.51
 
-**Auto-Update & Notifications**
-- [x] Anna should auto-update herself (Tier 3 autonomy)
-- [ ] User receives notification when update completes
-- [ ] Release notes displayed after update
-- [ ] Terminal notification (not wall spam)
-- [ ] Beautiful update banner in CLI
+**Auto-Update & Notifications** ✅ COMPLETED (beta.54)
+- ✅ Anna should auto-update herself (Tier 3 autonomy)
+- ✅ User receives notification when update completes (desktop notification)
+- ✅ Release notes displayed after update (fetched from GitHub API)
+- ✅ Terminal notification (not wall spam - uses notify-send)
+- ✅ Beautiful update banner in CLI (colored box with version info)
 
 **Documentation**
 - [ ] Update ALL .md files after each version

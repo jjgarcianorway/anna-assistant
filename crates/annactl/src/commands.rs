@@ -3104,6 +3104,75 @@ pub async fn history(days: i64, detailed: bool) -> Result<()> {
     Ok(())
 }
 
+/// Fetch release notes from GitHub API
+async fn fetch_release_notes(version: &str) -> Result<String> {
+    let url = format!("https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/tags/{}", version);
+
+    let client = reqwest::Client::builder()
+        .user_agent("anna-assistant")
+        .build()?;
+
+    let response = client.get(&url)
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    let json: serde_json::Value = serde_json::from_str(&response)?;
+
+    Ok(json["body"].as_str().unwrap_or("").to_string())
+}
+
+/// Display formatted release notes
+fn display_release_notes(notes: &str) {
+    let lines: Vec<&str> = notes.lines().collect();
+
+    for line in lines.iter().take(20) {
+        // Headers with emoji
+        if line.starts_with("###") {
+            println!("  \x1b[1m\x1b[38;5;159m{}\x1b[0m", line);
+        }
+        // Bold sections
+        else if line.starts_with("**") {
+            println!("  \x1b[1m{}\x1b[0m", line);
+        }
+        // Bullet points
+        else if line.starts_with("- ") {
+            println!("    \x1b[38;5;228m→\x1b[0m \x1b[38;5;250m{}\x1b[0m", &line[2..]);
+        }
+        // Regular text
+        else if !line.is_empty() {
+            println!("  \x1b[38;5;250m{}\x1b[0m", line);
+        }
+    }
+
+    if lines.len() > 20 {
+        println!();
+        println!("  \x1b[38;5;250m... see full notes at GitHub\x1b[0m");
+    }
+}
+
+/// Send desktop notification (non-intrusive, no wall spam)
+fn send_update_notification(version: &str) {
+    // Try to send desktop notification via notify-send (if available)
+    use std::process::Command;
+
+    // Only send if notify-send is available and we're in a desktop environment
+    if Command::new("which")
+        .arg("notify-send")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        let _ = Command::new("notify-send")
+            .arg("--app-name=Anna Assistant")
+            .arg("--icon=system-software-update")
+            .arg("Update Complete")
+            .arg(&format!("Anna has been updated to {}", version))
+            .spawn();
+    }
+}
+
 /// Check for updates and optionally install them
 pub async fn update(install: bool, check_only: bool) -> Result<()> {
     println!("{}", header("Anna Update"));
@@ -3154,12 +3223,34 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                 match anna_common::updater::perform_update(&update_info).await {
                     Ok(()) => {
                         println!();
-                        println!("{}", beautiful::status(
-                            Level::Success,
-                            &format!("Successfully updated to {}", update_info.latest_version)
-                        ));
+
+                        // Beautiful update success banner
+                        println!("\x1b[38;5;120m╭{}╮\x1b[0m", "─".repeat(60));
+                        println!("\x1b[38;5;120m│\x1b[0m \x1b[1m\x1b[38;5;159m🎉 Update Successful!\x1b[0m");
+                        println!("\x1b[38;5;120m│\x1b[0m");
+                        println!("\x1b[38;5;120m│\x1b[0m   Version: \x1b[1m{}\x1b[0m → \x1b[1m\x1b[38;5;159m{}\x1b[0m",
+                            update_info.current_version,
+                            update_info.latest_version);
+                        println!("\x1b[38;5;120m│\x1b[0m   Released: {}", update_info.published_at);
+                        println!("\x1b[38;5;120m│\x1b[0m");
+                        println!("\x1b[38;5;120m╰{}╯\x1b[0m", "─".repeat(60));
                         println!();
+
+                        println!("{}", section("What's New"));
+
+                        // Fetch and display release notes
+                        if let Ok(notes) = fetch_release_notes(&update_info.latest_version).await {
+                            display_release_notes(&notes);
+                        } else {
+                            println!("  \x1b[38;5;159m{}\x1b[0m", update_info.release_notes_url);
+                        }
+                        println!();
+
                         println!("{}", beautiful::status(Level::Info, "Daemon has been restarted"));
+                        println!();
+
+                        // Send desktop notification (non-intrusive)
+                        send_update_notification(&update_info.latest_version);
                     }
                     Err(e) => {
                         println!();

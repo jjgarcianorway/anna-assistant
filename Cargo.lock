@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "1.0.0-beta.53"
+version = "1.0.0-beta.54"
 dependencies = [
  "anyhow",
  "chrono",
@@ -44,7 +44,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "1.0.0-beta.53"
+version = "1.0.0-beta.54"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -53,6 +53,7 @@ dependencies = [
  "console",
  "crossterm",
  "ratatui",
+ "reqwest",
  "serde",
  "serde_json",
  "textwrap",
@@ -61,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "1.0.0-beta.53"
+version = "1.0.0-beta.54"
 dependencies = [
  "anna_common",
  "anyhow",

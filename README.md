@@ -4,19 +4,26 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.53 (November 2025)
+**Current Version:** Beta.54 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.53
+## 🎯 What's New in Beta.54
 
-**📊 Improved Transparency:**
+**🎉 Beautiful Update Experience:**
+- Update completion notifications (desktop notification, not spam)
+- Release notes displayed after successful update
+- Beautiful update success banner with colors
+- GitHub API integration for release notes
+- Non-intrusive notification system
+
+**🎯 Previous Releases:**
+
+**Beta.53 - Improved Transparency:**
 - Grand total display in advise: "Showing 25 of 150 recommendations"
 - `annactl ignore list-hidden` - See what recommendations are being filtered
 - `annactl dismissed` - View and manage dismissed recommendations
 - Easy un-ignore and un-dismiss with simple commands
-
-**🎯 Previous Releases:**
 
 **Beta.52 - TUI Enhancements:**
 - Ignore/dismiss keyboard shortcuts in TUI (press 'd' or 'i')
