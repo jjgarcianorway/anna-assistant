@@ -5,6 +5,164 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.36] - 2025-11-05
+
+### 🏥 Intelligent System Doctor!
+
+**COMPREHENSIVE DIAGNOSTICS:** Enhanced doctor command with health scoring, categorized checks, and automatic issue detection!
+
+### ✨ Major Features
+
+**🩺 Enhanced Doctor Command**
+- Comprehensive system health diagnostics
+- 100-point health scoring system
+- Categorized checks (Package, Disk, Services, Network, Security, Performance)
+- Automatic issue detection with severity levels
+- Fix command suggestions for every issue
+- Color-coded health summary (green/yellow/red)
+
+**📦 Package System Checks**
+- Pacman functionality verification
+- Orphan package detection and count
+- Package cache size monitoring (warns if >5GB)
+- Automatic fix commands provided
+
+**💾 Disk Health Checks**
+- Root partition space monitoring
+- Critical alerts at >90% full (−15 points)
+- Warning at >80% full (−5 points)
+- SMART tools availability check
+- Fix suggestions for disk cleanup
+
+**⚙️ System Service Checks**
+- Failed service detection
+- Anna daemon status verification
+- Systemd service health monitoring
+- Automatic fix commands for services
+
+**🌐 Network Diagnostics**
+- Internet connectivity test (ping 8.8.8.8)
+- DNS resolution test (archlinux.org)
+- Network health scoring
+- Connectivity issue detection
+
+**🔒 Security Audits**
+- Root user detection (warns against running as root)
+- Firewall status check (ufw/firewalld)
+- Security best practice recommendations
+- Missing security tool warnings
+
+**⚡ Performance Checks**
+- Journal size monitoring
+- Large journal detection (warns if >1GB)
+- Performance optimization suggestions
+- System resource health
+
+**📊 Health Scoring System**
+- 100-point scale with weighted deductions
+- Package issues: up to −20 points
+- Disk problems: up to −15 points
+- Service failures: up to −20 points
+- Network issues: up to −15 points
+- Security gaps: up to −10 points
+- Performance issues: up to −5 points
+
+### 🔧 Technical Details
+
+**Health Score Breakdown:**
+```
+100 points = Excellent health ✨
+90-99 = Good health (green)
+70-89 = Minor issues (yellow)
+<70 = Needs attention (red)
+```
+
+**Categorized Diagnostics:**
+1. 📦 Package System - Pacman, orphans, cache
+2. 💾 Disk Health - Space, SMART monitoring
+3. ⚙️ System Services - Systemd, failed services
+4. 🌐 Network - Connectivity, DNS resolution
+5. 🔒 Security - Firewall, user permissions
+6. ⚡ Performance - Journal size, resources
+
+**Issue Detection:**
+- Critical issues (red ✗) - Immediate attention required
+- Warnings (yellow !) - Should be addressed
+- Info (blue ℹ) - Informational only
+- Success (green ✓) - All good
+
+**Auto-Fix Suggestions:**
+Every detected issue includes a suggested fix command:
+- Orphan packages → `pacman -Qdtq | sudo pacman -Rns -`
+- Large cache → `sudo paccache -rk2`
+- Large journal → `sudo journalctl --vacuum-size=500M`
+- Failed services → `systemctl --failed`
+- Disk space → `du -sh /* | sort -hr | head -20`
+
+### 💡 What This Means
+
+**Quick System Health Check:**
+- One command to assess entire system
+- Immediate identification of problems
+- Prioritized issue list with severity
+- Ready-to-run fix commands
+
+**Proactive Maintenance:**
+- Catch issues before they become critical
+- Monitor system degradation over time
+- Track improvements with health score
+- Compare health across reboots
+
+**Educational:**
+- Learn about system components
+- Understand what "healthy" means
+- See fix commands for every issue
+- Build system administration knowledge
+
+### 📊 Example Output
+
+```
+Anna System Doctor
+
+Running comprehensive system diagnostics...
+
+📦 Package System
+  ✓ Pacman functional
+  ! 12 orphan packages found
+  ℹ Package cache: 3.2G
+
+💾 Disk Health
+  ℹ Root partition: 67% used
+  ✓ SMART monitoring available
+
+⚙️  System Services
+  ✓ No failed services
+  ✓ Anna daemon running
+
+🌐 Network
+  ✓ Internet connectivity
+  ✓ DNS resolution working
+
+🔒 Security
+  ✓ Running as non-root user
+  ! No firewall detected
+
+⚡ Performance
+  ℹ Archived and active journals take up 512.0M in the file system.
+
+📊 Health Score
+  88/100
+
+🔧 Issues Found
+  ! 1. 12 orphan packages
+     Fix: pacman -Qdtq | sudo pacman -Rns -
+
+⚠️  Warnings
+  • Consider enabling a firewall (ufw or firewalld)
+
+ℹ System health is good
+```
+
 ## [1.0.0-beta.35] - 2025-11-05
 
 ### 🔬 Enhanced Telemetry & Predictive Maintenance!

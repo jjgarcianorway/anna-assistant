@@ -731,14 +731,284 @@ pub async fn report(category: Option<String>) -> Result<()> {
 }
 
 pub async fn doctor() -> Result<()> {
-    println!("{}", header("System Diagnostics"));
+    use std::process::Command;
+
+    println!("{}", header("Anna System Doctor"));
     println!();
-    println!("{}", section("Checks"));
-    println!("  {} Pacman functional", beautiful::status(Level::Success, "✓"));
-    println!("  {} Kernel modules loaded", beautiful::status(Level::Success, "✓"));
-    println!("  {} Network connectivity", beautiful::status(Level::Success, "✓"));
+    println!("{}", beautiful::status(Level::Info, "Running comprehensive system diagnostics..."));
     println!();
-    println!("{}", beautiful::status(Level::Success, "All checks passed"));
+
+    let mut health_score = 100;
+    let mut issues: Vec<(String, String, bool)> = Vec::new(); // (issue, fix_command, is_critical)
+    let mut warnings: Vec<String> = Vec::new();
+
+    // ==================== PACKAGE SYSTEM ====================
+    println!("{}", section("📦 Package System"));
+
+    // Check pacman functionality
+    if Command::new("pacman").arg("-V").output().is_err() {
+        println!("  {} Pacman not functioning", beautiful::status(Level::Error, "✗"));
+        issues.push(("Pacman not working".to_string(), "".to_string(), true));
+        health_score -= 20;
+    } else {
+        println!("  {} Pacman functional", beautiful::status(Level::Success, "✓"));
+    }
+
+    // Check for orphan packages
+    if let Ok(output) = Command::new("pacman").args(&["-Qdtq"]).output() {
+        let orphans = String::from_utf8_lossy(&output.stdout);
+        let orphan_count = orphans.lines().filter(|l| !l.is_empty()).count();
+        if orphan_count > 0 {
+            println!("  {} {} orphan packages found", beautiful::status(Level::Warning, "!"), orphan_count);
+            issues.push((
+                format!("{} orphan packages", orphan_count),
+                "pacman -Qdtq | sudo pacman -Rns -".to_string(),
+                false
+            ));
+            health_score -= (orphan_count.min(20)) as i32;
+        } else {
+            println!("  {} No orphan packages", beautiful::status(Level::Success, "✓"));
+        }
+    }
+
+    // Check package cache size
+    if let Ok(output) = Command::new("du").args(&["-sh", "/var/cache/pacman/pkg"]).output() {
+        let cache_info = String::from_utf8_lossy(&output.stdout);
+        if let Some(size_str) = cache_info.split_whitespace().next() {
+            println!("  {} Package cache: {}", beautiful::status(Level::Info, "ℹ"), size_str);
+            if size_str.ends_with("G") {
+                if let Ok(size) = size_str.trim_end_matches("G").parse::<f64>() {
+                    if size > 5.0 {
+                        warnings.push(format!("Package cache is {}GB (consider cleaning)", size));
+                        issues.push((
+                            format!("Large package cache ({}GB)", size),
+                            "sudo paccache -rk2".to_string(),
+                            false
+                        ));
+                        health_score -= 5;
+                    }
+                }
+            }
+        }
+    }
+
+    println!();
+
+    // ==================== DISK HEALTH ====================
+    println!("{}", section("💾 Disk Health"));
+
+    // Check disk space
+    if let Ok(output) = Command::new("df").args(&["-h", "/"]).output() {
+        let df_output = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = df_output.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 5 {
+                let used_percent = parts[4].trim_end_matches('%');
+                println!("  {} Root partition: {} used", beautiful::status(Level::Info, "ℹ"), parts[4]);
+                if let Ok(percent) = used_percent.parse::<u8>() {
+                    if percent > 90 {
+                        println!("  {} Disk critically full!", beautiful::status(Level::Error, "✗"));
+                        issues.push((
+                            format!("Root partition {}% full", percent),
+                            "du -sh /* 2>/dev/null | sort -hr | head -20".to_string(),
+                            true
+                        ));
+                        health_score -= 15;
+                    } else if percent > 80 {
+                        warnings.push(format!("Root partition {}% full", percent));
+                        health_score -= 5;
+                    }
+                }
+            }
+        }
+    }
+
+    // Check SMART status
+    if let Ok(output) = Command::new("which").arg("smartctl").output() {
+        if output.status.success() {
+            println!("  {} SMART monitoring available", beautiful::status(Level::Success, "✓"));
+        }
+    } else {
+        println!("  {} SMART monitoring not available (install smartmontools)", beautiful::status(Level::Warning, "!"));
+        warnings.push("Install smartmontools for disk health monitoring".to_string());
+    }
+
+    println!();
+
+    // ==================== SYSTEM SERVICES ====================
+    println!("{}", section("⚙️  System Services"));
+
+    // Check for failed services
+    if let Ok(output) = Command::new("systemctl").args(&["--failed", "--no-pager"]).output() {
+        let failed = String::from_utf8_lossy(&output.stdout);
+        let failed_count = failed.lines().filter(|l| l.contains("loaded") && l.contains("failed")).count();
+        if failed_count > 0 {
+            println!("  {} {} services failed", beautiful::status(Level::Error, "✗"), failed_count);
+            issues.push((
+                format!("{} failed services", failed_count),
+                "systemctl --failed".to_string(),
+                true
+            ));
+            health_score -= failed_count.min(20) as i32;
+        } else {
+            println!("  {} No failed services", beautiful::status(Level::Success, "✓"));
+        }
+    }
+
+    // Check Anna daemon
+    if let Ok(output) = Command::new("systemctl").args(&["is-active", "annad"]).output() {
+        if output.status.success() {
+            println!("  {} Anna daemon running", beautiful::status(Level::Success, "✓"));
+        } else {
+            println!("  {} Anna daemon not running", beautiful::status(Level::Warning, "!"));
+            issues.push((
+                "Anna daemon not running".to_string(),
+                "sudo systemctl start annad".to_string(),
+                false
+            ));
+            health_score -= 10;
+        }
+    }
+
+    println!();
+
+    // ==================== NETWORK ====================
+    println!("{}", section("🌐 Network"));
+
+    // Check internet connectivity
+    if let Ok(output) = Command::new("ping").args(&["-c", "1", "-W", "2", "8.8.8.8"]).output() {
+        if output.status.success() {
+            println!("  {} Internet connectivity", beautiful::status(Level::Success, "✓"));
+        } else {
+            println!("  {} No internet connection", beautiful::status(Level::Error, "✗"));
+            issues.push((
+                "No internet connectivity".to_string(),
+                "".to_string(),
+                true
+            ));
+            health_score -= 15;
+        }
+    }
+
+    // Check DNS resolution
+    if let Ok(output) = Command::new("ping").args(&["-c", "1", "-W", "2", "archlinux.org"]).output() {
+        if output.status.success() {
+            println!("  {} DNS resolution working", beautiful::status(Level::Success, "✓"));
+        } else {
+            println!("  {} DNS resolution failed", beautiful::status(Level::Warning, "!"));
+            warnings.push("DNS resolution issues detected".to_string());
+            health_score -= 5;
+        }
+    }
+
+    println!();
+
+    // ==================== SECURITY ====================
+    println!("{}", section("🔒 Security"));
+
+    // Check if running as root (bad practice)
+    if let Ok(output) = Command::new("whoami").output() {
+        let user = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if user == "root" {
+            println!("  {} Running as root (not recommended)", beautiful::status(Level::Warning, "!"));
+            warnings.push("Avoid running as root user".to_string());
+            health_score -= 5;
+        } else {
+            println!("  {} Running as non-root user", beautiful::status(Level::Success, "✓"));
+        }
+    }
+
+    // Check firewall status
+    if let Ok(output) = Command::new("systemctl").args(&["is-active", "ufw"]).output() {
+        if output.status.success() {
+            println!("  {} Firewall active (ufw)", beautiful::status(Level::Success, "✓"));
+        } else if let Ok(output2) = Command::new("systemctl").args(&["is-active", "firewalld"]).output() {
+            if output2.status.success() {
+                println!("  {} Firewall active (firewalld)", beautiful::status(Level::Success, "✓"));
+            } else {
+                println!("  {} No firewall detected", beautiful::status(Level::Warning, "!"));
+                warnings.push("Consider enabling a firewall (ufw or firewalld)".to_string());
+                health_score -= 10;
+            }
+        } else {
+            println!("  {} No firewall detected", beautiful::status(Level::Warning, "!"));
+            warnings.push("Consider enabling a firewall".to_string());
+            health_score -= 10;
+        }
+    }
+
+    println!();
+
+    // ==================== PERFORMANCE ====================
+    println!("{}", section("⚡ Performance"));
+
+    // Check journal size
+    if let Ok(output) = Command::new("journalctl").args(&["--disk-usage"]).output() {
+        let journal_info = String::from_utf8_lossy(&output.stdout);
+        println!("  {} {}", beautiful::status(Level::Info, "ℹ"), journal_info.trim());
+        if journal_info.contains("GB") {
+            if let Some(size_part) = journal_info.split_whitespace().find(|s| s.ends_with("GB")) {
+                if let Ok(size) = size_part.trim_end_matches("GB").parse::<f64>() {
+                    if size > 1.0 {
+                        warnings.push(format!("Journal size is {}GB", size));
+                        issues.push((
+                            format!("Large journal ({}GB)", size),
+                            "sudo journalctl --vacuum-size=500M".to_string(),
+                            false
+                        ));
+                        health_score -= 5;
+                    }
+                }
+            }
+        }
+    }
+
+    println!();
+
+    // ==================== SUMMARY ====================
+    let health_color = if health_score >= 90 {
+        "\x1b[92m" // Green
+    } else if health_score >= 70 {
+        "\x1b[93m" // Yellow
+    } else {
+        "\x1b[91m" // Red
+    };
+
+    println!("{}", section("📊 Health Score"));
+    println!("  {}{}/100\x1b[0m", health_color, health_score);
+    println!();
+
+    if !issues.is_empty() {
+        println!("{}", section("🔧 Issues Found"));
+        for (i, (issue, fix_cmd, is_critical)) in issues.iter().enumerate() {
+            let level = if *is_critical { Level::Error } else { Level::Warning };
+            println!("  {} {}", beautiful::status(level, &format!("{}.", i + 1)), issue);
+            if !fix_cmd.is_empty() {
+                println!("     \x1b[90mFix: {}\x1b[0m", fix_cmd);
+            }
+        }
+        println!();
+
+        println!("{}", beautiful::status(Level::Info, "Run 'annactl advise' to see detailed recommendations"));
+    }
+
+    if !warnings.is_empty() {
+        println!("{}", section("⚠️  Warnings"));
+        for warning in warnings {
+            println!("  • {}", warning);
+        }
+        println!();
+    }
+
+    if health_score == 100 {
+        println!("{}", beautiful::status(Level::Success, "✨ System is in excellent health!"));
+    } else if health_score >= 90 {
+        println!("{}", beautiful::status(Level::Success, "System health is good"));
+    } else if health_score >= 70 {
+        println!("{}", beautiful::status(Level::Warning, "System has minor issues"));
+    } else {
+        println!("{}", beautiful::status(Level::Error, "System needs attention!"));
+    }
 
     Ok(())
 }
