@@ -509,6 +509,11 @@ pub struct Alternative {
     pub install_command: String,
 }
 
+/// Default popularity score for advice (50 = common)
+fn default_popularity() -> u8 {
+    50
+}
+
 /// A single piece of advice from the recommendation engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Advice {
@@ -529,6 +534,14 @@ pub struct Advice {
     pub related_to: Vec<String>, // IDs of related advice (suggestions, not dependencies)
     #[serde(default)]
     pub bundle: Option<String>, // Workflow bundle name (e.g., "Python Dev Stack")
+    /// Popularity score (0-100): how commonly this recommendation is needed/applied
+    /// 90-100: Essential (microcode, drivers, security basics)
+    /// 70-89: Very common (dev tools, popular packages)
+    /// 50-69: Common (nice-to-have tools)
+    /// 30-49: Niche (specific use cases)
+    /// 0-29: Rare (very specialized)
+    #[serde(default = "default_popularity")]
+    pub popularity: u8,
 }
 
 impl Advice {
@@ -558,6 +571,7 @@ impl Advice {
             depends_on: Vec::new(),
             related_to: Vec::new(),
             bundle: None,
+            popularity: 50, // Default: common
         }
     }
 
@@ -583,6 +597,31 @@ impl Advice {
     pub fn with_bundle(mut self, bundle: String) -> Self {
         self.bundle = Some(bundle);
         self
+    }
+
+    /// Set popularity score (0-100)
+    pub fn with_popularity(mut self, popularity: u8) -> Self {
+        self.popularity = popularity.min(100); // Cap at 100
+        self
+    }
+
+    /// Get popularity as stars (★★★★★ or ☆☆☆☆☆)
+    pub fn popularity_stars(&self) -> String {
+        let stars = (self.popularity as f32 / 20.0).round() as u8; // 0-5 stars
+        let filled = "★".repeat(stars as usize);
+        let empty = "☆".repeat((5 - stars) as usize);
+        format!("{}{}", filled, empty)
+    }
+
+    /// Get popularity label
+    pub fn popularity_label(&self) -> &'static str {
+        match self.popularity {
+            90..=100 => "Essential",
+            70..=89 => "Very Common",
+            50..=69 => "Common",
+            30..=49 => "Niche",
+            _ => "Rare",
+        }
     }
 }
 

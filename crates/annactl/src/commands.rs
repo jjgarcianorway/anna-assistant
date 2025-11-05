@@ -385,7 +385,10 @@ fn display_advice_item_enhanced(number: usize, advice: &anna_common::Advice) {
     println!("\x1b[90m\x1b[1m[{}]\x1b[0m  \x1b[1m\x1b[97m{}\x1b[0m", number, advice.title);
 
     // Badges
-    println!("    {} {}", priority_badge, risk_badge);
+    let popularity_stars = advice.popularity_stars();
+    let popularity_label = advice.popularity_label();
+    println!("    {} {}  \x1b[93m{}\x1b[0m \x1b[90m({})\x1b[0m",
+        priority_badge, risk_badge, popularity_stars, popularity_label);
     println!();
 
     // Reason - wrapped with proper indentation

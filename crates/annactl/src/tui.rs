@@ -389,6 +389,7 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
         };
 
         let risk_str = format!("Risk: {:?}", advice.risk);
+        let popularity_str = format!("{} ({})", advice.popularity_stars(), advice.popularity_label());
 
         let mut lines = vec![
             Line::from(Span::styled(&advice.title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
@@ -397,6 +398,8 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
                 Span::styled(priority_str, Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("  │  "),
                 Span::styled(risk_str, Style::default().fg(Color::Gray)),
+                Span::raw("  │  "),
+                Span::styled(popularity_str, Style::default().fg(Color::Yellow)),
             ]),
             Line::from(""),
             Line::from(Span::styled("Why:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
@@ -663,10 +666,14 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
                 Priority::Cosmetic => Color::Gray,
             };
 
+            let popularity_stars = advice.popularity_stars();
+
             let content = Line::from(vec![
                 Span::raw(priority_icon),
                 Span::raw(" "),
                 Span::styled(&advice.title, Style::default().fg(priority_color)),
+                Span::raw("  "),
+                Span::styled(popularity_stars, Style::default().fg(Color::Yellow)),
             ]);
 
             ListItem::new(content)
