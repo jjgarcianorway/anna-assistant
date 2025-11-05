@@ -234,13 +234,14 @@ pub async fn advise(
                 .push(advice);
         }
 
-        // Sort categories by importance
+        // Sort categories by importance (using standardized names)
         let category_order = vec![
-            "security", "drivers", "updates", "maintenance", "cleanup",
-            "performance", "power", "development", "desktop", "gaming",
-            "multimedia", "hardware", "networking", "utilities", "system",
-            "productivity", "audio", "shell", "communication", "engineering",
-            "beautification",
+            "Security & Privacy", "Hardware Support", "System Maintenance",
+            "Performance & Optimization", "Power Management", "Development Tools",
+            "Desktop Environment", "Gaming & Entertainment", "Multimedia & Graphics",
+            "Network Configuration", "Utilities", "System Configuration",
+            "Productivity", "Terminal & CLI Tools", "Communication",
+            "Engineering & CAD", "Desktop Customization",
         ];
 
         let mut counter = 1;
@@ -363,32 +364,26 @@ pub async fn advise(
     Ok(())
 }
 
-/// Get category styling (emoji, ANSI color code, display title)
+/// Get category styling (emoji, ANSI color code, display title) - updated for standardized names
 fn get_category_style(category: &str) -> (&'static str, &'static str, String) {
     match category {
-        "security" => ("🔒", "\x1b[91m", "SECURITY".to_string()), // Bright red
-        "drivers" => ("🔌", "\x1b[95m", "DRIVERS & HARDWARE".to_string()), // Bright magenta
-        "updates" => ("📦", "\x1b[94m", "SYSTEM UPDATES".to_string()), // Bright blue
-        "maintenance" => ("🔧", "\x1b[96m", "SYSTEM MAINTENANCE".to_string()), // Bright cyan
-        "cleanup" => ("🧹", "\x1b[36m", "CLEANUP & OPTIMIZATION".to_string()), // Cyan
-        "performance" => ("⚡", "\x1b[93m", "PERFORMANCE".to_string()), // Bright yellow
-        "power" => ("🔋", "\x1b[33m", "POWER MANAGEMENT".to_string()), // Yellow
-        "development" => ("💻", "\x1b[95m", "DEVELOPMENT TOOLS".to_string()), // Bright magenta
-        "desktop" => ("🖥️", "\x1b[34m", "DESKTOP ENVIRONMENT".to_string()), // Blue
-        "gaming" => ("🎮", "\x1b[95m", "GAMING".to_string()), // Bright magenta
-        "multimedia" => ("🎬", "\x1b[35m", "MULTIMEDIA".to_string()), // Magenta
-        "hardware" => ("🔌", "\x1b[93m", "HARDWARE SUPPORT".to_string()), // Bright yellow
-        "networking" => ("📡", "\x1b[96m", "NETWORKING".to_string()), // Bright cyan
-        "beautification" => ("🎨", "\x1b[95m", "TERMINAL & CLI TOOLS".to_string()), // Bright magenta
-        "utilities" => ("🛠️", "\x1b[36m", "UTILITIES".to_string()), // Cyan
-        "system" => ("⚙️", "\x1b[94m", "SYSTEM".to_string()), // Bright blue
-        "productivity" => ("📊", "\x1b[92m", "PRODUCTIVITY".to_string()), // Bright green
-        "audio" => ("🔊", "\x1b[35m", "AUDIO".to_string()), // Magenta
-        "shell" => ("🐚", "\x1b[96m", "SHELL".to_string()), // Bright cyan
-        "communication" => ("💬", "\x1b[94m", "COMMUNICATION".to_string()), // Bright blue
-        "engineering" => ("📐", "\x1b[95m", "ENGINEERING".to_string()), // Bright magenta
-        "usability" => ("✨", "\x1b[96m", "USABILITY".to_string()), // Bright cyan
-        "media" => ("📹", "\x1b[35m", "MEDIA".to_string()), // Magenta
+        "Security & Privacy" => ("🔒", "\x1b[91m", "SECURITY & PRIVACY".to_string()), // Bright red
+        "Hardware Support" => ("🔌", "\x1b[93m", "HARDWARE SUPPORT".to_string()), // Bright yellow
+        "System Maintenance" => ("🔧", "\x1b[96m", "SYSTEM MAINTENANCE".to_string()), // Bright cyan
+        "Performance & Optimization" => ("⚡", "\x1b[93m", "PERFORMANCE & OPTIMIZATION".to_string()), // Bright yellow
+        "Power Management" => ("🔋", "\x1b[33m", "POWER MANAGEMENT".to_string()), // Yellow
+        "Development Tools" => ("💻", "\x1b[95m", "DEVELOPMENT TOOLS".to_string()), // Bright magenta
+        "Desktop Environment" => ("🖥️", "\x1b[34m", "DESKTOP ENVIRONMENT".to_string()), // Blue
+        "Gaming & Entertainment" => ("🎮", "\x1b[95m", "GAMING & ENTERTAINMENT".to_string()), // Bright magenta
+        "Multimedia & Graphics" => ("🎬", "\x1b[35m", "MULTIMEDIA & GRAPHICS".to_string()), // Magenta
+        "Network Configuration" => ("📡", "\x1b[96m", "NETWORK CONFIGURATION".to_string()), // Bright cyan
+        "Utilities" => ("🛠️", "\x1b[36m", "UTILITIES".to_string()), // Cyan
+        "System Configuration" => ("⚙️", "\x1b[94m", "SYSTEM CONFIGURATION".to_string()), // Bright blue
+        "Productivity" => ("📊", "\x1b[92m", "PRODUCTIVITY".to_string()), // Bright green
+        "Terminal & CLI Tools" => ("🐚", "\x1b[96m", "TERMINAL & CLI TOOLS".to_string()), // Bright cyan
+        "Communication" => ("💬", "\x1b[94m", "COMMUNICATION".to_string()), // Bright blue
+        "Engineering & CAD" => ("📐", "\x1b[95m", "ENGINEERING & CAD".to_string()), // Bright magenta
+        "Desktop Customization" => ("🎨", "\x1b[95m", "DESKTOP CUSTOMIZATION".to_string()), // Bright magenta
         _ => ("💡", "\x1b[36m", category.to_uppercase()), // Cyan
     }
 }
@@ -534,7 +529,22 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
 
     // If nums provided, apply by index
     if let Some(nums_str) = nums {
-        // First get all advice to map indices
+        println!("{}", beautiful::status(Level::Warning,
+            "⚠️  Using numbers is DEPRECATED and may apply wrong items!"));
+        println!("{}", beautiful::status(Level::Warning,
+            "   Numbers change based on filtering. Use IDs instead!"));
+        println!();
+        println!("{}", beautiful::status(Level::Info,
+            "Run 'annactl advise' to see IDs, then use:"));
+        println!("   annactl apply --id <advice-id>");
+        println!();
+
+        // Still support it but with strong warning
+        println!("{}", beautiful::status(Level::Warning,
+            "Continuing with numbers at your own risk..."));
+        println!();
+
+        // First get all advice to map indices - MUST USE SAME FILTERING AS ADVISE!
         let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
         let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
             .or_else(|_| std::env::var("DESKTOP_SESSION"))
@@ -560,9 +570,111 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
             display_server,
         }).await?;
 
-        if let ResponseData::Advice(advice_list) = advice_data {
+        if let ResponseData::Advice(mut advice_list) = advice_data {
+            // CRITICAL: Apply same filtering as advise command to match displayed numbers!
+
+            // Filter dismissed items (same as advise)
+            if let Ok(log) = anna_common::UserFeedbackLog::load() {
+                advice_list.retain(|a| !log.was_dismissed(&a.id));
+            }
+
+            // Apply smart mode filtering by default (same as advise default)
+            let mandatory: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Mandatory)).cloned().collect();
+            let recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
+            let mut optional: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Optional)).cloned().collect();
+            let mut cosmetic: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Cosmetic)).cloned().collect();
+
+            optional.truncate(10);
+            cosmetic.truncate(5);
+
+            advice_list = mandatory;
+            advice_list.extend(recommended);
+            advice_list.extend(optional);
+            advice_list.extend(cosmetic);
+
+            // CRITICAL: Sort exactly like advise command!
+            // Group by category, then sort within category
+            let mut by_category: std::collections::HashMap<String, Vec<anna_common::Advice>> =
+                std::collections::HashMap::new();
+
+            for advice in advice_list {
+                by_category.entry(advice.category.clone())
+                    .or_insert_with(Vec::new)
+                    .push(advice);
+            }
+
+            // Sort in same category order as advise
+            let category_order = vec![
+                "Security & Privacy", "Hardware Support", "System Maintenance", "Performance & Optimization",
+                "Power Management", "Development Tools", "Desktop Environment", "Gaming & Entertainment",
+                "Multimedia & Graphics", "Network Configuration", "Utilities", "System Configuration",
+                "Productivity", "Terminal & CLI Tools", "Communication", "Engineering & CAD",
+                "Desktop Customization",
+            ];
+
+            // Rebuild list in display order
+            let mut ordered_advice_list = Vec::new();
+            for category in &category_order {
+                if let Some(mut items) = by_category.remove(*category) {
+                    // Sort within category
+                    items.sort_by(|a, b| {
+                        b.priority.cmp(&a.priority)
+                            .then(b.risk.cmp(&a.risk))
+                            .then(b.popularity.cmp(&a.popularity))
+                    });
+                    ordered_advice_list.extend(items);
+                }
+            }
+
+            // Add any remaining categories
+            for (_, mut items) in by_category {
+                items.sort_by(|a, b| {
+                    b.priority.cmp(&a.priority)
+                        .then(b.risk.cmp(&a.risk))
+                        .then(b.popularity.cmp(&a.popularity))
+                });
+                ordered_advice_list.extend(items);
+            }
+
+            let advice_list = ordered_advice_list;
             // Parse the nums string (e.g., "1,3,5-7")
             let indices = parse_number_ranges(&nums_str)?;
+
+            // First, show what WILL be applied for user confirmation
+            println!("{}", beautiful::status(Level::Info, "Items to be applied:"));
+            println!();
+            for idx in &indices {
+                if *idx < 1 || *idx > advice_list.len() {
+                    println!("   \x1b[91m❌ Index {} is out of range (1-{})\x1b[0m", idx, advice_list.len());
+                    continue;
+                }
+                let advice = &advice_list[*idx - 1];
+                println!("   \x1b[1m{}. {}\x1b[0m", idx, advice.title);
+                println!("      \x1b[2mID: {}\x1b[0m", advice.id);
+                if let Some(cmd) = &advice.command {
+                    println!("      \x1b[38;5;159m→ {}\x1b[0m", cmd);
+                }
+                println!();
+            }
+
+            // Require confirmation unless dry-run
+            if !dry_run {
+                println!();
+                use std::io::{self, Write};
+                print!("   \x1b[1;93mProceed with applying these items? (y/N):\x1b[0m ");
+                io::stdout().flush()?;
+
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                let input = input.trim().to_lowercase();
+
+                if input != "y" && input != "yes" {
+                    println!();
+                    println!("{}", beautiful::status(Level::Info, "Cancelled by user"));
+                    return Ok(());
+                }
+                println!();
+            }
 
             // Apply each advice by index
             let mut success_count = 0;
@@ -578,7 +690,7 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
 
                 let advice = &advice_list[idx - 1];
                 println!("{}", beautiful::status(Level::Info,
-                    &format!("{}. Applying: {}", idx, advice.title)));
+                    &format!("{}. Applying: {} (ID: {})", idx, advice.title, advice.id)));
 
                 let result = client.call(Method::ApplyAction {
                     advice_id: advice.id.clone(),
