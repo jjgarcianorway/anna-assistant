@@ -45,17 +45,22 @@ enum Commands {
         limit: usize,
     },
 
-    /// Apply recommendations by number, range, or bundle
+    /// Apply recommendations by number, ID, range, or bundle
     ///
     /// Examples:
-    ///   annactl apply 1              # Apply recommendation #1
-    ///   annactl apply 1-5            # Apply recommendations 1 through 5
-    ///   annactl apply 1,3,5          # Apply recommendations 1, 3, and 5
-    ///   annactl apply --bundle hyprland   # Apply Hyprland setup bundle
-    ///   annactl apply --auto         # Auto-apply all safe recommendations
+    ///   annactl apply 1                    # Apply recommendation #1
+    ///   annactl apply 1-5                  # Apply recommendations 1 through 5
+    ///   annactl apply 1,3,5                # Apply recommendations 1, 3, and 5
+    ///   annactl apply --id amd-microcode   # Apply by recommendation ID
+    ///   annactl apply --bundle hyprland    # Apply Hyprland setup bundle
+    ///   annactl apply --auto               # Auto-apply all safe recommendations
     Apply {
         /// Recommendation number(s) to apply (e.g., "1", "1-5", "1,3,5-7")
         numbers: Option<String>,
+
+        /// Apply a specific recommendation by ID
+        #[arg(short, long)]
+        id: Option<String>,
 
         /// Apply all recommendations in a workflow bundle
         #[arg(short, long)]
@@ -212,6 +217,18 @@ enum Commands {
 
     /// Open interactive TUI for browsing and applying recommendations
     Tui,
+
+    /// Generate shell completion scripts
+    ///
+    /// Examples:
+    ///   annactl completions bash > /usr/share/bash-completion/completions/annactl
+    ///   annactl completions zsh > /usr/share/zsh/site-functions/_annactl
+    ///   annactl completions fish > ~/.config/fish/completions/annactl.fish
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -256,8 +273,8 @@ async fn main() -> Result<()> {
         Commands::Advise { category, mode, limit } => {
             commands::advise(None, mode, category, limit).await
         }
-        Commands::Apply { numbers, bundle, auto, dry_run } => {
-            commands::apply(None, numbers, bundle, auto, dry_run).await
+        Commands::Apply { numbers, id, bundle, auto, dry_run } => {
+            commands::apply(id, numbers, bundle, auto, dry_run).await
         }
         Commands::Bundles => commands::bundles().await,
         Commands::Rollback { bundle, dry_run } => commands::rollback(&bundle, dry_run).await,
@@ -273,5 +290,20 @@ async fn main() -> Result<()> {
         Commands::Update { install, check } => commands::update(install, check).await,
         Commands::Ignore { action } => commands::ignore(action).await,
         Commands::Tui => tui::run().await,
+        Commands::Completions { shell } => {
+            generate_completions(shell);
+            Ok(())
+        }
     }
+}
+
+/// Generate shell completion scripts
+fn generate_completions(shell: clap_complete::Shell) {
+    use clap::CommandFactory;
+    use clap_complete::generate;
+
+    let mut cmd = Cli::command();
+    let bin_name = cmd.get_name().to_string();
+
+    generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
 }

@@ -5,6 +5,57 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.55] - 2025-11-05
+
+### ⚡ Shell Completion Support
+
+**Completion Generation:**
+- New `completions` command generates shell completion scripts
+- Supports bash, zsh, fish, PowerShell, and elvish
+- Autocompletes all commands, subcommands, and options
+- Autocompletes argument values where applicable
+
+### 🎯 Apply by ID Support
+
+**Enhanced Apply Command:**
+- Added `--id` flag to apply command
+- Apply recommendations by ID: `annactl apply --id amd-microcode`
+- Works alongside existing number-based apply (e.g., `annactl apply 1`)
+- TUI already supported apply by ID, now CLI has feature parity
+- More flexible recommendation application
+
+**Installation:**
+- Bash: `annactl completions bash > /usr/share/bash-completion/completions/annactl`
+- Zsh: `annactl completions zsh > /usr/share/zsh/site-functions/_annactl`
+- Fish: `annactl completions fish > ~/.config/fish/completions/annactl.fish`
+- PowerShell: `annactl completions powershell > annactl.ps1`
+
+**User Experience:**
+- Tab completion for all commands
+- Faster command-line navigation
+- Discover commands and options easily
+- Reduces typing and errors
+
+### 🔧 Technical Details
+
+**New Command:**
+- `completions` - Generate shell completion scripts
+
+**New Function:**
+- `generate_completions()` - Uses clap_complete to generate completions
+
+**Files Modified:**
+- main.rs: Added Completions command and generation handler
+- Cargo.toml (annactl): Added clap_complete dependency
+
+**Dependencies Added:**
+- clap_complete = "4.5" (for completion generation)
+
+**Integration:**
+- Uses clap's built-in CommandFactory
+- Outputs to stdout for easy redirection
+- Works with all shells supported by clap_complete
+
 ## [1.0.0-beta.54] - 2025-11-05
 
 ### 🎉 Beautiful Update Experience

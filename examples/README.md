@@ -88,6 +88,9 @@ annactl advise --limit 10
 # Apply a single recommendation by number
 annactl apply 1
 
+# Apply by recommendation ID
+annactl apply --id amd-microcode
+
 # Dry run to see what would happen
 annactl apply 1 --dry-run
 
