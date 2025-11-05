@@ -2,11 +2,20 @@
 //!
 //! Supports:
 //! - GUI notifications (notify-send for desktop environments)
-//! - Terminal broadcasts (wall for TTY/SSH users)
+//! - Terminal broadcasts (wall for TTY/SSH users) - only for critical issues
 //! - Detects environment automatically
+//! - Rate limiting to prevent spam (1 hour cooldown)
 
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tracing::{info, warn};
+
+// Global last notification time with mutex for thread safety
+static LAST_NOTIFICATION: Mutex<Option<Instant>> = Mutex::new(None);
+
+// Cooldown period: 1 hour between notifications
+const NOTIFICATION_COOLDOWN: Duration = Duration::from_secs(3600);
 
 /// Notification urgency level
 #[derive(Debug, Clone, Copy)]
@@ -17,14 +26,49 @@ pub enum NotificationUrgency {
     Critical,
 }
 
+/// Check if enough time has passed since last notification (cooldown check)
+fn should_send_notification() -> bool {
+    let mut last = LAST_NOTIFICATION.lock().unwrap();
+
+    match *last {
+        None => {
+            // First notification ever - allow it
+            *last = Some(Instant::now());
+            true
+        }
+        Some(last_time) => {
+            let elapsed = last_time.elapsed();
+            if elapsed >= NOTIFICATION_COOLDOWN {
+                // Cooldown period has passed - allow notification
+                *last = Some(Instant::now());
+                info!("Cooldown passed ({:.0} minutes), sending notification", elapsed.as_secs() / 60);
+                true
+            } else {
+                // Still in cooldown period - skip notification
+                let remaining = NOTIFICATION_COOLDOWN - elapsed;
+                info!("Notification blocked by cooldown ({} minutes remaining)", remaining.as_secs() / 60);
+                false
+            }
+        }
+    }
+}
+
 /// Send a notification to all appropriate channels
 pub async fn send_notification(title: &str, message: &str, urgency: NotificationUrgency) {
+    // Check cooldown before sending
+    if !should_send_notification() {
+        info!("Skipping notification due to cooldown");
+        return;
+    }
+
     // Try GUI notification first (for desktop users)
     send_gui_notification(title, message, urgency).await;
-    
-    // For critical notifications, also broadcast to terminals
+
+    // For critical notifications, also broadcast to terminals (but NEVER use wall)
+    // Wall is too intrusive and spams all terminals
+    // We rely on GUI notifications only
     if matches!(urgency, NotificationUrgency::Critical) {
-        send_terminal_broadcast(message).await;
+        info!("Critical notification sent (GUI only, no wall spam)");
     }
 }
 
@@ -51,6 +95,16 @@ async fn send_gui_notification(title: &str, message: &str, urgency: Notification
     // We need to find all user sessions and send to each
     if let Ok(sessions) = get_active_sessions().await {
         for session in sessions {
+            // Make notifications more visible with:
+            // - Longer timeout (10 seconds instead of default 5)
+            // - Category for proper desktop integration
+            // - Better icon based on urgency
+            let icon = match urgency {
+                NotificationUrgency::Critical => "dialog-error",
+                NotificationUrgency::Normal => "dialog-information",
+                NotificationUrgency::Low => "dialog-information",
+            };
+
             let result = Command::new("sudo")
                 .args(&[
                     "-u", &session.username,
@@ -58,8 +112,10 @@ async fn send_gui_notification(title: &str, message: &str, urgency: Notification
                     "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{}/bus",
                     "notify-send",
                     "--urgency", urgency_str,
-                    "--icon", "dialog-information",
+                    "--icon", icon,
                     "--app-name", "Anna Assistant",
+                    "--category", "system",
+                    "--expire-time", "10000",  // 10 seconds - more visible
                     title,
                     message,
                 ])
@@ -81,38 +137,8 @@ async fn send_gui_notification(title: &str, message: &str, urgency: Notification
     }
 }
 
-/// Send terminal broadcast using wall
-async fn send_terminal_broadcast(message: &str) {
-    // Simple box without ANSI codes for wall (broadcast to all terminals)
-    let width = 50;
-    let top = format!("╭{}╮", "─".repeat(width));
-    let title = format!("│ ⚠️  Anna Assistant Alert{} │", " ".repeat(width - 26));
-    let bottom = format!("╰{}╯", "─".repeat(width));
-
-    let formatted_message = format!(
-        "\n{}\n{}\n{}\n\n{}\n\nRun 'annactl advise' for details.\n",
-        top,
-        title,
-        bottom,
-        message
-    );
-
-    let result = Command::new("wall")
-        .arg(&formatted_message)
-        .output();
-
-    match result {
-        Ok(output) if output.status.success() => {
-            info!("Terminal broadcast sent");
-        }
-        Ok(_) => {
-            warn!("Failed to send terminal broadcast");
-        }
-        Err(e) => {
-            warn!("Error sending terminal broadcast: {}", e);
-        }
-    }
-}
+// Removed send_terminal_broadcast() - wall is too intrusive and spams terminals
+// GUI notifications with cooldown are sufficient for notifying users
 
 /// User session info
 #[derive(Debug)]

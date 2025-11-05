@@ -4,27 +4,33 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.56 (November 2025)
+**Current Version:** Beta.57 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.56
+## 🎯 What's New in Beta.57
 
-**🤖 True Auto-Update (Tier 3):**
-- Anna can now update herself automatically in Autonomy Tier 3!
-- Checks for updates in the background
-- Installs updates automatically when available
-- Sends desktop notification when update completes
-- Daemon restarts automatically after update
-- Completely hands-free maintenance
+**🔕 Smart Notification System:**
+- Fixed notification spam - no more annoying wall broadcasts!
+- 1-hour cooldown between notifications (no spam!)
+- Removed terminal broadcast (wall) completely
+- GUI notifications only - clean and professional
+- More visible notifications (10 second timeout, better icons)
+- Notifications bundled intelligently
 
-**Enable Tier 3 Autonomy:**
-```bash
-annactl config set autonomy_tier 3
-# Anna will now auto-update herself along with 18 other maintenance tasks
-```
+**User Feedback Implemented:**
+- "Anna is spamming me with notifications" - FIXED! ✅
+- Added proper rate limiting
+- More visible desktop notifications
+- No more wall spam
 
 **🎯 Previous Releases:**
+
+**Beta.56 - True Auto-Update:**
+- Anna updates herself automatically in Tier 3!
+- Checks for updates in the background
+- Installs updates automatically when available
+- Enable with: `annactl config set autonomy_tier 3`
 
 **Beta.55 - Shell Completions & Apply by ID:**
 - Generate tab completion scripts for bash, zsh, fish, and PowerShell

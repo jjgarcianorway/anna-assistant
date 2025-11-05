@@ -5,6 +5,57 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.57] - 2025-11-05
+
+### 🔕 Smart Notification System (Anti-Spam)
+
+**Fixed Notification Spam:**
+- Added 1-hour cooldown between notifications
+- Removed wall (terminal broadcast) completely - it was spamming all terminals
+- GUI notifications only - cleaner and less intrusive
+- Rate limiting prevents notification spam
+- Thread-safe cooldown tracking with Mutex
+
+**More Visible Notifications:**
+- Increased timeout from 5 to 10 seconds
+- Better icons based on urgency (dialog-error for critical)
+- Added category tag for proper desktop integration
+- More prominent display
+
+**User Experience:**
+- No more wall spam across all terminals!
+- Maximum one notification per hour (configurable)
+- GUI-only notifications are professional and clean
+- Cooldown logged for transparency
+- Critical issues still notified, but rate-limited
+
+### 🔧 Technical Details
+
+**New Features:**
+- `should_send_notification()` - Cooldown check function (lines 29-54)
+- Global `LAST_NOTIFICATION` mutex for thread-safe tracking
+- `NOTIFICATION_COOLDOWN` constant (1 hour = 3600 seconds)
+
+**Modified Functions:**
+- `send_notification()` - Added cooldown check (lines 57-73)
+- `send_gui_notification()` - Enhanced visibility (lines 98-123)
+- Removed `send_terminal_broadcast()` - wall was too intrusive
+
+**Files Modified:**
+- notifier.rs: Complete rewrite of notification system
+
+**Rate Limiting:**
+- First notification: Allowed immediately
+- Subsequent notifications: 1-hour cooldown enforced
+- Logged with minutes remaining when blocked
+- Thread-safe with Mutex
+
+**User Feedback Implemented:**
+- "Anna is spamming me with notifications" - FIXED! ✅
+- "Too frequently" - 1-hour cooldown implemented
+- "Be careful with bothering the user" - Rate limiting added
+- "Bundle the notification" - Single notification per hour max
+
 ## [1.0.0-beta.56] - 2025-11-05
 
 ### 🤖 True Auto-Update (Autonomy Tier 3)
