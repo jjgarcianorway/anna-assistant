@@ -1302,12 +1302,46 @@ pub async fn config_new(
 ) -> Result<()> {
     match action.as_deref() {
         Some("get") => {
-            // TODO: Implement get config value
             if let Some(k) = key {
-                println!("Getting config value for: {}", k);
-                println!("TODO: Implement config get");
+                // Connect to daemon to get current config
+                let mut client = match RpcClient::connect().await {
+                    Ok(c) => c,
+                    Err(_) => {
+                        println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+                        println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+                        return Ok(());
+                    }
+                };
+
+                let config_data = client.call(Method::GetConfig).await?;
+                if let ResponseData::Config(config) = config_data {
+                    // Match the key and return the value
+                    // Note: ConfigData via RPC currently only exposes a subset of config
+                    let value = match k.as_str() {
+                        "autonomy_tier" => config.autonomy_tier.to_string(),
+                        "auto_update_check" => config.auto_update_check.to_string(),
+                        "wiki_cache_path" => config.wiki_cache_path.clone(),
+                        _ => {
+                            println!("{}", beautiful::status(Level::Error, &format!("Unknown config key: {}", k)));
+                            println!();
+                            println!("Available keys via RPC:");
+                            println!("  autonomy_tier       - Current autonomy tier (0-3)");
+                            println!("  auto_update_check   - Enable automatic update checking");
+                            println!("  wiki_cache_path     - Path to Arch Wiki cache directory");
+                            println!();
+                            println!("For full config, use: annactl config (shows all settings)");
+                            println!("Note: More keys will be added to RPC in future releases.");
+                            return Ok(());
+                        }
+                    };
+                    println!("{} = {}", k, value);
+                } else {
+                    println!("{}", beautiful::status(Level::Error, "Failed to get configuration"));
+                }
             } else {
                 println!("Usage: annactl config get <key>");
+                println!();
+                println!("Example: annactl config get autonomy_tier");
             }
             Ok(())
         }
