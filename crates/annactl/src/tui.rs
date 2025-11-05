@@ -68,6 +68,8 @@ struct Tui {
     status_message: Option<(String, Color)>,
     /// Current sort mode
     sort_mode: SortMode,
+    /// Pending action to apply (advice_id)
+    pending_apply: Option<String>,
 }
 
 /// Get category emoji and color for display
@@ -115,6 +117,7 @@ impl Tui {
             view_mode: ViewMode::Dashboard,
             status_message: None,
             sort_mode: SortMode::Priority, // Default: sort by priority
+            pending_apply: None,
         }
     }
 
@@ -194,6 +197,42 @@ impl Tui {
     /// Get currently selected advice
     fn selected_advice(&self) -> Option<&Advice> {
         self.list_state.selected().and_then(|i| self.advice.get(i))
+    }
+
+    /// Execute pending apply action if any
+    async fn execute_pending_apply(&mut self) -> Result<()> {
+        if let Some(advice_id) = self.pending_apply.take() {
+            // Call RPC to apply the action
+            use anna_common::ipc::{Method, ResponseData};
+
+            match self.client.call(Method::ApplyAction {
+                advice_id: advice_id.clone(),
+                dry_run: false
+            }).await? {
+                ResponseData::ActionResult { success, message } => {
+                    if success {
+                        self.status_message = Some((
+                            format!("✓ {}", message),
+                            Color::Green
+                        ));
+                        // Refresh advice list after successful apply
+                        let _ = self.update().await;
+                    } else {
+                        self.status_message = Some((
+                            format!("✗ {}", message),
+                            Color::Red
+                        ));
+                    }
+                }
+                _ => {
+                    self.status_message = Some((
+                        "Unexpected response from daemon".to_string(),
+                        Color::Red
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Handle keyboard input
@@ -282,15 +321,11 @@ impl Tui {
             KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
                 // Apply the recommendation
                 if let Some(advice) = self.selected_advice() {
-                    // Clone data we need before mutating self
-                    let title = advice.title.clone();
-                    let _id = advice.id.clone();
-
-                    // Note: Actual apply would be done via RPC
-                    // For now, just show a message
+                    // Set pending action to be executed in async context
+                    self.pending_apply = Some(advice.id.clone());
                     self.status_message = Some((
-                        format!("✓ Applied: {}", title),
-                        Color::Green
+                        "Applying...".to_string(),
+                        Color::Yellow
                     ));
                 }
                 self.view_mode = ViewMode::Dashboard;
@@ -858,6 +893,11 @@ pub async fn run() -> Result<()> {
 
         if last_tick.elapsed() >= tick_rate {
             last_tick = Instant::now();
+        }
+
+        // Execute pending apply action if any
+        if tui.pending_apply.is_some() {
+            let _ = tui.execute_pending_apply().await; // Ignore errors, status shown to user
         }
 
         // Auto-refresh data
