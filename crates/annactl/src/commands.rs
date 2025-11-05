@@ -730,8 +730,9 @@ pub async fn report(category: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub async fn doctor() -> Result<()> {
+pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
     use std::process::Command;
+    use std::io::{self, Write};
 
     println!("{}", header("Anna System Doctor"));
     println!();
@@ -1008,6 +1009,115 @@ pub async fn doctor() -> Result<()> {
         println!("{}", beautiful::status(Level::Warning, "System has minor issues"));
     } else {
         println!("{}", beautiful::status(Level::Error, "System needs attention!"));
+    }
+
+    // ==================== AUTO-FIX ====================
+    if (fix || dry_run) && !issues.is_empty() {
+        println!();
+        println!("{}", section("🔧 Auto-Fix"));
+
+        // Filter to fixable issues (ones with fix commands)
+        let fixable_issues: Vec<_> = issues.iter()
+            .filter(|(_, cmd, _)| !cmd.is_empty())
+            .collect();
+
+        if fixable_issues.is_empty() {
+            println!("{}", beautiful::status(Level::Info, "No auto-fixable issues found"));
+            return Ok(());
+        }
+
+        if dry_run {
+            println!("{}", beautiful::status(Level::Info, "DRY RUN - showing what would be fixed:"));
+            println!();
+            for (i, (issue, fix_cmd, _)) in fixable_issues.iter().enumerate() {
+                println!("  {}. {}", i + 1, issue);
+                println!("     \x1b[36m→ {}\x1b[0m", fix_cmd);
+            }
+            return Ok(());
+        }
+
+        println!("{}", beautiful::status(Level::Info, &format!("Found {} fixable issues", fixable_issues.len())));
+        println!();
+
+        let mut fixed_count = 0;
+        let mut failed_count = 0;
+
+        for (i, (issue, fix_cmd, is_critical)) in fixable_issues.iter().enumerate() {
+            println!("  [{}] {}", i + 1, issue);
+
+            // Ask for confirmation unless --auto flag is set
+            let should_fix = if auto {
+                true
+            } else {
+                print!("  Fix this issue? [Y/n]: ");
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                let response = input.trim().to_lowercase();
+                response.is_empty() || response == "y" || response == "yes"
+            };
+
+            if !should_fix {
+                println!("  \x1b[90mSkipped\x1b[0m");
+                println!();
+                continue;
+            }
+
+            println!("  \x1b[36m→ {}\x1b[0m", fix_cmd);
+
+            // Execute the fix command
+            let fix_result = if fix_cmd.contains("|") {
+                // Handle piped commands
+                Command::new("sh")
+                    .arg("-c")
+                    .arg(fix_cmd)
+                    .output()
+            } else {
+                // Handle simple commands
+                let parts: Vec<&str> = fix_cmd.split_whitespace().collect();
+                if parts.is_empty() {
+                    continue;
+                }
+
+                Command::new(parts[0])
+                    .args(&parts[1..])
+                    .output()
+            };
+
+            match fix_result {
+                Ok(output) if output.status.success() => {
+                    println!("  {}", beautiful::status(Level::Success, "✓ Fixed successfully"));
+                    fixed_count += 1;
+                }
+                Ok(output) => {
+                    println!("  {}", beautiful::status(Level::Error, "✗ Fix failed"));
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    if !stderr.is_empty() {
+                        println!("  \x1b[90m{}\x1b[0m", stderr.trim());
+                    }
+                    failed_count += 1;
+                }
+                Err(e) => {
+                    println!("  {} {}", beautiful::status(Level::Error, "✗"), e);
+                    failed_count += 1;
+                }
+            }
+            println!();
+        }
+
+        // Summary
+        println!("{}", section("📊 Fix Summary"));
+        if fixed_count > 0 {
+            println!("  {} {} issues fixed", beautiful::status(Level::Success, "✓"), fixed_count);
+        }
+        if failed_count > 0 {
+            println!("  {} {} fixes failed", beautiful::status(Level::Error, "✗"), failed_count);
+        }
+        println!();
+
+        if fixed_count > 0 {
+            println!("{}", beautiful::status(Level::Info, "Run 'annactl doctor' again to verify fixes"));
+        }
     }
 
     Ok(())

@@ -89,7 +89,19 @@ enum Commands {
     },
 
     /// Run system diagnostics
-    Doctor,
+    Doctor {
+        /// Automatically fix detected issues
+        #[arg(long)]
+        fix: bool,
+
+        /// Show what would be fixed without actually fixing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Fix all issues without confirmation
+        #[arg(long)]
+        auto: bool,
+    },
 
     /// Configure Anna settings
     Config {
@@ -149,7 +161,7 @@ async fn main() -> Result<()> {
         Commands::Bundles => commands::bundles().await,
         Commands::Rollback { bundle, dry_run } => commands::rollback(&bundle, dry_run).await,
         Commands::Report { category } => commands::report(category).await,
-        Commands::Doctor => commands::doctor().await,
+        Commands::Doctor { fix, dry_run, auto } => commands::doctor(fix, dry_run, auto).await,
         Commands::Config { set } => commands::config(set).await,
         Commands::Autonomy { limit } => commands::autonomy(limit).await,
         Commands::WikiCache { force } => commands::wiki_cache(force).await,

@@ -5,6 +5,172 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.37] - 2025-11-05
+
+### 🔧 Auto-Fix Engine & Enhanced Installation!
+
+**SELF-HEALING:** Doctor can now automatically fix detected issues! Plus beautiful uninstaller.
+
+### ✨ Major Features
+
+**🤖 Auto-Fix Engine**
+- `annactl doctor --fix` - Automatically fix detected issues
+- `annactl doctor --dry-run` - Preview fixes without applying
+- `annactl doctor --fix --auto` - Fix all issues without confirmation
+- Interactive confirmation for each fix
+- Safe execution with error handling
+- Success/failure tracking and reporting
+- Fix summary with statistics
+
+**🔧 Intelligent Fix Execution**
+- Handles piped commands (e.g., `pacman -Qdtq | sudo pacman -Rns -`)
+- Handles simple commands (e.g., `sudo journalctl --vacuum-size=500M`)
+- Real-time progress indication
+- Detailed error reporting
+- Suggestion to re-run doctor after fixes
+
+**🎨 Beautiful Uninstaller**
+- Interactive confirmation
+- Selective user data removal
+- Clean system state restoration
+- Feedback collection
+- Reinstall instructions
+- Anna-style formatting throughout
+
+**📦 Enhanced Installation**
+- Uninstaller script with confirmation prompts
+- User data preservation option
+- Clean removal of all Anna components
+
+### 🔧 Technical Details
+
+**Auto-Fix Modes:**
+```bash
+# Preview fixes without applying
+annactl doctor --dry-run
+
+# Fix with confirmation for each issue
+annactl doctor --fix
+
+# Fix all without confirmation
+annactl doctor --fix --auto
+```
+
+**Fix Capabilities:**
+- Orphan package removal
+- Package cache cleanup (paccache)
+- Journal size reduction (journalctl --vacuum-size)
+- Failed service investigation (systemctl)
+- Disk space analysis (du -sh /*)
+
+**Execution Safety:**
+- All fixes require confirmation (unless --auto)
+- Error handling for failed commands
+- stderr output display on failure
+- Success/failure counting
+- No destructive operations without approval
+
+**Uninstaller Features:**
+- Stops and disables systemd service
+- Removes binaries from /usr/local/bin
+- Optional user data removal:
+  - /etc/anna/ (configuration)
+  - /var/log/anna/ (logs)
+  - /run/anna/ (runtime)
+  - /var/cache/anna/ (cache)
+- Preserves data by default
+- Clean system restoration
+
+### 💡 What This Means
+
+**Self-Healing System:**
+- One command to fix all detected issues
+- Preview changes before applying
+- Safe, reversible fixes
+- Educational (see what commands fix what)
+
+**Better Maintenance Workflow:**
+1. Run `annactl doctor` - See health score and issues
+2. Run `annactl doctor --dry-run` - Preview fixes
+3. Run `annactl doctor --fix` - Apply fixes with confirmation
+4. Run `annactl doctor` again - Verify improvements
+
+**Professional Uninstall Experience:**
+- Polite, helpful messaging
+- User data preservation option
+- Clean system state
+- Reinstall instructions provided
+
+### 📊 Example Usage
+
+**Auto-Fix with Preview:**
+```bash
+$ annactl doctor --dry-run
+
+🔧 Auto-Fix
+
+ℹ DRY RUN - showing what would be fixed:
+
+  1. 12 orphan packages
+     → pacman -Qdtq | sudo pacman -Rns -
+  2. Large package cache (6.2GB)
+     → sudo paccache -rk2
+  3. Large journal (1.8GB)
+     → sudo journalctl --vacuum-size=500M
+```
+
+**Auto-Fix with Confirmation:**
+```bash
+$ annactl doctor --fix
+
+🔧 Auto-Fix
+
+ℹ Found 3 fixable issues
+
+  [1] 12 orphan packages
+  Fix this issue? [Y/n]: y
+  → pacman -Qdtq | sudo pacman -Rns -
+  ✓ Fixed successfully
+
+  [2] Large package cache (6.2GB)
+  Fix this issue? [Y/n]: y
+  → sudo paccache -rk2
+  ✓ Fixed successfully
+
+📊 Fix Summary
+  ✓ 2 issues fixed
+
+ℹ Run 'annactl doctor' again to verify fixes
+```
+
+**Uninstaller:**
+```bash
+$ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/uninstall.sh | sudo sh
+
+⚠ This will remove Anna Assistant from your system
+
+The following will be removed:
+  → Daemon and client binaries
+  → Systemd service
+  → User data and configuration (your settings and history will be lost!)
+
+Are you sure you want to uninstall? [y/N]: y
+
+→ Stopping annad service...
+✓ Service stopped
+✓ Service disabled
+→ Removing systemd service...
+✓ Service file removed
+→ Removing binaries...
+✓ Binaries removed
+
+╭──────────────────────────────────────────────────────╮
+│      Anna Assistant Successfully Uninstalled       │
+╰──────────────────────────────────────────────────────╯
+
+Thanks for using Anna! We're sorry to see you go.
+```
+
 ## [1.0.0-beta.36] - 2025-11-05
 
 ### 🏥 Intelligent System Doctor!
