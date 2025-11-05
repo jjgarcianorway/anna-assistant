@@ -5,6 +5,73 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.40] - 2025-11-05
+
+### 🎨 Polish & Documentation Update!
+
+**CLEAN & CONSISTENT:** Fixed rendering issues and updated all documentation to Beta.39/40!
+
+### 🐛 Bug Fixes
+
+**Fixed Box Drawing Rendering Issues:**
+- Replaced Unicode box drawing characters (╭╮╰╯━) with simple, universally-compatible separators
+- Changed from decorative boxes to clean `=` separators
+- Category headers now render perfectly in all terminals
+- Summary separators simplified from `━` to `-`
+- Much better visual consistency across different terminal emulators
+
+**Fixed CI Build:**
+- Fixed unused variable warning that caused GitHub Actions to fail
+- Prefixed `_is_critical` in doctor command
+
+### 📚 Documentation Updates
+
+**Completely Updated README.md:**
+- Reflects Beta.39 features and simplified commands
+- Added environment-aware recommendations section
+- Updated command examples with new syntax
+- Added comprehensive feature list
+- Updated installation instructions
+- Removed outdated Beta.30 references
+
+**Updated Command Help:**
+- Fixed usage examples to show new simplified syntax
+- `annactl apply <number>` instead of `annactl apply --nums <number>`
+- `annactl advise security` instead of `annactl advise --category security`
+
+### 💡 What This Means
+
+**Better Terminal Compatibility:**
+- Works perfectly in all terminals (kitty, alacritty, gnome-terminal, konsole, etc.)
+- No more broken box characters
+- Cleaner, more professional output
+- Consistent rendering regardless of font or locale
+
+**Up-to-Date Documentation:**
+- README reflects current version (Beta.40)
+- All examples use correct command syntax
+- Clear feature descriptions
+- Easy for new users to understand
+
+### 🔧 Technical Details
+
+**Before:**
+```
+╭────────────────────────────────────╮
+│  🔒 Security                       │
+╰────────────────────────────────────╯
+```
+
+**After:**
+```
+🔒 Security
+============================================================
+```
+
+Much simpler, renders everywhere, still looks great!
+
+---
+
 ## [1.0.0-beta.39] - 2025-11-05
 
 ### 🎯 Context-Aware Recommendations & Simplified Commands!

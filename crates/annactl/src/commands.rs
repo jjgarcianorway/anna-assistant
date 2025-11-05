@@ -227,24 +227,17 @@ pub async fn advise(
                     continue;
                 }
 
-                // Category header with box and emoji
+                // Category header - clean and compatible
                 let (emoji, color_code, title) = get_category_style(category);
 
                 println!();
-                let box_width = 80;
-                let category_title = format!(" {} {} ", emoji, title);
-                let title_len = console::measure_text_width(&category_title);
-                let left_pad = (box_width - title_len) / 2;
-                let right_pad = box_width - title_len - left_pad;
-
-                println!("\x1b[90m{}\x1b[0m", format!("╭{}╮", "─".repeat(box_width)));
-                println!("\x1b[90m│\x1b[0m{}{}\x1b[1m{}\x1b[0m{}\x1b[90m│\x1b[0m",
-                    " ".repeat(left_pad),
+                println!();
+                println!("{}{} \x1b[1m{}\x1b[0m",
                     color_code,
-                    category_title,
-                    " ".repeat(right_pad)
+                    emoji,
+                    title
                 );
-                println!("\x1b[90m{}\x1b[0m", format!("╰{}╯", "─".repeat(box_width)));
+                println!("{}", "=".repeat(60));
                 println!();
 
                 // Sort items within category by priority then risk
@@ -266,21 +259,15 @@ pub async fn advise(
         for (category, items) in &by_category {
             if !category_order.contains(&category.as_str()) && !items.is_empty() {
                 println!();
+                println!();
                 let (emoji, color_code, title) = get_category_style(&category);
-                let box_width = 80;
-                let category_title = format!(" {} {} ", emoji, title);
-                let title_len = console::measure_text_width(&category_title);
-                let left_pad = (box_width - title_len) / 2;
-                let right_pad = box_width - title_len - left_pad;
 
-                println!("\x1b[90m{}\x1b[0m", format!("╭{}╮", "─".repeat(box_width)));
-                println!("\x1b[90m│\x1b[0m{}{}\x1b[1m{}\x1b[0m{}\x1b[90m│\x1b[0m",
-                    " ".repeat(left_pad),
+                println!("{}{} \x1b[1m{}\x1b[0m",
                     color_code,
-                    category_title,
-                    " ".repeat(right_pad)
+                    emoji,
+                    title
                 );
-                println!("\x1b[90m{}\x1b[0m", format!("╰{}╯", "─".repeat(box_width)));
+                println!("{}", "=".repeat(60));
                 println!();
 
                 let mut sorted_items = items.clone();
@@ -296,7 +283,7 @@ pub async fn advise(
 
         // Summary at the end
         println!();
-        println!("\x1b[90m{}\x1b[0m", "═".repeat(80));
+        println!("{}", "=".repeat(60));
         println!();
         let msg = if advice_list.len() == 1 {
             format!("📋 Found {} recommendation across {} categories",
@@ -309,17 +296,17 @@ pub async fn advise(
         println!();
 
         // Show helpful tips based on mode
-        println!("\x1b[38;5;250m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m");
+        println!("\x1b[90m{}\x1b[0m", "-".repeat(60));
         println!();
         println!("\x1b[1m\x1b[96mQuick Actions:\x1b[0m");
-        println!("  annactl apply --nums <number>     Apply specific recommendation");
-        println!("  annactl apply --nums 1-5          Apply a range");
-        println!("  annactl apply --nums 1,3,5        Apply multiple");
+        println!("  annactl apply <number>      Apply specific recommendation");
+        println!("  annactl apply 1-5           Apply a range");
+        println!("  annactl apply 1,3,5         Apply multiple");
         println!();
         println!("\x1b[1m\x1b[96mFiltering Options:\x1b[0m");
         println!("  annactl advise --mode=critical    Show only critical items");
         println!("  annactl advise --mode=all         Show all recommendations");
-        println!("  annactl advise --category=security  Show specific category");
+        println!("  annactl advise security           Show specific category");
         println!("  annactl advise --limit=10         Limit number of results");
         println!();
 
@@ -1042,7 +1029,7 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
         let mut fixed_count = 0;
         let mut failed_count = 0;
 
-        for (i, (issue, fix_cmd, is_critical)) in fixable_issues.iter().enumerate() {
+        for (i, (issue, fix_cmd, _is_critical)) in fixable_issues.iter().enumerate() {
             println!("  [{}] {}", i + 1, issue);
 
             // Ask for confirmation unless --auto flag is set

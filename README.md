@@ -2,448 +2,303 @@
 
 **Your Friendly Arch Linux System Administrator**
 
-```
-╭─────────────────────────────────────────────╮
-│   Intelligent • Safe • Beautiful • Human    │
-╰─────────────────────────────────────────────╯
-```
-
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**🧠 NEW in Beta.30:** Anna now deeply understands your workflow! She detects your programming languages, development tools, gaming setup, network configuration, and infers your preferences (CLI vs GUI, power user, aesthetics) to provide context-aware recommendations tailored specifically to YOUR system.
+**Current Version:** Beta.40 (November 2025)
 
 ---
 
-## 🧠 Deep System Intelligence (Beta.30)
+## 🎯 What's New in Beta.40
 
-Anna now has comprehensive understanding of your system:
-
-**Development Profile Detection:**
-- Scans for Python, Rust, Go, JavaScript projects with file counts
-- Checks LSP server installation (rust-analyzer, python-lsp-server, etc.)
-- Detects IDEs: VSCode, Vim, Neovim, Emacs, IntelliJ, PyCharm, CLion
-- Counts Git repositories and active projects
-- Monitors Docker/Podman and virtualization usage
-
-**Gaming Profile:**
-- Steam, Lutris, Wine, ProtonGE detection
-- MangoHud and gamepad driver checking
-- Game library awareness
-
-**Network Intelligence:**
-- VPN configuration (WireGuard/OpenVPN)
-- Firewall and SSH server status
-- DNS setup detection (systemd-resolved/dnsmasq)
-
-**User Preferences (AI-Inferred):**
-- CLI power user or GUI enthusiast
-- Aesthetics appreciation (detects starship, eza, bat)
-- Gamer/Developer/Content Creator profiles
-- Laptop user detection
-- Minimalism preference
-
-**System Health:**
-- Recent package installations (last 30 days)
-- Active and enabled services monitoring
-- Disk usage trends with largest directories
-- Cache and log size tracking
-- Session patterns and system age
-
-**Dynamic Categories with Arch Wiki Links:**
-- 12 categories in plain English
-- Only shows categories relevant to YOUR system
-- Direct links to official Arch Wiki documentation
+**Polish & Consistency:**
+- Fixed box drawing rendering issues - now works perfectly in all terminals!
+- Replaced Unicode box characters with simple, universal separators
+- Updated all documentation to reflect latest features
+- Fixed CI build issues
+- Cleaner, more professional output across all commands
 
 ---
 
-## ✨ What Anna Does
+## 🎯 What's New in Beta.39
+
+**Context-Aware Recommendations:**
+- Automatic detection of your window manager (Hyprland, i3, sway, bspwm, dwm, etc.)
+- Desktop environment detection (GNOME, KDE, XFCE)
+- Nvidia GPU detection with driver version tracking
+- Hyprland+Nvidia specific configuration recommendations
+- WM-specific utility suggestions (rofi for i3, waybar for sway)
+
+**Simplified Commands:**
+```bash
+# Clean, intuitive syntax
+annactl advise security       # Filter by category
+annactl apply 1-5             # Apply recommendations by number
+annactl rollback hyprland     # Rollback bundles
+annactl dismiss 1             # Dismiss recommendations
+```
+
+**Interactive Dashboard:**
+- Real-time system health monitoring with TUI
+- Live hardware metrics (CPU temp, load, memory, disk)
+- Color-coded health indicators
+- Keyboard-driven navigation
+
+---
+
+## ✨ Core Features
 
 ### 🔒 **Security & Updates**
-- Detects missing CPU microcode (Spectre/Meltdown protection)
-- Comprehensive SSH hardening (10 security rules)
-- Checks firewall status (UFW/iptables)
-- Monitors for available system updates
-- VPN setup (WireGuard, OpenVPN)
-- Password manager recommendations (KeePassXC)
-- Rootkit detection (rkhunter)
-- Antivirus scanning (ClamAV)
-- LUKS encryption awareness
+- CPU microcode detection (Spectre/Meltdown protection)
+- Comprehensive SSH hardening
+- Firewall status monitoring
+- System update checking
+- VPN setup recommendations
+- Password manager suggestions
+- Security audit tools
 
 ### ⚡ **Performance**
-- Suggests Btrfs compression (save 20-30% disk space!)
-- Optimizes mirror lists with Reflector
-- Enables parallel downloads in pacman (5x faster)
-- Recommends SSD TRIM for longevity (fstrim timer, noatime, discard)
+- Btrfs compression (save 20-30% disk space!)
+- Mirror list optimization with Reflector
+- Parallel downloads in pacman (5x faster)
+- SSD TRIM optimization
 - Power management for laptops (TLP, powertop)
-- Swap compression with zram (faster, less wear)
+- Swap compression with zram
 - Firmware updates (fwupd)
-- DNS optimization (systemd-resolved)
 - Journal size management
 
 ### 💻 **Development**
-- **Workflow bundles** - Install complete dev stacks with one command!
-  - Container Development Stack (Docker → docker-compose → lazydocker)
-  - Python Development Stack (python-lsp-server, python-black, ipython)
-  - Rust Development Stack (rust-analyzer)
-- Detects which languages you actually use (Python, Rust, Go, JavaScript)
-- Suggests LSP servers and tools for your workflow
-- Finds missing configurations (git, bat, starship, zoxide)
-- Build optimization (sccache for Rust)
-- Docker & Docker Compose setup
-- Virtualization (QEMU/KVM, virt-manager, libvirt)
-- Shell productivity tools (fzf, tmux, bash-completion)
-- Archive utilities (zip, rar, p7zip, unarchiver)
+- **Workflow bundles** - Complete dev stacks with one command
+  - Container Development Stack (Docker ecosystem)
+  - Python Development Stack (LSP, tools, debuggers)
+  - Rust Development Stack (rust-analyzer, cargo tools)
+- Language detection (Python, Rust, Go, JavaScript, Java, etc.)
+- LSP server recommendations for your editor
+- Git configuration checking
+- Docker & virtualization support
+- Shell productivity tools
 
-### 🎨 **Desktop & Terminal**
-- Modern GPU-accelerated terminals (Alacritty, Kitty, WezTerm)
-- **8 desktop environments** (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)
-- Status bars (Waybar, i3blocks) for tiling WMs
-- Application launchers (Rofi, Wofi)
-- Notification daemons (Dunst, Mako)
-- Compositor support (Picom for X11, XWayland compatibility)
-- Screenshot tools (grim/slurp for Wayland, maim/scrot for X11)
-- Laptop-specific (touchpad, backlight, battery optimization)
-- Webcam support (v4l-utils)
-- Audio enhancements (EasyEffects, pavucontrol)
+### 🎮 **Desktop & Gaming**
+- Window manager support (Hyprland, i3, sway, bspwm, dwm, etc.)
+- Desktop environment support (GNOME, KDE, XFCE, etc.)
+- Compositor detection and recommendations
+- Nvidia+Wayland configuration
+- Gaming tools (Steam, Lutris, Wine, ProtonGE)
+- GPU-accelerated terminals
+- Status bars and application launchers
 
-### 🎮 **Hardware & Gaming**
-- Gamepad driver detection (Xbox, PlayStation, Nintendo controllers)
-- Steam and gaming optimizations
-- Hardware accelerated video decoding
-- Proton-GE for better game compatibility
-- MangoHud performance overlay
-- Wine for Windows applications
+### 📦 **Package Management**
+- Orphan package cleanup
+- AUR helper setup (yay, paru)
+- Package cache management
+- Update notifications
+- Dependency checking
 
-### 🔌 **Hardware Support**
-- Bluetooth stack setup (bluez)
-- WiFi firmware detection and installation
-- USB automount (udisks2)
-- NetworkManager for easy WiFi management
-- Printer setup (CUPS)
-- Webcam support (v4l-utils)
-- Multiple monitor configuration
-
-### 🎬 **Multimedia**
-- Video players (VLC, mpv) with codec support
-- FFmpeg for media processing
-- YouTube downloader (yt-dlp)
-- Image manipulation (ImageMagick)
-- GStreamer plugins for media playback
-- Screen recording (OBS Studio, SimpleScreenRecorder)
-- Audio enhancements (EasyEffects, pavucontrol)
-
-### 🔤 **Fonts & Rendering**
-- Nerd Fonts for terminal icons
-- Emoji font support
-- CJK (Chinese, Japanese, Korean) fonts
-- Better font rendering
-
-### 🧹 **Maintenance**
-- Cleans up orphaned packages
-- Monitors systemd health
-- Checks GPU drivers
-- System snapshots (Timeshift, Snapper, snap-pac)
-- Backup solutions (rsync, borg, duplicity)
-- Locale and timezone configuration
-- NTP time synchronization
-- Bootloader optimization (GRUB timeout, quiet boot)
-- **Automatic refresh** on system changes (package installs, reboots, config changes)
-- **Smart notifications** (GUI via notify-send, terminal via wall)
-
-### 🔐 **Privacy & Productivity**
-- Browser recommendations (Firefox, Chromium hardening)
-- Password managers (KeePassXC, Bitwarden)
-- VPN tools (WireGuard, OpenVPN)
-- Android integration (KDE Connect, scrcpy)
-- System monitoring tools (htop, btop, iotop)
+### 🩺 **System Doctor**
+- Comprehensive health diagnostics (100-point scale)
+- Auto-fix with `--fix` flag
+- Dry-run mode to preview fixes
+- Package system validation
+- Disk health checking (SMART data)
+- Service health monitoring
+- Network connectivity tests
 
 ---
 
 ## 🚀 Quick Start
 
-### One-Line Installation
+### Installation
 
 ```bash
+# Install Anna (requires root)
 curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
 ```
 
-The installer automatically:
-- Downloads the latest release
-- Installs Anna system-wide
-- Sets up the background service
-- Shows you what Anna can do!
+This will:
+1. Download and install Anna binaries
+2. Set up the systemd daemon
+3. Create necessary directories
+4. Start Anna's background service
 
-### Try It Out
+### Basic Usage
 
 ```bash
-# See what Anna suggests for your system (context-aware and intelligent!)
+# See system recommendations
 annactl advise
 
-# Check Anna's status and see what she understands about your system
+# Filter by category
+annactl advise security
+annactl advise packages
+annactl advise performance
+
+# Apply recommendations
+annactl apply 1              # Apply recommendation #1
+annactl apply 1-5            # Apply recommendations 1 through 5
+annactl apply 1,3,5          # Apply specific recommendations
+
+# System health check
+annactl doctor
+
+# Auto-fix detected issues
+annactl doctor --fix
+
+# Open interactive dashboard
+annactl dashboard
+
+# Check system status
 annactl status
 
-# Get a full system health report with sysadmin-level insights
-annactl report
-
-# Get a focused report on specific category (plain English names!)
-annactl report --category security      # "Security & Privacy" recommendations
-annactl report --category development   # "Development Tools" suggestions
-annactl report --category gaming        # "Gaming & Entertainment" setup
-
-# List available workflow bundles
+# View available workflow bundles
 annactl bundles
 
-# Install a complete development stack in one command
-annactl apply --bundle "Python Development Stack"
-
-# Rollback a bundle if needed
-annactl rollback --bundle "Python Development Stack"
-annactl rollback --bundle "Container Development Stack" --dry-run  # Preview
-
-# Apply recommendations by number
-annactl apply --nums 1        # Apply first recommendation
-annactl apply --nums 1-5      # Apply recommendations 1 through 5
-annactl apply --nums 1,3,5-7  # Apply multiple recommendations
-
-# Apply by ID
-annactl apply --id orphan-packages
-
-# See what would happen without actually doing it
-annactl apply --nums 1 --dry-run
+# Apply a workflow bundle
+annactl apply --bundle hyprland-setup
 ```
-
-### 🎯 Smart Filtering
-
-Anna shows ~25 most relevant recommendations by default to avoid overwhelming you:
-
-```bash
-# Display modes
-annactl advise                      # Smart mode (default) - ~25 best items
-annactl advise --mode=critical      # Only security/critical issues
-annactl advise --mode=recommended   # Critical + recommended
-annactl advise --mode=all           # Show everything
-
-# Filter by category
-annactl advise --category=security  # Only security recommendations
-annactl advise --category=development  # Only dev tools
-annactl advise --category=multimedia   # Only media-related
-
-# Limit results
-annactl advise --limit=10           # Show only 10 items
-annactl advise --limit=50           # Show 50 items
-
-# Combine filters
-annactl advise --mode=recommended --category=security --limit=5
-```
-
-**Available categories**: security, drivers, system, development, media, desktop, beautification, fonts, productivity, gaming, hardware
 
 ---
 
-## 🎯 Why Anna?
+## 📊 Commands Reference
 
-**She speaks human** - No jargon, no cryptic messages. Anna explains things like a friend would.
+### Core Commands
 
-> "Your SSD needs regular 'TRIM' operations to stay fast and last longer. Think of it like taking out the trash - it tells the SSD which data blocks are no longer in use."
+| Command | Description | Example |
+|---------|-------------|---------|
+| `advise [category]` | Show recommendations | `annactl advise security` |
+| `apply <numbers>` | Apply recommendations | `annactl apply 1-5` |
+| `bundles` | List workflow bundles | `annactl bundles` |
+| `rollback <bundle>` | Rollback a bundle | `annactl rollback hyprland` |
+| `doctor` | Run diagnostics | `annactl doctor --fix` |
+| `dashboard` | Open interactive TUI | `annactl dashboard` |
+| `status` | Show daemon status | `annactl status` |
+| `health` | Show health score | `annactl health` |
+| `report [category]` | Generate health report | `annactl report` |
+| `dismiss <number>` | Dismiss recommendation | `annactl dismiss 1` |
+| `history` | View application history | `annactl history` |
+| `config` | Configure Anna | `annactl config` |
 
-**She's smart about context** - Anna won't suggest Python tools just because you have Python installed. She analyzes your command history to see if you *actually use* Python (30+ times → suggests pyenv), Docker (50+ times → suggests docker-compose), or Git (50+ times → suggests lazygit).
+### Options
 
-**She learns from your behavior** - Anna examines your shell history and system usage patterns to provide intelligent, context-aware recommendations that match how you actually use your computer.
-
-**Every suggestion is backed by Arch Wiki** - All recommendations link to official documentation so you can learn more.
-
-**Beautiful terminal experience** - Pastel colors, perfect formatting, emoji where it helps. The best-looking CLI you'll use.
-
-**Smart filtering prevents overwhelm** - Shows ~25 most relevant items by default, with modes and filters to find exactly what you need.
+- `-m, --mode <mode>` - Display mode: smart (default), critical, recommended, all
+- `-l, --limit <num>` - Maximum recommendations to show
+- `-n, --dry-run` - Preview changes without applying
+- `-a, --auto` - Auto-apply without confirmation
 
 ---
 
-## 📊 Current Status
+## 🎯 Environment-Aware Recommendations
 
-**Version**: v1.0.0-beta.30 🧠
-**Status**: Beta - Feature-rich, stable, and incredibly intelligent!
+Anna automatically detects your environment and provides tailored advice:
 
-### What's Working
+**Hyprland + Nvidia:**
+- Critical environment variables (GBM_BACKEND, __GLX_VENDOR_LIBRARY_NAME)
+- Kernel parameter recommendations (nvidia-drm.modeset=1)
+- Hyprland-specific utilities (hyprpaper, hyprlock, waybar)
 
-✅ **Deep system intelligence** - understands your development profile, gaming setup, network config, and user preferences
-✅ **130+ intelligent detection rules** covering security, hardware, desktop, multimedia, development, system optimization, and more
-✅ **Context-aware recommendations** - tailored to YOUR specific workflow and system state
-✅ **Dynamic categories** - 12 categories with Arch Wiki links, plain English names, only shows what's relevant to you
-✅ **Workflow bundles** - one-command installation of complete dev stacks with rollback support
-✅ **Boot performance analysis** - tracks boot time, slow services, failed units, suggests optimizations
-✅ **Advanced telemetry** - 30+ collection functions tracking languages, projects, services, disk trends, preferences
-✅ **AUR helper intelligence** - detects AUR packages, recommends helpers (yay/paru), offers alternatives
-✅ **Package cache management** - monitors cache size, suggests cleanup strategies with paccache
-✅ **Kernel parameter optimization** - analyzes boot parameters, suggests SSD optimizations
-✅ **Dependency chains & workflow bundles** - groups related advice, smart ordering foundation
-✅ **Software alternatives system** - offers 2-3 tool options with trade-offs explained
-✅ **Smart filtering system** - 4 display modes (smart/critical/recommended/all) + category filters + limits
-✅ **Enhanced health reports** - sysadmin-level insights with hardware specs, storage analysis, dev tools detection
-✅ **Automatic system monitoring** - refreshes advice on package changes, reboots, config edits
-✅ **Multi-user support** - personalized advice based on desktop environment, shell, display server
-✅ **Batch apply** - apply recommendations by number, range (1-5), or multiple (1,3,5-7)
-✅ **Smart notifications** - GUI notifications (notify-send) and terminal broadcasts (wall) for critical issues
-✅ **Plain English reports** - conversational system health summaries
-✅ **Human-friendly messages** - every word in plain English with clear explanations
-✅ **Perfect terminal formatting** - beautiful pastel colors with numbered advice
-✅ **Context-aware** - only suggests what you actually need based on your system configuration
-✅ **Automatic installation** - one command and you're done
-✅ **Background daemon** - runs quietly, always watching your system
-✅ **Arch Wiki citations** - every recommendation has references
-✅ **Risk levels** - High (critical) > Medium (recommended) > Low (optional)
+**i3 Window Manager:**
+- Application launcher suggestions (rofi, dmenu)
+- Status bar options (i3status, polybar)
+- i3-specific productivity tools
 
-### Coming Soon
+**sway (Wayland i3):**
+- Waybar for status display
+- Wayland-native utilities
+- Compositor optimizations
 
-🚧 **Policy-based auto-apply** - let Anna automatically fix low-risk issues
-🚧 **Arch Wiki caching** - offline access to documentation
+**GNOME:**
+- GNOME Tweaks for customization
+- Extension manager
+- GNOME-specific tools
+
+**KDE Plasma:**
+- Plasma widgets and tools
+- System monitor integration
+- KDE-specific utilities
+
+---
+
+## 🧠 Deep System Intelligence
+
+Anna understands your system at a deep level:
+
+**Hardware Detection:**
+- CPU architecture and temperature
+- GPU vendor (Nvidia, AMD, Intel)
+- Disk health via SMART data
+- Battery status and health
+- Memory pressure
+
+**Environment Detection:**
+- Window manager (Hyprland, i3, sway, bspwm, etc.)
+- Desktop environment (GNOME, KDE, XFCE, etc.)
+- Compositor (picom, Hyprland's built-in, etc.)
+- Display server (X11, Wayland)
+- Shell (bash, zsh, fish)
+
+**Software Analysis:**
+- Development languages in use
+- Installed development tools
+- Gaming setup (Steam, Lutris, etc.)
+- Media tools and usage
+- Network configuration
+
+**System Health:**
+- Boot performance
+- Service status
+- Failed/slow services
+- Journal errors
+- Package health
+
+---
+
+## 🛡️ Safety First
+
+Anna is designed to be helpful but never reckless:
+
+- **Explains Everything:** Every recommendation includes a clear reason
+- **Risk Levels:** Critical, Recommended, Optional
+- **Dry-Run Mode:** Preview changes before applying
+- **Reversible Actions:** Most operations can be undone
+- **User Approval:** Interactive confirmation for fixes
+- **Bundle Rollback:** Undo workflow bundles cleanly
+- **Learning System:** Remembers dismissed recommendations
 
 ---
 
 ## 🏗️ Architecture
 
-Anna is built with Rust for safety, speed, and reliability.
+Anna consists of two main components:
 
-```
-┌─────────────┐
-│   annactl   │  ← You interact with this (CLI)
-└──────┬──────┘
-       │ Unix Socket IPC
-┌──────▼──────┐
-│    annad    │  ← Background daemon (runs as systemd service)
-│             │
-│  ┌────────┐ │
-│  │Telemetry│ │  Collects system facts
-│  └────────┘ │
-│  ┌────────┐ │
-│  │Recommender│  Generates advice
-│  └────────┘ │
-│  ┌────────┐ │
-│  │Executor │ │  (Future) Runs approved actions
-│  └────────┘ │
-└─────────────┘
-```
+**annad (Daemon):**
+- Runs in the background as a systemd service
+- Collects system telemetry
+- Generates recommendations
+- Provides RPC API over Unix socket
 
-**Three crates:**
-- `annad` - The daemon (privileged, collects data, generates advice)
-- `annactl` - The CLI client (user-facing interface)
-- `anna_common` - Shared types and beautiful output formatting
+**annactl (Client):**
+- User-facing CLI interface
+- Communicates with daemon via RPC
+- Beautiful, intuitive output
+- Interactive TUI dashboard
 
 ---
 
-## 🎨 What Makes Anna Special
+## 📚 Documentation
 
-### She Explains Things
-
-Instead of: `AMD CPU detected without microcode updates`
-
-Anna says:
-> "Your AMD processor needs microcode updates to protect against security vulnerabilities like Spectre and Meltdown. Think of it like a security patch for your CPU itself."
-
-### She Uses Context
-
-Anna won't spam you with irrelevant suggestions. She checks:
-- Do you have the hardware? (SSD → TRIM suggestions)
-- Do you actually use this? (50+ docker commands → docker-compose suggestion)
-- Is it already configured? (NetworkManager installed → check if enabled)
-- What's your desktop environment? (Only suggests tools for your actual DE, not KDE tools on GNOME)
-
-### Enhanced System Reports
-
-The `annactl report` command provides sysadmin-level insights:
-
-```
-📊 System Health Report
-
-   Hardware:
-     CPU: AMD Ryzen 9 5900X (12 cores)
-     RAM: 32.0 GB total
-     GPU: NVIDIA GeForce RTX 3080
-     ✓ ext4 on / - 450.5/1000.0 GB (45% full)
-     ⚠️  btrfs on /home - 920.3/1000.0 GB (92% full)
-
-   Software:
-     Kernel: 6.17.6-arch1-1
-     Packages: 1,847 installed
-     Orphans: 23 packages can be removed
-     Desktop: KDE Plasma (Wayland)
-     Shell: zsh
-
-   Development Tools:
-     git, docker, python3, rustc, go, node
-```
-
-Color-coded storage indicators show at-a-glance health (✓ healthy, ● warning, ⚠️ critical).
-
-### She Prioritizes
-
-**Mandatory** (🔴) - Security critical (microcode, firewall)
-**Recommended** (🟡) - Significant improvements (parallel downloads, TRIM)
-**Optional** (🟢) - Performance tweaks (noatime)
-**Cosmetic** (🔵) - Pretty things (colored output)
-
----
-
-## 🔒 Safety & Privacy
-
-- **Fully offline** - No phone home, no telemetry sent anywhere
-- **Runs locally** - All data stays on your machine
-- **Open source** - See exactly what Anna does
-- **Arch Wiki grounded** - Official documentation, not random internet advice
-- **Audit logging** - Every action is logged (future feature)
-- **Dry-run mode** - See what would happen before doing it (future feature)
+- [IPC API Documentation](docs/IPC_API.md) - For developers integrating with Anna
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute to Anna
+- [Changelog](CHANGELOG.md) - Version history and features
+- [Testing Guide](TESTING.md) - Testing procedures
 
 ---
 
 ## 🤝 Contributing
 
-Anna is actively developed and we'd love your help!
-
-**Ways to contribute:**
-- Try Anna and report issues
-- Suggest new detection rules
-- Improve documentation
-- Add support for more configurations
-- Help make messages even friendlier
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
 ## 📜 License
 
-**GNU General Public License v3.0 (GPLv3)**
-
-Anna Assistant is free and open source software licensed under GPLv3.
-
-This means:
-- ✅ **Free to use, fork, and share**
-- ✅ **Must cite original source** when distributing
-- ✅ **Must remain open source** (copyleft protection)
-- ✅ **Must disclose modifications**
-
-This ensures Anna remains free for everyone while protecting the work and giving proper attribution.
-
-See [LICENSE](LICENSE) for full details.
-
----
-
-## 🌐 Philosophy
-
-Anna believes system administration should be:
-- **Accessible** - You don't need to be a Linux expert
-- **Transparent** - Always explain why, not just what
-- **Beautiful** - Terminal UIs can be gorgeous
-- **Helpful** - Like having a knowledgeable friend
-- **Smart** - Context-aware, not just rule-based
-- **Safe** - Security and stability first
-
-Anna evolves from a diagnostic tool into an intelligent system administrator that understands your system better than you do, learns your habits, and keeps your machine secure, fast, and reliable — quietly, intelligently, beautifully.
-
----
-
-## 📸 Screenshots
-
-(Coming soon - we want to show you the beautiful terminal output!)
+GPL-3.0-or-later
 
 ---
 
@@ -451,15 +306,19 @@ Anna evolves from a diagnostic tool into an intelligent system administrator tha
 
 Built with ❤️ for the Arch Linux community.
 
-**Technologies:**
-- Rust 🦀 - For speed, safety, and reliability
-- Tokio - Async runtime
-- Serde - Serialization
-- Sysinfo - System information gathering
-- Arch Wiki - The source of all truth
+Special thanks to:
+- The Arch Linux team for an amazing distribution
+- The Arch Wiki community for comprehensive documentation
+- All contributors and testers
 
 ---
 
-**Built with Rust • Powered by Arch Wiki • Privacy First • Human Friendly**
+**Installation:**
+```bash
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
+```
 
-[⭐ Star us on GitHub](https://github.com/jjgarcianorway/anna-assistant) • [📦 Latest Release](https://github.com/jjgarcianorway/anna-assistant/releases) • [🐛 Report Issues](https://github.com/jjgarcianorway/anna-assistant/issues)
+**Uninstallation:**
+```bash
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/uninstall.sh | sudo sh
+```
