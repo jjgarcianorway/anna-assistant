@@ -198,6 +198,50 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Spawn auto-update check task
+    tokio::spawn(async move {
+        // Check for updates every 24 hours
+        let update_check_interval = tokio::time::Duration::from_secs(24 * 60 * 60);
+
+        loop {
+            tokio::time::sleep(update_check_interval).await;
+
+            info!("Running scheduled update check");
+            match anna_common::updater::check_for_updates().await {
+                Ok(update_info) => {
+                    if update_info.is_update_available {
+                        info!("Update available: {} → {}",
+                            update_info.current_version,
+                            update_info.latest_version);
+
+                        // Auto-install if autonomy tier is FullyAutonomous (Tier 3)
+                        if let Ok(config) = anna_common::Config::load() {
+                            if matches!(config.autonomy.tier, anna_common::AutonomyTier::FullyAutonomous) {
+                                info!("Tier 3 enabled - auto-installing update");
+                                match anna_common::updater::perform_update(&update_info).await {
+                                    Ok(_) => {
+                                        info!("Auto-update installed successfully! Daemon will restart.");
+                                        // Daemon will be restarted by systemd after binary replacement
+                                    }
+                                    Err(e) => {
+                                        tracing::error!("Auto-update failed: {}", e);
+                                    }
+                                }
+                            } else {
+                                info!("Auto-update disabled (Tier < 3). User can run 'annactl update --install'");
+                            }
+                        }
+                    } else {
+                        info!("Already on latest version: {}", update_info.current_version);
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to check for updates: {}", e);
+                }
+            }
+        }
+    });
+
     // Start RPC server
     tokio::select! {
         result = rpc_server::start_server(state) => {
