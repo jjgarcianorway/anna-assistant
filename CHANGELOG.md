@@ -5,6 +5,140 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.39] - 2025-11-05
+
+### 🎯 Context-Aware Recommendations & Simplified Commands!
+
+**SMART & INTUITIVE:** Anna now understands your environment and provides tailored recommendations!
+
+### ✨ Major Features
+
+**📝 Simplified Command Structure**
+- Positional arguments for cleaner commands
+- `annactl advise security` instead of `annactl advise --category security`
+- `annactl apply 1-5` instead of `annactl apply --nums 1-5`
+- `annactl rollback hyprland` instead of `annactl rollback --bundle hyprland`
+- `annactl report security` instead of `annactl report --category security`
+- `annactl dismiss 1` instead of `annactl dismiss --num 1`
+- `annactl config get/set` for easier configuration
+- Much more intuitive and faster to type!
+
+**🔍 Enhanced Environment Detection**
+- **Window Manager Detection**: Hyprland, i3, sway, bspwm, dwm, qtile, xmonad, awesome, and more
+- **Desktop Environment Detection**: GNOME, KDE, XFCE, and others
+- **Compositor Detection**: Hyprland, picom, compton, xcompmgr
+- **Nvidia GPU Detection**: Automatic detection of Nvidia hardware
+- **Driver Version Detection**: Tracks Nvidia driver version
+- **Wayland+Nvidia Configuration Check**: Detects if properly configured
+
+**🎮 Environment-Specific Recommendations**
+
+*Hyprland + Nvidia Users:*
+- Automatically detects Hyprland with Nvidia GPU
+- Recommends critical environment variables (GBM_BACKEND, __GLX_VENDOR_LIBRARY_NAME, etc.)
+- Suggests nvidia-drm.modeset=1 kernel parameter
+- Provides Hyprland-specific package recommendations
+
+*Window Manager Users:*
+- **i3**: Recommends rofi/dmenu for app launching
+- **bspwm**: Warns if sxhkd is missing (critical for keybindings)
+- **sway**: Suggests waybar for status bar
+
+*Desktop Environment Users:*
+- **GNOME**: Recommends GNOME Tweaks for customization
+- **KDE**: Suggests plasma-systemmonitor
+
+**📊 Telemetry Enhancements**
+New fields in SystemFacts:
+- `window_manager` - Detected window manager
+- `compositor` - Detected compositor
+- `is_nvidia` - Whether system has Nvidia GPU
+- `nvidia_driver_version` - Nvidia driver version if present
+- `has_wayland_nvidia_support` - Wayland+Nvidia configuration status
+
+### 🔧 Technical Details
+
+**Command Examples:**
+```bash
+# Old way (still works)
+annactl advise --category security --limit 10
+annactl apply --nums "1-5"
+annactl rollback --bundle "Container Stack"
+
+# New way (cleaner!)
+annactl advise security -l 10
+annactl apply 1-5
+annactl rollback "Container Stack"
+```
+
+**Detection Capabilities:**
+- Checks `XDG_CURRENT_DESKTOP` environment variable
+- Uses `pgrep` to detect running processes
+- Checks installed packages with `pacman`
+- Parses `lspci` for GPU detection
+- Reads `/sys/class/` for hardware info
+- Checks kernel parameters
+- Analyzes config files for environment variables
+
+**Hyprland+Nvidia Check:**
+```rust
+// Detects Hyprland running with Nvidia GPU
+if window_manager == "Hyprland" && is_nvidia {
+    if !has_wayland_nvidia_support {
+        // Recommends critical env vars
+    }
+}
+```
+
+### 💡 What This Means
+
+**Simpler Commands:**
+- Faster to type
+- More intuitive
+- Less typing for common operations
+- Follows Unix philosophy
+
+**Personalized Recommendations:**
+- Anna knows what you're running
+- Tailored advice for your setup
+- No more generic recommendations
+- Proactive problem prevention
+
+**Example Scenarios:**
+
+*Scenario 1: Hyprland User*
+```
+User runs: annactl advise
+Anna detects: Hyprland + Nvidia RTX 4070
+Anna recommends:
+  → Configure Nvidia env vars for Hyprland
+  → Enable nvidia-drm.modeset=1
+  → Install hyprpaper, hyprlock, waybar
+```
+
+*Scenario 2: i3 User*
+```
+User runs: annactl advise
+Anna detects: i3 window manager, no launcher
+Anna recommends:
+  → Install rofi for application launching
+  → Install i3status or polybar for status bar
+```
+
+### 🚀 What's Coming in Beta.40
+
+Based on user feedback, the next release will focus on:
+- **Multi-GPU Support**: Intel, AMD/ATI, Nouveau recommendations
+- **More Desktop Environments**: Support for less common DEs/WMs
+- **Automatic Maintenance**: Low-risk updates with safety checks
+- **Arch News Integration**: `informant` integration for breaking changes
+- **Deep System Analysis**: Library mismatches, incompatibilities
+- **Security Hardening**: Post-quantum SSH, comprehensive security
+- **Log Analysis**: All system logs, not just journal
+- **Category Consistency**: Proper capitalization across all categories
+
+---
+
 ## [1.0.0-beta.38] - 2025-11-05
 
 ### 📊 Interactive TUI Dashboard!

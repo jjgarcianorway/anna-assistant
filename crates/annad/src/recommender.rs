@@ -46,6 +46,12 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_kernel_errors(facts));
     advice.extend(check_disk_space_prediction(facts));
 
+    // Environment-specific recommendations (beta.39+)
+    advice.extend(check_hyprland_nvidia_config(facts));
+    advice.extend(check_wayland_nvidia_config(facts));
+    advice.extend(check_window_manager_recommendations(facts));
+    advice.extend(check_desktop_environment_specific(facts));
+
     advice.extend(check_microcode(facts));
     advice.extend(check_gpu_drivers(facts));
     advice.extend(check_orphan_packages(facts));
@@ -7333,4 +7339,135 @@ fn check_disk_space_prediction(facts: &SystemFacts) -> Vec<Advice> {
     }
 
     result
+}
+
+/// Check Hyprland + Nvidia configuration (beta.39+)
+fn check_hyprland_nvidia_config(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Only applicable if using Hyprland and has Nvidia GPU
+    if facts.window_manager.as_deref() != Some("Hyprland") {
+        return result;
+    }
+
+    if !facts.is_nvidia {
+        return result;
+    }
+
+    // Check if Wayland+Nvidia environment variables are configured
+    if !facts.has_wayland_nvidia_support {
+        result.push(Advice {
+            id: "hyprland-nvidia-env-vars".to_string(),
+            title: "Configure Nvidia Environment Variables for Hyprland".to_string(),
+            reason: format!(
+                "You're running Hyprland with an Nvidia GPU{}, but the required environment variables for Wayland+Nvidia are not configured. \
+                This can cause flickering, crashes, and poor performance.",
+                if let Some(ver) = &facts.nvidia_driver_version {
+                    format!(" (driver {})", ver)
+                } else {
+                    String::new()
+                }
+            ),
+            action: "Add the following to ~/.config/hypr/hyprland.conf:\n\n\
+                env = GBM_BACKEND,nvidia-drm\n\
+                env = __GLX_VENDOR_LIBRARY_NAME,nvidia\n\
+                env = LIBVA_DRIVER_NAME,nvidia\n\
+                env = WLR_NO_HARDWARE_CURSORS,1".to_string(),
+            command: None,
+            priority: Priority::Mandatory,
+            risk: RiskLevel::High,
+            category: "desktop".to_string(),
+            wiki_refs: vec!["https://wiki.hyprland.org/Nvidia/".to_string()],
+            alternatives: vec![],
+            depends_on: vec![],
+            related_to: vec![],
+            bundle: Some("hyprland-nvidia".to_string()),
+        });
+    }
+
+    result
+}
+
+/// Check Wayland + Nvidia configuration
+fn check_wayland_nvidia_config(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if facts.display_server.as_deref() != Some("wayland") || !facts.is_nvidia {
+        return result;
+    }
+
+    if facts.window_manager.as_deref() == Some("Hyprland") {
+        return result; // Already handled
+    }
+
+    result
+}
+
+/// Window manager recommendations
+fn check_window_manager_recommendations(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    match facts.window_manager.as_deref() {
+        Some("i3") => {
+            if !is_package_installed("rofi") && !is_package_installed("dmenu") {
+                result.push(Advice {
+                    id: "i3-application-launcher".to_string(),
+                    title: "Install Application Launcher for i3".to_string(),
+                    reason: "i3 needs an application launcher for quick application access with keyboard shortcuts.".to_string(),
+                    action: "Install rofi for modern launcher or dmenu for classic".to_string(),
+                    command: Some("sudo pacman -S rofi".to_string()),
+                    priority: Priority::Recommended,
+                    risk: RiskLevel::Low,
+                    category: "desktop".to_string(),
+                    wiki_refs: vec!["https://wiki.archlinux.org/title/I3".to_string()],
+                    alternatives: vec![],
+                    depends_on: vec![],
+                    related_to: vec![],
+                    bundle: Some("i3-setup".to_string()),
+                });
+            }
+        }
+        _ => {}
+    }
+
+    result
+}
+
+/// Desktop environment recommendations
+fn check_desktop_environment_specific(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    match facts.desktop_environment.as_deref() {
+        Some("GNOME") => {
+            if !is_package_installed("gnome-tweaks") {
+                result.push(Advice {
+                    id: "gnome-tweaks".to_string(),
+                    title: "Install GNOME Tweaks for Customization".to_string(),
+                    reason: "GNOME Tweaks provides advanced customization options not available in standard Settings.".to_string(),
+                    action: "Install GNOME Tweaks to customize themes, fonts, startup applications, and more".to_string(),
+                    command: Some("sudo pacman -S gnome-tweaks".to_string()),
+                    priority: Priority::Optional,
+                    risk: RiskLevel::Low,
+                    category: "desktop".to_string(),
+                    wiki_refs: vec!["https://wiki.gnome.org/Apps/Tweaks".to_string()],
+                    alternatives: vec![],
+                    depends_on: vec![],
+                    related_to: vec![],
+                    bundle: Some("gnome-enhancements".to_string()),
+                });
+            }
+        }
+        _ => {}
+    }
+
+    result
+}
+
+/// Helper to check if package is installed
+fn is_package_installed(package: &str) -> bool {
+    std::process::Command::new("pacman")
+        .args(&["-Qq", package])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }

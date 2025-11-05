@@ -55,7 +55,16 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         // User Environment
         shell: detect_shell(),
         desktop_environment: detect_desktop_environment(),
+        window_manager: detect_window_manager(),
+        compositor: detect_compositor(),
         display_server: detect_display_server(),
+        is_nvidia: detect_nvidia(),
+        nvidia_driver_version: if detect_nvidia() {
+            get_nvidia_driver_version()
+        } else {
+            None
+        },
+        has_wayland_nvidia_support: check_wayland_nvidia_support(),
 
         // User Behavior (basic for now)
         frequently_used_commands: analyze_command_history().await,
@@ -316,7 +325,7 @@ fn detect_display_server() -> Option<String> {
     if let Ok(session) = std::env::var("XDG_SESSION_TYPE") {
         return Some(session);
     }
-    
+
     if std::env::var("WAYLAND_DISPLAY").is_ok() {
         Some("wayland".to_string())
     } else if std::env::var("DISPLAY").is_ok() {
@@ -324,6 +333,189 @@ fn detect_display_server() -> Option<String> {
     } else {
         None
     }
+}
+
+/// Detect window manager (separate from desktop environment)
+fn detect_window_manager() -> Option<String> {
+    // Check environment variable first
+    if let Ok(wm) = std::env::var("XDG_CURRENT_DESKTOP") {
+        // Map common WM names
+        match wm.to_lowercase().as_str() {
+            "hyprland" => return Some("Hyprland".to_string()),
+            "i3" => return Some("i3".to_string()),
+            "sway" => return Some("sway".to_string()),
+            "bspwm" => return Some("bspwm".to_string()),
+            "qtile" => return Some("Qtile".to_string()),
+            "dwm" => return Some("dwm".to_string()),
+            "awesome" => return Some("Awesome".to_string()),
+            "xmonad" => return Some("XMonad".to_string()),
+            _ => {}
+        }
+    }
+
+    // Check if Hyprland is running
+    if let Ok(output) = Command::new("pgrep").arg("-x").arg("Hyprland").output() {
+        if output.status.success() {
+            return Some("Hyprland".to_string());
+        }
+    }
+
+    // Check for other window managers by process
+    let wms = vec![
+        ("sway", "sway"),
+        ("i3", "i3"),
+        ("bspwm", "bspwm"),
+        ("qtile", "qtile"),
+        ("dwm", "dwm"),
+        ("awesome", "Awesome"),
+        ("xmonad", "XMonad"),
+        ("herbstluftwm", "herbstluftwm"),
+        ("openbox", "Openbox"),
+        ("fluxbox", "Fluxbox"),
+    ];
+
+    for (process, name) in wms {
+        if let Ok(output) = Command::new("pgrep").arg("-x").arg(process).output() {
+            if output.status.success() {
+                return Some(name.to_string());
+            }
+        }
+    }
+
+    // Check by installed packages
+    if package_installed("hyprland") {
+        Some("Hyprland".to_string())
+    } else if package_installed("sway") {
+        Some("sway".to_string())
+    } else if package_installed("i3-wm") || package_installed("i3-gaps") {
+        Some("i3".to_string())
+    } else if package_installed("bspwm") {
+        Some("bspwm".to_string())
+    } else {
+        None
+    }
+}
+
+/// Detect compositor
+fn detect_compositor() -> Option<String> {
+    // Hyprland is both WM and compositor
+    if let Ok(output) = Command::new("pgrep").arg("-x").arg("Hyprland").output() {
+        if output.status.success() {
+            return Some("Hyprland".to_string());
+        }
+    }
+
+    // Check for standalone compositors
+    let compositors = vec![
+        ("picom", "picom"),
+        ("compton", "compton"),
+        ("xcompmgr", "xcompmgr"),
+    ];
+
+    for (process, name) in compositors {
+        if let Ok(output) = Command::new("pgrep").arg("-x").arg(process).output() {
+            if output.status.success() {
+                return Some(name.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Detect if system has Nvidia GPU
+fn detect_nvidia() -> bool {
+    // Check lspci for Nvidia GPU
+    if let Ok(output) = Command::new("lspci").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("NVIDIA") || stdout.contains("nVidia") {
+            return true;
+        }
+    }
+
+    // Check if nvidia driver module is loaded
+    if let Ok(output) = Command::new("lsmod").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("nvidia") {
+            return true;
+        }
+    }
+
+    // Check for nvidia-smi command
+    if let Ok(output) = Command::new("which").arg("nvidia-smi").output() {
+        if output.status.success() {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Get Nvidia driver version
+fn get_nvidia_driver_version() -> Option<String> {
+    if let Ok(output) = Command::new("nvidia-smi")
+        .arg("--query-gpu=driver_version")
+        .arg("--format=csv,noheader")
+        .output()
+    {
+        if output.status.success() {
+            let version = String::from_utf8_lossy(&output.stdout);
+            return Some(version.trim().to_string());
+        }
+    }
+
+    // Try alternative method
+    if let Ok(output) = Command::new("modinfo").arg("nvidia").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if line.starts_with("version:") {
+                if let Some(version) = line.split_whitespace().nth(1) {
+                    return Some(version.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Check if Wayland+Nvidia is properly configured
+fn check_wayland_nvidia_support() -> bool {
+    // Check if using Wayland
+    if detect_display_server().as_deref() != Some("wayland") {
+        return false; // Not using Wayland
+    }
+
+    // Check if Nvidia GPU present
+    if !detect_nvidia() {
+        return false; // No Nvidia GPU
+    }
+
+    // Check for required environment variables in common config files
+    let config_files = vec![
+        "/etc/environment",
+        "/etc/profile.d/nvidia.sh",
+    ];
+
+    let required_vars = vec![
+        "GBM_BACKEND=nvidia-drm",
+        "__GLX_VENDOR_LIBRARY_NAME=nvidia",
+        "LIBVA_DRIVER_NAME=nvidia",
+    ];
+
+    let mut found_vars = 0;
+    for file in &config_files {
+        if let Ok(content) = std::fs::read_to_string(file) {
+            for var in &required_vars {
+                if content.contains(var) {
+                    found_vars += 1;
+                }
+            }
+        }
+    }
+
+    // Consider it configured if at least 2 out of 3 vars are set
+    found_vars >= 2
 }
 
 async fn analyze_command_history() -> Vec<CommandUsage> {

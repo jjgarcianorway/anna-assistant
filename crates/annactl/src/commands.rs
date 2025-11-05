@@ -1270,6 +1270,44 @@ pub async fn config(set: Option<String>) -> Result<()> {
     Ok(())
 }
 
+/// New config interface supporting get/set/TUI
+pub async fn config_new(
+    action: Option<String>,
+    key: Option<String>,
+    value: Option<String>,
+) -> Result<()> {
+    match action.as_deref() {
+        Some("get") => {
+            // TODO: Implement get config value
+            if let Some(k) = key {
+                println!("Getting config value for: {}", k);
+                println!("TODO: Implement config get");
+            } else {
+                println!("Usage: annactl config get <key>");
+            }
+            Ok(())
+        }
+        Some("set") => {
+            // Convert to old format: key=value
+            if let (Some(k), Some(v)) = (key, value) {
+                config(Some(format!("{}={}", k, v))).await
+            } else {
+                println!("Usage: annactl config set <key> <value>");
+                Ok(())
+            }
+        }
+        None => {
+            // No action means show all config (or open TUI in future)
+            config(None).await
+        }
+        Some(unknown) => {
+            println!("Unknown action: {}", unknown);
+            println!("Use: annactl config [get|set] <key> [value]");
+            Ok(())
+        }
+    }
+}
+
 /// Wrap text at specified width with indentation
 fn wrap_text(text: &str, width: usize, indent: &str) -> String {
     let mut result = Vec::new();

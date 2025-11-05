@@ -170,8 +170,13 @@ pub struct SystemFacts {
 
     // User Environment
     pub shell: String, // bash, zsh, fish
-    pub desktop_environment: Option<String>, // GNOME, KDE, i3, etc.
+    pub desktop_environment: Option<String>, // GNOME, KDE, XFCE, etc.
+    pub window_manager: Option<String>, // Hyprland, i3, sway, bspwm, etc.
+    pub compositor: Option<String>, // Hyprland, picom, etc.
     pub display_server: Option<String>, // X11, Wayland
+    pub is_nvidia: bool, // Whether system has Nvidia GPU
+    pub nvidia_driver_version: Option<String>, // Nvidia driver version if present
+    pub has_wayland_nvidia_support: bool, // Whether Nvidia+Wayland is properly configured
 
     // User Behavior (learned from system)
     pub frequently_used_commands: Vec<CommandUsage>,
