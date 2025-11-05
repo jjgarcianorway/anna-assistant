@@ -4,44 +4,33 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.40 (November 2025)
+**Current Version:** Beta.41 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.40
+## 🎯 What's New in Beta.40-41
 
-**Polish & Consistency:**
+**Multi-GPU Support (Beta.41):**
+- Intel integrated graphics detection and recommendations
+- AMD/ATI GPU detection with driver recommendations
+- Hardware video acceleration setup for Intel and AMD
+- Legacy radeon driver detection with upgrade suggestions
+
+**Polish & Consistency (Beta.40):**
 - Fixed box drawing rendering issues - now works perfectly in all terminals!
 - Replaced Unicode box characters with simple, universal separators
+- All category names properly capitalized and styled
 - Updated all documentation to reflect latest features
 - Fixed CI build issues
 - Cleaner, more professional output across all commands
 
----
-
-## 🎯 What's New in Beta.39
-
-**Context-Aware Recommendations:**
+**Context-Aware Recommendations (Beta.39):**
 - Automatic detection of your window manager (Hyprland, i3, sway, bspwm, dwm, etc.)
 - Desktop environment detection (GNOME, KDE, XFCE)
 - Nvidia GPU detection with driver version tracking
 - Hyprland+Nvidia specific configuration recommendations
 - WM-specific utility suggestions (rofi for i3, waybar for sway)
-
-**Simplified Commands:**
-```bash
-# Clean, intuitive syntax
-annactl advise security       # Filter by category
-annactl apply 1-5             # Apply recommendations by number
-annactl rollback hyprland     # Rollback bundles
-annactl dismiss 1             # Dismiss recommendations
-```
-
-**Interactive Dashboard:**
-- Real-time system health monitoring with TUI
-- Live hardware metrics (CPU temp, load, memory, disk)
-- Color-coded health indicators
-- Keyboard-driven navigation
+- Interactive TUI dashboard with real-time metrics
 
 ---
 

@@ -14,9 +14,9 @@ GRAY='\033[38;5;250m'
 RESET='\033[0m'
 BOLD='\033[1m'
 
-echo -e "${BOLD}${BLUE}╭─────────────────────────────────────────────╮${RESET}"
-echo -e "${BOLD}${BLUE}│         Anna Release Automation            │${RESET}"
-echo -e "${BOLD}${BLUE}╰─────────────────────────────────────────────╯${RESET}"
+echo -e "${BOLD}${BLUE}==============================================${RESET}"
+echo -e "${BOLD}${BLUE}         Anna Release Automation${RESET}"
+echo -e "${BOLD}${BLUE}==============================================${RESET}"
 echo
 
 # Check we're in git repo
@@ -115,9 +115,9 @@ else
 fi
 
 echo
-echo -e "${BOLD}${GREEN}╭─────────────────────────────────────────────╮${RESET}"
-echo -e "${BOLD}${GREEN}│   Release ${TAG} Published Successfully!     │${RESET}"
-echo -e "${BOLD}${GREEN}╰─────────────────────────────────────────────╯${RESET}"
+echo -e "${BOLD}${GREEN}==============================================${RESET}"
+echo -e "${BOLD}${GREEN}   Release ${TAG} Published Successfully!${RESET}"
+echo -e "${BOLD}${GREEN}==============================================${RESET}"
 echo
 echo -e "${GRAY}Next steps:${RESET}"
 echo -e "  ${CYAN}→${RESET} GitHub Actions will build and upload binaries"

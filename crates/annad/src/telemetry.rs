@@ -65,6 +65,13 @@ pub async fn collect_facts() -> Result<SystemFacts> {
             None
         },
         has_wayland_nvidia_support: check_wayland_nvidia_support(),
+        is_intel_gpu: detect_intel_gpu(),
+        is_amd_gpu: detect_amd_gpu(),
+        amd_driver_version: if detect_amd_gpu() {
+            get_amd_driver_version()
+        } else {
+            None
+        },
 
         // User Behavior (basic for now)
         frequently_used_commands: analyze_command_history().await,
@@ -516,6 +523,65 @@ fn check_wayland_nvidia_support() -> bool {
 
     // Consider it configured if at least 2 out of 3 vars are set
     found_vars >= 2
+}
+
+/// Detect if system has Intel integrated graphics (beta.41+)
+fn detect_intel_gpu() -> bool {
+    // Check lspci for Intel GPU
+    if let Ok(output) = Command::new("lspci").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.to_lowercase().contains("intel") && (stdout.contains("VGA") || stdout.contains("Display") || stdout.contains("3D")) {
+            return true;
+        }
+    }
+
+    // Check if i915 kernel module is loaded (Intel driver)
+    if let Ok(output) = Command::new("lsmod").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("i915") {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Detect if system has AMD/ATI GPU (beta.41+)
+fn detect_amd_gpu() -> bool {
+    // Check lspci for AMD/ATI GPU
+    if let Ok(output) = Command::new("lspci").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let lower = stdout.to_lowercase();
+        if (lower.contains("amd") || lower.contains("ati") || lower.contains("radeon")) &&
+           (stdout.contains("VGA") || stdout.contains("Display") || stdout.contains("3D")) {
+            return true;
+        }
+    }
+
+    // Check if amdgpu or radeon kernel module is loaded
+    if let Ok(output) = Command::new("lsmod").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("amdgpu") || stdout.contains("radeon") {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Get AMD driver version (beta.41+)
+fn get_amd_driver_version() -> Option<String> {
+    // Check which driver is loaded
+    if let Ok(output) = Command::new("lsmod").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("amdgpu") {
+            return Some("amdgpu (modern)".to_string());
+        } else if stdout.contains("radeon") {
+            return Some("radeon (legacy)".to_string());
+        }
+    }
+
+    None
 }
 
 async fn analyze_command_history() -> Vec<CommandUsage> {

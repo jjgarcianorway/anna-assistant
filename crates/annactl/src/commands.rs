@@ -215,7 +215,9 @@ pub async fn advise(
         let category_order = vec![
             "security", "drivers", "updates", "maintenance", "cleanup",
             "performance", "power", "development", "desktop", "gaming",
-            "multimedia", "hardware", "networking", "beautification",
+            "multimedia", "hardware", "networking", "utilities", "system",
+            "productivity", "audio", "shell", "communication", "engineering",
+            "beautification",
         ];
 
         let mut counter = 1;
@@ -350,6 +352,13 @@ fn get_category_style(category: &str) -> (&'static str, &'static str, String) {
         "hardware" => ("🔌", "\x1b[93m", "HARDWARE SUPPORT".to_string()), // Bright yellow
         "networking" => ("📡", "\x1b[96m", "NETWORKING".to_string()), // Bright cyan
         "beautification" => ("🎨", "\x1b[95m", "TERMINAL & CLI TOOLS".to_string()), // Bright magenta
+        "utilities" => ("🛠️", "\x1b[36m", "UTILITIES".to_string()), // Cyan
+        "system" => ("⚙️", "\x1b[94m", "SYSTEM".to_string()), // Bright blue
+        "productivity" => ("📊", "\x1b[92m", "PRODUCTIVITY".to_string()), // Bright green
+        "audio" => ("🔊", "\x1b[35m", "AUDIO".to_string()), // Magenta
+        "shell" => ("🐚", "\x1b[96m", "SHELL".to_string()), // Bright cyan
+        "communication" => ("💬", "\x1b[94m", "COMMUNICATION".to_string()), // Bright blue
+        "engineering" => ("📐", "\x1b[95m", "ENGINEERING".to_string()), // Bright magenta
         _ => ("💡", "\x1b[36m", category.to_uppercase()), // Cyan
     }
 }

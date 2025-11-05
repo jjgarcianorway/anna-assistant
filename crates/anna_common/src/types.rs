@@ -174,9 +174,14 @@ pub struct SystemFacts {
     pub window_manager: Option<String>, // Hyprland, i3, sway, bspwm, etc.
     pub compositor: Option<String>, // Hyprland, picom, etc.
     pub display_server: Option<String>, // X11, Wayland
+
+    // GPU Detection (beta.41+)
     pub is_nvidia: bool, // Whether system has Nvidia GPU
     pub nvidia_driver_version: Option<String>, // Nvidia driver version if present
     pub has_wayland_nvidia_support: bool, // Whether Nvidia+Wayland is properly configured
+    pub is_intel_gpu: bool, // Whether system has Intel integrated graphics
+    pub is_amd_gpu: bool, // Whether system has AMD/ATI GPU
+    pub amd_driver_version: Option<String>, // AMD driver version (amdgpu or radeon)
 
     // User Behavior (learned from system)
     pub frequently_used_commands: Vec<CommandUsage>,

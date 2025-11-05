@@ -28,11 +28,10 @@ fi
 
 print_header() {
     echo
-    echo -e "${BOLD}${CYAN}╭──────────────────────────────────────────────────────╮${RESET}"
-    echo -e "${BOLD}${CYAN}│${RESET}     ${BOLD}${BLUE}🌟 Anna Assistant${RESET} ${CYAN}Installation${RESET}        ${BOLD}${CYAN}│${RESET}"
-    echo -e "${BOLD}${CYAN}├──────────────────────────────────────────────────────┤${RESET}"
-    echo -e "${BOLD}${CYAN}│${RESET}  ${GRAY}Your friendly Arch Linux system administrator${RESET}   ${BOLD}${CYAN}│${RESET}"
-    echo -e "${BOLD}${CYAN}╰──────────────────────────────────────────────────────╯${RESET}"
+    echo -e "${BOLD}${CYAN}========================================================${RESET}"
+    echo -e "${BOLD}${BLUE}        🌟 Anna Assistant${RESET} ${CYAN}Installation${RESET}"
+    echo -e "${GRAY}     Your friendly Arch Linux system administrator${RESET}"
+    echo -e "${BOLD}${CYAN}========================================================${RESET}"
     echo
     echo -e "${GRAY}Anna speaks plain English, explains everything she suggests,"
     echo -e "and keeps your system secure, fast, and well-maintained.${RESET}"
@@ -239,13 +238,11 @@ repeat_char() {
     echo -n "$result"
 }
 
-# Calculate box width properly
-BOX_WIDTH=60
-TITLE_TEXT="   Installation Complete! ${TAG}   "
-# Use printf to create properly sized box
-printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_TL}" "$(repeat_char "${BOX_H}" $((BOX_WIDTH-2)))" "${BOX_TR}"
-printf "${BOLD}${GREEN}%s%-*s%s${RESET}\n" "${BOX_V}" $((BOX_WIDTH-2)) "${TITLE_TEXT}" "${BOX_V}"
-printf "${BOLD}${GREEN}%s%s%s${RESET}\n" "${BOX_BL}" "$(repeat_char "${BOX_H}" $((BOX_WIDTH-2)))" "${BOX_BR}"
+# Success message
+echo
+echo -e "${BOLD}${GREEN}========================================================${RESET}"
+echo -e "${BOLD}${GREEN}        Installation Complete! ${TAG}${RESET}"
+echo -e "${BOLD}${GREEN}========================================================${RESET}"
 echo
 echo -e "${BOLD}${CYAN}What Anna Can Do:${RESET}"
 echo

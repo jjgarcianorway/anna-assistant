@@ -26,9 +26,9 @@ fi
 
 print_header() {
     echo
-    echo -e "${BOLD}${CYAN}╭──────────────────────────────────────────────────────╮${RESET}"
-    echo -e "${BOLD}${CYAN}│${RESET}        ${BOLD}${RED}Anna Assistant${RESET} ${CYAN}Uninstaller${RESET}          ${BOLD}${CYAN}│${RESET}"
-    echo -e "${BOLD}${CYAN}╰──────────────────────────────────────────────────────╯${RESET}"
+    echo -e "${BOLD}${CYAN}========================================================${RESET}"
+    echo -e "${BOLD}${RED}        Anna Assistant${RESET} ${CYAN}Uninstaller${RESET}"
+    echo -e "${BOLD}${CYAN}========================================================${RESET}"
     echo
 }
 
@@ -149,9 +149,9 @@ else
 fi
 
 echo
-echo -e "${BOLD}${GREEN}╭──────────────────────────────────────────────────────╮${RESET}"
-echo -e "${BOLD}${GREEN}│${RESET}      Anna Assistant Successfully Uninstalled      ${BOLD}${GREEN}│${RESET}"
-echo -e "${BOLD}${GREEN}╰──────────────────────────────────────────────────────╯${RESET}"
+echo -e "${BOLD}${GREEN}========================================================${RESET}"
+echo -e "${BOLD}${GREEN}      Anna Assistant Successfully Uninstalled${RESET}"
+echo -e "${BOLD}${GREEN}========================================================${RESET}"
 echo
 echo -e "${GRAY}Thanks for using Anna! We're sorry to see you go.${RESET}"
 echo

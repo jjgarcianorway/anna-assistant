@@ -54,6 +54,8 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
 
     advice.extend(check_microcode(facts));
     advice.extend(check_gpu_drivers(facts));
+    advice.extend(check_intel_gpu_support(facts));
+    advice.extend(check_amd_gpu_enhancements(facts));
     advice.extend(check_orphan_packages(facts));
     advice.extend(check_btrfs_maintenance(facts));
     advice.extend(check_system_updates());
@@ -279,6 +281,134 @@ fn check_gpu_drivers(facts: &SystemFacts) -> Vec<Advice> {
             }
             _ => {}
         }
+    }
+
+    result
+}
+
+/// Rule 2b: Check Intel GPU support (beta.41+)
+fn check_intel_gpu_support(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.is_intel_gpu {
+        return result;
+    }
+
+    // Check for Vulkan support
+    let has_vulkan = Command::new("pacman")
+        .args(&["-Q", "vulkan-intel"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_vulkan {
+        result.push(Advice {
+            id: "intel-vulkan".to_string(),
+            title: "Add Vulkan support for your Intel GPU".to_string(),
+            reason: "Your Intel integrated graphics can run modern games and applications using Vulkan (a high-performance graphics API). This improves gaming performance and enables many modern graphical applications.".to_string(),
+            action: "Install vulkan-intel for better graphics performance".to_string(),
+            command: Some("pacman -S --noconfirm vulkan-intel".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Intel_graphics".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    // Check for hardware video acceleration (modern Intel)
+    let has_modern_vaapi = Command::new("pacman")
+        .args(&["-Q", "intel-media-driver"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    // Check for hardware video acceleration (legacy Intel)
+    let has_legacy_vaapi = Command::new("pacman")
+        .args(&["-Q", "libva-intel-driver"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_modern_vaapi && !has_legacy_vaapi {
+        result.push(Advice {
+            id: "intel-video-accel".to_string(),
+            title: "Enable hardware video acceleration for Intel GPU".to_string(),
+            reason: "Your Intel GPU can decode videos using hardware acceleration, which saves battery life and reduces CPU usage. intel-media-driver is for modern Intel GPUs (Broadwell and newer), while libva-intel-driver supports older models.".to_string(),
+            action: "Install hardware video acceleration drivers".to_string(),
+            command: Some("pacman -S --noconfirm intel-media-driver libva-intel-driver".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Hardware_video_acceleration".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
+    }
+
+    result
+}
+
+/// Rule 2c: Check AMD GPU enhancements (beta.41+)
+fn check_amd_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    if !facts.is_amd_gpu {
+        return result;
+    }
+
+    // Check if using legacy radeon driver and suggest upgrading
+    if let Some(ref driver) = facts.amd_driver_version {
+        if driver.contains("radeon (legacy)") {
+            result.push(Advice {
+                id: "amd-driver-upgrade".to_string(),
+                title: "Consider upgrading to modern AMD driver (amdgpu)".to_string(),
+                reason: "You're using the legacy 'radeon' driver. The modern 'amdgpu' driver offers better performance, power management, and supports newer features. It works with GCN 1.2+ GPUs (R9 285 and newer). Check the Arch Wiki to see if your card is compatible.".to_string(),
+                action: "Review compatibility and consider switching to amdgpu".to_string(),
+                command: None, // No automatic command - requires research
+                risk: RiskLevel::Medium,
+                priority: Priority::Optional,
+                category: "hardware".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec![
+                    "https://wiki.archlinux.org/title/AMDGPU".to_string(),
+                    "https://wiki.archlinux.org/title/ATI".to_string(),
+                ],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: None,
+            });
+        }
+    }
+
+    // Check for hardware video acceleration
+    let has_vaapi = Command::new("pacman")
+        .args(&["-Q", "libva-mesa-driver"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_vaapi {
+        result.push(Advice {
+            id: "amd-video-accel".to_string(),
+            title: "Enable hardware video acceleration for AMD GPU".to_string(),
+            reason: "Your AMD GPU can decode videos using hardware acceleration, which dramatically reduces CPU usage and power consumption when watching videos. This makes streaming smoother and extends battery life on laptops.".to_string(),
+            action: "Install Mesa VA-API driver for hardware video decoding".to_string(),
+            command: Some("pacman -S --noconfirm libva-mesa-driver mesa-vdpau".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "hardware".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Hardware_video_acceleration".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+        });
     }
 
     result

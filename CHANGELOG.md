@@ -5,6 +5,72 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.41] - 2025-11-05
+
+### 🎮 Multi-GPU Support & Polish!
+
+**COMPREHENSIVE GPU DETECTION:** Anna now supports Intel, AMD, and Nvidia GPUs with tailored recommendations!
+
+### ✨ New Features
+
+**Multi-GPU Detection & Recommendations:**
+- **Intel GPU Support**: Automatic detection of Intel integrated graphics
+  - Vulkan support recommendations (`vulkan-intel`)
+  - Hardware video acceleration (`intel-media-driver` for modern, `libva-intel-driver` for legacy)
+  - Detects via both `lspci` and `i915` kernel module
+- **AMD/ATI GPU Support**: Enhanced AMD graphics detection
+  - Identifies modern `amdgpu` vs legacy `radeon` drivers
+  - Suggests driver upgrade path for compatible GPUs
+  - Hardware video acceleration (`libva-mesa-driver`, `mesa-vdpau`)
+  - Detects via `lspci` and kernel modules
+- **Complete GPU Coverage**: Now supports Intel, AMD, and Nvidia GPUs with specific recommendations
+
+### 🐛 Bug Fixes
+
+**Category Consistency:**
+- All category names now properly styled with emojis
+- Added explicit mappings for: `utilities`, `system`, `productivity`, `audio`, `shell`, `communication`, `engineering`
+- Fixed capitalization inconsistency in hardware recommendations
+- Updated category display order for better organization
+
+**Documentation Fixes:**
+- Removed duplication between Beta.39 and Beta.40 sections in README
+- Consolidated "What's New" section with clear version separation
+- Updated current version reference in README
+
+### 💡 What This Means
+
+**Better Hardware Support:**
+- Anna now detects and provides recommendations for ALL common GPU types
+- Tailored advice based on your specific hardware
+- Hardware video acceleration setup for smoother video playback and lower power consumption
+- Legacy hardware gets appropriate driver recommendations
+
+**Improved User Experience:**
+- Consistent category display across all recommendations
+- Clear visual hierarchy with proper emojis and colors
+- Better documentation that reflects current features
+
+### 🔧 Technical Details
+
+**New SystemFacts Fields:**
+```rust
+pub is_intel_gpu: bool
+pub is_amd_gpu: bool
+pub amd_driver_version: Option<String>  // "amdgpu (modern)" or "radeon (legacy)"
+```
+
+**New Detection Functions:**
+- `detect_intel_gpu()` - Checks lspci and i915 module
+- `detect_amd_gpu()` - Checks lspci and amdgpu/radeon modules
+- `get_amd_driver_version()` - Identifies driver in use
+
+**New Recommendation Functions:**
+- `check_intel_gpu_support()` - Vulkan and video acceleration for Intel
+- `check_amd_gpu_enhancements()` - Driver upgrades and video acceleration for AMD
+
+---
+
 ## [1.0.0-beta.40] - 2025-11-05
 
 ### 🎨 Polish & Documentation Update!
