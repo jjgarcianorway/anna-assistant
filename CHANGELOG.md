@@ -5,6 +5,25 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.59] - 2025-11-05
+
+### 🔧 Update Command Fix
+
+**Fixed Version Verification:**
+- `annactl update --install` was failing with "Version mismatch" error
+- Issue: Expected `v1.0.0-beta.58` but binary outputs `annad 1.0.0-beta.58`
+- Solution: Strip 'v' prefix when comparing versions
+- Update command now works properly from start to finish!
+
+**User Experience:**
+- Before: "✗ Update failed: Version mismatch: expected v1.0.0-beta.58, got annad 1.0.0-beta.58"
+- After: Update completes successfully ✅
+
+**Technical Details:**
+- Modified `verify_binary()` in updater.rs
+- Strips 'v' prefix from tag name before version comparison
+- More lenient version matching while still being safe
+
 ## [1.0.0-beta.58] - 2025-11-05
 
 ### 🔧 Critical Apply Command Fix
