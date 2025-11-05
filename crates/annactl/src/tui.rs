@@ -72,32 +72,26 @@ struct Tui {
     pending_apply: Option<String>,
 }
 
-/// Get category emoji and color for display
+/// Get category emoji and color for display (standardized names)
 fn get_category_emoji_color(category: &str) -> (&'static str, Color) {
     match category {
-        "security" => ("🔒", Color::LightRed),
-        "drivers" => ("🔌", Color::LightMagenta),
-        "updates" => ("📦", Color::LightBlue),
-        "maintenance" => ("🔧", Color::LightCyan),
-        "cleanup" => ("🧹", Color::Cyan),
-        "performance" => ("⚡", Color::LightYellow),
-        "power" => ("🔋", Color::Yellow),
-        "development" => ("💻", Color::LightMagenta),
-        "desktop" => ("🖥️", Color::Blue),
-        "gaming" => ("🎮", Color::LightMagenta),
-        "multimedia" => ("🎬", Color::Magenta),
-        "hardware" => ("🔌", Color::LightYellow),
-        "networking" => ("📡", Color::LightCyan),
-        "beautification" => ("🎨", Color::LightMagenta),
-        "utilities" => ("🛠️", Color::Cyan),
-        "system" => ("⚙️", Color::LightBlue),
-        "productivity" => ("📊", Color::LightGreen),
-        "audio" => ("🔊", Color::Magenta),
-        "shell" => ("🐚", Color::LightCyan),
-        "communication" => ("💬", Color::LightBlue),
-        "engineering" => ("📐", Color::LightMagenta),
-        "usability" => ("✨", Color::LightCyan),
-        "media" => ("📹", Color::Magenta),
+        "Security & Privacy" => ("🔒", Color::LightRed),
+        "Hardware Support" => ("🔌", Color::LightYellow),
+        "Package Management" => ("📦", Color::LightBlue),
+        "System Maintenance" => ("🔧", Color::LightCyan),
+        "System Performance" => ("⚡", Color::LightYellow),
+        "Power Management" => ("🔋", Color::Yellow),
+        "Development Tools" => ("💻", Color::LightMagenta),
+        "Desktop Environment" => ("🖥️", Color::Blue),
+        "Gaming & Entertainment" => ("🎮", Color::Magenta),
+        "Multimedia & Graphics" => ("🎬", Color::Magenta),
+        "Network Configuration" => ("📡", Color::LightCyan),
+        "System Utilities" => ("🛠️", Color::Cyan),
+        "Shell & Terminal" => ("🐚", Color::LightCyan),
+        "Communication & Social" => ("💬", Color::LightBlue),
+        "Beautification & Theming" => ("🎨", Color::LightMagenta),
+        "Productivity & Office" => ("📊", Color::LightGreen),
+        "Audio & Sound" => ("🔊", Color::Magenta),
         _ => ("💡", Color::Cyan),
     }
 }
@@ -750,39 +744,37 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
         return;
     }
 
-    let items: Vec<ListItem> = tui.advice
-        .iter()
-        .map(|advice| {
-            let priority_icon = match advice.priority {
-                Priority::Mandatory => "🔴",
-                Priority::Recommended => "🟡",
-                Priority::Optional => "🟢",
-                Priority::Cosmetic => "⚪",
-            };
+    let mut items: Vec<ListItem> = Vec::new();
 
-            let priority_color = match advice.priority {
-                Priority::Mandatory => Color::Red,
-                Priority::Recommended => Color::Yellow,
-                Priority::Optional => Color::Green,
-                Priority::Cosmetic => Color::Gray,
-            };
+    // Add category headers when sorted by category
+    if tui.sort_mode == SortMode::Category {
+        let mut last_category = "";
+        for advice in &tui.advice {
+            // Add category header if changed
+            if advice.category != last_category {
+                last_category = &advice.category;
+                let (category_emoji, category_color) = get_category_emoji_color(&advice.category);
 
-            let (category_emoji, category_color) = get_category_emoji_color(&advice.category);
-            let popularity_stars = advice.popularity_stars();
+                let header = Line::from(vec![
+                    Span::styled(
+                        format!("━━ {} {} ", category_emoji, advice.category),
+                        Style::default()
+                            .fg(category_color)
+                            .add_modifier(Modifier::BOLD)
+                    ),
+                ]);
+                items.push(ListItem::new(header));
+            }
 
-            let content = Line::from(vec![
-                Span::raw(priority_icon),
-                Span::raw(" "),
-                Span::styled(category_emoji, Style::default().fg(category_color)),
-                Span::raw(" "),
-                Span::styled(&advice.title, Style::default().fg(priority_color)),
-                Span::raw("  "),
-                Span::styled(popularity_stars, Style::default().fg(Color::Yellow)),
-            ]);
-
-            ListItem::new(content)
-        })
-        .collect();
+            // Add the recommendation item
+            items.push(create_recommendation_item(advice, tui.sort_mode));
+        }
+    } else {
+        // No headers for other sort modes
+        for advice in &tui.advice {
+            items.push(create_recommendation_item(advice, tui.sort_mode));
+        }
+    }
 
     let list = List::new(items)
         .block(Block::default()
@@ -798,6 +790,51 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
 
     // Render with state for scrolling
     f.render_stateful_widget(list, area, &mut tui.list_state);
+}
+
+/// Create a single recommendation list item with appropriate styling
+fn create_recommendation_item(advice: &Advice, sort_mode: SortMode) -> ListItem<'_> {
+    let priority_icon = match advice.priority {
+        Priority::Mandatory => "🔴",
+        Priority::Recommended => "🟡",
+        Priority::Optional => "🟢",
+        Priority::Cosmetic => "⚪",
+    };
+
+    let risk_badge = match advice.risk {
+        RiskLevel::Low => ("✓", Color::Green),
+        RiskLevel::Medium => ("⚠", Color::Yellow),
+        RiskLevel::High => ("⚠", Color::Red),
+    };
+
+    let (category_emoji, category_color) = get_category_emoji_color(&advice.category);
+    let popularity_stars = advice.popularity_stars();
+
+    // Choose text color based on sort mode
+    let text_color = match sort_mode {
+        SortMode::Category => category_color,
+        SortMode::Priority => match advice.priority {
+            Priority::Mandatory => Color::Red,
+            Priority::Recommended => Color::Yellow,
+            Priority::Optional => Color::Green,
+            Priority::Cosmetic => Color::Gray,
+        },
+        SortMode::Risk => risk_badge.1,
+    };
+
+    let content = Line::from(vec![
+        Span::raw(priority_icon),
+        Span::raw(" "),
+        Span::styled(risk_badge.0, Style::default().fg(risk_badge.1)),
+        Span::raw(" "),
+        Span::styled(category_emoji, Style::default().fg(category_color)),
+        Span::raw(" "),
+        Span::styled(&advice.title, Style::default().fg(text_color)),
+        Span::raw("  "),
+        Span::styled(popularity_stars, Style::default().fg(Color::Yellow)),
+    ]);
+
+    ListItem::new(content)
 }
 
 /// Draw footer with keyboard shortcuts

@@ -745,7 +745,7 @@ impl Advice {
 
         // Popularity weight: 300 points (community adoption)
         // Scale popularity (0-100) to (0-300)
-        let popularity_score = (self.popularity as u32 * 3);
+        let popularity_score = self.popularity as u32 * 3;
 
         priority_score + risk_score + popularity_score
     }
