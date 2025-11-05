@@ -128,6 +128,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_golang_dev());
     advice.extend(check_java_dev());
     advice.extend(check_nodejs_dev());
+    advice.extend(check_cpp_dev());
+    advice.extend(check_php_dev());
+    advice.extend(check_ruby_dev());
     advice.extend(check_databases());
     advice.extend(check_web_servers());
     advice.extend(check_remote_desktop());
@@ -5893,6 +5896,226 @@ fn check_nodejs_dev() -> Vec<Advice> {
                 bundle: Some("nodejs-dev".to_string()),
             popularity: 50,
             });
+        }
+    }
+
+    result
+}
+
+/// Check for C/C++ development tools (beta.43+)
+fn check_cpp_dev() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for C/C++ files
+    let has_cpp_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-type", "f", "(", "-name", "*.c", "-o", "-name", "*.cpp", "-o", "-name", "*.h", "-o", "-name", "*.hpp", ")", "-print", "-quit"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    let cpp_usage = check_command_usage(&["gcc", "g++", "clang", "make", "cmake"]);
+
+    if has_cpp_files || cpp_usage > 5 {
+        // Check for GCC
+        let has_gcc = is_package_installed("gcc");
+
+        if !has_gcc {
+            result.push(
+                Advice::new(
+                    "dev-gcc".to_string(),
+                    "Install GCC compiler for C/C++ development".to_string(),
+                    format!("You have C/C++ files or use compilation commands ({} times)! GCC (GNU Compiler Collection) compiles C and C++ code into executables. Essential for systems programming, game development, and performance-critical applications.", cpp_usage),
+                    "Install GCC and related build tools".to_string(),
+                    Some("sudo pacman -S --noconfirm gcc".to_string()),
+                    RiskLevel::Low,
+                    Priority::Recommended,
+                    vec![
+                        "https://wiki.archlinux.org/title/GNU_Compiler_Collection".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(70)
+                .with_bundle("cpp-dev".to_string())
+            );
+        }
+
+        // Check for Make
+        if !is_package_installed("make") {
+            result.push(
+                Advice::new(
+                    "dev-make".to_string(),
+                    "Install Make for build automation".to_string(),
+                    "Make is the standard build automation tool for C/C++ projects. It reads Makefiles to compile code efficiently - only rebuilding changed files. Essential for any C/C++ development!".to_string(),
+                    "Install GNU Make".to_string(),
+                    Some("sudo pacman -S --noconfirm make".to_string()),
+                    RiskLevel::Low,
+                    Priority::Recommended,
+                    vec![
+                        "https://wiki.archlinux.org/title/Makefile".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(75)
+                .with_bundle("cpp-dev".to_string())
+            );
+        }
+
+        // Check for CMake
+        if !is_package_installed("cmake") {
+            result.push(
+                Advice::new(
+                    "dev-cmake".to_string(),
+                    "Install CMake for modern C/C++ builds".to_string(),
+                    "CMake is the modern build system for C/C++ projects - generates Makefiles, Ninja builds, or IDE projects. Used by major projects like LLVM, Qt, MySQL. If you see CMakeLists.txt, you need this!".to_string(),
+                    "Install CMake".to_string(),
+                    Some("sudo pacman -S --noconfirm cmake".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/CMake".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(60)
+                .with_bundle("cpp-dev".to_string())
+            );
+        }
+
+        // Check for clangd (C/C++ LSP)
+        if !is_package_installed("clang") {
+            result.push(
+                Advice::new(
+                    "dev-clangd".to_string(),
+                    "Install Clang and clangd for modern C/C++ development".to_string(),
+                    "Clang is a modern C/C++ compiler with better error messages than GCC, and clangd provides LSP support (autocomplete, go-to-definition, refactoring) for your editor. Essential for modern C/C++ development!".to_string(),
+                    "Install Clang compiler and tools".to_string(),
+                    Some("sudo pacman -S --noconfirm clang".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/Clang".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(55)
+                .with_bundle("cpp-dev".to_string())
+            );
+        }
+    }
+
+    result
+}
+
+/// Check for PHP development tools (beta.43+)
+fn check_php_dev() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for PHP files
+    let has_php_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.php", "-type", "f", "-print", "-quit"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    let php_usage = check_command_usage(&["php", "composer"]);
+
+    if has_php_files || php_usage > 5 {
+        // Check for PHP
+        if !is_package_installed("php") {
+            result.push(
+                Advice::new(
+                    "dev-php".to_string(),
+                    "Install PHP for web development".to_string(),
+                    format!("You have PHP files or use PHP commands ({} times)! PHP powers WordPress, Laravel, Symfony - it's the backbone of millions of websites. Install PHP to run and develop PHP applications.", php_usage),
+                    "Install PHP interpreter".to_string(),
+                    Some("sudo pacman -S --noconfirm php".to_string()),
+                    RiskLevel::Low,
+                    Priority::Recommended,
+                    vec![
+                        "https://wiki.archlinux.org/title/PHP".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(65)
+            );
+        }
+
+        // Check for Composer
+        if !is_package_installed("composer") {
+            result.push(
+                Advice::new(
+                    "dev-composer".to_string(),
+                    "Install Composer for PHP dependency management".to_string(),
+                    "Composer is the standard dependency manager for PHP - like npm for Node.js. It manages libraries, autoloading, and packages from Packagist. Essential for modern PHP development (Laravel, Symfony, etc.)!".to_string(),
+                    "Install Composer".to_string(),
+                    Some("sudo pacman -S --noconfirm composer".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/PHP#Composer".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(60)
+            );
+        }
+    }
+
+    result
+}
+
+/// Check for Ruby development tools (beta.43+)
+fn check_ruby_dev() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for Ruby files
+    let has_ruby_files = Command::new("find")
+        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.rb", "-type", "f", "-print", "-quit"])
+        .output()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    let ruby_usage = check_command_usage(&["ruby", "gem", "bundle", "rails"]);
+
+    if has_ruby_files || ruby_usage > 5 {
+        // Check for Ruby
+        if !is_package_installed("ruby") {
+            result.push(
+                Advice::new(
+                    "dev-ruby".to_string(),
+                    "Install Ruby for scripting and web development".to_string(),
+                    format!("You have Ruby files or use Ruby commands ({} times)! Ruby is elegant, expressive, perfect for web development (Rails), DevOps tools (Chef, Puppet), and scripting. Install Ruby to run your Ruby programs.", ruby_usage),
+                    "Install Ruby interpreter".to_string(),
+                    Some("sudo pacman -S --noconfirm ruby".to_string()),
+                    RiskLevel::Low,
+                    Priority::Recommended,
+                    vec![
+                        "https://wiki.archlinux.org/title/Ruby".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(55)
+            );
+        }
+
+        // Check for Bundler
+        if ruby_usage > 0 && !Command::new("which").arg("bundle").output().map(|o| o.status.success()).unwrap_or(false) {
+            result.push(
+                Advice::new(
+                    "dev-bundler".to_string(),
+                    "Install Bundler for Ruby dependency management".to_string(),
+                    "Bundler manages gem dependencies for Ruby projects. It ensures everyone on your team uses the same gem versions. If you see a Gemfile, you need Bundler!".to_string(),
+                    "Install Bundler gem".to_string(),
+                    Some("gem install bundler".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/Ruby#Bundler".to_string(),
+                    ],
+                    "development".to_string(),
+                )
+                .with_popularity(50)
+            );
         }
     }
 
