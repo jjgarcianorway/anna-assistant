@@ -160,6 +160,17 @@ enum Commands {
         number: usize,
     },
 
+    /// Show dismissed recommendations
+    ///
+    /// Examples:
+    ///   annactl dismissed            # Show all dismissed items
+    ///   annactl dismissed --undismiss 1  # Un-dismiss an item by number
+    Dismissed {
+        /// Un-dismiss a recommendation by its list number
+        #[arg(short, long)]
+        undismiss: Option<usize>,
+    },
+
     /// View application history and analytics
     History {
         /// Number of days to show (default: 30)
@@ -208,6 +219,9 @@ pub enum IgnoreAction {
     /// Show current ignore filters
     Show,
 
+    /// List recommendations currently hidden by ignore filters
+    ListHidden,
+
     /// Ignore a category
     Category {
         /// Category name to ignore
@@ -254,6 +268,7 @@ async fn main() -> Result<()> {
         Commands::WikiCache { force } => commands::wiki_cache(force).await,
         Commands::Health => commands::health().await,
         Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,
+        Commands::Dismissed { undismiss } => commands::dismissed(undismiss).await,
         Commands::History { days, detailed } => commands::history(days, detailed).await,
         Commands::Update { install, check } => commands::update(install, check).await,
         Commands::Ignore { action } => commands::ignore(action).await,

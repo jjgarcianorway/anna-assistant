@@ -368,9 +368,16 @@ pub async fn advise(
             return Ok(());
         }
 
-        // Clear, simple count display
-        println!("{}", beautiful::status(Level::Info,
-            &format!("Showing {} recommendation{}", advice_list.len(), if advice_list.len() == 1 { "" } else { "s" })));
+        // Show count with grand total context
+        if total_available == advice_list.len() {
+            // Showing everything - simple message
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Showing {} recommendation{}", advice_list.len(), if advice_list.len() == 1 { "" } else { "s" })));
+        } else {
+            // Some items hidden - show "X of Y" format
+            println!("{}", beautiful::status(Level::Info,
+                &format!("Showing {} of {} recommendation{}", advice_list.len(), total_available, if total_available == 1 { "" } else { "s" })));
+        }
 
         // Show what was filtered if anything
         let total_filtered = total_available - count_before_limit;
@@ -2842,6 +2849,109 @@ pub async fn dismiss(id: Option<String>, num: Option<usize>) -> Result<()> {
     Ok(())
 }
 
+/// Show dismissed recommendations and optionally un-dismiss
+pub async fn dismissed(undismiss_num: Option<usize>) -> Result<()> {
+    use anna_common::beautiful::{header, section};
+
+    println!("{}", header("Dismissed Recommendations"));
+    println!();
+
+    // Load feedback log
+    let mut log = match anna_common::UserFeedbackLog::load() {
+        Ok(l) => l,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Info, "No dismissed recommendations"));
+            println!();
+            return Ok(());
+        }
+    };
+
+    // Get dismissed events
+    let dismissed: Vec<_> = log.events.iter()
+        .filter(|e| matches!(e.event_type, anna_common::FeedbackType::Dismissed))
+        .collect();
+
+    if dismissed.is_empty() {
+        println!("{}", beautiful::status(Level::Info, "No dismissed recommendations"));
+        println!();
+        println!("Use 'annactl dismiss <number>' to dismiss recommendations from the advise list");
+        return Ok(());
+    }
+
+    // If undismiss requested
+    if let Some(num) = undismiss_num {
+        if num < 1 || num > dismissed.len() {
+            println!("{}", beautiful::status(Level::Error,
+                &format!("Number {} out of range (1-{})", num, dismissed.len())));
+            return Ok(());
+        }
+
+        let event = dismissed[num - 1];
+        let advice_id_to_remove = event.advice_id.clone();
+
+        // Remove from log
+        log.events.retain(|e| e.advice_id != advice_id_to_remove);
+        log.save()?;
+
+        println!("{}", beautiful::status(Level::Success,
+            &format!("Un-dismissed: {}", advice_id_to_remove)));
+        println!();
+        println!("Run 'annactl advise' to see this recommendation again");
+        println!();
+        return Ok(());
+    }
+
+    // Show all dismissed items
+    println!("{}", beautiful::status(Level::Info,
+        &format!("{} dismissed recommendation{}", dismissed.len(), if dismissed.len() == 1 { "" } else { "s" })));
+    println!();
+
+    // Group by category
+    let mut by_category: std::collections::HashMap<String, Vec<&anna_common::FeedbackEvent>> =
+        std::collections::HashMap::new();
+
+    for event in &dismissed {
+        by_category.entry(event.advice_category.clone())
+            .or_insert_with(Vec::new)
+            .push(event);
+    }
+
+    // Display by category
+    for (category, events) in by_category.iter() {
+        let category_emoji = anna_common::get_category_emoji(category);
+        println!("{}", section(&format!("{} {}", category_emoji, category)));
+
+        for event in events {
+            let time_ago = {
+                let duration = chrono::Utc::now().signed_duration_since(event.timestamp);
+                if duration.num_days() > 0 {
+                    format!("{} days ago", duration.num_days())
+                } else if duration.num_hours() > 0 {
+                    format!("{} hours ago", duration.num_hours())
+                } else if duration.num_minutes() > 0 {
+                    format!("{} minutes ago", duration.num_minutes())
+                } else {
+                    "just now".to_string()
+                }
+            };
+
+            println!("  • {} \x1b[90m({})\x1b[0m",
+                event.advice_id.replace('-', " "),
+                time_ago);
+        }
+        println!();
+    }
+
+    // Show commands
+    println!("{}", section("Commands"));
+    println!();
+    println!("  annactl dismissed --undismiss <number>  # Restore a dismissed item");
+    println!("  annactl advise                          # View current recommendations");
+    println!();
+
+    Ok(())
+}
+
 /// View application history and analytics
 pub async fn history(days: i64, detailed: bool) -> Result<()> {
     use anna_common::beautiful::{header, section};
@@ -3122,9 +3232,116 @@ pub async fn ignore(action: crate::IgnoreAction) -> Result<()> {
             if !filters.ignored_categories.is_empty() || !filters.ignored_priorities.is_empty() {
                 println!("{}", section("Commands"));
                 println!();
-                println!("  annactl ignore unignore category <name>  # Remove category filter");
-                println!("  annactl ignore unignore priority <level> # Remove priority filter");
-                println!("  annactl ignore reset                      # Clear all filters");
+                println!("  annactl ignore list-hidden                # Show hidden recommendations");
+                println!("  annactl ignore unignore category <name>   # Remove category filter");
+                println!("  annactl ignore unignore priority <level>  # Remove priority filter");
+                println!("  annactl ignore reset                       # Clear all filters");
+                println!();
+            }
+        }
+
+        IgnoreAction::ListHidden => {
+            println!("{}", header("Hidden Recommendations"));
+            println!();
+
+            // Load ignore filters
+            let filters = anna_common::IgnoreFilters::load().unwrap_or_default();
+
+            if filters.ignored_categories.is_empty() && filters.ignored_priorities.is_empty() {
+                println!("{}", beautiful::status(Level::Info, "No ignore filters active"));
+                println!();
+                println!("Use 'annactl ignore category <name>' or 'annactl ignore priority <level>' to ignore items");
+                return Ok(());
+            }
+
+            // Connect to daemon
+            let mut client = match RpcClient::connect().await {
+                Ok(c) => c,
+                Err(_) => {
+                    println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+                    println!();
+                    println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+                    return Ok(());
+                }
+            };
+
+            // Get all advice
+            let advice_data = client.call(Method::GetAdvice).await?;
+            if let ResponseData::Advice(advice_list) = advice_data {
+                // Filter to only show items that ARE filtered (inverse logic)
+                let hidden_items: Vec<_> = advice_list.iter()
+                    .filter(|a| filters.should_filter(a))
+                    .collect();
+
+                if hidden_items.is_empty() {
+                    println!("{}", beautiful::status(Level::Info, "No recommendations are currently hidden"));
+                    println!();
+                    return Ok(());
+                }
+
+                println!("{}", beautiful::status(Level::Info,
+                    &format!("{} recommendation{} currently hidden by your filters",
+                        hidden_items.len(),
+                        if hidden_items.len() == 1 { " is" } else { "s are" })));
+                println!();
+
+                // Group by category
+                let mut by_category: std::collections::HashMap<String, Vec<&anna_common::Advice>> =
+                    std::collections::HashMap::new();
+
+                for advice in &hidden_items {
+                    by_category.entry(advice.category.clone())
+                        .or_insert_with(Vec::new)
+                        .push(advice);
+                }
+
+                // Display by category
+                for (category, items) in by_category.iter() {
+                    let category_emoji = anna_common::get_category_emoji(category);
+                    println!("{}", section(&format!("{} {}", category_emoji, category)));
+
+                    for advice in items.iter().take(5) {
+                        let priority_color = match advice.priority {
+                            anna_common::Priority::Mandatory => "\x1b[91m",
+                            anna_common::Priority::Recommended => "\x1b[93m",
+                            anna_common::Priority::Optional => "\x1b[96m",
+                            anna_common::Priority::Cosmetic => "\x1b[90m",
+                        };
+
+                        println!("  {} {}{:?}\x1b[0m - {}",
+                            "•",
+                            priority_color,
+                            advice.priority,
+                            advice.title);
+                    }
+
+                    if items.len() > 5 {
+                        println!("  \x1b[90m... and {} more\x1b[0m", items.len() - 5);
+                    }
+                    println!();
+                }
+
+                // Show un-ignore commands
+                println!("{}", section("To Un-ignore"));
+
+                if !filters.ignored_categories.is_empty() {
+                    println!("Categories:");
+                    for cat in &filters.ignored_categories {
+                        println!("  annactl ignore unignore category \"{}\"", cat);
+                    }
+                    println!();
+                }
+
+                if !filters.ignored_priorities.is_empty() {
+                    println!("Priorities:");
+                    for pri in &filters.ignored_priorities {
+                        println!("  annactl ignore unignore priority {:?}", pri);
+                    }
+                    println!();
+                }
+
+                println!("Or reset all filters:");
+                println!("  annactl ignore reset");
                 println!();
             }
         }

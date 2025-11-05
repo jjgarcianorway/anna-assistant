@@ -5,6 +5,49 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.53] - 2025-11-05
+
+### 📊 Improved Transparency & Management
+
+**Grand Total Display:**
+- Advise command now shows "Showing X of Y recommendations" format
+- Clearly indicates when some items are hidden by filters or limits
+- Users always know the total number of available recommendations
+
+**List Hidden Recommendations:**
+- New command: `annactl ignore list-hidden`
+- Shows all recommendations currently filtered by ignore settings
+- Displays items grouped by category with priority indicators
+- Provides copy-paste commands to un-ignore specific filters
+
+**Show Dismissed Recommendations:**
+- New command: `annactl dismissed`
+- View all previously dismissed recommendations
+- Shows time since dismissal ("2 days ago", "5 hours ago")
+- Grouped by category for easy navigation
+- Un-dismiss with `annactl dismissed --undismiss <number>`
+
+### 🔧 Technical Details
+
+**New Commands:**
+- `annactl ignore list-hidden` - Lists filtered-out recommendations
+- `annactl dismissed` - Manages dismissed recommendations
+
+**Modified Functions:**
+- `advise()` - Enhanced count display with grand total context (lines 371-395)
+- `ignore()` - Added ListHidden action handler (lines 3140-3244)
+- `dismissed()` - New function to manage dismissed items (lines 2853-2952)
+
+**Files Modified:**
+- commands.rs: Added list-hidden and dismissed functionality
+- main.rs: Added ListHidden enum variant and Dismissed command
+
+**User Experience:**
+- Full visibility into what's being filtered
+- Easy management of ignore filters and dismissed items
+- Time-based information for dismissed recommendations
+- Clear commands for reversing actions
+
 ## [1.0.0-beta.52] - 2025-11-05
 
 ### ✨ TUI Enhancements
