@@ -111,6 +111,20 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+
+    /// Show system health score and trends
+    Health,
+
+    /// Dismiss a recommendation (mark as not wanted)
+    Dismiss {
+        /// Advice ID to dismiss
+        #[arg(long)]
+        id: Option<String>,
+
+        /// Dismiss by number
+        #[arg(long)]
+        num: Option<usize>,
+    },
 }
 
 #[tokio::main]
@@ -128,5 +142,7 @@ async fn main() -> Result<()> {
         Commands::Config { set } => commands::config(set).await,
         Commands::Autonomy { limit } => commands::autonomy(limit).await,
         Commands::WikiCache { force } => commands::wiki_cache(force).await,
+        Commands::Health => commands::health().await,
+        Commands::Dismiss { id, num } => commands::dismiss(id, num).await,
     }
 }

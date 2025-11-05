@@ -665,6 +665,265 @@ impl BundleHistory {
     }
 }
 
+/// Feedback event when user interacts with advice
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedbackEvent {
+    pub advice_id: String,
+    pub advice_category: String,
+    pub event_type: FeedbackType,
+    pub timestamp: DateTime<Utc>,
+    pub username: String,
+}
+
+/// Type of feedback event
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FeedbackType {
+    Applied,     // User applied the advice
+    Dismissed,   // User explicitly dismissed/ignored
+    Viewed,      // User viewed but took no action
+}
+
+/// User feedback log for learning
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UserFeedbackLog {
+    pub events: Vec<FeedbackEvent>,
+}
+
+impl UserFeedbackLog {
+    /// Get path to feedback log
+    pub fn log_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("/var/log/anna/feedback.jsonl")
+    }
+
+    /// Load feedback log from disk
+    pub fn load() -> Result<Self, std::io::Error> {
+        let path = Self::log_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+
+        let content = std::fs::read_to_string(path)?;
+        let mut events = Vec::new();
+
+        for line in content.lines() {
+            if let Ok(event) = serde_json::from_str::<FeedbackEvent>(line) {
+                events.push(event);
+            }
+        }
+
+        Ok(Self { events })
+    }
+
+    /// Save feedback log to disk
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        let path = Self::log_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let mut content = String::new();
+        for event in &self.events {
+            if let Ok(json) = serde_json::to_string(event) {
+                content.push_str(&json);
+                content.push('\n');
+            }
+        }
+
+        std::fs::write(path, content)
+    }
+
+    /// Record a feedback event
+    pub fn record(&mut self, event: FeedbackEvent) {
+        self.events.push(event);
+    }
+
+    /// Get recent feedback events
+    pub fn recent(&self, count: usize) -> Vec<&FeedbackEvent> {
+        self.events.iter().rev().take(count).collect()
+    }
+
+    /// Count how many times an advice category was dismissed
+    pub fn dismissal_count(&self, category: &str) -> usize {
+        self.events
+            .iter()
+            .filter(|e| e.advice_category == category && e.event_type == FeedbackType::Dismissed)
+            .count()
+    }
+
+    /// Count how many times an advice category was applied
+    pub fn application_count(&self, category: &str) -> usize {
+        self.events
+            .iter()
+            .filter(|e| e.advice_category == category && e.event_type == FeedbackType::Applied)
+            .count()
+    }
+
+    /// Check if a specific advice was dismissed
+    pub fn was_dismissed(&self, advice_id: &str) -> bool {
+        self.events
+            .iter()
+            .any(|e| e.advice_id == advice_id && e.event_type == FeedbackType::Dismissed)
+    }
+
+    /// Check if a specific advice was applied
+    pub fn was_applied(&self, advice_id: &str) -> bool {
+        self.events
+            .iter()
+            .any(|e| e.advice_id == advice_id && e.event_type == FeedbackType::Applied)
+    }
+}
+
+/// Learned preferences from user behavior
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LearnedPreferences {
+    pub prefers_categories: Vec<String>,        // Categories user applies most
+    pub dismisses_categories: Vec<String>,      // Categories user dismisses most
+    pub avg_response_time_minutes: f64,         // How long before user acts
+    pub prefers_low_risk: bool,                 // Tends to apply only low-risk items
+    pub power_user_level: u8,                   // 0-10 based on complexity of applied items
+    pub last_updated: DateTime<Utc>,
+}
+
+impl LearnedPreferences {
+    /// Calculate preferences from feedback log
+    pub fn from_feedback(log: &UserFeedbackLog) -> Self {
+        let mut category_applications: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut category_dismissals: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+        for event in &log.events {
+            match event.event_type {
+                FeedbackType::Applied => {
+                    *category_applications.entry(event.advice_category.clone()).or_insert(0) += 1;
+                }
+                FeedbackType::Dismissed => {
+                    *category_dismissals.entry(event.advice_category.clone()).or_insert(0) += 1;
+                }
+                _ => {}
+            }
+        }
+
+        // Get top 5 most applied categories
+        let mut prefers: Vec<_> = category_applications.iter().collect();
+        prefers.sort_by(|a, b| b.1.cmp(a.1));
+        let prefers_categories: Vec<String> = prefers.iter().take(5).map(|(k, _)| (*k).clone()).collect();
+
+        // Get top 5 most dismissed categories
+        let mut dismisses: Vec<_> = category_dismissals.iter().collect();
+        dismisses.sort_by(|a, b| b.1.cmp(a.1));
+        let dismisses_categories: Vec<String> = dismisses.iter().take(5).map(|(k, _)| (*k).clone()).collect();
+
+        Self {
+            prefers_categories,
+            dismisses_categories,
+            avg_response_time_minutes: 0.0, // TODO: Calculate from timestamps
+            prefers_low_risk: false,        // TODO: Calculate from risk levels
+            power_user_level: 5,            // Default mid-level
+            last_updated: chrono::Utc::now(),
+        }
+    }
+}
+
+/// System health score
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemHealthScore {
+    pub overall_score: u8,              // 0-100
+    pub security_score: u8,             // 0-100
+    pub performance_score: u8,          // 0-100
+    pub maintenance_score: u8,          // 0-100
+    pub timestamp: DateTime<Utc>,
+    pub issues_count: usize,            // Total pending recommendations
+    pub critical_issues: usize,         // Mandatory priority items
+    pub health_trend: HealthTrend,      // Improving, stable, or declining
+}
+
+/// Health trend indicator
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HealthTrend {
+    Improving,
+    Stable,
+    Declining,
+}
+
+impl SystemHealthScore {
+    /// Calculate health score from system facts and advice
+    pub fn calculate(facts: &SystemFacts, advice: &[Advice]) -> Self {
+        let critical_issues = advice.iter().filter(|a| matches!(a.priority, Priority::Mandatory)).count();
+        let total_issues = advice.len();
+
+        // Security score based on security-related advice
+        let security_issues = advice.iter().filter(|a| a.category == "security").count();
+        let security_score = if security_issues == 0 {
+            100
+        } else if security_issues < 3 {
+            80
+        } else if security_issues < 5 {
+            60
+        } else {
+            40
+        };
+
+        // Performance score based on system resource usage
+        let performance_score = if facts.storage_devices.iter().any(|d| (d.used_gb / d.size_gb) > 0.9) {
+            50
+        } else if facts.orphan_packages.len() > 20 {
+            70
+        } else {
+            90
+        };
+
+        // Maintenance score based on orphans, old kernels, etc.
+        let maintenance_issues = advice.iter().filter(|a| a.category == "maintenance" || a.category == "cleanup").count();
+        let maintenance_score = if maintenance_issues == 0 {
+            100
+        } else if maintenance_issues < 5 {
+            80
+        } else {
+            60
+        };
+
+        // Overall score is weighted average
+        let overall_score = (security_score as f64 * 0.4 + performance_score as f64 * 0.3 + maintenance_score as f64 * 0.3) as u8;
+
+        Self {
+            overall_score,
+            security_score,
+            performance_score,
+            maintenance_score,
+            timestamp: chrono::Utc::now(),
+            issues_count: total_issues,
+            critical_issues,
+            health_trend: HealthTrend::Stable, // TODO: Calculate from history
+        }
+    }
+
+    /// Get color for display based on score
+    pub fn get_color_code(&self) -> &'static str {
+        match self.overall_score {
+            90..=100 => "\x1b[92m", // Green
+            70..=89 => "\x1b[93m",  // Yellow
+            50..=69 => "\x1b[33m",  // Orange
+            _ => "\x1b[91m",        // Red
+        }
+    }
+
+    /// Get grade letter
+    pub fn get_grade(&self) -> &'static str {
+        match self.overall_score {
+            95..=100 => "A+",
+            90..=94 => "A",
+            85..=89 => "A-",
+            80..=84 => "B+",
+            75..=79 => "B",
+            70..=74 => "B-",
+            65..=69 => "C+",
+            60..=64 => "C",
+            55..=59 => "C-",
+            50..=54 => "D",
+            _ => "F",
+        }
+    }
+}
+
 /// RPC Request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcRequest {

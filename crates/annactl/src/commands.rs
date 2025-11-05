@@ -162,6 +162,18 @@ pub async fn advise(
             }
         }
 
+        // Filter out dismissed advice (if learning is enabled)
+        if let Ok(log) = anna_common::UserFeedbackLog::load() {
+            let original_count = advice_list.len();
+            advice_list.retain(|a| !log.was_dismissed(&a.id));
+            let dismissed_count = original_count - advice_list.len();
+            if dismissed_count > 0 {
+                println!("{}", beautiful::status(Level::Info,
+                    &format!("Hiding {} previously dismissed recommendation(s)", dismissed_count)));
+                println!();
+            }
+        }
+
         // Filter by risk level if specified
         if let Some(ref risk) = risk_filter {
             advice_list.retain(|a| {
@@ -456,6 +468,24 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
         if let ResponseData::ActionResult { success, message } = result {
             if success {
                 println!("{}", beautiful::status(Level::Success, &message));
+
+                // Record application in feedback log
+                let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+                // Get advice details to know the category
+                let advice_data = client.call(Method::GetAdvice).await?;
+                if let ResponseData::Advice(advice_list) = advice_data {
+                    if let Some(advice) = advice_list.iter().find(|a| a.id == advice_id) {
+                        let mut log = anna_common::UserFeedbackLog::load().unwrap_or_default();
+                        log.record(anna_common::FeedbackEvent {
+                            advice_id: advice_id.clone(),
+                            advice_category: advice.category.clone(),
+                            event_type: anna_common::FeedbackType::Applied,
+                            timestamp: chrono::Utc::now(),
+                            username,
+                        });
+                        let _ = log.save(); // Ignore errors
+                    }
+                }
             } else {
                 println!("{}", beautiful::status(Level::Error, &message));
             }
@@ -1661,5 +1691,258 @@ pub async fn wiki_cache(force: bool) -> Result<()> {
     println!("  For now, wiki pages will be cached automatically when accessed.");
     println!();
 
+    Ok(())
+}
+
+/// Display system health score
+pub async fn health() -> Result<()> {
+    use anna_common::beautiful::{header, section};
+
+    println!("{}", header("System Health Score"));
+    println!();
+
+    // Connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    // Get facts and advice to calculate score
+    let facts_data = client.call(Method::GetFacts).await?;
+    let advice_data = client.call(Method::GetAdvice).await?;
+
+    let facts = if let ResponseData::Facts(f) = facts_data {
+        f
+    } else {
+        println!("{}", beautiful::status(Level::Error, "Failed to get system facts"));
+        return Ok(());
+    };
+
+    let advice_list = if let ResponseData::Advice(a) = advice_data {
+        a
+    } else {
+        Vec::new()
+    };
+
+    // Calculate health score
+    let score = anna_common::SystemHealthScore::calculate(&facts, &advice_list);
+
+    println!("{}", section("📊 Overall Health"));
+    println!();
+
+    // Large score display
+    let color = score.get_color_code();
+    let grade = score.get_grade();
+
+    println!("     {}{}/100{}\x1b[0m  \x1b[1m{}\x1b[0m",
+        color,
+        score.overall_score,
+        color,
+        grade
+    );
+    println!();
+
+    // Score bar visualization
+    let bar_width = 50;
+    let filled = (score.overall_score as f64 / 100.0 * bar_width as f64) as usize;
+    let empty = bar_width - filled;
+
+    println!("     {}{}{}{}",
+        color,
+        "█".repeat(filled),
+        "\x1b[90m",
+        "░".repeat(empty)
+    );
+    println!("\x1b[0m");
+
+    // Trend indicator
+    let trend_icon = match score.health_trend {
+        anna_common::HealthTrend::Improving => "\x1b[92m↗ Improving\x1b[0m",
+        anna_common::HealthTrend::Stable => "\x1b[93m→ Stable\x1b[0m",
+        anna_common::HealthTrend::Declining => "\x1b[91m↘ Declining\x1b[0m",
+    };
+    println!("     Trend: {}", trend_icon);
+    println!();
+
+    // Detailed scores
+    println!("{}", section("📈 Score Breakdown"));
+    println!();
+
+    let format_score = |name: &str, score: u8| {
+        let color = if score >= 90 { "\x1b[92m" } else if score >= 70 { "\x1b[93m" } else { "\x1b[91m" };
+        println!("  {:<20} {}{}{}  \x1b[90m{}\x1b[0m",
+            name,
+            color,
+            score,
+            "\x1b[0m",
+            "█".repeat((score as f64 / 100.0 * 20.0) as usize)
+        );
+    };
+
+    format_score("Security", score.security_score);
+    format_score("Performance", score.performance_score);
+    format_score("Maintenance", score.maintenance_score);
+    println!();
+
+    // Issues summary
+    println!("{}", section("⚠️  Issues Summary"));
+    println!();
+    println!("  Total recommendations: \x1b[93m{}\x1b[0m", score.issues_count);
+    if score.critical_issues > 0 {
+        println!("  Critical issues: \x1b[91m{}\x1b[0m", score.critical_issues);
+    } else {
+        println!("  Critical issues: \x1b[92m0\x1b[0m");
+    }
+    println!();
+
+    // Health interpretation
+    println!("{}", section("💭 What This Means"));
+    println!();
+    match score.overall_score {
+        95..=100 => {
+            println!("  Your system is in excellent condition! Everything is well-maintained");
+            println!("  and secure. Keep up the good work!");
+        }
+        85..=94 => {
+            println!("  Your system is in very good shape. There are a few minor things");
+            println!("  to address, but nothing urgent.");
+        }
+        70..=84 => {
+            println!("  Your system is generally healthy, but there are some recommendations");
+            println!("  you should look at when you have time.");
+        }
+        50..=69 => {
+            println!("  Your system needs some attention. Please review the recommendations");
+            println!("  to improve security and performance.");
+        }
+        _ => {
+            println!("  Your system has significant issues that need immediate attention.");
+            println!("  Please run \x1b[38;5;159mannactl advise\x1b[0m to see what needs to be fixed.");
+        }
+    }
+    println!();
+
+    // Call to action
+    println!("{}", section("🎯 Next Steps"));
+    println!();
+    if score.critical_issues > 0 {
+        println!("  1. Run \x1b[38;5;159mannactl advise --mode=critical\x1b[0m to see critical issues");
+        println!("  2. Apply fixes with \x1b[38;5;159mannactl apply --nums <number>\x1b[0m");
+    } else if score.issues_count > 0 {
+        println!("  Run \x1b[38;5;159mannactl advise\x1b[0m to see all recommendations");
+    } else {
+        println!("  Your system is healthy! Run \x1b[38;5;159mannactl status\x1b[0m to monitor.");
+    }
+    println!();
+
+    Ok(())
+}
+
+/// Dismiss a recommendation
+pub async fn dismiss(id: Option<String>, num: Option<usize>) -> Result<()> {
+    use anna_common::beautiful::{header};
+
+    println!("{}", header("Dismiss Recommendation"));
+    println!();
+
+    // Connect to daemon
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    // Get the advice ID
+    let advice_id = if let Some(id) = id {
+        id
+    } else if let Some(num) = num {
+        // Get all advice and find by number
+        let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+        let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
+            .or_else(|_| std::env::var("DESKTOP_SESSION"))
+            .ok();
+        let shell = std::env::var("SHELL")
+            .unwrap_or_else(|_| "bash".to_string())
+            .split('/')
+            .last()
+            .unwrap_or("bash")
+            .to_string();
+        let display_server = if std::env::var("WAYLAND_DISPLAY").is_ok() {
+            Some("wayland".to_string())
+        } else if std::env::var("DISPLAY").is_ok() {
+            Some("x11".to_string())
+        } else {
+            None
+        };
+
+        let advice_data = client.call(Method::GetAdviceWithContext {
+            username,
+            desktop_env,
+            shell,
+            display_server,
+        }).await?;
+
+        if let ResponseData::Advice(advice_list) = advice_data {
+            if num < 1 || num > advice_list.len() {
+                println!("{}", beautiful::status(Level::Error,
+                    &format!("Number {} out of range (1-{})", num, advice_list.len())));
+                return Ok(());
+            }
+            advice_list[num - 1].id.clone()
+        } else {
+            println!("{}", beautiful::status(Level::Error, "Failed to get advice list"));
+            return Ok(());
+        }
+    } else {
+        println!("{}", beautiful::status(Level::Error, "Please specify either --id or --num"));
+        println!();
+        println!("  Examples:");
+        println!("    annactl dismiss --id orphan-packages");
+        println!("    annactl dismiss --num 5");
+        return Ok(());
+    };
+
+    // Record dismissal in feedback log
+    let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+
+    // Get advice details to know the category
+    let advice_data = client.call(Method::GetAdvice).await?;
+    if let ResponseData::Advice(advice_list) = advice_data {
+        if let Some(advice) = advice_list.iter().find(|a| a.id == advice_id) {
+            let mut log = anna_common::UserFeedbackLog::load().unwrap_or_default();
+            log.record(anna_common::FeedbackEvent {
+                advice_id: advice_id.clone(),
+                advice_category: advice.category.clone(),
+                event_type: anna_common::FeedbackType::Dismissed,
+                timestamp: chrono::Utc::now(),
+                username,
+            });
+
+            if let Err(e) = log.save() {
+                println!("{}", beautiful::status(Level::Warning,
+                    &format!("Failed to save feedback: {}", e)));
+            } else {
+                println!("{}", beautiful::status(Level::Success,
+                    &format!("Dismissed: {}", advice.title)));
+                println!();
+                println!("  This recommendation won't be shown again.");
+                println!("  Anna will learn from your preferences over time.");
+            }
+        } else {
+            println!("{}", beautiful::status(Level::Error,
+                &format!("Advice '{}' not found", advice_id)));
+        }
+    }
+
+    println!();
     Ok(())
 }

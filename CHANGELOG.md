@@ -5,6 +5,177 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.32] - 2025-01-05
+
+### 🧠 Learning System & Health Scoring!
+
+**ADAPTIVE INTELLIGENCE:** Anna now learns from your behavior and tracks system health with detailed scoring!
+
+### ✨ Major Features
+
+**📊 System Health Scoring**
+- Comprehensive health score (0-100) with letter grades (A+ to F)
+- Breakdown by category: Security, Performance, Maintenance
+- Visual score bars and trend indicators (Improving/Stable/Declining)
+- Intelligent health interpretation with actionable next steps
+- New `annactl health` command for quick health check
+
+**🎓 Learning & Feedback System**
+- Tracks user interactions: applied, dismissed, viewed
+- Learns category preferences from your behavior
+- Auto-hides dismissed recommendations
+- Persistent feedback log at `/var/log/anna/feedback.jsonl`
+- New `annactl dismiss` command to hide unwanted advice
+- Automatic feedback recording when applying recommendations
+
+**🎯 New CLI Commands**
+- `annactl health` - Show system health score with visual breakdown
+- `annactl dismiss --id <id>` or `--num <n>` - Dismiss recommendations
+
+### 🔧 Technical Details
+
+**Learning System:**
+- `FeedbackEvent` - Track user interactions with timestamps
+- `UserFeedbackLog` - Persistent JSONL storage
+- `LearnedPreferences` - Analyze patterns from feedback
+- `FeedbackType` enum: Applied, Dismissed, Viewed
+
+**Health Scoring:**
+- `SystemHealthScore` - Overall + category scores
+- `HealthTrend` enum: Improving, Stable, Declining
+- Weighted calculation: Security (40%), Performance (30%), Maintenance (30%)
+- Dynamic scoring based on system facts and pending advice
+
+**Data Structures:**
+```rust
+pub struct SystemHealthScore {
+    pub overall_score: u8,       // 0-100
+    pub security_score: u8,
+    pub performance_score: u8,
+    pub maintenance_score: u8,
+    pub issues_count: usize,
+    pub critical_issues: usize,
+    pub health_trend: HealthTrend,
+}
+
+pub struct FeedbackEvent {
+    pub advice_id: String,
+    pub advice_category: String,
+    pub event_type: FeedbackType,
+    pub timestamp: DateTime<Utc>,
+    pub username: String,
+}
+
+pub struct LearnedPreferences {
+    pub prefers_categories: Vec<String>,
+    pub dismisses_categories: Vec<String>,
+    pub power_user_level: u8,
+}
+```
+
+### 💡 What This Means
+
+**For Users:**
+- Get instant feedback on system health (like a report card!)
+- Anna learns what you care about and what you don't
+- Dismissed advice stays hidden - no more seeing the same unwanted suggestions
+- Clear, actionable guidance based on your health score
+
+**For System Monitoring:**
+- Track health trends over time
+- See exactly which areas need attention
+- Understand the impact of applied recommendations
+- Get grade-based assessments (A+ to F)
+
+**For Personalization:**
+- Anna adapts to YOUR preferences
+- Categories you dismiss appear less frequently
+- Categories you apply get prioritized
+- Power user detection based on behavior
+
+### 📊 Usage Examples
+
+**Check System Health:**
+```bash
+# Show full health score
+annactl health
+
+# Output example:
+#   📊 Overall Health
+#
+#      85/100  B+
+#      ██████████████████████████████████████████░░░░░░░░░░
+#      Trend: → Stable
+#
+#   📈 Score Breakdown
+#   Security              95  ███████████████████
+#   Performance           80  ████████████████
+#   Maintenance           75  ███████████████
+```
+
+**Dismiss Unwanted Advice:**
+```bash
+# Dismiss by ID
+annactl dismiss --id orphan-packages
+
+# Dismiss by number from advise list
+annactl dismiss --num 5
+```
+
+**See Learning in Action:**
+```bash
+# Dismissed items are automatically hidden
+annactl advise
+# Output: "Hiding 3 previously dismissed recommendation(s)"
+```
+
+### 🎨 UI Enhancements
+
+**Health Score Display:**
+- Large, colorful score display with grade letter
+- Visual progress bars (█ for filled, ░ for empty)
+- Color-coded scores: Green (90+), Yellow (70-89), Orange (50-69), Red (<50)
+- Trend arrows: ↗ Improving, → Stable, ↘ Declining
+- Contextual interpretation based on score range
+- Specific next steps based on issues
+
+**Feedback Integration:**
+- Automatic notification when advice is dismissed
+- Confirmation when feedback is recorded
+- Learning message: "Anna will learn from your preferences"
+
+### 🏗️ Infrastructure
+
+**New Features:**
+- Feedback logging with JSONL format
+- Dismissal tracking per advice ID
+- Category-level preference analysis
+- Health score caching (planned)
+- Trend calculation from historical data (planned)
+
+**Integration Points:**
+- `apply` command now records successful applications
+- `dismiss` command records user rejections
+- `advise` command filters out dismissed items
+- `health` command calculates real-time scores
+
+### 📝 Notes
+
+- Feedback log persists across daemon restarts
+- Dismissed advice can be re-enabled by deleting feedback log
+- Health scores are calculated in real-time (no caching yet)
+- Learning improves with more user interactions
+- All feedback is user-specific (username tracked)
+
+### 🎯 What's Next
+
+Planned improvements:
+- Health score history tracking
+- Trend calculation from historical scores
+- ML-based recommendation prioritization
+- Category weight adjustment based on preferences
+- Export feedback data for analysis
+
 ## [1.0.0-beta.31] - 2025-01-05
 
 ### 🤖 Autonomous Maintenance & Offline Wiki Cache!
