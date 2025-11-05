@@ -162,11 +162,15 @@ fn verify_binary(binary_path: &Path, expected_version: &str) -> Result<()> {
 
     let version_output = String::from_utf8_lossy(&output.stdout);
 
-    if !version_output.contains(expected_version) {
+    // Strip 'v' prefix from expected version for comparison
+    // Expected: "v1.0.0-beta.58", Binary outputs: "annad 1.0.0-beta.58"
+    let version_without_v = expected_version.strip_prefix('v').unwrap_or(expected_version);
+
+    if !version_output.contains(version_without_v) {
         anyhow::bail!(
             "Version mismatch: expected {}, got {}",
             expected_version,
-            version_output
+            version_output.trim()
         );
     }
 

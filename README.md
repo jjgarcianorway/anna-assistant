@@ -4,7 +4,16 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.58 (November 2025)
+**Current Version:** Beta.59 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.59
+
+**🔧 Update Command Fix:**
+- Fixed version verification in `annactl update --install`
+- Properly handles version format differences (v1.0.0 vs 1.0.0)
+- Update command now works end-to-end!
 
 ---
 
