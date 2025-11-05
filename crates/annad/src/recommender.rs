@@ -3781,6 +3781,120 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
     result
 }
 
+/// Check for enhanced container/orchestration tools (beta.43+)
+fn check_container_orchestration() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let has_docker = is_package_installed("docker");
+
+    // Check for Podman (Docker alternative)
+    if !has_docker && !is_package_installed("podman") {
+        result.push(
+            Advice::new(
+                "container-podman".to_string(),
+                "Consider Podman as a Docker alternative".to_string(),
+                "Podman is a daemonless container engine - it's Docker-compatible but doesn't need root! Same commands as Docker (alias docker=podman works!), but more secure (rootless by default), no daemon overhead, and generates Kubernetes YAML. Great for development and production!".to_string(),
+                "Install Podman".to_string(),
+                Some("sudo pacman -S --noconfirm podman".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Podman".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(60)
+            .with_bundle("container-dev".to_string())
+        );
+    }
+
+    // Check for lazydocker (Docker TUI)
+    if has_docker && !is_package_installed("lazydocker") {
+        result.push(
+            Advice::new(
+                "container-lazydocker".to_string(),
+                "Install lazydocker for easy Docker management".to_string(),
+                "lazydocker is a beautiful terminal UI for Docker! See all containers/images/volumes/networks at a glance, view logs, stats, inspect containers - all with keyboard shortcuts. Way better than memorizing Docker commands!".to_string(),
+                "Install lazydocker".to_string(),
+                Some("sudo pacman -S --noconfirm lazydocker".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://github.com/jesseduffield/lazydocker".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(55)
+            .with_bundle("container-dev".to_string())
+        );
+    }
+
+    // Check for kubectl (Kubernetes CLI)
+    if (has_docker || is_package_installed("podman")) && !is_package_installed("kubectl") {
+        result.push(
+            Advice::new(
+                "container-kubectl".to_string(),
+                "Install kubectl for Kubernetes management".to_string(),
+                "kubectl is the Kubernetes command-line tool. Even if you're not running k8s clusters, it's useful for testing manifests, working with minikube, or managing cloud k8s. Essential for cloud-native development!".to_string(),
+                "Install kubectl".to_string(),
+                Some("sudo pacman -S --noconfirm kubectl".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Kubectl".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(50)
+            .with_bundle("container-dev".to_string())
+        );
+    }
+
+    // Check for k9s (Kubernetes TUI)
+    if is_package_installed("kubectl") && !is_package_installed("k9s") {
+        result.push(
+            Advice::new(
+                "container-k9s".to_string(),
+                "Install k9s for Kubernetes cluster management".to_string(),
+                "k9s is a powerful terminal UI for Kubernetes! Navigate pods/deployments/services with vim keys, view logs, shell into pods, port-forward - all without memorizing kubectl commands. Makes k8s actually enjoyable to use!".to_string(),
+                "Install k9s".to_string(),
+                Some("sudo pacman -S --noconfirm k9s".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://k9scli.io/".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(45)
+            .with_bundle("container-dev".to_string())
+        );
+    }
+
+    // Check for dive (Docker image analyzer)
+    if has_docker {
+        result.push(
+            Advice::new(
+                "container-dive".to_string(),
+                "Install dive to analyze Docker image layers".to_string(),
+                "dive lets you explore Docker image layers to see what's wasting space! Find unnecessary files, optimize your Dockerfiles, reduce image sizes. Interactive TUI shows each layer's contents and file changes. Essential for optimizing containers!".to_string(),
+                "Install dive".to_string(),
+                Some("sudo pacman -S --noconfirm dive".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://github.com/wagoodman/dive".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(50)
+            .with_bundle("container-dev".to_string())
+        );
+    }
+
+    result
+}
+
 /// Check for printer support (CUPS)
 fn check_printer_support() -> Vec<Advice> {
     let mut result = Vec::new();
@@ -8060,44 +8174,6 @@ fn check_note_taking() -> Vec<Advice> {
                 category: "productivity".to_string(),
                 alternatives: Vec::new(),
                 wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications#Note-taking_organizers".to_string()],
-                            depends_on: Vec::new(),
-                related_to: Vec::new(),
-                bundle: None,
-            popularity: 50,
-            });
-        }
-    }
-
-    result
-}
-
-/// Check for container orchestration needs based on docker usage
-fn check_container_orchestration() -> Vec<Advice> {
-    let mut result = Vec::new();
-
-    // Check if docker is heavily used
-    let docker_usage = check_command_usage(&["docker run", "docker-compose", "docker build"]);
-
-    if docker_usage > 50 {
-        // Check for docker-compose
-        let has_compose = Command::new("which")
-            .arg("docker-compose")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-
-        if !has_compose {
-            result.push(Advice {
-                id: "containers-compose".to_string(),
-                title: "Install Docker Compose for multi-container applications".to_string(),
-                reason: format!("You use docker heavily ({}+ times in history)! Docker Compose simplifies running multi-container apps. Define services in YAML, manage with one command. Essential for development environments, microservices, complex stacks. 'docker-compose up' beats managing containers manually!", docker_usage),
-                action: "Install Docker Compose".to_string(),
-                command: Some("pacman -S --noconfirm docker-compose".to_string()),
-                risk: RiskLevel::Low,
-                priority: Priority::Recommended,
-                category: "development".to_string(),
-                alternatives: Vec::new(),
-                wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Docker_Compose".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
                 bundle: None,
