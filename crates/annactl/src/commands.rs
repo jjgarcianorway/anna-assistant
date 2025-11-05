@@ -1573,17 +1573,34 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
     println!();
 
     // Overall assessment
-    let critical = advice.iter().filter(|a| matches!(a.risk, RiskLevel::High)).count();
+    let critical_issues: Vec<_> = advice.iter().filter(|a| matches!(a.risk, RiskLevel::High)).collect();
+    let critical = critical_issues.len();
     let recommended = advice.iter().filter(|a| matches!(a.risk, RiskLevel::Medium)).count();
     let optional = advice.iter().filter(|a| matches!(a.risk, RiskLevel::Low)).count();
-    
+
     if critical == 0 && recommended == 0 && optional == 0 {
         println!("   Your system is in great shape! Everything looks secure and well-maintained.");
         println!("   I don't have any urgent recommendations right now.");
     } else if critical > 0 {
-        println!("   I found {} critical {} that need your attention right away.", 
+        println!("   I found \x1b[1;91m{} critical {}\x1b[0m that need your attention right away!",
             critical, if critical == 1 { "issue" } else { "issues" });
         println!("   These affect your system's security or stability.");
+        println!();
+
+        // Show critical issue details
+        println!("   \x1b[1;91m🚨 Critical Issues:\x1b[0m");
+        for (i, issue) in critical_issues.iter().take(5).enumerate() {
+            println!("   \x1b[91m  {}. {}\x1b[0m", i + 1, issue.title);
+            println!("      \x1b[2m{}\x1b[0m", issue.reason.lines().next().unwrap_or(""));
+            if let Some(cmd) = &issue.command {
+                println!("      \x1b[38;5;159m→ {}\x1b[0m", cmd);
+            }
+            println!();
+        }
+        if critical > 5 {
+            println!("   \x1b[2m  ... and {} more critical issues\x1b[0m", critical - 5);
+            println!();
+        }
     } else if recommended > 5 {
         println!("   Your system is working fine, but I have {} recommendations that could", recommended);
         println!("   make things better. Nothing urgent, but worth looking at when you have time.");
