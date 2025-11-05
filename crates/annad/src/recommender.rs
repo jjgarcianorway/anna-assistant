@@ -3379,7 +3379,7 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker".to_string()],
                         depends_on: Vec::new(),
                 related_to: vec!["docker-compose-install".to_string(), "lazydocker-install".to_string()],
-                bundle: Some("Container Development Stack".to_string()),
+                bundle: Some("container-dev".to_string()),
                 popularity: 75, // Docker is very popular for development
             });
     }
@@ -3461,7 +3461,7 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Docker#Docker_Compose".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("container-dev".to_string()),
             popularity: 50,
             });
         }
@@ -5679,7 +5679,7 @@ fn check_nodejs_dev() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("nodejs-dev".to_string()),
             popularity: 50,
             });
         }
@@ -5705,7 +5705,7 @@ fn check_nodejs_dev() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Node.js#TypeScript".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("nodejs-dev".to_string()),
             popularity: 50,
             });
         }
@@ -5742,7 +5742,7 @@ fn check_databases() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/PostgreSQL".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("web-dev".to_string()),
             popularity: 50,
             });
         }
@@ -6704,7 +6704,7 @@ fn check_python_tools() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Package_management".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("python-dev".to_string()),
             popularity: 50,
             });
         }
@@ -6730,7 +6730,7 @@ fn check_python_tools() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Virtual_environment".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("python-dev".to_string()),
             popularity: 50,
             });
         }
@@ -6756,7 +6756,7 @@ fn check_python_tools() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#IPython".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("python-dev".to_string()),
             popularity: 50,
             });
         }
@@ -6793,7 +6793,7 @@ fn check_rust_tools() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust#Cargo".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("rust-dev".to_string()),
             popularity: 50,
             });
         }
@@ -6819,7 +6819,7 @@ fn check_rust_tools() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Rust#Security".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("rust-dev".to_string()),
             popularity: 50,
             });
         }
@@ -7404,7 +7404,7 @@ fn check_python_enhancements() -> Vec<Advice> {
                 wiki_refs: vec!["https://wiki.archlinux.org/title/Python#Multiple_versions".to_string()],
                             depends_on: Vec::new(),
                 related_to: Vec::new(),
-                bundle: None,
+                bundle: Some("python-dev".to_string()),
             popularity: 50,
             });
         }

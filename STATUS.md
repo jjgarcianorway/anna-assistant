@@ -17,10 +17,21 @@
 - Desktop: 100% (WM, DE, compositors)
 - Gaming: 90% (Proton, Wine, Steam)
 
+### Workflow Bundles
+Anna can now group related recommendations into **workflow bundles**:
+- **python-dev** - Poetry, virtualenv, IPython, pyenv
+- **rust-dev** - cargo-watch, cargo-audit, rust-analyzer
+- **nodejs-dev** - Node.js, npm, TypeScript, ESLint
+- **web-dev** - PostgreSQL, nginx, Redis (for web apps)
+- **container-dev** - Docker, Docker Compose, container tools
+
+Use `annactl bundles` to see available workflow bundles for your system!
+
 ### Future Enhancements
 - [ ] Expand offline cache to 100+ pages
 - [ ] Add wiki section excerpts to TUI
 - [ ] Smart wiki search integration
+- [ ] Add more workflow bundles (data-science, sysadmin, gaming)
 
 ---
 
