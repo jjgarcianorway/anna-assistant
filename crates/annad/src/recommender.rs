@@ -82,6 +82,14 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_shell_enhancements(facts));
     advice.extend(check_status_bar(facts));
     advice.extend(check_config_files());
+    advice.extend(check_sysctl_parameters());
+    advice.extend(check_flatpak());
+    advice.extend(check_essential_cli_tools());
+    advice.extend(check_system_monitors());
+    advice.extend(check_arch_specific_tools());
+    advice.extend(check_git_enhancements());
+    advice.extend(check_screenshot_tools());
+    advice.extend(check_password_manager());
     advice.extend(check_cli_tools(facts));
     advice.extend(check_gaming_setup());
     advice.extend(check_desktop_environment(facts));
@@ -1867,6 +1875,463 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
                 popularity: 75,
             });
         }
+    }
+
+    result
+}
+
+/// Check for sysctl parameters and system hardening
+fn check_sysctl_parameters() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if sysctl parameters file exists
+    if let Ok(sysctl) = std::fs::read_to_string("/etc/sysctl.conf") {
+        // Check for important security parameters
+        if !sysctl.contains("kernel.dmesg_restrict") {
+            result.push(Advice {
+                id: "kernel-dmesg-restrict".to_string(),
+                title: "Restrict kernel dmesg to root only".to_string(),
+                reason: "kernel.dmesg_restrict=1 prevents non-root users from reading kernel ring buffer messages, which can contain sensitive system information. This is a basic security hardening step.".to_string(),
+                action: "Add kernel.dmesg_restrict=1 to sysctl.conf".to_string(),
+                command: Some("echo 'kernel.dmesg_restrict = 1' | sudo tee -a /etc/sysctl.conf && sudo sysctl -p".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Security & Privacy".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Security#Kernel_hardening".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: Some("security-hardening".to_string()),
+                popularity: 60,
+            });
+        }
+
+        if !sysctl.contains("kernel.kptr_restrict") {
+            result.push(Advice {
+                id: "kernel-kptr-restrict".to_string(),
+                title: "Hide kernel pointers from unprivileged users".to_string(),
+                reason: "kernel.kptr_restrict prevents exposing kernel addresses which could be used in exploits. Setting this to 2 hides kernel pointers even from root when using sudo (only visible to direct root login).".to_string(),
+                action: "Add kernel.kptr_restrict=2 to sysctl.conf".to_string(),
+                command: Some("echo 'kernel.kptr_restrict = 2' | sudo tee -a /etc/sysctl.conf && sudo sysctl -p".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Security & Privacy".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Security#Kernel_hardening".to_string()],
+                depends_on: Vec::new(),
+                related_to: vec!["kernel-dmesg-restrict".to_string()],
+                bundle: Some("security-hardening".to_string()),
+                popularity: 60,
+            });
+        }
+
+        if !sysctl.contains("net.ipv4.tcp_syncookies") {
+            result.push(Advice {
+                id: "tcp-syncookies".to_string(),
+                title: "Enable TCP SYN cookie protection".to_string(),
+                reason: "TCP SYN cookies protect against SYN flood attacks (a type of DDoS). This is essential protection for any system exposed to the internet.".to_string(),
+                action: "Enable TCP SYN cookies".to_string(),
+                command: Some("echo 'net.ipv4.tcp_syncookies = 1' | sudo tee -a /etc/sysctl.conf && sudo sysctl -p".to_string()),
+                risk: RiskLevel::Low,
+                priority: Priority::Recommended,
+                category: "Security & Privacy".to_string(),
+                alternatives: Vec::new(),
+                wiki_refs: vec!["https://wiki.archlinux.org/title/Security#TCP/IP_stack_hardening".to_string()],
+                depends_on: Vec::new(),
+                related_to: Vec::new(),
+                bundle: Some("security-hardening".to_string()),
+                popularity: 70,
+            });
+        }
+    }
+
+    result
+}
+
+/// Check for Flatpak and Flathub
+fn check_flatpak() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    let has_flatpak = Command::new("which")
+        .arg("flatpak")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !has_flatpak {
+        result.push(Advice {
+            id: "install-flatpak".to_string(),
+            title: "Install Flatpak for universal app support".to_string(),
+            reason: "Flatpak provides access to thousands of desktop applications from Flathub. Many proprietary apps (Spotify, Discord, Slack) are easier to install via Flatpak. It's sandboxed for better security and doesn't conflict with pacman packages!".to_string(),
+            action: "Install Flatpak and enable Flathub".to_string(),
+            command: Some("sudo pacman -S --noconfirm flatpak && flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "System Utilities".to_string(),
+            alternatives: vec![
+                Alternative {
+                    name: "AppImage".to_string(),
+                    description: "Portable app format (no sandbox)".to_string(),
+                    install_command: "yay -S appimaged".to_string(),
+                },
+                Alternative {
+                    name: "Snap".to_string(),
+                    description: "Ubuntu's universal package format".to_string(),
+                    install_command: "yay -S snapd".to_string(),
+                },
+            ],
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Flatpak".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+            popularity: 75,
+        });
+    }
+
+    result
+}
+
+/// Check for essential CLI tools
+fn check_essential_cli_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // bat - better cat with syntax highlighting
+    if !Command::new("which").arg("bat").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-bat".to_string(),
+            title: "Install bat - a better 'cat' with syntax highlighting".to_string(),
+            reason: "bat is like cat but with beautiful syntax highlighting, line numbers, and git integration. Perfect for viewing code files in the terminal!".to_string(),
+            action: "Install bat".to_string(),
+            command: Some("sudo pacman -S --noconfirm bat".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "Development Tools".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            depends_on: Vec::new(),
+            related_to: vec!["install-exa".to_string()],
+            bundle: Some("cli-essentials".to_string()),
+            popularity: 85,
+        });
+    }
+
+    // eza - modern ls replacement
+    if !Command::new("which").arg("eza").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-eza".to_string(),
+            title: "Install eza - a modern replacement for 'ls'".to_string(),
+            reason: "eza is a modern ls replacement with colors, icons, git integration, and tree view. Much more user-friendly than plain ls!".to_string(),
+            action: "Install eza".to_string(),
+            command: Some("sudo pacman -S --noconfirm eza".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "Development Tools".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities#Alternatives".to_string()],
+            depends_on: Vec::new(),
+            related_to: vec!["install-bat".to_string()],
+            bundle: Some("cli-essentials".to_string()),
+            popularity: 80,
+        });
+    }
+
+    // fzf - fuzzy finder
+    if !Command::new("which").arg("fzf").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-fzf".to_string(),
+            title: "Install fzf - fuzzy command-line finder".to_string(),
+            reason: "fzf is a game-changer for terminal productivity! Fuzzy search your command history (Ctrl+R), files, git commits, and more. Once you try it, you can't live without it!".to_string(),
+            action: "Install fzf".to_string(),
+            command: Some("sudo pacman -S --noconfirm fzf".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "Development Tools".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Command-line_shell#Command_history".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: Some("cli-essentials".to_string()),
+            popularity: 90,
+        });
+    }
+
+    // tldr - simplified man pages
+    if !Command::new("which").arg("tldr").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-tldr".to_string(),
+            title: "Install tldr - simplified and practical man pages".to_string(),
+            reason: "tldr provides concise, practical examples for commands instead of verbose man pages. Want to know how to use tar? Just run 'tldr tar' for real-world examples!".to_string(),
+            action: "Install tldr".to_string(),
+            command: Some("sudo pacman -S --noconfirm tldr".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "Development Tools".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: Some("cli-essentials".to_string()),
+            popularity: 75,
+        });
+    }
+
+    // ncdu - disk usage analyzer
+    if !Command::new("which").arg("ncdu").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-ncdu".to_string(),
+            title: "Install ncdu - interactive disk usage analyzer".to_string(),
+            reason: "ncdu is a fast disk usage analyzer with an ncurses interface. Much better than 'du' for finding what's eating your disk space!".to_string(),
+            action: "Install ncdu".to_string(),
+            command: Some("sudo pacman -S --noconfirm ncdu".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "System Utilities".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Core_utilities".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: Some("cli-essentials".to_string()),
+            popularity: 70,
+        });
+    }
+
+    result
+}
+
+/// Check for system monitoring tools
+fn check_system_monitors() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // btop - modern system monitor
+    if !Command::new("which").arg("btop").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-btop".to_string(),
+            title: "Install btop - beautiful resource monitor".to_string(),
+            reason: "btop is a gorgeous, modern alternative to htop/top with mouse support, themes, and graphs. Shows CPU, memory, disks, network, and processes in a beautiful TUI!".to_string(),
+            action: "Install btop".to_string(),
+            command: Some("sudo pacman -S --noconfirm btop".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "System Utilities".to_string(),
+            alternatives: vec![
+                Alternative {
+                    name: "htop".to_string(),
+                    description: "Classic interactive process viewer".to_string(),
+                    install_command: "sudo pacman -S htop".to_string(),
+                },
+            ],
+            wiki_refs: vec!["https://wiki.archlinux.org/title/System_monitor".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+            popularity: 85,
+        });
+    }
+
+    result
+}
+
+/// Check for Arch-specific tools
+fn check_arch_specific_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // arch-audit - security audit tool
+    if !Command::new("which").arg("arch-audit").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-arch-audit".to_string(),
+            title: "Install arch-audit - check for security vulnerabilities".to_string(),
+            reason: "arch-audit scans your installed packages for known security vulnerabilities (CVEs). Essential for keeping your system secure!".to_string(),
+            action: "Install arch-audit".to_string(),
+            command: Some("sudo pacman -S --noconfirm arch-audit".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "Security & Privacy".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Security#Vulnerability_scanning".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: Some("security-hardening".to_string()),
+            popularity: 70,
+        });
+    }
+
+    // pkgfile - command-not-found handler
+    if !Command::new("which").arg("pkgfile").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-pkgfile".to_string(),
+            title: "Install pkgfile - find which package owns a file".to_string(),
+            reason: "pkgfile tells you which package contains a command or file. Type a missing command and it suggests which package to install! Also enables 'command-not-found' handler.".to_string(),
+            action: "Install pkgfile and update database".to_string(),
+            command: Some("sudo pacman -S --noconfirm pkgfile && sudo pkgfile --update".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "Package Management".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Pkgfile".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+            popularity: 75,
+        });
+    }
+
+    // pacman-contrib - additional pacman tools
+    if !Command::new("which").arg("paccache").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-pacman-contrib".to_string(),
+            title: "Install pacman-contrib - extra pacman utilities".to_string(),
+            reason: "pacman-contrib provides useful tools like paccache (clean package cache), checkupdates (check updates without -Sy), pacdiff (merge .pacnew files), and more!".to_string(),
+            action: "Install pacman-contrib".to_string(),
+            command: Some("sudo pacman -S --noconfirm pacman-contrib".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "Package Management".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Pacman#Utilities".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: None,
+            popularity: 80,
+        });
+    }
+
+    result
+}
+
+/// Check for git enhancements
+fn check_git_enhancements() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if git is installed first
+    let has_git = Command::new("which").arg("git").output().map(|o| o.status.success()).unwrap_or(false);
+    if !has_git {
+        return result;
+    }
+
+    // lazygit - terminal UI for git
+    if !Command::new("which").arg("lazygit").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-lazygit".to_string(),
+            title: "Install lazygit - simple terminal UI for git".to_string(),
+            reason: "lazygit is a beautiful terminal UI for git that makes staging, committing, branching, and merging super easy. Perfect if you prefer TUIs over typing git commands!".to_string(),
+            action: "Install lazygit".to_string(),
+            command: Some("sudo pacman -S --noconfirm lazygit".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "Development Tools".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Graphical_front-ends".to_string()],
+            depends_on: vec!["git".to_string()],
+            related_to: vec!["install-git-delta".to_string()],
+            bundle: Some("git-tools".to_string()),
+            popularity: 80,
+        });
+    }
+
+    // git-delta - better git diff
+    if !Command::new("which").arg("delta").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-git-delta".to_string(),
+            title: "Install git-delta - beautiful git diffs with syntax highlighting".to_string(),
+            reason: "git-delta makes git diffs beautiful with syntax highlighting, line numbers, and side-by-side view. Much easier to read than default git diff!".to_string(),
+            action: "Install git-delta".to_string(),
+            command: Some("sudo pacman -S --noconfirm git-delta".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Optional,
+            category: "Development Tools".to_string(),
+            alternatives: Vec::new(),
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Git#Diff_and_merge_tools".to_string()],
+            depends_on: vec!["git".to_string()],
+            related_to: vec!["install-lazygit".to_string()],
+            bundle: Some("git-tools".to_string()),
+            popularity: 75,
+        });
+    }
+
+    result
+}
+
+/// Check for screenshot and screen recording tools
+fn check_screenshot_tools() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if we're running a GUI
+    if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+        return result;
+    }
+
+    // flameshot - screenshot tool
+    if !Command::new("which").arg("flameshot").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-flameshot".to_string(),
+            title: "Install flameshot - powerful screenshot tool".to_string(),
+            reason: "flameshot is the best screenshot tool for Linux! Take screenshots with annotations, arrows, text, blur, and more. Much better than the default tools!".to_string(),
+            action: "Install flameshot".to_string(),
+            command: Some("sudo pacman -S --noconfirm flameshot".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "Desktop Utilities".to_string(),
+            alternatives: vec![
+                Alternative {
+                    name: "spectacle".to_string(),
+                    description: "KDE screenshot utility".to_string(),
+                    install_command: "sudo pacman -S spectacle".to_string(),
+                },
+                Alternative {
+                    name: "gnome-screenshot".to_string(),
+                    description: "GNOME screenshot tool".to_string(),
+                    install_command: "sudo pacman -S gnome-screenshot".to_string(),
+                },
+            ],
+            wiki_refs: vec!["https://wiki.archlinux.org/title/Screen_capture".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: Some("desktop-essentials".to_string()),
+            popularity: 85,
+        });
+    }
+
+    result
+}
+
+/// Check for password manager
+fn check_password_manager() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check if we're running a GUI
+    if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+        return result;
+    }
+
+    // KeePassXC - password manager
+    if !Command::new("which").arg("keepassxc").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(Advice {
+            id: "install-keepassxc".to_string(),
+            title: "Install KeePassXC - secure password manager".to_string(),
+            reason: "KeePassXC is a secure, open-source password manager with browser integration. Store all your passwords in an encrypted database instead of reusing the same password everywhere!".to_string(),
+            action: "Install KeePassXC".to_string(),
+            command: Some("sudo pacman -S --noconfirm keepassxc".to_string()),
+            risk: RiskLevel::Low,
+            priority: Priority::Recommended,
+            category: "Security & Privacy".to_string(),
+            alternatives: vec![
+                Alternative {
+                    name: "Bitwarden".to_string(),
+                    description: "Cloud-based password manager".to_string(),
+                    install_command: "flatpak install flathub com.bitwarden.desktop".to_string(),
+                },
+                Alternative {
+                    name: "pass".to_string(),
+                    description: "CLI password manager using GPG".to_string(),
+                    install_command: "sudo pacman -S pass".to_string(),
+                },
+            ],
+            wiki_refs: vec!["https://wiki.archlinux.org/title/List_of_applications/Security#Password_managers".to_string()],
+            depends_on: Vec::new(),
+            related_to: Vec::new(),
+            bundle: Some("security-essentials".to_string()),
+            popularity: 80,
+        });
     }
 
     result

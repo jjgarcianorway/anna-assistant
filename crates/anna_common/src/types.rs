@@ -1241,7 +1241,7 @@ impl SystemHealthScore {
         let total_issues = advice.len();
 
         // Security score based on security-related advice
-        let security_issues = advice.iter().filter(|a| a.category == "security").count();
+        let security_issues = advice.iter().filter(|a| a.category == "Security & Privacy").count();
         let mut security_details = Vec::new();
 
         let security_score = if security_issues == 0 {
@@ -1288,9 +1288,10 @@ impl SystemHealthScore {
         }
 
         // Check performance recommendations
-        let perf_advice = advice.iter().filter(|a| a.category == "performance").count();
+        let perf_advice = advice.iter().filter(|a| a.category == "Performance Optimization").count();
         if perf_advice > 0 {
             performance_details.push(format!("• {} performance optimization{} available", perf_advice, if perf_advice == 1 { "" } else { "s" }));
+            perf_penalties.push((perf_advice as u8).min(15)); // Deduct for pending optimizations
         }
 
         let performance_score = 100 - perf_penalties.iter().sum::<u8>().min(50);
@@ -1301,7 +1302,7 @@ impl SystemHealthScore {
         }
 
         // Maintenance score based on orphans, old kernels, etc.
-        let maintenance_issues = advice.iter().filter(|a| a.category == "maintenance" || a.category == "cleanup").count();
+        let maintenance_issues = advice.iter().filter(|a| a.category == "System Maintenance" || a.category == "Package Management").count();
         let mut maintenance_details = Vec::new();
 
         let maintenance_score = if maintenance_issues == 0 {

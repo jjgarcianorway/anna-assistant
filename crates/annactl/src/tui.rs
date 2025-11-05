@@ -343,11 +343,23 @@ impl Tui {
             .count();
         score = score.saturating_sub((critical_count as u16) * 15);
 
-        // Deduct for high-risk advice
-        let high_risk_count = self.advice.iter()
+        // Deduct for recommended advice
+        let recommended_count = self.advice.iter()
             .filter(|a| a.priority == Priority::Recommended)
             .count();
-        score = score.saturating_sub((high_risk_count as u16) * 5);
+        score = score.saturating_sub((recommended_count as u16) * 5);
+
+        // Deduct for optional advice (small deduction)
+        let optional_count = self.advice.iter()
+            .filter(|a| a.priority == Priority::Optional)
+            .count();
+        score = score.saturating_sub((optional_count as u16) * 2);
+
+        // Deduct for cosmetic advice (tiny deduction)
+        let cosmetic_count = self.advice.iter()
+            .filter(|a| a.priority == Priority::Cosmetic)
+            .count();
+        score = score.saturating_sub((cosmetic_count as u16) * 1);
 
         // Deduct for CPU temperature
         if let Some(temp) = facts.hardware_monitoring.cpu_temperature_celsius {
