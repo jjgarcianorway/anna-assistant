@@ -5657,6 +5657,133 @@ fn check_gaming_enhancements() -> Vec<Advice> {
             });
     }
 
+    // Check for Discord (gaming communication)
+    if !is_package_installed("discord") && has_steam {
+        result.push(
+            Advice::new(
+                "gaming-discord".to_string(),
+                "Install Discord for gaming communication".to_string(),
+                "You're a gamer with Steam! Discord is THE voice chat and community platform for gamers. Screen sharing, low-latency voice chat, game integration, communities - it's essential for multiplayer gaming.".to_string(),
+                "Install Discord".to_string(),
+                Some("sudo pacman -S --noconfirm discord".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Discord".to_string(),
+                ],
+                "gaming".to_string(),
+            )
+            .with_popularity(75)
+            .with_bundle("gaming-essentials".to_string())
+        );
+    }
+
+    // Check for game controllers/input
+    if has_steam && !is_package_installed("xboxdrv") && !is_package_installed("ds4drv") {
+        result.push(
+            Advice::new(
+                "gaming-controller-support".to_string(),
+                "Install controller drivers for gaming".to_string(),
+                "Enhance controller support beyond Steam Input! xboxdrv handles Xbox controllers, ds4drv for PS4/PS5 controllers. Needed for non-Steam games, better compatibility, and custom button mappings. Many games expect Xbox controller layout!".to_string(),
+                "Install controller drivers".to_string(),
+                Some("sudo pacman -S --noconfirm xboxdrv".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Gamepad".to_string(),
+                    "https://wiki.archlinux.org/title/Gamepad#PlayStation_controllers".to_string(),
+                ],
+                "gaming".to_string(),
+            )
+            .with_popularity(60)
+            .with_bundle("gaming-essentials".to_string())
+        );
+    }
+
+    // Check for emulators if user seems to be into gaming
+    if has_steam {
+        // Check for RetroArch (all-in-one emulator)
+        if !is_package_installed("retroarch") {
+            result.push(
+                Advice::new(
+                    "gaming-retroarch".to_string(),
+                    "Install RetroArch for retro gaming emulation".to_string(),
+                    "RetroArch is the ultimate all-in-one emulator - NES, SNES, PlayStation, N64, Game Boy, Sega, and more! Beautiful interface, shaders, netplay, achievements. Play your classic game collection on Linux!".to_string(),
+                    "Install RetroArch emulator".to_string(),
+                    Some("sudo pacman -S --noconfirm retroarch".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/RetroArch".to_string(),
+                    ],
+                    "gaming".to_string(),
+                )
+                .with_popularity(55)
+            );
+        }
+
+        // Check for PCSX2 (PlayStation 2)
+        if !is_package_installed("pcsx2") {
+            result.push(
+                Advice::new(
+                    "gaming-pcsx2".to_string(),
+                    "Install PCSX2 for PlayStation 2 emulation".to_string(),
+                    "PCSX2 is the best PS2 emulator - plays thousands of PS2 games at higher resolutions than original hardware! Supports widescreen patches, texture filtering, and save states. Relive your PS2 library!".to_string(),
+                    "Install PCSX2 emulator".to_string(),
+                    Some("sudo pacman -S --noconfirm pcsx2".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/PCSX2".to_string(),
+                    ],
+                    "gaming".to_string(),
+                )
+                .with_popularity(50)
+            );
+        }
+
+        // Check for Dolphin (GameCube/Wii)
+        if !is_package_installed("dolphin-emu") {
+            result.push(
+                Advice::new(
+                    "gaming-dolphin".to_string(),
+                    "Install Dolphin for GameCube/Wii emulation".to_string(),
+                    "Dolphin is THE emulator for GameCube and Wii games. Runs games at 1080p/4K, supports Wii remotes, netplay, and enhancement features. Play Mario, Zelda, Metroid, and more with better graphics than original consoles!".to_string(),
+                    "Install Dolphin emulator".to_string(),
+                    Some("sudo pacman -S --noconfirm dolphin-emu".to_string()),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/Dolphin_emulator".to_string(),
+                    ],
+                    "gaming".to_string(),
+                )
+                .with_popularity(60)
+            );
+        }
+    }
+
+    // Check for Steam Tinker Launch (advanced Steam tweaking)
+    if has_steam && !Command::new("which").arg("steamtinkerlaunch").output().map(|o| o.status.success()).unwrap_or(false) {
+        result.push(
+            Advice::new(
+                "gaming-steam-tinker-launch".to_string(),
+                "Install Steam Tinker Launch for advanced game tweaking".to_string(),
+                "Steam Tinker Launch is a Swiss Army knife for Steam games on Linux! Easily use different Proton versions, enable GameMode/MangoHud, configure Wine settings, use ReShade, and more - all from a GUI. Power user essential!".to_string(),
+                "Install Steam Tinker Launch (AUR)".to_string(),
+                None, // AUR package
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://github.com/sonic2kk/steamtinkerlaunch".to_string(),
+                ],
+                "gaming".to_string(),
+            )
+            .with_popularity(45)
+            .with_bundle("gaming-essentials".to_string())
+        );
+    }
+
     result
 }
 
