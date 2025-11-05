@@ -81,4 +81,15 @@ impl AdviceDisplayCache {
     pub fn len(&self) -> usize {
         self.advice_ids.len()
     }
+
+    /// Invalidate (delete) the cache
+    /// Call this after applying advice to force regeneration on next advise
+    pub fn invalidate() -> Result<()> {
+        let cache_path = Self::cache_path();
+        if cache_path.exists() {
+            std::fs::remove_file(&cache_path)
+                .context("Failed to delete cache file")?;
+        }
+        Ok(())
+    }
 }

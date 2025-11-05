@@ -4,7 +4,32 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.62 (November 2025)
+**Current Version:** Beta.63 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.63
+
+**⚡ Immediate Refresh After Apply:**
+- Applied advice now disappears from list immediately
+- No more waiting for auto-refresh to see updates
+- TUI: Advice list refreshes right after successful apply
+- CLI: Cache invalidated automatically after applies
+- Helpful tip shown: "Run 'annactl advise' to see updated recommendations"
+
+**Technical Implementation:**
+- TUI: Calls `update().await` immediately after successful apply
+- TUI: Removes applied advice from local state first
+- CLI: Added `AdviceDisplayCache::invalidate()` method
+- CLI: Cache cleared after all successful applies
+- Forces fresh numbering on next `annactl advise`
+
+**User Experience:**
+- Before: Apply → wait seconds → advice disappears on auto-refresh
+- After: Apply → advice immediately removed from list
+- TUI: Instant visual feedback
+- CLI: Next advise shows clean list with new numbers
+- No more confusion about whether apply worked
 
 ---
 

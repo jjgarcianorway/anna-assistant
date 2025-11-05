@@ -686,6 +686,14 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
                         let _ = log.save(); // Ignore errors
                     }
                 }
+
+                // Invalidate cache after successful apply
+                if !dry_run {
+                    let _ = anna_common::AdviceDisplayCache::invalidate();
+                    println!();
+                    println!("{}", beautiful::status(Level::Info,
+                        "Tip: Run 'annactl advise' to see updated recommendations"));
+                }
             } else {
                 println!("{}", beautiful::status(Level::Error, &message));
             }
@@ -797,6 +805,14 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
         println!();
         println!("{}", beautiful::status(Level::Info,
             &format!("Applied {} successfully, {} failed", success_count, fail_count)));
+
+        // Invalidate cache after applying to force regeneration on next advise
+        if success_count > 0 && !dry_run {
+            let _ = anna_common::AdviceDisplayCache::invalidate();
+            println!();
+            println!("{}", beautiful::status(Level::Info,
+                "Tip: Run 'annactl advise' to see updated recommendations"));
+        }
 
         return Ok(());
     }

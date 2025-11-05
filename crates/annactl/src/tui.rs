@@ -256,8 +256,12 @@ impl Tui {
                         ));
                         // Mark as finished
                         self.output_executing = false;
-                        // Don't refresh immediately - let auto-refresh handle it after a few seconds
-                        // This gives the user time to see the success message
+
+                        // Immediately remove applied advice from local state
+                        self.advice.retain(|a| a.id != advice_id);
+
+                        // Refresh from daemon to get updated list (with satisfied advice filtered)
+                        let _ = self.update().await;
                     } else {
                         self.output_buffer.push("✗ Action failed!".to_string());
                         self.status_message = Some((
