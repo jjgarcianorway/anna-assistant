@@ -372,6 +372,271 @@ Installs and configures:
 
 **Key Principle:** Complete, working setups. Not just packages - full configurations.
 
+### 9. Window Manager Complete Bundles
+**Status:** 💭 PLANNING
+
+**User Vision:** *"lets imagine that I just install minimal arch... and then I apply a hyprland bundle... and it does everything for me, according to my hardware and fixes: drivers, bluetooth, nmtui, hyprland, waybar, nautilus, mpv, etc.."*
+
+**Philosophy:** Same concepts across WMs (Hyprland, i3, sway) - different methods, same ideas.
+
+#### Core Components Every WM Needs:
+
+**Application Launcher:**
+- Detect WM type → Pick appropriate launcher
+- Hyprland/Sway: rofi-wayland, tofi, wofi, bemenu
+- i3: rofi, dmenu
+
+**Window Management:**
+- Maximize, fullscreen, minimize
+- Workspace switching (forward/back)
+- Window focusing (directional)
+- Floating toggle
+- Tiling layouts
+
+**Multimedia Keys:**
+- Volume up/down/mute (wpctl, pamixer, pactl)
+- Brightness up/down (brightnessctl, light)
+- Media controls (playerctl): play/pause/next/prev
+- Screenshot (grim+slurp for Wayland, maim/scrot for X11)
+
+**Wallpaper Management:**
+- swaybg (Wayland) / feh (X11)
+- Download nice wallpapers (unsplash API?)
+- Use imagemagick to resize to screen resolution
+- Wallpaper rotation/slideshow
+
+**Essential Tools:**
+- File manager (GUI: nautilus/dolphin/thunar, TUI: ranger/nnn/lf)
+- Terminal emulator
+- Text editor
+- Media player (mpv recommended)
+- Network manager (nmtui for TUI, nm-applet for GUI)
+
+**Keyboard & Input:**
+- Ensure keyboard layout matches TTY
+- Configure input methods
+- Set up touchpad (if laptop)
+
+**System Integration:**
+- Bluetooth (bluez + blueman/bluetuith)
+- Audio system (pipewire recommended)
+- Drivers (GPU, WiFi, etc.)
+- Power management (laptop)
+
+#### Bundle Variants - Same WM, Different Flavors
+
+**User Insight:** *"You can even have different bundles or options per each desktop... like hyprland minimal_resources, hyprland terminal (as much as possible TUI or CLI), hyprland GTK (everything GTK), hyprland QT (everything QT)"*
+
+##### Variant 1: Minimal Resources
+```bash
+annactl setup hyprland --variant minimal
+```
+**Focus:** Lightweight, fast, low RAM/CPU
+- Alacritty (minimal terminal)
+- Fuzzel or bemenu (lightweight launcher)
+- No compositor effects
+- Light apps only
+- Foot terminal alternative
+- Text-based where possible
+- Target: <500MB RAM idle
+
+##### Variant 2: Terminal/CLI Focused
+```bash
+annactl setup hyprland --variant terminal
+```
+**Focus:** TUI/CLI tools, keyboard-driven
+- Ranger/nnn (file manager)
+- Bluetuith (bluetooth TUI)
+- nmtui (network)
+- htop/btop (system monitor)
+- cmus/mpd (music)
+- Newsboat (RSS)
+- w3m/lynx (web browser)
+- Minimal GUI only where necessary
+
+##### Variant 3: GTK Ecosystem
+```bash
+annactl setup hyprland --variant gtk
+```
+**Focus:** GTK apps, GNOME tools
+- Nautilus (file manager)
+- GNOME Terminal
+- GNOME apps (calculator, calendar, etc.)
+- GTK theme (Adwaita, Arc, etc.)
+- GTK-based launcher
+- Evince (PDF)
+- EOG (image viewer)
+
+##### Variant 4: Qt/KDE Ecosystem
+```bash
+annactl setup hyprland --variant qt
+```
+**Focus:** Qt apps, KDE tools
+- Dolphin (file manager)
+- Konsole (terminal)
+- Kate (text editor)
+- KDE apps (Okular, Spectacle, etc.)
+- Kvantum theming
+- Qt-based launcher
+- Consistent Qt look
+
+##### Variant 5: Full-Featured / Kitchen Sink
+```bash
+annactl setup hyprland --variant full
+```
+**Focus:** Beautiful, featured, polished
+- Best of everything
+- All effects enabled
+- Multiple options for each tool
+- Eye candy (blur, shadows, animations)
+- Beautiful themes
+- Target: "unixporn ready"
+
+#### Research Methodology
+
+**User Insight:** *"Check against the wiki and reddit to see the common programs people use in unixporn for the different solutions and collect list of programs that people combine together."*
+
+**Data Sources:**
+1. **Arch Wiki** - Canonical configurations
+2. **r/unixporn** - Popular combinations
+3. **GitHub dotfiles** - Common patterns
+4. **ArchWiki "List of applications"** - Categories
+5. **AUR popularity** - Vote counts
+
+**Analysis:**
+- Track most mentioned combinations
+- Identify "golden setups" (what works well together)
+- Note compatibility (GTK apps in Qt, vice versa)
+- Document gotchas and fixes
+- Keep compatibility matrix
+
+**Popular Combinations (Research TODO):**
+- Hyprland + Waybar + Rofi + Alacritty + ?
+- i3 + Polybar + Rofi + Kitty + ?
+- Sway + Waybar + Wofi + Foot + ?
+- Document and codify
+
+#### Bundle Structure
+
+Each bundle includes:
+
+**1. Base System:**
+- Window manager itself
+- Display server (Wayland/X11)
+- Session management
+- Basic daemons
+
+**2. User Interface:**
+- Status bar
+- Application launcher
+- Notification daemon
+- Wallpaper manager
+- Lock screen
+
+**3. Applications:**
+- Terminal
+- File manager
+- Text editor
+- Web browser
+- Media player
+- PDF viewer
+- Image viewer
+
+**4. System Tools:**
+- Network management
+- Bluetooth
+- Audio control
+- Power management
+- Brightness control
+
+**5. Keybindings:**
+- Window management
+- Workspaces
+- Applications
+- Multimedia
+- System controls
+
+**6. Theme & Appearance:**
+- GTK/Qt themes
+- Icon theme
+- Cursor theme
+- Fonts (including Nerd Fonts)
+- Colors
+
+**7. Hardware-Specific:**
+- GPU drivers (detect Nvidia/AMD/Intel)
+- WiFi drivers
+- Bluetooth adapters
+- Laptop-specific (battery, touchpad)
+
+**8. Configuration Files:**
+- All configs generated
+- Keybinding reference sheet
+- Quick start guide
+- Troubleshooting notes
+
+#### From Minimal Arch to Fully Configured
+
+**The Dream Workflow:**
+```bash
+# User installs minimal Arch
+# Network is working, that's it
+
+# Install Anna
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo sh
+
+# Apply complete setup
+annactl setup hyprland --variant gtk
+
+# 15 minutes later...
+# ✓ Hyprland configured
+# ✓ Waybar with all widgets
+# ✓ Rofi launcher (SUPER+D)
+# ✓ Volume keys working
+# ✓ Brightness keys working
+# ✓ WiFi configured (nmtui)
+# ✓ Bluetooth working
+# ✓ Nautilus file manager
+# ✓ Firefox installed
+# ✓ MPV for videos
+# ✓ Beautiful theme applied
+# ✓ Wallpaper set
+# ✓ Everything works!
+
+# User logs in → productive immediately
+```
+
+**No manual configuration. No wiki diving. Just works.** ✨
+
+#### Implementation Notes
+
+**Hardware Detection:**
+```rust
+fn detect_hardware() -> HardwareProfile {
+    HardwareProfile {
+        gpu: detect_gpu(), // Nvidia? AMD? Intel?
+        laptop: is_laptop(),
+        wifi: has_wifi(),
+        bluetooth: has_bluetooth(),
+        touchpad: has_touchpad(),
+        screen_resolution: get_resolution(),
+        // ... etc
+    }
+}
+
+fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
+    // Add Nvidia-specific configs if needed
+    // Add laptop power management if laptop
+    // Skip bluetooth if no hardware
+    // Etc.
+}
+```
+
+**Goal:** Not just functional - ACTUALLY NICE TO USE!
+
+**User Quote:** *"It does not need to be extremely beautiful but fully functional."*
+**Anna's Promise:** Why not both? 😊
+
 ---
 
 ## 📊 Implementation Priority
