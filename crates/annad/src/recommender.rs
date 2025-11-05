@@ -116,6 +116,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_vpn_tools());
     advice.extend(check_browser_recommendations());
     advice.extend(check_security_tools());
+    advice.extend(check_security_hardening());
     advice.extend(check_backup_solutions());
     advice.extend(check_screen_recording());
     advice.extend(check_password_managers());
@@ -5213,6 +5214,203 @@ fn check_security_tools() -> Vec<Advice> {
                 bundle: None,
             popularity: 50,
             });
+    }
+
+    result
+}
+
+/// Check security hardening (beta.43+)
+fn check_security_hardening() -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Check for AppArmor
+    if !is_package_installed("apparmor") {
+        result.push(
+            Advice::new(
+                "security-apparmor".to_string(),
+                "Install AppArmor for mandatory access control".to_string(),
+                "AppArmor is a Mandatory Access Control (MAC) system that confines programs to limited resources. It prevents applications from accessing files they shouldn't, adding a security layer beyond standard permissions. Think of it as a sandbox for every program!".to_string(),
+                "Install AppArmor and enable it".to_string(),
+                Some("sudo pacman -S --noconfirm apparmor && sudo systemctl enable apparmor".to_string()),
+                RiskLevel::Medium,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/AppArmor".to_string(),
+                    "https://wiki.archlinux.org/title/Security#Mandatory_access_control".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(55)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check for fail2ban (SSH protection)
+    let has_ssh_server = Command::new("systemctl")
+        .args(&["is-enabled", "sshd"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if has_ssh_server && !is_package_installed("fail2ban") {
+        result.push(
+            Advice::new(
+                "security-fail2ban".to_string(),
+                "Install fail2ban to protect SSH from brute force attacks".to_string(),
+                "You're running an SSH server! fail2ban monitors log files and bans IPs with malicious behavior (repeated failed login attempts). It's essential protection against brute force attacks - automatically blocks attackers trying to guess your password.".to_string(),
+                "Install and configure fail2ban".to_string(),
+                Some("sudo pacman -S --noconfirm fail2ban && sudo systemctl enable --now fail2ban".to_string()),
+                RiskLevel::Low,
+                Priority::Recommended,
+                vec![
+                    "https://wiki.archlinux.org/title/Fail2ban".to_string(),
+                    "https://wiki.archlinux.org/title/SSH#Protection_from_brute_force_attacks".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(70)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check for auditd (audit framework)
+    if !is_package_installed("audit") {
+        result.push(
+            Advice::new(
+                "security-auditd".to_string(),
+                "Install audit framework for system activity monitoring".to_string(),
+                "The Linux Audit Framework monitors and logs security-relevant system events - file access, system calls, user actions. Essential for security compliance, forensics, and detecting suspicious activity. Required for many security standards (PCI-DSS, HIPAA).".to_string(),
+                "Install audit daemon".to_string(),
+                Some("sudo pacman -S --noconfirm audit && sudo systemctl enable --now auditd".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Audit_framework".to_string(),
+                    "https://wiki.archlinux.org/title/Security#Auditing".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(50)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check for USBGuard
+    if !is_package_installed("usbguard") {
+        result.push(
+            Advice::new(
+                "security-usbguard".to_string(),
+                "Install USBGuard to protect against malicious USB devices".to_string(),
+                "USBGuard implements USB device authorization - it can block unauthorized USB devices like BadUSB attacks, USB Rubber Ducky, or unknown storage devices. Protects against physical attacks through USB ports. Essential for high-security environments!".to_string(),
+                "Install USBGuard".to_string(),
+                Some("sudo pacman -S --noconfirm usbguard".to_string()),
+                RiskLevel::Medium,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/USBGuard".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(45)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check for Firejail (application sandboxing)
+    if !is_package_installed("firejail") {
+        result.push(
+            Advice::new(
+                "security-firejail".to_string(),
+                "Install Firejail for application sandboxing".to_string(),
+                "Firejail runs programs in isolated sandboxes with restricted filesystem, network, and system access. Run untrusted programs safely: 'firejail firefox' or 'firejail --private transmission-gtk'. Protects your system from compromised or malicious applications!".to_string(),
+                "Install Firejail sandbox".to_string(),
+                Some("sudo pacman -S --noconfirm firejail".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Firejail".to_string(),
+                    "https://wiki.archlinux.org/title/Security#Sandboxing_applications".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(60)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check for AIDE (intrusion detection)
+    if !is_package_installed("aide") {
+        result.push(
+            Advice::new(
+                "security-aide".to_string(),
+                "Install AIDE for file integrity monitoring".to_string(),
+                "AIDE (Advanced Intrusion Detection Environment) creates a database of file checksums and monitors for unauthorized changes to system files. Detects rootkits, backdoors, and unauthorized system modifications. Run 'aide --check' regularly to verify system integrity!".to_string(),
+                "Install AIDE".to_string(),
+                Some("sudo pacman -S --noconfirm aide".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/AIDE".to_string(),
+                    "https://wiki.archlinux.org/title/Security#File_integrity_checking".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(45)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check for secure DNS
+    if !is_package_installed("dnscrypt-proxy") {
+        result.push(
+            Advice::new(
+                "security-dnscrypt".to_string(),
+                "Install dnscrypt-proxy for encrypted DNS queries".to_string(),
+                "dnscrypt-proxy encrypts your DNS queries, preventing ISPs and network attackers from seeing what websites you visit. Supports DNS-over-HTTPS (DoH) and DNS-over-TLS, DNSSEC validation, and can block malicious/ad domains. Privacy and security in one package!".to_string(),
+                "Install dnscrypt-proxy".to_string(),
+                Some("sudo pacman -S --noconfirm dnscrypt-proxy".to_string()),
+                RiskLevel::Medium,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Dnscrypt-proxy".to_string(),
+                    "https://wiki.archlinux.org/title/Domain_name_resolution#Privacy_and_security".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(65)
+            .with_bundle("security-hardening".to_string())
+        );
+    }
+
+    // Check kernel hardening parameters
+    let has_hardened_kernel = std::fs::read_to_string("/etc/sysctl.d/99-sysctl.conf")
+        .or_else(|_| std::fs::read_to_string("/etc/sysctl.conf"))
+        .map(|content| {
+            content.contains("kernel.yama.ptrace_scope") &&
+            content.contains("kernel.kptr_restrict") &&
+            content.contains("net.ipv4.conf.all.rp_filter")
+        })
+        .unwrap_or(false);
+
+    if !has_hardened_kernel {
+        result.push(
+            Advice::new(
+                "security-kernel-hardening".to_string(),
+                "Apply kernel hardening parameters".to_string(),
+                "Kernel hardening sysctl parameters improve security: restrict ptrace (prevents debugger attacks), hide kernel pointers (prevents info leaks), enable reverse path filtering (prevents IP spoofing), and more. Industry-standard security hardening that costs nothing!".to_string(),
+                "Review and apply kernel hardening parameters".to_string(),
+                None, // Manual: requires creating/editing sysctl config
+                RiskLevel::Medium,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Security#Kernel_hardening".to_string(),
+                    "https://wiki.archlinux.org/title/Sysctl#Security".to_string(),
+                ],
+                "security".to_string(),
+            )
+            .with_popularity(70)
+            .with_bundle("security-hardening".to_string())
+        );
     }
 
     result
