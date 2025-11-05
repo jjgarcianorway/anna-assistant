@@ -214,21 +214,27 @@ async fn main() -> Result<()> {
                             update_info.current_version,
                             update_info.latest_version);
 
-                        // Auto-install if autonomy tier is FullyAutonomous (Tier 3)
-                        if let Ok(config) = anna_common::Config::load() {
-                            if matches!(config.autonomy.tier, anna_common::AutonomyTier::FullyAutonomous) {
-                                info!("Tier 3 enabled - auto-installing update");
-                                match anna_common::updater::perform_update(&update_info).await {
-                                    Ok(_) => {
-                                        info!("Auto-update installed successfully! Daemon will restart.");
-                                        // Daemon will be restarted by systemd after binary replacement
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Auto-update failed: {}", e);
-                                    }
-                                }
-                            } else {
-                                info!("Auto-update disabled (Tier < 3). User can run 'annactl update --install'");
+                        // Auto-install updates (always-on, no tier required)
+                        info!("Auto-installing update...");
+                        match anna_common::updater::perform_update(&update_info).await {
+                            Ok(_) => {
+                                info!("Auto-update installed successfully! Daemon will restart.");
+
+                                // Send notification to user
+                                let _ = std::process::Command::new("notify-send")
+                                    .arg("--app-name=Anna Assistant")
+                                    .arg("--icon=system-software-update")
+                                    .arg("--expire-time=10000")
+                                    .arg("Anna Updated Automatically")
+                                    .arg(&format!("Updated from {} to {}",
+                                        update_info.current_version,
+                                        update_info.latest_version))
+                                    .spawn();
+
+                                // Daemon will be restarted by systemd after binary replacement
+                            }
+                            Err(e) => {
+                                tracing::error!("Auto-update failed: {}", e);
                             }
                         }
                     } else {

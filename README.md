@@ -4,7 +4,25 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.60 (November 2025)
+**Current Version:** Beta.61 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.61
+
+**🔄 Auto-Update Always-On:**
+- Anna now auto-updates herself automatically - no tier required!
+- Checks for updates every 24 hours
+- Installs updates automatically when available
+- No risk involved - only updates Anna, not your system
+- Desktop notification shows update progress
+- Completely hands-off - just works!
+
+**User Experience:**
+- Before: Required Tier 3 autonomy to enable auto-updates
+- After: Anna updates herself automatically, always
+- You'll get a notification when updates happen
+- No configuration needed - it just works!
 
 ---
 
