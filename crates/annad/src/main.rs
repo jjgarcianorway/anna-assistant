@@ -86,6 +86,8 @@ mod audit;
 mod watcher;
 mod notifier;
 mod snapshotter;
+mod wiki_cache;
+mod autonomy;
 
 use anyhow::Result;
 use rpc_server::DaemonState;
@@ -171,6 +173,21 @@ async fn main() -> Result<()> {
                         last_check = std::time::Instant::now();
                     }
                 }
+            }
+        }
+    });
+
+    // Spawn autonomous maintenance task
+    tokio::spawn(async move {
+        // Run autonomy every 6 hours
+        let autonomy_interval = tokio::time::Duration::from_secs(6 * 60 * 60);
+
+        loop {
+            tokio::time::sleep(autonomy_interval).await;
+
+            info!("Running scheduled autonomous maintenance");
+            if let Err(e) = autonomy::run_autonomous_maintenance().await {
+                tracing::error!("Autonomous maintenance error: {}", e);
             }
         }
     });

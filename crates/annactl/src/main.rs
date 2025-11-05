@@ -97,6 +97,20 @@ enum Commands {
         #[arg(long)]
         set: Option<String>,
     },
+
+    /// View autonomous actions log
+    Autonomy {
+        /// Number of recent actions to show
+        #[arg(long, default_value = "20")]
+        limit: usize,
+    },
+
+    /// Update Arch Wiki cache
+    WikiCache {
+        /// Force update even if cache is fresh
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[tokio::main]
@@ -112,5 +126,7 @@ async fn main() -> Result<()> {
         Commands::Report { category } => commands::report(category).await,
         Commands::Doctor => commands::doctor().await,
         Commands::Config { set } => commands::config(set).await,
+        Commands::Autonomy { limit } => commands::autonomy(limit).await,
+        Commands::WikiCache { force } => commands::wiki_cache(force).await,
     }
 }

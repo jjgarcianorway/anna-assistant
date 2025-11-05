@@ -483,6 +483,146 @@ pub struct BundleHistory {
     pub entries: Vec<BundleHistoryEntry>,
 }
 
+/// Arch Wiki cache entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WikiCacheEntry {
+    pub page_title: String,
+    pub url: String,
+    pub content: String, // Simplified markdown content
+    pub cached_at: DateTime<Utc>,
+    pub checksum: String, // To detect updates
+}
+
+/// Wiki cache storage
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WikiCache {
+    pub entries: Vec<WikiCacheEntry>,
+    pub last_updated: Option<DateTime<Utc>>,
+}
+
+impl WikiCache {
+    /// Path to wiki cache directory
+    pub fn cache_dir() -> std::path::PathBuf {
+        std::path::PathBuf::from("/var/lib/anna/wiki_cache")
+    }
+
+    /// Path to wiki cache index
+    pub fn index_path() -> std::path::PathBuf {
+        Self::cache_dir().join("index.json")
+    }
+
+    /// Load wiki cache from disk
+    pub fn load() -> Result<Self, std::io::Error> {
+        let path = Self::index_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let content = std::fs::read_to_string(path)?;
+        serde_json::from_str(&content).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+        })
+    }
+
+    /// Save wiki cache to disk
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        let path = Self::index_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, content)
+    }
+
+    /// Get cached page by URL
+    pub fn get_by_url(&self, url: &str) -> Option<&WikiCacheEntry> {
+        self.entries.iter().find(|e| e.url == url)
+    }
+
+    /// Get cached page by title
+    pub fn get_by_title(&self, title: &str) -> Option<&WikiCacheEntry> {
+        self.entries.iter().find(|e| e.page_title == title)
+    }
+
+    /// Add or update cache entry
+    pub fn upsert(&mut self, entry: WikiCacheEntry) {
+        // Remove existing entry with same URL
+        self.entries.retain(|e| e.url != entry.url);
+        self.entries.push(entry);
+        self.last_updated = Some(chrono::Utc::now());
+    }
+
+    /// Check if cache needs refresh (older than 7 days)
+    pub fn needs_refresh(&self) -> bool {
+        if let Some(last_updated) = self.last_updated {
+            let age = chrono::Utc::now() - last_updated;
+            return age.num_days() > 7;
+        }
+        true
+    }
+}
+
+/// Autonomy action record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutonomyAction {
+    pub action_type: String, // "clean_orphans", "clean_cache", "rotate_logs"
+    pub executed_at: DateTime<Utc>,
+    pub description: String,
+    pub command_run: String,
+    pub success: bool,
+    pub output: String,
+    pub can_undo: bool,
+    pub undo_command: Option<String>,
+}
+
+/// Autonomy log storage
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AutonomyLog {
+    pub actions: Vec<AutonomyAction>,
+}
+
+impl AutonomyLog {
+    /// Path to autonomy log
+    pub fn log_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("/var/lib/anna/autonomy_log.json")
+    }
+
+    /// Load autonomy log
+    pub fn load() -> Result<Self, std::io::Error> {
+        let path = Self::log_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let content = std::fs::read_to_string(path)?;
+        serde_json::from_str(&content).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+        })
+    }
+
+    /// Save autonomy log
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        let path = Self::log_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, content)
+    }
+
+    /// Record an action
+    pub fn record(&mut self, action: AutonomyAction) {
+        self.actions.push(action);
+        // Keep last 1000 actions only
+        if self.actions.len() > 1000 {
+            self.actions.drain(0..self.actions.len() - 1000);
+        }
+    }
+
+    /// Get recent actions (last N)
+    pub fn recent(&self, count: usize) -> Vec<&AutonomyAction> {
+        self.actions.iter().rev().take(count).collect()
+    }
+}
+
 impl BundleHistory {
     /// Path to bundle history file
     pub fn history_path() -> std::path::PathBuf {

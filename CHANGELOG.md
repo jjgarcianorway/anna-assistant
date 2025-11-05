@@ -5,6 +5,179 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.31] - 2025-01-05
+
+### 🤖 Autonomous Maintenance & Offline Wiki Cache!
+
+**MAJOR UPDATE:** Anna can now maintain your system autonomously and provides offline access to Arch Wiki pages!
+
+### ✨ Major Features
+
+**🔧 Low-Level Autonomy System**
+- 4-tier autonomy system for safe automatic maintenance
+- Tier 0 (Advise Only): Monitor and report only
+- Tier 1 (Safe Auto-Apply): Clean orphan packages, package cache, and journal
+- Tier 2 (Semi-Autonomous): + Remove old kernels, clean tmp directories
+- Tier 3 (Fully Autonomous): + Update mirrorlist automatically
+- Comprehensive action logging with undo capabilities
+- Scheduled autonomous runs every 6 hours
+- Smart thresholds (10+ orphans, 5GB+ cache, 1GB+ logs)
+
+**📚 Arch Wiki Offline Cache**
+- Download and cache 15 common Arch Wiki pages
+- HTML parsing and content extraction
+- Checksum-based change detection
+- 7-day automatic refresh cycle
+- Fallback to online fetch if cache is stale
+- Pages cached: Security, Performance, System Maintenance, Power Management, Pacman, Systemd, Kernel Parameters, Docker, Python, Rust, Gaming, Firewall, SSH, Hardware, Desktop Environment
+
+**🎯 New CLI Commands**
+- `annactl autonomy [--limit=20]` - View autonomous actions log
+- `annactl wiki-cache [--force]` - Update Arch Wiki cache
+
+### 🔧 Technical Details
+
+**Autonomy System:**
+- `autonomy.rs` - Core autonomy logic with tier-based execution
+- `AutonomyAction` - Action tracking with timestamps, success/failure, output
+- `AutonomyLog` - Persistent logging to `/var/log/anna/autonomy.jsonl`
+- Safe execution with detailed output capture
+- Undo command tracking for reversible operations
+
+**Autonomy Tasks:**
+- Tier 1: `clean_orphan_packages()`, `clean_package_cache()`, `clean_journal()`
+- Tier 2: `remove_old_kernels()`, `clean_tmp_dirs()`
+- Tier 3: `update_mirrorlist()`
+- Each task respects safety thresholds and logs all operations
+
+**Wiki Cache System:**
+- `wiki_cache.rs` - Wiki fetching and caching infrastructure
+- `WikiCacheEntry` - Page metadata, content, timestamp, checksum
+- `WikiCache` - Cache management with refresh logic
+- HTTP fetching with curl
+- Smart HTML content extraction
+- Automatic cache refresh when stale (>7 days)
+
+**Data Structures:**
+```rust
+pub struct AutonomyAction {
+    pub action_type: String,
+    pub executed_at: DateTime<Utc>,
+    pub description: String,
+    pub command_run: String,
+    pub success: bool,
+    pub output: String,
+    pub can_undo: bool,
+    pub undo_command: Option<String>,
+}
+
+pub struct WikiCacheEntry {
+    pub page_title: String,
+    pub url: String,
+    pub content: String,
+    pub cached_at: DateTime<Utc>,
+    pub checksum: String,
+}
+```
+
+### 💡 What This Means
+
+**For Users:**
+- Your system can now maintain itself automatically (if you enable it)
+- Safe, conservative defaults - only truly safe operations in Tier 1
+- Full transparency - every autonomous action is logged
+- Offline access to critical Arch Wiki pages
+- No more hunting for wiki pages when offline
+
+**For System Health:**
+- Automatic cleanup of orphaned packages
+- Automatic cache management
+- Log rotation to save space
+- Old kernel removal (keeps 2 latest)
+- Updated mirrorlist for faster downloads (Tier 3)
+
+**For Power Users:**
+- Fine-grained control via 4 autonomy tiers
+- Comprehensive action logging with timestamps
+- Undo capability for reversible operations
+- Configure via: `annactl config --set autonomy_tier=<0-3>`
+
+### 📊 Usage Examples
+
+**View Autonomous Actions:**
+```bash
+# View last 20 actions
+annactl autonomy
+
+# View more/fewer
+annactl autonomy --limit=50
+annactl autonomy --limit=10
+```
+
+**Configure Autonomy:**
+```bash
+# Enable safe auto-apply (Tier 1)
+annactl config --set autonomy_tier=1
+
+# Semi-autonomous (Tier 2)
+annactl config --set autonomy_tier=2
+
+# Fully autonomous (Tier 3)
+annactl config --set autonomy_tier=3
+
+# Back to advise-only (Tier 0)
+annactl config --set autonomy_tier=0
+```
+
+**Wiki Cache:**
+```bash
+# Update cache (only if stale)
+annactl wiki-cache
+
+# Force refresh
+annactl wiki-cache --force
+```
+
+### 🎨 UI Enhancements
+
+**Autonomy Log Display:**
+- Color-coded success/failure indicators
+- Action type badges (CLEANUP, MAINT, UPDATE)
+- Timestamps for all actions
+- Command execution details
+- Output preview (first 3 lines)
+- Undo command display when available
+- Clean, readable formatting with separators
+
+### 🏗️ Infrastructure
+
+**New Modules:**
+- `crates/annad/src/autonomy.rs` - Autonomous maintenance system
+- `crates/annad/src/wiki_cache.rs` - Wiki caching infrastructure
+
+**Daemon Integration:**
+- Periodic autonomy runs scheduled every 6 hours
+- Integrated into main event loop
+- Error handling and logging
+- Respects user configuration
+
+### ⚙️ Configuration
+
+Default autonomy configuration:
+```toml
+[autonomy]
+tier = "AdviseOnly"  # Safe default
+confirm_high_risk = true
+snapshot_before_apply = false
+```
+
+### 📝 Notes
+
+- Autonomy is opt-in (defaults to Tier 0 - Advise Only)
+- All autonomous actions are logged for transparency
+- Wiki cache update via RPC will be implemented in next version
+- Autonomy scheduling is configurable via refresh_interval setting
+
 ## [1.0.0-beta.30] - 2025-01-04
 
 ### 🧠 Deep System Intelligence & Dynamic Categories!
