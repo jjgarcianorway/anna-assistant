@@ -490,18 +490,40 @@ fn draw_details(f: &mut Frame, tui: &Tui) {
             lines.push(Line::from(format!("  {}", chunk)));
         }
 
+        // Action to take
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled("What to do:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+        lines.push(Line::from(""));
+        for chunk in textwrap::wrap(&advice.action, 70) {
+            lines.push(Line::from(format!("  {}", chunk)));
+        }
+
+        // Command if present
         if let Some(ref cmd) = advice.command {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled("Command:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(format!("  {}", cmd), Style::default().fg(Color::Cyan))));
+            lines.push(Line::from(Span::styled(format!("  $ {}", cmd), Style::default().fg(Color::Cyan))));
+        } else {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled("ℹ Informational only - no command to execute", Style::default().fg(Color::Gray))));
         }
 
+        // Alternatives if present
+        if !advice.alternatives.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled("Alternatives:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            for alt in &advice.alternatives {
+                lines.push(Line::from(format!("  • {}: {}", alt.name, alt.description)));
+            }
+        }
+
+        // Wiki references
         if !advice.wiki_refs.is_empty() {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled("Arch Wiki:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
             for wiki in &advice.wiki_refs {
-                lines.push(Line::from(format!("  {}", wiki)));
+                lines.push(Line::from(Span::styled(format!("  🔗 {}", wiki), Style::default().fg(Color::Blue))));
             }
         }
 
