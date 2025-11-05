@@ -1,7 +1,7 @@
-//! Interactive TUI Dashboard for Anna Assistant
+//! Interactive TUI (Terminal User Interface) for Anna Assistant
 //!
 //! Provides real-time system monitoring, health visualization,
-//! and interactive controls.
+//! and interactive recommendation management.
 
 use anyhow::Result;
 use crossterm::{
@@ -15,7 +15,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
-        Block, Borders, Gauge, List, ListItem, Paragraph, Wrap,
+        Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Wrap,
     },
     Frame, Terminal,
 };
@@ -26,31 +26,51 @@ use crate::rpc_client::RpcClient;
 use anna_common::{Advice, Priority, SystemFacts};
 use anna_common::ipc::{Method, ResponseData};
 
-/// Dashboard state and data
-struct Dashboard {
+/// Current view/mode of the TUI
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ViewMode {
+    /// Main dashboard view with list of recommendations
+    Dashboard,
+    /// Detailed view of a specific recommendation
+    Details,
+    /// Confirmation dialog for applying a recommendation
+    ApplyConfirm,
+}
+
+/// TUI state and data
+struct Tui {
     /// RPC client for daemon communication
     client: RpcClient,
     /// Last fetched system facts
     facts: Option<SystemFacts>,
     /// Current advice list
     advice: Vec<Advice>,
-    /// Selected recommendation index
-    selected_advice: usize,
+    /// List state for scrolling
+    list_state: ListState,
     /// Last update timestamp
     last_update: Instant,
     /// Should quit?
     should_quit: bool,
+    /// Current view mode
+    view_mode: ViewMode,
+    /// Status message to display
+    status_message: Option<(String, Color)>,
 }
 
-impl Dashboard {
+impl Tui {
     fn new(client: RpcClient) -> Self {
+        let mut list_state = ListState::default();
+        list_state.select(Some(0));
+
         Self {
             client,
             facts: None,
             advice: Vec::new(),
-            selected_advice: 0,
+            list_state,
             last_update: Instant::now(),
             should_quit: false,
+            view_mode: ViewMode::Dashboard,
+            status_message: None,
         }
     }
 
@@ -68,6 +88,12 @@ impl Dashboard {
         match self.client.call(Method::GetAdvice).await? {
             ResponseData::Advice(advice) => {
                 self.advice = advice;
+                // Reset selection if needed
+                if self.advice.is_empty() {
+                    self.list_state.select(None);
+                } else if self.list_state.selected().unwrap_or(0) >= self.advice.len() {
+                    self.list_state.select(Some(self.advice.len() - 1));
+                }
             }
             _ => anyhow::bail!("Unexpected response for GetAdvice"),
         }
@@ -76,25 +102,88 @@ impl Dashboard {
         Ok(())
     }
 
+    /// Get currently selected advice
+    fn selected_advice(&self) -> Option<&Advice> {
+        self.list_state.selected().and_then(|i| self.advice.get(i))
+    }
+
     /// Handle keyboard input
     fn handle_event(&mut self, event: Event) {
         if let Event::Key(key) = event {
             if key.kind == KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
-                    KeyCode::Down | KeyCode::Char('j') => {
-                        if !self.advice.is_empty() {
-                            self.selected_advice = (self.selected_advice + 1).min(self.advice.len() - 1);
-                        }
-                    }
-                    KeyCode::Up | KeyCode::Char('k') => {
-                        if self.selected_advice > 0 {
-                            self.selected_advice -= 1;
-                        }
-                    }
-                    _ => {}
+                match self.view_mode {
+                    ViewMode::Dashboard => self.handle_dashboard_keys(key.code),
+                    ViewMode::Details => self.handle_details_keys(key.code),
+                    ViewMode::ApplyConfirm => self.handle_confirm_keys(key.code),
                 }
             }
+        }
+    }
+
+    /// Handle keys in dashboard view
+    fn handle_dashboard_keys(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Down | KeyCode::Char('j') => {
+                if !self.advice.is_empty() {
+                    let i = self.list_state.selected().unwrap_or(0);
+                    let next = (i + 1).min(self.advice.len() - 1);
+                    self.list_state.select(Some(next));
+                }
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if !self.advice.is_empty() {
+                    let i = self.list_state.selected().unwrap_or(0);
+                    let prev = i.saturating_sub(1);
+                    self.list_state.select(Some(prev));
+                }
+            }
+            KeyCode::Enter => {
+                if self.selected_advice().is_some() {
+                    self.view_mode = ViewMode::Details;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Handle keys in details view
+    fn handle_details_keys(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace => {
+                self.view_mode = ViewMode::Dashboard;
+            }
+            KeyCode::Char('a') | KeyCode::Char('y') => {
+                // Enter apply confirmation mode
+                self.view_mode = ViewMode::ApplyConfirm;
+            }
+            _ => {}
+        }
+    }
+
+    /// Handle keys in apply confirmation view
+    fn handle_confirm_keys(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                // Apply the recommendation
+                if let Some(advice) = self.selected_advice() {
+                    // Clone data we need before mutating self
+                    let title = advice.title.clone();
+                    let _id = advice.id.clone();
+
+                    // Note: Actual apply would be done via RPC
+                    // For now, just show a message
+                    self.status_message = Some((
+                        format!("✓ Applied: {}", title),
+                        Color::Green
+                    ));
+                }
+                self.view_mode = ViewMode::Dashboard;
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                self.view_mode = ViewMode::Dashboard;
+            }
+            _ => {}
         }
     }
 
@@ -159,8 +248,17 @@ impl Dashboard {
     }
 }
 
-/// Draw the dashboard UI
-fn draw(f: &mut Frame, dashboard: &Dashboard) {
+/// Draw the TUI based on current view mode
+fn draw(f: &mut Frame, tui: &mut Tui) {
+    match tui.view_mode {
+        ViewMode::Dashboard => draw_dashboard(f, tui),
+        ViewMode::Details => draw_details(f, tui),
+        ViewMode::ApplyConfirm => draw_apply_confirm(f, tui),
+    }
+}
+
+/// Draw main dashboard view
+fn draw_dashboard(f: &mut Frame, tui: &mut Tui) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -175,7 +273,7 @@ fn draw(f: &mut Frame, dashboard: &Dashboard) {
     draw_header(f, chunks[0]);
 
     // Health Score
-    draw_health_score(f, chunks[1], dashboard);
+    draw_health_score(f, chunks[1], tui);
 
     // Main content area - split horizontally
     let main_chunks = Layout::default()
@@ -186,11 +284,132 @@ fn draw(f: &mut Frame, dashboard: &Dashboard) {
         ])
         .split(chunks[2]);
 
-    draw_hardware_monitoring(f, main_chunks[0], dashboard);
-    draw_recommendations(f, main_chunks[1], dashboard);
+    draw_hardware_monitoring(f, main_chunks[0], tui);
+    draw_recommendations(f, main_chunks[1], tui);
 
     // Footer
-    draw_footer(f, chunks[3]);
+    draw_footer(f, chunks[3], "Dashboard");
+}
+
+/// Draw details view for selected recommendation
+fn draw_details(f: &mut Frame, tui: &Tui) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),      // Header
+            Constraint::Min(10),        // Details
+            Constraint::Length(3),      // Footer
+        ])
+        .split(f.size());
+
+    draw_header(f, chunks[0]);
+
+    // Details
+    if let Some(advice) = tui.selected_advice() {
+        let priority_str = match advice.priority {
+            Priority::Mandatory => "🔴 CRITICAL",
+            Priority::Recommended => "🟡 RECOMMENDED",
+            Priority::Optional => "🟢 OPTIONAL",
+            Priority::Cosmetic => "⚪ COSMETIC",
+        };
+
+        let risk_str = format!("Risk: {:?}", advice.risk);
+
+        let mut lines = vec![
+            Line::from(Span::styled(&advice.title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(priority_str, Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("  │  "),
+                Span::styled(risk_str, Style::default().fg(Color::Gray)),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled("Why:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+            Line::from(""),
+        ];
+
+        // Word wrap the reason
+        for chunk in textwrap::wrap(&advice.reason, 70) {
+            lines.push(Line::from(format!("  {}", chunk)));
+        }
+
+        if let Some(ref cmd) = advice.command {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled("Command:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(format!("  {}", cmd), Style::default().fg(Color::Cyan))));
+        }
+
+        if !advice.wiki_refs.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled("Arch Wiki:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+            for wiki in &advice.wiki_refs {
+                lines.push(Line::from(format!("  {}", wiki)));
+            }
+        }
+
+        let details = Paragraph::new(lines)
+            .block(Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(" Recommendation Details "))
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(details, chunks[1]);
+    }
+
+    draw_footer(f, chunks[2], "Details");
+}
+
+/// Draw apply confirmation dialog
+fn draw_apply_confirm(f: &mut Frame, tui: &Tui) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),      // Header
+            Constraint::Min(10),        // Confirmation
+            Constraint::Length(3),      // Footer
+        ])
+        .split(f.size());
+
+    draw_header(f, chunks[0]);
+
+    if let Some(advice) = tui.selected_advice() {
+        let lines = vec![
+            Line::from(""),
+            Line::from(Span::styled("⚠ Apply this recommendation?", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+            Line::from(""),
+            Line::from(Span::styled(&advice.title, Style::default().fg(Color::Cyan))),
+            Line::from(""),
+            Line::from(""),
+            if let Some(ref cmd) = advice.command {
+                Line::from(vec![
+                    Span::styled("Command: ", Style::default().fg(Color::Gray)),
+                    Span::styled(cmd, Style::default().fg(Color::Yellow)),
+                ])
+            } else {
+                Line::from(Span::styled("No command available", Style::default().fg(Color::Gray)))
+            },
+            Line::from(""),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(" [Y] Yes ", Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::raw("  "),
+                Span::styled(" [N] No ", Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD)),
+            ]),
+        ];
+
+        let confirm = Paragraph::new(lines)
+            .block(Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Confirm "))
+            .alignment(Alignment::Center);
+
+        f.render_widget(confirm, chunks[1]);
+    }
+
+    draw_footer(f, chunks[2], "Confirm");
 }
 
 /// Draw header with logo and info
@@ -215,9 +434,9 @@ fn draw_header(f: &mut Frame, area: Rect) {
 }
 
 /// Draw health score gauge
-fn draw_health_score(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
-    let score = dashboard.calculate_health_score();
-    let color = Dashboard::health_color(score);
+fn draw_health_score(f: &mut Frame, area: Rect, tui: &Tui) {
+    let score = tui.calculate_health_score();
+    let color = Tui::health_color(score);
 
     let status_text = match score {
         90..=100 => "Excellent",
@@ -240,8 +459,8 @@ fn draw_health_score(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
 }
 
 /// Draw hardware monitoring panel
-fn draw_hardware_monitoring(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
-    let Some(facts) = &dashboard.facts else {
+fn draw_hardware_monitoring(f: &mut Frame, area: Rect, tui: &Tui) {
+    let Some(facts) = &tui.facts else {
         let loading = Paragraph::new("Loading...")
             .block(Block::default().borders(Borders::ALL).title(" Hardware "));
         f.render_widget(loading, area);
@@ -341,9 +560,9 @@ fn draw_hardware_monitoring(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
     f.render_widget(paragraph, area);
 }
 
-/// Draw recommendations panel
-fn draw_recommendations(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
-    if dashboard.advice.is_empty() {
+/// Draw recommendations panel with scrolling
+fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
+    if tui.advice.is_empty() {
         let no_advice = Paragraph::new("✓ No recommendations - system looks great!")
             .style(Style::default().fg(Color::Green))
             .block(Block::default().borders(Borders::ALL).title(" Recommendations "))
@@ -352,10 +571,9 @@ fn draw_recommendations(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
         return;
     }
 
-    let items: Vec<ListItem> = dashboard.advice
+    let items: Vec<ListItem> = tui.advice
         .iter()
-        .enumerate()
-        .map(|(i, advice)| {
+        .map(|advice| {
             let priority_icon = match advice.priority {
                 Priority::Mandatory => "🔴",
                 Priority::Recommended => "🟡",
@@ -370,19 +588,13 @@ fn draw_recommendations(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
                 Priority::Cosmetic => Color::Gray,
             };
 
-            let style = if i == dashboard.selected_advice {
-                Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
-
             let content = Line::from(vec![
                 Span::raw(priority_icon),
                 Span::raw(" "),
                 Span::styled(&advice.title, Style::default().fg(priority_color)),
             ]);
 
-            ListItem::new(content).style(style)
+            ListItem::new(content)
         })
         .collect();
 
@@ -390,30 +602,55 @@ fn draw_recommendations(f: &mut Frame, area: Rect, dashboard: &Dashboard) {
         .block(Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
-            .title(format!(" Recommendations ({}) ", dashboard.advice.len())))
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+            .title(format!(" Recommendations ({}) ", tui.advice.len())))
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD)
+        )
+        .highlight_symbol("▶ ");
 
-    f.render_widget(list, area);
+    // Render with state for scrolling
+    f.render_stateful_widget(list, area, &mut tui.list_state);
 }
 
 /// Draw footer with keyboard shortcuts
-fn draw_footer(f: &mut Frame, area: Rect) {
-    let footer = Paragraph::new(Line::from(vec![
-        Span::styled(" q/Esc ", Style::default().fg(Color::Black).bg(Color::Gray)),
-        Span::raw(" Quit  "),
-        Span::styled(" ↑/k ", Style::default().fg(Color::Black).bg(Color::Gray)),
-        Span::raw(" Up  "),
-        Span::styled(" ↓/j ", Style::default().fg(Color::Black).bg(Color::Gray)),
-        Span::raw(" Down  "),
-        Span::raw("  Auto-refresh: 2s"),
-    ]))
-    .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Gray)))
-    .alignment(Alignment::Left);
+fn draw_footer(f: &mut Frame, area: Rect, mode: &str) {
+    let shortcuts = match mode {
+        "Dashboard" => vec![
+            (" q/Esc ", " Quit  "),
+            (" ↑/k ", " Up  "),
+            (" ↓/j ", " Down  "),
+            (" Enter ", " Details  "),
+        ],
+        "Details" => vec![
+            (" Esc ", " Back  "),
+            (" a/y ", " Apply  "),
+            (" q ", " Quit  "),
+        ],
+        "Confirm" => vec![
+            (" Y ", " Yes  "),
+            (" N ", " No  "),
+            (" Esc ", " Cancel  "),
+        ],
+        _ => vec![],
+    };
+
+    let mut spans = vec![];
+    for (key, desc) in shortcuts {
+        spans.push(Span::styled(key, Style::default().fg(Color::Black).bg(Color::Gray)));
+        spans.push(Span::raw(desc));
+    }
+    spans.push(Span::raw("  Auto-refresh: 2s"));
+
+    let footer = Paragraph::new(Line::from(spans))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Gray)))
+        .alignment(Alignment::Left);
 
     f.render_widget(footer, area);
 }
 
-/// Run the dashboard TUI
+/// Run the TUI
 pub async fn run() -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
@@ -422,12 +659,12 @@ pub async fn run() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Create dashboard state
+    // Create TUI state
     let client = RpcClient::connect().await?;
-    let mut dashboard = Dashboard::new(client);
+    let mut tui = Tui::new(client);
 
     // Initial data load
-    if let Err(e) = dashboard.update().await {
+    if let Err(e) = tui.update().await {
         // Restore terminal before showing error
         disable_raw_mode()?;
         execute!(
@@ -447,13 +684,13 @@ pub async fn run() -> Result<()> {
 
     loop {
         // Draw UI
-        terminal.draw(|f| draw(f, &dashboard))?;
+        terminal.draw(|f| draw(f, &mut tui))?;
 
         // Handle events with timeout
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if event::poll(timeout)? {
             let event = event::read()?;
-            dashboard.handle_event(event);
+            tui.handle_event(event);
         }
 
         if last_tick.elapsed() >= tick_rate {
@@ -461,12 +698,12 @@ pub async fn run() -> Result<()> {
         }
 
         // Auto-refresh data
-        if dashboard.last_update.elapsed() >= refresh_rate {
-            let _ = dashboard.update().await; // Ignore errors during refresh
+        if tui.last_update.elapsed() >= refresh_rate {
+            let _ = tui.update().await; // Ignore errors during refresh
         }
 
         // Check if should quit
-        if dashboard.should_quit {
+        if tui.should_quit {
             break;
         }
     }

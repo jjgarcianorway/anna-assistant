@@ -359,6 +359,8 @@ fn get_category_style(category: &str) -> (&'static str, &'static str, String) {
         "shell" => ("🐚", "\x1b[96m", "SHELL".to_string()), // Bright cyan
         "communication" => ("💬", "\x1b[94m", "COMMUNICATION".to_string()), // Bright blue
         "engineering" => ("📐", "\x1b[95m", "ENGINEERING".to_string()), // Bright magenta
+        "usability" => ("✨", "\x1b[96m", "USABILITY".to_string()), // Bright cyan
+        "media" => ("📹", "\x1b[35m", "MEDIA".to_string()), // Magenta
         _ => ("💡", "\x1b[36m", category.to_uppercase()), // Cyan
     }
 }
@@ -2515,6 +2517,96 @@ pub async fn history(days: i64, detailed: bool) -> Result<()> {
     println!("  • Use \x1b[38;5;159m--days=7\x1b[0m to view just the last week");
     println!("  • Track your progress with \x1b[38;5;159mannactl health\x1b[0m");
     println!();
+
+    Ok(())
+}
+
+/// Check for updates and optionally install them
+pub async fn update(install: bool, check_only: bool) -> Result<()> {
+    println!("{}", header("Anna Update"));
+    println!();
+
+    // Check for updates
+    println!("{}", beautiful::status(Level::Info, "Checking for updates..."));
+    println!();
+
+    match anna_common::updater::check_for_updates().await {
+        Ok(update_info) => {
+            if !update_info.is_update_available {
+                println!("{}", beautiful::status(
+                    Level::Success,
+                    &format!("Already on latest version: {}", update_info.current_version)
+                ));
+                return Ok(());
+            }
+
+            // Update available
+            println!("{}", beautiful::status(
+                Level::Warning,
+                &format!("Update available: {} → {}",
+                    update_info.current_version,
+                    update_info.latest_version)
+            ));
+            println!();
+
+            if !check_only {
+                println!("{}", section("📦 Release Information"));
+                println!("  {}", kv("Current", &update_info.current_version));
+                println!("  {}", kv("Latest", &update_info.latest_version));
+                println!("  {}", kv("Released", &update_info.published_at));
+                println!("  {}", kv("Release Notes", &update_info.release_notes_url));
+                println!();
+            }
+
+            if install {
+                // Perform the update
+                println!("{}", beautiful::status(Level::Info, "Starting update process..."));
+                println!();
+
+                match anna_common::updater::perform_update(&update_info).await {
+                    Ok(()) => {
+                        println!();
+                        println!("{}", beautiful::status(
+                            Level::Success,
+                            &format!("Successfully updated to {}", update_info.latest_version)
+                        ));
+                        println!();
+                        println!("{}", beautiful::status(Level::Info, "Daemon has been restarted"));
+                    }
+                    Err(e) => {
+                        println!();
+                        println!("{}", beautiful::status(
+                            Level::Error,
+                            &format!("Update failed: {}", e)
+                        ));
+                        println!();
+                        println!("{}", beautiful::status(
+                            Level::Info,
+                            "Your previous version has been backed up to /var/lib/anna/backup/"
+                        ));
+                    }
+                }
+            } else {
+                // Prompt user to install
+                println!("{}", section("💡 Next Steps"));
+                println!();
+                println!("  Run \x1b[38;5;159mannactl update --install\x1b[0m to install the update");
+                println!("  Or visit \x1b[38;5;159m{}\x1b[0m to see what's new", update_info.release_notes_url);
+                println!();
+            }
+        }
+        Err(e) => {
+            println!("{}", beautiful::status(
+                Level::Error,
+                &format!("Failed to check for updates: {}", e)
+            ));
+            println!();
+            println!("{}", beautiful::status(
+                Level::Info,
+                "Check your internet connection and try again"
+            ));
+        }
+    }
 
     Ok(())
 }

@@ -89,7 +89,6 @@ mod notifier;
 mod snapshotter;
 mod wiki_cache;
 mod autonomy;
-mod updater;
 
 use anyhow::Result;
 use rpc_server::DaemonState;

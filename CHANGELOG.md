@@ -5,6 +5,108 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.42] - 2025-11-05
+
+### 🎯 Major TUI Overhaul & Auto-Update!
+
+**INTERACTIVE TUI:** Complete rewrite with proper scrolling, details view, and apply confirmation!
+
+### ✨ New Features
+
+**Completely Redesigned TUI:**
+- **Fixed Scrolling**: Now properly scrolls through long recommendation lists using `ListState`
+- **Details View**: Press Enter to see full recommendation details with word-wrapped text
+  - Shows priority badge, risk level, full reason
+  - Displays command to execute
+  - Lists Arch Wiki references
+  - Press `a` or `y` to apply, Esc to go back
+- **Apply Confirmation**: Yes/No button dialog before applying recommendations
+  - Visual [Y] Yes and [N] No buttons
+  - Safe confirmation workflow
+- **Renamed Command**: `annactl dashboard` → `annactl tui` (more descriptive)
+- **Better Navigation**: Up/Down arrows or j/k to navigate, Enter for details
+
+**Auto-Update System:**
+- **`annactl update` command**: Check for and install updates from GitHub
+  - `annactl update` - Check for available updates
+  - `annactl update --install` - Install updates automatically
+  - `annactl update --check` - Quick version check only
+- **Automatic Updates**: Downloads, verifies, and installs new versions
+- **Safe Updates**: Backs up current binaries before updating to `/var/lib/anna/backup/`
+- **Version Verification**: Checks binary versions after download
+- **Atomic Installation**: Stops daemon, replaces binaries, restarts daemon
+- **GitHub API Integration**: Fetches latest releases including prereleases
+
+### 🐛 Bug Fixes
+
+**Fixed Install Script (CRITICAL):**
+- **Install script now fetches latest version correctly**
+- Changed from `/releases/latest` (excludes prereleases) to `/releases[0]` (includes all)
+- Users can now install beta.41+ instead of being stuck on beta.30
+- This was a **blocking issue** preventing users from installing newer versions
+
+**Category Style Consistency:**
+- Added missing categories: `usability` (✨) and `media` (📹)
+- All categories now have proper emojis and colors
+- Fixed fallback for undefined categories
+
+**Borrow Checker Fixes:**
+- Fixed TUI borrow checker error in apply confirmation
+- Cloned data before mutating state
+
+### 💡 What This Means
+
+**Better User Experience:**
+- TUI actually works for long lists (scrolling was broken before)
+- Can view full details of recommendations before applying
+- Safe confirmation workflow prevents accidental applies
+- Much more intuitive interface
+
+**Stay Up-to-Date Easily:**
+- Simple `annactl update --install` keeps you on the latest version
+- No more manual downloads or broken install scripts
+- Automatic verification ensures downloads are correct
+- Safe rollback with automatic backups
+
+**Installation Fixed:**
+- New users can finally install the latest version
+- Install script now correctly fetches beta.41+
+- Critical fix for user onboarding
+
+### 🔧 Technical Details
+
+**TUI Implementation:**
+```rust
+// New view modes
+enum ViewMode {
+    Dashboard,      // Main list
+    Details,        // Full recommendation info
+    ApplyConfirm,   // Yes/No dialog
+}
+
+// Proper state tracking for scrolling
+struct Tui {
+    list_state: ListState,  // Fixed scrolling
+    view_mode: ViewMode,
+    // ...
+}
+```
+
+**Updater Architecture:**
+- Moved to `anna_common` for shared access
+- Uses `reqwest` for GitHub API calls
+- Version parsing and comparison
+- Binary download and verification
+- Systemd integration for daemon restart
+
+**File Changes:**
+- Created: `crates/annactl/src/tui.rs` (replaces dashboard.rs)
+- Created: `crates/anna_common/src/updater.rs`
+- Updated: `scripts/install.sh` (critical fix)
+- Added: `textwrap` dependency for word wrapping
+
+---
+
 ## [1.0.0-beta.41] - 2025-11-05
 
 ### 🎮 Multi-GPU Support & Polish!

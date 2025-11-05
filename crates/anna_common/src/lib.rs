@@ -7,8 +7,10 @@ pub mod types;
 pub mod beautiful;
 pub mod ipc;
 pub mod config;
+pub mod updater;
 
 pub use types::*;
 pub use beautiful::*;
 pub use ipc::*;
 pub use config::*;
+pub use updater::*;

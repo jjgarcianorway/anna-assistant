@@ -3,7 +3,7 @@
 //! Provides user interface to interact with the Anna daemon.
 
 mod commands;
-mod dashboard;
+mod tui;
 mod rpc_client;
 
 use anyhow::Result;
@@ -171,8 +171,23 @@ enum Commands {
         detailed: bool,
     },
 
-    /// Open interactive TUI dashboard
-    Dashboard,
+    /// Check for updates and optionally install them
+    ///
+    /// Examples:
+    ///   annactl update              # Check for updates
+    ///   annactl update --install    # Install available updates
+    Update {
+        /// Automatically install updates without confirmation
+        #[arg(short, long)]
+        install: bool,
+
+        /// Check only (don't show full release notes)
+        #[arg(short, long)]
+        check: bool,
+    },
+
+    /// Open interactive TUI for browsing and applying recommendations
+    Tui,
 }
 
 #[tokio::main]
@@ -197,6 +212,7 @@ async fn main() -> Result<()> {
         Commands::Health => commands::health().await,
         Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,
         Commands::History { days, detailed } => commands::history(days, detailed).await,
-        Commands::Dashboard => dashboard::run().await,
+        Commands::Update { install, check } => commands::update(install, check).await,
+        Commands::Tui => tui::run().await,
     }
 }
