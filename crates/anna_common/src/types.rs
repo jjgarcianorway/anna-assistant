@@ -223,13 +223,20 @@ pub struct SystemFacts {
     pub predictive_insights: PredictiveInsights,
 
     // Extended Telemetry (beta.43+)
+    #[serde(default)]
     pub microcode_status: MicrocodeStatus, // CPU microcode update status
     pub battery_info: Option<BatteryInfo>, // Battery status for laptops
+    #[serde(default)]
     pub backup_systems: Vec<String>, // timeshift, rsync, borg, restic, etc.
+    #[serde(default)]
     pub bluetooth_status: BluetoothStatus,
+    #[serde(default)]
     pub ssd_info: Vec<SSDInfo>, // SSD-specific info and TRIM status
+    #[serde(default)]
     pub swap_config: SwapConfiguration,
+    #[serde(default)]
     pub locale_info: LocaleInfo, // timezone, language settings
+    #[serde(default)]
     pub pacman_hooks: Vec<String>, // installed pacman hooks
 }
 

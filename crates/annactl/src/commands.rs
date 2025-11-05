@@ -1476,6 +1476,94 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
     println!("     {} network interfaces detected", facts.network_interfaces.len());
     println!();
 
+    // Boot Performance
+    if let Some(boot_time) = facts.boot_time_seconds {
+        println!("   \x1b[1mBoot Performance:\x1b[0m");
+        let boot_status = if boot_time < 20.0 {
+            ("\x1b[92m✓\x1b[0m Excellent", "")
+        } else if boot_time < 40.0 {
+            ("\x1b[93m●\x1b[0m Good", "")
+        } else {
+            ("\x1b[91m⚠️\x1b[0m Slow", " - consider optimizing startup")
+        };
+        println!("     {} Boot time: {:.1}s{}", boot_status.0, boot_time, boot_status.1);
+
+        if !facts.slow_services.is_empty() && facts.slow_services.len() <= 3 {
+            println!("     Slow services:");
+            for svc in facts.slow_services.iter().take(3) {
+                println!("       • {}: {:.1}s", svc.name, svc.time_seconds);
+            }
+        }
+        println!();
+    }
+
+    // System Health Metrics
+    let health_issues = facts.system_health_metrics.degraded_services.len()
+        + facts.system_health_metrics.recent_crashes.len()
+        + if !facts.system_health_metrics.kernel_errors.is_empty() { 1 } else { 0 };
+
+    if health_issues > 0 {
+        println!("   \x1b[1mSystem Health:\x1b[0m");
+
+        if !facts.system_health_metrics.degraded_services.is_empty() {
+            println!("     \x1b[93m⚠️\x1b[0m {} service(s) in degraded state",
+                facts.system_health_metrics.degraded_services.len());
+        }
+
+        if !facts.system_health_metrics.recent_crashes.is_empty() {
+            println!("     \x1b[93m⚠️\x1b[0m {} recent service crash(es)",
+                facts.system_health_metrics.recent_crashes.len());
+        }
+
+        if !facts.system_health_metrics.kernel_errors.is_empty() {
+            println!("     \x1b[93m⚠️\x1b[0m {} kernel error(s) in journal",
+                facts.system_health_metrics.kernel_errors.len());
+        }
+
+        if facts.failed_services.len() > 0 {
+            println!("     \x1b[91m✗\x1b[0m {} failed service(s)", facts.failed_services.len());
+        } else {
+            println!("     \x1b[92m✓\x1b[0m No failed services");
+        }
+        println!();
+    }
+
+    // Battery (if laptop)
+    if let Some(ref battery) = facts.battery_info {
+        if battery.present {
+            println!("   \x1b[1mBattery:\x1b[0m");
+            if let Some(capacity) = battery.capacity_percent {
+                let battery_icon = if capacity > 80.0 {
+                    "🔋"
+                } else if capacity > 20.0 {
+                    "🔋"
+                } else {
+                    "🪫"
+                };
+                println!("     {} Capacity: {:.0}%", battery_icon, capacity);
+            }
+
+            if let Some(health) = battery.health_percent {
+                if health < 80.0 {
+                    println!("     \x1b[93m⚠️\x1b[0m Health: {:.0}% (consider replacement)", health);
+                } else if health < 90.0 {
+                    println!("     Health: {:.0}% (fair)", health);
+                } else {
+                    println!("     Health: {:.0}% (excellent)", health);
+                }
+            }
+            println!();
+        }
+    }
+
+    // Memory Usage
+    if facts.performance_metrics.memory_usage_avg_percent > 85.0 {
+        println!("   \x1b[1mMemory:\x1b[0m");
+        println!("     \x1b[91m⚠️\x1b[0m High memory usage ({:.0}%)", facts.performance_metrics.memory_usage_avg_percent);
+        println!("     Consider closing some applications or adding RAM");
+        println!();
+    }
+
     println!("{}", section("💭 Overall Assessment"));
     println!();
 
