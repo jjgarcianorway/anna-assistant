@@ -2,7 +2,10 @@
 //!
 //! Gathers hardware, software, and system state information.
 
-use anna_common::{CommandUsage, MediaUsageProfile, StorageDevice, SystemFacts, SystemdService};
+use anna_common::{
+    BatteryInfo, BluetoothStatus, CommandUsage, LocaleInfo, MediaUsageProfile, MicrocodeStatus,
+    SSDInfo, StorageDevice, SwapConfiguration, SystemFacts, SystemdService,
+};
 use anyhow::Result;
 use chrono::Utc;
 use sysinfo::System;
@@ -117,6 +120,16 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         system_health_metrics: collect_system_health_metrics(),
         performance_metrics: collect_performance_metrics(&sys),
         predictive_insights: generate_predictive_insights(),
+
+        // Extended Telemetry (beta.43+)
+        microcode_status: detect_microcode_status(&get_cpu_model(&sys)),
+        battery_info: collect_battery_info(),
+        backup_systems: detect_backup_systems(),
+        bluetooth_status: detect_bluetooth_status(),
+        ssd_info: collect_ssd_info(),
+        swap_config: analyze_swap_configuration(),
+        locale_info: collect_locale_info(),
+        pacman_hooks: detect_pacman_hooks(),
     })
 }
 
@@ -2328,4 +2341,374 @@ fn assess_memory_pressure() -> anna_common::RiskLevel {
     }
 
     RiskLevel::Low
+}
+
+/// Detect CPU microcode status (beta.43+)
+fn detect_microcode_status(cpu_model: &str) -> MicrocodeStatus {
+    let vendor = if cpu_model.contains("Intel") {
+        "Intel"
+    } else if cpu_model.contains("AMD") {
+        "AMD"
+    } else {
+        "Unknown"
+    };
+
+    let package_name = if vendor == "Intel" {
+        "intel-ucode"
+    } else if vendor == "AMD" {
+        "amd-ucode"
+    } else {
+        return MicrocodeStatus::default();
+    };
+
+    let microcode_installed = package_installed(package_name);
+
+    // Get current microcode version
+    let current_version = if let Ok(output) = Command::new("grep")
+        .args(&["microcode", "/proc/cpuinfo"])
+        .output()
+    {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .and_then(|line| line.split(':').nth(1))
+            .map(|v| v.trim().to_string())
+    } else {
+        None
+    };
+
+    MicrocodeStatus {
+        microcode_installed,
+        vendor: vendor.to_string(),
+        current_version,
+        needs_update: !microcode_installed, // Simple heuristic
+    }
+}
+
+/// Collect battery information for laptops (beta.43+)
+fn collect_battery_info() -> Option<BatteryInfo> {
+    // Check if /sys/class/power_supply/BAT* exists
+    let battery_paths: Vec<_> = std::fs::read_dir("/sys/class/power_supply")
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("BAT")
+        })
+        .collect();
+
+    if battery_paths.is_empty() {
+        return None;
+    }
+
+    let battery_path = battery_paths.first()?.path();
+
+    // Read battery status
+    let read_value = |file: &str| -> Option<String> {
+        std::fs::read_to_string(battery_path.join(file))
+            .ok()
+            .map(|s| s.trim().to_string())
+    };
+
+    let status = read_value("status").unwrap_or_else(|| "Unknown".to_string());
+    let capacity_percent = read_value("capacity")
+        .and_then(|s| s.parse::<f64>().ok());
+
+    // Calculate health from energy_full vs energy_full_design
+    let health_percent = if let (Some(full), Some(design)) = (
+        read_value("energy_full").and_then(|s| s.parse::<f64>().ok()),
+        read_value("energy_full_design").and_then(|s| s.parse::<f64>().ok()),
+    ) {
+        Some((full / design) * 100.0)
+    } else {
+        None
+    };
+
+    Some(BatteryInfo {
+        present: true,
+        capacity_percent,
+        health_percent,
+        status,
+        time_to_empty: None, // Would need to calculate from power_now
+        time_to_full: None,
+        cycle_count: read_value("cycle_count").and_then(|s| s.parse::<u32>().ok()),
+    })
+}
+
+/// Detect installed backup systems (beta.43+)
+fn detect_backup_systems() -> Vec<String> {
+    let backup_tools = vec![
+        "timeshift",
+        "rsync",
+        "borg",
+        "restic",
+        "duplicity",
+        "rclone",
+        "deja-dup",
+        "backintime",
+    ];
+
+    backup_tools
+        .into_iter()
+        .filter(|&tool| command_exists(tool))
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Detect Bluetooth status (beta.43+)
+fn detect_bluetooth_status() -> BluetoothStatus {
+    // Check if bluetooth hardware exists
+    let available = Path::new("/sys/class/bluetooth").exists();
+
+    // Check if bluetooth service is running
+    let enabled = if let Ok(output) = Command::new("systemctl")
+        .args(&["is-active", "bluetooth"])
+        .output()
+    {
+        output.status.success()
+    } else {
+        false
+    };
+
+    // Get connected devices using bluetoothctl
+    let connected_devices = if enabled {
+        if let Ok(output) = Command::new("bluetoothctl")
+            .arg("devices")
+            .arg("Connected")
+            .output()
+        {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .map(|line| {
+                    // Parse "Device XX:XX:XX:XX:XX:XX DeviceName"
+                    line.split_whitespace()
+                        .skip(2)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    BluetoothStatus {
+        available,
+        enabled,
+        connected_devices,
+    }
+}
+
+/// Collect SSD-specific information (beta.43+)
+fn collect_ssd_info() -> Vec<SSDInfo> {
+    let mut ssd_info = Vec::new();
+
+    // Get list of block devices
+    if let Ok(output) = Command::new("lsblk")
+        .args(&["-d", "-o", "NAME,ROTA"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+
+        for line in output_str.lines().skip(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 && parts[1] == "0" {
+                // ROTA=0 means SSD
+                let device = format!("/dev/{}", parts[0]);
+
+                // Get model name
+                let model = if let Ok(output) = Command::new("smartctl")
+                    .args(&["-i", &device])
+                    .output()
+                {
+                    String::from_utf8_lossy(&output.stdout)
+                        .lines()
+                        .find(|line| line.contains("Device Model:") || line.contains("Model Number:"))
+                        .and_then(|line| line.split(':').nth(1))
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string())
+                } else {
+                    "Unknown".to_string()
+                };
+
+                // Check if TRIM is enabled
+                let trim_enabled = check_trim_enabled(&device);
+
+                ssd_info.push(SSDInfo {
+                    device,
+                    model,
+                    trim_enabled,
+                    wear_leveling_count: None, // Would need SMART data parsing
+                    total_bytes_written: None,
+                    health_percent: None,
+                });
+            }
+        }
+    }
+
+    ssd_info
+}
+
+/// Check if TRIM is enabled for a device
+fn check_trim_enabled(device: &str) -> bool {
+    // Check fstab for discard option
+    if let Ok(fstab) = std::fs::read_to_string("/etc/fstab") {
+        for line in fstab.lines() {
+            if line.contains(device) && line.contains("discard") {
+                return true;
+            }
+        }
+    }
+
+    // Check if fstrim.timer is enabled
+    if let Ok(output) = Command::new("systemctl")
+        .args(&["is-enabled", "fstrim.timer"])
+        .output()
+    {
+        return output.status.success();
+    }
+
+    false
+}
+
+/// Analyze swap configuration (beta.43+)
+fn analyze_swap_configuration() -> SwapConfiguration {
+    let mut config = SwapConfiguration::default();
+
+    // Check if swap is enabled
+    if let Ok(output) = Command::new("swapon").arg("--show").output() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = output_str.lines().collect();
+
+        if lines.len() > 1 {
+            config.swap_enabled = true;
+
+            // Parse swap type and size
+            for line in lines.iter().skip(1) {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    let swap_device = parts[0];
+                    config.swap_type = if swap_device.contains("zram") {
+                        "zram".to_string()
+                    } else if swap_device.contains("/swapfile") {
+                        "file".to_string()
+                    } else {
+                        "partition".to_string()
+                    };
+
+                    // Parse size (e.g., "2G", "512M")
+                    if let Some(size_str) = parts.get(2) {
+                        config.swap_size_gb = parse_size_to_gb(size_str);
+                    }
+                }
+            }
+        }
+    }
+
+    // Get swappiness value
+    if let Ok(swappiness_str) = std::fs::read_to_string("/proc/sys/vm/swappiness") {
+        config.swappiness = swappiness_str.trim().parse::<u32>().unwrap_or(60);
+    }
+
+    // Check if zram module is loaded
+    config.zram_enabled = Path::new("/dev/zram0").exists();
+
+    // Get swap usage
+    if let Ok(output) = Command::new("free").arg("-b").output() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        if let Some(swap_line) = output_str.lines().find(|line| line.starts_with("Swap:")) {
+            let parts: Vec<&str> = swap_line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                if let (Ok(total), Ok(used)) = (
+                    parts[1].parse::<f64>(),
+                    parts[2].parse::<f64>(),
+                ) {
+                    if total > 0.0 {
+                        config.swap_usage_percent = (used / total) * 100.0;
+                    }
+                }
+            }
+        }
+    }
+
+    config
+}
+
+/// Collect locale and timezone information (beta.43+)
+fn collect_locale_info() -> LocaleInfo {
+    let timezone = if let Ok(output) = Command::new("timedatectl")
+        .arg("show")
+        .arg("-p")
+        .arg("Timezone")
+        .arg("--value")
+        .output()
+    {
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    } else {
+        "Unknown".to_string()
+    };
+
+    let locale = std::env::var("LANG").unwrap_or_else(|_| {
+        if let Ok(output) = Command::new("locale").output() {
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .find(|line| line.starts_with("LANG="))
+                .and_then(|line| line.split('=').nth(1))
+                .unwrap_or("en_US.UTF-8")
+                .to_string()
+        } else {
+            "en_US.UTF-8".to_string()
+        }
+    });
+
+    let keymap = if let Ok(output) = Command::new("localectl")
+        .arg("status")
+        .output()
+    {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .find(|line| line.contains("X11 Layout:"))
+            .and_then(|line| line.split(':').nth(1))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| "us".to_string())
+    } else {
+        "us".to_string()
+    };
+
+    let language = locale.split('_').next().unwrap_or("en").to_string();
+
+    LocaleInfo {
+        timezone,
+        locale,
+        keymap,
+        language,
+    }
+}
+
+/// Detect installed pacman hooks (beta.43+)
+fn detect_pacman_hooks() -> Vec<String> {
+    let hook_dirs = vec![
+        "/etc/pacman.d/hooks",
+        "/usr/share/libalpm/hooks",
+    ];
+
+    let mut hooks = Vec::new();
+
+    for dir in hook_dirs {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                if let Some(filename) = entry.file_name().to_str() {
+                    if filename.ends_with(".hook") {
+                        hooks.push(filename.trim_end_matches(".hook").to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    hooks
 }

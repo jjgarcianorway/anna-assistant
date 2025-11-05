@@ -221,6 +221,16 @@ pub struct SystemFacts {
     pub system_health_metrics: SystemHealthMetrics,
     pub performance_metrics: PerformanceMetrics,
     pub predictive_insights: PredictiveInsights,
+
+    // Extended Telemetry (beta.43+)
+    pub microcode_status: MicrocodeStatus, // CPU microcode update status
+    pub battery_info: Option<BatteryInfo>, // Battery status for laptops
+    pub backup_systems: Vec<String>, // timeshift, rsync, borg, restic, etc.
+    pub bluetooth_status: BluetoothStatus,
+    pub ssd_info: Vec<SSDInfo>, // SSD-specific info and TRIM status
+    pub swap_config: SwapConfiguration,
+    pub locale_info: LocaleInfo, // timezone, language settings
+    pub pacman_hooks: Vec<String>, // installed pacman hooks
 }
 
 /// Package installation record
@@ -499,6 +509,66 @@ pub struct BootTimeTrend {
     pub current_seconds: Option<f64>,
     pub trend: TrendDirection,
     pub is_degrading: bool, // true if boot time increasing
+}
+
+/// Microcode update status (beta.43+)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MicrocodeStatus {
+    pub microcode_installed: bool, // intel-ucode or amd-ucode package
+    pub vendor: String, // "Intel", "AMD", or "Unknown"
+    pub current_version: Option<String>,
+    pub needs_update: bool,
+}
+
+/// Battery information for laptops (beta.43+)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatteryInfo {
+    pub present: bool,
+    pub capacity_percent: Option<f64>, // Current charge percentage
+    pub health_percent: Option<f64>, // Battery health (capacity vs design capacity)
+    pub status: String, // "Charging", "Discharging", "Full", "Unknown"
+    pub time_to_empty: Option<f64>, // Minutes remaining (if discharging)
+    pub time_to_full: Option<f64>, // Minutes to full charge (if charging)
+    pub cycle_count: Option<u32>, // Number of charge cycles
+}
+
+/// Bluetooth status (beta.43+)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BluetoothStatus {
+    pub available: bool, // Bluetooth hardware present
+    pub enabled: bool, // Bluetooth service running
+    pub connected_devices: Vec<String>, // List of connected device names
+}
+
+/// SSD-specific information (beta.43+)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SSDInfo {
+    pub device: String, // e.g., /dev/sda, /dev/nvme0n1
+    pub model: String,
+    pub trim_enabled: bool, // TRIM/discard enabled
+    pub wear_leveling_count: Option<u32>, // From SMART data
+    pub total_bytes_written: Option<u64>, // Lifetime writes
+    pub health_percent: Option<f64>, // Overall SSD health
+}
+
+/// Swap configuration (beta.43+)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SwapConfiguration {
+    pub swap_enabled: bool,
+    pub swap_type: String, // "partition", "file", "zram", "none"
+    pub swap_size_gb: f64,
+    pub swap_usage_percent: f64,
+    pub swappiness: u32, // /proc/sys/vm/swappiness value
+    pub zram_enabled: bool,
+}
+
+/// Locale and timezone information (beta.43+)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LocaleInfo {
+    pub timezone: String, // e.g., "America/New_York"
+    pub locale: String, // e.g., "en_US.UTF-8"
+    pub keymap: String, // e.g., "us", "de", "fr"
+    pub language: String, // Primary language code
 }
 
 /// Alternative software option
