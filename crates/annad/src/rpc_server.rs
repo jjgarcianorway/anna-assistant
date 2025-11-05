@@ -257,6 +257,23 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             }
         }
 
+        Method::UpdateWikiCache => {
+            info!("Wiki cache update requested");
+            match crate::wiki_cache::update_common_pages().await {
+                Ok(()) => {
+                    info!("Wiki cache updated successfully");
+                    Ok(ResponseData::ActionResult {
+                        success: true,
+                        message: "Wiki cache updated successfully! Common Arch Wiki pages are now available offline.".to_string(),
+                    })
+                }
+                Err(e) => {
+                    error!("Failed to update wiki cache: {}", e);
+                    Err(format!("Failed to update wiki cache: {}", e))
+                }
+            }
+        }
+
         Method::GetConfig => {
             let config = state.config.read().await.clone();
             Ok(ResponseData::Config(config))

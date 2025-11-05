@@ -2,7 +2,7 @@
 
 use anna_common::ipc::{Method, ResponseData};
 use anna_common::{beautiful, header, kv, section, Level};
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::rpc_client::RpcClient;
 
@@ -2087,36 +2087,42 @@ pub async fn wiki_cache(force: bool) -> Result<()> {
     println!();
 
     // Connect to daemon to request wiki cache update
-    let _client = match RpcClient::connect().await {
+    let mut client = match RpcClient::connect().await {
         Ok(c) => c,
         Err(_) => {
-            println!("{}", beautiful::status(Level::Warning, "Daemon not running, updating cache directly..."));
+            println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+            println!("  The wiki cache update requires the daemon to be running.");
+            println!("  Please start the daemon: \x1b[38;5;159msudo systemctl start annad\x1b[0m");
             println!();
-
-            // If daemon is not running, we'll need to import and call the update function directly
-            // For now, show a message
-            println!("{}", beautiful::status(Level::Info, "Starting wiki cache update..."));
-            println!("  This will download 15 common Arch Wiki pages for offline access.");
-            println!();
-
-            // TODO: Call wiki_cache::update_common_pages() directly
-            // This would require exposing the function or using a library structure
-            println!("{}", beautiful::status(Level::Warning, "Direct cache update not yet implemented"));
-            println!("  Please ensure the daemon is running: \x1b[38;5;159msudo systemctl start annad\x1b[0m");
-            println!();
-
             return Ok(());
         }
     };
 
     // Request cache update via RPC
-    // TODO: Add WikiCacheUpdate method to RPC
-    println!("{}", beautiful::status(Level::Info, "Requesting cache update from daemon..."));
+    println!("{}", beautiful::status(Level::Info, "Updating Arch Wiki cache..."));
+    println!("  This will download 40+ common Arch Wiki pages for offline access.");
+    println!("  Please wait, this may take a few moments...");
     println!();
-    println!("{}", beautiful::status(Level::Warning, "RPC method not yet implemented"));
-    println!("  The wiki cache update feature will be available in the next version.");
-    println!();
-    println!("  For now, wiki pages will be cached automatically when accessed.");
+
+    let response = client
+        .call(Method::UpdateWikiCache)
+        .await
+        .context("Failed to update wiki cache")?;
+
+    match response {
+        ResponseData::ActionResult { success, message } => {
+            if success {
+                println!("{}", beautiful::status(Level::Success, "Wiki cache updated!"));
+                println!("  {}", message);
+            } else {
+                println!("{}", beautiful::status(Level::Error, "Failed to update cache"));
+                println!("  {}", message);
+            }
+        }
+        _ => {
+            println!("{}", beautiful::status(Level::Warning, "Unexpected response from daemon"));
+        }
+    }
     println!();
 
     Ok(())

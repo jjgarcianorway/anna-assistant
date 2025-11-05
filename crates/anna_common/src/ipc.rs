@@ -52,6 +52,9 @@ pub enum Method {
     /// Refresh system facts and advice
     Refresh,
 
+    /// Update Arch Wiki cache
+    UpdateWikiCache,
+
     /// Ping daemon (health check)
     Ping,
 }
