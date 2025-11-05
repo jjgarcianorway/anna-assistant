@@ -2201,21 +2201,24 @@ pub async fn health() -> Result<()> {
     println!("{}", section("📈 Score Breakdown"));
     println!();
 
-    let format_score = |name: &str, score: u8| {
-        let color = if score >= 90 { "\x1b[92m" } else if score >= 70 { "\x1b[93m" } else { "\x1b[91m" };
+    let format_score_with_details = |name: &str, score_val: u8, details: &[String]| {
+        let color = if score_val >= 90 { "\x1b[92m" } else if score_val >= 70 { "\x1b[93m" } else { "\x1b[91m" };
         println!("  {:<20} {}{}{}  \x1b[90m{}\x1b[0m",
             name,
             color,
-            score,
+            score_val,
             "\x1b[0m",
-            "█".repeat((score as f64 / 100.0 * 20.0) as usize)
+            "█".repeat((score_val as f64 / 100.0 * 20.0) as usize)
         );
+        for detail in details {
+            println!("    \x1b[90m{}\x1b[0m", detail);
+        }
+        println!();
     };
 
-    format_score("Security", score.security_score);
-    format_score("Performance", score.performance_score);
-    format_score("Maintenance", score.maintenance_score);
-    println!();
+    format_score_with_details("Security", score.security_score, &score.security_details);
+    format_score_with_details("Performance", score.performance_score, &score.performance_details);
+    format_score_with_details("Maintenance", score.maintenance_score, &score.maintenance_details);
 
     // Issues summary
     println!("{}", section("⚠️  Issues Summary"));

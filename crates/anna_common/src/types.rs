@@ -1034,6 +1034,9 @@ pub struct SystemHealthScore {
     pub issues_count: usize,            // Total pending recommendations
     pub critical_issues: usize,         // Mandatory priority items
     pub health_trend: HealthTrend,      // Improving, stable, or declining
+    pub security_details: Vec<String>,  // Why security score is what it is
+    pub performance_details: Vec<String>, // Why performance score is what it is
+    pub maintenance_details: Vec<String>, // Why maintenance score is what it is
 }
 
 /// Health trend indicator
@@ -1052,34 +1055,89 @@ impl SystemHealthScore {
 
         // Security score based on security-related advice
         let security_issues = advice.iter().filter(|a| a.category == "security").count();
+        let mut security_details = Vec::new();
+
         let security_score = if security_issues == 0 {
+            security_details.push("✓ No security issues detected".to_string());
+            security_details.push("✓ All security recommendations applied".to_string());
             100
         } else if security_issues < 3 {
+            security_details.push(format!("• {} security recommendation{} pending", security_issues, if security_issues == 1 { "" } else { "s" }));
+            security_details.push("  These are minor security improvements".to_string());
             80
         } else if security_issues < 5 {
+            security_details.push(format!("⚠ {} security issues found", security_issues));
+            security_details.push("  Please address these when possible".to_string());
             60
         } else {
+            security_details.push(format!("⚠ {} security issues detected!", security_issues));
+            security_details.push("  Your system needs security attention".to_string());
             40
         };
 
         // Performance score based on system resource usage
-        let performance_score = if facts.storage_devices.iter().any(|d| (d.used_gb / d.size_gb) > 0.9) {
-            50
-        } else if facts.orphan_packages.len() > 20 {
-            70
-        } else {
-            90
-        };
+        let mut performance_details = Vec::new();
+        let mut perf_penalties = Vec::new();
+
+        // Check disk usage
+        for disk in &facts.storage_devices {
+            let usage = (disk.used_gb / disk.size_gb * 100.0) as u8;
+            if usage > 90 {
+                performance_details.push(format!("⚠ Disk {} is {}% full ({} GB free)", disk.name, usage, disk.size_gb - disk.used_gb));
+                perf_penalties.push(40);
+            } else if usage > 80 {
+                performance_details.push(format!("• Disk {} is {}% full ({} GB free)", disk.name, usage, disk.size_gb - disk.used_gb));
+                perf_penalties.push(10);
+            }
+        }
+
+        // Check orphan packages
+        if facts.orphan_packages.len() > 20 {
+            performance_details.push(format!("• {} orphaned packages (wasting disk space)", facts.orphan_packages.len()));
+            perf_penalties.push(20);
+        } else if facts.orphan_packages.len() > 5 {
+            performance_details.push(format!("• {} orphaned packages (run cleanup when convenient)", facts.orphan_packages.len()));
+            perf_penalties.push(10);
+        }
+
+        // Check performance recommendations
+        let perf_advice = advice.iter().filter(|a| a.category == "performance").count();
+        if perf_advice > 0 {
+            performance_details.push(format!("• {} performance optimization{} available", perf_advice, if perf_advice == 1 { "" } else { "s" }));
+        }
+
+        let performance_score = 100 - perf_penalties.iter().sum::<u8>().min(50);
+
+        if performance_details.is_empty() {
+            performance_details.push("✓ System performance is optimal".to_string());
+            performance_details.push("✓ No storage issues detected".to_string());
+        }
 
         // Maintenance score based on orphans, old kernels, etc.
         let maintenance_issues = advice.iter().filter(|a| a.category == "maintenance" || a.category == "cleanup").count();
+        let mut maintenance_details = Vec::new();
+
         let maintenance_score = if maintenance_issues == 0 {
+            maintenance_details.push("✓ System is well-maintained".to_string());
+            maintenance_details.push("✓ No cleanup needed".to_string());
             100
         } else if maintenance_issues < 5 {
+            maintenance_details.push(format!("• {} maintenance task{} pending", maintenance_issues, if maintenance_issues == 1 { "" } else { "s" }));
+            maintenance_details.push("  System maintenance is mostly up-to-date".to_string());
             80
         } else {
+            maintenance_details.push(format!("⚠ {} maintenance tasks pending", maintenance_issues));
+            maintenance_details.push("  System could use some cleanup".to_string());
             60
         };
+
+        // Add specific maintenance info
+        if facts.orphan_packages.len() > 0 {
+            maintenance_details.push(format!("  - {} orphaned package{}", facts.orphan_packages.len(), if facts.orphan_packages.len() == 1 { "" } else { "s" }));
+        }
+        if facts.package_cache_size_gb > 1.0 {
+            maintenance_details.push(format!("  - Package cache: {:.1} GB", facts.package_cache_size_gb));
+        }
 
         // Overall score is weighted average
         let overall_score = (security_score as f64 * 0.4 + performance_score as f64 * 0.3 + maintenance_score as f64 * 0.3) as u8;
@@ -1093,6 +1151,9 @@ impl SystemHealthScore {
             issues_count: total_issues,
             critical_issues,
             health_trend: HealthTrend::Stable, // TODO: Calculate from history
+            security_details,
+            performance_details,
+            maintenance_details,
         }
     }
 
