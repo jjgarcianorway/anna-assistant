@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🔄 Installing Anna Assistant beta.46..."
+echo "🔄 Installing Anna Assistant beta.47..."
 echo
 
 # Stop daemon

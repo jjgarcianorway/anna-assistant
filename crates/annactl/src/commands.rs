@@ -92,6 +92,35 @@ pub async fn status() -> Result<()> {
                     &format!("{} recommendations pending", status.pending_recommendations)
                 )
             );
+            println!();
+
+            // Get advice list to show category breakdown
+            let advice_data = client.call(Method::GetAdvice).await?;
+            if let ResponseData::Advice(mut advice_list) = advice_data {
+                // Apply ignore filters
+                if let Ok(filters) = anna_common::IgnoreFilters::load() {
+                    advice_list.retain(|a| !filters.should_filter(a));
+                }
+
+                // Group by category and count
+                let mut category_counts = std::collections::HashMap::new();
+                for advice in &advice_list {
+                    *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
+                }
+
+                // Sort categories by count (descending)
+                let mut categories: Vec<_> = category_counts.iter().collect();
+                categories.sort_by(|a, b| b.1.cmp(a.1));
+
+                println!("{}", section("Categories"));
+                for (category, count) in categories.iter().take(10) {
+                    println!("  {} \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", category, count);
+                }
+                if categories.len() > 10 {
+                    println!("  \x1b[90m... and {} more\x1b[0m", categories.len() - 10);
+                }
+                println!();
+            }
         } else {
             println!(
                 "{}",
@@ -2825,6 +2854,11 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
     println!("{}", header("Anna Update"));
     println!();
 
+    // Show current version first
+    let current = anna_common::updater::get_current_version().unwrap_or_else(|_| "unknown".to_string());
+    println!("  {}", kv("Installed version", &current));
+    println!();
+
     // Check for updates
     println!("{}", beautiful::status(Level::Info, "Checking for updates..."));
     println!();
@@ -2895,15 +2929,29 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
             }
         }
         Err(e) => {
-            println!("{}", beautiful::status(
-                Level::Error,
-                &format!("Failed to check for updates: {}", e)
-            ));
-            println!();
-            println!("{}", beautiful::status(
-                Level::Info,
-                "Check your internet connection and try again"
-            ));
+            // Check if it's just "no release assets" vs a real network error
+            let err_msg = e.to_string();
+            if err_msg.contains("binary not found in release") || err_msg.contains("No assets") {
+                println!("{}", beautiful::status(
+                    Level::Success,
+                    "No updates available - you're on the latest development version!"
+                ));
+                println!();
+                println!("{}", beautiful::status(
+                    Level::Info,
+                    "Check https://github.com/jjgarcianorway/anna-assistant/releases for new releases"
+                ));
+            } else {
+                println!("{}", beautiful::status(
+                    Level::Error,
+                    &format!("Could not check for updates: {}", e)
+                ));
+                println!();
+                println!("{}", beautiful::status(
+                    Level::Info,
+                    "Check your internet connection and try again"
+                ));
+            }
         }
     }
 
