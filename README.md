@@ -4,7 +4,26 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.66 (November 2025)
+**Current Version:** Beta.67 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.67
+
+**🔧 Fixed Interactive Prompts in Piped Install:**
+- Fixed confirmation prompts when piping to sh
+- Scripts now read from /dev/tty for interactive input
+- Install/uninstall now work correctly when piped!
+
+**The Problem:**
+- `curl ... | sh` has no stdin for interactive prompts
+- `read` command was failing silently
+- Script immediately cancelled without asking for input
+
+**The Fix:**
+- Changed `read -p ... -r` to `read -p ... -r < /dev/tty`
+- Reads directly from terminal instead of stdin
+- Now prompts work correctly even when piped!
 
 ---
 

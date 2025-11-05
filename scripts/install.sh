@@ -68,7 +68,7 @@ echo -e "  ${ARROW} Install binaries to ${INSTALL_DIR}"
 echo -e "  ${ARROW} Install systemd service"
 echo -e "  ${ARROW} Enable and start the daemon"
 echo
-read -p "$(echo -e ${BOLD}${YELLOW}Continue with installation? [y/N]:${RESET} )" -r
+read -p "$(echo -e ${BOLD}${YELLOW}Continue with installation? [y/N]:${RESET} )" -r < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}${INFO} Installation cancelled by user${RESET}"

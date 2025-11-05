@@ -53,7 +53,7 @@ echo -e "  ${ARROW} Systemd service"
 echo -e "  ${ARROW} User data and configuration ${RED}(your settings and history will be lost!)${RESET}"
 echo
 
-read -p "$(echo -e ${YELLOW}Are you sure you want to uninstall? [y/N]: ${RESET})" -n 1 -r
+read -p "$(echo -e ${YELLOW}Are you sure you want to uninstall? [y/N]: ${RESET})" -n 1 -r < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${CYAN}${INFO}${RESET} Uninstall cancelled"
@@ -109,7 +109,7 @@ echo -e "  ${ARROW} Runtime data (${CYAN}/run/anna/${RESET})"
 echo -e "  ${ARROW} Cache (${CYAN}/var/cache/anna/${RESET})"
 echo
 
-read -p "$(echo -e ${YELLOW}Remove user data? [y/N]: ${RESET})" -n 1 -r
+read -p "$(echo -e ${YELLOW}Remove user data? [y/N]: ${RESET})" -n 1 -r < /dev/tty
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo
