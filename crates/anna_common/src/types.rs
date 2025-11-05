@@ -183,6 +183,16 @@ pub struct SystemFacts {
     pub is_amd_gpu: bool, // Whether system has AMD/ATI GPU
     pub amd_driver_version: Option<String>, // AMD driver version (amdgpu or radeon)
 
+    // Enhanced GPU Telemetry (beta.43+)
+    #[serde(default)]
+    pub gpu_model: Option<String>, // Specific GPU model name (e.g., "NVIDIA GeForce RTX 4090")
+    #[serde(default)]
+    pub gpu_vram_mb: Option<u32>, // VRAM size in MB
+    #[serde(default)]
+    pub vulkan_support: bool, // Whether Vulkan API is available
+    #[serde(default)]
+    pub nvidia_cuda_support: bool, // Whether NVIDIA CUDA is available
+
     // User Behavior (learned from system)
     pub frequently_used_commands: Vec<CommandUsage>,
     pub dev_tools_detected: Vec<String>, // git, docker, vim, etc.

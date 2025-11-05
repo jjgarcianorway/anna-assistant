@@ -76,6 +76,12 @@ pub async fn collect_facts() -> Result<SystemFacts> {
             None
         },
 
+        // Enhanced GPU Telemetry (beta.43+)
+        gpu_model: get_gpu_model(),
+        gpu_vram_mb: get_gpu_vram_mb(),
+        vulkan_support: check_vulkan_support(),
+        nvidia_cuda_support: check_nvidia_cuda_support(),
+
         // User Behavior (basic for now)
         frequently_used_commands: analyze_command_history().await,
         dev_tools_detected: detect_dev_tools(),
@@ -3068,4 +3074,120 @@ fn detect_pipewire_session_manager() -> Option<String> {
     }
 
     None
+}
+
+/// Get GPU model name (beta.43+)
+fn get_gpu_model() -> Option<String> {
+    // Try lspci to get GPU model
+    if let Ok(output) = Command::new("lspci").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let lower = line.to_lowercase();
+            // Look for VGA, Display, or 3D controller lines
+            if lower.contains("vga") || lower.contains("display") || lower.contains("3d controller") {
+                // Extract GPU info after the device ID
+                if let Some(gpu_info) = line.split(':').nth(2) {
+                    let model = gpu_info.trim();
+                    // Filter out generic entries
+                    if !model.is_empty() && !model.contains("unknown") {
+                        return Some(model.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Get GPU VRAM size in MB (beta.43+)
+fn get_gpu_vram_mb() -> Option<u32> {
+    // For NVIDIA, use nvidia-smi
+    if detect_nvidia() {
+        if let Ok(output) = Command::new("nvidia-smi")
+            .arg("--query-gpu=memory.total")
+            .arg("--format=csv,noheader,nounits")
+            .output()
+        {
+            if output.status.success() {
+                let vram_str = String::from_utf8_lossy(&output.stdout);
+                if let Ok(vram) = vram_str.trim().parse::<u32>() {
+                    return Some(vram);
+                }
+            }
+        }
+    }
+
+    // For AMD, try reading from sysfs
+    if detect_amd_gpu() {
+        // Try to find AMD GPU sysfs entry
+        if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("card")).unwrap_or(false) {
+                    let vram_path = path.join("device/mem_info_vram_total");
+                    if let Ok(vram_str) = std::fs::read_to_string(&vram_path) {
+                        if let Ok(vram_bytes) = vram_str.trim().parse::<u64>() {
+                            return Some((vram_bytes / 1024 / 1024) as u32); // Convert bytes to MB
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // For Intel, integrated GPUs typically share system RAM (no dedicated VRAM)
+    // Could estimate based on aperture size, but not reliable
+    None
+}
+
+/// Check if Vulkan support is available (beta.43+)
+fn check_vulkan_support() -> bool {
+    // Check if vulkan-icd-loader is installed
+    if package_installed("vulkan-icd-loader") {
+        return true;
+    }
+
+    // Check for Vulkan library
+    if Path::new("/usr/lib/libvulkan.so").exists() ||
+       Path::new("/usr/lib64/libvulkan.so").exists() {
+        return true;
+    }
+
+    // Check if vulkaninfo command exists and works
+    if let Ok(output) = Command::new("vulkaninfo").arg("--summary").output() {
+        if output.status.success() {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Check if NVIDIA CUDA support is available (beta.43+)
+fn check_nvidia_cuda_support() -> bool {
+    // Only relevant for NVIDIA GPUs
+    if !detect_nvidia() {
+        return false;
+    }
+
+    // Check if CUDA toolkit is installed
+    if package_installed("cuda") || package_installed("cuda-toolkit") {
+        return true;
+    }
+
+    // Check for nvcc compiler
+    if let Ok(output) = Command::new("which").arg("nvcc").output() {
+        if output.status.success() {
+            return true;
+        }
+    }
+
+    // Check for CUDA library
+    if Path::new("/opt/cuda").exists() ||
+       Path::new("/usr/local/cuda").exists() {
+        return true;
+    }
+
+    false
 }

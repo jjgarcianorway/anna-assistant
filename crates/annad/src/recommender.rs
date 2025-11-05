@@ -66,6 +66,7 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_gpu_drivers(facts));
     advice.extend(check_intel_gpu_support(facts));
     advice.extend(check_amd_gpu_enhancements(facts));
+    advice.extend(check_gpu_enhancements(facts));
     advice.extend(check_orphan_packages(facts));
     advice.extend(check_btrfs_maintenance(facts));
     advice.extend(check_system_updates());
@@ -428,6 +429,110 @@ fn check_amd_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
             bundle: None,
             popularity: 50,
         });
+    }
+
+    result
+}
+
+/// Rule 2d: Enhanced GPU recommendations (beta.43+ with VRAM/Vulkan/CUDA telemetry)
+fn check_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
+    let mut result = Vec::new();
+
+    // Recommend CUDA toolkit for NVIDIA GPUs with significant VRAM (for ML/compute workloads)
+    if facts.is_nvidia && !facts.nvidia_cuda_support {
+        // If we have VRAM info and it's >= 4GB, suggest CUDA (useful for ML/rendering)
+        if let Some(vram) = facts.gpu_vram_mb {
+            if vram >= 4096 {
+                result.push(
+                    Advice::new(
+                        "install-cuda-toolkit".to_string(),
+                        format!("Install CUDA toolkit for your NVIDIA GPU ({}MB VRAM)", vram),
+                        format!("Your NVIDIA GPU has {}MB of VRAM, making it suitable for GPU-accelerated computing, machine learning (PyTorch, TensorFlow), video encoding (FFmpeg), and 3D rendering (Blender). The CUDA toolkit provides the libraries and compiler needed for GPU computing.", vram),
+                        "Install CUDA toolkit and development tools".to_string(),
+                        Some("sudo pacman -S --noconfirm cuda cuda-tools".to_string()),
+                        RiskLevel::Low,
+                        Priority::Optional,
+                        vec![
+                            "https://wiki.archlinux.org/title/GPGPU#CUDA".to_string(),
+                            "https://wiki.archlinux.org/title/NVIDIA#CUDA".to_string(),
+                        ],
+                        "development".to_string(),
+                    )
+                    .with_popularity(45)
+                );
+            }
+        }
+    }
+
+    // Recommend Vulkan tools if Vulkan is supported
+    if facts.vulkan_support && !is_package_installed("vulkan-tools") {
+        result.push(
+            Advice::new(
+                "install-vulkan-tools".to_string(),
+                "Install Vulkan development and testing tools".to_string(),
+                "Your system has Vulkan support installed. vulkan-tools provides utilities like vulkaninfo (check capabilities) and vkcube (test rendering), which are useful for troubleshooting graphics issues and verifying Vulkan functionality.".to_string(),
+                "Install Vulkan diagnostic tools".to_string(),
+                Some("sudo pacman -S --noconfirm vulkan-tools".to_string()),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Vulkan#Verification".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(40)
+        );
+    }
+
+    // Suggest GPU monitoring tools if we have a dedicated GPU with VRAM
+    if let Some(vram) = facts.gpu_vram_mb {
+        if vram >= 2048 && !is_package_installed("nvtop") {
+            let tool = if facts.is_nvidia { "nvtop" } else { "nvtop" };
+            result.push(
+                Advice::new(
+                    "install-gpu-monitor".to_string(),
+                    format!("Install {} to monitor GPU usage", tool),
+                    format!("Your dedicated GPU ({}MB VRAM) would benefit from a monitoring tool. nvtop is like 'htop' but for GPUs - it shows real-time GPU usage, memory, temperature, and per-process GPU utilization. Essential for gaming, rendering, or ML workloads.", vram),
+                    "Install GPU monitoring tool".to_string(),
+                    Some(format!("sudo pacman -S --noconfirm {}", tool)),
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/NVIDIA#Monitoring".to_string(),
+                    ],
+                    "system".to_string(),
+                )
+                .with_popularity(55)
+            );
+        }
+    }
+
+    // Recommend OpenCL for compute workloads if not installed
+    if (facts.is_nvidia || facts.is_amd_gpu || facts.is_intel_gpu) && !is_package_installed("opencl-headers") {
+        let opencl_package = if facts.is_nvidia {
+            "opencl-nvidia"
+        } else if facts.is_amd_gpu {
+            "opencl-mesa"
+        } else {
+            "intel-compute-runtime"
+        };
+
+        result.push(
+            Advice::new(
+                "install-opencl-support".to_string(),
+                "Install OpenCL for GPU-accelerated computing".to_string(),
+                format!("OpenCL enables GPU-accelerated computing for applications like video encoding (HandBrake), password cracking, scientific computing, and cryptocurrency mining. Your GPU supports it, but the runtime isn't installed. Package: {}", opencl_package),
+                "Install OpenCL runtime and headers".to_string(),
+                Some(format!("sudo pacman -S --noconfirm {} opencl-headers", opencl_package)),
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/GPGPU#OpenCL".to_string(),
+                ],
+                "development".to_string(),
+            )
+            .with_popularity(50)
+        );
     }
 
     result
