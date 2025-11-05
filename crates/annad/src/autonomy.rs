@@ -200,6 +200,13 @@ async fn run_tier3_tasks() -> Result<()> {
         log.record(action);
     }
 
+    // Task 19: Auto-update Anna itself (Tier 3 only)
+    if let Ok(action) = auto_update_anna().await {
+        if action.success {
+            log.record(action);
+        }
+    }
+
     log.save()?;
     Ok(())
 }
@@ -1122,4 +1129,83 @@ async fn update_aur_packages() -> Result<AutonomyAction> {
         can_undo: false,
         undo_command: None,
     })
+}
+
+/// Auto-update Anna herself (Tier 3 only)
+async fn auto_update_anna() -> Result<AutonomyAction> {
+    info!("Checking for Anna updates");
+
+    let start_time = chrono::Utc::now();
+
+    // Check for updates
+    match anna_common::updater::check_for_updates().await {
+        Ok(update_info) => {
+            if !update_info.is_update_available {
+                return Ok(AutonomyAction {
+                    action_type: "auto_update_anna".to_string(),
+                    executed_at: start_time,
+                    description: "Already on latest version".to_string(),
+                    command_run: "check_for_updates".to_string(),
+                    success: true,
+                    output: format!("Current version: {}", update_info.current_version),
+                    can_undo: false,
+                    undo_command: None,
+                });
+            }
+
+            info!("Update available: {} -> {}", update_info.current_version, update_info.latest_version);
+
+            // Perform the update
+            match anna_common::updater::perform_update(&update_info).await {
+                Ok(()) => {
+                    info!("Auto-update successful: {}", update_info.latest_version);
+
+                    // Send notification
+                    let _ = Command::new("notify-send")
+                        .arg("--app-name=Anna Assistant")
+                        .arg("--icon=system-software-update")
+                        .arg("Anna Updated Automatically")
+                        .arg(&format!("Updated to {} in the background", update_info.latest_version))
+                        .spawn();
+
+                    Ok(AutonomyAction {
+                        action_type: "auto_update_anna".to_string(),
+                        executed_at: start_time,
+                        description: format!("Auto-updated Anna from {} to {}",
+                            update_info.current_version, update_info.latest_version),
+                        command_run: "perform_update".to_string(),
+                        success: true,
+                        output: format!("Updated to {}\nDaemon restarted", update_info.latest_version),
+                        can_undo: false,
+                        undo_command: None,
+                    })
+                }
+                Err(e) => {
+                    info!("Auto-update failed: {}", e);
+                    Ok(AutonomyAction {
+                        action_type: "auto_update_anna".to_string(),
+                        executed_at: start_time,
+                        description: "Auto-update failed".to_string(),
+                        command_run: "perform_update".to_string(),
+                        success: false,
+                        output: format!("Error: {}", e),
+                        can_undo: false,
+                        undo_command: None,
+                    })
+                }
+            }
+        }
+        Err(e) => {
+            Ok(AutonomyAction {
+                action_type: "auto_update_anna".to_string(),
+                executed_at: start_time,
+                description: "Could not check for updates".to_string(),
+                command_run: "check_for_updates".to_string(),
+                success: false,
+                output: format!("Error: {}", e),
+                can_undo: false,
+                undo_command: None,
+            })
+        }
+    }
 }

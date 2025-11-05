@@ -5,6 +5,54 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.56] - 2025-11-05
+
+### 🤖 True Auto-Update (Autonomy Tier 3)
+
+**Auto-Update Implementation:**
+- Anna can now update herself automatically when in Tier 3 autonomy
+- Checks for updates from GitHub in the background
+- Downloads and installs new versions automatically
+- Restarts daemon after successful update
+- Sends desktop notification when update completes
+- Completely hands-free update experience
+
+**User Experience:**
+- No manual intervention required for updates
+- Desktop notification: "Anna Updated Automatically - Updated to vX.X.X in the background"
+- Appears in autonomy log: `annactl autonomy`
+- Safe and tested update mechanism
+- Falls back gracefully on errors
+
+**Autonomy System:**
+- New Task 19 in Tier 3: Auto-update Anna
+- Runs periodically with other maintenance tasks
+- Only activates in Tier 3 (Fully Autonomous) mode
+- Can be enabled with: `annactl config set autonomy_tier 3`
+
+### 🔧 Technical Details
+
+**New Function:**
+- `auto_update_anna()` - Checks and installs Anna updates (lines 1134-1211)
+
+**Modified Functions:**
+- `run_tier3_tasks()` - Added auto-update as Task 19 (lines 203-208)
+
+**Files Modified:**
+- autonomy.rs: Added auto-update functionality to Tier 3
+
+**Integration:**
+- Uses existing `anna_common::updater::check_for_updates()`
+- Uses existing `anna_common::updater::perform_update()`
+- Sends notification via notify-send if available
+- Records action in autonomy log for audit trail
+
+**Autonomy Tiers:**
+- Tier 0 (Advise Only): No automatic actions
+- Tier 1 (Safe Auto-Apply): 7 safe maintenance tasks
+- Tier 2 (Semi-Autonomous): +8 extended maintenance tasks
+- Tier 3 (Fully Autonomous): +4 full maintenance tasks including auto-update
+
 ## [1.0.0-beta.55] - 2025-11-05
 
 ### ⚡ Shell Completion Support

@@ -4,25 +4,32 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.55 (November 2025)
+**Current Version:** Beta.56 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.55
+## 🎯 What's New in Beta.56
 
-**⚡ Shell Completions:**
-- Generate tab completion scripts for bash, zsh, fish, and PowerShell
-- Easy installation: `annactl completions bash > /usr/share/bash-completion/completions/annactl`
-- Complete command names, arguments, and options
-- Improves command-line productivity
+**🤖 True Auto-Update (Tier 3):**
+- Anna can now update herself automatically in Autonomy Tier 3!
+- Checks for updates in the background
+- Installs updates automatically when available
+- Sends desktop notification when update completes
+- Daemon restarts automatically after update
+- Completely hands-free maintenance
 
-**🎯 Apply by ID:**
-- Apply recommendations by ID: `annactl apply --id amd-microcode`
-- Works alongside number-based apply
-- TUI already supported apply by ID, now CLI does too
-- More flexible recommendation application
+**Enable Tier 3 Autonomy:**
+```bash
+annactl config set autonomy_tier 3
+# Anna will now auto-update herself along with 18 other maintenance tasks
+```
 
 **🎯 Previous Releases:**
+
+**Beta.55 - Shell Completions & Apply by ID:**
+- Generate tab completion scripts for bash, zsh, fish, and PowerShell
+- Apply recommendations by ID: `annactl apply --id amd-microcode`
+- More flexible recommendation application
 
 **Beta.54 - Beautiful Update Experience:**
 - Update completion notifications (desktop notification, not spam)
