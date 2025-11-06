@@ -527,20 +527,35 @@ fn check_wayland_nvidia_support() -> bool {
         return false; // No Nvidia GPU
     }
 
-    // Check for required environment variables in common config files
-    let config_files = vec![
+    // Check for required environment variables
+    let required_vars = vec![
+        "GBM_BACKEND",
+        "__GLX_VENDOR_LIBRARY_NAME",
+        "LIBVA_DRIVER_NAME",
+    ];
+
+    let mut found_vars = 0;
+
+    // 1. Check window manager config files (Hyprland, Sway, etc.)
+    let wm = anna_common::detect_window_manager();
+    if wm != anna_common::WindowManager::Unknown {
+        let mut parser = anna_common::ConfigParser::new(wm);
+        if parser.load().is_ok() {
+            for var in &required_vars {
+                if parser.has_env_var(var) {
+                    found_vars += 1;
+                }
+            }
+        }
+    }
+
+    // 2. Check system-wide config files
+    let system_config_files = vec![
         "/etc/environment",
         "/etc/profile.d/nvidia.sh",
     ];
 
-    let required_vars = vec![
-        "GBM_BACKEND=nvidia-drm",
-        "__GLX_VENDOR_LIBRARY_NAME=nvidia",
-        "LIBVA_DRIVER_NAME=nvidia",
-    ];
-
-    let mut found_vars = 0;
-    for file in &config_files {
+    for file in &system_config_files {
         if let Ok(content) = std::fs::read_to_string(file) {
             for var in &required_vars {
                 if content.contains(var) {

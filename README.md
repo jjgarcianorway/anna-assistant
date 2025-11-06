@@ -4,7 +4,47 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.82 (November 2025)
+**Current Version:** Beta.84 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.84
+
+**🔍 Universal Config Parser Framework:**
+- **11 Window Managers Supported:** Hyprland, Sway, i3, bspwm, awesome, qtile, river, wayfire, openbox, xmonad, dwm
+- **Multiple Config Formats:** Parses HyprlandConf, i3-style, INI, Shell scripts, Lua, Python, Haskell
+- **Automatic WM Detection:** Detects your active window manager automatically
+- **Smart Environment Variable Detection:** Checks WM configs for existing env vars before recommending
+- **Nvidia+Wayland Support:** Properly detects Nvidia env vars in Hyprland/Sway/i3 configs
+- **Based on Official Docs:** Built from Arch Wiki, Hyprland docs, i3 docs, Sway docs
+
+**🎮 GPU Detection Improvements:**
+- **Fixed Critical False Positives:** Intel detection on Nvidia systems resolved
+- **Line-by-Line Parsing:** Only detects GPUs on actual VGA/Display/3D controller lines
+- **Accurate Vendor Detection:** Works for Nvidia, AMD, Intel
+- **Hardware-Specific Filtering:** Intel/AMD/Nvidia advice only shows on correct hardware
+
+**✨ Quality Improvements:**
+- **Deduplication Logic:** Eliminates duplicate advice (mangohud, proton, etc.)
+- **Version Comparison Fix:** No more false "update available" messages
+- **Config Awareness:** Respects your existing configurations
+
+---
+
+## 🎯 What's New in Beta.83
+
+**🎨 TUI UX Overhaul:**
+- **Smart Filtering:** Shows only Critical + Recommended advice by default (15-30 items instead of 120+)
+- **Toggle Filter:** Press 'f' to switch between filtered/all views
+- **Clear Terminology:** "Hide Category" and "Hide Priority" (was "Ignore Cat"/"Ignore Pri")
+- **Better Status Display:** "View: Critical+Recommended" or "View: All"
+- **Advice Count:** Shows "15 of 120" when filtered
+
+**🔧 Critical Fixes:**
+- **Applied Advice Persistence:** Fixed audit log bug - applied advice now properly tracked
+- **History Command Works:** Applied actions now appear in `annactl history`
+- **Advice Removal:** Items disappear from list after successful application
+- **Update Release Notes:** Shows current version release notes when already up-to-date
 
 ---
 

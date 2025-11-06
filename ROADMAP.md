@@ -1087,17 +1087,55 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ---
 
+### Beta.84 - Config Awareness & Hardware Detection (COMPLETED Items)
+**Status:** ✅ PARTIAL COMPLETION
+
+**Completed:**
+1. **GPU Detection Fix** - Fixed CRITICAL false positives
+   - Line-by-line lspci parsing prevents Intel detection on Nvidia systems
+   - Accurate GPU vendor detection (Nvidia, AMD, Intel)
+   - Zero false positives for hardware recommendations
+
+2. **Universal Config Parser Framework** - Built from Arch Wiki specs
+   - Supports 11 window managers: Hyprland, Sway, i3, bspwm, awesome, qtile, river, wayfire, openbox, xmonad, dwm
+   - Detects active WM automatically
+   - Parses multiple config formats: HyprlandConf, i3-style, INI, Shell, Lua, Python, Haskell
+   - Check for environment variables in WM configs
+   - Check for specific settings/configurations
+
+3. **Nvidia Env Var Detection** - Checks WM configs properly
+   - Now detects Nvidia env vars in Hyprland/Sway/i3 configs
+   - Stops recommending vars that are already configured
+   - Checks both WM configs AND system configs
+
+4. **Deduplication Logic** - Eliminates duplicate advice
+   - HashSet-based ID deduplication
+   - Removes duplicates like mangohud appearing 3 times
+   - Logs duplicate count for debugging
+
+5. **Version Comparison Fix** - Strips 'v' prefix from GitHub tags
+   - Prevents false "update available" when already on latest
+
+**Remaining Work:**
+- SSH key detection
+- Mirror list apply function fix
+- TLP error whitelisting
+
+---
+
 ### Implementation Roadmap - Quality Overhaul
 
 **Beta.84 - Foundation (Hardware & Config Detection):**
-- [ ] Implement robust GPU detection (Nvidia, AMD, Intel)
-- [ ] Add GPU vendor to SystemFacts
-- [ ] Create config file parser framework
+- ✅ Implement robust GPU detection (Nvidia, AMD, Intel) - Line-by-line lspci parsing
+- ✅ Add GPU vendor to SystemFacts - Already exists (is_nvidia, is_intel_gpu, is_amd_gpu)
+- ✅ Create config file parser framework - Universal parser for all WMs (Arch Wiki based)
 - [ ] Implement SSH key detection
-- [ ] Add Hyprland config parser
+- ✅ Add Hyprland config parser - Included in universal framework
+- ✅ Add Sway/i3 config parser - Included in universal framework
+- ✅ Add support for all major WMs - Hyprland, Sway, i3, bspwm, awesome, qtile, etc.
 - [ ] Fix mirror list apply function
-- [ ] Add deduplication logic
-- [ ] Filter advice by detected hardware
+- ✅ Add deduplication logic - HashSet-based ID deduplication
+- ✅ Filter advice by detected hardware - Guards already present, detection fixed
 
 **Beta.85 - Intelligence (Context & User Profiling):**
 - [ ] User expertise detection system
