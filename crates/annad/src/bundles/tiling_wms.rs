@@ -19,6 +19,8 @@ pub fn generate_bundles(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(dwm_bundle(facts));
     advice.extend(xmonad_bundle(facts));
     advice.extend(herbstluftwm_bundle(facts));
+    advice.extend(awesome_bundle(facts));
+    advice.extend(qtile_bundle(facts));
 
     advice
 }
@@ -229,5 +231,92 @@ fn herbstluftwm_bundle(facts: &SystemFacts) -> Vec<Advice> {
         // Applications
         .keybind("SUPER+D", "Launch application menu (rofi)")
         .keybind("SUPER+Return", "Launch terminal")
+        .build(facts)
+}
+
+/// awesome bundle - Dynamic window manager with Lua configuration
+fn awesome_bundle(facts: &SystemFacts) -> Vec<Advice> {
+    WMBundleBuilder::new("awesome")
+        .display_server(DisplayServer::X11)
+        .wm_package("awesome")
+        .launcher("rofi")
+        .status_bar("") // awesome has built-in wibar
+        .terminal("alacritty")
+        .file_manager("thunar", "ranger")
+        .notification_daemon("dunst")
+        .wallpaper_manager("feh")
+        .lock_screen("i3lock")
+        .network_manager("networkmanager")
+        .bluetooth_manager("blueman")
+        // Window Management
+        .keybind("SUPER+Shift+C", "Close window")
+        .keybind("SUPER+Shift+Q", "Exit awesome")
+        .keybind("SUPER+F", "Toggle fullscreen")
+        .keybind("SUPER+Space", "Toggle floating")
+        .keybind("SUPER+M", "Toggle maximize")
+        .keybind("SUPER+N", "Toggle minimize")
+        // Layouts
+        .keybind("SUPER+L", "Increase master width")
+        .keybind("SUPER+H", "Decrease master width")
+        .keybind("SUPER+Shift+H", "Increase master count")
+        .keybind("SUPER+Shift+L", "Decrease master count")
+        .keybind("SUPER+Ctrl+Space", "Cycle layouts")
+        // Workspaces (Tags in Awesome)
+        .keybind("SUPER+1-9", "View tag 1-9")
+        .keybind("SUPER+Shift+1-9", "Move window to tag 1-9")
+        .keybind("SUPER+J", "Focus next window")
+        .keybind("SUPER+K", "Focus previous window")
+        .keybind("SUPER+Shift+J", "Swap with next window")
+        .keybind("SUPER+Shift+K", "Swap with previous window")
+        // Applications
+        .keybind("SUPER+D", "Launch application menu (rofi)")
+        .keybind("SUPER+Return", "Launch terminal")
+        // System
+        .keybind("SUPER+Ctrl+R", "Restart awesome")
+        .keybind("SUPER+B", "Toggle wibar visibility")
+        .build(facts)
+}
+
+/// qtile bundle - Python-based tiling window manager
+fn qtile_bundle(facts: &SystemFacts) -> Vec<Advice> {
+    WMBundleBuilder::new("qtile")
+        .display_server(DisplayServer::Both)
+        .wm_package("qtile")
+        .launcher("rofi")
+        .status_bar("") // qtile has built-in bar
+        .terminal("alacritty")
+        .file_manager("pcmanfm", "ranger")
+        .notification_daemon("dunst")
+        .wallpaper_manager("feh")
+        .lock_screen("i3lock")
+        .network_manager("networkmanager")
+        .bluetooth_manager("blueman")
+        // Window Management
+        .keybind("SUPER+W", "Close window")
+        .keybind("SUPER+Ctrl+Q", "Exit qtile")
+        .keybind("SUPER+F", "Toggle fullscreen")
+        .keybind("SUPER+Shift+Space", "Toggle floating")
+        .keybind("SUPER+M", "Toggle maximize")
+        // Layouts
+        .keybind("SUPER+Space", "Cycle layouts")
+        .keybind("SUPER+H", "Shrink master area")
+        .keybind("SUPER+L", "Expand master area")
+        .keybind("SUPER+N", "Reset window sizes")
+        // Workspaces (Groups in Qtile)
+        .keybind("SUPER+1-9", "Switch to group 1-9")
+        .keybind("SUPER+Shift+1-9", "Move window to group 1-9")
+        .keybind("SUPER+J", "Focus next window")
+        .keybind("SUPER+K", "Focus previous window")
+        .keybind("SUPER+Shift+J", "Shuffle window down")
+        .keybind("SUPER+Shift+K", "Shuffle window up")
+        // Applications
+        .keybind("SUPER+D", "Launch application menu (rofi)")
+        .keybind("SUPER+Return", "Launch terminal")
+        .keybind("SUPER+B", "Launch browser")
+        // System
+        .keybind("SUPER+Ctrl+R", "Restart qtile")
+        .keybind("XF86AudioRaiseVolume", "Increase volume")
+        .keybind("XF86AudioLowerVolume", "Decrease volume")
+        .keybind("XF86AudioMute", "Toggle mute")
         .build(facts)
 }

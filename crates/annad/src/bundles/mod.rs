@@ -38,6 +38,7 @@ use std::collections::HashMap;
 
 pub mod wayland_compositors;
 pub mod tiling_wms;
+pub mod stacking_wms;
 
 /// Bundle variant types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -483,13 +484,14 @@ impl WMBundleBuilder {
 pub fn generate_all_wm_bundles(facts: &SystemFacts) -> Vec<Advice> {
     let mut advice = Vec::new();
 
-    // Wayland compositors
+    // Wayland compositors (4 WMs)
     advice.extend(wayland_compositors::generate_bundles(facts));
 
-    // Tiling WMs
+    // Tiling WMs (7 WMs)
     advice.extend(tiling_wms::generate_bundles(facts));
 
-    // More categories to be added...
+    // Stacking WMs (3 WMs)
+    advice.extend(stacking_wms::generate_bundles(facts));
 
     advice
 }
