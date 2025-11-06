@@ -147,7 +147,7 @@ pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action> {
 }
 
 /// Execute a shell command safely
-async fn execute_command(command: &str) -> Result<String> {
+pub async fn execute_command(command: &str) -> Result<String> {
     if command.trim().is_empty() {
         return Err(anyhow::anyhow!("Empty command"));
     }

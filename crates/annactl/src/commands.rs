@@ -2302,7 +2302,7 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
 }
 
 /// Rollback a workflow bundle (by name or #number)
-pub async fn rollback(bundle_identifier: &str, dry_run: bool) -> Result<()> {
+pub async fn rollback_bundle(bundle_identifier: &str, dry_run: bool) -> Result<()> {
     use anna_common::beautiful::{header, section};
 
     // Load bundle history
@@ -3495,6 +3495,172 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
 
     Ok(())
 }
+
+/// List all rollbackable actions (Beta.91)
+pub async fn rollback_list() -> Result<()> {
+    use anna_common::beautiful::{header, section, kv};
+    use anna_common::ipc::{Method, ResponseData};
+
+    println!("{}", header("Rollbackable Actions"));
+    println!();
+
+    let mut client = match crate::rpc_client::RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Cannot connect to daemon"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start daemon with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    match client.call(Method::ListRollbackable).await {
+        Ok(ResponseData::RollbackableActions(actions)) => {
+            if actions.is_empty() {
+                println!("{}", beautiful::status(Level::Info, "No rollbackable actions found"));
+                println!();
+                println!("  Actions become rollbackable after you apply advice.");
+                println!("  Use \x1b[38;5;159mannactl apply\x1b[0m to apply recommendations.");
+                return Ok(());
+            }
+
+            println!("{}", section(&format!("Found {} Rollbackable Actions", actions.len())));
+            println!();
+
+            for (i, action) in actions.iter().enumerate() {
+                println!("  \x1b[1m{}. {}\x1b[0m", i + 1, action.title);
+                println!("     {}", kv("ID", &action.advice_id));
+                println!("     {}", kv("Executed", &action.executed_at));
+                println!("     {}", kv("Command", &action.command));
+                if let Some(ref rollback_cmd) = action.rollback_command {
+                    println!("     \x1b[38;5;120m✓ Rollback:\x1b[0m {}", rollback_cmd);
+                } else {
+                    println!("     \x1b[38;5;196m✗ Cannot rollback:\x1b[0m {}",
+                        action.rollback_unavailable_reason.as_ref().unwrap_or(&"Unknown".to_string()));
+                }
+                println!();
+            }
+
+            println!("{}", section("How to Rollback"));
+            println!();
+            println!("  \x1b[38;5;159mannactl rollback action <advice-id>\x1b[0m");
+            println!("  \x1b[38;5;159mannactl rollback last [N]\x1b[0m");
+            println!();
+        }
+        Ok(_) => {
+            println!("{}", beautiful::status(Level::Error, "Unexpected response from daemon"));
+        }
+        Err(e) => {
+            println!("{}", beautiful::status(Level::Error, &format!("Failed to list rollbackable actions: {}", e)));
+        }
+    }
+
+    Ok(())
+}
+
+/// Rollback a specific action by advice ID (Beta.91)
+pub async fn rollback_action(advice_id: &str, dry_run: bool) -> Result<()> {
+    use anna_common::beautiful::{header, section};
+    use anna_common::ipc::{Method, ResponseData};
+
+    println!("{}", header(&format!("Rollback: {}", advice_id)));
+    println!();
+
+    let mut client = match crate::rpc_client::RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Cannot connect to daemon"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start daemon with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    if dry_run {
+        println!("{}", beautiful::status(Level::Info, "DRY RUN - No changes will be made"));
+        println!();
+    }
+
+    match client.call(Method::RollbackAction {
+        advice_id: advice_id.to_string(),
+        dry_run,
+    }).await {
+        Ok(ResponseData::RollbackResult { success, message, actions_reversed }) => {
+            if success {
+                println!("{}", beautiful::status(Level::Success, &message));
+                println!();
+                if !dry_run && !actions_reversed.is_empty() {
+                    println!("{}", section("Actions Rolled Back"));
+                    for id in actions_reversed {
+                        println!("  \x1b[38;5;120m✓\x1b[0m {}", id);
+                    }
+                    println!();
+                }
+            } else {
+                println!("{}", beautiful::status(Level::Error, &message));
+            }
+        }
+        Ok(_) => {
+            println!("{}", beautiful::status(Level::Error, "Unexpected response from daemon"));
+        }
+        Err(e) => {
+            println!("{}", beautiful::status(Level::Error, &format!("Rollback failed: {}", e)));
+        }
+    }
+
+    Ok(())
+}
+
+/// Rollback last N actions (Beta.91)
+pub async fn rollback_last(count: usize, dry_run: bool) -> Result<()> {
+    use anna_common::beautiful::{header, section};
+    use anna_common::ipc::{Method, ResponseData};
+
+    println!("{}", header(&format!("Rollback Last {} Action{}", count, if count == 1 { "" } else { "s" })));
+    println!();
+
+    let mut client = match crate::rpc_client::RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Cannot connect to daemon"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start daemon with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    if dry_run {
+        println!("{}", beautiful::status(Level::Info, "DRY RUN - No changes will be made"));
+        println!();
+    }
+
+    match client.call(Method::RollbackLast { count, dry_run }).await {
+        Ok(ResponseData::RollbackResult { success, message, actions_reversed }) => {
+            if success {
+                println!("{}", beautiful::status(Level::Success, &message));
+                println!();
+                if !dry_run && !actions_reversed.is_empty() {
+                    println!("{}", section("Actions Rolled Back"));
+                    for id in actions_reversed {
+                        println!("  \x1b[38;5;120m✓\x1b[0m {}", id);
+                    }
+                    println!();
+                }
+            } else {
+                println!("{}", beautiful::status(Level::Error, &message));
+            }
+        }
+        Ok(_) => {
+            println!("{}", beautiful::status(Level::Error, "Unexpected response from daemon"));
+        }
+        Err(e) => {
+            println!("{}", beautiful::status(Level::Error, &format!("Rollback failed: {}", e)));
+        }
+    }
+
+    Ok(())
+}
+
 /// Manage ignore filters
 pub async fn ignore(action: crate::IgnoreAction) -> Result<()> {
     use anna_common::beautiful::{header, section};

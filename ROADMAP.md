@@ -1372,9 +1372,9 @@ let command = advice.command  // From daemon, NOT from client!
 
 ---
 
-## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.89-90)
+## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.89-91)
 
-**Status:** 🔄 IN PROGRESS (Phase 1 Complete!)
+**Status:** ✅ PHASE 2 COMPLETE!
 **Priority:** HIGH
 
 ### Beta.89: Rollback Foundation ✅
@@ -1390,14 +1390,46 @@ let command = advice.command  // From daemon, NOT from client!
 
 **File:** `crates/anna_common/src/rollback.rs` (245 lines)
 
-**User Feedback:**
+### Beta.91: Rollback CLI Commands ✅
+**Status:** ✅ COMPLETE
+
+**Implemented:**
+- Action history storage in `/var/log/anna/action_history.jsonl`
+- RPC methods: `ListRollbackable`, `RollbackAction`, `RollbackLast`
+- CLI commands with subcommand structure:
+  - `annactl rollback list` - List all rollbackable actions
+  - `annactl rollback action <id>` - Rollback specific action
+  - `annactl rollback last [N]` - Rollback last N actions (default: 1)
+  - `annactl rollback bundle <name>` - Rollback bundle (existing)
+- Dry-run support with `--dry-run` flag
+- Beautiful formatted output with action details
+- Automatic action history tracking on successful applies
+
+**Files:**
+- `crates/annad/src/action_history.rs` (210 lines) - Action history manager
+- `crates/anna_common/src/ipc.rs` - RPC protocol extensions
+- `crates/annad/src/rpc_server.rs` - Rollback RPC handlers (+180 lines)
+- `crates/annactl/src/main.rs` - CLI structure with subcommands
+- `crates/annactl/src/commands.rs` - CLI implementations (+165 lines)
+
+**Architecture:**
+- Action history stored separately from audit log for better querying
+- Full Action objects preserved with rollback metadata
+- Query by advice ID, last N actions, or all rollbackable
+- Daemon executes rollback commands with full validation
+
+**User Feedback Addressed:**
 > "Rollbacks for actions and for bundles... interface must be extremely easy to use, intuitive and beautiful"
 
-### Current Limitation:
-- Only bundles can be rolled back
-- Individual advice actions cannot be undone
-- No rollback preview
-- No safety checks
+✅ Individual actions can now be rolled back
+✅ Beautiful, intuitive CLI interface
+✅ Dry-run preview before execution
+✅ Clear safety information and feedback
+
+### Remaining Work (Phase 3):
+- [ ] TUI rollback interface
+- [ ] Rollback safety warnings (dependency checks)
+- [ ] Bundle rollback using individual action rollbacks
 
 ### Proposed System: Rollback for Everything
 

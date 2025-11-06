@@ -97,6 +97,7 @@ mod wallpaper_config;
 mod rpc_server;
 mod executor;
 mod audit;
+mod action_history; // Beta.91: Rollback support
 mod watcher;
 mod notifier;
 mod snapshotter;

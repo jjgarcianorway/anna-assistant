@@ -78,18 +78,17 @@ enum Commands {
     /// List available workflow bundles
     Bundles,
 
-    /// Rollback a workflow bundle
+    /// Rollback actions or bundles (Beta.91+)
     ///
     /// Examples:
-    ///   annactl rollback hyprland        # Rollback Hyprland setup
-    ///   annactl rollback "Dev Stack"     # Rollback development stack
+    ///   annactl rollback list                 # List rollbackable actions
+    ///   annactl rollback action mangohud      # Rollback specific action
+    ///   annactl rollback last                 # Rollback last action
+    ///   annactl rollback last 3               # Rollback last 3 actions
+    ///   annactl rollback bundle hyprland      # Rollback bundle
     Rollback {
-        /// Bundle name to rollback
-        bundle: String,
-
-        /// Dry run (show what would be removed without removing)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
+        #[command(subcommand)]
+        action: RollbackAction,
     },
 
     /// Generate system health report (optionally filter by category)
@@ -232,6 +231,43 @@ enum Commands {
 }
 
 #[derive(Debug, Subcommand)]
+pub enum RollbackAction {
+    /// List all rollbackable actions
+    List,
+
+    /// Rollback a specific action by advice ID
+    Action {
+        /// Advice ID to rollback
+        advice_id: String,
+
+        /// Dry run (show what would be done without executing)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
+
+    /// Rollback last N actions (default: 1)
+    Last {
+        /// Number of actions to rollback (default: 1)
+        #[arg(default_value = "1")]
+        count: usize,
+
+        /// Dry run (show what would be done without executing)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
+
+    /// Rollback a workflow bundle
+    Bundle {
+        /// Bundle name to rollback
+        name: String,
+
+        /// Dry run (show what would be removed without removing)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 pub enum IgnoreAction {
     /// Show current ignore filters
     Show,
@@ -277,7 +313,18 @@ async fn main() -> Result<()> {
             commands::apply(id, numbers, bundle, auto, dry_run).await
         }
         Commands::Bundles => commands::bundles().await,
-        Commands::Rollback { bundle, dry_run } => commands::rollback(&bundle, dry_run).await,
+        Commands::Rollback { action } => match action {
+            RollbackAction::List => commands::rollback_list().await,
+            RollbackAction::Action { advice_id, dry_run } => {
+                commands::rollback_action(&advice_id, dry_run).await
+            }
+            RollbackAction::Last { count, dry_run } => {
+                commands::rollback_last(count, dry_run).await
+            }
+            RollbackAction::Bundle { name, dry_run } => {
+                commands::rollback_bundle(&name, dry_run).await
+            }
+        },
         Commands::Report { category } => commands::report(category).await,
         Commands::Doctor { fix, dry_run, auto } => commands::doctor(fix, dry_run, auto).await,
         Commands::Config { action, key, value } => commands::config_new(action, key, value).await,

@@ -72,6 +72,21 @@ pub enum Method {
         /// Skip download and just restart with current binaries
         restart_only: bool,
     },
+
+    /// List rollbackable actions (Beta.91)
+    ListRollbackable,
+
+    /// Rollback a specific action by advice ID (Beta.91)
+    RollbackAction {
+        advice_id: String,
+        dry_run: bool,
+    },
+
+    /// Rollback last N actions (Beta.91)
+    RollbackLast {
+        count: usize,
+        dry_run: bool,
+    },
 }
 
 /// Response data variants
@@ -124,6 +139,16 @@ pub enum ResponseData {
         old_version: String,
         new_version: String,
     },
+
+    /// List of rollbackable actions (Beta.91)
+    RollbackableActions(Vec<RollbackableAction>),
+
+    /// Rollback result (Beta.91)
+    RollbackResult {
+        success: bool,
+        message: String,
+        actions_reversed: Vec<String>, // List of advice IDs that were rolled back
+    },
 }
 
 /// Type of streaming chunk
@@ -135,6 +160,25 @@ pub enum StreamChunkType {
     Stderr,
     /// Status update
     Status,
+}
+
+/// Rollbackable action information (Beta.91)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RollbackableAction {
+    /// Advice ID that was applied
+    pub advice_id: String,
+    /// Human-readable title
+    pub title: String,
+    /// When it was executed (ISO 8601 timestamp)
+    pub executed_at: String,
+    /// Original command that was executed
+    pub command: String,
+    /// Generated rollback command
+    pub rollback_command: Option<String>,
+    /// Whether this action can be rolled back
+    pub can_rollback: bool,
+    /// Reason why rollback is not available (if applicable)
+    pub rollback_unavailable_reason: Option<String>,
 }
 
 /// Daemon status information

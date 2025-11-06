@@ -115,12 +115,14 @@ pub struct DaemonState {
     pub advice: RwLock<Vec<Advice>>,
     pub config: RwLock<ConfigData>,
     pub audit_logger: AuditLogger,
+    pub action_history: crate::action_history::ActionHistory, // Beta.91: Rollback support
     pub rate_limiter: RateLimiter,
 }
 
 impl DaemonState {
     pub async fn new(version: String, facts: SystemFacts, advice: Vec<Advice>) -> Result<Self> {
         let audit_logger = AuditLogger::new().await?;
+        let action_history = crate::action_history::ActionHistory::new().await?;
 
         Ok(Self {
             version,
@@ -129,6 +131,7 @@ impl DaemonState {
             advice: RwLock::new(advice),
             config: RwLock::new(ConfigData::default()),
             audit_logger,
+            action_history,
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
         })
     }
@@ -343,6 +346,13 @@ async fn handle_streaming_apply(
     let audit_entry = executor::create_audit_entry(&action, "annactl");
     if let Err(e) = state.audit_logger.log(&audit_entry).await {
         warn!("Failed to log audit entry: {}", e);
+    }
+
+    // Save to action history for rollback support (Beta.91)
+    if !dry_run && success {
+        if let Err(e) = state.action_history.save(&action).await {
+            warn!("Failed to save action to history: {}", e);
+        }
     }
 
     // Record to application history
@@ -600,6 +610,13 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                 warn!("Failed to log audit entry: {}", e);
                             }
 
+                            // Save to action history for rollback support (Beta.91)
+                            if !dry_run && action.success {
+                                if let Err(e) = state.action_history.save(&action).await {
+                                    warn!("Failed to save action to history: {}", e);
+                                }
+                            }
+
                             // Record to application history (only for actual execution, not dry-run)
                             if !dry_run {
                                 info!("Recording application history for: {}", adv.id);
@@ -821,6 +838,187 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         error!("Update check failed: {}", e);
                         Err(format!("Update check failed: {}", e))
                     }
+                }
+            }
+        }
+
+        Method::ListRollbackable => {
+            info!("Listing rollbackable actions");
+            match state.action_history.get_rollbackable_actions().await {
+                Ok(actions) => {
+                    use anna_common::ipc::RollbackableAction;
+
+                    // Get advice titles by loading current advice
+                    let advice_list = state.advice.read().await;
+
+                    let rollbackable: Vec<RollbackableAction> = actions
+                        .iter()
+                        .map(|action| {
+                            // Find matching advice for title
+                            let title = advice_list
+                                .iter()
+                                .find(|a| a.id == action.advice_id)
+                                .map(|a| a.title.clone())
+                                .unwrap_or_else(|| action.advice_id.clone());
+
+                            RollbackableAction {
+                                advice_id: action.advice_id.clone(),
+                                title,
+                                executed_at: action.executed_at.to_rfc3339(),
+                                command: action.command.clone(),
+                                rollback_command: action.rollback_command.clone(),
+                                can_rollback: action.can_rollback,
+                                rollback_unavailable_reason: action.rollback_unavailable_reason.clone(),
+                            }
+                        })
+                        .collect();
+
+                    info!("Found {} rollbackable actions", rollbackable.len());
+                    Ok(ResponseData::RollbackableActions(rollbackable))
+                }
+                Err(e) => {
+                    error!("Failed to get rollbackable actions: {}", e);
+                    Err(format!("Failed to get rollbackable actions: {}", e))
+                }
+            }
+        }
+
+        Method::RollbackAction { advice_id, dry_run } => {
+            info!("Rollback requested for advice: {} (dry_run={})", advice_id, dry_run);
+
+            match state.action_history.get_by_advice_id(&advice_id).await {
+                Ok(Some(action)) => {
+                    if !action.can_rollback {
+                        let reason = action.rollback_unavailable_reason
+                            .unwrap_or_else(|| "Rollback not available".to_string());
+                        return Response {
+                            id,
+                            result: Err(format!("Cannot rollback: {}", reason)),
+                        };
+                    }
+
+                    let rollback_cmd = match &action.rollback_command {
+                        Some(cmd) => cmd.clone(),
+                        None => {
+                            return Response {
+                                id,
+                                result: Err("No rollback command available".to_string()),
+                            };
+                        }
+                    };
+
+                    if dry_run {
+                        info!("Dry-run rollback for {}: {}", advice_id, rollback_cmd);
+                        Ok(ResponseData::RollbackResult {
+                            success: true,
+                            message: format!("[DRY RUN] Would execute rollback: {}", rollback_cmd),
+                            actions_reversed: vec![advice_id],
+                        })
+                    } else {
+                        // Execute the rollback command
+                        info!("Executing rollback: {}", rollback_cmd);
+                        match executor::execute_command(&rollback_cmd).await {
+                            Ok(output) => {
+                                info!("Rollback successful for {}", advice_id);
+                                Ok(ResponseData::RollbackResult {
+                                    success: true,
+                                    message: format!("Rollback successful:\n{}", output),
+                                    actions_reversed: vec![advice_id],
+                                })
+                            }
+                            Err(e) => {
+                                error!("Rollback failed for {}: {}", advice_id, e);
+                                Err(format!("Rollback failed: {}", e))
+                            }
+                        }
+                    }
+                }
+                Ok(None) => {
+                    Err(format!("No action found for advice: {}", advice_id))
+                }
+                Err(e) => {
+                    error!("Failed to retrieve action: {}", e);
+                    Err(format!("Failed to retrieve action: {}", e))
+                }
+            }
+        }
+
+        Method::RollbackLast { count, dry_run } => {
+            info!("Rollback last {} actions (dry_run={})", count, dry_run);
+
+            match state.action_history.get_last_n_actions(count).await {
+                Ok(actions) => {
+                    if actions.is_empty() {
+                        return Response {
+                            id,
+                            result: Err("No actions to rollback".to_string()),
+                        };
+                    }
+
+                    // Filter rollbackable actions
+                    let rollbackable: Vec<_> = actions
+                        .into_iter()
+                        .filter(|a| a.can_rollback && a.rollback_command.is_some())
+                        .collect();
+
+                    if rollbackable.is_empty() {
+                        return Response {
+                            id,
+                            result: Err("No rollbackable actions in last {} actions".to_string()),
+                        };
+                    }
+
+                    if dry_run {
+                        let commands: Vec<String> = rollbackable
+                            .iter()
+                            .map(|a| format!("{}: {}",
+                                a.advice_id,
+                                a.rollback_command.as_ref().unwrap()))
+                            .collect();
+
+                        Ok(ResponseData::RollbackResult {
+                            success: true,
+                            message: format!("[DRY RUN] Would rollback {} actions:\n{}",
+                                rollbackable.len(),
+                                commands.join("\n")),
+                            actions_reversed: rollbackable.iter().map(|a| a.advice_id.clone()).collect(),
+                        })
+                    } else {
+                        // Execute rollbacks in reverse order (most recent first)
+                        let mut reversed_ids = Vec::new();
+                        let mut all_outputs = Vec::new();
+
+                        for action in rollbackable {
+                            let cmd = action.rollback_command.as_ref().unwrap();
+                            info!("Executing rollback for {}: {}", action.advice_id, cmd);
+
+                            match executor::execute_command(cmd).await {
+                                Ok(output) => {
+                                    info!("Rollback successful for {}", action.advice_id);
+                                    reversed_ids.push(action.advice_id.clone());
+                                    all_outputs.push(format!("✓ {}: {}", action.advice_id, output.lines().next().unwrap_or("")));
+                                }
+                                Err(e) => {
+                                    error!("Rollback failed for {}: {}", action.advice_id, e);
+                                    all_outputs.push(format!("✗ {}: {}", action.advice_id, e));
+                                }
+                            }
+                        }
+
+                        let success = !reversed_ids.is_empty();
+                        Ok(ResponseData::RollbackResult {
+                            success,
+                            message: format!("Rolled back {} of {} actions:\n{}",
+                                reversed_ids.len(),
+                                count,
+                                all_outputs.join("\n")),
+                            actions_reversed: reversed_ids,
+                        })
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to get last actions: {}", e);
+                    Err(format!("Failed to get last actions: {}", e))
                 }
             }
         }
