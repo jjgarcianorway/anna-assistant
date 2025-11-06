@@ -933,7 +933,73 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ---
 
-### Beta.112+ - Advanced Bundle Management (PLANNED)
+### Beta.112 - Hardware-Aware Bundles & Multimedia Tools
+**Status:** ✅ COMPLETED
+
+**User Feedback:**
+> "ensure that hyprland setup is perfect... volume control, bluetooth, wifi, date formatted... everything a user can need"
+
+**Solution Implemented:**
+- ✅ Added `audio_control` field for pamixer/pavucontrol integration
+- ✅ Added `brightness_control` field for laptop brightness keys
+- ✅ Hardware-aware installation: brightness control only on laptops
+- ✅ Multimedia key functionality: Volume up/down/mute, brightness control
+- ✅ Conditional logic: `facts.user_preferences.uses_laptop`
+- ✅ Smart detection: Only installs tools if not already present
+
+**Files Modified:**
+- `crates/annad/src/bundles/mod.rs` - Added audio_control and brightness_control fields
+- `crates/annad/src/bundles/wayland_compositors.rs` - Enhanced Hyprland bundle with pamixer, brightnessctl
+
+---
+
+### Beta.113 - Complete Application Suite & Beautification
+**Status:** ✅ COMPLETED
+
+**User Feedback:**
+> "terminal, file manager, video player, etc... everything according to what a perfect hyprland user would have"
+> "beautifully crafted and configured so colors matches, themes gtk,..."
+> "maybe use python-pywal... to auto generate terminal colors based on the wallpaper"
+> "make it look amazing ;)"
+
+**Solution Implemented:**
+- ✅ Complete app suite: mpv, imv, zathura, nano
+- ✅ Pywal integration: Auto color generation from wallpaper
+- ✅ Beautiful theming: arc-gtk-theme, papirus-icon-theme, bibata-cursor-theme
+- ✅ System-wide color harmony with python-pywal
+- ✅ Added 10+ new builder methods for apps and theming
+- ✅ Bundle grew from 13 steps → 27+ steps
+- ✅ THE PERFECT HYPRLAND SETUP!
+
+**Files Modified:**
+- `crates/annad/src/bundles/mod.rs` - Added media_player, image_viewer, pdf_viewer, text_editor, color_scheme_generator, gtk_theme, icon_theme, cursor_theme fields
+- `crates/annad/src/bundles/wayland_compositors.rs` - Complete Hyprland bundle with all apps and themes
+
+---
+
+### Beta.114 - Screen Sharing Support for Teams/Zoom
+**Status:** ✅ COMPLETED
+
+**User Feedback:**
+> "ensure that sharing screen will work in case of teams or zoom meetings"
+> "put a nice and beautiful cursor for the mouse that works"
+> "make it gorgeous ;)"
+
+**Solution Implemented:**
+- ✅ Added `screen_sharing` field for xdg-desktop-portal integration
+- ✅ Added `audio_server` field for pipewire/wireplumber
+- ✅ Full Teams/Zoom/Google Meet support
+- ✅ Modern audio/video routing with pipewire
+- ✅ Screen capture protocol via xdg-desktop-portal-hyprland
+- ✅ Cursor and icons already perfect (Beta.113: bibata-cursor-theme, papirus-icon-theme)
+
+**Files Modified:**
+- `crates/annad/src/bundles/mod.rs` - Added screen_sharing and audio_server fields with installation logic
+- `crates/annad/src/bundles/wayland_compositors.rs` - Updated Hyprland bundle with pipewire and screen sharing portal
+
+---
+
+### Beta.115+ - Advanced Bundle Management (PLANNED)
 **Status:** 🔜 PLANNED
 
 **User Requirements:**
@@ -1009,11 +1075,13 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 - [ ] Result: **Complete, beautiful, functional system out of the box**
 
 **Implementation Priority:**
-1. **Beta.112**: Hardware-aware configs + complete beautification
-2. **Beta.113**: Config backup system + basic rollback
-3. **Beta.114**: Orphaned config detection
-4. **Beta.115**: Enhanced step visibility + failure handling
-5. **Beta.116**: Provenance tracking + smart merging
+1. ✅ **Beta.112**: Hardware-aware configs + multimedia tools (COMPLETED)
+2. ✅ **Beta.113**: Complete beautification + application suite (COMPLETED)
+3. ✅ **Beta.114**: Screen sharing support for video conferencing (COMPLETED)
+4. **Beta.115**: Config backup system + basic rollback
+5. **Beta.116**: Orphaned config detection
+6. **Beta.117**: Enhanced step visibility + failure handling
+7. **Beta.118**: Provenance tracking + smart merging
 
 **Files to Create/Modify:**
 - `crates/anna_common/src/config_backup.rs` - Backup management

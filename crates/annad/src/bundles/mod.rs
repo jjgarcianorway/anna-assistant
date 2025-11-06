@@ -95,6 +95,8 @@ pub struct WMComponents {
     pub bluetooth_manager: Option<String>,
     pub audio_control: Option<String>,
     pub brightness_control: Option<String>,
+    pub screen_sharing: Option<String>, // xdg-desktop-portal backend for screen sharing
+    pub audio_server: Option<String>, // pipewire for modern audio/video
 
     // Theming
     pub gtk_theme: Option<String>,
@@ -136,6 +138,8 @@ impl Default for WMComponents {
             bluetooth_manager: None,
             audio_control: None,
             brightness_control: None,
+            screen_sharing: None,
+            audio_server: None,
             gtk_theme: None,
             icon_theme: None,
             cursor_theme: None,
@@ -308,6 +312,18 @@ impl WMBundleBuilder {
     /// Set color scheme generator (pywal, etc.)
     pub fn color_scheme_generator(mut self, generator: &str) -> Self {
         self.components.color_scheme_generator = Some(generator.to_string());
+        self
+    }
+
+    /// Set screen sharing portal (for Teams/Zoom)
+    pub fn screen_sharing(mut self, portal: &str) -> Self {
+        self.components.screen_sharing = Some(portal.to_string());
+        self
+    }
+
+    /// Set audio server (pipewire for modern audio/video)
+    pub fn audio_server(mut self, server: &str) -> Self {
+        self.components.audio_server = Some(server.to_string());
         self
     }
 
@@ -633,6 +649,38 @@ impl WMBundleBuilder {
                         format!("pacman -S --noconfirm {}", cursor),
                         "beautification".to_string(),
                         Priority::Optional,
+                    )
+                );
+            }
+        }
+
+        // 7k. Audio Server - Pipewire! (Beta.114)
+        if let Some(audio_server) = &self.components.audio_server {
+            if !self.is_package_installed(audio_server, facts) {
+                advice.push(
+                    self.make_advice(
+                        "audio-server",
+                        format!("Install {} - Modern audio/video server", audio_server),
+                        format!("{} provides modern audio routing and is required for screen sharing in Teams, Zoom, and other video conferencing apps. Also includes wireplumber session manager.", audio_server),
+                        format!("pacman -S --noconfirm {} wireplumber", audio_server),
+                        "system".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7l. Screen Sharing Portal (Beta.114)
+        if let Some(portal) = &self.components.screen_sharing {
+            if !self.is_package_installed(portal, facts) {
+                advice.push(
+                    self.make_advice(
+                        "screen-sharing",
+                        format!("Install {} - Screen sharing for Teams/Zoom", portal),
+                        format!("{} enables screen sharing in video conferencing apps like Teams, Zoom, Google Meet, etc. Required for xdg-desktop-portal screen capture.", portal),
+                        format!("pacman -S --noconfirm {} xdg-desktop-portal", portal),
+                        "system".to_string(),
+                        Priority::Recommended,
                     )
                 );
             }
