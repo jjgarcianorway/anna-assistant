@@ -269,7 +269,8 @@ impl Tui {
 
             match self.client.call(Method::ApplyAction {
                 advice_id: advice_id.clone(),
-                dry_run: false
+                dry_run: false,
+                stream: false,
             }).await? {
                 ResponseData::ActionResult { success, message } => {
                     // Add output lines to buffer

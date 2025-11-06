@@ -41,7 +41,11 @@ pub enum Method {
     },
 
     /// Apply an action by advice ID
-    ApplyAction { advice_id: String, dry_run: bool },
+    ApplyAction {
+        advice_id: String,
+        dry_run: bool,
+        stream: bool, // Enable live output streaming
+    },
 
     /// Get configuration
     GetConfig,
@@ -80,6 +84,29 @@ pub enum ResponseData {
 
     /// Simple success/pong
     Ok,
+
+    /// Streaming chunk (for live command output)
+    StreamChunk {
+        chunk_type: StreamChunkType,
+        data: String,
+    },
+
+    /// Stream end marker
+    StreamEnd {
+        success: bool,
+        message: String,
+    },
+}
+
+/// Type of streaming chunk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StreamChunkType {
+    /// Standard output
+    Stdout,
+    /// Standard error
+    Stderr,
+    /// Status update
+    Status,
 }
 
 /// Daemon status information

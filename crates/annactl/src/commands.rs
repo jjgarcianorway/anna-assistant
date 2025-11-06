@@ -662,6 +662,7 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
             .call(Method::ApplyAction {
                 advice_id: advice_id.clone(),
                 dry_run,
+                stream: false,
             })
             .await?;
 
@@ -770,6 +771,7 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
             let result = client.call(Method::ApplyAction {
                 advice_id: advice_id.clone(),
                 dry_run,
+                stream: false,
             }).await?;
 
             if let ResponseData::ActionResult { success, message } = result {
@@ -2143,6 +2145,7 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
                 .call(Method::ApplyAction {
                     advice_id: advice.id.clone(),
                     dry_run: false,
+                    stream: false,
                 })
                 .await?;
 

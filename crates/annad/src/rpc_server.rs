@@ -235,7 +235,12 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             Ok(ResponseData::Advice(filtered_advice))
         }
 
-        Method::ApplyAction { advice_id, dry_run } => {
+        Method::ApplyAction { advice_id, dry_run, stream } => {
+            if stream {
+                info!("Streaming requested for action {} (not yet implemented)", advice_id);
+                // TODO: Implement streaming using execute_command_streaming
+            }
+
             // Find the advice
             let advice_list = state.advice.read().await;
             let advice = advice_list.iter().find(|a| a.id == advice_id).cloned();

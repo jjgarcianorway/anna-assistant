@@ -123,6 +123,82 @@ async fn execute_command(command: &str) -> Result<String> {
     }
 }
 
+/// Streaming chunk for real-time command output
+#[derive(Debug, Clone)]
+pub enum ExecutionChunk {
+    Stdout(String),
+    Stderr(String),
+    Status(String),
+}
+
+/// Execute a command with streaming output
+pub async fn execute_command_streaming<F>(
+    command: &str,
+    mut output_callback: F,
+) -> Result<bool>
+where
+    F: FnMut(ExecutionChunk),
+{
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    if command.trim().is_empty() {
+        return Err(anyhow::anyhow!("Empty command"));
+    }
+
+    info!("Executing shell command with streaming: {}", command);
+    output_callback(ExecutionChunk::Status(format!("Executing: {}", command)));
+
+    // Spawn process with pipes
+    let mut child = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("Failed to spawn command")?;
+
+    let stdout = child.stdout.take().context("Failed to capture stdout")?;
+    let stderr = child.stderr.take().context("Failed to capture stderr")?;
+
+    let mut stdout_reader = BufReader::new(stdout).lines();
+    let mut stderr_reader = BufReader::new(stderr).lines();
+
+    // Read stdout and stderr concurrently
+    loop {
+        tokio::select! {
+            result = stdout_reader.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        output_callback(ExecutionChunk::Stdout(line));
+                    }
+                    Ok(None) => break, // stdout closed
+                    Err(e) => {
+                        error!("Error reading stdout: {}", e);
+                        break;
+                    }
+                }
+            }
+            result = stderr_reader.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        output_callback(ExecutionChunk::Stderr(line));
+                    }
+                    Ok(None) => break, // stderr closed
+                    Err(e) => {
+                        error!("Error reading stderr: {}", e);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Wait for process to complete
+    let status = child.wait().await.context("Failed to wait for command")?;
+
+    Ok(status.success())
+}
+
 /// Create a rollback token for an action with snapshot info
 #[allow(dead_code)]
 pub fn create_rollback_token(
