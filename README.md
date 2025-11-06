@@ -10,7 +10,18 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 
 ## 🎯 What's New in Beta.84
 
-**🔍 Universal Config Parser Framework:**
+**🔍 Telemetry & Detection Improvements:**
+- **SSH Key Detection:** Checks ~/.ssh/ for existing keys before recommending key creation
+  - Detects id_ed25519, id_rsa, id_ecdsa, id_dsa
+  - Added has_ssh_client_keys field to NetworkProfile
+- **TLP Error Whitelisting:** Filters out false positive errors from system logs
+  - Whitelists TLP, GNOME Shell, PulseAudio/Pipewire informational messages
+  - Significantly reduces false "excessive system errors" warnings
+- **GPU Detection Fix:** Line-by-line lspci parsing prevents Intel detection on Nvidia systems
+  - Zero false positives for hardware-specific recommendations
+  - Accurate vendor detection (Nvidia, AMD, Intel)
+
+**🪟 Universal Config Parser Framework:**
 - **11 Window Managers Supported:** Hyprland, Sway, i3, bspwm, awesome, qtile, river, wayfire, openbox, xmonad, dwm
 - **Multiple Config Formats:** Parses HyprlandConf, i3-style, INI, Shell scripts, Lua, Python, Haskell
 - **Automatic WM Detection:** Detects your active window manager automatically
@@ -18,15 +29,11 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 - **Nvidia+Wayland Support:** Properly detects Nvidia env vars in Hyprland/Sway/i3 configs
 - **Based on Official Docs:** Built from Arch Wiki, Hyprland docs, i3 docs, Sway docs
 
-**🎮 GPU Detection Improvements:**
-- **Fixed Critical False Positives:** Intel detection on Nvidia systems resolved
-- **Line-by-Line Parsing:** Only detects GPUs on actual VGA/Display/3D controller lines
-- **Accurate Vendor Detection:** Works for Nvidia, AMD, Intel
-- **Hardware-Specific Filtering:** Intel/AMD/Nvidia advice only shows on correct hardware
-
-**✨ Quality Improvements:**
+**🔧 Bug Fixes & Quality Improvements:**
+- **Mirror List Apply Fix:** Added sudo to reflector command - actually works now!
+- **Status Command Display:** Increased detail truncation from 60 to 120 characters
 - **Deduplication Logic:** Eliminates duplicate advice (mangohud, proton, etc.)
-- **Version Comparison Fix:** No more false "update available" messages
+- **Version Comparison Fix:** Strips 'v' prefix from GitHub tags
 - **Config Awareness:** Respects your existing configurations
 
 ---

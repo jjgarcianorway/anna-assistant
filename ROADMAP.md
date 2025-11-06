@@ -1479,39 +1479,55 @@ Estimated time: 30 seconds
 
 ---
 
-### Beta.84 - Config Awareness & Hardware Detection (COMPLETED Items)
-**Status:** ✅ PARTIAL COMPLETION
+### Beta.84 - Foundation Quality Fixes (COMPLETED)
+**Status:** ✅ FULLY COMPLETED
 
-**Completed:**
+**Telemetry & Detection Improvements:**
 1. **GPU Detection Fix** - Fixed CRITICAL false positives
    - Line-by-line lspci parsing prevents Intel detection on Nvidia systems
    - Accurate GPU vendor detection (Nvidia, AMD, Intel)
    - Zero false positives for hardware recommendations
 
-2. **Universal Config Parser Framework** - Built from Arch Wiki specs
+2. **SSH Key Detection** - Checks ~/.ssh/ for existing keys
+   - Detects id_ed25519, id_rsa, id_ecdsa, id_dsa
+   - Added has_ssh_client_keys field to NetworkProfile
+   - Prevents recommending key creation when user already has keys
+
+3. **TLP Error Whitelisting** - Filters out false positive errors
+   - Whitelists common TLP informational messages logged as errors
+   - Also filters GNOME Shell, PulseAudio/Pipewire benign errors
+   - Significantly reduces false "excessive system errors" warnings
+
+**Config & Parser Framework:**
+4. **Universal Config Parser Framework** - Built from Arch Wiki specs
    - Supports 11 window managers: Hyprland, Sway, i3, bspwm, awesome, qtile, river, wayfire, openbox, xmonad, dwm
    - Detects active WM automatically
    - Parses multiple config formats: HyprlandConf, i3-style, INI, Shell, Lua, Python, Haskell
    - Check for environment variables in WM configs
    - Check for specific settings/configurations
 
-3. **Nvidia Env Var Detection** - Checks WM configs properly
+5. **Nvidia Env Var Detection** - Checks WM configs properly
    - Now detects Nvidia env vars in Hyprland/Sway/i3 configs
    - Stops recommending vars that are already configured
    - Checks both WM configs AND system configs
 
-4. **Deduplication Logic** - Eliminates duplicate advice
+**Bug Fixes:**
+6. **Deduplication Logic** - Eliminates duplicate advice
    - HashSet-based ID deduplication
    - Removes duplicates like mangohud appearing 3 times
    - Logs duplicate count for debugging
 
-5. **Version Comparison Fix** - Strips 'v' prefix from GitHub tags
+7. **Version Comparison Fix** - Strips 'v' prefix from GitHub tags
    - Prevents false "update available" when already on latest
 
-**Remaining Work:**
-- SSH key detection
-- Mirror list apply function fix
-- TLP error whitelisting
+8. **Mirror List Apply Fix** - Added sudo to reflector command
+   - Command now works instead of failing with permission error
+   - Users can actually update their mirror list
+
+9. **Status Command Display Fix** - Increased detail truncation limit
+   - Raised from 60 to 120 characters
+   - Prevents command output from being excessively cropped
+   - Full commands now visible in Recent Activity section
 
 ---
 

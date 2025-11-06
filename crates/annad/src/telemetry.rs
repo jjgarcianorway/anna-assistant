@@ -1693,6 +1693,7 @@ fn analyze_network_profile() -> NetworkProfile {
         vpn_configured: check_vpn_configured(),
         firewall_active: check_firewall_active(),
         ssh_server_running: check_service_running("sshd"),
+        has_ssh_client_keys: check_ssh_client_keys(),
         has_static_ip: false, // Placeholder - complex to detect reliably
         dns_configuration: detect_dns_config(),
         uses_network_share: check_network_shares(),
@@ -1730,6 +1731,32 @@ fn detect_dns_config() -> String {
 fn check_network_shares() -> bool {
     if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
         return mounts.contains("nfs") || mounts.contains("cifs");
+    }
+    false
+}
+
+/// Check if user has SSH client keys in ~/.ssh/
+fn check_ssh_client_keys() -> bool {
+    if let Ok(home) = std::env::var("HOME") {
+        let ssh_dir = std::path::PathBuf::from(format!("{}/.ssh", home));
+        if !ssh_dir.exists() {
+            return false;
+        }
+
+        // Check for common SSH key types
+        let key_files = [
+            "id_ed25519",      // Ed25519 (modern, recommended)
+            "id_rsa",          // RSA (common)
+            "id_ecdsa",        // ECDSA (older but still used)
+            "id_dsa",          // DSA (very old, deprecated)
+        ];
+
+        for key_file in &key_files {
+            let key_path = ssh_dir.join(key_file);
+            if key_path.exists() {
+                return true;
+            }
+        }
     }
     false
 }
@@ -2127,7 +2154,13 @@ fn count_journal_issues() -> (usize, usize) {
         .args(&["--since", "24 hours ago", "-p", "err", "--no-pager"])
         .output()
     {
-        errors = String::from_utf8_lossy(&output.stdout).lines().count();
+        let error_lines = String::from_utf8_lossy(&output.stdout);
+
+        // Filter out known false positives (TLP and other common benign errors)
+        errors = error_lines
+            .lines()
+            .filter(|line| !is_whitelisted_error(line))
+            .count();
     }
 
     if let Ok(output) = Command::new("journalctl")
@@ -2138,6 +2171,39 @@ fn count_journal_issues() -> (usize, usize) {
     }
 
     (errors, warnings)
+}
+
+/// Check if an error message is whitelisted (known false positive)
+fn is_whitelisted_error(line: &str) -> bool {
+    let line_lower = line.to_lowercase();
+
+    // TLP common false positives
+    if line_lower.contains("tlp") {
+        // TLP logs many things at error level that are informational
+        if line_lower.contains("laptop-mode-tools detected")
+            || line_lower.contains("deprecated")
+            || line_lower.contains("not configured")
+            || line_lower.contains("not available")
+            || line_lower.contains("not installed")
+            || line_lower.contains("could not enable")
+        {
+            return true;
+        }
+    }
+
+    // GNOME Shell warnings often logged as errors
+    if line_lower.contains("gjs") && line_lower.contains("warning") {
+        return true;
+    }
+
+    // PulseAudio/Pipewire common benign errors
+    if (line_lower.contains("pulseaudio") || line_lower.contains("pipewire"))
+        && (line_lower.contains("deprecated") || line_lower.contains("suspend"))
+    {
+        return true;
+    }
+
+    false
 }
 
 /// Get critical system events from journal

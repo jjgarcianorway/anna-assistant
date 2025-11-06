@@ -340,6 +340,7 @@ pub struct NetworkProfile {
     pub vpn_configured: bool, // WireGuard, OpenVPN, etc.
     pub firewall_active: bool,
     pub ssh_server_running: bool,
+    pub has_ssh_client_keys: bool, // User has SSH keys in ~/.ssh/
     pub has_static_ip: bool,
     pub dns_configuration: String, // systemd-resolved, dnsmasq, etc.
     pub uses_network_share: bool, // NFS, Samba mounts

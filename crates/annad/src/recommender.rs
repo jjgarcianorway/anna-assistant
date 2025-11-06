@@ -1116,7 +1116,7 @@ fn check_reflector() -> Vec<Advice> {
                             title: format!("Your mirror list is {} days old", days_old),
                             reason: "Your mirror list hasn't been updated in over a month. Mirrors can change speed over time, and new faster ones might be available. Running reflector will find you the best mirrors right now.".to_string(),
                             action: "Update your mirror list with reflector".to_string(),
-                            command: Some("reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist".to_string()),
+                            command: Some("sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist".to_string()),
                             risk: RiskLevel::Medium,
                             priority: Priority::Recommended,
                             category: "Performance & Optimization".to_string(),

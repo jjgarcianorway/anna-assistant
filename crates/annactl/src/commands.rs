@@ -168,8 +168,8 @@ pub async fn status() -> Result<()> {
                 );
 
                 // Show details on next line, indented
-                let details = if entry.details.len() > 60 {
-                    format!("{}...", &entry.details[..57])
+                let details = if entry.details.len() > 120 {
+                    format!("{}...", &entry.details[..117])
                 } else {
                     entry.details.clone()
                 };
