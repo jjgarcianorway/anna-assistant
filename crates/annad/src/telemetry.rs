@@ -382,14 +382,48 @@ fn detect_window_manager() -> Option<String> {
     if let Ok(wm) = std::env::var("XDG_CURRENT_DESKTOP") {
         // Map common WM names
         match wm.to_lowercase().as_str() {
+            // Wayland compositors
             "hyprland" => return Some("Hyprland".to_string()),
-            "i3" => return Some("i3".to_string()),
             "sway" => return Some("sway".to_string()),
+            "wayfire" => return Some("Wayfire".to_string()),
+            "river" => return Some("River".to_string()),
+            // Tiling WMs
+            "i3" => return Some("i3".to_string()),
             "bspwm" => return Some("bspwm".to_string()),
             "qtile" => return Some("Qtile".to_string()),
             "dwm" => return Some("dwm".to_string()),
-            "awesome" => return Some("Awesome".to_string()),
             "xmonad" => return Some("XMonad".to_string()),
+            "herbstluftwm" => return Some("Herbstluftwm".to_string()),
+            "leftwm" => return Some("LeftWM".to_string()),
+            "spectrwm" => return Some("Spectrwm".to_string()),
+            "ratpoison" => return Some("Ratpoison".to_string()),
+            "stumpwm" => return Some("StumpWM".to_string()),
+            // Stacking WMs
+            "awesome" => return Some("Awesome".to_string()),
+            "openbox" => return Some("Openbox".to_string()),
+            "fluxbox" => return Some("Fluxbox".to_string()),
+            "blackbox" => return Some("Blackbox".to_string()),
+            "icewm" => return Some("IceWM".to_string()),
+            "jwm" => return Some("JWM".to_string()),
+            "enlightenment" => return Some("Enlightenment".to_string()),
+            "fvwm" => return Some("FVWM".to_string()),
+            "windowmaker" => return Some("Window Maker".to_string()),
+            "pekwm" => return Some("PekWM".to_string()),
+            "evilwm" => return Some("EvilWM".to_string()),
+            "cwm" => return Some("cwm".to_string()),
+            "ctwm" => return Some("CTWM".to_string()),
+            "afterstep" => return Some("AfterStep".to_string()),
+            "sawfish" => return Some("Sawfish".to_string()),
+            "twm" => return Some("twm".to_string()),
+            // Desktop environment WMs
+            "kwin" => return Some("KWin".to_string()),
+            "mutter" => return Some("Mutter".to_string()),
+            "marco" => return Some("Marco".to_string()),
+            "xfwm4" => return Some("Xfwm".to_string()),
+            "muffin" => return Some("Muffin".to_string()),
+            "metacity" => return Some("Metacity".to_string()),
+            "gala" => return Some("Gala".to_string()),
+            "compiz" => return Some("Compiz".to_string()),
             _ => {}
         }
     }
@@ -403,16 +437,52 @@ fn detect_window_manager() -> Option<String> {
 
     // Check for other window managers by process
     let wms = vec![
+        // Wayland compositors
         ("sway", "sway"),
+        ("wayfire", "Wayfire"),
+        ("river", "River"),
+        // Tiling WMs
         ("i3", "i3"),
         ("bspwm", "bspwm"),
         ("qtile", "qtile"),
         ("dwm", "dwm"),
-        ("awesome", "Awesome"),
+        ("xmonad-x86_64-linux", "XMonad"),
         ("xmonad", "XMonad"),
-        ("herbstluftwm", "herbstluftwm"),
+        ("herbstluftwm", "Herbstluftwm"),
+        ("leftwm", "LeftWM"),
+        ("spectrwm", "Spectrwm"),
+        ("ratpoison", "Ratpoison"),
+        ("stumpwm", "StumpWM"),
+        ("notion", "Notion"),
+        // Stacking/floating WMs
+        ("awesome", "Awesome"),
         ("openbox", "Openbox"),
         ("fluxbox", "Fluxbox"),
+        ("blackbox", "Blackbox"),
+        ("icewm", "IceWM"),
+        ("jwm", "JWM"),
+        ("enlightenment", "Enlightenment"),
+        ("fvwm", "FVWM"),
+        ("fvwm3", "FVWM"),
+        ("wmaker", "Window Maker"),
+        ("WindowMaker", "Window Maker"),
+        ("pekwm", "PekWM"),
+        ("evilwm", "EvilWM"),
+        ("cwm", "cwm"),
+        ("ctwm", "CTWM"),
+        ("afterstep", "AfterStep"),
+        ("sawfish", "Sawfish"),
+        ("twm", "twm"),
+        // Desktop environment WMs
+        ("kwin_x11", "KWin"),
+        ("kwin_wayland", "KWin"),
+        ("mutter", "Mutter"),
+        ("marco", "Marco"),
+        ("xfwm4", "Xfwm"),
+        ("muffin", "Muffin"),
+        ("metacity", "Metacity"),
+        ("gala", "Gala"),
+        ("compiz", "Compiz"),
     ];
 
     for (process, name) in wms {
@@ -424,14 +494,88 @@ fn detect_window_manager() -> Option<String> {
     }
 
     // Check by installed packages
+    // Wayland compositors
     if package_installed("hyprland") {
         Some("Hyprland".to_string())
     } else if package_installed("sway") {
         Some("sway".to_string())
+    } else if package_installed("wayfire") {
+        Some("Wayfire".to_string())
+    } else if package_installed("river") {
+        Some("River".to_string())
+    // Tiling WMs
     } else if package_installed("i3-wm") || package_installed("i3-gaps") {
         Some("i3".to_string())
     } else if package_installed("bspwm") {
         Some("bspwm".to_string())
+    } else if package_installed("qtile") {
+        Some("Qtile".to_string())
+    } else if package_installed("dwm") {
+        Some("dwm".to_string())
+    } else if package_installed("xmonad") {
+        Some("XMonad".to_string())
+    } else if package_installed("herbstluftwm") {
+        Some("Herbstluftwm".to_string())
+    } else if package_installed("leftwm") {
+        Some("LeftWM".to_string())
+    } else if package_installed("spectrwm") {
+        Some("Spectrwm".to_string())
+    } else if package_installed("ratpoison") {
+        Some("Ratpoison".to_string())
+    } else if package_installed("stumpwm") {
+        Some("StumpWM".to_string())
+    } else if package_installed("notion") {
+        Some("Notion".to_string())
+    // Stacking/floating WMs
+    } else if package_installed("awesome") {
+        Some("Awesome".to_string())
+    } else if package_installed("openbox") {
+        Some("Openbox".to_string())
+    } else if package_installed("fluxbox") {
+        Some("Fluxbox".to_string())
+    } else if package_installed("blackbox") {
+        Some("Blackbox".to_string())
+    } else if package_installed("icewm") {
+        Some("IceWM".to_string())
+    } else if package_installed("jwm") {
+        Some("JWM".to_string())
+    } else if package_installed("enlightenment") {
+        Some("Enlightenment".to_string())
+    } else if package_installed("fvwm") || package_installed("fvwm3") {
+        Some("FVWM".to_string())
+    } else if package_installed("windowmaker") {
+        Some("Window Maker".to_string())
+    } else if package_installed("pekwm") {
+        Some("PekWM".to_string())
+    } else if package_installed("evilwm") {
+        Some("EvilWM".to_string())
+    } else if package_installed("cwm") {
+        Some("cwm".to_string())
+    } else if package_installed("ctwm") {
+        Some("CTWM".to_string())
+    } else if package_installed("afterstep") {
+        Some("AfterStep".to_string())
+    } else if package_installed("sawfish") {
+        Some("Sawfish".to_string())
+    } else if package_installed("twm") || package_installed("xorg-twm") {
+        Some("twm".to_string())
+    // Desktop environment WMs
+    } else if package_installed("kwin") {
+        Some("KWin".to_string())
+    } else if package_installed("mutter") {
+        Some("Mutter".to_string())
+    } else if package_installed("marco") {
+        Some("Marco".to_string())
+    } else if package_installed("xfwm4") {
+        Some("Xfwm".to_string())
+    } else if package_installed("muffin") {
+        Some("Muffin".to_string())
+    } else if package_installed("metacity") {
+        Some("Metacity".to_string())
+    } else if package_installed("gala") {
+        Some("Gala".to_string())
+    } else if package_installed("compiz") {
+        Some("Compiz".to_string())
     } else {
         None
     }
