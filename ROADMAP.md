@@ -928,14 +928,18 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ### Release Notes Display / Notification Fixes
 **Status:** 🔄 PLANNED (Beta.83)
-**Priority:** MEDIUM
+**Priority:** HIGH
 
 **User Feedback:**
 - "During the update, Anna is not showing the proper release notes. Still a GDBus error"
+- "annactl update --install should not update if its the same version... and proper release notes must be shown"
 
 **Planned Solution:**
 - [ ] Fix GDBus error in notification system
 - [ ] Improve release notes display after auto-update
+- [ ] Skip update if already on latest version (avoid unnecessary reinstallation)
+- [ ] Show clear "Already on latest version" message when up-to-date
+- [ ] Display proper release notes for current version when --install is used
 - [ ] Test notification system across different DEs
 - [ ] Provide fallback if notification daemon unavailable
 

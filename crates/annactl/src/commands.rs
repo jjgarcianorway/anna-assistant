@@ -3210,6 +3210,25 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                     Level::Success,
                     &format!("Already on latest version: {}", update_info.current_version)
                 ));
+                println!();
+
+                // Show release notes for current version when --install is used
+                if install {
+                    println!("{}", section("Current Version Information"));
+                    println!("  {}", kv("Version", &update_info.current_version));
+                    println!("  {}", kv("Released", &update_info.published_at));
+                    println!();
+
+                    println!("{}", section("What's in This Version"));
+                    // Fetch and display release notes for current version
+                    if let Ok(notes) = fetch_release_notes(&update_info.current_version).await {
+                        display_release_notes(&notes);
+                    } else {
+                        println!("  \x1b[38;5;159m{}\x1b[0m", update_info.release_notes_url);
+                    }
+                    println!();
+                }
+
                 return Ok(());
             }
 
