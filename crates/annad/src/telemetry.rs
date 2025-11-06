@@ -456,11 +456,16 @@ fn detect_compositor() -> Option<String> {
 
 /// Detect if system has Nvidia GPU
 fn detect_nvidia() -> bool {
-    // Check lspci for Nvidia GPU
+    // Check lspci for Nvidia GPU - line by line for consistency and accuracy
     if let Ok(output) = Command::new("lspci").output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        if stdout.contains("NVIDIA") || stdout.contains("nVidia") {
-            return true;
+        for line in stdout.lines() {
+            let lower = line.to_lowercase();
+            // Only check for Nvidia on actual GPU lines
+            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d")) &&
+               (lower.contains("nvidia")) {
+                return true;
+            }
         }
     }
 
@@ -551,11 +556,16 @@ fn check_wayland_nvidia_support() -> bool {
 
 /// Detect if system has Intel integrated graphics (beta.41+)
 fn detect_intel_gpu() -> bool {
-    // Check lspci for Intel GPU
+    // Check lspci for Intel GPU - must check line by line to avoid false positives
+    // (e.g., Intel chipset/audio on Nvidia GPU systems)
     if let Ok(output) = Command::new("lspci").output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        if stdout.to_lowercase().contains("intel") && (stdout.contains("VGA") || stdout.contains("Display") || stdout.contains("3D")) {
-            return true;
+        for line in stdout.lines() {
+            let lower = line.to_lowercase();
+            // Only check for Intel on actual GPU lines (VGA/Display/3D controller lines)
+            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d")) && lower.contains("intel") {
+                return true;
+            }
         }
     }
 
@@ -572,13 +582,16 @@ fn detect_intel_gpu() -> bool {
 
 /// Detect if system has AMD/ATI GPU (beta.41+)
 fn detect_amd_gpu() -> bool {
-    // Check lspci for AMD/ATI GPU
+    // Check lspci for AMD/ATI GPU - must check line by line to avoid false positives
     if let Ok(output) = Command::new("lspci").output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let lower = stdout.to_lowercase();
-        if (lower.contains("amd") || lower.contains("ati") || lower.contains("radeon")) &&
-           (stdout.contains("VGA") || stdout.contains("Display") || stdout.contains("3D")) {
-            return true;
+        for line in stdout.lines() {
+            let lower = line.to_lowercase();
+            // Only check for AMD/ATI/Radeon on actual GPU lines
+            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d")) &&
+               (lower.contains("amd") || lower.contains("ati") || lower.contains("radeon")) {
+                return true;
+            }
         }
     }
 
