@@ -68,8 +68,12 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
 
     // Get first release (most recent)
     let latest = &releases[0];
-    let latest_version = latest["tag_name"].as_str()
-        .context("No tag_name in release")?
+    let latest_version_raw = latest["tag_name"].as_str()
+        .context("No tag_name in release")?;
+
+    // Strip "v" prefix from tag if present (e.g., "v1.0.0-beta.82" -> "1.0.0-beta.82")
+    let latest_version = latest_version_raw.strip_prefix("v")
+        .unwrap_or(latest_version_raw)
         .to_string();
 
     info!("Latest version: {}", latest_version);
