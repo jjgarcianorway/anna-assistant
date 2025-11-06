@@ -4,7 +4,28 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.84 (November 2025)
+**Current Version:** Beta.85 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.85
+
+**🎥 REAL-TIME COMMAND OUTPUT STREAMING:**
+- **Live Terminal View:** See command output AS IT HAPPENS during execution
+- **True Transparency:** Know exactly what Anna is doing to your system
+- **No More Blank Screens:** Immediate feedback from command start
+- **Color-Coded Output:**
+  - Stdout in white (standard output)
+  - Stderr in yellow (errors/warnings)
+  - Status updates in cyan
+- **Full Pipeline:** Server → Client → TUI streaming complete
+
+**Technical Implementation:**
+- Tokio async channels for real-time data flow
+- Dedicated streaming connections
+- Concurrent stdout/stderr reading
+- Line-by-line chunk delivery
+- Non-blocking architecture
 
 ---
 
