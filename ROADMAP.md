@@ -1507,7 +1507,39 @@ Each bundle provides:
 
 ---
 
-### Next Steps (Beta.98+):
+## 🎨 CLASSIC WINDOW MANAGER BUNDLES (Beta.98)
+
+**Status:** ✅ COMPLETED (Beta.98)
+
+### Beta.98: Classic/Traditional WM Bundles ✅
+
+Added 3 nostalgic and feature-rich classic WM bundles, bringing total from 19 to 22 window managers!
+
+#### New Classic WMs (3):
+
+**Window Maker** - GNUstep/NeXTSTEP-like interface
+- Authentic NeXT aesthetic with dock and clip
+- 10 workspaces, built-in app menu
+- Perfect for NeXTSTEP/Mac OS X classic fans
+
+**FVWM** - Infinitely configurable classic WM
+- Virtual desktops with paging system
+- Highly modular and scriptable
+- Perfect for power users wanting total control
+
+**Enlightenment** - Beautiful, feature-rich WM/compositor
+- Supports both X11 and Wayland
+- Stunning visual effects, integrated tools
+- Everything launcher, 12 virtual desktops
+
+#### Impact:
+- ✅ **22 Total WMs** - Comprehensive WM coverage now complete
+- ✅ **Nostalgia + Power** - Classic aesthetics with modern functionality
+- ✅ **Dual Protocol** - Enlightenment bridges X11 and Wayland worlds
+
+---
+
+### Next Steps (Beta.99+):
 
 **Immediate:**
 1. Test bundle generation with real systems
