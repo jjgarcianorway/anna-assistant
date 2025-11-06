@@ -205,6 +205,36 @@ sudo chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
 
 echo -e "${GREEN}${CHECK}${RESET} Binaries installed"
 
+# Install shell completions
+echo -e "${CYAN}${ARROW}${RESET} Installing shell completions..."
+
+COMPLETIONS_INSTALLED=0
+
+# Bash completions
+if [ -d "/usr/share/bash-completion/completions" ]; then
+    "$INSTALL_DIR/annactl" completions bash | sudo tee /usr/share/bash-completion/completions/annactl > /dev/null 2>&1 && \
+        echo -e "${GREEN}${CHECK}${RESET} Bash completions installed" && \
+        COMPLETIONS_INSTALLED=$((COMPLETIONS_INSTALLED + 1))
+fi
+
+# Zsh completions
+if [ -d "/usr/share/zsh/site-functions" ]; then
+    "$INSTALL_DIR/annactl" completions zsh | sudo tee /usr/share/zsh/site-functions/_annactl > /dev/null 2>&1 && \
+        echo -e "${GREEN}${CHECK}${RESET} Zsh completions installed" && \
+        COMPLETIONS_INSTALLED=$((COMPLETIONS_INSTALLED + 1))
+fi
+
+# Fish completions
+if [ -d "/usr/share/fish/vendor_completions.d" ]; then
+    "$INSTALL_DIR/annactl" completions fish | sudo tee /usr/share/fish/vendor_completions.d/annactl.fish > /dev/null 2>&1 && \
+        echo -e "${GREEN}${CHECK}${RESET} Fish completions installed" && \
+        COMPLETIONS_INSTALLED=$((COMPLETIONS_INSTALLED + 1))
+fi
+
+if [ $COMPLETIONS_INSTALLED -eq 0 ]; then
+    echo -e "${YELLOW}${WARN}${RESET} Shell completion directories not found (non-standard shell setup)"
+fi
+
 # Install systemd service
 echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
 

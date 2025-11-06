@@ -1085,67 +1085,94 @@ annactl rollback --last 3
 annactl rollback --id some-advice --dry-run
 ```
 
-### Shell Completion Intelligence
-**Status:** 🔜 PLANNED (Beta.84)
-**Priority:** MEDIUM
+### Shell Completion Auto-Installation
+**Status:** ✅ COMPLETED (install.sh updated)
+**Priority:** HIGH
 
 **User Feedback:**
 - "I do not know or understand what annactl completions bash does... or if its necessary"
 - "`annactl completions` should be an advice that Anna recommends and applies, not just a standalone command"
+- "Many commands in linux work with autocompletion with tab without altering .bashrc"
 
 **Problem:**
-Shell completions are currently a standalone command (`annactl completions bash/zsh/fish`). Users don't know:
-1. What shell completions are
-2. Why they're useful (tab completion)
-3. How to install them
-4. That they're available
+Shell completions were not installed automatically. Users had to:
+1. Know what completions are
+2. Manually run `annactl completions bash`
+3. Pipe it to the right location
+
+Most Linux commands (git, docker, systemctl) install completions automatically to system directories, so they work immediately without .bashrc changes.
+
+**Solution Implemented:**
+Updated `scripts/install.sh` to automatically install completions:
+
+```bash
+# Install shell completions (lines 208-236)
+echo -e "${CYAN}${ARROW}${RESET} Installing shell completions..."
+
+# Bash completions
+if [ -d "/usr/share/bash-completion/completions" ]; then
+    "$INSTALL_DIR/annactl" completions bash | sudo tee /usr/share/bash-completion/completions/annactl > /dev/null 2>&1
+    echo -e "${GREEN}${CHECK}${RESET} Bash completions installed"
+fi
+
+# Zsh completions
+if [ -d "/usr/share/zsh/site-functions" ]; then
+    "$INSTALL_DIR/annactl" completions zsh | sudo tee /usr/share/zsh/site-functions/_annactl > /dev/null 2>&1
+    echo -e "${GREEN}${CHECK}${RESET} Zsh completions installed"
+fi
+
+# Fish completions
+if [ -d "/usr/share/fish/vendor_completions.d" ]; then
+    "$INSTALL_DIR/annactl" completions fish | sudo tee /usr/share/fish/vendor_completions.d/annactl.fish > /dev/null 2>&1
+    echo -e "${GREEN}${CHECK}${RESET} Fish completions installed"
+fi
+```
+
+**How It Works:**
+- Checks for standard shell completion directories
+- Installs completions for all detected shells
+- Works immediately without .bashrc changes (like git, docker)
+- Silent installation (no clutter in output)
+- Warns if no completion directories found (non-standard setup)
+
+**Result:**
+After fresh install or update, tab completion works immediately:
+```bash
+annactl adv<Tab>    # → annactl advise
+annactl sta<Tab>    # → annactl status
+annactl --<Tab>     # → shows all flags
+```
+
+**Future Enhancement (Optional):**
+If needed, Anna could add advice to detect missing completions and offer to install them (for manual installs or non-standard setups), but this is low priority since the installer now handles it automatically.
+
+### TUI Box Drawing Fix
+**Status:** 🔜 PLANNED (Beta.83)
+**Priority:** LOW
+
+**User Feedback:**
+- "Broken box in the update (probably because of a sh command?)" - Update successful box has misaligned bottom border
+
+**Problem:**
+The update success box has a formatting issue where the bottom border is not aligned properly with the top border:
+```
+╭────────────────────────────────────────────────────────────╮
+│ 🎉 Update Successful!
+│
+│   Version: 1.0.0-beta.81 → v1.0.0-beta.82
+│   Released: 2025-11-06T08:24:04Z
+│
+╰────────────────────────────────────────────────────────────╯  <- Misaligned
+```
+
+**Cause:**
+Box drawing characters may have different widths depending on terminal font rendering, or the calculation of border width doesn't account for emojis/multi-byte characters.
 
 **Planned Solution:**
-Anna should detect and recommend shell completions as advice:
-
-**Detection:**
-- [ ] Detect user's current shell (bash/zsh/fish)
-- [ ] Check if completions are already installed
-- [ ] Check completion installation paths:
-  - bash: `/usr/share/bash-completion/completions/annactl`
-  - zsh: `/usr/share/zsh/site-functions/_annactl`
-  - fish: `/usr/share/fish/vendor_completions.d/annactl.fish`
-
-**Recommendation:**
-- [ ] If missing, generate advice: "Install shell completions for annactl"
-- [ ] Explain benefit: "Enable tab completion (e.g., 'annactl adv<Tab>' → 'annactl advise')"
-- [ ] Priority: Optional (nice to have, not critical)
-- [ ] Wiki reference: https://wiki.archlinux.org/title/Bash#Command_completion
-
-**Application:**
-- [ ] Generate completion script: `annactl completions {shell}`
-- [ ] Install to proper location
-- [ ] Provide instructions to reload shell or source completions
-
-**Example Advice:**
-```
-[Optional] Install bash completions for annactl
-
-Enable tab completion for annactl commands in your bash shell.
-Press Tab after typing partial commands to auto-complete.
-
-Command:
-annactl completions bash | sudo tee /usr/share/bash-completion/completions/annactl
-source /usr/share/bash-completion/completions/annactl
-
-Benefits:
-- Faster command typing
-- Discover available commands
-- Reduce typos
-
-Wiki: https://wiki.archlinux.org/title/Bash#Command_completion
-```
-
-**Universal Feature:**
-- Works for 100% of users (everyone uses a shell)
-- Shell-specific (only recommends for user's actual shell)
-- Respectful (only suggests if not already installed)
-- Educational (explains what completions are)
+- [ ] Review box drawing code in annactl update command
+- [ ] Ensure border width calculation accounts for emoji width
+- [ ] Test across different terminals (alacritty, kitty, gnome-terminal)
+- [ ] Consider using ASCII fallback for problematic terminals
 
 ### Journalctl Integration
 **Status:** 🔜 PLANNED (Beta.87)
