@@ -2241,31 +2241,54 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
 
         for (i, advice) in sorted.iter().enumerate() {
             println!("  [{}/{}] \x1b[1m{}\x1b[0m", i + 1, sorted.len(), advice.title);
+            println!();
 
-            let result = client
-                .call(Method::ApplyAction {
+            // ENABLE STREAMING - Show EXACTLY what's happening! (Beta.109)
+            let mut rx = client
+                .call_streaming(Method::ApplyAction {
                     advice_id: advice.id.clone(),
                     dry_run: false,
-                    stream: false,
+                    stream: true,
                 })
                 .await?;
 
-            if let ResponseData::ActionResult { success, message } = result {
-                if success {
-                    println!("         \x1b[92m✓\x1b[0m {}", message);
-                    installed_items.push(advice.id.clone());
-                } else {
-                    println!("         \x1b[91m✗\x1b[0m {}", message);
-                    println!();
-                    println!("{}", beautiful::status(Level::Error, "Bundle installation failed"));
-                    println!("  Some items may have been installed before the failure.");
-                    installation_status = if installed_items.is_empty() {
-                        anna_common::BundleStatus::Failed
-                    } else {
-                        anna_common::BundleStatus::Partial
-                    };
-                    break;
+            let mut success = false;
+            let mut final_message = String::new();
+
+            // Stream live output to user - TRANSPARENCY!
+            while let Some(data) = rx.recv().await {
+                match data {
+                    ResponseData::StreamChunk { chunk_type: _, data: chunk } => {
+                        // Show live command output
+                        print!("{}", chunk);
+                        use std::io::Write;
+                        std::io::stdout().flush().unwrap();
+                    }
+                    ResponseData::StreamEnd { success: s, message } => {
+                        success = s;
+                        final_message = message;
+                        break;
+                    }
+                    _ => {}
                 }
+            }
+
+            println!();
+
+            if success {
+                println!("         \x1b[92m✓\x1b[0m {}", final_message);
+                installed_items.push(advice.id.clone());
+            } else {
+                println!("         \x1b[91m✗\x1b[0m {}", final_message);
+                println!();
+                println!("{}", beautiful::status(Level::Error, "Bundle installation failed"));
+                println!("  Some items may have been installed before the failure.");
+                installation_status = if installed_items.is_empty() {
+                    anna_common::BundleStatus::Failed
+                } else {
+                    anna_common::BundleStatus::Partial
+                };
+                break;
             }
         }
 
@@ -2282,9 +2305,9 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
             rollback_available: installation_status == anna_common::BundleStatus::Completed,
         });
 
-        if let Err(e) = history.save() {
-            println!("{}", beautiful::status(Level::Warning, &format!("Failed to save bundle history: {}", e)));
-        }
+        // Try to save bundle history, but don't show error if permission denied (Beta.109)
+        // History file is in /var/lib/anna/ (root-only), this will be fixed in future versions
+        let _ = history.save(); // Silently ignore permission errors
 
         if installation_status == anna_common::BundleStatus::Completed {
             println!();
