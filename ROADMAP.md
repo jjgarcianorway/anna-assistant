@@ -1085,6 +1085,68 @@ annactl rollback --last 3
 annactl rollback --id some-advice --dry-run
 ```
 
+### Shell Completion Intelligence
+**Status:** 🔜 PLANNED (Beta.84)
+**Priority:** MEDIUM
+
+**User Feedback:**
+- "I do not know or understand what annactl completions bash does... or if its necessary"
+- "`annactl completions` should be an advice that Anna recommends and applies, not just a standalone command"
+
+**Problem:**
+Shell completions are currently a standalone command (`annactl completions bash/zsh/fish`). Users don't know:
+1. What shell completions are
+2. Why they're useful (tab completion)
+3. How to install them
+4. That they're available
+
+**Planned Solution:**
+Anna should detect and recommend shell completions as advice:
+
+**Detection:**
+- [ ] Detect user's current shell (bash/zsh/fish)
+- [ ] Check if completions are already installed
+- [ ] Check completion installation paths:
+  - bash: `/usr/share/bash-completion/completions/annactl`
+  - zsh: `/usr/share/zsh/site-functions/_annactl`
+  - fish: `/usr/share/fish/vendor_completions.d/annactl.fish`
+
+**Recommendation:**
+- [ ] If missing, generate advice: "Install shell completions for annactl"
+- [ ] Explain benefit: "Enable tab completion (e.g., 'annactl adv<Tab>' → 'annactl advise')"
+- [ ] Priority: Optional (nice to have, not critical)
+- [ ] Wiki reference: https://wiki.archlinux.org/title/Bash#Command_completion
+
+**Application:**
+- [ ] Generate completion script: `annactl completions {shell}`
+- [ ] Install to proper location
+- [ ] Provide instructions to reload shell or source completions
+
+**Example Advice:**
+```
+[Optional] Install bash completions for annactl
+
+Enable tab completion for annactl commands in your bash shell.
+Press Tab after typing partial commands to auto-complete.
+
+Command:
+annactl completions bash | sudo tee /usr/share/bash-completion/completions/annactl
+source /usr/share/bash-completion/completions/annactl
+
+Benefits:
+- Faster command typing
+- Discover available commands
+- Reduce typos
+
+Wiki: https://wiki.archlinux.org/title/Bash#Command_completion
+```
+
+**Universal Feature:**
+- Works for 100% of users (everyone uses a shell)
+- Shell-specific (only recommends for user's actual shell)
+- Respectful (only suggests if not already installed)
+- Educational (explains what completions are)
+
 ### Journalctl Integration
 **Status:** 🔜 PLANNED (Beta.87)
 
