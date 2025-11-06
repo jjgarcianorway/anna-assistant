@@ -1,9 +1,47 @@
 # Anna Assistant - Security Audit & Hardening Plan
 
 **Audit Date:** 2025-11-06
-**Current Version:** Beta.85
+**Current Version:** Beta.86 (with Phase 1 security fixes)
 **Auditor:** Claude Code (based on ChatGPT security blueprint)
-**Risk Level:** 🔴 HIGH - Immediate action required
+**Risk Level:** 🟡 MEDIUM (was 🔴 HIGH) - Phase 1 CRITICAL fixes implemented
+
+---
+
+## ✅ Implementation Status (Beta.86)
+
+**Phase 1 CRITICAL Fixes: COMPLETED**
+
+1. ✅ **Socket Permissions Fixed** (rpc_server.rs:102)
+   - Changed from 0o666 (world-writable) to 0o660 (owner + group only)
+   - Documented requirement for socket group ownership
+
+2. ✅ **SO_PEERCRED Authentication Implemented** (rpc_server.rs:286-300)
+   - Added `nix` crate for credential checking
+   - Logs UID, GID, PID of all connections for audit trail
+   - Foundation ready for group-based access control enforcement
+
+3. ✅ **Command Validation Added** (executor.rs:12-43)
+   - Defense-in-depth: Validates all commands before execution
+   - Blocks dangerous patterns: `rm -rf /`, `mkfs.`, `dd if=`, `curl|sh`, fork bombs
+   - Logs commands using shell features (&&, ||, |, $(), etc.)
+   - Applied to all 3 execute functions (simple, streaming, callback)
+
+**Architecture Verification:**
+- ✅ Confirmed: Commands come from daemon's whitelist (advice_id lookup)
+- ✅ Confirmed: Client (annactl) cannot inject arbitrary commands
+- ✅ Confirmed: Client only specifies WHICH advice, not WHAT command
+
+**Risk Reduction:**
+- Socket access: 🔴 CRITICAL → 🟢 LOW (restricted to group)
+- Authentication: 🔴 CRITICAL → 🟡 MEDIUM (credentials logged, enforcement pending)
+- Command injection: 🔴 CRITICAL → 🟢 LOW (whitelist model + validation)
+
+**Phase 2 TODO (Beta.87):**
+- Group-based access control enforcement
+- Systemd hardening configuration
+- Rate limiting
+- Message size limits
+- Capability dropping
 
 ---
 
