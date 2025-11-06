@@ -61,6 +61,17 @@ pub enum Method {
 
     /// Ping daemon (health check)
     Ping,
+
+    /// Check for Anna updates (delegated to daemon)
+    CheckUpdate,
+
+    /// Perform Anna update (delegated to daemon)
+    /// This allows the daemon (running as root) to handle the update
+    /// without requiring sudo from the user
+    PerformUpdate {
+        /// Skip download and just restart with current binaries
+        restart_only: bool,
+    },
 }
 
 /// Response data variants
@@ -95,6 +106,23 @@ pub enum ResponseData {
     StreamEnd {
         success: bool,
         message: String,
+    },
+
+    /// Update check result
+    UpdateCheck {
+        current_version: String,
+        latest_version: String,
+        is_update_available: bool,
+        download_url: Option<String>,
+        release_notes: Option<String>,
+    },
+
+    /// Update result
+    UpdateResult {
+        success: bool,
+        message: String,
+        old_version: String,
+        new_version: String,
     },
 }
 

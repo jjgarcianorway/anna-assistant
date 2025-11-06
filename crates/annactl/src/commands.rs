@@ -3215,6 +3215,8 @@ fn send_update_notification(version: &str) {
 }
 
 /// Check for updates and optionally install them
+///
+/// Beta.87: Now delegates to daemon via RPC - no sudo required!
 pub async fn update(install: bool, check_only: bool) -> Result<()> {
     println!("{}", header("Anna Update"));
     println!();
@@ -3224,32 +3226,47 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
     println!("  {}", kv("Installed version", &current));
     println!();
 
-    // Check for updates
-    println!("{}", beautiful::status(Level::Info, "Checking for updates..."));
+    // Connect to daemon for update operations
+    let mut client = match RpcClient::connect().await {
+        Ok(c) => c,
+        Err(_) => {
+            println!("{}", beautiful::status(Level::Error, "Cannot connect to daemon"));
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Start daemon with: sudo systemctl start annad"));
+            return Ok(());
+        }
+    };
+
+    // Check for updates via daemon (no sudo needed!)
+    println!("{}", beautiful::status(Level::Info, "Checking for updates via daemon..."));
     println!();
 
-    match anna_common::updater::check_for_updates().await {
-        Ok(update_info) => {
-            if !update_info.is_update_available {
+    match client.call(Method::CheckUpdate).await {
+        Ok(ResponseData::UpdateCheck {
+            current_version,
+            latest_version,
+            is_update_available,
+            download_url: _,
+            release_notes,
+        }) => {
+            if !is_update_available {
                 println!("{}", beautiful::status(
                     Level::Success,
-                    &format!("Already on latest version: {}", update_info.current_version)
+                    &format!("Already on latest version: {}", current_version)
                 ));
                 println!();
 
                 // Show release notes for current version when --install is used
                 if install {
                     println!("{}", section("Current Version Information"));
-                    println!("  {}", kv("Version", &update_info.current_version));
-                    println!("  {}", kv("Released", &update_info.published_at));
+                    println!("  {}", kv("Version", &current_version));
                     println!();
 
                     println!("{}", section("What's in This Version"));
-                    // Fetch and display release notes for current version
-                    if let Ok(notes) = fetch_release_notes(&update_info.current_version).await {
+                    if let Ok(notes) = fetch_release_notes(&current_version).await {
                         display_release_notes(&notes);
-                    } else {
-                        println!("  \x1b[38;5;159m{}\x1b[0m", update_info.release_notes_url);
+                    } else if let Some(ref url) = release_notes {
+                        println!("  \x1b[38;5;159m{}\x1b[0m", url);
                     }
                     println!();
                 }
@@ -3261,27 +3278,35 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
             println!("{}", beautiful::status(
                 Level::Warning,
                 &format!("Update available: {} → {}",
-                    update_info.current_version,
-                    update_info.latest_version)
+                    current_version,
+                    latest_version)
             ));
             println!();
 
             if !check_only {
                 println!("{}", section("📦 Release Information"));
-                println!("  {}", kv("Current", &update_info.current_version));
-                println!("  {}", kv("Latest", &update_info.latest_version));
-                println!("  {}", kv("Released", &update_info.published_at));
-                println!("  {}", kv("Release Notes", &update_info.release_notes_url));
+                println!("  {}", kv("Current", &current_version));
+                println!("  {}", kv("Latest", &latest_version));
+                if let Some(ref url) = release_notes {
+                    println!("  {}", kv("Release Notes", url));
+                }
                 println!();
             }
 
             if install {
-                // Perform the update
+                // Perform the update via daemon (no sudo needed!)
+                println!("{}", beautiful::status(Level::Info, "🔐 Delegating update to daemon (no sudo required!)"));
                 println!("{}", beautiful::status(Level::Info, "Starting update process..."));
                 println!();
 
-                match anna_common::updater::perform_update(&update_info).await {
-                    Ok(()) => {
+                // Call daemon to perform update
+                match client.call(Method::PerformUpdate { restart_only: false }).await {
+                    Ok(ResponseData::UpdateResult {
+                        success,
+                        message: _,
+                        old_version,
+                        new_version,
+                    }) if success => {
                         println!();
 
                         // Beautiful update success banner
@@ -3289,9 +3314,9 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                         println!("\x1b[38;5;120m│\x1b[0m \x1b[1m\x1b[38;5;159m🎉 Update Successful!\x1b[0m");
                         println!("\x1b[38;5;120m│\x1b[0m");
                         println!("\x1b[38;5;120m│\x1b[0m   Version: \x1b[1m{}\x1b[0m → \x1b[1m\x1b[38;5;159m{}\x1b[0m",
-                            update_info.current_version,
-                            update_info.latest_version);
-                        println!("\x1b[38;5;120m│\x1b[0m   Released: {}", update_info.published_at);
+                            old_version,
+                            new_version);
+                        println!("\x1b[38;5;120m│\x1b[0m   Method: Daemon delegation (no sudo!)");
                         println!("\x1b[38;5;120m│\x1b[0m");
                         println!("\x1b[38;5;120m╰{}╯\x1b[0m", "─".repeat(60));
                         println!();
@@ -3299,10 +3324,10 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                         println!("{}", section("What's New"));
 
                         // Fetch and display release notes
-                        if let Ok(notes) = fetch_release_notes(&update_info.latest_version).await {
+                        if let Ok(notes) = fetch_release_notes(&new_version).await {
                             display_release_notes(&notes);
-                        } else {
-                            println!("  \x1b[38;5;159m{}\x1b[0m", update_info.release_notes_url);
+                        } else if let Some(ref url) = release_notes {
+                            println!("  \x1b[38;5;159m{}\x1b[0m", url);
                         }
                         println!();
 
@@ -3310,7 +3335,19 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                         println!();
 
                         // Send desktop notification (non-intrusive)
-                        send_update_notification(&update_info.latest_version);
+                        send_update_notification(&new_version);
+                    }
+                    Ok(ResponseData::UpdateResult {
+                        success: false,
+                        message,
+                        ..
+                    }) => {
+                        println!();
+                        println!("{}", beautiful::status(
+                            Level::Warning,
+                            &message
+                        ));
+                        println!();
                     }
                     Err(e) => {
                         println!();
@@ -3324,13 +3361,23 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                             "Your previous version has been backed up to /var/lib/anna/backup/"
                         ));
                     }
+                    _ => {
+                        println!();
+                        println!("{}", beautiful::status(
+                            Level::Error,
+                            "Unexpected response from daemon"
+                        ));
+                    }
                 }
             } else {
                 // Prompt user to install
                 println!("{}", section("💡 Next Steps"));
                 println!();
                 println!("  Run \x1b[38;5;159mannactl update --install\x1b[0m to install the update");
-                println!("  Or visit \x1b[38;5;159m{}\x1b[0m to see what's new", update_info.release_notes_url);
+                println!("  \x1b[1m(No sudo required - daemon handles update as root!)\x1b[0m");
+                if let Some(ref url) = release_notes {
+                    println!("  Or visit \x1b[38;5;159m{}\x1b[0m to see what's new", url);
+                }
                 println!();
             }
         }
@@ -3358,6 +3405,12 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                     "Check your internet connection and try again"
                 ));
             }
+        }
+        _ => {
+            println!("{}", beautiful::status(
+                Level::Error,
+                "Unexpected response from daemon"
+            ));
         }
     }
 

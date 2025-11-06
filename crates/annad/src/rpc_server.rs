@@ -718,6 +718,105 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 _ => Err(format!("Unknown config key: {}", key)),
             }
         }
+
+        Method::CheckUpdate => {
+            info!("Update check requested (delegated to daemon)");
+            match anna_common::updater::check_for_updates().await {
+                Ok(update_info) => {
+                    info!("Update check complete: current={}, latest={}, available={}",
+                          update_info.current_version,
+                          update_info.latest_version,
+                          update_info.is_update_available);
+
+                    Ok(ResponseData::UpdateCheck {
+                        current_version: update_info.current_version,
+                        latest_version: update_info.latest_version,
+                        is_update_available: update_info.is_update_available,
+                        download_url: Some(update_info.download_url_annad),
+                        release_notes: Some(update_info.release_notes_url),
+                    })
+                }
+                Err(e) => {
+                    error!("Update check failed: {}", e);
+                    Err(format!("Update check failed: {}", e))
+                }
+            }
+        }
+
+        Method::PerformUpdate { restart_only } => {
+            if restart_only {
+                info!("Restart-only update requested");
+                // Just restart the daemon service
+                match tokio::process::Command::new("systemctl")
+                    .args(&["restart", "annad"])
+                    .status()
+                    .await
+                {
+                    Ok(status) if status.success() => {
+                        info!("Daemon restart initiated");
+                        Ok(ResponseData::UpdateResult {
+                            success: true,
+                            message: "Daemon restart initiated".to_string(),
+                            old_version: state.version.clone(),
+                            new_version: state.version.clone(),
+                        })
+                    }
+                    Ok(_) => {
+                        error!("Failed to restart daemon");
+                        Err("Failed to restart daemon service".to_string())
+                    }
+                    Err(e) => {
+                        error!("Failed to execute restart: {}", e);
+                        Err(format!("Failed to restart: {}", e))
+                    }
+                }
+            } else {
+                info!("Full update requested (delegated to daemon - no sudo needed!)");
+
+                // Check for updates first
+                match anna_common::updater::check_for_updates().await {
+                    Ok(update_info) => {
+                        if !update_info.is_update_available {
+                            info!("Already on latest version: {}", update_info.current_version);
+                            Ok(ResponseData::UpdateResult {
+                                success: false,
+                                message: format!("Already on latest version: {}", update_info.current_version),
+                                old_version: update_info.current_version.clone(),
+                                new_version: update_info.current_version,
+                            })
+                        } else {
+                            info!("Performing update: {} → {}",
+                                  update_info.current_version,
+                                  update_info.latest_version);
+
+                            // Perform the update (daemon is already root, no sudo needed!)
+                            match anna_common::updater::perform_update(&update_info).await {
+                                Ok(()) => {
+                                    info!("Update successful: {} → {}",
+                                          update_info.current_version,
+                                          update_info.latest_version);
+                                    Ok(ResponseData::UpdateResult {
+                                        success: true,
+                                        message: format!("Update successful! Anna has been updated to {}",
+                                                       update_info.latest_version),
+                                        old_version: update_info.current_version,
+                                        new_version: update_info.latest_version,
+                                    })
+                                }
+                                Err(e) => {
+                                    error!("Update failed: {}", e);
+                                    Err(format!("Update failed: {}", e))
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Update check failed: {}", e);
+                        Err(format!("Update check failed: {}", e))
+                    }
+                }
+            }
+        }
     };
 
     Response { id, result }
