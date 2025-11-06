@@ -1307,7 +1307,116 @@ openbox, fluxbox, icewm
 - ✅ **140+ Components** - All pieces for functional desktops
 - ✅ **User Vision Realized** - "bundle installation for all of them" ✓
 
-### Next Steps (Beta.96+):
+---
+
+## 🌐 NETWORK HEALTH MONITORING (Beta.96)
+
+**Status:** ✅ COMPLETE!
+**Priority:** HIGH
+
+**User Feedback:**
+> "internet connection sucks, i need to restart the router when i go home...
+> it would have been good to get a warning or something from anna but seems like is not there yet ;)"
+
+### Beta.96: Comprehensive Network Health Checks ✅
+
+**What Was Built:**
+
+Anna now actively monitors your network health and warns you about connectivity issues!
+
+#### 1. Network Connectivity Checks:
+
+**Interface Status:**
+- ✅ Detects when no network interfaces are up
+- ✅ Priority: Mandatory (critical issue)
+- ✅ Suggests checking cables, WiFi, or restarting NetworkManager
+
+**Internet Connectivity:**
+- ✅ Tests connection to 1.1.1.1 (Cloudflare DNS)
+- ✅ Detects when interfaces are up but no internet
+- ✅ Priority: Recommended
+- ✅ Suggests router restart or ISP check
+
+**DNS Resolution:**
+- ✅ Tests DNS with nslookup to archlinux.org
+- ✅ Detects broken DNS (can ping IPs but not resolve names)
+- ✅ Priority: Recommended
+- ✅ Suggests checking /etc/resolv.conf or systemd-resolved
+
+#### 2. Connection Quality Monitoring:
+
+**Packet Loss Detection:**
+- ✅ High packet loss (>20%): Priority Recommended
+  - "Unstable connection with XX% packet loss"
+  - Suggests: WiFi signal, cable check, router restart
+- ✅ Moderate packet loss (5-20%): Priority Optional
+  - "Moderate packet loss, may cause slowdowns"
+  - Suggests: Check signal strength
+
+**Latency Monitoring:**
+- ✅ High latency (>200ms): Priority Cosmetic
+  - "High network latency (XXms)"
+  - Informs about slow connection
+
+**NetworkManager Status:**
+- ✅ Detects if NetworkManager is not running
+- ✅ Priority: Recommended
+- ✅ Provides start/enable commands
+
+#### 3. Implementation Details:
+
+**Function:** `check_network_health(facts: &SystemFacts)`
+**Location:** crates/annad/src/recommender.rs
+**Lines:** ~200 lines
+
+**Tests Performed:**
+1. `ip link show up` - Check interface status
+2. `ping -c 2 -W 3 1.1.1.1` - Test connectivity
+3. `nslookup archlinux.org` - Test DNS
+4. `ping -c 10 -W 2 1.1.1.1` - Measure packet loss & latency
+5. `systemctl is-active NetworkManager` - Check service status
+
+**Advice Generated:**
+- network-no-interfaces (Mandatory)
+- network-no-connectivity (Recommended)
+- network-dns-broken (Recommended)
+- network-high-packet-loss (Recommended)
+- network-moderate-packet-loss (Optional)
+- network-high-latency (Cosmetic)
+- network-manager-not-running (Recommended)
+
+#### 4. Example Warnings:
+
+```
+🔴 High packet loss detected (25%)
+    Your network connection is unstable with 25% packet loss. This causes
+    slow or unreliable internet. Possible causes: weak WiFi signal, bad
+    ethernet cable, router issues, or ISP problems.
+
+    Try: Move closer to WiFi router, check cables, restart router
+
+🟡 No internet connectivity detected
+    Network interfaces are up but Anna cannot reach the internet. This
+    could be a DNS issue, router problem, or ISP outage.
+
+    Try: ping -c 4 1.1.1.1 && ping -c 4 google.com
+```
+
+#### 5. Files Modified:
+- crates/annad/src/recommender.rs: +200 lines
+  - Added check_network_health() function
+  - Integrated into generate_advice() on line 50
+- Cargo.toml: version bump to 1.0.0-beta.96
+
+#### 6. Impact:
+
+- ✅ **Proactive Monitoring** - Anna tells you BEFORE you notice issues
+- ✅ **Connection Quality** - Not just up/down, but packet loss & latency
+- ✅ **Actionable Advice** - Clear suggestions to fix issues
+- ✅ **Real-Time** - Checks happen every time Anna refreshes
+- ✅ **User Request Fulfilled** - "warning from anna" about network issues!
+
+### Next Steps (Beta.97+):
 
 **Immediate:**
 1. Test bundle generation with real systems

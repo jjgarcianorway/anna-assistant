@@ -46,6 +46,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_kernel_errors(facts));
     advice.extend(check_disk_space_prediction(facts));
 
+    // Network health monitoring (beta.96+)
+    advice.extend(check_network_health(facts));
+
     // Extended telemetry-based checks (beta.43+)
     advice.extend(check_microcode_updates(facts));
     advice.extend(check_battery_optimization(facts));
@@ -10283,4 +10286,207 @@ fn check_pacman_hooks_recommendations(facts: &SystemFacts) -> Vec<Advice> {
     }
 
     result
+}
+
+/// Check network connectivity and health (Beta.96+)
+fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
+    use std::process::Command;
+    let mut advice = Vec::new();
+
+    // Check if we have any network interfaces up
+    let has_network = Command::new("ip")
+        .args(&["link", "show", "up"])
+        .output()
+        .map(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            output.lines().any(|l| l.contains("state UP"))
+        })
+        .unwrap_or(false);
+
+    if !has_network {
+        advice.push(
+            Advice::new(
+                "network-no-interfaces".to_string(),
+                "No network interfaces are up".to_string(),
+                "Anna detected that no network interfaces are currently active. This means you have no internet connectivity. Check your network cable, WiFi connection, or restart NetworkManager.".to_string(),
+                "systemctl status NetworkManager".to_string(),
+                None,
+                RiskLevel::High,
+                Priority::Mandatory,
+                vec![
+                    "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+                ],
+                "network".to_string(),
+            )
+        );
+        return advice;
+    }
+
+    // Test internet connectivity with ping
+    let can_ping_dns = Command::new("ping")
+        .args(&["-c", "2", "-W", "3", "1.1.1.1"]) // Cloudflare DNS
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !can_ping_dns {
+        advice.push(
+            Advice::new(
+                "network-no-connectivity".to_string(),
+                "No internet connectivity detected".to_string(),
+                "Network interfaces are up but Anna cannot reach the internet. This could be a DNS issue, router problem, or ISP outage. Try restarting your router or checking your network configuration.".to_string(),
+                "ping -c 4 1.1.1.1 && ping -c 4 google.com".to_string(),
+                None,
+                RiskLevel::Medium,
+                Priority::Recommended,
+                vec![
+                    "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+                ],
+                "network".to_string(),
+            )
+        );
+    }
+
+    // Check DNS resolution
+    let can_resolve_dns = Command::new("nslookup")
+        .args(&["archlinux.org"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if can_ping_dns && !can_resolve_dns {
+        advice.push(
+            Advice::new(
+                "network-dns-broken".to_string(),
+                "DNS resolution is not working".to_string(),
+                "You can reach IP addresses but DNS name resolution is broken. This prevents browsing websites by name. Check your /etc/resolv.conf or NetworkManager DNS settings.".to_string(),
+                "cat /etc/resolv.conf && systemctl status systemd-resolved".to_string(),
+                None,
+                RiskLevel::Medium,
+                Priority::Recommended,
+                vec![
+                    "https://wiki.archlinux.org/title/Domain_name_resolution".to_string(),
+                ],
+                "network".to_string(),
+            )
+        );
+    }
+
+    // Check for packet loss (connection quality)
+    if can_ping_dns {
+        if let Ok(output) = Command::new("ping")
+            .args(&["-c", "10", "-W", "2", "1.1.1.1"])
+            .output()
+        {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            
+            // Parse packet loss percentage
+            if let Some(loss_line) = output_str.lines().find(|l| l.contains("packet loss")) {
+                if let Some(percent_str) = loss_line.split_whitespace()
+                    .find(|s| s.contains('%'))
+                {
+                    if let Ok(loss) = percent_str.trim_end_matches('%').parse::<f32>() {
+                        if loss > 20.0 {
+                            advice.push(
+                                Advice::new(
+                                    "network-high-packet-loss".to_string(),
+                                    format!("High packet loss detected ({:.0}%)", loss),
+                                    format!(
+                                        "Your network connection is unstable with {:.0}% packet loss. This causes slow or unreliable internet. Possible causes: weak WiFi signal, bad ethernet cable, router issues, or ISP problems. Try moving closer to WiFi router, checking cables, or restarting your router.",
+                                        loss
+                                    ),
+                                    "ping -c 20 1.1.1.1".to_string(),
+                                    None,
+                                    RiskLevel::Medium,
+                                    Priority::Recommended,
+                                    vec![
+                                        "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+                                    ],
+                                    "network".to_string(),
+                                )
+                            );
+                        } else if loss > 5.0 {
+                            advice.push(
+                                Advice::new(
+                                    "network-moderate-packet-loss".to_string(),
+                                    format!("Moderate packet loss detected ({:.0}%)", loss),
+                                    format!(
+                                        "Your network has {:.0}% packet loss. While not critical, this can cause occasional slowdowns. Consider checking your WiFi signal strength or ethernet cable connection.",
+                                        loss
+                                    ),
+                                    "ping -c 20 1.1.1.1".to_string(),
+                                    None,
+                                    RiskLevel::Low,
+                                    Priority::Optional,
+                                    vec![
+                                        "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+                                    ],
+                                    "network".to_string(),
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Check latency (ping time)
+            if let Some(rtt_line) = output_str.lines().find(|l| l.contains("rtt min/avg/max")) {
+                // Example: "rtt min/avg/max/mdev = 10.123/25.456/50.789/10.123 ms"
+                if let Some(stats) = rtt_line.split('=').nth(1) {
+                    let parts: Vec<&str> = stats.trim().split('/').collect();
+                    if parts.len() >= 3 {
+                        if let Ok(avg_ms) = parts[1].parse::<f32>() {
+                            if avg_ms > 200.0 {
+                                advice.push(
+                                    Advice::new(
+                                        "network-high-latency".to_string(),
+                                        format!("High network latency ({:.0}ms)", avg_ms),
+                                        format!(
+                                            "Your average ping time is {:.0}ms, which is quite high. This causes noticeable delays in browsing and online activities. Possible causes: slow internet connection, WiFi interference, or distance from server.",
+                                            avg_ms
+                                        ),
+                                        "ping -c 10 1.1.1.1".to_string(),
+                                        None,
+                                        RiskLevel::Low,
+                                        Priority::Cosmetic,
+                                        vec![
+                                            "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+                                        ],
+                                        "network".to_string(),
+                                    )
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Check if NetworkManager is running
+    let nm_running = Command::new("systemctl")
+        .args(&["is-active", "NetworkManager"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !nm_running {
+        advice.push(
+            Advice::new(
+                "network-manager-not-running".to_string(),
+                "NetworkManager is not running".to_string(),
+                "NetworkManager handles network connections and WiFi. It's not currently running, which may cause connection issues. Start it with 'systemctl start NetworkManager' and enable it to start on boot.".to_string(),
+                "systemctl start NetworkManager && systemctl enable NetworkManager".to_string(),
+                None,
+                RiskLevel::Medium,
+                Priority::Recommended,
+                vec![
+                    "https://wiki.archlinux.org/title/NetworkManager".to_string(),
+                ],
+                "network".to_string(),
+            )
+        );
+    }
+
+    advice
 }
