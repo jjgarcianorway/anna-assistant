@@ -245,6 +245,18 @@ impl WMBundleBuilder {
         self
     }
 
+    /// Set audio control tool
+    pub fn audio_control(mut self, tool: &str) -> Self {
+        self.components.audio_control = Some(tool.to_string());
+        self
+    }
+
+    /// Set brightness control tool
+    pub fn brightness_control(mut self, tool: &str) -> Self {
+        self.components.brightness_control = Some(tool.to_string());
+        self
+    }
+
     /// Add a keybinding
     pub fn keybind(mut self, key: &str, description: &str) -> Self {
         self.components.keybindings.insert(key.to_string(), description.to_string());
@@ -406,6 +418,39 @@ impl WMBundleBuilder {
                         format!("pacman -S --noconfirm bluez bluez-utils {}", bt),
                         "system".to_string(),
                         Priority::Optional,
+                    )
+                );
+            }
+        }
+
+        // 7a. Audio Control Tool (Beta.112)
+        if let Some(audio) = &self.components.audio_control {
+            if !self.is_package_installed(audio, facts) {
+                advice.push(
+                    self.make_advice(
+                        "audio",
+                        format!("Install {} audio control", audio),
+                        format!("{} provides volume control for multimedia keys.", audio),
+                        format!("pacman -S --noconfirm {}", audio),
+                        "system".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7b. Brightness Control Tool (Beta.112 - Laptop only!)
+        if let Some(brightness) = &self.components.brightness_control {
+            // Only install brightness control on laptops
+            if facts.user_preferences.uses_laptop && !self.is_package_installed(brightness, facts) {
+                advice.push(
+                    self.make_advice(
+                        "brightness",
+                        format!("Install {} brightness control", brightness),
+                        format!("{} provides brightness control for laptop multimedia keys.", brightness),
+                        format!("pacman -S --noconfirm {}", brightness),
+                        "system".to_string(),
+                        Priority::Recommended,
                     )
                 );
             }

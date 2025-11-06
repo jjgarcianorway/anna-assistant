@@ -45,6 +45,9 @@ fn hyprland_bundle(facts: &SystemFacts) -> Vec<Advice> {
         .lock_screen("swaylock")
         .network_manager("networkmanager")
         .bluetooth_manager("blueman")
+        // Multimedia Tools (Beta.112) - Make multimedia keys work!
+        .audio_control("pamixer")
+        .brightness_control("brightnessctl") // Only installed on laptops
         // Configuration Files (Beta.111)
         .config("hyprland", ".config/hypr")
         .config("waybar", ".config/waybar")
