@@ -4,7 +4,93 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.85 (November 2025)
+**Current Version:** Beta.86 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.86
+
+**🛡️ COMPREHENSIVE SECURITY HARDENING - Production Ready!**
+
+**Risk Reduction:** 🔴 HIGH → 🟢 LOW
+
+Anna now includes enterprise-grade security hardening to protect your system. Based on comprehensive security audit and industry best practices.
+
+### Phase 1: CRITICAL Vulnerability Fixes ✅
+
+**1. Socket Permissions Secured**
+- Fixed world-writable socket (0o666 → 0o660)
+- Only authorized users can connect to the privileged daemon
+- Prevents unauthorized access to root-level operations
+
+**2. Peer Authentication**
+- Implemented SO_PEERCRED credential checking
+- Logs UID, GID, PID of every connection
+- Full audit trail of who accesses the daemon
+
+**3. Command Validation (Defense-in-Depth)**
+- Regex-based dangerous pattern detection
+- Blocks: `rm -rf /`, `mkfs.`, `dd if=`, `curl|sh`, fork bombs
+- Logs all shell feature usage for security monitoring
+- **Note:** Commands already come from trusted whitelist - this adds extra protection
+
+### Phase 2: HIGH Priority Hardening ✅
+
+**4. Systemd Security Configuration (NEW)**
+- 200+ line comprehensive hardening configuration
+- Filesystem protection: `ProtectSystem=strict`, `ProtectHome=yes`
+- Seccomp-BPF syscall filtering (blocks privileged/dangerous syscalls)
+- Namespace isolation: `PrivateIPC`, `RestrictNamespaces`
+- Memory protection: `MemoryDenyWriteExecute=yes`
+- Network restrictions: Only necessary protocols allowed
+- Resource limits: Prevents fork bombs
+
+**5. Rate Limiting**
+- 120 requests/minute per user (2/second)
+- Prevents DoS attacks while allowing normal use
+- Per-UID tracking using peer credentials
+
+**6. Message Size Limits**
+- 64 KB maximum request size
+- Prevents memory exhaustion attacks
+- Fast rejection before JSON parsing
+
+### Security Architecture
+
+**Whitelist Model (Secure by Design):**
+- Client sends only `advice_id` (e.g., "vulkan-intel")
+- Daemon looks up command from internal trusted list
+- **Client CANNOT inject arbitrary commands**
+- Multiple layers of validation
+
+### Documentation
+
+- **SECURITY_AUDIT.md** (504 lines) - Complete security assessment
+- **annad-hardening.conf** (200+ lines) - Systemd drop-in configuration
+- **CHANGELOG-Beta86.md** (364 lines) - Full release notes
+
+### Deployment
+
+**Enable Security Hardening:**
+```bash
+sudo mkdir -p /etc/systemd/system/annad.service.d/
+sudo cp annad-hardening.conf /etc/systemd/system/annad.service.d/hardening.conf
+sudo systemctl daemon-reload
+sudo systemctl restart annad
+```
+
+### UX Improvements
+
+**Category Statistics in Advise Command:**
+- Visual bar chart shows category breakdown
+- Helps understand recommendation composition
+- Example:
+  ```
+  ████████████   Security & Privacy        12 items
+  ██████         System Maintenance        6 items
+  ████           Hardware Support          4 items
+  ```
+- Easy filtering: `annactl advise --category="Security & Privacy"`
 
 ---
 
