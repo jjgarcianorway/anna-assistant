@@ -29,6 +29,8 @@ use anna_common::ipc::{Method, ResponseData};
 /// Current view/mode of the TUI
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ViewMode {
+    /// Category browser - select category to view (Beta.92)
+    CategoryBrowser,
     /// Main dashboard view with list of recommendations
     Dashboard,
     /// Detailed view of a specific recommendation
@@ -97,6 +99,12 @@ struct Tui {
     output_executing: bool,
     /// Title for output window
     output_title: String,
+    /// Category list state for CategoryBrowser view (Beta.92)
+    category_list_state: ListState,
+    /// Selected category filter (None = show all, Some = filter by category) (Beta.92)
+    selected_category: Option<String>,
+    /// All advice (unfiltered, for category counting) (Beta.92)
+    all_advice: Vec<Advice>,
 }
 
 /// Get category emoji and color for display (using centralized categories)
@@ -131,6 +139,9 @@ impl Tui {
         let mut list_state = ListState::default();
         list_state.select(Some(0));
 
+        let mut category_list_state = ListState::default();
+        category_list_state.select(Some(0));
+
         Self {
             client,
             facts: None,
@@ -139,7 +150,7 @@ impl Tui {
             list_state,
             last_update: Instant::now(),
             should_quit: false,
-            view_mode: ViewMode::Dashboard,
+            view_mode: ViewMode::CategoryBrowser, // Beta.92: Start with category browser
             status_message: None,
             sort_mode: SortMode::Priority, // Default: sort by priority
             filter_mode: FilterMode::ImportantOnly, // Default: show only important advice
@@ -150,6 +161,9 @@ impl Tui {
             output_scroll: 0,
             output_executing: false,
             output_title: String::new(),
+            category_list_state,
+            selected_category: None,
+            all_advice: Vec::new(),
         }
     }
 
@@ -171,8 +185,16 @@ impl Tui {
                     advice.retain(|a| !filters.should_filter(a));
                 }
 
-                // Store total count before applying priority filter
+                // Store all advice for category counting (Beta.92)
+                self.all_advice = advice.clone();
+
+                // Store total count before applying filters
                 self.total_advice_count = advice.len();
+
+                // Apply category filter if selected (Beta.92)
+                if let Some(ref category) = self.selected_category {
+                    advice.retain(|a| &a.category == category);
+                }
 
                 // Apply priority filter based on filter mode
                 match self.filter_mode {
@@ -245,6 +267,43 @@ impl Tui {
                 });
             }
         }
+    }
+
+    /// Get categories with their advice counts (Beta.92)
+    fn get_categories_with_counts(&self) -> Vec<(String, usize, usize)> {
+        use std::collections::HashMap;
+
+        // Count total advice per category
+        let mut category_counts: HashMap<String, usize> = HashMap::new();
+        for advice in &self.all_advice {
+            *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
+        }
+
+        // Count critical (Mandatory priority) advice per category
+        let mut critical_counts: HashMap<String, usize> = HashMap::new();
+        for advice in &self.all_advice {
+            if matches!(advice.priority, Priority::Mandatory) {
+                *critical_counts.entry(advice.category.clone()).or_insert(0) += 1;
+            }
+        }
+
+        // Create sorted list of categories
+        let mut categories: Vec<(String, usize, usize)> = category_counts
+            .into_iter()
+            .map(|(cat, total)| {
+                let critical = critical_counts.get(&cat).copied().unwrap_or(0);
+                (cat, total, critical)
+            })
+            .collect();
+
+        // Sort by critical count (desc), then total count (desc), then name
+        categories.sort_by(|a, b| {
+            b.2.cmp(&a.2) // Critical count (desc)
+                .then_with(|| b.1.cmp(&a.1)) // Total count (desc)
+                .then_with(|| a.0.cmp(&b.0)) // Name (asc)
+        });
+
+        categories
     }
 
     /// Get currently selected advice
@@ -344,6 +403,7 @@ impl Tui {
         if let Event::Key(key) = event {
             if key.kind == KeyEventKind::Press {
                 match self.view_mode {
+                    ViewMode::CategoryBrowser => self.handle_category_browser_keys(key.code),
                     ViewMode::Dashboard => self.handle_dashboard_keys(key.code),
                     ViewMode::Details => self.handle_details_keys(key.code),
                     ViewMode::ApplyConfirm => self.handle_confirm_keys(key.code),
@@ -353,10 +413,64 @@ impl Tui {
         }
     }
 
+    /// Handle keys in category browser view (Beta.92)
+    fn handle_category_browser_keys(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Down | KeyCode::Char('j') => {
+                let categories = self.get_categories_with_counts();
+                if !categories.is_empty() {
+                    let current = self.category_list_state.selected().unwrap_or(0);
+                    let next = (current + 1) % categories.len();
+                    self.category_list_state.select(Some(next));
+                }
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                let categories = self.get_categories_with_counts();
+                if !categories.is_empty() {
+                    let current = self.category_list_state.selected().unwrap_or(0);
+                    let prev = if current == 0 { categories.len() - 1 } else { current - 1 };
+                    self.category_list_state.select(Some(prev));
+                }
+            }
+            KeyCode::Enter => {
+                // Select category and switch to Dashboard view
+                let categories = self.get_categories_with_counts();
+                if let Some(selected_idx) = self.category_list_state.selected() {
+                    if let Some((category, _, _)) = categories.get(selected_idx) {
+                        self.selected_category = Some(category.clone());
+                        self.view_mode = ViewMode::Dashboard;
+                        self.list_state.select(Some(0)); // Reset to first item
+                        self.status_message = Some((
+                            format!("Category: {}", category),
+                            Color::Cyan
+                        ));
+                    }
+                }
+            }
+            KeyCode::Char('a') => {
+                // View all recommendations (no category filter)
+                self.selected_category = None;
+                self.view_mode = ViewMode::Dashboard;
+                self.list_state.select(Some(0));
+                self.status_message = Some((
+                    "Viewing all categories".to_string(),
+                    Color::Cyan
+                ));
+            }
+            _ => {}
+        }
+    }
+
     /// Handle keys in dashboard view
     fn handle_dashboard_keys(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Char('q') => self.should_quit = true,
+            KeyCode::Esc | KeyCode::Backspace => {
+                // Beta.92: Return to category browser
+                self.view_mode = ViewMode::CategoryBrowser;
+                self.status_message = None;
+            }
             KeyCode::Down | KeyCode::Char('j') => {
                 self.move_selection_down();
             }
@@ -701,11 +815,86 @@ impl Tui {
 /// Draw the TUI based on current view mode
 fn draw(f: &mut Frame, tui: &mut Tui) {
     match tui.view_mode {
+        ViewMode::CategoryBrowser => draw_category_browser(f, tui),
         ViewMode::Dashboard => draw_dashboard(f, tui),
         ViewMode::Details => draw_details(f, tui),
         ViewMode::ApplyConfirm => draw_apply_confirm(f, tui),
         ViewMode::OutputDisplay => draw_output_display(f, tui),
     }
+}
+
+/// Draw category browser view (Beta.92)
+fn draw_category_browser(f: &mut Frame, tui: &mut Tui) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),      // Header
+            Constraint::Min(10),        // Category list
+            Constraint::Length(3),      // Footer
+        ])
+        .split(f.size());
+
+    // Header
+    let header = Paragraph::new("Anna Recommendations")
+        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)));
+    f.render_widget(header, chunks[0]);
+
+    // Get categories with counts
+    let categories = tui.get_categories_with_counts();
+
+    // Create list items
+    let items: Vec<ListItem> = categories
+        .iter()
+        .map(|(category, total, critical)| {
+            let (emoji, color) = get_category_emoji_color(category);
+
+            let critical_indicator = if *critical > 0 {
+                format!(" ({} critical)", critical)
+            } else {
+                String::new()
+            };
+
+            let content = format!("{} {} ({}){} →", emoji, category, total, critical_indicator);
+
+            ListItem::new(Line::from(vec![
+                Span::styled(content, Style::default().fg(color))
+            ]))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .block(Block::default()
+            .borders(Borders::ALL)
+            .title("Select Category")
+            .border_style(Style::default().fg(Color::White)))
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD)
+        )
+        .highlight_symbol("▶ ");
+
+    f.render_stateful_widget(list, chunks[1], &mut tui.category_list_state);
+
+    // Footer with controls
+    let footer_text = vec![
+        Line::from(vec![
+            Span::raw("↑/↓ Navigate  │  "),
+            Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" Select Category  │  "),
+            Span::styled("a", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw(" View All  │  "),
+            Span::styled("q", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw(" Quit"),
+        ]),
+    ];
+
+    let footer = Paragraph::new(footer_text)
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+    f.render_widget(footer, chunks[2]);
 }
 
 /// Draw main dashboard view
@@ -1343,16 +1532,16 @@ fn create_recommendation_item(advice: &Advice, sort_mode: SortMode) -> ListItem<
 fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: &Tui) {
     let shortcuts = match mode {
         "Dashboard" => vec![
-            (" q/Esc ", " Quit  "),
+            (" Esc ", " Back  "),
+            (" q ", " Quit  "),
             (" ↑/k ", " Up  "),
             (" ↓/j ", " Down  "),
             (" Enter ", " Details  "),
-            (" c ", " Category  "),
             (" p ", " Priority  "),
             (" r ", " Risk  "),
             (" f ", " Filter  "),
-            (" d ", " Hide Category  "),
-            (" i ", " Hide Priority  "),
+            (" d ", " Hide Cat  "),
+            (" i ", " Hide Pri  "),
         ],
         "Details" => {
             // Check if selected advice has a command (actionable)
@@ -1411,6 +1600,16 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
             FilterMode::All => Color::Green,
         };
         spans.push(Span::styled(filter_text, Style::default().fg(filter_color)));
+
+        // Add category filter indicator (Beta.92)
+        if let Some(ref category) = tui.selected_category {
+            spans.push(Span::raw("  │  "));
+            let (emoji, _) = get_category_emoji_color(category);
+            spans.push(Span::styled(
+                format!("{} {}", emoji, category),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            ));
+        }
 
         // Add filter indicator if filters are active
         if let Ok(filters) = anna_common::IgnoreFilters::load() {

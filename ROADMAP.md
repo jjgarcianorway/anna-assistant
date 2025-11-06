@@ -936,24 +936,54 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ---
 
-## 🎨 TUI REDESIGN - Category-Based Navigation (Beta.85)
+## 🎨 TUI REDESIGN - Category-Based Navigation (Beta.92)
 
-**Status:** 🎯 PLANNED (Major UX Overhaul)
+**Status:** ✅ COMPLETE!
 **Priority:** CRITICAL
 
 **User Vision:**
 > "Maybe TUI should have categories by default like a menu? (select category and go through?).
 > Then the sorting is only by priority or risk options? Interface must be extremely easy to use, intuitive and beautiful."
 
-### Proposed Architecture: Category-First Navigation
+### Beta.92: Category Menu System Implemented ✅
 
-#### Current Problems:
-- 120+ flat list of advice is overwhelming
-- No natural grouping or hierarchy
-- Category sorting exists but not intuitive
-- Users don't know where to start
+**What Was Built:**
+- ✅ ViewMode::CategoryBrowser - New entry point for TUI
+- ✅ Category list with emoji, counts, and critical indicators
+- ✅ Sorted by critical count → total count → name
+- ✅ Beautiful formatted UI with colored categories
+- ✅ Keyboard navigation (↑/↓ to browse, Enter to select)
+- ✅ "View All" option (press 'a') to see uncategorized view
+- ✅ Back navigation (Esc/Backspace) from Dashboard to Category Browser
+- ✅ Selected category shown in footer with emoji
+- ✅ Category filtering integrated with existing priority filters
+- ✅ Seamless integration with existing Dashboard view
 
-#### New Design: Category Menu System
+**Files Modified:**
+- `crates/annactl/src/tui.rs` (+120 lines)
+  - Added ViewMode::CategoryBrowser
+  - Added category_list_state, selected_category, all_advice fields
+  - get_categories_with_counts() - Smart category counting
+  - draw_category_browser() - Beautiful category list UI
+  - handle_category_browser_keys() - Navigation logic
+  - Updated dashboard keys: Esc → Back (not quit)
+  - Footer now shows selected category
+
+**User Experience:**
+1. Launch TUI → See category browser first
+2. Navigate categories with emoji and counts
+3. Critical items highlighted (e.g., "Security & Privacy (9 critical)")
+4. Select category → Filtered advice list
+5. Esc to return → Choose different category
+6. Press 'a' anytime → View all uncategorized
+
+**Impact:**
+- ✅ Reduced cognitive load - Focus on one area at a time
+- ✅ Clear mental model - "What do I want to work on today?"
+- ✅ Beautiful & intuitive - Exactly as user requested
+- ✅ Natural hierarchy - Menu → List → Details
+
+### Original Design Proposal (Implemented)
 
 **Main View (Category Browser):**
 ```
