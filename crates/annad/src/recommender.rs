@@ -197,6 +197,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_container_orchestration());
     advice.extend(check_python_enhancements());
     advice.extend(check_git_workflow_tools());
+    // Annotate advice with resource warnings (beta.102+)
+    crate::resource_classifier::annotate_advice(&mut advice, facts);
+
 
     advice
 }
