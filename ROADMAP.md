@@ -1604,7 +1604,45 @@ Comprehensive RAM monitoring prevents OOM kills and identifies leaks!
 
 ---
 
-### Next Steps (Beta.101+):
+## 🧠 CPU MONITORING & RESOURCE-AWARE FILTERING (Beta.101-102)
+
+**Status:** ✅ COMPLETED (Beta.101-102)
+
+### Beta.101: CPU Health & Throttling Detection ✅
+
+Completed performance monitoring quartet!
+
+**Features:**
+- Load average monitoring (per-core analysis)
+- CPU frequency throttling detection
+- Temperature monitoring (lm-sensors)
+- CPU hog identification (>80% usage)
+- Governor optimization (powersave → performance)
+
+### Beta.102: Resource-Aware Recommendation System ✅
+
+**MAJOR UX IMPROVEMENT:** Smart filtering warns users about resource requirements!
+
+**Features:**
+- Automatic resource detection (RAM, CPU, GPU, Disk)
+- System tier classification (VeryLow → VeryHigh)
+- Software requirements database (Hyprland, Docker, Steam, etc.)
+- Warning annotations (⚠️ Required, 💡 Recommended)
+- User stays in control - options shown with explanations
+
+**Example Warnings:**
+- "⚠️ Requires minimum 4GB RAM, your system has 2GB"
+- "💡 Works best with SSD, you have HDD"
+
+**Impact:**
+- ✅ **Complete Performance Monitoring** - Network, Disk, RAM, CPU all monitored!
+- ✅ **Hardware-Appropriate Recommendations** - No more heavy software on potato PCs
+- ✅ **User-Friendly Warnings** - Explains why, doesn't hide options
+- ✅ **User Request Fulfilled** - "analyze resources... system cannot or should not run specific software"
+
+---
+
+### Next Steps (Beta.103+):
 
 **Immediate:**
 1. Test bundle generation with real systems
