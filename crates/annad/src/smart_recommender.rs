@@ -16,6 +16,7 @@ use crate::xfce_config;
 use crate::cinnamon_config;
 use crate::mate_config;
 use crate::lxqt_config;
+use crate::wallpaper_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -279,6 +280,9 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
         }
         _ => {}
     }
+
+    // Universal wallpaper recommendations for all desktop environments
+    recommendations.extend(wallpaper_config::generate_wallpaper_recommendations());
 
     recommendations
 }

@@ -93,6 +93,7 @@ mod xfce_config;
 mod cinnamon_config;
 mod mate_config;
 mod lxqt_config;
+mod wallpaper_config;
 mod rpc_server;
 mod executor;
 mod audit;
