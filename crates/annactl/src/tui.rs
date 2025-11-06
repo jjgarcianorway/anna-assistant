@@ -50,14 +50,25 @@ enum SortMode {
     Risk,
 }
 
+/// Filter mode for recommendations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FilterMode {
+    /// Show only Critical and Recommended advice
+    ImportantOnly,
+    /// Show all advice
+    All,
+}
+
 /// TUI state and data
 struct Tui {
     /// RPC client for daemon communication
     client: RpcClient,
     /// Last fetched system facts
     facts: Option<SystemFacts>,
-    /// Current advice list
+    /// Current advice list (filtered)
     advice: Vec<Advice>,
+    /// Total unfiltered advice count
+    total_advice_count: usize,
     /// List state for scrolling
     list_state: ListState,
     /// Last update timestamp
@@ -70,6 +81,8 @@ struct Tui {
     status_message: Option<(String, Color)>,
     /// Current sort mode
     sort_mode: SortMode,
+    /// Current filter mode
+    filter_mode: FilterMode,
     /// Pending action to apply (advice_id)
     pending_apply: Option<String>,
     /// Mapping from list index to advice index (when headers are present)
@@ -122,12 +135,14 @@ impl Tui {
             client,
             facts: None,
             advice: Vec::new(),
+            total_advice_count: 0,
             list_state,
             last_update: Instant::now(),
             should_quit: false,
             view_mode: ViewMode::Dashboard,
             status_message: None,
             sort_mode: SortMode::Priority, // Default: sort by priority
+            filter_mode: FilterMode::ImportantOnly, // Default: show only important advice
             pending_apply: None,
             list_to_advice_map: Vec::new(),
             details_scroll: 0,
@@ -154,6 +169,22 @@ impl Tui {
                 // Apply ignore filters
                 if let Ok(filters) = anna_common::IgnoreFilters::load() {
                     advice.retain(|a| !filters.should_filter(a));
+                }
+
+                // Store total count before applying priority filter
+                self.total_advice_count = advice.len();
+
+                // Apply priority filter based on filter mode
+                match self.filter_mode {
+                    FilterMode::ImportantOnly => {
+                        // Show only Critical (Mandatory) and Recommended advice
+                        advice.retain(|a| {
+                            matches!(a.priority, Priority::Mandatory | Priority::Recommended)
+                        });
+                    }
+                    FilterMode::All => {
+                        // Show all advice (no filtering)
+                    }
                 }
 
                 self.advice = advice;
@@ -345,7 +376,7 @@ impl Tui {
                             ));
                         } else {
                             self.status_message = Some((
-                                format!("Ignored category: {}", advice.category),
+                                format!("Category hidden: {}", advice.category),
                                 Color::Yellow
                             ));
                             // Mark for refresh on next cycle
@@ -366,7 +397,7 @@ impl Tui {
                             ));
                         } else {
                             self.status_message = Some((
-                                format!("Ignored priority: {:?}", advice.priority),
+                                format!("Priority hidden: {:?}", advice.priority),
                                 Color::Yellow
                             ));
                             // Mark for refresh on next cycle
@@ -374,6 +405,22 @@ impl Tui {
                         }
                     }
                 }
+            }
+            KeyCode::Char('f') => {
+                // Toggle filter mode
+                self.filter_mode = match self.filter_mode {
+                    FilterMode::ImportantOnly => FilterMode::All,
+                    FilterMode::All => FilterMode::ImportantOnly,
+                };
+
+                let filter_status = match self.filter_mode {
+                    FilterMode::ImportantOnly => "Showing Critical & Recommended only",
+                    FilterMode::All => "Showing all advice",
+                };
+
+                self.status_message = Some((filter_status.to_string(), Color::Cyan));
+                // Mark for refresh to apply new filter
+                self.last_update = std::time::Instant::now() - std::time::Duration::from_secs(5);
             }
             _ => {}
         }
@@ -458,7 +505,7 @@ impl Tui {
                             ));
                         } else {
                             self.status_message = Some((
-                                format!("Ignored category: {}", advice.category),
+                                format!("Category hidden: {}", advice.category),
                                 Color::Yellow
                             ));
                             // Mark for refresh on next cycle
@@ -481,7 +528,7 @@ impl Tui {
                             ));
                         } else {
                             self.status_message = Some((
-                                format!("Ignored priority: {:?}", advice.priority),
+                                format!("Priority hidden: {:?}", advice.priority),
                                 Color::Yellow
                             ));
                             // Mark for refresh on next cycle
@@ -1193,11 +1240,18 @@ fn draw_recommendations(f: &mut Frame, area: Rect, tui: &mut Tui) {
         }
     }
 
+    // Create title showing filtered count if applicable
+    let title = if tui.filter_mode == FilterMode::ImportantOnly && tui.advice.len() < tui.total_advice_count {
+        format!(" Recommendations ({} of {}) ", tui.advice.len(), tui.total_advice_count)
+    } else {
+        format!(" Recommendations ({}) ", tui.advice.len())
+    };
+
     let list = List::new(items)
         .block(Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
-            .title(format!(" Recommendations ({}) ", tui.advice.len())))
+            .title(title))
         .highlight_style(
             Style::default()
                 .bg(Color::DarkGray)
@@ -1274,8 +1328,9 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
             (" c ", " Category  "),
             (" p ", " Priority  "),
             (" r ", " Risk  "),
-            (" d ", " Ignore Cat  "),
-            (" i ", " Ignore Pri  "),
+            (" f ", " Filter  "),
+            (" d ", " Hide Category  "),
+            (" i ", " Hide Priority  "),
         ],
         "Details" => {
             // Check if selected advice has a command (actionable)
@@ -1287,15 +1342,15 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
                 vec![
                     (" Esc ", " Back  "),
                     (" a ", " Apply  "),
-                    (" d ", " Ignore Cat  "),
-                    (" i ", " Ignore Pri  "),
+                    (" d ", " Hide Category  "),
+                    (" i ", " Hide Priority  "),
                     (" q ", " Quit  "),
                 ]
             } else {
                 vec![
                     (" Esc ", " Back  "),
-                    (" d ", " Ignore Cat  "),
-                    (" i ", " Ignore Pri  "),
+                    (" d ", " Hide Category  "),
+                    (" i ", " Hide Priority  "),
                     (" q ", " Quit  "),
                 ]
             }
@@ -1323,14 +1378,26 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
         };
         spans.push(Span::styled(sort_text, Style::default().fg(Color::Cyan)));
 
+        // Add priority filter mode indicator
+        spans.push(Span::raw("  │  "));
+        let filter_text = match tui.filter_mode {
+            FilterMode::ImportantOnly => "View: Critical+Recommended",
+            FilterMode::All => "View: All",
+        };
+        let filter_color = match tui.filter_mode {
+            FilterMode::ImportantOnly => Color::Yellow,
+            FilterMode::All => Color::Green,
+        };
+        spans.push(Span::styled(filter_text, Style::default().fg(filter_color)));
+
         // Add filter indicator if filters are active
         if let Ok(filters) = anna_common::IgnoreFilters::load() {
             let total_filters = filters.ignored_categories.len() + filters.ignored_priorities.len();
             if total_filters > 0 {
                 spans.push(Span::raw("  │  "));
                 spans.push(Span::styled(
-                    format!("🔍 {} filter{}", total_filters, if total_filters == 1 { "" } else { "s" }),
-                    Style::default().fg(Color::Yellow)
+                    format!("🔍 {} hidden", total_filters),
+                    Style::default().fg(Color::DarkGray)
                 ));
             }
         }

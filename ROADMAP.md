@@ -910,6 +910,30 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 - ✅ Multi-monitor and ultrawide support guidance
 - ✅ Universal recommendations (works for all 9 DEs)
 
+### Beta.83 - TUI UX Improvements & Smart Filtering
+**Status:** ✅ COMPLETED (Partial - Phase 1)
+
+**User Feedback:**
+- "ignore cat and ignore pri in TUI details view are unclear"
+- "showing 120 advices does not have any sense... it needs to be prioritized in a better way"
+- "TUI must be improved quite a lot"
+
+**Solution Implemented:**
+- ✅ Fixed unclear terminology: "Ignore Cat" → "Hide Category", "Ignore Pri" → "Hide Priority"
+- ✅ Updated all status messages to use "hidden" instead of "ignored"
+- ✅ Implemented smart filtering system: shows only Critical + Recommended advice by default
+- ✅ Added FilterMode enum (ImportantOnly, All)
+- ✅ Added 'f' hotkey to toggle between filtered and all advice views
+- ✅ Footer now shows filter status: "View: Critical+Recommended" or "View: All"
+- ✅ Recommendation count shows "X of Y" when filtered (e.g., "Recommendations (15 of 120)")
+- ✅ Improved footer clarity: "🔍 N hidden" shows how many categories/priorities are hidden
+
+**Remaining Work (Phase 2):**
+- [ ] Real-time command output streaming (requires RPC protocol changes)
+- [ ] Better information hierarchy and layout
+- [ ] Menu system implementation
+- [ ] Dynamic learning from user behavior
+
 ### System & Kernel Error Advice Improvements
 **Status:** 🔄 PLANNED (Beta.83)
 **Priority:** HIGH
@@ -927,19 +951,19 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 - [ ] Show actual error samples with explanations
 
 ### Release Notes Display / Notification Fixes
-**Status:** 🔄 PLANNED (Beta.83)
+**Status:** 🔄 PARTIAL (Beta.83)
 **Priority:** HIGH
 
 **User Feedback:**
 - "During the update, Anna is not showing the proper release notes. Still a GDBus error"
 - "annactl update --install should not update if its the same version... and proper release notes must be shown"
 
-**Planned Solution:**
+**Solution:**
 - [ ] Fix GDBus error in notification system
 - [ ] Improve release notes display after auto-update
-- [ ] Skip update if already on latest version (avoid unnecessary reinstallation)
-- [ ] Show clear "Already on latest version" message when up-to-date
-- [ ] Display proper release notes for current version when --install is used
+- ✅ Skip update if already on latest version (avoid unnecessary reinstallation)
+- ✅ Show clear "Already on latest version" message when up-to-date
+- ✅ Display proper release notes for current version when --install is used
 - [ ] Test notification system across different DEs
 - [ ] Provide fallback if notification daemon unavailable
 
