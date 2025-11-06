@@ -1416,7 +1416,98 @@ Anna now actively monitors your network health and warns you about connectivity 
 - ✅ **Real-Time** - Checks happen every time Anna refreshes
 - ✅ **User Request Fulfilled** - "warning from anna" about network issues!
 
-### Next Steps (Beta.97+):
+---
+
+## 🪟 EXPANDED WM BUNDLES (Beta.97)
+
+**Status:** ✅ COMPLETED (Beta.97)
+
+### Beta.97: Dynamic & Minimal Window Manager Bundles ✅
+
+Added 5 new complete WM bundles, bringing total from 14 to 19 window managers!
+
+#### 1. New Dynamic WMs (2):
+
+**LeftWM** - Modern Rust-based dynamic window manager
+- Theme-based configuration system
+- Multiple layout support (monocle, wide, tiled)
+- Comprehensive SUPER+key bindings
+- Perfect for Rust enthusiasts
+
+**Spectrwm** - Minimal dynamic WM with sane defaults
+- Built-in status bar
+- Master area management (SUPER+H/L to resize)
+- Region-based workspace system
+- Minimal resource usage with full functionality
+
+#### 2. New Minimal/Terminal-focused WMs (3):
+
+**Ratpoison** - GNU Screen-like window manager
+- All commands via CTRL+T prefix (like Screen)
+- Zero mouse required - 100% keyboard driven
+- Frame-based layout (split, remove, navigate)
+- Group management for workspaces
+- Perfect for terminal power users
+
+**Wmii** - Minimalist, scriptable with 9P filesystem
+- Custom wimenu launcher (dmenu-like)
+- Column-based dynamic layout
+- Tag system instead of workspaces
+- Fully scriptable via 9P
+
+**EvilWM** - Pure functionality, ultra minimal
+- No decorations, just windows
+- Mouse-focused by default
+- 8 virtual desktops (CTRL+ALT+1-8)
+- Minimal resource usage
+- Perfect for low-end hardware
+
+#### 3. Technical Implementation:
+
+**Files Created:**
+- `crates/annad/src/bundles/minimal_wms.rs` (151 lines)
+  - ratpoison_bundle() - 50+ keybindings documented
+  - wmii_bundle() - Column-based workflow
+  - evilwm_bundle() - Mouse + keyboard bindings
+
+**Files Modified:**
+- `crates/annad/src/bundles/tiling_wms.rs`: +88 lines
+  - leftwm_bundle() with theme support
+  - spectrwm_bundle() with master area management
+
+- `crates/annad/src/bundles/mod.rs`: +3 lines
+  - Integrated minimal_wms module
+  - Updated generate_all_wm_bundles()
+
+- `crates/annad/src/telemetry.rs`: +3 lines
+  - Added wmii detection (env, process, package)
+
+#### 4. Complete Coverage Summary:
+
+**19 Window Managers Total:**
+- **Wayland Compositors (4):** Hyprland, Sway, Wayfire, River
+- **Tiling WMs (9):** i3, bspwm, dwm, xmonad, herbstluftwm, awesome, qtile, **leftwm**, **spectrwm**
+- **Stacking WMs (3):** openbox, fluxbox, icewm
+- **Minimal WMs (3):** **ratpoison**, **wmii**, **evilwm**
+
+Each bundle provides:
+- Complete desktop setup (WM + launcher + bar + terminal + file managers)
+- Network & Bluetooth management tools
+- 20-50 documented keybindings per WM
+- Hardware-aware recommendations
+
+#### 5. Impact:
+
+- ✅ **Diversity** - Now covers dynamic, minimal, and terminal-focused workflows
+- ✅ **User Choice** - 19 different WM options for every preference
+- ✅ **Keyboard-First** - Ratpoison and Wmii for terminal power users
+- ✅ **Modern Rust** - LeftWM for Rust enthusiasts
+- ✅ **Ultra-Minimal** - EvilWM for low-resource systems
+- ✅ **Documentation** - 100+ new keybindings documented
+
+---
+
+### Next Steps (Beta.98+):
 
 **Immediate:**
 1. Test bundle generation with real systems
@@ -1424,7 +1515,7 @@ Anna now actively monitors your network health and warns you about connectivity 
 3. Improve bundle filtering (only show relevant bundles)
 
 **Short-term:**
-4. Add more WMs (LeftWM, Spectrwm, Ratpoison, etc.)
+4. ✅ Add more WMs (LeftWM, Spectrwm, Ratpoison, etc.) - **COMPLETED Beta.97**
 5. Create bundle variants (minimal/terminal/gtk/qt/full)
 6. Add hardware-specific components (GPU drivers, laptop tools)
 
