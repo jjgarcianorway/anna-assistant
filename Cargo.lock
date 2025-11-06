@@ -33,6 +33,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "console",
+ "libc",
  "owo-colors",
  "reqwest",
  "serde",

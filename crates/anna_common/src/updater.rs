@@ -1,6 +1,10 @@
 //! Auto-update system for Anna Assistant
 //!
 //! Checks for new releases on GitHub and can automatically update binaries
+//!
+//! Beta.88: Smart privilege handling - detects if running as root and skips
+//! unnecessary sudo commands. Works both when called by daemon (already root)
+//! and when called directly by users.
 
 use anyhow::{Result, Context};
 use serde::{Deserialize, Serialize};
@@ -11,6 +15,39 @@ use tracing::{info, warn, error};
 const REPO: &str = "jjgarcianorway/anna-assistant";
 const INSTALL_DIR: &str = "/usr/local/bin";
 const BACKUP_DIR: &str = "/var/lib/anna/backup";
+
+/// Check if we're running as root (UID 0)
+/// If yes, we don't need sudo for privileged operations
+fn is_root() -> bool {
+    #[cfg(unix)]
+    {
+        unsafe { libc::geteuid() == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        false // Non-Unix systems don't have root concept
+    }
+}
+
+/// Execute a command with sudo only if not already root
+/// This makes the updater work both when called by daemon (root) and by users
+fn execute_privileged(program: &str, args: &[&str]) -> Result<std::process::ExitStatus> {
+    if is_root() {
+        // Already root - execute directly
+        Command::new(program)
+            .args(args)
+            .status()
+            .context(format!("Failed to execute {}", program))
+    } else {
+        // Not root - use sudo
+        let mut sudo_args = vec![program];
+        sudo_args.extend(args);
+        Command::new("sudo")
+            .args(&sudo_args)
+            .status()
+            .context(format!("Failed to execute sudo {}", program))
+    }
+}
 
 /// Information about an available update
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,14 +235,11 @@ fn verify_binary(binary_path: &Path, expected_version: &str) -> Result<()> {
 fn backup_current_binaries() -> Result<()> {
     info!("Backing up current binaries");
 
-    // Create backup directory with sudo
-    let status = Command::new("sudo")
-        .args(&["mkdir", "-p", BACKUP_DIR])
-        .status()
-        .context("Failed to execute mkdir")?;
+    // Create backup directory (with privilege escalation if needed)
+    let status = execute_privileged("mkdir", &["-p", BACKUP_DIR])?;
 
     if !status.success() {
-        anyhow::bail!("Failed to create backup directory with sudo");
+        anyhow::bail!("Failed to create backup directory");
     }
 
     let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
@@ -216,20 +250,20 @@ fn backup_current_binaries() -> Result<()> {
     let annad_backup = Path::new(BACKUP_DIR).join(format!("annad.{}", timestamp));
     let annactl_backup = Path::new(BACKUP_DIR).join(format!("annactl.{}", timestamp));
 
-    // Copy with sudo to backup directory
-    let status_annad = Command::new("sudo")
-        .args(&["cp", annad_src.to_str().unwrap(), annad_backup.to_str().unwrap()])
-        .status()
-        .context("Failed to backup annad")?;
+    // Copy to backup directory (with privilege escalation if needed)
+    let status_annad = execute_privileged("cp", &[
+        annad_src.to_str().unwrap(),
+        annad_backup.to_str().unwrap()
+    ])?;
 
     if !status_annad.success() {
         anyhow::bail!("Failed to backup annad");
     }
 
-    let status_annactl = Command::new("sudo")
-        .args(&["cp", annactl_src.to_str().unwrap(), annactl_backup.to_str().unwrap()])
-        .status()
-        .context("Failed to backup annactl")?;
+    let status_annactl = execute_privileged("cp", &[
+        annactl_src.to_str().unwrap(),
+        annactl_backup.to_str().unwrap()
+    ])?;
 
     if !status_annactl.success() {
         anyhow::bail!("Failed to backup annactl");
@@ -267,29 +301,29 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
 
     // Stop daemon (will be restarted by systemd)
     info!("Stopping daemon for update...");
-    let _ = Command::new("sudo")
-        .args(&["systemctl", "stop", "annad"])
-        .output();
+    let _ = execute_privileged("systemctl", &["stop", "annad"]);
 
-    // Replace binaries (use sudo mv to avoid "text file busy" error)
+    // Replace binaries (use mv to avoid "text file busy" error)
     // mv can replace a running binary, cp cannot
     info!("Installing new binaries...");
     let annad_dest = Path::new(INSTALL_DIR).join("annad");
     let annactl_dest = Path::new(INSTALL_DIR).join("annactl");
 
-    let status_annad = Command::new("sudo")
-        .args(&["mv", "-f", temp_annad.to_str().unwrap(), annad_dest.to_str().unwrap()])
-        .status()
-        .context("Failed to install annad")?;
+    let status_annad = execute_privileged("mv", &[
+        "-f",
+        temp_annad.to_str().unwrap(),
+        annad_dest.to_str().unwrap()
+    ])?;
 
     if !status_annad.success() {
         anyhow::bail!("Failed to install annad binary");
     }
 
-    let status_annactl = Command::new("sudo")
-        .args(&["mv", "-f", temp_annactl.to_str().unwrap(), annactl_dest.to_str().unwrap()])
-        .status()
-        .context("Failed to install annactl")?;
+    let status_annactl = execute_privileged("mv", &[
+        "-f",
+        temp_annactl.to_str().unwrap(),
+        annactl_dest.to_str().unwrap()
+    ])?;
 
     if !status_annactl.success() {
         anyhow::bail!("Failed to install annactl binary");
@@ -297,9 +331,7 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
 
     // Restart daemon
     info!("Restarting daemon...");
-    let _ = Command::new("sudo")
-        .args(&["systemctl", "start", "annad"])
-        .output();
+    let _ = execute_privileged("systemctl", &["start", "annad"]);
 
     // Clean up temp files
     let _ = std::fs::remove_dir_all(&temp_dir);

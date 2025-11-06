@@ -174,21 +174,31 @@ fn get_cpu_model(sys: &System) -> String {
 }
 
 fn detect_gpu() -> Option<String> {
-    // Try lspci to detect GPU
+    // Try lspci to detect GPU - MUST check line by line to avoid false positives!
+    // (e.g., Intel chipset on Nvidia GPU systems would incorrectly detect as Intel GPU)
     let output = Command::new("lspci")
         .output()
         .ok()?;
     let lspci_output = String::from_utf8_lossy(&output.stdout);
 
-    if lspci_output.contains("NVIDIA") {
-        Some("NVIDIA".to_string())
-    } else if lspci_output.contains("AMD") || lspci_output.contains("Radeon") {
-        Some("AMD".to_string())
-    } else if lspci_output.contains("Intel") {
-        Some("Intel".to_string())
-    } else {
-        None
+    // Check each line for GPU-specific devices only
+    for line in lspci_output.lines() {
+        let lower = line.to_lowercase();
+
+        // Only check GPU/display controller lines (not chipset/audio/etc)
+        if lower.contains("vga") || lower.contains("display") || lower.contains("3d") {
+            // Priority: Nvidia > AMD > Intel (dedicated GPUs take precedence)
+            if lower.contains("nvidia") {
+                return Some("NVIDIA".to_string());
+            } else if lower.contains("amd") || lower.contains("radeon") || lower.contains("ati") {
+                return Some("AMD".to_string());
+            } else if lower.contains("intel") {
+                return Some("Intel".to_string());
+            }
+        }
     }
+
+    None
 }
 
 fn get_storage_devices() -> Result<Vec<StorageDevice>> {
