@@ -5,12 +5,18 @@
 use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use tracing::info;
 use crate::hyprland_config;
+use crate::shell_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
     let mut recommendations = Vec::new();
 
     info!("Generating smart package recommendations based on workflow");
+
+    // Shell configuration intelligence (everyone has a shell!)
+    if let Some(shell_config) = shell_config::analyze_shell() {
+        recommendations.extend(shell_config::generate_shell_recommendations(&shell_config));
+    }
 
     // Development workflow recommendations
     recommendations.extend(recommend_for_development(&facts.development_environment));
