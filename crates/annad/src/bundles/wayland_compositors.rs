@@ -32,10 +32,12 @@ fn is_wayland_system(_facts: &SystemFacts) -> bool {
 }
 
 /// Hyprland bundle - Dynamic tiling Wayland compositor
+/// THE PERFECT HYPRLAND SETUP! (Beta.113)
 fn hyprland_bundle(facts: &SystemFacts) -> Vec<Advice> {
     WMBundleBuilder::new("hyprland")
         .display_server(DisplayServer::Wayland)
         .wm_package("hyprland")
+        // UI Components
         .launcher("rofi-wayland")
         .status_bar("waybar")
         .terminal("kitty")
@@ -43,11 +45,22 @@ fn hyprland_bundle(facts: &SystemFacts) -> Vec<Advice> {
         .notification_daemon("mako")
         .wallpaper_manager("hyprpaper")
         .lock_screen("swaylock")
+        // System Tools
         .network_manager("networkmanager")
         .bluetooth_manager("blueman")
         // Multimedia Tools (Beta.112) - Make multimedia keys work!
         .audio_control("pamixer")
         .brightness_control("brightnessctl") // Only installed on laptops
+        // Complete Application Suite (Beta.113) - Everything you need!
+        .media_player("mpv") // Best video player
+        .image_viewer("imv") // Fast Wayland image viewer
+        .pdf_viewer("zathura") // Vim-like PDF reader
+        .text_editor("nano") // Simple text editor for quick edits
+        // BEAUTIFICATION! (Beta.113) - Make it look AMAZING!
+        .color_scheme_generator("python-pywal") // Auto colors from wallpaper!
+        .gtk_theme("arc-gtk-theme") // Modern GTK theme
+        .icon_theme("papirus-icon-theme") // Beautiful icons
+        .cursor_theme("bibata-cursor-theme") // Modern cursor
         // Configuration Files (Beta.111)
         .config("hyprland", ".config/hypr")
         .config("waybar", ".config/waybar")

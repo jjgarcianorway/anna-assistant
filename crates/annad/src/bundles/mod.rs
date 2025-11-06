@@ -87,6 +87,8 @@ pub struct WMComponents {
     pub text_editor: Option<String>,
     pub browser: Option<String>,
     pub media_player: Option<String>,
+    pub image_viewer: Option<String>,
+    pub pdf_viewer: Option<String>,
 
     // System Tools
     pub network_manager: Option<String>,
@@ -99,6 +101,7 @@ pub struct WMComponents {
     pub icon_theme: Option<String>,
     pub cursor_theme: Option<String>,
     pub font: Option<String>,
+    pub color_scheme_generator: Option<String>, // pywal, etc.
 
     // Hardware-specific
     pub gpu_driver_nvidia: Option<String>,
@@ -127,6 +130,8 @@ impl Default for WMComponents {
             text_editor: None,
             browser: None,
             media_player: None,
+            image_viewer: None,
+            pdf_viewer: None,
             network_manager: None,
             bluetooth_manager: None,
             audio_control: None,
@@ -135,6 +140,7 @@ impl Default for WMComponents {
             icon_theme: None,
             cursor_theme: None,
             font: None,
+            color_scheme_generator: None,
             gpu_driver_nvidia: None,
             gpu_driver_amd: None,
             keybindings: HashMap::new(),
@@ -254,6 +260,54 @@ impl WMBundleBuilder {
     /// Set brightness control tool
     pub fn brightness_control(mut self, tool: &str) -> Self {
         self.components.brightness_control = Some(tool.to_string());
+        self
+    }
+
+    /// Set media player
+    pub fn media_player(mut self, player: &str) -> Self {
+        self.components.media_player = Some(player.to_string());
+        self
+    }
+
+    /// Set image viewer
+    pub fn image_viewer(mut self, viewer: &str) -> Self {
+        self.components.image_viewer = Some(viewer.to_string());
+        self
+    }
+
+    /// Set PDF viewer
+    pub fn pdf_viewer(mut self, viewer: &str) -> Self {
+        self.components.pdf_viewer = Some(viewer.to_string());
+        self
+    }
+
+    /// Set text editor
+    pub fn text_editor(mut self, editor: &str) -> Self {
+        self.components.text_editor = Some(editor.to_string());
+        self
+    }
+
+    /// Set GTK theme
+    pub fn gtk_theme(mut self, theme: &str) -> Self {
+        self.components.gtk_theme = Some(theme.to_string());
+        self
+    }
+
+    /// Set icon theme
+    pub fn icon_theme(mut self, theme: &str) -> Self {
+        self.components.icon_theme = Some(theme.to_string());
+        self
+    }
+
+    /// Set cursor theme
+    pub fn cursor_theme(mut self, theme: &str) -> Self {
+        self.components.cursor_theme = Some(theme.to_string());
+        self
+    }
+
+    /// Set color scheme generator (pywal, etc.)
+    pub fn color_scheme_generator(mut self, generator: &str) -> Self {
+        self.components.color_scheme_generator = Some(generator.to_string());
         self
     }
 
@@ -451,6 +505,134 @@ impl WMBundleBuilder {
                         format!("pacman -S --noconfirm {}", brightness),
                         "system".to_string(),
                         Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7c. Media Player (Beta.113)
+        if let Some(player) = &self.components.media_player {
+            if !self.is_package_installed(player, facts) {
+                advice.push(
+                    self.make_advice(
+                        "media-player",
+                        format!("Install {} video player", player),
+                        format!("{} is a powerful media player for videos and music.", player),
+                        format!("pacman -S --noconfirm {}", player),
+                        "applications".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7d. Image Viewer (Beta.113)
+        if let Some(viewer) = &self.components.image_viewer {
+            if !self.is_package_installed(viewer, facts) {
+                advice.push(
+                    self.make_advice(
+                        "image-viewer",
+                        format!("Install {} image viewer", viewer),
+                        format!("{} is a fast image viewer for viewing photos.", viewer),
+                        format!("pacman -S --noconfirm {}", viewer),
+                        "applications".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7e. PDF Viewer (Beta.113)
+        if let Some(pdf) = &self.components.pdf_viewer {
+            if !self.is_package_installed(pdf, facts) {
+                advice.push(
+                    self.make_advice(
+                        "pdf-viewer",
+                        format!("Install {} PDF viewer", pdf),
+                        format!("{} allows you to read PDF documents.", pdf),
+                        format!("pacman -S --noconfirm {}", pdf),
+                        "applications".to_string(),
+                        Priority::Optional,
+                    )
+                );
+            }
+        }
+
+        // 7f. Text Editor (Beta.113)
+        if let Some(editor) = &self.components.text_editor {
+            if !self.is_package_installed(editor, facts) {
+                advice.push(
+                    self.make_advice(
+                        "text-editor",
+                        format!("Install {} text editor", editor),
+                        format!("{} is a modern text editor.", editor),
+                        format!("pacman -S --noconfirm {}", editor),
+                        "applications".to_string(),
+                        Priority::Optional,
+                    )
+                );
+            }
+        }
+
+        // 7g. Color Scheme Generator - Pywal! (Beta.113)
+        if let Some(generator) = &self.components.color_scheme_generator {
+            if !self.is_package_installed(generator, facts) {
+                advice.push(
+                    self.make_advice(
+                        "color-scheme",
+                        format!("Install {} - Auto color themes from wallpaper!", generator),
+                        format!("{} automatically generates beautiful color schemes from your wallpaper and applies them system-wide to terminal, waybar, rofi, etc. Your desktop will always match your wallpaper!", generator),
+                        format!("pacman -S --noconfirm {}", generator),
+                        "beautification".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7h. GTK Theme (Beta.113)
+        if let Some(theme) = &self.components.gtk_theme {
+            if !self.is_package_installed(theme, facts) {
+                advice.push(
+                    self.make_advice(
+                        "gtk-theme",
+                        format!("Install {} GTK theme", theme),
+                        format!("{} provides beautiful theming for GTK applications.", theme),
+                        format!("pacman -S --noconfirm {}", theme),
+                        "beautification".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7i. Icon Theme (Beta.113)
+        if let Some(icons) = &self.components.icon_theme {
+            if !self.is_package_installed(icons, facts) {
+                advice.push(
+                    self.make_advice(
+                        "icon-theme",
+                        format!("Install {} icon theme", icons),
+                        format!("{} provides beautiful system-wide icons.", icons),
+                        format!("pacman -S --noconfirm {}", icons),
+                        "beautification".to_string(),
+                        Priority::Recommended,
+                    )
+                );
+            }
+        }
+
+        // 7j. Cursor Theme (Beta.113)
+        if let Some(cursor) = &self.components.cursor_theme {
+            if !self.is_package_installed(cursor, facts) {
+                advice.push(
+                    self.make_advice(
+                        "cursor-theme",
+                        format!("Install {} cursor theme", cursor),
+                        format!("{} provides a modern cursor design.", cursor),
+                        format!("pacman -S --noconfirm {}", cursor),
+                        "beautification".to_string(),
+                        Priority::Optional,
                     )
                 );
             }
