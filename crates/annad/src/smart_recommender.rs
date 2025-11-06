@@ -6,6 +6,7 @@ use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use tracing::info;
 use crate::hyprland_config;
 use crate::i3_config;
+use crate::sway_config;
 use crate::shell_config;
 use crate::terminal_config;
 use crate::git_config;
@@ -219,6 +220,13 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             info!("Detected i3, analyzing configuration");
             if let Some(config) = i3_config::analyze_i3() {
                 recommendations.extend(i3_config::generate_i3_recommendations(&config));
+            }
+        }
+        de_str if de_str.contains("sway") => {
+            // Sway - comprehensive configuration analysis
+            info!("Detected Sway, analyzing configuration");
+            if let Some(config) = sway_config::analyze_sway() {
+                recommendations.extend(sway_config::generate_sway_recommendations(&config));
             }
         }
         de_str if de_str.contains("gnome") => {

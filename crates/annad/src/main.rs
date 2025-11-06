@@ -83,6 +83,7 @@ mod intelligent_recommender;
 mod smart_recommender;
 mod hyprland_config;
 mod i3_config;
+mod sway_config;
 mod shell_config;
 mod terminal_config;
 mod git_config;
