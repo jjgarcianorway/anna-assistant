@@ -1021,20 +1021,25 @@ Sort: Priority ▼  │  f: Filter  │  Esc: Back
 
 ## 🖥️ REAL-TIME TERMINAL VIEW (Beta.85)
 
-**Status:** 🚧 IN PROGRESS - Foundation Complete
+**Status:** 🚧 IN PROGRESS - Server-Side Complete ✅
 **Priority:** CRITICAL
 
-**Foundation Work Completed:**
+**Server-Side Implementation Complete:**
 - ✅ Added StreamChunk and StreamEnd response types to IPC protocol
 - ✅ Added `stream: bool` parameter to ApplyAction method
-- ✅ Implemented execute_command_streaming() in executor
+- ✅ Implemented execute_command_streaming_channel() with async channels
+- ✅ Integrated streaming executor into RPC server (handle_streaming_apply)
+- ✅ Real-time chunk forwarding (sent DURING execution, not after)
+- ✅ Tokio mpsc channel bridges sync stdout/stderr → async sender
+- ✅ Concurrent stream reading with tokio::select!
+- ✅ Proper task completion handling with JoinHandle
 - ✅ All call sites updated to support streaming flag
 
-**Remaining Work:**
-- [ ] Integrate streaming executor into RPC server
+**Remaining Work (Client-Side):**
 - [ ] Update RPC client to handle multiple responses per request
-- [ ] Add LiveExecution TUI view mode
-- [ ] Test streaming with various command types
+- [ ] Add LiveExecution TUI view mode with scrollable output
+- [ ] Wire streaming into TUI apply_action (set stream: true)
+- [ ] Test streaming end-to-end with various command types
 
 **User Feedback:**
 > "How is the 'live' terminal view realtime when applying advice solutions?
