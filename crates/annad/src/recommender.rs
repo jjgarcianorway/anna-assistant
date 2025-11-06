@@ -52,6 +52,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     // Disk performance monitoring (beta.99+)
     advice.extend(check_disk_performance(facts));
 
+    // RAM monitoring with leak detection (beta.100+)
+    advice.extend(check_ram_health(facts));
+
     // Extended telemetry-based checks (beta.43+)
     advice.extend(check_microcode_updates(facts));
     advice.extend(check_battery_optimization(facts));
@@ -10768,6 +10771,285 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                             "hardware".to_string(),
                         ));
                     }
+                }
+            }
+        }
+    }
+
+    advice
+}
+
+/// Check RAM health and detect memory leaks (Beta.100)
+///
+/// Monitors:
+/// - Overall memory pressure
+/// - Per-process memory usage trends
+/// - OOM (Out of Memory) risk prediction
+/// - Memory leak candidates
+/// - Swap usage patterns
+fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
+    use std::process::Command;
+    let mut advice = Vec::new();
+
+    // 1. Check overall memory usage
+    if let Ok(output) = Command::new("free").args(&["-m"]).output() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        
+        // Parse free output: Mem: total used free shared buff/cache available
+        for line in output_str.lines() {
+            if line.starts_with("Mem:") {
+                let fields: Vec<&str> = line.split_whitespace().collect();
+                if fields.len() >= 7 {
+                    if let (Ok(total), Ok(available)) = (
+                        fields[1].parse::<f32>(),
+                        fields[6].parse::<f32>(),
+                    ) {
+                        let used_percent = ((total - available) / total) * 100.0;
+                        
+                        if used_percent > 95.0 {
+                            advice.push(Advice::new(
+                                "ram-pressure-critical".to_string(),
+                                "Critical memory pressure detected".to_string(),
+                                format!(
+                                    "System RAM is {:.1}% full ({:.0}MB of {:.0}MB). \
+                                    You're at risk of OOM (Out of Memory) kills. The kernel will forcibly terminate \
+                                    processes to free memory. Actions to take: \
+                                    1) Identify memory hogs with 'ps aux --sort=-rss | head -15' \
+                                    2) Close unnecessary applications \
+                                    3) Check for memory leaks (see other RAM advice) \
+                                    4) Consider adding more RAM or swap space",
+                                    used_percent, total - available, total
+                                ),
+                                "ps aux --sort=-rss | head -15".to_string(),
+                                None,
+                                RiskLevel::High,
+                                Priority::Mandatory,
+                                vec![
+                                    "https://wiki.archlinux.org/title/Improving_performance#RAM_and_swap".to_string(),
+                                ],
+                                "performance".to_string(),
+                            ));
+                        } else if used_percent > 85.0 {
+                            advice.push(Advice::new(
+                                "ram-pressure-high".to_string(),
+                                "High memory usage detected".to_string(),
+                                format!(
+                                    "System RAM is {:.1}% full ({:.0}MB of {:.0}MB). \
+                                    Memory pressure is high. Consider: \
+                                    1) Reviewing running applications \
+                                    2) Checking for memory leaks \
+                                    3) Increasing swap space if needed",
+                                    used_percent, total - available, total
+                                ),
+                                "ps aux --sort=-rss | head -10".to_string(),
+                                None,
+                                RiskLevel::Medium,
+                                Priority::Recommended,
+                                vec![],
+                                "performance".to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+            
+            // Check swap usage
+            if line.starts_with("Swap:") {
+                let fields: Vec<&str> = line.split_whitespace().collect();
+                if fields.len() >= 4 {
+                    if let (Ok(total), Ok(used)) = (
+                        fields[1].parse::<f32>(),
+                        fields[2].parse::<f32>(),
+                    ) {
+                        if total > 0.0 {
+                            let swap_percent = (used / total) * 100.0;
+                            
+                            if swap_percent > 50.0 {
+                                advice.push(Advice::new(
+                                    "ram-swap-heavy".to_string(),
+                                    "Heavy swap usage detected".to_string(),
+                                    format!(
+                                        "Swap is {:.1}% full ({:.0}MB of {:.0}MB). Heavy swapping severely degrades \
+                                        performance as disk is much slower than RAM. This usually indicates: \
+                                        1) Insufficient RAM for your workload \
+                                        2) Memory leaks \
+                                        3) Too many applications running \
+                                        Check memory usage with 'free -h' and identify top consumers with 'ps aux --sort=-rss'",
+                                        swap_percent, used, total
+                                    ),
+                                    "free -h && ps aux --sort=-rss | head -10".to_string(),
+                                    None,
+                                    RiskLevel::Medium,
+                                    Priority::Recommended,
+                                    vec![
+                                        "https://wiki.archlinux.org/title/Swap".to_string(),
+                                    ],
+                                    "performance".to_string(),
+                                ));
+                            }
+                        } else if used > 0.0 {
+                            // Swap is being used but no swap configured (using zswap or zram)
+                            advice.push(Advice::new(
+                                "ram-no-swap-but-used".to_string(),
+                                "No swap space configured".to_string(),
+                                "System is using compressed memory (zram/zswap) but has no traditional swap. \
+                                For systems with low RAM, consider adding swap space as a safety net to prevent OOM kills.".to_string(),
+                                "fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile".to_string(),
+                                None,
+                                RiskLevel::Low,
+                                Priority::Optional,
+                                vec![
+                                    "https://wiki.archlinux.org/title/Swap#Swap_file".to_string(),
+                                ],
+                                "system".to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Detect potential memory leaks (processes with high RSS growth)
+    // We'll check top memory consumers and flag those that seem excessive
+    if let Ok(output) = Command::new("ps")
+        .args(&["aux", "--sort=-rss"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = output_str.lines().collect();
+        
+        // Skip header, check top 5 processes
+        for (i, line) in lines.iter().skip(1).take(5).enumerate() {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() >= 11 {
+                let user = fields[0];
+                let pid = fields[1];
+                let mem_percent = fields[3];
+                let rss_kb = fields[5];
+                let command = fields[10..].join(" ");
+                
+                // Parse RSS (in KB) and memory percent
+                if let (Ok(rss), Ok(mem_pct)) = (
+                    rss_kb.parse::<f32>(),
+                    mem_percent.parse::<f32>(),
+                ) {
+                    let rss_mb = rss / 1024.0;
+                    
+                    // Flag processes using >2GB or >20% of RAM as potential leaks
+                    if rss_mb > 2048.0 || mem_pct > 20.0 {
+                        advice.push(Advice::new(
+                            format!("ram-leak-candidate-{}", pid),
+                            format!("High memory usage: {} (PID {})", command, pid),
+                            format!(
+                                "Process '{}' (PID {}) is using {:.1}MB ({:.1}% of RAM). \
+                                This could indicate: \
+                                1) Normal behavior for memory-intensive applications (browsers, IDEs, databases) \
+                                2) A memory leak if usage grows over time \
+                                3) Misconfigured application \
+                                Monitor with: watch -n 5 'ps -p {} -o pid,rss,cmd' \
+                                If RSS keeps growing, restart the application or investigate the leak.",
+                                command, pid, rss_mb, mem_pct, pid
+                            ),
+                            format!("ps -p {} -o pid,user,%mem,rss,etime,cmd", pid),
+                            None,
+                            RiskLevel::Low,
+                            Priority::Optional,
+                            vec![],
+                            "performance".to_string(),
+                        ));
+                        
+                        // Only report top 3 to avoid spam
+                        if i >= 2 {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Check for OOM killer activity in dmesg
+    if let Ok(output) = Command::new("dmesg")
+        .args(&["-T", "--level=warn,err"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        
+        if output_str.to_lowercase().contains("out of memory") 
+            || output_str.to_lowercase().contains("oom") 
+        {
+            advice.push(Advice::new(
+                "ram-oom-killer-active".to_string(),
+                "OOM killer has been triggered recently".to_string(),
+                "The Out of Memory (OOM) killer has been forcibly terminating processes to free memory. \
+                This indicates your system ran out of RAM and swap. Recent OOM events: \
+                Check 'dmesg | grep -i oom' for details. \
+                Solutions: \
+                1) Add more RAM \
+                2) Increase swap space \
+                3) Identify and fix memory leaks \
+                4) Reduce concurrent applications \
+                The OOM killer's choices can be unpredictable - it may kill important processes!".to_string(),
+                "dmesg | grep -i 'out of memory\\|oom' | tail -10".to_string(),
+                None,
+                RiskLevel::High,
+                Priority::Mandatory,
+                vec![
+                    "https://wiki.archlinux.org/title/Improving_performance#Adjusting_OOM_score".to_string(),
+                ],
+                "system".to_string(),
+            ));
+        }
+    }
+
+    // 4. Check if earlyoom or systemd-oomd is installed for proactive OOM handling
+    let has_earlyoom = Command::new("systemctl")
+        .args(&["is-active", "earlyoom"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+        
+    let has_oomd = Command::new("systemctl")
+        .args(&["is-active", "systemd-oomd"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    
+    if !has_earlyoom && !has_oomd {
+        // Check if system has < 8GB RAM (more likely to hit OOM)
+        if let Ok(output) = Command::new("free").args(&["-g"]).output() {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            for line in output_str.lines() {
+                if line.starts_with("Mem:") {
+                    let fields: Vec<&str> = line.split_whitespace().collect();
+                    if fields.len() >= 2 {
+                        if let Ok(total_gb) = fields[1].parse::<i32>() {
+                            if total_gb < 8 {
+                                advice.push(Advice::new(
+                                    "ram-no-oom-protection".to_string(),
+                                    "No proactive OOM protection installed".to_string(),
+                                    format!(
+                                        "Your system has {}GB RAM and no earlyoom/systemd-oomd protection. \
+                                        These tools prevent complete system freezes by terminating processes BEFORE \
+                                        the system runs out of memory entirely. Without them, low memory situations \
+                                        can make your system completely unresponsive. \
+                                        Install earlyoom for better OOM handling.",
+                                        total_gb
+                                    ),
+                                    "pacman -S --noconfirm earlyoom && systemctl enable --now earlyoom".to_string(),
+                                    None,
+                                    RiskLevel::Low,
+                                    Priority::Recommended,
+                                    vec![
+                                        "https://wiki.archlinux.org/title/Earlyoom".to_string(),
+                                    ],
+                                    "system".to_string(),
+                                ));
+                            }
+                        }
+                    }
+                    break;
                 }
             }
         }
