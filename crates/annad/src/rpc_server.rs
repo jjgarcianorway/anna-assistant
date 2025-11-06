@@ -193,11 +193,18 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
 
     // Set socket permissions to 0660 (owner and group only)
     // SECURITY: Only root and users in the socket's group can connect
-    // TODO: Set socket group ownership to 'annactl' group in installation
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))?;
+
+        // Change socket group to 'anna' so users in that group can connect
+        use std::process::Command;
+        let _ = Command::new("chown")
+            .args(&["root:anna", SOCKET_PATH])
+            .status();
+
+        info!("Socket permissions set to 0660 with group 'anna'");
     }
 
     // Accept connections
