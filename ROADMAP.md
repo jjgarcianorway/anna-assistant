@@ -2505,3 +2505,371 @@ Box drawing characters may have different widths depending on terminal font rend
 
 **File:** `crates/annactl/src/commands.rs:199-265`
 
+
+---
+
+## 🎨 MAJOR TUI REVAMP - v1.1.0-beta.1 (Eurydice) - PLANNED
+
+**Status:** 📋 PLANNED
+**Priority:** CRITICAL (Major Milestone)
+
+**User Vision:**
+> "TUI + CLI simplification... perfect—here's a single, copy-paste master prompt...
+> Keep Anna easy, intuitive, beautiful — pastel palette, crisp borders, human copy."
+
+### Goals: Simplified CLI + First-Class TUI
+
+This is a major architectural milestone to:
+1. **Freeze & simplify the CLI** to a permanent, minimal set
+2. **Build a first-class TUI** that mirrors CLI features via elegant menus
+3. **Keep Anna easy, intuitive, beautiful** - pastel palette, crisp borders
+
+---
+
+### A. Final CLI Surface (Simplified & Stable)
+
+**Core Commands (Keep):**
+- `annactl status` - Concise health + last 10 audit entries
+- `annactl advise [category|mode] [-l N]` - Numbered list with filters
+- `annactl apply <list>` - Accept 1, 1-5, 1,3,5, --id, --bundle
+- `annactl report [--format md|json]` - Full report
+- `annactl doctor [--fix]` - Diagnostics + fixes
+- `annactl tui` - Launch new dashboard (replaces `dashboard`)
+
+**Route to TUI:**
+- bundles, rollback, dismiss, history, config, ignore → TUI sub-menus
+- Legacy commands hidden under `--experimental`
+
+---
+
+### B. TUI Requirements (Parity + Beautiful)
+
+**Framework:** ratatui + crossterm
+- Clean teardown, window resize safe
+- Logs to ~/.local/state/anna/logs/annactl-tui.log
+
+**Main Menu (Single Key Navigation):**
+```
+╭──────────────────────────────────────────────╮
+│ 🌸 Anna — Your Arch Linux Sysadmin Companion │
+├──────────────────────────────────────────────┤
+│ [1] System Overview     [2] Advice Center    │
+│ [3] Apply Actions       [4] Reports          │
+│ [5] Bundles / Rollback  [6] Settings         │
+│ [7] Ignore & Dismiss    [H] History          │
+│ [Q] Quit                                     │
+╰──────────────────────────────────────────────╯
+Footer: Arrows/Tab • Enter to select • Q quit • ? help
+```
+
+**Screens & Behaviors:**
+
+1. **System Overview**
+   - Health score (0-100)
+   - Critical issues list
+   - Last refresh, auto-update status
+   - Daemon status, last 10 audit entries
+
+2. **Advice Center**
+   - Scrollable, numbered list with filters:
+     - `c` = category
+     - `p` = priority (🔴/🟡/🟢/🔵)
+     - `r` = risk
+     - `/` = search
+     - `f` = mode (smart|critical|recommended|all)
+   - Enter = details panel (full description, wiki refs, commands)
+   - `a` = apply (live output modal)
+   - Immediate refresh after success (Beta.63)
+
+3. **Apply Actions**
+   - Multi-select (Space) then A to apply batch
+   - Display total operations
+   - Live output modal (yellow border → green when done)
+
+4. **Reports**
+   - Generate Markdown/JSON
+   - S to save, show path
+   - Include "Showing N of M recommendations"
+
+5. **Bundles / Rollback**
+   - List bundles with installed markers
+   - Enter to view contents
+   - B to apply, R to rollback by number
+
+6. **Settings**
+   - Theme (pastel/dim)
+   - Notifications cooldown
+   - Refresh cadence
+   - Auto-update status
+   - Wallpaper & DE helper links
+
+7. **Ignore & Dismiss**
+   - `i` ignore by category/priority
+   - `d` dismiss per item
+   - Lists with U to unhide/undismiss
+
+8. **History**
+   - Audit trail with timestamps
+   - Exit status, stdout excerpt
+   - `o` to open full log
+
+**Visual Style:**
+- **Pastel palette:**
+  - Magenta title
+  - Mint success
+  - Amber warn
+  - Rose error
+  - Blue info
+  - Dark indigo background
+- **Rounded borders**, 1-space padding
+- **80×24 safe layout**
+
+---
+
+### C. Feature Coverage (Must Remain Working)
+
+All existing features must work in TUI:
+- ✅ Wallpaper Intelligence (Beta.82)
+- ✅ 9 Desktop Environments (Beta.70-81)
+- ✅ Terminal/Shell/Git intelligence (Beta.71-73)
+- ✅ Advice dependencies (`satisfies`) (Beta.62)
+- ✅ Instant refresh after apply (Beta.63)
+- ✅ Non-interactive package ops (Beta.58)
+- ✅ Live output modal (Beta.60)
+- ✅ Smart notifications (Beta.57)
+- ✅ Auto-update always on (Beta.61)
+- ✅ 14 WM bundles (Beta.94-95)
+- ✅ Network health monitoring (Beta.96)
+
+---
+
+### D. Architecture & Integration
+
+- TUI calls existing RPCs (no logic duplication)
+- All applies go through same executor & audit trail
+- Respect ignore/dismiss filters everywhere
+- Keep JSON/MD reports identical between CLI and TUI
+
+---
+
+### E. Deliverables
+
+**New Files:**
+- `src/annactl/tui/`
+  - main_menu.rs
+  - overview.rs
+  - advice.rs
+  - apply.rs
+  - reports.rs
+  - bundles.rs
+  - settings.rs
+  - ignore_dismiss.rs
+  - history.rs
+  - live_output.rs
+
+**Documentation:**
+- docs/TUI_GUIDE.md (keybindings, screenshots)
+- README: new TUI screenshots
+- CHANGELOG: v1.1.0-beta.1 notes
+
+---
+
+### F. Definition of Done
+
+**CLI Tests:**
+- ✅ `annactl status` prints health + audit
+- ✅ `annactl advise` respects filters, shows "N of M"
+- ✅ `annactl apply 1,3-4` runs non-interactive with live output
+- ✅ `annactl report --format md` produces file
+- ✅ `annactl doctor --fix` performs fixes
+- ✅ `annactl tui` launches dashboard
+
+**TUI Tests:**
+- ✅ Navigate all menus
+- ✅ Apply single & batch with live output
+- ✅ Advice disappears post-apply
+- ✅ Satisfied advice hidden
+- ✅ Filters work (c, p, r, /, f)
+- ✅ Bundles list/rollback works
+- ✅ Ignore/dismiss shows and can unhide
+- ✅ Reports export path printed
+- ✅ No panics on resize
+- ✅ Terminal restored on exit
+
+**Style:**
+- ✅ Pastel theme, rounded borders
+- ✅ Single-line footer hints
+- ✅ All errors actionable (1-line fix suggestion)
+
+---
+
+## 📊 SYSTEM PERFORMANCE MONITORING - PLANNED
+
+**Status:** 📋 PLANNED
+**Priority:** HIGH
+
+**User Feedback:**
+> "we need to monitor network, disk performance, ram,... so anna can take actions before problems arise"
+
+### Goals: Proactive Performance Monitoring
+
+Anna should monitor system performance and warn BEFORE problems occur:
+
+---
+
+### A. Metrics to Monitor
+
+**1. Disk Performance**
+- ✅ SMART health (already implemented)
+- 🔄 Disk I/O latency
+- 🔄 Read/write speeds
+- 🔄 Queue depth
+- 🔄 Slow disk warnings
+- 🔄 Degraded RAID arrays
+
+**2. RAM Monitoring**
+- ✅ Memory pressure (already implemented)
+- 🔄 Swap usage trends
+- 🔄 Memory leak detection
+- 🔄 OOM risk prediction
+- 🔄 Cache hit ratios
+
+**3. CPU Monitoring**
+- ✅ Temperature monitoring (already implemented)
+- 🔄 Sustained high load (>80% for 5+ minutes)
+- 🔄 CPU throttling detection
+- 🔄 Per-process CPU hogs
+- 🔄 Core utilization imbalance
+
+**4. Network Performance (Beta.96+)**
+- ✅ Connectivity status
+- ✅ Packet loss detection
+- ✅ Latency monitoring
+- ✅ DNS resolution testing
+- 🔄 Bandwidth saturation
+- 🔄 Network interface errors/drops
+
+**5. Filesystem Health**
+- ✅ Disk space prediction (already implemented)
+- 🔄 Inode exhaustion warnings
+- 🔄 Filesystem errors (ext4/btrfs/xfs)
+- 🔄 Mount point issues
+
+---
+
+### B. Implementation Plan
+
+**Phase 1: Data Collection**
+- Extend telemetry.rs with performance metrics
+- Use `/proc/`, `iostat`, `vmstat`, `ss`, `ip`
+- Sample metrics every 5 minutes
+- Store trends in SQLite database
+
+**Phase 2: Anomaly Detection**
+- Define baseline performance per system
+- Detect degradation trends
+- Alert on anomalies (sudden changes)
+
+**Phase 3: Predictive Warnings**
+- "Disk I/O degrading - SMART check recommended"
+- "RAM usage trending up - possible leak in [process]"
+- "Network latency increased 3x - check router"
+- "CPU temperature rising - thermal paste aging?"
+
+**Phase 4: Automated Actions**
+- Restart misbehaving services
+- Clear caches if memory critical
+- Suggest kernel parameter tuning
+- Recommend hardware upgrades
+
+---
+
+### C. Example Warnings
+
+```
+🔴 Sustained high CPU load (95% for 10 minutes)
+    Process 'firefox' consuming 85% CPU. Consider restarting it or
+    checking for runaway tabs.
+
+🟡 RAM usage trending upward
+    Memory usage increased from 40% to 75% over past hour. Possible
+    memory leak in 'electron'. Consider restarting application.
+
+🟡 Disk I/O latency high (200ms avg)
+    Disk /dev/sda showing 10x normal latency. Check SMART status,
+    cable connection, or consider drive replacement.
+
+🔵 Network latency increased
+    Average ping time increased from 20ms to 80ms. Router may need
+    restart or ISP experiencing issues.
+```
+
+---
+
+### D. Integration Points
+
+**Telemetry Collection:**
+- `crates/annad/src/telemetry.rs`
+- New functions: `collect_io_metrics()`, `collect_memory_metrics()`, etc.
+
+**Trend Storage:**
+- SQLite database at `/var/lib/anna/metrics.db`
+- Tables: cpu_metrics, ram_metrics, disk_metrics, network_metrics
+- Retention: 7 days of 5-minute samples
+
+**Advice Generation:**
+- `crates/annad/src/recommender.rs`
+- New functions: `check_disk_performance()`, `check_ram_trends()`, etc.
+
+**TUI Integration:**
+- System Overview screen shows live metrics
+- Graphs for CPU/RAM/disk/network (sparklines)
+- Color-coded thresholds
+
+---
+
+### E. Timeline
+
+**v1.0.x (Current):**
+- ✅ Network health monitoring (Beta.96)
+- ✅ Basic telemetry (disk space, CPU temp, memory)
+
+**v1.1.0 (Eurydice):**
+- 🔄 TUI revamp with performance graphs
+- 🔄 Disk I/O monitoring
+- 🔄 RAM trend analysis
+- 🔄 Sustained load detection
+
+**v1.2.0:**
+- 🔄 Predictive analytics
+- 🔄 Automated remediation
+- 🔄 Historical performance reports
+
+---
+
+## 🎯 Roadmap Summary
+
+**Immediate (Beta.97+):**
+1. Test all 14 WM bundles with real systems
+2. Add `annactl bundles` command
+3. Improve bundle filtering
+
+**Short-term (v1.0.x):**
+4. Disk I/O performance monitoring
+5. RAM trend analysis
+6. More WM bundles (LeftWM, Spectrwm, etc.)
+
+**Medium-term (v1.1.0 Eurydice):**
+7. **Major TUI Revamp** - Full menu system, pastel theme
+8. Simplified CLI surface
+9. Performance graphs in TUI
+10. Sustained load detection
+
+**Long-term (v1.2.0+):**
+11. Predictive analytics
+12. Automated remediation
+13. Configuration file generation
+14. Arch Wiki General Recommendations coverage
+15. Theme/appearance bundles
+16. Desktop environment bundles
+
