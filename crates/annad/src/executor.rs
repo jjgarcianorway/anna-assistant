@@ -145,7 +145,7 @@ pub fn create_audit_entry(action: &Action, actor: &str) -> AuditEntry {
     AuditEntry {
         timestamp: Utc::now(),
         actor: actor.to_string(),
-        action_type: "execute_action".to_string(),
+        action_type: "apply_action".to_string(),
         details: format!(
             "Executed command '{}' from advice {}",
             action.command, action.advice_id

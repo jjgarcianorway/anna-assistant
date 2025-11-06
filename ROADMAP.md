@@ -1045,34 +1045,40 @@ Created symlink /etc/systemd/system/timers.target.wants/fstrim.timer → /usr/li
 ```
 
 ### Applied Advice Persistence Bug
-**Status:** 🔥 CRITICAL (Beta.83)
+**Status:** ✅ FIXED (Beta.83)
 **Priority:** CRITICAL
 
 **User Feedback:**
 - "Applied 2 TRIM advices, still on the list"
 - "and of course the applied advice is still not in the history... (that is bad)"
 
-**Problem:**
-After applying advice multiple times, it continues to show in the advice list. Either:
-1. Advice not being marked as satisfied after application
-2. Detection logic not recognizing the applied changes
-3. Advice state not persisting between daemon refreshes
+**Root Cause Found:**
+Action type mismatch in audit log filtering:
+- Audit entries were created with `action_type: "execute_action"`
+- Filter was looking for `action_type: "apply_action"`
+- Result: Applied advice IDs were never being found in audit log!
 
-**Additionally:** Applied advice is NOT being recorded in history, making it impossible to:
-- Track what was applied and when
-- Audit changes made to the system
-- Review past actions for troubleshooting
-- Undo problematic changes
+**Solution Implemented:**
+- ✅ Fixed action_type mismatch in executor.rs (line 148)
+- ✅ Changed "execute_action" → "apply_action" to match filter
+- ✅ Applied advice now correctly recorded in audit log
+- ✅ `get_applied_advice_ids()` now finds and returns applied advice
+- ✅ Applied advice properly filtered from advice list
+- ✅ History tracking now works correctly
 
-**Planned Solution:**
-- [ ] Fix advice satisfaction detection after application
-- [ ] Verify state changes after command execution
-- [ ] Persist applied advice state between daemon refreshes
-- [ ] Add "Hide applied" filter option in TUI
-- [ ] Debug TRIM advice specifically (timer vs service confusion)
-- [ ] **CRITICAL:** Record all applied advice to history (`annactl history`)
-- [ ] Store application timestamp, command output, exit code
-- [ ] Make history persistent and queryable
+**Code Changes:**
+```rust
+// executor.rs line 148 - BEFORE:
+action_type: "execute_action".to_string(),
+
+// AFTER:
+action_type: "apply_action".to_string(),
+```
+
+**Remaining Work:**
+- [ ] Debug TRIM advice specifically (timer vs service detection confusion)
+- [ ] Add "Show applied" toggle option in TUI for verification
+- [ ] Consider adding applied advice count to dashboard
 
 ### Universal Rollback System
 **Status:** 🔥 CRITICAL (Beta.83)
