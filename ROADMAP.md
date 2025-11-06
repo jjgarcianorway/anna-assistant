@@ -1372,10 +1372,23 @@ let command = advice.command  // From daemon, NOT from client!
 
 ---
 
-## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.89+)
+## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.89-90)
 
-**Status:** 🎯 PLANNED (HIGH priority)
+**Status:** 🔄 IN PROGRESS (Phase 1 Complete!)
 **Priority:** HIGH
+
+### Beta.89: Rollback Foundation ✅
+**Status:** ✅ COMPLETE
+
+**Implemented:**
+- Automatic rollback command generation
+- Enhanced Action struct with rollback fields
+- Supports: pacman install/remove, systemctl enable/disable/start/stop
+- Smart parsing with safety checks
+- 5 unit tests passing
+- Integrated into executor and RPC server
+
+**File:** `crates/anna_common/src/rollback.rs` (245 lines)
 
 **User Feedback:**
 > "Rollbacks for actions and for bundles... interface must be extremely easy to use, intuitive and beautiful"
@@ -2029,14 +2042,17 @@ Box drawing characters may have different widths depending on terminal font rend
 - [ ] Consider using ASCII fallback for problematic terminals
 
 ### Journalctl Integration
-**Status:** 🔜 PLANNED (Beta.87)
+**Status:** ✅ COMPLETE (Beta.90)
 
 **User Feedback:**
 - "annactl status should show the most relevant entries about the journalctl of annad, at least top 10"
 
-**Planned Solution:**
-- [ ] Add journalctl integration to `annactl status`
-- [ ] Show top 10 relevant annad log entries
-- [ ] Filter by severity (errors, warnings)
-- [ ] Provide context for log entries
+**Implemented:**
+- ✅ Added journalctl integration to `annactl status`
+- ✅ Shows top 10 daemon log entries automatically
+- ✅ Color-coded by severity (red=error, yellow=warn, cyan=info)
+- ✅ ISO timestamps for precise timing
+- ✅ Graceful permission handling
+
+**File:** `crates/annactl/src/commands.rs:199-265`
 
