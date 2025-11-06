@@ -105,11 +105,14 @@ async fn send_gui_notification(title: &str, message: &str, urgency: Notification
                 NotificationUrgency::Low => "dialog-information",
             };
 
+            // Construct DBus address with actual UID
+            let dbus_address = format!("unix:path=/run/user/{}/bus", session.uid);
+
             let result = Command::new("sudo")
                 .args(&[
                     "-u", &session.username,
                     "DISPLAY=:0",
-                    "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{}/bus",
+                    &format!("DBUS_SESSION_BUS_ADDRESS={}", dbus_address),
                     "notify-send",
                     "--urgency", urgency_str,
                     "--icon", icon,
