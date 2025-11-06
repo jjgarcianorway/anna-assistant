@@ -83,6 +83,7 @@ mod intelligent_recommender;
 mod smart_recommender;
 mod hyprland_config;
 mod shell_config;
+mod terminal_config;
 mod rpc_server;
 mod executor;
 mod audit;
