@@ -40,6 +40,7 @@ pub mod wayland_compositors;
 pub mod tiling_wms;
 pub mod stacking_wms;
 pub mod minimal_wms;
+pub mod classic_wms;
 
 /// Bundle variant types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -496,6 +497,9 @@ pub fn generate_all_wm_bundles(facts: &SystemFacts) -> Vec<Advice> {
 
     // Minimal WMs (3 WMs: ratpoison, wmii, evilwm)
     advice.extend(minimal_wms::generate_bundles(facts));
+
+    // Classic WMs (3 WMs: windowmaker, fvwm, enlightenment)
+    advice.extend(classic_wms::generate_bundles(facts));
 
     advice
 }
