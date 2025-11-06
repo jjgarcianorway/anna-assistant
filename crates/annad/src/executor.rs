@@ -9,6 +9,39 @@ use tracing::{error, info, warn};
 
 use crate::snapshotter::{Snapshotter, Snapshot};
 
+/// Validates command for suspicious patterns before execution
+/// SECURITY: Commands come from daemon's trusted whitelist, but this provides defense-in-depth
+fn validate_command(command: &str) -> Result<()> {
+    // Check for extremely dangerous patterns
+    let dangerous_patterns = [
+        "rm -rf /",       // Recursive delete of root
+        "mkfs.",          // Filesystem creation (destructive)
+        "dd if=",         // Direct disk write
+        "curl.*|.*sh",    // Download and execute
+        "wget.*|.*sh",    // Download and execute
+        ":|:",            // Fork bomb
+        ">(.*)",          // Process substitution to file
+    ];
+
+    for pattern in &dangerous_patterns {
+        if regex::Regex::new(pattern).unwrap().is_match(command) {
+            warn!("SECURITY: Blocked dangerous command pattern: {}", pattern);
+            return Err(anyhow::anyhow!(
+                "Command contains dangerous pattern and was blocked for safety"
+            ));
+        }
+    }
+
+    // Log if command uses shell features (for audit)
+    if command.contains("&&") || command.contains("||") || command.contains("|")
+        || command.contains("$()") || command.contains("`") || command.contains(">")
+        || command.contains("<") {
+        info!("SECURITY: Executing command with shell features: {}", command);
+    }
+
+    Ok(())
+}
+
 /// Execute an action based on advice with snapshot support
 pub async fn execute_action_with_snapshot(
     advice: &Advice,
@@ -102,6 +135,9 @@ async fn execute_command(command: &str) -> Result<String> {
         return Err(anyhow::anyhow!("Empty command"));
     }
 
+    // SECURITY: Validate command before execution
+    validate_command(command)?;
+
     info!("Executing shell command: {}", command);
 
     // Execute through shell to support complex syntax like $(...), &&, |, etc.
@@ -141,6 +177,9 @@ pub async fn execute_command_streaming_channel(
     if command.trim().is_empty() {
         return Err(anyhow::anyhow!("Empty command"));
     }
+
+    // SECURITY: Validate command before execution
+    validate_command(command)?;
 
     info!("Executing shell command with streaming: {}", command);
 
@@ -224,6 +263,9 @@ where
     if command.trim().is_empty() {
         return Err(anyhow::anyhow!("Empty command"));
     }
+
+    // SECURITY: Validate command before execution
+    validate_command(command)?;
 
     info!("Executing shell command with streaming: {}", command);
     output_callback(ExecutionChunk::Status(format!("Executing: {}", command)));

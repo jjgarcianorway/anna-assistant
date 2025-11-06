@@ -93,11 +93,13 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
 
     info!("RPC server listening on {}", SOCKET_PATH);
 
-    // Set socket permissions (readable/writable by all users for now)
+    // Set socket permissions to 0660 (owner and group only)
+    // SECURITY: Only root and users in the socket's group can connect
+    // TODO: Set socket group ownership to 'annactl' group in installation
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o666))?;
+        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))?;
     }
 
     // Accept connections
@@ -281,6 +283,22 @@ async fn handle_streaming_apply(
 
 /// Handle a single client connection
 async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Result<()> {
+    // SECURITY: Verify peer credentials before processing any requests
+    #[cfg(unix)]
+    {
+        use nix::sys::socket::{getsockopt, sockopt::PeerCredentials};
+
+        let cred = getsockopt(&stream, PeerCredentials)
+            .context("Failed to get peer credentials")?;
+
+        // Log the connection attempt for audit purposes
+        info!("Connection from UID {} GID {} PID {}", cred.uid(), cred.gid(), cred.pid());
+
+        // TODO: Implement group-based access control
+        // For now, we log credentials but allow all connections
+        // Future: Check if user is in 'annactl' group and reject if not
+    }
+
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
