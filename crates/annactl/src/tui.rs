@@ -264,55 +264,76 @@ impl Tui {
     /// Execute pending apply action if any
     async fn execute_pending_apply(&mut self) -> Result<()> {
         if let Some(advice_id) = self.pending_apply.take() {
-            // Call RPC to apply the action
-            use anna_common::ipc::{Method, ResponseData};
+            // Call RPC to apply the action with streaming
+            use anna_common::ipc::{Method, ResponseData, StreamChunkType};
 
-            match self.client.call(Method::ApplyAction {
+            // Get streaming channel
+            let mut rx = self.client.call_streaming(Method::ApplyAction {
                 advice_id: advice_id.clone(),
                 dry_run: false,
-                stream: false,
-            }).await? {
-                ResponseData::ActionResult { success, message } => {
-                    // Add output lines to buffer
-                    self.output_buffer.push(String::new());
-                    for line in message.lines() {
-                        self.output_buffer.push(line.to_string());
+                stream: true,
+            }).await?;
+
+            // Add header to output
+            self.output_buffer.push(String::new());
+            self.output_buffer.push("Starting execution...".to_string());
+            self.output_buffer.push(String::new());
+
+            let mut final_success = false;
+
+            // Receive chunks in real-time
+            while let Some(data) = rx.recv().await {
+                match data {
+                    ResponseData::StreamChunk { chunk_type, data: chunk_data } => {
+                        // Add chunk to output buffer based on type
+                        match chunk_type {
+                            StreamChunkType::Stdout => {
+                                self.output_buffer.push(format!("  {}", chunk_data));
+                            }
+                            StreamChunkType::Stderr => {
+                                self.output_buffer.push(format!("  \x1b[33m{}\x1b[0m", chunk_data));
+                            }
+                            StreamChunkType::Status => {
+                                self.output_buffer.push(format!("\x1b[36m{}\x1b[0m", chunk_data));
+                            }
+                        }
                     }
-                    self.output_buffer.push(String::new());
+                    ResponseData::StreamEnd { success, message } => {
+                        // Streaming complete
+                        final_success = success;
 
-                    if success {
-                        self.output_buffer.push("✓ Action completed successfully!".to_string());
-                        self.status_message = Some((
-                            "✓ Action completed successfully".to_string(),
-                            Color::Green
-                        ));
-                        // Mark as finished
-                        self.output_executing = false;
-
-                        // Immediately remove applied advice from local state
-                        self.advice.retain(|a| a.id != advice_id);
-
-                        // Refresh from daemon to get updated list (with satisfied advice filtered)
-                        let _ = self.update().await;
-                    } else {
-                        self.output_buffer.push("✗ Action failed!".to_string());
-                        self.status_message = Some((
-                            "✗ Action failed".to_string(),
-                            Color::Red
-                        ));
-                        // Mark as finished (even on failure)
-                        self.output_executing = false;
-                        // Still don't refresh on failure - the advice remains to retry if needed
+                        self.output_buffer.push(String::new());
+                        if success {
+                            self.output_buffer.push(format!("✓ {}", message));
+                            self.status_message = Some((
+                                "✓ Action completed successfully".to_string(),
+                                Color::Green
+                            ));
+                        } else {
+                            self.output_buffer.push(format!("✗ {}", message));
+                            self.status_message = Some((
+                                "✗ Action failed".to_string(),
+                                Color::Red
+                            ));
+                        }
+                        break;
+                    }
+                    _ => {
+                        self.output_buffer.push("✗ Unexpected response type".to_string());
+                        break;
                     }
                 }
-                _ => {
-                    self.output_buffer.push("✗ Unexpected response from daemon".to_string());
-                    self.status_message = Some((
-                        "Unexpected response from daemon - please check logs".to_string(),
-                        Color::Red
-                    ));
-                    self.output_executing = false;
-                }
+            }
+
+            // Mark as finished
+            self.output_executing = false;
+
+            if final_success {
+                // Immediately remove applied advice from local state
+                self.advice.retain(|a| a.id != advice_id);
+
+                // Refresh from daemon to get updated list (with satisfied advice filtered)
+                let _ = self.update().await;
             }
         }
         Ok(())
