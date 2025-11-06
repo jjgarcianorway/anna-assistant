@@ -91,6 +91,7 @@ mod gnome_config;
 mod kde_config;
 mod xfce_config;
 mod cinnamon_config;
+mod mate_config;
 mod rpc_server;
 mod executor;
 mod audit;
@@ -210,8 +211,8 @@ async fn main() -> Result<()> {
 
     // Spawn auto-update check task
     tokio::spawn(async move {
-        // Check for updates every 24 hours
-        let update_check_interval = tokio::time::Duration::from_secs(24 * 60 * 60);
+        // Check for updates every 2 hours (more frequent during active beta development)
+        let update_check_interval = tokio::time::Duration::from_secs(2 * 60 * 60);
 
         loop {
             tokio::time::sleep(update_check_interval).await;

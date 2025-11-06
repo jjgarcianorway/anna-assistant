@@ -14,6 +14,7 @@ use crate::gnome_config;
 use crate::kde_config;
 use crate::xfce_config;
 use crate::cinnamon_config;
+use crate::mate_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -259,6 +260,13 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             info!("Detected Cinnamon, analyzing configuration");
             if let Some(config) = cinnamon_config::analyze_cinnamon() {
                 recommendations.extend(cinnamon_config::generate_cinnamon_recommendations(&config));
+            }
+        }
+        de_str if de_str.contains("mate") => {
+            // MATE - comprehensive configuration analysis
+            info!("Detected MATE, analyzing configuration");
+            if let Some(config) = mate_config::analyze_mate() {
+                recommendations.extend(mate_config::generate_mate_recommendations(&config));
             }
         }
         _ => {}
