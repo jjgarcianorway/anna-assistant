@@ -16,6 +16,43 @@ use tracing::{error, info, warn};
 
 const SOCKET_PATH: &str = "/run/anna/anna.sock";
 const MAX_REQUEST_SIZE: usize = 64 * 1024; // 64 KB - reasonable max for JSON requests
+const ANNACTL_GROUP: &str = "annactl"; // Group name for authorized users
+
+/// Check if a UID is member of a specific group
+/// Returns true if user is in the group or is root (UID 0)
+#[cfg(unix)]
+fn is_user_in_group(uid: u32, group_name: &str) -> Result<bool> {
+    use nix::unistd::{Uid, User, Group};
+
+    // Root (UID 0) always allowed
+    if uid == 0 {
+        return Ok(true);
+    }
+
+    // Get user information
+    let user = User::from_uid(Uid::from_raw(uid))
+        .context("Failed to look up user")?
+        .ok_or_else(|| anyhow::anyhow!("User with UID {} not found", uid))?;
+
+    // Get target group
+    let target_group = Group::from_name(group_name)
+        .context(format!("Failed to look up group '{}'", group_name))?
+        .ok_or_else(|| anyhow::anyhow!("Group '{}' not found", group_name))?;
+
+    // Check if user's primary GID matches
+    if user.gid == target_group.gid {
+        return Ok(true);
+    }
+
+    // Check supplementary groups
+    // Note: We need to get group members and check if username is in it
+    // because nix doesn't provide direct "is user in group" check
+    if target_group.mem.contains(&user.name) {
+        return Ok(true);
+    }
+
+    Ok(false)
+}
 
 /// Rate limiter to prevent DoS attacks
 /// Tracks requests per UID over a sliding time window
@@ -356,9 +393,22 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
         // Log the connection attempt for audit purposes
         info!("Connection from UID {} GID {} PID {}", uid, gid, pid);
 
-        // TODO: Implement group-based access control
-        // For now, we log credentials but allow all connections
-        // Future: Check if user is in 'annactl' group and reject if not
+        // SECURITY: Enforce group-based access control
+        // Check if user is in 'annactl' group (or is root)
+        match is_user_in_group(uid, ANNACTL_GROUP) {
+            Ok(true) => {
+                info!("Access granted: UID {} is authorized", uid);
+            }
+            Ok(false) => {
+                warn!("SECURITY: Access denied for UID {} - not in '{}' group", uid, ANNACTL_GROUP);
+                return Err(anyhow::anyhow!("Access denied: User not in authorized group"));
+            }
+            Err(e) => {
+                // If group doesn't exist, log warning but allow (graceful degradation)
+                // This prevents lockout if group isn't set up yet
+                warn!("Group check failed (allowing): {} - Is '{}' group created?", e, ANNACTL_GROUP);
+            }
+        }
 
         uid
     };
