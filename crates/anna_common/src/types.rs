@@ -783,6 +783,15 @@ pub struct Action {
     pub success: bool,
     pub output: String,
     pub error: Option<String>,
+    /// Rollback command to undo this action (Beta.89+)
+    #[serde(default)]
+    pub rollback_command: Option<String>,
+    /// Whether this action can be safely rolled back
+    #[serde(default)]
+    pub can_rollback: bool,
+    /// Reason why rollback is not available (if can_rollback is false)
+    #[serde(default)]
+    pub rollback_unavailable_reason: Option<String>,
 }
 
 /// Rollback token for reversing an action

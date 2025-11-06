@@ -322,6 +322,10 @@ async fn handle_streaming_apply(
     // Wait for execution to complete and get result
     let success = exec_handle.await.context("Execution task panicked")??;
 
+    // Generate rollback command (Beta.89)
+    let (rollback_command, can_rollback, rollback_unavailable_reason) =
+        anna_common::rollback::generate_rollback_command(&command);
+
     // Create audit entry
     let action = anna_common::Action {
         id: format!("action_{}", uuid::Uuid::new_v4()),
@@ -331,6 +335,9 @@ async fn handle_streaming_apply(
         success,
         output: full_output.clone(),
         error: if success { None } else { Some("Command failed".to_string()) },
+        rollback_command,
+        can_rollback,
+        rollback_unavailable_reason,
     };
 
     let audit_entry = executor::create_audit_entry(&action, "annactl");

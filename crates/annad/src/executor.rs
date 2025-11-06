@@ -60,6 +60,10 @@ pub async fn execute_action_with_snapshot(
     };
 
     if dry_run {
+        // Generate rollback command even for dry run (Beta.89)
+        let (rollback_command, can_rollback, rollback_unavailable_reason) =
+            anna_common::rollback::generate_rollback_command(command);
+
         let action = Action {
             id: action_id,
             advice_id: advice.id.clone(),
@@ -68,6 +72,9 @@ pub async fn execute_action_with_snapshot(
             success: true,
             output: format!("[DRY RUN] Would execute: {}", command),
             error: None,
+            rollback_command,
+            can_rollback,
+            rollback_unavailable_reason,
         };
         return Ok((action, None));
     }
@@ -93,6 +100,10 @@ pub async fn execute_action_with_snapshot(
     // Execute the command
     let result = execute_command(command).await;
 
+    // Generate rollback command (Beta.89)
+    let (rollback_command, can_rollback, rollback_unavailable_reason) =
+        anna_common::rollback::generate_rollback_command(command);
+
     let action = match result {
         Ok(output) => {
             info!("Action {} completed successfully", action_id);
@@ -104,6 +115,9 @@ pub async fn execute_action_with_snapshot(
                 success: true,
                 output,
                 error: None,
+                rollback_command: rollback_command.clone(),
+                can_rollback,
+                rollback_unavailable_reason: rollback_unavailable_reason.clone(),
             }
         }
         Err(e) => {
@@ -116,6 +130,9 @@ pub async fn execute_action_with_snapshot(
                 success: false,
                 output: String::new(),
                 error: Some(e.to_string()),
+                rollback_command,
+                can_rollback,
+                rollback_unavailable_reason,
             }
         }
     };
