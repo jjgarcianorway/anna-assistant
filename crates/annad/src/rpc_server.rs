@@ -5,14 +5,70 @@ use crate::executor;
 use anna_common::ipc::{ConfigData, Method, Request, Response, ResponseData, StatusData};
 use anna_common::{Advice, SystemFacts};
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{error, info, warn};
 
 const SOCKET_PATH: &str = "/run/anna/anna.sock";
+const MAX_REQUEST_SIZE: usize = 64 * 1024; // 64 KB - reasonable max for JSON requests
+
+/// Rate limiter to prevent DoS attacks
+/// Tracks requests per UID over a sliding time window
+pub struct RateLimiter {
+    // Map of UID -> list of request timestamps
+    requests: Mutex<HashMap<u32, Vec<Instant>>>,
+    max_requests_per_minute: usize,
+    window_duration: Duration,
+}
+
+impl RateLimiter {
+    pub fn new(max_requests_per_minute: usize) -> Self {
+        Self {
+            requests: Mutex::new(HashMap::new()),
+            max_requests_per_minute,
+            window_duration: Duration::from_secs(60),
+        }
+    }
+
+    /// Check if request from UID should be allowed
+    /// Returns Ok(()) if allowed, Err if rate limited
+    pub async fn check_rate_limit(&self, uid: u32) -> Result<()> {
+        let mut requests = self.requests.lock().await;
+        let now = Instant::now();
+        let window_start = now - self.window_duration;
+
+        // Get or create entry for this UID
+        let timestamps = requests.entry(uid).or_insert_with(Vec::new);
+
+        // Remove timestamps outside the window
+        timestamps.retain(|&t| t > window_start);
+
+        // Check if limit exceeded
+        if timestamps.len() >= self.max_requests_per_minute {
+            return Err(anyhow::anyhow!(
+                "Rate limit exceeded: {} requests in last minute (max: {})",
+                timestamps.len(),
+                self.max_requests_per_minute
+            ));
+        }
+
+        // Add current request
+        timestamps.push(now);
+
+        Ok(())
+    }
+
+    /// Get current request count for a UID
+    pub async fn get_request_count(&self, uid: u32) -> usize {
+        let requests = self.requests.lock().await;
+        requests.get(&uid).map(|v| v.len()).unwrap_or(0)
+    }
+}
 
 /// Daemon state shared across connections
 pub struct DaemonState {
@@ -22,6 +78,7 @@ pub struct DaemonState {
     pub advice: RwLock<Vec<Advice>>,
     pub config: RwLock<ConfigData>,
     pub audit_logger: AuditLogger,
+    pub rate_limiter: RateLimiter,
 }
 
 impl DaemonState {
@@ -35,6 +92,7 @@ impl DaemonState {
             advice: RwLock::new(advice),
             config: RwLock::new(ConfigData::default()),
             audit_logger,
+            rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
         })
     }
 }
@@ -285,19 +343,28 @@ async fn handle_streaming_apply(
 async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Result<()> {
     // SECURITY: Verify peer credentials before processing any requests
     #[cfg(unix)]
-    {
+    let client_uid = {
         use nix::sys::socket::{getsockopt, sockopt::PeerCredentials};
 
         let cred = getsockopt(&stream, PeerCredentials)
             .context("Failed to get peer credentials")?;
 
+        let uid = cred.uid();
+        let gid = cred.gid();
+        let pid = cred.pid();
+
         // Log the connection attempt for audit purposes
-        info!("Connection from UID {} GID {} PID {}", cred.uid(), cred.gid(), cred.pid());
+        info!("Connection from UID {} GID {} PID {}", uid, gid, pid);
 
         // TODO: Implement group-based access control
         // For now, we log credentials but allow all connections
         // Future: Check if user is in 'annactl' group and reject if not
-    }
+
+        uid
+    };
+
+    #[cfg(not(unix))]
+    let client_uid = 0; // Default UID for non-Unix systems
 
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
@@ -315,6 +382,20 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
             break;
         }
 
+        // SECURITY: Check message size to prevent DoS attacks
+        if line.len() > MAX_REQUEST_SIZE {
+            warn!("Request too large from UID {}: {} bytes (max: {})",
+                  client_uid, line.len(), MAX_REQUEST_SIZE);
+            let error_response = Response {
+                id: 0, // We don't have the request ID yet
+                result: Err(format!("Request too large: {} bytes (max: {} bytes)",
+                                   line.len(), MAX_REQUEST_SIZE)),
+            };
+            let response_json = serde_json::to_string(&error_response)? + "\n";
+            let _ = writer.write_all(response_json.as_bytes()).await;
+            continue;
+        }
+
         let request: Request = match serde_json::from_str(&line) {
             Ok(req) => req,
             Err(e) => {
@@ -322,6 +403,18 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
                 continue;
             }
         };
+
+        // SECURITY: Check rate limit for this client
+        if let Err(e) = state.rate_limiter.check_rate_limit(client_uid).await {
+            warn!("Rate limit exceeded for UID {}: {}", client_uid, e);
+            let error_response = Response {
+                id: request.id,
+                result: Err(format!("Rate limit exceeded. Please try again later.")),
+            };
+            let response_json = serde_json::to_string(&error_response)? + "\n";
+            let _ = writer.write_all(response_json.as_bytes()).await;
+            continue;
+        }
 
         // Check if this is a streaming ApplyAction request
         if let Method::ApplyAction { advice_id, dry_run, stream: true } = &request.method {
