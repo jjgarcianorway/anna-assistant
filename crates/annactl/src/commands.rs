@@ -179,10 +179,89 @@ pub async fn status() -> Result<()> {
         }
     }
 
+    // Show recent daemon logs from journalctl (Beta.90)
+    if let Ok(logs) = read_recent_daemon_logs(10).await {
+        if !logs.is_empty() {
+            println!("{}", section("Daemon Logs"));
+            for log in logs {
+                println!("  {}", log);
+            }
+            println!();
+        }
+    }
+
     // Check for updates (non-spammy, once per day)
     check_and_notify_updates().await;
 
     Ok(())
+}
+
+/// Read recent daemon logs from journalctl (Beta.90)
+async fn read_recent_daemon_logs(count: usize) -> Result<Vec<String>> {
+    use tokio::process::Command;
+
+    // Use journalctl to get recent annad logs
+    // -u annad: only annad service
+    // -n count: last N lines
+    // --no-pager: don't use pager
+    // -o short-iso: ISO timestamp format
+    let output = Command::new("journalctl")
+        .args(&[
+            "-u", "annad",
+            "-n", &count.to_string(),
+            "--no-pager",
+            "-o", "short-iso",
+            "--priority=info"  // info and above (info, notice, warning, err, crit)
+        ])
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        // journalctl might fail if user doesn't have permission
+        return Ok(vec![]);
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut logs = Vec::new();
+
+    for line in stdout.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        // Parse journalctl line: timestamp hostname service[pid]: message
+        // Example: 2025-11-06T14:00:00+0000 hostname annad[1234]: Connection from UID 1000
+        if let Some(message_start) = line.find("annad[") {
+            if let Some(colon_pos) = line[message_start..].find(':') {
+                let timestamp_end = message_start.min(24); // ISO timestamp is ~24 chars
+                let timestamp = &line[..timestamp_end].trim();
+                let message = &line[message_start + colon_pos + 1..].trim();
+
+                // Format: [time] message
+                // Color code based on log level
+                let colored_message = if message.contains("ERROR") || message.contains("error") {
+                    format!("\x1b[91m{}\x1b[0m", message) // Red
+                } else if message.contains("WARN") || message.contains("warn") {
+                    format!("\x1b[93m{}\x1b[0m", message) // Yellow
+                } else if message.contains("INFO") || message.contains("info") {
+                    format!("\x1b[96m{}\x1b[0m", message) // Cyan
+                } else {
+                    message.to_string()
+                };
+
+                // Truncate long messages
+                let display_msg = if colored_message.len() > 100 {
+                    format!("{}...", &colored_message[..97])
+                } else {
+                    colored_message
+                };
+
+                logs.push(format!("\x1b[90m{}\x1b[0m {}", timestamp, display_msg));
+            }
+        }
+    }
+
+    Ok(logs)
 }
 
 /// Read recent audit entries from the audit log
