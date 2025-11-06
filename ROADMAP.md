@@ -893,3 +893,207 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 **Major Milestone Achieved:**
 **Window Manager Trilogy Complete!** Anna now intelligently configures Hyprland, i3, AND Sway - providing comprehensive support for both X11 and Wayland ecosystems. Combined with Shell, Terminal, and Git intelligence, Anna now understands your ENTIRE development environment! 🎉
+
+---
+
+## 🔄 IN PROGRESS / PLANNED (Beta.83+)
+
+### Beta.82 - Universal Wallpaper Intelligence
+**Status:** ✅ COMPLETED
+
+**Solution Implemented:**
+- ✅ Created wallpaper_config.rs module (181 lines)
+- ✅ Top 10 curated wallpaper sources (4K+)
+- ✅ Official Arch Linux wallpapers support
+- ✅ Dynamic wallpaper tools (variety, nitrogen, swaybg, etc.)
+- ✅ Format & resolution guide (PNG, JPG, WebP, AVIF)
+- ✅ Multi-monitor and ultrawide support guidance
+- ✅ Universal recommendations (works for all 9 DEs)
+
+### System & Kernel Error Advice Improvements
+**Status:** 🔄 PLANNED (Beta.83)
+**Priority:** HIGH
+
+**User Feedback:**
+- "Kernel error advise is not giving any details"
+- "Multiple Errors advice should offer solutions based on Arch Wiki"
+
+**Planned Solution:**
+- [ ] Detect common kernel error patterns
+- [ ] Parse dmesg/journalctl for specific error types
+- [ ] Link to relevant Arch Wiki articles
+- [ ] Provide specific fixes for common kernel issues
+- [ ] Add error context and troubleshooting steps
+- [ ] Show actual error samples with explanations
+
+### Release Notes Display / Notification Fixes
+**Status:** 🔄 PLANNED (Beta.83)
+**Priority:** MEDIUM
+
+**User Feedback:**
+- "During the update, Anna is not showing the proper release notes. Still a GDBus error"
+
+**Planned Solution:**
+- [ ] Fix GDBus error in notification system
+- [ ] Improve release notes display after auto-update
+- [ ] Test notification system across different DEs
+- [ ] Provide fallback if notification daemon unavailable
+
+### Beautification Enhancement Suite
+**Status:** 🔄 PLANNED (Beta.83-85)
+**Priority:** HIGH
+
+**User Feedback:**
+- "Try to keep and respect always the user for only GTK or only Qt to be consistent"
+- "Ensure always a dark theme and a light one is installed per each configuration"
+- "Add terminal beautification (dark + light color schemes)"
+
+#### Phase 1: Terminal Color Schemes (Beta.83)
+- [ ] Enhance terminal_config.rs with dual theme support
+- [ ] Recommend both dark AND light color schemes
+- [ ] Catppuccin: Mocha (dark) + Latte (light)
+- [ ] Nord + Nord Light variants
+- [ ] Dracula + Dracula Light
+- [ ] Provide easy switching instructions
+
+#### Phase 2: Desktop Environment Toolkit Consistency (Beta.84)
+**GTK Desktop Environments (GNOME, XFCE, Cinnamon, MATE):**
+- [ ] Recommend GTK applications only
+- [ ] Avoid Qt app recommendations on GTK DEs
+- [ ] Ensure GTK theme consistency
+
+**Qt Desktop Environments (KDE Plasma, LXQt):**
+- [ ] Recommend Qt applications only  
+- [ ] Avoid GTK app recommendations on Qt DEs
+- [ ] Ensure Qt theme consistency
+
+#### Phase 3: Complete Theme Coverage (Beta.85)
+- [ ] GNOME: Both dark + light theme pairs (Adwaita, Adwaita-dark)
+- [ ] KDE Plasma: Dark + light variants (Breeze, Breeze-Dark)
+- [ ] XFCE: Dark + light GTK themes
+- [ ] Cinnamon: Dark + light Cinnamon themes
+- [ ] MATE: Dark + light MATE themes
+- [ ] LXQt: Dark + light Qt themes (Kvantum variants)
+
+### Additional Desktop Environments
+**Status:** 🔜 PLANNED (Beta.86+)
+
+**Planned Additions:**
+- [ ] LXDE support (predecessor to LXQt, still widely used)
+- [ ] Budgie Desktop support (modern, elegant DE)
+- [ ] Pantheon support (elementary OS DE)
+- [ ] Deepin support (beautiful, modern Chinese DE)
+
+### Real-Time Action Transparency
+**Status:** 🔥 CRITICAL (Beta.83)
+**Priority:** CRITICAL
+
+**User Feedback:**
+- "the application script should be a realtime terminal to see the real input and output and the actions anna is taking (**IMPORTANT, WE WANT TRANSPARENCY**)"
+- "Not sure if it has applied the action properly" (fstrim.service shows inactive but was triggered by timer)
+
+**Problem:**
+Users cannot see what Anna is actually doing when applying advice. Commands run silently in background, creating trust issues and confusion about whether actions succeeded.
+
+**Planned Solution:**
+- [ ] Real-time command output display during action application
+- [ ] Show actual bash commands being executed
+- [ ] Stream stdout/stderr in real-time to TUI
+- [ ] Clear success/failure indicators with exit codes
+- [ ] Show service status after systemctl commands
+- [ ] Transparency: Users see EXACTLY what Anna does
+
+**Example Desired Behavior:**
+```
+Applying: Enable TRIM for SSD health...
+> Running: sudo systemctl enable fstrim.timer
+Created symlink /etc/systemd/system/timers.target.wants/fstrim.timer → /usr/lib/systemd/system/fstrim.timer
+> Running: sudo systemctl start fstrim.timer
+> Verifying: systemctl status fstrim.timer
+● fstrim.timer - Discard unused blocks once a week
+     Loaded: loaded
+     Active: active (waiting)
+✓ Action completed successfully!
+```
+
+### Applied Advice Persistence Bug
+**Status:** 🔥 CRITICAL (Beta.83)
+**Priority:** CRITICAL
+
+**User Feedback:**
+- "Applied 2 TRIM advices, still on the list"
+- "and of course the applied advice is still not in the history... (that is bad)"
+
+**Problem:**
+After applying advice multiple times, it continues to show in the advice list. Either:
+1. Advice not being marked as satisfied after application
+2. Detection logic not recognizing the applied changes
+3. Advice state not persisting between daemon refreshes
+
+**Additionally:** Applied advice is NOT being recorded in history, making it impossible to:
+- Track what was applied and when
+- Audit changes made to the system
+- Review past actions for troubleshooting
+- Undo problematic changes
+
+**Planned Solution:**
+- [ ] Fix advice satisfaction detection after application
+- [ ] Verify state changes after command execution
+- [ ] Persist applied advice state between daemon refreshes
+- [ ] Add "Hide applied" filter option in TUI
+- [ ] Debug TRIM advice specifically (timer vs service confusion)
+- [ ] **CRITICAL:** Record all applied advice to history (`annactl history`)
+- [ ] Store application timestamp, command output, exit code
+- [ ] Make history persistent and queryable
+
+### Universal Rollback System
+**Status:** 🔥 CRITICAL (Beta.83)
+**Priority:** HIGH
+
+**User Feedback:**
+- "rollback is only for bundles? Noway! It should be for any applied advice...."
+
+**Current Limitation:**
+Only bundles can be rolled back currently. Individual advice actions (package installs, config changes, system tweaks) cannot be undone.
+
+**Planned Solution:**
+- [ ] Design universal rollback system for ALL advice types
+- [ ] Track rollback commands for each advice action
+- [ ] Store rollback data in history/audit log
+- [ ] Implement `annactl rollback --id <advice-id>`
+- [ ] Implement `annactl rollback --number <history-number>`
+- [ ] Support rollback by timestamp or last N actions
+- [ ] Preview rollback actions before executing
+- [ ] Handle complex rollbacks (config file changes, package removals)
+- [ ] Validate rollback safety (don't break dependencies)
+
+**Example Usage:**
+```bash
+# View history with rollback options
+annactl history
+
+# Rollback specific advice by ID
+annactl rollback --id trim-ssd
+
+# Rollback last applied action
+annactl rollback --last
+
+# Rollback multiple recent actions
+annactl rollback --last 3
+
+# Dry-run to see what would be undone
+annactl rollback --id some-advice --dry-run
+```
+
+### Journalctl Integration
+**Status:** 🔜 PLANNED (Beta.87)
+
+**User Feedback:**
+- "annactl status should show the most relevant entries about the journalctl of annad, at least top 10"
+
+**Planned Solution:**
+- [ ] Add journalctl integration to `annactl status`
+- [ ] Show top 10 relevant annad log entries
+- [ ] Filter by severity (errors, warnings)
+- [ ] Provide context for log entries
+

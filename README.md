@@ -4,7 +4,188 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.68 (November 2025)
+**Current Version:** Beta.82 (November 2025)
+
+---
+
+## 🎯 What's New in Beta.82
+
+**🖼️ Universal Wallpaper Intelligence:**
+- Curated top 10 high-resolution wallpaper sources (4K+)
+- Official Arch Linux wallpapers support (archlinux-wallpaper package)
+- Dynamic wallpaper tools recommendations (variety, nitrogen, swaybg, wpaperd, hyprpaper)
+- Comprehensive format and resolution guide (PNG, JPG, WebP, AVIF)
+- Works universally across ALL 9 supported desktop environments
+- Wallpaper management tools for both X11 and Wayland
+
+**Universal Wallpaper Sources:**
+- **Unsplash** - 4K+ free high-resolution photos
+- **Pexels** - 4K and 8K stock photos
+- **Wallpaper Abyss** - 1M+ wallpapers up to 8K
+- **Reddit** (r/wallpapers, r/wallpaper) - Community curated
+- **InterfaceLIFT** - Professional photography up to 8K
+- **Simple Desktops** - Minimalist, distraction-free
+- **NASA Image Library** - Space photography, public domain
+- **Bing Daily** - Daily rotating 4K images
+- **GNOME Wallpapers** - Professional curated collection
+- **KDE Wallpapers** - High-quality abstract and nature
+
+**Desktop Environment Coverage (Complete!):**
+Anna now provides intelligent configuration recommendations for 9 desktop environments:
+- Hyprland (Wayland WM) - comprehensive configuration analysis
+- i3 (X11 WM) - keybinding and tool detection
+- Sway (Wayland WM) - wayland-native utilities
+- GNOME - extension and tool recommendations
+- KDE Plasma - widget and customization suggestions
+- XFCE - GTK application recommendations
+- Cinnamon - Cinnamon-specific tools
+- MATE - MATE desktop enhancements
+- LXQt - Qt application recommendations
+
+---
+
+## 🎯 What's New in Beta.81
+
+**🪟 LXQt Desktop Environment Intelligence:**
+- Auto-detects LXQt installation and configuration
+- Analyzes LXQt settings and installed components
+- Recommends Qt-based applications for consistency
+- LXQt-specific customization tools
+- Panel and widget recommendations
+- Theme and appearance suggestions
+
+---
+
+## 🎯 What's New in Beta.80
+
+**🖥️ MATE Desktop Environment Intelligence:**
+- Auto-detects MATE desktop installation
+- Analyzes MATE configuration and customization
+- Recommends MATE-specific applications and tools
+- Panel applet suggestions
+- Theme and appearance recommendations
+- GTK application consistency
+
+---
+
+## 🎯 What's New in Beta.79
+
+**🌿 Cinnamon Desktop Environment Intelligence:**
+- Auto-detects Cinnamon desktop installation
+- Analyzes Cinnamon configuration and themes
+- Recommends Cinnamon-specific tools and applets
+- Extension and desklet suggestions
+- Theme and appearance customization
+- GTK application recommendations
+
+---
+
+## 🎯 What's New in Beta.78
+
+**🖱️ XFCE Desktop Environment Intelligence:**
+- Auto-detects XFCE installation and configuration
+- Analyzes XFCE panels and settings
+- Recommends XFCE-specific tools and plugins
+- Panel plugin suggestions
+- Theme and appearance recommendations
+- GTK application consistency
+
+---
+
+## 🎯 What's New in Beta.77
+
+**⚙️ KDE Plasma Desktop Environment Intelligence:**
+- Auto-detects KDE Plasma installation
+- Analyzes Plasma configuration and widgets
+- Recommends KDE-specific applications and tools
+- Plasma widget and applet suggestions
+- KWin effects and compositor optimizations
+- Qt application consistency recommendations
+
+---
+
+## 🎯 What's New in Beta.76
+
+**🎨 GNOME Desktop Environment Intelligence:**
+- Auto-detects GNOME Shell installation
+- Analyzes GNOME extensions and configuration
+- Recommends GNOME-specific tools and extensions
+- Extension manager suggestions
+- GNOME Tweaks for customization
+- GTK application recommendations
+
+---
+
+## 🎯 What's New in Beta.75
+
+**💠 Sway Window Manager Intelligence:**
+- Auto-detects Sway installation (Wayland i3-compatible)
+- Analyzes Sway configuration files
+- Detects missing Wayland-native tools
+- Comprehensive keybinding analysis
+- Sway-specific recommendations (swaybar, swaylock, swaybg)
+- Wayland compositor optimizations
+
+---
+
+## 🎯 What's New in Beta.74
+
+**🪟 i3 Window Manager Intelligence:**
+- Auto-detects i3 installation and configuration
+- Analyzes i3 config file for missing features
+- Detects volume, brightness, media controls
+- Application launcher recommendations (rofi, dmenu, fzf)
+- Status bar options (i3status, i3blocks, polybar)
+- i3-specific productivity tools
+
+---
+
+## 🎯 What's New in Beta.73
+
+**🔧 Git Configuration Intelligence:**
+- Auto-detects git installation and configuration
+- Analyzes ~/.gitconfig for best practices
+- Detects missing user identity (name/email)
+- Recommends modern git defaults (main branch, pull rebase)
+- Essential git aliases and productivity shortcuts
+- Credential management suggestions
+
+---
+
+## 🎯 What's New in Beta.72
+
+**💻 Terminal Emulator Intelligence:**
+- Auto-detects terminal emulator (alacritty, kitty, wezterm, foot, etc.)
+- Analyzes terminal configuration files
+- Detects missing Nerd Fonts
+- Color scheme recommendations (Catppuccin, Nord, Dracula)
+- GPU acceleration detection
+- Terminal upgrade suggestions for outdated emulators
+
+---
+
+## 🎯 What's New in Beta.71
+
+**🐚 Shell Configuration Intelligence:**
+- Auto-detects shell (bash/zsh/fish)
+- Analyzes shell config files (.bashrc, .zshrc, config.fish)
+- Recommends modern CLI tools (starship, eza, bat, fd, ripgrep, fzf, zoxide)
+- Shell enhancement detection (syntax highlighting, autosuggestions)
+- Cross-shell compatibility
+- Productivity aliases and shortcuts
+
+---
+
+## 🎯 What's New in Beta.70
+
+**🎨 Hyprland Configuration Intelligence:**
+- Auto-detects Hyprland installation
+- Analyzes hyprland.conf for missing features
+- Detects volume, brightness, screenshot, media controls
+- Application launcher recommendations (rofi, wofi, tofi)
+- Status bar suggestions (waybar)
+- Wallpaper and lock screen tools
+- Notification daemon detection
 
 ---
 
