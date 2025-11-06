@@ -404,6 +404,28 @@ pub async fn advise(
                 .push(advice);
         }
 
+        // Show category breakdown statistics
+        if by_category.len() > 1 {
+            println!("{}", beautiful::header("Categories"));
+            let mut category_counts: Vec<_> = by_category.iter()
+                .map(|(cat, items)| (cat.clone(), items.len()))
+                .collect();
+            category_counts.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
+
+            for (category, count) in &category_counts {
+                let bar_len = std::cmp::min(*count, 20); // Visual bar (max 20 chars)
+                let bar = "█".repeat(bar_len);
+                println!("  {:<20} {:<30} {} item{}",
+                    bar,
+                    category,
+                    count,
+                    if *count == 1 { "" } else { "s" });
+            }
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Use --category=<name> to filter by category"));
+            println!();
+        }
+
         // Sort categories by importance (using centralized category order)
         let category_order = anna_common::get_category_order();
 

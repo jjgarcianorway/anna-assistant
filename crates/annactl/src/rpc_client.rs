@@ -80,7 +80,7 @@ impl RpcClient {
             .await
             .context("Failed to connect for streaming")?;
 
-        let (mut reader, mut writer) = stream.into_split();
+        let (reader, mut writer) = stream.into_split();
         let mut reader = BufReader::new(reader);
 
         let id = REQUEST_ID.fetch_add(1, Ordering::SeqCst);
