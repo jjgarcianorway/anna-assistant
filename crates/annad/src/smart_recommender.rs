@@ -11,6 +11,7 @@ use crate::shell_config;
 use crate::terminal_config;
 use crate::git_config;
 use crate::gnome_config;
+use crate::kde_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -238,17 +239,11 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             }
         }
         de_str if de_str.contains("kde") || de_str.contains("plasma") => {
-            recommendations.push(Advice::new(
-                "kde-gtk-config".to_string(),
-                "Install GTK theme integration for KDE".to_string(),
-                "This package allows you to set GTK themes from KDE System Settings, ensuring consistent theming.".to_string(),
-                "Install kde-gtk-config".to_string(),
-                Some("sudo pacman -S --noconfirm kde-gtk-config".to_string()),
-                RiskLevel::Low,
-                Priority::Cosmetic,
-                vec!["https://wiki.archlinux.org/title/KDE".to_string()],
-                "desktop".to_string(),
-            ));
+            // KDE Plasma - comprehensive configuration analysis
+            info!("Detected KDE Plasma, analyzing configuration");
+            if let Some(config) = kde_config::analyze_kde() {
+                recommendations.extend(kde_config::generate_kde_recommendations(&config));
+            }
         }
         _ => {}
     }

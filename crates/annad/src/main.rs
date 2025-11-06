@@ -88,6 +88,7 @@ mod shell_config;
 mod terminal_config;
 mod git_config;
 mod gnome_config;
+mod kde_config;
 mod rpc_server;
 mod executor;
 mod audit;
