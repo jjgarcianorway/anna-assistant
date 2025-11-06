@@ -7,6 +7,7 @@ use tracing::info;
 use crate::hyprland_config;
 use crate::shell_config;
 use crate::terminal_config;
+use crate::git_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -22,6 +23,11 @@ pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
     // Terminal emulator intelligence (everyone uses a terminal!)
     if let Some(terminal_config) = terminal_config::analyze_terminal() {
         recommendations.extend(terminal_config::generate_terminal_recommendations(&terminal_config));
+    }
+
+    // Git configuration intelligence (essential for developers!)
+    if let Some(git_config) = git_config::analyze_git() {
+        recommendations.extend(git_config::generate_git_recommendations(&git_config));
     }
 
     // Development workflow recommendations
