@@ -17,16 +17,44 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    /// Connect to the daemon
+    /// Connect to the daemon with retry logic (Beta.108)
+    ///
+    /// Problem: After daemon restart, socket recreation takes time
+    /// Old behavior: Single connect attempt → 30s timeout → failure
+    /// New behavior: Retry with exponential backoff for 5s max
     pub async fn connect() -> Result<Self> {
-        let stream = UnixStream::connect(SOCKET_PATH)
-            .await
-            .context("Failed to connect to daemon. Is annad running?")?;
+        use std::time::Duration;
+        use tokio::time::sleep;
 
-        let (reader, writer) = stream.into_split();
-        let reader = BufReader::new(reader);
+        let max_retries = 10;
+        let mut retry_delay = Duration::from_millis(50); // Start with 50ms
 
-        Ok(Self { reader, writer })
+        for attempt in 0..max_retries {
+            match tokio::time::timeout(
+                Duration::from_millis(500), // 500ms connect timeout per attempt
+                UnixStream::connect(SOCKET_PATH)
+            ).await {
+                Ok(Ok(stream)) => {
+                    // Success!
+                    let (reader, writer) = stream.into_split();
+                    let reader = BufReader::new(reader);
+                    return Ok(Self { reader, writer });
+                }
+                Ok(Err(e)) if attempt == max_retries - 1 => {
+                    // Last attempt failed - give up
+                    return Err(e).context("Failed to connect to daemon after 10 retries. Is annad running?");
+                }
+                Ok(Err(_)) | Err(_) => {
+                    // Connection failed or timed out - retry
+                    if attempt < max_retries - 1 {
+                        sleep(retry_delay).await;
+                        retry_delay = (retry_delay * 2).min(Duration::from_millis(500)); // Max 500ms between retries
+                    }
+                }
+            }
+        }
+
+        anyhow::bail!("Failed to connect to daemon. Is annad running?")
     }
 
     /// Send a request and get a response
