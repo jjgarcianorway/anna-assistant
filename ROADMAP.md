@@ -1539,7 +1539,72 @@ Added 3 nostalgic and feature-rich classic WM bundles, bringing total from 19 to
 
 ---
 
-### Next Steps (Beta.99+):
+## 💾 DISK & RAM PERFORMANCE MONITORING (Beta.99-100) 🎉 MILESTONE!
+
+**Status:** ✅ COMPLETED (Beta.99-100)
+
+### Beta.99: Disk Performance & Health Monitoring ✅
+
+Comprehensive disk monitoring with proactive failure detection!
+
+#### Features:
+- **I/O Performance Tracking** (iostat)
+  - High utilization detection (>95%): Identifies bottlenecks
+  - High latency alerts (>100ms): Spots slow operations
+  - Provides iotop analysis, remediation steps
+
+- **SMART Health Monitoring** (smartctl)
+  - Checks all disks (sda, sdb, nvme0n1, etc.)
+  - MANDATORY alerts for failing hardware
+  - Auto-installs smartmontools if missing
+
+- **Filesystem Error Detection** (dmesg)
+  - Scans for EXT4, XFS, Btrfs errors
+  - Recommends fsck repairs
+
+- **RAID Health Monitoring** (mdadm)
+  - Degraded array detection
+  - Rebuild status tracking
+
+### Beta.100: RAM Health & Memory Leak Detection ✅ 🎉
+
+**MILESTONE: Reached Beta.100!**
+
+Comprehensive RAM monitoring prevents OOM kills and identifies leaks!
+
+#### Features:
+- **Memory Pressure Detection**
+  - Critical (>95%): MANDATORY OOM risk alerts
+  - High (>85%): Proactive warnings
+
+- **Swap Usage Monitoring**
+  - Heavy swap detection (>50%)
+  - Performance degradation alerts
+  - No-swap configuration recommendations
+
+- **Memory Leak Detection**
+  - Flags processes using >2GB or >20% RAM
+  - Per-process tracking (PID, RSS, command)
+  - Watch command suggestions
+
+- **OOM Killer Activity Tracking**
+  - Historical OOM event detection in dmesg
+  - MANDATORY priority for systems under memory stress
+
+- **Proactive OOM Protection**
+  - Recommends earlyoom for systems <8GB RAM
+  - Prevents complete system freezes
+
+#### Impact:
+- ✅ **Disk Failure Prevention** - SMART monitoring catches dying disks
+- ✅ **Performance Bottlenecks** - I/O slowdowns now visible
+- ✅ **Memory Leak Detection** - Identifies RAM hogs
+- ✅ **OOM Prevention** - Early warnings before kills
+- ✅ **User Request Fulfilled** - "monitor disk, RAM... so anna can take actions before problems arise"
+
+---
+
+### Next Steps (Beta.101+):
 
 **Immediate:**
 1. Test bundle generation with real systems
