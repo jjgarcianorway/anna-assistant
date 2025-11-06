@@ -49,6 +49,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     // Network health monitoring (beta.96+)
     advice.extend(check_network_health(facts));
 
+    // Disk performance monitoring (beta.99+)
+    advice.extend(check_disk_performance(facts));
+
     // Extended telemetry-based checks (beta.43+)
     advice.extend(check_microcode_updates(facts));
     advice.extend(check_battery_optimization(facts));
@@ -10486,6 +10489,288 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                 "network".to_string(),
             )
         );
+    }
+
+    advice
+}
+
+/// Check disk performance and health (Beta.99)
+/// 
+/// Monitors:
+/// - I/O latency and throughput
+/// - Disk utilization percentage
+/// - SMART status for hardware issues
+/// - Filesystem errors
+/// - RAID health (if applicable)
+fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
+    use std::process::Command;
+    let mut advice = Vec::new();
+
+    // 1. Check I/O wait time (high iowait = disk bottleneck)
+    if let Ok(output) = Command::new("iostat")
+        .args(&["-x", "1", "2"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        
+        // Parse last iteration (2nd sample) for accurate reading
+        let lines: Vec<&str> = output_str.lines().collect();
+        let mut found_devices = false;
+        
+        for line in lines.iter().rev() {
+            // Look for device lines (sda, nvme0n1, etc.)
+            if line.contains("sd") || line.contains("nvme") || line.contains("vd") {
+                let fields: Vec<&str> = line.split_whitespace().collect();
+                
+                // iostat output: Device r/s w/s rkB/s wkB/s ... %util
+                if fields.len() >= 14 {
+                    let device = fields[0];
+                    
+                    // Check disk utilization (last field is %util)
+                    if let Ok(util) = fields[fields.len() - 1].parse::<f32>() {
+                        if util > 95.0 {
+                            advice.push(Advice::new(
+                                format!("disk-perf-high-util-{}", device),
+                                format!("High disk utilization on {}", device),
+                                format!(
+                                    "Disk {} is at {:.1}% utilization. This indicates a disk I/O bottleneck. \
+                                    Heavy disk usage can slow down your entire system. Consider: \
+                                    1) Identifying and stopping I/O-heavy processes with 'iotop' \
+                                    2) Moving frequently-accessed data to faster storage (SSD/NVMe) \
+                                    3) Adding more RAM to reduce disk swapping \
+                                    4) Checking for failing hardware with SMART diagnostics",
+                                    device, util
+                                ),
+                                format!("iotop -o"),  // Show only processes doing I/O
+                                None,
+                                RiskLevel::Medium,
+                                Priority::Recommended,
+                                vec![
+                                    "https://wiki.archlinux.org/title/Improving_performance#Storage_devices".to_string(),
+                                ],
+                                "performance".to_string(),
+                            ));
+                            found_devices = true;
+                        } else if util > 80.0 {
+                            advice.push(Advice::new(
+                                format!("disk-perf-moderate-util-{}", device),
+                                format!("Moderate disk utilization on {}", device),
+                                format!(
+                                    "Disk {} is at {:.1}% utilization. While not critical, sustained high disk usage \
+                                    can impact performance. Monitor with 'iotop' to identify heavy I/O processes.",
+                                    device, util
+                                ),
+                                format!("iotop -o"),
+                                None,
+                                RiskLevel::Low,
+                                Priority::Optional,
+                                vec![],
+                                "performance".to_string(),
+                            ));
+                            found_devices = true;
+                        }
+                    }
+                    
+                    // Check average wait time (await field)
+                    if fields.len() >= 10 {
+                        if let Ok(await_ms) = fields[9].parse::<f32>() {
+                            if await_ms > 100.0 {
+                                advice.push(Advice::new(
+                                    format!("disk-perf-high-latency-{}", device),
+                                    format!("High I/O latency on {}", device),
+                                    format!(
+                                        "Disk {} has average I/O latency of {:.1}ms. Normal latency should be <10ms. \
+                                        High latency causes system slowdowns. Possible causes: \
+                                        1) Failing disk hardware (check SMART status) \
+                                        2) Disk fragmentation (less common on Linux) \
+                                        3) Background processes doing heavy I/O \
+                                        4) Slow disk (HDD vs SSD)",
+                                        device, await_ms
+                                    ),
+                                    format!("sudo smartctl -a /dev/{}", device),
+                                    None,
+                                    RiskLevel::Medium,
+                                    Priority::Recommended,
+                                    vec![
+                                        "https://wiki.archlinux.org/title/S.M.A.R.T.".to_string(),
+                                    ],
+                                    "performance".to_string(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if found_devices {
+                break;  // We found and processed devices
+            }
+        }
+    } else {
+        // iostat not available
+        advice.push(Advice::new(
+            "disk-perf-iostat-missing".to_string(),
+            "Install sysstat for disk performance monitoring".to_string(),
+            "The sysstat package provides iostat, which monitors disk I/O performance. \
+            Without it, Anna cannot detect disk bottlenecks that may be slowing your system.".to_string(),
+            "pacman -S --noconfirm sysstat".to_string(),
+            None,
+            RiskLevel::Low,
+            Priority::Optional,
+            vec![
+                "https://wiki.archlinux.org/title/Sysstat".to_string(),
+            ],
+            "monitoring".to_string(),
+        ));
+    }
+
+    // 2. Check SMART status for hardware issues
+    let disks = vec!["sda", "sdb", "nvme0n1", "nvme1n1"];
+    let mut checked_any_smart = false;
+    
+    for disk in &disks {
+        if let Ok(output) = Command::new("smartctl")
+            .args(&["-H", &format!("/dev/{}", disk)])
+            .output()
+        {
+            if output.status.success() {
+                checked_any_smart = true;
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                
+                if output_str.contains("PASSED") {
+                    // Disk is healthy
+                } else if output_str.contains("FAILED") {
+                    advice.push(Advice::new(
+                        format!("disk-perf-smart-failed-{}", disk),
+                        format!("SMART test FAILED on {}", disk),
+                        format!(
+                            "CRITICAL: Disk /dev/{} is failing its SMART health check! \
+                            This indicates imminent hardware failure. Backup your data IMMEDIATELY \
+                            and replace this disk as soon as possible. Continued use may result in data loss.",
+                            disk
+                        ),
+                        format!("sudo smartctl -a /dev/{}", disk),
+                        None,
+                        RiskLevel::High,
+                        Priority::Mandatory,
+                        vec![
+                            "https://wiki.archlinux.org/title/S.M.A.R.T.".to_string(),
+                        ],
+                        "hardware".to_string(),
+                    ));
+                }
+            }
+        }
+    }
+    
+    if !checked_any_smart {
+        // smartctl not available or no disks found
+        if Command::new("which").arg("smartctl").output().is_err() 
+            || !Command::new("which").arg("smartctl").output().unwrap().status.success() 
+        {
+            advice.push(Advice::new(
+                "disk-perf-smartmontools-missing".to_string(),
+                "Install smartmontools for disk health monitoring".to_string(),
+                "smartmontools provides SMART monitoring to detect failing disks before data loss occurs. \
+                It's essential for proactive hardware failure detection.".to_string(),
+                "pacman -S --noconfirm smartmontools && systemctl enable --now smartd".to_string(),
+                None,
+                RiskLevel::Low,
+                Priority::Recommended,
+                vec![
+                    "https://wiki.archlinux.org/title/S.M.A.R.T.".to_string(),
+                ],
+                "monitoring".to_string(),
+            ));
+        }
+    }
+
+    // 3. Check for filesystem errors in dmesg
+    if let Ok(output) = Command::new("dmesg")
+        .args(&["-l", "err,warn", "-T"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let fs_error_keywords = ["EXT4-fs error", "XFS", "Btrfs", "I/O error", "Buffer I/O error"];
+        
+        for keyword in &fs_error_keywords {
+            if output_str.to_lowercase().contains(&keyword.to_lowercase()) {
+                advice.push(Advice::new(
+                    "disk-perf-fs-errors".to_string(),
+                    "Filesystem errors detected in kernel log".to_string(),
+                    format!(
+                        "The kernel log contains filesystem errors ({}). This may indicate: \
+                        1) Disk hardware issues \
+                        2) Filesystem corruption \
+                        3) Driver problems \
+                        Run 'dmesg | grep -i error' to see details, and consider running fsck on affected filesystems.",
+                        keyword
+                    ),
+                    "dmesg | grep -i 'error\\|warn' | tail -20".to_string(),
+                    None,
+                    RiskLevel::High,
+                    Priority::Recommended,
+                    vec![
+                        "https://wiki.archlinux.org/title/Fsck".to_string(),
+                    ],
+                    "system".to_string(),
+                ));
+                break;  // Only report once
+            }
+        }
+    }
+
+    // 4. Check RAID status if mdadm is present
+    if Command::new("which").arg("mdadm").output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
+        if let Ok(output) = Command::new("mdadm")
+            .args(&["--detail", "--scan"])
+            .output()
+        {
+            if output.status.success() && !output.stdout.is_empty() {
+                // RAID arrays exist, check their status
+                if let Ok(detail_output) = Command::new("sh")
+                    .args(&["-c", "cat /proc/mdstat"])
+                    .output()
+                {
+                    let mdstat = String::from_utf8_lossy(&detail_output.stdout);
+                    
+                    if mdstat.contains("_") {  // Underscore indicates failed disk
+                        advice.push(Advice::new(
+                            "disk-perf-raid-degraded".to_string(),
+                            "RAID array is degraded".to_string(),
+                            "One or more disks in your RAID array have failed! The array is running in degraded mode. \
+                            Replace the failed disk(s) immediately and rebuild the array to restore redundancy.".to_string(),
+                            "cat /proc/mdstat && mdadm --detail /dev/md0".to_string(),
+                            None,
+                            RiskLevel::High,
+                            Priority::Mandatory,
+                            vec![
+                                "https://wiki.archlinux.org/title/RAID".to_string(),
+                            ],
+                            "hardware".to_string(),
+                        ));
+                    }
+                    
+                    if mdstat.contains("recovery") || mdstat.contains("resync") {
+                        advice.push(Advice::new(
+                            "disk-perf-raid-rebuilding".to_string(),
+                            "RAID array is rebuilding".to_string(),
+                            "Your RAID array is currently rebuilding. This is normal after replacing a failed disk, \
+                            but it will impact disk performance until complete. Monitor progress with 'cat /proc/mdstat'.".to_string(),
+                            "cat /proc/mdstat".to_string(),
+                            None,
+                            RiskLevel::Low,
+                            Priority::Cosmetic,
+                            vec![],
+                            "hardware".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     advice
