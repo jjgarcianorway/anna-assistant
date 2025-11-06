@@ -2241,9 +2241,14 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
 
         for (i, advice) in sorted.iter().enumerate() {
             println!("  [{}/{}] \x1b[1m{}\x1b[0m", i + 1, sorted.len(), advice.title);
+
+            // Show command IMMEDIATELY (Beta.110) - user needs to see activity!
+            if let Some(ref cmd) = advice.command {
+                println!("  \x1b[90m→ Executing: {}\x1b[0m", cmd);
+            }
             println!();
 
-            // ENABLE STREAMING - Show EXACTLY what's happening! (Beta.109)
+            // ENABLE STREAMING - Show EXACTLY what's happening!
             let mut rx = client
                 .call_streaming(Method::ApplyAction {
                     advice_id: advice.id.clone(),
