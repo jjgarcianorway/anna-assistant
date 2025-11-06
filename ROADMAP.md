@@ -1332,7 +1332,47 @@ let command = advice.command  // From daemon, NOT from client!
 
 ---
 
-## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.85-86)
+## 🔄 UPDATE SYSTEM IMPROVEMENTS (Beta.87-88)
+
+### Beta.87: Daemon-Delegated Updates (NO SUDO!) ✅
+**Status:** ✅ COMPLETE
+**User Insight:** "why annactl update needs sudo rights if it can be performed by annad that is root?"
+
+**Solution Implemented:**
+- Extended RPC protocol with `CheckUpdate` and `PerformUpdate` methods
+- Daemon handlers for full update flow (already root!)
+- Rewrote annactl update command to use RPC delegation
+- **Result:** Users no longer need sudo for updates!
+
+**Benefits:**
+- ✅ No more sudo password prompts
+- ✅ Cleaner architecture (client=UI, daemon=operations)
+- ✅ Better security (updates in root daemon context)
+- ✅ Foundation for autonomous updates
+
+**Files:** `anna_common/src/ipc.rs`, `annad/src/rpc_server.rs:722-819`, `annactl/src/commands.rs:3217-3418`
+
+### Beta.88: Critical Fixes ✅
+**Status:** ✅ COMPLETE
+
+**1. GPU Detection Bug Fix (CRITICAL)**
+- **Issue:** Systems with Intel chipsets + Nvidia GPUs detected as Intel
+- **Impact:** Wrong Vulkan driver recommendations (vulkan-intel instead of nvidia)
+- **Fix:** Line-by-line lspci parsing, only check VGA/display lines
+- **File:** `telemetry.rs:176-202`
+- **Result:** Dramatically improved recommendation accuracy
+
+**2. Smart Privilege Handling**
+- **Issue:** Updater had hardcoded sudo commands
+- **Fix:** Added is_root() check, execute_privileged() helper
+- **Logic:** If root → direct execution; If not root → use sudo
+- **File:** `updater.rs:19-50`
+- **Dependencies:** Added `libc = "0.2"`
+- **Result:** Cleaner logs, better performance, backward compatible
+
+---
+
+## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.89+)
 
 **Status:** 🎯 PLANNED (HIGH priority)
 **Priority:** HIGH
