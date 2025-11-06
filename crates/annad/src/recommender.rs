@@ -55,6 +55,9 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     // RAM monitoring with leak detection (beta.100+)
     advice.extend(check_ram_health(facts));
 
+    // CPU monitoring with throttling detection (beta.101+)
+    advice.extend(check_cpu_health(facts));
+
     // Extended telemetry-based checks (beta.43+)
     advice.extend(check_microcode_updates(facts));
     advice.extend(check_battery_optimization(facts));
@@ -11051,6 +11054,330 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
                     }
                     break;
                 }
+            }
+        }
+    }
+
+    advice
+}
+
+/// Check CPU health and detect throttling (Beta.101)
+///
+/// Monitors:
+/// - CPU load averages
+/// - CPU throttling (thermal/power limits)
+/// - Per-core usage imbalances
+/// - CPU-hogging processes
+/// - Thermal state and frequency scaling
+fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
+    use std::process::Command;
+    let mut advice = Vec::new();
+
+    // 1. Check CPU load averages
+    if let Ok(output) = Command::new("uptime").output() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        
+        // Parse load average: "... load average: 0.52, 0.58, 0.59"
+        if let Some(load_part) = output_str.split("load average:").nth(1) {
+            let loads: Vec<&str> = load_part.split(',').collect();
+            if loads.len() >= 3 {
+                // Get 1-minute, 5-minute, 15-minute averages
+                if let Ok(load_1m) = loads[0].trim().parse::<f32>() {
+                    // Get CPU core count
+                    let cpu_count = std::thread::available_parallelism()
+                        .map(|n| n.get())
+                        .unwrap_or(1) as f32;
+                    
+                    let load_per_cpu = load_1m / cpu_count;
+                    
+                    if load_per_cpu > 2.0 {
+                        advice.push(Advice::new(
+                            "cpu-load-critical".to_string(),
+                            "Critical CPU load detected".to_string(),
+                            format!(
+                                "CPU load average is {:.2} ({:.1} per core with {} cores). \
+                                Load >2.0 per core means processes are waiting for CPU time. \
+                                This severely impacts system responsiveness. Actions: \
+                                1) Identify CPU hogs with 'top' or 'htop' \
+                                2) Kill or nice heavy processes \
+                                3) Check for runaway processes \
+                                4) Consider if your workload needs more CPU cores",
+                                load_1m, load_per_cpu, cpu_count as usize
+                            ),
+                            "top -b -n 1 | head -20".to_string(),
+                            None,
+                            RiskLevel::High,
+                            Priority::Mandatory,
+                            vec![
+                                "https://wiki.archlinux.org/title/Improving_performance#CPU".to_string(),
+                            ],
+                            "performance".to_string(),
+                        ));
+                    } else if load_per_cpu > 1.0 {
+                        advice.push(Advice::new(
+                            "cpu-load-high".to_string(),
+                            "High CPU load detected".to_string(),
+                            format!(
+                                "CPU load average is {:.2} ({:.1} per core with {} cores). \
+                                Load >1.0 per core means your CPU is fully utilized. \
+                                Performance may be impacted. Check running processes with 'top'.",
+                                load_1m, load_per_cpu, cpu_count as usize
+                            ),
+                            "top -b -n 1 -o %CPU | head -15".to_string(),
+                            None,
+                            RiskLevel::Medium,
+                            Priority::Recommended,
+                            vec![],
+                            "performance".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Check for CPU frequency throttling
+    if let Ok(output) = Command::new("sh")
+        .args(&["-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | head -1"])
+        .output()
+    {
+        if !output.stdout.is_empty() {
+            // CPU frequency scaling is available
+            if let Ok(cur_freq_output) = Command::new("sh")
+                .args(&["-c", "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"])
+                .output()
+            {
+                if let Ok(max_freq_output) = Command::new("sh")
+                    .args(&["-c", "cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"])
+                    .output()
+                {
+                    let cur_freq_str = String::from_utf8_lossy(&cur_freq_output.stdout);
+                    let max_freq_str = String::from_utf8_lossy(&max_freq_output.stdout);
+                    
+                    if let (Ok(cur_freq), Ok(max_freq)) = (
+                        cur_freq_str.trim().parse::<f32>(),
+                        max_freq_str.trim().parse::<f32>(),
+                    ) {
+                        let freq_percent = (cur_freq / max_freq) * 100.0;
+                        
+                        if freq_percent < 50.0 {
+                            advice.push(Advice::new(
+                                "cpu-throttled".to_string(),
+                                "CPU is severely throttled".to_string(),
+                                format!(
+                                    "CPU is running at {:.0}% of maximum frequency ({:.0} MHz vs {:.0} MHz max). \
+                                    Severe throttling! This could be due to: \
+                                    1) Thermal throttling (CPU too hot) \
+                                    2) Power management (battery saver mode) \
+                                    3) TDP/PL limits \
+                                    Check: 1) CPU temperature with 'sensors' \
+                                    2) CPU governor: cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor \
+                                    3) Consider changing governor to 'performance' if plugged in",
+                                    freq_percent, cur_freq / 1000.0, max_freq / 1000.0
+                                ),
+                                "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor".to_string(),
+                                None,
+                                RiskLevel::Medium,
+                                Priority::Recommended,
+                                vec![
+                                    "https://wiki.archlinux.org/title/CPU_frequency_scaling".to_string(),
+                                ],
+                                "performance".to_string(),
+                            ));
+                        } else if freq_percent < 75.0 {
+                            advice.push(Advice::new(
+                                "cpu-throttled-moderate".to_string(),
+                                "CPU frequency reduced".to_string(),
+                                format!(
+                                    "CPU is running at {:.0}% of maximum frequency ({:.0} MHz vs {:.0} MHz max). \
+                                    This is normal for power saving, but may impact performance. \
+                                    Current governor: check with 'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor'",
+                                    freq_percent, cur_freq / 1000.0, max_freq / 1000.0
+                                ),
+                                "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor".to_string(),
+                                None,
+                                RiskLevel::Low,
+                                Priority::Optional,
+                                vec![],
+                                "performance".to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Check CPU temperature (if lm_sensors is available)
+    if let Ok(output) = Command::new("sensors").output() {
+        if output.status.success() {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            
+            // Parse temperature lines (look for "Core" or "Tdie" or "Package")
+            for line in output_str.lines() {
+                if (line.contains("Core") || line.contains("Tdie") || line.contains("Package") || line.contains("CPU"))
+                    && line.contains("°C")
+                {
+                    // Extract temperature value
+                    if let Some(temp_part) = line.split("°C").next() {
+                        if let Some(temp_str) = temp_part.split('+').last() {
+                            if let Ok(temp) = temp_str.trim().parse::<f32>() {
+                                if temp > 90.0 {
+                                    advice.push(Advice::new(
+                                        "cpu-temp-critical".to_string(),
+                                        "CPU temperature critically high".to_string(),
+                                        format!(
+                                            "CPU temperature is {:.0}°C! This is dangerously high and will cause: \
+                                            1) Thermal throttling (reduced performance) \
+                                            2) System instability/crashes \
+                                            3) Potential hardware damage \
+                                            Immediate actions: \
+                                            1) Ensure good ventilation/cooling \
+                                            2) Clean dust from fans/heatsink \
+                                            3) Check if CPU cooler is properly mounted \
+                                            4) Consider replacing thermal paste",
+                                            temp
+                                        ),
+                                        "sensors".to_string(),
+                                        None,
+                                        RiskLevel::High,
+                                        Priority::Mandatory,
+                                        vec![
+                                            "https://wiki.archlinux.org/title/Lm_sensors".to_string(),
+                                        ],
+                                        "hardware".to_string(),
+                                    ));
+                                    break;
+                                } else if temp > 80.0 {
+                                    advice.push(Advice::new(
+                                        "cpu-temp-high".to_string(),
+                                        "CPU temperature high".to_string(),
+                                        format!(
+                                            "CPU temperature is {:.0}°C. This is high and may cause throttling. \
+                                            Check cooling system and ensure good airflow.",
+                                            temp
+                                        ),
+                                        "sensors".to_string(),
+                                        None,
+                                        RiskLevel::Medium,
+                                        Priority::Recommended,
+                                        vec![],
+                                        "hardware".to_string(),
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // lm_sensors not installed
+        if !Command::new("which").arg("sensors").output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            advice.push(Advice::new(
+                "cpu-no-temp-monitoring".to_string(),
+                "Install lm-sensors for CPU temperature monitoring".to_string(),
+                "lm-sensors provides temperature monitoring for your CPU and other hardware. \
+                Without it, Anna cannot detect overheating issues that may cause throttling or damage.".to_string(),
+                "pacman -S --noconfirm lm_sensors && sensors-detect --auto".to_string(),
+                None,
+                RiskLevel::Low,
+                Priority::Optional,
+                vec![
+                    "https://wiki.archlinux.org/title/Lm_sensors".to_string(),
+                ],
+                "monitoring".to_string(),
+            ));
+        }
+    }
+
+    // 4. Identify CPU-hogging processes
+    if let Ok(output) = Command::new("ps")
+        .args(&["aux", "--sort=-%cpu"])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = output_str.lines().collect();
+        
+        // Check top 3 CPU consumers
+        for (i, line) in lines.iter().skip(1).take(3).enumerate() {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() >= 11 {
+                let pid = fields[1];
+                let cpu_percent = fields[2];
+                let command = fields[10..].join(" ");
+                
+                if let Ok(cpu) = cpu_percent.parse::<f32>() {
+                    // Flag processes using >80% of a single core consistently
+                    if cpu > 80.0 {
+                        advice.push(Advice::new(
+                            format!("cpu-hog-{}", pid),
+                            format!("High CPU usage: {} (PID {})", command, pid),
+                            format!(
+                                "Process '{}' (PID {}) is using {:.1}% CPU. \
+                                High sustained CPU usage may indicate: \
+                                1) Legitimate heavy computation \
+                                2) Runaway process or infinite loop \
+                                3) Misconfigured application \
+                                Monitor with: watch -n 2 'ps -p {} -o pid,%cpu,etime,cmd' \
+                                If CPU usage stays constant and high, investigate or restart the process.",
+                                command, pid, cpu, pid
+                            ),
+                            format!("ps -p {} -o pid,user,%cpu,%mem,etime,cmd", pid),
+                            None,
+                            RiskLevel::Low,
+                            Priority::Optional,
+                            vec![],
+                            "performance".to_string(),
+                        ));
+                        
+                        // Only report top 2 to avoid spam
+                        if i >= 1 {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Check CPU governor setting
+    if let Ok(output) = Command::new("cat")
+        .arg("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+        .output()
+    {
+        let governor = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        
+        if governor == "powersave" {
+            // Check if system is on battery or AC
+            let on_battery = std::path::Path::new("/sys/class/power_supply/AC/online")
+                .exists()
+                && Command::new("cat")
+                    .arg("/sys/class/power_supply/AC/online")
+                    .output()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "0")
+                    .unwrap_or(false);
+            
+            if !on_battery {
+                advice.push(Advice::new(
+                    "cpu-governor-powersave-ac".to_string(),
+                    "CPU governor set to 'powersave' while on AC power".to_string(),
+                    "Your CPU governor is set to 'powersave' which limits performance to save power. \
+                    Since you're plugged into AC power, consider switching to 'performance' or 'schedutil' \
+                    for better responsiveness. Note: This will increase power consumption and heat.".to_string(),
+                    "echo 'To switch: echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor'".to_string(),
+                    None,
+                    RiskLevel::Low,
+                    Priority::Optional,
+                    vec![
+                        "https://wiki.archlinux.org/title/CPU_frequency_scaling".to_string(),
+                    ],
+                    "performance".to_string(),
+                ));
             }
         }
     }
