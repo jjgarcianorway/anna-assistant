@@ -10,6 +10,7 @@ use crate::sway_config;
 use crate::shell_config;
 use crate::terminal_config;
 use crate::git_config;
+use crate::gnome_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -230,17 +231,11 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             }
         }
         de_str if de_str.contains("gnome") => {
-            recommendations.push(Advice::new(
-                "gnome-tweaks".to_string(),
-                "Install GNOME Tweaks for customization".to_string(),
-                "GNOME Tweaks provides access to many settings not available in the default settings app.".to_string(),
-                "Install gnome-tweaks".to_string(),
-                Some("sudo pacman -S --noconfirm gnome-tweaks".to_string()),
-                RiskLevel::Low,
-                Priority::Optional,
-                vec!["https://wiki.archlinux.org/title/GNOME".to_string()],
-                "desktop".to_string(),
-            ));
+            // GNOME - comprehensive configuration analysis
+            info!("Detected GNOME, analyzing configuration");
+            if let Some(config) = gnome_config::analyze_gnome() {
+                recommendations.extend(gnome_config::generate_gnome_recommendations(&config));
+            }
         }
         de_str if de_str.contains("kde") || de_str.contains("plasma") => {
             recommendations.push(Advice::new(
