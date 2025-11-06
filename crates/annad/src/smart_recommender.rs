@@ -5,6 +5,7 @@
 use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use tracing::info;
 use crate::hyprland_config;
+use crate::i3_config;
 use crate::shell_config;
 use crate::terminal_config;
 use crate::git_config;
@@ -211,6 +212,13 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             info!("Detected Hyprland, analyzing configuration");
             if let Some(config) = hyprland_config::analyze_hyprland() {
                 recommendations.extend(hyprland_config::generate_hyprland_recommendations(&config));
+            }
+        }
+        de_str if de_str.contains("i3") => {
+            // i3 - comprehensive configuration analysis
+            info!("Detected i3, analyzing configuration");
+            if let Some(config) = i3_config::analyze_i3() {
+                recommendations.extend(i3_config::generate_i3_recommendations(&config));
             }
         }
         de_str if de_str.contains("gnome") => {
