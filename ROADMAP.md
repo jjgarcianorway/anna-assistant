@@ -936,6 +936,398 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ---
 
+## 🎨 TUI REDESIGN - Category-Based Navigation (Beta.85)
+
+**Status:** 🎯 PLANNED (Major UX Overhaul)
+**Priority:** CRITICAL
+
+**User Vision:**
+> "Maybe TUI should have categories by default like a menu? (select category and go through?).
+> Then the sorting is only by priority or risk options? Interface must be extremely easy to use, intuitive and beautiful."
+
+### Proposed Architecture: Category-First Navigation
+
+#### Current Problems:
+- 120+ flat list of advice is overwhelming
+- No natural grouping or hierarchy
+- Category sorting exists but not intuitive
+- Users don't know where to start
+
+#### New Design: Category Menu System
+
+**Main View (Category Browser):**
+```
+╭─────────────────────────────────────────────╮
+│           Anna Recommendations              │
+╰─────────────────────────────────────────────╯
+
+ 📦 Security & Privacy (9 critical)          →
+ ⚡ Performance & Optimization (12)          →
+ 🔧 System Maintenance (15)                  →
+ 🎮 Gaming & Entertainment (7)               →
+ 💻 Development Tools (6)                    →
+ 🌐 Network Configuration (6)                →
+ 🖥️  Hardware Support (4)                     →
+ 🎨 Desktop Environment (8)                  →
+ 📁 Multimedia & Graphics (5)                →
+
+╭─────────────────────────────────────────────╮
+│ ↑/↓  Navigate  │  Enter  Select  │  q  Quit │
+╰─────────────────────────────────────────────╯
+```
+
+**Category View (Advice List):**
+```
+╭─────────────────────────────────────────────╮
+│      Security & Privacy (9 items)           │
+╰─────────────────────────────────────────────╯
+
+ 🔴 Enable firewall (ufw)
+ 🔴 SSH key-only authentication
+ 🟡 Install fail2ban for brute-force protection
+ 🟡 Set up automatic security updates
+ 🟢 Enable AppArmor profiles
+ ...
+
+Sort: Priority ▼  │  f: Filter  │  Esc: Back
+
+╭─────────────────────────────────────────────╮
+│ ↑/↓ Navigate │ Enter Details │ Esc Back │
+╰─────────────────────────────────────────────╯
+```
+
+#### Sorting Within Categories:
+- **Priority** (default): Critical → Recommended → Optional → Cosmetic
+- **Risk**: Low → Medium → High
+- **Popularity**: Most popular first
+
+#### Benefits:
+1. **Reduced Cognitive Load**: Focus on one area at a time
+2. **Clear Mental Model**: "What do I want to work on today?"
+3. **Progress Tracking**: Clear which areas are done
+4. **Intuitive Navigation**: Menu → List → Details (standard pattern)
+5. **Beautiful**: Clean, organized, hierarchical
+
+#### Implementation Plan:
+- [ ] Add ViewMode::CategoryBrowser
+- [ ] Render category list with counts and icons
+- [ ] Add category selection navigation
+- [ ] Pass selected category to advice list view
+- [ ] Update sorting to be priority/risk only (no category sort)
+- [ ] Add "Back" navigation from list to category browser
+- [ ] Add category completion indicators (e.g., "3/9 complete")
+
+---
+
+## 🖥️ REAL-TIME TERMINAL VIEW (Beta.85)
+
+**Status:** 🎯 PLANNED (CRITICAL for transparency)
+**Priority:** CRITICAL
+
+**User Feedback:**
+> "How is the 'live' terminal view realtime when applying advice solutions?
+> That is pretty critical for the user to know what the heck is anna doing"
+
+### Current Problem:
+When applying advice, users see a blank screen or spinner. They have NO IDEA:
+- What commands are running
+- What output is being produced
+- If something is stuck or progressing
+- What Anna is actually doing to their system
+
+**This is UNACCEPTABLE for system administration.**
+
+### Required Design: Live Terminal Output
+
+**During Apply:**
+```
+╭─────────────────────────────────────────────╮
+│   Applying: Install MangoHud               │
+╰─────────────────────────────────────────────╯
+
+→ Executing: sudo pacman -S --noconfirm mangohud
+
+resolving dependencies...
+looking for conflicting packages...
+
+Packages (1) mangohud-0.7.0-1
+
+Total Download Size:    2.47 MiB
+Total Installed Size:  12.30 MiB
+
+:: Proceed with installation? [Y/n] Y
+:: Retrieving packages...
+ mangohud-0.7.0-1      2.5 MiB  ████████████ 100%
+
+(1/1) checking keys in keyring...
+(1/1) checking package integrity...
+(1/1) loading package files...
+(1/1) checking for file conflicts...
+(1/1) checking available disk space...
+(1/1) installing mangohud...
+
+✓ Command completed successfully (3.2s)
+
+╭─────────────────────────────────────────────╮
+│  Scroll: ↑↓ PgUp PgDn  │  Enter: Continue   │
+╰─────────────────────────────────────────────╯
+```
+
+### Architecture Requirements:
+
+#### 1. RPC Protocol Changes
+**Current:** Synchronous execute, return final result
+```rust
+Method::ApplyAction { advice_id, dry_run } -> ResponseData::Action(action)
+```
+
+**Needed:** Streaming execute with live output
+```rust
+Method::ApplyActionStreaming { advice_id } -> Stream<ResponseData::ActionChunk>
+
+struct ActionChunk {
+    chunk_type: ChunkType, // Stdout, Stderr, Status, Complete
+    content: String,
+    timestamp: DateTime<Utc>,
+}
+```
+
+#### 2. Executor Changes
+**File:** `crates/annad/src/executor.rs`
+
+**Current:** Collects all output, returns at end
+```rust
+pub async fn execute_action(advice: &Advice, dry_run: bool) -> Result<Action>
+```
+
+**Needed:** Stream output as it comes
+```rust
+pub async fn execute_action_streaming(
+    advice: &Advice,
+) -> Result<impl Stream<Item = ActionChunk>>
+```
+
+Use `tokio::process::Command` with async stdout/stderr readers.
+
+#### 3. TUI Changes
+**File:** `crates/annactl/src/tui.rs`
+
+**Add:** New view mode for live output
+```rust
+enum ViewMode {
+    Dashboard,
+    Details,
+    Confirm,
+    LiveExecution, // NEW: Real-time command output
+    OutputDisplay, // Existing: Post-execution output
+}
+```
+
+**Features:**
+- Scrollable terminal output
+- Auto-scroll to bottom (with manual scroll option)
+- Color-coded stdout (white) and stderr (red)
+- Progress indicators
+- Timestamp for each line
+- Command being executed shown at top
+- Success/failure indicator when complete
+- Error details if failure occurs
+
+#### 4. Success Message Example:
+```
+╭─────────────────────────────────────────────╮
+│            ✓ Installation Complete         │
+╰─────────────────────────────────────────────╯
+
+MangoHud has been successfully installed!
+
+→ What happened:
+  • Downloaded mangohud package (2.5 MiB)
+  • Verified package integrity
+  • Installed to system
+  • Updated package database
+
+→ What's next:
+  Launch games with: mangohud %command%
+  Configure: ~/.config/MangoHud/MangoHud.conf
+
+This advice has been removed from your list.
+
+╭─────────────────────────────────────────────╮
+│           Enter: Return to List             │
+╰─────────────────────────────────────────────╯
+```
+
+#### 5. Error Message Example:
+```
+╭─────────────────────────────────────────────╮
+│         ✗ Installation Failed              │
+╰─────────────────────────────────────────────╯
+
+→ Error Details:
+  Command: sudo pacman -S --noconfirm mangohud
+  Exit Code: 1
+  Duration: 0.3s
+
+→ Error Output:
+  error: failed to prepare transaction (could not satisfy dependencies)
+  :: installing mangohud breaks dependency 'mangohud' required by lib32-mangohud
+
+→ How to Fix:
+  1. Reinstall lib32-mangohud: sudo pacman -S lib32-mangohud
+  2. Or remove conflicting package first
+  3. Check Arch Wiki: https://wiki.archlinux.org/title/MangoHud
+
+→ Troubleshooting:
+  • Check package conflicts: pacman -Qi mangohud
+  • View full logs: journalctl -xe
+
+╭─────────────────────────────────────────────╮
+│  r: Retry  │  d: Details  │  Esc: Cancel   │
+╰─────────────────────────────────────────────╯
+```
+
+### Implementation Priority: HIGH
+
+This is CRITICAL for trust and transparency. Users MUST see what Anna is doing to their system in real-time.
+
+---
+
+## 🔄 UNIVERSAL ROLLBACK SYSTEM (Beta.85-86)
+
+**Status:** 🎯 PLANNED (HIGH priority)
+**Priority:** HIGH
+
+**User Feedback:**
+> "Rollbacks for actions and for bundles... interface must be extremely easy to use, intuitive and beautiful"
+
+### Current Limitation:
+- Only bundles can be rolled back
+- Individual advice actions cannot be undone
+- No rollback preview
+- No safety checks
+
+### Proposed System: Rollback for Everything
+
+#### Architecture:
+
+**1. Rollback Command Storage**
+Store undo commands in audit log when action succeeds:
+```json
+{
+  "timestamp": "2025-11-06T12:00:00Z",
+  "action_type": "apply_action",
+  "advice_id": "mangohud",
+  "command": "sudo pacman -S --noconfirm mangohud",
+  "rollback_command": "sudo pacman -Rns --noconfirm mangohud",
+  "success": true,
+  "output": "...",
+  "can_rollback": true
+}
+```
+
+**2. Rollback Detection**
+Some actions cannot be safely rolled back:
+- System configuration changes (needs manual review)
+- File modifications (may have user edits)
+- Destructive operations (data loss risk)
+
+Mark these as `can_rollback: false` with explanation.
+
+**3. Rollback CLI**
+```bash
+# List rollbackable actions
+annactl rollback --list
+
+# Rollback specific action
+annactl rollback --id mangohud
+
+# Rollback bundle
+annactl rollback --bundle gaming-essentials
+
+# Rollback last N actions
+annactl rollback --last 3
+
+# Preview rollback (dry-run)
+annactl rollback --id mangohud --preview
+```
+
+**4. Rollback TUI**
+Add "Rollback" view accessible from history:
+```
+╭─────────────────────────────────────────────╮
+│         Rollback: MangoHud Installation     │
+╰─────────────────────────────────────────────╯
+
+→ Action Details:
+  Applied: 2025-11-06 12:00:00 (2 hours ago)
+  Command: sudo pacman -S --noconfirm mangohud
+  Status: ✓ Success
+
+→ Rollback Will Execute:
+  sudo pacman -Rns --noconfirm mangohud
+
+→ This Will:
+  • Remove mangohud package
+  • Remove unused dependencies
+  • Free 12.3 MiB disk space
+  • NOT affect your game saves or configs
+
+⚠ Warning:
+  Other packages may depend on this.
+  Review dependencies before proceeding.
+
+╭─────────────────────────────────────────────╮
+│  Enter: Execute  │  p: Preview  │ Esc: Cancel│
+╰─────────────────────────────────────────────╯
+```
+
+**5. Safety Features:**
+- Always show preview before executing
+- Dependency check warnings
+- Confirmation required
+- Backup important configs before rollback
+- Show what will be affected
+- Clear success/failure messages
+
+**6. Bundle Rollback Enhancement:**
+Rollback all actions in a bundle in reverse order:
+```
+╭─────────────────────────────────────────────╮
+│    Rollback Bundle: Gaming Essentials       │
+╰─────────────────────────────────────────────╯
+
+This bundle contains 5 actions:
+ 1. ✓ MangoHud installation
+ 2. ✓ GameMode installation
+ 3. ✓ Steam configuration
+ 4. ✓ Proton-GE setup
+ 5. ✗ Controller support (cannot rollback)
+
+→ Rollback Order (reverse):
+  4 → 3 → 2 → 1 (skip 5)
+
+Total rollback size: 4 actions
+Estimated time: 30 seconds
+
+╭─────────────────────────────────────────────╮
+│     Enter: Begin  │  Esc: Cancel            │
+╰─────────────────────────────────────────────╯
+```
+
+### Implementation Plan:
+- [ ] Add rollback_command field to Action struct
+- [ ] Generate rollback commands for all advice types
+- [ ] Store rollback info in audit log
+- [ ] Implement rollback detection logic
+- [ ] Add rollback CLI commands
+- [ ] Add rollback TUI views
+- [ ] Add safety checks and previews
+- [ ] Add rollback for bundles
+- [ ] Test rollback for all action types
+
+---
+
 ## 🔥 CRITICAL QUALITY ISSUES (Beta.84+ Priority)
 
 ### Advice Quality & Intelligence Overhaul
