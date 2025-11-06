@@ -81,6 +81,7 @@ mod telemetry;
 mod recommender;
 mod intelligent_recommender;
 mod smart_recommender;
+mod bundles; // Beta.94: Window manager bundles
 mod hyprland_config;
 mod i3_config;
 mod sway_config;
