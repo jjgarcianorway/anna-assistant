@@ -12,6 +12,7 @@ use crate::terminal_config;
 use crate::git_config;
 use crate::gnome_config;
 use crate::kde_config;
+use crate::xfce_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -243,6 +244,13 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             info!("Detected KDE Plasma, analyzing configuration");
             if let Some(config) = kde_config::analyze_kde() {
                 recommendations.extend(kde_config::generate_kde_recommendations(&config));
+            }
+        }
+        de_str if de_str.contains("xfce") => {
+            // XFCE - comprehensive configuration analysis
+            info!("Detected XFCE, analyzing configuration");
+            if let Some(config) = xfce_config::analyze_xfce() {
+                recommendations.extend(xfce_config::generate_xfce_recommendations(&config));
             }
         }
         _ => {}
