@@ -81,6 +81,7 @@ mod telemetry;
 mod recommender;
 mod intelligent_recommender;
 mod smart_recommender;
+mod hyprland_config;
 mod rpc_server;
 mod executor;
 mod audit;

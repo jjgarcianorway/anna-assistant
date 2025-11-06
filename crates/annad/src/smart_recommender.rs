@@ -4,6 +4,7 @@
 
 use anna_common::{Advice, Priority, RiskLevel, SystemFacts};
 use tracing::info;
+use crate::hyprland_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -187,6 +188,13 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
     let mut recommendations = Vec::new();
 
     match de.to_lowercase().as_str() {
+        de_str if de_str.contains("hyprland") => {
+            // Hyprland - comprehensive configuration analysis
+            info!("Detected Hyprland, analyzing configuration");
+            if let Some(config) = hyprland_config::analyze_hyprland() {
+                recommendations.extend(hyprland_config::generate_hyprland_recommendations(&config));
+            }
+        }
         de_str if de_str.contains("gnome") => {
             recommendations.push(Advice::new(
                 "gnome-tweaks".to_string(),
