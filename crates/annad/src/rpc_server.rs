@@ -184,16 +184,20 @@ async fn handle_streaming_apply(
         }
     };
 
-    // Execute with streaming
+    // Execute with streaming via channel
+    let (mut rx, exec_handle) = executor::execute_command_streaming_channel(&command).await?;
+
     let mut full_output = String::new();
-    let success = executor::execute_command_streaming(&command, |chunk| {
-        let chunk_type = match chunk {
-            ExecutionChunk::Stdout(ref line) => {
+
+    // Receive and send chunks in real-time
+    while let Some(chunk) = rx.recv().await {
+        let chunk_type = match &chunk {
+            ExecutionChunk::Stdout(line) => {
                 full_output.push_str(line);
                 full_output.push('\n');
                 StreamChunkType::Stdout
             }
-            ExecutionChunk::Stderr(ref line) => {
+            ExecutionChunk::Stderr(line) => {
                 full_output.push_str(line);
                 full_output.push('\n');
                 StreamChunkType::Stderr
@@ -213,14 +217,13 @@ async fn handle_streaming_apply(
             }),
         };
 
-        // Send the chunk (blocking within callback)
-        if let Ok(json) = serde_json::to_string(&response) {
-            let json = json + "\n";
-            // Note: This is blocking but we're in a callback, so we can't easily make it async
-            // For now, we'll accumulate and the actual sending happens in the async context
-            // TODO: Use a channel to properly handle async sending
-        }
-    }).await?;
+        // Send the chunk immediately
+        let json = serde_json::to_string(&response)? + "\n";
+        writer.write_all(json.as_bytes()).await?;
+    }
+
+    // Wait for execution to complete and get result
+    let success = exec_handle.await.context("Execution task panicked")??;
 
     // Create audit entry
     let action = anna_common::Action {

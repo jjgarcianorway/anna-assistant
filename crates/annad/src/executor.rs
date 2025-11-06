@@ -131,7 +131,87 @@ pub enum ExecutionChunk {
     Status(String),
 }
 
-/// Execute a command with streaming output
+/// Execute a command with streaming output via channel
+pub async fn execute_command_streaming_channel(
+    command: &str,
+) -> Result<(tokio::sync::mpsc::Receiver<ExecutionChunk>, tokio::task::JoinHandle<Result<bool>>)> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::sync::mpsc;
+
+    if command.trim().is_empty() {
+        return Err(anyhow::anyhow!("Empty command"));
+    }
+
+    info!("Executing shell command with streaming: {}", command);
+
+    let (tx, rx) = mpsc::channel(100); // Buffer up to 100 chunks
+
+    // Send initial status
+    let _ = tx.send(ExecutionChunk::Status(format!("Executing: {}", command))).await;
+
+    let command = command.to_string();
+
+    // Spawn task to execute command and stream output
+    let handle = tokio::spawn(async move {
+        // Spawn process with pipes
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(&command)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("Failed to spawn command")?;
+
+        let stdout = child.stdout.take().context("Failed to capture stdout")?;
+        let stderr = child.stderr.take().context("Failed to capture stderr")?;
+
+        let mut stdout_reader = BufReader::new(stdout).lines();
+        let mut stderr_reader = BufReader::new(stderr).lines();
+
+        // Read stdout and stderr concurrently
+        let mut stdout_done = false;
+        let mut stderr_done = false;
+
+        while !stdout_done || !stderr_done {
+            tokio::select! {
+                result = stdout_reader.next_line(), if !stdout_done => {
+                    match result {
+                        Ok(Some(line)) => {
+                            let _ = tx.send(ExecutionChunk::Stdout(line)).await;
+                        }
+                        Ok(None) => stdout_done = true,
+                        Err(e) => {
+                            error!("Error reading stdout: {}", e);
+                            stdout_done = true;
+                        }
+                    }
+                }
+                result = stderr_reader.next_line(), if !stderr_done => {
+                    match result {
+                        Ok(Some(line)) => {
+                            let _ = tx.send(ExecutionChunk::Stderr(line)).await;
+                        }
+                        Ok(None) => stderr_done = true,
+                        Err(e) => {
+                            error!("Error reading stderr: {}", e);
+                            stderr_done = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Wait for process to complete
+        let status = child.wait().await.context("Failed to wait for command")?;
+
+        Ok(status.success())
+    });
+
+    Ok((rx, handle))
+}
+
+/// Execute a command with streaming output (callback version - deprecated, use channel version)
+#[allow(dead_code)]
 pub async fn execute_command_streaming<F>(
     command: &str,
     mut output_callback: F,
@@ -164,29 +244,32 @@ where
     let mut stderr_reader = BufReader::new(stderr).lines();
 
     // Read stdout and stderr concurrently
-    loop {
+    let mut stdout_done = false;
+    let mut stderr_done = false;
+
+    while !stdout_done || !stderr_done {
         tokio::select! {
-            result = stdout_reader.next_line() => {
+            result = stdout_reader.next_line(), if !stdout_done => {
                 match result {
                     Ok(Some(line)) => {
                         output_callback(ExecutionChunk::Stdout(line));
                     }
-                    Ok(None) => break, // stdout closed
+                    Ok(None) => stdout_done = true,
                     Err(e) => {
                         error!("Error reading stdout: {}", e);
-                        break;
+                        stdout_done = true;
                     }
                 }
             }
-            result = stderr_reader.next_line() => {
+            result = stderr_reader.next_line(), if !stderr_done => {
                 match result {
                     Ok(Some(line)) => {
                         output_callback(ExecutionChunk::Stderr(line));
                     }
-                    Ok(None) => break, // stderr closed
+                    Ok(None) => stderr_done = true,
                     Err(e) => {
                         error!("Error reading stderr: {}", e);
-                        break;
+                        stderr_done = true;
                     }
                 }
             }
