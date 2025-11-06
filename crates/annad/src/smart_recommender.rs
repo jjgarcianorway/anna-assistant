@@ -13,6 +13,7 @@ use crate::git_config;
 use crate::gnome_config;
 use crate::kde_config;
 use crate::xfce_config;
+use crate::cinnamon_config;
 
 /// Generate smart package recommendations based on detected workflow
 pub fn generate_smart_recommendations(facts: &SystemFacts) -> Vec<Advice> {
@@ -251,6 +252,13 @@ fn recommend_for_desktop(de: &str) -> Vec<Advice> {
             info!("Detected XFCE, analyzing configuration");
             if let Some(config) = xfce_config::analyze_xfce() {
                 recommendations.extend(xfce_config::generate_xfce_recommendations(&config));
+            }
+        }
+        de_str if de_str.contains("cinnamon") => {
+            // Cinnamon - comprehensive configuration analysis
+            info!("Detected Cinnamon, analyzing configuration");
+            if let Some(config) = cinnamon_config::analyze_cinnamon() {
+                recommendations.extend(cinnamon_config::generate_cinnamon_recommendations(&config));
             }
         }
         _ => {}
