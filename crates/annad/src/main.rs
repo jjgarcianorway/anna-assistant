@@ -142,6 +142,17 @@ async fn main() -> Result<()> {
     // Add smart package recommendations based on workflow
     advice.extend(smart_recommender::generate_smart_recommendations(&facts));
 
+    let advice_count_before_dedup = advice.len();
+
+    // Deduplicate advice by ID (keep first occurrence)
+    let mut seen_ids = std::collections::HashSet::new();
+    advice.retain(|a| seen_ids.insert(a.id.clone()));
+
+    let duplicates_removed = advice_count_before_dedup - advice.len();
+    if duplicates_removed > 0 {
+        info!("Removed {} duplicate advice items", duplicates_removed);
+    }
+
     info!("Generated {} recommendations ({} intelligent, {} smart)", advice.len(),
           advice.iter().filter(|a| a.category == "development" || a.category == "beautification").count(),
           advice.iter().filter(|a| a.id.starts_with("python-lsp") || a.id.starts_with("rust-analyzer") ||
