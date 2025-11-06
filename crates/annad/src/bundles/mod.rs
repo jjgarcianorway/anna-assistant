@@ -39,6 +39,7 @@ use std::collections::HashMap;
 pub mod wayland_compositors;
 pub mod tiling_wms;
 pub mod stacking_wms;
+pub mod minimal_wms;
 
 /// Bundle variant types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -487,11 +488,14 @@ pub fn generate_all_wm_bundles(facts: &SystemFacts) -> Vec<Advice> {
     // Wayland compositors (4 WMs)
     advice.extend(wayland_compositors::generate_bundles(facts));
 
-    // Tiling WMs (7 WMs)
+    // Tiling WMs (9 WMs: i3, bspwm, dwm, xmonad, herbstluftwm, awesome, qtile, leftwm, spectrwm)
     advice.extend(tiling_wms::generate_bundles(facts));
 
-    // Stacking WMs (3 WMs)
+    // Stacking WMs (3 WMs: openbox, fluxbox, icewm)
     advice.extend(stacking_wms::generate_bundles(facts));
+
+    // Minimal WMs (3 WMs: ratpoison, wmii, evilwm)
+    advice.extend(minimal_wms::generate_bundles(facts));
 
     advice
 }

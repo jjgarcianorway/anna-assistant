@@ -21,6 +21,8 @@ pub fn generate_bundles(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(herbstluftwm_bundle(facts));
     advice.extend(awesome_bundle(facts));
     advice.extend(qtile_bundle(facts));
+    advice.extend(leftwm_bundle(facts));
+    advice.extend(spectrwm_bundle(facts));
 
     advice
 }
@@ -318,5 +320,91 @@ fn qtile_bundle(facts: &SystemFacts) -> Vec<Advice> {
         .keybind("XF86AudioRaiseVolume", "Increase volume")
         .keybind("XF86AudioLowerVolume", "Decrease volume")
         .keybind("XF86AudioMute", "Toggle mute")
+        .build(facts)
+}
+
+/// leftwm bundle - Rust-based modern dynamic window manager
+fn leftwm_bundle(facts: &SystemFacts) -> Vec<Advice> {
+    WMBundleBuilder::new("leftwm")
+        .display_server(DisplayServer::X11)
+        .wm_package("leftwm")
+        .launcher("rofi")
+        .status_bar("") // leftwm uses themes with custom bars
+        .terminal("alacritty")
+        .file_manager("thunar", "ranger")
+        .notification_daemon("dunst")
+        .wallpaper_manager("feh")
+        .lock_screen("i3lock")
+        .network_manager("networkmanager")
+        .bluetooth_manager("blueman")
+        // Window Management
+        .keybind("SUPER+Shift+Q", "Close window")
+        .keybind("SUPER+Shift+E", "Exit LeftWM")
+        .keybind("SUPER+F", "Toggle fullscreen")
+        .keybind("SUPER+Shift+Space", "Toggle floating")
+        .keybind("SUPER+Shift+R", "Reload LeftWM")
+        // Layouts
+        .keybind("SUPER+Space", "Cycle layouts")
+        .keybind("SUPER+W", "Change layout to wide")
+        .keybind("SUPER+M", "Change layout to monocle")
+        // Workspaces
+        .keybind("SUPER+1-9", "Switch to workspace 1-9")
+        .keybind("SUPER+Shift+1-9", "Move window to workspace 1-9")
+        .keybind("SUPER+J", "Focus next window")
+        .keybind("SUPER+K", "Focus previous window")
+        .keybind("SUPER+Shift+J", "Move window down in stack")
+        .keybind("SUPER+Shift+K", "Move window up in stack")
+        // Window Sizing
+        .keybind("SUPER+H", "Shrink window")
+        .keybind("SUPER+L", "Expand window")
+        // Applications
+        .keybind("SUPER+P", "Launch application menu (rofi)")
+        .keybind("SUPER+Return", "Launch terminal")
+        .build(facts)
+}
+
+/// spectrwm bundle - Minimal dynamic window manager with sane defaults
+fn spectrwm_bundle(facts: &SystemFacts) -> Vec<Advice> {
+    WMBundleBuilder::new("spectrwm")
+        .display_server(DisplayServer::X11)
+        .wm_package("spectrwm")
+        .launcher("dmenu")
+        .status_bar("") // spectrwm has built-in bar
+        .terminal("xterm")
+        .file_manager("pcmanfm", "ranger")
+        .notification_daemon("dunst")
+        .wallpaper_manager("feh")
+        .lock_screen("xlock")
+        .network_manager("networkmanager")
+        .bluetooth_manager("blueman")
+        // Window Management
+        .keybind("SUPER+Shift+Q", "Close window")
+        .keybind("SUPER+Shift+E", "Exit spectrwm")
+        .keybind("SUPER+F", "Toggle fullscreen")
+        .keybind("SUPER+T", "Toggle floating")
+        .keybind("SUPER+Q", "Restart spectrwm")
+        // Layouts
+        .keybind("SUPER+Space", "Cycle layouts")
+        .keybind("SUPER+Shift+Space", "Reset layout")
+        // Master Area
+        .keybind("SUPER+L", "Increase master area")
+        .keybind("SUPER+H", "Decrease master area")
+        .keybind("SUPER+Comma", "Add window to master")
+        .keybind("SUPER+Period", "Remove window from master")
+        // Workspaces (Regions in spectrwm)
+        .keybind("SUPER+1-9", "Switch to workspace 1-9")
+        .keybind("SUPER+Shift+1-9", "Move window to workspace 1-9")
+        .keybind("SUPER+Right", "Next workspace")
+        .keybind("SUPER+Left", "Previous workspace")
+        .keybind("SUPER+J", "Focus next window")
+        .keybind("SUPER+K", "Focus previous window")
+        .keybind("SUPER+Shift+J", "Swap with next window")
+        .keybind("SUPER+Shift+K", "Swap with previous window")
+        // Applications
+        .keybind("SUPER+P", "Launch application menu (dmenu)")
+        .keybind("SUPER+Return", "Launch terminal")
+        .keybind("SUPER+Shift+Return", "Launch terminal in same directory")
+        // System
+        .keybind("SUPER+B", "Toggle status bar")
         .build(facts)
 }

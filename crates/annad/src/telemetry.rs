@@ -397,6 +397,7 @@ fn detect_window_manager() -> Option<String> {
             "leftwm" => return Some("LeftWM".to_string()),
             "spectrwm" => return Some("Spectrwm".to_string()),
             "ratpoison" => return Some("Ratpoison".to_string()),
+            "wmii" => return Some("Wmii".to_string()),
             "stumpwm" => return Some("StumpWM".to_string()),
             // Stacking WMs
             "awesome" => return Some("Awesome".to_string()),
@@ -452,6 +453,7 @@ fn detect_window_manager() -> Option<String> {
         ("leftwm", "LeftWM"),
         ("spectrwm", "Spectrwm"),
         ("ratpoison", "Ratpoison"),
+        ("wmii", "Wmii"),
         ("stumpwm", "StumpWM"),
         ("notion", "Notion"),
         // Stacking/floating WMs
@@ -522,6 +524,8 @@ fn detect_window_manager() -> Option<String> {
         Some("Spectrwm".to_string())
     } else if package_installed("ratpoison") {
         Some("Ratpoison".to_string())
+    } else if package_installed("wmii") {
+        Some("Wmii".to_string())
     } else if package_installed("stumpwm") {
         Some("StumpWM".to_string())
     } else if package_installed("notion") {
