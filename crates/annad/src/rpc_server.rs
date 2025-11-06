@@ -174,6 +174,81 @@ async fn filter_satisfied_advice(advice: Vec<Advice>, audit_logger: &AuditLogger
     filtered
 }
 
+/// AGGRESSIVE relevance filter (Beta.106) - Only show what's ACTUALLY relevant
+///
+/// Problem: Showing 272 random recommendations is overwhelming and useless
+/// Solution: Only show advice for software the user ACTUALLY has/uses
+fn filter_by_relevance(advice: Vec<Advice>, facts: &SystemFacts) -> Vec<Advice> {
+    use anna_common::Priority;
+
+    advice.into_iter()
+        .filter(|item| {
+            // ALWAYS show security & privacy issues (critical)
+            if item.category.contains("Security") || item.category.contains("Privacy") {
+                return true;
+            }
+
+            // ALWAYS show Mandatory and Recommended items (high priority)
+            if matches!(item.priority, Priority::Mandatory | Priority::Recommended) {
+                return true;
+            }
+
+            // For bundle items - ONLY if the bundle WM/DE is installed
+            // This is handled in the bundle builder now, but double-check
+            if item.bundle.is_some() {
+                // Bundles should already be filtered by installed WM
+                return true;
+            }
+
+            // For other items: only show if related to installed software
+            // Check if the advice is about an installed package by extracting package names
+            let advice_lower = item.title.to_lowercase();
+
+            // Common package names to check (extracted from title/reason)
+            let potential_packages: Vec<&str> = vec![
+                "hyprland", "waybar", "rofi", "kitty", "nautilus", "mako",
+                "i3", "bspwm", "awesome", "sway", "firefox", "chromium",
+                "docker", "git", "vim", "nvim", "vscode", "python", "rust",
+                "gnome", "kde", "plasma", "xfce", "lxqt", "cinnamon", "mate"
+            ];
+
+            // Check if any common package mentioned in advice is actually installed
+            let mentions_installed = potential_packages.iter().any(|&pkg| {
+                if advice_lower.contains(pkg) {
+                    // Check if this package is installed
+                    use std::process::Command;
+                    Command::new("pacman")
+                        .args(&["-Q", pkg])
+                        .output()
+                        .map(|o| o.status.success())
+                        .unwrap_or(false)
+                } else {
+                    false
+                }
+            });
+
+            if mentions_installed {
+                return true;
+            }
+
+            // Show system-wide optimizations (not tied to specific software)
+            if item.category.contains("performance") ||
+               item.category.contains("cleanup") ||
+               item.category.contains("System") {
+                return true;
+            }
+
+            // For documentation items - only if about installed software
+            if item.category == "documentation" {
+                return mentions_installed;
+            }
+
+            // Default: HIDE IT (don't spam user with irrelevant stuff)
+            false
+        })
+        .collect()
+}
+
 /// Start the RPC server
 pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
     // Ensure socket directory exists
@@ -679,6 +754,15 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 Ok(facts) => {
                     let mut advice = crate::recommender::generate_advice(&facts);
                     advice.extend(crate::intelligent_recommender::generate_intelligent_advice(&facts));
+
+                    // AGGRESSIVE RELEVANCE FILTERING (Beta.106)
+                    // Only show advice that's ACTUALLY relevant to this specific user/system
+                    let total_before = advice.len();
+                    advice = filter_by_relevance(advice, &facts);
+                    let total_after = advice.len();
+
+                    info!("Relevance filter: {} → {} recommendations ({} removed)",
+                          total_before, total_after, total_before - total_after);
 
                     // Update state
                     *state.facts.write().await = facts;

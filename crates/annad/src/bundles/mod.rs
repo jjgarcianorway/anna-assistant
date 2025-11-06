@@ -252,7 +252,7 @@ impl WMBundleBuilder {
         id_suffix: &str,
         title: String,
         reason: String,
-        action: String,
+        command: String,
         category: String,
         priority: Priority,
     ) -> Advice {
@@ -260,8 +260,8 @@ impl WMBundleBuilder {
             format!("{}-{}", self.bundle_id, id_suffix),
             title,
             reason,
-            action,
-            None, // command - actions are direct
+            command.clone(), // action = human readable description
+            Some(command), // command = executable shell command
             RiskLevel::Low, // bundles are typically safe
             priority,
             vec![], // wiki_refs
@@ -275,29 +275,19 @@ impl WMBundleBuilder {
         let mut advice = Vec::new();
         let bundle_name = &self.bundle_id;
 
-        // 1. Window Manager
-        if !self.is_package_installed(&self.components.wm_package, facts) {
-            advice.push(
-                self.make_advice(
-                    "wm",
-                    format!("Install {} window manager", self.wm_name),
-                    format!(
-                        "{} is a popular {} window manager. This bundle will set up a complete desktop environment with all necessary components.",
-                        self.wm_name,
-                        match self.display_server {
-                            DisplayServer::Wayland => "Wayland",
-                            DisplayServer::X11 => "X11",
-                            DisplayServer::Both => "X11/Wayland",
-                        }
-                    ),
-                    format!("pacman -S --noconfirm {}", self.components.wm_package),
-                    "desktop".to_string(),
-                    Priority::Recommended,
-                )
-            );
+        // IMPORTANT: Only show bundle if WM is already installed!
+        // Don't recommend 20+ different WMs - only show components for what user has
+        let wm_installed = self.is_package_installed(&self.components.wm_package, facts);
+
+        if !wm_installed {
+            // WM not installed - don't show this bundle at all
+            return advice;
         }
 
-        // 2. Launcher
+        // WM IS installed - show recommended complementary components
+        // (No need to recommend installing the WM itself since it's already installed)
+
+        // 1. Launcher
         if let Some(launcher) = &self.components.launcher {
             if !self.is_package_installed(launcher, facts) {
                 advice.push(
@@ -313,7 +303,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 3. Status Bar
+        // 2. Status Bar
         if let Some(bar) = &self.components.status_bar {
             if !self.is_package_installed(bar, facts) {
                 advice.push(
@@ -329,7 +319,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 4. Terminal
+        // 3. Terminal
         if let Some(terminal) = &self.components.terminal {
             if !self.is_package_installed(terminal, facts) {
                 advice.push(
@@ -345,7 +335,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 5. File Manager (GUI)
+        // 4. File Manager (GUI)
         if let Some(fm) = &self.components.file_manager_gui {
             if !self.is_package_installed(fm, facts) {
                 advice.push(
@@ -361,7 +351,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 6. Notification Daemon
+        // 5. Notification Daemon
         if let Some(daemon) = &self.components.notification_daemon {
             if !self.is_package_installed(daemon, facts) {
                 advice.push(
@@ -377,7 +367,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 7. Network Manager
+        // 6. Network Manager
         if let Some(nm) = &self.components.network_manager {
             if !self.is_package_installed(nm, facts) {
                 advice.push(
@@ -393,7 +383,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 8. Bluetooth Manager
+        // 7. Bluetooth Manager
         if let Some(bt) = &self.components.bluetooth_manager {
             if !self.is_package_installed(bt, facts) {
                 advice.push(
@@ -409,7 +399,7 @@ impl WMBundleBuilder {
             }
         }
 
-        // 9. Keybinding Reference
+        // 8. Keybinding Reference
         if !self.components.keybindings.is_empty() {
             let mut keybind_text = format!("## {} Keyboard Shortcuts\n\n", self.wm_name);
 
