@@ -4,56 +4,43 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.86 (November 2025)
+**Current Version:** Beta.102 (November 2025)
 
 ---
 
-## 🎯 What's New in Beta.86
+## 🎯 What's New in Beta.93-102
 
-**🛡️ COMPREHENSIVE SECURITY HARDENING - Production Ready!**
+**🚀 MASSIVE UPDATE: 10 Versions in One Session!**
 
-**Risk Reduction:** 🔴 HIGH → 🟢 LOW
+### Beta.102: Resource-Aware Recommendation System ✅
+**MAJOR UX IMPROVEMENT:** Smart filtering warns users about resource requirements!
+- Automatic resource detection (RAM, CPU, GPU, Disk)
+- System tier classification (VeryLow → VeryHigh)
+- Software requirements database (Hyprland, Docker, Steam, etc.)
+- Warning annotations (⚠️ Required, 💡 Recommended)
+- User stays in control - options shown with explanations
 
-Anna now includes enterprise-grade security hardening to protect your system. Based on comprehensive security audit and industry best practices.
+### Beta.99-101: Complete Performance Monitoring Stack ✅
+**PROACTIVE SYSTEM HEALTH:** Anna monitors and warns before problems arise!
+- **Disk Health (Beta.99)**: SMART monitoring, I/O bottleneck detection, RAID status
+- **RAM Health (Beta.100)**: Memory leak detection, OOM prevention, pressure monitoring
+- **CPU Health (Beta.101)**: Load monitoring, thermal throttling detection, process identification
 
-### Phase 1: CRITICAL Vulnerability Fixes ✅
+### Beta.93-98: 22 Window Manager Bundles ✅
+**ONE-CLICK DESKTOP SETUP:** Complete WM environments with all components!
+- **Wayland Compositors**: Hyprland, Sway, Wayfire, River
+- **Tiling WMs**: i3, bspwm, dwm, xmonad, herbstluftwm, awesome, qtile, leftwm, spectrwm
+- **Stacking WMs**: Openbox, Fluxbox, IceWM
+- **Minimal WMs**: ratpoison, wmii, evilwm
+- **Classic WMs**: Window Maker, FVWM, Enlightenment
+- Each bundle includes: launcher, status bar, terminal, file manager, notifications, keybindings reference
 
-**1. Socket Permissions Secured**
-- Fixed world-writable socket (0o666 → 0o660)
-- Only authorized users can connect to the privileged daemon
-- Prevents unauthorized access to root-level operations
+### Beta.96: Network Health Monitoring ✅
+- Connectivity testing (interface, DNS, latency)
+- Packet loss and connection quality detection
+- NetworkManager service monitoring
 
-**2. Peer Authentication**
-- Implemented SO_PEERCRED credential checking
-- Logs UID, GID, PID of every connection
-- Full audit trail of who accesses the daemon
-
-**3. Command Validation (Defense-in-Depth)**
-- Regex-based dangerous pattern detection
-- Blocks: `rm -rf /`, `mkfs.`, `dd if=`, `curl|sh`, fork bombs
-- Logs all shell feature usage for security monitoring
-- **Note:** Commands already come from trusted whitelist - this adds extra protection
-
-### Phase 2: HIGH Priority Hardening ✅
-
-**4. Systemd Security Configuration (NEW)**
-- 200+ line comprehensive hardening configuration
-- Filesystem protection: `ProtectSystem=strict`, `ProtectHome=yes`
-- Seccomp-BPF syscall filtering (blocks privileged/dangerous syscalls)
-- Namespace isolation: `PrivateIPC`, `RestrictNamespaces`
-- Memory protection: `MemoryDenyWriteExecute=yes`
-- Network restrictions: Only necessary protocols allowed
-- Resource limits: Prevents fork bombs
-
-**5. Rate Limiting**
-- 120 requests/minute per user (2/second)
-- Prevents DoS attacks while allowing normal use
-- Per-UID tracking using peer credentials
-
-**6. Message Size Limits**
-- 64 KB maximum request size
-- Prevents memory exhaustion attacks
-- Fast rejection before JSON parsing
+---
 
 ### Security Architecture
 
