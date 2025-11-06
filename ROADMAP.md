@@ -934,6 +934,201 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 - [ ] Menu system implementation
 - [ ] Dynamic learning from user behavior
 
+---
+
+## 🔥 CRITICAL QUALITY ISSUES (Beta.84+ Priority)
+
+### Advice Quality & Intelligence Overhaul
+**Status:** 🔥 CRITICAL (Beta.84-86)
+**Priority:** CRITICAL - COMPLETE REVAMP NEEDED
+
+**Real-World User Feedback (razorback system):**
+> "The amount of advices, bad advices, non necessary advices, not working apply functions, useless details... it is insane. Million advices can scare the user... we need to completely revamp TUI and improve the UX."
+
+**Major Issues Identified:**
+
+#### 1. Hardware Detection Failures (CRITICAL)
+**Examples:**
+- ❌ Recommending Vulkan for Intel when system has Nvidia GPU
+- ❌ Intel-specific advice when `lspci` shows no Intel hardware
+- ❌ Not detecting actual GPU vendor correctly
+
+**Root Cause:**
+- Not properly parsing `lspci` output
+- Not checking actual hardware before recommendations
+- Hardcoded assumptions about hardware
+
+**Planned Solution:**
+- [ ] Robust GPU detection from lspci (Nvidia, AMD, Intel)
+- [ ] Store detected GPU vendor in SystemFacts
+- [ ] Filter all advice by actual detected hardware
+- [ ] Add GPU-specific advice categories
+- [ ] Verify hardware compatibility before recommending packages
+- [ ] Add hardware context to every recommendation
+
+#### 2. Config File Awareness (CRITICAL)
+**Examples:**
+- ❌ Nvidia environment variables recommended but already in `hyprland.conf`
+- ❌ SSH key generation recommended when `~/.ssh/id_ed25519` already exists
+- ❌ Application launcher recommended when one is already configured
+- ❌ Mirror list shown as "old" but apply doesn't fix it
+
+**Root Cause:**
+- Not parsing existing config files
+- Not checking for existing configurations
+- Detection logic incomplete
+
+**Planned Solution:**
+- [ ] Parse Hyprland config for existing env vars before recommending
+- [ ] Check `~/.ssh/` for existing keys (ed25519, rsa, ecdsa)
+- [ ] Detect existing application launchers (rofi, wofi, fuzzel, etc.)
+- [ ] Parse shell configs for existing aliases/functions
+- [ ] Check systemd configs before recommending services
+- [ ] Verify mirror list dates and test actual functionality
+- [ ] Add "already configured" detection for ALL configurable items
+
+#### 3. Software Choice Respect (HIGH)
+**Examples:**
+- ❌ User uses vim → Anna recommends neovim upgrade
+- ❌ No Docker installed → Anna recommends Podman (why?)
+- ❌ Recommends Starship prompt without explaining vs oh-my-posh
+
+**Philosophy Issue:**
+> "User chose vim for a reason... maybe improving vim is better than forcing neovim"
+
+**Planned Solution:**
+- [ ] Detect user's intentional software choices (vim vs neovim, etc.)
+- [ ] Offer enhancements for chosen tools instead of replacements
+- [ ] Add "respect user choice" mode - enhance don't replace
+- [ ] Only suggest alternatives if clearly beneficial with explanation
+- [ ] Compare tools side-by-side (Starship vs oh-my-posh features)
+- [ ] Don't recommend random alternatives for software user doesn't have
+
+#### 4. Context-Insensitive Recommendations (CRITICAL)
+**Examples:**
+- ❌ Splash boot screen for fast boot times (contradictory)
+- ❌ Vulkan development tools without knowing if user is developer
+- ❌ Game emulators just because Citron is installed
+- ❌ Docker alternatives when user doesn't want containerization
+
+**Planned Solution:**
+- [ ] Add user profile detection (developer, gamer, casual, etc.)
+- [ ] Boot time analysis before recommending splash screens
+- [ ] Development tool detection before recommending dev packages
+- [ ] Gaming profile detection (emulators, Steam, Lutris presence)
+- [ ] Context-aware recommendations based on actual usage patterns
+- [ ] "Why is this relevant?" explanation for every recommendation
+
+#### 5. Duplicate Advice (HIGH)
+**Examples:**
+- ❌ mangohud appearing multiple times
+- ❌ Other repeated recommendations
+
+**Planned Solution:**
+- [ ] Deduplication logic in advice generation
+- [ ] Track advice IDs to prevent duplicates
+- [ ] Merge similar advice into comprehensive single items
+- [ ] Add unit tests to catch duplicate advice generation
+
+#### 6. False Positive Error Detection (HIGH)
+**Examples:**
+- ❌ "Excessive system errors detected" - but all from TLP (normal behavior)
+- ❌ Expected errors flagged as problems
+
+**Planned Solution:**
+- [ ] Whitelist expected errors (TLP, Nvidia driver messages, etc.)
+- [ ] Categorize errors by severity and source
+- [ ] Don't flag normal operational messages as errors
+- [ ] Add error context and severity analysis
+- [ ] Filter out known-good error patterns
+
+#### 7. Broken Apply Functions (CRITICAL)
+**Example:**
+- ❌ Mirror list update shown but apply doesn't fix it
+
+**Planned Solution:**
+- [ ] Test every apply command before shipping
+- [ ] Add dry-run validation for all commands
+- [ ] Verify command success and state change after execution
+- [ ] Add rollback for failed applies
+- [ ] Show clear error messages when apply fails
+
+#### 8. Better User Telemetry & Profiling (CRITICAL)
+**Philosophy:**
+> "We need to treat the user like maybe someone that doesn't know... but maybe someone that knows a lot"
+
+**Planned Solution:**
+- [ ] User expertise detection (beginner, intermediate, expert)
+- [ ] Learning from user actions (what they apply, what they ignore)
+- [ ] Adaptive recommendations based on expertise level
+- [ ] Detailed config file parsing and awareness
+- [ ] Software choice pattern analysis
+- [ ] Hardware capability detection and respect
+- [ ] Use case detection (gaming, development, creative work, etc.)
+- [ ] Don't overwhelm beginners with advanced advice
+- [ ] Don't patronize experts with basic recommendations
+
+#### 9. Overwhelming Advice Volume (CRITICAL)
+**Issue:**
+> "Million advices can scare the user"
+
+**Current State:**
+- Beta.83 filtering helps but not enough
+- Still too many irrelevant recommendations
+- Quality over quantity needed
+
+**Planned Solution:**
+- [ ] Strict relevance filtering (hardware, software, use case)
+- [ ] Priority scoring based on actual system state
+- [ ] Remove all "nice to have" advice for irrelevant use cases
+- [ ] Max 30 recommendations default (currently 120+)
+- [ ] Group related advice into bundles
+- [ ] Add "Why this matters to YOU" personalized explanations
+
+---
+
+### Implementation Roadmap - Quality Overhaul
+
+**Beta.84 - Foundation (Hardware & Config Detection):**
+- [ ] Implement robust GPU detection (Nvidia, AMD, Intel)
+- [ ] Add GPU vendor to SystemFacts
+- [ ] Create config file parser framework
+- [ ] Implement SSH key detection
+- [ ] Add Hyprland config parser
+- [ ] Fix mirror list apply function
+- [ ] Add deduplication logic
+- [ ] Filter advice by detected hardware
+
+**Beta.85 - Intelligence (Context & User Profiling):**
+- [ ] User expertise detection system
+- [ ] Software choice pattern analysis
+- [ ] Use case detection (gaming, dev, creative)
+- [ ] Boot time analysis
+- [ ] Error categorization and whitelisting
+- [ ] "Already configured" detection for all items
+- [ ] Application launcher detection
+- [ ] Shell config parsing
+
+**Beta.86 - Refinement (Adaptive & Learning):**
+- [ ] Learning system from user actions
+- [ ] Adaptive recommendation engine
+- [ ] Enhanced vs replacement logic
+- [ ] Tool comparison framework
+- [ ] Personalized explanations ("Why this matters to YOU")
+- [ ] Max 30 advice limit with quality scoring
+- [ ] Comprehensive testing suite for advice quality
+- [ ] User feedback integration system
+
+**Success Metrics:**
+- Reduce average advice count from 120 → 30 (75% reduction)
+- Zero false positives for hardware recommendations
+- 100% config file awareness for common configs
+- Zero duplicate advice items
+- All apply functions verified working
+- User satisfaction score > 90%
+
+---
+
 ### System & Kernel Error Advice Improvements
 **Status:** 🔄 PLANNED (Beta.83)
 **Priority:** HIGH
