@@ -13,21 +13,23 @@ use crate::snapshotter::{Snapshotter, Snapshot};
 /// SECURITY: Commands come from daemon's trusted whitelist, but this provides defense-in-depth
 fn validate_command(command: &str) -> Result<()> {
     // Check for extremely dangerous patterns
+    // FIXED (Beta.107): Previous regexes were broken (e.g., "curl.*|.*sh" matched ANY string with "sh")
     let dangerous_patterns = [
-        "rm -rf /",       // Recursive delete of root
-        "mkfs.",          // Filesystem creation (destructive)
-        "dd if=",         // Direct disk write
-        "curl.*|.*sh",    // Download and execute
-        "wget.*|.*sh",    // Download and execute
-        ":|:",            // Fork bomb
-        ">(.*)",          // Process substitution to file
+        r"^rm\s+-rf\s+/$",           // Exact: rm -rf / (recursive delete of root)
+        r"^rm\s+-rf\s+/\s",          // rm -rf / with more args
+        r"mkfs\.",                   // Filesystem creation (destructive)
+        r"dd\s+if=/dev",             // Direct disk device read
+        r"dd\s+of=/dev",             // Direct disk device write
+        r"curl.*\|\s*(ba)?sh",       // Download and pipe to shell
+        r"wget.*\|\s*(ba)?sh",       // Download and pipe to shell
+        r":\(\)\s*\{\s*:\|:&\s*\};:", // Fork bomb pattern
     ];
 
     for pattern in &dangerous_patterns {
         if regex::Regex::new(pattern).unwrap().is_match(command) {
             warn!("SECURITY: Blocked dangerous command pattern: {}", pattern);
             return Err(anyhow::anyhow!(
-                "Command contains dangerous pattern and was blocked for safety"
+                "Command contains dangerous pattern and was blocked for safety: {}", pattern
             ));
         }
     }
@@ -158,6 +160,7 @@ pub async fn execute_command(command: &str) -> Result<String> {
     info!("Executing shell command: {}", command);
 
     // Execute through shell to support complex syntax like $(...), &&, |, etc.
+    // Beta.107: Added better error reporting for permission issues
     let output = Command::new("sh")
         .arg("-c")
         .arg(command)
@@ -165,14 +168,27 @@ pub async fn execute_command(command: &str) -> Result<String> {
         .stderr(Stdio::piped())
         .output()
         .await
-        .context("Failed to execute command")?;
+        .context(format!("Failed to execute command: {}", command))?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         Ok(stdout)
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(anyhow::anyhow!("Command failed: {}", stderr))
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        error!("Command failed with exit code {:?}: {}", output.status.code(), stderr);
+
+        // Check for common errors
+        if stderr.contains("Permission denied") || stderr.contains("EACCES") {
+            return Err(anyhow::anyhow!(
+                "Permission denied. Daemon is running as UID={}, command: {}\nError: {}",
+                nix::unistd::getuid(),
+                command,
+                stderr
+            ));
+        }
+
+        Err(anyhow::anyhow!("Command failed: {}\nStdout: {}", stderr, stdout))
     }
 }
 

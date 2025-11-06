@@ -1641,12 +1641,17 @@ fn draw_footer(f: &mut Frame, area: Rect, mode: &str, sort_mode: SortMode, tui: 
 
 /// Run the TUI
 pub async fn run() -> Result<()> {
+    // Clear screen before entering TUI (Beta.107)
+    let mut stdout = io::stdout();
+    execute!(stdout, crossterm::terminal::Clear(crossterm::terminal::ClearType::All))?;
+    execute!(stdout, crossterm::cursor::MoveTo(0, 0))?;
+
     // Setup terminal
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?; // Ensure clean slate
 
     // Create TUI state
     let client = RpcClient::connect().await?;
@@ -1710,6 +1715,11 @@ pub async fn run() -> Result<()> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
+
+    // Clear screen after exit (Beta.107) - leave clean terminal
+    let mut stdout = io::stdout();
+    execute!(stdout, crossterm::terminal::Clear(crossterm::terminal::ClearType::All))?;
+    execute!(stdout, crossterm::cursor::MoveTo(0, 0))?;
 
     Ok(())
 }
