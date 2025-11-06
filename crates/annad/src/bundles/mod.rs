@@ -106,6 +106,10 @@ pub struct WMComponents {
 
     // Keybindings (key → description)
     pub keybindings: HashMap<String, String>,
+
+    // Configuration files (component_id → template_subpath)
+    // e.g., "hyprland" → ".config/hypr", "waybar" → ".config/waybar"
+    pub config_files: HashMap<String, String>,
 }
 
 impl Default for WMComponents {
@@ -134,6 +138,7 @@ impl Default for WMComponents {
             gpu_driver_nvidia: None,
             gpu_driver_amd: None,
             keybindings: HashMap::new(),
+            config_files: HashMap::new(),
         }
     }
 }
@@ -243,6 +248,13 @@ impl WMBundleBuilder {
     /// Add a keybinding
     pub fn keybind(mut self, key: &str, description: &str) -> Self {
         self.components.keybindings.insert(key.to_string(), description.to_string());
+        self
+    }
+
+    /// Add a configuration file mapping
+    /// Example: .config("hyprland", ".config/hypr")
+    pub fn config(mut self, component_id: &str, template_subpath: &str) -> Self {
+        self.components.config_files.insert(component_id.to_string(), template_subpath.to_string());
         self
     }
 
@@ -399,7 +411,33 @@ impl WMBundleBuilder {
             }
         }
 
-        // 8. Keybinding Reference
+        // 8. Configuration Files (Beta.111)
+        // Copy configuration templates from /usr/share/anna/templates/ to user's ~/.config/
+        for (component_id, template_subpath) in &self.components.config_files {
+            let target_dir = format!("$HOME/{}", template_subpath);
+            let source_path = format!("/usr/share/anna/templates/{}", template_subpath);
+
+            // Extract parent directory name for display (e.g., ".config/hypr" → "hypr")
+            let display_name = template_subpath.split('/').last().unwrap_or(component_id);
+
+            let command = format!(
+                "mkdir -p {} && cp -r {}/* {} 2>/dev/null || echo 'Config template not found at {}, skipping...'",
+                target_dir, source_path, target_dir, source_path
+            );
+
+            advice.push(
+                self.make_advice(
+                    &format!("config-{}", component_id),
+                    format!("Setup {} configuration", display_name),
+                    format!("Copies configuration files from {} to {}", source_path, target_dir),
+                    command,
+                    "configuration".to_string(),
+                    Priority::Recommended,
+                )
+            );
+        }
+
+        // 9. Keybinding Reference
         if !self.components.keybindings.is_empty() {
             let mut keybind_text = format!("## {} Keyboard Shortcuts\n\n", self.wm_name);
 

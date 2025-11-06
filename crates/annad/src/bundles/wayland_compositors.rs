@@ -45,6 +45,12 @@ fn hyprland_bundle(facts: &SystemFacts) -> Vec<Advice> {
         .lock_screen("swaylock")
         .network_manager("networkmanager")
         .bluetooth_manager("blueman")
+        // Configuration Files (Beta.111)
+        .config("hyprland", ".config/hypr")
+        .config("waybar", ".config/waybar")
+        .config("kitty", ".config/kitty")
+        .config("rofi", ".config/rofi")
+        .config("mako", ".config/mako")
         // Window Management
         .keybind("SUPER+Q", "Close window")
         .keybind("SUPER+M", "Exit Hyprland")

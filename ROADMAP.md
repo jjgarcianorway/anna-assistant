@@ -898,6 +898,132 @@ fn customize_bundle(bundle: &Bundle, hw: &HardwareProfile) -> Bundle {
 
 ## 🔄 IN PROGRESS / PLANNED (Beta.83+)
 
+### Beta.111 - Configuration Management for Bundles
+**Status:** ✅ COMPLETED
+
+**User Feedback:**
+> "hyprland-setup is one step only?? Cmon my friend... I have even given you my template for inspiration"
+> "I know a bundle is complicated... several commands in a row, adding changes to config files... many steps"
+
+**Solution Implemented:**
+- ✅ Added `config_files` HashMap to WMComponents struct
+- ✅ New `.config(component_id, template_subpath)` builder method
+- ✅ Bundle build() now generates config copy steps
+- ✅ Hyprland bundle includes config setup for: hypr, waybar, kitty, rofi, mako
+- ✅ Commands copy from `/usr/share/anna/templates/.config/` to `~/.config/`
+- ✅ Multi-step bundles: 8 package installs + 5 config setups = 13 steps total!
+- ✅ Each step shown with immediate command display before execution
+- ✅ Live streaming output for full transparency
+
+**Example Output:**
+```
+[1/13] Install rofi-wayland application launcher
+→ Executing: pacman -S --noconfirm rofi-wayland
+...
+
+[6/13] Setup hypr configuration
+→ Executing: mkdir -p $HOME/.config/hypr && cp -r /usr/share/anna/templates/.config/hypr/* $HOME/.config/hypr/
+...
+```
+
+**Files Modified:**
+- `crates/annad/src/bundles/mod.rs` - Added config_files field and copying logic
+- `crates/annad/src/bundles/wayland_compositors.rs` - Updated Hyprland bundle with configs
+- Bundles now truly SET UP the desktop, not just install packages!
+
+---
+
+### Beta.112+ - Advanced Bundle Management (PLANNED)
+**Status:** 🔜 PLANNED
+
+**User Requirements:**
+> "you must keep a .annabackup or similar copy to be able to roll them back if the bundle is uninstalled"
+> "always asking the user if he wants to remove the changed config files"
+> "Anna should help to keep the system always clean... so also detect residual config files from packages that are not existing"
+> "show each step so we know where it fails"
+
+**Planned Features:**
+
+**1. Configuration Backup System**
+- [ ] Create `.annabackup` copies before modifying any config file
+- [ ] Store backup metadata: original path, modification time, hash
+- [ ] Track which bundle/advice modified which configs
+- [ ] Backup location: `~/.config/anna/backups/` with timestamps
+- [ ] Example: `~/.config/hypr/hyprland.conf` → `~/.config/anna/backups/hypr/hyprland.conf.annabackup.2025-11-06T20:30:00`
+
+**2. Intelligent Bundle Rollback**
+- [ ] `annactl rollback-bundle <bundle-name>` command
+- [ ] Removes installed packages
+- [ ] Asks user: "Remove modified config files? (y/n/show)"
+- [ ] "show" option: Display which files will be removed
+- [ ] Restores `.annabackup` files if user confirms
+- [ ] Dry-run mode: Show what would be rolled back without doing it
+- [ ] Audit log entry for rollback action
+
+**3. Orphaned Config Detection**
+- [ ] New category: "Orphaned Configuration Files"
+- [ ] Scan `~/.config/` for directories of uninstalled packages
+- [ ] Check if package exists: `pacman -Q <package-name>`
+- [ ] Advice items: "Remove orphaned config for <package>"
+- [ ] Safe mode: Show file size, last modified date
+- [ ] Batch cleanup: "Remove all orphaned configs (5 found)"
+- [ ] User confirmation required before deletion
+
+**4. Enhanced Step Visibility**
+- [ ] Each bundle step shows: step number, total steps, component name
+- [ ] Step status indicators: ⏳ Running, ✅ Success, ❌ Failed, ⏭️ Skipped
+- [ ] On failure: Show exact failing command, exit code, error output
+- [ ] Continue/abort prompt: "Step 5/13 failed. Continue with remaining steps? (y/n)"
+- [ ] Final summary: "Completed 10/13 steps, 3 failed"
+- [ ] Failed steps saved for retry: `annactl retry-bundle <bundle-name>`
+
+**5. Config File Provenance Tracking**
+- [ ] Database/JSON file tracking which bundles own which configs
+- [ ] Example: `~/.config/anna/config-provenance.json`
+- [ ] Prevents conflicts: Warn if multiple bundles modify same file
+- [ ] Show ownership: `annactl config-owner ~/.config/waybar/config`
+- [ ] Transfer ownership: For user-customized configs
+
+**6. Smart Config Merging**
+- [ ] Detect user modifications to Anna-managed configs
+- [ ] On bundle update: Offer to merge changes or keep user version
+- [ ] Three-way merge option: Original, Anna's new version, User's version
+- [ ] Git-style conflict markers for manual resolution
+
+**7. Hardware-Aware Bundle Configuration**
+- [ ] Detect hardware type: laptop vs desktop, GPU vendor, display type
+- [ ] Laptop-specific configs: Battery indicator in waybar, power management, brightness keys
+- [ ] Desktop-specific configs: GPU monitoring, no battery widget
+- [ ] Conditional config generation based on hardware facts
+- [ ] Example: waybar config includes battery module only if laptop detected
+
+**8. Complete Beautification & Functionality**
+- [ ] Wallpaper setup from Anna's curated collection (already cataloged in wallpaper_config.rs!)
+- [ ] Install and configure GTK/icon/cursor themes
+- [ ] Set up default wallpapers during bundle installation
+- [ ] Multimedia key bindings (already implemented, needs audio/brightness tools)
+- [ ] Install pamixer, brightnessctl for multimedia key functionality
+- [ ] Configure bluetooth service autostart
+- [ ] Configure NetworkManager with nm-applet for system tray
+- [ ] Smart waybar modules: Show battery on laptop, GPU stats on desktop
+- [ ] Result: **Complete, beautiful, functional system out of the box**
+
+**Implementation Priority:**
+1. **Beta.112**: Hardware-aware configs + complete beautification
+2. **Beta.113**: Config backup system + basic rollback
+3. **Beta.114**: Orphaned config detection
+4. **Beta.115**: Enhanced step visibility + failure handling
+5. **Beta.116**: Provenance tracking + smart merging
+
+**Files to Create/Modify:**
+- `crates/anna_common/src/config_backup.rs` - Backup management
+- `crates/anna_common/src/config_provenance.rs` - Ownership tracking
+- `crates/annad/src/bundles/mod.rs` - Enhanced with backup logic
+- `crates/annactl/src/commands.rs` - Rollback, orphan detection commands
+- `~/.config/anna/config-provenance.json` - Config ownership database
+
+---
+
 ### Beta.82 - Universal Wallpaper Intelligence
 **Status:** ✅ COMPLETED
 
