@@ -16,7 +16,7 @@ use tracing::{error, info, warn};
 
 const SOCKET_PATH: &str = "/run/anna/anna.sock";
 const MAX_REQUEST_SIZE: usize = 64 * 1024; // 64 KB - reasonable max for JSON requests
-const ANNACTL_GROUP: &str = "annactl"; // Group name for authorized users
+const ANNACTL_GROUP: &str = "anna"; // Group name for authorized users
 
 /// Check if a UID is member of a specific group
 /// Returns true if user is in the group or is root (UID 0)
