@@ -121,26 +121,8 @@ enum Commands {
         auto: bool,
     },
 
-    /// Configure Anna settings interactively or get/set values
-    ///
-    /// Examples:
-    ///   annactl config                  # Show all settings
-    ///   annactl config autonomy_tier    # Get a value
-    ///   annactl config autonomy_tier 1  # Set a value
-    Config {
-        /// Configuration key to get or set
-        key: Option<String>,
-
-        /// Value to set (if provided, sets the key; otherwise gets it)
-        value: Option<String>,
-    },
-
-    /// View autonomous actions log
-    Autonomy {
-        /// Number of recent actions to show
-        #[arg(short, long, default_value = "20")]
-        limit: usize,
-    },
+    // Config and Autonomy commands removed - not implemented for v1.0
+    // These may return in v2.0 when autonomy features are ready
 
     // WikiCache removed - automatically maintained by daemon
     // Health removed - merged into status command
@@ -323,8 +305,7 @@ async fn main() -> Result<()> {
         },
         Commands::Report { category } => commands::report(category).await,
         Commands::Doctor { fix, dry_run, auto } => commands::doctor(fix, dry_run, auto).await,
-        Commands::Config { key, value } => commands::config_simple(key, value).await,
-        Commands::Autonomy { limit } => commands::autonomy(limit).await,
+        // Config and Autonomy commands removed - not implemented for v1.0
         // WikiCache and Health removed - wiki cache automatic, health merged into status
         Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,
         Commands::Dismissed { undismiss } => commands::dismissed(undismiss).await,
