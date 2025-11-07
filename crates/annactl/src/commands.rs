@@ -383,14 +383,15 @@ pub async fn advise(
             }
             "smart" => {
                 // Smart mode: Show high priority + limited lower priority
-                // Keep all Mandatory and Recommended
-                // Limit Optional and Cosmetic
+                // RC.9: More aggressive filtering to keep total under 50
                 let mandatory: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Mandatory)).cloned().collect();
-                let recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
+                let mut recommended: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Recommended)).cloned().collect();
                 let mut optional: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Optional)).cloned().collect();
                 let mut cosmetic: Vec<_> = advice_list.iter().filter(|a| matches!(a.priority, anna_common::Priority::Cosmetic)).cloned().collect();
 
-                // Take top 10 optional and top 5 cosmetic
+                // RC.9: Limit to prevent overwhelming users (target: <50 total)
+                // All Critical, top 20 Recommended, top 10 Optional, top 5 Cosmetic
+                recommended.truncate(20);
                 optional.truncate(10);
                 cosmetic.truncate(5);
 
