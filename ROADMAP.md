@@ -6,7 +6,7 @@ This document tracks requested features and improvements from user feedback.
 
 ## 🎯 RELEASE STRATEGY: 1.0 Stability → 2.0 Innovation
 
-**Current Status:** Release Candidate Phase (1.0.0-rc.5)
+**Current Status:** Release Candidate Phase (1.0.0-rc.9.10) - Still Far from Stable
 
 ### Philosophy
 
@@ -47,7 +47,76 @@ See `TESTING.md` for complete testing checklist.
 
 ## 🚀 RELEASE CANDIDATES (1.0.0-rc.X)
 
-### RC.6 - Smart Context-Aware Filtering (Current) 🧠
+### RC.9.10 - UX Improvements (Current)
+**Status:** 🚧 IN PROGRESS
+**Released:** 2025-11-07
+
+**Completed:**
+- ✅ Installer waits for daemon to be ready (15s timeout)
+- ✅ Performance score display in report (RAM/GPU/CPU breakdown)
+- ✅ brightnessctl properly categorized as "Power Management"
+- ✅ Started narrative report rewrite (partial - WIP)
+
+**Still Pending:**
+- ❌ Hyprland bundle (designed but not implemented)
+- ❌ Remove non-Hyprland bundles (still present)
+- ❌ Full Arch Wiki category alignment (many still wrong)
+- ❌ Complete narrative report rewrite
+
+### RC.9.9 - Text File Busy Fix (Third Attempt)
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Fixed "text file busy" error by masking systemd service during update
+- Previous attempts (RC.9.5) failed - this uses `systemctl mask` approach
+
+### RC.9.8 - Performance Score Integration
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Integrated performance score into SystemFacts telemetry
+- Score calculation happens once during telemetry collection
+- Filter recommendations based on system score (potato computer → potato tools)
+
+### RC.9.7 - Resource Detection & Scoring
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Added system_detection.rs module (390 lines)
+- Performance scoring system (0-100): RAM (40pts) + GPU (40pts) + CPU (20pts)
+- Resource tier classification: Efficient/Balanced/Performance
+- Resource-aware recommendation filtering
+
+### RC.9.6 - System Detection Foundation
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Created hardware detection system
+- GPU vendor detection (NVIDIA/AMD/Intel)
+- Resource tier classification
+- Tool detection (terminal, file manager, etc.)
+
+### RC.9.5 - Updater Fix (Failed)
+**Status:** ❌ FAILED
+**Released:** 2025-11-07
+
+**Changes:**
+- Attempted to fix "text file busy" error with wait loop
+- **Did not work** - fixed properly in RC.9.9
+
+### RC.9.4 - Daemon Stability
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Removed watchdog from annad.service (was causing crashes)
+- Version corrected from beta.100 to RC.9.4
+
+### RC.6 - Smart Context-Aware Filtering
 **Status:** ✅ COMPLETED
 **Released:** 2025-11-07
 
