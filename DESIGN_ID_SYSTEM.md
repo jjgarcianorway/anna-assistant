@@ -65,48 +65,49 @@ Examples:
 
 ### Implementation Plan
 
-#### Phase 1: Foundation (Beta 100)
-1. ✅ Change version to Beta 1.0.0-beta.100
+#### Phase 1: Foundation (RC.9.4)
+1. ✅ Fix daemon stability (still crashing)
 2. Create ID registry system
 3. Category code enum
 4. ID mapping functions
 
-#### Phase 2: Display Layer (Beta 101)
+#### Phase 2: Display Layer (RC.9.5)
 5. Convert IDs for display in advise command
 6. Update apply to accept both formats
 7. Show both formats initially for transition
 
-#### Phase 3: Standardization (Beta 102)
+#### Phase 3: Standardization (RC.9.6)
 8. Align all categories with Arch Wiki
 9. Single-word category names
 10. Shell completion generation
 
-#### Phase 4: Intelligence (Beta 103)
+#### Phase 4: Intelligence (RC.9.7)
 11. Telemetry-based relevance scoring
 12. Remove irrelevant recommendations
 13. Contextual chaining
 
-### Migration Path
+### Migration Path (RC Releases)
 
-**Week 1: Beta 100**
+**RC.9.4: Stability + Foundation**
+- Fix daemon crashes
 - ID system infrastructure
 - Registry-based mapping
 - Both old and new IDs work
 
-**Week 2: Beta 101**
+**RC.9.5: Display Integration**
 - Display shows new IDs
 - Apply accepts both
 - Documentation updated
 
-**Week 3: Beta 102**
+**RC.9.6: Category Standardization**
 - Category standardization
 - Remove multi-word categories
 - Shell completions
 
-**Week 4: Beta 103**
+**RC.9.7: Intelligence**
 - Intelligence improvements
 - Telemetry enhancement
-- Final polish
+- Final polish → RC.10 (Release Candidate Complete)
 
 ### Apply Workflow Enhancement
 
