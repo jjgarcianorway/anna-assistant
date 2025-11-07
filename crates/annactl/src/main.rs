@@ -145,15 +145,8 @@ enum Commands {
         limit: usize,
     },
 
-    /// Update Arch Wiki cache
-    WikiCache {
-        /// Force update even if cache is fresh
-        #[arg(short, long)]
-        force: bool,
-    },
-
-    /// Show system health score and trends
-    Health,
+    // WikiCache removed - automatically maintained by daemon
+    // Health removed - merged into status command
 
     /// Dismiss a recommendation by number
     ///
@@ -330,8 +323,7 @@ async fn main() -> Result<()> {
         Commands::Doctor { fix, dry_run, auto } => commands::doctor(fix, dry_run, auto).await,
         Commands::Config { action, key, value } => commands::config_new(action, key, value).await,
         Commands::Autonomy { limit } => commands::autonomy(limit).await,
-        Commands::WikiCache { force } => commands::wiki_cache(force).await,
-        Commands::Health => commands::health().await,
+        // WikiCache and Health removed - wiki cache automatic, health merged into status
         Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,
         Commands::Dismissed { undismiss } => commands::dismissed(undismiss).await,
         Commands::History { days, detailed } => commands::history(days, detailed).await,
