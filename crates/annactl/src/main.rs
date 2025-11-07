@@ -340,9 +340,22 @@ async fn main() -> Result<()> {
 fn generate_completions(shell: clap_complete::Shell) {
     use clap::CommandFactory;
     use clap_complete::generate;
+    use std::io::{self, Write};
 
     let mut cmd = Cli::command();
     let bin_name = cmd.get_name().to_string();
 
-    generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+    // Generate to stdout, ignoring BrokenPipe errors (happens when piped to head, etc.)
+    let result = {
+        let mut stdout = io::stdout();
+        generate(shell, &mut cmd, bin_name, &mut stdout);
+        stdout.flush()
+    };
+
+    // Silently ignore BrokenPipe - it's expected when output is piped
+    if let Err(e) = result {
+        if e.kind() != io::ErrorKind::BrokenPipe {
+            eprintln!("Error writing completions: {}", e);
+        }
+    }
 }

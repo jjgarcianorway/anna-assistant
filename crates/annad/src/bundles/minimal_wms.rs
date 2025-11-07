@@ -4,6 +4,10 @@
 //! - Ratpoison - Screen-like keybindings, no mouse required
 //! - Wmii - Minimalist, scriptable with 9P filesystem
 //! - evilwm - Minimalist, very lightweight, pure functionality
+//!
+//! NOTE: Disabled for v1.0 (Hyprland-only), may return in v2.0
+
+#![allow(dead_code)]
 
 use super::{DisplayServer, WMBundleBuilder};
 use anna_common::types::{Advice, SystemFacts};

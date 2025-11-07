@@ -4,7 +4,7 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** 1.0.0-rc.10 (Release Candidate - November 2025)
+**Current Version:** 1.0.0-rc.11 (Release Candidate - November 2025)
 
 > **📢 RC Status:** Anna is in Release Candidate phase. Features are frozen, focus is on stability and testing. See `TESTING.md` for testing checklist. TUI temporarily disabled for 1.0 release.
 >
@@ -12,7 +12,7 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 
 ---
 
-## 🎯 What's New in 1.0.0-rc.1
+## 🎯 What's New in 1.0.0-rc.11
 
 ### Release Candidate Phase
 - **Feature Freeze:** No new features until 1.0 stable

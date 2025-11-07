@@ -6,6 +6,10 @@
 //! - dwm - Dynamic WM from suckless
 //! - xmonad - Haskell-based tiling WM
 //! - herbstluftwm - Manual tiling WM
+//!
+//! NOTE: Disabled for v1.0 (Hyprland-only), may return in v2.0
+
+#![allow(dead_code)]
 
 use super::{DisplayServer, WMBundleBuilder};
 use anna_common::types::{Advice, SystemFacts};

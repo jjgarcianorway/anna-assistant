@@ -2,6 +2,12 @@
 //!
 //! Provides real-time system monitoring, health visualization,
 //! and interactive recommendation management.
+//!
+//! NOTE: Disabled for v1.0 release, will return in v2.0 with better UX
+
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
 
 use anyhow::Result;
 use crossterm::{

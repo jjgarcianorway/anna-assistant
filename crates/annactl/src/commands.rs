@@ -819,8 +819,9 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
     // If nums provided, apply by index OR ID
     if let Some(nums_str) = nums {
         // RC.9.3: Check if input is an ID (non-numeric) or number(s)
-        // If it looks like an ID (contains letters/dashes), route to ID path
-        if nums_str.contains(|c: char| c.is_alphabetic() || c == '-' || c == '_') && !nums_str.contains(',') && !nums_str.contains("..") {
+        // If it looks like an ID (contains letters), route to ID path
+        // NOTE: Check for alphabetic FIRST - "1-5" is a range, "amd-microcode" is an ID
+        if nums_str.contains(|c: char| c.is_alphabetic()) {
             // It's an ID like "amd-microcode" - route to ID handler (use Box::pin to avoid infinite size)
             return Box::pin(apply(Some(nums_str), None, None, auto, dry_run)).await;
         }
@@ -1390,21 +1391,12 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
     // ==================== DIRECTORIES ====================
     println!("{}", section("📁 Directories"));
 
-    // Check /run/anna/
+    // Check /run/anna/ (daemon runtime directory)
     let run_dir = "/run/anna";
     if Path::new(run_dir).exists() {
-        // Try to write a test file
-        let test_file = format!("{}/test.tmp", run_dir);
-        match std::fs::write(&test_file, "test") {
-            Ok(_) => {
-                let _ = std::fs::remove_file(&test_file);
-                println!("  {} {} exists and is writable", beautiful::status(Level::Success, "✓"), run_dir);
-            }
-            Err(_) => {
-                println!("  {} {} exists but is not writable", beautiful::status(Level::Warning, "!"), run_dir);
-                health_score -= 5;
-            }
-        }
+        // NOTE: This directory is owned by root (daemon runs as root)
+        // Regular users don't need write access - they communicate via socket
+        println!("  {} {} exists (daemon runtime)", beautiful::status(Level::Success, "✓"), run_dir);
     } else {
         println!("  {} {} does not exist", beautiful::status(Level::Error, "✗"), run_dir);
         issues.push((
@@ -1560,6 +1552,9 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
     Ok(())
 }
 
+/// Configuration management
+/// NOTE: Removed for v1.0 - not implemented yet
+#[allow(dead_code)]
 pub async fn config(set: Option<String>) -> Result<()> {
     use anna_common::Config;
 
@@ -1713,6 +1708,8 @@ pub async fn config(set: Option<String>) -> Result<()> {
 ///   annactl config                  -> show all
 ///   annactl config autonomy_tier    -> get value
 ///   annactl config autonomy_tier 1  -> set value
+/// NOTE: Removed for v1.0 - not implemented yet
+#[allow(dead_code)]
 pub async fn config_simple(
     key: Option<String>,
     value: Option<String>,
@@ -2246,7 +2243,7 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
         if bundle_advice.is_empty() {
             println!("{}", beautiful::status(Level::Error, &format!("Bundle '{}' not found", bundle_name)));
             println!();
-            println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see available bundles.");
+            println!("  Use \x1b[38;5;159mannactl setup\x1b[0m to see available bundles.");
             return Ok(());
         }
 
@@ -2412,7 +2409,7 @@ pub async fn rollback_bundle(bundle_identifier: &str, dry_run: bool) -> Result<(
                 if num > installed.len() {
                     println!("{}", beautiful::status(Level::Error, &format!("Bundle #{} not found", num)));
                     println!();
-                    println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see installed bundles.");
+                    println!("  Use \x1b[38;5;159mannactl setup\x1b[0m to see installed bundles.");
                     return Ok(());
                 }
 
@@ -2421,7 +2418,7 @@ pub async fn rollback_bundle(bundle_identifier: &str, dry_run: bool) -> Result<(
             _ => {
                 println!("{}", beautiful::status(Level::Error, &format!("Invalid bundle number: {}", bundle_identifier)));
                 println!();
-                println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see installed bundles with numbers.");
+                println!("  Use \x1b[38;5;159mannactl setup\x1b[0m to see installed bundles with numbers.");
                 return Ok(());
             }
         }
@@ -2433,7 +2430,7 @@ pub async fn rollback_bundle(bundle_identifier: &str, dry_run: bool) -> Result<(
                 println!("{}", beautiful::status(Level::Error, &format!("No installation history found for bundle '{}'", bundle_identifier)));
                 println!();
                 println!("  This bundle was never installed or the history was cleared.");
-                println!("  Use \x1b[38;5;159mannactl bundles\x1b[0m to see available bundles.");
+                println!("  Use \x1b[38;5;159mannactl setup\x1b[0m to see available bundles.");
                 return Ok(());
             }
         }
@@ -2594,6 +2591,8 @@ fn topological_sort(advice: &[&anna_common::Advice]) -> Vec<anna_common::Advice>
 }
 
 /// Display recent autonomous actions
+/// NOTE: Removed for v1.0 - Anna doesn't have autonomous features yet
+#[allow(dead_code)]
 pub async fn autonomy(limit: usize) -> Result<()> {
     use anna_common::beautiful::{header, section};
 
@@ -2695,6 +2694,8 @@ pub async fn autonomy(limit: usize) -> Result<()> {
 }
 
 /// Update Arch Wiki cache
+/// NOTE: Removed for v1.0 - wiki cache now maintained automatically by daemon
+#[allow(dead_code)]
 pub async fn wiki_cache(force: bool) -> Result<()> {
     use anna_common::beautiful::{header, section};
 
@@ -2793,6 +2794,8 @@ pub async fn wiki_cache(force: bool) -> Result<()> {
 }
 
 /// Display system health score
+/// NOTE: Removed for v1.0 - merged into status command
+#[allow(dead_code)]
 pub async fn health() -> Result<()> {
     use anna_common::beautiful::{header, section};
 

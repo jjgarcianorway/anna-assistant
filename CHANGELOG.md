@@ -5,6 +5,73 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.11] - 2025-11-07
+
+### 🔥 Critical Bug Fixes
+
+**33 Broken Advice Items Fixed**
+- CRITICAL: Fixed 30 advice items with `command: None` that showed up but couldn't be applied
+- CRITICAL: Fixed `hyprland-nvidia-env-vars` (MANDATORY item) - now automatically configures Nvidia Wayland environment
+- Fixed 3 comment-only commands that wouldn't execute anything
+- All 136 advice items now have valid, executable commands
+- No more "No command specified" errors
+
+**Examples of Fixed Items:**
+- AMD driver upgrade: Added `lspci -k | grep -A 3 -i vga`
+- SSH security checks: Added SSH config diagnostics
+- Network diagnostics (4 items): Added ping/ip commands
+- Btrfs optimizations (3 items): Added mount checks
+- Hardware monitoring: Added sensors/smartctl commands
+- System health: Added journalctl error checks
+
+**Nvidia + Hyprland Critical Fix:**
+```bash
+# Now automatically appends to ~/.config/hypr/hyprland.conf:
+env = GBM_BACKEND,nvidia-drm
+env = __GLX_VENDOR_LIBRARY_NAME,nvidia
+env = LIBVA_DRIVER_NAME,nvidia
+env = WLR_NO_HARDWARE_CURSORS,1
+```
+
+### ✨ Major UX Improvements (RC.10)
+
+**Command Rename: bundles → setup**
+- Better UX: "setup" is universally understood vs "bundles"
+- `annactl setup` - List available desktop environments
+- `annactl setup hyprland` - Install complete Hyprland environment
+- `annactl setup hyprland --preview` - Show what would be installed
+- Friendly error messages for unsupported desktops
+
+**Hyprland-Focused Design**
+- Removed support for 21 other window managers
+- Anna is now a dedicated Hyprland assistant
+- Better to do one thing perfectly than many things poorly
+- Only Hyprland bundle available (sway, i3, bspwm, etc. removed)
+- Other WMs may return in v2.0 if there's demand
+
+### 🛠️ Technical Changes
+
+**Feature Freeze Enforcement**
+- Strict feature freeze for v1.0 release
+- Only bug fixes and critical issues allowed
+- All new features deferred to v2.0
+- v2.0 ideas tracked in ROADMAP.md
+
+**Files Changed:**
+- `crates/annad/src/recommender.rs` - Fixed 33 broken advice items
+- `crates/annactl/src/main.rs` - Renamed Bundles → Setup command
+- `crates/annactl/src/commands.rs` - Implemented setup() function
+- `crates/annad/src/bundles/mod.rs` - Removed non-Hyprland bundles
+- `crates/annad/src/bundles/wayland_compositors.rs` - Hyprland-only
+- `Cargo.toml` - Version bump to 1.0.0-rc.11
+- `README.md` - Updated version and design focus
+- `ROADMAP.md` - Documented changes and v2.0 plans
+
+### 📦 Version History
+
+- **1.0.0-rc.9.3** → **1.0.0-rc.10** - Command rename + Hyprland focus
+- **1.0.0-rc.10** → **1.0.0-rc.11** - Critical bugfixes (33 items)
+
 ## [1.0.0-rc.9.3] - 2025-11-07
 
 ### 🔥 Critical Fixes
