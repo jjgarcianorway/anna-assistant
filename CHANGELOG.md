@@ -5,6 +5,51 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.9.3] - 2025-11-07
+
+### 🔥 Critical Fixes
+
+**Watchdog Crash Fixed**
+- CRITICAL: Removed `WatchdogSec=60s` from systemd service that was killing daemon after 60 seconds
+- Daemon now stays running indefinitely
+- Already had `Restart=on-failure` for real crash recovery
+
+**Daemon-Based Updates (No Sudo)**
+- Update system now works entirely through daemon (runs as root)
+- Downloads → Installs → Schedules restart AFTER sending response (no race condition)
+- No more password prompts during updates
+- Seamless update experience
+
+### ✨ UX Improvements
+
+**Show All Categories**
+- Removed "6 more categories..." truncation
+- Now shows complete category breakdown in `annactl advise`
+
+**Unique IDs for Apply**
+- Display format: `[1] amd-microcode  Enable AMD microcode updates`
+- Both work: `annactl apply 1` OR `annactl apply amd-microcode`
+- IDs shown in cyan for visibility
+- Fixes apply confusion when using category filters
+
+**Doctor Auto-Fix**
+- `annactl doctor --fix` now fixes all issues automatically
+- Removed individual confirmation prompts per user feedback
+- One command, no babysitting
+
+### 🛠️ Technical Changes
+
+- annad.service: Removed WatchdogSec to prevent false-positive kills
+- Update system: Async block prevents early-return type conflicts
+- Apply command: Box::pin for recursive async ID handling
+- Daemon update: Downloads+installs before scheduling restart
+
+### 📦 Files Changed
+- `annad.service` - Watchdog removal
+- `crates/annactl/src/commands.rs` - UX improvements, ID support
+- `crates/annad/src/rpc_server.rs` - Daemon-based update implementation
+- `crates/anna_common/src/updater.rs` - Export download_binary()
+
 ## [1.0.0-beta.82] - 2025-11-06
 
 ### 🖼️ Universal Wallpaper Intelligence
