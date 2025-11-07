@@ -805,6 +805,127 @@ impl WMBundleBuilder {
     }
 }
 
+// ============================================================================
+// SMART PACKAGE SELECTION - RC.9 Issue #0 Fix
+// ============================================================================
+// These functions implement telemetry-aware package selection to avoid
+// recommending packages the user already has and actively uses.
+//
+// User feedback: "what is the point of installing nano when I have vim?"
+// ============================================================================
+
+/// Helper to check if a package is installed (global function for smart selectors)
+fn is_package_installed_global(package: &str) -> bool {
+    use std::process::Command;
+    Command::new("pacman")
+        .args(&["-Q", package])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Select a text editor intelligently based on what user already has and uses
+/// Returns None if user already has an editor, Some(editor) if they need one
+pub fn smart_select_text_editor(facts: &SystemFacts) -> Option<String> {
+    // Known editors in order of complexity/power
+    let popular_editors = ["vim", "neovim", "nvim", "emacs", "helix", "micro", "nano", "vi"];
+
+    // 1. Check if user actively USES an editor (strongest signal)
+    for cmd in &facts.frequently_used_commands {
+        if popular_editors.contains(&cmd.command.as_str()) {
+            // User actively uses an editor - they don't need our recommendation!
+            return None;
+        }
+    }
+
+    // 2. Check if editor is in dev tools detected
+    for tool in &facts.dev_tools_detected {
+        if popular_editors.contains(&tool.as_str()) {
+            // User has an editor in their dev environment
+            return None;
+        }
+    }
+
+    // 3. Check if any editor is installed via pacman
+    for editor in &popular_editors {
+        if is_package_installed_global(editor) {
+            // User has an editor installed - don't recommend another one
+            return None;
+        }
+    }
+
+    // User has NO text editor - recommend a simple one for basic editing
+    Some("nano".to_string())
+}
+
+/// Select a media player based on what user has and their actual media usage
+/// Returns None if user already has a player, Some(player) if they need one
+pub fn smart_select_media_player(facts: &SystemFacts) -> Option<String> {
+    let video_players = ["mpv", "vlc", "celluloid", "mplayer"];
+
+    // If user has no video files, don't recommend a player
+    if !facts.media_usage.has_video_files {
+        return None;
+    }
+
+    // If a video player is already installed, don't recommend another
+    if facts.media_usage.video_player_installed {
+        return None;
+    }
+
+    // Check if user has any common video player
+    for player in &video_players {
+        if is_package_installed_global(player) {
+            return None;
+        }
+    }
+
+    // User has video files but no player - recommend mpv (best CLI player)
+    Some("mpv".to_string())
+}
+
+/// Select an image viewer based on what user has and their actual image usage
+/// Returns None if user already has a viewer, Some(viewer) if they need one
+pub fn smart_select_image_viewer(facts: &SystemFacts) -> Option<String> {
+    let image_viewers = ["imv", "feh", "sxiv", "eog", "gwenview"];
+
+    // If user has no images, don't recommend a viewer
+    if !facts.media_usage.has_images {
+        return None;
+    }
+
+    // If an image viewer is already installed, don't recommend another
+    if facts.media_usage.image_viewer_installed {
+        return None;
+    }
+
+    // Check if user has any common image viewer
+    for viewer in &image_viewers {
+        if is_package_installed_global(viewer) {
+            return None;
+        }
+    }
+
+    // User has images but no viewer - recommend imv (fast Wayland viewer)
+    Some("imv".to_string())
+}
+
+/// Select a PDF viewer based on what user likely needs
+/// Returns None if user already has one, Some(viewer) if they need one
+pub fn smart_select_pdf_viewer(facts: &SystemFacts) -> Option<String> {
+    let pdf_viewers = ["zathura", "evince", "okular", "mupdf"];
+
+    // Check if user has any PDF viewer installed
+    for viewer in &pdf_viewers {
+        if is_package_installed_global(viewer) {
+            return None;
+        }
+    }
+
+    // No PDF viewer found - recommend zathura (vim-like, lightweight)
+    Some("zathura".to_string())
+}
+
 /// Generate all window manager bundles
 pub fn generate_all_wm_bundles(facts: &SystemFacts) -> Vec<Advice> {
     let mut advice = Vec::new();

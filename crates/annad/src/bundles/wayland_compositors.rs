@@ -32,9 +32,9 @@ fn is_wayland_system(_facts: &SystemFacts) -> bool {
 }
 
 /// Hyprland bundle - Dynamic tiling Wayland compositor
-/// THE PERFECT HYPRLAND SETUP! (Beta.114)
+/// THE PERFECT HYPRLAND SETUP! (Beta.114 + RC.9 Telemetry Intelligence)
 fn hyprland_bundle(facts: &SystemFacts) -> Vec<Advice> {
-    WMBundleBuilder::new("hyprland")
+    let mut builder = WMBundleBuilder::new("hyprland")
         .display_server(DisplayServer::Wayland)
         .wm_package("hyprland")
         // UI Components
@@ -53,12 +53,34 @@ fn hyprland_bundle(facts: &SystemFacts) -> Vec<Advice> {
         .screen_sharing("xdg-desktop-portal-hyprland") // Screen sharing for video calls
         // Multimedia Tools (Beta.112) - Make multimedia keys work!
         .audio_control("pamixer")
-        .brightness_control("brightnessctl") // Only installed on laptops
-        // Complete Application Suite (Beta.113) - Everything you need!
-        .media_player("mpv") // Best video player
-        .image_viewer("imv") // Fast Wayland image viewer
-        .pdf_viewer("zathura") // Vim-like PDF reader
-        .text_editor("nano") // Simple text editor for quick edits
+        .brightness_control("brightnessctl"); // Only installed on laptops
+
+    // RC.9: SMART APPLICATION SELECTION - Issue #0 Fix
+    // Only recommend apps if user doesn't already have and use them!
+    // Fixes: "what is the point of installing nano when I have vim?"
+
+    // Text editor - only if user doesn't already have one
+    if let Some(editor) = super::smart_select_text_editor(facts) {
+        builder = builder.text_editor(&editor);
+    }
+
+    // Media player - only if user has videos and no player
+    if let Some(player) = super::smart_select_media_player(facts) {
+        builder = builder.media_player(&player);
+    }
+
+    // Image viewer - only if user has images and no viewer
+    if let Some(viewer) = super::smart_select_image_viewer(facts) {
+        builder = builder.image_viewer(&viewer);
+    }
+
+    // PDF viewer - only if user doesn't have one
+    if let Some(pdf_viewer) = super::smart_select_pdf_viewer(facts) {
+        builder = builder.pdf_viewer(&pdf_viewer);
+    }
+
+    // Continue with rest of configuration
+    builder
         // BEAUTIFICATION! (Beta.113) - Make it look AMAZING!
         .color_scheme_generator("python-pywal") // Auto colors from wallpaper!
         .gtk_theme("arc-gtk-theme") // Modern GTK theme
