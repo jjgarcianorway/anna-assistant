@@ -432,7 +432,7 @@ fn check_amd_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 title: "Consider upgrading to modern AMD driver (amdgpu)".to_string(),
                 reason: "You're using the legacy 'radeon' driver. The modern 'amdgpu' driver offers better performance, power management, and supports newer features. It works with GCN 1.2+ GPUs (R9 285 and newer). Check the Arch Wiki to see if your card is compatible.".to_string(),
                 action: "Review compatibility and consider switching to amdgpu".to_string(),
-                command: None, // No automatic command - requires research
+                command: Some("lspci -k | grep -A 3 -i vga".to_string()), // Show current GPU and driver
                 risk: RiskLevel::Medium,
                 priority: Priority::Optional,
                 category: "Hardware Support".to_string(),
@@ -671,7 +671,7 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                         title: "Save disk space with Btrfs compression".to_string(),
                         reason: "Btrfs can automatically compress your files as it saves them. You'll typically get 20-30% of your disk space back, and it barely uses any extra CPU power. It's almost like free storage!".to_string(),
                         action: "Enable transparent compression in /etc/fstab".to_string(),
-                        command: Some("# Add 'compress=zstd:3' to root mount options in /etc/fstab, then remount".to_string()),
+                        command: Some("mount | grep btrfs".to_string()),
                         risk: RiskLevel::Medium,
                         priority: Priority::Recommended,
                         category: "Performance & Optimization".to_string(),
@@ -693,7 +693,7 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
                         title: "Speed up file access with noatime".to_string(),
                         reason: "Every time you read a file, Linux normally writes down when you accessed it. The 'noatime' option turns this off, making your disk faster since it doesn't need to write timestamps constantly.".to_string(),
                         action: "Add noatime to /etc/fstab for faster file operations".to_string(),
-                        command: Some("# Add 'noatime' to root mount options in /etc/fstab, then remount".to_string()),
+                        command: Some("mount | grep btrfs".to_string()),
                         risk: RiskLevel::Low,
                         priority: Priority::Optional,
                         category: "Performance & Optimization".to_string(),
@@ -1408,7 +1408,7 @@ fn check_ssh_config() -> Vec<Advice> {
                 title: "Consider using AllowUsers for SSH access control".to_string(),
                 reason: "Instead of letting any user SSH in, you can whitelist specific users with 'AllowUsers username'. This is the most secure approach - even if someone creates a new user account on your system, they won't be able to SSH in unless you explicitly allow them. Great for single-user or small team systems!".to_string(),
                 action: "Review if you should add 'AllowUsers' directive".to_string(),
-                command: None, // Manual review needed
+                command: Some("cat /etc/ssh/sshd_config | grep -E '^(AllowUsers|AllowGroups|DenyUsers|DenyGroups)'".to_string()), // Show current access control
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Security & Privacy".to_string(),
@@ -1436,7 +1436,7 @@ fn check_ssh_config() -> Vec<Advice> {
                 title: "Consider changing SSH to non-default port".to_string(),
                 reason: "Running SSH on port 22 (the default) means your server gets hammered by automated bot attacks 24/7. Changing to a non-standard port (like 2222 or 22222) drastically reduces these attacks. It's 'security through obscurity' but it works surprisingly well for reducing noise and log spam! Just make sure you remember the new port.".to_string(),
                 action: "Consider changing SSH port from 22 to something else".to_string(),
-                command: None, // Manual decision needed
+                command: Some("ss -tlnp | grep sshd".to_string()), // Show current SSH port
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Security & Privacy".to_string(),
@@ -1606,7 +1606,7 @@ fn check_swap() -> Vec<Advice> {
                                     title: "Consider adding swap space".to_string(),
                                     reason: format!("You have {}MB of RAM and no swap configured. Swap acts like emergency memory when RAM gets full. Without it, the system might freeze or crash if you run too many programs at once. Even with modern RAM amounts, swap is useful for hibernation and as a safety net.", total_ram),
                                     action: "Create a swap file or partition".to_string(),
-                                    command: Some("# Create 4GB swapfile: dd if=/dev/zero of=/swapfile bs=1M count=4096 && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile".to_string()),
+                                    command: Some("swapon --show".to_string()),
                                     risk: RiskLevel::Low,
                                     priority: Priority::Recommended,
                                     category: "System Maintenance".to_string(),
@@ -1974,7 +1974,7 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
                 title: format!("Configure {} to start automatically", bar_name),
                 reason: format!("You have {} installed, but it's not configured to start automatically with your window manager! You need to add it to your WM config so it launches when you log in. Without this, you won't see your status bar unless you manually run '{}'.", bar_name, bar_name),
                 action: format!("Add {} to WM autostart configuration", bar_name),
-                command: None, // Informational - depends on WM
+                command: Some(format!("pgrep {} || echo 'Not running'", bar_name)), // Check if bar is running
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "Desktop Environment".to_string(),
@@ -2505,7 +2505,7 @@ fn check_config_files() -> Vec<Advice> {
                 title: "Enhance your .vimrc configuration".to_string(),
                 reason: "Your .vimrc is pretty minimal. A well-configured vim makes editing so much better! Add line numbers, syntax highlighting, smart indentation, and better search. These are quality-of-life improvements every vim user should have.".to_string(),
                 action: "Add essential vim configurations".to_string(),
-                command: None, // Informational - user should customize
+                command: Some("cat ~/.vimrc 2>/dev/null || echo 'No .vimrc found'".to_string()), // Show current vimrc
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Development Tools".to_string(),
@@ -2547,7 +2547,7 @@ fn check_config_files() -> Vec<Advice> {
                     title: format!("Add useful aliases to your {}", rcfile),
                     reason: format!("Your {} could use some helpful aliases! Common ones like 'll' for 'ls -lah', 'update' for system updates, or 'grep' with colors save tons of typing. Every power user has their favorite aliases.", rcfile),
                     action: format!("Consider adding useful aliases to {}", rcfile),
-                    command: None, // Informational
+                    command: Some(format!("grep -n '^[[:space:]]*alias' ~/{} 2>/dev/null || echo 'No aliases found'", rcfile)), // Show current aliases
                     risk: RiskLevel::Low,
                     priority: Priority::Optional,
                     category: "Shell & Terminal".to_string(),
@@ -4349,7 +4349,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                     latency
                 ),
                 action: "Investigate and improve network latency".to_string(),
-                command: None, // Informational only
+                command: Some("ping -c 10 1.1.1.1 | tail -1".to_string()), // Test current latency
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Network Configuration".to_string(),
@@ -4387,7 +4387,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                     latency
                 ),
                 action: "Consider optimizing network connection".to_string(),
-                command: None,
+                command: Some("ip link show | grep -E '^[0-9]+:' | awk '{print $2}' | sed 's/:$//'".to_string()), // Show network interfaces
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Network Configuration".to_string(),
@@ -4414,7 +4414,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                     packet_loss
                 ),
                 action: "Diagnose and fix packet loss issues".to_string(),
-                command: None,
+                command: Some("ping -c 100 8.8.8.8 | grep -E 'packet loss|transmitted'".to_string()), // Test packet loss
                 risk: RiskLevel::Medium,
                 priority: Priority::Recommended,
                 category: "Network Configuration".to_string(),
@@ -4452,7 +4452,7 @@ fn check_network_quality(facts: &SystemFacts) -> Vec<Advice> {
                     packet_loss
                 ),
                 action: "Monitor network stability".to_string(),
-                command: None,
+                command: Some("ip -s link show".to_string()), // Show network interface statistics
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Network Configuration".to_string(),
@@ -4794,7 +4794,7 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
             title: "Enable virtualization in BIOS".to_string(),
             reason: "Your CPU supports virtualization (KVM), but /dev/kvm doesn't exist! This means virtualization is disabled in your BIOS/UEFI. You need to enable Intel VT-x (Intel) or AMD-V (AMD) in your BIOS settings to use virtual machines with hardware acceleration. Without it, VMs will be extremely slow!".to_string(),
             action: "Reboot and enable VT-x/AMD-V in BIOS".to_string(),
-            command: None, // Manual BIOS change required
+            command: Some("lscpu | grep -E 'Virtualization|VT-x|AMD-V'".to_string()), // Check CPU virtualization support
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "System Configuration".to_string(),
@@ -5396,7 +5396,7 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             title: "Enable noatime for SSD performance".to_string(),
             reason: "You have an SSD but 'noatime' isn't set in fstab! By default, Linux updates the access time every time you read a file, which causes extra writes. For SSDs, this is pure overhead with no benefit. Adding 'noatime' to mount options reduces writes and improves performance. It's the #1 SSD optimization!".to_string(),
             action: "Add noatime to fstab mount options".to_string(),
-            command: None, // Manual fstab edit needed
+            command: Some("cat /etc/fstab | grep -v '^#' | grep -E 'ext4|xfs|btrfs'".to_string()), // Show current mount options
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "Performance & Optimization".to_string(),
@@ -5422,7 +5422,7 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
             title: "Consider enabling continuous TRIM (discard)".to_string(),
             reason: "Your SSD could benefit from the 'discard' mount option! This enables continuous TRIM, which tells the SSD about deleted blocks immediately instead of waiting for a weekly timer. Modern SSDs handle this well and it keeps performance more consistent. Alternative to the periodic fstrim.timer.".to_string(),
             action: "Add discard to mount options (or keep fstrim.timer)".to_string(),
-            command: None, // Manual decision - discard vs fstrim.timer
+            command: Some("systemctl status fstrim.timer 2>/dev/null || echo 'fstrim.timer not active'".to_string()), // Check if periodic TRIM is enabled
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Performance & Optimization".to_string(),
@@ -5525,7 +5525,7 @@ fn check_dns_configuration() -> Vec<Advice> {
                 title: "Consider using public DNS servers".to_string(),
                 reason: "You're using your ISP's DNS servers, which may be slow, unreliable, or log your queries! Public DNS like Cloudflare (1.1.1.1), Google (8.8.8.8), or Quad9 (9.9.9.9) are usually faster, more reliable, and respect privacy better. Cloudflare is the fastest with strong privacy!".to_string(),
                 action: "Consider switching to public DNS".to_string(),
-                command: None, // Manual decision on which DNS to use
+                command: Some("cat /etc/resolv.conf | grep nameserver".to_string()), // Show current DNS servers
                 risk: RiskLevel::Low,
                 priority: Priority::Optional,
                 category: "Network Configuration".to_string(),
@@ -5634,7 +5634,7 @@ fn check_aur_helper_safety() -> Vec<Advice> {
             title: "AUR Safety Reminder: Always review PKGBUILDs".to_string(),
             reason: "You're using an AUR helper - that's great! But remember: ALWAYS review the PKGBUILD before installing AUR packages. AUR packages can run any code during installation, so malicious packages could compromise your system. Think of it like downloading a random script from the internet - check it first!".to_string(),
             action: "Always review PKGBUILDs (use --editmenu or --show)".to_string(),
-            command: None, // Educational reminder
+            command: Some("pacman -Qm | head -10".to_string()), // Show installed AUR packages
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Security & Privacy".to_string(),
@@ -6166,7 +6166,7 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
             title: "Reminder: Run fsck on ext4 filesystems periodically".to_string(),
             reason: "You're using ext4 - remember to run filesystem checks occasionally! Modern ext4 is reliable, but errors can accumulate over time from power failures or hardware issues. Boot from a live USB and run 'fsck -f /dev/sdXY' on unmounted filesystems yearly to catch problems early.".to_string(),
             action: "Schedule periodic filesystem checks".to_string(),
-            command: None, // Must be done from live USB
+            command: Some("tune2fs -l $(findmnt -n -o SOURCE /) 2>/dev/null | grep -E 'Last checked|Mount count'".to_string()), // Show last fsck info
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "System Maintenance".to_string(),
@@ -6224,7 +6224,7 @@ fn check_kernel_parameters() -> Vec<Advice> {
             title: "Add 'quiet' kernel parameter for cleaner boot".to_string(),
             reason: "Your boot shows all kernel messages! Adding 'quiet' to kernel parameters makes boot look cleaner by hiding verbose kernel output. You'll still see important errors, but not the flood of driver messages. Makes your system look more polished!".to_string(),
             action: "Add 'quiet' to GRUB_CMDLINE_LINUX in /etc/default/grub".to_string(),
-            command: None, // Manual GRUB config edit
+            command: Some("cat /proc/cmdline".to_string()), // Show current kernel parameters
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Desktop Customization".to_string(),
@@ -6246,7 +6246,7 @@ fn check_kernel_parameters() -> Vec<Advice> {
             title: "Add 'splash' for graphical boot screen".to_string(),
             reason: "Want a pretty boot screen instead of text? Add 'splash' kernel parameter and install plymouth for a graphical boot animation. Makes your system boot look professional and modern instead of showing raw text. Purely cosmetic but nice!".to_string(),
             action: "Add 'splash' parameter and install plymouth".to_string(),
-            command: None, // Requires plymouth setup
+            command: Some("pacman -Qi plymouth 2>/dev/null | grep -E '^Name|^Installed' || echo 'Plymouth not installed'".to_string()), // Check if plymouth is installed
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Desktop Customization".to_string(),
@@ -6299,7 +6299,7 @@ fn check_bootloader_optimization() -> Vec<Advice> {
             title: "Consider adding custom GRUB background".to_string(),
             reason: "Your GRUB menu is plain! You can set a custom background image with GRUB_BACKGROUND in /etc/default/grub. Makes your bootloader look personalized and professional. Any PNG/JPG image works!".to_string(),
             action: "Set GRUB_BACKGROUND=/path/to/image.png".to_string(),
-            command: None, // Needs image file path
+            command: Some("grep -E '^GRUB_' /etc/default/grub 2>/dev/null | head -5".to_string()), // Show current GRUB settings
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Desktop Customization".to_string(),
@@ -6403,7 +6403,7 @@ fn check_browser_recommendations() -> Vec<Advice> {
             title: "Reminder: Install uBlock Origin in Firefox".to_string(),
             reason: "You have Firefox! Make sure to install uBlock Origin extension for ad blocking and privacy. It's the best ad blocker - blocks ads, trackers, and malware. Essential for web browsing today! Also consider Privacy Badger and HTTPS Everywhere.".to_string(),
             action: "Install uBlock Origin from Firefox Add-ons".to_string(),
-            command: None, // Browser extension
+            command: Some("firefox --version 2>/dev/null || echo 'Firefox version check failed'".to_string()), // Show Firefox version
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Utilities".to_string(),
@@ -6531,7 +6531,7 @@ fn check_security_tools() -> Vec<Advice> {
             title: "LUKS encryption detected - Remember your backup!".to_string(),
             reason: "You're using LUKS encryption - great for security! Remember: if you lose your encryption password, your data is GONE FOREVER. Make sure you have a secure backup of your passphrase. Consider using a password manager or writing it down in a safe place!".to_string(),
             action: "Verify you have passphrase backup".to_string(),
-            command: None, // Manual reminder
+            command: Some("lsblk -o NAME,FSTYPE,MOUNTPOINT | grep -E 'crypt|LUKS'".to_string()), // Show encrypted devices
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "Security & Privacy".to_string(),
@@ -8294,7 +8294,7 @@ fn check_systemd_timers() -> Vec<Advice> {
             title: "Consider using systemd timers instead of cron".to_string(),
             reason: "You have cron jobs! Systemd timers are the modern alternative - better logging, easier debugging, dependency management, and integrated with systemctl. Plus they can run on boot, handle missed runs, and have calendar-based scheduling. Arch recommends timers over cron!".to_string(),
             action: "Learn about systemd timers".to_string(),
-            command: None,
+            command: Some("crontab -l 2>/dev/null | grep -v '^#' | head -5 || echo 'No user crontab entries'".to_string()), // Show current crontab
             risk: RiskLevel::Low,
             priority: Priority::Optional,
             category: "System Configuration".to_string(),
@@ -9626,7 +9626,7 @@ fn check_cpu_temperature(facts: &SystemFacts) -> Vec<Advice> {
                 title: "CPU Temperature is CRITICAL!".to_string(),
                 reason: format!("Your CPU is running at {:.1}°C, which is dangerously high! Prolonged high temperatures can damage your hardware, reduce lifespan, and cause thermal throttling (slower performance). Normal temps: 40-60°C idle, 60-80°C load. You're in the danger zone!", temp),
                 action: "Clean dust from fans, improve airflow, check thermal paste, verify cooling system".to_string(),
-                command: None,
+                command: Some("sensors 2>/dev/null | grep -E 'Core|temp' || echo 'sensors not available'".to_string()), // Show all temperature sensors
                 risk: RiskLevel::Low,
                 priority: Priority::Mandatory,
                 category: "Hardware Support".to_string(),
@@ -9645,7 +9645,7 @@ fn check_cpu_temperature(facts: &SystemFacts) -> Vec<Advice> {
                 title: "CPU Temperature is High".to_string(),
                 reason: format!("Your CPU is running at {:.1}°C, which is higher than ideal. This can cause thermal throttling and reduced performance. Consider cleaning dust from fans or improving case airflow.", temp),
                 action: "Monitor temperature, consider cleaning cooling system".to_string(),
-                command: None,
+                command: Some("sensors 2>/dev/null | grep -E 'Core|fan' || echo 'sensors not available'".to_string()), // Show temperature and fan speeds
                 risk: RiskLevel::Low,
                 priority: Priority::Recommended,
                 category: "Hardware Support".to_string(),
@@ -9678,7 +9678,7 @@ fn check_disk_health(facts: &SystemFacts) -> Vec<Advice> {
                     disk.reallocated_sectors.unwrap_or(0),
                     disk.pending_sectors.unwrap_or(0)),
                 action: "BACKUP ALL DATA IMMEDIATELY, then replace this drive".to_string(),
-                command: None,
+                command: Some(format!("smartctl -a {} 2>/dev/null | grep -E 'Reallocated|Pending|Temperature' || echo 'SMART data not available'", disk.device)), // Show detailed SMART data
                 risk: RiskLevel::Low,
                 priority: Priority::Mandatory,
                 category: "Hardware Support".to_string(),
@@ -9823,7 +9823,7 @@ fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
                 if facts.system_health_metrics.degraded_services.len() == 1 { "" } else { "s" }),
             reason,
             action: "Check status with: systemctl status <service-name> for each failed service".to_string(),
-            command: None, // Informational - user should check each service individually
+            command: Some("systemctl --failed --no-pager".to_string()), // Show all failed services
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "System Configuration".to_string(),
@@ -9931,7 +9931,7 @@ fn check_battery_health(facts: &SystemFacts) -> Vec<Advice> {
                 title: "Battery critically low!".to_string(),
                 reason: format!("Battery at {}%! Plug in your charger immediately to avoid data loss.", battery.percentage),
                 action: "Plug in AC power immediately".to_string(),
-                command: None,
+                command: Some("upower -i $(upower -e | grep BAT) 2>/dev/null | grep -E 'state|percentage|time' || echo 'Battery info not available'".to_string()), // Show battery status
                 risk: RiskLevel::Low,
                 priority: Priority::Mandatory,
                 category: "Power Management".to_string(),
@@ -9954,7 +9954,7 @@ fn check_battery_health(facts: &SystemFacts) -> Vec<Advice> {
                     title: "Battery health degraded significantly".to_string(),
                     reason: format!("Battery capacity at {}% of design capacity. Your battery holds much less charge than when new. Consider replacing the battery for better runtime.", health),
                     action: "Consider replacing battery or plan for shorter runtime".to_string(),
-                    command: None,
+                    command: Some("upower -i $(upower -e | grep BAT) 2>/dev/null | grep -E 'capacity|energy' || echo 'Battery health info not available'".to_string()), // Show battery health details
                     risk: RiskLevel::Low,
                     priority: Priority::Optional,
                     category: "Power Management".to_string(),
@@ -10038,7 +10038,7 @@ fn check_service_crashes(facts: &SystemFacts) -> Vec<Advice> {
             title: format!("{} Service Crash{} in Last Week", crashes, if crashes == 1 { "" } else { "es" }),
             reason,
             action: "Review crash details with: systemctl status <service-name> and journalctl -u <service-name>".to_string(),
-            command: None, // Informational - user needs to check specific services
+            command: Some("journalctl -p err -b --no-pager | grep -E 'Failed|crashed' | tail -10".to_string()), // Show recent service failures
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "System Configuration".to_string(),
@@ -10087,7 +10087,7 @@ fn check_kernel_errors(facts: &SystemFacts) -> Vec<Advice> {
                 if facts.system_health_metrics.kernel_errors.len() == 1 { "" } else { "s" }),
             reason,
             action: "Review full kernel log with: journalctl -k -p err --since '24 hours ago'".to_string(),
-            command: None, // Informational only - user should review logs manually
+            command: Some("journalctl -k -p err -b --no-pager | tail -10".to_string()), // Show recent kernel errors
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
             category: "System Configuration".to_string(),
@@ -10173,7 +10173,16 @@ fn check_hyprland_nvidia_config(facts: &SystemFacts) -> Vec<Advice> {
                 env = __GLX_VENDOR_LIBRARY_NAME,nvidia\n\
                 env = LIBVA_DRIVER_NAME,nvidia\n\
                 env = WLR_NO_HARDWARE_CURSORS,1".to_string(),
-            command: None,
+            command: Some(
+                "mkdir -p ~/.config/hypr && \
+                echo '# Nvidia Wayland environment variables (added by Anna)' >> ~/.config/hypr/hyprland.conf && \
+                echo 'env = GBM_BACKEND,nvidia-drm' >> ~/.config/hypr/hyprland.conf && \
+                echo 'env = __GLX_VENDOR_LIBRARY_NAME,nvidia' >> ~/.config/hypr/hyprland.conf && \
+                echo 'env = LIBVA_DRIVER_NAME,nvidia' >> ~/.config/hypr/hyprland.conf && \
+                echo 'env = WLR_NO_HARDWARE_CURSORS,1' >> ~/.config/hypr/hyprland.conf && \
+                echo 'Nvidia environment variables added to Hyprland config'"
+                .to_string()
+            ),
             priority: Priority::Mandatory,
             risk: RiskLevel::High,
             category: "Desktop Environment".to_string(),
