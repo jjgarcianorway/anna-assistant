@@ -39,9 +39,6 @@ RestartSec=10s
 StartLimitBurst=3
 StartLimitIntervalSec=60s
 
-# Watchdog for crash detection (RC.7)
-WatchdogSec=60s
-
 # Security hardening
 # Prevent privilege escalation
 NoNewPrivileges=true

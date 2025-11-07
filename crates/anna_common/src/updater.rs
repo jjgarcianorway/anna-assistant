@@ -171,7 +171,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
 }
 
 /// Download and verify a binary
-async fn download_binary(url: &str, dest_path: &Path) -> Result<()> {
+pub async fn download_binary(url: &str, dest_path: &Path) -> Result<()> {
     info!("Downloading from {} to {}", url, dest_path.display());
 
     let client = reqwest::Client::builder()

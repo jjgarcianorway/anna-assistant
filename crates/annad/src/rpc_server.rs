@@ -899,10 +899,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                     new_version: state.version.clone(),
                 })
             } else {
-                // CRITICAL FIX: Daemon-based update is BROKEN
-                // The daemon can't stop itself and send a response - it's a race condition
-                // Solution: Delegate to install script instead
-                info!("Full update requested - delegating to install script");
+                // RC.9.3: Proper daemon-based update without race condition
+                // Solution: Download & install, THEN schedule restart after response sent
+                info!("Full update requested - performing daemon-based update");
 
                 // Check for updates first
                 match anna_common::updater::check_for_updates().await {
@@ -918,18 +917,85 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         } else {
                             info!("Update available: {} → {}", update_info.current_version, update_info.latest_version);
 
-                            // Tell user to use install script instead
-                            // The daemon can't reliably update itself
-                            Ok(ResponseData::UpdateResult {
-                                success: false,
-                                message: format!(
-                                    "Update available: {} → {}\n\nPlease use the install script to update:\ncurl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash",
-                                    update_info.current_version,
-                                    update_info.latest_version
-                                ),
-                                old_version: update_info.current_version,
-                                new_version: update_info.latest_version,
-                            })
+                            // Download and install binaries (daemon runs as root, no sudo needed!)
+                            // Use a separate async block to handle all the update logic
+                            let update_result = async {
+                                use anna_common::updater::download_binary;
+                                use std::path::Path;
+
+                                // Create temp directory
+                                let temp_dir = std::env::temp_dir().join("anna-update");
+                                tokio::fs::create_dir_all(&temp_dir).await
+                                    .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+
+                                let temp_annad = temp_dir.join("annad");
+                                let temp_annactl = temp_dir.join("annactl");
+
+                                // Download binaries
+                                info!("Downloading binaries...");
+                                download_binary(&update_info.download_url_annad, &temp_annad).await
+                                    .map_err(|e| format!("Failed to download annad: {}", e))?;
+                                download_binary(&update_info.download_url_annactl, &temp_annactl).await
+                                    .map_err(|e| format!("Failed to download annactl: {}", e))?;
+
+                                // Install binaries (daemon is root, can write directly)
+                                info!("Installing binaries...");
+                                let annad_dest = Path::new("/usr/local/bin/annad");
+                                let annactl_dest = Path::new("/usr/local/bin/annactl");
+
+                                tokio::fs::copy(&temp_annad, annad_dest).await
+                                    .map_err(|e| format!("Failed to install annad: {}", e))?;
+                                tokio::fs::copy(&temp_annactl, annactl_dest).await
+                                    .map_err(|e| format!("Failed to install annactl: {}", e))?;
+
+                                // Set executable permissions
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::PermissionsExt;
+                                    let perms = std::fs::Permissions::from_mode(0o755);
+                                    let _ = std::fs::set_permissions(annad_dest, perms.clone());
+                                    let _ = std::fs::set_permissions(annactl_dest, perms);
+                                }
+
+                                // Clean up temp files
+                                let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+
+                                Ok::<(), String>(())
+                            }.await;
+
+                            match update_result {
+                                Ok(()) => {
+                                    let old_ver = update_info.current_version.clone();
+                                    let new_ver = update_info.latest_version.clone();
+
+                                    // Schedule restart to happen AFTER response is sent (critical!)
+                                    tokio::spawn(async {
+                                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                                        info!("Restarting daemon after update...");
+                                        let _ = tokio::process::Command::new("systemctl")
+                                            .args(&["restart", "annad"])
+                                            .status()
+                                            .await;
+                                    });
+
+                                    info!("Update complete, restart scheduled");
+                                    Ok(ResponseData::UpdateResult {
+                                        success: true,
+                                        message: "Update successful! Daemon will restart momentarily.".to_string(),
+                                        old_version: old_ver,
+                                        new_version: new_ver,
+                                    })
+                                }
+                                Err(e) => {
+                                    error!("Update failed: {}", e);
+                                    Ok(ResponseData::UpdateResult {
+                                        success: false,
+                                        message: e,
+                                        old_version: update_info.current_version.clone(),
+                                        new_version: update_info.latest_version.clone(),
+                                    })
+                                }
+                            }
                         }
                     }
                     Err(e) => {

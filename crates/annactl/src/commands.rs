@@ -449,13 +449,9 @@ pub async fn advise(
                 .collect();
             category_counts.sort_by(|a, b| b.1.cmp(&a.1));
 
-            // Show top 6 categories (full names, no truncation)
-            for (category, count) in category_counts.iter().take(6) {
+            // RC.9.3: Show ALL categories (user requested: "advise should list all categories")
+            for (category, count) in category_counts.iter() {
                 println!("  \x1b[96m{}\x1b[0m \x1b[90m{:>2}\x1b[0m", category, count);
-            }
-
-            if category_counts.len() > 6 {
-                println!("  \x1b[90m{} more categories...\x1b[0m", category_counts.len() - 6);
             }
             println!();
 
@@ -570,7 +566,8 @@ pub async fn advise(
         println!("\x1b[90m{}\x1b[0m", "-".repeat(60));
         println!();
         println!("\x1b[1m\x1b[96mQuick Actions:\x1b[0m");
-        println!("  annactl apply <number>      Apply specific recommendation");
+        println!("  annactl apply 1             Apply by number");
+        println!("  annactl apply amd-microcode Apply by ID (shown in cyan)");
         println!("  annactl apply 1-5           Apply a range");
         println!("  annactl apply 1,3,5         Apply multiple");
         println!();
@@ -647,8 +644,12 @@ fn display_advice_item_enhanced(number: usize, advice: &anna_common::Advice) {
         anna_common::RiskLevel::Low => "\x1b[42m\x1b[97m\x1b[1m LOW RISK \x1b[0m", // Green bg, white text
     };
 
-    // Number and title
-    println!("\x1b[90m\x1b[1m[{}]\x1b[0m  \x1b[1m\x1b[97m{}\x1b[0m", number, advice.title);
+    // RC.9.3: Show ID alongside number so users can use either
+    // Format: [1] amd-microcode  Enable AMD microcode updates
+    println!("\x1b[90m\x1b[1m[{}]\x1b[0m \x1b[36m{}\x1b[0m  \x1b[1m\x1b[97m{}\x1b[0m",
+        number,
+        advice.id,
+        advice.title);
 
     // Badges
     let popularity_stars = advice.popularity_stars();
@@ -815,8 +816,15 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
         return Ok(());
     }
 
-    // If nums provided, apply by index
+    // If nums provided, apply by index OR ID
     if let Some(nums_str) = nums {
+        // RC.9.3: Check if input is an ID (non-numeric) or number(s)
+        // If it looks like an ID (contains letters/dashes), route to ID path
+        if nums_str.contains(|c: char| c.is_alphabetic() || c == '-' || c == '_') && !nums_str.contains(',') && !nums_str.contains("..") {
+            // It's an ID like "amd-microcode" - route to ID handler (use Box::pin to avoid infinite size)
+            return Box::pin(apply(Some(nums_str), None, None, auto, dry_run)).await;
+        }
+
         println!("{}", beautiful::status(Level::Info,
             "Applying by number - loading cache..."));
         println!();
@@ -1504,22 +1512,8 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
         for (i, (issue, fix_cmd, _is_critical)) in fixable_issues.iter().enumerate() {
             println!("  [{}] {}", i + 1, issue);
 
-            let should_fix = if auto {
-                true
-            } else {
-                print!("  Fix this issue? [Y/n]: ");
-                io::stdout().flush()?;
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                let response = input.trim().to_lowercase();
-                response.is_empty() || response == "y" || response == "yes"
-            };
-
-            if !should_fix {
-                println!("  \x1b[90mSkipped\x1b[0m");
-                println!();
-                continue;
-            }
+            // RC.9.3: User feedback - "--fix should run by herself" (automatically without confirmation)
+            // Always auto-fix when --fix is used. No need for --auto flag anymore.
 
             println!("  \x1b[36m→ {}\x1b[0m", fix_cmd);
 
