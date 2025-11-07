@@ -751,6 +751,42 @@ pub async fn apply(id: Option<String>, nums: Option<String>, bundle: Option<Stri
 
     // If specific ID provided, apply that one
     if let Some(advice_id) = id {
+        // Get advice details first to show what will be applied
+        let advice_data = client.call(Method::GetAdvice).await?;
+        if let ResponseData::Advice(advice_list) = advice_data {
+            if let Some(advice) = advice_list.iter().find(|a| a.id == advice_id) {
+                // Show preview
+                println!("{}", beautiful::status(Level::Info, "Preview:"));
+                println!();
+                println!("  \x1b[1m{}\x1b[0m", advice.title);
+                println!("  {}", advice.reason);
+                if let Some(cmd) = &advice.command {
+                    println!();
+                    println!("  \x1b[90mCommand: {}\x1b[0m", cmd);
+                }
+                println!("  \x1b[90mRisk: {:?} | Category: {}\x1b[0m", advice.risk, advice.category);
+                println!();
+
+                // Confirmation (unless auto or dry-run)
+                if !auto && !dry_run {
+                    use std::io::{self, Write};
+                    print!("  \x1b[1;93mProceed? (y/N):\x1b[0m ");
+                    io::stdout().flush()?;
+
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    let input = input.trim().to_lowercase();
+
+                    if input != "y" && input != "yes" {
+                        println!();
+                        println!("{}", beautiful::status(Level::Info, "Cancelled by user"));
+                        return Ok(());
+                    }
+                }
+                println!();
+            }
+        }
+
         println!(
             "{}",
             beautiful::status(
@@ -2232,7 +2268,23 @@ async fn apply_bundle(client: &mut RpcClient, bundle_name: &str, dry_run: bool) 
             return Ok(());
         }
 
+        // Confirmation before installing bundle
+        use std::io::{self, Write};
+        print!("  \x1b[1;93mProceed with installing this bundle? (y/N):\x1b[0m ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+
+        if input != "y" && input != "yes" {
+            println!();
+            println!("{}", beautiful::status(Level::Info, "Cancelled by user"));
+            return Ok(());
+        }
+
         // Apply each in order
+        println!();
         println!("{}", section("🚀 Installing"));
         println!();
 
@@ -3401,7 +3453,23 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
             }
 
             if install {
+                // Ask for confirmation before updating
+                use std::io::{self, Write};
+                print!("  \x1b[1;93mProceed with update? (y/N):\x1b[0m ");
+                io::stdout().flush()?;
+
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                let input = input.trim().to_lowercase();
+
+                if input != "y" && input != "yes" {
+                    println!();
+                    println!("{}", beautiful::status(Level::Info, "Update cancelled by user"));
+                    return Ok(());
+                }
+
                 // Perform the update via daemon (no sudo needed!)
+                println!();
                 println!("{}", beautiful::status(Level::Info, "🔐 Delegating update to daemon (no sudo required!)"));
                 println!("{}", beautiful::status(Level::Info, "Starting update process..."));
                 println!();
