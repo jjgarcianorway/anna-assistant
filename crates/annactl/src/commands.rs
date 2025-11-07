@@ -337,9 +337,6 @@ pub async fn advise(
         }
     };
 
-    println!("{}", beautiful::status(Level::Info, "Taking a look at your system..."));
-    println!();
-
     // Get advice with user context
     let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
     let desktop_env = std::env::var("XDG_CURRENT_DESKTOP")
@@ -405,11 +402,7 @@ pub async fn advise(
                 advice_list.extend(optional);
                 advice_list.extend(cosmetic);
 
-                if hidden_count > 0 {
-                    println!("{}", beautiful::status(Level::Info,
-                        &format!("Showing SMART filtered view (use --mode=all to see {} more recommendations)", hidden_count)));
-                    println!();
-                }
+                // Remove verbose messages - user knows they can use "advise all"
             }
             "all" => {
                 // Show everything
@@ -487,47 +480,50 @@ pub async fn advise(
         }
 
         // COMPACT SUMMARY VIEW (default if no category filter)
+        // RC.8: Ultra-compact (fits in 15 lines)
         if category_filter.is_none() {
-            println!("{}", section("📊 Recommendations Summary"));
-            println!();
-            println!("  {} total recommendations", advice_list.len());
+            println!("{}", section("📊 Recommendations"));
             println!();
 
-            // Show category counts
+            // Show category counts (normalized and aligned)
             let mut category_counts: Vec<_> = by_category.iter()
-                .map(|(cat, items)| (cat.clone(), items.len()))
+                .map(|(cat, items)| {
+                    // Normalize category names to Title Case for consistency
+                    let normalized = cat.split_whitespace()
+                        .map(|word| {
+                            let mut chars = word.chars();
+                            match chars.next() {
+                                None => String::new(),
+                                Some(f) => f.to_uppercase().chain(chars.flat_map(|c| c.to_lowercase())).collect(),
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    // Truncate long names to 18 chars for alignment
+                    let display_name = if normalized.len() > 18 {
+                        format!("{}...", &normalized[..15])
+                    } else {
+                        normalized
+                    };
+                    (display_name, items.len())
+                })
                 .collect();
-            category_counts.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
+            category_counts.sort_by(|a, b| b.1.cmp(&a.1));
 
-            println!("{}", section("Categories"));
-            for (category, count) in &category_counts {
-                let emoji = match category.as_str() {
-                    "Security" => "🔒",
-                    "System" => "⚙️ ",
-                    "Performance" => "⚡",
-                    "Desktop" => "🖥️ ",
-                    "Applications" => "📦",
-                    "Network" => "🌐",
-                    "Development" => "💻",
-                    _ => "📌",
-                };
-                println!("  {} \x1b[1m{:<20}\x1b[0m \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", emoji, category, count);
+            // Show top 6 categories in compact format
+            for (category, count) in category_counts.iter().take(6) {
+                println!("  \x1b[96m{:<18}\x1b[0m \x1b[90m{:>2}\x1b[0m", category, count);
+            }
+
+            if category_counts.len() > 6 {
+                println!("  \x1b[90m{} more categories...\x1b[0m", category_counts.len() - 6);
             }
             println!();
 
-            // Show how to drill down
-            println!("{}", section("💡 Next Steps"));
-            println!();
-            println!("  View specific category:");
-            for (category, _) in category_counts.iter().take(5) {
-                println!("    \x1b[96mannactl advise {}\x1b[0m", category.to_lowercase());
-            }
-            if category_counts.len() > 5 {
-                println!("    \x1b[90m... and {} more categories\x1b[0m", category_counts.len() - 5);
-            }
-            println!();
-            println!("  Or view all details:");
-            println!("    \x1b[96mannactl advise all\x1b[0m");
+            // Compact usage examples (only 2 examples)
+            println!("  \x1b[96mannactl advise {}\x1b[0m  \x1b[90m# view category\x1b[0m",
+                category_counts[0].0.to_lowercase());
+            println!("  \x1b[96mannactl advise all\x1b[0m       \x1b[90m# view all details\x1b[0m");
             println!();
 
             // Save to cache for apply-by-number (even though we're not showing details)

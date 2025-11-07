@@ -1,13 +1,13 @@
 #!/bin/bash
-# Anna Assistant Installer
-# Fetches and installs the latest release from GitHub
+# Anna Assistant - One-line Installer
+# curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 
 set -e
 
 REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 
-# Colors (pastel theme with ASCII fallback)
+# Colors
 if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 256 ]; then
     BLUE='\033[38;5;117m'
     GREEN='\033[38;5;120m'
@@ -17,348 +17,132 @@ if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 256 ]; 
     GRAY='\033[38;5;250m'
     RESET='\033[0m'
     BOLD='\033[1m'
-    BOX_TL="╭"; BOX_TR="╮"; BOX_BL="╰"; BOX_BR="╯"; BOX_H="─"; BOX_V="│"
-    CHECK="✓"; CROSS="✗"; WARN="⚠"; INFO="ℹ"; ARROW="→"
+    CHECK="✓"; CROSS="✗"; ARROW="→"
 else
     # ASCII fallback
     BLUE=''; GREEN=''; YELLOW=''; RED=''; CYAN=''; GRAY=''; RESET=''; BOLD=''
-    BOX_TL="+"; BOX_TR="+"; BOX_BL="+"; BOX_BR="+"; BOX_H="-"; BOX_V="|"
-    CHECK="[OK]"; CROSS="[X]"; WARN="[!]"; INFO="[i]"; ARROW="->"
+    CHECK="[OK]"; CROSS="[X]"; ARROW="->"
 fi
-
-print_header() {
-    echo
-    echo -e "${BOLD}${CYAN}========================================================${RESET}"
-    echo -e "${BOLD}${BLUE}        🌟 Anna Assistant${RESET} ${CYAN}Installation${RESET}"
-    echo -e "${GRAY}     Your friendly Arch Linux system administrator${RESET}"
-    echo -e "${BOLD}${CYAN}========================================================${RESET}"
-    echo
-    echo -e "${GRAY}Anna speaks plain English, explains everything she suggests,"
-    echo -e "and keeps your system secure, fast, and well-maintained.${RESET}"
-    echo
-    echo -e "${BOLD}${BLUE}What Anna does (130+ detection rules):${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}System security (SSH hardening, firewall, microcode, updates)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}8 desktop environments (GNOME, KDE, Cinnamon, XFCE, MATE, i3, Hyprland, Sway)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Hardware support (printers, webcams, gamepads, Bluetooth, WiFi)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Development tools (Docker, virtualization, LSP servers, gaming)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Laptop optimization (battery, touchpad, backlight, power management)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Privacy & security (VPN, password managers, backups, encryption)${RESET}"
-    echo -e "  ${GREEN}${CHECK}${RESET} ${GRAY}Automatically monitors and refreshes on system changes${RESET}"
-    echo
-    echo -e "${CYAN}${ARROW}${RESET} ${BOLD}Starting installation...${RESET}"
-    echo
-}
 
 error_exit() {
     echo -e "${RED}${CROSS} $1${RESET}" >&2
     exit 1
 }
 
-print_header
-
-# Check if sudo is available
-if ! command -v sudo >/dev/null 2>&1; then
-    error_exit "sudo is required but not installed. Please install sudo first."
-fi
-
-# Ask for confirmation before installing
-echo -e "${BOLD}${YELLOW}This will install Anna Assistant to ${INSTALL_DIR}${RESET}"
-echo -e "${GRAY}The following operations will require sudo privileges:${RESET}"
-echo -e "  ${ARROW} Install binaries to ${INSTALL_DIR}"
-echo -e "  ${ARROW} Install systemd service"
-echo -e "  ${ARROW} Enable and start the daemon"
+# Compact header
 echo
-read -p "$(echo -e ${BOLD}${YELLOW}Continue with installation? [y/N]:${RESET} )" -r < /dev/tty
+echo -e "${BOLD}${CYAN}╭──────────────────────────────────────────────────╮${RESET}"
+echo -e "${BOLD}${CYAN}│${RESET}  ${BOLD}${BLUE}🌟 Anna Assistant${RESET} ${GRAY}- Your Friendly Arch Admin${RESET}  ${BOLD}${CYAN}│${RESET}"
+echo -e "${BOLD}${CYAN}╰──────────────────────────────────────────────────╯${RESET}"
+echo
+
+# Quick confirmation
+echo -e "${YELLOW}${ARROW}${RESET} ${GRAY}Installing to ${INSTALL_DIR} (requires sudo)${RESET}"
+read -p "$(echo -e ${BOLD}Continue? [y/N]:${RESET} )" -r < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}${INFO} Installation cancelled by user${RESET}"
+    echo -e "${GRAY}Installation cancelled${RESET}"
     exit 0
 fi
 
-# Check and install dependencies
+# Check sudo
+command -v sudo >/dev/null 2>&1 || error_exit "sudo required"
+
+# Dependencies (silent install)
 echo -e "${CYAN}${ARROW}${RESET} Checking dependencies..."
-
 MISSING_DEPS=()
-
-if ! command -v curl >/dev/null 2>&1; then
-    MISSING_DEPS+=("curl")
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-    MISSING_DEPS+=("jq")
-fi
-
-if ! command -v tar >/dev/null 2>&1; then
-    MISSING_DEPS+=("tar")
-fi
+command -v curl >/dev/null 2>&1 || MISSING_DEPS+=("curl")
+command -v jq >/dev/null 2>&1 || MISSING_DEPS+=("jq")
+command -v tar >/dev/null 2>&1 || MISSING_DEPS+=("tar")
 
 if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
-    echo -e "${YELLOW}${WARN}${RESET} Missing dependencies: ${MISSING_DEPS[*]}"
-    echo -e "${CYAN}${ARROW}${RESET} Installing missing packages..."
-
-    if sudo pacman -Sy --noconfirm "${MISSING_DEPS[@]}" 2>/dev/null; then
-        echo -e "${GREEN}${CHECK}${RESET} Dependencies installed"
-    else
-        error_exit "Failed to install dependencies. Please install manually: sudo pacman -S ${MISSING_DEPS[*]}"
-    fi
-else
-    echo -e "${GREEN}${CHECK}${RESET} All dependencies satisfied"
+    sudo pacman -Sy --noconfirm "${MISSING_DEPS[@]}" >/dev/null 2>&1 || \
+        error_exit "Failed to install: ${MISSING_DEPS[*]}"
 fi
+echo -e "${GREEN}${CHECK}${RESET} Dependencies ready"
 
-# Detect architecture
+# Architecture check
 ARCH=$(uname -m)
-if [ "$ARCH" != "x86_64" ]; then
-    error_exit "Unsupported architecture: $ARCH (only x86_64 supported)"
-fi
+[ "$ARCH" = "x86_64" ] || error_exit "Only x86_64 supported"
 
-echo -e "${GREEN}${CHECK}${RESET} Architecture: ${ARCH}"
-
-# Fetch latest release info (including prereleases since we're in beta)
-echo -e "${CYAN}${ARROW}${RESET} Fetching latest release from GitHub..."
-# Get first release from list (sorted by date, includes prereleases)
+# Fetch release
+echo -e "${CYAN}${ARROW}${RESET} Fetching latest release..."
 RELEASE_JSON=$(curl -s "https://api.github.com/repos/${REPO}/releases" | jq '.[0]')
 TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+[ "$TAG" != "null" ] && [ -n "$TAG" ] || error_exit "No releases found"
+echo -e "${GREEN}${CHECK}${RESET} Found ${BOLD}${TAG}${RESET}"
 
-if [ "$TAG" = "null" ] || [ -z "$TAG" ]; then
-    error_exit "No releases found - check your internet connection"
-fi
-
-echo -e "${GREEN}${CHECK}${RESET} Found release: ${BOLD}${TAG}${RESET}"
-
-# Get asset URLs (prefer exact names, fallback to suffixed names)
+# Get download URLs
 ANNAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name != null and (.name == "annad" or (.name | startswith("annad-")))) | .browser_download_url' | head -1)
 ANNACTL_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name != null and (.name == "annactl" or (.name | startswith("annactl-")))) | .browser_download_url' | head -1)
+[ -n "$ANNAD_URL" ] && [ -n "$ANNACTL_URL" ] || error_exit "Release assets not found"
 
-if [ -z "$ANNAD_URL" ] || [ -z "$ANNACTL_URL" ]; then
-    error_exit "Release assets not found - build may still be in progress"
-fi
-
+# Download
 echo -e "${CYAN}${ARROW}${RESET} Downloading binaries..."
-
-# Create temp directory
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
-
-# Download annad
-curl -L -o "$TEMP_DIR/annad" "$ANNAD_URL" 2>/dev/null || error_exit "Failed to download annad"
-echo -e "${GREEN}${CHECK}${RESET} Downloaded annad"
-
-# Download annactl
-curl -L -o "$TEMP_DIR/annactl" "$ANNACTL_URL" 2>/dev/null || error_exit "Failed to download annactl"
-echo -e "${GREEN}${CHECK}${RESET} Downloaded annactl"
-
-# Verify binaries are executable
+curl -fsSL -o "$TEMP_DIR/annad" "$ANNAD_URL" || error_exit "Download failed"
+curl -fsSL -o "$TEMP_DIR/annactl" "$ANNACTL_URL" || error_exit "Download failed"
 chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
+echo -e "${GREEN}${CHECK}${RESET} Downloaded successfully"
 
-# Verify version matches (disable errexit temporarily for version checks)
-set +e
-ANNAD_VERSION=$("$TEMP_DIR/annad" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
-if [ -z "$ANNAD_VERSION" ]; then
-    ANNAD_VERSION="unknown"
-else
-    # Add v prefix if not present
-    if [[ ! "$ANNAD_VERSION" =~ ^v ]]; then
-        ANNAD_VERSION="v${ANNAD_VERSION}"
-    fi
-fi
-
-ANNACTL_VERSION=$("$TEMP_DIR/annactl" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
-if [ -z "$ANNACTL_VERSION" ]; then
-    ANNACTL_VERSION="unknown"
-else
-    # Add v prefix if not present
-    if [[ ! "$ANNACTL_VERSION" =~ ^v ]]; then
-        ANNACTL_VERSION="v${ANNACTL_VERSION}"
-    fi
-fi
-set -e
-
-if [ "$ANNAD_VERSION" != "$TAG" ]; then
-    echo -e "${YELLOW}${WARN} Version mismatch: annad reports ${ANNAD_VERSION}, expected ${TAG}${RESET}"
-fi
-
-if [ "$ANNACTL_VERSION" != "$TAG" ]; then
-    echo -e "${YELLOW}${WARN} Version mismatch: annactl reports ${ANNACTL_VERSION}, expected ${TAG}${RESET}"
-fi
-
-echo -e "${CYAN}${ARROW}${RESET} Stopping any running instances..."
-
-# Stop systemd service if exists
-sudo systemctl stop annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad service" || true
-
-# Kill any remaining processes
-sudo pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
+# Stop running instances
+echo -e "${CYAN}${ARROW}${RESET} Stopping running instances..."
+sudo systemctl stop annad 2>/dev/null || true
+sudo pkill -x annad 2>/dev/null || true
 sudo pkill -x annactl 2>/dev/null || true
-
-# Wait for processes to fully stop
 sleep 1
-
-echo -e "${CYAN}${ARROW}${RESET} Installing to ${INSTALL_DIR}..."
-
-# Create install directory if needed
-sudo mkdir -p "$INSTALL_DIR"
+echo -e "${GREEN}${CHECK}${RESET} Stopped"
 
 # Install binaries
+echo -e "${CYAN}${ARROW}${RESET} Installing to ${INSTALL_DIR}..."
+sudo mkdir -p "$INSTALL_DIR"
 sudo cp "$TEMP_DIR/annad" "$INSTALL_DIR/annad"
 sudo cp "$TEMP_DIR/annactl" "$INSTALL_DIR/annactl"
 sudo chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
-
 echo -e "${GREEN}${CHECK}${RESET} Binaries installed"
 
-# Install shell completions
+# Shell completions (silent)
 echo -e "${CYAN}${ARROW}${RESET} Installing shell completions..."
-
-COMPLETIONS_INSTALLED=0
-
-# Bash completions
+COMP_COUNT=0
 if [ -d "/usr/share/bash-completion/completions" ]; then
-    "$INSTALL_DIR/annactl" completions bash | sudo tee /usr/share/bash-completion/completions/annactl > /dev/null 2>&1 && \
-        echo -e "${GREEN}${CHECK}${RESET} Bash completions installed" && \
-        COMPLETIONS_INSTALLED=$((COMPLETIONS_INSTALLED + 1))
+    "$INSTALL_DIR/annactl" completions bash 2>/dev/null | sudo tee /usr/share/bash-completion/completions/annactl > /dev/null 2>&1 && COMP_COUNT=$((COMP_COUNT + 1))
 fi
-
-# Zsh completions
 if [ -d "/usr/share/zsh/site-functions" ]; then
-    "$INSTALL_DIR/annactl" completions zsh | sudo tee /usr/share/zsh/site-functions/_annactl > /dev/null 2>&1 && \
-        echo -e "${GREEN}${CHECK}${RESET} Zsh completions installed" && \
-        COMPLETIONS_INSTALLED=$((COMPLETIONS_INSTALLED + 1))
+    "$INSTALL_DIR/annactl" completions zsh 2>/dev/null | sudo tee /usr/share/zsh/site-functions/_annactl > /dev/null 2>&1 && COMP_COUNT=$((COMP_COUNT + 1))
 fi
-
-# Fish completions
 if [ -d "/usr/share/fish/vendor_completions.d" ]; then
-    "$INSTALL_DIR/annactl" completions fish | sudo tee /usr/share/fish/vendor_completions.d/annactl.fish > /dev/null 2>&1 && \
-        echo -e "${GREEN}${CHECK}${RESET} Fish completions installed" && \
-        COMPLETIONS_INSTALLED=$((COMPLETIONS_INSTALLED + 1))
+    "$INSTALL_DIR/annactl" completions fish 2>/dev/null | sudo tee /usr/share/fish/vendor_completions.d/annactl.fish > /dev/null 2>&1 && COMP_COUNT=$((COMP_COUNT + 1))
 fi
+echo -e "${GREEN}${CHECK}${RESET} Completions installed (${COMP_COUNT} shells)"
 
-if [ $COMPLETIONS_INSTALLED -eq 0 ]; then
-    echo -e "${YELLOW}${WARN}${RESET} Shell completion directories not found (non-standard shell setup)"
-fi
-
-# Install systemd service
+# Systemd service
 echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
-
-# Download service file from GitHub
-curl -L -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" 2>/dev/null || error_exit "Failed to download service file"
-
+curl -fsSL -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" || error_exit "Failed to download service"
 sudo cp "$TEMP_DIR/annad.service" /etc/systemd/system/annad.service
 sudo chmod 644 /etc/systemd/system/annad.service
-
 sudo systemctl daemon-reload
-echo -e "${GREEN}${CHECK}${RESET} Service file installed"
+echo -e "${GREEN}${CHECK}${RESET} Service installed"
 
-# Enable and start service
+# Enable and start
+echo -e "${CYAN}${ARROW}${RESET} Starting daemon..."
 if systemctl is-enabled --quiet annad 2>/dev/null; then
-    echo -e "${CYAN}${ARROW}${RESET} Restarting annad service..."
     sudo systemctl restart annad
-    echo -e "${GREEN}${CHECK}${RESET} Service restarted"
 else
-    echo -e "${CYAN}${ARROW}${RESET} Enabling and starting annad service..."
     sudo systemctl enable --now annad
-    echo -e "${GREEN}${CHECK}${RESET} Service enabled and started"
 fi
+echo -e "${GREEN}${CHECK}${RESET} Daemon running"
 
-# Verify installation
-if ! command -v annactl >/dev/null 2>&1; then
-    echo -e "${YELLOW}${WARN} annactl not in PATH - you may need to add ${INSTALL_DIR} to PATH${RESET}"
-fi
-
+# Compact success message
 echo
-
-# Helper function to repeat a character (handles UTF-8)
-repeat_char() {
-    local char="$1"
-    local count="$2"
-    local result=""
-    for ((i=0; i<count; i++)); do
-        result="${result}${char}"
-    done
-    echo -n "$result"
-}
-
-# Success message
+echo -e "${BOLD}${GREEN}╭──────────────────────────────────────────────────╮${RESET}"
+echo -e "${BOLD}${GREEN}│${RESET}      ${BOLD}${GREEN}✓ Installation Complete!${RESET} ${BOLD}${TAG}${RESET}           ${BOLD}${GREEN}│${RESET}"
+echo -e "${BOLD}${GREEN}╰──────────────────────────────────────────────────╯${RESET}"
 echo
-echo -e "${BOLD}${GREEN}========================================================${RESET}"
-echo -e "${BOLD}${GREEN}        Installation Complete! ${TAG}${RESET}"
-echo -e "${BOLD}${GREEN}========================================================${RESET}"
+echo -e "${BOLD}${CYAN}Quick Start:${RESET}"
+echo -e "  ${CYAN}annactl advise${RESET}  ${GRAY}# Get personalized recommendations${RESET}"
+echo -e "  ${CYAN}annactl status${RESET}  ${GRAY}# Check system health${RESET}"
+echo -e "  ${CYAN}annactl report${RESET}  ${GRAY}# Full system report${RESET}"
 echo
-echo -e "${BOLD}${CYAN}What Anna Can Do:${RESET}"
-echo
-echo -e "  ${BOLD}${BLUE}🔒 Security${RESET}"
-echo -e "    ${GRAY}${ARROW} CPU microcode updates (Spectre/Meltdown protection)${RESET}"
-echo -e "    ${GRAY}${ARROW} Missing security patches detection${RESET}"
-echo
-echo -e "  ${BOLD}${BLUE}⚡ Performance${RESET}"
-echo -e "    ${GRAY}${ARROW} Btrfs compression (20-30% space savings)${RESET}"
-echo -e "    ${GRAY}${ARROW} SSD TRIM optimization${RESET}"
-echo -e "    ${GRAY}${ARROW} pacman parallel downloads (5x faster)${RESET}"
-echo
-echo -e "  ${BOLD}${BLUE}💻 Development${RESET}"
-echo -e "    ${GRAY}${ARROW} Smart detection of active projects (Python, Rust, Go)${RESET}"
-echo -e "    ${GRAY}${ARROW} LSP servers for your actual workflow${RESET}"
-echo -e "    ${GRAY}${ARROW} Missing config detection (git, bat, starship, zoxide)${RESET}"
-echo
-echo -e "  ${BOLD}${BLUE}🎨 Beautification${RESET}"
-echo -e "    ${GRAY}${ARROW} Modern CLI tools (eza, bat, ripgrep, fd, fzf)${RESET}"
-echo -e "    ${GRAY}${ARROW} Shell enhancements (starship, zoxide)${RESET}"
-echo -e "    ${GRAY}${ARROW} Colorful terminal output${RESET}"
-echo
-echo -e "  ${BOLD}${BLUE}🧹 Maintenance${RESET}"
-echo -e "    ${GRAY}${ARROW} Orphaned packages cleanup${RESET}"
-echo -e "    ${GRAY}${ARROW} System update notifications${RESET}"
-echo -e "    ${GRAY}${ARROW} Failed systemd units monitoring${RESET}"
-echo -e "    ${GRAY}${ARROW} GPU driver recommendations${RESET}"
-echo
-echo -e "${BOLD}${YELLOW}🎉 What's New in ${TAG}:${RESET}"
-echo
-# Fetch release notes from GitHub using jq
-RELEASE_DATA=$(curl -sL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}" 2>/dev/null)
-RELEASE_NOTES=$(echo "$RELEASE_DATA" | jq -r '.body' 2>/dev/null)
-
-if [ -n "$RELEASE_NOTES" ] && [ "$RELEASE_NOTES" != "null" ]; then
-    # Parse and display the release notes with colors
-    echo "$RELEASE_NOTES" | while IFS= read -r line; do
-        # Headers with emoji
-        if echo "$line" | grep -q "^### "; then
-            echo -e "${BOLD}${CYAN}$line${RESET}"
-        # Bold sections
-        elif echo "$line" | grep -q "^\*\*"; then
-            echo -e "${BOLD}${GREEN}$line${RESET}"
-        # Bullet points
-        elif echo "$line" | grep -q "^- "; then
-            echo -e "  ${YELLOW}${ARROW}${RESET} ${GRAY}$line${RESET}" | sed 's/^- //'
-        # Regular text
-        else
-            echo -e "${GRAY}$line${RESET}"
-        fi
-    done | head -30
-    echo
-    echo -e "${GRAY}${ARROW} See full changelog: ${CYAN}https://github.com/${REPO}/releases/tag/${TAG}${RESET}"
-else
-    echo -e "${BOLD}${GREEN}🚀 Latest Features (Beta.43+):${RESET}"
-    echo
-    echo -e "  ${BOLD}${BLUE}Advanced Telemetry:${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}CPU microcode status detection${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Battery health monitoring for laptops${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Bluetooth device tracking${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}SSD TRIM status and optimization${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Swap/zram configuration analysis${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Backup system detection${RESET}"
-    echo
-    echo -e "  ${BOLD}${BLUE}Autonomous Maintenance (13 tasks):${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Automatic orphan package cleanup${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Package cache management${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Journal log rotation${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Security updates (Tier 3)${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Config backups and more...${RESET}"
-    echo
-    echo -e "  ${BOLD}${BLUE}Arch Wiki Integration:${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Offline cache of 40+ common wiki pages${RESET}"
-    echo -e "    ${YELLOW}${ARROW}${RESET} ${GRAY}Smart recommendations with wiki citations${RESET}"
-fi
-echo
-echo -e "${BOLD}${CYAN}Get Started:${RESET}"
-echo -e "  ${CYAN}${ARROW}${RESET} annactl status      ${GRAY}# Check daemon status${RESET}"
-echo -e "  ${CYAN}${ARROW}${RESET} annactl advise      ${GRAY}# Get personalized recommendations${RESET}"
-echo -e "  ${CYAN}${ARROW}${RESET} annactl report      ${GRAY}# System health overview${RESET}"
+echo -e "${GRAY}${ARROW} Full docs: ${CYAN}https://github.com/${REPO}${RESET}"
 echo
