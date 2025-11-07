@@ -1164,240 +1164,324 @@ pub async fn report(category: Option<String>) -> Result<()> {
 pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
     use std::process::Command;
     use std::io::{self, Write};
+    use std::path::Path;
 
-    println!("{}", header("Anna System Doctor"));
     println!();
-    println!("{}", beautiful::status(Level::Info, "Running comprehensive system diagnostics..."));
+    println!("\x1b[1m╭──────────────────────╮\x1b[0m");
+    println!("\x1b[1m│  Anna Health Check   │\x1b[0m");
+    println!("\x1b[1m╰──────────────────────╯\x1b[0m");
     println!();
 
     let mut health_score = 100;
     let mut issues: Vec<(String, String, bool)> = Vec::new(); // (issue, fix_command, is_critical)
-    let mut warnings: Vec<String> = Vec::new();
+    let mut critical_issues: Vec<String> = Vec::new();
 
-    // ==================== PACKAGE SYSTEM ====================
-    println!("{}", section("📦 Package System"));
+    // ==================== BINARIES ====================
+    println!("{}", section("🔧 Binaries"));
 
-    // Check pacman functionality
-    if Command::new("pacman").arg("-V").output().is_err() {
-        println!("  {} Pacman not functioning", beautiful::status(Level::Error, "✗"));
-        issues.push(("Pacman not working".to_string(), "".to_string(), true));
-        health_score -= 20;
+    // Check annad binary
+    let annad_path = "/usr/local/bin/annad";
+    if Path::new(annad_path).exists() {
+        if let Ok(metadata) = std::fs::metadata(annad_path) {
+            let permissions = metadata.permissions();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if permissions.mode() & 0o111 != 0 {
+                    println!("  {} annad binary exists and is executable", beautiful::status(Level::Success, "✓"));
+                } else {
+                    println!("  {} annad binary exists but is not executable", beautiful::status(Level::Error, "✗"));
+                    issues.push((
+                        "annad binary not executable".to_string(),
+                        format!("sudo chmod +x {}", annad_path),
+                        true
+                    ));
+                    critical_issues.push("annad binary not executable".to_string());
+                    health_score -= 20;
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                println!("  {} annad binary exists", beautiful::status(Level::Success, "✓"));
+            }
+        }
     } else {
-        println!("  {} Pacman functional", beautiful::status(Level::Success, "✓"));
+        println!("  {} annad binary not found at {}", beautiful::status(Level::Error, "✗"), annad_path);
+        issues.push((
+            "annad binary missing".to_string(),
+            "Install Anna Assistant with 'annactl update --install'".to_string(),
+            true
+        ));
+        critical_issues.push("annad binary missing".to_string());
+        health_score -= 25;
     }
 
-    // Check for orphan packages
-    if let Ok(output) = Command::new("pacman").args(&["-Qdtq"]).output() {
-        let orphans = String::from_utf8_lossy(&output.stdout);
-        let orphan_count = orphans.lines().filter(|l| !l.is_empty()).count();
-        if orphan_count > 0 {
-            println!("  {} {} orphan packages found", beautiful::status(Level::Warning, "!"), orphan_count);
-            issues.push((
-                format!("{} orphan packages", orphan_count),
-                "pacman -Qdtq | sudo pacman -Rns -".to_string(),
-                false
-            ));
-            health_score -= (orphan_count.min(20)) as i32;
-        } else {
-            println!("  {} No orphan packages", beautiful::status(Level::Success, "✓"));
+    // Check annactl binary
+    let annactl_path = "/usr/local/bin/annactl";
+    if Path::new(annactl_path).exists() {
+        if let Ok(metadata) = std::fs::metadata(annactl_path) {
+            let permissions = metadata.permissions();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if permissions.mode() & 0o111 != 0 {
+                    println!("  {} annactl binary exists and is executable", beautiful::status(Level::Success, "✓"));
+                } else {
+                    println!("  {} annactl binary exists but is not executable", beautiful::status(Level::Error, "✗"));
+                    issues.push((
+                        "annactl binary not executable".to_string(),
+                        format!("sudo chmod +x {}", annactl_path),
+                        true
+                    ));
+                    critical_issues.push("annactl binary not executable".to_string());
+                    health_score -= 20;
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                println!("  {} annactl binary exists", beautiful::status(Level::Success, "✓"));
+            }
+        }
+    } else {
+        println!("  {} annactl binary not found at {}", beautiful::status(Level::Error, "✗"), annactl_path);
+        issues.push((
+            "annactl binary missing".to_string(),
+            "Install Anna Assistant with 'annactl update --install'".to_string(),
+            true
+        ));
+        critical_issues.push("annactl binary missing".to_string());
+        health_score -= 25;
+    }
+
+    println!();
+
+    // ==================== DEPENDENCIES ====================
+    println!("{}", section("📦 Dependencies"));
+
+    // Check curl
+    if Command::new("which").arg("curl").output().map(|o| o.status.success()).unwrap_or(false) {
+        println!("  {} curl installed", beautiful::status(Level::Success, "✓"));
+    } else {
+        println!("  {} curl not found", beautiful::status(Level::Error, "✗"));
+        issues.push((
+            "curl missing".to_string(),
+            "sudo pacman -S curl".to_string(),
+            false
+        ));
+        health_score -= 10;
+    }
+
+    // Check jq
+    if Command::new("which").arg("jq").output().map(|o| o.status.success()).unwrap_or(false) {
+        println!("  {} jq installed", beautiful::status(Level::Success, "✓"));
+    } else {
+        println!("  {} jq not found", beautiful::status(Level::Error, "✗"));
+        issues.push((
+            "jq missing".to_string(),
+            "sudo pacman -S jq".to_string(),
+            false
+        ));
+        health_score -= 10;
+    }
+
+    // Check systemctl
+    if Command::new("which").arg("systemctl").output().map(|o| o.status.success()).unwrap_or(false) {
+        println!("  {} systemctl available", beautiful::status(Level::Success, "✓"));
+    } else {
+        println!("  {} systemctl not found", beautiful::status(Level::Error, "✗"));
+        issues.push((
+            "systemctl missing".to_string(),
+            "systemd is required".to_string(),
+            true
+        ));
+        critical_issues.push("systemctl missing - systemd required".to_string());
+        health_score -= 20;
+    }
+
+    println!();
+
+    // ==================== DAEMON SERVICE ====================
+    println!("{}", section("🔌 Daemon Service"));
+
+    let service_file = "/etc/systemd/system/annad.service";
+    let service_exists = Path::new(service_file).exists();
+
+    if service_exists {
+        println!("  {} Service file exists", beautiful::status(Level::Success, "✓"));
+    } else {
+        println!("  {} Service file not found at {}", beautiful::status(Level::Error, "✗"), service_file);
+        issues.push((
+            "Service file missing".to_string(),
+            "Install Anna Assistant properly with 'annactl update --install'".to_string(),
+            true
+        ));
+        critical_issues.push("Service file missing".to_string());
+        health_score -= 20;
+    }
+
+    // Check if service is loaded
+    if service_exists {
+        if let Ok(output) = Command::new("systemctl").args(&["is-enabled", "annad"]).output() {
+            let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if status == "enabled" || status == "static" || status == "disabled" {
+                println!("  {} Service is loaded ({})", beautiful::status(Level::Success, "✓"), status);
+            } else {
+                println!("  {} Service not loaded properly", beautiful::status(Level::Warning, "!"));
+                health_score -= 5;
+            }
         }
     }
 
-    // Check package cache size
-    if let Ok(output) = Command::new("du").args(&["-sh", "/var/cache/pacman/pkg"]).output() {
-        let cache_info = String::from_utf8_lossy(&output.stdout);
-        if let Some(size_str) = cache_info.split_whitespace().next() {
-            println!("  {} Package cache: {}", beautiful::status(Level::Info, "ℹ"), size_str);
-            if size_str.ends_with("G") {
-                if let Ok(size) = size_str.trim_end_matches("G").parse::<f64>() {
-                    if size > 5.0 {
-                        warnings.push(format!("Package cache is {}GB (consider cleaning)", size));
-                        issues.push((
-                            format!("Large package cache ({}GB)", size),
-                            "sudo paccache -rk2".to_string(),
-                            false
-                        ));
-                        health_score -= 5;
-                    }
-                }
+    // Check service state
+    let mut service_running = false;
+    if service_exists {
+        if let Ok(output) = Command::new("systemctl").args(&["is-active", "annad"]).output() {
+            if output.status.success() {
+                println!("  {} Service is active", beautiful::status(Level::Success, "✓"));
+                service_running = true;
+            } else {
+                let state = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                println!("  {} Service is {} (not running)", beautiful::status(Level::Error, "✗"), state);
+                println!("     \x1b[90mFix: sudo systemctl start annad\x1b[0m");
+                issues.push((
+                    "Daemon not running".to_string(),
+                    "sudo systemctl start annad".to_string(),
+                    true
+                ));
+                critical_issues.push("Daemon not running".to_string());
+                health_score -= 25;
             }
         }
     }
 
     println!();
 
-    // ==================== DISK HEALTH ====================
-    println!("{}", section("💾 Disk Health"));
+    // ==================== SOCKET CONNECTIVITY ====================
+    println!("{}", section("🔗 Socket Connectivity"));
 
-    // Check disk space
-    if let Ok(output) = Command::new("df").args(&["-h", "/"]).output() {
-        let df_output = String::from_utf8_lossy(&output.stdout);
-        if let Some(line) = df_output.lines().nth(1) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 5 {
-                let used_percent = parts[4].trim_end_matches('%');
-                println!("  {} Root partition: {} used", beautiful::status(Level::Info, "ℹ"), parts[4]);
-                if let Ok(percent) = used_percent.parse::<u8>() {
-                    if percent > 90 {
-                        println!("  {} Disk critically full!", beautiful::status(Level::Error, "✗"));
+    let socket_path = "/run/anna/anna.sock";
+    let socket_exists = Path::new(socket_path).exists();
+
+    if socket_exists {
+        println!("  {} Socket file exists", beautiful::status(Level::Success, "✓"));
+
+        // Check socket permissions
+        if let Ok(metadata) = std::fs::metadata(socket_path) {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = metadata.permissions().mode();
+                // Socket should be readable/writable
+                if mode & 0o600 != 0 {
+                    println!("  {} Socket permissions correct", beautiful::status(Level::Success, "✓"));
+                } else {
+                    println!("  {} Socket permissions incorrect (mode: {:o})", beautiful::status(Level::Warning, "!"), mode);
+                    health_score -= 5;
+                }
+            }
+        }
+
+        // CRITICAL: Test actual RPC connection
+        println!("  {} Testing actual RPC connection...", beautiful::status(Level::Info, "ℹ"));
+        match RpcClient::connect().await {
+            Ok(mut client) => {
+                // Try to ping the daemon
+                match client.ping().await {
+                    Ok(_) => {
+                        println!("  {} RPC connection successful (ping OK)", beautiful::status(Level::Success, "✓"));
+                    }
+                    Err(e) => {
+                        println!("  {} RPC ping failed: {}", beautiful::status(Level::Error, "✗"), e);
+                        println!("     \x1b[90mSocket exists but daemon is not responding properly\x1b[0m");
                         issues.push((
-                            format!("Root partition {}% full", percent),
-                            "du -sh /* 2>/dev/null | sort -hr | head -20".to_string(),
+                            "Daemon not responding to RPC".to_string(),
+                            "sudo systemctl restart annad".to_string(),
                             true
                         ));
-                        health_score -= 15;
-                    } else if percent > 80 {
-                        warnings.push(format!("Root partition {}% full", percent));
-                        health_score -= 5;
+                        critical_issues.push("Daemon not responding".to_string());
+                        health_score -= 20;
                     }
                 }
             }
-        }
-    }
-
-    // Check SMART status
-    if let Ok(output) = Command::new("which").arg("smartctl").output() {
-        if output.status.success() {
-            println!("  {} SMART monitoring available", beautiful::status(Level::Success, "✓"));
+            Err(e) => {
+                println!("  {} Cannot connect to daemon: {}", beautiful::status(Level::Error, "✗"), e);
+                println!("     \x1b[90mThis usually means the daemon crashed or failed to start.\x1b[0m");
+                println!("     \x1b[90mCheck logs: journalctl -u annad -n 50\x1b[0m");
+                issues.push((
+                    "Cannot connect to daemon socket".to_string(),
+                    "journalctl -u annad -n 50".to_string(),
+                    true
+                ));
+                critical_issues.push("Socket not accessible".to_string());
+                health_score -= 25;
+            }
         }
     } else {
-        println!("  {} SMART monitoring not available (install smartmontools)", beautiful::status(Level::Warning, "!"));
-        warnings.push("Install smartmontools for disk health monitoring".to_string());
-    }
-
-    println!();
-
-    // ==================== SYSTEM SERVICES ====================
-    println!("{}", section("⚙️  System Services"));
-
-    // Check for failed services
-    if let Ok(output) = Command::new("systemctl").args(&["--failed", "--no-pager"]).output() {
-        let failed = String::from_utf8_lossy(&output.stdout);
-        let failed_count = failed.lines().filter(|l| l.contains("loaded") && l.contains("failed")).count();
-        if failed_count > 0 {
-            println!("  {} {} services failed", beautiful::status(Level::Error, "✗"), failed_count);
-            issues.push((
-                format!("{} failed services", failed_count),
-                "systemctl --failed".to_string(),
-                true
-            ));
-            health_score -= failed_count.min(20) as i32;
+        println!("  {} Socket file does not exist at {}", beautiful::status(Level::Error, "✗"), socket_path);
+        println!("  {} Cannot connect to daemon", beautiful::status(Level::Error, "✗"));
+        if service_running {
+            println!("     \x1b[90mService reports 'active' but socket is missing - daemon may have crashed\x1b[0m");
         } else {
-            println!("  {} No failed services", beautiful::status(Level::Success, "✓"));
+            println!("     \x1b[90mDaemon is not running\x1b[0m");
         }
-    }
-
-    // Check Anna daemon
-    if let Ok(output) = Command::new("systemctl").args(&["is-active", "annad"]).output() {
-        if output.status.success() {
-            println!("  {} Anna daemon running", beautiful::status(Level::Success, "✓"));
-        } else {
-            println!("  {} Anna daemon not running", beautiful::status(Level::Warning, "!"));
-            issues.push((
-                "Anna daemon not running".to_string(),
-                "sudo systemctl start annad".to_string(),
-                false
-            ));
-            health_score -= 10;
-        }
-    }
-
-    println!();
-
-    // ==================== NETWORK ====================
-    println!("{}", section("🌐 Network"));
-
-    // Check internet connectivity
-    if let Ok(output) = Command::new("ping").args(&["-c", "1", "-W", "2", "8.8.8.8"]).output() {
-        if output.status.success() {
-            println!("  {} Internet connectivity", beautiful::status(Level::Success, "✓"));
-        } else {
-            println!("  {} No internet connection", beautiful::status(Level::Error, "✗"));
-            issues.push((
-                "No internet connectivity".to_string(),
-                "".to_string(),
-                true
-            ));
-            health_score -= 15;
-        }
-    }
-
-    // Check DNS resolution
-    if let Ok(output) = Command::new("ping").args(&["-c", "1", "-W", "2", "archlinux.org"]).output() {
-        if output.status.success() {
-            println!("  {} DNS resolution working", beautiful::status(Level::Success, "✓"));
-        } else {
-            println!("  {} DNS resolution failed", beautiful::status(Level::Warning, "!"));
-            warnings.push("DNS resolution issues detected".to_string());
-            health_score -= 5;
-        }
-    }
-
-    println!();
-
-    // ==================== SECURITY ====================
-    println!("{}", section("🔒 Security"));
-
-    // Check if running as root (bad practice)
-    if let Ok(output) = Command::new("whoami").output() {
-        let user = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if user == "root" {
-            println!("  {} Running as root (not recommended)", beautiful::status(Level::Warning, "!"));
-            warnings.push("Avoid running as root user".to_string());
-            health_score -= 5;
-        } else {
-            println!("  {} Running as non-root user", beautiful::status(Level::Success, "✓"));
-        }
-    }
-
-    // Check firewall status
-    if let Ok(output) = Command::new("systemctl").args(&["is-active", "ufw"]).output() {
-        if output.status.success() {
-            println!("  {} Firewall active (ufw)", beautiful::status(Level::Success, "✓"));
-        } else if let Ok(output2) = Command::new("systemctl").args(&["is-active", "firewalld"]).output() {
-            if output2.status.success() {
-                println!("  {} Firewall active (firewalld)", beautiful::status(Level::Success, "✓"));
+        println!("     \x1b[90mCheck logs: journalctl -u annad -n 50\x1b[0m");
+        issues.push((
+            "Socket file missing".to_string(),
+            if service_running {
+                "sudo systemctl restart annad".to_string()
             } else {
-                println!("  {} No firewall detected", beautiful::status(Level::Warning, "!"));
-                warnings.push("Consider enabling a firewall (ufw or firewalld)".to_string());
-                health_score -= 10;
+                "sudo systemctl start annad".to_string()
+            },
+            true
+        ));
+        critical_issues.push("Socket not accessible".to_string());
+        health_score -= 25;
+    }
+
+    println!();
+
+    // ==================== DIRECTORIES ====================
+    println!("{}", section("📁 Directories"));
+
+    // Check /run/anna/
+    let run_dir = "/run/anna";
+    if Path::new(run_dir).exists() {
+        // Try to write a test file
+        let test_file = format!("{}/test.tmp", run_dir);
+        match std::fs::write(&test_file, "test") {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&test_file);
+                println!("  {} {} exists and is writable", beautiful::status(Level::Success, "✓"), run_dir);
             }
+            Err(_) => {
+                println!("  {} {} exists but is not writable", beautiful::status(Level::Warning, "!"), run_dir);
+                health_score -= 5;
+            }
+        }
+    } else {
+        println!("  {} {} does not exist", beautiful::status(Level::Error, "✗"), run_dir);
+        issues.push((
+            format!("{} directory missing", run_dir),
+            format!("sudo mkdir -p {} && sudo chown root:root {}", run_dir, run_dir),
+            true
+        ));
+        critical_issues.push(format!("{} directory missing", run_dir));
+        health_score -= 15;
+    }
+
+    // Check config directory
+    if let Ok(home) = std::env::var("HOME") {
+        let config_dir = format!("{}/.config/anna", home);
+        if Path::new(&config_dir).exists() {
+            println!("  {} Config directory exists", beautiful::status(Level::Success, "✓"));
         } else {
-            println!("  {} No firewall detected", beautiful::status(Level::Warning, "!"));
-            warnings.push("Consider enabling a firewall".to_string());
-            health_score -= 10;
+            println!("  {} Config directory will be created on first use", beautiful::status(Level::Info, "ℹ"));
         }
     }
 
     println!();
 
-    // ==================== PERFORMANCE ====================
-    println!("{}", section("⚡ Performance"));
-
-    // Check journal size
-    if let Ok(output) = Command::new("journalctl").args(&["--disk-usage"]).output() {
-        let journal_info = String::from_utf8_lossy(&output.stdout);
-        println!("  {} {}", beautiful::status(Level::Info, "ℹ"), journal_info.trim());
-        if journal_info.contains("GB") {
-            if let Some(size_part) = journal_info.split_whitespace().find(|s| s.ends_with("GB")) {
-                if let Ok(size) = size_part.trim_end_matches("GB").parse::<f64>() {
-                    if size > 1.0 {
-                        warnings.push(format!("Journal size is {}GB", size));
-                        issues.push((
-                            format!("Large journal ({}GB)", size),
-                            "sudo journalctl --vacuum-size=500M".to_string(),
-                            false
-                        ));
-                        health_score -= 5;
-                    }
-                }
-            }
-        }
-    }
-
-    println!();
-
-    // ==================== SUMMARY ====================
+    // ==================== HEALTH SCORE ====================
     let health_color = if health_score >= 90 {
         "\x1b[92m" // Green
     } else if health_score >= 70 {
@@ -1410,36 +1494,41 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
     println!("  {}{}/100\x1b[0m", health_color, health_score);
     println!();
 
+    // ==================== CRITICAL ISSUES ====================
+    if !critical_issues.is_empty() {
+        println!("⚠️  \x1b[1mCritical Issues:\x1b[0m");
+        for issue in &critical_issues {
+            println!("  \x1b[91m•\x1b[0m {}", issue);
+        }
+        println!();
+    }
+
+    // ==================== ALL ISSUES ====================
     if !issues.is_empty() {
-        println!("{}", section("🔧 Issues Found"));
-        for (i, (issue, fix_cmd, is_critical)) in issues.iter().enumerate() {
-            let level = if *is_critical { Level::Error } else { Level::Warning };
-            println!("  {} {}", beautiful::status(level, &format!("{}.", i + 1)), issue);
+        println!("\x1b[1mIssues Found:\x1b[0m");
+        for (_i, (issue, fix_cmd, is_critical)) in issues.iter().enumerate() {
+            let symbol = if *is_critical { "\x1b[91m✗\x1b[0m" } else { "\x1b[93m!\x1b[0m" };
+            println!("  {} {}", symbol, issue);
             if !fix_cmd.is_empty() {
                 println!("     \x1b[90mFix: {}\x1b[0m", fix_cmd);
             }
         }
         println!();
-
-        println!("{}", beautiful::status(Level::Info, "Run 'annactl advise' to see detailed recommendations"));
     }
 
-    if !warnings.is_empty() {
-        println!("{}", section("⚠️  Warnings"));
-        for warning in warnings {
-            println!("  • {}", warning);
-        }
-        println!();
-    }
-
+    // ==================== FINAL MESSAGE ====================
     if health_score == 100 {
-        println!("{}", beautiful::status(Level::Success, "✨ System is in excellent health!"));
-    } else if health_score >= 90 {
-        println!("{}", beautiful::status(Level::Success, "System health is good"));
-    } else if health_score >= 70 {
-        println!("{}", beautiful::status(Level::Warning, "System has minor issues"));
+        println!("{}", beautiful::status(Level::Success, "Anna Assistant is healthy and ready!"));
+    } else if health_score >= 80 {
+        println!("{}", beautiful::status(Level::Success, "Anna Assistant is mostly healthy"));
+        if !issues.is_empty() {
+            println!();
+            println!("Run with \x1b[36m--fix\x1b[0m to attempt automatic fixes.");
+        }
     } else {
-        println!("{}", beautiful::status(Level::Error, "System needs attention!"));
+        println!("{}", beautiful::status(Level::Error, "Anna Assistant needs attention!"));
+        println!();
+        println!("Run with \x1b[36m--fix\x1b[0m to attempt automatic fixes.");
     }
 
     // ==================== AUTO-FIX ====================
@@ -1447,13 +1536,13 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
         println!();
         println!("{}", section("🔧 Auto-Fix"));
 
-        // Filter to fixable issues (ones with fix commands)
         let fixable_issues: Vec<_> = issues.iter()
-            .filter(|(_, cmd, _)| !cmd.is_empty())
+            .filter(|(_, cmd, _)| !cmd.is_empty() && !cmd.starts_with("Install") && !cmd.starts_with("journalctl"))
             .collect();
 
         if fixable_issues.is_empty() {
             println!("{}", beautiful::status(Level::Info, "No auto-fixable issues found"));
+            println!("Manual intervention required for the issues listed above.");
             return Ok(());
         }
 
@@ -1476,7 +1565,6 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
         for (i, (issue, fix_cmd, _is_critical)) in fixable_issues.iter().enumerate() {
             println!("  [{}] {}", i + 1, issue);
 
-            // Ask for confirmation unless --auto flag is set
             let should_fix = if auto {
                 true
             } else {
@@ -1496,24 +1584,10 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
 
             println!("  \x1b[36m→ {}\x1b[0m", fix_cmd);
 
-            // Execute the fix command
-            let fix_result = if fix_cmd.contains("|") {
-                // Handle piped commands
-                Command::new("sh")
-                    .arg("-c")
-                    .arg(fix_cmd)
-                    .output()
-            } else {
-                // Handle simple commands
-                let parts: Vec<&str> = fix_cmd.split_whitespace().collect();
-                if parts.is_empty() {
-                    continue;
-                }
-
-                Command::new(parts[0])
-                    .args(&parts[1..])
-                    .output()
-            };
+            let fix_result = Command::new("sh")
+                .arg("-c")
+                .arg(fix_cmd)
+                .output();
 
             match fix_result {
                 Ok(output) if output.status.success() => {
@@ -1536,7 +1610,6 @@ pub async fn doctor(fix: bool, dry_run: bool, auto: bool) -> Result<()> {
             println!();
         }
 
-        // Summary
         println!("{}", section("📊 Fix Summary"));
         if fixed_count > 0 {
             println!("  {} {} issues fixed", beautiful::status(Level::Success, "✓"), fixed_count);
