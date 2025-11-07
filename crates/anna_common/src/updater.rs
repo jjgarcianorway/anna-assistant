@@ -301,13 +301,17 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
     // Backup current binaries
     backup_current_binaries()?;
 
-    // Stop daemon (will be restarted by systemd)
+    // CRITICAL: Mask service FIRST to prevent systemd from restarting it
+    info!("Masking daemon to prevent auto-restart...");
+    execute_privileged("systemctl", &["mask", "annad"])?;
+
+    // Stop daemon
     info!("Stopping daemon for update...");
     execute_privileged("systemctl", &["stop", "annad"])?;
 
     // Wait for daemon to fully stop and kernel to release file handles
     info!("Waiting for daemon to stop completely...");
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    std::thread::sleep(std::time::Duration::from_secs(3));
 
     // Verify daemon is stopped
     for attempt in 1..=5 {
@@ -348,8 +352,9 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
         anyhow::bail!("Failed to install annactl binary");
     }
 
-    // Restart daemon
-    info!("Restarting daemon...");
+    // Unmask and restart daemon
+    info!("Unmasking and restarting daemon...");
+    let _ = execute_privileged("systemctl", &["unmask", "annad"]);
     let _ = execute_privileged("systemctl", &["start", "annad"]);
 
     // Clean up temp files
