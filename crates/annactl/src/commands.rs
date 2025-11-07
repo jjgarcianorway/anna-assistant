@@ -84,6 +84,32 @@ pub async fn status() -> Result<()> {
         println!("  {}", kv("Uptime", &format!("{}s", status.uptime_seconds)));
         println!();
 
+        // Show health score (merged from health command)
+        let advice_data_for_health = client.call(Method::GetAdvice).await?;
+        let facts_data_for_health = client.call(Method::GetFacts).await?;
+
+        if let (ResponseData::Facts(facts), ResponseData::Advice(mut advice_list_health)) = (facts_data_for_health, advice_data_for_health) {
+            // Apply filters before calculating health
+            if let Ok(filters) = anna_common::IgnoreFilters::load() {
+                advice_list_health.retain(|a| !filters.should_filter(a));
+            }
+
+            let score = anna_common::SystemHealthScore::calculate(&facts, &advice_list_health);
+            let color = score.get_color_code();
+            let grade = score.get_grade();
+
+            println!("{}", section("Health"));
+            println!("  Score: {}{}/100 ({}){}\x1b[0m", color, score.overall_score, grade, color);
+
+            let trend_icon = match score.health_trend {
+                anna_common::HealthTrend::Improving => "\x1b[92m↗\x1b[0m",
+                anna_common::HealthTrend::Stable => "\x1b[93m→\x1b[0m",
+                anna_common::HealthTrend::Declining => "\x1b[91m↘\x1b[0m",
+            };
+            println!("  Trend: {}", trend_icon);
+            println!();
+        }
+
         if status.pending_recommendations > 0 {
             // Get advice list to show category breakdown
             let advice_data = client.call(Method::GetAdvice).await?;
