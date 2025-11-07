@@ -83,6 +83,7 @@ mod intelligent_recommender;
 mod smart_recommender;
 mod bundles; // Beta.94: Window manager bundles
 mod resource_classifier; // Beta.102: Resource-aware recommendations
+mod system_detection; // RC.9.6: Intelligent system profiling for adaptive Hyprland
 mod hyprland_config;
 mod i3_config;
 mod sway_config;
