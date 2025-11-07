@@ -3497,8 +3497,15 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
                 println!("{}", section("📦 Release Information"));
                 println!("  {}", kv("Current", &current_version));
                 println!("  {}", kv("Latest", &latest_version));
-                if let Some(ref url) = release_notes {
-                    println!("  {}", kv("Release Notes", url));
+                println!();
+
+                // FETCH AND DISPLAY actual release notes, not just URL
+                println!("{}", section("📝 What's New in This Release"));
+                if let Ok(notes) = fetch_release_notes(&latest_version).await {
+                    display_release_notes(&notes);
+                } else if let Some(ref url) = release_notes {
+                    // Fallback: show URL if fetching failed
+                    println!("  \x1b[38;5;159mRelease notes: {}\x1b[0m", url);
                 }
                 println!();
             }
