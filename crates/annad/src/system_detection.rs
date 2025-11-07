@@ -426,6 +426,54 @@ fn is_installed(command: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Simple performance score calculation for telemetry integration
+/// Called during SystemFacts collection (once)
+pub fn calculate_performance_score(
+    ram_gb: u64,
+    cpu_cores: usize,
+    is_nvidia: bool,
+    is_amd: bool,
+    is_intel: bool,
+) -> u32 {
+    let gpu_vendor = if is_nvidia {
+        GpuVendor::Nvidia
+    } else if is_amd {
+        GpuVendor::Amd
+    } else if is_intel {
+        GpuVendor::Intel
+    } else {
+        GpuVendor::Unknown
+    };
+
+    calculate_score(ram_gb, &gpu_vendor, cpu_cores)
+}
+
+/// Determine resource tier as string for telemetry
+pub fn determine_resource_tier_string(
+    ram_gb: u64,
+    cpu_cores: usize,
+    is_nvidia: bool,
+    is_amd: bool,
+    is_intel: bool,
+) -> String {
+    let gpu_vendor = if is_nvidia {
+        GpuVendor::Nvidia
+    } else if is_amd {
+        GpuVendor::Amd
+    } else if is_intel {
+        GpuVendor::Intel
+    } else {
+        GpuVendor::Unknown
+    };
+
+    let tier = determine_tier(ram_gb, &gpu_vendor, cpu_cores);
+    match tier {
+        ResourceTier::Efficient => "Efficient".to_string(),
+        ResourceTier::Balanced => "Balanced".to_string(),
+        ResourceTier::Performance => "Performance".to_string(),
+    }
+}
+
 /// Calculate system capability score (0-100)
 ///
 /// Score determines which recommendations are appropriate:

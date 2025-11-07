@@ -298,6 +298,12 @@ pub struct SystemFacts {
     #[serde(default)]
     pub nvidia_cuda_support: bool, // Whether NVIDIA CUDA is available
 
+    // Performance Score (RC.9.7+) - "Potato computer, potato tools"
+    #[serde(default)]
+    pub performance_score: u32, // 0-100: system capability score for resource-aware recommendations
+    #[serde(default)]
+    pub resource_tier: String, // "Efficient", "Balanced", or "Performance"
+
     // User Behavior (learned from system)
     pub frequently_used_commands: Vec<CommandUsage>,
     pub dev_tools_detected: Vec<String>, // git, docker, vim, etc.

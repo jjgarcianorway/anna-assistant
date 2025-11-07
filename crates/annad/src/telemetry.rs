@@ -82,6 +82,26 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         vulkan_support: check_vulkan_support(),
         nvidia_cuda_support: check_nvidia_cuda_support(),
 
+        // Performance Score (RC.9.8+) - integrated into telemetry
+        performance_score: {
+            let score = crate::system_detection::calculate_performance_score(
+                total_memory_gb as u64,
+                cpu_cores,
+                detect_nvidia(),
+                detect_amd_gpu(),
+                detect_intel_gpu(),
+            );
+            info!("System performance score: {}/100", score);
+            score
+        },
+        resource_tier: crate::system_detection::determine_resource_tier_string(
+            total_memory_gb as u64,
+            cpu_cores,
+            detect_nvidia(),
+            detect_amd_gpu(),
+            detect_intel_gpu(),
+        ),
+
         // User Behavior (basic for now)
         frequently_used_commands: analyze_command_history().await,
         dev_tools_detected: detect_dev_tools(),

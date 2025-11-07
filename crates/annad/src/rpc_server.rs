@@ -199,17 +199,15 @@ fn is_resource_intensive_advice(advice: &Advice) -> bool {
 /// Problem: Showing 272 random recommendations is overwhelming and useless
 /// Solution: Only show advice for software the user ACTUALLY has/uses
 ///
-/// RC.9.7: Now uses system score for resource-aware filtering:
+/// RC.9.8: Now uses system score from telemetry for resource-aware filtering:
 /// - Potato computers (score 0-30): Only essential, lightweight recommendations
 /// - Mid-range (score 31-65): Moderate recommendations
 /// - High-end (score 66-100): All recommendations including resource-intensive
 fn filter_by_relevance(advice: Vec<Advice>, facts: &SystemFacts) -> Vec<Advice> {
     use anna_common::Priority;
-    use crate::system_detection::SystemProfile;
 
-    // Load system profile for resource-aware filtering
-    let profile = SystemProfile::load_or_detect();
-    let score = profile.score;
+    // Use performance score from telemetry (calculated once during system scan)
+    let score = facts.performance_score;
 
     advice.into_iter()
         .filter(|item| {
