@@ -29,48 +29,83 @@ error_exit() {
     exit 1
 }
 
-# Compact header
+# Header
 echo
 echo -e "${BOLD}${CYAN}╭──────────────────────────────────────────────────╮${RESET}"
 echo -e "${BOLD}${CYAN}│${RESET}  ${BOLD}${BLUE}🌟 Anna Assistant${RESET} ${GRAY}- Your Friendly Arch Admin${RESET}  ${BOLD}${CYAN}│${RESET}"
 echo -e "${BOLD}${CYAN}╰──────────────────────────────────────────────────╯${RESET}"
 echo
 
-# Quick confirmation
-echo -e "${YELLOW}${ARROW}${RESET} ${GRAY}Installing to ${INSTALL_DIR} (requires sudo)${RESET}"
-read -p "$(echo -e ${BOLD}Continue? [y/N]:${RESET} )" -r < /dev/tty
+# Brief intro
+echo -e "${GRAY}Anna monitors your Arch Linux system and provides personalized${RESET}"
+echo -e "${GRAY}recommendations for security, performance, and configuration.${RESET}"
+echo
+
+# Check if already installed
+CURRENT_VERSION=""
+if command -v annad >/dev/null 2>&1; then
+    CURRENT_VERSION=$(annad --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "")
+fi
+
+# Check sudo early
+command -v sudo >/dev/null 2>&1 || error_exit "sudo required"
+
+# Check dependencies for fetching release info
+MISSING_DEPS=()
+command -v curl >/dev/null 2>&1 || MISSING_DEPS+=("curl")
+command -v jq >/dev/null 2>&1 || MISSING_DEPS+=("jq")
+
+if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
+    echo -e "${YELLOW}${ARROW}${RESET} Installing required tools: ${MISSING_DEPS[*]}"
+    sudo pacman -Sy --noconfirm "${MISSING_DEPS[@]}" >/dev/null 2>&1 || \
+        error_exit "Failed to install: ${MISSING_DEPS[*]}"
+    echo -e "${GREEN}${CHECK}${RESET} Tools installed"
+    echo
+fi
+
+# Fetch latest release
+echo -e "${CYAN}${ARROW}${RESET} Checking latest version..."
+RELEASE_JSON=$(curl -s "https://api.github.com/repos/${REPO}/releases" | jq '.[0]')
+TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+[ "$TAG" != "null" ] && [ -n "$TAG" ] || error_exit "No releases found"
+NEW_VERSION=$(echo "$TAG" | sed 's/^v//')
+echo -e "${GREEN}${CHECK}${RESET} Latest version: ${BOLD}${TAG}${RESET}"
+echo
+
+# Show installation plan
+if [ -n "$CURRENT_VERSION" ]; then
+    echo -e "${BOLD}${YELLOW}Update Plan:${RESET}"
+    echo -e "  Current version: ${CYAN}v${CURRENT_VERSION}${RESET}"
+    echo -e "  New version:     ${GREEN}${TAG}${RESET}"
+
+    if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
+        echo
+        echo -e "${YELLOW}${ARROW}${RESET} ${GRAY}Already on latest version, will reinstall${RESET}"
+    fi
+else
+    echo -e "${BOLD}${GREEN}Installation Plan:${RESET}"
+    echo -e "  Version: ${GREEN}${TAG}${RESET}"
+fi
+
+echo
+echo -e "${BOLD}What will be done:${RESET}"
+echo -e "  ${ARROW} Install ${CYAN}annad${RESET} and ${CYAN}annactl${RESET} to ${INSTALL_DIR}"
+echo -e "  ${ARROW} Install systemd service (${CYAN}annad.service${RESET})"
+echo -e "  ${ARROW} Enable and start the daemon"
+echo -e "  ${ARROW} Install shell completions (bash/zsh/fish)"
+echo
+
+# Confirmation
+read -p "$(echo -e ${BOLD}${GREEN}Continue with installation? [y/N]:${RESET} )" -r < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${GRAY}Installation cancelled${RESET}"
     exit 0
 fi
 
-# Check sudo
-command -v sudo >/dev/null 2>&1 || error_exit "sudo required"
-
-# Dependencies (silent install)
-echo -e "${CYAN}${ARROW}${RESET} Checking dependencies..."
-MISSING_DEPS=()
-command -v curl >/dev/null 2>&1 || MISSING_DEPS+=("curl")
-command -v jq >/dev/null 2>&1 || MISSING_DEPS+=("jq")
-command -v tar >/dev/null 2>&1 || MISSING_DEPS+=("tar")
-
-if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
-    sudo pacman -Sy --noconfirm "${MISSING_DEPS[@]}" >/dev/null 2>&1 || \
-        error_exit "Failed to install: ${MISSING_DEPS[*]}"
-fi
-echo -e "${GREEN}${CHECK}${RESET} Dependencies ready"
-
 # Architecture check
 ARCH=$(uname -m)
 [ "$ARCH" = "x86_64" ] || error_exit "Only x86_64 supported"
-
-# Fetch release
-echo -e "${CYAN}${ARROW}${RESET} Fetching latest release..."
-RELEASE_JSON=$(curl -s "https://api.github.com/repos/${REPO}/releases" | jq '.[0]')
-TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
-[ "$TAG" != "null" ] && [ -n "$TAG" ] || error_exit "No releases found"
-echo -e "${GREEN}${CHECK}${RESET} Found ${BOLD}${TAG}${RESET}"
 
 # Get download URLs
 ANNAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name != null and (.name == "annad" or (.name | startswith("annad-")))) | .browser_download_url' | head -1)
@@ -133,7 +168,7 @@ else
 fi
 echo -e "${GREEN}${CHECK}${RESET} Daemon running"
 
-# Compact success message
+# Success message
 echo
 echo -e "${BOLD}${GREEN}╭──────────────────────────────────────────────────╮${RESET}"
 echo -e "${BOLD}${GREEN}│${RESET}      ${BOLD}${GREEN}✓ Installation Complete!${RESET} ${BOLD}${TAG}${RESET}           ${BOLD}${GREEN}│${RESET}"
