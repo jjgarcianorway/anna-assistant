@@ -4,11 +4,31 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** Beta.102 (November 2025)
+**Current Version:** 1.0.0-rc.1 (Release Candidate - November 2025)
+
+> **📢 RC Status:** Anna is in Release Candidate phase. Features are frozen, focus is on stability and testing. See `TESTING.md` for testing checklist. TUI temporarily disabled for 1.0 release.
 
 ---
 
-## 🎯 What's New in Beta.93-102
+## 🎯 What's New in 1.0.0-rc.1
+
+### Release Candidate Phase
+- **Feature Freeze:** No new features until 1.0 stable
+- **TUI Disabled:** Temporarily removed for stability (returns in 2.0)
+- **Testing Focus:** All CLI commands must work reliably
+- **See:** `TESTING.md` for complete testing checklist
+- **See:** `ROADMAP.md` for 1.0/2.0 strategy
+
+### Recent Improvements (Beta.110-114)
+- **Beta.110:** Immediate command feedback
+- **Beta.111:** Multi-step bundles with configuration management
+- **Beta.112:** Hardware-aware bundles (laptop vs desktop)
+- **Beta.113:** Complete application suite & beautiful theming (Pywal integration)
+- **Beta.114:** Screen sharing support for Teams/Zoom (pipewire + xdg-desktop-portal)
+
+---
+
+## 🎯 What Was New in Beta.93-102
 
 **🚀 MASSIVE UPDATE: 10 Versions in One Session!**
 

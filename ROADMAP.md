@@ -4,7 +4,48 @@ This document tracks requested features and improvements from user feedback.
 
 ---
 
-## ✅ COMPLETED (Beta.61-74)
+## 🎯 RELEASE STRATEGY: 1.0 Stability → 2.0 Innovation
+
+**Current Status:** Release Candidate Phase (1.0.0-rc.1)
+
+### Philosophy
+
+**1.0 Branch:** Stability First
+- ✅ Feature freeze - no new features
+- ✅ Focus on testing and bug fixes
+- ✅ TUI temporarily disabled
+- ✅ All CLI commands must work reliably
+- ✅ RC releases until stable (rc.1 → rc.2 → ... → 1.0.0)
+
+**2.0 Branch:** Innovation & Better UX
+- Better command verbs and interface
+- Enhanced TUI with improved UX
+- More intelligent recommendations
+- Advanced bundle management
+- Better configuration intelligence
+
+### Why This Approach?
+
+1. **Solid Foundation:** Get 1.0 stable with everything working
+2. **User Trust:** Reliable 1.0 builds confidence
+3. **Freedom to Innovate:** 2.0 can break compatibility for better UX
+4. **Iterative Improvement:** RC process finds and fixes issues
+
+### Testing Plan
+
+See `TESTING.md` for complete testing checklist.
+
+**Release Criteria for 1.0:**
+- [ ] All core CLI commands work
+- [ ] Daemon reliable and stable
+- [ ] Intelligence systems detect correctly
+- [ ] No critical bugs
+- [ ] Installation tested on fresh Arch
+- [ ] Update path tested from Beta.114
+
+---
+
+## ✅ COMPLETED (Beta.61-114)
 
 ### Show Command Output When Applying
 **Status:** ✅ COMPLETED (Beta.60)

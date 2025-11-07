@@ -1,124 +1,103 @@
-# Anna Assistant - Testing Guide
+# Anna Assistant 1.0 - Testing Checklist
 
-## Testing IPC Communication
+This document tracks testing requirements before releasing 1.0 stable.
 
-The Unix socket IPC system allows `annactl` to communicate with the `annad` daemon.
+## Testing Strategy
 
-### Prerequisites
+**Goal:** Ensure all CLI commands work correctly and reliably.
+**Scope:** Focus on `annactl` command-line interface only (TUI disabled for 1.0).
+**Release Candidate Process:** Fix bugs → rc.2 → test → fix → rc.3 → repeat until stable.
 
-1. Build the latest binaries:
-   ```bash
-   cargo build --release
-   ```
+---
 
-2. Install the binaries (requires sudo):
-   ```bash
-   sudo cp target/release/annad /usr/local/bin/annad
-   sudo cp target/release/annactl /usr/local/bin/annactl
-   ```
+## Core Command Testing
 
-### Test Scenarios
+### System Information
+- [ ] `annactl status` - Shows daemon status, version, uptime
+- [ ] `annactl health` - Reports system health metrics
+- [ ] `annactl doctor` - Detects and reports common issues
+- [ ] `annactl doctor --fix` - Attempts to fix detected issues
+- [ ] `annactl doctor --dry-run` - Shows what would be fixed without doing it
 
-#### 1. Test without daemon running
+### Advice Management
+- [ ] `annactl advise` - Lists all recommendations
+- [ ] `annactl advise --category <cat>` - Filters by category
+- [ ] `annactl advise --priority <pri>` - Filters by priority
+- [ ] `annactl apply <number>` - Applies single advice by number
+- [ ] `annactl apply <id>` - Applies single advice by ID
+- [ ] `annactl apply <number> --dry-run` - Shows what would be executed
+- [ ] `annactl apply-all` - Applies all Critical advice
+- [ ] `annactl apply-all --priority Recommended` - Applies all Recommended
+- [ ] `annactl apply-bundle <name>` - Applies complete bundle
 
-```bash
-annactl status
-```
+### Filtering & Ignoring
+- [ ] `annactl ignore list` - Shows current filters
+- [ ] `annactl ignore category <name>` - Hides category
+- [ ] `annactl ignore priority <level>` - Hides priority
+- [ ] `annactl ignore unignore category <name>` - Removes category filter
+- [ ] `annactl ignore unignore priority <level>` - Removes priority filter
+- [ ] `annactl ignore reset` - Clears all filters
 
-**Expected**: Error message saying "Daemon not running" with instructions to start it.
+### Dismissal System
+- [ ] `annactl dismiss <number>` - Dismisses advice by number
+- [ ] `annactl dismissed` - Lists dismissed advice
+- [ ] `annactl dismissed --undismiss` - Undismisses all
 
-#### 2. Start the daemon manually
+### History & Auditing
+- [ ] `annactl history` - Shows recent actions (7 days)
+- [ ] `annactl history --days 30` - Shows 30 days of history
+- [ ] `annactl history --detailed` - Shows detailed audit log
 
-In terminal 1:
-```bash
-sudo annad
-```
+### Configuration Management
+- [ ] `annactl config list` - Shows all configuration
+- [ ] `annactl config get <key>` - Gets specific setting
+- [ ] `annactl config set <key> <value>` - Sets configuration
+- [ ] `annactl autonomy <0-3>` - Sets autonomy level
+- [ ] Verify config persists across restarts
 
-You should see:
-- "Anna Daemon v1.0.0-alpha.3 starting"
-- "System facts collected: N packages installed"
-- "Generated M recommendations"
-- "Anna Daemon ready"
-- "RPC server listening on /run/anna/anna.sock"
+### Bundle System
+- [ ] Verify Hyprland bundle detects installed Hyprland
+- [ ] Verify bundle only shows if WM already installed
+- [ ] Verify multi-step bundles execute in order
+- [ ] Verify bundle respects hardware detection (laptop vs desktop)
+- [ ] Test bundle rollback: \`annactl rollback bundle <name>\`
+- [ ] Test bundle rollback dry-run
 
-#### 3. Test status command
+### Update System
+- [ ] \`annactl update --check\` - Checks for updates without installing
+- [ ] \`annactl update --install\` - Installs available update
+- [ ] Verify GitHub release detection
+- [ ] Verify binary download and replacement
+- [ ] Verify update notifications
 
-In terminal 2:
-```bash
-annactl status
-```
+### Reporting
+- [ ] \`annactl report\` - Generates full system report
+- [ ] \`annactl report --category <cat>\` - Filtered report
+- [ ] Verify report includes all relevant diagnostics
 
-**Expected**:
-- Real hostname from your system
-- Real kernel version
-- Daemon version (v1.0.0-alpha.3)
-- Daemon uptime in seconds
-- Number of pending recommendations
+### Shell Completions
+- [ ] \`annactl completions bash\` - Generates bash completions
+- [ ] \`annactl completions zsh\` - Generates zsh completions
+- [ ] \`annactl completions fish\` - Generates fish completions
+- [ ] Install and verify completions work
 
-#### 4. Test advise command
+---
 
-```bash
-annactl advise
-```
+## Known Issues / Won't Fix for 1.0
 
-**Expected**:
-- Real recommendations based on your system
-- Grouped by risk level (Critical, Maintenance, Suggestions)
-- Actual package counts, microcode status, etc.
+### TUI Disabled
+- Interactive TUI disabled for 1.0 release
+- Will be re-enabled in 2.0 with better UX
+- All functionality available via CLI
 
-#### 5. Test config command
+---
 
-```bash
-annactl config
-```
+## Release Criteria
 
-**Expected**:
-- Current autonomy tier (0 = Advise Only by default)
-- Auto-update check status
-- Wiki cache path
+Before releasing 1.0.0 stable, ALL core commands must work correctly.
 
-#### 6. Test report command
+---
 
-```bash
-annactl report
-```
-
-**Expected**: Health report with system status
-
-#### 7. Stop daemon with Ctrl+C
-
-In terminal 1, press Ctrl+C
-
-**Expected**: "Shutting down gracefully"
-
-#### 8. Verify socket is cleaned up
-
-```bash
-ls /run/anna/anna.sock
-```
-
-**Expected**: File should not exist after daemon stops
-
-### Verification Checklist
-
-- [ ] Client shows error when daemon is not running
-- [ ] Daemon creates socket at `/run/anna/anna.sock`
-- [ ] `annactl status` shows real system information
-- [ ] `annactl advise` shows actual recommendations
-- [ ] Daemon logs show RPC server listening
-- [ ] Socket is cleaned up when daemon stops
-- [ ] Multiple clients can connect simultaneously
-
-### Known Issues
-
-- Socket requires `/run/anna/` directory (daemon creates it automatically)
-- Daemon must run as root to create socket in `/run/`
-- Version mismatch warnings may appear if binaries are out of sync
-
-### Next Steps
-
-Once IPC is verified working:
-1. Set up systemd service for automatic daemon startup
-2. Implement action executor for applying recommendations
-3. Add Arch Wiki caching system
-4. Expand recommendation rules
+**Last Updated:** 2025-11-06
+**Current Version:** 1.0.0-rc.1
+**Testing Status:** Not Started

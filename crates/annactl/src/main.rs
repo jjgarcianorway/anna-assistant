@@ -214,8 +214,9 @@ enum Commands {
         action: IgnoreAction,
     },
 
-    /// Open interactive TUI for browsing and applying recommendations
-    Tui,
+    // TUI temporarily disabled for 1.0 release - will be re-enabled in 2.0 with better UX
+    // /// Open interactive TUI for browsing and applying recommendations
+    // Tui,
 
     /// Generate shell completion scripts
     ///
@@ -336,7 +337,8 @@ async fn main() -> Result<()> {
         Commands::History { days, detailed } => commands::history(days, detailed).await,
         Commands::Update { install, check } => commands::update(install, check).await,
         Commands::Ignore { action } => commands::ignore(action).await,
-        Commands::Tui => tui::run().await,
+        // TUI disabled for 1.0 release
+        // Commands::Tui => tui::run().await,
         Commands::Completions { shell } => {
             generate_completions(shell);
             Ok(())
