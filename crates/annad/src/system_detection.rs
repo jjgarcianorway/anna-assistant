@@ -12,7 +12,7 @@ use std::process::Command;
 use tracing::{info, warn};
 
 /// Resource tier based on hardware capabilities
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ResourceTier {
     /// ≤8GB RAM, integrated GPU, ≤4 cores
     /// Target: Low resource usage, minimal animations, CLI-focused
@@ -28,7 +28,7 @@ pub enum ResourceTier {
 }
 
 /// GPU vendor detection
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GpuVendor {
     Nvidia,
     Amd,
@@ -37,7 +37,7 @@ pub enum GpuVendor {
 }
 
 /// Complete system profile for intelligent configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SystemProfile {
     // Hardware
     pub ram_gb: u64,
@@ -53,8 +53,12 @@ pub struct SystemProfile {
     pub text_editor: Option<String>,
     pub browser: Option<String>,
 
-    // Derived tier
+    // Derived tier and score
     pub tier: ResourceTier,
+    pub score: u32,  // 0-100: capability score for filtering recommendations
+
+    // Metadata
+    pub detected_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl SystemProfile {
@@ -90,6 +94,11 @@ impl SystemProfile {
             info!("Detected existing file manager: {}", fm);
         }
 
+        // Calculate capability score (0-100)
+        let score = calculate_score(ram_gb, &gpu_vendor, cpu_cores);
+
+        info!("System score: {}/100 ({:?} tier)", score, tier);
+
         Self {
             ram_gb,
             gpu_vendor,
@@ -102,7 +111,54 @@ impl SystemProfile {
             text_editor,
             browser,
             tier,
+            score,
+            detected_at: chrono::Utc::now(),
         }
+    }
+
+    /// Load cached profile or detect fresh
+    pub fn load_or_detect() -> Self {
+        match Self::load_cached() {
+            Ok(profile) => {
+                info!("Loaded cached system profile (score: {})", profile.score);
+                profile
+            }
+            Err(e) => {
+                info!("No cached profile ({}), detecting fresh", e);
+                let profile = Self::detect();
+                let _ = profile.save_cache();
+                profile
+            }
+        }
+    }
+
+    /// Load cached profile from disk
+    fn load_cached() -> anyhow::Result<Self> {
+        let cache_path = std::path::Path::new("/var/lib/anna/system_profile.json");
+        let data = std::fs::read_to_string(cache_path)?;
+        let profile: SystemProfile = serde_json::from_str(&data)?;
+        Ok(profile)
+    }
+
+    /// Save profile to cache
+    pub fn save_cache(&self) -> anyhow::Result<()> {
+        let cache_dir = std::path::Path::new("/var/lib/anna");
+        std::fs::create_dir_all(cache_dir)?;
+
+        let cache_path = cache_dir.join("system_profile.json");
+        let data = serde_json::to_string_pretty(self)?;
+        std::fs::write(&cache_path, data)?;
+
+        info!("Saved system profile to {}", cache_path.display());
+        Ok(())
+    }
+
+    /// Check if profile should be refreshed (hardware might have changed)
+    pub fn should_refresh(&self) -> bool {
+        let age = chrono::Utc::now() - self.detected_at;
+
+        // Refresh if older than 7 days OR if detection seems stale
+        age.num_days() > 7
     }
 
     /// Get appropriate status bar for this tier
@@ -368,4 +424,79 @@ fn is_installed(command: &str) -> bool {
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false)
+}
+
+/// Calculate system capability score (0-100)
+///
+/// Score determines which recommendations are appropriate:
+/// - 0-30: Efficient tier (potato systems) - only essential, lightweight recommendations
+/// - 31-65: Balanced tier (mid-range) - moderate recommendations
+/// - 66-100: Performance tier (high-end) - all recommendations including resource-intensive
+///
+/// Scoring formula:
+/// - RAM: 0-40 points (0GB=0, 4GB=10, 8GB=20, 16GB=30, 32GB=40, 64GB+=40)
+/// - GPU: 0-40 points (None/Intel=0, AMD=20, NVIDIA=30, High-end=40)
+/// - CPU: 0-20 points (1 core=2, 2=5, 4=10, 8=15, 16+=20)
+fn calculate_score(ram_gb: u64, gpu: &GpuVendor, cpu_cores: usize) -> u32 {
+    let mut score: u32 = 0;
+
+    // RAM score (0-40 points)
+    score += match ram_gb {
+        0..=3 => 0,
+        4..=7 => 10,
+        8..=15 => 20,
+        16..=31 => 30,
+        32..=63 => 35,
+        _ => 40,
+    };
+
+    // GPU score (0-40 points)
+    score += match gpu {
+        GpuVendor::Unknown => 0,
+        GpuVendor::Intel => 5,    // Integrated GPU
+        GpuVendor::Amd => 25,      // Discrete AMD
+        GpuVendor::Nvidia => 35,   // Discrete NVIDIA (assume mid-high)
+    };
+
+    // CPU score (0-20 points)
+    score += match cpu_cores {
+        0..=1 => 2,
+        2..=3 => 5,
+        4..=7 => 10,
+        8..=15 => 15,
+        _ => 20,
+    };
+
+    // Cap at 100
+    score.min(100)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scoring() {
+        // Potato laptop: 4GB RAM, Intel iGPU, 2 cores
+        assert_eq!(calculate_score(4, &GpuVendor::Intel, 2), 20); // Efficient
+
+        // Mid-range: 16GB RAM, AMD GPU, 6 cores
+        assert_eq!(calculate_score(16, &GpuVendor::Amd, 6), 65); // Balanced
+
+        // High-end: 32GB RAM, NVIDIA, 12 cores
+        assert_eq!(calculate_score(32, &GpuVendor::Nvidia, 12), 85); // Performance
+    }
+
+    #[test]
+    fn test_tier_boundaries() {
+        // Score 0-30 = Efficient
+        assert!(calculate_score(4, &GpuVendor::Intel, 2) <= 30);
+
+        // Score 31-65 = Balanced
+        let mid_score = calculate_score(12, &GpuVendor::Amd, 6);
+        assert!(mid_score > 30 && mid_score <= 65);
+
+        // Score 66-100 = Performance
+        assert!(calculate_score(32, &GpuVendor::Nvidia, 12) > 65);
+    }
 }
