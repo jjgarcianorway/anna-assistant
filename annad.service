@@ -33,11 +33,14 @@ Wants=systemd-journald.service
 Type=simple
 ExecStart=/usr/local/bin/annad
 
-# Restart policy - automatically recover from failures
+# Restart policy - automatically recover from failures (RC.7)
 Restart=on-failure
 RestartSec=10s
 StartLimitBurst=3
 StartLimitIntervalSec=60s
+
+# Watchdog for crash detection (RC.7)
+WatchdogSec=60s
 
 # Security hardening
 # Prevent privilege escalation

@@ -3419,14 +3419,23 @@ pub async fn update(install: bool, check_only: bool) -> Result<()> {
     println!("  {}", kv("Installed version", &current));
     println!();
 
-    // Connect to daemon for update operations
+    // Try to connect to daemon for update operations
     let mut client = match RpcClient::connect().await {
         Ok(c) => c,
         Err(_) => {
-            println!("{}", beautiful::status(Level::Error, "Cannot connect to daemon"));
-            println!();
-            println!("{}", beautiful::status(Level::Info, "Start daemon with: sudo systemctl start annad"));
-            return Ok(());
+            // RC.7: Fallback to direct update if daemon unavailable
+            if install {
+                println!("{}", beautiful::status(Level::Warning, "Cannot connect to daemon"));
+                println!("{}", beautiful::status(Level::Info, "Using direct update method as fallback..."));
+                println!();
+                return direct_update_fallback(&current).await;
+            } else {
+                println!("{}", beautiful::status(Level::Error, "Cannot connect to daemon"));
+                println!();
+                println!("{}", beautiful::status(Level::Info, "Start daemon with: sudo systemctl start annad"));
+                println!("{}", beautiful::status(Level::Info, "Or use --install flag for direct update"));
+                return Ok(());
+            }
         }
     };
 
@@ -4023,5 +4032,158 @@ pub async fn ignore(action: crate::IgnoreAction) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Direct update fallback when daemon is unavailable (RC.7)
+/// Uses curl/wget to download and install binaries directly
+async fn direct_update_fallback(current_version: &str) -> Result<()> {
+    use std::process::Command;
+    
+    println!("{}", section("🔄 Direct Update Mode"));
+    println!();
+    println!("  This will download and install Anna directly without the daemon.");
+    println!();
+    
+    // Check for updates via GitHub API
+    println!("{}", beautiful::status(Level::Info, "Checking GitHub for latest release..."));
+    
+    let update_info = match anna_common::updater::check_for_updates().await {
+        Ok(info) => info,
+        Err(e) => {
+            println!("{}", beautiful::status(Level::Error, &format!("Failed to check for updates: {}", e)));
+            return Ok(());
+        }
+    };
+    
+    if !update_info.is_update_available {
+        println!("{}", beautiful::status(Level::Success, &format!("Already on latest version: {}", current_version)));
+        return Ok(());
+    }
+    
+    println!();
+    println!("{}", beautiful::status(Level::Warning, &format!("Update available: {} → {}", 
+        update_info.current_version, update_info.latest_version)));
+    println!();
+    
+    // Show release info
+    println!("{}", section("📦 Release Information"));
+    println!("  {}", kv("Current", &update_info.current_version));
+    println!("  {}", kv("Latest", &update_info.latest_version));
+    if !update_info.release_notes_url.is_empty() {
+        println!("  {}", kv("Release Page", &update_info.release_notes_url));
+    }
+    println!();
+    
+    // Confirmation
+    use std::io::{self, Write};
+    print!("  \x1b[1;93mProceed with direct update? (y/N):\x1b[0m ");
+    io::stdout().flush()?;
+    
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim().to_lowercase();
+    
+    if input != "y" && input != "yes" {
+        println!();
+        println!("{}", beautiful::status(Level::Info, "Update cancelled"));
+        return Ok(());
+    }
+    
+    println!();
+    println!("{}", beautiful::status(Level::Info, "Downloading binaries..."));
+    
+    // Download URLs
+    let base_url = format!("https://github.com/jjgarcianorway/anna-assistant/releases/download/{}", 
+        update_info.latest_version);
+    let annad_url = format!("{}/annad-x86_64-linux", base_url);
+    let annactl_url = format!("{}/annactl-x86_64-linux", base_url);
+    
+    // Download to /tmp
+    let tmp_annad = "/tmp/annad-new";
+    let tmp_annactl = "/tmp/annactl-new";
+    
+    // Use curl if available, otherwise wget
+    let download_cmd = if Command::new("curl").arg("--version").output().is_ok() {
+        "curl"
+    } else if Command::new("wget").arg("--version").output().is_ok() {
+        "wget"
+    } else {
+        println!("{}", beautiful::status(Level::Error, "Neither curl nor wget found. Please install one."));
+        return Ok(());
+    };
+    
+    // Download annad
+    let download_result = if download_cmd == "curl" {
+        Command::new("curl")
+            .args(&["-fsSL", "-o", tmp_annad, &annad_url])
+            .status()
+    } else {
+        Command::new("wget")
+            .args(&["-q", "-O", tmp_annad, &annad_url])
+            .status()
+    };
+    
+    if !download_result?.success() {
+        println!("{}", beautiful::status(Level::Error, "Failed to download annad"));
+        return Ok(());
+    }
+    
+    // Download annactl
+    let download_result = if download_cmd == "curl" {
+        Command::new("curl")
+            .args(&["-fsSL", "-o", tmp_annactl, &annactl_url])
+            .status()
+    } else {
+        Command::new("wget")
+            .args(&["-q", "-O", tmp_annactl, &annactl_url])
+            .status()
+    };
+    
+    if !download_result?.success() {
+        println!("{}", beautiful::status(Level::Error, "Failed to download annactl"));
+        return Ok(());
+    }
+    
+    // Make executable
+    Command::new("chmod")
+        .args(&["+x", tmp_annad, tmp_annactl])
+        .status()?;
+    
+    println!("{}", beautiful::status(Level::Success, "Downloaded successfully"));
+    println!();
+    println!("{}", beautiful::status(Level::Info, "Installing (requires sudo)..."));
+    println!();
+    
+    // Install with sudo
+    let install_result = Command::new("sudo")
+        .args(&["mv", tmp_annad, "/usr/local/bin/annad"])
+        .status()?;
+    
+    if !install_result.success() {
+        println!("{}", beautiful::status(Level::Error, "Failed to install annad"));
+        return Ok(());
+    }
+    
+    let install_result = Command::new("sudo")
+        .args(&["mv", tmp_annactl, "/usr/local/bin/annactl"])
+        .status()?;
+    
+    if !install_result.success() {
+        println!("{}", beautiful::status(Level::Error, "Failed to install annactl"));
+        return Ok(());
+    }
+    
+    println!("{}", beautiful::status(Level::Success, "✓ Update installed successfully!"));
+    println!();
+    println!("{}", section("🎉 Update Complete"));
+    println!();
+    println!("  Restart the daemon to use the new version:");
+    println!("  \x1b[96msudo systemctl restart annad\x1b[0m");
+    println!();
+    println!("  Verify the update:");
+    println!("  \x1b[96mannactl --version\x1b[0m");
+    println!();
+    
     Ok(())
 }
