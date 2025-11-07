@@ -3409,7 +3409,13 @@ pub async fn history(days: i64, detailed: bool) -> Result<()> {
 
 /// Fetch release notes from GitHub API
 async fn fetch_release_notes(version: &str) -> Result<String> {
-    let url = format!("https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/tags/{}", version);
+    // GitHub tags have "v" prefix
+    let tag = if version.starts_with('v') {
+        version.to_string()
+    } else {
+        format!("v{}", version)
+    };
+    let url = format!("https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/tags/{}", tag);
 
     let client = reqwest::Client::builder()
         .user_agent("anna-assistant")
