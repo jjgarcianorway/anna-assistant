@@ -454,9 +454,12 @@ pub async fn advise(
             });
         }
 
-        // Filter by category if specified
+        // Filter by category if specified (unless it's "all")
         if let Some(ref cat) = category_filter {
-            advice_list.retain(|a| a.category.to_lowercase() == cat.to_lowercase());
+            if cat.to_lowercase() != "all" {
+                advice_list.retain(|a| a.category.to_lowercase() == cat.to_lowercase());
+            }
+            // If "all", don't filter - show everything
         }
 
         // Track count before limit
@@ -473,32 +476,6 @@ pub async fn advise(
             return Ok(());
         }
 
-        // Show count with grand total context
-        if total_available == advice_list.len() {
-            // Showing everything - simple message
-            println!("{}", beautiful::status(Level::Info,
-                &format!("Showing {} recommendation{}", advice_list.len(), if advice_list.len() == 1 { "" } else { "s" })));
-        } else {
-            // Some items hidden - show "X of Y" format
-            println!("{}", beautiful::status(Level::Info,
-                &format!("Showing {} of {} recommendation{}", advice_list.len(), total_available, if total_available == 1 { "" } else { "s" })));
-        }
-
-        // Show what was filtered if anything
-        let total_filtered = total_available - count_before_limit;
-        if total_filtered > 0 {
-            println!("{}", beautiful::status(Level::Info,
-                &format!("  ({} hidden by filters)", total_filtered)));
-        }
-
-        // Show if limited
-        if count_before_limit > advice_list.len() {
-            println!("{}", beautiful::status(Level::Info,
-                &format!("  ({} more available, use --limit=0 to see all)", count_before_limit - advice_list.len())));
-        }
-
-        println!();
-
         // Group by category first
         let mut by_category: std::collections::HashMap<String, Vec<&anna_common::Advice>> =
             std::collections::HashMap::new();
@@ -509,27 +486,64 @@ pub async fn advise(
                 .push(advice);
         }
 
-        // Show category breakdown statistics
-        if by_category.len() > 1 {
-            println!("{}", beautiful::header("Categories"));
+        // COMPACT SUMMARY VIEW (default if no category filter)
+        if category_filter.is_none() {
+            println!("{}", section("📊 Recommendations Summary"));
+            println!();
+            println!("  {} total recommendations", advice_list.len());
+            println!();
+
+            // Show category counts
             let mut category_counts: Vec<_> = by_category.iter()
                 .map(|(cat, items)| (cat.clone(), items.len()))
                 .collect();
             category_counts.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
 
+            println!("{}", section("Categories"));
             for (category, count) in &category_counts {
-                let bar_len = std::cmp::min(*count, 20); // Visual bar (max 20 chars)
-                let bar = "█".repeat(bar_len);
-                println!("  {:<20} {:<30} {} item{}",
-                    bar,
-                    category,
-                    count,
-                    if *count == 1 { "" } else { "s" });
+                let emoji = match category.as_str() {
+                    "Security" => "🔒",
+                    "System" => "⚙️ ",
+                    "Performance" => "⚡",
+                    "Desktop" => "🖥️ ",
+                    "Applications" => "📦",
+                    "Network" => "🌐",
+                    "Development" => "💻",
+                    _ => "📌",
+                };
+                println!("  {} \x1b[1m{:<20}\x1b[0m \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", emoji, category, count);
             }
             println!();
-            println!("{}", beautiful::status(Level::Info, "Use --category=<name> to filter by category"));
+
+            // Show how to drill down
+            println!("{}", section("💡 Next Steps"));
             println!();
+            println!("  View specific category:");
+            for (category, _) in category_counts.iter().take(5) {
+                println!("    \x1b[96mannactl advise {}\x1b[0m", category.to_lowercase());
+            }
+            if category_counts.len() > 5 {
+                println!("    \x1b[90m... and {} more categories\x1b[0m", category_counts.len() - 5);
+            }
+            println!();
+            println!("  Or view all details:");
+            println!("    \x1b[96mannactl advise all\x1b[0m");
+            println!();
+
+            // Save to cache for apply-by-number (even though we're not showing details)
+            let mut ordered_for_cache: Vec<&anna_common::Advice> = advice_list.iter().collect();
+            ordered_for_cache.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+            let ids_for_cache: Vec<String> = ordered_for_cache.iter().map(|a| a.id.clone()).collect();
+            let _ = anna_common::AdviceDisplayCache::save(ids_for_cache);
+
+            return Ok(());
         }
+
+        // DETAILED VIEW (when category filter is provided)
+        println!("{}", beautiful::status(Level::Info,
+            &format!("Showing {} recommendation{}", advice_list.len(), if advice_list.len() == 1 { "" } else { "s" })));
+        println!();
 
         // Sort categories by importance (using centralized category order)
         let category_order = anna_common::get_category_order();
