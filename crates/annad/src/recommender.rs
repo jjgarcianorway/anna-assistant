@@ -10430,7 +10430,7 @@ fn check_bluetooth_setup(facts: &SystemFacts) -> Vec<Advice> {
                 RiskLevel::Low,
                 Priority::Cosmetic,
                 vec!["https://wiki.archlinux.org/title/Bluetooth#Graphical".to_string()],
-                "usability".to_string(),
+                "Usability".to_string(),
             ).with_popularity(55));
         }
     }
@@ -10595,7 +10595,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                 vec![
                     "https://wiki.archlinux.org/title/Network_configuration".to_string(),
                 ],
-                "network".to_string(),
+                "Network Configuration".to_string(),
             )
         );
         return advice;
@@ -10621,7 +10621,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                 vec![
                     "https://wiki.archlinux.org/title/Network_configuration".to_string(),
                 ],
-                "network".to_string(),
+                "Network Configuration".to_string(),
             )
         );
     }
@@ -10646,7 +10646,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                 vec![
                     "https://wiki.archlinux.org/title/Domain_name_resolution".to_string(),
                 ],
-                "network".to_string(),
+                "Network Configuration".to_string(),
             )
         );
     }
@@ -10681,7 +10681,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                                     vec![
                                         "https://wiki.archlinux.org/title/Network_configuration".to_string(),
                                     ],
-                                    "network".to_string(),
+                                    "Network Configuration".to_string(),
                                 )
                             );
                         } else if loss > 5.0 {
@@ -10700,7 +10700,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                                     vec![
                                         "https://wiki.archlinux.org/title/Network_configuration".to_string(),
                                     ],
-                                    "network".to_string(),
+                                    "Network Configuration".to_string(),
                                 )
                             );
                         }
@@ -10731,7 +10731,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                                         vec![
                                             "https://wiki.archlinux.org/title/Network_configuration".to_string(),
                                         ],
-                                        "network".to_string(),
+                                        "Network Configuration".to_string(),
                                     )
                                 );
                             }
@@ -10762,7 +10762,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
                 vec![
                     "https://wiki.archlinux.org/title/NetworkManager".to_string(),
                 ],
-                "network".to_string(),
+                "Network Configuration".to_string(),
             )
         );
     }
@@ -10896,7 +10896,7 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
             vec![
                 "https://wiki.archlinux.org/title/Sysstat".to_string(),
             ],
-            "monitoring".to_string(),
+            "Monitoring".to_string(),
         ));
     }
 
@@ -10956,7 +10956,7 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                 vec![
                     "https://wiki.archlinux.org/title/S.M.A.R.T.".to_string(),
                 ],
-                "monitoring".to_string(),
+                "Monitoring".to_string(),
             ));
         }
     }
@@ -11560,7 +11560,7 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
                 vec![
                     "https://wiki.archlinux.org/title/Lm_sensors".to_string(),
                 ],
-                "monitoring".to_string(),
+                "Monitoring".to_string(),
             ));
         }
     }
