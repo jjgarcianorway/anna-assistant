@@ -303,7 +303,24 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
 
     // Stop daemon (will be restarted by systemd)
     info!("Stopping daemon for update...");
-    let _ = execute_privileged("systemctl", &["stop", "annad"]);
+    execute_privileged("systemctl", &["stop", "annad"])?;
+
+    // Wait for daemon to fully stop and kernel to release file handles
+    info!("Waiting for daemon to stop completely...");
+    std::thread::sleep(std::time::Duration::from_secs(2));
+
+    // Verify daemon is stopped
+    for attempt in 1..=5 {
+        let status = execute_privileged("systemctl", &["is-active", "annad"])?;
+        if !status.success() {
+            // Service is inactive, good!
+            break;
+        }
+        if attempt == 5 {
+            warn!("Daemon still active after 5 attempts, proceeding anyway...");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
 
     // Replace binaries (use mv to avoid "text file busy" error)
     // mv can replace a running binary, cp cannot
