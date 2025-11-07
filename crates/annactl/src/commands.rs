@@ -72,12 +72,11 @@ pub async fn status() -> Result<()> {
         }
     };
 
-    // RC.9 Performance: Fetch all data ONCE at the beginning
-    // Old: Made 5 RPC calls (Status + GetFacts x2 + GetAdvice x2) = ~10s
-    // New: Make 3 RPC calls (Status + GetFacts + GetAdvice), reuse data = ~2-3s
+    // RC.9.1: Status focuses ONLY on Anna's health, not recommendations
+    // User feedback: "annactl status should show status of anna, not advises"
+    // Recommendations moved to: annactl advise
     let status_data = client.call(Method::Status).await?;
     let facts_data = client.call(Method::GetFacts).await?;
-    let advice_data = client.call(Method::GetAdvice).await?;
 
     // Clear the "Checking..." message and show header
     eprint!("\r\x1b[K");
@@ -86,75 +85,27 @@ pub async fn status() -> Result<()> {
     println!("{}", header("Anna Status"));
     println!();
 
-    if let (ResponseData::Status(status), ResponseData::Facts(facts), ResponseData::Advice(mut advice_list))
-        = (status_data, facts_data, advice_data) {
-
-        // Apply ignore filters ONCE to advice list
-        if let Ok(filters) = anna_common::IgnoreFilters::load() {
-            advice_list.retain(|a| !filters.should_filter(a));
-        }
+    if let (ResponseData::Status(status), ResponseData::Facts(facts))
+        = (status_data, facts_data) {
 
         println!("{}", section("System"));
         println!("  {}", kv("Hostname", &facts.hostname));
         println!("  {}", kv("Kernel", &facts.kernel));
 
         println!();
-        println!("{}", section("Daemon"));
+        println!("{}", section("Anna Daemon"));
         println!("  {}", beautiful::status(Level::Success, "Running"));
         println!("  {}", kv("Version", &status.version));
         println!("  {}", kv("Uptime", &format!("{}s", status.uptime_seconds)));
+        println!("  {}", kv("Socket", "/run/anna/anna.sock"));
         println!();
 
-        // Show health score (reuse facts and advice_list)
-        let score = anna_common::SystemHealthScore::calculate(&facts, &advice_list);
-        let color = score.get_color_code();
-        let grade = score.get_grade();
-
-        println!("{}", section("Health"));
-        println!("  Score: {}{}/100 ({}){}\x1b[0m", color, score.overall_score, grade, color);
-
-        let trend_icon = match score.health_trend {
-            anna_common::HealthTrend::Improving => "\x1b[92m↗\x1b[0m",
-            anna_common::HealthTrend::Stable => "\x1b[93m→\x1b[0m",
-            anna_common::HealthTrend::Declining => "\x1b[91m↘\x1b[0m",
-        };
-        println!("  Trend: {}", trend_icon);
+        // Show quick links to other commands
+        println!("{}", section("Quick Commands"));
+        println!("  {} \x1b[90m# Get recommendations\x1b[0m", "\x1b[96mannactl advise\x1b[0m");
+        println!("  {} \x1b[90m# Full system report\x1b[0m", "\x1b[96mannactl report\x1b[0m");
+        println!("  {} \x1b[90m# Check Anna health\x1b[0m", "\x1b[96mannactl doctor\x1b[0m");
         println!();
-
-        if !advice_list.is_empty() {
-            println!(
-                "{}",
-                beautiful::status(
-                    Level::Info,
-                    &format!("{} recommendations pending", advice_list.len())
-                )
-            );
-            println!();
-
-            // Group by category and count (reuse advice_list)
-            let mut category_counts = std::collections::HashMap::new();
-            for advice in &advice_list {
-                *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
-            }
-
-            // Sort categories by count (descending)
-            let mut categories: Vec<_> = category_counts.iter().collect();
-            categories.sort_by(|a, b| b.1.cmp(a.1));
-
-            println!("{}", section("Categories"));
-            for (category, count) in categories.iter().take(10) {
-                println!("  {} \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", category, count);
-            }
-            if categories.len() > 10 {
-                println!("  \x1b[90m... and {} more\x1b[0m", categories.len() - 10);
-            }
-            println!();
-        } else {
-            println!(
-                "{}",
-                beautiful::status(Level::Info, "All systems operational")
-            );
-        }
     }
 
     // Show recent activity from audit log
@@ -492,20 +443,15 @@ pub async fn advise(
                         })
                         .collect::<Vec<_>>()
                         .join(" ");
-                    // Truncate long names to 18 chars for alignment
-                    let display_name = if normalized.len() > 18 {
-                        format!("{}...", &normalized[..15])
-                    } else {
-                        normalized
-                    };
-                    (display_name, items.len())
+                    // RC.9.1: Don't truncate - user complained about "Performance & O..."
+                    (normalized, items.len())
                 })
                 .collect();
             category_counts.sort_by(|a, b| b.1.cmp(&a.1));
 
-            // Show top 6 categories in compact format
+            // Show top 6 categories (full names, no truncation)
             for (category, count) in category_counts.iter().take(6) {
-                println!("  \x1b[96m{:<18}\x1b[0m \x1b[90m{:>2}\x1b[0m", category, count);
+                println!("  \x1b[96m{}\x1b[0m \x1b[90m{:>2}\x1b[0m", category, count);
             }
 
             if category_counts.len() > 6 {
