@@ -424,27 +424,33 @@ Future versions could:
 
 ## 6. IMPLEMENTATION PLAN
 
-### Phase 1: Foundation (RC.9.5)
-1. ✅ Research complete
-2. ✅ Design complete
-3. Remove all other bundles (gnome, kde, i3, etc.)
-4. Implement resource detection
-5. Create Anna color scheme files
-6. Basic template system
+### Phase 1: Foundation (RC.9.5) ✅ COMPLETE
+1. ✅ Research complete (HYPRLAND_ECOSYSTEM_RESEARCH.md)
+2. ✅ Design complete (this document)
+3. ✅ Updater "text file busy" fix
 
-### Phase 2: Core Components (RC.9.6)
-7. Implement Efficient tier (yambar/waybar minimal)
-8. Implement Balanced tier (waybar themed)
-9. Tool detection (terminal, file manager, launcher)
-10. NVIDIA detection and configuration
-11. Keybinding intelligence
+### Phase 2: Detection System (RC.9.6) ✅ COMPLETE
+4. ✅ Implement resource detection (RAM, GPU, CPU cores)
+5. ✅ Implement GPU vendor detection (NVIDIA/AMD/Intel)
+6. ✅ Implement resource tier classification
+7. ✅ Implement tool detection (terminal, file manager, launcher, etc.)
+8. ✅ "Potato computer, potato tools" philosophy implemented
 
-### Phase 3: Advanced (RC.9.7)
-12. Implement Performance tier (HyprPanel/AGS)
-13. Complete theme system (GTK, Qt, terminals)
-14. Configuration reconfiguration command
-15. User customization options
-16. Polish and testing
+### Phase 3: Hyprland Bundle (RC.9.7) 🔄 IN PROGRESS
+9. Remove all other bundles (gnome, kde, i3, etc.)
+10. Create Hyprland config templates (3 tiers)
+11. Create component configs (waybar, hyprpaper, hypridle, hyprlock)
+12. Implement NVIDIA auto-configuration
+13. Create Anna theme system (colors, GTK, Qt)
+14. Build intelligent bundle selector
+15. Keybinding intelligence
+
+### Phase 4: Polish & Integration (RC.9.8)
+16. Integrate resource detection into ALL recommendations
+17. Terminal color scheme files
+18. Configuration reconfiguration command
+19. User customization options
+20. Testing and polish
 
 ---
 

@@ -65,11 +65,13 @@ Examples:
 
 ### Implementation Plan
 
-#### Phase 1: Foundation (RC.9.4)
-1. ✅ Fix daemon stability (still crashing)
-2. Create ID registry system
-3. Category code enum
-4. ID mapping functions
+#### Phase 1: Foundation (RC.9.4-9.6) ✅ COMPLETE
+1. ✅ Fix daemon stability (watchdog removed)
+2. ✅ Fix updater "text file busy" error
+3. ✅ Resource detection system (RC.9.6)
+4. ⏳ ID registry system (deferred to RC.10+)
+5. ⏳ Category code enum (deferred to RC.10+)
+6. ⏳ ID mapping functions (deferred to RC.10+)
 
 #### Phase 2: Display Layer (RC.9.5)
 5. Convert IDs for display in advise command
