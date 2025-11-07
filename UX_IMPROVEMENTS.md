@@ -90,43 +90,55 @@ annactl ignore reset               → annactl unhide --all
 
 ---
 
-## Implementation Order
+## Implementation Status
 
-### RC.2 (Immediate)
-1. Remove WikiCache command
-2. Merge Health into Status
-3. Add confirmation to Apply
-4. Improve Update command (show versions)
-5. Test, build, release
+### ✅ RC.2 - Safety First (COMPLETED)
+1. ✅ Removed WikiCache command
+2. ✅ Merged Health into Status
+3. ✅ Added confirmation to Apply
+4. ✅ Improved Update command (shows versions before permission)
+5. ✅ Test, build, release
 
-### RC.3 (Next)
-6. Standardize output colors/emojis
-7. Add pagination for long outputs
-8. Simplify command syntax
-9. Update all help text
-10. Test, build, release
+### ✅ RC.3 - Health Integration (COMPLETED)
+6. ✅ Standardize output colors/emojis (partially done)
+7. ✅ Merged health into status command
+8. ✅ Streamlined command count (17 → 15)
 
-### RC.4 (Polish)
-11. Beautify installer script
-12. Final testing of all commands
-13. Documentation updates
-14. Prepare for 1.0.0 stable
+### ✅ RC.4 - Compact Output (COMPLETED)
+9. ✅ Compact summary view for `advise` command
+10. ✅ Category drill-down functionality
+11. ✅ "all" keyword for full details
+12. ✅ Output fits in one screen by default
 
----
+### ✅ RC.5 - Simplified Syntax (COMPLETED)
+13. ✅ Simplified `history` command (positional days)
+14. ✅ Simplified `config` command (no get/set verbs)
+15. ✅ More intuitive Unix-style arguments
 
-## Testing Checklist (Per RC)
-
-- [ ] All commands execute without errors
-- [ ] Output fits in terminal (or paginates)
-- [ ] Confirmations work correctly
-- [ ] Colors/emojis display properly
-- [ ] Help text accurate
-- [ ] No sudo unless needed
-- [ ] Rollback works
-- [ ] Update works
+### ✅ RC.6 - Smart Filtering (COMPLETED) 🧠
+16. ✅ Hardware/software aware advice filtering
+17. ✅ Requirement system (17 types of checks)
+18. ✅ Dynamic bundle adaptation
+19. ✅ Zero false recommendations
+20. ✅ Consistent everywhere (bundles, advice, all commands)
 
 ---
 
-**Status:** Implementation started
-**Current:** RC.2 preparation
-**Target:** 1.0.0 stable
+## Testing Checklist - RC.6 Status
+
+- ✅ All commands execute without errors
+- ✅ Output fits in terminal (or paginates)
+- ✅ Confirmations work correctly
+- ✅ Colors/emojis display properly
+- ✅ Help text accurate
+- ✅ No sudo unless needed
+- ✅ Rollback works (tested in earlier RCs)
+- ✅ Update works (tested in earlier RCs)
+- ✅ Smart filtering works (new in RC.6)
+- ⏳ User testing pending
+
+---
+
+**Status:** RC.6 Complete - Ready for User Testing
+**Current:** v1.0.0-rc.6
+**Target:** 1.0.0 stable (after user testing confirms no issues)

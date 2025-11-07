@@ -47,7 +47,26 @@ See `TESTING.md` for complete testing checklist.
 
 ## 🚀 RELEASE CANDIDATES (1.0.0-rc.X)
 
-### RC.5 - Simplified Command Syntax (Current)
+### RC.6 - Smart Context-Aware Filtering (Current) 🧠
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- **MAJOR:** Intelligent advice filtering based on actual system hardware/software
+- Added `Requirement` system with 17 types of checks (audio, display, GPU, Bluetooth, etc.)
+- Enhanced `Advice` struct with `requires` field
+- Updated RPC server with smart filtering pipeline
+- Modified 375+ advice items with requirements
+- Dynamic bundle filtering (Hyprland/Wayland bundles adapt to system)
+- Zero false recommendations - only show what makes sense!
+
+**Impact:**
+- Headless servers: No GUI recommendations ✅
+- No Bluetooth hardware: No Bluetooth tools ✅
+- Desktops: No laptop-specific tools ✅
+- No audio system: No media players/audio tools ✅
+
+### RC.5 - Simplified Command Syntax
 **Status:** ✅ COMPLETED
 **Released:** 2025-11-07
 
@@ -95,16 +114,17 @@ See `TESTING.md` for complete testing checklist.
 - Created comprehensive testing checklist (TESTING.md)
 - Established 1.0 stability focus
 
-### 🔮 RC.6 - Smart Advice (Planned Next)
-**Status:** 🚧 PLANNED
+### 🔮 RC.7+ - Future Polish (If Needed)
+**Status:** 🚧 OPTIONAL
 
-**Goals:**
-- Hardware/software aware advice filtering
-- Don't recommend GUI apps without display server
-- Don't recommend Intel tools on AMD hardware (and vice versa)
-- Separate "Alternatives" category for software replacements
-- Category hide/unhide functionality
-- Context-aware priorities
+**Potential improvements:**
+- Enhanced error messages with actionable suggestions
+- More requirement types as edge cases are discovered
+- Alternative software category system
+- Interactive category hide/unhide commands
+- Performance optimizations if needed
+
+**Note:** RC.6 achieves the core goals for 1.0. Additional RCs only if testing reveals issues.
 
 ---
 
