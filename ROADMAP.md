@@ -18,6 +18,11 @@ This document tracks requested features and improvements from user feedback.
 - ✅ RC releases until stable (rc.1 → rc.2 → ... → 1.0.0)
 
 **2.0 Branch:** Innovation & Better UX
+- **Anna's Honest Reviews:** Personal system valoration and reviews
+  - Honest assessment of your system's health and setup
+  - Track changes over time (upgrades, behavior changes)
+  - Show what programs you use most, usage patterns
+  - Periodic "check-ins" with personalized insights
 - Better command verbs and interface
 - Enhanced TUI with improved UX
 - More intelligent recommendations
@@ -30,6 +35,62 @@ This document tracks requested features and improvements from user feedback.
 2. **User Trust:** Reliable 1.0 builds confidence
 3. **Freedom to Innovate:** 2.0 can break compatibility for better UX
 4. **Iterative Improvement:** RC process finds and fixes issues
+
+---
+
+## 🚨 STRICT FEATURE FREEZE IN EFFECT
+
+**Status:** 🔒 LOCKED - No New Features Until 1.0.0 Release
+
+### The Rule
+
+**ALL new feature requests will be rejected and added to v2.0 roadmap.**
+
+This includes feature requests from:
+- Users
+- Maintainers
+- **Even the project owner**
+
+### What's Allowed
+
+✅ **Bug fixes** - Fixing broken functionality
+✅ **Stability improvements** - Making existing features more reliable
+✅ **Documentation updates** - Clarifying existing features
+✅ **Testing** - Finding and fixing issues
+✅ **Performance optimizations** - Making things faster without adding features
+
+### What's NOT Allowed
+
+❌ **New commands** - No new CLI commands
+❌ **New advice categories** - No new recommendation types
+❌ **New telemetry** - No new system detection
+❌ **New features** - Anything that isn't broken
+
+### Idea Rating System
+
+When a new feature idea is proposed:
+
+**Rating: ⭐⭐⭐⭐⭐ (5/5) - Great idea!**
+→ Added to v2.0 roadmap
+→ Not implemented now
+
+**Rating: ⭐⭐⭐ (3/5) - Interesting**
+→ Added to v2.0 "maybe" list
+→ Not implemented now
+
+**Rating: ⭐ (1/5) - Not aligned with Anna's goals**
+→ Explained why it doesn't fit
+→ Not added to roadmap
+
+**The key:** Great ideas go to v2.0. Nothing gets implemented during feature freeze.
+
+### Why This Matters
+
+Feature creep is the #1 reason projects never ship. We have a great foundation. Let's ship it.
+
+"Perfect is the enemy of good." - Voltaire
+
+---
 
 ### Testing Plan
 
