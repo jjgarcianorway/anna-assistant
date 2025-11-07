@@ -1706,72 +1706,66 @@ pub async fn config(set: Option<String>) -> Result<()> {
 }
 
 /// New config interface supporting get/set/TUI
-pub async fn config_new(
-    action: Option<String>,
+/// Simplified config command - no action parameter needed
+/// Examples:
+///   annactl config                  -> show all
+///   annactl config autonomy_tier    -> get value
+///   annactl config autonomy_tier 1  -> set value
+pub async fn config_simple(
     key: Option<String>,
     value: Option<String>,
 ) -> Result<()> {
-    match action.as_deref() {
-        Some("get") => {
-            if let Some(k) = key {
-                // Connect to daemon to get current config
-                let mut client = match RpcClient::connect().await {
-                    Ok(c) => c,
-                    Err(_) => {
-                        println!("{}", beautiful::status(Level::Error, "Daemon not running"));
-                        println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+    match (key, value) {
+        // No key, no value -> show all config
+        (None, None) => {
+            config(None).await
+        }
+        // Key but no value -> get that key
+        (Some(k), None) => {
+            // Connect to daemon to get current config
+            let mut client = match RpcClient::connect().await {
+                Ok(c) => c,
+                Err(_) => {
+                    println!("{}", beautiful::status(Level::Error, "Daemon not running"));
+                    println!("{}", beautiful::status(Level::Info, "Start with: sudo systemctl start annad"));
+                    return Ok(());
+                }
+            };
+
+            let config_data = client.call(Method::GetConfig).await?;
+            if let ResponseData::Config(config) = config_data {
+                // Match the key and return the value
+                let val = match k.as_str() {
+                    "autonomy_tier" => config.autonomy_tier.to_string(),
+                    "auto_update_check" => config.auto_update_check.to_string(),
+                    "wiki_cache_path" => config.wiki_cache_path.clone(),
+                    _ => {
+                        println!("{}", beautiful::status(Level::Error, &format!("Unknown config key: {}", k)));
+                        println!();
+                        println!("Available keys:");
+                        println!("  autonomy_tier       - Current autonomy tier (0-3)");
+                        println!("  auto_update_check   - Enable automatic update checking");
+                        println!("  wiki_cache_path     - Path to Arch Wiki cache directory");
+                        println!();
+                        println!("To see all settings: \x1b[96mannactl config\x1b[0m");
                         return Ok(());
                     }
                 };
-
-                let config_data = client.call(Method::GetConfig).await?;
-                if let ResponseData::Config(config) = config_data {
-                    // Match the key and return the value
-                    // Note: ConfigData via RPC currently only exposes a subset of config
-                    let value = match k.as_str() {
-                        "autonomy_tier" => config.autonomy_tier.to_string(),
-                        "auto_update_check" => config.auto_update_check.to_string(),
-                        "wiki_cache_path" => config.wiki_cache_path.clone(),
-                        _ => {
-                            println!("{}", beautiful::status(Level::Error, &format!("Unknown config key: {}", k)));
-                            println!();
-                            println!("Available keys via RPC:");
-                            println!("  autonomy_tier       - Current autonomy tier (0-3)");
-                            println!("  auto_update_check   - Enable automatic update checking");
-                            println!("  wiki_cache_path     - Path to Arch Wiki cache directory");
-                            println!();
-                            println!("For full config, use: annactl config (shows all settings)");
-                            println!("Note: More keys will be added to RPC in future releases.");
-                            return Ok(());
-                        }
-                    };
-                    println!("{} = {}", k, value);
-                } else {
-                    println!("{}", beautiful::status(Level::Error, "Failed to get configuration"));
-                }
+                println!("{} = {}", k, val);
             } else {
-                println!("Usage: annactl config get <key>");
-                println!();
-                println!("Example: annactl config get autonomy_tier");
+                println!("{}", beautiful::status(Level::Error, "Failed to get configuration"));
             }
             Ok(())
         }
-        Some("set") => {
-            // Convert to old format: key=value
-            if let (Some(k), Some(v)) = (key, value) {
-                config(Some(format!("{}={}", k, v))).await
-            } else {
-                println!("Usage: annactl config set <key> <value>");
-                Ok(())
-            }
+        // Key and value -> set that key
+        (Some(k), Some(v)) => {
+            config(Some(format!("{}={}", k, v))).await
         }
-        None => {
-            // No action means show all config (or open TUI in future)
-            config(None).await
-        }
-        Some(unknown) => {
-            println!("Unknown action: {}", unknown);
-            println!("Use: annactl config [get|set] <key> [value]");
+        // Value without key makes no sense
+        (None, Some(_)) => {
+            println!("{}", beautiful::status(Level::Error, "Cannot set value without key"));
+            println!();
+            println!("Usage: annactl config <key> <value>");
             Ok(())
         }
     }

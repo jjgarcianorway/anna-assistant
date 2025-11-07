@@ -124,17 +124,14 @@ enum Commands {
     /// Configure Anna settings interactively or get/set values
     ///
     /// Examples:
-    ///   annactl config                        # Open interactive TUI
-    ///   annactl config get autonomy_tier      # Get a value
-    ///   annactl config set autonomy_tier 1    # Set a value
+    ///   annactl config                  # Show all settings
+    ///   annactl config autonomy_tier    # Get a value
+    ///   annactl config autonomy_tier 1  # Set a value
     Config {
-        /// Action: get, set, or none for TUI
-        action: Option<String>,
-
-        /// Key to get/set
+        /// Configuration key to get or set
         key: Option<String>,
 
-        /// Value to set (only for 'set' action)
+        /// Value to set (if provided, sets the key; otherwise gets it)
         value: Option<String>,
     },
 
@@ -169,9 +166,14 @@ enum Commands {
     },
 
     /// View application history and analytics
+    ///
+    /// Examples:
+    ///   annactl history         # Show last 30 days
+    ///   annactl history 7       # Show last 7 days
+    ///   annactl history 90 -v   # Show last 90 days with details
     History {
         /// Number of days to show (default: 30)
-        #[arg(short, long, default_value = "30")]
+        #[arg(default_value = "30")]
         days: i64,
 
         /// Show detailed entries
@@ -321,7 +323,7 @@ async fn main() -> Result<()> {
         },
         Commands::Report { category } => commands::report(category).await,
         Commands::Doctor { fix, dry_run, auto } => commands::doctor(fix, dry_run, auto).await,
-        Commands::Config { action, key, value } => commands::config_new(action, key, value).await,
+        Commands::Config { key, value } => commands::config_simple(key, value).await,
         Commands::Autonomy { limit } => commands::autonomy(limit).await,
         // WikiCache and Health removed - wiki cache automatic, health merged into status
         Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,

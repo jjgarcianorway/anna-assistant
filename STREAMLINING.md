@@ -62,7 +62,7 @@ annactl ignore priority optional   → annactl hide optional
 annactl ignore list                → annactl show hidden
 annactl ignore reset               → annactl unhide all
 
-# Config
+# Config (✅ RC.5)
 annactl config get autonomy_limit  → annactl config autonomy_limit
 annactl config set autonomy_limit 2 → annactl config autonomy_limit 2
 annactl autonomy 2                 → annactl config autonomy 2
@@ -72,9 +72,9 @@ annactl report                     → annactl doctor
 annactl report --category disk     → annactl doctor disk
 annactl doctor --fix               → annactl doctor --fix (unchanged)
 
-# History
+# History (✅ RC.5)
 annactl history --days 30          → annactl history 30
-annactl history --detailed         → annactl history --verbose
+annactl history --detailed         → annactl history -v
 ```
 
 ---
@@ -203,12 +203,12 @@ View category [security/system/desktop/apps/all]: _
 
 ## Implementation Priority
 
-1. ✅ Command consolidation (remove/merge)
-2. ✅ Simplify syntax (positional args)
-3. ✅ Standardize output (owo-colors everywhere)
-4. ✅ Add confirmations to apply
-5. ✅ Improve update flow
-6. ✅ Add pagination where needed
-7. ✅ Test all commands
-8. ✅ Update docs
-9. ✅ Release rc.2
+1. ✅ RC.2: Command consolidation (remove/merge)
+2. ✅ RC.2: Add confirmations to apply
+3. ✅ RC.2: Improve update flow
+4. ✅ RC.3: Merge health into status
+5. ✅ RC.4: Compact summary for advise
+6. ✅ RC.5: Simplify syntax (history, config)
+7. 🚧 RC.6: Smart advice filtering (hardware/software aware)
+8. 🚧 RC.6: Category hide/unhide system
+9. 🚧 Future: Standardize all output formats

@@ -6,7 +6,7 @@ This document tracks requested features and improvements from user feedback.
 
 ## 🎯 RELEASE STRATEGY: 1.0 Stability → 2.0 Innovation
 
-**Current Status:** Release Candidate Phase (1.0.0-rc.1)
+**Current Status:** Release Candidate Phase (1.0.0-rc.5)
 
 ### Philosophy
 
@@ -42,6 +42,69 @@ See `TESTING.md` for complete testing checklist.
 - [ ] No critical bugs
 - [ ] Installation tested on fresh Arch
 - [ ] Update path tested from Beta.114
+
+---
+
+## 🚀 RELEASE CANDIDATES (1.0.0-rc.X)
+
+### RC.5 - Simplified Command Syntax (Current)
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Simplified `history` command: `annactl history 30` (no --days flag needed)
+- Simplified `config` command: `annactl config key` or `annactl config key value` (no get/set actions)
+- More intuitive positional arguments throughout
+- Updated help text and documentation
+
+### RC.4 - Compact Advice Summary
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Redesigned `annactl advise` to show compact summary by default (~20 lines)
+- Category-based drill-down: `annactl advise security`
+- Special "all" keyword: `annactl advise all`
+- Reduces overwhelming output while keeping full details accessible
+
+### RC.3 - Health Integration
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Merged `health` command into `status` command
+- Reduced from 17 to 15 commands (WikiCache and Health removed)
+- Streamlined user experience
+
+### RC.2 - Safety First
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-07
+
+**Changes:**
+- Added confirmation prompts with previews before all apply operations
+- Improved update command to show version comparison before asking for permission
+- "Always inform, then do" principle implemented
+- Sudo only requested when actually needed
+
+### RC.1 - Feature Freeze
+**Status:** ✅ COMPLETED
+**Released:** 2025-11-06
+
+**Changes:**
+- Disabled TUI for 1.0 (will return in 2.0 with better UX)
+- Created comprehensive testing checklist (TESTING.md)
+- Established 1.0 stability focus
+
+### 🔮 RC.6 - Smart Advice (Planned Next)
+**Status:** 🚧 PLANNED
+
+**Goals:**
+- Hardware/software aware advice filtering
+- Don't recommend GUI apps without display server
+- Don't recommend Intel tools on AMD hardware (and vice versa)
+- Separate "Alternatives" category for software replacements
+- Category hide/unhide functionality
+- Context-aware priorities
 
 ---
 
