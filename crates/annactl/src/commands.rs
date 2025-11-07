@@ -47,13 +47,21 @@ async fn check_and_notify_updates() {
 }
 
 pub async fn status() -> Result<()> {
-    println!("{}", header("Anna Status"));
-    println!();
+    // RC.9: Show immediate feedback - don't make users wait in silence
+    eprint!("\r{}", beautiful::status(Level::Info, "Checking daemon status..."));
+    use std::io::Write;
+    let _ = std::io::stderr().flush();
 
     // Try to connect to daemon
     let mut client = match RpcClient::connect().await {
         Ok(c) => c,
         Err(_) => {
+            // Clear the "Checking..." message
+            eprint!("\r\x1b[K");
+            let _ = std::io::stderr().flush();
+
+            println!("{}", header("Anna Status"));
+            println!();
             println!(
                 "{}",
                 beautiful::status(Level::Error, "Daemon not running")
@@ -64,18 +72,31 @@ pub async fn status() -> Result<()> {
         }
     };
 
-    // Get status from daemon
+    // RC.9 Performance: Fetch all data ONCE at the beginning
+    // Old: Made 5 RPC calls (Status + GetFacts x2 + GetAdvice x2) = ~10s
+    // New: Make 3 RPC calls (Status + GetFacts + GetAdvice), reuse data = ~2-3s
     let status_data = client.call(Method::Status).await?;
+    let facts_data = client.call(Method::GetFacts).await?;
+    let advice_data = client.call(Method::GetAdvice).await?;
 
-    if let ResponseData::Status(status) = status_data {
-        println!("{}", section("System"));
+    // Clear the "Checking..." message and show header
+    eprint!("\r\x1b[K");
+    let _ = std::io::stderr().flush();
 
-        // Get system facts for display
-        let facts_data = client.call(Method::GetFacts).await?;
-        if let ResponseData::Facts(facts) = facts_data {
-            println!("  {}", kv("Hostname", &facts.hostname));
-            println!("  {}", kv("Kernel", &facts.kernel));
+    println!("{}", header("Anna Status"));
+    println!();
+
+    if let (ResponseData::Status(status), ResponseData::Facts(facts), ResponseData::Advice(mut advice_list))
+        = (status_data, facts_data, advice_data) {
+
+        // Apply ignore filters ONCE to advice list
+        if let Ok(filters) = anna_common::IgnoreFilters::load() {
+            advice_list.retain(|a| !filters.should_filter(a));
         }
+
+        println!("{}", section("System"));
+        println!("  {}", kv("Hostname", &facts.hostname));
+        println!("  {}", kv("Kernel", &facts.kernel));
 
         println!();
         println!("{}", section("Daemon"));
@@ -84,79 +105,50 @@ pub async fn status() -> Result<()> {
         println!("  {}", kv("Uptime", &format!("{}s", status.uptime_seconds)));
         println!();
 
-        // Show health score (merged from health command)
-        let advice_data_for_health = client.call(Method::GetAdvice).await?;
-        let facts_data_for_health = client.call(Method::GetFacts).await?;
+        // Show health score (reuse facts and advice_list)
+        let score = anna_common::SystemHealthScore::calculate(&facts, &advice_list);
+        let color = score.get_color_code();
+        let grade = score.get_grade();
 
-        if let (ResponseData::Facts(facts), ResponseData::Advice(mut advice_list_health)) = (facts_data_for_health, advice_data_for_health) {
-            // Apply filters before calculating health
-            if let Ok(filters) = anna_common::IgnoreFilters::load() {
-                advice_list_health.retain(|a| !filters.should_filter(a));
-            }
+        println!("{}", section("Health"));
+        println!("  Score: {}{}/100 ({}){}\x1b[0m", color, score.overall_score, grade, color);
 
-            let score = anna_common::SystemHealthScore::calculate(&facts, &advice_list_health);
-            let color = score.get_color_code();
-            let grade = score.get_grade();
+        let trend_icon = match score.health_trend {
+            anna_common::HealthTrend::Improving => "\x1b[92m↗\x1b[0m",
+            anna_common::HealthTrend::Stable => "\x1b[93m→\x1b[0m",
+            anna_common::HealthTrend::Declining => "\x1b[91m↘\x1b[0m",
+        };
+        println!("  Trend: {}", trend_icon);
+        println!();
 
-            println!("{}", section("Health"));
-            println!("  Score: {}{}/100 ({}){}\x1b[0m", color, score.overall_score, grade, color);
-
-            let trend_icon = match score.health_trend {
-                anna_common::HealthTrend::Improving => "\x1b[92m↗\x1b[0m",
-                anna_common::HealthTrend::Stable => "\x1b[93m→\x1b[0m",
-                anna_common::HealthTrend::Declining => "\x1b[91m↘\x1b[0m",
-            };
-            println!("  Trend: {}", trend_icon);
+        if !advice_list.is_empty() {
+            println!(
+                "{}",
+                beautiful::status(
+                    Level::Info,
+                    &format!("{} recommendations pending", advice_list.len())
+                )
+            );
             println!();
-        }
 
-        if status.pending_recommendations > 0 {
-            // Get advice list to show category breakdown
-            let advice_data = client.call(Method::GetAdvice).await?;
-            if let ResponseData::Advice(mut advice_list) = advice_data {
-                // Apply ignore filters FIRST
-                if let Ok(filters) = anna_common::IgnoreFilters::load() {
-                    advice_list.retain(|a| !filters.should_filter(a));
-                }
-
-                // NOW show the count (filtered count, not daemon's total count)
-                if !advice_list.is_empty() {
-                    println!(
-                        "{}",
-                        beautiful::status(
-                            Level::Info,
-                            &format!("{} recommendations pending", advice_list.len())
-                        )
-                    );
-                    println!();
-
-                    // Group by category and count
-                    let mut category_counts = std::collections::HashMap::new();
-                    for advice in &advice_list {
-                        *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
-                    }
-
-                    // Sort categories by count (descending)
-                    let mut categories: Vec<_> = category_counts.iter().collect();
-                    categories.sort_by(|a, b| b.1.cmp(a.1));
-
-                    println!("{}", section("Categories"));
-                    for (category, count) in categories.iter().take(10) {
-                        println!("  {} \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", category, count);
-                    }
-                    if categories.len() > 10 {
-                        println!("  \x1b[90m... and {} more\x1b[0m", categories.len() - 10);
-                    }
-                    println!();
-                } else {
-                    // All advice is filtered out
-                    println!(
-                        "{}",
-                        beautiful::status(Level::Info, "All recommendations filtered by your ignore settings")
-                    );
-                    println!();
-                }
+            // Group by category and count (reuse advice_list)
+            let mut category_counts = std::collections::HashMap::new();
+            for advice in &advice_list {
+                *category_counts.entry(advice.category.clone()).or_insert(0) += 1;
             }
+
+            // Sort categories by count (descending)
+            let mut categories: Vec<_> = category_counts.iter().collect();
+            categories.sort_by(|a, b| b.1.cmp(a.1));
+
+            println!("{}", section("Categories"));
+            for (category, count) in categories.iter().take(10) {
+                println!("  {} \x1b[90m·\x1b[0m \x1b[96m{}\x1b[0m", category, count);
+            }
+            if categories.len() > 10 {
+                println!("  \x1b[90m... and {} more\x1b[0m", categories.len() - 10);
+            }
+            println!();
         } else {
             println!(
                 "{}",
