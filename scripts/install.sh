@@ -167,7 +167,21 @@ if systemctl is-enabled --quiet annad 2>/dev/null; then
 else
     sudo systemctl enable --now annad
 fi
-echo -e "${GREEN}${CHECK}${RESET} Daemon running"
+
+# Wait for daemon to be ready (up to 15 seconds)
+echo -e "${CYAN}${ARROW}${RESET} Waiting for daemon to be ready..."
+TIMEOUT=15
+for i in $(seq 1 $TIMEOUT); do
+    if "$INSTALL_DIR/annactl" status >/dev/null 2>&1; then
+        echo -e "${GREEN}${CHECK}${RESET} Daemon ready (${i}s)"
+        break
+    fi
+    if [ $i -eq $TIMEOUT ]; then
+        echo -e "${YELLOW}⚠${RESET}  Daemon started but not responding yet (may take a few more seconds)"
+        break
+    fi
+    sleep 1
+done
 
 # Success banner
 echo

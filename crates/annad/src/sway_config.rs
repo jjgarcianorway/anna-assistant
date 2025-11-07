@@ -241,8 +241,8 @@ EOF
             )),
             RiskLevel::Low,
             Priority::Recommended,
-            vec!["https://wiki.archlinux.org/title/Sway#Backlight".to_string()],
-            "desktop".to_string(),
+            vec!["https://wiki.archlinux.org/title/Backlight".to_string()],
+            "Power Management".to_string(),
         ));
     }
 

@@ -319,8 +319,8 @@ bind = SUPER, F6, exec, brightnessctl set 5%+
                     )),
                     RiskLevel::Low,
                     Priority::Optional,
-                    vec!["https://wiki.archlinux.org/title/Hyprland".to_string()],
-                    "Desktop Customization".to_string(),
+                    vec!["https://wiki.archlinux.org/title/Backlight".to_string()],
+                    "Power Management".to_string(),
                 ),
             );
         } else {
@@ -340,8 +340,8 @@ bind = SUPER, F6, exec, brightnessctl set 5%+
                     )),
                     RiskLevel::Low,
                     Priority::Optional,
-                    vec!["https://wiki.archlinux.org/title/Hyprland".to_string()],
-                    "Desktop Customization".to_string(),
+                    vec!["https://wiki.archlinux.org/title/Backlight".to_string()],
+                    "Power Management".to_string(),
                 ),
             );
         }

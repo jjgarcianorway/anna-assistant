@@ -1811,6 +1811,57 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
     println!("{}", section("🔍 System Health Analysis"));
     println!();
 
+    // Performance Score (RC.9.10+) - "Potato computer, potato tools"
+    let score = facts.performance_score;
+    let tier = &facts.resource_tier;
+
+    println!("   \x1b[1mSystem Capability Score: {}/100\x1b[0m", score);
+    println!();
+
+    // Explain the score breakdown
+    println!("   \x1b[2mHow I calculated your score:\x1b[0m");
+
+    // RAM score (0-40 points)
+    let ram_score = if facts.total_memory_gb >= 64.0 { 40 }
+        else if facts.total_memory_gb >= 32.0 { 35 }
+        else if facts.total_memory_gb >= 16.0 { 30 }
+        else if facts.total_memory_gb >= 8.0 { 20 }
+        else if facts.total_memory_gb >= 4.0 { 10 }
+        else { 0 };
+    println!("   \x1b[2m  • RAM: {}/40 points ({:.1} GB)\x1b[0m", ram_score, facts.total_memory_gb);
+
+    // GPU score (0-40 points)
+    let gpu_score = if facts.is_nvidia { 35 }
+        else if facts.is_amd_gpu { 25 }
+        else if facts.is_intel_gpu { 5 }
+        else { 0 };
+    let gpu_name = if facts.is_nvidia { "NVIDIA" }
+        else if facts.is_amd_gpu { "AMD" }
+        else if facts.is_intel_gpu { "Intel iGPU" }
+        else { "Unknown" };
+    println!("   \x1b[2m  • GPU: {}/40 points ({})\x1b[0m", gpu_score, gpu_name);
+
+    // CPU score (0-20 points)
+    let cpu_score = if facts.cpu_cores >= 16 { 20 }
+        else if facts.cpu_cores >= 8 { 15 }
+        else if facts.cpu_cores >= 4 { 10 }
+        else if facts.cpu_cores >= 2 { 5 }
+        else { 2 };
+    println!("   \x1b[2m  • CPU: {}/20 points ({} cores)\x1b[0m", cpu_score, facts.cpu_cores);
+    println!();
+
+    let (emoji, assessment, explanation) = if score >= 75 {
+        ("🚀", "High Performance", "Your system has excellent hardware. I'll recommend feature-rich tools\n     and won't hold back on resource-intensive optimizations.")
+    } else if score >= 45 {
+        ("⚡", "Balanced", "Your system has capable hardware. I'll balance between features and\n     performance, giving you a good mix of both.")
+    } else {
+        ("🥔", "Efficient", "Your system has modest hardware. I'll focus on lightweight, efficient\n     tools that won't slow you down. \"Potato computer, potato tools!\"")
+    };
+
+    println!("   {} \x1b[1m{}\x1b[0m (Resource Tier: {})", emoji, assessment, tier);
+    println!("   \x1b[2m{}\x1b[0m", explanation);
+    println!();
+
     // CPU and Memory
     println!("   \x1b[1mHardware:\x1b[0m");
     println!("     CPU: {} ({} cores)", facts.cpu_model, facts.cpu_cores);
