@@ -4088,9 +4088,9 @@ async fn direct_update_fallback(current_version: &str) -> Result<()> {
     
     println!();
     println!("{}", beautiful::status(Level::Info, "Downloading binaries..."));
-    
-    // Download URLs
-    let base_url = format!("https://github.com/jjgarcianorway/anna-assistant/releases/download/{}", 
+
+    // Download URLs (GitHub tags have "v" prefix)
+    let base_url = format!("https://github.com/jjgarcianorway/anna-assistant/releases/download/v{}",
         update_info.latest_version);
     let annad_url = format!("{}/annad-x86_64-linux", base_url);
     let annactl_url = format!("{}/annactl-x86_64-linux", base_url);

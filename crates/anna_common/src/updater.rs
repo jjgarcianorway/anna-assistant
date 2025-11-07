@@ -72,7 +72,9 @@ pub fn get_current_version() -> Result<String> {
 
     // Extract version number (format: "annad v1.0.0-beta.41")
     if let Some(version) = version_output.split_whitespace().nth(1) {
-        Ok(version.to_string())
+        // Strip "v" prefix if present for consistency with latest_version
+        let version_str = version.strip_prefix("v").unwrap_or(version);
+        Ok(version_str.to_string())
     } else {
         anyhow::bail!("Could not parse version from: {}", version_output);
     }
