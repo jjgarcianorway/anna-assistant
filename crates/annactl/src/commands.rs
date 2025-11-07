@@ -1807,221 +1807,102 @@ fn wrap_text(text: &str, width: usize, indent: &str) -> String {
 /// Generate a plain English system health summary with sysadmin-level insights
 fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: &anna_common::SystemFacts, advice: &[anna_common::Advice]) {
 
-    // First, show system health metrics
-    println!("{}", section("🔍 System Health Analysis"));
+    println!("{}", section("📊 System Report"));
     println!();
 
-    // Performance Score (RC.9.10+) - "Potato computer, potato tools"
+    // Calculate scores for narrative
     let score = facts.performance_score;
-    let tier = &facts.resource_tier;
-
-    println!("   \x1b[1mSystem Capability Score: {}/100\x1b[0m", score);
-    println!();
-
-    // Explain the score breakdown
-    println!("   \x1b[2mHow I calculated your score:\x1b[0m");
-
-    // RAM score (0-40 points)
-    let ram_score = if facts.total_memory_gb >= 64.0 { 40 }
-        else if facts.total_memory_gb >= 32.0 { 35 }
-        else if facts.total_memory_gb >= 16.0 { 30 }
-        else if facts.total_memory_gb >= 8.0 { 20 }
-        else if facts.total_memory_gb >= 4.0 { 10 }
-        else { 0 };
-    println!("   \x1b[2m  • RAM: {}/40 points ({:.1} GB)\x1b[0m", ram_score, facts.total_memory_gb);
-
-    // GPU score (0-40 points)
-    let gpu_score = if facts.is_nvidia { 35 }
-        else if facts.is_amd_gpu { 25 }
-        else if facts.is_intel_gpu { 5 }
-        else { 0 };
-    let gpu_name = if facts.is_nvidia { "NVIDIA" }
-        else if facts.is_amd_gpu { "AMD" }
-        else if facts.is_intel_gpu { "Intel iGPU" }
-        else { "Unknown" };
-    println!("   \x1b[2m  • GPU: {}/40 points ({})\x1b[0m", gpu_score, gpu_name);
-
-    // CPU score (0-20 points)
-    let cpu_score = if facts.cpu_cores >= 16 { 20 }
-        else if facts.cpu_cores >= 8 { 15 }
-        else if facts.cpu_cores >= 4 { 10 }
-        else if facts.cpu_cores >= 2 { 5 }
-        else { 2 };
-    println!("   \x1b[2m  • CPU: {}/20 points ({} cores)\x1b[0m", cpu_score, facts.cpu_cores);
-    println!();
-
-    let (emoji, assessment, explanation) = if score >= 75 {
-        ("🚀", "High Performance", "Your system has excellent hardware. I'll recommend feature-rich tools\n     and won't hold back on resource-intensive optimizations.")
+    let tier_desc = if score >= 75 {
+        ("high-performance", "powerful")
     } else if score >= 45 {
-        ("⚡", "Balanced", "Your system has capable hardware. I'll balance between features and\n     performance, giving you a good mix of both.")
+        ("mid-range", "capable")
     } else {
-        ("🥔", "Efficient", "Your system has modest hardware. I'll focus on lightweight, efficient\n     tools that won't slow you down. \"Potato computer, potato tools!\"")
+        ("modest", "efficient")
     };
 
-    println!("   {} \x1b[1m{}\x1b[0m (Resource Tier: {})", emoji, assessment, tier);
-    println!("   \x1b[2m{}\x1b[0m", explanation);
+    let gpu_desc = if facts.is_nvidia {
+        "NVIDIA GPU"
+    } else if facts.is_amd_gpu {
+        "AMD GPU"
+    } else if facts.is_intel_gpu {
+        "Intel integrated graphics"
+    } else {
+        "basic graphics"
+    };
+
+    let de_info = facts.desktop_environment.as_ref()
+        .map(|de| format!("running {}", de))
+        .unwrap_or_else(|| "no desktop environment detected".to_string());
+
+    let ds_info = facts.display_server.as_ref()
+        .map(|ds| format!(" on {}", ds))
+        .unwrap_or_default();
+
+    // Executive Summary (like a sysadmin report)
+    println!("   This is a {} system with {:.0}GB RAM and {}, {}{}.",
+        tier_desc.0, facts.total_memory_gb, gpu_desc, de_info, ds_info);
+
+    println!("   Based on the hardware profile (capability score: \x1b[1m{}/100\x1b[0m), Anna is configured", score);
+    println!("   to recommend {} tools appropriate for your system's capabilities.",
+        tier_desc.1);
     println!();
 
-    // CPU and Memory
-    println!("   \x1b[1mHardware:\x1b[0m");
-    println!("     CPU: {} ({} cores)", facts.cpu_model, facts.cpu_cores);
-    println!("     RAM: {:.1} GB total", facts.total_memory_gb);
-    if let Some(ref gpu) = facts.gpu_vendor {
-        println!("     GPU: {}", gpu);
+    // System Health Narrative
+    let mut health_notes = Vec::new();
+
+    // Boot performance
+    if let Some(boot_time) = facts.boot_time_seconds {
+        if boot_time < 20.0 {
+            health_notes.push(format!("Boot time is excellent ({:.1}s)", boot_time));
+        } else if boot_time < 40.0 {
+            health_notes.push(format!("Boot time is acceptable ({:.1}s)", boot_time));
+        } else {
+            health_notes.push(format!("Boot time is slow ({:.1}s)", boot_time));
+            if !facts.slow_services.is_empty() {
+                let slowest = &facts.slow_services[0];
+                health_notes.push(format!("   {} is taking {:.1}s to start",
+                    slowest.name, slowest.time_seconds));
+            }
+        }
     }
-    println!();
 
     // Storage analysis
-    println!("   \x1b[1mStorage:\x1b[0m");
-    for device in &facts.storage_devices {
-        let used_percent = if device.size_gb > 0.0 {
-            (device.used_gb / device.size_gb * 100.0) as u8
+    if let Some(root_device) = facts.storage_devices.iter().find(|d| d.mount_point == "/") {
+        let used_percent = if root_device.size_gb > 0.0 {
+            (root_device.used_gb / root_device.size_gb * 100.0) as u8
         } else {
             0
         };
-        let status_icon = if used_percent > 90 {
-            "\x1b[91m⚠️\x1b[0m"
+        if used_percent > 90 {
+            health_notes.push(format!("Root partition is \x1b[91m{}% full\x1b[0m - needs attention soon", used_percent));
         } else if used_percent > 70 {
-            "\x1b[93m●\x1b[0m"
-        } else {
-            "\x1b[92m✓\x1b[0m"
-        };
-        println!("     {} {} on {} - {:.1}/{:.1} GB ({}% full)",
-            status_icon, device.filesystem, device.mount_point,
-            device.used_gb, device.size_gb, used_percent);
+            health_notes.push(format!("Root partition is {}% full - no immediate concern", used_percent));
+        }
     }
-    println!();
 
-    // Software environment
-    println!("   \x1b[1mSoftware Environment:\x1b[0m");
-    println!("     Kernel: {}", facts.kernel);
-    println!("     Packages: {} installed", facts.installed_packages);
+    // Orphaned packages
     if !facts.orphan_packages.is_empty() {
-        println!("     Orphaned: \x1b[93m{} packages\x1b[0m (can be cleaned)", facts.orphan_packages.len());
-    }
-    if let Some(ref de) = facts.desktop_environment {
-        println!("     Desktop: {}", de);
-    }
-    if let Some(ref ds) = facts.display_server {
-        println!("     Display: {}", ds);
-    }
-    println!("     Shell: {}", facts.shell);
-    println!();
-
-    // Development environment detection
-    if !facts.dev_tools_detected.is_empty() {
-        println!("   \x1b[1mDevelopment Tools Detected:\x1b[0m");
-        print!("     ");
-        for (i, tool) in facts.dev_tools_detected.iter().enumerate() {
-            print!("{}", tool);
-            if i < facts.dev_tools_detected.len() - 1 {
-                print!(", ");
-            }
-        }
-        println!();
-        println!();
+        health_notes.push(format!("Found {} orphaned packages that can be cleaned",
+            facts.orphan_packages.len()));
     }
 
-    // Network capabilities
-    println!("   \x1b[1mNetwork:\x1b[0m");
-    if facts.has_wifi {
-        println!("     \x1b[92m✓\x1b[0m WiFi available");
-    }
-    if facts.has_ethernet {
-        println!("     \x1b[92m✓\x1b[0m Ethernet available");
-    }
-    println!("     {} network interfaces detected", facts.network_interfaces.len());
-    println!();
-
-    // Boot Performance
-    if let Some(boot_time) = facts.boot_time_seconds {
-        println!("   \x1b[1mBoot Performance:\x1b[0m");
-        let boot_status = if boot_time < 20.0 {
-            ("\x1b[92m✓\x1b[0m Excellent", "")
-        } else if boot_time < 40.0 {
-            ("\x1b[93m●\x1b[0m Good", "")
-        } else {
-            ("\x1b[91m⚠️\x1b[0m Slow", " - consider optimizing startup")
-        };
-        println!("     {} Boot time: {:.1}s{}", boot_status.0, boot_time, boot_status.1);
-
-        if !facts.slow_services.is_empty() && facts.slow_services.len() <= 3 {
-            println!("     Slow services:");
-            for svc in facts.slow_services.iter().take(3) {
-                println!("       • {}: {:.1}s", svc.name, svc.time_seconds);
-            }
-        }
-        println!();
+    // System health issues
+    if !facts.failed_services.is_empty() {
+        health_notes.push(format!("\x1b[91m{} service(s) have failed\x1b[0m", facts.failed_services.len()));
     }
 
-    // System Health Metrics
-    let health_issues = facts.system_health_metrics.degraded_services.len()
-        + facts.system_health_metrics.recent_crashes.len()
-        + if !facts.system_health_metrics.kernel_errors.is_empty() { 1 } else { 0 };
-
-    if health_issues > 0 {
+    if health_notes.is_empty() {
+        println!("   The system is generally healthy. No significant issues detected.");
+    } else {
         println!("   \x1b[1mSystem Health:\x1b[0m");
-
-        if !facts.system_health_metrics.degraded_services.is_empty() {
-            println!("     \x1b[93m⚠️\x1b[0m {} service(s) in degraded state",
-                facts.system_health_metrics.degraded_services.len());
-        }
-
-        if !facts.system_health_metrics.recent_crashes.is_empty() {
-            println!("     \x1b[93m⚠️\x1b[0m {} recent service crash(es)",
-                facts.system_health_metrics.recent_crashes.len());
-        }
-
-        if !facts.system_health_metrics.kernel_errors.is_empty() {
-            println!("     \x1b[93m⚠️\x1b[0m {} kernel error(s) in journal",
-                facts.system_health_metrics.kernel_errors.len());
-        }
-
-        if facts.failed_services.len() > 0 {
-            println!("     \x1b[91m✗\x1b[0m {} failed service(s)", facts.failed_services.len());
-        } else {
-            println!("     \x1b[92m✓\x1b[0m No failed services");
-        }
-        println!();
-    }
-
-    // Battery (if laptop)
-    if let Some(ref battery) = facts.battery_info {
-        if battery.present {
-            println!("   \x1b[1mBattery:\x1b[0m");
-            if let Some(capacity) = battery.capacity_percent {
-                let battery_icon = if capacity > 80.0 {
-                    "🔋"
-                } else if capacity > 20.0 {
-                    "🔋"
-                } else {
-                    "🪫"
-                };
-                println!("     {} Capacity: {:.0}%", battery_icon, capacity);
-            }
-
-            if let Some(health) = battery.health_percent {
-                if health < 80.0 {
-                    println!("     \x1b[93m⚠️\x1b[0m Health: {:.0}% (consider replacement)", health);
-                } else if health < 90.0 {
-                    println!("     Health: {:.0}% (fair)", health);
-                } else {
-                    println!("     Health: {:.0}% (excellent)", health);
-                }
-            }
-            println!();
+        for note in &health_notes {
+            println!("   {}", note);
         }
     }
+    println!();
 
-    // Memory Usage
-    if facts.performance_metrics.memory_usage_avg_percent > 85.0 {
-        println!("   \x1b[1mMemory:\x1b[0m");
-        println!("     \x1b[91m⚠️\x1b[0m High memory usage ({:.0}%)", facts.performance_metrics.memory_usage_avg_percent);
-        println!("     Consider closing some applications or adding RAM");
-        println!();
-    }
-
-    println!("{}", section("💭 Overall Assessment"));
+    // Issues Found - Narrative Summary
+    println!("   \x1b[1mIssues Found:\x1b[0m");
     println!();
 
     // Overall assessment - use Priority (not RiskLevel) to be consistent with TUI
