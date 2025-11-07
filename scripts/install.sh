@@ -29,11 +29,12 @@ error_exit() {
     exit 1
 }
 
-# Header
+# Clean header
 echo
-echo -e "${BOLD}${CYAN}╭──────────────────────────────────────────────────╮${RESET}"
-echo -e "${BOLD}${CYAN}│${RESET}  ${BOLD}${BLUE}🌟 Anna Assistant${RESET} ${GRAY}- Your Friendly Arch Admin${RESET}  ${BOLD}${CYAN}│${RESET}"
-echo -e "${BOLD}${CYAN}╰──────────────────────────────────────────────────╯${RESET}"
+echo -e "${BOLD}${CYAN}====================================================${RESET}"
+echo -e "${BOLD}${BLUE}    🌟 Anna Assistant Installer${RESET}"
+echo -e "${GRAY}    Your Friendly Arch Linux System Administrator${RESET}"
+echo -e "${BOLD}${CYAN}====================================================${RESET}"
 echo
 
 # Brief intro
@@ -168,11 +169,11 @@ else
 fi
 echo -e "${GREEN}${CHECK}${RESET} Daemon running"
 
-# Success message
+# Success banner
 echo
-echo -e "${BOLD}${GREEN}╭──────────────────────────────────────────────────╮${RESET}"
-echo -e "${BOLD}${GREEN}│${RESET}      ${BOLD}${GREEN}✓ Installation Complete!${RESET} ${BOLD}${TAG}${RESET}           ${BOLD}${GREEN}│${RESET}"
-echo -e "${BOLD}${GREEN}╰──────────────────────────────────────────────────╯${RESET}"
+echo -e "${BOLD}${GREEN}====================================================${RESET}"
+echo -e "${BOLD}${GREEN}  ✓ Installation Complete! ${TAG}${RESET}"
+echo -e "${BOLD}${GREEN}====================================================${RESET}"
 echo
 echo -e "${BOLD}${CYAN}Quick Start:${RESET}"
 echo -e "  ${CYAN}annactl advise${RESET}  ${GRAY}# Get personalized recommendations${RESET}"
