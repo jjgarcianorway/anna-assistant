@@ -4,9 +4,11 @@
 
 Anna is a smart, friendly system assistant that helps keep your Arch Linux system secure, fast, and well-maintained. She speaks plain English, explains everything she suggests, and makes system administration feel like having a knowledgeable friend looking after your computer.
 
-**Current Version:** 1.0.0-rc.1 (Release Candidate - November 2025)
+**Current Version:** 1.0.0-rc.10 (Release Candidate - November 2025)
 
 > **📢 RC Status:** Anna is in Release Candidate phase. Features are frozen, focus is on stability and testing. See `TESTING.md` for testing checklist. TUI temporarily disabled for 1.0 release.
+>
+> **🎯 Design Focus:** Anna is a **Hyprland-focused assistant**. She provides the best possible Hyprland experience with optimized configurations, automatic hardware detection, and a complete desktop environment out of the box.
 
 ---
 
@@ -46,14 +48,17 @@ Anna is a smart, friendly system assistant that helps keep your Arch Linux syste
 - **RAM Health (Beta.100)**: Memory leak detection, OOM prevention, pressure monitoring
 - **CPU Health (Beta.101)**: Load monitoring, thermal throttling detection, process identification
 
-### Beta.93-98: 22 Window Manager Bundles ✅
-**ONE-CLICK DESKTOP SETUP:** Complete WM environments with all components!
-- **Wayland Compositors**: Hyprland, Sway, Wayfire, River
-- **Tiling WMs**: i3, bspwm, dwm, xmonad, herbstluftwm, awesome, qtile, leftwm, spectrwm
-- **Stacking WMs**: Openbox, Fluxbox, IceWM
-- **Minimal WMs**: ratpoison, wmii, evilwm
-- **Classic WMs**: Window Maker, FVWM, Enlightenment
-- Each bundle includes: launcher, status bar, terminal, file manager, notifications, keybindings reference
+### RC.10: Hyprland Desktop Setup ✅
+**ONE-COMMAND COMPLETE SETUP:** Perfect Hyprland environment with all components!
+- **Command:** `annactl setup hyprland`
+- **Includes:** rofi, waybar, kitty, nautilus, mako, hyprpaper, swaylock
+- **Smart Selection:** Text editor, media player, image viewer (only if needed)
+- **Hardware Detection:** Automatic NVIDIA/AMD/Intel configuration
+- **Beautiful Theming:** Pywal integration for automatic color schemes
+- **Screen Sharing:** Full Teams/Zoom support via pipewire + xdg-desktop-portal
+- **Complete Config:** All dotfiles included and ready to use
+
+**Note:** Other WMs (i3, sway, etc.) removed for v1.0 - Anna is Hyprland-focused
 
 ### Beta.96: Network Health Monitoring ✅
 - Connectivity testing (interface, DNS, latency)

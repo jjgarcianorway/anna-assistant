@@ -16,9 +16,8 @@ pub fn generate_bundles(facts: &SystemFacts) -> Vec<Advice> {
     // Only generate bundles if Wayland is available/relevant
     if is_wayland_system(facts) {
         advice.extend(hyprland_bundle(facts));
-        advice.extend(sway_bundle(facts));
-        advice.extend(wayfire_bundle(facts));
-        advice.extend(river_bundle(facts));
+        // Only Hyprland supported for v1.0
+        // Other compositors (sway, wayfire, river) may return in v2.0
     }
 
     advice

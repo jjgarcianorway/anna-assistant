@@ -930,20 +930,12 @@ pub fn smart_select_pdf_viewer(facts: &SystemFacts) -> Option<String> {
 pub fn generate_all_wm_bundles(facts: &SystemFacts) -> Vec<Advice> {
     let mut advice = Vec::new();
 
-    // Wayland compositors (4 WMs)
+    // Only Hyprland supported for v1.0 - Anna is Hyprland-focused
     advice.extend(wayland_compositors::generate_bundles(facts));
 
-    // Tiling WMs (9 WMs: i3, bspwm, dwm, xmonad, herbstluftwm, awesome, qtile, leftwm, spectrwm)
-    advice.extend(tiling_wms::generate_bundles(facts));
-
-    // Stacking WMs (3 WMs: openbox, fluxbox, icewm)
-    advice.extend(stacking_wms::generate_bundles(facts));
-
-    // Minimal WMs (3 WMs: ratpoison, wmii, evilwm)
-    advice.extend(minimal_wms::generate_bundles(facts));
-
-    // Classic WMs (3 WMs: windowmaker, fvwm, enlightenment)
-    advice.extend(classic_wms::generate_bundles(facts));
+    // Other WMs (i3, sway, bspwm, etc.) removed for v1.0
+    // These may return in v2.0 if there's user demand
+    // For now: Anna = Hyprland assistant
 
     advice
 }

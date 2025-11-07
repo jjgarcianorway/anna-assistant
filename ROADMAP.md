@@ -47,8 +47,26 @@ See `TESTING.md` for complete testing checklist.
 
 ## 🚀 RELEASE CANDIDATES (1.0.0-rc.X)
 
-### RC.9.10 - UX Improvements (Current)
+### RC.10 - Hyprland-Focused Design (Current)
 **Status:** 🚧 IN PROGRESS
+**Released:** 2025-11-07
+
+**Design Decision:** Anna is now **Hyprland-focused** - only Hyprland desktop setup supported.
+
+**Completed:**
+- ✅ Renamed "bundles" command to "setup" (clearer UX)
+- ✅ Removed all non-Hyprland setups (sway, i3, bspwm, etc.)
+- ✅ Updated README and ROADMAP documentation
+- ✅ Only Hyprland bundle remains in wayland_compositors module
+
+**Rationale:**
+- User requested 5+ times to remove non-Hyprland bundles
+- Anna designed specifically for Hyprland ecosystem
+- Better to do one thing perfectly than many things poorly
+- Other WMs may return in v2.0 if there's demand
+
+### RC.9.10 - UX Improvements
+**Status:** ✅ COMPLETED
 **Released:** 2025-11-07
 
 **Completed:**
@@ -57,9 +75,7 @@ See `TESTING.md` for complete testing checklist.
 - ✅ brightnessctl properly categorized as "Power Management"
 - ✅ Started narrative report rewrite (partial - WIP)
 
-**Still Pending:**
-- ❌ Hyprland bundle (designed but not implemented)
-- ❌ Remove non-Hyprland bundles (still present)
+**Still Pending (deferred to RC.11+):**
 - ❌ Full Arch Wiki category alignment (many still wrong)
 - ❌ Complete narrative report rewrite
 

@@ -75,8 +75,21 @@ enum Commands {
         dry_run: bool,
     },
 
-    /// List available workflow bundles
-    Bundles,
+    /// Setup complete desktop environments (install + configure everything)
+    ///
+    /// Examples:
+    ///   annactl setup                    # List available desktop setups
+    ///   annactl setup hyprland           # Install complete Hyprland environment
+    ///   annactl setup hyprland --preview # Show what would be installed
+    Setup {
+        /// Desktop environment to setup (hyprland, etc.)
+        #[arg(value_name = "DESKTOP")]
+        desktop: Option<String>,
+
+        /// Show what would be installed without actually installing
+        #[arg(long)]
+        preview: bool,
+    },
 
     /// Rollback actions or bundles (Beta.91+)
     ///
@@ -290,7 +303,9 @@ async fn main() -> Result<()> {
         Commands::Apply { numbers, id, bundle, auto, dry_run } => {
             commands::apply(id, numbers, bundle, auto, dry_run).await
         }
-        Commands::Bundles => commands::bundles().await,
+        Commands::Setup { desktop, preview } => {
+            commands::setup(desktop.as_deref(), preview).await
+        },
         Commands::Rollback { action } => match action {
             RollbackAction::List => commands::rollback_list().await,
             RollbackAction::Action { advice_id, dry_run } => {

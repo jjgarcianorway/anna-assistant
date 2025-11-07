@@ -2030,12 +2030,48 @@ fn generate_plain_english_report(_status: &anna_common::ipc::StatusData, facts: 
     println!();
 }
 /// List available workflow bundles
-pub async fn bundles() -> Result<()> {
+pub async fn setup(desktop: Option<&str>, preview: bool) -> Result<()> {
     use anna_common::beautiful::{header, section};
 
-    println!("{}", header("Workflow Bundles"));
-    println!();
-    println!("  \x1b[90mInstall complete development stacks with one command!\x1b[0m");
+    // If no desktop specified, show available options
+    if desktop.is_none() {
+        println!("{}", header("Desktop Environment Setup"));
+        println!();
+        println!("  Anna can install and configure complete desktop environments for you.");
+        println!("  Everything ready to use: window manager, terminal, launcher, bar, theme, etc.");
+        println!();
+        println!("{}", section("Available Setups"));
+        println!();
+        println!("  \x1b[1mhyprland\x1b[0m - Modern Wayland compositor with animations");
+        println!("    • Automatic hardware detection (NVIDIA/AMD/Intel)");
+        println!("    • Optimized for your system's capabilities");
+        println!("    • Complete working environment out of the box");
+        println!();
+        println!("{}", section("Usage"));
+        println!();
+        println!("  \x1b[38;5;159mannactl setup hyprland\x1b[0m           # Install Hyprland environment");
+        println!("  \x1b[38;5;159mannactl setup hyprland --preview\x1b[0m # Show what would be installed");
+        println!();
+        return Ok(());
+    }
+
+    let desktop_name = desktop.unwrap();
+
+    // For now, only Hyprland is supported
+    if desktop_name != "hyprland" {
+        println!("{}", header("Desktop Setup"));
+        println!();
+        println!("  \x1b[91m✗\x1b[0m Desktop '{}' not available", desktop_name);
+        println!();
+        println!("  Currently supported:");
+        println!("    • hyprland");
+        println!();
+        println!("  Run \x1b[38;5;159mannactl setup\x1b[0m to see all options");
+        println!();
+        return Ok(());
+    }
+
+    println!("{}", header(&format!("Setup: {}", desktop_name)));
     println!();
 
     // Show installed bundles first if any exist
