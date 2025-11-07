@@ -33,7 +33,7 @@
 //!     .build();
 //! ```
 
-use anna_common::types::{Advice, Priority, RiskLevel, SystemFacts};
+use anna_common::types::{Advice, Priority, Requirement, RiskLevel, SystemFacts};
 use std::collections::HashMap;
 
 pub mod wayland_compositors;
@@ -364,6 +364,22 @@ impl WMBundleBuilder {
         .with_bundle(self.bundle_id.clone())
     }
 
+    /// Create advice with system requirements (RC.6)
+    /// Only show this component if system meets the requirements
+    fn make_advice_with_requirements(
+        &self,
+        id_suffix: &str,
+        title: String,
+        reason: String,
+        command: String,
+        category: String,
+        priority: Priority,
+        requirements: Vec<Requirement>,
+    ) -> Advice {
+        self.make_advice(id_suffix, title, reason, command, category, priority)
+            .with_requirements(requirements)
+    }
+
     /// Build the bundle into a list of Advice items
     pub fn build(self, facts: &SystemFacts) -> Vec<Advice> {
         let mut advice = Vec::new();
@@ -477,66 +493,70 @@ impl WMBundleBuilder {
             }
         }
 
-        // 7. Bluetooth Manager
+        // 7. Bluetooth Manager (RC.6 - Only if Bluetooth hardware present)
         if let Some(bt) = &self.components.bluetooth_manager {
             if !self.is_package_installed(bt, facts) {
                 advice.push(
-                    self.make_advice(
+                    self.make_advice_with_requirements(
                         "bluetooth",
                         format!("Install {} bluetooth manager", bt),
                         format!("{} provides bluetooth device management.", bt),
                         format!("pacman -S --noconfirm bluez bluez-utils {}", bt),
                         "system".to_string(),
                         Priority::Optional,
+                        vec![Requirement::Bluetooth],
                     )
                 );
             }
         }
 
-        // 7a. Audio Control Tool (Beta.112)
+        // 7a. Audio Control Tool (RC.6 - Only if audio system present)
         if let Some(audio) = &self.components.audio_control {
             if !self.is_package_installed(audio, facts) {
                 advice.push(
-                    self.make_advice(
+                    self.make_advice_with_requirements(
                         "audio",
                         format!("Install {} audio control", audio),
                         format!("{} provides volume control for multimedia keys.", audio),
                         format!("pacman -S --noconfirm {}", audio),
                         "system".to_string(),
                         Priority::Recommended,
+                        vec![Requirement::AudioSystem],
                     )
                 );
             }
         }
 
-        // 7b. Brightness Control Tool (Beta.112 - Laptop only!)
+        // 7b. Brightness Control Tool (RC.6 - Only on laptops)
         if let Some(brightness) = &self.components.brightness_control {
             // Only install brightness control on laptops
             if facts.user_preferences.uses_laptop && !self.is_package_installed(brightness, facts) {
                 advice.push(
-                    self.make_advice(
+                    self.make_advice_with_requirements(
                         "brightness",
                         format!("Install {} brightness control", brightness),
                         format!("{} provides brightness control for laptop multimedia keys.", brightness),
                         format!("pacman -S --noconfirm {}", brightness),
                         "system".to_string(),
                         Priority::Recommended,
+                        vec![Requirement::Laptop],
                     )
                 );
             }
         }
 
-        // 7c. Media Player (Beta.113)
+        // 7c. Media Player (RC.6 - Needs display server AND audio system)
         if let Some(player) = &self.components.media_player {
             if !self.is_package_installed(player, facts) {
                 advice.push(
-                    self.make_advice(
+                    self.make_advice_with_requirements(
                         "media-player",
                         format!("Install {} video player", player),
                         format!("{} is a powerful media player for videos and music.", player),
                         format!("pacman -S --noconfirm {}", player),
                         "applications".to_string(),
                         Priority::Recommended,
+                        vec![Requirement::DisplayServer, Requirement::AudioSystem],
                     )
                 );
             }

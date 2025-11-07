@@ -67,6 +67,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
             satisfies: Vec::new(),
                 related_to: vec!["python-black".to_string(), "ipython".to_string()],
                 popularity: 50,
+            requires: Vec::new(),
             });
         }
 
@@ -88,6 +89,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
             satisfies: Vec::new(),
                 related_to: vec!["python-lsp".to_string(), "ipython".to_string()],
                 popularity: 50,
+            requires: Vec::new(),
             });
         }
 
@@ -109,6 +111,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
             satisfies: Vec::new(),
                 related_to: vec!["python-lsp".to_string(), "python-black".to_string()],
                 popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -136,6 +139,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: Some("Rust Development Stack".to_string()),
             satisfies: Vec::new(),
                 popularity: 50,
+            requires: Vec::new(),
             });
         }
 
@@ -157,6 +161,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -182,6 +187,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -205,6 +211,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -230,6 +237,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
 
@@ -251,6 +259,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -275,6 +284,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: Some("Container Development Stack".to_string()),
             satisfies: Vec::new(),
                 popularity: 50,
+            requires: Vec::new(),
             });
         }
 
@@ -295,6 +305,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -319,6 +330,7 @@ fn recommend_dev_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -353,6 +365,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -374,6 +387,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -395,6 +409,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -416,6 +431,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -437,6 +453,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -458,6 +475,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -479,6 +497,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -499,6 +518,7 @@ fn recommend_cli_improvements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -527,6 +547,7 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -548,6 +569,7 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -569,6 +591,7 @@ fn recommend_media_tools(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -597,6 +620,7 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -619,6 +643,7 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
 
@@ -639,6 +664,7 @@ fn recommend_shell_enhancements(facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -686,6 +712,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -710,6 +737,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -741,6 +769,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -768,6 +797,7 @@ fn check_missing_configs() -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -809,6 +839,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
         }
     }
@@ -831,6 +862,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -869,6 +901,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -890,6 +923,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -911,6 +945,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -935,6 +970,7 @@ fn recommend_hardware_support(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -967,6 +1003,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -988,6 +1025,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1015,6 +1053,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1036,6 +1075,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1057,6 +1097,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1079,6 +1120,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1101,6 +1143,7 @@ fn recommend_desktop_enhancements(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1129,6 +1172,7 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1150,6 +1194,7 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1171,6 +1216,7 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1192,6 +1238,7 @@ fn recommend_fonts(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1220,6 +1267,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1241,6 +1289,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1262,6 +1311,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1283,6 +1333,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1305,6 +1356,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     } else if !using_wayland && !package_installed("scrot") && !package_installed("maim") {
         result.push(Advice {
@@ -1323,6 +1375,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 
@@ -1344,6 +1397,7 @@ fn recommend_multimedia_tools(_facts: &SystemFacts) -> Vec<Advice> {
                 bundle: None,
             satisfies: Vec::new(),
             popularity: 50,
+            requires: Vec::new(),
             });
     }
 

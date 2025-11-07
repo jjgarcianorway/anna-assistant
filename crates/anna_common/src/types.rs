@@ -12,6 +12,111 @@ pub enum RiskLevel {
     High = 2,
 }
 
+/// System requirements for advice applicability (RC.6)
+/// Ensures advice is only shown when it makes sense for the system
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Requirement {
+    /// Requires any display server (X11 or Wayland)
+    DisplayServer,
+    /// Requires Wayland specifically
+    Wayland,
+    /// Requires X11 specifically
+    X11,
+    /// Requires any audio system (PulseAudio, PipeWire, ALSA)
+    AudioSystem,
+    /// Requires PulseAudio specifically
+    PulseAudio,
+    /// Requires PipeWire specifically
+    PipeWire,
+    /// Requires specific GPU vendor
+    GpuVendor(String), // "nvidia", "amd", "intel"
+    /// Requires any GPU (not just integrated)
+    DedicatedGpu,
+    /// Requires Bluetooth hardware
+    Bluetooth,
+    /// Requires WiFi hardware
+    WiFi,
+    /// Requires Ethernet connection
+    Ethernet,
+    /// Requires specific package to be installed
+    Package(String),
+    /// Requires desktop environment (any)
+    DesktopEnvironment,
+    /// Requires window manager (any)
+    WindowManager,
+    /// Requires laptop hardware (battery present)
+    Laptop,
+    /// Requires gaming-related setup
+    Gaming,
+    /// Requires development environment
+    Development,
+}
+
+impl Requirement {
+    /// Check if this requirement is met by the given system facts
+    pub fn is_met(&self, facts: &SystemFacts) -> bool {
+        match self {
+            Requirement::DisplayServer => {
+                facts.display_server.is_some()
+            }
+            Requirement::Wayland => {
+                facts.display_server.as_ref().map(|s| s.to_lowercase().contains("wayland")).unwrap_or(false)
+            }
+            Requirement::X11 => {
+                facts.display_server.as_ref().map(|s| s.to_lowercase().contains("x11")).unwrap_or(false)
+            }
+            Requirement::AudioSystem => {
+                facts.audio_system.is_some() && facts.audio_server_running
+            }
+            Requirement::PulseAudio => {
+                facts.audio_system.as_ref().map(|s| s.to_lowercase().contains("pulse")).unwrap_or(false)
+                    && facts.audio_server_running
+            }
+            Requirement::PipeWire => {
+                facts.audio_system.as_ref().map(|s| s.to_lowercase().contains("pipewire")).unwrap_or(false)
+                    && facts.audio_server_running
+            }
+            Requirement::GpuVendor(vendor) => {
+                match vendor.to_lowercase().as_str() {
+                    "nvidia" => facts.is_nvidia,
+                    "amd" => facts.is_amd_gpu,
+                    "intel" => facts.is_intel_gpu,
+                    _ => false,
+                }
+            }
+            Requirement::DedicatedGpu => {
+                facts.gpu_vendor.is_some()
+            }
+            Requirement::Bluetooth => {
+                facts.bluetooth_status.available
+            }
+            Requirement::WiFi => facts.has_wifi,
+            Requirement::Ethernet => facts.has_ethernet,
+            Requirement::Package(pkg) => {
+                // Check if package exists in system
+                // For now, we'll assume it's met - can be enhanced later
+                std::process::Command::new("pacman")
+                    .arg("-Q")
+                    .arg(pkg)
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false)
+            }
+            Requirement::DesktopEnvironment => facts.desktop_environment.is_some(),
+            Requirement::WindowManager => facts.window_manager.is_some(),
+            Requirement::Laptop => facts.battery_info.is_some(),
+            Requirement::Gaming => {
+                // Has gaming profile or gaming-related packages
+                facts.gaming_profile.steam_installed || facts.gaming_profile.game_count > 0
+            }
+            Requirement::Development => {
+                // Has dev tools or dev profile
+                !facts.dev_tools_detected.is_empty() || !facts.development_environment.languages.is_empty()
+            }
+        }
+    }
+}
+
 /// Priority level for recommendations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Priority {
@@ -645,6 +750,10 @@ pub struct Advice {
     /// 0-29: Rare (very specialized)
     #[serde(default = "default_popularity")]
     pub popularity: u8,
+    /// System requirements that must be met for this advice to be shown (RC.6)
+    /// Empty = no requirements, always show
+    #[serde(default)]
+    pub requires: Vec<Requirement>,
 }
 
 impl Advice {
@@ -676,6 +785,7 @@ impl Advice {
             bundle: None,
             satisfies: Vec::new(),
             popularity: 50, // Default: common
+            requires: Vec::new(), // Default: no requirements
         }
     }
 
@@ -713,6 +823,24 @@ impl Advice {
     pub fn with_popularity(mut self, popularity: u8) -> Self {
         self.popularity = popularity.min(100); // Cap at 100
         self
+    }
+
+    /// Set system requirements (RC.6)
+    /// Only show this advice if all requirements are met
+    pub fn with_requirements(mut self, requires: Vec<Requirement>) -> Self {
+        self.requires = requires;
+        self
+    }
+
+    /// Check if all requirements are met for this advice
+    pub fn requirements_met(&self, facts: &SystemFacts) -> bool {
+        // Empty requirements = always met
+        if self.requires.is_empty() {
+            return true;
+        }
+
+        // All requirements must be met
+        self.requires.iter().all(|req| req.is_met(facts))
     }
 
     /// Get popularity as stars (★★★★★ or ☆☆☆☆☆)

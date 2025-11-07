@@ -615,16 +615,37 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
         Method::GetAdvice => {
             let all_advice = state.advice.read().await.clone();
-            let filtered_advice = filter_satisfied_advice(all_advice.clone(), &state.audit_logger, &all_advice).await;
+
+            // Get system facts for requirement checking (RC.6)
+            let facts = state.facts.read().await.clone();
+
+            // Filter by requirements first (RC.6 - Smart filtering)
+            let requirement_filtered: Vec<_> = all_advice.iter()
+                .filter(|advice| advice.requirements_met(&facts))
+                .cloned()
+                .collect();
+
+            // Then filter satisfied advice
+            let filtered_advice = filter_satisfied_advice(requirement_filtered.clone(), &state.audit_logger, &requirement_filtered).await;
             Ok(ResponseData::Advice(filtered_advice))
         }
 
         Method::GetAdviceWithContext { username, desktop_env, shell, display_server } => {
-            // Filter advice based on user context
+            // Filter advice based on user context AND system requirements (RC.6)
             let all_advice = state.advice.read().await.clone();
             let total_count = all_advice.len();
 
-            let context_filtered: Vec<_> = all_advice.clone().into_iter()
+            // Get system facts for requirement checking (RC.6)
+            let facts = state.facts.read().await.clone();
+
+            // First filter by requirements (RC.6 - Smart filtering)
+            let requirement_filtered: Vec<_> = all_advice.iter()
+                .filter(|advice| advice.requirements_met(&facts))
+                .cloned()
+                .collect();
+
+            // Then apply context filtering
+            let context_filtered: Vec<_> = requirement_filtered.into_iter()
                 .filter(|advice| {
                     // System-wide advice (security, updates, etc.) - show to everyone
                     if matches!(advice.category.as_str(), "security" | "updates" | "performance" | "cleanup") {
@@ -662,10 +683,10 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 })
                 .collect();
 
-            // Also filter out satisfied advice
+            // Finally filter out satisfied advice
             let filtered_advice = filter_satisfied_advice(context_filtered, &state.audit_logger, &all_advice).await;
 
-            info!("Filtered advice for user {}: {} -> {} items",
+            info!("Filtered advice for user {} (req->ctx->satisfied): {} -> {} items",
                   username, total_count, filtered_advice.len());
 
             Ok(ResponseData::Advice(filtered_advice))
