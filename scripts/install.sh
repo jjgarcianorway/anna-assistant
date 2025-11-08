@@ -81,11 +81,28 @@ if [ -n "$CURRENT_VERSION" ]; then
 
     if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
         echo
-        echo -e "${YELLOW}${ARROW}${RESET} ${GRAY}Already on latest version, will reinstall${RESET}"
+        echo -e "${YELLOW}${ARROW}${RESET} ${BOLD}Already on version ${TAG}${RESET}"
+        echo
+        read -p "$(echo -e ${BOLD}${YELLOW}Reinstall anyway? [y/N]:${RESET} )" -r < /dev/tty
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${GRAY}Installation cancelled - already up to date${RESET}"
+            exit 0
+        fi
+        echo
     fi
 else
     echo -e "${BOLD}${GREEN}Installation Plan:${RESET}"
     echo -e "  Version: ${GREEN}${TAG}${RESET}"
+fi
+
+# Show release notes
+RELEASE_NOTES=$(echo "$RELEASE_JSON" | jq -r '.body // empty' | head -20)
+if [ -n "$RELEASE_NOTES" ]; then
+    echo
+    echo -e "${BOLD}${CYAN}What's New in ${TAG}:${RESET}"
+    echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
+    echo "$RELEASE_NOTES" | head -15
+    echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
 fi
 
 echo
