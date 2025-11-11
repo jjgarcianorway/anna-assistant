@@ -26,10 +26,7 @@ jobs:
     - name: Install build dependencies
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm base-devel rust libcap-ng git
-
-    - name: Install libcap-ng (for capsh)
-      run: pacman -S --noconfirm libcap-ng-utils
+        pacman -S --noconfirm base-devel rust libcap git
 
     - name: Build binaries
       run: cargo build --release --verbose
