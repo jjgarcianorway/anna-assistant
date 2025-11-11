@@ -165,6 +165,67 @@ impl RpcClient {
         self.call(Method::RecoveryPlans).await
     }
 
+    /// Repair failed probes (Phase 0.7)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn repair_probe(&mut self, probe: String, dry_run: bool) -> Result<ResponseData> {
+        self.call(Method::RepairProbe { probe, dry_run }).await
+    }
+
+    /// Perform guided installation (Phase 0.8)
+    /// Citation: [archwiki:Installation_guide]
+    pub async fn perform_install(
+        &mut self,
+        config: anna_common::ipc::InstallConfigData,
+        dry_run: bool,
+    ) -> Result<ResponseData> {
+        self.call(Method::PerformInstall { config, dry_run }).await
+    }
+
+    /// Check system health (Phase 0.9)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn system_health(&mut self) -> Result<ResponseData> {
+        self.call(Method::SystemHealth).await
+    }
+
+    /// Perform system update (Phase 0.9)
+    /// Citation: [archwiki:System_maintenance#Upgrading_the_system]
+    pub async fn system_update(&mut self, dry_run: bool) -> Result<ResponseData> {
+        self.call(Method::SystemUpdate { dry_run }).await
+    }
+
+    /// Perform system audit (Phase 0.9)
+    /// Citation: [archwiki:Security]
+    pub async fn system_audit(&mut self) -> Result<ResponseData> {
+        self.call(Method::SystemAudit).await
+    }
+
+    /// Get sentinel status (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn sentinel_status(&mut self) -> Result<ResponseData> {
+        self.call(Method::SentinelStatus).await
+    }
+
+    /// Get sentinel metrics (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn sentinel_metrics(&mut self) -> Result<ResponseData> {
+        self.call(Method::SentinelMetrics).await
+    }
+
+    /// Get sentinel configuration (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn sentinel_get_config(&mut self) -> Result<ResponseData> {
+        self.call(Method::SentinelGetConfig).await
+    }
+
+    /// Set sentinel configuration (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn sentinel_set_config(
+        &mut self,
+        config: anna_common::ipc::SentinelConfigData,
+    ) -> Result<ResponseData> {
+        self.call(Method::SentinelSetConfig { config }).await
+    }
+
     /// Call a method with streaming response support
     /// Creates a dedicated connection for streaming to avoid blocking the main client
     /// Returns a receiver that yields ResponseData chunks until StreamEnd

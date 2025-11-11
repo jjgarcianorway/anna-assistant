@@ -17,3 +17,6 @@ pub const EXIT_SUCCESS: i32 = 0;
 
 /// Exit code for general errors
 pub const EXIT_GENERAL_ERROR: i32 = 1;
+
+/// Exit code when a command execution fails
+pub const EXIT_COMMAND_FAILED: i32 = 1;

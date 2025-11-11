@@ -81,12 +81,16 @@ mod audit;
 mod autonomy;
 mod executor;
 mod health; // Phase 0.5: Health subsystem
+mod install; // Phase 0.8: Installation subsystem
 mod notifier;
 mod recommender;
 mod recovery; // Phase 0.6: Recovery framework
+mod repair; // Phase 0.7: Repair subsystem
 mod rpc_server;
+mod sentinel; // Phase 1.0: Sentinel framework
 mod snapshotter;
 mod state; // Phase 0.2: State machine
+mod steward; // Phase 0.9: System steward
 mod telemetry;
 mod watcher;
 mod wiki_cache;
@@ -183,6 +187,25 @@ async fn main() -> Result<()> {
     let state = Arc::new(DaemonState::new(VERSION.to_string(), facts, advice).await?);
 
     info!("Anna Daemon ready");
+
+    // Initialize Sentinel framework (Phase 1.0)
+    info!("Initializing Sentinel framework...");
+    match sentinel::initialize().await {
+        Ok(sentinel_daemon) => {
+            info!("Sentinel framework initialized - autonomous monitoring enabled");
+
+            // Spawn sentinel daemon as background task
+            tokio::spawn(async move {
+                if let Err(e) = sentinel_daemon.run().await {
+                    tracing::error!("Sentinel daemon error: {}", e);
+                }
+            });
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize Sentinel framework: {}", e);
+            tracing::warn!("Continuing without autonomous monitoring");
+        }
+    }
 
     // Set up system watcher for automatic advice refresh
     let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();

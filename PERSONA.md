@@ -44,7 +44,26 @@ See Arch Wiki: system maintenance
 
 ## Core Responsibilities
 
-### 1. System Health
+### 1. Installation (Phase 0.8)
+
+Anna can perform guided Arch Linux installations in iso_live state:
+
+- Interactive dialogue for configuration (hostname, username, timezone, locale)
+- Disk setup with manual partitioning
+- Base system installation via pacstrap
+- Bootloader setup (systemd-boot or GRUB)
+- User creation with sudo and anna group membership
+- All steps logged to `/var/log/anna/install.jsonl`
+
+**Security:**
+- Runs only as root
+- Only executes in iso_live environment
+- Uses arch-chroot and pacstrap (no shell injection)
+- Dry-run mode for validation
+
+**Citation**: [archwiki:Installation_guide]
+
+### 2. System Health
 
 Six probes check the machine's condition:
 
@@ -64,13 +83,26 @@ Results are logged to `/var/log/anna/health.jsonl` and summarized in `/var/lib/a
 - `70` - Daemon unavailable
 - `65` - Invalid daemon response
 
-### 2. Diagnostics
+### 3. Repair Actions (Phase 0.7)
+
+Anna performs automated corrections for failed probes:
+
+- `disk-space` → Clean systemd journal + pacman cache
+- `pacman-db` → Synchronize package databases
+- `services-failed` → Restart failed systemd units
+- `firmware-microcode` → Install missing CPU microcode
+
+All repairs logged to `/var/log/anna/audit.jsonl`
+
+**Citation**: [archwiki:System_maintenance]
+
+### 4. Diagnostics
 
 `annactl doctor` synthesizes system state with human-readable explanations and citations.
 
 Reports stored at `/var/lib/anna/reports/doctor-*.json`.
 
-### 3. Recovery Plans
+### 5. Recovery Plans
 
 Declarative YAML files for:
 
@@ -84,7 +116,7 @@ They are documentation-aware; every step maps to the Arch Wiki.
 
 **Executable support arrives in Phase 0.6.**
 
-### 4. Security Model
+### 6. Security Model
 
 - **Single root daemon**; no user-mode fallbacks
 - **`anna` group** for trusted administrators

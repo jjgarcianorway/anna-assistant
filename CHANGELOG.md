@@ -5,6 +5,325 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.1] - 2025-11-11
+
+### 🤖 **Phase 1.0: Sentinel Framework - Autonomous System Governance**
+
+Anna evolves from reactive administrator to autonomous sentinel— a persistent daemon that continuously monitors, responds, and adapts without user intervention.
+
+#### Added
+- **Sentinel Daemon Architecture**:
+  - Persistent event-driven system with unified event bus
+  - Periodic schedulers for health (5min), updates (1hr), audits (24hr)
+  - State persistence to `/var/lib/anna/state.json`
+  - Configuration management in `/var/lib/anna/config.json`
+  - Automated response playbooks for system events
+  - Adaptive scheduling based on system stability
+
+- **`annactl sentinel` commands**:
+  - `sentinel status` - Daemon health and uptime
+  - `sentinel metrics` - Event counts, error rates, drift tracking
+
+- **`annactl config` commands**:
+  - `config get` - View current configuration
+  - `config set <key> <value>` - Update settings at runtime
+
+- **Autonomous Features**:
+  - Service failure auto-restart (configurable)
+  - Package drift detection and notification
+  - Log anomaly monitoring with severity filtering
+  - State transition tracking
+  - System drift index (0.0-1.0 scale)
+
+- **Observability**:
+  - Real-time metrics: uptime, event counts, error rates
+  - Health trend tracking over time
+  - Structured logging to `/var/log/anna/sentinel.jsonl`
+  - State diff calculation (degradation vs improvement)
+
+#### Configuration Keys
+```
+autonomous_mode          - Enable/disable autonomous operations (default: false)
+health_check_interval    - Seconds between health checks (default: 300)
+update_scan_interval     - Seconds between update scans (default: 3600)
+audit_interval           - Seconds between audits (default: 86400)
+auto_repair_services     - Automatically restart failed services (default: false)
+auto_update              - Automatically install updates (default: false)
+auto_update_threshold    - Max packages for auto-update (default: 5)
+adaptive_scheduling      - Adjust frequencies by stability (default: true)
+```
+
+#### Examples
+```bash
+# View sentinel status
+$ annactl sentinel status
+┌─────────────────────────────────────────────────────────
+│ SENTINEL STATUS
+├─────────────────────────────────────────────────────────
+│ Enabled:        ✓ Yes
+│ Autonomous:     ✗ Inactive
+│ Uptime:         3600 seconds
+│ System State:   configured
+├─────────────────────────────────────────────────────────
+│ HEALTH
+│ Status:         Healthy
+│ Last Check:     2025-11-11T18:00:00Z
+└─────────────────────────────────────────────────────────
+
+# Enable autonomous mode
+$ annactl config set autonomous_mode true
+[anna] Configuration updated: autonomous_mode = true
+
+# View metrics
+$ annactl sentinel metrics
+┌─────────────────────────────────────────────────────────
+│ SENTINEL METRICS
+├─────────────────────────────────────────────────────────
+│ Total Events:     127
+│ Health Checks:     12
+│ Update Scans:       3
+│ Audits:             1
+│ Error Rate:      0.05 errors/hour
+│ Drift Index:     0.12
+└─────────────────────────────────────────────────────────
+```
+
+#### Architecture
+- **Event Bus**: Unified event system for all subsystems (health, steward, repair, recovery)
+- **Response Playbooks**: Configurable automated responses to system events
+- **State Machine**: Continuous tracking of system health and configuration
+- **Ethics Layer**: Prevents destructive operations on user data (`/home`, `/data`)
+- **Watchdog Integration**: Auto-restart on daemon failure (future)
+
+#### Security & Safety
+- All automated actions require explicit configuration
+- Dry-run validation for all mutations
+- Append-only audit logging with integrity verification
+- Never modifies user directories
+- Configuration changes logged with timestamps
+
+**Citation**: [archwiki:System_maintenance]
+
+---
+
+## [1.0.3-rc.1] - 2025-11-11
+
+### 🔧 **Phase 0.9: System Steward - Lifecycle Management**
+
+Anna now provides comprehensive lifecycle management with system health monitoring, update orchestration, and security auditing.
+
+#### Added
+- **`annactl status` command**: Comprehensive system health dashboard
+  - Service status monitoring (failed, active, enabled)
+  - Package update detection
+  - Log issue analysis (errors and warnings)
+  - Actionable recommendations
+- **`annactl update` command**: Intelligent system update orchestration
+  - Package updates via pacman with signature verification
+  - Automatic service restart detection and execution
+  - `--dry-run` flag for simulation
+  - Structured reporting of all changes
+- **`annactl audit` command**: Security and integrity verification
+  - Package integrity checks (pacman -Qkk)
+  - GPG keyring verification
+  - File permission validation
+  - Security baseline checks (firewall, SSH hardening)
+  - Configuration compliance (fstab options)
+- **Steward subsystem** (`crates/annad/src/steward/`):
+  - `health.rs` - System health monitoring with service/package/log analysis
+  - `update.rs` - Update orchestration with pacman
+  - `audit.rs` - Integrity verification and security audit
+  - `types.rs` - Data structures for reports
+  - `logging.rs` - Structured logging to `/var/log/anna/steward.jsonl`
+- **IPC protocol**: Three new RPC methods
+  - `SystemHealth` → `HealthReportData`
+  - `SystemUpdate { dry_run }` → `UpdateReportData`
+  - `SystemAudit` → `AuditReportData`
+
+#### Health Monitoring
+```bash
+$ annactl status
+┌─────────────────────────────────────────────────────────
+│ SYSTEM HEALTH REPORT
+├─────────────────────────────────────────────────────────
+│ Status:    Healthy
+│ Timestamp: 2025-11-11T17:00:00Z
+│ State:     configured
+├─────────────────────────────────────────────────────────
+│ All critical services: OK
+│ UPDATES AVAILABLE: 5
+│   • linux 6.6.1 → 6.6.2
+│   • systemd 255.1 → 255.2
+│   ... and 3 more
+├─────────────────────────────────────────────────────────
+│ RECOMMENDATIONS:
+│   • Updates available - run 'annactl update'
+└─────────────────────────────────────────────────────────
+
+[archwiki:System_maintenance]
+```
+
+#### Update Orchestration
+```bash
+$ annactl update --dry-run
+┌─────────────────────────────────────────────────────────
+│ SYSTEM UPDATE (DRY RUN)
+├─────────────────────────────────────────────────────────
+│ Status:    SUCCESS
+│ PACKAGES UPDATED: 5
+│   • linux 6.6.1 → 6.6.2
+│   • systemd 255.1 → 255.2
+│ SERVICES RESTARTED:
+│   • NetworkManager.service
+└─────────────────────────────────────────────────────────
+
+[archwiki:System_maintenance#Upgrading_the_system]
+```
+
+#### Security Audit
+```bash
+$ annactl audit
+┌─────────────────────────────────────────────────────────
+│ SYSTEM AUDIT REPORT
+├─────────────────────────────────────────────────────────
+│ Compliance: ✓ PASS
+│ All integrity checks: PASSED (3 checks)
+│ SECURITY FINDINGS: 1
+│   • [MEDIUM] Firewall is not active
+│     → Enable firewalld: systemctl enable --now firewalld
+└─────────────────────────────────────────────────────────
+
+[archwiki:Security]
+```
+
+#### Security & Safety
+- All operations logged to `/var/log/anna/steward.jsonl` with timestamps
+- Package signature verification enforced
+- Service restart limited to known-safe services
+- Dry-run mode for risk-free validation
+- Never modifies `/home` or `/data` directories
+
+**Citation**: [archwiki:System_maintenance]
+
+---
+
+## [1.0.2-rc.1] - 2025-11-11
+
+### 🚀 **Phase 0.8: System Installer - Guided Arch Linux Installation**
+
+Anna can now perform complete Arch Linux installations through structured, state-aware dialogue.
+
+#### Added
+- **`annactl install` command**: Interactive guided installation
+  - Disk setup (manual partitioning with automatic formatting)
+  - Base system installation via pacstrap
+  - System configuration (fstab, locale, timezone, hostname)
+  - Bootloader installation (systemd-boot or GRUB)
+  - User creation with sudo access and anna group membership
+  - `--dry-run` flag for simulation
+- **Installation subsystem** (`crates/annad/src/install/`):
+  - `mod.rs` - Installation orchestrator
+  - `types.rs` - Configuration data structures
+  - `disk.rs` - Disk partitioning and formatting
+  - `packages.rs` - Base system with pacstrap
+  - `bootloader.rs` - systemd-boot and GRUB support
+  - `users.rs` - User creation and permissions
+  - `logging.rs` - Structured logging to `/var/log/anna/install.jsonl`
+- **IPC protocol**: New `PerformInstall` RPC method with `InstallResultData` response type
+- **State validation**: Installation only allowed in `iso_live` state
+
+#### Interactive Dialogue
+```bash
+[anna] Arch Linux Installation
+[anna] Disk Setup
+Available partitions:
+NAME   SIZE   TYPE   MOUNTPOINT
+sda    100G   disk
+├─sda1 512M   part
+└─sda2  99G   part
+
+[anna] Select bootloader
+  * systemd-boot - Modern, simple
+    grub - Traditional
+[anna] Choice [systemd-boot]:
+
+[anna] Hostname [archlinux]:
+[anna] Username [user]:
+[anna] Timezone [UTC]:
+[anna] Locale [en_US.UTF-8]:
+```
+
+#### Security
+- Runs only as root in iso_live state
+- Uses arch-chroot and pacstrap (no shell injection)
+- All operations logged to `/var/log/anna/install.jsonl`
+- Dry-run mode for safe validation
+- Validates environment before execution
+
+#### Examples
+```bash
+# Dry-run simulation
+sudo annactl install --dry-run
+
+# Interactive installation
+sudo annactl install
+```
+
+**Citation**: [archwiki:Installation_guide]
+
+---
+
+## [1.0.1-rc.1] - 2025-11-11
+
+### 🛠️ **Phase 0.7: System Guardian - Corrective Actions**
+
+Anna moves from passive observation to active system repair. The `repair` command performs automated corrections for failed health probes.
+
+#### Added
+- **`annactl repair` command**: Repair failed probes with automatic corrective actions
+  - `annactl repair all` - Repair all failed probes
+  - `annactl repair <probe>` - Repair specific probe
+  - `--dry-run` flag for simulation without execution
+- **Probe-specific repair logic**:
+  - `disk-space` → Clean systemd journal (`journalctl --vacuum-size=100M`) + pacman cache (`paccache -r -k 2`)
+  - `pacman-db` → Synchronize package databases (`pacman -Syy`)
+  - `services-failed` → Restart failed systemd units
+  - `firmware-microcode` → Install missing CPU microcode packages (intel-ucode/amd-ucode)
+- **Audit logging**: All repair actions logged to `/var/log/anna/audit.jsonl` with timestamps, commands, and results
+- **IPC protocol**: New `RepairProbe` RPC method with `RepairResultData` response type
+- **Daemon repair subsystem**: `crates/annad/src/repair/` module with probe-specific actions
+
+#### User Experience
+- Plain-text output (no colors, no emojis): `[anna] probe: pacman-db — sync_pacman_db (OK)`
+- Dry-run simulation: `[anna] repair simulation: probe=all`
+- Citations for all actions: `Citation: [archwiki:System_maintenance]`
+- Exit codes: 0 = success, 1 = repair failed
+
+#### Security
+- All repairs execute through daemon (root privileges)
+- Audit trail for all corrective actions
+- Dry-run mode for safe testing
+- No arbitrary shell execution from user input
+
+#### Examples
+```bash
+# Check system health
+annactl health
+
+# Simulate repair (dry-run)
+annactl repair --dry-run
+
+# Repair all failed probes
+sudo annactl repair all
+
+# Repair specific probe
+sudo annactl repair disk-space
+```
+
+**Citation**: [archwiki:System_maintenance]
+
+---
+
 ## [1.0.0-rc.13.2] - 2025-11-11
 
 ### 🐛 **Hotfix: Daemon Startup Reliability**

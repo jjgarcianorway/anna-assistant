@@ -1620,6 +1620,523 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
             Ok(ResponseData::RecoveryPlans(data))
         }
+
+        Method::RepairProbe { probe, dry_run } => {
+            info!(
+                "RepairProbe method called: probe={}, dry_run={}",
+                probe, dry_run
+            );
+
+            // Get current health results if needed (for "all" mode)
+            let health_results = if probe == "all" {
+                match crate::health::run_all_probes().await {
+                    Ok(summary) => Some(summary.probes),
+                    Err(e) => {
+                        error!("Failed to run health probes: {}", e);
+                        return Response {
+                            id,
+                            result: Err(format!("Failed to run health probes: {}", e)),
+                            version: state.version.clone(),
+                        };
+                    }
+                }
+            } else {
+                None
+            };
+
+            // Execute repair
+            let repairs = match crate::repair::repair_probe(
+                &probe,
+                dry_run,
+                health_results.as_deref(),
+            )
+            .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Repair failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("Repair failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Log to audit trail
+            for repair in &repairs {
+                use anna_common::AuditEntry;
+                use chrono::Utc;
+
+                let entry = AuditEntry {
+                    timestamp: Utc::now(),
+                    actor: "annad".to_string(),
+                    action_type: format!("repair_{}", repair.probe),
+                    details: format!(
+                        "{} - {} (dry_run={}): {}",
+                        repair.probe, repair.action, dry_run, repair.details
+                    ),
+                    success: repair.success,
+                };
+
+                if let Err(e) = state.audit_logger.log(&entry).await {
+                    warn!("Failed to write audit log: {}", e);
+                }
+            }
+
+            // Determine overall success and current state
+            let all_success = repairs.iter().all(|r| r.success);
+            let detection = state.current_state.read().await.clone();
+
+            let data = anna_common::ipc::RepairResultData {
+                dry_run,
+                state: detection.state.to_string(),
+                repairs,
+                success: all_success,
+                message: if dry_run {
+                    "Repair simulation completed".to_string()
+                } else if all_success {
+                    "All repairs completed successfully".to_string()
+                } else {
+                    "Some repairs failed".to_string()
+                },
+                citation: "[archwiki:System_maintenance]".to_string(),
+            };
+
+            Ok(ResponseData::RepairResult(data))
+        }
+
+        Method::PerformInstall { config, dry_run } => {
+            info!(
+                "PerformInstall method called: hostname={}, dry_run={}",
+                config.hostname, dry_run
+            );
+
+            // Convert IPC config to internal config
+            use crate::install::{BootloaderType, DiskSetupMode, InstallConfig};
+
+            let bootloader = match config.bootloader.as_str() {
+                "systemd-boot" => BootloaderType::SystemdBoot,
+                "grub" => BootloaderType::Grub,
+                _ => BootloaderType::SystemdBoot,
+            };
+
+            let disk_setup = match &config.disk_setup {
+                anna_common::ipc::DiskSetupData::Manual {
+                    root_partition,
+                    boot_partition,
+                    swap_partition,
+                } => DiskSetupMode::Manual {
+                    root_partition: root_partition.clone(),
+                    boot_partition: boot_partition.clone(),
+                    swap_partition: swap_partition.clone(),
+                },
+                anna_common::ipc::DiskSetupData::AutoBtrfs {
+                    target_disk,
+                    create_swap,
+                    swap_size_gb,
+                } => DiskSetupMode::AutoBtrfs {
+                    target_disk: target_disk.clone(),
+                    create_swap: *create_swap,
+                    swap_size_gb: *swap_size_gb,
+                },
+            };
+
+            let install_config = InstallConfig {
+                disk_setup,
+                bootloader,
+                hostname: config.hostname.clone(),
+                username: config.username.clone(),
+                timezone: config.timezone.clone(),
+                locale: config.locale.clone(),
+                extra_packages: config.extra_packages.clone(),
+                enable_multilib: false,
+            };
+
+            // Perform installation
+            let result = match crate::install::perform_installation(&install_config, dry_run).await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Installation failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("Installation failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Convert to IPC response
+            let steps: Vec<anna_common::ipc::InstallStepData> = result
+                .steps
+                .into_iter()
+                .map(|step| anna_common::ipc::InstallStepData {
+                    name: step.name,
+                    description: step.description,
+                    success: step.success,
+                    details: step.details,
+                    citation: step.citation,
+                })
+                .collect();
+
+            let data = anna_common::ipc::InstallResultData {
+                dry_run,
+                success: result.success,
+                steps,
+                message: result.message,
+                citation: result.citation,
+            };
+
+            Ok(ResponseData::InstallResult(data))
+        }
+
+        Method::SystemHealth => {
+            info!("SystemHealth method called");
+
+            // Perform health check
+            let report = match crate::steward::check_system_health().await {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Health check failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("Health check failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Log to steward log
+            let log_entry = crate::steward::logging::StewardLogEntry::new(
+                "health".to_string(),
+                report.overall_status != crate::steward::HealthStatus::Critical,
+                report.message.clone(),
+                report
+                    .services
+                    .iter()
+                    .filter(|s| s.state == "failed")
+                    .map(|s| s.name.clone())
+                    .collect(),
+                report.citation.clone(),
+            );
+            let _ = log_entry.write().await;
+
+            // Convert to IPC response
+            let services: Vec<anna_common::ipc::ServiceStatusData> = report
+                .services
+                .into_iter()
+                .map(|s| anna_common::ipc::ServiceStatusData {
+                    name: s.name.clone(),
+                    state: s.state.clone(),
+                    active: s.state == "active",
+                    enabled: s.load != "not-found",
+                })
+                .collect();
+
+            let packages: Vec<anna_common::ipc::PackageStatusData> = report
+                .packages
+                .into_iter()
+                .map(|p| anna_common::ipc::PackageStatusData {
+                    name: p.name,
+                    status: if p.update_available {
+                        "update-available".to_string()
+                    } else {
+                        "up-to-date".to_string()
+                    },
+                    version: p.version,
+                    update_available: p.update_available,
+                })
+                .collect();
+
+            let log_issues: Vec<anna_common::ipc::LogIssueData> = report
+                .log_issues
+                .into_iter()
+                .map(|l| anna_common::ipc::LogIssueData {
+                    timestamp: l.first_seen.to_rfc3339(),
+                    severity: l.severity,
+                    message: l.message,
+                    unit: l.source,
+                })
+                .collect();
+
+            let data = anna_common::ipc::HealthReportData {
+                timestamp: report.timestamp.to_rfc3339(),
+                overall_status: format!("{:?}", report.overall_status),
+                services,
+                packages,
+                log_issues,
+                recommendations: report.recommendations,
+                message: report.message,
+                citation: report.citation,
+            };
+
+            Ok(ResponseData::HealthReport(data))
+        }
+
+        Method::SystemUpdate { dry_run } => {
+            info!("SystemUpdate method called: dry_run={}", dry_run);
+
+            // Perform update
+            let report = match crate::steward::perform_system_update(dry_run).await {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("System update failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("System update failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Log to steward log
+            let log_entry = crate::steward::logging::StewardLogEntry::new(
+                "update".to_string(),
+                report.success,
+                report.message.clone(),
+                report.packages_updated.iter().map(|p| p.name.clone()).collect(),
+                report.citation.clone(),
+            );
+            let _ = log_entry.write().await;
+
+            // Convert to IPC response
+            let packages_updated: Vec<anna_common::ipc::PackageUpdateData> = report
+                .packages_updated
+                .into_iter()
+                .map(|p| anna_common::ipc::PackageUpdateData {
+                    name: p.name,
+                    old_version: p.old_version,
+                    new_version: p.new_version,
+                    size_change: p.size_change,
+                })
+                .collect();
+
+            let data = anna_common::ipc::UpdateReportData {
+                timestamp: report.timestamp.to_rfc3339(),
+                dry_run: report.dry_run,
+                success: report.success,
+                packages_updated,
+                services_restarted: report.services_restarted,
+                snapshot_path: report.snapshot_path,
+                message: report.message,
+                citation: report.citation,
+            };
+
+            Ok(ResponseData::UpdateReport(data))
+        }
+
+        Method::SystemAudit => {
+            info!("SystemAudit method called");
+
+            // Perform audit
+            let report = match crate::steward::perform_system_audit().await {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("System audit failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("System audit failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Log to steward log
+            let log_entry = crate::steward::logging::StewardLogEntry::new(
+                "audit".to_string(),
+                report.compliant,
+                report.message.clone(),
+                report
+                    .integrity
+                    .iter()
+                    .filter(|i| !i.passed)
+                    .map(|i| i.component.clone())
+                    .collect(),
+                report.citation.clone(),
+            );
+            let _ = log_entry.write().await;
+
+            // Convert to IPC response
+            let integrity: Vec<anna_common::ipc::IntegrityStatusData> = report
+                .integrity
+                .into_iter()
+                .map(|i| anna_common::ipc::IntegrityStatusData {
+                    component: i.component,
+                    check_type: i.check_type,
+                    passed: i.passed,
+                    details: i.details,
+                })
+                .collect();
+
+            let security_findings: Vec<anna_common::ipc::SecurityFindingData> = report
+                .security_findings
+                .into_iter()
+                .map(|f| anna_common::ipc::SecurityFindingData {
+                    severity: f.severity,
+                    description: f.description,
+                    recommendation: f.recommendation,
+                    reference: f.reference,
+                })
+                .collect();
+
+            let config_issues: Vec<anna_common::ipc::ConfigIssueData> = report
+                .config_issues
+                .into_iter()
+                .map(|c| anna_common::ipc::ConfigIssueData {
+                    file: c.file,
+                    issue: c.issue,
+                    expected: c.expected,
+                    actual: c.actual,
+                })
+                .collect();
+
+            let data = anna_common::ipc::AuditReportData {
+                timestamp: report.timestamp.to_rfc3339(),
+                compliant: report.compliant,
+                integrity,
+                security_findings,
+                config_issues,
+                message: report.message,
+                citation: report.citation,
+            };
+
+            Ok(ResponseData::AuditReport(data))
+        }
+
+        Method::SentinelStatus => {
+            info!("SentinelStatus method called");
+
+            // Get sentinel state
+            let enabled = crate::sentinel::is_enabled().await;
+            let state_snapshot = crate::sentinel::load_state().await.unwrap_or_default();
+            let config = crate::sentinel::load_config().await.unwrap_or_default();
+
+            let data = anna_common::ipc::SentinelStatusData {
+                enabled,
+                autonomous_mode: config.autonomous_mode,
+                uptime_seconds: state_snapshot.uptime_seconds,
+                system_state: state_snapshot.system_state,
+                last_health_status: state_snapshot.last_health.status,
+                last_health_check: Some(state_snapshot.last_health.timestamp.to_rfc3339()),
+                last_update_scan: state_snapshot.last_update_check.map(|t| t.to_rfc3339()),
+                last_audit: state_snapshot.last_audit.map(|t| t.to_rfc3339()),
+                error_rate: state_snapshot.error_rate,
+                drift_index: state_snapshot.drift_index,
+            };
+
+            Ok(ResponseData::SentinelStatus(data))
+        }
+
+        Method::SentinelMetrics => {
+            info!("SentinelMetrics method called");
+
+            // Get sentinel state for metrics
+            let state_snapshot = crate::sentinel::load_state().await.unwrap_or_default();
+
+            let total_events: u64 = state_snapshot.event_counters.values().sum();
+            let manual_commands = state_snapshot
+                .event_counters
+                .get("ManualCommand")
+                .copied()
+                .unwrap_or(0);
+
+            let data = anna_common::ipc::SentinelMetricsData {
+                uptime_seconds: state_snapshot.uptime_seconds,
+                total_events,
+                automated_actions: state_snapshot
+                    .event_counters
+                    .get("AutoRepair")
+                    .copied()
+                    .unwrap_or(0)
+                    + state_snapshot
+                        .event_counters
+                        .get("AutoUpdate")
+                        .copied()
+                        .unwrap_or(0),
+                manual_commands,
+                health_checks: state_snapshot
+                    .event_counters
+                    .get("HealthCheck")
+                    .copied()
+                    .unwrap_or(0),
+                update_scans: state_snapshot
+                    .event_counters
+                    .get("UpdateScan")
+                    .copied()
+                    .unwrap_or(0),
+                audits: state_snapshot
+                    .event_counters
+                    .get("Audit")
+                    .copied()
+                    .unwrap_or(0),
+                current_health: state_snapshot.last_health.status,
+                error_rate: state_snapshot.error_rate,
+                drift_index: state_snapshot.drift_index,
+            };
+
+            Ok(ResponseData::SentinelMetrics(data))
+        }
+
+        Method::SentinelGetConfig => {
+            info!("SentinelGetConfig method called");
+
+            // Load current configuration
+            let config = crate::sentinel::load_config().await.unwrap_or_default();
+
+            let data = anna_common::ipc::SentinelConfigData {
+                autonomous_mode: config.autonomous_mode,
+                health_check_interval: config.health_check_interval,
+                update_scan_interval: config.update_scan_interval,
+                audit_interval: config.audit_interval,
+                auto_repair_services: config.auto_repair_services,
+                auto_update: config.auto_update,
+                auto_update_threshold: config.auto_update_threshold,
+                adaptive_scheduling: config.adaptive_scheduling,
+            };
+
+            Ok(ResponseData::SentinelConfig(data))
+        }
+
+        Method::SentinelSetConfig { config } => {
+            info!("SentinelSetConfig method called");
+
+            // Convert IPC config to internal config
+            let new_config = crate::sentinel::types::SentinelConfig {
+                autonomous_mode: config.autonomous_mode,
+                health_check_interval: config.health_check_interval,
+                update_scan_interval: config.update_scan_interval,
+                audit_interval: config.audit_interval,
+                auto_repair_services: config.auto_repair_services,
+                auto_update: config.auto_update,
+                auto_update_threshold: config.auto_update_threshold,
+                adaptive_scheduling: config.adaptive_scheduling,
+            };
+
+            // Save configuration
+            if let Err(e) = crate::sentinel::save_config(&new_config).await {
+                error!("Failed to save sentinel configuration: {}", e);
+                return Response {
+                    id,
+                    result: Err(format!("Failed to save configuration: {}", e)),
+                    version: state.version.clone(),
+                };
+            }
+
+            // Return updated config
+            let data = anna_common::ipc::SentinelConfigData {
+                autonomous_mode: new_config.autonomous_mode,
+                health_check_interval: new_config.health_check_interval,
+                update_scan_interval: new_config.update_scan_interval,
+                audit_interval: new_config.audit_interval,
+                auto_repair_services: new_config.auto_repair_services,
+                auto_update: new_config.auto_update,
+                auto_update_threshold: new_config.auto_update_threshold,
+                adaptive_scheduling: new_config.adaptive_scheduling,
+            };
+
+            Ok(ResponseData::SentinelConfig(data))
+        }
     };
 
     Response {

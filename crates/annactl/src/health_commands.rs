@@ -339,6 +339,92 @@ async fn save_doctor_report(data: &HealthRunData) -> Result<PathBuf> {
     Ok(report_path)
 }
 
+/// Execute repair command (Phase 0.7)
+pub async fn execute_repair_command(
+    probe: &str,
+    dry_run: bool,
+    state: &str,
+    req_id: &str,
+    start_time: Instant,
+) -> Result<()> {
+    let mut client = RpcClient::connect()
+        .await
+        .context("Failed to connect to daemon")?;
+
+    // Call repair_probe
+    let response = client.repair_probe(probe.to_string(), dry_run).await?;
+
+    let data = match response {
+        ResponseData::RepairResult(data) => data,
+        _ => {
+            log_and_exit(
+                req_id,
+                state,
+                "repair",
+                start_time,
+                EXIT_INVALID_RESPONSE,
+                None,
+            );
+        }
+    };
+
+    // Determine exit code
+    let exit_code = if data.success {
+        EXIT_SUCCESS
+    } else {
+        1 // Repair failed
+    };
+
+    // Print results (plain text, no markdown)
+    if dry_run {
+        println!("[anna] repair simulation: probe={}", probe);
+    } else {
+        println!("[anna] repair: probe={}", probe);
+    }
+
+    for repair in &data.repairs {
+        let status = if repair.success { "OK" } else { "FAIL" };
+        println!(
+            "[anna] probe: {} — {} ({})",
+            repair.probe, repair.action, status
+        );
+        if !repair.details.is_empty() {
+            println!("  {}", repair.details);
+        }
+        if !dry_run {
+            println!("  Citation: {}", repair.citation);
+        }
+    }
+
+    println!("{}", data.message);
+    if !dry_run {
+        println!("Citation: {}", data.citation);
+    }
+
+    // Log to ctl.jsonl
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+    let log_entry = LogEntry {
+        ts: LogEntry::now(),
+        req_id: req_id.to_string(),
+        state: state.to_string(),
+        command: "repair".to_string(),
+        allowed: Some(true),
+        args: if dry_run {
+            vec!["--dry-run".to_string(), probe.to_string()]
+        } else {
+            vec![probe.to_string()]
+        },
+        exit_code,
+        citation: "[archwiki:System_maintenance]".to_string(),
+        duration_ms,
+        ok: data.success,
+        error: None,
+    };
+    let _ = log_entry.write();
+
+    std::process::exit(exit_code);
+}
+
 /// Helper to log and exit
 fn log_and_exit(
     req_id: &str,

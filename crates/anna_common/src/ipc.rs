@@ -116,6 +116,58 @@ pub enum Method {
     /// List available recovery plans (Phase 0.5)
     /// Citation: [archwiki:General_troubleshooting]
     RecoveryPlans,
+
+    /// Repair failed probes (Phase 0.7)
+    /// Citation: [archwiki:System_maintenance]
+    RepairProbe {
+        /// Specific probe to repair, or "all" for all failed probes
+        probe: String,
+        /// Dry-run mode: simulate repair without executing
+        dry_run: bool,
+    },
+
+    /// Perform guided Arch Linux installation (Phase 0.8)
+    /// Citation: [archwiki:Installation_guide]
+    PerformInstall {
+        /// Installation configuration
+        config: InstallConfigData,
+        /// Dry-run mode: simulate without executing
+        dry_run: bool,
+    },
+
+    /// Check system health (Phase 0.9)
+    /// Citation: [archwiki:System_maintenance]
+    SystemHealth,
+
+    /// Perform system update (Phase 0.9)
+    /// Citation: [archwiki:System_maintenance#Upgrading_the_system]
+    SystemUpdate {
+        /// Dry-run mode: simulate without executing
+        dry_run: bool,
+    },
+
+    /// Perform system audit (Phase 0.9)
+    /// Citation: [archwiki:Security]
+    SystemAudit,
+
+    /// Get sentinel status (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelStatus,
+
+    /// Get sentinel metrics (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelMetrics,
+
+    /// Get sentinel configuration (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelGetConfig,
+
+    /// Set sentinel configuration (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelSetConfig {
+        /// Configuration JSON
+        config: SentinelConfigData,
+    },
 }
 
 /// Response data variants
@@ -198,6 +250,38 @@ pub enum ResponseData {
     /// Recovery plans (Phase 0.5)
     /// Citation: [archwiki:General_troubleshooting]
     RecoveryPlans(RecoveryPlansData),
+
+    /// Repair result (Phase 0.7)
+    /// Citation: [archwiki:System_maintenance]
+    RepairResult(RepairResultData),
+
+    /// Installation result (Phase 0.8)
+    /// Citation: [archwiki:Installation_guide]
+    InstallResult(InstallResultData),
+
+    /// System health report (Phase 0.9)
+    /// Citation: [archwiki:System_maintenance]
+    HealthReport(HealthReportData),
+
+    /// System update report (Phase 0.9)
+    /// Citation: [archwiki:System_maintenance#Upgrading_the_system]
+    UpdateReport(UpdateReportData),
+
+    /// System audit report (Phase 0.9)
+    /// Citation: [archwiki:Security]
+    AuditReport(AuditReportData),
+
+    /// Sentinel status (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelStatus(SentinelStatusData),
+
+    /// Sentinel metrics (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelMetrics(SentinelMetricsData),
+
+    /// Sentinel configuration (Phase 1.0)
+    /// Citation: [archwiki:System_maintenance]
+    SentinelConfig(SentinelConfigData),
 }
 
 /// Type of streaming chunk
@@ -387,4 +471,311 @@ pub struct RecoveryPlanItem {
     pub desc: String,
     /// Arch Wiki citation for this plan
     pub citation: String,
+}
+
+/// Repair result data (Phase 0.7)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepairResultData {
+    /// Was this a dry-run (simulation)?
+    pub dry_run: bool,
+    /// Current system state after repair
+    pub state: String,
+    /// Individual repair actions performed
+    pub repairs: Vec<RepairAction>,
+    /// Overall success status
+    pub success: bool,
+    /// Human-readable summary message
+    pub message: String,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Individual repair action (Phase 0.7)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepairAction {
+    /// Probe that was repaired (e.g., "disk-space", "pacman-db")
+    pub probe: String,
+    /// Action taken or simulated
+    pub action: String,
+    /// Command that was executed (if applicable)
+    pub command: Option<String>,
+    /// Exit code (if command was executed)
+    pub exit_code: Option<i32>,
+    /// Success status for this specific repair
+    pub success: bool,
+    /// Details or error message
+    pub details: String,
+    /// Arch Wiki citation for this repair action
+    pub citation: String,
+}
+
+/// Installation configuration data (Phase 0.8)
+/// Citation: [archwiki:Installation_guide]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallConfigData {
+    /// Disk setup mode
+    pub disk_setup: DiskSetupData,
+    /// Bootloader type
+    pub bootloader: String,
+    /// System hostname
+    pub hostname: String,
+    /// Username to create
+    pub username: String,
+    /// Timezone (e.g., "America/New_York")
+    pub timezone: String,
+    /// Locale (e.g., "en_US.UTF-8")
+    pub locale: String,
+    /// Additional packages to install
+    pub extra_packages: Vec<String>,
+}
+
+/// Disk setup configuration (Phase 0.8)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "mode")]
+pub enum DiskSetupData {
+    #[serde(rename = "manual")]
+    Manual {
+        root_partition: String,
+        boot_partition: String,
+        swap_partition: Option<String>,
+    },
+    #[serde(rename = "auto_btrfs")]
+    AutoBtrfs {
+        target_disk: String,
+        create_swap: bool,
+        swap_size_gb: u32,
+    },
+}
+
+/// Installation result data (Phase 0.8)
+/// Citation: [archwiki:Installation_guide]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallResultData {
+    /// Was this a dry-run (simulation)?
+    pub dry_run: bool,
+    /// Overall success status
+    pub success: bool,
+    /// Individual installation steps
+    pub steps: Vec<InstallStepData>,
+    /// Summary message
+    pub message: String,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Individual installation step (Phase 0.8)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallStepData {
+    /// Step name (e.g., "disk_setup", "base_system")
+    pub name: String,
+    /// Human-readable description
+    pub description: String,
+    /// Success status for this step
+    pub success: bool,
+    /// Detailed output or error message
+    pub details: String,
+    /// Arch Wiki citation for this step
+    pub citation: String,
+}
+
+/// System health report data (Phase 0.9)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthReportData {
+    /// Report timestamp (ISO 8601)
+    pub timestamp: String,
+    /// Overall health status (healthy, degraded, critical)
+    pub overall_status: String,
+    /// Service statuses
+    pub services: Vec<ServiceStatusData>,
+    /// Package statuses
+    pub packages: Vec<PackageStatusData>,
+    /// Log issues
+    pub log_issues: Vec<LogIssueData>,
+    /// Recommendations
+    pub recommendations: Vec<String>,
+    /// Summary message
+    pub message: String,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Service status data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceStatusData {
+    pub name: String,
+    pub state: String,
+    pub active: bool,
+    pub enabled: bool,
+}
+
+/// Package status data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageStatusData {
+    pub name: String,
+    pub status: String,
+    pub version: String,
+    pub update_available: bool,
+}
+
+/// Log issue data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogIssueData {
+    pub timestamp: String,
+    pub severity: String,
+    pub message: String,
+    pub unit: String,
+}
+
+/// System update report data (Phase 0.9)
+/// Citation: [archwiki:System_maintenance#Upgrading_the_system]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportData {
+    /// Report timestamp (ISO 8601)
+    pub timestamp: String,
+    /// Was this a dry-run?
+    pub dry_run: bool,
+    /// Update success
+    pub success: bool,
+    /// Packages updated
+    pub packages_updated: Vec<PackageUpdateData>,
+    /// Services restarted
+    pub services_restarted: Vec<String>,
+    /// Snapshot path (if created)
+    pub snapshot_path: Option<String>,
+    /// Summary message
+    pub message: String,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Package update data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageUpdateData {
+    pub name: String,
+    pub old_version: String,
+    pub new_version: String,
+    pub size_change: i64,
+}
+
+/// System audit report data (Phase 0.9)
+/// Citation: [archwiki:Security]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditReportData {
+    /// Report timestamp (ISO 8601)
+    pub timestamp: String,
+    /// Overall compliance status
+    pub compliant: bool,
+    /// Integrity check results
+    pub integrity: Vec<IntegrityStatusData>,
+    /// Security findings
+    pub security_findings: Vec<SecurityFindingData>,
+    /// Configuration issues
+    pub config_issues: Vec<ConfigIssueData>,
+    /// Summary message
+    pub message: String,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Integrity check status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityStatusData {
+    pub component: String,
+    pub check_type: String,
+    pub passed: bool,
+    pub details: String,
+}
+
+/// Security finding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityFindingData {
+    pub severity: String,
+    pub description: String,
+    pub recommendation: String,
+    pub reference: String,
+}
+
+/// Configuration issue
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigIssueData {
+    pub file: String,
+    pub issue: String,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Sentinel status data (Phase 1.0)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentinelStatusData {
+    /// Sentinel enabled
+    pub enabled: bool,
+    /// Autonomous mode active
+    pub autonomous_mode: bool,
+    /// Uptime (seconds)
+    pub uptime_seconds: u64,
+    /// Current system state
+    pub system_state: String,
+    /// Last health status
+    pub last_health_status: String,
+    /// Last health check timestamp
+    pub last_health_check: Option<String>,
+    /// Last update scan timestamp
+    pub last_update_scan: Option<String>,
+    /// Last audit timestamp
+    pub last_audit: Option<String>,
+    /// Error rate (errors per hour)
+    pub error_rate: f64,
+    /// System drift index (0.0-1.0)
+    pub drift_index: f64,
+}
+
+/// Sentinel metrics data (Phase 1.0)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentinelMetricsData {
+    /// Uptime (seconds)
+    pub uptime_seconds: u64,
+    /// Total events processed
+    pub total_events: u64,
+    /// Automated actions taken
+    pub automated_actions: u64,
+    /// Manual commands received
+    pub manual_commands: u64,
+    /// Health checks performed
+    pub health_checks: u64,
+    /// Update scans performed
+    pub update_scans: u64,
+    /// Audits performed
+    pub audits: u64,
+    /// Current health status
+    pub current_health: String,
+    /// Error rate (errors per hour)
+    pub error_rate: f64,
+    /// System drift index
+    pub drift_index: f64,
+}
+
+/// Sentinel configuration data (Phase 1.0)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SentinelConfigData {
+    /// Enable autonomous operations
+    pub autonomous_mode: bool,
+    /// Health check interval (seconds)
+    pub health_check_interval: u64,
+    /// Update scan interval (seconds)
+    pub update_scan_interval: u64,
+    /// Audit interval (seconds)
+    pub audit_interval: u64,
+    /// Auto-repair failed services
+    pub auto_repair_services: bool,
+    /// Auto-update packages
+    pub auto_update: bool,
+    /// Maximum packages to auto-update without confirmation
+    pub auto_update_threshold: u32,
+    /// Enable adaptive scheduling
+    pub adaptive_scheduling: bool,
 }

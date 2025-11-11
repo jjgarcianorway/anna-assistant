@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(sha256sum:*)",
+      "Bash(SHA256SUMS)",
+      "Bash(cat:*)",
+      "Bash(release-artifacts/annad )",
+      "Bash(release-artifacts/annactl )",
+      "Bash(release-artifacts/SHA256SUMS)",
+      "Bash(ls:*)",
+      "Bash(/home/lhoqvso/anna-assistant/release-v1.0.0-rc.13/annad )",
+      "Bash(/home/lhoqvso/anna-assistant/release-v1.0.0-rc.13/annactl )",
+      "Bash(/home/lhoqvso/anna-assistant/release-v1.0.0-rc.13/SHA256SUMS)",
+      "Bash(git restore:*)",
+      "Bash(release-v1.0.0-rc.13.1/annad )",
+      "Bash(release-v1.0.0-rc.13.1/annactl )",
+      "Bash(release-v1.0.0-rc.13.1/SHA256SUMS)",
+      "Bash(sudo systemctl status:*)",
+      "Bash(sudo journalctl:*)",
+      "Bash(groups:*)",
+      "Bash(release-v1.0.0-rc.13.2/annad )",
+      "Bash(release-v1.0.0-rc.13.2/annactl )",
+      "Bash(release-v1.0.0-rc.13.2/SHA256SUMS)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

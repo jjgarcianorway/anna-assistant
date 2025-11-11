@@ -9,9 +9,12 @@
 // mod commands;
 pub mod errors;
 mod health_commands;
+mod install_command; // Phase 0.8
 pub mod logging;
 pub mod output;
 mod rpc_client; // Phase 0.5b
+mod sentinel_cli; // Phase 1.0
+mod steward_commands; // Phase 0.9
 
 use anna_common::ipc::{CommandCapabilityData, ResponseData};
 use anyhow::Result;
@@ -55,7 +58,11 @@ enum Commands {
     },
 
     /// Interactive Arch Linux installation (iso_live state only)
-    Install,
+    Install {
+        /// Dry run (simulate without executing)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
 
     /// Rescue and recovery tools (iso_live, recovery_candidate states)
     Rescue {
@@ -98,6 +105,57 @@ enum Commands {
         /// Output directory
         #[arg(short, long)]
         output: Option<String>,
+    },
+
+    /// Repair failed probes (Phase 0.7)
+    Repair {
+        /// Probe to repair (or "all" for all failed probes)
+        #[arg(default_value = "all")]
+        probe: String,
+
+        /// Dry run (simulate without executing)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
+
+    /// System audit - integrity and security check (Phase 0.9)
+    Audit,
+
+    /// Sentinel management (Phase 1.0)
+    Sentinel {
+        /// Subcommand: status, metrics
+        #[command(subcommand)]
+        subcommand: SentinelSubcommand,
+    },
+
+    /// Configuration management (Phase 1.0)
+    Config {
+        /// Subcommand: get, set
+        #[command(subcommand)]
+        subcommand: ConfigSubcommand,
+    },
+}
+
+/// Sentinel subcommands
+#[derive(Subcommand)]
+enum SentinelSubcommand {
+    /// Show sentinel status
+    Status,
+    /// Show sentinel metrics
+    Metrics,
+}
+
+/// Config subcommands
+#[derive(Subcommand)]
+enum ConfigSubcommand {
+    /// Get configuration value
+    Get,
+    /// Set configuration value
+    Set {
+        /// Configuration key
+        key: String,
+        /// Configuration value
+        value: String,
     },
 }
 
@@ -167,7 +225,7 @@ async fn main() -> Result<()> {
         Commands::Status => "status",
         Commands::Help { .. } => "help",
         Commands::Update { .. } => "update",
-        Commands::Install => "install",
+        Commands::Install { .. } => "install",
         Commands::Rescue { .. } => "rescue",
         Commands::Backup { .. } => "backup",
         Commands::Health { .. } => "health",
@@ -175,6 +233,10 @@ async fn main() -> Result<()> {
         Commands::Rollback { .. } => "rollback",
         Commands::Triage => "triage",
         Commands::CollectLogs { .. } => "collect-logs",
+        Commands::Repair { .. } => "repair",
+        Commands::Audit => "audit",
+        Commands::Sentinel { .. } => "sentinel",
+        Commands::Config { .. } => "config",
     };
 
     // Try to connect to daemon and get state
@@ -223,9 +285,60 @@ async fn main() -> Result<()> {
             return health_commands::execute_doctor_command(*json, &state, &req_id, start_time)
                 .await;
         }
+        Commands::Repair { probe, dry_run } => {
+            return health_commands::execute_repair_command(
+                probe,
+                *dry_run,
+                &state,
+                &req_id,
+                start_time,
+            )
+            .await;
+        }
+        Commands::Install { dry_run } => {
+            return install_command::execute_install_command(
+                *dry_run,
+                &req_id,
+                &state,
+                start_time,
+            )
+            .await;
+        }
         Commands::Rescue { subcommand } => {
             if subcommand.as_deref() == Some("list") {
                 return health_commands::execute_rescue_list_command(&req_id, start_time).await;
+            }
+        }
+        // Phase 0.9: Steward commands
+        Commands::Status => {
+            return steward_commands::execute_status_command(&req_id, &state, start_time).await;
+        }
+        Commands::Update { dry_run } => {
+            return steward_commands::execute_update_command(*dry_run, &req_id, &state, start_time)
+                .await;
+        }
+        Commands::Audit => {
+            return steward_commands::execute_audit_command(&req_id, &state, start_time).await;
+        }
+        // Phase 1.0: Sentinel commands
+        Commands::Sentinel { subcommand } => {
+            match subcommand {
+                SentinelSubcommand::Status => {
+                    return sentinel_cli::execute_sentinel_status_command(&req_id, &state, start_time).await;
+                }
+                SentinelSubcommand::Metrics => {
+                    return sentinel_cli::execute_sentinel_metrics_command(&req_id, &state, start_time).await;
+                }
+            }
+        }
+        Commands::Config { subcommand } => {
+            match subcommand {
+                ConfigSubcommand::Get => {
+                    return sentinel_cli::execute_config_get_command(&req_id, &state, start_time).await;
+                }
+                ConfigSubcommand::Set { key, value } => {
+                    return sentinel_cli::execute_config_set_command(key, value, &req_id, &state, start_time).await;
+                }
             }
         }
         _ => {}
@@ -383,23 +496,24 @@ async fn execute_help_command(
 async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
     match command {
         Commands::Status => {
-            println!("[anna] state: {}", state);
-            println!("[anna] status: OK (no-op placeholder)");
+            // Should not reach here - handled in main
+            unreachable!("Status command should be handled separately");
         }
         Commands::Help { .. } => {
             // Should not reach here - handled in main
             unreachable!("Help command should be handled separately");
         }
-        Commands::Update { dry_run } => {
-            println!("[anna] update command allowed in state: {}", state);
-            println!(
-                "[anna] dry_run={} (no-op - no actual update performed)",
-                dry_run
-            );
+        Commands::Update { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Update command should be handled separately");
         }
-        Commands::Install => {
-            println!("[anna] install command allowed in state: {}", state);
-            println!("[anna] (no-op - no actual installation performed)");
+        Commands::Install { .. } => {
+            // Should not reach here - handled separately
+            unreachable!("Install command should be handled separately");
+        }
+        Commands::Audit => {
+            // Should not reach here - handled in main
+            unreachable!("Audit command should be handled separately");
         }
         Commands::Rescue { subcommand } => {
             println!("[anna] rescue command allowed in state: {}", state);
@@ -420,6 +534,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
             // Should not reach here - handled in main
             unreachable!("Doctor command should be handled separately");
         }
+        Commands::Repair { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Repair command should be handled separately");
+        }
         Commands::Rollback { target } => {
             println!("[anna] rollback command allowed in state: {}", state);
             println!(
@@ -434,6 +552,14 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::CollectLogs { output } => {
             println!("[anna] collect-logs command allowed in state: {}", state);
             println!("[anna] output: {:?} (no-op - no logs collected)", output);
+        }
+        Commands::Sentinel { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Sentinel command should be handled separately");
+        }
+        Commands::Config { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Config command should be handled separately");
         }
     }
 
