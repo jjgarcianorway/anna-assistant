@@ -11,6 +11,7 @@ use crate::types::{AutonomyTier, Priority, RiskLevel};
 
 /// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Config {
     /// General settings
     #[serde(default)]
@@ -41,19 +42,6 @@ pub struct Config {
     pub profiles: Vec<UserProfile>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            general: GeneralConfig::default(),
-            autonomy: AutonomyConfig::default(),
-            notifications: NotificationConfig::default(),
-            snapshots: SnapshotConfig::default(),
-            learning: LearningConfig::default(),
-            categories: CategoryConfig::default(),
-            profiles: Vec::new(),
-        }
-    }
-}
 
 impl Config {
     /// Get the default config file path: ~/.config/anna/config.toml
@@ -298,6 +286,7 @@ impl Default for LearningConfig {
 
 /// Category-specific configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CategoryConfig {
     /// Enabled categories (empty = all enabled)
     pub enabled: Vec<String>,
@@ -309,15 +298,6 @@ pub struct CategoryConfig {
     pub priority_overrides: std::collections::HashMap<String, Priority>,
 }
 
-impl Default for CategoryConfig {
-    fn default() -> Self {
-        Self {
-            enabled: Vec::new(), // Empty = all enabled
-            disabled: Vec::new(),
-            priority_overrides: std::collections::HashMap::new(),
-        }
-    }
-}
 
 /// User profile for multi-user systems
 #[derive(Debug, Clone, Serialize, Deserialize)]

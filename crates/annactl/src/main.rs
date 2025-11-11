@@ -13,7 +13,7 @@ pub mod logging;
 pub mod output;
 mod rpc_client; // Phase 0.5b
 
-use anna_common::ipc::{CommandCapabilityData, ResponseData, StateDetectionData};
+use anna_common::ipc::{CommandCapabilityData, ResponseData};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use errors::*;

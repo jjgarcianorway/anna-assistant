@@ -6,7 +6,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const LOG_PATH: &str = "/var/log/anna/ctl.jsonl";
 

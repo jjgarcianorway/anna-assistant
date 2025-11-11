@@ -6,9 +6,8 @@
 use crate::errors::*;
 use crate::logging::{ErrorDetails, LogEntry};
 use crate::rpc_client::RpcClient;
-use anna_common::ipc::{HealthRunData, HealthSummaryData, RecoveryPlansData, ResponseData};
+use anna_common::ipc::{HealthRunData, ResponseData};
 use anyhow::{Context, Result};
-use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -272,7 +271,7 @@ fn print_doctor_summary(data: &HealthRunData) {
     }
 
     // Top journal errors (from journal-errors probe)
-    if let Some(journal_result) = data.results.iter().find(|r| r.probe == "journal-errors") {
+    if let Some(_journal_result) = data.results.iter().find(|r| r.probe == "journal-errors") {
         println!("Top journal errors: (see details)");
     }
 

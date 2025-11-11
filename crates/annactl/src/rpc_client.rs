@@ -154,6 +154,7 @@ impl RpcClient {
 
     /// Get health summary (Phase 0.5b)
     /// Citation: [archwiki:System_maintenance]
+    #[allow(dead_code)]
     pub async fn health_summary(&mut self) -> Result<ResponseData> {
         self.call(Method::HealthSummary).await
     }
@@ -167,6 +168,7 @@ impl RpcClient {
     /// Call a method with streaming response support
     /// Creates a dedicated connection for streaming to avoid blocking the main client
     /// Returns a receiver that yields ResponseData chunks until StreamEnd
+    #[allow(dead_code)]
     pub async fn call_streaming(
         &mut self,
         method: Method,

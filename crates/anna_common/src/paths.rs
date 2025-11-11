@@ -62,15 +62,14 @@ pub fn should_use_user_mode() -> bool {
     }
 
     // If /run/anna exists and is writable, use system mode
-    if std::fs::metadata("/run/anna").is_ok() {
-        if std::fs::OpenOptions::new()
+    if std::fs::metadata("/run/anna").is_ok()
+        && std::fs::OpenOptions::new()
             .write(true)
             .open("/run/anna")
             .is_ok()
         {
             return false;
         }
-    }
 
     // Otherwise, use user mode
     true

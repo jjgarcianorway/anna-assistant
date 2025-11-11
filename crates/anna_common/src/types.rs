@@ -1531,7 +1531,7 @@ impl SystemHealthScore {
         };
 
         // Add specific maintenance info
-        if facts.orphan_packages.len() > 0 {
+        if !facts.orphan_packages.is_empty() {
             maintenance_details.push(format!(
                 "  - {} orphaned package{}",
                 facts.orphan_packages.len(),
@@ -1781,8 +1781,7 @@ impl ApplicationHistory {
 
         let top_category = category_counts
             .into_iter()
-            .max_by_key(|(_, count)| *count)
-            .map(|(cat, count)| (cat, count));
+            .max_by_key(|(_, count)| *count);
 
         PeriodStats {
             total_applications: total,
