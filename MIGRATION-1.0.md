@@ -1,6 +1,6 @@
 # Migration Guide: Anna 1.0 Reset
 
-**From Beta/RC.11 to v1.0.0-rc.13**
+**From Beta/RC.11 to v1.0.0-rc.13.2**
 
 This document outlines breaking changes and migration steps for upgrading to Anna 1.0.
 
@@ -523,11 +523,14 @@ sudo chmod 700 /var/log/anna
 ### Q: What happened to my old advice history?
 **A**: Old data is incompatible with 1.0. Back it up before migrating if needed, but it cannot be imported.
 
-### Q: Is rc.13 stable enough for production?
-**A**: RC.13 has comprehensive test coverage, CI validation, and security hardening. It's suitable for testing and early adoption, but wait for 1.0 stable for mission-critical systems.
+### Q: Is rc.13.2 stable enough for production?
+**A**: rc.13.2 has comprehensive test coverage, CI validation, and security hardening. It's suitable for testing and early adoption. Version 1.0 stable is planned for production use.
 
 ### Q: Can I downgrade to RC.11?
-**A**: Yes, but you must manually uninstall rc.13 first and reinstall from the old branch. Note that RC.11 is no longer maintained.
+**A**: Yes, but you must manually uninstall rc.13.2 first and reinstall from the old branch. Note that RC.11 is no longer maintained.
+
+### Q: What happened to rc.13 and rc.13.1?
+**A**: rc.13 and rc.13.1 had daemon startup issues (socket access and systemd unit problems). Always use rc.13.2 or later.
 
 ---
 
@@ -563,6 +566,6 @@ Thank you for your patience during this transition.
 
 ---
 
-**Anna Assistant v1.0.0-rc.13**
+**Anna Assistant v1.0.0-rc.13.2**
 
-*From desktop manager to system administrator*
+*One daemon, one socket, one truth*

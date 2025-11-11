@@ -5,6 +5,58 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.13.2] - 2025-11-11
+
+### 🐛 **Hotfix: Daemon Startup Reliability**
+
+**CRITICAL FIX** for daemon startup failures in rc.13 and rc.13.1.
+
+#### Fixed
+- **Systemd unit**: Removed problematic `ExecStartPre` with complex shell escaping
+- **WorkingDirectory**: Changed from `/var/lib/anna` to `/` (avoid startup dependency)
+- **StateDirectory**: Added subdirectories `anna anna/reports anna/alerts` for atomic creation
+- **Socket cleanup**: Simple `rm -f` instead of complex validation
+
+#### Impact
+- ✅ Daemon starts reliably on first install
+- ✅ No more "socket not reachable after 30s" errors
+- ✅ StateDirectory creates all required directories before ExecStart
+- ✅ Clean deterministic startup sequence
+
+#### Foundation
+- Added `paths.rs` module for future dual-mode socket support
+- Added `--user`, `--foreground`, `--help` flags to `annad` (partial implementation)
+- Groundwork for user-mode operation (planned for rc.14)
+
+**Citation**: [archwiki:Systemd#Service_types]
+
+---
+
+## [1.0.0-rc.13.1] - 2025-11-11
+
+### 🐛 **Hotfix: Runtime Socket Access and Readiness**
+
+**CRITICAL FIX** for runtime socket access issues and installer readiness checks.
+
+#### Fixed
+- **Systemd unit**: Moved `StartLimitIntervalSec=0` from `[Service]` to `[Unit]` section (correct placement per systemd spec)
+- **Systemd unit**: Added `UMask=007` to ensure socket files default to 0660 for group anna
+- **Installer**: Extended readiness wait from 15s to 30s
+- **Installer**: Check both socket existence AND accessibility before declaring ready
+- **Installer**: Clean up old daemon binaries (`annad-old`, `annactl-old`) for rc.9.9/rc.11 compatibility
+- **Installer**: Added group enrollment hint if user not in anna group
+- **RPC client**: Detect `EACCES` (Permission Denied) errors and provide targeted hint
+
+#### User Experience Improvements
+- Socket access works immediately after install
+- Clear error messages with actionable hints: `sudo usermod -aG anna "$USER" && newgrp anna`
+- Better troubleshooting for non-root users
+- Deterministic startup readiness
+
+**Citation**: [archwiki:Systemd#Drop-in_files]
+
+---
+
 ## [1.0.0-rc.13] - 2025-11-11
 
 ### 🎯 **Complete Architectural Reset - "Operational Core"**

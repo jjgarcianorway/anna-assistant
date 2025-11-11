@@ -2,11 +2,11 @@
 
 **Autonomous Arch Linux System Administrator**
 
-Anna is a production-ready, security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
+Anna is a security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
 
-**Current Version:** 1.0.0-rc.13 (Release Candidate - November 2025)
+**Current Version:** 1.0.0-rc.13.2 (November 2025)
 
-**Branch:** `anna-1.0-reset` → `main`
+**Status:** Operational Core - Active Development
 
 ---
 
@@ -26,7 +26,7 @@ Anna is a **minimal, auditable sysadmin core** focused on:
 - ❌ TUI application (removed, returns in 2.0)
 - ❌ Application recommender system (removed)
 
-Anna graduated from prototype to operational core in v1.0.0-rc.13.
+Anna is a **system administrator, not a user assistant**. One daemon, one socket, one truth.
 
 ---
 
@@ -35,14 +35,15 @@ Anna graduated from prototype to operational core in v1.0.0-rc.13.
 ### Installation
 
 ```bash
-# Install from release
-curl -sSL https://raw.githubusercontent.com/YOUR_ORG/anna-assistant/main/scripts/install.sh | sh
+# One-line install (recommended)
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 
-# Or clone and build
-git clone https://github.com/YOUR_ORG/anna-assistant.git
+# Or clone and build from source
+git clone https://github.com/jjgarcianorway/anna-assistant.git
 cd anna-assistant
 cargo build --release
-sudo ./scripts/install.sh --local
+sudo cp target/release/{annad,annactl} /usr/local/bin/
+sudo systemctl enable --now annad
 ```
 
 ### Basic Usage
@@ -57,12 +58,22 @@ annactl health
 # Get diagnostic report
 annactl doctor
 
-# Show available commands
-annactl help
-
 # List recovery plans
 annactl rescue list
+
+# Show available commands
+annactl help
 ```
+
+### Auto-Update
+
+Anna updates herself automatically:
+- Daemon checks GitHub releases every 2 hours
+- Downloads and installs updates automatically (runs as root)
+- Sends desktop notification when updated
+- Systemd restarts daemon after update
+
+No manual intervention required. Updates happen transparently in the background.
 
 ---
 
@@ -438,34 +449,31 @@ man annad          # Daemon configuration
 
 ---
 
-## Roadmap
+## Development Status
 
-### Phase 0.3 ✅ Complete
-- State-aware command dispatch
-- No-op handlers with logging
+### ✅ Shipped (rc.13.2)
+- **Phase 0.3**: State-aware command dispatch with 6-state detection
+- **Phase 0.4**: Systemd hardening and security sandbox
+- **Phase 0.5**: Health monitoring (6 probes) + doctor diagnostics
+- **Auto-update**: Daemon self-updates every 2 hours from GitHub releases
+- **Audit logging**: JSONL logs with UUIDs and Arch Wiki citations
 
-### Phase 0.4 ✅ Complete
-- Systemd hardening
-- Security audit and permissions
+### 🚧 In Progress
+- **Phase 0.6**: Recovery framework foundation (types, parser, chroot)
+  - Foundation complete, execution pending
 
-### Phase 0.5 ✅ Complete
-- Health subsystem with 6 probes
-- Doctor diagnostics
-- Recovery plan scaffolds
-- Integration tests and CI
-
-### Phase 0.6 🚧 In Progress
-- Executable recovery plans
-- Rollback script generation
-- Interactive rescue mode
-- `annactl rescue run <plan>`
-- `annactl rollback <plan>`
-
-### Future Phases
-- Phase 0.7: State-aware update system
-- Phase 0.8: Backup automation
-- Phase 0.9: Installation wizard
-- Phase 1.0: Stable release
+### 📋 Planned
+- **v1.0 Stable**: Production-ready release
+  - Executable recovery plans (`annactl rescue run <plan>`)
+  - Rollback script generation (`annactl rollback <plan>`)
+  - Manual update trigger (`annactl update`)
+- **v1.1**: Enhanced diagnostics
+  - User-mode operation (no sudo required)
+  - `annactl diag` diagnostic command
+  - Dual-socket support (user/system)
+- **v2.0**: Optional TUI
+  - Terminal user interface returns as optional component
+  - Advanced recovery workflows
 
 ---
 
