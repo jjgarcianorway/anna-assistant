@@ -59,16 +59,22 @@ jobs:
         sudo chmod 700 /var/log/anna
 
         # /var/lib/anna - State (root:root 0700)
-        sudo mkdir -p /var/lib/anna
-        sudo chown root:root /var/lib/anna
-        sudo chmod 700 /var/lib/anna
+        sudo mkdir -p /var/lib/anna/reports /var/lib/anna/alerts
+        sudo chown -R root:root /var/lib/anna
+        sudo chmod 700 /var/lib/anna /var/lib/anna/reports /var/lib/anna/alerts
 
         # /usr/local/lib/anna - Static assets (root:root 0755)
         sudo mkdir -p /usr/local/lib/anna
         sudo chown root:root /usr/local/lib/anna
         sudo chmod 755 /usr/local/lib/anna
 
-        echo "✓ Secure directories created"
+        # /run/anna - Runtime directory (rc.13.2: manually create for CI)
+        # RuntimeDirectory in systemd doesn't work reliably in GitHub Actions
+        sudo mkdir -p /run/anna
+        sudo chown root:anna /run/anna
+        sudo chmod 750 /run/anna
+
+        echo "✓ Secure directories created (including /run/anna for CI)"
 
     - name: Install systemd service
       run: |
@@ -111,7 +117,12 @@ jobs:
           fi
           if [ $i -eq 10 ]; then
             echo "✗ Socket not created within 10 seconds"
-            ls -la /run/anna/
+            echo "Daemon logs:"
+            sudo journalctl -u annad -n 100 --no-pager
+            echo "Directory listing:"
+            ls -la /run/anna/ || echo "/run/anna does not exist"
+            echo "Daemon status:"
+            sudo systemctl status annad --no-pager || true
             exit 1
           fi
           sleep 1
