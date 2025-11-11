@@ -139,11 +139,12 @@ curl -fsSL -o "$TEMP_DIR/annactl" "$ANNACTL_URL" || error_exit "Download failed"
 chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
 echo -e "${GREEN}${CHECK}${RESET} Downloaded successfully"
 
-# Stop running instances
+# Stop running instances and clean up old daemon binaries (rc.13.1 compatibility fix)
 echo -e "${CYAN}${ARROW}${RESET} Stopping running instances..."
 sudo systemctl stop annad 2>/dev/null || true
 sudo pkill -x annad 2>/dev/null || true
 sudo pkill -x annactl 2>/dev/null || true
+sudo rm -f /usr/local/bin/annad-old /usr/local/bin/annactl-old 2>/dev/null || true
 sleep 1
 echo -e "${GREEN}${CHECK}${RESET} Stopped"
 
@@ -190,20 +191,33 @@ else
     sudo systemctl enable --now annad
 fi
 
-# Wait for daemon to be ready (up to 15 seconds)
+# Wait for daemon to be ready (up to 30 seconds) - rc.13.1 improved readiness check
 echo -e "${CYAN}${ARROW}${RESET} Waiting for daemon to be ready..."
-TIMEOUT=15
-for i in $(seq 1 $TIMEOUT); do
-    if "$INSTALL_DIR/annactl" status >/dev/null 2>&1; then
-        echo -e "${GREEN}${CHECK}${RESET} Daemon ready (${i}s)"
-        break
-    fi
-    if [ $i -eq $TIMEOUT ]; then
-        echo -e "${YELLOW}⚠${RESET}  Daemon started but not responding yet (may take a few more seconds)"
-        break
+READY=0
+WAIT_SECS=30
+for i in $(seq 1 $WAIT_SECS); do
+    if [ -S /run/anna/anna.sock ]; then
+        # Try a lightweight call; help will return success or permission error
+        if "$INSTALL_DIR/annactl" help >/dev/null 2>&1; then
+            READY=1
+            echo -e "${GREEN}${CHECK}${RESET} Daemon ready (${i}s)"
+            break
+        fi
     fi
     sleep 1
 done
+
+if [ "$READY" -ne 1 ]; then
+    echo -e "${YELLOW}⚠${RESET}  Daemon socket not reachable after ${WAIT_SECS}s"
+fi
+
+# Group access guidance (rc.13.1 user experience improvement)
+if ! id -nG "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx anna; then
+    echo
+    echo -e "${BOLD}${YELLOW}[INFO]${RESET} Your user is not in the 'anna' group."
+    echo -e "       To enable socket access now, run:"
+    echo -e "       ${CYAN}sudo usermod -aG anna \"$USER\" && newgrp anna${RESET}"
+fi
 
 # Success banner
 echo

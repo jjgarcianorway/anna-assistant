@@ -17,17 +17,20 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    /// Connect to the daemon with retry logic (Beta.108)
+    /// Connect to the daemon with retry logic (Beta.108, rc.13.1 enhanced errors)
     ///
     /// Problem: After daemon restart, socket recreation takes time
     /// Old behavior: Single connect attempt → 30s timeout → failure
     /// New behavior: Retry with exponential backoff for 5s max
+    ///
+    /// rc.13.1: Detect EACCES and provide group enrollment hint
     pub async fn connect() -> Result<Self> {
         use std::time::Duration;
         use tokio::time::sleep;
 
         let max_retries = 10;
         let mut retry_delay = Duration::from_millis(50); // Start with 50ms
+        let mut last_error: Option<std::io::Error> = None;
 
         for attempt in 0..max_retries {
             match tokio::time::timeout(
@@ -43,19 +46,46 @@ impl RpcClient {
                     return Ok(Self { reader, writer });
                 }
                 Ok(Err(e)) if attempt == max_retries - 1 => {
-                    // Last attempt failed - give up
+                    // Last attempt failed - check for permission denied
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        return Err(e).context(
+                            "Permission denied accessing /run/anna/anna.sock.\n\
+                             Ensure your user is in group 'anna':\n  \
+                             sudo usermod -aG anna \"$USER\" && newgrp anna"
+                        );
+                    }
+                    // Other error - give up
                     return Err(e).context(
                         "Failed to connect to daemon after 10 retries. Is annad running?",
                     );
                 }
-                Ok(Err(_)) | Err(_) => {
-                    // Connection failed or timed out - retry
+                Ok(Err(e)) => {
+                    // Store error for final check
+                    last_error = Some(e);
+                    // Connection failed - retry if not last attempt
                     if attempt < max_retries - 1 {
                         sleep(retry_delay).await;
                         retry_delay = (retry_delay * 2).min(Duration::from_millis(500));
-                        // Max 500ms between retries
                     }
                 }
+                Err(_) => {
+                    // Timeout - retry if not last attempt
+                    if attempt < max_retries - 1 {
+                        sleep(retry_delay).await;
+                        retry_delay = (retry_delay * 2).min(Duration::from_millis(500));
+                    }
+                }
+            }
+        }
+
+        // Check if last error was permission denied
+        if let Some(e) = last_error {
+            if e.kind() == std::io::ErrorKind::PermissionDenied {
+                return Err(anyhow::Error::new(e)).context(
+                    "Permission denied accessing /run/anna/anna.sock.\n\
+                     Ensure your user is in group 'anna':\n  \
+                     sudo usermod -aG anna \"$USER\" && newgrp anna"
+                );
             }
         }
 

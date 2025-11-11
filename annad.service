@@ -29,6 +29,9 @@ After=network.target local-fs.target
 # Ensure critical system services are available
 Wants=systemd-journald.service
 
+# Restart rate limiting (moved from [Service] - rc.13.1 fix)
+StartLimitIntervalSec=0
+
 [Service]
 Type=simple
 
@@ -45,7 +48,6 @@ ExecStart=/usr/local/bin/annad
 Restart=on-failure
 RestartSec=10s
 StartLimitBurst=3
-StartLimitIntervalSec=60s
 
 # Phase 0.4: Security hardening - comprehensive protection
 # Prevent privilege escalation
@@ -93,6 +95,9 @@ WorkingDirectory=/var/lib/anna
 # Runtime directory for socket (root:anna 0750)
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
+
+# Ensure files created by service default to 0660 for group anna (rc.13.1 fix)
+UMask=007
 
 # Log directory (root:root 0700)
 LogsDirectory=anna
