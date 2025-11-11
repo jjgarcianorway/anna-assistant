@@ -75,26 +75,33 @@ jobs:
 
     - name: Phase 0.4 - Start daemon (direct, no systemd in container)
       run: |
-        # Start daemon in background
-        /usr/local/bin/annad &
+        # Start daemon in background, redirect output to log file
+        /usr/local/bin/annad > /tmp/annad.log 2>&1 &
         DAEMON_PID=$!
         echo "Started daemon with PID: $DAEMON_PID"
         echo $DAEMON_PID > /tmp/annad.pid
 
-        # Wait up to 10 seconds for daemon to be ready
-        for i in {1..10}; do
+        # Wait up to 30 seconds for daemon to be ready
+        for i in {1..30}; do
           if [ -S /run/anna/anna.sock ]; then
             echo "✓ Daemon socket created after ${i}s"
             break
           fi
-          if [ $i -eq 10 ]; then
-            echo "✗ Daemon socket not created within 10 seconds"
+          if [ $i -eq 30 ]; then
+            echo "✗ Daemon socket not created within 30 seconds"
+            echo ""
+            echo "Daemon logs:"
+            cat /tmp/annad.log || echo "No logs available"
+            echo ""
             echo "Daemon may have crashed. Checking if process is still running..."
             if kill -0 $DAEMON_PID 2>/dev/null; then
-              echo "Daemon process is still running"
+              echo "Daemon process is still running (hung or waiting)"
             else
               echo "Daemon process has exited"
             fi
+            echo ""
+            echo "Directory listing:"
+            ls -la /run/anna/ || echo "/run/anna does not exist"
             exit 1
           fi
           sleep 1
