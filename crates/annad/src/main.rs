@@ -83,6 +83,7 @@ mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod notifier;
 mod recommender;
+mod recovery; // Phase 0.6: Recovery framework
 mod rpc_server;
 mod snapshotter;
 mod state; // Phase 0.2: State machine
