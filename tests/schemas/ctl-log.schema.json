@@ -1,7 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://annaassistant.dev/schemas/ctl-log/v1.0.0",
   "title": "Anna Control Log Entry",
-  "description": "JSON schema for Anna Assistant control log (ctl.jsonl) entries",
+  "description": "JSON schema for Anna Assistant control log (ctl.jsonl) entries - Phase 0.5",
+  "version": "1.0.0-rc.13",
   "type": "object",
   "required": ["ts", "req_id", "state", "command", "exit_code", "citation", "duration_ms", "ok"],
   "properties": {

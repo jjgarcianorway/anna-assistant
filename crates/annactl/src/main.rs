@@ -122,7 +122,44 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
     let req_id = LogEntry::generate_req_id();
 
-    let cli = Cli::parse();
+    // Phase 0.5c3: Custom error handling for unknown flags (exit 64)
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(err) => {
+            // Check if it's an unknown argument/flag error
+            use clap::error::ErrorKind;
+            let exit_code = match err.kind() {
+                ErrorKind::UnknownArgument => EXIT_COMMAND_NOT_AVAILABLE,
+                ErrorKind::InvalidSubcommand => EXIT_COMMAND_NOT_AVAILABLE,
+                _ => 2, // Default clap error code
+            };
+
+            // Print the error message
+            eprintln!("{}", err);
+
+            // Log the error
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let log_entry = LogEntry {
+                ts: LogEntry::now(),
+                req_id,
+                state: "unknown".to_string(),
+                command: "parse_error".to_string(),
+                allowed: Some(false),
+                args: std::env::args().skip(1).collect(),
+                exit_code,
+                citation: "[archwiki:General_recommendations]".to_string(),
+                duration_ms,
+                ok: false,
+                error: Some(ErrorDetails {
+                    code: "INVALID_ARGUMENT".to_string(),
+                    message: err.to_string(),
+                }),
+            };
+            let _ = log_entry.write();
+
+            std::process::exit(exit_code);
+        }
+    };
 
     // Phase 0.3c: State-aware dispatch
     // Get command name first

@@ -1,9 +1,29 @@
 # Anna 1.0 Reset - Implementation Plan
 
-**Version:** 1.0.0-rc.12 → 1.0.0
+**Version:** 1.0.0-rc.13 (Phase 0.5 Complete)
 **Branch:** `anna-1.0-reset`
-**Status:** Planning Phase
+**Status:** Phase 0.5c Complete - Operational Core with Health CLI
 **Target:** Production-ready, Wiki-strict, state-aware Arch Linux system administrator
+
+**Latest Updates:**
+- ✓ Phase 0.3: State-aware command dispatch with no-ops (commits 4d45d34-e227da3)
+- ✓ Phase 0.4: Systemd hardening and security features
+- ✓ Phase 0.5a: Health subsystem with YAML probe definitions (commit 4d45d34)
+- ✓ Phase 0.5b: RPC and CLI integration for health/doctor/rescue (commits 5410ae2, e227da3)
+- ✓ Phase 0.5c: Integration tests, CI workflow, stabilization (commits 58d1be6, 12455af, current)
+
+**Test Coverage:**
+- 10 integration tests for health CLI
+- CI pipeline with performance benchmarks (<200ms target)
+- JSON schema validation for all outputs
+- Permissions validation (0600 reports, 0700 directories)
+- Unauthorized write detection
+
+**Test Locations:**
+- Integration tests: `crates/annad/tests/health_cli_tests.rs`
+- Test fixtures: `crates/annad/tests/fixtures/probes/`
+- CI workflow: `.github/workflows/health-cli.yml`
+- JSON schemas: `tests/schemas/*.schema.json`
 
 ---
 

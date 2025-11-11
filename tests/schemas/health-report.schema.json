@@ -1,7 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://annaassistant.dev/schemas/health-report/v1.0.0",
   "title": "Anna Health Report",
-  "description": "JSON schema for Anna Assistant health reports",
+  "description": "JSON schema for Anna Assistant health reports - Phase 0.5",
+  "version": "1.0.0-rc.13",
   "type": "object",
   "required": ["state", "summary", "results", "citation"],
   "properties": {
