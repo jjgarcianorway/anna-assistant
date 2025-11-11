@@ -1,6 +1,7 @@
 //! Sentinel daemon main loop
 //!
 //! Phase 1.0: Persistent autonomous system administrator
+//! Phase 1.1: Conscience-integrated ethical governance
 //! Citation: [archwiki:System_maintenance]
 
 use super::events::{create_default_playbooks, EventBus};
@@ -9,6 +10,7 @@ use super::types::{
     HealthSnapshot, SentinelAction, SentinelConfig, SentinelEvent, SentinelLogEntry,
     SentinelMetrics, SentinelState,
 };
+use crate::conscience::ConscienceDaemon;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use std::collections::HashMap;
@@ -32,6 +34,8 @@ pub struct SentinelDaemon {
     config: Arc<RwLock<SentinelConfig>>,
     /// Event bus
     event_bus: Arc<EventBus>,
+    /// Conscience daemon (Phase 1.1)
+    conscience: Option<Arc<ConscienceDaemon>>,
     /// Start time
     start_time: Instant,
 }
@@ -55,15 +59,32 @@ impl SentinelDaemon {
             event_bus.register_playbook(playbook).await;
         }
 
+        // Initialize conscience layer (Phase 1.1)
+        let conscience = match ConscienceDaemon::new().await {
+            Ok(c) => {
+                let conscience_arc = Arc::new(c);
+                event_bus.set_conscience(Arc::clone(&conscience_arc)).await;
+                info!("Conscience layer initialized and integrated");
+                Some(conscience_arc)
+            }
+            Err(e) => {
+                warn!("Failed to initialize conscience layer: {}", e);
+                warn!("Continuing without ethical evaluation");
+                None
+            }
+        };
+
         info!(
-            "Sentinel initialized (autonomous_mode={})",
-            config.autonomous_mode
+            "Sentinel initialized (autonomous_mode={}, conscience={})",
+            config.autonomous_mode,
+            conscience.is_some()
         );
 
         Ok(Self {
             state: Arc::new(RwLock::new(state)),
             config: Arc::new(RwLock::new(config)),
             event_bus,
+            conscience,
             start_time: Instant::now(),
         })
     }
@@ -77,6 +98,11 @@ impl SentinelDaemon {
         self.spawn_update_scan_scheduler().await;
         self.spawn_audit_scheduler().await;
         self.spawn_state_persistence_scheduler().await;
+
+        // Spawn conscience introspection scheduler (Phase 1.1)
+        if self.conscience.is_some() {
+            self.spawn_introspection_scheduler().await;
+        }
 
         // Spawn event processor
         let event_bus = Arc::clone(&self.event_bus);
@@ -165,6 +191,42 @@ impl SentinelDaemon {
         });
     }
 
+    /// Spawn conscience introspection scheduler (Phase 1.1)
+    async fn spawn_introspection_scheduler(&self) {
+        let conscience = match &self.conscience {
+            Some(c) => Arc::clone(c),
+            None => return,
+        };
+
+        tokio::spawn(async move {
+            // Run every 6 hours
+            let mut interval = interval(Duration::from_secs(6 * 60 * 60));
+
+            loop {
+                interval.tick().await;
+
+                info!("Running scheduled conscience introspection");
+                match conscience.introspect().await {
+                    Ok(report) => {
+                        info!(
+                            "Introspection complete: {} decisions reviewed, {} violations",
+                            report.decisions_reviewed,
+                            report.violations.len()
+                        );
+
+                        // Log any recommendations
+                        for rec in &report.recommendations {
+                            info!("Introspection recommendation: {}", rec);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Introspection failed: {}", e);
+                    }
+                }
+            }
+        });
+    }
+
     /// Get current metrics
     pub async fn get_metrics(&self) -> SentinelMetrics {
         let state = self.state.read().await;
@@ -227,6 +289,11 @@ impl SentinelDaemon {
     /// Get current configuration
     pub async fn get_config(&self) -> SentinelConfig {
         self.config.read().await.clone()
+    }
+
+    /// Get conscience daemon reference (Phase 1.1)
+    pub fn get_conscience(&self) -> Option<Arc<ConscienceDaemon>> {
+        self.conscience.clone()
     }
 }
 

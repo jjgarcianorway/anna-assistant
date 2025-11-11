@@ -226,6 +226,36 @@ impl RpcClient {
         self.call(Method::SentinelSetConfig { config }).await
     }
 
+    /// Get conscience pending actions (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn conscience_review(&mut self) -> Result<ResponseData> {
+        self.call(Method::ConscienceReview).await
+    }
+
+    /// Get conscience decision explanation (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn conscience_explain(&mut self, decision_id: String) -> Result<ResponseData> {
+        self.call(Method::ConscienceExplain { decision_id }).await
+    }
+
+    /// Approve a flagged conscience action (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn conscience_approve(&mut self, decision_id: String) -> Result<ResponseData> {
+        self.call(Method::ConscienceApprove { decision_id }).await
+    }
+
+    /// Reject a flagged conscience action (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn conscience_reject(&mut self, decision_id: String) -> Result<ResponseData> {
+        self.call(Method::ConscienceReject { decision_id }).await
+    }
+
+    /// Trigger manual conscience introspection (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn conscience_introspect(&mut self) -> Result<ResponseData> {
+        self.call(Method::ConscienceIntrospect).await
+    }
+
     /// Call a method with streaming response support
     /// Creates a dedicated connection for streaming to avoid blocking the main client
     /// Returns a receiver that yields ResponseData chunks until StreamEnd

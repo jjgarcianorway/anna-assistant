@@ -120,6 +120,8 @@ pub struct DaemonState {
     /// Current system state (Phase 0.2c)
     /// Citation: [archwiki:system_maintenance]
     pub current_state: RwLock<crate::state::StateDetection>,
+    /// Sentinel daemon (Phase 1.0)
+    pub sentinel: Option<Arc<crate::sentinel::SentinelDaemon>>,
 }
 
 impl DaemonState {
@@ -144,6 +146,7 @@ impl DaemonState {
             action_history,
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
             current_state: RwLock::new(current_state),
+            sentinel: None, // Will be set later in main.rs
         })
     }
 }
@@ -2136,6 +2139,154 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             Ok(ResponseData::SentinelConfig(data))
+        }
+
+        // Phase 1.1: Conscience commands
+        Method::ConscienceReview => {
+            info!("ConscienceReview method called");
+
+            // Get conscience from sentinel
+            let conscience = match &state.sentinel {
+                Some(s) => s.get_conscience(),
+                None => None,
+            };
+
+            match conscience {
+                Some(c) => {
+                    let state = c.get_state().await;
+                    let pending_actions: Vec<anna_common::ipc::PendingActionData> = state
+                        .pending_actions
+                        .iter()
+                        .map(|a| anna_common::ipc::PendingActionData {
+                            id: a.id.clone(),
+                            timestamp: a.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            action: format!("{:?}", a.action),
+                            flag_reason: a.flag_reason.clone(),
+                            uncertainty: a.uncertainty,
+                            ethical_score: a.ethical_score.overall(),
+                            weakest_dimension: a.ethical_score.weakest_dimension().to_string(),
+                        })
+                        .collect();
+
+                    let data = anna_common::ipc::ConsciencePendingData { pending_actions };
+                    Ok(ResponseData::ConsciencePending(data))
+                }
+                None => Err("Conscience layer not initialized".to_string()),
+            }
+        }
+
+        Method::ConscienceExplain { decision_id } => {
+            info!("ConscienceExplain method called: {}", decision_id);
+
+            let conscience = match &state.sentinel {
+                Some(s) => s.get_conscience(),
+                None => None,
+            };
+
+            match conscience {
+                Some(c) => {
+                    match c.get_decision(&decision_id).await {
+                        Some(decision) => {
+                            let data = anna_common::ipc::ConscienceDecisionData {
+                                id: decision.id.clone(),
+                                timestamp: decision.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                action: format!("{:?}", decision.action),
+                                outcome: format!("{:?}", decision.outcome),
+                                ethical_score: decision.ethical_score.overall(),
+                                safety: decision.ethical_score.safety,
+                                privacy: decision.ethical_score.privacy,
+                                integrity: decision.ethical_score.integrity,
+                                autonomy: decision.ethical_score.autonomy,
+                                confidence: decision.confidence,
+                                reasoning: crate::conscience::format_reasoning_tree(&decision.reasoning, 0),
+                                has_rollback_plan: decision.rollback_plan.is_some(),
+                            };
+                            Ok(ResponseData::ConscienceDecision(data))
+                        }
+                        None => Err(format!("Decision not found: {}", decision_id)),
+                    }
+                }
+                None => Err("Conscience layer not initialized".to_string()),
+            }
+        }
+
+        Method::ConscienceApprove { decision_id } => {
+            info!("ConscienceApprove method called: {}", decision_id);
+
+            let conscience = match &state.sentinel {
+                Some(s) => s.get_conscience(),
+                None => None,
+            };
+
+            match conscience {
+                Some(c) => {
+                    match c.approve_action(&decision_id).await {
+                        Ok(_) => Ok(ResponseData::ConscienceActionResult(
+                            format!("Action {} approved", decision_id)
+                        )),
+                        Err(e) => Err(format!("Failed to approve action: {}", e)),
+                    }
+                }
+                None => Err("Conscience layer not initialized".to_string()),
+            }
+        }
+
+        Method::ConscienceReject { decision_id } => {
+            info!("ConscienceReject method called: {}", decision_id);
+
+            let conscience = match &state.sentinel {
+                Some(s) => s.get_conscience(),
+                None => None,
+            };
+
+            match conscience {
+                Some(c) => {
+                    match c.reject_action(&decision_id).await {
+                        Ok(_) => Ok(ResponseData::ConscienceActionResult(
+                            format!("Action {} rejected", decision_id)
+                        )),
+                        Err(e) => Err(format!("Failed to reject action: {}", e)),
+                    }
+                }
+                None => Err("Conscience layer not initialized".to_string()),
+            }
+        }
+
+        Method::ConscienceIntrospect => {
+            info!("ConscienceIntrospect method called");
+
+            let conscience = match &state.sentinel {
+                Some(s) => s.get_conscience(),
+                None => None,
+            };
+
+            match conscience {
+                Some(c) => {
+                    match c.introspect().await {
+                        Ok(report) => {
+                            let data = anna_common::ipc::ConscienceIntrospectionData {
+                                timestamp: report.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                period: format!(
+                                    "{} to {}",
+                                    report.period_start.format("%H:%M:%S"),
+                                    report.period_end.format("%H:%M:%S")
+                                ),
+                                decisions_reviewed: report.decisions_reviewed,
+                                approved_count: report.approved_count,
+                                rejected_count: report.rejected_count,
+                                flagged_count: report.flagged_count,
+                                avg_ethical_score: report.avg_ethical_score,
+                                avg_confidence: report.avg_confidence,
+                                violations_count: report.violations.len() as u64,
+                                recommendations: report.recommendations,
+                            };
+                            Ok(ResponseData::ConscienceIntrospection(data))
+                        }
+                        Err(e) => Err(format!("Introspection failed: {}", e)),
+                    }
+                }
+                None => Err("Conscience layer not initialized".to_string()),
+            }
         }
     };
 

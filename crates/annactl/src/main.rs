@@ -8,6 +8,7 @@
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
 pub mod errors;
+mod conscience_commands; // Phase 1.1
 mod health_commands;
 mod install_command; // Phase 0.8
 pub mod logging;
@@ -134,6 +135,13 @@ enum Commands {
         #[command(subcommand)]
         subcommand: ConfigSubcommand,
     },
+
+    /// Conscience governance (Phase 1.1)
+    Conscience {
+        /// Subcommand: review, explain, approve, reject, introspect
+        #[command(subcommand)]
+        subcommand: ConscienceSubcommand,
+    },
 }
 
 /// Sentinel subcommands
@@ -157,6 +165,30 @@ enum ConfigSubcommand {
         /// Configuration value
         value: String,
     },
+}
+
+/// Conscience subcommands (Phase 1.1)
+#[derive(Subcommand)]
+enum ConscienceSubcommand {
+    /// Show pending actions requiring review
+    Review,
+    /// Explain a conscience decision
+    Explain {
+        /// Decision ID to explain
+        decision_id: String,
+    },
+    /// Approve a flagged action
+    Approve {
+        /// Decision ID to approve
+        decision_id: String,
+    },
+    /// Reject a flagged action
+    Reject {
+        /// Decision ID to reject
+        decision_id: String,
+    },
+    /// Run manual introspection
+    Introspect,
 }
 
 // Phase 0.3: Remove all legacy subcommand enums
@@ -237,6 +269,7 @@ async fn main() -> Result<()> {
         Commands::Audit => "audit",
         Commands::Sentinel { .. } => "sentinel",
         Commands::Config { .. } => "config",
+        Commands::Conscience { .. } => "conscience",
     };
 
     // Try to connect to daemon and get state
@@ -338,6 +371,26 @@ async fn main() -> Result<()> {
                 }
                 ConfigSubcommand::Set { key, value } => {
                     return sentinel_cli::execute_config_set_command(key, value, &req_id, &state, start_time).await;
+                }
+            }
+        }
+        // Phase 1.1: Conscience commands
+        Commands::Conscience { subcommand } => {
+            match subcommand {
+                ConscienceSubcommand::Review => {
+                    return conscience_commands::execute_conscience_review_command(&req_id, &state, start_time).await;
+                }
+                ConscienceSubcommand::Explain { decision_id } => {
+                    return conscience_commands::execute_conscience_explain_command(decision_id, &req_id, &state, start_time).await;
+                }
+                ConscienceSubcommand::Approve { decision_id } => {
+                    return conscience_commands::execute_conscience_approve_command(decision_id, &req_id, &state, start_time).await;
+                }
+                ConscienceSubcommand::Reject { decision_id } => {
+                    return conscience_commands::execute_conscience_reject_command(decision_id, &req_id, &state, start_time).await;
+                }
+                ConscienceSubcommand::Introspect => {
+                    return conscience_commands::execute_conscience_introspect_command(&req_id, &state, start_time).await;
                 }
             }
         }
@@ -560,6 +613,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Config { .. } => {
             // Should not reach here - handled in main
             unreachable!("Config command should be handled separately");
+        }
+        Commands::Conscience { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Conscience command should be handled separately");
         }
     }
 

@@ -79,6 +79,7 @@
 mod action_history;
 mod audit;
 mod autonomy;
+mod conscience; // Phase 1.1: Conscience layer
 mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod install; // Phase 0.8: Installation subsystem
@@ -194,9 +195,20 @@ async fn main() -> Result<()> {
         Ok(sentinel_daemon) => {
             info!("Sentinel framework initialized - autonomous monitoring enabled");
 
+            // Store sentinel in daemon state (Phase 1.1: for conscience access)
+            let sentinel_arc = Arc::new(sentinel_daemon);
+            {
+                // SAFETY: We're converting Arc<DaemonState> to a mutable reference
+                // This is safe because we're the only ones with access at this point
+                let state_ptr = Arc::as_ptr(&state) as *mut rpc_server::DaemonState;
+                unsafe {
+                    (*state_ptr).sentinel = Some(Arc::clone(&sentinel_arc));
+                }
+            }
+
             // Spawn sentinel daemon as background task
             tokio::spawn(async move {
-                if let Err(e) = sentinel_daemon.run().await {
+                if let Err(e) = sentinel_arc.run().await {
                     tracing::error!("Sentinel daemon error: {}", e);
                 }
             });

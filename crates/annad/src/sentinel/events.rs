@@ -1,9 +1,11 @@
 //! Sentinel event bus and handler
 //!
 //! Phase 1.0: Unified event system for all subsystems
+//! Phase 1.1: Conscience-integrated action execution
 //! Citation: [archwiki:System_maintenance]
 
 use super::types::{SentinelEvent, SentinelAction, ResponsePlaybook};
+use crate::conscience::ConscienceDaemon;
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -14,6 +16,7 @@ pub struct EventBus {
     sender: mpsc::UnboundedSender<SentinelEvent>,
     receiver: Arc<RwLock<mpsc::UnboundedReceiver<SentinelEvent>>>,
     playbooks: Arc<RwLock<Vec<ResponsePlaybook>>>,
+    conscience: Arc<RwLock<Option<Arc<ConscienceDaemon>>>>,
 }
 
 impl EventBus {
@@ -24,7 +27,14 @@ impl EventBus {
             sender,
             receiver: Arc::new(RwLock::new(receiver)),
             playbooks: Arc::new(RwLock::new(Vec::new())),
+            conscience: Arc::new(RwLock::new(None)),
         }
+    }
+
+    /// Set conscience daemon for ethical evaluation
+    pub async fn set_conscience(&self, conscience: Arc<ConscienceDaemon>) {
+        info!("Conscience layer integrated with event bus");
+        *self.conscience.write().await = Some(conscience);
     }
 
     /// Get sender handle for publishing events
@@ -100,8 +110,58 @@ impl EventBus {
         actions
     }
 
-    /// Execute a sentinel action
+    /// Execute a sentinel action (with conscience evaluation)
     async fn execute_action(&self, action: SentinelAction) -> Result<()> {
+        // Phase 1.1: Conscience pre-execution hook
+        let conscience_opt = {
+            let guard = self.conscience.read().await;
+            guard.clone()
+        };
+
+        if let Some(conscience) = conscience_opt {
+            match conscience.evaluate_action(&action).await {
+                Ok((should_execute, decision_id)) => {
+                    if !should_execute {
+                        info!(
+                            "Conscience blocked action: {:?} (decision: {})",
+                            action, decision_id
+                        );
+                        return Ok(());
+                    }
+                    info!(
+                        "Conscience approved action: {:?} (decision: {})",
+                        action, decision_id
+                    );
+
+                    // Execute the action
+                    let result = self.execute_action_impl(&action).await;
+
+                    // Update conscience with execution result
+                    let result_str = match &result {
+                        Ok(_) => "Success".to_string(),
+                        Err(e) => format!("Error: {}", e),
+                    };
+
+                    if let Err(e) = conscience.update_outcome(&decision_id, result_str).await {
+                        warn!("Failed to update conscience outcome: {}", e);
+                    }
+
+                    result
+                }
+                Err(e) => {
+                    warn!("Conscience evaluation failed: {}", e);
+                    // Fail-safe: don't execute if conscience evaluation fails
+                    Err(e)
+                }
+            }
+        } else {
+            // No conscience layer, execute directly
+            self.execute_action_impl(&action).await
+        }
+    }
+
+    /// Execute action implementation (actual work)
+    async fn execute_action_impl(&self, action: &SentinelAction) -> Result<()> {
         match action {
             SentinelAction::None => {
                 // No-op

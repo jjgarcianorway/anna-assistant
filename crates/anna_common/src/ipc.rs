@@ -168,6 +168,35 @@ pub enum Method {
         /// Configuration JSON
         config: SentinelConfigData,
     },
+
+    /// Get pending conscience actions requiring review (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceReview,
+
+    /// Get detailed explanation for a conscience decision (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceExplain {
+        /// Decision ID to explain
+        decision_id: String,
+    },
+
+    /// Approve a flagged conscience action (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceApprove {
+        /// Decision ID to approve
+        decision_id: String,
+    },
+
+    /// Reject a flagged conscience action (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceReject {
+        /// Decision ID to reject
+        decision_id: String,
+    },
+
+    /// Trigger manual conscience introspection (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceIntrospect,
 }
 
 /// Response data variants
@@ -282,6 +311,22 @@ pub enum ResponseData {
     /// Sentinel configuration (Phase 1.0)
     /// Citation: [archwiki:System_maintenance]
     SentinelConfig(SentinelConfigData),
+
+    /// Conscience pending actions (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConsciencePending(ConsciencePendingData),
+
+    /// Conscience decision explanation (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceDecision(ConscienceDecisionData),
+
+    /// Conscience introspection report (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceIntrospection(ConscienceIntrospectionData),
+
+    /// Conscience action result (Phase 1.1)
+    /// Citation: [archwiki:System_maintenance]
+    ConscienceActionResult(String),
 }
 
 /// Type of streaming chunk
@@ -778,4 +823,87 @@ pub struct SentinelConfigData {
     pub auto_update_threshold: u32,
     /// Enable adaptive scheduling
     pub adaptive_scheduling: bool,
+}
+
+/// Conscience pending actions data (Phase 1.1)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsciencePendingData {
+    /// Pending actions requiring review
+    pub pending_actions: Vec<PendingActionData>,
+}
+
+/// Pending action data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingActionData {
+    /// Action ID
+    pub id: String,
+    /// Timestamp
+    pub timestamp: String,
+    /// Action description
+    pub action: String,
+    /// Flag reason
+    pub flag_reason: String,
+    /// Uncertainty score
+    pub uncertainty: f64,
+    /// Ethical score
+    pub ethical_score: f64,
+    /// Weakest dimension
+    pub weakest_dimension: String,
+}
+
+/// Conscience decision data (Phase 1.1)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConscienceDecisionData {
+    /// Decision ID
+    pub id: String,
+    /// Timestamp
+    pub timestamp: String,
+    /// Action description
+    pub action: String,
+    /// Outcome
+    pub outcome: String,
+    /// Ethical score
+    pub ethical_score: f64,
+    /// Safety score
+    pub safety: f64,
+    /// Privacy score
+    pub privacy: f64,
+    /// Integrity score
+    pub integrity: f64,
+    /// Autonomy score
+    pub autonomy: f64,
+    /// Confidence
+    pub confidence: f64,
+    /// Reasoning tree (formatted text)
+    pub reasoning: String,
+    /// Rollback plan available
+    pub has_rollback_plan: bool,
+}
+
+/// Conscience introspection data (Phase 1.1)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConscienceIntrospectionData {
+    /// Report timestamp
+    pub timestamp: String,
+    /// Period analyzed
+    pub period: String,
+    /// Decisions reviewed
+    pub decisions_reviewed: u64,
+    /// Approved count
+    pub approved_count: u64,
+    /// Rejected count
+    pub rejected_count: u64,
+    /// Flagged count
+    pub flagged_count: u64,
+    /// Average ethical score
+    pub avg_ethical_score: f64,
+    /// Average confidence
+    pub avg_confidence: f64,
+    /// Violations detected
+    pub violations_count: u64,
+    /// Recommendations
+    pub recommendations: Vec<String>,
 }
