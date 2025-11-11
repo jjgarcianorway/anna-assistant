@@ -169,6 +169,11 @@ if [ -d "/usr/share/fish/vendor_completions.d" ]; then
 fi
 echo -e "${GREEN}${CHECK}${RESET} Completions installed (${COMP_COUNT} shells)"
 
+# Phase 0.4: Security setup - create anna group and secure directories
+echo -e "${CYAN}${ARROW}${RESET} Setting up security configuration..."
+curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/scripts/setup-security.sh" | sudo bash || error_exit "Failed to setup security"
+echo -e "${GREEN}${CHECK}${RESET} Security configured"
+
 # Systemd service
 echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
 curl -fsSL -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" || error_exit "Failed to download service"

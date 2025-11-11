@@ -321,20 +321,32 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
 
     info!("RPC server listening on {}", SOCKET_PATH);
 
-    // Set socket permissions to 0660 (owner and group only)
+    // Phase 0.4: Set socket permissions to 0660 (owner and group only)
     // SECURITY: Only root and users in the socket's group can connect
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))?;
+        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))
+            .context("Failed to set socket permissions to 0660")?;
 
-        // Change socket group to 'anna' so users in that group can connect
+        // Phase 0.4: Change socket group to 'anna' so users in that group can connect
+        // This is critical for access control - fail if chown fails
         use std::process::Command;
-        let _ = Command::new("chown")
+        let chown_result = Command::new("chown")
             .args(&["root:anna", SOCKET_PATH])
-            .status();
+            .output()
+            .context("Failed to execute chown command")?;
 
-        info!("Socket permissions set to 0660 with group 'anna'");
+        if !chown_result.status.success() {
+            warn!(
+                "Failed to set socket group to 'anna': {}",
+                String::from_utf8_lossy(&chown_result.stderr)
+            );
+            warn!("Socket will be owned by current user/group");
+            warn!("Run: sudo groupadd --system anna");
+        } else {
+            info!("Socket permissions set to root:anna 0660");
+        }
     }
 
     // Accept connections
