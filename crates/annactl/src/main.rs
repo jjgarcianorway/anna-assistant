@@ -1,12 +1,19 @@
 //! Anna Control - CLI client for Anna Assistant
 //!
 //! Provides user interface to interact with the Anna daemon.
+//!
+//! Phase 0.3: State-aware command dispatch with no-ops
+//! Citation: [archwiki:system_maintenance]
 
-mod commands;
-mod rpc_client;
+// Phase 0.3a: Commands module will be reimplemented in 0.3c
+// mod commands;
+// mod rpc_client;
+mod errors;
+mod output;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use errors::*;
 
 // Version is embedded at build time
 const VERSION: &str = env!("ANNA_VERSION");
@@ -15,346 +22,128 @@ const VERSION: &str = env!("ANNA_VERSION");
 #[command(name = "annactl")]
 #[command(about = "Anna Assistant - Autonomous system administrator", long_about = None)]
 #[command(version = VERSION)]
+#[command(disable_help_subcommand = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
 
+/// Phase 0.3: Simplified command set - all commands check state availability
 #[derive(Subcommand)]
 enum Commands {
     /// Show system status and daemon health
     Status,
 
-    /// Get system recommendations (optionally filter by category)
-    ///
-    /// Examples:
-    ///   annactl advise              # Show all recommendations
-    ///   annactl advise security     # Show only security recommendations
-    ///   annactl advise packages     # Show only package recommendations
-    Advise {
-        /// Category to filter by (security, packages, performance, hardware, system, network)
-        category: Option<String>,
-
-        /// Display mode: smart (default), critical, recommended, all
-        #[arg(short, long, default_value = "smart")]
-        mode: String,
-
-        /// Maximum number of recommendations to show (0 = no limit)
-        #[arg(short, long, default_value = "25")]
-        limit: usize,
+    /// Show available commands for current state
+    Help {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
     },
 
-    /// Apply recommendations by number, ID, range, or bundle
-    ///
-    /// Examples:
-    ///   annactl apply 1                    # Apply recommendation #1
-    ///   annactl apply 1-5                  # Apply recommendations 1 through 5
-    ///   annactl apply 1,3,5                # Apply recommendations 1, 3, and 5
-    ///   annactl apply --id amd-microcode   # Apply by recommendation ID
-    ///   annactl apply --bundle hyprland    # Apply Hyprland setup bundle
-    ///   annactl apply --auto               # Auto-apply all safe recommendations
-    Apply {
-        /// Recommendation number(s) to apply (e.g., "1", "1-5", "1,3,5-7")
-        numbers: Option<String>,
-
-        /// Apply a specific recommendation by ID
-        #[arg(short, long)]
-        id: Option<String>,
-
-        /// Apply all recommendations in a workflow bundle
-        #[arg(short, long)]
-        bundle: Option<String>,
-
-        /// Auto-apply all allowed actions without confirmation
-        #[arg(short, long)]
-        auto: bool,
-
-        /// Dry run (show what would be done without applying)
+    /// Update system packages (configured state only)
+    Update {
+        /// Dry run (show what would be updated)
         #[arg(short = 'n', long)]
         dry_run: bool,
     },
 
-    /// Setup complete desktop environments (install + configure everything)
-    ///
-    /// Examples:
-    ///   annactl setup                    # List available desktop setups
-    ///   annactl setup hyprland           # Install complete Hyprland environment
-    ///   annactl setup hyprland --preview # Show what would be installed
-    Setup {
-        /// Desktop environment to setup (hyprland, etc.)
-        #[arg(value_name = "DESKTOP")]
-        desktop: Option<String>,
+    /// Interactive Arch Linux installation (iso_live state only)
+    Install,
 
-        /// Show what would be installed without actually installing
-        #[arg(long)]
-        preview: bool,
+    /// Rescue and recovery tools (iso_live, recovery_candidate states)
+    Rescue {
+        /// Subcommand: detect, chroot, repair
+        subcommand: Option<String>,
     },
 
-    /// Rollback actions or bundles (Beta.91+)
-    ///
-    /// Examples:
-    ///   annactl rollback list                 # List rollbackable actions
-    ///   annactl rollback action mangohud      # Rollback specific action
-    ///   annactl rollback last                 # Rollback last action
-    ///   annactl rollback last 3               # Rollback last 3 actions
-    ///   annactl rollback bundle hyprland      # Rollback bundle
-    Rollback {
-        #[command(subcommand)]
-        action: RollbackAction,
+    /// Create system backup (configured state)
+    Backup {
+        /// Destination path
+        #[arg(short, long)]
+        dest: Option<String>,
     },
 
-    /// Generate system health report (optionally filter by category)
-    ///
-    /// Examples:
-    ///   annactl report           # Full system report
-    ///   annactl report security  # Security-focused report
-    Report {
-        /// Category to focus on (security, performance, packages, etc.)
-        category: Option<String>,
-    },
+    /// Check system health (all states)
+    Health,
 
-    /// Run system diagnostics and optionally fix issues
-    ///
-    /// Examples:
-    ///   annactl doctor              # Run diagnostics only
-    ///   annactl doctor --fix        # Fix issues with confirmation
-    ///   annactl doctor --fix --auto # Fix all issues automatically
+    /// Run system diagnostics (configured, degraded states)
     Doctor {
-        /// Automatically fix detected issues
+        /// Automatically fix issues
         #[arg(short, long)]
         fix: bool,
+    },
 
-        /// Show what would be fixed without actually fixing
-        #[arg(short = 'n', long)]
-        dry_run: bool,
+    /// Rollback actions (configured, degraded states)
+    Rollback {
+        /// Action ID or 'last'
+        target: Option<String>,
+    },
 
-        /// Fix all issues without confirmation
+    /// Analyze system issues (degraded state only)
+    Triage,
+
+    /// Collect diagnostic logs (degraded state only)
+    CollectLogs {
+        /// Output directory
         #[arg(short, long)]
-        auto: bool,
-    },
-
-    // Config and Autonomy commands removed - not implemented for v1.0
-    // These may return in v2.0 when autonomy features are ready
-
-    // WikiCache removed - automatically maintained by daemon
-    // Health removed - merged into status command
-
-    /// Dismiss a recommendation by number
-    ///
-    /// Examples:
-    ///   annactl dismiss 1    # Dismiss recommendation #1
-    Dismiss {
-        /// Recommendation number to dismiss
-        number: usize,
-    },
-
-    /// Show dismissed recommendations
-    ///
-    /// Examples:
-    ///   annactl dismissed            # Show all dismissed items
-    ///   annactl dismissed --undismiss 1  # Un-dismiss an item by number
-    Dismissed {
-        /// Un-dismiss a recommendation by its list number
-        #[arg(short, long)]
-        undismiss: Option<usize>,
-    },
-
-    /// View application history and analytics
-    ///
-    /// Examples:
-    ///   annactl history         # Show last 30 days
-    ///   annactl history 7       # Show last 7 days
-    ///   annactl history 90 -v   # Show last 90 days with details
-    History {
-        /// Number of days to show (default: 30)
-        #[arg(default_value = "30")]
-        days: i64,
-
-        /// Show detailed entries
-        #[arg(short = 'v', long)]
-        detailed: bool,
-    },
-
-    /// Check for updates and optionally install them
-    ///
-    /// Examples:
-    ///   annactl update              # Check for updates
-    ///   annactl update --install    # Install available updates
-    Update {
-        /// Automatically install updates without confirmation
-        #[arg(short, long)]
-        install: bool,
-
-        /// Check only (don't show full release notes)
-        #[arg(short, long)]
-        check: bool,
-    },
-
-    /// Manage ignore filters (categories and priorities)
-    ///
-    /// Examples:
-    ///   annactl ignore show                      # Show current filters
-    ///   annactl ignore category "Cosmetic"       # Ignore category
-    ///   annactl ignore priority Optional         # Ignore priority
-    ///   annactl ignore unignore category Desktop # Remove filter
-    ///   annactl ignore reset                     # Clear all filters
-    Ignore {
-        #[command(subcommand)]
-        action: IgnoreAction,
-    },
-
-    // TUI temporarily disabled for 1.0 release - will be re-enabled in 2.0 with better UX
-    // /// Open interactive TUI for browsing and applying recommendations
-    // Tui,
-
-    /// Generate shell completion scripts
-    ///
-    /// Examples:
-    ///   annactl completions bash > /usr/share/bash-completion/completions/annactl
-    ///   annactl completions zsh > /usr/share/zsh/site-functions/_annactl
-    ///   annactl completions fish > ~/.config/fish/completions/annactl.fish
-    Completions {
-        /// Shell to generate completions for
-        #[arg(value_enum)]
-        shell: clap_complete::Shell,
+        output: Option<String>,
     },
 }
 
-#[derive(Debug, Subcommand)]
-pub enum RollbackAction {
-    /// List all rollbackable actions
-    List,
-
-    /// Rollback a specific action by advice ID
-    Action {
-        /// Advice ID to rollback
-        advice_id: String,
-
-        /// Dry run (show what would be done without executing)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-    },
-
-    /// Rollback last N actions (default: 1)
-    Last {
-        /// Number of actions to rollback (default: 1)
-        #[arg(default_value = "1")]
-        count: usize,
-
-        /// Dry run (show what would be done without executing)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-    },
-
-    /// Rollback a workflow bundle
-    Bundle {
-        /// Bundle name to rollback
-        name: String,
-
-        /// Dry run (show what would be removed without removing)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-    },
-}
-
-#[derive(Debug, Subcommand)]
-pub enum IgnoreAction {
-    /// Show current ignore filters
-    Show,
-
-    /// List recommendations currently hidden by ignore filters
-    ListHidden,
-
-    /// Ignore a category
-    Category {
-        /// Category name to ignore
-        name: String,
-    },
-
-    /// Ignore a priority level (Mandatory, Recommended, Optional, Cosmetic)
-    Priority {
-        /// Priority level to ignore
-        level: String,
-    },
-
-    /// Remove a filter
-    Unignore {
-        /// Type: 'category' or 'priority'
-        filter_type: String,
-
-        /// Value to un-ignore
-        value: String,
-    },
-
-    /// Reset all ignore filters
-    Reset,
-}
+// Phase 0.3: Remove all legacy subcommand enums
+// Commands are now flat and state-checked at runtime
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Phase 0.3a: All commands go through state-aware dispatch
+    // For now, just parse successfully
     match cli.command {
-        Commands::Status => commands::status().await,
-        Commands::Advise { category, mode, limit } => {
-            commands::advise(None, mode, category, limit).await
+        Commands::Status => {
+            println!("Status command - will be implemented in 0.3c");
+            std::process::exit(EXIT_SUCCESS);
         }
-        Commands::Apply { numbers, id, bundle, auto, dry_run } => {
-            commands::apply(id, numbers, bundle, auto, dry_run).await
+        Commands::Help { json } => {
+            println!("Help command (json={}) - will be implemented in 0.3d", json);
+            std::process::exit(EXIT_SUCCESS);
         }
-        Commands::Setup { desktop, preview } => {
-            commands::setup(desktop.as_deref(), preview).await
-        },
-        Commands::Rollback { action } => match action {
-            RollbackAction::List => commands::rollback_list().await,
-            RollbackAction::Action { advice_id, dry_run } => {
-                commands::rollback_action(&advice_id, dry_run).await
-            }
-            RollbackAction::Last { count, dry_run } => {
-                commands::rollback_last(count, dry_run).await
-            }
-            RollbackAction::Bundle { name, dry_run } => {
-                commands::rollback_bundle(&name, dry_run).await
-            }
-        },
-        Commands::Report { category } => commands::report(category).await,
-        Commands::Doctor { fix, dry_run, auto } => commands::doctor(fix, dry_run, auto).await,
-        // Config and Autonomy commands removed - not implemented for v1.0
-        // WikiCache and Health removed - wiki cache automatic, health merged into status
-        Commands::Dismiss { number } => commands::dismiss(None, Some(number)).await,
-        Commands::Dismissed { undismiss } => commands::dismissed(undismiss).await,
-        Commands::History { days, detailed } => commands::history(days, detailed).await,
-        Commands::Update { install, check } => commands::update(install, check).await,
-        Commands::Ignore { action } => commands::ignore(action).await,
-        // TUI disabled for 1.0 release
-        // Commands::Tui => tui::run().await,
-        Commands::Completions { shell } => {
-            generate_completions(shell);
-            Ok(())
+        Commands::Update { dry_run } => {
+            println!("Update command (dry_run={}) - will be implemented in 0.3c", dry_run);
+            std::process::exit(EXIT_SUCCESS);
         }
-    }
-}
-
-/// Generate shell completion scripts
-fn generate_completions(shell: clap_complete::Shell) {
-    use clap::CommandFactory;
-    use clap_complete::generate;
-    use std::io::{self, Write};
-
-    let mut cmd = Cli::command();
-    let bin_name = cmd.get_name().to_string();
-
-    // Generate to stdout, ignoring BrokenPipe errors (happens when piped to head, etc.)
-    let result = {
-        let mut stdout = io::stdout();
-        generate(shell, &mut cmd, bin_name, &mut stdout);
-        stdout.flush()
-    };
-
-    // Silently ignore BrokenPipe - it's expected when output is piped
-    if let Err(e) = result {
-        if e.kind() != io::ErrorKind::BrokenPipe {
-            eprintln!("Error writing completions: {}", e);
+        Commands::Install => {
+            println!("Install command - will be implemented in 0.3c");
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::Rescue { subcommand } => {
+            println!("Rescue command ({:?}) - will be implemented in 0.3c", subcommand);
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::Backup { dest } => {
+            println!("Backup command (dest={:?}) - will be implemented in 0.3c", dest);
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::Health => {
+            println!("Health command - will be implemented in 0.3c");
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::Doctor { fix } => {
+            println!("Doctor command (fix={}) - will be implemented in 0.3c", fix);
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::Rollback { target } => {
+            println!("Rollback command (target={:?}) - will be implemented in 0.3c", target);
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::Triage => {
+            println!("Triage command - will be implemented in 0.3c");
+            std::process::exit(EXIT_SUCCESS);
+        }
+        Commands::CollectLogs { output } => {
+            println!("CollectLogs command (output={:?}) - will be implemented in 0.3c", output);
+            std::process::exit(EXIT_SUCCESS);
         }
     }
 }
