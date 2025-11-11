@@ -108,6 +108,24 @@ impl RpcClient {
         self.call(Method::GetCapabilities).await
     }
 
+    /// Run health probes (Phase 0.5b)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn health_run(&mut self, timeout_ms: u64, probes: Vec<String>) -> Result<ResponseData> {
+        self.call(Method::HealthRun { timeout_ms, probes }).await
+    }
+
+    /// Get health summary (Phase 0.5b)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn health_summary(&mut self) -> Result<ResponseData> {
+        self.call(Method::HealthSummary).await
+    }
+
+    /// Get recovery plans (Phase 0.5b)
+    /// Citation: [archwiki:General_troubleshooting]
+    pub async fn recovery_plans(&mut self) -> Result<ResponseData> {
+        self.call(Method::RecoveryPlans).await
+    }
+
     /// Call a method with streaming response support
     /// Creates a dedicated connection for streaming to avoid blocking the main client
     /// Returns a receiver that yields ResponseData chunks until StreamEnd

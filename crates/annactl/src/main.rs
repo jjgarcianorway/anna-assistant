@@ -11,6 +11,7 @@ mod rpc_client;
 pub mod errors;
 pub mod output;
 pub mod logging;
+mod health_commands; // Phase 0.5b
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -69,14 +70,18 @@ enum Commands {
         dest: Option<String>,
     },
 
-    /// Check system health (all states)
-    Health,
+    /// Check system health (all states) - Phase 0.5
+    Health {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+    },
 
-    /// Run system diagnostics (configured, degraded states)
+    /// Run system diagnostics (configured, degraded states) - Phase 0.5
     Doctor {
-        /// Automatically fix issues
-        #[arg(short, long)]
-        fix: bool,
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
     },
 
     /// Rollback actions (configured, degraded states)
@@ -128,7 +133,7 @@ async fn main() -> Result<()> {
         Commands::Install => "install",
         Commands::Rescue { .. } => "rescue",
         Commands::Backup { .. } => "backup",
-        Commands::Health => "health",
+        Commands::Health { .. } => "health",
         Commands::Doctor { .. } => "doctor",
         Commands::Rollback { .. } => "rollback",
         Commands::Triage => "triage",
@@ -168,6 +173,22 @@ async fn main() -> Result<()> {
     // Phase 0.3d: Handle help command specially
     if matches!(cli.command, Commands::Help { .. }) {
         return execute_help_command(&cli.command, &state, &capabilities, &req_id, start_time).await;
+    }
+
+    // Phase 0.5b: Handle health commands specially (they bypass state checks)
+    match &cli.command {
+        Commands::Health { json } => {
+            return health_commands::execute_health_command(*json, &state, &req_id, start_time).await;
+        }
+        Commands::Doctor { json } => {
+            return health_commands::execute_doctor_command(*json, &state, &req_id, start_time).await;
+        }
+        Commands::Rescue { subcommand } => {
+            if subcommand.as_deref() == Some("list") {
+                return health_commands::execute_rescue_list_command(&req_id, start_time).await;
+            }
+        }
+        _ => {}
     }
 
     // Check if command is allowed in current state
@@ -340,13 +361,13 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
             println!("[anna] backup command allowed in state: {}", state);
             println!("[anna] dest: {:?} (no-op - no actual backup performed)", dest);
         }
-        Commands::Health => {
-            println!("[anna] health command allowed in state: {}", state);
-            println!("[anna] (no-op - no actual health check performed)");
+        Commands::Health { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Health command should be handled separately");
         }
-        Commands::Doctor { fix } => {
-            println!("[anna] doctor command allowed in state: {}", state);
-            println!("[anna] fix={} (no-op - no actual diagnostics performed)", fix);
+        Commands::Doctor { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Doctor command should be handled separately");
         }
         Commands::Rollback { target } => {
             println!("[anna] rollback command allowed in state: {}", state);
