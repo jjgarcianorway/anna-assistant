@@ -366,6 +366,7 @@ async fn handle_streaming_apply(
             let response = Response {
                 id: request_id,
                 result: Err(format!("Advice not found: {}", advice_id)),
+                version: "1.0.0".to_string(),
             };
             let json = serde_json::to_string(&response)? + "\n";
             writer.write_all(json.as_bytes()).await?;
@@ -382,6 +383,7 @@ async fn handle_streaming_apply(
                 chunk_type: StreamChunkType::Status,
                 data: format!("[DRY RUN] Would execute: {:?}", advice.command),
             }),
+            version: "1.0.0".to_string(),
         };
         let json = serde_json::to_string(&response)? + "\n";
         writer.write_all(json.as_bytes()).await?;
@@ -392,6 +394,7 @@ async fn handle_streaming_apply(
                 success: true,
                 message: "Dry run completed".to_string(),
             }),
+            version: "1.0.0".to_string(),
         };
         let json = serde_json::to_string(&end_response)? + "\n";
         writer.write_all(json.as_bytes()).await?;
@@ -404,6 +407,7 @@ async fn handle_streaming_apply(
             let response = Response {
                 id: request_id,
                 result: Err("No command specified".to_string()),
+                version: "1.0.0".to_string(),
             };
             let json = serde_json::to_string(&response)? + "\n";
             writer.write_all(json.as_bytes()).await?;
@@ -442,6 +446,7 @@ async fn handle_streaming_apply(
                 chunk_type,
                 data,
             }),
+            version: "1.0.0".to_string(),
         };
 
         // Send the chunk immediately
@@ -513,6 +518,7 @@ async fn handle_streaming_apply(
                 "Action failed".to_string()
             },
         }),
+        version: "1.0.0".to_string(),
     };
     let json = serde_json::to_string(&end_response)? + "\n";
     writer.write_all(json.as_bytes()).await?;
@@ -584,6 +590,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
                 id: 0, // We don't have the request ID yet
                 result: Err(format!("Request too large: {} bytes (max: {} bytes)",
                                    line.len(), MAX_REQUEST_SIZE)),
+                version: "1.0.0".to_string(),
             };
             let response_json = serde_json::to_string(&error_response)? + "\n";
             let _ = writer.write_all(response_json.as_bytes()).await;
@@ -604,6 +611,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
             let error_response = Response {
                 id: request.id,
                 result: Err(format!("Rate limit exceeded. Please try again later.")),
+                version: "1.0.0".to_string(),
             };
             let response_json = serde_json::to_string(&error_response)? + "\n";
             let _ = writer.write_all(response_json.as_bytes()).await;
@@ -618,6 +626,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
                 let error_response = Response {
                     id: request.id,
                     result: Err(format!("Streaming failed: {}", e)),
+                    version: "1.0.0".to_string(),
                 };
                 let response_json = serde_json::to_string(&error_response)? + "\n";
                 writer.write_all(response_json.as_bytes()).await?;
@@ -1102,6 +1111,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         return Response {
                             id,
                             result: Err(format!("Cannot rollback: {}", reason)),
+                            version: "1.0.0".to_string(),
                         };
                     }
 
@@ -1111,6 +1121,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                             return Response {
                                 id,
                                 result: Err("No rollback command available".to_string()),
+                                version: "1.0.0".to_string(),
                             };
                         }
                     };
@@ -1160,6 +1171,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         return Response {
                             id,
                             result: Err("No actions to rollback".to_string()),
+                            version: "1.0.0".to_string(),
                         };
                     }
 
@@ -1173,6 +1185,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         return Response {
                             id,
                             result: Err("No rollbackable actions in last {} actions".to_string()),
+                            version: "1.0.0".to_string(),
                         };
                     }
 
@@ -1230,7 +1243,78 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 }
             }
         }
+
+        Method::GetState => {
+            info!("GetState method called");
+
+            match crate::state::detect_state() {
+                Ok(detection) => {
+                    // Convert to IPC response type
+                    let data = anna_common::ipc::StateDetectionData {
+                        state: detection.state.to_string(),
+                        detected_at: detection.detected_at,
+                        details: anna_common::ipc::StateDetailsData {
+                            uefi: detection.details.uefi,
+                            disks: detection.details.disks,
+                            network: anna_common::ipc::NetworkStatusData {
+                                has_interface: detection.details.network.has_interface,
+                                has_route: detection.details.network.has_route,
+                                can_resolve: detection.details.network.can_resolve,
+                            },
+                            state_file_present: detection.details.state_file_present,
+                            health_ok: detection.details.health_ok,
+                        },
+                        citation: detection.citation,
+                    };
+                    Ok(ResponseData::StateDetection(data))
+                }
+                Err(e) => {
+                    error!("State detection failed: {}", e);
+                    Err(format!("State detection failed: {}", e))
+                }
+            }
+        }
+
+        Method::GetCapabilities => {
+            info!("GetCapabilities method called");
+
+            match crate::state::detect_state() {
+                Ok(detection) => {
+                    let capabilities = crate::state::get_capabilities(detection.state);
+
+                    // Convert to IPC response type
+                    let data: Vec<anna_common::ipc::CommandCapabilityData> = capabilities
+                        .into_iter()
+                        .map(|cap| anna_common::ipc::CommandCapabilityData {
+                            name: cap.name,
+                            description: cap.description,
+                            since: cap.since,
+                            citation: cap.citation,
+                            requires_root: cap.requires_root,
+                        })
+                        .collect();
+
+                    Ok(ResponseData::Capabilities(data))
+                }
+                Err(e) => {
+                    error!("State detection failed: {}", e);
+                    Err(format!("State detection failed: {}", e))
+                }
+            }
+        }
+
+        Method::HealthProbe => {
+            info!("HealthProbe method called");
+            Ok(ResponseData::HealthProbe {
+                ok: true,
+                version: state.version.clone(),
+            })
+        }
     };
 
-    Response { id, result }
+    Response {
+        id,
+        result,
+        version: "1.0.0".to_string(),
+    }
 }

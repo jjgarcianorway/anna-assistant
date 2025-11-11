@@ -13,10 +13,18 @@ pub struct Request {
 }
 
 /// IPC Response from daemon to client
+/// Phase 0.2b: Added version field for API versioning
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     pub id: u64,
     pub result: Result<ResponseData, String>,
+    /// API version (added in Phase 0.2b)
+    #[serde(default = "default_api_version")]
+    pub version: String,
+}
+
+fn default_api_version() -> String {
+    "1.0.0".to_string()
 }
 
 /// Request methods
@@ -87,6 +95,18 @@ pub enum Method {
         count: usize,
         dry_run: bool,
     },
+
+    /// Get system state detection (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    GetState,
+
+    /// Get available capabilities for current state (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    GetCapabilities,
+
+    /// Health probe with version (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    HealthProbe,
 }
 
 /// Response data variants
@@ -149,6 +169,20 @@ pub enum ResponseData {
         message: String,
         actions_reversed: Vec<String>, // List of advice IDs that were rolled back
     },
+
+    /// State detection result (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    StateDetection(StateDetectionData),
+
+    /// Available capabilities for current state (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    Capabilities(Vec<CommandCapabilityData>),
+
+    /// Health probe result (Phase 0.2b)
+    HealthProbe {
+        ok: bool,
+        version: String,
+    },
 }
 
 /// Type of streaming chunk
@@ -206,4 +240,60 @@ impl Default for ConfigData {
             wiki_cache_path: "~/.local/share/anna/wiki".to_string(),
         }
     }
+}
+
+/// State detection result (Phase 0.2b)
+/// Citation: [archwiki:system_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateDetectionData {
+    /// Detected state (iso_live, recovery_candidate, post_install_minimal, configured, degraded, unknown)
+    pub state: String,
+    /// When detection occurred (ISO 8601 timestamp)
+    pub detected_at: String,
+    /// Additional detection metadata
+    pub details: StateDetailsData,
+    /// Wiki citation for detection logic
+    pub citation: String,
+}
+
+/// State detection metadata (Phase 0.2b)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateDetailsData {
+    /// Running under UEFI (vs BIOS)
+    pub uefi: bool,
+    /// Detected block devices
+    pub disks: Vec<String>,
+    /// Network connectivity status
+    pub network: NetworkStatusData,
+    /// Anna state file present
+    pub state_file_present: bool,
+    /// Health check passed (if applicable)
+    pub health_ok: Option<bool>,
+}
+
+/// Network connectivity metadata (Phase 0.2b)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkStatusData {
+    /// Has active network interface
+    pub has_interface: bool,
+    /// Has default route
+    pub has_route: bool,
+    /// Can resolve DNS
+    pub can_resolve: bool,
+}
+
+/// Command capability definition (Phase 0.2b)
+/// Citation: [archwiki:system_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandCapabilityData {
+    /// Command name (e.g., "install", "update")
+    pub name: String,
+    /// Human-readable description
+    pub description: String,
+    /// Version when command was introduced
+    pub since: String,
+    /// Arch Wiki citation for this command
+    pub citation: String,
+    /// Whether command requires root privileges
+    pub requires_root: bool,
 }
