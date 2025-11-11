@@ -1,0 +1,13 @@
+# Phase 0.5: Firmware and Microcode Health Probe
+# Citation: [archwiki:Microcode]
+
+name: firmware-microcode
+description: Verify CPU microcode is loaded
+citation: "[archwiki:Microcode]"
+
+# Read-only check: dmesg for microcode messages
+command: dmesg
+args: ["|", "grep", "-i", "microcode"]
+timeout: 10
+
+parse_type: dmesg_microcode

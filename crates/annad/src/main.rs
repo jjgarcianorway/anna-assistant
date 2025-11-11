@@ -77,6 +77,7 @@
 //! ```
 
 mod state; // Phase 0.2: State machine
+mod health; // Phase 0.5: Health subsystem
 mod telemetry;
 mod recommender;
 mod rpc_server;

@@ -1,0 +1,13 @@
+# Phase 0.5: Pacman Database Health Probe
+# Citation: [archwiki:Pacman#Databases]
+
+name: pacman-db
+description: Verify pacman database integrity
+citation: "[archwiki:Pacman#Databases]"
+
+# Read-only check: validate database files exist and are readable
+command: pacman
+args: ["-Q", "pacman"]
+timeout: 10
+
+parse_type: pacman_query

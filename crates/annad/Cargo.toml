@@ -13,6 +13,7 @@ path = "src/main.rs"
 anna_common = { path = "../anna_common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 anyhow = { workspace = true }
