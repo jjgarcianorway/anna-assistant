@@ -19,7 +19,11 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
                 let rollback = format!("pacman -Rns --noconfirm {}", packages.join(" "));
                 (Some(rollback), true, None)
             }
-            _ => (None, false, Some("Could not extract package names".to_string())),
+            _ => (
+                None,
+                false,
+                Some("Could not extract package names".to_string()),
+            ),
         };
     }
 
@@ -30,7 +34,11 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
                 let rollback = format!("pacman -S --noconfirm {}", packages.join(" "));
                 (Some(rollback), true, None)
             }
-            _ => (None, false, Some("Could not extract package names".to_string())),
+            _ => (
+                None,
+                false,
+                Some("Could not extract package names".to_string()),
+            ),
         };
     }
 
@@ -39,7 +47,9 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
         return (
             None,
             false,
-            Some("File modifications cannot be automatically rolled back without backup".to_string()),
+            Some(
+                "File modifications cannot be automatically rolled back without backup".to_string(),
+            ),
         );
     }
 
@@ -50,7 +60,11 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
                 let rollback = format!("systemctl disable {}", service);
                 (Some(rollback), true, None)
             }
-            None => (None, false, Some("Could not extract service name".to_string())),
+            None => (
+                None,
+                false,
+                Some("Could not extract service name".to_string()),
+            ),
         };
     }
 
@@ -60,7 +74,11 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
                 let rollback = format!("systemctl enable {}", service);
                 (Some(rollback), true, None)
             }
-            None => (None, false, Some("Could not extract service name".to_string())),
+            None => (
+                None,
+                false,
+                Some("Could not extract service name".to_string()),
+            ),
         };
     }
 
@@ -71,7 +89,11 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
                 let rollback = format!("systemctl stop {}", service);
                 (Some(rollback), true, None)
             }
-            None => (None, false, Some("Could not extract service name".to_string())),
+            None => (
+                None,
+                false,
+                Some("Could not extract service name".to_string()),
+            ),
         };
     }
 
@@ -81,7 +103,11 @@ pub fn generate_rollback_command(command: &str) -> (Option<String>, bool, Option
                 let rollback = format!("systemctl start {}", service);
                 (Some(rollback), true, None)
             }
-            None => (None, false, Some("Could not extract service name".to_string())),
+            None => (
+                None,
+                false,
+                Some("Could not extract service name".to_string()),
+            ),
         };
     }
 
@@ -109,9 +135,9 @@ fn extract_packages_from_install(command: &str) -> Option<Vec<String>> {
 
     // Find the position of -S or -Sy
     let start_pos = if let Some(pos) = command.find(" -S ") {
-        pos + 4  // After " -S "
+        pos + 4 // After " -S "
     } else if let Some(pos) = command.find(" -Sy ") {
-        pos + 5  // After " -Sy "
+        pos + 5 // After " -Sy "
     } else {
         return None;
     };
@@ -183,7 +209,10 @@ mod tests {
             generate_rollback_command("pacman -S --noconfirm vulkan-intel");
 
         assert!(can_rollback);
-        assert_eq!(rollback, Some("pacman -Rns --noconfirm vulkan-intel".to_string()));
+        assert_eq!(
+            rollback,
+            Some("pacman -Rns --noconfirm vulkan-intel".to_string())
+        );
     }
 
     #[test]
@@ -192,7 +221,10 @@ mod tests {
             generate_rollback_command("pacman -Sy --noconfirm mesa lib32-mesa");
 
         assert!(can_rollback);
-        assert_eq!(rollback, Some("pacman -Rns --noconfirm mesa lib32-mesa".to_string()));
+        assert_eq!(
+            rollback,
+            Some("pacman -Rns --noconfirm mesa lib32-mesa".to_string())
+        );
     }
 
     #[test]
@@ -201,13 +233,15 @@ mod tests {
             generate_rollback_command("pacman -Rns --noconfirm orphan-pkg");
 
         assert!(can_rollback);
-        assert_eq!(rollback, Some("pacman -S --noconfirm orphan-pkg".to_string()));
+        assert_eq!(
+            rollback,
+            Some("pacman -S --noconfirm orphan-pkg".to_string())
+        );
     }
 
     #[test]
     fn test_systemctl_enable_rollback() {
-        let (rollback, can_rollback, _) =
-            generate_rollback_command("systemctl enable bluetooth");
+        let (rollback, can_rollback, _) = generate_rollback_command("systemctl enable bluetooth");
 
         assert!(can_rollback);
         assert_eq!(rollback, Some("systemctl disable bluetooth".to_string()));

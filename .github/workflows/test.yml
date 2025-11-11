@@ -1,0 +1,110 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, anna-1.0-reset ]
+  pull_request:
+    branches: [ main, anna-1.0-reset ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  ANNA_VERSION: test-build
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        rustflags: ''
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+      continue-on-error: true
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      continue-on-error: true
+
+    - name: Build all packages
+      run: cargo build --verbose --all
+
+    - name: Run all tests
+      run: cargo test --verbose --all
+
+    - name: Build release binaries
+      run: cargo build --release --verbose
+
+    - name: Test annactl binary exists
+      run: |
+        test -f target/release/annactl || exit 1
+        test -f target/release/annad || exit 1
+        echo "✓ Binaries built successfully"
+
+  annactl-tests:
+    name: Annactl integration tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Run annactl tests
+      run: cargo test --package annactl --verbose
+
+    - name: Build annactl binary
+      run: cargo build --bin annactl --verbose
+
+    - name: Test annactl --version
+      run: |
+        ./target/debug/annactl --version || exit 1
+        echo "✓ annactl --version works"
+
+    - name: Test annactl exit codes (daemon unavailable)
+      run: |
+        # When daemon is unavailable, should exit with code 70
+        ./target/debug/annactl status || EXIT_CODE=$?
+        if [ -n "$EXIT_CODE" ]; then
+          echo "annactl exited with code: $EXIT_CODE"
+          # Exit code should be 70 (daemon unavailable) or 64 (command not available)
+          if [ "$EXIT_CODE" -eq 70 ] || [ "$EXIT_CODE" -eq 64 ]; then
+            echo "✓ Correct exit code for daemon unavailable"
+          else
+            echo "✗ Unexpected exit code: $EXIT_CODE"
+            exit 1
+          fi
+        fi
+
+  build-check:
+    name: Build check on multiple Rust versions
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust ${{ matrix.rust }}
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+
+    - name: Build with Rust ${{ matrix.rust }}
+      run: cargo build --verbose --all

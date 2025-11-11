@@ -1,0 +1,13 @@
+# Phase 0.5: Failed Services Health Probe
+# Citation: [archwiki:Systemd#Using_units]
+
+name: services-failed
+description: List all failed systemd services
+citation: "[archwiki:Systemd#Using_units]"
+
+# Read-only check: list failed services specifically
+command: systemctl
+args: ["list-units", "--failed", "--type=service", "--no-pager", "--no-legend"]
+timeout: 10
+
+parse_type: systemd_services

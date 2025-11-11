@@ -1,0 +1,18 @@
+# Phase 0.5: Bootloader Recovery Plan (scaffold)
+# Citation: [archwiki:GRUB#Installation]
+
+name: bootloader
+description: Bootloader repair and reinstallation
+citation: "[archwiki:GRUB#Installation]"
+
+# Recovery steps (scaffold only - no execution yet)
+steps:
+  - name: detect_bootloader
+    description: Detect installed bootloader (GRUB, systemd-boot, rEFInd)
+
+  - name: verify_efi
+    description: Verify EFI system partition is mounted
+
+  - name: reinstall_bootloader
+    description: Reinstall bootloader to EFI partition
+    destructive: true

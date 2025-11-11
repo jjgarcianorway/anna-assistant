@@ -41,12 +41,18 @@ fn should_send_notification() -> bool {
             if elapsed >= NOTIFICATION_COOLDOWN {
                 // Cooldown period has passed - allow notification
                 *last = Some(Instant::now());
-                info!("Cooldown passed ({:.0} minutes), sending notification", elapsed.as_secs() / 60);
+                info!(
+                    "Cooldown passed ({:.0} minutes), sending notification",
+                    elapsed.as_secs() / 60
+                );
                 true
             } else {
                 // Still in cooldown period - skip notification
                 let remaining = NOTIFICATION_COOLDOWN - elapsed;
-                info!("Notification blocked by cooldown ({} minutes remaining)", remaining.as_secs() / 60);
+                info!(
+                    "Notification blocked by cooldown ({} minutes remaining)",
+                    remaining.as_secs() / 60
+                );
                 false
             }
         }
@@ -110,15 +116,21 @@ async fn send_gui_notification(title: &str, message: &str, urgency: Notification
 
             let result = Command::new("sudo")
                 .args(&[
-                    "-u", &session.username,
+                    "-u",
+                    &session.username,
                     "DISPLAY=:0",
                     &format!("DBUS_SESSION_BUS_ADDRESS={}", dbus_address),
                     "notify-send",
-                    "--urgency", urgency_str,
-                    "--icon", icon,
-                    "--app-name", "Anna Assistant",
-                    "--category", "system",
-                    "--expire-time", "10000",  // 10 seconds - more visible
+                    "--urgency",
+                    urgency_str,
+                    "--icon",
+                    icon,
+                    "--app-name",
+                    "Anna Assistant",
+                    "--category",
+                    "system",
+                    "--expire-time",
+                    "10000", // 10 seconds - more visible
                     title,
                     message,
                 ])
@@ -161,17 +173,14 @@ async fn get_active_sessions() -> Result<Vec<UserSession>, std::io::Error> {
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 let username = parts[2].to_string();
-                
+
                 // Get UID for this user
-                if let Ok(uid_output) = Command::new("id")
-                    .args(&["-u", &username])
-                    .output()
-                {
+                if let Ok(uid_output) = Command::new("id").args(&["-u", &username]).output() {
                     if let Ok(uid_str) = String::from_utf8(uid_output.stdout) {
                         if let Ok(uid) = uid_str.trim().parse::<u32>() {
                             sessions.push(UserSession { username, uid });
@@ -192,11 +201,9 @@ pub async fn check_and_notify_critical(advice: &[anna_common::Advice]) {
     use anna_common::Priority;
 
     // ONLY notify for MANDATORY security issues
-    let critical: Vec<_> = advice.iter()
-        .filter(|a| {
-            matches!(a.priority, Priority::Mandatory) &&
-            a.category == "Security & Privacy"
-        })
+    let critical: Vec<_> = advice
+        .iter()
+        .filter(|a| matches!(a.priority, Priority::Mandatory) && a.category == "Security & Privacy")
         .collect();
 
     if critical.is_empty() {
@@ -213,7 +220,8 @@ pub async fn check_and_notify_critical(advice: &[anna_common::Advice]) {
     let message = if count == 1 {
         format!("Anna detected 1 CRITICAL SECURITY issue:\n\n• {}\n\nThis requires immediate attention!", critical[0].title)
     } else {
-        let issues: Vec<String> = critical.iter()
+        let issues: Vec<String> = critical
+            .iter()
             .take(3)
             .map(|a| format!("• {}", a.title))
             .collect();
@@ -226,6 +234,9 @@ pub async fn check_and_notify_critical(advice: &[anna_common::Advice]) {
         msg
     };
 
-    info!("Sending critical SECURITY notification for {} issues (wall + GUI)", count);
+    info!(
+        "Sending critical SECURITY notification for {} issues (wall + GUI)",
+        count
+    );
     send_notification(title, &message, NotificationUrgency::Critical).await;
 }

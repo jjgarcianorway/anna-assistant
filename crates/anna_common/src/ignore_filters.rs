@@ -5,10 +5,10 @@
 //! - Priority levels (e.g., all "Cosmetic" items)
 //! - Individual advice items (already handled by UserFeedbackLog)
 
+use crate::{Advice, Priority};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::{Priority, Advice};
 
 /// User's ignore preferences
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -45,11 +45,10 @@ impl IgnoreFilters {
             return Ok(Self::default());
         }
 
-        let json = std::fs::read_to_string(&path)
-            .context("Failed to read ignore filters")?;
+        let json = std::fs::read_to_string(&path).context("Failed to read ignore filters")?;
 
-        let filters: Self = serde_json::from_str(&json)
-            .context("Failed to parse ignore filters")?;
+        let filters: Self =
+            serde_json::from_str(&json).context("Failed to parse ignore filters")?;
 
         Ok(filters)
     }
@@ -107,13 +106,13 @@ impl IgnoreFilters {
 
     /// Check if an advice item should be filtered out
     pub fn should_filter(&self, advice: &Advice) -> bool {
-        self.is_category_ignored(&advice.category) ||
-        self.is_priority_ignored(&advice.priority)
+        self.is_category_ignored(&advice.category) || self.is_priority_ignored(&advice.priority)
     }
 
     /// Filter a list of advice based on ignore settings
     pub fn filter_advice(&self, advice_list: Vec<Advice>) -> Vec<Advice> {
-        advice_list.into_iter()
+        advice_list
+            .into_iter()
             .filter(|a| !self.should_filter(a))
             .collect()
     }
@@ -123,13 +122,17 @@ impl IgnoreFilters {
         let mut summary = Vec::new();
 
         if !self.ignored_categories.is_empty() {
-            summary.push(format!("📁 Ignored Categories ({}): {}",
+            summary.push(format!(
+                "📁 Ignored Categories ({}): {}",
                 self.ignored_categories.len(),
-                self.ignored_categories.join(", ")));
+                self.ignored_categories.join(", ")
+            ));
         }
 
         if !self.ignored_priorities.is_empty() {
-            let priority_names: Vec<String> = self.ignored_priorities.iter()
+            let priority_names: Vec<String> = self
+                .ignored_priorities
+                .iter()
                 .map(|p| match p {
                     Priority::Mandatory => "Mandatory".to_string(),
                     Priority::Recommended => "Recommended".to_string(),
@@ -138,9 +141,11 @@ impl IgnoreFilters {
                 })
                 .collect();
 
-            summary.push(format!("🎯 Ignored Priorities ({}): {}",
+            summary.push(format!(
+                "🎯 Ignored Priorities ({}): {}",
                 self.ignored_priorities.len(),
-                priority_names.join(", ")));
+                priority_names.join(", ")
+            ));
         }
 
         if summary.is_empty() {

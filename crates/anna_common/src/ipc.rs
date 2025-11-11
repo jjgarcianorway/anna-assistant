@@ -13,10 +13,18 @@ pub struct Request {
 }
 
 /// IPC Response from daemon to client
+/// Phase 0.2b: Added version field for API versioning
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     pub id: u64,
     pub result: Result<ResponseData, String>,
+    /// API version (added in Phase 0.2b)
+    #[serde(default = "default_api_version")]
+    pub version: String,
+}
+
+fn default_api_version() -> String {
+    "1.0.0".to_string()
 }
 
 /// Request methods
@@ -77,16 +85,37 @@ pub enum Method {
     ListRollbackable,
 
     /// Rollback a specific action by advice ID (Beta.91)
-    RollbackAction {
-        advice_id: String,
-        dry_run: bool,
-    },
+    RollbackAction { advice_id: String, dry_run: bool },
 
     /// Rollback last N actions (Beta.91)
-    RollbackLast {
-        count: usize,
-        dry_run: bool,
+    RollbackLast { count: usize, dry_run: bool },
+
+    /// Get system state detection (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    GetState,
+
+    /// Get available capabilities for current state (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    GetCapabilities,
+
+    /// Health probe with version (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    HealthProbe,
+
+    /// Run health probes (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthRun {
+        timeout_ms: u64,
+        probes: Vec<String>,
     },
+
+    /// Get health summary from last run (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthSummary,
+
+    /// List available recovery plans (Phase 0.5)
+    /// Citation: [archwiki:General_troubleshooting]
+    RecoveryPlans,
 }
 
 /// Response data variants
@@ -118,10 +147,7 @@ pub enum ResponseData {
     },
 
     /// Stream end marker
-    StreamEnd {
-        success: bool,
-        message: String,
-    },
+    StreamEnd { success: bool, message: String },
 
     /// Update check result
     UpdateCheck {
@@ -149,6 +175,29 @@ pub enum ResponseData {
         message: String,
         actions_reversed: Vec<String>, // List of advice IDs that were rolled back
     },
+
+    /// State detection result (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    StateDetection(StateDetectionData),
+
+    /// Available capabilities for current state (Phase 0.2b)
+    /// Citation: [archwiki:system_maintenance]
+    Capabilities(Vec<CommandCapabilityData>),
+
+    /// Health probe result (Phase 0.2b)
+    HealthProbe { ok: bool, version: String },
+
+    /// Health run results (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthRun(HealthRunData),
+
+    /// Health summary (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthSummary(HealthSummaryData),
+
+    /// Recovery plans (Phase 0.5)
+    /// Citation: [archwiki:General_troubleshooting]
+    RecoveryPlans(RecoveryPlansData),
 }
 
 /// Type of streaming chunk
@@ -206,4 +255,136 @@ impl Default for ConfigData {
             wiki_cache_path: "~/.local/share/anna/wiki".to_string(),
         }
     }
+}
+
+/// State detection result (Phase 0.2b)
+/// Citation: [archwiki:system_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateDetectionData {
+    /// Detected state (iso_live, recovery_candidate, post_install_minimal, configured, degraded, unknown)
+    pub state: String,
+    /// When detection occurred (ISO 8601 timestamp)
+    pub detected_at: String,
+    /// Additional detection metadata
+    pub details: StateDetailsData,
+    /// Wiki citation for detection logic
+    pub citation: String,
+}
+
+/// State detection metadata (Phase 0.2b)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateDetailsData {
+    /// Running under UEFI (vs BIOS)
+    pub uefi: bool,
+    /// Detected block devices
+    pub disks: Vec<String>,
+    /// Network connectivity status
+    pub network: NetworkStatusData,
+    /// Anna state file present
+    pub state_file_present: bool,
+    /// Health check passed (if applicable)
+    pub health_ok: Option<bool>,
+}
+
+/// Network connectivity metadata (Phase 0.2b)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkStatusData {
+    /// Has active network interface
+    pub has_interface: bool,
+    /// Has default route
+    pub has_route: bool,
+    /// Can resolve DNS
+    pub can_resolve: bool,
+}
+
+/// Command capability definition (Phase 0.2b)
+/// Citation: [archwiki:system_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandCapabilityData {
+    /// Command name (e.g., "install", "update")
+    pub name: String,
+    /// Human-readable description
+    pub description: String,
+    /// Version when command was introduced
+    pub since: String,
+    /// Arch Wiki citation for this command
+    pub citation: String,
+    /// Whether command requires root privileges
+    pub requires_root: bool,
+}
+
+/// Health run result (Phase 0.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthRunData {
+    /// Current system state
+    pub state: String,
+    /// Summary counts
+    pub summary: HealthSummaryCount,
+    /// Individual probe results
+    pub results: Vec<HealthProbeResult>,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Health summary count
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthSummaryCount {
+    pub ok: usize,
+    pub warn: usize,
+    pub fail: usize,
+}
+
+/// Individual health probe result (Phase 0.5)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthProbeResult {
+    /// Probe name
+    pub probe: String,
+    /// Status: ok, warn, fail
+    pub status: String,
+    /// Detailed probe data
+    pub details: serde_json::Value,
+    /// Arch Wiki citation for this probe
+    pub citation: String,
+    /// Duration in milliseconds
+    pub duration_ms: u64,
+    /// Timestamp (ISO 8601)
+    pub ts: String,
+}
+
+/// Health summary (Phase 0.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthSummaryData {
+    /// Current system state
+    pub state: String,
+    /// Summary counts
+    pub summary: HealthSummaryCount,
+    /// Last run timestamp (ISO 8601)
+    pub last_run_ts: String,
+    /// List of probes with alerts
+    pub alerts: Vec<String>,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Recovery plans list (Phase 0.5)
+/// Citation: [archwiki:General_troubleshooting]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPlansData {
+    /// Available recovery plans
+    pub plans: Vec<RecoveryPlanItem>,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Individual recovery plan (Phase 0.5)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPlanItem {
+    /// Plan ID (e.g., "bootloader", "initramfs")
+    pub id: String,
+    /// Human-readable description
+    pub desc: String,
+    /// Arch Wiki citation for this plan
+    pub citation: String,
 }

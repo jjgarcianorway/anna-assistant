@@ -45,22 +45,21 @@
 //! # Features
 //!
 //! - **System Telemetry**: Collects comprehensive system facts (hardware, packages, configs)
-//! - **Intelligent Recommendations**: 50+ detection rules for security, performance, hardware
+//! - **Wiki-Strict Recommendations**: Detection rules based solely on Arch Wiki and man pages
 //! - **Auto-Refresh**: Monitors filesystem changes and automatically updates recommendations
-//! - **Smart Notifications**: Alerts users of critical issues via GUI or terminal
+//! - **Notifications**: Alerts users of critical issues via GUI or terminal
 //! - **IPC Server**: Serves requests from `annactl` via Unix socket
-//! - **Audit Logging**: Records all applied actions to `/var/log/anna/audit.jsonl`
+//! - **Audit Logging**: Records all applied actions with Wiki citations
 //!
 //! # Modules
 //!
 //! - `telemetry` - System fact collection
-//! - `recommender` - System-wide detection rules
-//! - `intelligent_recommender` - Behavior-based, context-aware recommendations
+//! - `recommender` - Wiki-strict detection rules for system and desktop administration
 //! - `rpc_server` - Unix socket IPC server
 //! - `executor` - Safe command execution with audit logging
-//! - `audit` - Audit trail management
+//! - `audit` - Audit trail management with Wiki citations
 //! - `watcher` - Filesystem monitoring with inotify
-//! - `notifier` - User notification system (GUI + terminal)
+//! - `notifier` - User notification system
 //!
 //! # Usage
 //!
@@ -77,35 +76,20 @@
 //! sudo ./target/debug/annad
 //! ```
 
-mod telemetry;
-mod recommender;
-mod intelligent_recommender;
-mod smart_recommender;
-mod bundles; // Beta.94: Window manager bundles
-mod resource_classifier; // Beta.102: Resource-aware recommendations
-mod system_detection; // RC.9.6: Intelligent system profiling for adaptive Hyprland
-mod hyprland_config;
-mod i3_config;
-mod sway_config;
-mod shell_config;
-mod terminal_config;
-mod git_config;
-mod gnome_config;
-mod kde_config;
-mod xfce_config;
-mod cinnamon_config;
-mod mate_config;
-mod lxqt_config;
-mod wallpaper_config;
-mod rpc_server;
-mod executor;
+mod action_history;
 mod audit;
-mod action_history; // Beta.91: Rollback support
-mod watcher;
-mod notifier;
-mod snapshotter;
-mod wiki_cache;
 mod autonomy;
+mod executor;
+mod health; // Phase 0.5: Health subsystem
+mod notifier;
+mod recommender;
+mod recovery; // Phase 0.6: Recovery framework
+mod rpc_server;
+mod snapshotter;
+mod state; // Phase 0.2: State machine
+mod telemetry;
+mod watcher;
+mod wiki_cache;
 
 use anyhow::Result;
 use rpc_server::DaemonState;
@@ -127,24 +111,19 @@ async fn main() -> Result<()> {
     }
 
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Anna Daemon {} starting", VERSION);
 
     // Collect initial system facts
     let facts = telemetry::collect_facts().await?;
-    info!("System facts collected: {} packages installed", facts.installed_packages);
+    info!(
+        "System facts collected: {} packages installed",
+        facts.installed_packages
+    );
 
     // Generate recommendations
     let mut advice = recommender::generate_advice(&facts);
-
-    // Add intelligent, behavior-based recommendations
-    advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
-
-    // Add smart package recommendations based on workflow
-    advice.extend(smart_recommender::generate_smart_recommendations(&facts));
 
     let advice_count_before_dedup = advice.len();
 
@@ -157,17 +136,13 @@ async fn main() -> Result<()> {
         info!("Removed {} duplicate advice items", duplicates_removed);
     }
 
-    info!("Generated {} recommendations ({} intelligent, {} smart)", advice.len(),
-          advice.iter().filter(|a| a.category == "development" || a.category == "beautification").count(),
-          advice.iter().filter(|a| a.id.starts_with("python-lsp") || a.id.starts_with("rust-analyzer") ||
-                                    a.id.starts_with("proton") || a.id.starts_with("mangohud")).count());
+    info!(
+        "Generated {} recommendations (Wiki-strict only)",
+        advice.len()
+    );
 
     // Initialize daemon state
-    let state = Arc::new(DaemonState::new(
-        VERSION.to_string(),
-        facts,
-        advice,
-    ).await?);
+    let state = Arc::new(DaemonState::new(VERSION.to_string(), facts, advice).await?);
 
     info!("Anna Daemon ready");
 
@@ -238,9 +213,10 @@ async fn main() -> Result<()> {
             match anna_common::updater::check_for_updates().await {
                 Ok(update_info) => {
                     if update_info.is_update_available {
-                        info!("Update available: {} → {}",
-                            update_info.current_version,
-                            update_info.latest_version);
+                        info!(
+                            "Update available: {} → {}",
+                            update_info.current_version, update_info.latest_version
+                        );
 
                         // Auto-install updates (always-on, no tier required)
                         info!("Auto-installing update...");
@@ -254,9 +230,10 @@ async fn main() -> Result<()> {
                                     .arg("--icon=system-software-update")
                                     .arg("--expire-time=10000")
                                     .arg("Anna Updated Automatically")
-                                    .arg(&format!("Updated from {} to {}",
-                                        update_info.current_version,
-                                        update_info.latest_version))
+                                    .arg(&format!(
+                                        "Updated from {} to {}",
+                                        update_info.current_version, update_info.latest_version
+                                    ))
                                     .spawn();
 
                                 // Daemon will be restarted by systemd after binary replacement
@@ -295,12 +272,31 @@ async fn main() -> Result<()> {
 async fn refresh_advice(state: &Arc<DaemonState>) {
     match telemetry::collect_facts().await {
         Ok(facts) => {
-            let mut advice = recommender::generate_advice(&facts);
-            advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
-            advice.extend(smart_recommender::generate_smart_recommendations(&facts));
+            let advice = recommender::generate_advice(&facts);
 
             // Check for critical issues and notify users
             notifier::check_and_notify_critical(&advice).await;
+
+            // Phase 0.2c: Re-detect system state and log transitions
+            match crate::state::detect_state() {
+                Ok(new_state) => {
+                    let old_state = state.current_state.read().await.state;
+
+                    // Log state transition if changed
+                    if new_state.state != old_state {
+                        info!(
+                            "State transition: {} → {} - {}",
+                            old_state, new_state.state, new_state.citation
+                        );
+                    }
+
+                    // Update cached state
+                    *state.current_state.write().await = new_state;
+                }
+                Err(e) => {
+                    tracing::error!("State detection failed during refresh: {}", e);
+                }
+            }
 
             // Update state
             *state.facts.write().await = facts;

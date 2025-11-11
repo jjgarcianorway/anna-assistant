@@ -2,12 +2,12 @@
 //!
 //! Handles loading, saving, and validating user configuration from ~/.config/anna/config.toml
 
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::fs;
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
 
-use crate::types::{AutonomyTier, RiskLevel, Priority};
+use crate::types::{AutonomyTier, Priority, RiskLevel};
 
 /// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,8 +58,7 @@ impl Default for Config {
 impl Config {
     /// Get the default config file path: ~/.config/anna/config.toml
     pub fn default_path() -> Result<PathBuf> {
-        let home = std::env::var("HOME")
-            .context("HOME environment variable not set")?;
+        let home = std::env::var("HOME").context("HOME environment variable not set")?;
         let config_dir = Path::new(&home).join(".config").join("anna");
         Ok(config_dir.join("config.toml"))
     }
@@ -69,10 +68,9 @@ impl Config {
         let path = Self::default_path()?;
 
         if path.exists() {
-            let contents = fs::read_to_string(&path)
-                .context("Failed to read config file")?;
-            let config: Config = toml::from_str(&contents)
-                .context("Failed to parse config file")?;
+            let contents = fs::read_to_string(&path).context("Failed to read config file")?;
+            let config: Config =
+                toml::from_str(&contents).context("Failed to parse config file")?;
             Ok(config)
         } else {
             // Create default config
@@ -88,15 +86,12 @@ impl Config {
 
         // Create parent directory if needed
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create config directory")?;
+            fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        let toml_string = toml::to_string_pretty(self)
-            .context("Failed to serialize config")?;
+        let toml_string = toml::to_string_pretty(self).context("Failed to serialize config")?;
 
-        fs::write(&path, toml_string)
-            .context("Failed to write config file")?;
+        fs::write(&path, toml_string).context("Failed to write config file")?;
 
         Ok(())
     }
@@ -188,14 +183,8 @@ impl Default for AutonomyConfig {
             tier: AutonomyTier::AdviseOnly,
             max_auto_risk: RiskLevel::Low,
             min_auto_priority: Priority::Recommended,
-            auto_apply_categories: vec![
-                "security".to_string(),
-                "maintenance".to_string(),
-            ],
-            blocked_categories: vec![
-                "bootloader".to_string(),
-                "kernel".to_string(),
-            ],
+            auto_apply_categories: vec!["security".to_string(), "maintenance".to_string()],
+            blocked_categories: vec!["bootloader".to_string(), "kernel".to_string()],
             confirm_high_risk: true,
             snapshot_before_apply: true,
         }

@@ -8,10 +8,10 @@ use anna_common::{
 };
 use anyhow::Result;
 use chrono::Utc;
-use sysinfo::System;
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
+use sysinfo::System;
 use tracing::info;
 
 /// Collect current system facts
@@ -82,25 +82,9 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         vulkan_support: check_vulkan_support(),
         nvidia_cuda_support: check_nvidia_cuda_support(),
 
-        // Performance Score (RC.9.8+) - integrated into telemetry
-        performance_score: {
-            let score = crate::system_detection::calculate_performance_score(
-                total_memory_gb as u64,
-                cpu_cores,
-                detect_nvidia(),
-                detect_amd_gpu(),
-                detect_intel_gpu(),
-            );
-            info!("System performance score: {}/100", score);
-            score
-        },
-        resource_tier: crate::system_detection::determine_resource_tier_string(
-            total_memory_gb as u64,
-            cpu_cores,
-            detect_nvidia(),
-            detect_amd_gpu(),
-            detect_intel_gpu(),
-        ),
+        // Performance Score - deprecated in 1.0 (no heuristics)
+        performance_score: 0,
+        resource_tier: String::from("unknown"),
 
         // User Behavior (basic for now)
         frequently_used_commands: analyze_command_history().await,
@@ -196,9 +180,7 @@ fn get_cpu_model(sys: &System) -> String {
 fn detect_gpu() -> Option<String> {
     // Try lspci to detect GPU - MUST check line by line to avoid false positives!
     // (e.g., Intel chipset on Nvidia GPU systems would incorrectly detect as Intel GPU)
-    let output = Command::new("lspci")
-        .output()
-        .ok()?;
+    let output = Command::new("lspci").output().ok()?;
     let lspci_output = String::from_utf8_lossy(&output.stdout);
 
     // Check each line for GPU-specific devices only
@@ -264,9 +246,7 @@ fn parse_size(size_str: &str) -> f64 {
 
 fn count_packages() -> Result<usize> {
     // Count installed packages on Arch Linux
-    let output = Command::new("pacman")
-        .arg("-Q")
-        .output()?;
+    let output = Command::new("pacman").arg("-Q").output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     Ok(stdout.lines().count())
@@ -274,9 +254,7 @@ fn count_packages() -> Result<usize> {
 
 fn find_orphan_packages() -> Result<Vec<String>> {
     // Find orphaned packages (installed as dependencies but no longer needed)
-    let output = Command::new("pacman")
-        .arg("-Qdtq")
-        .output()?;
+    let output = Command::new("pacman").arg("-Qdtq").output()?;
 
     // pacman returns exit code 1 when no orphans found, which is fine
     let orphans = String::from_utf8_lossy(&output.stdout)
@@ -290,9 +268,7 @@ fn find_orphan_packages() -> Result<Vec<String>> {
 
 fn get_network_interfaces() -> Vec<String> {
     // Get network interfaces from ip command
-    let output = Command::new("ip")
-        .args(&["link", "show"])
-        .output();
+    let output = Command::new("ip").args(&["link", "show"]).output();
 
     if let Ok(output) = output {
         let ip_output = String::from_utf8_lossy(&output.stdout);
@@ -314,7 +290,7 @@ fn get_network_interfaces() -> Vec<String> {
 
 fn detect_package_groups() -> Vec<String> {
     let mut groups = Vec::new();
-    
+
     if package_installed("base-devel") {
         groups.push("base-devel".to_string());
     }
@@ -327,7 +303,7 @@ fn detect_package_groups() -> Vec<String> {
     if package_installed("xfce4-session") {
         groups.push("xfce4".to_string());
     }
-    
+
     groups
 }
 
@@ -360,7 +336,11 @@ fn detect_ethernet() -> bool {
 fn detect_shell() -> String {
     std::env::var("SHELL")
         .ok()
-        .and_then(|s| Path::new(&s).file_name().map(|f| f.to_string_lossy().to_string()))
+        .and_then(|s| {
+            Path::new(&s)
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+        })
         .unwrap_or_else(|| "bash".to_string())
 }
 
@@ -368,7 +348,7 @@ fn detect_desktop_environment() -> Option<String> {
     if let Ok(de) = std::env::var("XDG_CURRENT_DESKTOP") {
         return Some(de);
     }
-    
+
     if package_installed("gnome-shell") {
         Some("GNOME".to_string())
     } else if package_installed("plasma-desktop") {
@@ -640,8 +620,9 @@ fn detect_nvidia() -> bool {
         for line in stdout.lines() {
             let lower = line.to_lowercase();
             // Only check for Nvidia on actual GPU lines
-            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d")) &&
-               (lower.contains("nvidia")) {
+            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d"))
+                && (lower.contains("nvidia"))
+            {
                 return true;
             }
         }
@@ -728,10 +709,7 @@ fn check_wayland_nvidia_support() -> bool {
     }
 
     // 2. Check system-wide config files
-    let system_config_files = vec![
-        "/etc/environment",
-        "/etc/profile.d/nvidia.sh",
-    ];
+    let system_config_files = vec!["/etc/environment", "/etc/profile.d/nvidia.sh"];
 
     for file in &system_config_files {
         if let Ok(content) = std::fs::read_to_string(file) {
@@ -756,7 +734,9 @@ fn detect_intel_gpu() -> bool {
         for line in stdout.lines() {
             let lower = line.to_lowercase();
             // Only check for Intel on actual GPU lines (VGA/Display/3D controller lines)
-            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d")) && lower.contains("intel") {
+            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d"))
+                && lower.contains("intel")
+            {
                 return true;
             }
         }
@@ -781,8 +761,9 @@ fn detect_amd_gpu() -> bool {
         for line in stdout.lines() {
             let lower = line.to_lowercase();
             // Only check for AMD/ATI/Radeon on actual GPU lines
-            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d")) &&
-               (lower.contains("amd") || lower.contains("ati") || lower.contains("radeon")) {
+            if (lower.contains("vga") || lower.contains("display") || lower.contains("3d"))
+                && (lower.contains("amd") || lower.contains("ati") || lower.contains("radeon"))
+            {
                 return true;
             }
         }
@@ -816,7 +797,7 @@ fn get_amd_driver_version() -> Option<String> {
 
 async fn analyze_command_history() -> Vec<CommandUsage> {
     let mut command_counts: HashMap<String, usize> = HashMap::new();
-    
+
     // Try bash history
     if let Ok(history) = tokio::fs::read_to_string("/root/.bash_history").await {
         for line in history.lines().take(1000) {
@@ -825,24 +806,24 @@ async fn analyze_command_history() -> Vec<CommandUsage> {
             }
         }
     }
-    
+
     let mut usage: Vec<CommandUsage> = command_counts
         .into_iter()
         .map(|(command, count)| CommandUsage { command, count })
         .collect();
-    
+
     usage.sort_by(|a, b| b.count.cmp(&a.count));
     usage.truncate(20);
-    
+
     usage
 }
 
 fn detect_dev_tools() -> Vec<String> {
     let tools = vec![
-        "git", "docker", "cargo", "python3", "node", "npm",
-        "go", "java", "gcc", "vim", "nvim", "code",
+        "git", "docker", "cargo", "python3", "node", "npm", "go", "java", "gcc", "vim", "nvim",
+        "code",
     ];
-    
+
     tools
         .iter()
         .filter(|tool| command_exists(tool))
@@ -871,7 +852,7 @@ async fn analyze_media_usage() -> MediaUsageProfile {
 
 async fn has_media_files(base: &str, extensions: &[&str]) -> bool {
     let media_dirs = vec!["Videos", "Music", "Pictures", "Downloads"];
-    
+
     for dir_name in media_dirs {
         let path = Path::new(base).join(dir_name);
         if path.exists() {
@@ -892,7 +873,7 @@ async fn has_media_files(base: &str, extensions: &[&str]) -> bool {
 
 async fn detect_common_file_types() -> Vec<String> {
     let mut types = Vec::new();
-    
+
     if has_media_files("/root", &[".py"]).await {
         types.push("python".to_string());
     }
@@ -905,7 +886,7 @@ async fn detect_common_file_types() -> Vec<String> {
     if has_media_files("/root", &[".go"]).await {
         types.push("go".to_string());
     }
-    
+
     types
 }
 
@@ -913,12 +894,9 @@ async fn detect_common_file_types() -> Vec<String> {
 #[allow(dead_code)]
 pub async fn analyze_process_cpu_time() -> Vec<ProcessUsage> {
     let mut process_usage = Vec::new();
-    
+
     // Get list of processes sorted by CPU time
-    if let Ok(output) = Command::new("ps")
-        .args(&["aux", "--sort=-time"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ps").args(&["aux", "--sort=-time"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines().skip(1).take(50) {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -928,7 +906,7 @@ pub async fn analyze_process_cpu_time() -> Vec<ProcessUsage> {
                 let mem_percent = parts[3].parse::<f32>().unwrap_or(0.0);
                 let time = parts[9]; // CPU time
                 let command = parts[10..].join(" ");
-                
+
                 // Filter out system processes, focus on user processes
                 if user != "root" && cpu_percent > 0.1 {
                     process_usage.push(ProcessUsage {
@@ -942,7 +920,7 @@ pub async fn analyze_process_cpu_time() -> Vec<ProcessUsage> {
             }
         }
     }
-    
+
     process_usage
 }
 
@@ -961,13 +939,13 @@ pub struct ProcessUsage {
 #[allow(dead_code)]
 pub async fn analyze_bash_history_deep() -> BashHistoryAnalysis {
     let mut analysis = BashHistoryAnalysis::default();
-    
+
     // Analyze all users' bash/zsh history
     if let Ok(entries) = std::fs::read_dir("/home") {
         for entry in entries.filter_map(|e| e.ok()) {
             let username = entry.file_name().to_string_lossy().to_string();
             let home_dir = entry.path();
-            
+
             // Try bash history
             let bash_hist = home_dir.join(".bash_history");
             if bash_hist.exists() {
@@ -975,7 +953,7 @@ pub async fn analyze_bash_history_deep() -> BashHistoryAnalysis {
                     analysis.parse_history(&contents, &username);
                 }
             }
-            
+
             // Try zsh history
             let zsh_hist = home_dir.join(".zsh_history");
             if zsh_hist.exists() {
@@ -985,12 +963,12 @@ pub async fn analyze_bash_history_deep() -> BashHistoryAnalysis {
             }
         }
     }
-    
+
     // Also check root
     if let Ok(contents) = tokio::fs::read_to_string("/root/.bash_history").await {
         analysis.parse_history(&contents, "root");
     }
-    
+
     analysis.calculate_scores();
     analysis
 }
@@ -1011,32 +989,33 @@ impl BashHistoryAnalysis {
     fn parse_history(&mut self, contents: &str, _username: &str) {
         for line in contents.lines() {
             self.total_commands += 1;
-            
+
             // Handle zsh history format (: timestamp:duration;command)
             let command_line = if line.starts_with(':') {
                 line.split(';').nth(1).unwrap_or(line)
             } else {
                 line
             };
-            
+
             if let Some(cmd) = command_line.split_whitespace().next() {
                 *self.command_frequency.entry(cmd.to_string()).or_insert(0) += 1;
-                
+
                 // Categorize tools
                 self.categorize_tool(cmd);
             }
         }
-        
+
         self.unique_commands = self.command_frequency.len();
     }
-    
+
     #[allow(dead_code)]
     fn categorize_tool(&mut self, cmd: &str) {
         let category = match cmd {
             "vim" | "nvim" | "nano" | "emacs" | "code" => "editor",
             "git" | "gh" | "gitlab" => "vcs",
             "docker" | "podman" | "kubectl" => "container",
-            "cargo" | "rustc" | "npm" | "yarn" | "python" | "python3" | "pip" | "go" | "gcc" | "make" => "development",
+            "cargo" | "rustc" | "npm" | "yarn" | "python" | "python3" | "pip" | "go" | "gcc"
+            | "make" => "development",
             "pacman" | "yay" | "paru" => "package_manager",
             "ssh" | "scp" | "rsync" | "curl" | "wget" => "network",
             "systemctl" | "journalctl" | "dmesg" => "system_admin",
@@ -1044,13 +1023,13 @@ impl BashHistoryAnalysis {
             "htop" | "top" | "ps" | "free" | "df" => "monitoring",
             _ => return,
         };
-        
+
         self.tool_categories
             .entry(category.to_string())
             .or_insert_with(Vec::new)
             .push(cmd.to_string());
     }
-    
+
     #[allow(dead_code)]
     fn calculate_scores(&mut self) {
         // Detect workflow patterns
@@ -1058,23 +1037,30 @@ impl BashHistoryAnalysis {
             self.workflow_patterns.push(WorkflowPattern {
                 name: "Version Control Heavy".to_string(),
                 confidence: 0.9,
-                evidence: format!("git used {} times", self.command_frequency.get("git").unwrap()),
+                evidence: format!(
+                    "git used {} times",
+                    self.command_frequency.get("git").unwrap()
+                ),
             });
         }
-        
+
         if self.command_frequency.get("docker").unwrap_or(&0) > &10 {
             self.workflow_patterns.push(WorkflowPattern {
                 name: "Container Development".to_string(),
                 confidence: 0.85,
-                evidence: format!("docker used {} times", self.command_frequency.get("docker").unwrap()),
+                evidence: format!(
+                    "docker used {} times",
+                    self.command_frequency.get("docker").unwrap()
+                ),
             });
         }
-        
+
         let dev_tools = ["cargo", "npm", "python", "go", "gcc", "make"];
-        let dev_count: usize = dev_tools.iter()
+        let dev_count: usize = dev_tools
+            .iter()
             .map(|t| self.command_frequency.get(*t).unwrap_or(&0))
             .sum();
-        
+
         if dev_count > 30 {
             self.workflow_patterns.push(WorkflowPattern {
                 name: "Software Development".to_string(),
@@ -1097,13 +1083,13 @@ pub struct WorkflowPattern {
 #[allow(dead_code)]
 pub async fn analyze_system_configuration() -> SystemConfigAnalysis {
     let mut analysis = SystemConfigAnalysis::default();
-    
+
     // Analyze bootloader
     analysis.bootloader = detect_bootloader();
-    
+
     // Analyze init system (should be systemd on Arch)
     analysis.init_system = detect_init_system();
-    
+
     // Analyze failed services
     analysis.failed_services = get_failed_services();
 
@@ -1117,14 +1103,16 @@ pub async fn analyze_system_configuration() -> SystemConfigAnalysis {
     analysis.swap_info = analyze_swap();
 
     // Check systemd boot time (store as String for the old struct)
-    analysis.boot_time = get_boot_time().map(|t| format!("{:.2}s", t)).unwrap_or_else(|| "Unknown".to_string());
-    
+    analysis.boot_time = get_boot_time()
+        .map(|t| format!("{:.2}s", t))
+        .unwrap_or_else(|| "Unknown".to_string());
+
     // Analyze disk I/O scheduler
     analysis.io_schedulers = get_io_schedulers();
-    
+
     // Check kernel parameters
     analysis.important_kernel_params = get_important_kernel_params();
-    
+
     analysis
 }
 
@@ -1174,7 +1162,6 @@ fn detect_init_system() -> String {
     }
 }
 
-
 #[allow(dead_code)]
 fn check_firewall_active() -> bool {
     Command::new("systemctl")
@@ -1182,12 +1169,11 @@ fn check_firewall_active() -> bool {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
-    ||
-    Command::new("systemctl")
-        .args(&["is-active", "firewalld"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        || Command::new("systemctl")
+            .args(&["is-active", "firewalld"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
 }
 
 #[allow(dead_code)]
@@ -1204,11 +1190,11 @@ fn detect_mac_system() -> Option<String> {
 #[allow(dead_code)]
 fn analyze_swap() -> SwapInfo {
     let mut info = SwapInfo::default();
-    
+
     // Check /proc/swaps
     if let Ok(swaps) = std::fs::read_to_string("/proc/swaps") {
         info.enabled = swaps.lines().count() > 1; // Header + entries
-        
+
         for line in swaps.lines().skip(1) {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
@@ -1217,81 +1203,91 @@ fn analyze_swap() -> SwapInfo {
             }
         }
     }
-    
+
     // Check swappiness
     if let Ok(swappiness) = std::fs::read_to_string("/proc/sys/vm/swappiness") {
         info.swappiness = swappiness.trim().parse().unwrap_or(60);
     }
-    
+
     // Check zswap
     if let Ok(enabled) = std::fs::read_to_string("/sys/module/zswap/parameters/enabled") {
         info.zswap_enabled = enabled.trim() == "Y";
     }
-    
+
     info
 }
-
 
 #[allow(dead_code)]
 fn get_io_schedulers() -> HashMap<String, String> {
     let mut schedulers = HashMap::new();
-    
+
     if let Ok(entries) = std::fs::read_dir("/sys/block") {
         for entry in entries.filter_map(|e| e.ok()) {
             let device = entry.file_name().to_string_lossy().to_string();
-            
+
             // Skip loop devices and partitions
-            if device.starts_with("loop") || device.chars().last().map(|c| c.is_numeric()).unwrap_or(false) {
+            if device.starts_with("loop")
+                || device
+                    .chars()
+                    .last()
+                    .map(|c| c.is_numeric())
+                    .unwrap_or(false)
+            {
                 continue;
             }
-            
+
             let scheduler_path = entry.path().join("queue/scheduler");
             if let Ok(scheduler) = std::fs::read_to_string(scheduler_path) {
                 // Extract current scheduler (marked with [brackets])
-                if let Some(current) = scheduler.split_whitespace()
+                if let Some(current) = scheduler
+                    .split_whitespace()
                     .find(|s| s.starts_with('[') && s.ends_with(']'))
                 {
-                    schedulers.insert(device, current.trim_matches(|c| c == '[' || c == ']').to_string());
+                    schedulers.insert(
+                        device,
+                        current.trim_matches(|c| c == '[' || c == ']').to_string(),
+                    );
                 }
             }
         }
     }
-    
+
     schedulers
 }
 
 #[allow(dead_code)]
 fn get_important_kernel_params() -> HashMap<String, String> {
     let mut params = HashMap::new();
-    
+
     // Read kernel command line
     if let Ok(cmdline) = std::fs::read_to_string("/proc/cmdline") {
         params.insert("cmdline".to_string(), cmdline.trim().to_string());
     }
-    
+
     // Check important sysctl values
     let important_sysctls = vec![
         "/proc/sys/kernel/printk",
         "/proc/sys/vm/swappiness",
         "/proc/sys/net/ipv4/ip_forward",
     ];
-    
+
     for path in important_sysctls {
         if let Ok(value) = std::fs::read_to_string(path) {
-            let key = Path::new(path).file_name().unwrap().to_string_lossy().to_string();
+            let key = Path::new(path)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
             params.insert(key, value.trim().to_string());
         }
     }
-    
+
     params
 }
 
 /// Get boot time in seconds using systemd-analyze
 fn get_boot_time() -> Option<f64> {
-    let output = Command::new("systemd-analyze")
-        .arg("time")
-        .output()
-        .ok()?;
+    let output = Command::new("systemd-analyze").arg("time").output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -1324,7 +1320,8 @@ fn get_slow_services() -> Vec<SystemdService> {
 
     let text = String::from_utf8_lossy(&output.stdout);
 
-    for line in text.lines().take(20) {  // Only check top 20 slowest
+    for line in text.lines().take(20) {
+        // Only check top 20 slowest
         // Parse lines like: "15.234s NetworkManager.service"
         let parts: Vec<&str> = line.trim().split_whitespace().collect();
         if parts.len() >= 2 {
@@ -1376,7 +1373,7 @@ fn get_failed_services() -> Vec<String> {
 fn count_aur_packages() -> usize {
     // Quick approximation: check for common AUR helpers first
     let aur_list = Command::new("pacman")
-        .args(&["-Qm"])  // List foreign packages (not in sync database)
+        .args(&["-Qm"]) // List foreign packages (not in sync database)
         .output();
 
     if let Ok(output) = aur_list {
@@ -1390,17 +1387,16 @@ fn count_aur_packages() -> usize {
 
 /// Detect which AUR helper is installed
 fn detect_aur_helper() -> Option<String> {
-    let helpers = vec![
-        "yay",
-        "paru",
-        "aurutils",
-        "pikaur",
-        "aura",
-        "trizen",
-    ];
+    let helpers = vec!["yay", "paru", "aurutils", "pikaur", "aura", "trizen"];
 
     for helper in helpers {
-        if Command::new("which").arg(helper).output().ok()?.status.success() {
+        if Command::new("which")
+            .arg(helper)
+            .output()
+            .ok()?
+            .status
+            .success()
+        {
             return Some(helper.to_string());
         }
     }
@@ -1419,7 +1415,7 @@ fn get_package_cache_size() -> f64 {
             let text = String::from_utf8_lossy(&output.stdout);
             if let Some(size_str) = text.split_whitespace().next() {
                 if let Ok(bytes) = size_str.parse::<u64>() {
-                    return bytes as f64 / 1024.0 / 1024.0 / 1024.0;  // Convert to GB
+                    return bytes as f64 / 1024.0 / 1024.0 / 1024.0; // Convert to GB
                 }
             }
         }
@@ -1466,9 +1462,8 @@ fn get_kernel_parameters() -> Vec<String> {
 // New comprehensive telemetry functions
 
 use anna_common::{
-    DevelopmentProfile, DiskUsageTrend, DirectorySize, GamingProfile,
-    LanguageUsage, NetworkProfile, PackageInstallation,
-    SessionInfo, UserPreferences,
+    DevelopmentProfile, DirectorySize, DiskUsageTrend, GamingProfile, LanguageUsage,
+    NetworkProfile, PackageInstallation, SessionInfo, UserPreferences,
 };
 
 /// Get recently installed packages (last 30 days)
@@ -1492,7 +1487,7 @@ fn get_recently_installed_packages() -> Vec<PackageInstallation> {
                             packages.push(PackageInstallation {
                                 name: pkg_name,
                                 installed_at: chrono::Utc::now(), // Simplified for now
-                                from_aur: false, // We'll detect this separately
+                                from_aur: false,                  // We'll detect this separately
                             });
                         }
                     }
@@ -1509,16 +1504,20 @@ fn get_recently_installed_packages() -> Vec<PackageInstallation> {
 /// Get currently active systemd services
 fn get_active_services() -> Vec<String> {
     let output = Command::new("systemctl")
-        .args(&["list-units", "--type=service", "--state=running", "--no-pager", "--no-legend"])
+        .args(&[
+            "list-units",
+            "--type=service",
+            "--state=running",
+            "--no-pager",
+            "--no-legend",
+        ])
         .output();
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
         return stdout
             .lines()
-            .filter_map(|line| {
-                line.split_whitespace().next().map(|s| s.to_string())
-            })
+            .filter_map(|line| line.split_whitespace().next().map(|s| s.to_string()))
             .collect();
     }
 
@@ -1528,16 +1527,20 @@ fn get_active_services() -> Vec<String> {
 /// Get services enabled on boot
 fn get_enabled_services() -> Vec<String> {
     let output = Command::new("systemctl")
-        .args(&["list-unit-files", "--type=service", "--state=enabled", "--no-pager", "--no-legend"])
+        .args(&[
+            "list-unit-files",
+            "--type=service",
+            "--state=enabled",
+            "--no-pager",
+            "--no-legend",
+        ])
         .output();
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
         return stdout
             .lines()
-            .filter_map(|line| {
-                line.split_whitespace().next().map(|s| s.to_string())
-            })
+            .filter_map(|line| line.split_whitespace().next().map(|s| s.to_string()))
             .collect();
     }
 
@@ -1621,10 +1624,7 @@ fn parse_size_to_gb(size_str: &str) -> f64 {
 
 /// Get directory size in GB
 fn get_directory_size_gb(path: &str) -> f64 {
-    if let Ok(output) = Command::new("du")
-        .args(&["-sb", path])
-        .output()
-    {
+    if let Ok(output) = Command::new("du").args(&["-sb", path]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if let Some(line) = stdout.lines().next() {
             if let Some(size_str) = line.split_whitespace().next() {
@@ -1651,7 +1651,7 @@ fn collect_session_info() -> SessionInfo {
         current_user,
         login_count_last_30_days: login_count,
         average_session_hours: 4.0, // Placeholder - needs more complex tracking
-        last_login: None, // Placeholder
+        last_login: None,           // Placeholder
         multiple_users,
     }
 }
@@ -1702,16 +1702,28 @@ async fn analyze_development_environment() -> DevelopmentProfile {
     let git_repos_count = count_git_repos(&home).await;
 
     // Detect containerization
-    let uses_containers = Command::new("which").arg("docker").output()
-        .map(|o| o.status.success()).unwrap_or(false)
-        || Command::new("which").arg("podman").output()
-        .map(|o| o.status.success()).unwrap_or(false);
+    let uses_containers = Command::new("which")
+        .arg("docker")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || Command::new("which")
+            .arg("podman")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
 
     // Detect virtualization
-    let uses_virtualization = Command::new("which").arg("qemu-system-x86_64").output()
-        .map(|o| o.status.success()).unwrap_or(false)
-        || Command::new("which").arg("virtualbox").output()
-        .map(|o| o.status.success()).unwrap_or(false);
+    let uses_virtualization = Command::new("which")
+        .arg("qemu-system-x86_64")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || Command::new("which")
+            .arg("virtualbox")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
 
     DevelopmentProfile {
         languages,
@@ -1781,9 +1793,12 @@ async fn count_files_by_extension(base_dir: &str, extension: &str) -> usize {
     if let Ok(output) = Command::new("find")
         .args(&[
             base_dir,
-            "-maxdepth", "4",
-            "-name", &format!("*.{}", extension),
-            "-type", "f",
+            "-maxdepth",
+            "4",
+            "-name",
+            &format!("*.{}", extension),
+            "-type",
+            "f",
         ])
         .output()
     {
@@ -1817,8 +1832,11 @@ fn detect_ides() -> Vec<String> {
     ];
 
     for (cmd, name) in ide_list {
-        if Command::new("which").arg(cmd).output()
-            .map(|o| o.status.success()).unwrap_or(false)
+        if Command::new("which")
+            .arg(cmd)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
         {
             ides.push(name.to_string());
         }
@@ -1831,12 +1849,7 @@ fn detect_ides() -> Vec<String> {
 async fn count_git_repos(home_dir: &str) -> usize {
     // Find .git directories
     if let Ok(output) = Command::new("find")
-        .args(&[
-            home_dir,
-            "-maxdepth", "4",
-            "-type", "d",
-            "-name", ".git",
-        ])
+        .args(&[home_dir, "-maxdepth", "4", "-type", "d", "-name", ".git"])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1923,10 +1936,10 @@ fn check_ssh_client_keys() -> bool {
 
         // Check for common SSH key types
         let key_files = [
-            "id_ed25519",      // Ed25519 (modern, recommended)
-            "id_rsa",          // RSA (common)
-            "id_ecdsa",        // ECDSA (older but still used)
-            "id_dsa",          // DSA (very old, deprecated)
+            "id_ed25519", // Ed25519 (modern, recommended)
+            "id_rsa",     // RSA (common)
+            "id_ecdsa",   // ECDSA (older but still used)
+            "id_dsa",     // DSA (very old, deprecated)
         ];
 
         for key_file in &key_files {
@@ -1966,11 +1979,15 @@ fn get_system_age_days() -> u64 {
 fn infer_user_preferences(dev_tools: &[String], package_count: usize) -> UserPreferences {
     // Check for CLI tools vs GUI tools
     let cli_tools = vec!["vim", "nvim", "emacs", "tmux", "screen", "htop", "btop"];
-    let has_cli_tools = cli_tools.iter().any(|tool| dev_tools.contains(&tool.to_string()));
+    let has_cli_tools = cli_tools
+        .iter()
+        .any(|tool| dev_tools.contains(&tool.to_string()));
 
     // Check for beautification tools
     let beauty_tools = vec!["starship", "eza", "bat", "fd", "ripgrep", "fzf"];
-    let has_beauty_tools = beauty_tools.iter().any(|tool| check_package_installed(tool));
+    let has_beauty_tools = beauty_tools
+        .iter()
+        .any(|tool| check_package_installed(tool));
 
     // Detect laptop
     let uses_laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
@@ -2034,8 +2051,11 @@ fn get_cpu_temperature() -> Option<f64> {
             // Look for lines like: "Core 0:        +45.0°C" or "Tctl:         +50.0°C"
             for line in stdout.lines() {
                 // Only look at CPU-related sensors, skip GPU, disk, etc.
-                if line.contains("Core") || line.contains("Tctl") || line.contains("Tccd")
-                    || (line.contains("CPU") && !line.contains("fan")) {
+                if line.contains("Core")
+                    || line.contains("Tctl")
+                    || line.contains("Tccd")
+                    || (line.contains("CPU") && !line.contains("fan"))
+                {
                     if let Some(temp_str) = line.split('+').nth(1) {
                         if let Some(temp) = temp_str.split('°').next() {
                             if let Ok(temp_val) = temp.trim().parse::<f64>() {
@@ -2053,21 +2073,33 @@ fn get_cpu_temperature() -> Option<f64> {
 
     // If we got CPU temps from sensors, return the maximum
     if !cpu_temps.is_empty() {
-        return cpu_temps.iter().copied().fold(f64::NEG_INFINITY, f64::max).into();
+        return cpu_temps
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max)
+            .into();
     }
 
     // Fallback: try reading from /sys/class/thermal (less reliable, might get GPU/other sensors)
     if let Ok(thermal_zones) = std::fs::read_dir("/sys/class/thermal") {
         for entry in thermal_zones.flatten() {
             let path = entry.path();
-            if path.file_name().unwrap().to_str().unwrap().starts_with("thermal_zone") {
+            if path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with("thermal_zone")
+            {
                 // Check the type to ensure it's a CPU sensor
                 let type_path = path.join("type");
                 if let Ok(sensor_type) = std::fs::read_to_string(&type_path) {
                     let sensor_type = sensor_type.trim().to_lowercase();
                     // Only read if it's explicitly a CPU sensor
-                    if sensor_type.contains("cpu") || sensor_type.contains("x86_pkg_temp")
-                        || sensor_type.contains("coretemp") {
+                    if sensor_type.contains("cpu")
+                        || sensor_type.contains("x86_pkg_temp")
+                        || sensor_type.contains("coretemp")
+                    {
                         let temp_path = path.join("temp");
                         if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
                             if let Ok(temp_millidegrees) = temp_str.trim().parse::<i64>() {
@@ -2167,7 +2199,6 @@ fn get_battery_health() -> Option<anna_common::BatteryHealth> {
 
 /// Collect disk health information from SMART data
 fn collect_disk_health() -> Vec<anna_common::DiskHealthInfo> {
-
     let mut disk_health = Vec::new();
 
     // Get list of block devices
@@ -2391,7 +2422,15 @@ fn get_critical_events() -> Vec<anna_common::CriticalEvent> {
     let mut events = Vec::new();
 
     if let Ok(output) = Command::new("journalctl")
-        .args(&["--since", "7 days ago", "-p", "crit", "--no-pager", "-o", "json"])
+        .args(&[
+            "--since",
+            "7 days ago",
+            "-p",
+            "crit",
+            "--no-pager",
+            "-o",
+            "json",
+        ])
         .output()
     {
         // Parse JSON output - simplified
@@ -2439,7 +2478,15 @@ fn get_recent_service_crashes() -> Vec<anna_common::ServiceCrash> {
 
     // Look for service failures in journal
     if let Ok(output) = Command::new("journalctl")
-        .args(&["--since", "7 days ago", "-u", "*.service", "-p", "err", "--no-pager"])
+        .args(&[
+            "--since",
+            "7 days ago",
+            "-u",
+            "*.service",
+            "-p",
+            "err",
+            "--no-pager",
+        ])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -2465,7 +2512,10 @@ fn count_oom_events() -> usize {
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        return stdout.lines().filter(|l| l.contains("Out of memory")).count();
+        return stdout
+            .lines()
+            .filter(|l| l.contains("Out of memory"))
+            .count();
     }
     0
 }
@@ -2492,7 +2542,12 @@ fn collect_performance_metrics(sys: &System) -> anna_common::PerformanceMetrics 
     use anna_common::{PerformanceMetrics, ProcessInfo};
 
     // Calculate CPU usage average
-    let cpu_usage_avg = sys.cpus().iter().map(|cpu| cpu.cpu_usage() as f64).sum::<f64>() / sys.cpus().len() as f64;
+    let cpu_usage_avg = sys
+        .cpus()
+        .iter()
+        .map(|cpu| cpu.cpu_usage() as f64)
+        .sum::<f64>()
+        / sys.cpus().len() as f64;
 
     // Calculate memory usage percentage
     let memory_usage_percent = (sys.used_memory() as f64 / sys.total_memory() as f64) * 100.0;
@@ -2574,8 +2629,13 @@ fn get_disk_io_stats() -> (f64, f64) {
         }
 
         // Skip partitions - only count whole disks (sda, nvme0n1, etc, not sda1, nvme0n1p1)
-        if device_name.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
-            && !device_name.contains("nvme") {
+        if device_name
+            .chars()
+            .last()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+            && !device_name.contains("nvme")
+        {
             continue;
         }
         if device_name.contains("nvme") && device_name.contains('p') {
@@ -2627,7 +2687,8 @@ fn get_network_stats() -> (f64, f64) {
     let mut total_rx_bytes = 0u64;
     let mut total_tx_bytes = 0u64;
 
-    for line in netdev.lines().skip(2) {  // Skip header lines
+    for line in netdev.lines().skip(2) {
+        // Skip header lines
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 10 {
             continue;
@@ -2686,7 +2747,9 @@ fn get_network_quality_stats() -> (Option<f64>, Option<f64>) {
 
             // Parse latency from ping output
             // Example line: "rtt min/avg/max/mdev = 12.345/15.678/20.123/2.456 ms"
-            let latency = if let Some(rtt_line) = stdout.lines().find(|l| l.contains("rtt min/avg/max/mdev")) {
+            let latency = if let Some(rtt_line) =
+                stdout.lines().find(|l| l.contains("rtt min/avg/max/mdev"))
+            {
                 // Extract average latency (second value)
                 if let Some(values) = rtt_line.split('=').nth(1) {
                     let parts: Vec<&str> = values.trim().split('/').collect();
@@ -2705,21 +2768,22 @@ fn get_network_quality_stats() -> (Option<f64>, Option<f64>) {
 
             // Parse packet loss from ping output
             // Example line: "4 packets transmitted, 4 received, 0% packet loss, time 3005ms"
-            let packet_loss = if let Some(loss_line) = stdout.lines().find(|l| l.contains("packet loss")) {
-                // Extract packet loss percentage
-                if let Some(percent_part) = loss_line.split(',').nth(2) {
-                    // Extract number before '%'
-                    if let Some(loss_str) = percent_part.trim().split('%').next() {
-                        loss_str.trim().parse::<f64>().ok()
+            let packet_loss =
+                if let Some(loss_line) = stdout.lines().find(|l| l.contains("packet loss")) {
+                    // Extract packet loss percentage
+                    if let Some(percent_part) = loss_line.split(',').nth(2) {
+                        // Extract number before '%'
+                        if let Some(loss_str) = percent_part.trim().split('%').next() {
+                            loss_str.trim().parse::<f64>().ok()
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
                 } else {
                     None
-                }
-            } else {
-                None
-            };
+                };
 
             return (latency, packet_loss);
         }
@@ -2731,7 +2795,7 @@ fn get_network_quality_stats() -> (Option<f64>, Option<f64>) {
 
 /// Generate predictive insights based on collected data
 fn generate_predictive_insights() -> anna_common::PredictiveInsights {
-    use anna_common::{PredictiveInsights, TemperatureTrend, BootTimeTrend, TrendDirection};
+    use anna_common::{BootTimeTrend, PredictiveInsights, TemperatureTrend, TrendDirection};
 
     // Disk space prediction (simplified - would need historical data)
     let disk_prediction = predict_disk_usage();
@@ -2877,12 +2941,7 @@ fn collect_battery_info() -> Option<BatteryInfo> {
     let battery_paths: Vec<_> = std::fs::read_dir("/sys/class/power_supply")
         .ok()?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with("BAT")
-        })
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("BAT"))
         .collect();
 
     if battery_paths.is_empty() {
@@ -2899,8 +2958,7 @@ fn collect_battery_info() -> Option<BatteryInfo> {
     };
 
     let status = read_value("status").unwrap_or_else(|| "Unknown".to_string());
-    let capacity_percent = read_value("capacity")
-        .and_then(|s| s.parse::<f64>().ok());
+    let capacity_percent = read_value("capacity").and_then(|s| s.parse::<f64>().ok());
 
     // Calculate health from energy_full vs energy_full_design
     let health_percent = if let (Some(full), Some(design)) = (
@@ -3007,19 +3065,19 @@ fn collect_ssd_info() -> Vec<SSDInfo> {
                 let device = format!("/dev/{}", parts[0]);
 
                 // Get model name
-                let model = if let Ok(output) = Command::new("smartctl")
-                    .args(&["-i", &device])
-                    .output()
-                {
-                    String::from_utf8_lossy(&output.stdout)
-                        .lines()
-                        .find(|line| line.contains("Device Model:") || line.contains("Model Number:"))
-                        .and_then(|line| line.split(':').nth(1))
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_else(|| "Unknown".to_string())
-                } else {
-                    "Unknown".to_string()
-                };
+                let model =
+                    if let Ok(output) = Command::new("smartctl").args(&["-i", &device]).output() {
+                        String::from_utf8_lossy(&output.stdout)
+                            .lines()
+                            .find(|line| {
+                                line.contains("Device Model:") || line.contains("Model Number:")
+                            })
+                            .and_then(|line| line.split(':').nth(1))
+                            .map(|s| s.trim().to_string())
+                            .unwrap_or_else(|| "Unknown".to_string())
+                    } else {
+                        "Unknown".to_string()
+                    };
 
                 // Check if TRIM is enabled
                 let trim_enabled = check_trim_enabled(&device);
@@ -3109,10 +3167,7 @@ fn analyze_swap_configuration() -> SwapConfiguration {
         if let Some(swap_line) = output_str.lines().find(|line| line.starts_with("Swap:")) {
             let parts: Vec<&str> = swap_line.split_whitespace().collect();
             if parts.len() >= 3 {
-                if let (Ok(total), Ok(used)) = (
-                    parts[1].parse::<f64>(),
-                    parts[2].parse::<f64>(),
-                ) {
+                if let (Ok(total), Ok(used)) = (parts[1].parse::<f64>(), parts[2].parse::<f64>()) {
                     if total > 0.0 {
                         config.swap_usage_percent = (used / total) * 100.0;
                     }
@@ -3151,10 +3206,7 @@ fn collect_locale_info() -> LocaleInfo {
         }
     });
 
-    let keymap = if let Ok(output) = Command::new("localectl")
-        .arg("status")
-        .output()
-    {
+    let keymap = if let Ok(output) = Command::new("localectl").arg("status").output() {
         String::from_utf8_lossy(&output.stdout)
             .lines()
             .find(|line| line.contains("X11 Layout:"))
@@ -3177,10 +3229,7 @@ fn collect_locale_info() -> LocaleInfo {
 
 /// Detect installed pacman hooks (beta.43+)
 fn detect_pacman_hooks() -> Vec<String> {
-    let hook_dirs = vec![
-        "/etc/pacman.d/hooks",
-        "/usr/share/libalpm/hooks",
-    ];
+    let hook_dirs = vec!["/etc/pacman.d/hooks", "/usr/share/libalpm/hooks"];
 
     let mut hooks = Vec::new();
 
@@ -3356,7 +3405,8 @@ fn get_gpu_model() -> Option<String> {
         for line in stdout.lines() {
             let lower = line.to_lowercase();
             // Look for VGA, Display, or 3D controller lines
-            if lower.contains("vga") || lower.contains("display") || lower.contains("3d controller") {
+            if lower.contains("vga") || lower.contains("display") || lower.contains("3d controller")
+            {
                 // Extract GPU info after the device ID
                 if let Some(gpu_info) = line.split(':').nth(2) {
                     let model = gpu_info.trim();
@@ -3396,7 +3446,12 @@ fn get_gpu_vram_mb() -> Option<u32> {
         if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("card")).unwrap_or(false) {
+                if path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.starts_with("card"))
+                    .unwrap_or(false)
+                {
                     let vram_path = path.join("device/mem_info_vram_total");
                     if let Ok(vram_str) = std::fs::read_to_string(&vram_path) {
                         if let Ok(vram_bytes) = vram_str.trim().parse::<u64>() {
@@ -3421,8 +3476,8 @@ fn check_vulkan_support() -> bool {
     }
 
     // Check for Vulkan library
-    if Path::new("/usr/lib/libvulkan.so").exists() ||
-       Path::new("/usr/lib64/libvulkan.so").exists() {
+    if Path::new("/usr/lib/libvulkan.so").exists() || Path::new("/usr/lib64/libvulkan.so").exists()
+    {
         return true;
     }
 
@@ -3456,8 +3511,7 @@ fn check_nvidia_cuda_support() -> bool {
     }
 
     // Check for CUDA library
-    if Path::new("/opt/cuda").exists() ||
-       Path::new("/usr/local/cuda").exists() {
+    if Path::new("/opt/cuda").exists() || Path::new("/usr/local/cuda").exists() {
         return true;
     }
 

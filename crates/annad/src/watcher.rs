@@ -6,7 +6,7 @@
 //! - Configuration changes (important system files)
 
 use anyhow::Result;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Event};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
 use std::path::Path;
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -29,14 +29,15 @@ impl SystemWatcher {
                 Ok(event) => {
                     if let Some(path) = event.paths.first() {
                         let path_str = path.to_string_lossy();
-                        
+
                         // Check what changed
                         if path_str.contains("/var/lib/pacman/local") {
                             info!("Package database changed");
                             let _ = tx.send(SystemEvent::PackageChange);
-                        } else if path_str.contains("/etc/pacman.conf") 
-                               || path_str.contains("/etc/ssh/sshd_config")
-                               || path_str.contains("/etc/fstab") {
+                        } else if path_str.contains("/etc/pacman.conf")
+                            || path_str.contains("/etc/ssh/sshd_config")
+                            || path_str.contains("/etc/fstab")
+                        {
                             info!("Configuration file changed: {}", path_str);
                             let _ = tx.send(SystemEvent::ConfigChange(path_str.to_string()));
                         }
@@ -47,14 +48,20 @@ impl SystemWatcher {
         })?;
 
         // Watch pacman database for package changes
-        watcher.watch(Path::new("/var/lib/pacman/local"), RecursiveMode::NonRecursive)?;
-        
+        watcher.watch(
+            Path::new("/var/lib/pacman/local"),
+            RecursiveMode::NonRecursive,
+        )?;
+
         // Watch important config files
         if Path::new("/etc/pacman.conf").exists() {
             watcher.watch(Path::new("/etc/pacman.conf"), RecursiveMode::NonRecursive)?;
         }
         if Path::new("/etc/ssh/sshd_config").exists() {
-            watcher.watch(Path::new("/etc/ssh/sshd_config"), RecursiveMode::NonRecursive)?;
+            watcher.watch(
+                Path::new("/etc/ssh/sshd_config"),
+                RecursiveMode::NonRecursive,
+            )?;
         }
         if Path::new("/etc/fstab").exists() {
             watcher.watch(Path::new("/etc/fstab"), RecursiveMode::NonRecursive)?;
@@ -62,9 +69,7 @@ impl SystemWatcher {
 
         info!("System watcher initialized");
 
-        Ok(Self {
-            _watcher: watcher,
-        })
+        Ok(Self { _watcher: watcher })
     }
 }
 
@@ -76,7 +81,7 @@ pub async fn check_reboot(last_check: std::time::Instant) -> bool {
             if let Ok(uptime) = uptime_secs.parse::<f64>() {
                 let uptime_duration = std::time::Duration::from_secs_f64(uptime);
                 let elapsed_since_check = last_check.elapsed();
-                
+
                 // If uptime is less than time since last check, system rebooted!
                 if uptime_duration < elapsed_since_check {
                     info!("System reboot detected!");
@@ -85,6 +90,6 @@ pub async fn check_reboot(last_check: std::time::Instant) -> bool {
             }
         }
     }
-    
+
     false
 }

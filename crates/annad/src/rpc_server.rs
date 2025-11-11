@@ -22,7 +22,7 @@ const ANNACTL_GROUP: &str = "anna"; // Group name for authorized users
 /// Returns true if user is in the group or is root (UID 0)
 #[cfg(unix)]
 fn is_user_in_group(uid: u32, group_name: &str) -> Result<bool> {
-    use nix::unistd::{Uid, User, Group};
+    use nix::unistd::{Group, Uid, User};
 
     // Root (UID 0) always allowed
     if uid == 0 {
@@ -117,12 +117,22 @@ pub struct DaemonState {
     pub audit_logger: AuditLogger,
     pub action_history: crate::action_history::ActionHistory, // Beta.91: Rollback support
     pub rate_limiter: RateLimiter,
+    /// Current system state (Phase 0.2c)
+    /// Citation: [archwiki:system_maintenance]
+    pub current_state: RwLock<crate::state::StateDetection>,
 }
 
 impl DaemonState {
     pub async fn new(version: String, facts: SystemFacts, advice: Vec<Advice>) -> Result<Self> {
         let audit_logger = AuditLogger::new().await?;
         let action_history = crate::action_history::ActionHistory::new().await?;
+
+        // Phase 0.2c: Detect initial system state
+        let current_state = crate::state::detect_state()?;
+        info!(
+            "Initial state detected: {} - {}",
+            current_state.state, current_state.citation
+        );
 
         Ok(Self {
             version,
@@ -133,12 +143,17 @@ impl DaemonState {
             audit_logger,
             action_history,
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
+            current_state: RwLock::new(current_state),
         })
     }
 }
 
 /// Filter advice to remove items satisfied by previously applied advice
-async fn filter_satisfied_advice(advice: Vec<Advice>, audit_logger: &AuditLogger, all_advice: &[Advice]) -> Vec<Advice> {
+async fn filter_satisfied_advice(
+    advice: Vec<Advice>,
+    audit_logger: &AuditLogger,
+    all_advice: &[Advice],
+) -> Vec<Advice> {
     // Get all applied advice IDs from audit log
     let applied_ids = match audit_logger.get_applied_advice_ids().await {
         Ok(ids) => ids,
@@ -168,7 +183,10 @@ async fn filter_satisfied_advice(advice: Vec<Advice>, audit_logger: &AuditLogger
         .collect();
 
     if filtered.len() < original_count {
-        info!("Filtered out {} satisfied advice items", original_count - filtered.len());
+        info!(
+            "Filtered out {} satisfied advice items",
+            original_count - filtered.len()
+        );
     }
 
     filtered
@@ -180,15 +198,42 @@ fn is_resource_intensive_advice(advice: &Advice) -> bool {
 
     // Resource-intensive keywords
     let heavy_keywords = vec![
-        "electron", "vscode", "code", "chrome", "chromium",
-        "intellij", "pycharm", "clion", "webstorm", "rider",
-        "docker", "kubernetes", "k8s", "virtualbox", "vmware",
-        "blender", "gimp", "inkscape", "kdenlive", "davinci",
-        "steam", "lutris", "proton", "gaming",
-        "gnome", "kde", "plasma", "cinnamon", // Heavy DEs
-        "compiz", "picom", "compositor", // GPU-intensive
-        "btop++", "btop", // More resource-intensive than htop
-        "conky", "eww", "polybar", // Resource monitoring/bars
+        "electron",
+        "vscode",
+        "code",
+        "chrome",
+        "chromium",
+        "intellij",
+        "pycharm",
+        "clion",
+        "webstorm",
+        "rider",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "virtualbox",
+        "vmware",
+        "blender",
+        "gimp",
+        "inkscape",
+        "kdenlive",
+        "davinci",
+        "steam",
+        "lutris",
+        "proton",
+        "gaming",
+        "gnome",
+        "kde",
+        "plasma",
+        "cinnamon", // Heavy DEs
+        "compiz",
+        "picom",
+        "compositor", // GPU-intensive
+        "btop++",
+        "btop", // More resource-intensive than htop
+        "conky",
+        "eww",
+        "polybar", // Resource monitoring/bars
     ];
 
     heavy_keywords.iter().any(|keyword| text.contains(keyword))
@@ -209,7 +254,8 @@ fn filter_by_relevance(advice: Vec<Advice>, facts: &SystemFacts) -> Vec<Advice> 
     // Use performance score from telemetry (calculated once during system scan)
     let score = facts.performance_score;
 
-    advice.into_iter()
+    advice
+        .into_iter()
         .filter(|item| {
             // ALWAYS show security & privacy issues (critical)
             if item.category.contains("Security") || item.category.contains("Privacy") {
@@ -251,10 +297,9 @@ fn filter_by_relevance(advice: Vec<Advice>, facts: &SystemFacts) -> Vec<Advice> 
 
             // Common package names to check (extracted from title/reason)
             let potential_packages: Vec<&str> = vec![
-                "hyprland", "waybar", "rofi", "kitty", "nautilus", "mako",
-                "i3", "bspwm", "awesome", "sway", "firefox", "chromium",
-                "docker", "git", "vim", "nvim", "vscode", "python", "rust",
-                "gnome", "kde", "plasma", "xfce", "lxqt", "cinnamon", "mate"
+                "hyprland", "waybar", "rofi", "kitty", "nautilus", "mako", "i3", "bspwm",
+                "awesome", "sway", "firefox", "chromium", "docker", "git", "vim", "nvim", "vscode",
+                "python", "rust", "gnome", "kde", "plasma", "xfce", "lxqt", "cinnamon", "mate",
             ];
 
             // Check if any common package mentioned in advice is actually installed
@@ -277,9 +322,10 @@ fn filter_by_relevance(advice: Vec<Advice>, facts: &SystemFacts) -> Vec<Advice> 
             }
 
             // Show system-wide optimizations (not tied to specific software)
-            if item.category.contains("performance") ||
-               item.category.contains("cleanup") ||
-               item.category.contains("System") {
+            if item.category.contains("performance")
+                || item.category.contains("cleanup")
+                || item.category.contains("System")
+            {
                 return true;
             }
 
@@ -306,25 +352,36 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
     let _ = tokio::fs::remove_file(SOCKET_PATH).await;
 
     // Bind to Unix socket
-    let listener = UnixListener::bind(SOCKET_PATH)
-        .context("Failed to bind Unix socket")?;
+    let listener = UnixListener::bind(SOCKET_PATH).context("Failed to bind Unix socket")?;
 
     info!("RPC server listening on {}", SOCKET_PATH);
 
-    // Set socket permissions to 0660 (owner and group only)
+    // Phase 0.4: Set socket permissions to 0660 (owner and group only)
     // SECURITY: Only root and users in the socket's group can connect
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))?;
+        std::fs::set_permissions(SOCKET_PATH, std::fs::Permissions::from_mode(0o660))
+            .context("Failed to set socket permissions to 0660")?;
 
-        // Change socket group to 'anna' so users in that group can connect
+        // Phase 0.4: Change socket group to 'anna' so users in that group can connect
+        // This is critical for access control - fail if chown fails
         use std::process::Command;
-        let _ = Command::new("chown")
+        let chown_result = Command::new("chown")
             .args(&["root:anna", SOCKET_PATH])
-            .status();
+            .output()
+            .context("Failed to execute chown command")?;
 
-        info!("Socket permissions set to 0660 with group 'anna'");
+        if !chown_result.status.success() {
+            warn!(
+                "Failed to set socket group to 'anna': {}",
+                String::from_utf8_lossy(&chown_result.stderr)
+            );
+            warn!("Socket will be owned by current user/group");
+            warn!("Run: sudo groupadd --system anna");
+        } else {
+            info!("Socket permissions set to root:anna 0660");
+        }
     }
 
     // Accept connections
@@ -353,8 +410,8 @@ async fn handle_streaming_apply(
     state: &DaemonState,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
-    use anna_common::ipc::{Response, ResponseData, StreamChunkType};
     use crate::executor::ExecutionChunk;
+    use anna_common::ipc::{Response, ResponseData, StreamChunkType};
 
     info!("Handling streaming apply for advice: {}", advice_id);
 
@@ -366,6 +423,7 @@ async fn handle_streaming_apply(
             let response = Response {
                 id: request_id,
                 result: Err(format!("Advice not found: {}", advice_id)),
+                version: "1.0.0".to_string(),
             };
             let json = serde_json::to_string(&response)? + "\n";
             writer.write_all(json.as_bytes()).await?;
@@ -382,6 +440,7 @@ async fn handle_streaming_apply(
                 chunk_type: StreamChunkType::Status,
                 data: format!("[DRY RUN] Would execute: {:?}", advice.command),
             }),
+            version: "1.0.0".to_string(),
         };
         let json = serde_json::to_string(&response)? + "\n";
         writer.write_all(json.as_bytes()).await?;
@@ -392,6 +451,7 @@ async fn handle_streaming_apply(
                 success: true,
                 message: "Dry run completed".to_string(),
             }),
+            version: "1.0.0".to_string(),
         };
         let json = serde_json::to_string(&end_response)? + "\n";
         writer.write_all(json.as_bytes()).await?;
@@ -404,6 +464,7 @@ async fn handle_streaming_apply(
             let response = Response {
                 id: request_id,
                 result: Err("No command specified".to_string()),
+                version: "1.0.0".to_string(),
             };
             let json = serde_json::to_string(&response)? + "\n";
             writer.write_all(json.as_bytes()).await?;
@@ -433,15 +494,15 @@ async fn handle_streaming_apply(
         };
 
         let data = match chunk {
-            ExecutionChunk::Stdout(line) | ExecutionChunk::Stderr(line) | ExecutionChunk::Status(line) => line,
+            ExecutionChunk::Stdout(line)
+            | ExecutionChunk::Stderr(line)
+            | ExecutionChunk::Status(line) => line,
         };
 
         let response = Response {
             id: request_id,
-            result: Ok(ResponseData::StreamChunk {
-                chunk_type,
-                data,
-            }),
+            result: Ok(ResponseData::StreamChunk { chunk_type, data }),
+            version: "1.0.0".to_string(),
         };
 
         // Send the chunk immediately
@@ -464,7 +525,11 @@ async fn handle_streaming_apply(
         executed_at: chrono::Utc::now(),
         success,
         output: full_output.clone(),
-        error: if success { None } else { Some("Command failed".to_string()) },
+        error: if success {
+            None
+        } else {
+            Some("Command failed".to_string())
+        },
         rollback_command,
         can_rollback,
         rollback_unavailable_reason,
@@ -513,6 +578,7 @@ async fn handle_streaming_apply(
                 "Action failed".to_string()
             },
         }),
+        version: "1.0.0".to_string(),
     };
     let json = serde_json::to_string(&end_response)? + "\n";
     writer.write_all(json.as_bytes()).await?;
@@ -527,8 +593,8 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
     let client_uid = {
         use nix::sys::socket::{getsockopt, sockopt::PeerCredentials};
 
-        let cred = getsockopt(&stream, PeerCredentials)
-            .context("Failed to get peer credentials")?;
+        let cred =
+            getsockopt(&stream, PeerCredentials).context("Failed to get peer credentials")?;
 
         let uid = cred.uid();
         let gid = cred.gid();
@@ -544,13 +610,21 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
                 info!("Access granted: UID {} is authorized", uid);
             }
             Ok(false) => {
-                warn!("SECURITY: Access denied for UID {} - not in '{}' group", uid, ANNACTL_GROUP);
-                return Err(anyhow::anyhow!("Access denied: User not in authorized group"));
+                warn!(
+                    "SECURITY: Access denied for UID {} - not in '{}' group",
+                    uid, ANNACTL_GROUP
+                );
+                return Err(anyhow::anyhow!(
+                    "Access denied: User not in authorized group"
+                ));
             }
             Err(e) => {
                 // If group doesn't exist, log warning but allow (graceful degradation)
                 // This prevents lockout if group isn't set up yet
-                warn!("Group check failed (allowing): {} - Is '{}' group created?", e, ANNACTL_GROUP);
+                warn!(
+                    "Group check failed (allowing): {} - Is '{}' group created?",
+                    e, ANNACTL_GROUP
+                );
             }
         }
 
@@ -578,12 +652,20 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
 
         // SECURITY: Check message size to prevent DoS attacks
         if line.len() > MAX_REQUEST_SIZE {
-            warn!("Request too large from UID {}: {} bytes (max: {})",
-                  client_uid, line.len(), MAX_REQUEST_SIZE);
+            warn!(
+                "Request too large from UID {}: {} bytes (max: {})",
+                client_uid,
+                line.len(),
+                MAX_REQUEST_SIZE
+            );
             let error_response = Response {
                 id: 0, // We don't have the request ID yet
-                result: Err(format!("Request too large: {} bytes (max: {} bytes)",
-                                   line.len(), MAX_REQUEST_SIZE)),
+                result: Err(format!(
+                    "Request too large: {} bytes (max: {} bytes)",
+                    line.len(),
+                    MAX_REQUEST_SIZE
+                )),
+                version: "1.0.0".to_string(),
             };
             let response_json = serde_json::to_string(&error_response)? + "\n";
             let _ = writer.write_all(response_json.as_bytes()).await;
@@ -604,6 +686,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
             let error_response = Response {
                 id: request.id,
                 result: Err(format!("Rate limit exceeded. Please try again later.")),
+                version: "1.0.0".to_string(),
             };
             let response_json = serde_json::to_string(&error_response)? + "\n";
             let _ = writer.write_all(response_json.as_bytes()).await;
@@ -611,13 +694,21 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
         }
 
         // Check if this is a streaming ApplyAction request
-        if let Method::ApplyAction { advice_id, dry_run, stream: true } = &request.method {
+        if let Method::ApplyAction {
+            advice_id,
+            dry_run,
+            stream: true,
+        } = &request.method
+        {
             // Handle streaming separately
-            if let Err(e) = handle_streaming_apply(request.id, advice_id, *dry_run, &state, &mut writer).await {
+            if let Err(e) =
+                handle_streaming_apply(request.id, advice_id, *dry_run, &state, &mut writer).await
+            {
                 error!("Streaming apply failed: {}", e);
                 let error_response = Response {
                     id: request.id,
                     result: Err(format!("Streaming failed: {}", e)),
+                    version: "1.0.0".to_string(),
                 };
                 let response_json = serde_json::to_string(&error_response)? + "\n";
                 writer.write_all(response_json.as_bytes()).await?;
@@ -665,17 +756,28 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             let facts = state.facts.read().await.clone();
 
             // Filter by requirements first (RC.6 - Smart filtering)
-            let requirement_filtered: Vec<_> = all_advice.iter()
+            let requirement_filtered: Vec<_> = all_advice
+                .iter()
                 .filter(|advice| advice.requirements_met(&facts))
                 .cloned()
                 .collect();
 
             // Then filter satisfied advice
-            let filtered_advice = filter_satisfied_advice(requirement_filtered.clone(), &state.audit_logger, &requirement_filtered).await;
+            let filtered_advice = filter_satisfied_advice(
+                requirement_filtered.clone(),
+                &state.audit_logger,
+                &requirement_filtered,
+            )
+            .await;
             Ok(ResponseData::Advice(filtered_advice))
         }
 
-        Method::GetAdviceWithContext { username, desktop_env, shell, display_server } => {
+        Method::GetAdviceWithContext {
+            username,
+            desktop_env,
+            shell,
+            display_server,
+        } => {
             // Filter advice based on user context AND system requirements (RC.6)
             let all_advice = state.advice.read().await.clone();
             let total_count = all_advice.len();
@@ -684,16 +786,21 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             let facts = state.facts.read().await.clone();
 
             // First filter by requirements (RC.6 - Smart filtering)
-            let requirement_filtered: Vec<_> = all_advice.iter()
+            let requirement_filtered: Vec<_> = all_advice
+                .iter()
                 .filter(|advice| advice.requirements_met(&facts))
                 .cloned()
                 .collect();
 
             // Then apply context filtering
-            let context_filtered: Vec<_> = requirement_filtered.into_iter()
+            let context_filtered: Vec<_> = requirement_filtered
+                .into_iter()
                 .filter(|advice| {
                     // System-wide advice (security, updates, etc.) - show to everyone
-                    if matches!(advice.category.as_str(), "security" | "updates" | "performance" | "cleanup") {
+                    if matches!(
+                        advice.category.as_str(),
+                        "security" | "updates" | "performance" | "cleanup"
+                    ) {
                         return true;
                     }
 
@@ -702,8 +809,8 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         if let Some(ref de) = desktop_env {
                             let de_lower = de.to_lowercase();
                             // Check if advice ID matches user's DE
-                            return advice.id.contains(&de_lower) ||
-                                   advice.title.to_lowercase().contains(&de_lower);
+                            return advice.id.contains(&de_lower)
+                                || advice.title.to_lowercase().contains(&de_lower);
                         }
                         return false;
                     }
@@ -714,7 +821,10 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                     }
 
                     // Shell-specific advice
-                    if advice.id.contains("shell") || advice.id.contains("zsh") || advice.id.contains("bash") {
+                    if advice.id.contains("shell")
+                        || advice.id.contains("zsh")
+                        || advice.id.contains("bash")
+                    {
                         return advice.title.to_lowercase().contains(&shell.to_lowercase());
                     }
 
@@ -729,17 +839,29 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 .collect();
 
             // Finally filter out satisfied advice
-            let filtered_advice = filter_satisfied_advice(context_filtered, &state.audit_logger, &all_advice).await;
+            let filtered_advice =
+                filter_satisfied_advice(context_filtered, &state.audit_logger, &all_advice).await;
 
-            info!("Filtered advice for user {} (req->ctx->satisfied): {} -> {} items",
-                  username, total_count, filtered_advice.len());
+            info!(
+                "Filtered advice for user {} (req->ctx->satisfied): {} -> {} items",
+                username,
+                total_count,
+                filtered_advice.len()
+            );
 
             Ok(ResponseData::Advice(filtered_advice))
         }
 
-        Method::ApplyAction { advice_id, dry_run, stream } => {
+        Method::ApplyAction {
+            advice_id,
+            dry_run,
+            stream,
+        } => {
             if stream {
-                info!("Streaming requested for action {} (not yet implemented)", advice_id);
+                info!(
+                    "Streaming requested for action {} (not yet implemented)",
+                    advice_id
+                );
                 // TODO: Implement streaming using execute_command_streaming
             }
 
@@ -781,12 +903,15 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                     health_score_after: None,
                                 };
 
-                                let mut history = anna_common::ApplicationHistory::load().unwrap_or_default();
+                                let mut history =
+                                    anna_common::ApplicationHistory::load().unwrap_or_default();
                                 history.record(history_entry);
                                 info!("History entries before save: {}", history.entries.len());
                                 match history.save() {
-                                    Ok(()) => info!("Application history saved successfully to: {:?}",
-                                        anna_common::ApplicationHistory::history_path()),
+                                    Ok(()) => info!(
+                                        "Application history saved successfully to: {:?}",
+                                        anna_common::ApplicationHistory::history_path()
+                                    ),
                                     Err(e) => warn!("Failed to save application history: {}", e),
                                 }
                             }
@@ -819,7 +944,6 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             match crate::telemetry::collect_facts().await {
                 Ok(facts) => {
                     let mut advice = crate::recommender::generate_advice(&facts);
-                    advice.extend(crate::intelligent_recommender::generate_intelligent_advice(&facts));
 
                     // AGGRESSIVE RELEVANCE FILTERING (Beta.106)
                     // Only show advice that's ACTUALLY relevant to this specific user/system
@@ -827,14 +951,21 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                     advice = filter_by_relevance(advice, &facts);
                     let total_after = advice.len();
 
-                    info!("Relevance filter: {} → {} recommendations ({} removed)",
-                          total_before, total_after, total_before - total_after);
+                    info!(
+                        "Relevance filter: {} → {} recommendations ({} removed)",
+                        total_before,
+                        total_after,
+                        total_before - total_after
+                    );
 
                     // Update state
                     *state.facts.write().await = facts;
                     *state.advice.write().await = advice.clone();
 
-                    info!("Advice manually refreshed: {} recommendations", advice.len());
+                    info!(
+                        "Advice manually refreshed: {} recommendations",
+                        advice.len()
+                    );
                     Ok(ResponseData::ActionResult {
                         success: true,
                         message: format!("System scanned! Found {} recommendations", advice.len()),
@@ -904,10 +1035,12 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             info!("Update check requested (delegated to daemon)");
             match anna_common::updater::check_for_updates().await {
                 Ok(update_info) => {
-                    info!("Update check complete: current={}, latest={}, available={}",
-                          update_info.current_version,
-                          update_info.latest_version,
-                          update_info.is_update_available);
+                    info!(
+                        "Update check complete: current={}, latest={}, available={}",
+                        update_info.current_version,
+                        update_info.latest_version,
+                        update_info.is_update_available
+                    );
 
                     Ok(ResponseData::UpdateCheck {
                         current_version: update_info.current_version,
@@ -955,12 +1088,18 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                             info!("Already on latest version: {}", update_info.current_version);
                             Ok(ResponseData::UpdateResult {
                                 success: false,
-                                message: format!("Already on latest version: {}", update_info.current_version),
+                                message: format!(
+                                    "Already on latest version: {}",
+                                    update_info.current_version
+                                ),
                                 old_version: update_info.current_version.clone(),
                                 new_version: update_info.current_version,
                             })
                         } else {
-                            info!("Update available: {} → {}", update_info.current_version, update_info.latest_version);
+                            info!(
+                                "Update available: {} → {}",
+                                update_info.current_version, update_info.latest_version
+                            );
 
                             // Download and install binaries (daemon runs as root, no sudo needed!)
                             // Use a separate async block to handle all the update logic
@@ -970,17 +1109,20 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
                                 // Create temp directory
                                 let temp_dir = std::env::temp_dir().join("anna-update");
-                                tokio::fs::create_dir_all(&temp_dir).await
-                                    .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+                                tokio::fs::create_dir_all(&temp_dir).await.map_err(|e| {
+                                    format!("Failed to create temp directory: {}", e)
+                                })?;
 
                                 let temp_annad = temp_dir.join("annad");
                                 let temp_annactl = temp_dir.join("annactl");
 
                                 // Download binaries
                                 info!("Downloading binaries...");
-                                download_binary(&update_info.download_url_annad, &temp_annad).await
+                                download_binary(&update_info.download_url_annad, &temp_annad)
+                                    .await
                                     .map_err(|e| format!("Failed to download annad: {}", e))?;
-                                download_binary(&update_info.download_url_annactl, &temp_annactl).await
+                                download_binary(&update_info.download_url_annactl, &temp_annactl)
+                                    .await
                                     .map_err(|e| format!("Failed to download annactl: {}", e))?;
 
                                 // Install binaries (daemon is root, can write directly)
@@ -988,9 +1130,11 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                 let annad_dest = Path::new("/usr/local/bin/annad");
                                 let annactl_dest = Path::new("/usr/local/bin/annactl");
 
-                                tokio::fs::copy(&temp_annad, annad_dest).await
+                                tokio::fs::copy(&temp_annad, annad_dest)
+                                    .await
                                     .map_err(|e| format!("Failed to install annad: {}", e))?;
-                                tokio::fs::copy(&temp_annactl, annactl_dest).await
+                                tokio::fs::copy(&temp_annactl, annactl_dest)
+                                    .await
                                     .map_err(|e| format!("Failed to install annactl: {}", e))?;
 
                                 // Set executable permissions
@@ -1006,7 +1150,8 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                 let _ = tokio::fs::remove_dir_all(&temp_dir).await;
 
                                 Ok::<(), String>(())
-                            }.await;
+                            }
+                            .await;
 
                             match update_result {
                                 Ok(()) => {
@@ -1015,7 +1160,8 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
                                     // Schedule restart to happen AFTER response is sent (critical!)
                                     tokio::spawn(async {
-                                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                                        tokio::time::sleep(std::time::Duration::from_millis(500))
+                                            .await;
                                         info!("Restarting daemon after update...");
                                         let _ = tokio::process::Command::new("systemctl")
                                             .args(&["restart", "annad"])
@@ -1026,7 +1172,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                     info!("Update complete, restart scheduled");
                                     Ok(ResponseData::UpdateResult {
                                         success: true,
-                                        message: "Update successful! Daemon will restart momentarily.".to_string(),
+                                        message:
+                                            "Update successful! Daemon will restart momentarily."
+                                                .to_string(),
                                         old_version: old_ver,
                                         new_version: new_ver,
                                     })
@@ -1077,7 +1225,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                 command: action.command.clone(),
                                 rollback_command: action.rollback_command.clone(),
                                 can_rollback: action.can_rollback,
-                                rollback_unavailable_reason: action.rollback_unavailable_reason.clone(),
+                                rollback_unavailable_reason: action
+                                    .rollback_unavailable_reason
+                                    .clone(),
                             }
                         })
                         .collect();
@@ -1093,16 +1243,21 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
         }
 
         Method::RollbackAction { advice_id, dry_run } => {
-            info!("Rollback requested for advice: {} (dry_run={})", advice_id, dry_run);
+            info!(
+                "Rollback requested for advice: {} (dry_run={})",
+                advice_id, dry_run
+            );
 
             match state.action_history.get_by_advice_id(&advice_id).await {
                 Ok(Some(action)) => {
                     if !action.can_rollback {
-                        let reason = action.rollback_unavailable_reason
+                        let reason = action
+                            .rollback_unavailable_reason
                             .unwrap_or_else(|| "Rollback not available".to_string());
                         return Response {
                             id,
                             result: Err(format!("Cannot rollback: {}", reason)),
+                            version: "1.0.0".to_string(),
                         };
                     }
 
@@ -1112,6 +1267,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                             return Response {
                                 id,
                                 result: Err("No rollback command available".to_string()),
+                                version: "1.0.0".to_string(),
                             };
                         }
                     };
@@ -1142,9 +1298,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         }
                     }
                 }
-                Ok(None) => {
-                    Err(format!("No action found for advice: {}", advice_id))
-                }
+                Ok(None) => Err(format!("No action found for advice: {}", advice_id)),
                 Err(e) => {
                     error!("Failed to retrieve action: {}", e);
                     Err(format!("Failed to retrieve action: {}", e))
@@ -1161,6 +1315,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         return Response {
                             id,
                             result: Err("No actions to rollback".to_string()),
+                            version: "1.0.0".to_string(),
                         };
                     }
 
@@ -1174,23 +1329,29 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         return Response {
                             id,
                             result: Err("No rollbackable actions in last {} actions".to_string()),
+                            version: "1.0.0".to_string(),
                         };
                     }
 
                     if dry_run {
                         let commands: Vec<String> = rollbackable
                             .iter()
-                            .map(|a| format!("{}: {}",
-                                a.advice_id,
-                                a.rollback_command.as_ref().unwrap()))
+                            .map(|a| {
+                                format!("{}: {}", a.advice_id, a.rollback_command.as_ref().unwrap())
+                            })
                             .collect();
 
                         Ok(ResponseData::RollbackResult {
                             success: true,
-                            message: format!("[DRY RUN] Would rollback {} actions:\n{}",
+                            message: format!(
+                                "[DRY RUN] Would rollback {} actions:\n{}",
                                 rollbackable.len(),
-                                commands.join("\n")),
-                            actions_reversed: rollbackable.iter().map(|a| a.advice_id.clone()).collect(),
+                                commands.join("\n")
+                            ),
+                            actions_reversed: rollbackable
+                                .iter()
+                                .map(|a| a.advice_id.clone())
+                                .collect(),
                         })
                     } else {
                         // Execute rollbacks in reverse order (most recent first)
@@ -1205,7 +1366,11 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                 Ok(output) => {
                                     info!("Rollback successful for {}", action.advice_id);
                                     reversed_ids.push(action.advice_id.clone());
-                                    all_outputs.push(format!("✓ {}: {}", action.advice_id, output.lines().next().unwrap_or("")));
+                                    all_outputs.push(format!(
+                                        "✓ {}: {}",
+                                        action.advice_id,
+                                        output.lines().next().unwrap_or("")
+                                    ));
                                 }
                                 Err(e) => {
                                     error!("Rollback failed for {}: {}", action.advice_id, e);
@@ -1217,10 +1382,12 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         let success = !reversed_ids.is_empty();
                         Ok(ResponseData::RollbackResult {
                             success,
-                            message: format!("Rolled back {} of {} actions:\n{}",
+                            message: format!(
+                                "Rolled back {} of {} actions:\n{}",
                                 reversed_ids.len(),
                                 count,
-                                all_outputs.join("\n")),
+                                all_outputs.join("\n")
+                            ),
                             actions_reversed: reversed_ids,
                         })
                     }
@@ -1231,7 +1398,233 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 }
             }
         }
+
+        Method::GetState => {
+            info!("GetState method called");
+
+            // Phase 0.2c: Use cached state instead of detecting every time
+            let detection = state.current_state.read().await.clone();
+
+            // Convert to IPC response type
+            let data = anna_common::ipc::StateDetectionData {
+                state: detection.state.to_string(),
+                detected_at: detection.detected_at,
+                details: anna_common::ipc::StateDetailsData {
+                    uefi: detection.details.uefi,
+                    disks: detection.details.disks,
+                    network: anna_common::ipc::NetworkStatusData {
+                        has_interface: detection.details.network.has_interface,
+                        has_route: detection.details.network.has_route,
+                        can_resolve: detection.details.network.can_resolve,
+                    },
+                    state_file_present: detection.details.state_file_present,
+                    health_ok: detection.details.health_ok,
+                },
+                citation: detection.citation,
+            };
+            Ok(ResponseData::StateDetection(data))
+        }
+
+        Method::GetCapabilities => {
+            info!("GetCapabilities method called");
+
+            // Phase 0.2c: Use cached state
+            let detection = state.current_state.read().await.clone();
+            let capabilities = crate::state::get_capabilities(detection.state);
+
+            // Convert to IPC response type
+            let data: Vec<anna_common::ipc::CommandCapabilityData> = capabilities
+                .into_iter()
+                .map(|cap| anna_common::ipc::CommandCapabilityData {
+                    name: cap.name,
+                    description: cap.description,
+                    since: cap.since,
+                    citation: cap.citation,
+                    requires_root: cap.requires_root,
+                })
+                .collect();
+
+            Ok(ResponseData::Capabilities(data))
+        }
+
+        Method::HealthProbe => {
+            info!("HealthProbe method called");
+            Ok(ResponseData::HealthProbe {
+                ok: true,
+                version: state.version.clone(),
+            })
+        }
+
+        Method::HealthRun { timeout_ms, probes } => {
+            info!(
+                "HealthRun method called with timeout={}ms, probes={:?}",
+                timeout_ms, probes
+            );
+
+            // Run health checks (Phase 0.5b)
+            let summary = match crate::health::run_all_probes().await {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Health run failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("Health run failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Get current state
+            let detection = state.current_state.read().await.clone();
+
+            // Convert to IPC response type
+            let mut ok_count = 0;
+            let mut warn_count = 0;
+            let mut fail_count = 0;
+
+            let results: Vec<anna_common::ipc::HealthProbeResult> = summary
+                .probes
+                .into_iter()
+                .map(|probe| {
+                    match probe.status {
+                        crate::health::ProbeStatus::Ok => ok_count += 1,
+                        crate::health::ProbeStatus::Warn => warn_count += 1,
+                        crate::health::ProbeStatus::Fail => fail_count += 1,
+                    }
+
+                    anna_common::ipc::HealthProbeResult {
+                        probe: probe.probe,
+                        status: format!("{:?}", probe.status).to_lowercase(),
+                        details: probe.details,
+                        citation: probe.citation,
+                        duration_ms: probe.duration_ms,
+                        ts: chrono::Utc::now().to_rfc3339(),
+                    }
+                })
+                .collect();
+
+            let data = anna_common::ipc::HealthRunData {
+                state: detection.state.to_string(),
+                summary: anna_common::ipc::HealthSummaryCount {
+                    ok: ok_count,
+                    warn: warn_count,
+                    fail: fail_count,
+                },
+                results,
+                citation: "[archwiki:General_recommendations]".to_string(),
+            };
+
+            Ok(ResponseData::HealthRun(data))
+        }
+
+        Method::HealthSummary => {
+            info!("HealthSummary method called");
+
+            // Get health summary from last run (Phase 0.5b)
+            let summary_opt = match crate::health::get_health_summary().await {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("Health summary failed: {}", e);
+                    None // Return empty summary if read fails
+                }
+            };
+
+            let (summary_count, last_run_ts, alerts) = if let Some(summary) = summary_opt {
+                let mut ok_count = 0;
+                let mut warn_count = 0;
+                let mut fail_count = 0;
+                let mut alert_probes = Vec::new();
+
+                for probe in &summary.probes {
+                    match probe.status {
+                        crate::health::ProbeStatus::Ok => ok_count += 1,
+                        crate::health::ProbeStatus::Warn => warn_count += 1,
+                        crate::health::ProbeStatus::Fail => {
+                            fail_count += 1;
+                            alert_probes.push(probe.probe.clone());
+                        }
+                    }
+                }
+
+                (
+                    anna_common::ipc::HealthSummaryCount {
+                        ok: ok_count,
+                        warn: warn_count,
+                        fail: fail_count,
+                    },
+                    summary.timestamp,
+                    alert_probes,
+                )
+            } else {
+                // No previous run
+                (
+                    anna_common::ipc::HealthSummaryCount {
+                        ok: 0,
+                        warn: 0,
+                        fail: 0,
+                    },
+                    chrono::Utc::now().to_rfc3339(),
+                    vec![],
+                )
+            };
+
+            let detection = state.current_state.read().await.clone();
+
+            let data = anna_common::ipc::HealthSummaryData {
+                state: detection.state.to_string(),
+                summary: summary_count,
+                last_run_ts,
+                alerts,
+                citation: "[archwiki:General_recommendations]".to_string(),
+            };
+
+            Ok(ResponseData::HealthSummary(data))
+        }
+
+        Method::RecoveryPlans => {
+            info!("RecoveryPlans method called");
+
+            // Return list of available recovery plans (Phase 0.5b)
+            let plans = vec![
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "bootloader".to_string(),
+                    desc: "Inspect and repair bootloader entries".to_string(),
+                    citation: "[archwiki:GRUB]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "initramfs".to_string(),
+                    desc: "Rebuild initramfs via mkinitcpio".to_string(),
+                    citation: "[archwiki:mkinitcpio]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "pacman-db".to_string(),
+                    desc: "Rebuild pacman DB and keys".to_string(),
+                    citation: "[archwiki:pacman#Database_is_corrupted]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "fstab".to_string(),
+                    desc: "Validate and repair fstab".to_string(),
+                    citation: "[archwiki:Fstab]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "systemd".to_string(),
+                    desc: "Analyze failed units and default target".to_string(),
+                    citation: "[archwiki:systemd]".to_string(),
+                },
+            ];
+
+            let data = anna_common::ipc::RecoveryPlansData {
+                plans,
+                citation: "[archwiki:General_troubleshooting]".to_string(),
+            };
+
+            Ok(ResponseData::RecoveryPlans(data))
+        }
     };
 
-    Response { id, result }
+    Response {
+        id,
+        result,
+        version: "1.0.0".to_string(),
+    }
 }

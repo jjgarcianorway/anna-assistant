@@ -7,7 +7,7 @@ use std::process::Stdio;
 use tokio::process::Command;
 use tracing::{error, info, warn};
 
-use crate::snapshotter::{Snapshotter, Snapshot};
+use crate::snapshotter::{Snapshot, Snapshotter};
 
 /// Validates command for suspicious patterns before execution
 /// SECURITY: Commands come from daemon's trusted whitelist, but this provides defense-in-depth
@@ -15,13 +15,13 @@ fn validate_command(command: &str) -> Result<()> {
     // Check for extremely dangerous patterns
     // FIXED (Beta.107): Previous regexes were broken (e.g., "curl.*|.*sh" matched ANY string with "sh")
     let dangerous_patterns = [
-        r"^rm\s+-rf\s+/$",           // Exact: rm -rf / (recursive delete of root)
-        r"^rm\s+-rf\s+/\s",          // rm -rf / with more args
-        r"mkfs\.",                   // Filesystem creation (destructive)
-        r"dd\s+if=/dev",             // Direct disk device read
-        r"dd\s+of=/dev",             // Direct disk device write
-        r"curl.*\|\s*(ba)?sh",       // Download and pipe to shell
-        r"wget.*\|\s*(ba)?sh",       // Download and pipe to shell
+        r"^rm\s+-rf\s+/$",            // Exact: rm -rf / (recursive delete of root)
+        r"^rm\s+-rf\s+/\s",           // rm -rf / with more args
+        r"mkfs\.",                    // Filesystem creation (destructive)
+        r"dd\s+if=/dev",              // Direct disk device read
+        r"dd\s+of=/dev",              // Direct disk device write
+        r"curl.*\|\s*(ba)?sh",        // Download and pipe to shell
+        r"wget.*\|\s*(ba)?sh",        // Download and pipe to shell
         r":\(\)\s*\{\s*:\|:&\s*\};:", // Fork bomb pattern
     ];
 
@@ -29,16 +29,25 @@ fn validate_command(command: &str) -> Result<()> {
         if regex::Regex::new(pattern).unwrap().is_match(command) {
             warn!("SECURITY: Blocked dangerous command pattern: {}", pattern);
             return Err(anyhow::anyhow!(
-                "Command contains dangerous pattern and was blocked for safety: {}", pattern
+                "Command contains dangerous pattern and was blocked for safety: {}",
+                pattern
             ));
         }
     }
 
     // Log if command uses shell features (for audit)
-    if command.contains("&&") || command.contains("||") || command.contains("|")
-        || command.contains("$()") || command.contains("`") || command.contains(">")
-        || command.contains("<") {
-        info!("SECURITY: Executing command with shell features: {}", command);
+    if command.contains("&&")
+        || command.contains("||")
+        || command.contains("|")
+        || command.contains("$()")
+        || command.contains("`")
+        || command.contains(">")
+        || command.contains("<")
+    {
+        info!(
+            "SECURITY: Executing command with shell features: {}",
+            command
+        );
     }
 
     Ok(())
@@ -57,7 +66,10 @@ pub async fn execute_action_with_snapshot(
     let command = match &advice.command {
         Some(cmd) => cmd,
         None => {
-            return Err(anyhow::anyhow!("No command specified for advice {}", advice.id));
+            return Err(anyhow::anyhow!(
+                "No command specified for advice {}",
+                advice.id
+            ));
         }
     };
 
@@ -86,8 +98,14 @@ pub async fn execute_action_with_snapshot(
     if let Some(cfg) = config {
         let snapshotter = Snapshotter::new(cfg.clone());
         if snapshotter.should_snapshot_for_risk(advice.risk) {
-            info!("Creating snapshot before executing {} (risk: {:?})", advice.id, advice.risk);
-            match snapshotter.create_snapshot(&format!("Before: {}", advice.title)).await {
+            info!(
+                "Creating snapshot before executing {} (risk: {:?})",
+                advice.id, advice.risk
+            );
+            match snapshotter
+                .create_snapshot(&format!("Before: {}", advice.title))
+                .await
+            {
                 Ok(snap) => {
                     info!("Snapshot created: {}", snap.id);
                     snapshot = Some(snap);
@@ -176,7 +194,11 @@ pub async fn execute_command(command: &str) -> Result<String> {
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        error!("Command failed with exit code {:?}: {}", output.status.code(), stderr);
+        error!(
+            "Command failed with exit code {:?}: {}",
+            output.status.code(),
+            stderr
+        );
 
         // Check for common errors
         if stderr.contains("Permission denied") || stderr.contains("EACCES") {
@@ -188,7 +210,11 @@ pub async fn execute_command(command: &str) -> Result<String> {
             ));
         }
 
-        Err(anyhow::anyhow!("Command failed: {}\nStdout: {}", stderr, stdout))
+        Err(anyhow::anyhow!(
+            "Command failed: {}\nStdout: {}",
+            stderr,
+            stdout
+        ))
     }
 }
 
@@ -203,7 +229,10 @@ pub enum ExecutionChunk {
 /// Execute a command with streaming output via channel
 pub async fn execute_command_streaming_channel(
     command: &str,
-) -> Result<(tokio::sync::mpsc::Receiver<ExecutionChunk>, tokio::task::JoinHandle<Result<bool>>)> {
+) -> Result<(
+    tokio::sync::mpsc::Receiver<ExecutionChunk>,
+    tokio::task::JoinHandle<Result<bool>>,
+)> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::sync::mpsc;
 
@@ -219,7 +248,9 @@ pub async fn execute_command_streaming_channel(
     let (tx, rx) = mpsc::channel(100); // Buffer up to 100 chunks
 
     // Send initial status
-    let _ = tx.send(ExecutionChunk::Status(format!("Executing: {}", command))).await;
+    let _ = tx
+        .send(ExecutionChunk::Status(format!("Executing: {}", command)))
+        .await;
 
     let command = command.to_string();
 
@@ -284,10 +315,7 @@ pub async fn execute_command_streaming_channel(
 
 /// Execute a command with streaming output (callback version - deprecated, use channel version)
 #[allow(dead_code)]
-pub async fn execute_command_streaming<F>(
-    command: &str,
-    mut output_callback: F,
-) -> Result<bool>
+pub async fn execute_command_streaming<F>(command: &str, mut output_callback: F) -> Result<bool>
 where
     F: FnMut(ExecutionChunk),
 {
@@ -391,7 +419,7 @@ pub fn create_audit_entry(action: &Action, actor: &str) -> AuditEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anna_common::RiskLevel;
+    use anna_common::{Priority, RiskLevel};
 
     #[tokio::test]
     async fn test_dry_run() {
@@ -402,7 +430,16 @@ mod tests {
             action: "Test action".to_string(),
             command: Some("echo hello".to_string()),
             risk: RiskLevel::Low,
+            priority: Priority::Optional,
             wiki_refs: vec![],
+            category: "test".to_string(),
+            alternatives: vec![],
+            depends_on: vec![],
+            related_to: vec![],
+            bundle: None,
+            satisfies: vec![],
+            popularity: 50,
+            requires: vec![],
         };
 
         let action = execute_action(&advice, true).await.unwrap();
@@ -419,7 +456,16 @@ mod tests {
             action: "Test action".to_string(),
             command: Some("echo hello".to_string()),
             risk: RiskLevel::Low,
+            priority: Priority::Optional,
             wiki_refs: vec![],
+            category: "test".to_string(),
+            alternatives: vec![],
+            depends_on: vec![],
+            related_to: vec![],
+            bundle: None,
+            satisfies: vec![],
+            popularity: 50,
+            requires: vec![],
         };
 
         let action = execute_action(&advice, false).await.unwrap();

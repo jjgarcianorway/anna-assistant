@@ -38,8 +38,8 @@ echo -e "${BOLD}${CYAN}====================================================${RES
 echo
 
 # Brief intro
-echo -e "${GRAY}Anna monitors your Arch Linux system and provides personalized${RESET}"
-echo -e "${GRAY}recommendations for security, performance, and configuration.${RESET}"
+echo -e "${GRAY}Anna monitors your Arch Linux system with health checks,${RESET}"
+echo -e "${GRAY}diagnostics, and recovery tools - all with Arch Wiki citations.${RESET}"
 echo
 
 # Check if already installed
@@ -169,6 +169,11 @@ if [ -d "/usr/share/fish/vendor_completions.d" ]; then
 fi
 echo -e "${GREEN}${CHECK}${RESET} Completions installed (${COMP_COUNT} shells)"
 
+# Phase 0.4: Security setup - create anna group and secure directories
+echo -e "${CYAN}${ARROW}${RESET} Setting up security configuration..."
+curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/scripts/setup-security.sh" | sudo bash || error_exit "Failed to setup security"
+echo -e "${GREEN}${CHECK}${RESET} Security configured"
+
 # Systemd service
 echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
 curl -fsSL -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" || error_exit "Failed to download service"
@@ -207,9 +212,10 @@ echo -e "${BOLD}${GREEN}  ✓ Installation Complete! ${TAG}${RESET}"
 echo -e "${BOLD}${GREEN}====================================================${RESET}"
 echo
 echo -e "${BOLD}${CYAN}Quick Start:${RESET}"
-echo -e "  ${CYAN}annactl advise${RESET}  ${GRAY}# Get personalized recommendations${RESET}"
-echo -e "  ${CYAN}annactl status${RESET}  ${GRAY}# Check system health${RESET}"
-echo -e "  ${CYAN}annactl report${RESET}  ${GRAY}# Full system report${RESET}"
+echo -e "  ${CYAN}annactl status${RESET}  ${GRAY}# Check daemon and system state${RESET}"
+echo -e "  ${CYAN}annactl health${RESET}  ${GRAY}# Run system health checks${RESET}"
+echo -e "  ${CYAN}annactl doctor${RESET}  ${GRAY}# Get diagnostic report${RESET}"
+echo -e "  ${CYAN}annactl help${RESET}    ${GRAY}# Show available commands${RESET}"
 echo
 echo -e "${GRAY}${ARROW} Full docs: ${CYAN}https://github.com/${REPO}${RESET}"
 echo

@@ -32,8 +32,10 @@ impl RpcClient {
         for attempt in 0..max_retries {
             match tokio::time::timeout(
                 Duration::from_millis(500), // 500ms connect timeout per attempt
-                UnixStream::connect(SOCKET_PATH)
-            ).await {
+                UnixStream::connect(SOCKET_PATH),
+            )
+            .await
+            {
                 Ok(Ok(stream)) => {
                     // Success!
                     let (reader, writer) = stream.into_split();
@@ -42,13 +44,16 @@ impl RpcClient {
                 }
                 Ok(Err(e)) if attempt == max_retries - 1 => {
                     // Last attempt failed - give up
-                    return Err(e).context("Failed to connect to daemon after 10 retries. Is annad running?");
+                    return Err(e).context(
+                        "Failed to connect to daemon after 10 retries. Is annad running?",
+                    );
                 }
                 Ok(Err(_)) | Err(_) => {
                     // Connection failed or timed out - retry
                     if attempt < max_retries - 1 {
                         sleep(retry_delay).await;
-                        retry_delay = (retry_delay * 2).min(Duration::from_millis(500)); // Max 500ms between retries
+                        retry_delay = (retry_delay * 2).min(Duration::from_millis(500));
+                        // Max 500ms between retries
                     }
                 }
             }
@@ -77,8 +82,7 @@ impl RpcClient {
             .await
             .context("Failed to read response")?;
 
-        let response: Response =
-            serde_json::from_str(&line).context("Failed to parse response")?;
+        let response: Response = serde_json::from_str(&line).context("Failed to parse response")?;
 
         if response.id != id {
             anyhow::bail!("Response ID mismatch");
@@ -94,6 +98,40 @@ impl RpcClient {
     pub async fn ping(&mut self) -> Result<()> {
         self.call(Method::Ping).await?;
         Ok(())
+    }
+
+    /// Get system state detection (Phase 0.3b)
+    /// Citation: [archwiki:system_maintenance]
+    pub async fn get_state(&mut self) -> Result<ResponseData> {
+        self.call(Method::GetState).await
+    }
+
+    /// Get available capabilities for current state (Phase 0.3b)
+    /// Citation: [archwiki:system_maintenance]
+    pub async fn get_capabilities(&mut self) -> Result<ResponseData> {
+        self.call(Method::GetCapabilities).await
+    }
+
+    /// Run health probes (Phase 0.5b)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn health_run(
+        &mut self,
+        timeout_ms: u64,
+        probes: Vec<String>,
+    ) -> Result<ResponseData> {
+        self.call(Method::HealthRun { timeout_ms, probes }).await
+    }
+
+    /// Get health summary (Phase 0.5b)
+    /// Citation: [archwiki:System_maintenance]
+    pub async fn health_summary(&mut self) -> Result<ResponseData> {
+        self.call(Method::HealthSummary).await
+    }
+
+    /// Get recovery plans (Phase 0.5b)
+    /// Citation: [archwiki:General_troubleshooting]
+    pub async fn recovery_plans(&mut self) -> Result<ResponseData> {
+        self.call(Method::RecoveryPlans).await
     }
 
     /// Call a method with streaming response support

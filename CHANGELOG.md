@@ -5,6 +5,228 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc.13] - 2025-11-11
+
+### 🎯 **Complete Architectural Reset - "Operational Core"**
+
+Anna 1.0 represents a **complete rewrite** from prototype to production-ready system administration core. This release removes all desktop environment features and focuses exclusively on reliable, auditable system monitoring and maintenance.
+
+### ⚠️ **BREAKING CHANGES**
+
+**Removed Features** (See MIGRATION-1.0.md for details):
+- ❌ Desktop environment bundles (Hyprland, i3, sway, all WMs)
+- ❌ Application installation system
+- ❌ TUI (terminal user interface) - returns in 2.0
+- ❌ Recommendation engine and advice catalog
+- ❌ Pywal integration and theming
+- ❌ Hardware detection for DEs
+- ❌ Commands: `setup`, `apply`, `advise`, `revert`
+
+**What Remains**:
+- ✅ Core daemon with state-aware dispatch
+- ✅ Health monitoring and diagnostics
+- ✅ Recovery framework (foundation)
+- ✅ Comprehensive logging with Arch Wiki citations
+- ✅ Security hardening (systemd sandbox)
+
+### 🚀 **New Features**
+
+#### Phase 0.3: State-Aware Command Dispatch
+- **Six-state machine**: iso_live, recovery_candidate, post_install_minimal, configured, degraded, unknown
+- Commands only available in states where they're safe to execute
+- State detection with Arch Wiki citations
+- Capability-based command filtering
+- `annactl help` shows commands for current state
+
+#### Phase 0.4: Security Hardening
+- **Systemd sandbox**: NoNewPrivileges, ProtectSystem=strict, ProtectHome=true
+- **Socket permissions**: root:anna with mode 0660
+- **Directory permissions**: 0700 for /var/lib/anna, /var/log/anna
+- **File permissions**: 0600 for all reports and sensitive files
+- Users must be in `anna` system group
+- No privilege escalation paths
+- Restricted system call architectures
+
+#### Phase 0.5: Health Monitoring System
+- **Six health probes**:
+  - `disk-space`: Filesystem usage monitoring
+  - `pacman-db`: Package database integrity
+  - `systemd-units`: Failed unit detection
+  - `journal-errors`: System log analysis
+  - `services-failed`: Service health checks
+  - `firmware-microcode`: Microcode status
+- **Commands**:
+  - `annactl health`: Run all probes, exit codes 0/1/2
+  - `annactl health --json`: Machine-readable output
+  - `annactl doctor`: Diagnostic synthesis with recommendations
+  - `annactl rescue list`: Show available recovery plans
+- **Report generation**: JSON reports saved to /var/lib/anna/reports/ (0600)
+- **Alert system**: Failed probes create alerts in /var/lib/anna/alerts/
+- **JSONL logging**: All execution logged to /var/log/anna/ctl.jsonl
+- **Health history**: Probe results logged to /var/log/anna/health.jsonl
+
+#### Phase 0.6a: Recovery Framework Foundation
+- **Recovery plan parser**: Loads declarative YAML plans
+- **Five recovery plans**: bootloader, initramfs, pacman-db, fstab, systemd
+- **Chroot detection**: Identifies and validates chroot environments
+- **Type-safe structures**: RecoveryPlan, RecoveryStep, StateSnapshot
+- **Embedded fallback**: Works without external YAML files
+- Foundation for executable recovery (Phase 0.6b)
+
+### 🔧 **Technical Improvements**
+
+#### CI/CD Pipeline
+- **GitHub Actions workflow**: .github/workflows/health-cli.yml
+- **Performance benchmarks**: <200ms health command latency target
+- **Automated validation**:
+  - Code formatting (cargo fmt --check)
+  - Linting (cargo clippy)
+  - JSON schema validation with jq
+  - File permissions checks (0600/0700)
+  - Unauthorized write detection
+- **Test artifacts**: Logs uploaded on failure (7-day retention)
+
+#### Testing
+- **10 integration tests** for health CLI
+- **Exit code validation**: 0 (ok), 1 (fail), 2 (warn), 64 (unavailable), 65 (invalid), 70 (daemon down)
+- **Permissions tests**: Validate 0600 reports, 0700 directories
+- **Schema validation**: JSON schemas for health-report, doctor-report, ctl-log
+- **Mock probes**: Environment variable-driven test fixtures
+- **Test duration**: <20s total suite execution
+
+#### Exit Codes
+- `0` - Success (all probes passed)
+- `1` - Failure (one or more probes failed)
+- `2` - Warning (warnings but no failures)
+- `64` - Command not available in current state
+- `65` - Invalid daemon response
+- `70` - Daemon unavailable
+
+#### Logging Format
+All operations logged as JSONL with:
+- ISO 8601 timestamps
+- UUID request IDs
+- System state at execution
+- Exit codes and duration
+- Arch Wiki citations
+- Success/failure status
+
+Example:
+```json
+{
+  "ts": "2025-11-11T13:00:00Z",
+  "req_id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "configured",
+  "command": "health",
+  "exit_code": 0,
+  "citation": "[archwiki:System_maintenance]",
+  "duration_ms": 45,
+  "ok": true
+}
+```
+
+### 📦 **File Structure**
+
+```
+/usr/local/bin/{annad,annactl}
+/var/lib/anna/reports/      # Health and doctor reports (0700)
+/var/lib/anna/alerts/       # Failed probe alerts (0700)
+/var/log/anna/ctl.jsonl     # Command execution log
+/var/log/anna/health.jsonl  # Health check history
+/run/anna/anna.sock         # IPC socket (root:anna 0660)
+/usr/local/lib/anna/health/ # Probe YAML definitions
+/usr/local/lib/anna/recovery/ # Recovery plan YAMLs
+```
+
+### 🔒 **Security**
+
+- **Systemd hardening**: 11 security directives enabled
+- **No new privileges**: NoNewPrivileges=true prevents escalation
+- **Read-only probes**: All health checks are non-destructive
+- **Socket isolation**: Unix socket with group-based access control
+- **Audit trail**: Every command logged with full context
+
+### 📚 **Documentation**
+
+- **README.md**: Completely rewritten for operational core
+- **MIGRATION-1.0.md**: Comprehensive migration guide from rc.11
+- **ANNA-1.0-RESET.md**: Architecture documentation updated
+- **JSON schemas**: Version-pinned schemas with $id URIs
+- Test coverage documentation
+- Security model documentation
+
+### 🐛 **Bug Fixes**
+
+- Unknown flags now exit with code 64 (not 2)
+- MockableProbe properly gated with #[cfg(test)]
+- Environment variables ignored in production builds
+- Proper error handling for daemon unavailability
+- Fixed chroot detection edge cases
+
+### 🏗️ **Internal Changes**
+
+- **Module structure**: health/, recovery/, state/ subsystems
+- **RPC methods**: GetState, GetCapabilities, HealthRun, HealthSummary, RecoveryPlans
+- **Type safety**: Comprehensive error handling with anyhow::Result
+- **Parser**: YAML-based probe and recovery plan definitions
+- **State machine**: Capability-based command availability
+- **Rollback foundation**: StateSnapshot types for future rollback
+
+### ⚡ **Performance**
+
+- Health command: <200ms on ok-path
+- Daemon startup: <2s
+- Test suite: <20s total
+- Memory footprint: Minimal (no desktop management)
+
+### 🎓 **Citations**
+
+All operations cite Arch Wiki:
+- [archwiki:System_maintenance]
+- [archwiki:Systemd]
+- [archwiki:Chroot#Using_arch-chroot]
+- [archwiki:GRUB#Installation]
+- [archwiki:Mkinitcpio]
+- [archwiki:Pacman]
+
+### 🔄 **Migration Path**
+
+1. Uninstall rc.11: `sudo ./scripts/uninstall.sh`
+2. Remove old configs: `rm -rf ~/.config/anna`
+3. Install rc.13: `curl -sSL .../scripts/install.sh | sh`
+4. Add user to anna group: `sudo usermod -a -G anna $USER`
+5. Verify: `annactl health`
+
+See **MIGRATION-1.0.md** for detailed instructions.
+
+### 📝 **Commits**
+
+This release includes 18 commits across Phases 0.3-0.6a:
+- Phase 0.3: State machine and dispatch (5 commits)
+- Phase 0.4: Security hardening (1 commit)
+- Phase 0.5a: Health subsystem (1 commit)
+- Phase 0.5b: RPC/CLI integration (2 commits)
+- Phase 0.5c: Tests, CI, stabilization (3 commits)
+- Phase 0.6a: Recovery framework foundation (1 commit)
+- Documentation: README, MIGRATION, schemas (5 commits)
+
+### 🚀 **What's Next**
+
+**Phase 0.6b** (Next Release):
+- Executable recovery plans
+- `annactl rescue run <plan>`
+- `annactl rollback <plan>`
+- Rollback script generation
+- Interactive rescue mode
+
+**Version 2.0** (Future):
+- TUI returns as optional interface
+- Additional health probes
+- Advanced diagnostics
+- Backup automation
+
+---
+
 ## [1.0.0-rc.11] - 2025-11-07
 
 ### 🔥 Critical Bug Fixes

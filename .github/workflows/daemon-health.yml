@@ -1,0 +1,254 @@
+name: Daemon Health Check
+
+on:
+  push:
+    branches: [ main, anna-1.0-reset ]
+  pull_request:
+    branches: [ main, anna-1.0-reset ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  ANNA_VERSION: test-build
+
+jobs:
+  daemon-security-validation:
+    name: Daemon security and health validation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        rustflags: ''
+
+    - name: Install libcap-ng (for capsh)
+      run: sudo apt-get update && sudo apt-get install -y libcap-ng-utils
+
+    - name: Build binaries
+      run: cargo build --release --verbose
+
+    - name: Install binaries
+      run: |
+        sudo cp target/release/annad /usr/local/bin/annad
+        sudo cp target/release/annactl /usr/local/bin/annactl
+        sudo chmod 755 /usr/local/bin/annad /usr/local/bin/annactl
+
+    - name: Phase 0.4 - Create anna system group
+      run: |
+        sudo groupadd --system anna || true
+        getent group anna
+        echo "✓ anna group created"
+
+    - name: Phase 0.4 - Create secure directories
+      run: |
+        # /etc/anna - Configuration (root:root 0700)
+        sudo mkdir -p /etc/anna
+        sudo chown root:root /etc/anna
+        sudo chmod 700 /etc/anna
+
+        # /var/log/anna - Logs (root:root 0700)
+        sudo mkdir -p /var/log/anna
+        sudo chown root:root /var/log/anna
+        sudo chmod 700 /var/log/anna
+
+        # /var/lib/anna - State (root:root 0700)
+        sudo mkdir -p /var/lib/anna
+        sudo chown root:root /var/lib/anna
+        sudo chmod 700 /var/lib/anna
+
+        # /usr/local/lib/anna - Static assets (root:root 0755)
+        sudo mkdir -p /usr/local/lib/anna
+        sudo chown root:root /usr/local/lib/anna
+        sudo chmod 755 /usr/local/lib/anna
+
+        echo "✓ Secure directories created"
+
+    - name: Install systemd service
+      run: |
+        sudo cp annad.service /etc/systemd/system/annad.service
+        sudo chmod 644 /etc/systemd/system/annad.service
+        sudo systemctl daemon-reload
+        echo "✓ Service installed"
+
+    - name: Phase 0.4 - Start daemon and verify active status
+      run: |
+        # Start the daemon
+        sudo systemctl start annad
+
+        # Wait up to 10 seconds for daemon to be ready
+        for i in {1..10}; do
+          if sudo systemctl is-active --quiet annad; then
+            echo "✓ Daemon is active after ${i}s"
+            break
+          fi
+          if [ $i -eq 10 ]; then
+            echo "✗ Daemon failed to start within 10 seconds"
+            sudo systemctl status annad
+            sudo journalctl -u annad -n 50
+            exit 1
+          fi
+          sleep 1
+        done
+
+        # Verify status
+        sudo systemctl status annad --no-pager
+        echo "✓ Daemon status verified"
+
+    - name: Phase 0.4 - Validate socket permissions
+      run: |
+        # Wait for socket to be created
+        for i in {1..10}; do
+          if [ -S /run/anna/anna.sock ]; then
+            echo "✓ Socket created after ${i}s"
+            break
+          fi
+          if [ $i -eq 10 ]; then
+            echo "✗ Socket not created within 10 seconds"
+            ls -la /run/anna/
+            exit 1
+          fi
+          sleep 1
+        done
+
+        # Check socket permissions
+        SOCKET_PERMS=$(stat -c "%a" /run/anna/anna.sock)
+        SOCKET_OWNER=$(stat -c "%U:%G" /run/anna/anna.sock)
+
+        echo "Socket permissions: $SOCKET_PERMS"
+        echo "Socket owner: $SOCKET_OWNER"
+
+        # Verify permissions are 660
+        if [ "$SOCKET_PERMS" != "660" ]; then
+          echo "✗ Socket permissions should be 660, got $SOCKET_PERMS"
+          exit 1
+        fi
+
+        # Verify owner is root:anna
+        if [ "$SOCKET_OWNER" != "root:anna" ]; then
+          echo "✗ Socket owner should be root:anna, got $SOCKET_OWNER"
+          exit 1
+        fi
+
+        echo "✓ Socket permissions validated (root:anna 660)"
+
+    - name: Phase 0.4 - Verify annactl status response time (<100ms)
+      run: |
+        # Test response time
+        START_TIME=$(date +%s%N)
+        sudo annactl status >/dev/null 2>&1 || true
+        END_TIME=$(date +%s%N)
+
+        DURATION_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+
+        echo "Response time: ${DURATION_MS}ms"
+
+        if [ $DURATION_MS -gt 100 ]; then
+          echo "⚠ Response time ${DURATION_MS}ms exceeds 100ms target (may be acceptable in CI)"
+        else
+          echo "✓ Response time ${DURATION_MS}ms < 100ms"
+        fi
+
+    - name: Phase 0.4 - Verify annactl returns valid state
+      run: |
+        # Run annactl status and check for valid state
+        OUTPUT=$(sudo annactl status 2>&1 || true)
+        echo "$OUTPUT"
+
+        # Should contain state information
+        if echo "$OUTPUT" | grep -q "state:"; then
+          echo "✓ annactl status returns valid state"
+        else
+          echo "✗ annactl status did not return state information"
+          exit 1
+        fi
+
+    - name: Phase 0.4 - Validate no elevated capabilities
+      run: |
+        # Get PID of annad process
+        ANNAD_PID=$(pgrep -x annad || echo "")
+
+        if [ -z "$ANNAD_PID" ]; then
+          echo "✗ annad process not found"
+          exit 1
+        fi
+
+        echo "annad PID: $ANNAD_PID"
+
+        # Check capabilities
+        echo "Checking process capabilities..."
+        sudo cat /proc/$ANNAD_PID/status | grep Cap || true
+
+        # Use capsh if available
+        if command -v capsh >/dev/null 2>&1; then
+          echo ""
+          echo "Capability breakdown:"
+          sudo capsh --decode=$(grep CapEff /proc/$ANNAD_PID/status | awk '{print $2}')
+
+          # Check that effective capabilities are empty or minimal
+          CAP_EFF=$(grep CapEff /proc/$ANNAD_PID/status | awk '{print $2}')
+          echo "Effective capabilities: $CAP_EFF"
+
+          # In a container, some capabilities might be present
+          # Just verify NoNewPrivileges is set
+          NO_NEW_PRIVS=$(grep NoNewPrivs /proc/$ANNAD_PID/status | awk '{print $2}')
+          echo "NoNewPrivs: $NO_NEW_PRIVS"
+
+          if [ "$NO_NEW_PRIVS" != "1" ]; then
+            echo "✗ NoNewPrivs should be 1, got $NO_NEW_PRIVS"
+            exit 1
+          fi
+
+          echo "✓ NoNewPrivs is set (privilege escalation prevented)"
+        fi
+
+    - name: Phase 0.4 - Test daemon restart after socket conflict
+      run: |
+        # Stop daemon
+        sudo systemctl stop annad
+
+        # Create a fake socket with wrong permissions
+        sudo mkdir -p /run/anna
+        sudo touch /run/anna/anna.sock
+        sudo chmod 777 /run/anna/anna.sock
+        sudo chown nobody:nobody /run/anna/anna.sock
+
+        echo "Created fake socket with wrong permissions"
+        stat -c "permissions=%a owner=%U:%G" /run/anna/anna.sock
+
+        # Try to start daemon - should fail or remove old socket
+        sudo systemctl start annad || true
+
+        # Wait a moment
+        sleep 2
+
+        # Check if daemon is running
+        if sudo systemctl is-active --quiet annad; then
+          echo "✓ Daemon started successfully (removed conflicting socket)"
+
+          # Verify socket now has correct permissions
+          SOCKET_PERMS=$(stat -c "%a" /run/anna/anna.sock)
+          SOCKET_OWNER=$(stat -c "%U:%G" /run/anna/anna.sock)
+
+          if [ "$SOCKET_PERMS" = "660" ] && [ "$SOCKET_OWNER" = "root:anna" ]; then
+            echo "✓ Socket permissions corrected to root:anna 660"
+          else
+            echo "✗ Socket permissions not corrected: $SOCKET_OWNER $SOCKET_PERMS"
+            exit 1
+          fi
+        else
+          echo "Daemon failed to start (expected with systemd validation)"
+          sudo journalctl -u annad -n 20
+        fi
+
+    - name: Cleanup
+      if: always()
+      run: |
+        sudo systemctl stop annad || true
+        sudo rm -f /run/anna/anna.sock

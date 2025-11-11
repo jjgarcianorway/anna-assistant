@@ -56,40 +56,42 @@ impl Requirement {
     /// Check if this requirement is met by the given system facts
     pub fn is_met(&self, facts: &SystemFacts) -> bool {
         match self {
-            Requirement::DisplayServer => {
-                facts.display_server.is_some()
-            }
-            Requirement::Wayland => {
-                facts.display_server.as_ref().map(|s| s.to_lowercase().contains("wayland")).unwrap_or(false)
-            }
-            Requirement::X11 => {
-                facts.display_server.as_ref().map(|s| s.to_lowercase().contains("x11")).unwrap_or(false)
-            }
-            Requirement::AudioSystem => {
-                facts.audio_system.is_some() && facts.audio_server_running
-            }
+            Requirement::DisplayServer => facts.display_server.is_some(),
+            Requirement::Wayland => facts
+                .display_server
+                .as_ref()
+                .map(|s| s.to_lowercase().contains("wayland"))
+                .unwrap_or(false),
+            Requirement::X11 => facts
+                .display_server
+                .as_ref()
+                .map(|s| s.to_lowercase().contains("x11"))
+                .unwrap_or(false),
+            Requirement::AudioSystem => facts.audio_system.is_some() && facts.audio_server_running,
             Requirement::PulseAudio => {
-                facts.audio_system.as_ref().map(|s| s.to_lowercase().contains("pulse")).unwrap_or(false)
+                facts
+                    .audio_system
+                    .as_ref()
+                    .map(|s| s.to_lowercase().contains("pulse"))
+                    .unwrap_or(false)
                     && facts.audio_server_running
             }
             Requirement::PipeWire => {
-                facts.audio_system.as_ref().map(|s| s.to_lowercase().contains("pipewire")).unwrap_or(false)
+                facts
+                    .audio_system
+                    .as_ref()
+                    .map(|s| s.to_lowercase().contains("pipewire"))
+                    .unwrap_or(false)
                     && facts.audio_server_running
             }
-            Requirement::GpuVendor(vendor) => {
-                match vendor.to_lowercase().as_str() {
-                    "nvidia" => facts.is_nvidia,
-                    "amd" => facts.is_amd_gpu,
-                    "intel" => facts.is_intel_gpu,
-                    _ => false,
-                }
-            }
-            Requirement::DedicatedGpu => {
-                facts.gpu_vendor.is_some()
-            }
-            Requirement::Bluetooth => {
-                facts.bluetooth_status.available
-            }
+            Requirement::GpuVendor(vendor) => match vendor.to_lowercase().as_str() {
+                "nvidia" => facts.is_nvidia,
+                "amd" => facts.is_amd_gpu,
+                "intel" => facts.is_intel_gpu,
+                _ => false,
+            },
+            Requirement::DedicatedGpu => facts.gpu_vendor.is_some(),
+            Requirement::Bluetooth => facts.bluetooth_status.available,
             Requirement::WiFi => facts.has_wifi,
             Requirement::Ethernet => facts.has_ethernet,
             Requirement::Package(pkg) => {
@@ -111,7 +113,8 @@ impl Requirement {
             }
             Requirement::Development => {
                 // Has dev tools or dev profile
-                !facts.dev_tools_detected.is_empty() || !facts.development_environment.languages.is_empty()
+                !facts.dev_tools_detected.is_empty()
+                    || !facts.development_environment.languages.is_empty()
             }
         }
     }
@@ -202,7 +205,8 @@ impl CategoryInfo {
             Self {
                 id: "development".to_string(),
                 display_name: "Development Tools".to_string(),
-                wiki_url: "https://wiki.archlinux.org/title/List_of_applications/Development".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/List_of_applications/Development"
+                    .to_string(),
                 description: "Programming and build tools".to_string(),
             },
             Self {
@@ -214,7 +218,8 @@ impl CategoryInfo {
             Self {
                 id: "multimedia".to_string(),
                 display_name: "Multimedia & Graphics".to_string(),
-                wiki_url: "https://wiki.archlinux.org/title/List_of_applications/Multimedia".to_string(),
+                wiki_url: "https://wiki.archlinux.org/title/List_of_applications/Multimedia"
+                    .to_string(),
                 description: "Video, audio, and image tools".to_string(),
             },
             Self {
@@ -274,19 +279,19 @@ pub struct SystemFacts {
     pub has_ethernet: bool,
 
     // User Environment
-    pub shell: String, // bash, zsh, fish
+    pub shell: String,                       // bash, zsh, fish
     pub desktop_environment: Option<String>, // GNOME, KDE, XFCE, etc.
-    pub window_manager: Option<String>, // Hyprland, i3, sway, bspwm, etc.
-    pub compositor: Option<String>, // Hyprland, picom, etc.
-    pub display_server: Option<String>, // X11, Wayland
+    pub window_manager: Option<String>,      // Hyprland, i3, sway, bspwm, etc.
+    pub compositor: Option<String>,          // Hyprland, picom, etc.
+    pub display_server: Option<String>,      // X11, Wayland
 
     // GPU Detection (beta.41+)
-    pub is_nvidia: bool, // Whether system has Nvidia GPU
+    pub is_nvidia: bool,                       // Whether system has Nvidia GPU
     pub nvidia_driver_version: Option<String>, // Nvidia driver version if present
-    pub has_wayland_nvidia_support: bool, // Whether Nvidia+Wayland is properly configured
-    pub is_intel_gpu: bool, // Whether system has Intel integrated graphics
-    pub is_amd_gpu: bool, // Whether system has AMD/ATI GPU
-    pub amd_driver_version: Option<String>, // AMD driver version (amdgpu or radeon)
+    pub has_wayland_nvidia_support: bool,      // Whether Nvidia+Wayland is properly configured
+    pub is_intel_gpu: bool,                    // Whether system has Intel integrated graphics
+    pub is_amd_gpu: bool,                      // Whether system has AMD/ATI GPU
+    pub amd_driver_version: Option<String>,    // AMD driver version (amdgpu or radeon)
 
     // Enhanced GPU Telemetry (beta.43+)
     #[serde(default)]
@@ -326,14 +331,14 @@ pub struct SystemFacts {
 
     // Advanced Telemetry for Better Understanding
     pub recently_installed_packages: Vec<PackageInstallation>, // last 30 days
-    pub active_services: Vec<String>, // currently running systemd services
-    pub enabled_services: Vec<String>, // services enabled on boot
+    pub active_services: Vec<String>,                          // currently running systemd services
+    pub enabled_services: Vec<String>,                         // services enabled on boot
     pub disk_usage_trend: DiskUsageTrend,
     pub session_info: SessionInfo,
     pub development_environment: DevelopmentProfile,
     pub gaming_profile: GamingProfile,
     pub network_profile: NetworkProfile,
-    pub system_age_days: u64, // days since installation
+    pub system_age_days: u64,              // days since installation
     pub user_preferences: UserPreferences, // detected preferences
 
     // Enhanced Telemetry (beta.35+)
@@ -383,8 +388,8 @@ pub struct DiskUsageTrend {
     pub total_gb: f64,
     pub used_gb: f64,
     pub largest_directories: Vec<DirectorySize>, // top 10 space consumers
-    pub cache_size_gb: f64, // total cache size
-    pub log_size_gb: f64, // /var/log size
+    pub cache_size_gb: f64,                      // total cache size
+    pub log_size_gb: f64,                        // /var/log size
 }
 
 /// Directory size information
@@ -408,10 +413,10 @@ pub struct SessionInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevelopmentProfile {
     pub languages: Vec<LanguageUsage>, // detected languages with project counts
-    pub ides_installed: Vec<String>, // vscode, vim, emacs, intellij, etc.
+    pub ides_installed: Vec<String>,   // vscode, vim, emacs, intellij, etc.
     pub active_projects: Vec<ProjectInfo>, // detected project directories
-    pub uses_containers: bool, // Docker/Podman usage
-    pub uses_virtualization: bool, // QEMU/VirtualBox/VMware
+    pub uses_containers: bool,         // Docker/Podman usage
+    pub uses_virtualization: bool,     // QEMU/VirtualBox/VMware
     pub git_repos_count: usize,
 }
 
@@ -441,7 +446,7 @@ pub struct GamingProfile {
     pub wine_installed: bool,
     pub proton_ge_installed: bool,
     pub mangohud_installed: bool,
-    pub game_count: usize, // detected games
+    pub game_count: usize,  // detected games
     pub uses_gamepad: bool, // gamepad detected or drivers installed
 }
 
@@ -454,19 +459,19 @@ pub struct NetworkProfile {
     pub has_ssh_client_keys: bool, // User has SSH keys in ~/.ssh/
     pub has_static_ip: bool,
     pub dns_configuration: String, // systemd-resolved, dnsmasq, etc.
-    pub uses_network_share: bool, // NFS, Samba mounts
+    pub uses_network_share: bool,  // NFS, Samba mounts
 }
 
 /// User preferences detected from system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserPreferences {
     pub prefers_cli_over_gui: bool, // based on command usage
-    pub is_power_user: bool, // based on tool complexity
-    pub values_aesthetics: bool, // has beautification tools
+    pub is_power_user: bool,        // based on tool complexity
+    pub values_aesthetics: bool,    // has beautification tools
     pub is_gamer: bool,
     pub is_developer: bool,
     pub is_content_creator: bool, // multimedia tools
-    pub uses_laptop: bool, // based on hardware
+    pub uses_laptop: bool,        // based on hardware
     pub prefers_minimalism: bool, // based on package count and choices
 }
 
@@ -523,7 +528,7 @@ pub struct HardwareMonitoring {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatteryHealth {
     pub percentage: u8,
-    pub status: String, // Charging, Discharging, Full
+    pub status: String,                // Charging, Discharging, Full
     pub health_percentage: Option<u8>, // 0-100, capacity vs design capacity
     pub cycles: Option<u32>,
     pub is_critical: bool, // < 20%
@@ -532,7 +537,7 @@ pub struct BatteryHealth {
 /// Disk health information from SMART data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskHealthInfo {
-    pub device: String, // /dev/sda, /dev/nvme0n1
+    pub device: String,        // /dev/sda, /dev/nvme0n1
     pub health_status: String, // PASSED, FAILING, UNKNOWN
     pub temperature_celsius: Option<u8>,
     pub power_on_hours: Option<u64>,
@@ -551,7 +556,7 @@ pub struct SystemHealthMetrics {
     pub degraded_services: Vec<String>, // services in degraded state
     pub recent_crashes: Vec<ServiceCrash>,
     pub oom_events_last_week: usize, // Out of memory kills
-    pub kernel_errors: Vec<String>, // Recent kernel errors
+    pub kernel_errors: Vec<String>,  // Recent kernel errors
 }
 
 /// Critical system event
@@ -560,7 +565,7 @@ pub struct CriticalEvent {
     pub timestamp: DateTime<Utc>,
     pub message: String,
     pub unit: Option<String>, // systemd unit involved
-    pub severity: String, // error, critical, emergency
+    pub severity: String,     // error, critical, emergency
 }
 
 /// Service crash information
@@ -657,7 +662,7 @@ pub struct BootTimeTrend {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MicrocodeStatus {
     pub microcode_installed: bool, // intel-ucode or amd-ucode package
-    pub vendor: String, // "Intel", "AMD", or "Unknown"
+    pub vendor: String,            // "Intel", "AMD", or "Unknown"
     pub current_version: Option<String>,
     pub needs_update: bool,
 }
@@ -667,18 +672,18 @@ pub struct MicrocodeStatus {
 pub struct BatteryInfo {
     pub present: bool,
     pub capacity_percent: Option<f64>, // Current charge percentage
-    pub health_percent: Option<f64>, // Battery health (capacity vs design capacity)
-    pub status: String, // "Charging", "Discharging", "Full", "Unknown"
-    pub time_to_empty: Option<f64>, // Minutes remaining (if discharging)
-    pub time_to_full: Option<f64>, // Minutes to full charge (if charging)
-    pub cycle_count: Option<u32>, // Number of charge cycles
+    pub health_percent: Option<f64>,   // Battery health (capacity vs design capacity)
+    pub status: String,                // "Charging", "Discharging", "Full", "Unknown"
+    pub time_to_empty: Option<f64>,    // Minutes remaining (if discharging)
+    pub time_to_full: Option<f64>,     // Minutes to full charge (if charging)
+    pub cycle_count: Option<u32>,      // Number of charge cycles
 }
 
 /// Bluetooth status (beta.43+)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BluetoothStatus {
-    pub available: bool, // Bluetooth hardware present
-    pub enabled: bool, // Bluetooth service running
+    pub available: bool,                // Bluetooth hardware present
+    pub enabled: bool,                  // Bluetooth service running
     pub connected_devices: Vec<String>, // List of connected device names
 }
 
@@ -687,10 +692,10 @@ pub struct BluetoothStatus {
 pub struct SSDInfo {
     pub device: String, // e.g., /dev/sda, /dev/nvme0n1
     pub model: String,
-    pub trim_enabled: bool, // TRIM/discard enabled
+    pub trim_enabled: bool,               // TRIM/discard enabled
     pub wear_leveling_count: Option<u32>, // From SMART data
     pub total_bytes_written: Option<u64>, // Lifetime writes
-    pub health_percent: Option<f64>, // Overall SSD health
+    pub health_percent: Option<f64>,      // Overall SSD health
 }
 
 /// Swap configuration (beta.43+)
@@ -708,8 +713,8 @@ pub struct SwapConfiguration {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LocaleInfo {
     pub timezone: String, // e.g., "America/New_York"
-    pub locale: String, // e.g., "en_US.UTF-8"
-    pub keymap: String, // e.g., "us", "de", "fr"
+    pub locale: String,   // e.g., "en_US.UTF-8"
+    pub keymap: String,   // e.g., "us", "de", "fr"
     pub language: String, // Primary language code
 }
 
@@ -790,7 +795,7 @@ impl Advice {
             related_to: Vec::new(),
             bundle: None,
             satisfies: Vec::new(),
-            popularity: 50, // Default: common
+            popularity: 50,       // Default: common
             requires: Vec::new(), // Default: no requirements
         }
     }
@@ -882,7 +887,7 @@ impl Advice {
 
         // Risk weight: 300 points (security/stability concerns)
         let risk_score = match self.risk {
-            RiskLevel::High => 300,    // High risk items need attention
+            RiskLevel::High => 300, // High risk items need attention
             RiskLevel::Medium => 150,
             RiskLevel::Low => 50,
         };
@@ -1009,9 +1014,8 @@ impl WikiCache {
             return Ok(Self::default());
         }
         let content = std::fs::read_to_string(path)?;
-        serde_json::from_str(&content).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        })
+        serde_json::from_str(&content)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
     /// Save wiki cache to disk
@@ -1084,9 +1088,8 @@ impl AutonomyLog {
             return Ok(Self::default());
         }
         let content = std::fs::read_to_string(path)?;
-        serde_json::from_str(&content).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        })
+        serde_json::from_str(&content)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
     /// Save autonomy log
@@ -1127,9 +1130,8 @@ impl BundleHistory {
             return Ok(Self::default());
         }
         let content = std::fs::read_to_string(path)?;
-        serde_json::from_str(&content).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        })
+        serde_json::from_str(&content)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
     /// Save bundle history to disk
@@ -1169,9 +1171,9 @@ pub struct FeedbackEvent {
 /// Type of feedback event
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FeedbackType {
-    Applied,     // User applied the advice
-    Dismissed,   // User explicitly dismissed/ignored
-    Viewed,      // User viewed but took no action
+    Applied,   // User applied the advice
+    Dismissed, // User explicitly dismissed/ignored
+    Viewed,    // User viewed but took no action
 }
 
 /// User feedback log for learning
@@ -1267,27 +1269,33 @@ impl UserFeedbackLog {
 /// Learned preferences from user behavior
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LearnedPreferences {
-    pub prefers_categories: Vec<String>,        // Categories user applies most
-    pub dismisses_categories: Vec<String>,      // Categories user dismisses most
-    pub avg_response_time_minutes: f64,         // How long before user acts
-    pub prefers_low_risk: bool,                 // Tends to apply only low-risk items
-    pub power_user_level: u8,                   // 0-10 based on complexity of applied items
+    pub prefers_categories: Vec<String>, // Categories user applies most
+    pub dismisses_categories: Vec<String>, // Categories user dismisses most
+    pub avg_response_time_minutes: f64,  // How long before user acts
+    pub prefers_low_risk: bool,          // Tends to apply only low-risk items
+    pub power_user_level: u8,            // 0-10 based on complexity of applied items
     pub last_updated: DateTime<Utc>,
 }
 
 impl LearnedPreferences {
     /// Calculate preferences from feedback log
     pub fn from_feedback(log: &UserFeedbackLog) -> Self {
-        let mut category_applications: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-        let mut category_dismissals: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut category_applications: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        let mut category_dismissals: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for event in &log.events {
             match event.event_type {
                 FeedbackType::Applied => {
-                    *category_applications.entry(event.advice_category.clone()).or_insert(0) += 1;
+                    *category_applications
+                        .entry(event.advice_category.clone())
+                        .or_insert(0) += 1;
                 }
                 FeedbackType::Dismissed => {
-                    *category_dismissals.entry(event.advice_category.clone()).or_insert(0) += 1;
+                    *category_dismissals
+                        .entry(event.advice_category.clone())
+                        .or_insert(0) += 1;
                 }
                 _ => {}
             }
@@ -1296,12 +1304,17 @@ impl LearnedPreferences {
         // Get top 5 most applied categories
         let mut prefers: Vec<_> = category_applications.iter().collect();
         prefers.sort_by(|a, b| b.1.cmp(a.1));
-        let prefers_categories: Vec<String> = prefers.iter().take(5).map(|(k, _)| (*k).clone()).collect();
+        let prefers_categories: Vec<String> =
+            prefers.iter().take(5).map(|(k, _)| (*k).clone()).collect();
 
         // Get top 5 most dismissed categories
         let mut dismisses: Vec<_> = category_dismissals.iter().collect();
         dismisses.sort_by(|a, b| b.1.cmp(a.1));
-        let dismisses_categories: Vec<String> = dismisses.iter().take(5).map(|(k, _)| (*k).clone()).collect();
+        let dismisses_categories: Vec<String> = dismisses
+            .iter()
+            .take(5)
+            .map(|(k, _)| (*k).clone())
+            .collect();
 
         // Calculate average response time (time between viewing and applying)
         let mut response_times: Vec<i64> = Vec::new();
@@ -1309,9 +1322,10 @@ impl LearnedPreferences {
         sorted_events.sort_by_key(|e| e.timestamp);
 
         for window in sorted_events.windows(2) {
-            if window[0].event_type == FeedbackType::Viewed &&
-               window[1].event_type == FeedbackType::Applied &&
-               window[0].advice_id == window[1].advice_id {
+            if window[0].event_type == FeedbackType::Viewed
+                && window[1].event_type == FeedbackType::Applied
+                && window[0].advice_id == window[1].advice_id
+            {
                 let duration = window[1].timestamp - window[0].timestamp;
                 response_times.push(duration.num_minutes());
             }
@@ -1326,7 +1340,8 @@ impl LearnedPreferences {
         // Infer risk preference from applied categories
         // Security/maintenance categories typically have lower risk
         let low_risk_categories = ["security", "maintenance", "cleanup", "updates"];
-        let low_risk_applications: usize = category_applications.iter()
+        let low_risk_applications: usize = category_applications
+            .iter()
             .filter(|(cat, _)| low_risk_categories.contains(&cat.as_str()))
             .map(|(_, count)| count)
             .sum();
@@ -1366,15 +1381,15 @@ impl LearnedPreferences {
 /// System health score
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemHealthScore {
-    pub overall_score: u8,              // 0-100
-    pub security_score: u8,             // 0-100
-    pub performance_score: u8,          // 0-100
-    pub maintenance_score: u8,          // 0-100
+    pub overall_score: u8,     // 0-100
+    pub security_score: u8,    // 0-100
+    pub performance_score: u8, // 0-100
+    pub maintenance_score: u8, // 0-100
     pub timestamp: DateTime<Utc>,
-    pub issues_count: usize,            // Total pending recommendations
-    pub critical_issues: usize,         // Mandatory priority items
-    pub health_trend: HealthTrend,      // Improving, stable, or declining
-    pub security_details: Vec<String>,  // Why security score is what it is
+    pub issues_count: usize,              // Total pending recommendations
+    pub critical_issues: usize,           // Mandatory priority items
+    pub health_trend: HealthTrend,        // Improving, stable, or declining
+    pub security_details: Vec<String>,    // Why security score is what it is
     pub performance_details: Vec<String>, // Why performance score is what it is
     pub maintenance_details: Vec<String>, // Why maintenance score is what it is
 }
@@ -1390,11 +1405,17 @@ pub enum HealthTrend {
 impl SystemHealthScore {
     /// Calculate health score from system facts and advice
     pub fn calculate(facts: &SystemFacts, advice: &[Advice]) -> Self {
-        let critical_issues = advice.iter().filter(|a| matches!(a.priority, Priority::Mandatory)).count();
+        let critical_issues = advice
+            .iter()
+            .filter(|a| matches!(a.priority, Priority::Mandatory))
+            .count();
         let total_issues = advice.len();
 
         // Security score based on security-related advice
-        let security_issues = advice.iter().filter(|a| a.category == "Security & Privacy").count();
+        let security_issues = advice
+            .iter()
+            .filter(|a| a.category == "Security & Privacy")
+            .count();
         let mut security_details = Vec::new();
 
         let security_score = if security_issues == 0 {
@@ -1402,7 +1423,11 @@ impl SystemHealthScore {
             security_details.push("✓ All security recommendations applied".to_string());
             100
         } else if security_issues < 3 {
-            security_details.push(format!("• {} security recommendation{} pending", security_issues, if security_issues == 1 { "" } else { "s" }));
+            security_details.push(format!(
+                "• {} security recommendation{} pending",
+                security_issues,
+                if security_issues == 1 { "" } else { "s" }
+            ));
             security_details.push("  These are minor security improvements".to_string());
             80
         } else if security_issues < 5 {
@@ -1423,27 +1448,50 @@ impl SystemHealthScore {
         for disk in &facts.storage_devices {
             let usage = (disk.used_gb / disk.size_gb * 100.0) as u8;
             if usage > 90 {
-                performance_details.push(format!("⚠ Disk {} is {}% full ({} GB free)", disk.name, usage, disk.size_gb - disk.used_gb));
+                performance_details.push(format!(
+                    "⚠ Disk {} is {}% full ({} GB free)",
+                    disk.name,
+                    usage,
+                    disk.size_gb - disk.used_gb
+                ));
                 perf_penalties.push(40);
             } else if usage > 80 {
-                performance_details.push(format!("• Disk {} is {}% full ({} GB free)", disk.name, usage, disk.size_gb - disk.used_gb));
+                performance_details.push(format!(
+                    "• Disk {} is {}% full ({} GB free)",
+                    disk.name,
+                    usage,
+                    disk.size_gb - disk.used_gb
+                ));
                 perf_penalties.push(10);
             }
         }
 
         // Check orphan packages
         if facts.orphan_packages.len() > 20 {
-            performance_details.push(format!("• {} orphaned packages (wasting disk space)", facts.orphan_packages.len()));
+            performance_details.push(format!(
+                "• {} orphaned packages (wasting disk space)",
+                facts.orphan_packages.len()
+            ));
             perf_penalties.push(20);
         } else if facts.orphan_packages.len() > 5 {
-            performance_details.push(format!("• {} orphaned packages (run cleanup when convenient)", facts.orphan_packages.len()));
+            performance_details.push(format!(
+                "• {} orphaned packages (run cleanup when convenient)",
+                facts.orphan_packages.len()
+            ));
             perf_penalties.push(10);
         }
 
         // Check performance recommendations
-        let perf_advice = advice.iter().filter(|a| a.category == "Performance Optimization").count();
+        let perf_advice = advice
+            .iter()
+            .filter(|a| a.category == "Performance Optimization")
+            .count();
         if perf_advice > 0 {
-            performance_details.push(format!("• {} performance optimization{} available", perf_advice, if perf_advice == 1 { "" } else { "s" }));
+            performance_details.push(format!(
+                "• {} performance optimization{} available",
+                perf_advice,
+                if perf_advice == 1 { "" } else { "s" }
+            ));
             perf_penalties.push((perf_advice as u8).min(15)); // Deduct for pending optimizations
         }
 
@@ -1455,7 +1503,10 @@ impl SystemHealthScore {
         }
 
         // Maintenance score based on orphans, old kernels, etc.
-        let maintenance_issues = advice.iter().filter(|a| a.category == "System Maintenance" || a.category == "Package Management").count();
+        let maintenance_issues = advice
+            .iter()
+            .filter(|a| a.category == "System Maintenance" || a.category == "Package Management")
+            .count();
         let mut maintenance_details = Vec::new();
 
         let maintenance_score = if maintenance_issues == 0 {
@@ -1463,25 +1514,45 @@ impl SystemHealthScore {
             maintenance_details.push("✓ No cleanup needed".to_string());
             100
         } else if maintenance_issues < 5 {
-            maintenance_details.push(format!("• {} maintenance task{} pending", maintenance_issues, if maintenance_issues == 1 { "" } else { "s" }));
+            maintenance_details.push(format!(
+                "• {} maintenance task{} pending",
+                maintenance_issues,
+                if maintenance_issues == 1 { "" } else { "s" }
+            ));
             maintenance_details.push("  System maintenance is mostly up-to-date".to_string());
             80
         } else {
-            maintenance_details.push(format!("⚠ {} maintenance tasks pending", maintenance_issues));
+            maintenance_details.push(format!(
+                "⚠ {} maintenance tasks pending",
+                maintenance_issues
+            ));
             maintenance_details.push("  System could use some cleanup".to_string());
             60
         };
 
         // Add specific maintenance info
         if facts.orphan_packages.len() > 0 {
-            maintenance_details.push(format!("  - {} orphaned package{}", facts.orphan_packages.len(), if facts.orphan_packages.len() == 1 { "" } else { "s" }));
+            maintenance_details.push(format!(
+                "  - {} orphaned package{}",
+                facts.orphan_packages.len(),
+                if facts.orphan_packages.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            ));
         }
         if facts.package_cache_size_gb > 1.0 {
-            maintenance_details.push(format!("  - Package cache: {:.1} GB", facts.package_cache_size_gb));
+            maintenance_details.push(format!(
+                "  - Package cache: {:.1} GB",
+                facts.package_cache_size_gb
+            ));
         }
 
         // Overall score is weighted average
-        let overall_score = (security_score as f64 * 0.4 + performance_score as f64 * 0.3 + maintenance_score as f64 * 0.3) as u8;
+        let overall_score = (security_score as f64 * 0.4
+            + performance_score as f64 * 0.3
+            + maintenance_score as f64 * 0.3) as u8;
 
         // Calculate health trend based on current state
         // Future enhancement: track historical scores for accurate trend analysis
@@ -1680,7 +1751,9 @@ impl ApplicationHistory {
         let mut improvements = Vec::new();
 
         for entry in &self.entries {
-            if let (Some(before), Some(after)) = (entry.health_score_before, entry.health_score_after) {
+            if let (Some(before), Some(after)) =
+                (entry.health_score_before, entry.health_score_after)
+            {
                 improvements.push((after as i16 - before as i16) as f64);
             }
         }
@@ -1695,7 +1768,7 @@ impl ApplicationHistory {
     /// Get statistics for a time period
     pub fn period_stats(&self, days: i64) -> PeriodStats {
         let entries = self.last_n_days(days);
-        
+
         let total = entries.len();
         let successful = entries.iter().filter(|e| e.success).count();
         let failed = total - successful;
@@ -1715,7 +1788,11 @@ impl ApplicationHistory {
             total_applications: total,
             successful_applications: successful,
             failed_applications: failed,
-            success_rate: if total > 0 { (successful as f64 / total as f64) * 100.0 } else { 0.0 },
+            success_rate: if total > 0 {
+                (successful as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            },
             top_category,
             days,
         }

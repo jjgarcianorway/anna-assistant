@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://annaassistant.dev/schemas/ctl-log/v1.0.0",
+  "title": "Anna Control Log Entry",
+  "description": "JSON schema for Anna Assistant control log (ctl.jsonl) entries - Phase 0.5",
+  "version": "1.0.0-rc.13",
+  "type": "object",
+  "required": ["ts", "req_id", "state", "command", "exit_code", "citation", "duration_ms", "ok"],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "UUID request identifier"
+    },
+    "state": {
+      "type": "string",
+      "description": "System state at time of command",
+      "enum": [
+        "iso_live",
+        "recovery_candidate",
+        "post_install_minimal",
+        "configured",
+        "degraded",
+        "unknown"
+      ]
+    },
+    "command": {
+      "type": "string",
+      "description": "Command executed",
+      "examples": ["health", "doctor", "rescue list", "status", "help"]
+    },
+    "allowed": {
+      "type": ["boolean", "null"],
+      "description": "Whether command was allowed in current state"
+    },
+    "args": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Command arguments"
+    },
+    "exit_code": {
+      "type": "integer",
+      "description": "Process exit code"
+    },
+    "citation": {
+      "type": "string",
+      "pattern": "^\\[archwiki:",
+      "description": "Arch Wiki citation",
+      "examples": ["[archwiki:System_maintenance]", "[archwiki:General_recommendations]"]
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Command execution duration in milliseconds"
+    },
+    "ok": {
+      "type": "boolean",
+      "description": "Whether command succeeded"
+    },
+    "error": {
+      "type": ["object", "null"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Error code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Error message"
+        }
+      }
+    }
+  }
+}

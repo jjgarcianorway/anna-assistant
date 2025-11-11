@@ -74,9 +74,6 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_window_manager_recommendations(facts));
     advice.extend(check_desktop_environment_specific(facts));
 
-    // Window manager bundles (beta.94+)
-    advice.extend(crate::bundles::generate_all_wm_bundles(facts));
-
     advice.extend(check_microcode(facts));
     advice.extend(check_gpu_drivers(facts));
     advice.extend(check_intel_gpu_support(facts));
@@ -197,9 +194,6 @@ pub fn generate_advice(facts: &SystemFacts) -> Vec<Advice> {
     advice.extend(check_container_orchestration());
     advice.extend(check_python_enhancements());
     advice.extend(check_git_workflow_tools());
-    // Annotate advice with resource warnings (beta.102+)
-    crate::resource_classifier::annotate_advice(&mut advice, facts);
-
 
     advice
 }
@@ -556,7 +550,9 @@ fn check_gpu_enhancements(facts: &SystemFacts) -> Vec<Advice> {
     }
 
     // Recommend OpenCL for compute workloads if not installed
-    if (facts.is_nvidia || facts.is_amd_gpu || facts.is_intel_gpu) && !is_package_installed("opencl-headers") {
+    if (facts.is_nvidia || facts.is_amd_gpu || facts.is_intel_gpu)
+        && !is_package_installed("opencl-headers")
+    {
         let opencl_package = if facts.is_nvidia {
             "opencl-nvidia"
         } else if facts.is_amd_gpu {
@@ -626,7 +622,10 @@ fn check_btrfs_maintenance(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if any filesystem is btrfs
-    let has_btrfs = facts.storage_devices.iter().any(|d| d.filesystem == "btrfs");
+    let has_btrfs = facts
+        .storage_devices
+        .iter()
+        .any(|d| d.filesystem == "btrfs");
 
     if has_btrfs {
         // Check if btrfs-progs is installed
@@ -739,9 +738,7 @@ fn check_system_updates() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if updates are available
-    let output = Command::new("pacman")
-        .args(&["-Qu"])
-        .output();
+    let output = Command::new("pacman").args(&["-Qu"]).output();
 
     if let Ok(output) = output {
         let updates = String::from_utf8_lossy(&output.stdout);
@@ -789,9 +786,10 @@ fn check_trim_timer(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if any SSD is present
-    let has_ssd = facts.storage_devices.iter().any(|d| {
-        d.name.starts_with("/dev/sd") || d.name.starts_with("/dev/nvme")
-    });
+    let has_ssd = facts
+        .storage_devices
+        .iter()
+        .any(|d| d.name.starts_with("/dev/sd") || d.name.starts_with("/dev/nvme"));
 
     if has_ssd {
         // Check if fstrim.timer is enabled
@@ -799,9 +797,7 @@ fn check_trim_timer(facts: &SystemFacts) -> Vec<Advice> {
             .args(&["is-enabled", "fstrim.timer"])
             .output();
 
-        let is_enabled = timer_status
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+        let is_enabled = timer_status.map(|o| o.status.success()).unwrap_or(false);
 
         if !is_enabled {
             result.push(Advice {
@@ -857,7 +853,10 @@ fn check_pacman_config() -> Vec<Advice> {
         }
 
         // Check for ParallelDownloads
-        if !config.lines().any(|l| l.trim().starts_with("ParallelDownloads")) {
+        if !config
+            .lines()
+            .any(|l| l.trim().starts_with("ParallelDownloads"))
+        {
             result.push(Advice {
                 id: "pacman-parallel".to_string(),
                 title: "Download packages 5x faster".to_string(),
@@ -936,7 +935,10 @@ fn check_network_manager(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if system has wifi
-    let has_wifi = facts.network_interfaces.iter().any(|iface| iface.starts_with("wl"));
+    let has_wifi = facts
+        .network_interfaces
+        .iter()
+        .any(|iface| iface.starts_with("wl"));
 
     if has_wifi {
         // Check if NetworkManager is installed
@@ -1012,9 +1014,7 @@ fn check_firewall() -> Vec<Advice> {
 
     if has_ufw {
         // Check if ufw is enabled
-        let ufw_status = Command::new("ufw")
-            .arg("status")
-            .output();
+        let ufw_status = Command::new("ufw").arg("status").output();
 
         if let Ok(output) = ufw_status {
             let status = String::from_utf8_lossy(&output.stdout);
@@ -1041,15 +1041,14 @@ fn check_firewall() -> Vec<Advice> {
         }
     } else {
         // Check if iptables is being actively used
-        let iptables_rules = Command::new("iptables")
-            .args(&["-L", "-n"])
-            .output();
+        let iptables_rules = Command::new("iptables").args(&["-L", "-n"]).output();
 
         if let Ok(output) = iptables_rules {
             let rules = String::from_utf8_lossy(&output.stdout);
             // If only default policies exist, no firewall is configured
             let lines: Vec<&str> = rules.lines().collect();
-            if lines.len() < 10 {  // Very few rules = probably no firewall
+            if lines.len() < 10 {
+                // Very few rules = probably no firewall
                 result.push(Advice {
                     id: "firewall-missing".to_string(),
                     title: "Set up a firewall for security".to_string(),
@@ -1199,9 +1198,9 @@ fn check_ssh_config() -> Vec<Advice> {
     if let Ok(config) = std::fs::read_to_string("/etc/ssh/sshd_config") {
         // Check for root login
         let permits_root = config.lines().any(|l| {
-            l.trim().starts_with("PermitRootLogin") &&
-            !l.contains("no") &&
-            !l.trim().starts_with("#")
+            l.trim().starts_with("PermitRootLogin")
+                && !l.contains("no")
+                && !l.trim().starts_with("#")
         });
 
         if permits_root {
@@ -1227,16 +1226,20 @@ fn check_ssh_config() -> Vec<Advice> {
 
         // Check for password authentication
         let password_auth = config.lines().any(|l| {
-            l.trim().starts_with("PasswordAuthentication") &&
-            l.contains("yes") &&
-            !l.trim().starts_with("#")
+            l.trim().starts_with("PasswordAuthentication")
+                && l.contains("yes")
+                && !l.trim().starts_with("#")
         });
 
         if password_auth {
             // Only suggest if user has SSH keys set up
-            if std::path::Path::new("/root/.ssh/authorized_keys").exists() ||
-               std::path::Path::new(&format!("/home/{}/.ssh/authorized_keys",
-                   std::env::var("SUDO_USER").unwrap_or_default())).exists() {
+            if std::path::Path::new("/root/.ssh/authorized_keys").exists()
+                || std::path::Path::new(&format!(
+                    "/home/{}/.ssh/authorized_keys",
+                    std::env::var("SUDO_USER").unwrap_or_default()
+                ))
+                .exists()
+            {
                 result.push(Advice {
                     id: "ssh-key-only".to_string(),
                     title: "Use SSH keys instead of passwords".to_string(),
@@ -1260,9 +1263,9 @@ fn check_ssh_config() -> Vec<Advice> {
 
         // Check for empty passwords
         let permits_empty = config.lines().any(|l| {
-            l.trim().starts_with("PermitEmptyPasswords") &&
-            l.contains("yes") &&
-            !l.trim().starts_with("#")
+            l.trim().starts_with("PermitEmptyPasswords")
+                && l.contains("yes")
+                && !l.trim().starts_with("#")
         });
 
         if permits_empty {
@@ -1288,9 +1291,7 @@ fn check_ssh_config() -> Vec<Advice> {
 
         // Check for Protocol version (SSH-1 is insecure)
         let allows_protocol_1 = config.lines().any(|l| {
-            l.trim().starts_with("Protocol") &&
-            l.contains("1") &&
-            !l.trim().starts_with("#")
+            l.trim().starts_with("Protocol") && l.contains("1") && !l.trim().starts_with("#")
         });
 
         if allows_protocol_1 {
@@ -1316,9 +1317,7 @@ fn check_ssh_config() -> Vec<Advice> {
 
         // Check for X11 forwarding (security risk if not needed)
         let x11_forwarding = config.lines().any(|l| {
-            l.trim().starts_with("X11Forwarding") &&
-            l.contains("yes") &&
-            !l.trim().starts_with("#")
+            l.trim().starts_with("X11Forwarding") && l.contains("yes") && !l.trim().starts_with("#")
         });
 
         if x11_forwarding {
@@ -1343,10 +1342,9 @@ fn check_ssh_config() -> Vec<Advice> {
         }
 
         // Check for MaxAuthTries (limit brute force attempts)
-        let has_max_auth_tries = config.lines().any(|l| {
-            l.trim().starts_with("MaxAuthTries") &&
-            !l.trim().starts_with("#")
-        });
+        let has_max_auth_tries = config
+            .lines()
+            .any(|l| l.trim().starts_with("MaxAuthTries") && !l.trim().starts_with("#"));
 
         if !has_max_auth_tries {
             result.push(Advice {
@@ -1370,10 +1368,9 @@ fn check_ssh_config() -> Vec<Advice> {
         }
 
         // Check for ClientAliveInterval (detect dead connections)
-        let has_client_alive = config.lines().any(|l| {
-            l.trim().starts_with("ClientAliveInterval") &&
-            !l.trim().starts_with("#")
-        });
+        let has_client_alive = config
+            .lines()
+            .any(|l| l.trim().starts_with("ClientAliveInterval") && !l.trim().starts_with("#"));
 
         if !has_client_alive {
             result.push(Advice {
@@ -1398,8 +1395,8 @@ fn check_ssh_config() -> Vec<Advice> {
 
         // Check for AllowUsers/AllowGroups (whitelist approach)
         let has_allow_users = config.lines().any(|l| {
-            (l.trim().starts_with("AllowUsers") || l.trim().starts_with("AllowGroups")) &&
-            !l.trim().starts_with("#")
+            (l.trim().starts_with("AllowUsers") || l.trim().starts_with("AllowGroups"))
+                && !l.trim().starts_with("#")
         });
 
         if !has_allow_users {
@@ -1425,9 +1422,7 @@ fn check_ssh_config() -> Vec<Advice> {
 
         // Check for default SSH port (22)
         let uses_default_port = !config.lines().any(|l| {
-            l.trim().starts_with("Port") &&
-            !l.contains("22") &&
-            !l.trim().starts_with("#")
+            l.trim().starts_with("Port") && !l.contains("22") && !l.trim().starts_with("#")
         });
 
         if uses_default_port {
@@ -1461,12 +1456,14 @@ fn check_ssh_config() -> Vec<Advice> {
         {
             let keys_info = String::from_utf8_lossy(&key_output.stdout);
             let has_ed25519 = keys_info.contains("ED25519");
-            let has_weak_keys = keys_info.contains("RSA") &&
-                keys_info.lines().any(|l| {
-                    l.contains("RSA") && l.split_whitespace().next()
-                        .and_then(|s| s.parse::<u32>().ok())
-                        .map(|bits| bits < 3072)
-                        .unwrap_or(false)
+            let has_weak_keys = keys_info.contains("RSA")
+                && keys_info.lines().any(|l| {
+                    l.contains("RSA")
+                        && l.split_whitespace()
+                            .next()
+                            .and_then(|s| s.parse::<u32>().ok())
+                            .map(|bits| bits < 3072)
+                            .unwrap_or(false)
                 });
 
             if !has_ed25519 {
@@ -1579,9 +1576,7 @@ fn check_swap() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if swap is active
-    let swap_output = Command::new("swapon")
-        .arg("--show")
-        .output();
+    let swap_output = Command::new("swapon").arg("--show").output();
 
     if let Ok(output) = swap_output {
         let swap_info = String::from_utf8_lossy(&output.stdout);
@@ -1589,9 +1584,7 @@ fn check_swap() -> Vec<Advice> {
         if swap_info.lines().count() <= 1 {
             // No swap configured
             // Check available RAM
-            let mem_output = Command::new("free")
-                .args(&["-m"])
-                .output();
+            let mem_output = Command::new("free").args(&["-m"]).output();
 
             if let Ok(mem) = mem_output {
                 let mem_info = String::from_utf8_lossy(&mem.stdout);
@@ -1853,7 +1846,9 @@ fn check_status_bar(facts: &SystemFacts) -> Vec<Advice> {
     // Check if user has a WM (not DE with built-in bar) via package groups
     let wms_needing_bar = vec!["i3", "sway", "hyprland", "bspwm", "dwm", "xmonad"];
     let has_wm_needing_bar = facts.package_groups.iter().any(|group| {
-        wms_needing_bar.iter().any(|wm| group.to_lowercase().contains(wm))
+        wms_needing_bar
+            .iter()
+            .any(|wm| group.to_lowercase().contains(wm))
     });
 
     if !has_wm_needing_bar {
@@ -2120,7 +2115,12 @@ fn check_essential_cli_tools() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // bat - better cat with syntax highlighting
-    if !Command::new("which").arg("bat").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("bat")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-bat".to_string(),
             title: "Install bat - a better 'cat' with syntax highlighting".to_string(),
@@ -2142,7 +2142,12 @@ fn check_essential_cli_tools() -> Vec<Advice> {
     }
 
     // eza - modern ls replacement
-    if !Command::new("which").arg("eza").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("eza")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-eza".to_string(),
             title: "Install eza - a modern replacement for 'ls'".to_string(),
@@ -2164,7 +2169,12 @@ fn check_essential_cli_tools() -> Vec<Advice> {
     }
 
     // fzf - fuzzy finder
-    if !Command::new("which").arg("fzf").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("fzf")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-fzf".to_string(),
             title: "Install fzf - fuzzy command-line finder".to_string(),
@@ -2186,7 +2196,12 @@ fn check_essential_cli_tools() -> Vec<Advice> {
     }
 
     // tldr - simplified man pages
-    if !Command::new("which").arg("tldr").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("tldr")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-tldr".to_string(),
             title: "Install tldr - simplified and practical man pages".to_string(),
@@ -2208,7 +2223,12 @@ fn check_essential_cli_tools() -> Vec<Advice> {
     }
 
     // ncdu - disk usage analyzer
-    if !Command::new("which").arg("ncdu").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("ncdu")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-ncdu".to_string(),
             title: "Install ncdu - interactive disk usage analyzer".to_string(),
@@ -2237,7 +2257,12 @@ fn check_system_monitors() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // btop - modern system monitor
-    if !Command::new("which").arg("btop").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("btop")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-btop".to_string(),
             title: "Install btop - beautiful resource monitor".to_string(),
@@ -2272,7 +2297,12 @@ fn check_arch_specific_tools() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // arch-audit - security audit tool
-    if !Command::new("which").arg("arch-audit").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("arch-audit")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-arch-audit".to_string(),
             title: "Install arch-audit - check for security vulnerabilities".to_string(),
@@ -2294,7 +2324,12 @@ fn check_arch_specific_tools() -> Vec<Advice> {
     }
 
     // pkgfile - command-not-found handler
-    if !Command::new("which").arg("pkgfile").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("pkgfile")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-pkgfile".to_string(),
             title: "Install pkgfile - find which package owns a file".to_string(),
@@ -2316,7 +2351,12 @@ fn check_arch_specific_tools() -> Vec<Advice> {
     }
 
     // pacman-contrib - additional pacman tools
-    if !Command::new("which").arg("paccache").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("paccache")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-pacman-contrib".to_string(),
             title: "Install pacman-contrib - extra pacman utilities".to_string(),
@@ -2345,13 +2385,22 @@ fn check_git_enhancements() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if git is installed first
-    let has_git = Command::new("which").arg("git").output().map(|o| o.status.success()).unwrap_or(false);
+    let has_git = Command::new("which")
+        .arg("git")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
     if !has_git {
         return result;
     }
 
     // lazygit - terminal UI for git
-    if !Command::new("which").arg("lazygit").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("lazygit")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-lazygit".to_string(),
             title: "Install lazygit - simple terminal UI for git".to_string(),
@@ -2373,7 +2422,12 @@ fn check_git_enhancements() -> Vec<Advice> {
     }
 
     // git-delta - better git diff
-    if !Command::new("which").arg("delta").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("delta")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-git-delta".to_string(),
             title: "Install git-delta - beautiful git diffs with syntax highlighting".to_string(),
@@ -2407,7 +2461,12 @@ fn check_screenshot_tools() -> Vec<Advice> {
     }
 
     // flameshot - screenshot tool
-    if !Command::new("which").arg("flameshot").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("flameshot")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-flameshot".to_string(),
             title: "Install flameshot - powerful screenshot tool".to_string(),
@@ -2452,7 +2511,12 @@ fn check_password_manager() -> Vec<Advice> {
     }
 
     // KeePassXC - password manager
-    if !Command::new("which").arg("keepassxc").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("keepassxc")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         result.push(Advice {
             id: "install-keepassxc".to_string(),
             title: "Install KeePassXC - secure password manager".to_string(),
@@ -2492,11 +2556,10 @@ fn check_config_files() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check for .vimrc
-    let vimrc_path = std::path::Path::new(&std::env::var("HOME").unwrap_or_default()).join(".vimrc");
+    let vimrc_path =
+        std::path::Path::new(&std::env::var("HOME").unwrap_or_default()).join(".vimrc");
     if vimrc_path.exists() {
-        let vimrc_size = std::fs::metadata(&vimrc_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let vimrc_size = std::fs::metadata(&vimrc_path).map(|m| m.len()).unwrap_or(0);
 
         // If vimrc is very small (< 500 bytes), suggest improvements
         if vimrc_size < 500 {
@@ -2575,7 +2638,8 @@ fn check_cli_tools(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check command history for common tools
-    let commands: Vec<String> = facts.frequently_used_commands
+    let commands: Vec<String> = facts
+        .frequently_used_commands
         .iter()
         .map(|c| c.command.clone())
         .collect();
@@ -2745,9 +2809,9 @@ fn check_gaming_setup() -> Vec<Advice> {
     if has_steam {
         // Check if multilib repository is enabled
         if let Ok(pacman_conf) = std::fs::read_to_string("/etc/pacman.conf") {
-            let multilib_enabled = pacman_conf.lines().any(|l| {
-                l.trim() == "[multilib]" && !l.trim().starts_with("#")
-            });
+            let multilib_enabled = pacman_conf
+                .lines()
+                .any(|l| l.trim() == "[multilib]" && !l.trim().starts_with("#"));
 
             if !multilib_enabled {
                 result.push(Advice {
@@ -2892,12 +2956,16 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Use desktop environment from SystemFacts (more reliable than env vars when running as root)
-    let desktop_env = facts.desktop_environment.as_ref()
+    let desktop_env = facts
+        .desktop_environment
+        .as_ref()
         .map(|de| de.to_lowercase())
         .unwrap_or_default();
 
     // Detect display server from SystemFacts
-    let display_server = facts.display_server.as_ref()
+    let display_server = facts
+        .display_server
+        .as_ref()
         .map(|ds| ds.to_lowercase())
         .unwrap_or_default();
     let wayland_session = display_server.contains("wayland");
@@ -3025,7 +3093,8 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
         .args(&["-Q", "i3-wm"])
         .output()
         .map(|o| o.status.success())
-        .unwrap_or(false) || desktop_env.contains("i3");
+        .unwrap_or(false)
+        || desktop_env.contains("i3");
 
     if has_i3 {
         // Check for i3status
@@ -3090,7 +3159,8 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
         .args(&["-Q", "hyprland"])
         .output()
         .map(|o| o.status.success())
-        .unwrap_or(false) || desktop_env.contains("hyprland");
+        .unwrap_or(false)
+        || desktop_env.contains("hyprland");
 
     if has_hyprland {
         // Check for waybar
@@ -3231,7 +3301,8 @@ fn check_desktop_environment(facts: &SystemFacts) -> Vec<Advice> {
         .args(&["-Q", "sway"])
         .output()
         .map(|o| o.status.success())
-        .unwrap_or(false) || desktop_env.contains("sway");
+        .unwrap_or(false)
+        || desktop_env.contains("sway");
 
     if has_sway {
         // Waybar for sway too
@@ -3959,8 +4030,8 @@ fn check_power_management() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if system is a laptop (has battery)
-    let is_laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
-                    std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+    let is_laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
+        || std::path::Path::new("/sys/class/power_supply/BAT1").exists();
 
     if is_laptop {
         // Check for TLP
@@ -4476,7 +4547,10 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if user has Btrfs (best for snapshots)
-    let has_btrfs = facts.storage_devices.iter().any(|dev| dev.filesystem.to_lowercase().contains("btrfs"));
+    let has_btrfs = facts
+        .storage_devices
+        .iter()
+        .any(|dev| dev.filesystem.to_lowercase().contains("btrfs"));
 
     // Check for existing snapshot tools
     let has_timeshift = Command::new("pacman")
@@ -4586,7 +4660,11 @@ fn check_snapshot_systems(facts: &SystemFacts) -> Vec<Advice> {
 
         // Check if snapper is actually configured
         let snapper_configs = std::path::Path::new("/etc/snapper/configs");
-        if !snapper_configs.exists() || std::fs::read_dir(snapper_configs).map(|mut d| d.next().is_none()).unwrap_or(true) {
+        if !snapper_configs.exists()
+            || std::fs::read_dir(snapper_configs)
+                .map(|mut d| d.next().is_none())
+                .unwrap_or(true)
+        {
             result.push(Advice {
                 id: "snapshot-snapper-config".to_string(),
                 title: "Configure Snapper for your root filesystem".to_string(),
@@ -4653,11 +4731,15 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
         .unwrap_or(false);
 
     // Check if user has docker in command history (wants to use it)
-    let uses_docker = facts.frequently_used_commands.iter()
+    let uses_docker = facts
+        .frequently_used_commands
+        .iter()
         .any(|cmd| cmd.command.contains("docker"));
 
     // Check if user has container-related files
-    let has_dockerfile = facts.common_file_types.iter()
+    let has_dockerfile = facts
+        .common_file_types
+        .iter()
         .any(|t| t.contains("docker") || t.contains("container"));
 
     if !has_docker && (uses_docker || has_dockerfile) {
@@ -4711,7 +4793,8 @@ fn check_docker_support(facts: &SystemFacts) -> Vec<Advice> {
         }
 
         // Check if user is in docker group
-        let current_user = std::env::var("SUDO_USER").unwrap_or_else(|_| std::env::var("USER").unwrap_or_default());
+        let current_user = std::env::var("SUDO_USER")
+            .unwrap_or_else(|_| std::env::var("USER").unwrap_or_default());
         if !current_user.is_empty() {
             let in_docker_group = Command::new("groups")
                 .arg(&current_user)
@@ -4778,8 +4861,8 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if CPU supports virtualization
-    let cpu_has_virt = facts.cpu_model.to_lowercase().contains("amd") ||
-                       facts.cpu_model.to_lowercase().contains("intel");
+    let cpu_has_virt = facts.cpu_model.to_lowercase().contains("amd")
+        || facts.cpu_model.to_lowercase().contains("intel");
 
     if !cpu_has_virt {
         return result; // No virtualization support
@@ -4818,8 +4901,9 @@ fn check_virtualization_support(facts: &SystemFacts) -> Vec<Advice> {
         .unwrap_or(false);
 
     // Check if user seems interested in virtualization
-    let uses_virt = facts.frequently_used_commands.iter()
-        .any(|cmd| cmd.command.contains("qemu") || cmd.command.contains("virt") || cmd.command.contains("kvm"));
+    let uses_virt = facts.frequently_used_commands.iter().any(|cmd| {
+        cmd.command.contains("qemu") || cmd.command.contains("virt") || cmd.command.contains("kvm")
+    });
 
     if !has_qemu && (uses_virt || virt_enabled) {
         result.push(Advice {
@@ -5033,9 +5117,11 @@ fn check_printer_support() -> Vec<Advice> {
         .output()
         .map(|o| {
             let output = String::from_utf8_lossy(&o.stdout).to_lowercase();
-            output.contains("printer") || output.contains("canon") || 
-            output.contains("hp") || output.contains("epson") || 
-            output.contains("brother")
+            output.contains("printer")
+                || output.contains("canon")
+                || output.contains("hp")
+                || output.contains("epson")
+                || output.contains("brother")
         })
         .unwrap_or(false);
 
@@ -5386,8 +5472,7 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
     // Check for noatime mount option
     let fstab_content = std::fs::read_to_string("/etc/fstab").unwrap_or_default();
     let has_noatime = fstab_content.lines().any(|line| {
-        !line.trim().starts_with('#') && 
-        (line.contains("noatime") || line.contains("relatime"))
+        !line.trim().starts_with('#') && (line.contains("noatime") || line.contains("relatime"))
     });
 
     if !has_noatime {
@@ -5412,9 +5497,9 @@ fn check_ssd_optimizations(facts: &SystemFacts) -> Vec<Advice> {
     }
 
     // Check for discard support (continuous TRIM)
-    let has_discard = fstab_content.lines().any(|line| {
-        !line.trim().starts_with('#') && line.contains("discard")
-    });
+    let has_discard = fstab_content
+        .lines()
+        .any(|line| !line.trim().starts_with('#') && line.contains("discard"));
 
     if !has_discard {
         result.push(Advice {
@@ -5515,9 +5600,9 @@ fn check_dns_configuration() -> Vec<Advice> {
 
     // Check for public DNS servers
     if !resolv_conf.contains("127.0.0.") {
-        let using_isp_dns = !resolv_conf.contains("1.1.1.1") && 
-                           !resolv_conf.contains("8.8.8.8") && 
-                           !resolv_conf.contains("9.9.9.9");
+        let using_isp_dns = !resolv_conf.contains("1.1.1.1")
+            && !resolv_conf.contains("8.8.8.8")
+            && !resolv_conf.contains("9.9.9.9");
 
         if using_isp_dns {
             result.push(Advice {
@@ -5556,13 +5641,17 @@ fn check_journal_size() -> Vec<Advice> {
         .and_then(|o| {
             let output = String::from_utf8_lossy(&o.stdout);
             // Parse "Archived and active journals take up 512.0M in the file system."
-            output.split_whitespace()
+            output
+                .split_whitespace()
                 .find(|s| s.ends_with("M") || s.ends_with("G"))
                 .and_then(|s| {
-                    let num: String = s.chars().take_while(|c| c.is_numeric() || *c == '.').collect();
-                    num.parse::<f64>().ok().map(|n| {
-                        if s.ends_with("G") { n * 1024.0 } else { n }
-                    })
+                    let num: String = s
+                        .chars()
+                        .take_while(|c| c.is_numeric() || *c == '.')
+                        .collect();
+                    num.parse::<f64>()
+                        .ok()
+                        .map(|n| if s.ends_with("G") { n * 1024.0 } else { n })
                 })
         });
 
@@ -5591,9 +5680,9 @@ fn check_journal_size() -> Vec<Advice> {
 
     // Check if journal size limit is configured
     let journald_conf = std::fs::read_to_string("/etc/systemd/journald.conf").unwrap_or_default();
-    let has_size_limit = journald_conf.lines().any(|line| {
-        !line.trim().starts_with('#') && line.contains("SystemMaxUse")
-    });
+    let has_size_limit = journald_conf
+        .lines()
+        .any(|line| !line.trim().starts_with('#') && line.contains("SystemMaxUse"));
 
     if !has_size_limit {
         result.push(Advice {
@@ -5624,9 +5713,21 @@ fn check_aur_helper_safety() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check which AUR helper is installed
-    let has_yay = Command::new("pacman").args(&["-Q", "yay"]).output().map(|o| o.status.success()).unwrap_or(false);
-    let has_paru = Command::new("pacman").args(&["-Q", "paru"]).output().map(|o| o.status.success()).unwrap_or(false);
-    let has_pikaur = Command::new("pacman").args(&["-Q", "pikaur"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let has_yay = Command::new("pacman")
+        .args(&["-Q", "yay"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let has_paru = Command::new("pacman")
+        .args(&["-Q", "paru"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let has_pikaur = Command::new("pacman")
+        .args(&["-Q", "pikaur"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
 
     if has_yay || has_paru || has_pikaur {
         result.push(Advice {
@@ -5656,7 +5757,9 @@ fn check_aur_helper_safety() -> Vec<Advice> {
             .map(|o| {
                 String::from_utf8_lossy(&o.stdout)
                     .lines()
-                    .filter(|line| line.ends_with("-git") || line.ends_with("-svn") || line.ends_with("-hg"))
+                    .filter(|line| {
+                        line.ends_with("-git") || line.ends_with("-svn") || line.ends_with("-hg")
+                    })
                     .count()
             })
             .unwrap_or(0);
@@ -5772,8 +5875,8 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if this is a laptop (has battery)
-    let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
-                      std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+    let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
+        || std::path::Path::new("/sys/class/power_supply/BAT1").exists();
 
     if !has_battery {
         return result; // Not a laptop
@@ -5840,11 +5943,12 @@ fn check_laptop_optimizations(facts: &SystemFacts) -> Vec<Advice> {
         .arg("brightnessctl")
         .output()
         .map(|o| o.status.success())
-        .unwrap_or(false) || Command::new("which")
-        .arg("light")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+        .unwrap_or(false)
+        || Command::new("which")
+            .arg("light")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
 
     if !has_backlight_control {
         result.push(Advice {
@@ -5903,8 +6007,8 @@ fn check_webcam_support() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check if webcam exists
-    let has_webcam = std::path::Path::new("/dev/video0").exists() ||
-                     std::path::Path::new("/dev/video1").exists();
+    let has_webcam = std::path::Path::new("/dev/video0").exists()
+        || std::path::Path::new("/dev/video1").exists();
 
     if !has_webcam {
         return result; // No webcam detected
@@ -6055,7 +6159,7 @@ fn check_shell_productivity() -> Vec<Advice> {
 
     // Check for bash/zsh completion
     let shell = std::env::var("SHELL").unwrap_or_default();
-    
+
     if shell.contains("bash") {
         let has_completion = Command::new("pacman")
             .args(&["-Q", "bash-completion"])
@@ -6155,10 +6259,10 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check for ext4 filesystems that might need fsck
-    let has_ext4 = facts.storage_devices.iter().any(|dev| 
-        dev.filesystem.to_lowercase().contains("ext4") || 
-        dev.filesystem.to_lowercase().contains("ext3")
-    );
+    let has_ext4 = facts.storage_devices.iter().any(|dev| {
+        dev.filesystem.to_lowercase().contains("ext4")
+            || dev.filesystem.to_lowercase().contains("ext3")
+    });
 
     if has_ext4 {
         result.push(Advice {
@@ -6182,9 +6286,10 @@ fn check_filesystem_maintenance(facts: &SystemFacts) -> Vec<Advice> {
     }
 
     // Check for Btrfs scrub
-    let has_btrfs = facts.storage_devices.iter().any(|dev| 
-        dev.filesystem.to_lowercase().contains("btrfs")
-    );
+    let has_btrfs = facts
+        .storage_devices
+        .iter()
+        .any(|dev| dev.filesystem.to_lowercase().contains("btrfs"));
 
     if has_btrfs {
         result.push(Advice {
@@ -6270,7 +6375,7 @@ fn check_bootloader_optimization() -> Vec<Advice> {
 
     // Check GRUB timeout
     let grub_config = std::fs::read_to_string("/etc/default/grub").unwrap_or_default();
-    
+
     if grub_config.contains("GRUB_TIMEOUT=5") || grub_config.contains("GRUB_TIMEOUT=10") {
         result.push(Advice {
             id: "bootloader-reduce-timeout".to_string(),
@@ -6392,9 +6497,21 @@ fn check_browser_recommendations() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check for browsers
-    let has_firefox = Command::new("pacman").args(&["-Q", "firefox"]).output().map(|o| o.status.success()).unwrap_or(false);
-    let has_chromium = Command::new("pacman").args(&["-Q", "chromium"]).output().map(|o| o.status.success()).unwrap_or(false);
-    let has_chrome = Command::new("pacman").args(&["-Q", "google-chrome"]).output().map(|o| o.status.success()).unwrap_or(false);
+    let has_firefox = Command::new("pacman")
+        .args(&["-Q", "firefox"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let has_chromium = Command::new("pacman")
+        .args(&["-Q", "chromium"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let has_chrome = Command::new("pacman")
+        .args(&["-Q", "google-chrome"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
 
     if has_firefox {
         // Suggest uBlock Origin reminder
@@ -6716,9 +6833,9 @@ fn check_security_hardening() -> Vec<Advice> {
     let has_hardened_kernel = std::fs::read_to_string("/etc/sysctl.d/99-sysctl.conf")
         .or_else(|_| std::fs::read_to_string("/etc/sysctl.conf"))
         .map(|content| {
-            content.contains("kernel.yama.ptrace_scope") &&
-            content.contains("kernel.kptr_restrict") &&
-            content.contains("net.ipv4.conf.all.rp_filter")
+            content.contains("kernel.yama.ptrace_scope")
+                && content.contains("kernel.kptr_restrict")
+                && content.contains("net.ipv4.conf.all.rp_filter")
         })
         .unwrap_or(false);
 
@@ -7110,7 +7227,13 @@ fn check_gaming_enhancements() -> Vec<Advice> {
     }
 
     // Check for Steam Tinker Launch (advanced Steam tweaking)
-    if has_steam && !Command::new("which").arg("steamtinkerlaunch").output().map(|o| o.status.success()).unwrap_or(false) {
+    if has_steam
+        && !Command::new("which")
+            .arg("steamtinkerlaunch")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    {
         result.push(
             Advice::new(
                 "gaming-steam-tinker-launch".to_string(),
@@ -7380,9 +7503,19 @@ fn check_golang_dev() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check for Go files
-    let has_go_files = Path::new(&format!("{}/.cache", std::env::var("HOME").unwrap_or_default())).exists()
+    let has_go_files = Path::new(&format!(
+        "{}/.cache",
+        std::env::var("HOME").unwrap_or_default()
+    ))
+    .exists()
         && Command::new("find")
-            .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.go", "-type", "f"])
+            .args(&[
+                &std::env::var("HOME").unwrap_or_default(),
+                "-name",
+                "*.go",
+                "-type",
+                "f",
+            ])
             .output()
             .map(|o| !o.stdout.is_empty())
             .unwrap_or(false);
@@ -7456,7 +7589,13 @@ fn check_java_dev() -> Vec<Advice> {
 
     // Check for Java files
     let has_java_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.java", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.java",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -7529,9 +7668,19 @@ fn check_nodejs_dev() -> Vec<Advice> {
     let mut result = Vec::new();
 
     // Check for JavaScript/TypeScript files and package.json
-    let has_package_json = Path::new(&format!("{}/package.json", std::env::var("HOME").unwrap_or_default())).exists()
+    let has_package_json = Path::new(&format!(
+        "{}/package.json",
+        std::env::var("HOME").unwrap_or_default()
+    ))
+    .exists()
         || Command::new("find")
-            .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "package.json", "-type", "f"])
+            .args(&[
+                &std::env::var("HOME").unwrap_or_default(),
+                "-name",
+                "package.json",
+                "-type",
+                "f",
+            ])
             .output()
             .map(|o| !o.stdout.is_empty())
             .unwrap_or(false);
@@ -7605,7 +7754,26 @@ fn check_cpp_dev() -> Vec<Advice> {
 
     // Check for C/C++ files
     let has_cpp_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-type", "f", "(", "-name", "*.c", "-o", "-name", "*.cpp", "-o", "-name", "*.h", "-o", "-name", "*.hpp", ")", "-print", "-quit"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-type",
+            "f",
+            "(",
+            "-name",
+            "*.c",
+            "-o",
+            "-name",
+            "*.cpp",
+            "-o",
+            "-name",
+            "*.h",
+            "-o",
+            "-name",
+            "*.hpp",
+            ")",
+            "-print",
+            "-quit",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -7709,7 +7877,15 @@ fn check_php_dev() -> Vec<Advice> {
 
     // Check for PHP files
     let has_php_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.php", "-type", "f", "-print", "-quit"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.php",
+            "-type",
+            "f",
+            "-print",
+            "-quit",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -7767,7 +7943,15 @@ fn check_ruby_dev() -> Vec<Advice> {
 
     // Check for Ruby files
     let has_ruby_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.rb", "-type", "f", "-print", "-quit"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.rb",
+            "-type",
+            "f",
+            "-print",
+            "-quit",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -7796,7 +7980,13 @@ fn check_ruby_dev() -> Vec<Advice> {
         }
 
         // Check for Bundler
-        if ruby_usage > 0 && !Command::new("which").arg("bundle").output().map(|o| o.status.success()).unwrap_or(false) {
+        if ruby_usage > 0
+            && !Command::new("which")
+                .arg("bundle")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        {
             result.push(
                 Advice::new(
                     "dev-bundler".to_string(),
@@ -7864,7 +8054,13 @@ fn check_web_servers() -> Vec<Advice> {
 
     // Check if user is doing web development
     let has_html_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.html", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.html",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -7945,7 +8141,13 @@ fn check_torrent_clients() -> Vec<Advice> {
 
     // Check for torrent files
     let has_torrent_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.torrent", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.torrent",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -7989,7 +8191,19 @@ fn check_office_suite() -> Vec<Advice> {
 
     // Check for office documents
     let has_office_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.docx", "-o", "-name", "*.xlsx", "-o", "-name", "*.pptx", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.docx",
+            "-o",
+            "-name",
+            "*.xlsx",
+            "-o",
+            "-name",
+            "*.pptx",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -8033,7 +8247,11 @@ fn check_graphics_software() -> Vec<Advice> {
 
     // Check for image files
     let has_image_files = Command::new("find")
-        .args(&[&format!("{}/Pictures", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .args(&[
+            &format!("{}/Pictures", std::env::var("HOME").unwrap_or_default()),
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -8105,7 +8323,11 @@ fn check_video_editing() -> Vec<Advice> {
 
     // Check for video files
     let has_video_files = Command::new("find")
-        .args(&[&format!("{}/Videos", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .args(&[
+            &format!("{}/Videos", std::env::var("HOME").unwrap_or_default()),
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -8149,7 +8371,11 @@ fn check_music_players() -> Vec<Advice> {
 
     // Check for music files
     let has_music_files = Command::new("find")
-        .args(&[&format!("{}/Music", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .args(&[
+            &format!("{}/Music", std::env::var("HOME").unwrap_or_default()),
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -8193,7 +8419,13 @@ fn check_pdf_readers() -> Vec<Advice> {
 
     // Check for PDF files
     let has_pdf_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.pdf", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.pdf",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -8723,7 +8955,15 @@ fn check_dotfile_managers() -> Vec<Advice> {
 
     // Check if user has many dotfiles
     let has_many_dotfiles = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-maxdepth", "1", "-name", ".*", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-maxdepth",
+            "1",
+            "-name",
+            ".*",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).lines().count() > 10)
         .unwrap_or(false);
@@ -8767,7 +9007,13 @@ fn check_pkgbuild_tools() -> Vec<Advice> {
 
     // Check if user builds packages
     let builds_packages = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "PKGBUILD", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "PKGBUILD",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -9036,7 +9282,11 @@ fn check_image_viewers() -> Vec<Advice> {
 
     // Check for image files
     let has_images = Command::new("find")
-        .args(&[&format!("{}/Pictures", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .args(&[
+            &format!("{}/Pictures", std::env::var("HOME").unwrap_or_default()),
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -9284,7 +9534,17 @@ fn check_3d_tools() -> Vec<Advice> {
 
     // Check for image files that might indicate 3D work
     let does_graphics = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.blend", "-o", "-name", "*.obj", "-o", "-name", "*.stl"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.blend",
+            "-o",
+            "-name",
+            "*.obj",
+            "-o",
+            "-name",
+            "*.stl",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -9327,7 +9587,11 @@ fn check_audio_production() -> Vec<Advice> {
 
     // Check for audio files
     let has_audio_files = Command::new("find")
-        .args(&[&format!("{}/Music", std::env::var("HOME").unwrap_or_default()), "-type", "f"])
+        .args(&[
+            &format!("{}/Music", std::env::var("HOME").unwrap_or_default()),
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -9406,7 +9670,14 @@ fn check_cad_software() -> Vec<Advice> {
 
     // Check for CAD files
     let has_cad_files = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.scad", "-o", "-name", "*.FCStd"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.scad",
+            "-o",
+            "-name",
+            "*.FCStd",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -9449,7 +9720,13 @@ fn check_markdown_tools() -> Vec<Advice> {
 
     // Check for markdown files
     let has_markdown = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.md", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.md",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(false);
@@ -9493,7 +9770,16 @@ fn check_note_taking() -> Vec<Advice> {
 
     // Check for many text/markdown files
     let has_notes = Command::new("find")
-        .args(&[&std::env::var("HOME").unwrap_or_default(), "-name", "*.md", "-o", "-name", "*.txt", "-type", "f"])
+        .args(&[
+            &std::env::var("HOME").unwrap_or_default(),
+            "-name",
+            "*.md",
+            "-o",
+            "-name",
+            "*.txt",
+            "-type",
+            "f",
+        ])
         .output()
         .map(|o| {
             let count = String::from_utf8_lossy(&o.stdout).lines().count();
@@ -9726,7 +10012,15 @@ fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
     if errors > 100 {
         // Get actual error samples to show user
         let error_samples = Command::new("journalctl")
-            .args(&["-p", "err", "--since", "24 hours ago", "--no-pager", "-n", "5"])
+            .args(&[
+                "-p",
+                "err",
+                "--since",
+                "24 hours ago",
+                "--no-pager",
+                "-n",
+                "5",
+            ])
             .output()
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -9760,7 +10054,15 @@ fn check_journal_errors(facts: &SystemFacts) -> Vec<Advice> {
     } else if errors > 20 {
         // Get actual error samples to show user
         let error_samples = Command::new("journalctl")
-            .args(&["-p", "err", "--since", "24 hours ago", "--no-pager", "-n", "3"])
+            .args(&[
+                "-p",
+                "err",
+                "--since",
+                "24 hours ago",
+                "--no-pager",
+                "-n",
+                "3",
+            ])
             .output()
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -9802,7 +10104,9 @@ fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
 
     if !facts.system_health_metrics.degraded_services.is_empty() {
         // Format service list nicely
-        let services_list = facts.system_health_metrics.degraded_services
+        let services_list = facts
+            .system_health_metrics
+            .degraded_services
             .iter()
             .map(|s| format!("  • {}", s))
             .collect::<Vec<_>>()
@@ -9818,11 +10122,18 @@ fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
 
         result.push(Advice {
             id: "degraded-services".to_string(),
-            title: format!("{} Service{} in Degraded State",
+            title: format!(
+                "{} Service{} in Degraded State",
                 facts.system_health_metrics.degraded_services.len(),
-                if facts.system_health_metrics.degraded_services.len() == 1 { "" } else { "s" }),
+                if facts.system_health_metrics.degraded_services.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            ),
             reason,
-            action: "Check status with: systemctl status <service-name> for each failed service".to_string(),
+            action: "Check status with: systemctl status <service-name> for each failed service"
+                .to_string(),
             command: Some("systemctl --failed --no-pager".to_string()), // Show all failed services
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
@@ -9830,7 +10141,8 @@ fn check_degraded_services(facts: &SystemFacts) -> Vec<Advice> {
             alternatives: Vec::new(),
             wiki_refs: vec![
                 "https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage".to_string(),
-                "https://wiki.archlinux.org/title/Systemd#Investigating_failed_services".to_string(),
+                "https://wiki.archlinux.org/title/Systemd#Investigating_failed_services"
+                    .to_string(),
             ],
             depends_on: Vec::new(),
             related_to: Vec::new(),
@@ -9869,7 +10181,7 @@ fn check_memory_pressure(facts: &SystemFacts) -> Vec<Advice> {
             popularity: 50,
             requires: Vec::new(),
             });
-        },
+        }
         RiskLevel::Medium => {
             let available_gb = facts.hardware_monitoring.memory_available_gb;
             result.push(Advice {
@@ -9890,7 +10202,7 @@ fn check_memory_pressure(facts: &SystemFacts) -> Vec<Advice> {
             popularity: 50,
             requires: Vec::new(),
             });
-        },
+        }
         _ => {}
     }
 
@@ -10006,9 +10318,11 @@ fn check_service_crashes(facts: &SystemFacts) -> Vec<Advice> {
 
     if crashes > 5 {
         // List actual services that crashed
-        let crash_list = facts.system_health_metrics.recent_crashes
+        let crash_list = facts
+            .system_health_metrics
+            .recent_crashes
             .iter()
-            .take(15)  // Show up to 15 crashes
+            .take(15) // Show up to 15 crashes
             .map(|crash| {
                 let exit_info = if let Some(code) = crash.exit_code {
                     format!("(exit code: {})", code)
@@ -10017,10 +10331,12 @@ fn check_service_crashes(facts: &SystemFacts) -> Vec<Advice> {
                 } else {
                     String::new()
                 };
-                format!("  • {} {} - {}",
+                format!(
+                    "  • {} {} - {}",
                     crash.service_name,
                     exit_info,
-                    crash.timestamp.format("%Y-%m-%d %H:%M"))
+                    crash.timestamp.format("%Y-%m-%d %H:%M")
+                )
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -10065,9 +10381,11 @@ fn check_kernel_errors(facts: &SystemFacts) -> Vec<Advice> {
 
     if !facts.system_health_metrics.kernel_errors.is_empty() {
         // Get actual kernel errors for display
-        let error_list = facts.system_health_metrics.kernel_errors
+        let error_list = facts
+            .system_health_metrics
+            .kernel_errors
             .iter()
-            .take(10)  // Show up to 10 most recent errors
+            .take(10) // Show up to 10 most recent errors
             .map(|err| format!("  • {}", err))
             .collect::<Vec<_>>()
             .join("\n");
@@ -10082,11 +10400,18 @@ fn check_kernel_errors(facts: &SystemFacts) -> Vec<Advice> {
 
         result.push(Advice {
             id: "kernel-errors-detected".to_string(),
-            title: format!("{} Kernel Error{} Detected",
+            title: format!(
+                "{} Kernel Error{} Detected",
                 facts.system_health_metrics.kernel_errors.len(),
-                if facts.system_health_metrics.kernel_errors.len() == 1 { "" } else { "s" }),
+                if facts.system_health_metrics.kernel_errors.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            ),
             reason,
-            action: "Review full kernel log with: journalctl -k -p err --since '24 hours ago'".to_string(),
+            action: "Review full kernel log with: journalctl -k -p err --since '24 hours ago'"
+                .to_string(),
             command: Some("journalctl -k -p err -b --no-pager | tail -10".to_string()), // Show recent kernel errors
             risk: RiskLevel::Low,
             priority: Priority::Recommended,
@@ -10351,7 +10676,12 @@ fn check_battery_optimization(facts: &SystemFacts) -> Vec<Advice> {
             }
         }
 
-        if !Command::new("which").arg("tlp").output().map(|o| o.status.success()).unwrap_or(false) {
+        if !Command::new("which")
+            .arg("tlp")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
             result.push(Advice::new(
                 "tlp-battery-management".to_string(),
                 "Install TLP for Advanced Battery Management".to_string(),
@@ -10426,7 +10756,12 @@ fn check_bluetooth_setup(facts: &SystemFacts) -> Vec<Advice> {
     }
 
     if facts.bluetooth_status.enabled && !facts.bluetooth_status.connected_devices.is_empty() {
-        if !Command::new("which").arg("blueman-manager").output().map(|o| o.status.success()).unwrap_or(false) {
+        if !Command::new("which")
+            .arg("blueman-manager")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
             result.push(Advice::new(
                 "blueman-gui".to_string(),
                 "Install Blueman for Bluetooth GUI Management".to_string(),
@@ -10512,7 +10847,10 @@ fn check_swap_optimization(facts: &SystemFacts) -> Vec<Advice> {
         ).with_popularity(45));
     }
 
-    if facts.swap_config.swap_enabled && !facts.swap_config.zram_enabled && facts.swap_config.swap_type != "zram" {
+    if facts.swap_config.swap_enabled
+        && !facts.swap_config.zram_enabled
+        && facts.swap_config.swap_type != "zram"
+    {
         result.push(Advice::new(
             "consider-zram".to_string(),
             "Consider Switching to zram for Better Performance".to_string(),
@@ -10667,12 +11005,10 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
             .output()
         {
             let output_str = String::from_utf8_lossy(&output.stdout);
-            
+
             // Parse packet loss percentage
             if let Some(loss_line) = output_str.lines().find(|l| l.contains("packet loss")) {
-                if let Some(percent_str) = loss_line.split_whitespace()
-                    .find(|s| s.contains('%'))
-                {
+                if let Some(percent_str) = loss_line.split_whitespace().find(|s| s.contains('%')) {
                     if let Ok(loss) = percent_str.trim_end_matches('%').parse::<f32>() {
                         if loss > 20.0 {
                             advice.push(
@@ -10780,7 +11116,7 @@ fn check_network_health(facts: &SystemFacts) -> Vec<Advice> {
 }
 
 /// Check disk performance and health (Beta.99)
-/// 
+///
 /// Monitors:
 /// - I/O latency and throughput
 /// - Disk utilization percentage
@@ -10792,25 +11128,22 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
     let mut advice = Vec::new();
 
     // 1. Check I/O wait time (high iowait = disk bottleneck)
-    if let Ok(output) = Command::new("iostat")
-        .args(&["-x", "1", "2"])
-        .output()
-    {
+    if let Ok(output) = Command::new("iostat").args(&["-x", "1", "2"]).output() {
         let output_str = String::from_utf8_lossy(&output.stdout);
-        
+
         // Parse last iteration (2nd sample) for accurate reading
         let lines: Vec<&str> = output_str.lines().collect();
         let mut found_devices = false;
-        
+
         for line in lines.iter().rev() {
             // Look for device lines (sda, nvme0n1, etc.)
             if line.contains("sd") || line.contains("nvme") || line.contains("vd") {
                 let fields: Vec<&str> = line.split_whitespace().collect();
-                
+
                 // iostat output: Device r/s w/s rkB/s wkB/s ... %util
                 if fields.len() >= 14 {
                     let device = fields[0];
-                    
+
                     // Check disk utilization (last field is %util)
                     if let Ok(util) = fields[fields.len() - 1].parse::<f32>() {
                         if util > 95.0 {
@@ -10855,7 +11188,7 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                             found_devices = true;
                         }
                     }
-                    
+
                     // Check average wait time (await field)
                     if fields.len() >= 10 {
                         if let Ok(await_ms) = fields[9].parse::<f32>() {
@@ -10886,9 +11219,9 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                     }
                 }
             }
-            
+
             if found_devices {
-                break;  // We found and processed devices
+                break; // We found and processed devices
             }
         }
     } else {
@@ -10897,14 +11230,13 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
             "disk-perf-iostat-missing".to_string(),
             "Install sysstat for disk performance monitoring".to_string(),
             "The sysstat package provides iostat, which monitors disk I/O performance. \
-            Without it, Anna cannot detect disk bottlenecks that may be slowing your system.".to_string(),
+            Without it, Anna cannot detect disk bottlenecks that may be slowing your system."
+                .to_string(),
             "pacman -S --noconfirm sysstat".to_string(),
             None,
             RiskLevel::Low,
             Priority::Optional,
-            vec![
-                "https://wiki.archlinux.org/title/Sysstat".to_string(),
-            ],
+            vec!["https://wiki.archlinux.org/title/Sysstat".to_string()],
             "Monitoring".to_string(),
         ));
     }
@@ -10912,7 +11244,7 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
     // 2. Check SMART status for hardware issues
     let disks = vec!["sda", "sdb", "nvme0n1", "nvme1n1"];
     let mut checked_any_smart = false;
-    
+
     for disk in &disks {
         if let Ok(output) = Command::new("smartctl")
             .args(&["-H", &format!("/dev/{}", disk)])
@@ -10921,7 +11253,7 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
             if output.status.success() {
                 checked_any_smart = true;
                 let output_str = String::from_utf8_lossy(&output.stdout);
-                
+
                 if output_str.contains("PASSED") {
                     // Disk is healthy
                 } else if output_str.contains("FAILED") {
@@ -10947,11 +11279,16 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
             }
         }
     }
-    
+
     if !checked_any_smart {
         // smartctl not available or no disks found
-        if Command::new("which").arg("smartctl").output().is_err() 
-            || !Command::new("which").arg("smartctl").output().unwrap().status.success() 
+        if Command::new("which").arg("smartctl").output().is_err()
+            || !Command::new("which")
+                .arg("smartctl")
+                .output()
+                .unwrap()
+                .status
+                .success()
         {
             advice.push(Advice::new(
                 "disk-perf-smartmontools-missing".to_string(),
@@ -10976,8 +11313,14 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
         .output()
     {
         let output_str = String::from_utf8_lossy(&output.stdout);
-        let fs_error_keywords = ["EXT4-fs error", "XFS", "Btrfs", "I/O error", "Buffer I/O error"];
-        
+        let fs_error_keywords = [
+            "EXT4-fs error",
+            "XFS",
+            "Btrfs",
+            "I/O error",
+            "Buffer I/O error",
+        ];
+
         for keyword in &fs_error_keywords {
             if output_str.to_lowercase().contains(&keyword.to_lowercase()) {
                 advice.push(Advice::new(
@@ -11000,20 +11343,19 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                     ],
                     "system".to_string(),
                 ));
-                break;  // Only report once
+                break; // Only report once
             }
         }
     }
 
     // 4. Check RAID status if mdadm is present
-    if Command::new("which").arg("mdadm").output()
+    if Command::new("which")
+        .arg("mdadm")
+        .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
     {
-        if let Ok(output) = Command::new("mdadm")
-            .args(&["--detail", "--scan"])
-            .output()
-        {
+        if let Ok(output) = Command::new("mdadm").args(&["--detail", "--scan"]).output() {
             if output.status.success() && !output.stdout.is_empty() {
                 // RAID arrays exist, check their status
                 if let Ok(detail_output) = Command::new("sh")
@@ -11021,8 +11363,9 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                     .output()
                 {
                     let mdstat = String::from_utf8_lossy(&detail_output.stdout);
-                    
-                    if mdstat.contains("_") {  // Underscore indicates failed disk
+
+                    if mdstat.contains("_") {
+                        // Underscore indicates failed disk
                         advice.push(Advice::new(
                             "disk-perf-raid-degraded".to_string(),
                             "RAID array is degraded".to_string(),
@@ -11038,7 +11381,7 @@ fn check_disk_performance(_facts: &SystemFacts) -> Vec<Advice> {
                             "hardware".to_string(),
                         ));
                     }
-                    
+
                     if mdstat.contains("recovery") || mdstat.contains("resync") {
                         advice.push(Advice::new(
                             "disk-perf-raid-rebuilding".to_string(),
@@ -11076,18 +11419,17 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
     // 1. Check overall memory usage
     if let Ok(output) = Command::new("free").args(&["-m"]).output() {
         let output_str = String::from_utf8_lossy(&output.stdout);
-        
+
         // Parse free output: Mem: total used free shared buff/cache available
         for line in output_str.lines() {
             if line.starts_with("Mem:") {
                 let fields: Vec<&str> = line.split_whitespace().collect();
                 if fields.len() >= 7 {
-                    if let (Ok(total), Ok(available)) = (
-                        fields[1].parse::<f32>(),
-                        fields[6].parse::<f32>(),
-                    ) {
+                    if let (Ok(total), Ok(available)) =
+                        (fields[1].parse::<f32>(), fields[6].parse::<f32>())
+                    {
                         let used_percent = ((total - available) / total) * 100.0;
-                        
+
                         if used_percent > 95.0 {
                             advice.push(Advice::new(
                                 "ram-pressure-critical".to_string(),
@@ -11121,7 +11463,9 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
                                     1) Reviewing running applications \
                                     2) Checking for memory leaks \
                                     3) Increasing swap space if needed",
-                                    used_percent, total - available, total
+                                    used_percent,
+                                    total - available,
+                                    total
                                 ),
                                 "ps aux --sort=-rss | head -10".to_string(),
                                 None,
@@ -11134,18 +11478,17 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
                     }
                 }
             }
-            
+
             // Check swap usage
             if line.starts_with("Swap:") {
                 let fields: Vec<&str> = line.split_whitespace().collect();
                 if fields.len() >= 4 {
-                    if let (Ok(total), Ok(used)) = (
-                        fields[1].parse::<f32>(),
-                        fields[2].parse::<f32>(),
-                    ) {
+                    if let (Ok(total), Ok(used)) =
+                        (fields[1].parse::<f32>(), fields[2].parse::<f32>())
+                    {
                         if total > 0.0 {
                             let swap_percent = (used / total) * 100.0;
-                            
+
                             if swap_percent > 50.0 {
                                 advice.push(Advice::new(
                                     "ram-swap-heavy".to_string(),
@@ -11194,13 +11537,10 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
 
     // 2. Detect potential memory leaks (processes with high RSS growth)
     // We'll check top memory consumers and flag those that seem excessive
-    if let Ok(output) = Command::new("ps")
-        .args(&["aux", "--sort=-rss"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ps").args(&["aux", "--sort=-rss"]).output() {
         let output_str = String::from_utf8_lossy(&output.stdout);
         let lines: Vec<&str> = output_str.lines().collect();
-        
+
         // Skip header, check top 5 processes
         for (i, line) in lines.iter().skip(1).take(5).enumerate() {
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -11210,14 +11550,12 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
                 let mem_percent = fields[3];
                 let rss_kb = fields[5];
                 let command = fields[10..].join(" ");
-                
+
                 // Parse RSS (in KB) and memory percent
-                if let (Ok(rss), Ok(mem_pct)) = (
-                    rss_kb.parse::<f32>(),
-                    mem_percent.parse::<f32>(),
-                ) {
+                if let (Ok(rss), Ok(mem_pct)) = (rss_kb.parse::<f32>(), mem_percent.parse::<f32>())
+                {
                     let rss_mb = rss / 1024.0;
-                    
+
                     // Flag processes using >2GB or >20% of RAM as potential leaks
                     if rss_mb > 2048.0 || mem_pct > 20.0 {
                         advice.push(Advice::new(
@@ -11240,7 +11578,7 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
                             vec![],
                             "performance".to_string(),
                         ));
-                        
+
                         // Only report top 3 to avoid spam
                         if i >= 2 {
                             break;
@@ -11257,9 +11595,9 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
         .output()
     {
         let output_str = String::from_utf8_lossy(&output.stdout);
-        
-        if output_str.to_lowercase().contains("out of memory") 
-            || output_str.to_lowercase().contains("oom") 
+
+        if output_str.to_lowercase().contains("out of memory")
+            || output_str.to_lowercase().contains("oom")
         {
             advice.push(Advice::new(
                 "ram-oom-killer-active".to_string(),
@@ -11291,13 +11629,13 @@ fn check_ram_health(_facts: &SystemFacts) -> Vec<Advice> {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
-        
+
     let has_oomd = Command::new("systemctl")
         .args(&["is-active", "systemd-oomd"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
-    
+
     if !has_earlyoom && !has_oomd {
         // Check if system has < 8GB RAM (more likely to hit OOM)
         if let Ok(output) = Command::new("free").args(&["-g"]).output() {
@@ -11355,7 +11693,7 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
     // 1. Check CPU load averages
     if let Ok(output) = Command::new("uptime").output() {
         let output_str = String::from_utf8_lossy(&output.stdout);
-        
+
         // Parse load average: "... load average: 0.52, 0.58, 0.59"
         if let Some(load_part) = output_str.split("load average:").nth(1) {
             let loads: Vec<&str> = load_part.split(',').collect();
@@ -11366,9 +11704,9 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
                     let cpu_count = std::thread::available_parallelism()
                         .map(|n| n.get())
                         .unwrap_or(1) as f32;
-                    
+
                     let load_per_cpu = load_1m / cpu_count;
-                    
+
                     if load_per_cpu > 2.0 {
                         advice.push(Advice::new(
                             "cpu-load-critical".to_string(),
@@ -11387,9 +11725,8 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
                             None,
                             RiskLevel::High,
                             Priority::Mandatory,
-                            vec![
-                                "https://wiki.archlinux.org/title/Improving_performance#CPU".to_string(),
-                            ],
+                            vec!["https://wiki.archlinux.org/title/Improving_performance#CPU"
+                                .to_string()],
                             "performance".to_string(),
                         ));
                     } else if load_per_cpu > 1.0 {
@@ -11417,28 +11754,37 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
 
     // 2. Check for CPU frequency throttling
     if let Ok(output) = Command::new("sh")
-        .args(&["-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | head -1"])
+        .args(&[
+            "-c",
+            "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | head -1",
+        ])
         .output()
     {
         if !output.stdout.is_empty() {
             // CPU frequency scaling is available
             if let Ok(cur_freq_output) = Command::new("sh")
-                .args(&["-c", "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"])
+                .args(&[
+                    "-c",
+                    "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq",
+                ])
                 .output()
             {
                 if let Ok(max_freq_output) = Command::new("sh")
-                    .args(&["-c", "cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"])
+                    .args(&[
+                        "-c",
+                        "cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
+                    ])
                     .output()
                 {
                     let cur_freq_str = String::from_utf8_lossy(&cur_freq_output.stdout);
                     let max_freq_str = String::from_utf8_lossy(&max_freq_output.stdout);
-                    
+
                     if let (Ok(cur_freq), Ok(max_freq)) = (
                         cur_freq_str.trim().parse::<f32>(),
                         max_freq_str.trim().parse::<f32>(),
                     ) {
                         let freq_percent = (cur_freq / max_freq) * 100.0;
-                        
+
                         if freq_percent < 50.0 {
                             advice.push(Advice::new(
                                 "cpu-throttled".to_string(),
@@ -11491,10 +11837,13 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
     if let Ok(output) = Command::new("sensors").output() {
         if output.status.success() {
             let output_str = String::from_utf8_lossy(&output.stdout);
-            
+
             // Parse temperature lines (look for "Core" or "Tdie" or "Package")
             for line in output_str.lines() {
-                if (line.contains("Core") || line.contains("Tdie") || line.contains("Package") || line.contains("CPU"))
+                if (line.contains("Core")
+                    || line.contains("Tdie")
+                    || line.contains("Package")
+                    || line.contains("CPU"))
                     && line.contains("°C")
                 {
                     // Extract temperature value
@@ -11553,7 +11902,9 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
         }
     } else {
         // lm_sensors not installed
-        if !Command::new("which").arg("sensors").output()
+        if !Command::new("which")
+            .arg("sensors")
+            .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
         {
@@ -11575,13 +11926,10 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
     }
 
     // 4. Identify CPU-hogging processes
-    if let Ok(output) = Command::new("ps")
-        .args(&["aux", "--sort=-%cpu"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ps").args(&["aux", "--sort=-%cpu"]).output() {
         let output_str = String::from_utf8_lossy(&output.stdout);
         let lines: Vec<&str> = output_str.lines().collect();
-        
+
         // Check top 3 CPU consumers
         for (i, line) in lines.iter().skip(1).take(3).enumerate() {
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -11589,7 +11937,7 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
                 let pid = fields[1];
                 let cpu_percent = fields[2];
                 let command = fields[10..].join(" ");
-                
+
                 if let Ok(cpu) = cpu_percent.parse::<f32>() {
                     // Flag processes using >80% of a single core consistently
                     if cpu > 80.0 {
@@ -11613,7 +11961,7 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
                             vec![],
                             "performance".to_string(),
                         ));
-                        
+
                         // Only report top 2 to avoid spam
                         if i >= 1 {
                             break;
@@ -11630,17 +11978,16 @@ fn check_cpu_health(_facts: &SystemFacts) -> Vec<Advice> {
         .output()
     {
         let governor = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        
+
         if governor == "powersave" {
             // Check if system is on battery or AC
-            let on_battery = std::path::Path::new("/sys/class/power_supply/AC/online")
-                .exists()
+            let on_battery = std::path::Path::new("/sys/class/power_supply/AC/online").exists()
                 && Command::new("cat")
                     .arg("/sys/class/power_supply/AC/online")
                     .output()
                     .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "0")
                     .unwrap_or(false);
-            
+
             if !on_battery {
                 advice.push(Advice::new(
                     "cpu-governor-powersave-ac".to_string(),

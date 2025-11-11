@@ -2,8 +2,8 @@
 
 fn main() {
     // Get version from environment (set by GitHub Actions) or Cargo.toml
-    let version = std::env::var("ANNA_VERSION")
-        .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
+    let version =
+        std::env::var("ANNA_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
 
     // Embed as environment variable for runtime access
     println!("cargo:rustc-env=ANNA_VERSION={}", version);

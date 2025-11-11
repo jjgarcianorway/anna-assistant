@@ -48,19 +48,28 @@ async fn check_system_health() -> Result<()> {
     // Check orphan packages
     let orphan_count = count_orphan_packages();
     if orphan_count > 10 {
-        info!("Found {} orphan packages (would clean in Tier 1+)", orphan_count);
+        info!(
+            "Found {} orphan packages (would clean in Tier 1+)",
+            orphan_count
+        );
     }
 
     // Check cache size
     let cache_size_gb = get_cache_size_gb();
     if cache_size_gb > 5.0 {
-        info!("Package cache is {:.1}GB (would clean in Tier 1+)", cache_size_gb);
+        info!(
+            "Package cache is {:.1}GB (would clean in Tier 1+)",
+            cache_size_gb
+        );
     }
 
     // Check log size
     let log_size_gb = get_log_size_gb();
     if log_size_gb > 1.0 {
-        info!("System logs are {:.1}GB (would rotate in Tier 1+)", log_size_gb);
+        info!(
+            "System logs are {:.1}GB (would rotate in Tier 1+)",
+            log_size_gb
+        );
     }
 
     Ok(())
@@ -261,9 +270,7 @@ async fn clean_orphan_packages() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "pacman -Qtdq | pacman -Rns --noconfirm -";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -287,9 +294,7 @@ async fn clean_package_cache() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "paccache -r -k 3"; // Keep 3 most recent versions
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -313,9 +318,7 @@ async fn clean_journal() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "journalctl --vacuum-time=30d"; // Keep 30 days
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -339,9 +342,7 @@ async fn remove_old_kernels() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
 
     // Get list of installed kernels
-    let output = Command::new("pacman")
-        .args(&["-Q"])
-        .output()?;
+    let output = Command::new("pacman").args(&["-Q"]).output()?;
 
     let installed = String::from_utf8_lossy(&output.stdout);
     let mut kernels: Vec<String> = installed
@@ -370,9 +371,7 @@ async fn remove_old_kernels() -> Result<AutonomyAction> {
 
     let command = format!("pacman -R --noconfirm {}", to_remove.join(" "));
 
-    let output = Command::new("sh")
-        .args(&["-c", &command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", &command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -396,9 +395,7 @@ async fn clean_tmp_dirs() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "find /tmp -type f -atime +7 -delete"; // Delete files not accessed in 7 days
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -422,7 +419,12 @@ async fn update_mirrorlist() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
 
     // Check if reflector is installed
-    if !Command::new("which").arg("reflector").output()?.status.success() {
+    if !Command::new("which")
+        .arg("reflector")
+        .output()?
+        .status
+        .success()
+    {
         return Ok(AutonomyAction {
             action_type: "update_mirrorlist".to_string(),
             executed_at: start_time,
@@ -435,11 +437,10 @@ async fn update_mirrorlist() -> Result<AutonomyAction> {
         });
     }
 
-    let command = "reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist";
+    let command =
+        "reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -484,9 +485,7 @@ async fn update_package_database() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "pacman -Sy --noconfirm";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -510,9 +509,7 @@ async fn check_failed_services() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "systemctl --failed --no-pager";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -529,7 +526,11 @@ async fn check_failed_services() -> Result<AutonomyAction> {
         },
         command_run: command.to_string(),
         success: true,
-        output: if has_failures { output_str } else { String::new() },
+        output: if has_failures {
+            output_str
+        } else {
+            String::new()
+        },
         can_undo: false,
         undo_command: None,
     })
@@ -557,7 +558,10 @@ async fn clean_user_caches() -> Result<AutonomyAction> {
     for cache_dir in cache_dirs {
         // Get size before cleaning
         if let Ok(output) = Command::new("du").args(&["-sb", &cache_dir]).output() {
-            if let Some(size_str) = String::from_utf8_lossy(&output.stdout).split_whitespace().next() {
+            if let Some(size_str) = String::from_utf8_lossy(&output.stdout)
+                .split_whitespace()
+                .next()
+            {
                 if let Ok(size) = size_str.parse::<u64>() {
                     total_freed += size;
                 }
@@ -578,10 +582,16 @@ async fn clean_user_caches() -> Result<AutonomyAction> {
     Ok(AutonomyAction {
         action_type: "clean_user_caches".to_string(),
         executed_at: start_time,
-        description: format!("Cleaned {} user cache directories, freed {:.1}MB", cleaned_count, freed_mb),
+        description: format!(
+            "Cleaned {} user cache directories, freed {:.1}MB",
+            cleaned_count, freed_mb
+        ),
         command_run: "find ~/.cache/... -type f -delete".to_string(),
         success: true,
-        output: format!("Cleaned caches: {}\nFreed: {:.1}MB", cleaned_count, freed_mb),
+        output: format!(
+            "Cleaned caches: {}\nFreed: {:.1}MB",
+            cleaned_count, freed_mb
+        ),
         can_undo: false,
         undo_command: None,
     })
@@ -595,9 +605,7 @@ async fn clean_broken_symlinks() -> Result<AutonomyAction> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let command = format!("find {} -maxdepth 3 -xtype l -delete", home);
 
-    let output = Command::new("sh")
-        .args(&["-c", &command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", &command]).output()?;
 
     let success = output.status.success();
 
@@ -620,7 +628,12 @@ async fn optimize_pacman_db() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
 
     // Check if pacman-optimize exists
-    if !Command::new("which").arg("pacman-optimize").output()?.status.success() {
+    if !Command::new("which")
+        .arg("pacman-optimize")
+        .output()?
+        .status
+        .success()
+    {
         return Ok(AutonomyAction {
             action_type: "optimize_pacman_db".to_string(),
             executed_at: start_time,
@@ -635,9 +648,7 @@ async fn optimize_pacman_db() -> Result<AutonomyAction> {
 
     let command = "pacman-optimize && sync";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -661,9 +672,7 @@ async fn apply_security_updates() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
 
     // Get list of updates available
-    let check_output = Command::new("pacman")
-        .args(&["-Qu"])
-        .output()?;
+    let check_output = Command::new("pacman").args(&["-Qu"]).output()?;
 
     let updates_str = String::from_utf8_lossy(&check_output.stdout);
 
@@ -694,9 +703,7 @@ async fn apply_security_updates() -> Result<AutonomyAction> {
     // Apply the security updates
     let command = format!("pacman -S --noconfirm {}", security_updates.join(" "));
 
-    let output = Command::new("sh")
-        .args(&["-c", &command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", &command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -741,10 +748,7 @@ async fn backup_system_configs() -> Result<AutonomyAction> {
             let filename = config.replace("/", "_");
             let dest = format!("{}/{}", backup_path, filename);
 
-            if let Ok(_) = Command::new("cp")
-                .args(&["-r", config, &dest])
-                .output()
-            {
+            if let Ok(_) = Command::new("cp").args(&["-r", config, &dest]).output() {
                 backed_up.push(config.to_string());
             }
         }
@@ -753,10 +757,17 @@ async fn backup_system_configs() -> Result<AutonomyAction> {
     Ok(AutonomyAction {
         action_type: "backup_configs".to_string(),
         executed_at: start_time,
-        description: format!("Backed up {} config files to {}", backed_up.len(), backup_path),
+        description: format!(
+            "Backed up {} config files to {}",
+            backed_up.len(),
+            backup_path
+        ),
         command_run: format!("cp -r /etc/* {}", backup_path),
         success: true,
-        output: format!("Backup location: {}\nFiles backed up: {:?}", backup_path, backed_up),
+        output: format!(
+            "Backup location: {}\nFiles backed up: {:?}",
+            backup_path, backed_up
+        ),
         can_undo: false,
         undo_command: None,
     })
@@ -769,7 +780,12 @@ async fn check_disk_smart_status() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
 
     // Check if smartctl is installed
-    if !Command::new("which").arg("smartctl").output()?.status.success() {
+    if !Command::new("which")
+        .arg("smartctl")
+        .output()?
+        .status
+        .success()
+    {
         return Ok(AutonomyAction {
             action_type: "check_smart_status".to_string(),
             executed_at: start_time,
@@ -797,10 +813,7 @@ async fn check_disk_smart_status() -> Result<AutonomyAction> {
             let device = format!("/dev/{}", disk);
 
             // Check SMART health
-            if let Ok(smart_output) = Command::new("smartctl")
-                .args(&["-H", &device])
-                .output()
-            {
+            if let Ok(smart_output) = Command::new("smartctl").args(&["-H", &device]).output() {
                 let smart_str = String::from_utf8_lossy(&smart_output.stdout);
                 if smart_str.contains("FAILED") || smart_str.contains("WARN") {
                     warnings.push(format!("{}: SMART health check failed", disk));
@@ -838,9 +851,7 @@ async fn check_available_updates() -> Result<AutonomyAction> {
     let start_time = chrono::Utc::now();
     let command = "pacman -Qu";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
     let update_count = output_str.lines().count();
@@ -858,7 +869,10 @@ async fn check_available_updates() -> Result<AutonomyAction> {
         output: if update_count > 0 && update_count <= 20 {
             output_str
         } else if update_count > 20 {
-            format!("{} updates available (run 'pacman -Qu' to see all)", update_count)
+            format!(
+                "{} updates available (run 'pacman -Qu' to see all)",
+                update_count
+            )
         } else {
             String::new()
         },
@@ -890,9 +904,7 @@ async fn clean_coredumps() -> Result<AutonomyAction> {
     // Remove coredumps older than 7 days
     let command = format!("find {} -type f -mtime +7 -delete", coredump_dir);
 
-    let output = Command::new("sh")
-        .args(&["-c", &command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", &command]).output()?;
 
     let success = output.status.success();
 
@@ -922,7 +934,10 @@ async fn clean_dev_caches() -> Result<AutonomyAction> {
     let pip_cache = format!("{}/.cache/pip", home);
     if std::path::Path::new(&pip_cache).exists() {
         if let Ok(output) = Command::new("du").args(&["-sb", &pip_cache]).output() {
-            if let Some(size_str) = String::from_utf8_lossy(&output.stdout).split_whitespace().next() {
+            if let Some(size_str) = String::from_utf8_lossy(&output.stdout)
+                .split_whitespace()
+                .next()
+            {
                 if let Ok(size) = size_str.parse::<u64>() {
                     total_freed += size;
                 }
@@ -936,7 +951,10 @@ async fn clean_dev_caches() -> Result<AutonomyAction> {
     let cargo_registry = format!("{}/.cargo/registry/cache", home);
     if std::path::Path::new(&cargo_registry).exists() {
         if let Ok(output) = Command::new("du").args(&["-sb", &cargo_registry]).output() {
-            if let Some(size_str) = String::from_utf8_lossy(&output.stdout).split_whitespace().next() {
+            if let Some(size_str) = String::from_utf8_lossy(&output.stdout)
+                .split_whitespace()
+                .next()
+            {
                 if let Ok(size) = size_str.parse::<u64>() {
                     total_freed += size;
                 }
@@ -964,7 +982,11 @@ async fn clean_dev_caches() -> Result<AutonomyAction> {
         description: if cleaned.is_empty() {
             "No development caches to clean".to_string()
         } else {
-            format!("Cleaned {} tool caches, freed {:.1}MB", cleaned.len(), freed_mb)
+            format!(
+                "Cleaned {} tool caches, freed {:.1}MB",
+                cleaned.len(),
+                freed_mb
+            )
         },
         command_run: "rm -rf ~/.cache/pip ~/.cargo/registry/cache && npm cache clean".to_string(),
         success: true,
@@ -1061,9 +1083,7 @@ async fn rebuild_font_cache() -> Result<AutonomyAction> {
 
     let command = "fc-cache -f -v";
 
-    let output = Command::new("sh")
-        .args(&["-c", command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", command]).output()?;
 
     let success = output.status.success();
 
@@ -1112,9 +1132,7 @@ async fn update_aur_packages() -> Result<AutonomyAction> {
     let helper = detected_helper.unwrap();
     let command = format!("{} -Syu --noconfirm --aur", helper);
 
-    let output = Command::new("sh")
-        .args(&["-c", &command])
-        .output()?;
+    let output = Command::new("sh").args(&["-c", &command]).output()?;
 
     let success = output.status.success();
     let output_str = String::from_utf8_lossy(&output.stdout).to_string();
@@ -1153,7 +1171,10 @@ async fn auto_update_anna() -> Result<AutonomyAction> {
                 });
             }
 
-            info!("Update available: {} -> {}", update_info.current_version, update_info.latest_version);
+            info!(
+                "Update available: {} -> {}",
+                update_info.current_version, update_info.latest_version
+            );
 
             // Perform the update
             match anna_common::updater::perform_update(&update_info).await {
@@ -1165,17 +1186,25 @@ async fn auto_update_anna() -> Result<AutonomyAction> {
                         .arg("--app-name=Anna Assistant")
                         .arg("--icon=system-software-update")
                         .arg("Anna Updated Automatically")
-                        .arg(&format!("Updated to {} in the background", update_info.latest_version))
+                        .arg(&format!(
+                            "Updated to {} in the background",
+                            update_info.latest_version
+                        ))
                         .spawn();
 
                     Ok(AutonomyAction {
                         action_type: "auto_update_anna".to_string(),
                         executed_at: start_time,
-                        description: format!("Auto-updated Anna from {} to {}",
-                            update_info.current_version, update_info.latest_version),
+                        description: format!(
+                            "Auto-updated Anna from {} to {}",
+                            update_info.current_version, update_info.latest_version
+                        ),
                         command_run: "perform_update".to_string(),
                         success: true,
-                        output: format!("Updated to {}\nDaemon restarted", update_info.latest_version),
+                        output: format!(
+                            "Updated to {}\nDaemon restarted",
+                            update_info.latest_version
+                        ),
                         can_undo: false,
                         undo_command: None,
                     })
@@ -1195,17 +1224,15 @@ async fn auto_update_anna() -> Result<AutonomyAction> {
                 }
             }
         }
-        Err(e) => {
-            Ok(AutonomyAction {
-                action_type: "auto_update_anna".to_string(),
-                executed_at: start_time,
-                description: "Could not check for updates".to_string(),
-                command_run: "check_for_updates".to_string(),
-                success: false,
-                output: format!("Error: {}", e),
-                can_undo: false,
-                undo_command: None,
-            })
-        }
+        Err(e) => Ok(AutonomyAction {
+            action_type: "auto_update_anna".to_string(),
+            executed_at: start_time,
+            description: "Could not check for updates".to_string(),
+            command_run: "check_for_updates".to_string(),
+            success: false,
+            output: format!("Error: {}", e),
+            can_undo: false,
+            undo_command: None,
+        }),
     }
 }
