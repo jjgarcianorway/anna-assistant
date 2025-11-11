@@ -15,9 +15,11 @@ This document defines the complete architectural reset of Anna Assistant for the
 - **Wiki-strict correctness**: Only Arch Wiki and man pages as canonical sources
 - **Interactive installer**: Full Arch installation with plain English prompts and safe defaults
 - **Rescue capabilities**: Recovery tools for broken systems
-- **Hyprland-only**: Single desktop path for 1.0 stability
+- **System & desktop administration**: Professional sysadmin for Arch - no desktop environment setup, no aesthetics
 - **Comprehensive logging**: Every action cited with Arch Wiki references
 - **Atomic rollback**: All operations reversible
+
+**Anna's Mission:** Keep Arch systems secure, updated, auditable, fast, clean, reliable, recoverable, documented, and reproducible.
 
 ---
 
@@ -125,17 +127,26 @@ anna-assistant/
 ### Files to DELETE
 
 ```
-Removal: TUI and non-Hyprland desktop code
+Removal: TUI, ALL desktop environment code, ALL bundles
 ├── crates/annad/src/
-│   ├── i3_config.rs            # DELETE: Out of scope for 1.0
-│   ├── sway_config.rs          # DELETE: Out of scope for 1.0
-│   ├── gnome_config.rs         # DELETE: Out of scope for 1.0
-│   ├── kde_config.rs           # DELETE: Out of scope for 1.0
-│   ├── xfce_config.rs          # DELETE: Out of scope for 1.0
-│   ├── cinnamon_config.rs      # DELETE: Out of scope for 1.0
-│   ├── mate_config.rs          # DELETE: Out of scope for 1.0
-│   ├── lxqt_config.rs          # DELETE: Out of scope for 1.0
-│   └── smart_recommender.rs    # DELETE: Non-Wiki heuristics
+│   ├── hyprland_config.rs      # DELETE: Desktop env setup out of scope
+│   ├── i3_config.rs            # DELETE: Desktop env setup out of scope
+│   ├── sway_config.rs          # DELETE: Desktop env setup out of scope
+│   ├── gnome_config.rs         # DELETE: Desktop env setup out of scope
+│   ├── kde_config.rs           # DELETE: Desktop env setup out of scope
+│   ├── xfce_config.rs          # DELETE: Desktop env setup out of scope
+│   ├── cinnamon_config.rs      # DELETE: Desktop env setup out of scope
+│   ├── mate_config.rs          # DELETE: Desktop env setup out of scope
+│   ├── lxqt_config.rs          # DELETE: Desktop env setup out of scope
+│   ├── wallpaper_config.rs     # DELETE: Aesthetics out of scope
+│   ├── shell_config.rs         # DELETE: User customization out of scope
+│   ├── terminal_config.rs      # DELETE: User customization out of scope
+│   ├── git_config.rs           # DELETE: User customization out of scope
+│   ├── bundles.rs              # DELETE: ALL bundles removed
+│   ├── smart_recommender.rs    # DELETE: Non-Wiki heuristics
+│   ├── intelligent_recommender.rs  # DELETE: Non-Wiki heuristics
+│   ├── resource_classifier.rs  # DELETE: Heuristic logic
+│   └── system_detection.rs     # DELETE: WM detection logic
 ├── crates/annactl/src/
 │   └── tui/                    # DELETE: Entire TUI module
 │       ├── mod.rs
@@ -616,43 +627,50 @@ annactl advise [--category CATEGORY] [--preview <id>]
 
 **Output Example:**
 ```
-Anna Optimizer - System Proposals
+Anna Optimizer - System & Desktop Administration Proposals
 
-Found 5 optimization opportunities:
+Found 6 optimization opportunities:
 
-[1] Enable VA-API hardware video acceleration
-    Category: Performance
-    Impact: Medium
-    Citation: [archwiki:hardware_video_acceleration]
-    Status: Not configured
-
-[2] Configure PipeWire low-latency audio
-    Category: Audio
-    Impact: Low
-    Citation: [archwiki:pipewire#low-latency_setup]
-    Status: Partial (PipeWire installed, config missing)
-
-[3] Install microcode updates (Intel)
+[1] Install microcode updates (Intel)
     Category: Security
     Impact: High
     Citation: [archwiki:microcode]
     Status: Missing package
 
-[4] Enable fstrim.timer for SSD maintenance
+[2] Enable fstrim.timer for SSD maintenance
     Category: Maintenance
     Impact: Medium
     Citation: [archwiki:solid_state_drive#periodic_trim]
     Status: Not enabled
 
-[5] Configure zram swap
+[3] Configure zram swap
     Category: Performance
     Impact: Low
     Citation: [archwiki:zram]
     Status: Not configured
 
+[4] Enable bluetooth service
+    Category: Desktop Hardware
+    Impact: Low
+    Citation: [archwiki:bluetooth]
+    Status: Package installed, service disabled
+
+[5] Configure printing (CUPS)
+    Category: Desktop Hardware
+    Impact: Low
+    Citation: [archwiki:cups]
+    Status: Not installed
+
+[6] Harden SSH configuration
+    Category: Security
+    Impact: High
+    Citation: [archwiki:openssh#security]
+    Status: Weak settings detected
+
 View proposal details: annactl advise --preview <id>
 Apply proposal: annactl apply <id>
 ```
+**Note:** Anna generates proposals for system administration (updates, security, maintenance) and desktop administration (hardware services, user management) - NOT desktop environment setup or aesthetics.
 
 ---
 
@@ -682,13 +700,9 @@ Choose installation type:
      - base, linux, linux-firmware, base-devel
      - NetworkManager, sudo
      - ~500 MB download, ~2 GB installed
+     - Install desktop environment manually later via pacman
 
-  2) Desktop workstation (Hyprland)
-     - Minimal base + Hyprland bundle
-     - Compositor, Waybar, notifications, terminal
-     - ~1.2 GB download, ~5 GB installed
-
-  3) Server
+  2) Server
      - Minimal base + openssh, ufw
      - No desktop environment
      - ~600 MB download, ~2.5 GB installed
@@ -696,8 +710,9 @@ Choose installation type:
 >
 ```
 **Default:** `1` (Minimal base)
-**Validation:** Must be 1, 2, or 3
+**Validation:** Must be 1 or 2
 **Citation:** `[archwiki:installation_guide:pre-installation]`
+**Note:** Anna does not install or configure desktop environments. Users install their preferred DE/WM via pacman after base installation completes.
 
 #### Step 2: Disks and Windows Detection
 ```
@@ -809,13 +824,16 @@ Essential tools (recommended): networkmanager, sudo, vim, git
 
 Additional packages:
   [Selected based on Step 1 choice]
-  Desktop (Hyprland): hyprland, waybar, kitty, wofi, mako, swaylock, ...
+  Server: openssh, ufw
+
+Desktop environments can be installed manually after reboot via pacman.
 
 Review package list? [y/N]:
 ```
-**Defaults:** Minimal set from Step 1 choice
+**Defaults:** Minimal set from Step 1 choice (base or server)
 **Validation:** Verify package names exist in repos
 **Citation:** `[archwiki:installation_guide:install_essential_packages]`
+**Note:** Anna installs only base system. Desktop environments are outside 1.0 scope.
 
 #### Step 8: Confirmation
 ```
@@ -1031,11 +1049,18 @@ annactl health
 annactl advise
 ```
 
-### 4. Optional: Install Hyprland desktop
-If you chose "minimal base" but want a desktop later:
+### 4. Install desktop environment (manual)
+If you chose "minimal base" and want a desktop:
 ```bash
-annactl suggest --category desktop
-annactl apply <hyprland-bundle-id>
+# Install your preferred desktop environment via pacman
+# Examples:
+sudo pacman -S plasma-meta        # KDE Plasma
+sudo pacman -S gnome gnome-extra  # GNOME
+sudo pacman -S xfce4 xfce4-goodies # XFCE
+sudo pacman -S hyprland           # Hyprland (Wayland compositor)
+
+# Anna does not configure desktop environments
+# Refer to Arch Wiki for desktop-specific setup
 ```
 
 ## Documentation
@@ -1880,13 +1905,14 @@ Expected format: /dev/<device> (e.g., /dev/sda, /dev/nvme0n1)
 ### Code to Delete
 
 ```
-Files to DELETE (Total ~15,000 lines):
+Files to DELETE (Total ~17,000 lines):
 
 TUI Code:
   crates/annactl/src/tui/                (~2,500 lines)
   crates/annactl/src/commands/tui.rs     (~300 lines)
 
-Non-Hyprland Desktop Logic:
+ALL Desktop Environment Config Logic:
+  crates/annad/src/hyprland_config.rs    (~800 lines)
   crates/annad/src/i3_config.rs          (~800 lines)
   crates/annad/src/sway_config.rs        (~850 lines)
   crates/annad/src/gnome_config.rs       (~900 lines)
@@ -1904,19 +1930,22 @@ Heuristic/Smart Recommender:
   crates/annad/src/smart_recommender.rs  (~1,800 lines)
   crates/annad/src/intelligent_recommender.rs (~2,200 lines)
 
-Bundle System (non-Hyprland):
-  crates/annad/src/bundles.rs            (~1,500 lines - keep Hyprland only)
+ALL Bundle System Code:
+  crates/annad/src/bundles.rs            (~1,500 lines - DELETE ENTIRELY)
 
 Resource Classifier:
-  crates/annad/src/resource_classifier.rs (~800 lines - may gate or simplify)
+  crates/annad/src/resource_classifier.rs (~800 lines - DELETE)
 
 System Detection (WM detection):
-  crates/annad/src/system_detection.rs   (~900 lines - trim to Hyprland only)
+  crates/annad/src/system_detection.rs   (~900 lines - DELETE)
 
-Total: ~15,100 lines to delete
-Remaining codebase: ~8,000 lines (estimate)
-New code (installer, rescue, state): ~6,000 lines (estimate)
-Final codebase: ~14,000 lines
+Total: ~17,050 lines to delete
+Remaining codebase: ~7,000 lines (estimate)
+New code (installer, rescue, state, desktop admin): ~6,000 lines (estimate)
+Final codebase: ~13,000 lines
+
+Scope: Anna is a system administrator + desktop administrator.
+NOT a desktop environment installer, NOT a theme manager, NOT a user customization tool.
 ```
 
 ### Dependency Changes
@@ -2422,19 +2451,23 @@ All contributions must cite relevant Arch Wiki sections.
 - Use CLI commands instead: `annactl advise`, `annactl history`
 - TUI may return in v1.1 (Eurydice milestone)
 
-### Non-Hyprland Desktop Support
+### ALL Desktop Environment Support
 **Status:** Removed for 1.0
-**Reason:** Focus on single desktop environment for stability
+**Reason:** Anna is a system and desktop administrator, not a desktop environment installer
 
 **Desktop Environments Removed:**
+- Hyprland
 - i3, Sway
 - GNOME, KDE Plasma
 - XFCE, Cinnamon, MATE, LXQt
+- ALL bundles and WM-specific configuration logic
 
 **Migration:**
-- If using Hyprland: No change required
-- If using other WM: Recommendations will not be generated
-- Install desktop manually via pacman
+- Anna will NOT configure any desktop environment
+- Anna will NOT install desktop packages
+- Desktop administration proposals available: Bluetooth, CUPS printing, power profiles, XDG directories
+- Install and configure desktop environment manually via pacman and Arch Wiki
+- Anna focuses on system reliability, not desktop aesthetics
 
 ### Smart/Heuristic Recommenders
 **Status:** Removed for 1.0
@@ -2755,7 +2788,7 @@ sudo systemctl restart annad
 ### Phase 6: Optimizer Proposals (5 days)
 
 **Goals:**
-- Generate Wiki-cited proposals
+- Generate Wiki-cited proposals for system & desktop administration
 - Apply proposals with whitelist validation
 - Revert functionality
 
@@ -2764,19 +2797,23 @@ sudo systemctl restart annad
 - [ ] `optimizer::suggest` - filter by category
 - [ ] `optimizer::apply` - execute whitelisted commands
 - [ ] `optimizer::revert` - undo applied proposal
-- [ ] Hyprland-specific proposals (VA-API, PipeWire, etc.)
+- [ ] System admin proposals (microcode, fstrim, zram, SSH hardening, firewall, backups)
+- [ ] Desktop admin proposals (Bluetooth, CUPS printing, power profiles, XDG directories)
 - [ ] Proposal IDs (stable across runs)
 - [ ] Preview mode (show markdown with commands)
-- [ ] Dependency checking (don't suggest PipeWire config if PipeWire not installed)
+- [ ] Dependency checking (don't suggest config if package not installed)
 - [ ] Unit tests: proposal generation, dependency resolution
 - [ ] Integration test: apply and revert proposal
 
 **Commits:**
 - `feat(optimizer): implement Wiki-strict proposal generator`
-- `feat(optimizer): add Hyprland-specific proposals [archwiki:hyprland]`
+- `feat(optimizer): add system administration proposals [archwiki:system_maintenance]`
+- `feat(optimizer): add desktop hardware administration proposals [archwiki:bluetooth] [archwiki:cups]`
 - `feat(optimizer): implement apply with whitelist validation`
 - `feat(optimizer): implement revert with rollback scripts`
 - `test(optimizer): verify proposals cite Arch Wiki correctly`
+
+**Note:** NO desktop environment setup, NO theme/aesthetic proposals, NO user customization.
 
 ---
 
@@ -2929,17 +2966,27 @@ Before merging `anna-1.0-reset` to `main`:
 
 ### Code Quality
 - [ ] No TUI code remains
-- [ ] No non-Hyprland desktop modules remain
-- [ ] No heuristic recommenders remain (unless gated with v1_legacy)
+- [ ] No desktop environment modules remain (ALL config modules deleted)
+- [ ] No bundle system code remains (bundles.rs deleted entirely)
+- [ ] No heuristic recommenders remain (smart_recommender, intelligent_recommender deleted)
+- [ ] No WM detection code remains (system_detection.rs deleted)
 - [ ] All Clippy warnings resolved
 - [ ] No dead code (except feature-gated legacy)
 - [ ] All functions have doc comments with Wiki citations where applicable
 
+### Scope Verification
+- [ ] Anna only generates system administration proposals (security, updates, maintenance)
+- [ ] Anna only generates desktop administration proposals (hardware services, user management)
+- [ ] Anna does NOT configure desktop environments
+- [ ] Anna does NOT handle aesthetics or themes
+- [ ] Anna does NOT customize user dotfiles (except XDG directory structure)
+
 ### Final Verification
 - [ ] Manual test: Install on real hardware (UEFI + ext4)
-- [ ] Manual test: Install Hyprland bundle
+- [ ] Manual test: Install server variant on real hardware
 - [ ] Manual test: Rescue broken bootloader on real hardware
 - [ ] Manual test: Update with rollback
+- [ ] Manual test: Apply system/desktop admin proposals (microcode, bluetooth, CUPS)
 - [ ] Manual test: All logs include citations
 - [ ] Code review by maintainer
 - [ ] PR approved and squash-merged to main
@@ -2993,7 +3040,9 @@ Before merging `anna-1.0-reset` to `main`:
 4. **All logs cite Wiki** (100% compliance in audit)
 5. **CI green** for entire test matrix
 6. **Documentation complete** (no TODOs, all sections filled)
-7. **Community feedback positive** (GitHub issues, Reddit r/archlinux)
+7. **Scope verified**: No traces of desktop environment config, bundles, or heuristic recommenders remain
+8. **Professional focus**: Anna is clearly a sysadmin tool, not a user customization tool
+9. **Community feedback positive** (GitHub issues, Reddit r/archlinux)
 
 ---
 
@@ -3001,10 +3050,15 @@ Before merging `anna-1.0-reset` to `main`:
 
 Deferred to future releases:
 - TUI revival (v1.1 "Eurydice")
-- Additional desktop environments (v1.2+)
 - AUR helper integration (v1.3+)
 - Configuration file support (v1.4+)
 - Network installer (PXE boot) (v2.0+)
+
+Permanently out of scope:
+- Desktop environment installation and configuration
+- Window manager bundles
+- User theme/aesthetic management
+- Dotfile customization (beyond XDG structure)
 
 ---
 
