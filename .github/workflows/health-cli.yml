@@ -1,0 +1,163 @@
+name: Health CLI Tests
+
+on:
+  push:
+    branches: [main, anna-1.0-reset]
+    paths:
+      - 'crates/annad/src/health/**'
+      - 'crates/annad/tests/health_cli_tests.rs'
+      - 'crates/annactl/src/health_commands.rs'
+      - 'assets/health/**'
+      - 'assets/recovery/**'
+  pull_request:
+    branches: [main, anna-1.0-reset]
+    paths:
+      - 'crates/annad/src/health/**'
+      - 'crates/annad/tests/health_cli_tests.rs'
+      - 'crates/annactl/src/health_commands.rs'
+      - 'assets/health/**'
+      - 'assets/recovery/**'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  ANNA_VERSION: 1.0.0-rc.13
+
+jobs:
+  health-tests:
+    name: Health CLI Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Create test directories
+        run: |
+          sudo mkdir -p /var/lib/anna/reports
+          sudo mkdir -p /var/lib/anna/alerts
+          sudo mkdir -p /var/log/anna
+          sudo mkdir -p /run/anna
+          sudo chmod 755 /var/lib/anna /var/log/anna /run/anna
+          sudo chmod 755 /var/lib/anna/reports /var/lib/anna/alerts
+
+      - name: Build release binaries
+        run: cargo build --release
+
+      - name: Start daemon in background
+        run: |
+          sudo ./target/release/annad &
+          sleep 2
+          # Wait for daemon to be ready
+          for i in {1..10}; do
+            if [ -S /run/anna/anna.sock ]; then
+              echo "Daemon ready"
+              break
+            fi
+            echo "Waiting for daemon... ($i/10)"
+            sleep 1
+          done
+
+      - name: Verify daemon is running
+        run: |
+          if [ ! -S /run/anna/anna.sock ]; then
+            echo "ERROR: Daemon socket not found"
+            exit 1
+          fi
+          echo "Daemon socket exists"
+
+      - name: Run health CLI tests
+        run: |
+          cargo test --package annad --test health_cli_tests -- --test-threads=1
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Check report files were created
+        run: |
+          if [ -d /var/lib/anna/reports ]; then
+            echo "Reports directory exists"
+            ls -la /var/lib/anna/reports/ || true
+          fi
+
+      - name: Check log files were created
+        run: |
+          if [ -f /var/log/anna/ctl.jsonl ]; then
+            echo "Control log exists"
+            tail -5 /var/log/anna/ctl.jsonl || true
+          fi
+          if [ -f /var/log/anna/health.jsonl ]; then
+            echo "Health log exists"
+            tail -5 /var/log/anna/health.jsonl || true
+          fi
+
+      - name: Validate JSON schema in reports
+        run: |
+          if [ -d /var/lib/anna/reports ]; then
+            for report in /var/lib/anna/reports/health-*.json; do
+              if [ -f "$report" ]; then
+                echo "Validating $report"
+                # Check that JSON is valid and has required fields
+                jq -e '.state and .summary and .results and .citation' "$report" > /dev/null
+                echo "✓ Report has required fields"
+              fi
+            done
+          fi
+
+      - name: Validate permissions
+        run: |
+          # Check reports directory permissions (should be 0700 or 0755)
+          if [ -d /var/lib/anna/reports ]; then
+            perms=$(stat -c '%a' /var/lib/anna/reports)
+            if [ "$perms" = "700" ] || [ "$perms" = "755" ]; then
+              echo "✓ Reports directory has correct permissions: $perms"
+            else
+              echo "✗ Reports directory has incorrect permissions: $perms (expected 700 or 755)"
+              exit 1
+            fi
+          fi
+
+          # Check report file permissions (should be 0600)
+          for report in /var/lib/anna/reports/*.json; do
+            if [ -f "$report" ]; then
+              perms=$(stat -c '%a' "$report")
+              if [ "$perms" = "600" ]; then
+                echo "✓ Report file has correct permissions: $perms"
+              else
+                echo "✗ Report file has incorrect permissions: $perms (expected 600)"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Stop daemon
+        if: always()
+        run: |
+          sudo pkill -9 annad || true
+          sleep 1
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-logs
+          path: |
+            /var/log/anna/*.jsonl
+            /var/lib/anna/reports/*.json
+          retention-days: 7

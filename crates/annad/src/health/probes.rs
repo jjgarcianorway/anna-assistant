@@ -199,6 +199,65 @@ impl HealthProbe for PacmanDbProbe {
     }
 }
 
+/// Mockable test probe for integration testing
+/// Reads TEST_PROBE_STATUS environment variable to force specific outcomes
+#[cfg(test)]
+pub struct MockableProbe {
+    pub name: String,
+    pub forced_status: Option<ProbeStatus>,
+}
+
+#[cfg(test)]
+impl MockableProbe {
+    pub fn new(name: String, forced_status: Option<ProbeStatus>) -> Self {
+        Self { name, forced_status }
+    }
+
+    pub fn from_env(name: String) -> Self {
+        let forced_status = std::env::var(&format!("TEST_PROBE_STATUS_{}", name.to_uppercase().replace("-", "_")))
+            .ok()
+            .and_then(|s| match s.as_str() {
+                "ok" => Some(ProbeStatus::Ok),
+                "warn" => Some(ProbeStatus::Warn),
+                "fail" => Some(ProbeStatus::Fail),
+                _ => None,
+            });
+        Self { name, forced_status }
+    }
+}
+
+#[cfg(test)]
+impl HealthProbe for MockableProbe {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn description(&self) -> &str {
+        "Mockable test probe"
+    }
+
+    fn citation(&self) -> &str {
+        "[archwiki:System_maintenance]"
+    }
+
+    fn run(&self) -> Result<ProbeResult> {
+        let start = Instant::now();
+
+        let status = self.forced_status.clone().unwrap_or(ProbeStatus::Ok);
+
+        Ok(ProbeResult {
+            probe: self.name.clone(),
+            status,
+            details: serde_json::json!({
+                "test": true,
+                "forced": self.forced_status.is_some(),
+            }),
+            citation: self.citation().to_string(),
+            duration_ms: start.elapsed().as_millis() as u64,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

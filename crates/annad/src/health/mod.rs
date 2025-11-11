@@ -9,6 +9,9 @@ mod runner;
 pub use probes::{HealthProbe, ProbeResult, ProbeStatus, DiskSpaceProbe, SystemdUnitsProbe, PacmanDbProbe};
 pub use runner::{run_all_probes, run_probe, get_health_summary, HealthSummary};
 
+#[cfg(test)]
+pub use probes::MockableProbe;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
