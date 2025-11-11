@@ -98,6 +98,7 @@ pub fn terminal_width() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use console::strip_ansi_codes;
 
     #[test]
     fn test_header_formatting() {
