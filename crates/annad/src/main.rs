@@ -76,6 +76,7 @@
 //! sudo ./target/debug/annad
 //! ```
 
+mod state; // Phase 0.2: State machine
 mod telemetry;
 mod recommender;
 mod rpc_server;

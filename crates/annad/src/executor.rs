@@ -391,7 +391,7 @@ pub fn create_audit_entry(action: &Action, actor: &str) -> AuditEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anna_common::RiskLevel;
+    use anna_common::{Priority, RiskLevel};
 
     #[tokio::test]
     async fn test_dry_run() {
@@ -402,7 +402,16 @@ mod tests {
             action: "Test action".to_string(),
             command: Some("echo hello".to_string()),
             risk: RiskLevel::Low,
+            priority: Priority::Optional,
             wiki_refs: vec![],
+            category: "test".to_string(),
+            alternatives: vec![],
+            depends_on: vec![],
+            related_to: vec![],
+            bundle: None,
+            satisfies: vec![],
+            popularity: 50,
+            requires: vec![],
         };
 
         let action = execute_action(&advice, true).await.unwrap();
@@ -419,7 +428,16 @@ mod tests {
             action: "Test action".to_string(),
             command: Some("echo hello".to_string()),
             risk: RiskLevel::Low,
+            priority: Priority::Optional,
             wiki_refs: vec![],
+            category: "test".to_string(),
+            alternatives: vec![],
+            depends_on: vec![],
+            related_to: vec![],
+            bundle: None,
+            satisfies: vec![],
+            popularity: 50,
+            requires: vec![],
         };
 
         let action = execute_action(&advice, false).await.unwrap();
