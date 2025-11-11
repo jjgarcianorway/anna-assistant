@@ -7,7 +7,7 @@
 
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
-// mod rpc_client;
+mod rpc_client;
 mod errors;
 mod output;
 

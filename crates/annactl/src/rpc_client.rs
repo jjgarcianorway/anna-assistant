@@ -96,6 +96,18 @@ impl RpcClient {
         Ok(())
     }
 
+    /// Get system state detection (Phase 0.3b)
+    /// Citation: [archwiki:system_maintenance]
+    pub async fn get_state(&mut self) -> Result<ResponseData> {
+        self.call(Method::GetState).await
+    }
+
+    /// Get available capabilities for current state (Phase 0.3b)
+    /// Citation: [archwiki:system_maintenance]
+    pub async fn get_capabilities(&mut self) -> Result<ResponseData> {
+        self.call(Method::GetCapabilities).await
+    }
+
     /// Call a method with streaming response support
     /// Creates a dedicated connection for streaming to avoid blocking the main client
     /// Returns a receiver that yields ResponseData chunks until StreamEnd
