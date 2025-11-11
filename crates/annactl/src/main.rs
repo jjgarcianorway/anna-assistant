@@ -3,7 +3,6 @@
 //! Provides user interface to interact with the Anna daemon.
 
 mod commands;
-mod tui;
 mod rpc_client;
 
 use anyhow::Result;

@@ -819,7 +819,6 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             match crate::telemetry::collect_facts().await {
                 Ok(facts) => {
                     let mut advice = crate::recommender::generate_advice(&facts);
-                    advice.extend(crate::intelligent_recommender::generate_intelligent_advice(&facts));
 
                     // AGGRESSIVE RELEVANCE FILTERING (Beta.106)
                     // Only show advice that's ACTUALLY relevant to this specific user/system

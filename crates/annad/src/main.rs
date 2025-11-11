@@ -45,22 +45,21 @@
 //! # Features
 //!
 //! - **System Telemetry**: Collects comprehensive system facts (hardware, packages, configs)
-//! - **Intelligent Recommendations**: 50+ detection rules for security, performance, hardware
+//! - **Wiki-Strict Recommendations**: Detection rules based solely on Arch Wiki and man pages
 //! - **Auto-Refresh**: Monitors filesystem changes and automatically updates recommendations
-//! - **Smart Notifications**: Alerts users of critical issues via GUI or terminal
+//! - **Notifications**: Alerts users of critical issues via GUI or terminal
 //! - **IPC Server**: Serves requests from `annactl` via Unix socket
-//! - **Audit Logging**: Records all applied actions to `/var/log/anna/audit.jsonl`
+//! - **Audit Logging**: Records all applied actions with Wiki citations
 //!
 //! # Modules
 //!
 //! - `telemetry` - System fact collection
-//! - `recommender` - System-wide detection rules
-//! - `intelligent_recommender` - Behavior-based, context-aware recommendations
+//! - `recommender` - Wiki-strict detection rules for system and desktop administration
 //! - `rpc_server` - Unix socket IPC server
 //! - `executor` - Safe command execution with audit logging
-//! - `audit` - Audit trail management
+//! - `audit` - Audit trail management with Wiki citations
 //! - `watcher` - Filesystem monitoring with inotify
-//! - `notifier` - User notification system (GUI + terminal)
+//! - `notifier` - User notification system
 //!
 //! # Usage
 //!
@@ -79,28 +78,10 @@
 
 mod telemetry;
 mod recommender;
-mod intelligent_recommender;
-mod smart_recommender;
-mod bundles; // Beta.94: Window manager bundles
-mod resource_classifier; // Beta.102: Resource-aware recommendations
-mod system_detection; // RC.9.6: Intelligent system profiling for adaptive Hyprland
-mod hyprland_config;
-mod i3_config;
-mod sway_config;
-mod shell_config;
-mod terminal_config;
-mod git_config;
-mod gnome_config;
-mod kde_config;
-mod xfce_config;
-mod cinnamon_config;
-mod mate_config;
-mod lxqt_config;
-mod wallpaper_config;
 mod rpc_server;
 mod executor;
 mod audit;
-mod action_history; // Beta.91: Rollback support
+mod action_history;
 mod watcher;
 mod notifier;
 mod snapshotter;
@@ -140,12 +121,6 @@ async fn main() -> Result<()> {
     // Generate recommendations
     let mut advice = recommender::generate_advice(&facts);
 
-    // Add intelligent, behavior-based recommendations
-    advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
-
-    // Add smart package recommendations based on workflow
-    advice.extend(smart_recommender::generate_smart_recommendations(&facts));
-
     let advice_count_before_dedup = advice.len();
 
     // Deduplicate advice by ID (keep first occurrence)
@@ -157,10 +132,7 @@ async fn main() -> Result<()> {
         info!("Removed {} duplicate advice items", duplicates_removed);
     }
 
-    info!("Generated {} recommendations ({} intelligent, {} smart)", advice.len(),
-          advice.iter().filter(|a| a.category == "development" || a.category == "beautification").count(),
-          advice.iter().filter(|a| a.id.starts_with("python-lsp") || a.id.starts_with("rust-analyzer") ||
-                                    a.id.starts_with("proton") || a.id.starts_with("mangohud")).count());
+    info!("Generated {} recommendations (Wiki-strict only)", advice.len());
 
     // Initialize daemon state
     let state = Arc::new(DaemonState::new(
@@ -295,9 +267,7 @@ async fn main() -> Result<()> {
 async fn refresh_advice(state: &Arc<DaemonState>) {
     match telemetry::collect_facts().await {
         Ok(facts) => {
-            let mut advice = recommender::generate_advice(&facts);
-            advice.extend(intelligent_recommender::generate_intelligent_advice(&facts));
-            advice.extend(smart_recommender::generate_smart_recommendations(&facts));
+            let advice = recommender::generate_advice(&facts);
 
             // Check for critical issues and notify users
             notifier::check_and_notify_critical(&advice).await;
