@@ -103,17 +103,55 @@ const VERSION: &str = env!("ANNA_VERSION");
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Handle --version flag
+    // Parse command-line arguments (rc.13.2: user mode support)
     let args: Vec<String> = env::args().collect();
-    if args.len() > 1 && (args[1] == "--version" || args[1] == "-V") {
-        println!("annad {}", VERSION);
-        return Ok(());
+    let mut user_mode = false;
+    let mut foreground = false;
+
+    for arg in &args[1..] {
+        match arg.as_str() {
+            "--version" | "-V" => {
+                println!("annad {}", VERSION);
+                return Ok(());
+            }
+            "--user" => user_mode = true,
+            "--foreground" => foreground = true,
+            "--help" | "-h" => {
+                println!("Anna Assistant Daemon {}", VERSION);
+                println!();
+                println!("USAGE:");
+                println!("    annad [OPTIONS]");
+                println!();
+                println!("OPTIONS:");
+                println!("    --user        Run in user mode (no root, no systemd required)");
+                println!("    --foreground  Stay in foreground (for supervisors)");
+                println!("    --version     Print version information");
+                println!("    --help        Print this help message");
+                println!();
+                println!("SOCKET PATHS:");
+                println!("    System mode: /run/anna/anna.sock (requires systemd + anna group)");
+                println!("    User mode:   $XDG_RUNTIME_DIR/anna/anna.sock or /tmp/anna-$UID/anna.sock");
+                return Ok(());
+            }
+            _ => {
+                eprintln!("Unknown argument: {}", arg);
+                eprintln!("Run 'annad --help' for usage information");
+                return Err(anyhow::anyhow!("Invalid argument"));
+            }
+        }
     }
 
     // Initialize logging
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
-    info!("Anna Daemon {} starting", VERSION);
+    if user_mode {
+        info!("Anna Daemon {} starting in USER MODE", VERSION);
+    } else {
+        info!("Anna Daemon {} starting in SYSTEM MODE", VERSION);
+    }
+
+    // Store mode for RPC server
+    let socket_mode = if user_mode { "user" } else { "system" };
 
     // Collect initial system facts
     let facts = telemetry::collect_facts().await?;

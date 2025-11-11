@@ -40,8 +40,8 @@ Type=simple
 User=root
 SupplementaryGroups=anna
 
-# Phase 0.4: Verify socket permissions before starting
-ExecStartPre=/bin/sh -c 'if [ -S /run/anna/anna.sock ] && ! stat -c "%%G:%%a" /run/anna/anna.sock | grep -q "^anna:660$$"; then echo "ERROR: Socket /run/anna/anna.sock exists with incorrect permissions"; exit 1; fi'
+# rc.13.2: Simplified startup - remove stale socket if present
+ExecStartPre=/bin/rm -f /run/anna/anna.sock
 ExecStart=/usr/local/bin/annad
 
 # Restart policy - automatically recover from failures (RC.7)
@@ -88,8 +88,8 @@ LimitNOFILE=65536
 # Nice level (0 = default priority)
 Nice=0
 
-# Working directory for daemon
-WorkingDirectory=/var/lib/anna
+# Working directory for daemon (rc.13.2: use root since /var/lib/anna may not exist yet)
+WorkingDirectory=/
 
 # Phase 0.4: Secure directory structure
 # Runtime directory for socket (root:anna 0750)
@@ -104,7 +104,8 @@ LogsDirectory=anna
 LogsDirectoryMode=0700
 
 # State directory (root:root 0700)
-StateDirectory=anna
+# rc.13.2: Ensure /var/lib/anna and subdirectories exist
+StateDirectory=anna anna/reports anna/alerts
 StateDirectoryMode=0700
 
 # Configuration directory
