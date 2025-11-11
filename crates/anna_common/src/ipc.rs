@@ -107,6 +107,21 @@ pub enum Method {
     /// Health probe with version (Phase 0.2b)
     /// Citation: [archwiki:system_maintenance]
     HealthProbe,
+
+    /// Run health probes (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthRun {
+        timeout_ms: u64,
+        probes: Vec<String>,
+    },
+
+    /// Get health summary from last run (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthSummary,
+
+    /// List available recovery plans (Phase 0.5)
+    /// Citation: [archwiki:General_troubleshooting]
+    RecoveryPlans,
 }
 
 /// Response data variants
@@ -183,6 +198,18 @@ pub enum ResponseData {
         ok: bool,
         version: String,
     },
+
+    /// Health run results (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthRun(HealthRunData),
+
+    /// Health summary (Phase 0.5)
+    /// Citation: [archwiki:System_maintenance]
+    HealthSummary(HealthSummaryData),
+
+    /// Recovery plans (Phase 0.5)
+    /// Citation: [archwiki:General_troubleshooting]
+    RecoveryPlans(RecoveryPlansData),
 }
 
 /// Type of streaming chunk
@@ -296,4 +323,80 @@ pub struct CommandCapabilityData {
     pub citation: String,
     /// Whether command requires root privileges
     pub requires_root: bool,
+}
+
+/// Health run result (Phase 0.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthRunData {
+    /// Current system state
+    pub state: String,
+    /// Summary counts
+    pub summary: HealthSummaryCount,
+    /// Individual probe results
+    pub results: Vec<HealthProbeResult>,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Health summary count
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthSummaryCount {
+    pub ok: usize,
+    pub warn: usize,
+    pub fail: usize,
+}
+
+/// Individual health probe result (Phase 0.5)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthProbeResult {
+    /// Probe name
+    pub probe: String,
+    /// Status: ok, warn, fail
+    pub status: String,
+    /// Detailed probe data
+    pub details: serde_json::Value,
+    /// Arch Wiki citation for this probe
+    pub citation: String,
+    /// Duration in milliseconds
+    pub duration_ms: u64,
+    /// Timestamp (ISO 8601)
+    pub ts: String,
+}
+
+/// Health summary (Phase 0.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthSummaryData {
+    /// Current system state
+    pub state: String,
+    /// Summary counts
+    pub summary: HealthSummaryCount,
+    /// Last run timestamp (ISO 8601)
+    pub last_run_ts: String,
+    /// List of probes with alerts
+    pub alerts: Vec<String>,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Recovery plans list (Phase 0.5)
+/// Citation: [archwiki:General_troubleshooting]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPlansData {
+    /// Available recovery plans
+    pub plans: Vec<RecoveryPlanItem>,
+    /// Wiki citation
+    pub citation: String,
+}
+
+/// Individual recovery plan (Phase 0.5)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPlanItem {
+    /// Plan ID (e.g., "bootloader", "initramfs")
+    pub id: String,
+    /// Human-readable description
+    pub desc: String,
+    /// Arch Wiki citation for this plan
+    pub citation: String,
 }

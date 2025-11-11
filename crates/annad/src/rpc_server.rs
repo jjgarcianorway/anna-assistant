@@ -1321,6 +1321,160 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 version: state.version.clone(),
             })
         }
+
+        Method::HealthRun { timeout_ms, probes } => {
+            info!("HealthRun method called with timeout={}ms, probes={:?}", timeout_ms, probes);
+
+            // Run health checks (Phase 0.5b)
+            let summary = match crate::health::run_all_probes().await {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Health run failed: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("Health run failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Get current state
+            let detection = state.current_state.read().await.clone();
+
+            // Convert to IPC response type
+            let mut ok_count = 0;
+            let mut warn_count = 0;
+            let mut fail_count = 0;
+
+            let results: Vec<anna_common::ipc::HealthProbeResult> = summary.probes
+                .into_iter()
+                .map(|probe| {
+                    match probe.status {
+                        crate::health::ProbeStatus::Ok => ok_count += 1,
+                        crate::health::ProbeStatus::Warn => warn_count += 1,
+                        crate::health::ProbeStatus::Fail => fail_count += 1,
+                    }
+
+                    anna_common::ipc::HealthProbeResult {
+                        probe: probe.probe,
+                        status: format!("{:?}", probe.status).to_lowercase(),
+                        details: probe.details,
+                        citation: probe.citation,
+                        duration_ms: probe.duration_ms,
+                        ts: chrono::Utc::now().to_rfc3339(),
+                    }
+                })
+                .collect();
+
+            let data = anna_common::ipc::HealthRunData {
+                state: detection.state.to_string(),
+                summary: anna_common::ipc::HealthSummaryCount {
+                    ok: ok_count,
+                    warn: warn_count,
+                    fail: fail_count,
+                },
+                results,
+                citation: "[archwiki:General_recommendations]".to_string(),
+            };
+
+            Ok(ResponseData::HealthRun(data))
+        }
+
+        Method::HealthSummary => {
+            info!("HealthSummary method called");
+
+            // Get health summary from last run (Phase 0.5b)
+            let summary_opt = match crate::health::get_health_summary().await {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("Health summary failed: {}", e);
+                    None // Return empty summary if read fails
+                }
+            };
+
+            let (summary_count, last_run_ts, alerts) = if let Some(summary) = summary_opt {
+                let mut ok_count = 0;
+                let mut warn_count = 0;
+                let mut fail_count = 0;
+                let mut alert_probes = Vec::new();
+
+                for probe in &summary.probes {
+                    match probe.status {
+                        crate::health::ProbeStatus::Ok => ok_count += 1,
+                        crate::health::ProbeStatus::Warn => warn_count += 1,
+                        crate::health::ProbeStatus::Fail => {
+                            fail_count += 1;
+                            alert_probes.push(probe.probe.clone());
+                        }
+                    }
+                }
+
+                (
+                    anna_common::ipc::HealthSummaryCount { ok: ok_count, warn: warn_count, fail: fail_count },
+                    summary.timestamp,
+                    alert_probes,
+                )
+            } else {
+                // No previous run
+                (
+                    anna_common::ipc::HealthSummaryCount { ok: 0, warn: 0, fail: 0 },
+                    chrono::Utc::now().to_rfc3339(),
+                    vec![],
+                )
+            };
+
+            let detection = state.current_state.read().await.clone();
+
+            let data = anna_common::ipc::HealthSummaryData {
+                state: detection.state.to_string(),
+                summary: summary_count,
+                last_run_ts,
+                alerts,
+                citation: "[archwiki:General_recommendations]".to_string(),
+            };
+
+            Ok(ResponseData::HealthSummary(data))
+        }
+
+        Method::RecoveryPlans => {
+            info!("RecoveryPlans method called");
+
+            // Return list of available recovery plans (Phase 0.5b)
+            let plans = vec![
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "bootloader".to_string(),
+                    desc: "Inspect and repair bootloader entries".to_string(),
+                    citation: "[archwiki:GRUB]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "initramfs".to_string(),
+                    desc: "Rebuild initramfs via mkinitcpio".to_string(),
+                    citation: "[archwiki:mkinitcpio]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "pacman-db".to_string(),
+                    desc: "Rebuild pacman DB and keys".to_string(),
+                    citation: "[archwiki:pacman#Database_is_corrupted]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "fstab".to_string(),
+                    desc: "Validate and repair fstab".to_string(),
+                    citation: "[archwiki:Fstab]".to_string(),
+                },
+                anna_common::ipc::RecoveryPlanItem {
+                    id: "systemd".to_string(),
+                    desc: "Analyze failed units and default target".to_string(),
+                    citation: "[archwiki:systemd]".to_string(),
+                },
+            ];
+
+            let data = anna_common::ipc::RecoveryPlansData {
+                plans,
+                citation: "[archwiki:General_troubleshooting]".to_string(),
+            };
+
+            Ok(ResponseData::RecoveryPlans(data))
+        }
     };
 
     Response {
