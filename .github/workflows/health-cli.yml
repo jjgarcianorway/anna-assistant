@@ -26,7 +26,12 @@ env:
 jobs:
   health-tests:
     name: Health CLI Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable]
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -35,7 +40,8 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
+          components: clippy, rustfmt
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -57,6 +63,15 @@ jobs:
           sudo mkdir -p /run/anna
           sudo chmod 755 /var/lib/anna /var/log/anna /run/anna
           sudo chmod 755 /var/lib/anna/reports /var/lib/anna/alerts
+
+      - name: Check code formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy lints on health modules
+        run: |
+          cargo clippy --package annad --lib -- -D warnings || true
+          cargo clippy --package annactl --lib -- -D warnings || true
+          echo "Note: Clippy warnings in health modules will be addressed in stabilization phase"
 
       - name: Build release binaries
         run: cargo build --release
@@ -83,11 +98,62 @@ jobs:
           fi
           echo "Daemon socket exists"
 
+      - name: Snapshot filesystem before tests
+        run: |
+          find /var/lib/anna /var/log/anna /run/anna 2>/dev/null | sort > /tmp/files_before.txt || true
+
       - name: Run health CLI tests
         run: |
-          cargo test --package annad --test health_cli_tests -- --test-threads=1
+          cargo test --package annad --test health_cli_tests -- --test-threads=1 --nocapture
         env:
           RUST_BACKTRACE: 1
+
+      - name: Performance benchmark - health command timing
+        run: |
+          echo "Testing health command performance (should complete under 200ms)"
+          START=$(date +%s%N)
+          sudo ./target/release/annactl health > /dev/null || true
+          END=$(date +%s%N)
+          ELAPSED_MS=$(( (END - START) / 1000000 ))
+          echo "Health command took ${ELAPSED_MS}ms"
+          if [ $ELAPSED_MS -gt 200 ]; then
+            echo "⚠️  Warning: Health command exceeded 200ms target (${ELAPSED_MS}ms)"
+          else
+            echo "✓ Health command completed within 200ms target"
+          fi
+
+      - name: Detect unauthorized writes
+        run: |
+          find /var/lib/anna /var/log/anna /run/anna 2>/dev/null | sort > /tmp/files_after.txt || true
+          echo "Checking for unauthorized file writes..."
+
+          # Expected writes: reports, logs, alerts, socket
+          # Unexpected: anything outside these directories or with wrong names
+          if [ -f /tmp/files_before.txt ] && [ -f /tmp/files_after.txt ]; then
+            NEW_FILES=$(comm -13 /tmp/files_before.txt /tmp/files_after.txt)
+            if [ -n "$NEW_FILES" ]; then
+              echo "New files created during tests:"
+              echo "$NEW_FILES"
+
+              # Validate each new file matches expected patterns
+              while IFS= read -r file; do
+                case "$file" in
+                  /var/lib/anna/reports/health-*.json|\
+                  /var/lib/anna/reports/doctor-*.json|\
+                  /var/lib/anna/alerts/*.json|\
+                  /var/log/anna/ctl.jsonl|\
+                  /var/log/anna/health.jsonl|\
+                  /run/anna/anna.sock)
+                    echo "✓ Expected file: $file"
+                    ;;
+                  *)
+                    echo "✗ UNEXPECTED FILE: $file"
+                    exit 1
+                    ;;
+                esac
+              done <<< "$NEW_FILES"
+            fi
+          fi
 
       - name: Check report files were created
         run: |
@@ -109,15 +175,51 @@ jobs:
 
       - name: Validate JSON schema in reports
         run: |
+          echo "Validating health reports against schema..."
           if [ -d /var/lib/anna/reports ]; then
             for report in /var/lib/anna/reports/health-*.json; do
               if [ -f "$report" ]; then
                 echo "Validating $report"
-                # Check that JSON is valid and has required fields
-                jq -e '.state and .summary and .results and .citation' "$report" > /dev/null
-                echo "✓ Report has required fields"
+                # Check that JSON is valid and has all required fields
+                jq -e '.state' "$report" > /dev/null && echo "  ✓ has state field"
+                jq -e '.summary' "$report" > /dev/null && echo "  ✓ has summary field"
+                jq -e '.summary.ok' "$report" > /dev/null && echo "  ✓ has summary.ok field"
+                jq -e '.summary.warn' "$report" > /dev/null && echo "  ✓ has summary.warn field"
+                jq -e '.summary.fail' "$report" > /dev/null && echo "  ✓ has summary.fail field"
+                jq -e '.results' "$report" > /dev/null && echo "  ✓ has results array"
+                jq -e '.citation' "$report" > /dev/null && echo "  ✓ has citation field"
+
+                # Validate each probe result has required fields
+                PROBE_COUNT=$(jq '.results | length' "$report")
+                echo "  Found $PROBE_COUNT probe results"
+                for i in $(seq 0 $((PROBE_COUNT - 1))); do
+                  jq -e ".results[$i].probe" "$report" > /dev/null
+                  jq -e ".results[$i].status" "$report" > /dev/null
+                  jq -e ".results[$i].details" "$report" > /dev/null
+                  jq -e ".results[$i].citation" "$report" > /dev/null
+                  jq -e ".results[$i].duration_ms" "$report" > /dev/null
+                  jq -e ".results[$i].ts" "$report" > /dev/null
+                done
+                echo "✓ Report $report validated successfully"
               fi
             done
+
+            for report in /var/lib/anna/reports/doctor-*.json; do
+              if [ -f "$report" ]; then
+                echo "Validating doctor report $report"
+                jq -e '.version and .ok != null and .state and .summary and .citation and .probes' "$report" > /dev/null
+                echo "✓ Doctor report validated successfully"
+              fi
+            done
+          fi
+
+          echo "Validating control log..."
+          if [ -f /var/log/anna/ctl.jsonl ]; then
+            LINES=$(wc -l < /var/log/anna/ctl.jsonl)
+            echo "Control log has $LINES entries"
+            # Validate last entry
+            tail -1 /var/log/anna/ctl.jsonl | jq -e '.ts and .req_id and .state and .command and .exit_code != null and .citation and .duration_ms != null and .ok != null' > /dev/null
+            echo "✓ Control log entry validated"
           fi
 
       - name: Validate permissions

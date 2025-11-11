@@ -56,13 +56,15 @@ impl AdviceDisplayCache {
         let json = std::fs::read_to_string(&cache_path)
             .context("Failed to read cache file - run 'annactl advise' first")?;
 
-        let cache: Self = serde_json::from_str(&json)
-            .context("Failed to parse cache file")?;
+        let cache: Self = serde_json::from_str(&json).context("Failed to parse cache file")?;
 
         // Check if cache is too old (older than 1 hour)
         let age = chrono::Utc::now() - cache.created_at;
         if age.num_hours() > 1 {
-            anyhow::bail!("Cache is too old ({}h) - run 'annactl advise' first", age.num_hours());
+            anyhow::bail!(
+                "Cache is too old ({}h) - run 'annactl advise' first",
+                age.num_hours()
+            );
         }
 
         Ok(cache)
@@ -87,8 +89,7 @@ impl AdviceDisplayCache {
     pub fn invalidate() -> Result<()> {
         let cache_path = Self::cache_path();
         if cache_path.exists() {
-            std::fs::remove_file(&cache_path)
-                .context("Failed to delete cache file")?;
+            std::fs::remove_file(&cache_path).context("Failed to delete cache file")?;
         }
         Ok(())
     }

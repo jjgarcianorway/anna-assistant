@@ -2,8 +2,8 @@
 //!
 //! Now using owo-colors and console for robust, battle-tested formatting!
 
+use console::{measure_text_width, Term};
 use owo_colors::OwoColorize;
-use console::{Term, measure_text_width};
 
 /// Status level for messages
 #[derive(Debug, Clone, Copy)]
@@ -42,7 +42,8 @@ pub fn header(text: &str) -> String {
 
     // Apply colors using format! to avoid lifetime issues
     let colored_top = format!("{}", top_line.cyan());
-    let colored_middle = format!("{}{}{}{}{}",
+    let colored_middle = format!(
+        "{}{}{}{}{}",
         "│".cyan(),
         left_padding,
         text.bold().bright_cyan(),
@@ -51,7 +52,10 @@ pub fn header(text: &str) -> String {
     );
     let colored_bottom = format!("{}", bottom_line.cyan());
 
-    format!("\n{}\n{}\n{}\n", colored_top, colored_middle, colored_bottom)
+    format!(
+        "\n{}\n{}\n{}\n",
+        colored_top, colored_middle, colored_bottom
+    )
 }
 
 /// Format a section title
@@ -79,7 +83,8 @@ pub fn kv(key: &str, value: &str) -> String {
 #[deprecated(note = "Use simple formatting instead of boxes")]
 pub fn boxed(lines: &[&str]) -> String {
     // Just return lines with simple indentation
-    lines.iter()
+    lines
+        .iter()
         .map(|line| format!("   {}", line))
         .collect::<Vec<_>>()
         .join("\n")

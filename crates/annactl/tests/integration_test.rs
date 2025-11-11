@@ -3,8 +3,8 @@
 //! Phase 0.3e: Tests for state-aware dispatch, help system, and error codes
 //! Citation: [archwiki:system_maintenance]
 
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// Get path to annactl binary
 fn annactl_bin() -> PathBuf {
@@ -25,7 +25,10 @@ fn test_annactl_compiles() {
         .output()
         .expect("Failed to build annactl");
 
-    assert!(output.status.success(), "annactl should compile successfully");
+    assert!(
+        output.status.success(),
+        "annactl should compile successfully"
+    );
 }
 
 /// Test version flag works
@@ -37,7 +40,10 @@ fn test_version_flag() {
         .expect("Failed to run annactl --version");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("annactl"), "Version output should contain 'annactl'");
+    assert!(
+        stdout.contains("annactl"),
+        "Version output should contain 'annactl'"
+    );
 }
 
 /// Test help subcommand with --json flag produces valid JSON
@@ -71,7 +77,10 @@ fn test_help_json_output() {
                         if parsed.is_ok() {
                             let json = parsed.unwrap();
                             // Should have expected fields
-                            assert!(json.get("version").is_some(), "JSON should have version field");
+                            assert!(
+                                json.get("version").is_some(),
+                                "JSON should have version field"
+                            );
                             assert!(json.get("ok").is_some(), "JSON should have ok field");
                             assert!(json.get("state").is_some(), "JSON should have state field");
                         }
@@ -138,8 +147,8 @@ fn test_daemon_unavailable_exit_code() {
 /// Test log entry structure
 #[test]
 fn test_log_entry_structure() {
-    use annactl::logging::LogEntry;
     use annactl::logging::ErrorDetails;
+    use annactl::logging::LogEntry;
 
     let log_entry = LogEntry {
         ts: LogEntry::now(),

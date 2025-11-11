@@ -210,19 +210,28 @@ pub struct MockableProbe {
 #[cfg(test)]
 impl MockableProbe {
     pub fn new(name: String, forced_status: Option<ProbeStatus>) -> Self {
-        Self { name, forced_status }
+        Self {
+            name,
+            forced_status,
+        }
     }
 
     pub fn from_env(name: String) -> Self {
-        let forced_status = std::env::var(&format!("TEST_PROBE_STATUS_{}", name.to_uppercase().replace("-", "_")))
-            .ok()
-            .and_then(|s| match s.as_str() {
-                "ok" => Some(ProbeStatus::Ok),
-                "warn" => Some(ProbeStatus::Warn),
-                "fail" => Some(ProbeStatus::Fail),
-                _ => None,
-            });
-        Self { name, forced_status }
+        let forced_status = std::env::var(&format!(
+            "TEST_PROBE_STATUS_{}",
+            name.to_uppercase().replace("-", "_")
+        ))
+        .ok()
+        .and_then(|s| match s.as_str() {
+            "ok" => Some(ProbeStatus::Ok),
+            "warn" => Some(ProbeStatus::Warn),
+            "fail" => Some(ProbeStatus::Fail),
+            _ => None,
+        });
+        Self {
+            name,
+            forced_status,
+        }
     }
 }
 

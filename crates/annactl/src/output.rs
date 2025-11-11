@@ -46,11 +46,15 @@ impl CommandOutput {
         if self.allowed {
             println!("[anna] command: {} — {}", self.command, self.message);
         } else {
-            println!("[anna] command: {} — not available in this state", self.command);
+            println!(
+                "[anna] command: {} — not available in this state",
+                self.command
+            );
         }
 
         // Print citation
-        let wiki_page = self.citation
+        let wiki_page = self
+            .citation
             .trim_start_matches("[archwiki:")
             .trim_end_matches(']')
             .replace('_', " ");

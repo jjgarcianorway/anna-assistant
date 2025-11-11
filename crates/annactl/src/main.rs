@@ -7,18 +7,18 @@
 
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
-mod rpc_client;
 pub mod errors;
-pub mod output;
+mod health_commands;
 pub mod logging;
-mod health_commands; // Phase 0.5b
+pub mod output;
+mod rpc_client; // Phase 0.5b
 
+use anna_common::ipc::{CommandCapabilityData, ResponseData, StateDetectionData};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use errors::*;
-use anna_common::ipc::{ResponseData, StateDetectionData, CommandCapabilityData};
+use logging::{ErrorDetails, LogEntry};
 use output::CommandOutput;
-use logging::{LogEntry, ErrorDetails};
 use std::time::Instant;
 
 // Version is embedded at build time
@@ -172,16 +172,19 @@ async fn main() -> Result<()> {
 
     // Phase 0.3d: Handle help command specially
     if matches!(cli.command, Commands::Help { .. }) {
-        return execute_help_command(&cli.command, &state, &capabilities, &req_id, start_time).await;
+        return execute_help_command(&cli.command, &state, &capabilities, &req_id, start_time)
+            .await;
     }
 
     // Phase 0.5b: Handle health commands specially (they bypass state checks)
     match &cli.command {
         Commands::Health { json } => {
-            return health_commands::execute_health_command(*json, &state, &req_id, start_time).await;
+            return health_commands::execute_health_command(*json, &state, &req_id, start_time)
+                .await;
         }
         Commands::Doctor { json } => {
-            return health_commands::execute_doctor_command(*json, &state, &req_id, start_time).await;
+            return health_commands::execute_doctor_command(*json, &state, &req_id, start_time)
+                .await;
         }
         Commands::Rescue { subcommand } => {
             if subcommand.as_deref() == Some("list") {
@@ -211,7 +214,8 @@ async fn main() -> Result<()> {
         };
         let _ = log_entry.write();
 
-        let output = CommandOutput::not_available(state.clone(), command_name.to_string(), state_citation);
+        let output =
+            CommandOutput::not_available(state.clone(), command_name.to_string(), state_citation);
         output.print();
         std::process::exit(EXIT_COMMAND_NOT_AVAILABLE);
     }
@@ -321,7 +325,11 @@ async fn execute_help_command(
         state: state.to_string(),
         command: "help".to_string(),
         allowed: Some(true),
-        args: if json_only { vec!["--json".to_string()] } else { vec![] },
+        args: if json_only {
+            vec!["--json".to_string()]
+        } else {
+            vec![]
+        },
         exit_code: EXIT_SUCCESS,
         citation: state_citation(state).to_string(),
         duration_ms,
@@ -347,7 +355,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         }
         Commands::Update { dry_run } => {
             println!("[anna] update command allowed in state: {}", state);
-            println!("[anna] dry_run={} (no-op - no actual update performed)", dry_run);
+            println!(
+                "[anna] dry_run={} (no-op - no actual update performed)",
+                dry_run
+            );
         }
         Commands::Install => {
             println!("[anna] install command allowed in state: {}", state);
@@ -359,7 +370,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         }
         Commands::Backup { dest } => {
             println!("[anna] backup command allowed in state: {}", state);
-            println!("[anna] dest: {:?} (no-op - no actual backup performed)", dest);
+            println!(
+                "[anna] dest: {:?} (no-op - no actual backup performed)",
+                dest
+            );
         }
         Commands::Health { .. } => {
             // Should not reach here - handled in main
@@ -371,7 +385,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         }
         Commands::Rollback { target } => {
             println!("[anna] rollback command allowed in state: {}", state);
-            println!("[anna] target: {:?} (no-op - no actual rollback performed)", target);
+            println!(
+                "[anna] target: {:?} (no-op - no actual rollback performed)",
+                target
+            );
         }
         Commands::Triage => {
             println!("[anna] triage command allowed in state: {}", state);

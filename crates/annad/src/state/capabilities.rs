@@ -362,9 +362,17 @@ mod tests {
 
             // All capabilities must have citations
             for cap in caps {
-                assert!(!cap.citation.is_empty(), "Command {} has no citation", cap.name);
-                assert!(cap.citation.starts_with("[archwiki:") || cap.citation.starts_with("[man:"),
-                        "Command {} has invalid citation: {}", cap.name, cap.citation);
+                assert!(
+                    !cap.citation.is_empty(),
+                    "Command {} has no citation",
+                    cap.name
+                );
+                assert!(
+                    cap.citation.starts_with("[archwiki:") || cap.citation.starts_with("[man:"),
+                    "Command {} has invalid citation: {}",
+                    cap.name,
+                    cap.citation
+                );
             }
         }
     }
@@ -384,15 +392,15 @@ mod tests {
     #[test]
     fn test_unknown_limited_commands() {
         let caps = get_capabilities(SystemState::Unknown);
-        assert!(caps.len() <= 3, "Unknown state should have minimal commands");
+        assert!(
+            caps.len() <= 3,
+            "Unknown state should have minimal commands"
+        );
     }
 
     #[test]
     fn test_all_commands_have_since_version() {
-        let states = vec![
-            SystemState::IsoLive,
-            SystemState::Configured,
-        ];
+        let states = vec![SystemState::IsoLive, SystemState::Configured];
 
         for state in states {
             let caps = get_capabilities(state);

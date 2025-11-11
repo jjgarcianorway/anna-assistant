@@ -85,16 +85,10 @@ pub enum Method {
     ListRollbackable,
 
     /// Rollback a specific action by advice ID (Beta.91)
-    RollbackAction {
-        advice_id: String,
-        dry_run: bool,
-    },
+    RollbackAction { advice_id: String, dry_run: bool },
 
     /// Rollback last N actions (Beta.91)
-    RollbackLast {
-        count: usize,
-        dry_run: bool,
-    },
+    RollbackLast { count: usize, dry_run: bool },
 
     /// Get system state detection (Phase 0.2b)
     /// Citation: [archwiki:system_maintenance]
@@ -153,10 +147,7 @@ pub enum ResponseData {
     },
 
     /// Stream end marker
-    StreamEnd {
-        success: bool,
-        message: String,
-    },
+    StreamEnd { success: bool, message: String },
 
     /// Update check result
     UpdateCheck {
@@ -194,10 +185,7 @@ pub enum ResponseData {
     Capabilities(Vec<CommandCapabilityData>),
 
     /// Health probe result (Phase 0.2b)
-    HealthProbe {
-        ok: bool,
-        version: String,
-    },
+    HealthProbe { ok: bool, version: String },
 
     /// Health run results (Phase 0.5)
     /// Citation: [archwiki:System_maintenance]

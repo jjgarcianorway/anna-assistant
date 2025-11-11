@@ -32,8 +32,10 @@ impl RpcClient {
         for attempt in 0..max_retries {
             match tokio::time::timeout(
                 Duration::from_millis(500), // 500ms connect timeout per attempt
-                UnixStream::connect(SOCKET_PATH)
-            ).await {
+                UnixStream::connect(SOCKET_PATH),
+            )
+            .await
+            {
                 Ok(Ok(stream)) => {
                     // Success!
                     let (reader, writer) = stream.into_split();
@@ -42,13 +44,16 @@ impl RpcClient {
                 }
                 Ok(Err(e)) if attempt == max_retries - 1 => {
                     // Last attempt failed - give up
-                    return Err(e).context("Failed to connect to daemon after 10 retries. Is annad running?");
+                    return Err(e).context(
+                        "Failed to connect to daemon after 10 retries. Is annad running?",
+                    );
                 }
                 Ok(Err(_)) | Err(_) => {
                     // Connection failed or timed out - retry
                     if attempt < max_retries - 1 {
                         sleep(retry_delay).await;
-                        retry_delay = (retry_delay * 2).min(Duration::from_millis(500)); // Max 500ms between retries
+                        retry_delay = (retry_delay * 2).min(Duration::from_millis(500));
+                        // Max 500ms between retries
                     }
                 }
             }
@@ -77,8 +82,7 @@ impl RpcClient {
             .await
             .context("Failed to read response")?;
 
-        let response: Response =
-            serde_json::from_str(&line).context("Failed to parse response")?;
+        let response: Response = serde_json::from_str(&line).context("Failed to parse response")?;
 
         if response.id != id {
             anyhow::bail!("Response ID mismatch");
@@ -110,7 +114,11 @@ impl RpcClient {
 
     /// Run health probes (Phase 0.5b)
     /// Citation: [archwiki:System_maintenance]
-    pub async fn health_run(&mut self, timeout_ms: u64, probes: Vec<String>) -> Result<ResponseData> {
+    pub async fn health_run(
+        &mut self,
+        timeout_ms: u64,
+        probes: Vec<String>,
+    ) -> Result<ResponseData> {
         self.call(Method::HealthRun { timeout_ms, probes }).await
     }
 

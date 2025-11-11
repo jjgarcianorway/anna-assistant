@@ -223,13 +223,7 @@ impl Snapshotter {
             .context("Failed to create snapshot directory")?;
 
         // Create rsync snapshot of important directories
-        let dirs_to_backup = vec![
-            "/etc",
-            "/boot",
-            "/home",
-            "/usr/local",
-            "/var/lib/pacman",
-        ];
+        let dirs_to_backup = vec!["/etc", "/boot", "/home", "/usr/local", "/var/lib/pacman"];
 
         for dir in dirs_to_backup {
             if !Path::new(dir).exists() {
@@ -244,12 +238,7 @@ impl Snapshotter {
             info!("Backing up {} to {}", dir, dest_dir.display());
 
             let output = Command::new("rsync")
-                .args(&[
-                    "-aAXv",
-                    "--quiet",
-                    dir,
-                    dest_dir.to_str().unwrap(),
-                ])
+                .args(&["-aAXv", "--quiet", dir, dest_dir.to_str().unwrap()])
                 .stdout(Stdio::null())
                 .stderr(Stdio::piped())
                 .output()
@@ -350,13 +339,11 @@ impl Snapshotter {
             let size = self.get_directory_size(&path).await.ok();
 
             // Parse timestamp from name (anna-YYYYMMDD-HHMMSS)
-            let created_at = chrono::NaiveDateTime::parse_from_str(
-                &name.replace("anna-", ""),
-                "%Y%m%d-%H%M%S",
-            )
-            .ok()
-            .map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc))
-            .unwrap_or_else(Utc::now);
+            let created_at =
+                chrono::NaiveDateTime::parse_from_str(&name.replace("anna-", ""), "%Y%m%d-%H%M%S")
+                    .ok()
+                    .map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc))
+                    .unwrap_or_else(Utc::now);
 
             snapshots.push(Snapshot {
                 id: name.clone(),

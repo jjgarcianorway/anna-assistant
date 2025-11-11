@@ -11,9 +11,9 @@
 //! - https://wiki.archlinux.org/title/Wayland
 //! - https://wiki.archlinux.org/title/Xorg
 
-use std::path::PathBuf;
-use std::fs;
 use anyhow::Result;
+use std::fs;
+use std::path::PathBuf;
 
 /// Window manager types with their config locations
 #[derive(Debug, Clone, PartialEq)]
@@ -42,7 +42,10 @@ impl WindowManager {
         let home = std::env::var("HOME").ok()?;
 
         match self {
-            WindowManager::Hyprland => Some(PathBuf::from(format!("{}/.config/hypr/hyprland.conf", home))),
+            WindowManager::Hyprland => Some(PathBuf::from(format!(
+                "{}/.config/hypr/hyprland.conf",
+                home
+            ))),
             WindowManager::Sway => Some(PathBuf::from(format!("{}/.config/sway/config", home))),
             WindowManager::Wayfire => Some(PathBuf::from(format!("{}/.config/wayfire.ini", home))),
             WindowManager::River => Some(PathBuf::from(format!("{}/.config/river/init", home))),
@@ -59,9 +62,15 @@ impl WindowManager {
                 }
             }
             WindowManager::Bspwm => Some(PathBuf::from(format!("{}/.config/bspwm/bspwmrc", home))),
-            WindowManager::Awesome => Some(PathBuf::from(format!("{}/.config/awesome/rc.lua", home))),
-            WindowManager::Qtile => Some(PathBuf::from(format!("{}/.config/qtile/config.py", home))),
-            WindowManager::Openbox => Some(PathBuf::from(format!("{}/.config/openbox/rc.xml", home))),
+            WindowManager::Awesome => {
+                Some(PathBuf::from(format!("{}/.config/awesome/rc.lua", home)))
+            }
+            WindowManager::Qtile => {
+                Some(PathBuf::from(format!("{}/.config/qtile/config.py", home)))
+            }
+            WindowManager::Openbox => {
+                Some(PathBuf::from(format!("{}/.config/openbox/rc.xml", home)))
+            }
             WindowManager::Xmonad => Some(PathBuf::from(format!("{}/.xmonad/xmonad.hs", home))),
             WindowManager::Dwm => None, // dwm is compiled, no config file
             WindowManager::Unknown => None,
@@ -86,13 +95,13 @@ impl WindowManager {
 /// Config file format types
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConfigFormat {
-    HyprlandConf,  // Hyprland-specific format
-    I3Style,       // i3/Sway config format
-    Ini,           // INI-style (Wayfire, etc.)
-    Shell,         // Shell script (bspwm, river)
-    Lua,           // Lua (awesome)
-    Python,        // Python (qtile)
-    Haskell,       // Haskell (xmonad)
+    HyprlandConf, // Hyprland-specific format
+    I3Style,      // i3/Sway config format
+    Ini,          // INI-style (Wayfire, etc.)
+    Shell,        // Shell script (bspwm, river)
+    Lua,          // Lua (awesome)
+    Python,       // Python (qtile)
+    Haskell,      // Haskell (xmonad)
     Unknown,
 }
 
@@ -105,10 +114,7 @@ pub struct ConfigParser {
 impl ConfigParser {
     /// Create a new parser for the given window manager
     pub fn new(wm: WindowManager) -> Self {
-        Self {
-            wm,
-            content: None,
-        }
+        Self { wm, content: None }
     }
 
     /// Load the config file content
@@ -123,35 +129,39 @@ impl ConfigParser {
 
     /// Check if an environment variable is set in the config
     pub fn has_env_var(&self, var_name: &str) -> bool {
-        let Some(content) = &self.content else { return false };
+        let Some(content) = &self.content else {
+            return false;
+        };
 
         match self.wm.config_format() {
             ConfigFormat::HyprlandConf => {
                 // Hyprland format: env = VARNAME,value
                 content.lines().any(|line| {
                     let trimmed = line.trim();
-                    trimmed.starts_with("env") &&
-                    trimmed.contains(var_name) &&
-                    !trimmed.starts_with('#')
+                    trimmed.starts_with("env")
+                        && trimmed.contains(var_name)
+                        && !trimmed.starts_with('#')
                 })
             }
             ConfigFormat::I3Style => {
                 // Sway/i3 format: set $varname value  or  exec export VARNAME=value
                 content.lines().any(|line| {
                     let trimmed = line.trim();
-                    if trimmed.starts_with('#') { return false; }
+                    if trimmed.starts_with('#') {
+                        return false;
+                    }
 
-                    (trimmed.starts_with("set") && trimmed.contains(var_name)) ||
-                    (trimmed.contains("export") && trimmed.contains(var_name))
+                    (trimmed.starts_with("set") && trimmed.contains(var_name))
+                        || (trimmed.contains("export") && trimmed.contains(var_name))
                 })
             }
             ConfigFormat::Shell => {
                 // Shell script: export VARNAME=value
                 content.lines().any(|line| {
                     let trimmed = line.trim();
-                    !trimmed.starts_with('#') &&
-                    trimmed.contains("export") &&
-                    trimmed.contains(var_name)
+                    !trimmed.starts_with('#')
+                        && trimmed.contains("export")
+                        && trimmed.contains(var_name)
                 })
             }
             _ => false, // Other formats not implemented yet
@@ -160,7 +170,9 @@ impl ConfigParser {
 
     /// Check if a specific setting exists in the config
     pub fn has_setting(&self, setting: &str) -> bool {
-        let Some(content) = &self.content else { return false };
+        let Some(content) = &self.content else {
+            return false;
+        };
 
         content.lines().any(|line| {
             let trimmed = line.trim();
@@ -239,10 +251,18 @@ mod tests {
     #[test]
     fn test_config_paths() {
         let hypr = WindowManager::Hyprland;
-        assert!(hypr.config_path().unwrap().to_string_lossy().contains("hypr/hyprland.conf"));
+        assert!(hypr
+            .config_path()
+            .unwrap()
+            .to_string_lossy()
+            .contains("hypr/hyprland.conf"));
 
         let sway = WindowManager::Sway;
-        assert!(sway.config_path().unwrap().to_string_lossy().contains("sway/config"));
+        assert!(sway
+            .config_path()
+            .unwrap()
+            .to_string_lossy()
+            .contains("sway/config"));
     }
 
     #[test]

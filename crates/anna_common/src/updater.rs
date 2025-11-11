@@ -6,11 +6,11 @@
 //! unnecessary sudo commands. Works both when called by daemon (already root)
 //! and when called directly by users.
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 use std::path::Path;
-use tracing::{info, warn, error};
+use std::process::Command;
+use tracing::{error, info, warn};
 
 const REPO: &str = "jjgarcianorway/anna-assistant";
 const INSTALL_DIR: &str = "/usr/local/bin";
@@ -93,12 +93,15 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
         .build()?;
 
     let url = format!("https://api.github.com/repos/{}/releases", REPO);
-    let response = client.get(&url)
+    let response = client
+        .get(&url)
         .send()
         .await
         .context("Failed to fetch releases from GitHub")?;
 
-    let releases: Vec<serde_json::Value> = response.json().await
+    let releases: Vec<serde_json::Value> = response
+        .json()
+        .await
         .context("Failed to parse GitHub API response")?;
 
     if releases.is_empty() {
@@ -107,21 +110,25 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
 
     // Get first release (most recent)
     let latest = &releases[0];
-    let latest_version_raw = latest["tag_name"].as_str()
+    let latest_version_raw = latest["tag_name"]
+        .as_str()
         .context("No tag_name in release")?;
 
     // Strip "v" prefix from tag if present (e.g., "v1.0.0-beta.82" -> "1.0.0-beta.82")
-    let latest_version = latest_version_raw.strip_prefix("v")
+    let latest_version = latest_version_raw
+        .strip_prefix("v")
         .unwrap_or(latest_version_raw)
         .to_string();
 
     info!("Latest version: {}", latest_version);
 
     // Find asset URLs
-    let assets = latest["assets"].as_array()
+    let assets = latest["assets"]
+        .as_array()
         .context("No assets in release")?;
 
-    let annad_asset = assets.iter()
+    let annad_asset = assets
+        .iter()
         .find(|a| {
             if let Some(name) = a["name"].as_str() {
                 name == "annad" || name.starts_with("annad-")
@@ -131,7 +138,8 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
         })
         .context("annad binary not found in release")?;
 
-    let annactl_asset = assets.iter()
+    let annactl_asset = assets
+        .iter()
         .find(|a| {
             if let Some(name) = a["name"].as_str() {
                 name == "annactl" || name.starts_with("annactl-")
@@ -141,19 +149,23 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
         })
         .context("annactl binary not found in release")?;
 
-    let download_url_annad = annad_asset["browser_download_url"].as_str()
+    let download_url_annad = annad_asset["browser_download_url"]
+        .as_str()
         .context("No download URL for annad")?
         .to_string();
 
-    let download_url_annactl = annactl_asset["browser_download_url"].as_str()
+    let download_url_annactl = annactl_asset["browser_download_url"]
+        .as_str()
         .context("No download URL for annactl")?
         .to_string();
 
-    let release_notes_url = latest["html_url"].as_str()
+    let release_notes_url = latest["html_url"]
+        .as_str()
         .context("No release notes URL")?
         .to_string();
 
-    let published_at = latest["published_at"].as_str()
+    let published_at = latest["published_at"]
+        .as_str()
         .unwrap_or("unknown")
         .to_string();
 
@@ -178,16 +190,18 @@ pub async fn download_binary(url: &str, dest_path: &Path) -> Result<()> {
         .user_agent("anna-assistant")
         .build()?;
 
-    let response = client.get(url)
+    let response = client
+        .get(url)
         .send()
         .await
         .context("Failed to download binary")?;
 
-    let bytes = response.bytes().await
+    let bytes = response
+        .bytes()
+        .await
         .context("Failed to read binary data")?;
 
-    std::fs::write(dest_path, bytes)
-        .context("Failed to write binary to disk")?;
+    std::fs::write(dest_path, bytes).context("Failed to write binary to disk")?;
 
     // Make executable
     let mut perms = std::fs::metadata(dest_path)?.permissions();
@@ -219,7 +233,9 @@ fn verify_binary(binary_path: &Path, expected_version: &str) -> Result<()> {
 
     // Strip 'v' prefix from expected version for comparison
     // Expected: "v1.0.0-beta.58", Binary outputs: "annad 1.0.0-beta.58"
-    let version_without_v = expected_version.strip_prefix('v').unwrap_or(expected_version);
+    let version_without_v = expected_version
+        .strip_prefix('v')
+        .unwrap_or(expected_version);
 
     if !version_output.contains(version_without_v) {
         anyhow::bail!(
@@ -253,19 +269,22 @@ fn backup_current_binaries() -> Result<()> {
     let annactl_backup = Path::new(BACKUP_DIR).join(format!("annactl.{}", timestamp));
 
     // Copy to backup directory (with privilege escalation if needed)
-    let status_annad = execute_privileged("cp", &[
-        annad_src.to_str().unwrap(),
-        annad_backup.to_str().unwrap()
-    ])?;
+    let status_annad = execute_privileged(
+        "cp",
+        &[annad_src.to_str().unwrap(), annad_backup.to_str().unwrap()],
+    )?;
 
     if !status_annad.success() {
         anyhow::bail!("Failed to backup annad");
     }
 
-    let status_annactl = execute_privileged("cp", &[
-        annactl_src.to_str().unwrap(),
-        annactl_backup.to_str().unwrap()
-    ])?;
+    let status_annactl = execute_privileged(
+        "cp",
+        &[
+            annactl_src.to_str().unwrap(),
+            annactl_backup.to_str().unwrap(),
+        ],
+    )?;
 
     if !status_annactl.success() {
         anyhow::bail!("Failed to backup annactl");
@@ -277,13 +296,14 @@ fn backup_current_binaries() -> Result<()> {
 
 /// Perform the update
 pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
-    info!("Performing update from {} to {}",
-          update_info.current_version, update_info.latest_version);
+    info!(
+        "Performing update from {} to {}",
+        update_info.current_version, update_info.latest_version
+    );
 
     // Create temp directory for download
     let temp_dir = std::env::temp_dir().join("anna-update");
-    std::fs::create_dir_all(&temp_dir)
-        .context("Failed to create temp directory")?;
+    std::fs::create_dir_all(&temp_dir).context("Failed to create temp directory")?;
 
     let temp_annad = temp_dir.join("annad");
     let temp_annactl = temp_dir.join("annactl");
@@ -332,21 +352,27 @@ pub async fn perform_update(update_info: &UpdateInfo) -> Result<()> {
     let annad_dest = Path::new(INSTALL_DIR).join("annad");
     let annactl_dest = Path::new(INSTALL_DIR).join("annactl");
 
-    let status_annad = execute_privileged("mv", &[
-        "-f",
-        temp_annad.to_str().unwrap(),
-        annad_dest.to_str().unwrap()
-    ])?;
+    let status_annad = execute_privileged(
+        "mv",
+        &[
+            "-f",
+            temp_annad.to_str().unwrap(),
+            annad_dest.to_str().unwrap(),
+        ],
+    )?;
 
     if !status_annad.success() {
         anyhow::bail!("Failed to install annad binary");
     }
 
-    let status_annactl = execute_privileged("mv", &[
-        "-f",
-        temp_annactl.to_str().unwrap(),
-        annactl_dest.to_str().unwrap()
-    ])?;
+    let status_annactl = execute_privileged(
+        "mv",
+        &[
+            "-f",
+            temp_annactl.to_str().unwrap(),
+            annactl_dest.to_str().unwrap(),
+        ],
+    )?;
 
     if !status_annactl.success() {
         anyhow::bail!("Failed to install annactl binary");
@@ -369,7 +395,10 @@ pub async fn check_updates_background() -> Option<UpdateInfo> {
     match check_for_updates().await {
         Ok(info) => {
             if info.is_update_available {
-                info!("Update available: {} -> {}", info.current_version, info.latest_version);
+                info!(
+                    "Update available: {} -> {}",
+                    info.current_version, info.latest_version
+                );
                 Some(info)
             } else {
                 info!("Already on latest version: {}", info.current_version);

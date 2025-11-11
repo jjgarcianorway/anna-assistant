@@ -63,10 +63,10 @@ fn test_socket_file_permissions() {
 fn test_secure_directory_structure() {
     // Phase 0.4: Validate that we can create directories with correct permissions
     let test_dirs = [
-        ("/tmp/test-anna-etc", 0o700),      // /etc/anna equivalent
-        ("/tmp/test-anna-log", 0o700),      // /var/log/anna equivalent
-        ("/tmp/test-anna-lib", 0o700),      // /var/lib/anna equivalent
-        ("/tmp/test-anna-static", 0o755),   // /usr/local/lib/anna equivalent
+        ("/tmp/test-anna-etc", 0o700),    // /etc/anna equivalent
+        ("/tmp/test-anna-log", 0o700),    // /var/log/anna equivalent
+        ("/tmp/test-anna-lib", 0o700),    // /var/lib/anna equivalent
+        ("/tmp/test-anna-static", 0o755), // /usr/local/lib/anna equivalent
     ];
 
     for (dir, expected_mode) in &test_dirs {
@@ -96,14 +96,14 @@ fn test_secure_directory_structure() {
 /// Test that socket path validation works
 #[test]
 fn test_socket_path_validation() {
-    let valid_paths = [
-        "/run/anna/anna.sock",
-        "/tmp/anna.sock",
-    ];
+    let valid_paths = ["/run/anna/anna.sock", "/tmp/anna.sock"];
 
     for path in &valid_paths {
         let socket_path = Path::new(path);
-        assert!(socket_path.parent().is_some(), "Socket path should have parent directory");
+        assert!(
+            socket_path.parent().is_some(),
+            "Socket path should have parent directory"
+        );
 
         if let Some(parent) = socket_path.parent() {
             assert!(!parent.as_os_str().is_empty(), "Parent should not be empty");
@@ -136,5 +136,8 @@ fn test_runtime_directory_config() {
     // RuntimeDirectoryMode=0750
 
     let expected_mode = 0o750;
-    assert_eq!(expected_mode, 0o750, "RuntimeDirectory should use 0750 mode");
+    assert_eq!(
+        expected_mode, 0o750,
+        "RuntimeDirectory should use 0750 mode"
+    );
 }

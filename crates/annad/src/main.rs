@@ -76,19 +76,19 @@
 //! sudo ./target/debug/annad
 //! ```
 
-mod state; // Phase 0.2: State machine
+mod action_history;
+mod audit;
+mod autonomy;
+mod executor;
 mod health; // Phase 0.5: Health subsystem
-mod telemetry;
+mod notifier;
 mod recommender;
 mod rpc_server;
-mod executor;
-mod audit;
-mod action_history;
-mod watcher;
-mod notifier;
 mod snapshotter;
+mod state; // Phase 0.2: State machine
+mod telemetry;
+mod watcher;
 mod wiki_cache;
-mod autonomy;
 
 use anyhow::Result;
 use rpc_server::DaemonState;
@@ -110,15 +110,16 @@ async fn main() -> Result<()> {
     }
 
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Anna Daemon {} starting", VERSION);
 
     // Collect initial system facts
     let facts = telemetry::collect_facts().await?;
-    info!("System facts collected: {} packages installed", facts.installed_packages);
+    info!(
+        "System facts collected: {} packages installed",
+        facts.installed_packages
+    );
 
     // Generate recommendations
     let mut advice = recommender::generate_advice(&facts);
@@ -134,14 +135,13 @@ async fn main() -> Result<()> {
         info!("Removed {} duplicate advice items", duplicates_removed);
     }
 
-    info!("Generated {} recommendations (Wiki-strict only)", advice.len());
+    info!(
+        "Generated {} recommendations (Wiki-strict only)",
+        advice.len()
+    );
 
     // Initialize daemon state
-    let state = Arc::new(DaemonState::new(
-        VERSION.to_string(),
-        facts,
-        advice,
-    ).await?);
+    let state = Arc::new(DaemonState::new(VERSION.to_string(), facts, advice).await?);
 
     info!("Anna Daemon ready");
 
@@ -212,9 +212,10 @@ async fn main() -> Result<()> {
             match anna_common::updater::check_for_updates().await {
                 Ok(update_info) => {
                     if update_info.is_update_available {
-                        info!("Update available: {} → {}",
-                            update_info.current_version,
-                            update_info.latest_version);
+                        info!(
+                            "Update available: {} → {}",
+                            update_info.current_version, update_info.latest_version
+                        );
 
                         // Auto-install updates (always-on, no tier required)
                         info!("Auto-installing update...");
@@ -228,9 +229,10 @@ async fn main() -> Result<()> {
                                     .arg("--icon=system-software-update")
                                     .arg("--expire-time=10000")
                                     .arg("Anna Updated Automatically")
-                                    .arg(&format!("Updated from {} to {}",
-                                        update_info.current_version,
-                                        update_info.latest_version))
+                                    .arg(&format!(
+                                        "Updated from {} to {}",
+                                        update_info.current_version, update_info.latest_version
+                                    ))
                                     .spawn();
 
                                 // Daemon will be restarted by systemd after binary replacement

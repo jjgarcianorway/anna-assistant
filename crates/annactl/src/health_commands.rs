@@ -4,9 +4,9 @@
 //! Citation: [archwiki:System_maintenance]
 
 use crate::errors::*;
-use crate::logging::{LogEntry, ErrorDetails};
+use crate::logging::{ErrorDetails, LogEntry};
 use crate::rpc_client::RpcClient;
-use anna_common::ipc::{ResponseData, HealthRunData, HealthSummaryData, RecoveryPlansData};
+use anna_common::ipc::{HealthRunData, HealthSummaryData, RecoveryPlansData, ResponseData};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
@@ -19,7 +19,8 @@ pub async fn execute_health_command(
     req_id: &str,
     start_time: Instant,
 ) -> Result<()> {
-    let mut client = RpcClient::connect().await
+    let mut client = RpcClient::connect()
+        .await
         .context("Failed to connect to daemon")?;
 
     // Call health_run with all six probes
@@ -37,7 +38,14 @@ pub async fn execute_health_command(
     let data = match response {
         ResponseData::HealthRun(data) => data,
         _ => {
-            log_and_exit(req_id, state, "health", start_time, EXIT_INVALID_RESPONSE, None);
+            log_and_exit(
+                req_id,
+                state,
+                "health",
+                start_time,
+                EXIT_INVALID_RESPONSE,
+                None,
+            );
         }
     };
 
@@ -65,7 +73,11 @@ pub async fn execute_health_command(
         state: state.to_string(),
         command: "health".to_string(),
         allowed: Some(true),
-        args: if json { vec!["--json".to_string()] } else { vec![] },
+        args: if json {
+            vec!["--json".to_string()]
+        } else {
+            vec![]
+        },
         exit_code,
         citation: "[archwiki:General_recommendations]".to_string(),
         duration_ms,
@@ -84,7 +96,8 @@ pub async fn execute_doctor_command(
     req_id: &str,
     start_time: Instant,
 ) -> Result<()> {
-    let mut client = RpcClient::connect().await
+    let mut client = RpcClient::connect()
+        .await
         .context("Failed to connect to daemon")?;
 
     // Call health_run
@@ -102,7 +115,14 @@ pub async fn execute_doctor_command(
     let data = match response {
         ResponseData::HealthRun(data) => data,
         _ => {
-            log_and_exit(req_id, state, "doctor", start_time, EXIT_INVALID_RESPONSE, None);
+            log_and_exit(
+                req_id,
+                state,
+                "doctor",
+                start_time,
+                EXIT_INVALID_RESPONSE,
+                None,
+            );
         }
     };
 
@@ -138,7 +158,11 @@ pub async fn execute_doctor_command(
         state: state.to_string(),
         command: "doctor".to_string(),
         allowed: Some(true),
-        args: if json { vec!["--json".to_string()] } else { vec![] },
+        args: if json {
+            vec!["--json".to_string()]
+        } else {
+            vec![]
+        },
         exit_code,
         citation: "[archwiki:System_maintenance]".to_string(),
         duration_ms,
@@ -151,11 +175,9 @@ pub async fn execute_doctor_command(
 }
 
 /// Execute rescue list command (Phase 0.5b)
-pub async fn execute_rescue_list_command(
-    req_id: &str,
-    start_time: Instant,
-) -> Result<()> {
-    let mut client = RpcClient::connect().await
+pub async fn execute_rescue_list_command(req_id: &str, start_time: Instant) -> Result<()> {
+    let mut client = RpcClient::connect()
+        .await
         .context("Failed to connect to daemon")?;
 
     let response = client.recovery_plans().await?;
@@ -163,7 +185,14 @@ pub async fn execute_rescue_list_command(
     let data = match response {
         ResponseData::RecoveryPlans(data) => data,
         _ => {
-            log_and_exit(req_id, "unknown", "rescue list", start_time, EXIT_INVALID_RESPONSE, None);
+            log_and_exit(
+                req_id,
+                "unknown",
+                "rescue list",
+                start_time,
+                EXIT_INVALID_RESPONSE,
+                None,
+            );
         }
     };
 
@@ -205,13 +234,14 @@ fn determine_health_exit_code(data: &HealthRunData) -> i32 {
 
 /// Print health summary (human output)
 fn print_health_summary(data: &HealthRunData) {
-    println!("Health summary: ok={} warn={} fail={}",
-             data.summary.ok, data.summary.warn, data.summary.fail);
+    println!(
+        "Health summary: ok={} warn={} fail={}",
+        data.summary.ok, data.summary.warn, data.summary.fail
+    );
 
     for result in &data.results {
         if result.status != "ok" {
-            println!("{}: {}  {}",
-                     result.status, result.probe, result.citation);
+            println!("{}: {}  {}", result.status, result.probe, result.citation);
         }
     }
 }
@@ -221,7 +251,9 @@ fn print_doctor_summary(data: &HealthRunData) {
     println!("Doctor report for state: {}", data.state);
 
     // Failed probes
-    let failed: Vec<&str> = data.results.iter()
+    let failed: Vec<&str> = data
+        .results
+        .iter()
         .filter(|r| r.status == "fail")
         .map(|r| r.probe.as_str())
         .collect();
@@ -309,7 +341,14 @@ async fn save_doctor_report(data: &HealthRunData) -> Result<PathBuf> {
 }
 
 /// Helper to log and exit
-fn log_and_exit(req_id: &str, state: &str, command: &str, start_time: Instant, exit_code: i32, error: Option<ErrorDetails>) -> ! {
+fn log_and_exit(
+    req_id: &str,
+    state: &str,
+    command: &str,
+    start_time: Instant,
+    exit_code: i32,
+    error: Option<ErrorDetails>,
+) -> ! {
     let duration_ms = start_time.elapsed().as_millis() as u64;
     let log_entry = LogEntry {
         ts: LogEntry::now(),

@@ -6,8 +6,10 @@
 mod probes;
 mod runner;
 
-pub use probes::{HealthProbe, ProbeResult, ProbeStatus, DiskSpaceProbe, SystemdUnitsProbe, PacmanDbProbe};
-pub use runner::{run_all_probes, run_probe, get_health_summary, HealthSummary};
+pub use probes::{
+    DiskSpaceProbe, HealthProbe, PacmanDbProbe, ProbeResult, ProbeStatus, SystemdUnitsProbe,
+};
+pub use runner::{get_health_summary, run_all_probes, run_probe, HealthSummary};
 
 #[cfg(test)]
 pub use probes::MockableProbe;

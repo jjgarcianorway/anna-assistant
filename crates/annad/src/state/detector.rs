@@ -9,7 +9,7 @@
 //!
 //! Citation: [archwiki:installation_guide], [archwiki:system_maintenance]
 
-use super::types::{NetworkStatus, StateDetection, StateDetails, SystemState};
+use super::types::{NetworkStatus, StateDetails, StateDetection, SystemState};
 use anyhow::Result;
 use std::fs;
 use std::path::Path;
@@ -197,14 +197,12 @@ fn detect_network_status() -> NetworkStatus {
         fs::read_dir(net_dir)
             .ok()
             .map(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .any(|e| {
-                        let name = e.file_name();
-                        let name_str = name.to_string_lossy();
-                        // Skip loopback
-                        !name_str.starts_with("lo")
-                    })
+                entries.filter_map(|e| e.ok()).any(|e| {
+                    let name = e.file_name();
+                    let name_str = name.to_string_lossy();
+                    // Skip loopback
+                    !name_str.starts_with("lo")
+                })
             })
             .unwrap_or(false)
     } else {

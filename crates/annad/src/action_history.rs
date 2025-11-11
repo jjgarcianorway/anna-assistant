@@ -68,13 +68,11 @@ impl ActionHistory {
         let actions: Vec<Action> = content
             .lines()
             .filter(|line| !line.is_empty())
-            .filter_map(|line| {
-                match serde_json::from_str(line) {
-                    Ok(action) => Some(action),
-                    Err(e) => {
-                        warn!("Failed to parse action from history: {}", e);
-                        None
-                    }
+            .filter_map(|line| match serde_json::from_str(line) {
+                Ok(action) => Some(action),
+                Err(e) => {
+                    warn!("Failed to parse action from history: {}", e);
+                    None
                 }
             })
             .collect();

@@ -3,7 +3,9 @@
 //! Phase 0.5: Run health probes and aggregate results
 //! Citation: [archwiki:System_maintenance]
 
-use super::{DiskSpaceProbe, HealthProbe, PacmanDbProbe, ProbeResult, ProbeStatus, SystemdUnitsProbe};
+use super::{
+    DiskSpaceProbe, HealthProbe, PacmanDbProbe, ProbeResult, ProbeStatus, SystemdUnitsProbe,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;

@@ -16,4 +16,4 @@ pub mod types;
 
 pub use capabilities::{get_capabilities, CommandCapability};
 pub use detector::detect_state;
-pub use types::{NetworkStatus, StateDetection, StateDetails, SystemState};
+pub use types::{NetworkStatus, StateDetails, StateDetection, SystemState};

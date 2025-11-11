@@ -146,8 +146,14 @@ mod tests {
 
     #[test]
     fn test_state_citations() {
-        assert_eq!(SystemState::IsoLive.citation(), "[archwiki:installation_guide:boot_the_live_environment]");
-        assert_eq!(SystemState::Configured.citation(), "[archwiki:system_maintenance]");
+        assert_eq!(
+            SystemState::IsoLive.citation(),
+            "[archwiki:installation_guide:boot_the_live_environment]"
+        );
+        assert_eq!(
+            SystemState::Configured.citation(),
+            "[archwiki:system_maintenance]"
+        );
     }
 
     #[test]

@@ -40,7 +40,11 @@ fn test_health_all_ok() {
         .output()
         .expect("Failed to execute annactl health");
 
-    assert_eq!(output.status.code(), Some(0), "Expected exit code 0 for all ok");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Expected exit code 0 for all ok"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok="), "Expected health summary in output");
@@ -65,10 +69,17 @@ fn test_health_with_warn() {
         .output()
         .expect("Failed to execute annactl health");
 
-    assert_eq!(output.status.code(), Some(2), "Expected exit code 2 for warn");
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Expected exit code 2 for warn"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("warn="), "Expected health summary with warnings");
+    assert!(
+        stdout.contains("warn="),
+        "Expected health summary with warnings"
+    );
 }
 
 /// Test 3: health command with one fail should exit 1
@@ -90,10 +101,17 @@ fn test_health_with_fail() {
         .output()
         .expect("Failed to execute annactl health");
 
-    assert_eq!(output.status.code(), Some(1), "Expected exit code 1 for fail");
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "Expected exit code 1 for fail"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("fail="), "Expected health summary with failures");
+    assert!(
+        stdout.contains("fail="),
+        "Expected health summary with failures"
+    );
 }
 
 /// Test 4: health command should generate report
@@ -110,7 +128,10 @@ fn test_health_report_generation() {
         .expect("Failed to execute annactl health");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Details saved:"), "Expected report path in output");
+    assert!(
+        stdout.contains("Details saved:"),
+        "Expected report path in output"
+    );
 
     // Check that reports directory exists
     let reports_dir = PathBuf::from("/var/lib/anna/reports");
@@ -126,15 +147,25 @@ fn test_health_report_generation() {
 
         if let Some(latest) = reports.last() {
             let content = fs::read_to_string(latest.path()).unwrap();
-            assert!(content.contains("\"state\""), "Expected state field in report");
-            assert!(content.contains("\"summary\""), "Expected summary field in report");
+            assert!(
+                content.contains("\"state\""),
+                "Expected state field in report"
+            );
+            assert!(
+                content.contains("\"summary\""),
+                "Expected summary field in report"
+            );
 
             // Check permissions (0600)
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
                 let perms = latest.metadata().unwrap().permissions();
-                assert_eq!(perms.mode() & 0o777, 0o600, "Expected 0600 permissions on report");
+                assert_eq!(
+                    perms.mode() & 0o777,
+                    0o600,
+                    "Expected 0600 permissions on report"
+                );
             }
         }
     }
@@ -153,13 +184,25 @@ fn test_doctor_report() {
         .output()
         .expect("Failed to execute annactl doctor");
 
-    assert!(output.status.code().unwrap() <= 2, "Expected exit code 0, 1, or 2");
+    assert!(
+        output.status.code().unwrap() <= 2,
+        "Expected exit code 0, 1, or 2"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Doctor report"), "Expected doctor report header");
-    assert!(stdout.contains("Failed probes:"), "Expected failed probes section");
+    assert!(
+        stdout.contains("Doctor report"),
+        "Expected doctor report header"
+    );
+    assert!(
+        stdout.contains("Failed probes:"),
+        "Expected failed probes section"
+    );
     assert!(stdout.contains("Citations:"), "Expected citations section");
-    assert!(stdout.contains("[archwiki:System_maintenance]"), "Expected Arch Wiki citation");
+    assert!(
+        stdout.contains("[archwiki:System_maintenance]"),
+        "Expected Arch Wiki citation"
+    );
 }
 
 /// Test 6: doctor command with --json should output valid JSON
@@ -175,11 +218,14 @@ fn test_doctor_json_output() {
         .output()
         .expect("Failed to execute annactl doctor --json");
 
-    assert!(output.status.code().unwrap() <= 2, "Expected exit code 0, 1, or 2");
+    assert!(
+        output.status.code().unwrap() <= 2,
+        "Expected exit code 0, 1, or 2"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("Expected valid JSON output");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Expected valid JSON output");
 
     assert!(json.get("version").is_some(), "Expected version field");
     assert!(json.get("ok").is_some(), "Expected ok field");
@@ -228,7 +274,11 @@ fn test_daemon_unavailable_exit_code() {
         .output()
         .expect("Failed to execute annactl health");
 
-    assert_eq!(output.status.code(), Some(70), "Expected exit code 70 for daemon unavailable");
+    assert_eq!(
+        output.status.code(),
+        Some(70),
+        "Expected exit code 70 for daemon unavailable"
+    );
 }
 
 /// Test 9: health command should write to ctl.jsonl log
@@ -256,22 +306,37 @@ fn test_health_logging() {
     // Check that log grew
     if log_path.exists() {
         let new_size = fs::metadata(&log_path).unwrap().len();
-        assert!(new_size > initial_size, "Expected log to grow after health command");
+        assert!(
+            new_size > initial_size,
+            "Expected log to grow after health command"
+        );
 
         // Read last line and verify structure
         let content = fs::read_to_string(&log_path).unwrap();
         let last_line = content.lines().last().unwrap();
-        let log_entry: serde_json::Value = serde_json::from_str(last_line)
-            .expect("Expected valid JSON in log");
+        let log_entry: serde_json::Value =
+            serde_json::from_str(last_line).expect("Expected valid JSON in log");
 
         assert!(log_entry.get("ts").is_some(), "Expected ts field");
         assert!(log_entry.get("req_id").is_some(), "Expected req_id field");
         assert!(log_entry.get("state").is_some(), "Expected state field");
         assert!(log_entry.get("command").is_some(), "Expected command field");
-        assert_eq!(log_entry.get("command").unwrap().as_str().unwrap(), "health");
-        assert!(log_entry.get("exit_code").is_some(), "Expected exit_code field");
-        assert!(log_entry.get("citation").is_some(), "Expected citation field");
-        assert!(log_entry.get("duration_ms").is_some(), "Expected duration_ms field");
+        assert_eq!(
+            log_entry.get("command").unwrap().as_str().unwrap(),
+            "health"
+        );
+        assert!(
+            log_entry.get("exit_code").is_some(),
+            "Expected exit_code field"
+        );
+        assert!(
+            log_entry.get("citation").is_some(),
+            "Expected citation field"
+        );
+        assert!(
+            log_entry.get("duration_ms").is_some(),
+            "Expected duration_ms field"
+        );
     }
 }
 
@@ -286,8 +351,11 @@ fn test_reports_directory_permissions() {
             use std::os::unix::fs::PermissionsExt;
             let perms = fs::metadata(&reports_dir).unwrap().permissions();
             let mode = perms.mode() & 0o777;
-            assert!(mode == 0o700 || mode == 0o755, "Expected 0700 or 0755 permissions on reports directory, got {:o}", mode);
+            assert!(
+                mode == 0o700 || mode == 0o755,
+                "Expected 0700 or 0755 permissions on reports directory, got {:o}",
+                mode
+            );
         }
     }
 }
-
