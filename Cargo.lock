@@ -52,6 +52,7 @@ dependencies = [
  "serde_json",
  "textwrap",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

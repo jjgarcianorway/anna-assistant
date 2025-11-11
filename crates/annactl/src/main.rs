@@ -10,12 +10,15 @@
 mod rpc_client;
 mod errors;
 mod output;
+mod logging;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use errors::*;
 use anna_common::ipc::{ResponseData, StateDetectionData, CommandCapabilityData};
 use output::CommandOutput;
+use logging::{LogEntry, ErrorDetails};
+use std::time::Instant;
 
 // Version is embedded at build time
 const VERSION: &str = env!("ANNA_VERSION");
@@ -96,8 +99,24 @@ enum Commands {
 // Phase 0.3: Remove all legacy subcommand enums
 // Commands are now flat and state-checked at runtime
 
+/// Get canonical citation for a state (Phase 0.3d)
+fn state_citation(state: &str) -> &'static str {
+    match state {
+        "iso_live" => "[archwiki:installation_guide]",
+        "recovery_candidate" => "[archwiki:Chroot#Using_arch-chroot]",
+        "post_install_minimal" => "[archwiki:General_recommendations]",
+        "configured" => "[archwiki:System_maintenance]",
+        "degraded" => "[archwiki:System_maintenance#Troubleshooting]",
+        "unknown" => "[archwiki:General_recommendations]",
+        _ => "[archwiki:General_recommendations]",
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    let start_time = Instant::now();
+    let req_id = LogEntry::generate_req_id();
+
     let cli = Cli::parse();
 
     // Phase 0.3c: State-aware dispatch
@@ -117,29 +136,96 @@ async fn main() -> Result<()> {
     };
 
     // Try to connect to daemon and get state
-    let (state, citation, allowed) = match get_state_and_check(command_name).await {
+    let (state, state_citation, capabilities) = match get_state_and_capabilities().await {
         Ok(result) => result,
-        Err(_) => {
+        Err(e) => {
             // Daemon unavailable
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let log_entry = LogEntry {
+                ts: LogEntry::now(),
+                req_id,
+                state: "unknown".to_string(),
+                command: command_name.to_string(),
+                allowed: None,
+                args: vec![],
+                exit_code: EXIT_DAEMON_UNAVAILABLE,
+                citation: "[archwiki:system_maintenance]".to_string(),
+                duration_ms,
+                ok: false,
+                error: Some(ErrorDetails {
+                    code: "DAEMON_UNAVAILABLE".to_string(),
+                    message: format!("Failed to connect to daemon: {}", e),
+                }),
+            };
+            let _ = log_entry.write();
+
             let output = CommandOutput::daemon_unavailable(command_name.to_string());
             output.print();
             std::process::exit(EXIT_DAEMON_UNAVAILABLE);
         }
     };
 
+    // Phase 0.3d: Handle help command specially
+    if matches!(cli.command, Commands::Help { .. }) {
+        return execute_help_command(&cli.command, &state, &capabilities, &req_id, start_time).await;
+    }
+
     // Check if command is allowed in current state
+    let allowed = capabilities.iter().any(|cap| cap.name == command_name);
+
     if !allowed {
-        let output = CommandOutput::not_available(state.clone(), command_name.to_string(), citation);
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+        let log_entry = LogEntry {
+            ts: LogEntry::now(),
+            req_id,
+            state: state.clone(),
+            command: command_name.to_string(),
+            allowed: Some(false),
+            args: vec![],
+            exit_code: EXIT_COMMAND_NOT_AVAILABLE,
+            citation: state_citation.clone(),
+            duration_ms,
+            ok: false,
+            error: None,
+        };
+        let _ = log_entry.write();
+
+        let output = CommandOutput::not_available(state.clone(), command_name.to_string(), state_citation);
         output.print();
         std::process::exit(EXIT_COMMAND_NOT_AVAILABLE);
     }
 
-    // Command is allowed - execute no-op handler
-    execute_noop_command(&cli.command, &state).await
+    // Command is allowed - execute no-op handler and log
+    let exit_code = execute_noop_command(&cli.command, &state).await?;
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+
+    // Find the citation for this specific command
+    let command_citation = capabilities
+        .iter()
+        .find(|cap| cap.name == command_name)
+        .map(|cap| cap.citation.clone())
+        .unwrap_or_else(|| state_citation.clone());
+
+    let log_entry = LogEntry {
+        ts: LogEntry::now(),
+        req_id,
+        state: state.clone(),
+        command: command_name.to_string(),
+        allowed: Some(true),
+        args: vec![],
+        exit_code,
+        citation: command_citation,
+        duration_ms,
+        ok: true,
+        error: None,
+    };
+    let _ = log_entry.write();
+
+    std::process::exit(exit_code);
 }
 
-/// Get state from daemon and check if command is allowed
-async fn get_state_and_check(command_name: &str) -> Result<(String, String, bool)> {
+/// Get state and capabilities from daemon (Phase 0.3d)
+async fn get_state_and_capabilities() -> Result<(String, String, Vec<CommandCapabilityData>)> {
     let mut client = rpc_client::RpcClient::connect().await?;
 
     // Get state
@@ -156,22 +242,87 @@ async fn get_state_and_check(command_name: &str) -> Result<(String, String, bool
         _ => anyhow::bail!("Unexpected response type for GetCapabilities"),
     };
 
-    // Check if command is in capabilities list
-    let allowed = capabilities.iter().any(|cap| cap.name == command_name);
+    // Return state name, state citation, and full capabilities list
+    let citation = state_citation(&state_data.state);
+    Ok((state_data.state, citation.to_string(), capabilities))
+}
 
-    Ok((state_data.state, state_data.citation, allowed))
+/// Execute help command (Phase 0.3d)
+async fn execute_help_command(
+    command: &Commands,
+    state: &str,
+    capabilities: &[CommandCapabilityData],
+    req_id: &str,
+    start_time: Instant,
+) -> Result<()> {
+    let json_only = matches!(command, Commands::Help { json: true });
+
+    // Sort capabilities alphabetically by name
+    let mut sorted_caps = capabilities.to_vec();
+    sorted_caps.sort_by(|a, b| a.name.cmp(&b.name));
+
+    if json_only {
+        // JSON output only
+        let commands: Vec<serde_json::Value> = sorted_caps
+            .iter()
+            .map(|cap| {
+                serde_json::json!({
+                    "name": cap.name,
+                    "desc": cap.description,
+                    "citation": cap.citation
+                })
+            })
+            .collect();
+
+        let output = serde_json::json!({
+            "version": VERSION,
+            "ok": true,
+            "state": state,
+            "commands": commands
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        // Human-readable output
+        println!("current state: {}", state);
+        for cap in &sorted_caps {
+            println!(
+                "{:<16}  {:<50}  {}",
+                cap.name, cap.description, cap.citation
+            );
+        }
+    }
+
+    // Log the help command
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+    let log_entry = LogEntry {
+        ts: LogEntry::now(),
+        req_id: req_id.to_string(),
+        state: state.to_string(),
+        command: "help".to_string(),
+        allowed: Some(true),
+        args: if json_only { vec!["--json".to_string()] } else { vec![] },
+        exit_code: EXIT_SUCCESS,
+        citation: state_citation(state).to_string(),
+        duration_ms,
+        ok: true,
+        error: None,
+    };
+    let _ = log_entry.write();
+
+    std::process::exit(EXIT_SUCCESS);
 }
 
 /// Execute no-op command handler (Phase 0.3c)
-/// All commands just print success message and exit 0
-async fn execute_noop_command(command: &Commands, state: &str) -> Result<()> {
+/// All commands just print success message and return exit code
+async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
     match command {
         Commands::Status => {
             println!("[anna] state: {}", state);
             println!("[anna] status: OK (no-op placeholder)");
         }
-        Commands::Help { json } => {
-            println!("[anna] help command (json={}) - will be implemented in 0.3d", json);
+        Commands::Help { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Help command should be handled separately");
         }
         Commands::Update { dry_run } => {
             println!("[anna] update command allowed in state: {}", state);
@@ -211,5 +362,5 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<()> {
         }
     }
 
-    std::process::exit(EXIT_SUCCESS);
+    Ok(EXIT_SUCCESS)
 }

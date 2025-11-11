@@ -17,6 +17,7 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 chrono = { workspace = true }
+uuid = { workspace = true }
 console = { workspace = true }
 textwrap = "0.16"
 reqwest = { version = "0.11", features = ["json"] }
