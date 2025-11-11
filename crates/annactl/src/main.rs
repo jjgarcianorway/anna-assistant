@@ -8,9 +8,9 @@
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
 mod rpc_client;
-mod errors;
-mod output;
-mod logging;
+pub mod errors;
+pub mod output;
+pub mod logging;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};

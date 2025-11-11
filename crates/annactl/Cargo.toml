@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[lib]
+name = "annactl"
+path = "src/lib.rs"
+
 [[bin]]
 name = "annactl"
 path = "src/main.rs"
