@@ -77,6 +77,8 @@ pub async fn status() -> Result<()> {
     // Recommendations moved to: annactl advise
     let status_data = client.call(Method::Status).await?;
     let facts_data = client.call(Method::GetFacts).await?;
+    // Phase 0.2d: Get system state detection
+    let state_data = client.call(Method::GetState).await?;
 
     // Clear the "Checking..." message and show header
     eprint!("\r\x1b[K");
@@ -91,6 +93,15 @@ pub async fn status() -> Result<()> {
         println!("{}", section("System"));
         println!("  {}", kv("Hostname", &facts.hostname));
         println!("  {}", kv("Kernel", &facts.kernel));
+
+        // Phase 0.2d: Show detected system state
+        if let ResponseData::StateDetection(state) = state_data {
+            println!("  {}", kv("State", &state.state));
+            if let Some(health) = state.details.health_ok {
+                let health_str = if health { "OK" } else { "Degraded" };
+                println!("  {}", kv("Health", health_str));
+            }
+        }
 
         println!();
         println!("{}", section("Anna Daemon"));
