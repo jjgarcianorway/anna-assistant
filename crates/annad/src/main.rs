@@ -273,6 +273,27 @@ async fn refresh_advice(state: &Arc<DaemonState>) {
             // Check for critical issues and notify users
             notifier::check_and_notify_critical(&advice).await;
 
+            // Phase 0.2c: Re-detect system state and log transitions
+            match crate::state::detect_state() {
+                Ok(new_state) => {
+                    let old_state = state.current_state.read().await.state;
+
+                    // Log state transition if changed
+                    if new_state.state != old_state {
+                        info!(
+                            "State transition: {} → {} - {}",
+                            old_state, new_state.state, new_state.citation
+                        );
+                    }
+
+                    // Update cached state
+                    *state.current_state.write().await = new_state;
+                }
+                Err(e) => {
+                    tracing::error!("State detection failed during refresh: {}", e);
+                }
+            }
+
             // Update state
             *state.facts.write().await = facts;
             *state.advice.write().await = advice.clone();

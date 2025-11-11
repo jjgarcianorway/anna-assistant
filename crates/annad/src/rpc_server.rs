@@ -117,12 +117,21 @@ pub struct DaemonState {
     pub audit_logger: AuditLogger,
     pub action_history: crate::action_history::ActionHistory, // Beta.91: Rollback support
     pub rate_limiter: RateLimiter,
+    /// Current system state (Phase 0.2c)
+    /// Citation: [archwiki:system_maintenance]
+    pub current_state: RwLock<crate::state::StateDetection>,
 }
 
 impl DaemonState {
     pub async fn new(version: String, facts: SystemFacts, advice: Vec<Advice>) -> Result<Self> {
         let audit_logger = AuditLogger::new().await?;
         let action_history = crate::action_history::ActionHistory::new().await?;
+
+        // Phase 0.2c: Detect initial system state
+        let current_state = crate::state::detect_state()?;
+        info!("Initial state detected: {} - {}",
+              current_state.state,
+              current_state.citation);
 
         Ok(Self {
             version,
@@ -133,6 +142,7 @@ impl DaemonState {
             audit_logger,
             action_history,
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
+            current_state: RwLock::new(current_state),
         })
     }
 }
@@ -1247,60 +1257,49 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
         Method::GetState => {
             info!("GetState method called");
 
-            match crate::state::detect_state() {
-                Ok(detection) => {
-                    // Convert to IPC response type
-                    let data = anna_common::ipc::StateDetectionData {
-                        state: detection.state.to_string(),
-                        detected_at: detection.detected_at,
-                        details: anna_common::ipc::StateDetailsData {
-                            uefi: detection.details.uefi,
-                            disks: detection.details.disks,
-                            network: anna_common::ipc::NetworkStatusData {
-                                has_interface: detection.details.network.has_interface,
-                                has_route: detection.details.network.has_route,
-                                can_resolve: detection.details.network.can_resolve,
-                            },
-                            state_file_present: detection.details.state_file_present,
-                            health_ok: detection.details.health_ok,
-                        },
-                        citation: detection.citation,
-                    };
-                    Ok(ResponseData::StateDetection(data))
-                }
-                Err(e) => {
-                    error!("State detection failed: {}", e);
-                    Err(format!("State detection failed: {}", e))
-                }
-            }
+            // Phase 0.2c: Use cached state instead of detecting every time
+            let detection = state.current_state.read().await.clone();
+
+            // Convert to IPC response type
+            let data = anna_common::ipc::StateDetectionData {
+                state: detection.state.to_string(),
+                detected_at: detection.detected_at,
+                details: anna_common::ipc::StateDetailsData {
+                    uefi: detection.details.uefi,
+                    disks: detection.details.disks,
+                    network: anna_common::ipc::NetworkStatusData {
+                        has_interface: detection.details.network.has_interface,
+                        has_route: detection.details.network.has_route,
+                        can_resolve: detection.details.network.can_resolve,
+                    },
+                    state_file_present: detection.details.state_file_present,
+                    health_ok: detection.details.health_ok,
+                },
+                citation: detection.citation,
+            };
+            Ok(ResponseData::StateDetection(data))
         }
 
         Method::GetCapabilities => {
             info!("GetCapabilities method called");
 
-            match crate::state::detect_state() {
-                Ok(detection) => {
-                    let capabilities = crate::state::get_capabilities(detection.state);
+            // Phase 0.2c: Use cached state
+            let detection = state.current_state.read().await.clone();
+            let capabilities = crate::state::get_capabilities(detection.state);
 
-                    // Convert to IPC response type
-                    let data: Vec<anna_common::ipc::CommandCapabilityData> = capabilities
-                        .into_iter()
-                        .map(|cap| anna_common::ipc::CommandCapabilityData {
-                            name: cap.name,
-                            description: cap.description,
-                            since: cap.since,
-                            citation: cap.citation,
-                            requires_root: cap.requires_root,
-                        })
-                        .collect();
+            // Convert to IPC response type
+            let data: Vec<anna_common::ipc::CommandCapabilityData> = capabilities
+                .into_iter()
+                .map(|cap| anna_common::ipc::CommandCapabilityData {
+                    name: cap.name,
+                    description: cap.description,
+                    since: cap.since,
+                    citation: cap.citation,
+                    requires_root: cap.requires_root,
+                })
+                .collect();
 
-                    Ok(ResponseData::Capabilities(data))
-                }
-                Err(e) => {
-                    error!("State detection failed: {}", e);
-                    Err(format!("State detection failed: {}", e))
-                }
-            }
+            Ok(ResponseData::Capabilities(data))
         }
 
         Method::HealthProbe => {
