@@ -1,0 +1,30 @@
+[Unit]
+Description=Anna Assistant - Arch Linux AI Daemon
+Documentation=https://github.com/jjgarcianorway/anna-assistant
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=anna
+ExecStart=/usr/bin/annad
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/anna /run/anna
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0750
+UMask=0007
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=annad
+
+[Install]
+WantedBy=multi-user.target

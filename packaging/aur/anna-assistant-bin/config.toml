@@ -1,0 +1,46 @@
+# Anna Assistant Configuration
+# Default configuration for Arch Linux installation
+
+[daemon]
+socket_path = "/run/anna/anna.sock"
+metrics_port = 9090
+log_level = "info"
+
+[security]
+# TLS certificate pinning
+pinning_config = "/etc/anna/pinning.toml"
+pinning_enforce = true
+
+# Rate limiting
+rate_limit_enabled = true
+rate_limit_per_token = 100  # requests per minute
+rate_limit_per_peer = 1000  # requests per minute
+
+[consensus]
+enabled = false
+min_quorum = 3
+bootstrap_peers = []
+
+[sentinel]
+enabled = true
+check_interval_seconds = 300  # 5 minutes
+
+[chronos]
+enabled = true
+snapshot_interval_minutes = 15
+forecast_interval_hours = 6
+
+[collective]
+enabled = false
+
+[conscience]
+enabled = true
+introspection_interval_hours = 24
+
+[empathy]
+enabled = true
+context_refresh_seconds = 60
+
+[mirror]
+enabled = false
+consensus_interval_hours = 168  # 1 week
