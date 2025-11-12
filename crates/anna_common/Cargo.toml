@@ -17,3 +17,11 @@ toml = { workspace = true }
 reqwest = { version = "0.11", features = ["json"] }
 tracing = { workspace = true }
 libc = "0.2" # For root detection in updater (Beta.88)
+
+# Database for persistent context (Phase 3.6)
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.8"

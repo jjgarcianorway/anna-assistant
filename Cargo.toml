@@ -80,3 +80,7 @@ prometheus = { version = "0.13", features = ["process"] }
 
 # Caching (Phase 1.11)
 lru = "0.12"
+
+# Database (Phase 3.6 - Persistent Context)
+rusqlite = { version = "0.31", features = ["bundled", "chrono"] }
+tokio-rusqlite = "0.5"

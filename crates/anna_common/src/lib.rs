@@ -8,6 +8,7 @@ pub mod beautiful;
 pub mod categories;
 pub mod config;
 pub mod config_parser;
+pub mod context; // Phase 3.6: Persistent context layer
 pub mod ignore_filters;
 pub mod ipc;
 pub mod paths; // rc.13.2: Dual-mode socket support
