@@ -8,6 +8,7 @@
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
 pub mod errors;
+mod adaptive_help; // Phase 3.8: Adaptive root help
 mod chronos_commands; // Phase 1.5
 mod collective_commands; // Phase 1.3
 mod consensus_commands; // Phase 1.8
@@ -423,6 +424,27 @@ fn state_citation(state: &str) -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Phase 3.8: Intercept root help before clap parsing for adaptive display
+    let args: Vec<String> = std::env::args().collect();
+
+    // Check for root help invocation
+    if args.len() == 1 || (args.len() == 2 && (args[1] == "--help" || args[1] == "-h")) {
+        adaptive_help::display_adaptive_root_help(false, false);
+        std::process::exit(0);
+    }
+
+    // Check for --help --all
+    if args.len() >= 3 && args.contains(&"--help".to_string()) && args.contains(&"--all".to_string()) {
+        adaptive_help::display_adaptive_root_help(true, false);
+        std::process::exit(0);
+    }
+
+    // Check for --json help
+    if args.len() >= 3 && args.contains(&"--help".to_string()) && args.contains(&"--json".to_string()) {
+        adaptive_help::display_adaptive_root_help(false, true);
+        std::process::exit(0);
+    }
+
     let start_time = Instant::now();
     let req_id = LogEntry::generate_req_id();
 
