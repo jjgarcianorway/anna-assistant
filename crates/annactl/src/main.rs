@@ -12,6 +12,7 @@ mod chronos_commands; // Phase 1.5
 mod collective_commands; // Phase 1.3
 mod consensus_commands; // Phase 1.8
 mod conscience_commands; // Phase 1.1
+mod context_detection; // Phase 3.8: Context detection
 mod empathy_commands; // Phase 1.2
 mod health_commands;
 mod help_commands; // Phase 3.1: Adaptive help

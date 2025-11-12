@@ -70,6 +70,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "console",
+ "libc",
  "owo-colors",
  "reqwest",
  "serde",

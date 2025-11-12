@@ -27,3 +27,4 @@ textwrap = "0.16"
 reqwest = { version = "0.11", features = ["json"] }
 clap_complete = "4.5"
 owo-colors = "4.1"
+libc = "0.2" # For TTY detection (Phase 3.8)
