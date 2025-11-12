@@ -6,6 +6,7 @@
 pub mod advice_cache;
 pub mod beautiful;
 pub mod categories;
+pub mod command_meta; // Phase 3.1: Command classification
 pub mod config;
 pub mod config_parser;
 pub mod context; // Phase 3.6: Persistent context layer
