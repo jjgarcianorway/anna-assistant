@@ -4,7 +4,7 @@
 
 Anna is a security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
 
-**Current Version:** 1.0.0-rc.1 (November 2025)
+**Current Version:** 1.16.0-alpha.1 (November 2025)
 
 **Status:** Operational Core - Active Development
 
@@ -65,15 +65,25 @@ annactl rescue list
 annactl help
 ```
 
-### Auto-Update
+### Updates
 
-Anna updates herself automatically:
-- Daemon checks GitHub releases every 2 hours
-- Downloads and installs updates automatically (runs as root)
-- Sends desktop notification when updated
-- Systemd restarts daemon after update
+Anna provides self-update capability:
 
-No manual intervention required. Updates happen transparently in the background.
+```bash
+# Manually update to latest release
+annactl self-update
+
+# Or use the update script directly
+/usr/local/bin/anna-assistant/scripts/self_update.sh
+```
+
+The self-update process:
+- Fetches latest GitHub release
+- Verifies SHA256 checksums
+- Stops daemon safely
+- Performs atomic binary swap
+- Restarts daemon
+- Verifies socket connectivity
 
 ---
 
@@ -608,11 +618,26 @@ Anna 1.0 removed several features present in earlier versions:
 
 ## Documentation
 
+### Core Documentation
+
 - **ANNA-1.0-RESET.md**: Architecture and design decisions
 - **MIGRATION-1.0.md**: Breaking changes and migration guide
 - **SECURITY_AUDIT.md**: Security model and hardening
-- **CHANGELOG.md**: Version history
+- **CHANGELOG.md**: Version history and release notes
 - **docs/IPC_API.md**: RPC protocol documentation
+
+### Phase 1 Documentation (Distributed Consensus & Production Hardening)
+
+- **[Phase 1.7](docs/phase_1_7_distributed_consensus.md)**: Distributed Consensus Foundation
+- **[Phase 1.9](docs/phase_1_9_networked_consensus.md)**: Networked Consensus with RPC
+- **[Phase 1.10](docs/phase_1_10_operational_robustness.md)**: Operational Robustness (Idempotency, Timeouts)
+- **[Phase 1.11](docs/phase_1_11_production_hardening.md)**: Production Hardening (Body Limits, Rate Limiting)
+- **[Phase 1.12](docs/phase_1_12_server_tls.md)**: Server-Side TLS Architecture
+- **[Phase 1.13](docs/phase_1_13_server_tls_implementation.md)**: Server-Side TLS Implementation
+- **[Phase 1.14](docs/phase_1_14_tls_live_server.md)**: Live TLS Testnet
+- **[Phase 1.15](docs/phase_1_15_hot_reload_recovery.md)**: SIGHUP Hot Reload & Enhanced Rate Limiting
+- **[Certificate Pinning](docs/CERTIFICATE_PINNING.md)**: SHA256 Fingerprint Validation
+- **[Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)**: Deployment Guide
 
 ### Man Pages
 
@@ -625,29 +650,43 @@ man annad          # Daemon configuration
 
 ## Development Status
 
-### ✅ Shipped (rc.13.2)
+### ✅ Shipped (v1.16.0-alpha.1)
 - **Phase 0.3**: State-aware command dispatch with 6-state detection
 - **Phase 0.4**: Systemd hardening and security sandbox
 - **Phase 0.5**: Health monitoring (6 probes) + doctor diagnostics
-- **Auto-update**: Daemon self-updates every 2 hours from GitHub releases
+- **Phase 0.6**: Recovery framework foundation (types, parser, chroot)
+- **Phase 1.7-1.9**: Distributed consensus with Ed25519 cryptography and networked RPC
+- **Phase 1.10-1.11**: Operational robustness (idempotency, timeouts, rate limiting)
+- **Phase 1.12-1.14**: Full mTLS implementation with live 3-node testnet
+- **Phase 1.15**: SIGHUP hot reload with atomic config swaps
+- **Phase 1.16**: Dual-tier rate limiting (burst + sustained) and certificate pinning infrastructure
+- **Self-update**: Manual update via `annactl self-update` with SHA256 verification
 - **Audit logging**: JSONL logs with UUIDs and Arch Wiki citations
 
-### 🚧 In Progress
-- **Phase 0.6**: Recovery framework foundation (types, parser, chroot)
-  - Foundation complete, execution pending
+### 🚧 In Progress (Phase 2)
+- **TLS handshake integration**: Custom `ServerCertVerifier` for certificate pinning enforcement
+- **Autonomous recovery**: Task supervision with exponential backoff
+- **Grafana dashboards**: Prometheus metrics visualization templates
 
 ### 📋 Planned
-- **v1.0 Stable**: Production-ready release
+- **v2.0**: Enhanced observability and recovery
+  - Full certificate pinning enforcement in TLS handshake
+  - Autonomous task recovery with supervision trees
+  - Grafana dashboard integration
   - Executable recovery plans (`annactl rescue run <plan>`)
-  - Rollback script generation (`annactl rollback <plan>`)
-  - Manual update trigger (`annactl update`)
-- **v1.1**: Enhanced diagnostics
+- **v2.1**: User experience enhancements
+  - Optional TUI (terminal user interface)
   - User-mode operation (no sudo required)
-  - `annactl diag` diagnostic command
   - Dual-socket support (user/system)
-- **v2.0**: Optional TUI
-  - Terminal user interface returns as optional component
-  - Advanced recovery workflows
+
+### ⚠️  Known Issues
+
+The following test suites have pre-existing failures unrelated to Phase 1.16 changes:
+- **chronos**: Timeline and Chronicle tests (2 failures) - floating point precision
+- **collective**: CollectiveMind initialization (2 failures) - permission errors in test env
+- **mirror**: Reflection generation (5 failures) - string indexing bounds
+
+These failures are tracked for Phase 2 and do not affect Phase 1.16 functionality (consensus, TLS, rate limiting, certificate pinning).
 
 ---
 
