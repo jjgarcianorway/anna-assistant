@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📊 **Phase 3.3: Metrics Command**
+
+Adds `annactl metrics` command for displaying system metrics in multiple formats.
+
+#### Added
+
+**New Command: annactl metrics**:
+- Displays current system metrics from daemon's profile
+- Three output formats:
+  * **Default**: Human-readable with percentages and helpful formatting
+  * **--prometheus**: Prometheus exposition format with HELP and TYPE annotations
+  * **--json**: Machine-readable JSON for scripting
+- Shows all 8 system metrics:
+  * Memory (total, available, percentage)
+  * CPU cores
+  * Disk (total, available, percentage)
+  * System uptime (seconds and hours)
+  * Monitoring mode (minimal/light/full)
+  * Resource constraint status
+- Includes adaptive intelligence context and rationale
+
+**Implementation**:
+- `crates/annactl/src/main.rs`: 127 lines added for metrics command
+- Prometheus-compatible output format
+- Percentage calculations for memory and disk
+- Human-friendly time conversions
+
+**Usage Examples**:
+```bash
+# Human-readable output
+$ annactl metrics
+
+# Prometheus format (for node_exporter or custom scraping)
+$ annactl metrics --prometheus
+
+# JSON format (for scripting)
+$ annactl metrics --json
+```
+
+**Benefits**:
+- Enables custom Prometheus exporters via shell script
+- Provides snapshot of system state for debugging
+- Machine-readable format for automation
+- Complements existing monitoring infrastructure
+
+**Citation**: [prometheus:exposition-formats]
+
 ---
 
 ## [3.0.0-alpha.2] - 2025-11-12

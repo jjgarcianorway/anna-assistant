@@ -214,6 +214,17 @@ enum Commands {
         #[command(subcommand)]
         subcommand: MonitorSubcommand,
     },
+
+    /// Display system metrics in Prometheus format (Phase 3.3)
+    Metrics {
+        /// Output in Prometheus exposition format
+        #[arg(long)]
+        prometheus: bool,
+
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Monitor subcommands (Phase 3.0)
@@ -467,6 +478,11 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Handle metrics command (Phase 3.3 - needs daemon)
+    if let Commands::Metrics { prometheus, json } = &cli.command {
+        return execute_metrics_command(*prometheus, *json, cli.socket.as_deref()).await;
+    }
+
     if let Commands::Consensus { subcommand } = &cli.command {
         match subcommand {
             ConsensusSubcommand::Status { round_id, json } => {
@@ -512,6 +528,7 @@ async fn main() -> Result<()> {
         Commands::SelfUpdate { .. } => "self-update",
         Commands::Profile { .. } => "profile",
         Commands::Monitor { .. } => "monitor",
+        Commands::Metrics { .. } => "metrics",
     };
 
     // Try to connect to daemon and get state
@@ -1294,6 +1311,133 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
     std::process::exit(EXIT_SUCCESS);
 }
 
+/// Execute metrics command (Phase 3.3)
+async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Option<&str>) -> Result<()> {
+    // Connect to daemon to get system profile
+    let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to connect to daemon: {}", e);
+            eprintln!("Make sure annad is running (try: sudo systemctl start annad)");
+            std::process::exit(EXIT_DAEMON_UNAVAILABLE);
+        }
+    };
+
+    // Get system profile
+    let profile_response = client.get_profile().await?;
+    let profile = match profile_response {
+        ResponseData::Profile(data) => data,
+        _ => anyhow::bail!("Unexpected response type for GetProfile"),
+    };
+
+    if json {
+        // JSON output
+        let json_output = serde_json::json!({
+            "total_memory_mb": profile.total_memory_mb,
+            "available_memory_mb": profile.available_memory_mb,
+            "cpu_cores": profile.cpu_cores,
+            "total_disk_gb": profile.total_disk_gb,
+            "available_disk_gb": profile.available_disk_gb,
+            "uptime_seconds": profile.uptime_seconds,
+            "monitoring_mode": profile.recommended_monitoring_mode,
+            "is_constrained": profile.is_constrained,
+            "timestamp": profile.timestamp
+        });
+        println!("{}", serde_json::to_string_pretty(&json_output)?);
+    } else if prometheus {
+        // Prometheus exposition format
+        println!("# HELP anna_system_memory_total_mb Total system memory in MB");
+        println!("# TYPE anna_system_memory_total_mb gauge");
+        println!("anna_system_memory_total_mb {}", profile.total_memory_mb);
+        println!();
+
+        println!("# HELP anna_system_memory_available_mb Available system memory in MB");
+        println!("# TYPE anna_system_memory_available_mb gauge");
+        println!("anna_system_memory_available_mb {}", profile.available_memory_mb);
+        println!();
+
+        println!("# HELP anna_system_cpu_cores Number of CPU cores");
+        println!("# TYPE anna_system_cpu_cores gauge");
+        println!("anna_system_cpu_cores {}", profile.cpu_cores);
+        println!();
+
+        println!("# HELP anna_system_disk_total_gb Total disk space in GB");
+        println!("# TYPE anna_system_disk_total_gb gauge");
+        println!("anna_system_disk_total_gb {}", profile.total_disk_gb);
+        println!();
+
+        println!("# HELP anna_system_disk_available_gb Available disk space in GB");
+        println!("# TYPE anna_system_disk_available_gb gauge");
+        println!("anna_system_disk_available_gb {}", profile.available_disk_gb);
+        println!();
+
+        println!("# HELP anna_system_uptime_seconds System uptime in seconds");
+        println!("# TYPE anna_system_uptime_seconds gauge");
+        println!("anna_system_uptime_seconds {}", profile.uptime_seconds);
+        println!();
+
+        let mode_value = match profile.recommended_monitoring_mode.as_str() {
+            "minimal" => 0,
+            "light" => 1,
+            "full" => 2,
+            _ => 1, // default to light
+        };
+        println!("# HELP anna_profile_mode Monitoring mode (0=minimal, 1=light, 2=full)");
+        println!("# TYPE anna_profile_mode gauge");
+        println!("anna_profile_mode {}", mode_value);
+        println!();
+
+        let constrained_value = if profile.is_constrained { 1 } else { 0 };
+        println!("# HELP anna_profile_constrained Resource-constrained status (0=no, 1=yes)");
+        println!("# TYPE anna_profile_constrained gauge");
+        println!("anna_profile_constrained {}", constrained_value);
+    } else {
+        // Human-readable output
+        println!("System Metrics (Phase 3.3: Adaptive Intelligence)");
+        println!("==================================================\n");
+
+        println!("Memory:");
+        println!("  Total:     {} MB", profile.total_memory_mb);
+        println!("  Available: {} MB ({:.1}%)",
+            profile.available_memory_mb,
+            (profile.available_memory_mb as f64 / profile.total_memory_mb as f64) * 100.0
+        );
+        println!();
+
+        println!("CPU:");
+        println!("  Cores: {}", profile.cpu_cores);
+        println!();
+
+        println!("Disk:");
+        println!("  Total:     {} GB", profile.total_disk_gb);
+        println!("  Available: {} GB ({:.1}%)",
+            profile.available_disk_gb,
+            (profile.available_disk_gb as f64 / profile.total_disk_gb as f64) * 100.0
+        );
+        println!();
+
+        println!("System:");
+        println!("  Uptime: {} seconds ({:.1} hours)",
+            profile.uptime_seconds,
+            profile.uptime_seconds as f64 / 3600.0
+        );
+        println!();
+
+        println!("Adaptive Intelligence:");
+        println!("  Mode:        {}", profile.recommended_monitoring_mode.to_uppercase());
+        println!("  Constrained: {}", if profile.is_constrained { "Yes" } else { "No" });
+        println!("  Rationale:   {}", profile.monitoring_rationale);
+        println!();
+
+        println!("Timestamp: {}", profile.timestamp);
+        println!();
+
+        println!("💡 Tip: Use --prometheus for Prometheus format, --json for JSON");
+    }
+
+    std::process::exit(EXIT_SUCCESS);
+}
+
 /// Get state and capabilities from daemon (Phase 0.3d)
 async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String, String, Vec<CommandCapabilityData>)> {
     let mut client = rpc_client::RpcClient::connect_with_path(socket_path).await?;
@@ -1496,6 +1640,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Monitor { .. } => {
             // Should not reach here - handled in main
             unreachable!("Monitor command should be handled separately");
+        }
+        Commands::Metrics { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Metrics command should be handled separately");
         }
     }
 
