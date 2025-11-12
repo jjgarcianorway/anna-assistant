@@ -325,10 +325,12 @@ impl MirrorConsensusCoordinator {
         }
 
         // Check for minor issues
-        if !systemic_biases.is_empty() || network_coherence < 0.85 {
+        // Minor adjustments needed if there are biases, even if coherence is acceptable
+        if !systemic_biases.is_empty() {
             return ConsensusOutcome::MinorAdjustment;
         }
 
+        // If coherence is acceptable and no biases, we're coherent
         ConsensusOutcome::Coherent
     }
 

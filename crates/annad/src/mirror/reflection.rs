@@ -207,7 +207,8 @@ impl ReflectionGenerator {
     /// Sign reflection report
     fn sign_reflection(&self) -> String {
         // Placeholder: In full implementation, would use actual crypto
-        format!("sig_{}", &self.private_key[..16])
+        let key_len = self.private_key.len().min(16);
+        format!("sig_{}", &self.private_key[..key_len])
     }
 
     /// Trigger reflection on ethical divergence event

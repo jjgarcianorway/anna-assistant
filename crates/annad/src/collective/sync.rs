@@ -223,6 +223,7 @@ impl Default for SyncManager {
 mod tests {
     use super::*;
     use chrono::Utc;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_sync_manager_creation() {
@@ -274,9 +275,9 @@ mod tests {
             timestamp: Utc::now(),
         });
 
-        assert_eq!(manager.calculate_network_empathy(), 0.7);
-        assert_eq!(manager.calculate_network_strain(), 0.3);
-        assert_eq!(manager.calculate_network_resonance("user"), 0.8);
+        assert_relative_eq!(manager.calculate_network_empathy(), 0.7, epsilon = 1e-10);
+        assert_relative_eq!(manager.calculate_network_strain(), 0.3, epsilon = 1e-10);
+        assert_relative_eq!(manager.calculate_network_resonance("user"), 0.8, epsilon = 1e-10);
     }
 
     #[test]

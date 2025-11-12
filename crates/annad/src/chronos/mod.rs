@@ -69,13 +69,18 @@ impl Default for ChronosConfig {
 impl ChronosLoop {
     /// Create new Chronos Loop
     pub async fn new() -> Result<Self> {
+        Self::new_with_path("/var/lib/anna/chronos/archive.json").await
+    }
+
+    /// Create new Chronos Loop with custom chronicle path (for testing)
+    async fn new_with_path(chronicle_path: &str) -> Result<Self> {
         let config = Self::load_or_create_config().await?;
         let timeline = Arc::new(RwLock::new(Timeline::new(
             "main".to_string(),
             config.timeline_retention,
         )));
         let chronicle = Arc::new(RwLock::new(
-            Chronicle::new("/var/lib/anna/chronos/archive.json".to_string()).await?,
+            Chronicle::new(chronicle_path.to_string()).await?,
         ));
         let ethics_projector = Arc::new(EthicsProjector::new());
 
@@ -365,7 +370,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_chronos_creation() {
-        let result = ChronosLoop::new().await;
+        // Use temp file for testing to avoid permission issues
+        let temp_dir = tempfile::tempdir().unwrap();
+        let chronicle_path = temp_dir.path().join("test_archive.json");
+        let result = ChronosLoop::new_with_path(chronicle_path.to_str().unwrap()).await;
         assert!(result.is_ok());
     }
 }

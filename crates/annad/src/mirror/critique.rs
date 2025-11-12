@@ -374,7 +374,8 @@ impl CritiqueEvaluator {
     /// Sign critique
     fn sign_critique(&self) -> String {
         // Placeholder: In full implementation, would use actual crypto
-        format!("sig_{}", &self.private_key[..16])
+        let key_len = self.private_key.len().min(16);
+        format!("sig_{}", &self.private_key[..key_len])
     }
 }
 

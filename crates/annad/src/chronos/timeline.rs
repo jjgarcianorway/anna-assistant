@@ -286,6 +286,7 @@ fn trend_direction(velocity: f64) -> TrendDirection {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_timeline_creation() {
@@ -334,8 +335,8 @@ mod tests {
 
         let diff = SnapshotDiff::calculate(&from, &to);
 
-        assert_eq!(diff.health_delta, 0.05);
-        assert_eq!(diff.empathy_delta, 0.05);
+        assert_relative_eq!(diff.health_delta, 0.05, epsilon = 1e-10);
+        assert_relative_eq!(diff.empathy_delta, 0.05, epsilon = 1e-10);
         assert_eq!(diff.processes_delta, 5);
     }
 
