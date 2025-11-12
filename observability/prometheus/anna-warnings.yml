@@ -1,0 +1,76 @@
+# Anna Assistant - Warning Alerts
+# These alerts indicate potential issues that should be investigated
+
+groups:
+  - name: anna_warnings
+    interval: 1m
+    rules:
+      - alert: AnnaTemporalIntegrityDegraded
+        expr: anna_average_tis < 0.7 and anna_average_tis >= 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: consensus
+        annotations:
+          summary: "Temporal Integrity Score below optimal threshold"
+          description: "Average TIS is {{ $value }}, below optimal threshold of 0.7. Monitor for degradation."
+
+      - alert: AnnaHighRateLimitViolations
+        expr: rate(anna_rate_limit_violations_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: rate-limiting
+        annotations:
+          summary: "Elevated rate limit violations"
+          description: "Rate limit violation rate is {{ $value }} per second for scope {{ $labels.scope }}."
+
+      - alert: AnnaPeerRequestFailures
+        expr: rate(anna_peer_request_total{status="failure"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "Elevated peer request failures"
+          description: "Peer {{ $labels.peer }} request failure rate is {{ $value }} per second."
+
+      - alert: AnnaHighPeerBackoff
+        expr: histogram_quantile(0.95, rate(anna_peer_backoff_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "High peer backoff duration"
+          description: "P95 backoff duration for peer {{ $labels.peer }} is {{ $value }} seconds. Possible connectivity issues."
+
+      - alert: AnnaConsensusSlowdown
+        expr: rate(anna_consensus_rounds_total[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: consensus
+        annotations:
+          summary: "Consensus round rate below expected"
+          description: "Consensus round rate is {{ $value }} per second, below expected threshold of 0.1."
+
+      - alert: AnnaMigrationFailures
+        expr: rate(anna_migration_events_total{result="failure"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: state-migration
+        annotations:
+          summary: "State migration failures detected"
+          description: "Migration failure rate is {{ $value }} per second. Data persistence may be affected."
+
+      - alert: AnnaTLSHandshakeLatency
+        expr: rate(anna_tls_handshakes_total[5m]) < 0.5 * rate(anna_tls_handshakes_total[15m] offset 10m)
+        for: 5m
+        labels:
+          severity: warning
+          component: tls
+        annotations:
+          summary: "TLS handshake rate decreased"
+          description: "TLS handshake rate has decreased by >50% compared to 10 minutes ago. Possible network degradation."

@@ -1,0 +1,72 @@
+# Anna Assistant - Critical Alerts
+# These alerts require immediate action
+
+groups:
+  - name: anna_critical
+    interval: 30s
+    rules:
+      - alert: AnnaByzantineNodesDetected
+        expr: anna_byzantine_nodes_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: consensus
+        annotations:
+          summary: "Byzantine nodes detected in consensus network"
+          description: "{{ $value }} Byzantine nodes have been detected. Consensus integrity may be compromised."
+          runbook: "https://github.com/jjgarcianorway/anna-assistant/docs/runbooks/byzantine-nodes.md"
+
+      - alert: AnnaCertificatePinningViolation
+        expr: increase(anna_pinning_violations_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: tls
+        annotations:
+          summary: "Certificate pinning violation detected"
+          description: "Certificate pinning violation detected for peer {{ $labels.peer }}. Possible MITM attack."
+          runbook: "https://github.com/jjgarcianorway/anna-assistant/docs/runbooks/pinning-violations.md"
+
+      - alert: AnnaConsensusStalled
+        expr: rate(anna_consensus_rounds_total[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: consensus
+        annotations:
+          summary: "Consensus rounds have stalled"
+          description: "No consensus rounds completed in the last 5 minutes. Network may be partitioned or quorum lost."
+          runbook: "https://github.com/jjgarcianorway/anna-assistant/docs/runbooks/consensus-stalled.md"
+
+      - alert: AnnaTemporalIntegrityLow
+        expr: anna_average_tis < 0.5
+        for: 5m
+        labels:
+          severity: critical
+          component: consensus
+        annotations:
+          summary: "Temporal Integrity Score critically low"
+          description: "Average TIS is {{ $value }}, below critical threshold of 0.5. Network synchronization compromised."
+          runbook: "https://github.com/jjgarcianorway/anna-assistant/docs/runbooks/low-tis.md"
+
+      - alert: AnnaTLSHandshakeFailureSpike
+        expr: rate(anna_tls_handshakes_total{status="failure"}[5m]) > 1
+        for: 2m
+        labels:
+          severity: critical
+          component: tls
+        annotations:
+          summary: "High rate of TLS handshake failures"
+          description: "TLS handshake failure rate is {{ $value }} per second. Connectivity issues or security threat."
+          runbook: "https://github.com/jjgarcianorway/anna-assistant/docs/runbooks/tls-failures.md"
+
+      - alert: AnnaQuorumLost
+        expr: anna_quorum_size < 3
+        for: 1m
+        labels:
+          severity: critical
+          component: consensus
+        annotations:
+          summary: "Quorum size below minimum threshold"
+          description: "Quorum size is {{ $value }}, below minimum of 3. Consensus cannot proceed safely."
+          runbook: "https://github.com/jjgarcianorway/anna-assistant/docs/runbooks/quorum-lost.md"
