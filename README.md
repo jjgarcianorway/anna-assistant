@@ -699,6 +699,72 @@ These failures are tracked for Phase 2 and do not affect Phase 1.16 functionalit
 
 ---
 
+## Troubleshooting
+
+### Socket Connection Issues
+
+**Problem**: `annactl` commands fail with "Permission denied" or "Socket not found"
+
+**Solution**:
+```bash
+# 1. Check socket path and permissions
+namei -l /run/anna/anna.sock
+
+# 2. Verify group membership
+groups | grep anna
+
+# 3. If not in group, add yourself
+sudo usermod -aG anna "$USER"
+newgrp anna  # Or logout and login
+
+# 4. Check daemon status
+sudo systemctl status annad
+sudo journalctl -u annad -n 50
+```
+
+**Expected permissions**:
+- Directory: `/run/anna` should be `root:anna 750`
+- Socket: `/run/anna/anna.sock` should be `root:anna 660`
+
+### Environment Overrides
+
+**Custom socket path**:
+```bash
+# Method 1: Flag (highest priority)
+annactl --socket /path/to/custom.sock status
+
+# Method 2: Environment variable
+export ANNAD_SOCKET=/path/to/custom.sock
+annactl status
+```
+
+**Custom log file** (v1.16.3+):
+```bash
+# Override default XDG path
+export ANNACTL_LOG_FILE=/tmp/annactl.jsonl
+annactl status
+
+# Disable file logging (stdout only)
+export ANNACTL_LOG_FILE=/dev/null
+annactl status
+```
+
+### Quick Diagnostics
+
+```bash
+# Test daemon connectivity (v1.16.3+)
+annactl ping
+
+# Run full validation suite
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/operator_validate.sh | bash
+```
+
+**References**:
+- [archwiki:System_maintenance#Troubleshooting](https://wiki.archlinux.org/title/System_maintenance#Troubleshooting)
+- [archwiki:XDG_Base_Directory](https://wiki.archlinux.org/title/XDG_Base_Directory)
+
+---
+
 ## Contributing
 
 See `CONTRIBUTING.md` for:
@@ -738,6 +804,6 @@ Anna Assistant is built on the foundation of the Arch Linux community and adhere
 
 ---
 
-**Anna Assistant v1.0.0-rc.13 - Operational Core**
+**Anna Assistant v1.16.3-alpha.1 - UX Polish & Socket Reliability**
 
 *Security-hardened • State-aware • Wiki-strict • Production-ready*

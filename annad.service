@@ -38,6 +38,7 @@ Type=simple
 # Run as root (required for system administration)
 # but use anna group for socket access control
 User=root
+Group=anna
 SupplementaryGroups=anna
 
 # rc.13.3: Ensure runtime directory exists with correct ownership before startup

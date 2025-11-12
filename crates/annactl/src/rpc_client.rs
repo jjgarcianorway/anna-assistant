@@ -6,8 +6,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
-const SOCKET_PATH: &str = "/run/anna/anna.sock";
-
 static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// RPC Client for communicating with the daemon
@@ -17,59 +15,67 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    /// Connect to the daemon with retry logic (Beta.108, rc.13.1 enhanced errors)
+    /// Discover socket path with fallback chain
     ///
-    /// Problem: After daemon restart, socket recreation takes time
-    /// Old behavior: Single connect attempt → 30s timeout → failure
-    /// New behavior: Retry with exponential backoff for 5s max
+    /// Priority:
+    /// 1. Explicit --socket flag (passed as argument)
+    /// 2. $ANNAD_SOCKET environment variable
+    /// 3. /run/anna/anna.sock (default)
+    /// 4. /run/anna.sock (fallback)
+    pub fn discover_socket_path(explicit_path: Option<&str>) -> String {
+        if let Some(path) = explicit_path {
+            return path.to_string();
+        }
+
+        if let Ok(path) = std::env::var("ANNAD_SOCKET") {
+            return path;
+        }
+
+        // Try default first
+        if std::path::Path::new("/run/anna/anna.sock").exists() {
+            return "/run/anna/anna.sock".to_string();
+        }
+
+        // Fallback
+        "/run/anna.sock".to_string()
+    }
+
+    /// Connect to the daemon with retry logic and errno-specific error messages
     ///
-    /// rc.13.1: Detect EACCES and provide group enrollment hint
-    pub async fn connect() -> Result<Self> {
+    /// v1.16.2-alpha.2: Socket discovery order and detailed error hints
+    pub async fn connect_with_path(socket_path: Option<&str>) -> Result<Self> {
         use std::time::Duration;
         use tokio::time::sleep;
 
+        let path = Self::discover_socket_path(socket_path);
         let max_retries = 10;
-        let mut retry_delay = Duration::from_millis(50); // Start with 50ms
+        let mut retry_delay = Duration::from_millis(50);
         let mut last_error: Option<std::io::Error> = None;
 
         for attempt in 0..max_retries {
             match tokio::time::timeout(
-                Duration::from_millis(500), // 500ms connect timeout per attempt
-                UnixStream::connect(SOCKET_PATH),
+                Duration::from_millis(500),
+                UnixStream::connect(&path),
             )
             .await
             {
                 Ok(Ok(stream)) => {
-                    // Success!
                     let (reader, writer) = stream.into_split();
                     let reader = BufReader::new(reader);
                     return Ok(Self { reader, writer });
                 }
                 Ok(Err(e)) if attempt == max_retries - 1 => {
-                    // Last attempt failed - check for permission denied
-                    if e.kind() == std::io::ErrorKind::PermissionDenied {
-                        return Err(e).context(
-                            "Permission denied accessing /run/anna/anna.sock.\n\
-                             Ensure your user is in group 'anna':\n  \
-                             sudo usermod -aG anna \"$USER\" && newgrp anna"
-                        );
-                    }
-                    // Other error - give up
-                    return Err(e).context(
-                        "Failed to connect to daemon after 10 retries. Is annad running?",
-                    );
+                    // Last attempt - provide errno-specific hint
+                    return Err(Self::socket_error_with_hint(&path, e));
                 }
                 Ok(Err(e)) => {
-                    // Store error for final check
                     last_error = Some(e);
-                    // Connection failed - retry if not last attempt
                     if attempt < max_retries - 1 {
                         sleep(retry_delay).await;
                         retry_delay = (retry_delay * 2).min(Duration::from_millis(500));
                     }
                 }
                 Err(_) => {
-                    // Timeout - retry if not last attempt
                     if attempt < max_retries - 1 {
                         sleep(retry_delay).await;
                         retry_delay = (retry_delay * 2).min(Duration::from_millis(500));
@@ -78,18 +84,56 @@ impl RpcClient {
             }
         }
 
-        // Check if last error was permission denied
         if let Some(e) = last_error {
-            if e.kind() == std::io::ErrorKind::PermissionDenied {
-                return Err(anyhow::Error::new(e)).context(
-                    "Permission denied accessing /run/anna/anna.sock.\n\
-                     Ensure your user is in group 'anna':\n  \
-                     sudo usermod -aG anna \"$USER\" && newgrp anna"
-                );
-            }
+            return Err(Self::socket_error_with_hint(&path, e));
         }
 
-        anyhow::bail!("Failed to connect to daemon. Is annad running?")
+        anyhow::bail!("Failed to connect to daemon at {}. Is annad running?", path)
+    }
+
+    /// Backward compatibility: connect without explicit path
+    pub async fn connect() -> Result<Self> {
+        Self::connect_with_path(None).await
+    }
+
+    /// Generate errno-specific error hint
+    fn socket_error_with_hint(path: &str, error: std::io::Error) -> anyhow::Error {
+        use std::io::ErrorKind;
+
+        let hint = match error.kind() {
+            ErrorKind::NotFound => {
+                format!(
+                    "Socket not found at {}. Is annad running?\n\
+                     Try: sudo systemctl status annad",
+                    path
+                )
+            }
+            ErrorKind::PermissionDenied => {
+                format!(
+                    "Permission denied opening {}. Check group 'anna' and directory execute bits.\n\
+                     Fix: sudo usermod -aG anna \"$USER\" && newgrp anna\n\
+                     Debug: namei -l {}",
+                    path, path
+                )
+            }
+            ErrorKind::ConnectionRefused | ErrorKind::TimedOut => {
+                format!(
+                    "Daemon not responding on {}.\n\
+                     Socket exists but daemon not accepting connections.\n\
+                     Try: sudo systemctl restart annad",
+                    path
+                )
+            }
+            _ => {
+                format!(
+                    "Failed to connect to daemon at {}: {}\n\
+                     Check: sudo systemctl status annad",
+                    path, error
+                )
+            }
+        };
+
+        anyhow::Error::new(error).context(hint)
     }
 
     /// Send a request and get a response
@@ -265,7 +309,8 @@ impl RpcClient {
         method: Method,
     ) -> Result<tokio::sync::mpsc::Receiver<ResponseData>> {
         // Create a dedicated connection for this streaming call
-        let stream = UnixStream::connect(SOCKET_PATH)
+        let socket_path = Self::discover_socket_path(None);
+        let stream = UnixStream::connect(&socket_path)
             .await
             .context("Failed to connect for streaming")?;
 

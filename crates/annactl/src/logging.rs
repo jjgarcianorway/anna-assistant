@@ -1,13 +1,11 @@
 //! Logging for annactl operations
 //!
-//! Phase 0.3d: Append-only JSONL logging to /var/log/anna/ctl.jsonl
-//! Citation: [archwiki:system_maintenance]
+//! v1.16.3: XDG-compliant logging with fallback chain
+//! Citation: [archwiki:system_maintenance][archwiki:XDG_Base_Directory]
 
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
-
-const LOG_PATH: &str = "/var/log/anna/ctl.jsonl";
 
 /// Log entry for each annactl invocation
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,21 +54,70 @@ pub struct ErrorDetails {
 }
 
 impl LogEntry {
-    /// Write log entry to file
+    /// Discover log file path with fallback chain
+    ///
+    /// Priority:
+    /// 1. $ANNACTL_LOG_FILE environment variable (explicit override)
+    /// 2. $XDG_STATE_HOME/anna/ctl.jsonl (XDG standard)
+    /// 3. ~/.local/state/anna/ctl.jsonl (XDG fallback)
+    ///
+    /// Never defaults to /var/log/anna for non-root users
+    fn discover_log_path() -> Option<String> {
+        // 1. Explicit override
+        if let Ok(path) = std::env::var("ANNACTL_LOG_FILE") {
+            return Some(path);
+        }
+
+        // 2. XDG_STATE_HOME
+        if let Ok(xdg_state) = std::env::var("XDG_STATE_HOME") {
+            return Some(format!("{}/anna/ctl.jsonl", xdg_state));
+        }
+
+        // 3. HOME/.local/state fallback
+        if let Ok(home) = std::env::var("HOME") {
+            return Some(format!("{}/.local/state/anna/ctl.jsonl", home));
+        }
+
+        None
+    }
+
+    /// Write log entry to file, falling back to stdout on failure
     pub fn write(&self) -> Result<(), std::io::Error> {
+        let json = serde_json::to_string(self)?;
+
+        // Try to get log path
+        let log_path = Self::discover_log_path();
+
+        if let Some(path) = log_path {
+            // Try to write to file
+            match Self::write_to_file(&json, &path) {
+                Ok(()) => return Ok(()),
+                Err(_) => {
+                    // Silently fall back to stdout
+                    println!("{}", json);
+                    return Ok(());
+                }
+            }
+        }
+
+        // No path available, write to stdout
+        println!("{}", json);
+        Ok(())
+    }
+
+    /// Attempt to write log entry to file
+    fn write_to_file(json: &str, path: &str) -> Result<(), std::io::Error> {
         // Create parent directory if needed
-        if let Some(parent) = std::path::Path::new(LOG_PATH).parent() {
+        if let Some(parent) = std::path::Path::new(path).parent() {
             std::fs::create_dir_all(parent)?;
         }
 
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(LOG_PATH)?;
+            .open(path)?;
 
-        let json = serde_json::to_string(self)?;
         writeln!(file, "{}", json)?;
-
         Ok(())
     }
 

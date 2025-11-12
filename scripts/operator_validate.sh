@@ -6,7 +6,7 @@
 
 set -e
 
-EXPECTED_VERSION="1.16.1-alpha.1"
+EXPECTED_VERSION="1.16.3-alpha.1"
 SOCKET_PATH="/run/anna/anna.sock"
 MAX_WAIT=30
 
@@ -36,7 +36,38 @@ done
 ELAPSED=$(($(date +%s) - START))
 echo -e "${GREEN}${CHECK} OK (${ELAPSED}s)${RESET}"
 
-# 2. annactl version equals 1.16.0-alpha.1
+# 2. Check /run/anna permissions (root:anna 750)
+echo -n "Checking /run/anna permissions... "
+RUNDIR_STAT=$(stat -c "%U:%G %a" /run/anna 2>/dev/null || echo "MISSING")
+if [ "$RUNDIR_STAT" = "root:anna 750" ]; then
+    echo -e "${GREEN}${CHECK} OK (root:anna 750)${RESET}"
+elif [ "$RUNDIR_STAT" = "MISSING" ]; then
+    echo -e "${RED}${CROSS} FAILED - /run/anna does not exist${RESET}"
+    echo "Fix: sudo systemctl restart annad"
+    exit 1
+else
+    echo -e "${RED}${CROSS} FAILED - Got ${RUNDIR_STAT}, expected root:anna 750${RESET}"
+    echo "Fix: sudo chown root:anna /run/anna && sudo chmod 750 /run/anna"
+    exit 1
+fi
+
+# 3. Check socket permissions (root:anna 660)
+echo -n "Checking socket permissions... "
+SOCKET_STAT=$(stat -c "%U:%G %a" "$SOCKET_PATH" 2>/dev/null || echo "MISSING")
+if [ "$SOCKET_STAT" = "root:anna 660" ]; then
+    echo -e "${GREEN}${CHECK} OK (root:anna 660)${RESET}"
+elif [ "$SOCKET_STAT" = "MISSING" ]; then
+    echo -e "${RED}${CROSS} FAILED - Socket does not exist${RESET}"
+    echo "Fix: sudo systemctl restart annad"
+    exit 1
+else
+    echo -e "${RED}${CROSS} FAILED - Got ${SOCKET_STAT}, expected root:anna 660${RESET}"
+    echo "Fix: sudo chown root:anna $SOCKET_PATH && sudo chmod 660 $SOCKET_PATH"
+    echo "Debug: namei -l $SOCKET_PATH"
+    exit 1
+fi
+
+# 4. annactl version equals 1.16.3-alpha.1
 echo -n "Checking version... "
 ACTUAL_VERSION=$(annactl --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
 if [ "$ACTUAL_VERSION" = "$EXPECTED_VERSION" ]; then
@@ -46,7 +77,7 @@ else
     exit 1
 fi
 
-# 3. status runs
+# 5. status runs
 echo -n "Testing annactl status... "
 if annactl status >/dev/null 2>&1; then
     echo -e "${GREEN}${CHECK} OK${RESET}"
@@ -55,7 +86,7 @@ else
     exit 1
 fi
 
-# 4. health runs
+# 6. health runs
 echo -n "Testing annactl health... "
 if annactl health >/dev/null 2>&1; then
     echo -e "${GREEN}${CHECK} OK${RESET}"
@@ -64,7 +95,7 @@ else
     exit 1
 fi
 
-# 5. metrics endpoint responds (if metrics are exposed via HTTP)
+# 7. metrics endpoint responds (if metrics are exposed via HTTP)
 echo -n "Checking metrics endpoint... "
 if command -v curl >/dev/null 2>&1; then
     # Try localhost:9090/metrics (default Prometheus endpoint)
@@ -77,7 +108,7 @@ else
     echo -e "${CYAN}⊘ curl not available${RESET}"
 fi
 
-# 6. self-update path is wired
+# 8. self-update path is wired
 echo -n "Checking self-update script... "
 if [ -f "/usr/local/lib/anna/scripts/self_update.sh" ] && [ -x "/usr/local/lib/anna/scripts/self_update.sh" ]; then
     echo -e "${GREEN}${CHECK} Found${RESET}"

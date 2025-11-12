@@ -71,6 +71,57 @@ Phase 2 kickoff with core security and reliability features. **Status**: Foundat
 
 ---
 
+## [1.16.3-alpha.1] - 2025-11-12
+
+### 🔧 **Hotfix: UX Polish & Socket Reliability**
+
+Improves annactl user experience with XDG-compliant logging, socket discovery, and permission validation.
+
+#### Added
+
+**annactl logging improvements**:
+- XDG-compliant log path: `$XDG_STATE_HOME/anna/ctl.jsonl` or `~/.local/state/anna/ctl.jsonl`
+- Environment variable override: `$ANNACTL_LOG_FILE` for explicit path
+- Graceful degradation to stdout on file write failure (no error thrown)
+- Never defaults to `/var/log/anna` for non-root users
+
+**annactl socket handling**:
+- Socket discovery order: `--socket` flag → `$ANNAD_SOCKET` env var → `/run/anna/anna.sock` → `/run/anna.sock`
+- Errno-specific error messages (ENOENT, EACCES, ECONNREFUSED/ETIMEDOUT)
+- New `--socket <path>` global flag for explicit override
+- Ping command: `annactl ping` for 1-RTT daemon health check
+
+**Permission validation**:
+- `operator_validate.sh` now asserts `/run/anna` is `root:anna 750`
+- Socket validation: `root:anna 660`
+- Remedial commands printed on failure with `namei -l` debug suggestion
+
+#### Changed
+
+**systemd service**:
+- Added `Group=anna` to annad.service (complements existing `SupplementaryGroups=anna`)
+- RuntimeDirectory/RuntimeDirectoryMode/UMask already correct (from RC.13)
+
+**Documentation**:
+- Updated `operator_validate.sh` to v1.16.3-alpha.1
+- README Troubleshooting section (pending)
+
+#### Files Modified
+
+- `crates/annactl/src/logging.rs` - XDG path discovery with fallback chain
+- `crates/annactl/src/rpc_client.rs` - Socket discovery and errno hints (from v1.16.2-alpha.2)
+- `crates/annactl/src/main.rs` - `--socket` flag and ping command
+- `annad.service` - Added `Group=anna`
+- `scripts/operator_validate.sh` - Permission assertions
+- `Cargo.toml` - Version bump to 1.16.3-alpha.1
+
+#### References
+
+- [archwiki:XDG_Base_Directory](https://wiki.archlinux.org/title/XDG_Base_Directory)
+- [archwiki:System_maintenance](https://wiki.archlinux.org/title/System_maintenance)
+
+---
+
 ## [1.16.2-alpha.1] - 2025-11-12
 
 ### Fixed

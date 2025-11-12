@@ -39,6 +39,10 @@ const VERSION: &str = env!("ANNA_VERSION");
 #[command(version = VERSION)]
 #[command(disable_help_subcommand = true)]
 struct Cli {
+    /// Path to daemon socket (overrides $ANNAD_SOCKET and defaults)
+    #[arg(long, global = true)]
+    socket: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -55,6 +59,9 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Ping daemon (1-RTT health check)
+    Ping,
 
     /// Update system packages (configured state only)
     Update {
@@ -417,6 +424,7 @@ async fn main() -> Result<()> {
     let command_name = match &cli.command {
         Commands::Status => "status",
         Commands::Help { .. } => "help",
+        Commands::Ping => "ping",
         Commands::Update { .. } => "update",
         Commands::Install { .. } => "install",
         Commands::Rescue { .. } => "rescue",
@@ -439,7 +447,8 @@ async fn main() -> Result<()> {
     };
 
     // Try to connect to daemon and get state
-    let (state, state_citation, capabilities) = match get_state_and_capabilities().await {
+    let socket_path = cli.socket.as_deref();
+    let (state, state_citation, capabilities) = match get_state_and_capabilities(socket_path).await {
         Ok(result) => result,
         Err(e) => {
             // Daemon unavailable
@@ -472,6 +481,11 @@ async fn main() -> Result<()> {
     if matches!(cli.command, Commands::Help { .. }) {
         return execute_help_command(&cli.command, &state, &capabilities, &req_id, start_time)
             .await;
+    }
+
+    // v1.16.3: Handle ping command (simple 1-RTT check)
+    if matches!(cli.command, Commands::Ping) {
+        return execute_ping_command(socket_path, &req_id, start_time).await;
     }
 
     // Phase 0.5b: Handle health commands specially (they bypass state checks)
@@ -698,9 +712,98 @@ async fn main() -> Result<()> {
     std::process::exit(exit_code);
 }
 
+/// Execute ping command (v1.16.3)
+async fn execute_ping_command(
+    socket_path: Option<&str>,
+    req_id: &str,
+    start_time: Instant,
+) -> Result<()> {
+    let ping_start = Instant::now();
+
+    match rpc_client::RpcClient::connect_with_path(socket_path).await {
+        Ok(mut client) => {
+            match client.ping().await {
+                Ok(_) => {
+                    let rtt_ms = ping_start.elapsed().as_millis();
+                    println!("Pong! RTT: {}ms", rtt_ms);
+
+                    // Log the ping command
+                    let duration_ms = start_time.elapsed().as_millis() as u64;
+                    let log_entry = LogEntry {
+                        ts: LogEntry::now(),
+                        req_id: req_id.to_string(),
+                        state: "unknown".to_string(),
+                        command: "ping".to_string(),
+                        allowed: Some(true),
+                        args: vec![],
+                        exit_code: EXIT_SUCCESS,
+                        citation: "[archwiki:system_maintenance]".to_string(),
+                        duration_ms,
+                        ok: true,
+                        error: None,
+                    };
+                    let _ = log_entry.write();
+
+                    std::process::exit(EXIT_SUCCESS);
+                }
+                Err(e) => {
+                    eprintln!("Ping failed: {}", e);
+
+                    // Log the failed ping
+                    let duration_ms = start_time.elapsed().as_millis() as u64;
+                    let log_entry = LogEntry {
+                        ts: LogEntry::now(),
+                        req_id: req_id.to_string(),
+                        state: "unknown".to_string(),
+                        command: "ping".to_string(),
+                        allowed: Some(true),
+                        args: vec![],
+                        exit_code: EXIT_DAEMON_UNAVAILABLE,
+                        citation: "[archwiki:system_maintenance]".to_string(),
+                        duration_ms,
+                        ok: false,
+                        error: Some(ErrorDetails {
+                            code: "PING_FAILED".to_string(),
+                            message: e.to_string(),
+                        }),
+                    };
+                    let _ = log_entry.write();
+
+                    std::process::exit(EXIT_DAEMON_UNAVAILABLE);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to connect to daemon: {}", e);
+
+            // Log the connection failure
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let log_entry = LogEntry {
+                ts: LogEntry::now(),
+                req_id: req_id.to_string(),
+                state: "unknown".to_string(),
+                command: "ping".to_string(),
+                allowed: None,
+                args: vec![],
+                exit_code: EXIT_DAEMON_UNAVAILABLE,
+                citation: "[archwiki:system_maintenance]".to_string(),
+                duration_ms,
+                ok: false,
+                error: Some(ErrorDetails {
+                    code: "DAEMON_UNAVAILABLE".to_string(),
+                    message: e.to_string(),
+                }),
+            };
+            let _ = log_entry.write();
+
+            std::process::exit(EXIT_DAEMON_UNAVAILABLE);
+        }
+    }
+}
+
 /// Get state and capabilities from daemon (Phase 0.3d)
-async fn get_state_and_capabilities() -> Result<(String, String, Vec<CommandCapabilityData>)> {
-    let mut client = rpc_client::RpcClient::connect().await?;
+async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String, String, Vec<CommandCapabilityData>)> {
+    let mut client = rpc_client::RpcClient::connect_with_path(socket_path).await?;
 
     // Get state
     let state_response = client.get_state().await?;
@@ -801,6 +904,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Help { .. } => {
             // Should not reach here - handled in main
             unreachable!("Help command should be handled separately");
+        }
+        Commands::Ping => {
+            // Should not reach here - handled in main
+            unreachable!("Ping command should be handled separately");
         }
         Commands::Update { .. } => {
             // Should not reach here - handled in main
