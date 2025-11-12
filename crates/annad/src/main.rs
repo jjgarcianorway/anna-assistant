@@ -91,6 +91,7 @@ mod mirror; // Phase 1.4: Mirror Protocol
 mod mirror_audit; // Phase 1.6: Mirror Audit
 mod network; // Phase 1.9: Network layer for distributed consensus
 mod notifier;
+mod profile; // Phase 3.0: Adaptive Intelligence & Smart Profiling
 mod recommender;
 mod recovery; // Phase 0.6: Recovery framework
 mod repair; // Phase 0.7: Repair subsystem
