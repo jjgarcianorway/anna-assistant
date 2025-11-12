@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✅ **Phase 3.1 + 3.6: Contextual Autonomy - IMPLEMENTED**
+
+Complete implementation of adaptive intelligence features with persistent context and self-healing capabilities.
+
+#### Phase 3.6: Persistent Context Layer
+
+**SQLite-Based Session Continuity** (`crates/anna_common/src/context/`):
+- Complete database implementation with 6 tables
+- Action history tracking with metadata (duration, outcome, affected items)
+- Async-safe operations using tokio-rusqlite
+- Smart location detection (system vs user mode)
+- WAL mode for concurrent access
+- Automatic maintenance and cleanup
+- Success rate calculations per action type
+- Global singleton API for easy integration
+- **Testing**: 7/7 tests passing
+
+**Database Schema**:
+- `action_history`: All actions performed with outcomes
+- `system_state_log`: Historical state snapshots
+- `user_preferences`: User settings and learned preferences
+- `command_usage`: Command usage analytics
+- `learning_patterns`: Detected behavior patterns
+- `session_metadata`: Session tracking
+
+#### Phase 3.1: Command Classification & Adaptive UI
+
+**Command Classification System** (`crates/anna_common/src/command_meta.rs`):
+- CommandCategory enum (UserSafe/Advanced/Internal)
+- RiskLevel assessment (None/Low/Medium/High/Critical)
+- CommandMetadata with complete classification
+- DisplayContext for adaptive filtering
+- UserLevel detection (Beginner/Intermediate/Expert)
+- CommandRegistry with visibility logic
+- Display priority calculation
+- **Testing**: 8/8 tests passing
+
+**Adaptive Help System** (`crates/annactl/src/help_commands.rs`):
+- Context-aware command filtering
+- Color-coded categories: 🟢 UserSafe, 🟡 Advanced, 🔴 Internal
+- Detailed per-command help with examples
+- System state detection with fast timeout
+- Daemon availability checking
+- Intelligent command visibility based on:
+  * User experience level
+  * System state (healthy/degraded/critical)
+  * Daemon availability
+  * Resource constraints
+- Context-specific tips and recommendations
+
+**Quick Daemon Connection** (`crates/annactl/src/rpc_client.rs`):
+- connect_quick() method for fast availability checks
+- 200ms timeout for responsive help display
+- No retry delays for help command
+
+#### Phase 3.1: Monitoring Automation
+
+**Production-Ready Installation** (`crates/annactl/src/monitor_setup.rs`):
+- Automatic package installation via pacman
+- Systemd service management (enable/start)
+- Configuration deployment from templates
+- Dashboard provisioning for Grafana
+- Intelligent dry-run mode
+- Root privilege checking
+- Package detection (prevents redundant installs)
+
+**Monitoring Modes**:
+- **Full**: Prometheus + Grafana + dashboards (4GB+ RAM)
+- **Light**: Prometheus only (2-4GB RAM)
+- **Minimal**: Internal monitoring only (<2GB RAM)
+
+**Commands**:
+- `annactl monitor install [--force-mode MODE] [--dry-run]`
+- `annactl monitor status`
+
+#### Phase 3.1/3.2: Self-Healing Framework
+
+**Autonomous Recovery Foundation** (`crates/anna_common/src/self_healing.rs`):
+- ServiceHealth tracking (Healthy/Degraded/Failed/Unknown)
+- RecoveryAction types (Restart/Reload/StopStart/Manual)
+- RecoveryOutcome tracking (Success/Failure/Partial/Skipped)
+- ServiceRecoveryConfig with configurable policies:
+  * Maximum restart attempts
+  * Cooldown periods
+  * Automatic vs manual recovery
+  * Dependency management
+  * Critical service flagging
+- SelfHealingManager with history and analytics
+- Recovery attempt logging with unique IDs
+- Success rate calculation per service
+- Default configurations for common services
+- **Testing**: 5/5 tests passing
+
+**Default Service Configs**:
+- annad (critical, 5 attempts)
+- prometheus (3 attempts)
+- grafana (3 attempts, depends on prometheus)
+- systemd services (resolved, networkd)
+
 ### 📋 **Phase 3.5 Planning: Next-Generation Intelligence Features**
 
 Comprehensive design documentation for Anna's evolution toward greater autonomy and usability.
