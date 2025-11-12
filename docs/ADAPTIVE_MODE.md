@@ -368,11 +368,41 @@ Profile collection is lightweight:
 - **Memory**: <1MB overhead for sysinfo cache
 - **CPU**: Negligible (command execution only)
 
-Profile metrics exposed via Prometheus (future):
+### Profile Metrics (Phase 3.1 - Implemented)
+
+System profile data is now exported to Prometheus metrics:
+
+**Metrics Available**:
 ```
-anna_profile_mode{mode="full"} 1
-anna_system_memory_used_percent 45.2
+anna_system_memory_total_mb 16384
+anna_system_memory_available_mb 8192
+anna_system_cpu_cores 8
+anna_system_disk_total_gb 512
+anna_system_disk_available_gb 256
 anna_system_uptime_seconds 86400
+anna_profile_mode 2                    # 0=minimal, 1=light, 2=full
+anna_profile_constrained 0             # 0=no, 1=yes
+```
+
+**Update Frequency**: Every 60 seconds
+
+**Implementation**: Background task in daemon collects profile and updates metrics automatically
+
+**Access** (when consensus RPC server enabled):
+```bash
+curl http://localhost:8080/metrics | grep anna_system
+```
+
+**Grafana Dashboard Examples**:
+```
+# Memory usage percentage
+(anna_system_memory_total_mb - anna_system_memory_available_mb) / anna_system_memory_total_mb * 100
+
+# Monitoring mode over time
+anna_profile_mode
+
+# Resource constraint alert
+anna_profile_constrained == 1
 ```
 
 ## Configuration
@@ -449,7 +479,10 @@ pub fn calculate_monitoring_mode(
 
 ---
 
-**Implemented**: Phase 3.0.0-alpha.1
-**Next**: Adaptive UI hints, profile metrics export
+**Implemented**:
+- Phase 3.0.0-alpha.1: Core adaptive intelligence ✅
+- Phase 3.1: Profile metrics export to Prometheus ✅
+
+**Next**: Adaptive UI hints, integration tests, dynamic adaptation
 **Author**: Anna (with human guidance)
 **License**: Custom (see LICENSE file)
