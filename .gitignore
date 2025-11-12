@@ -1,2 +1,10 @@
 target/
 templates/
+
+# TLS/SSL materials (never commit private keys or certificates)
+testnet/config/tls/
+**/*.key
+**/*.pem
+**/*.srl
+**/*.crt
+**/*.csr
