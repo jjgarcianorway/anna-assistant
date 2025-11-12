@@ -594,6 +594,12 @@ async fn main() -> Result<()> {
             .await;
         }
         Commands::Install { dry_run } => {
+            // Phase 3.4: Check resource constraints before heavy operation
+            if !*dry_run {
+                if !check_resource_constraints(socket_path, "system installation").await? {
+                    std::process::exit(EXIT_SUCCESS);
+                }
+            }
             return install_command::execute_install_command(
                 *dry_run,
                 &req_id,
@@ -612,6 +618,12 @@ async fn main() -> Result<()> {
             return steward_commands::execute_status_command(&req_id, &state, start_time).await;
         }
         Commands::Update { dry_run } => {
+            // Phase 3.4: Check resource constraints before heavy operation
+            if !*dry_run {
+                if !check_resource_constraints(socket_path, "system update").await? {
+                    std::process::exit(EXIT_SUCCESS);
+                }
+            }
             return steward_commands::execute_update_command(*dry_run, &req_id, &state, start_time)
                 .await;
         }
@@ -1436,6 +1448,64 @@ async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Opti
     }
 
     std::process::exit(EXIT_SUCCESS);
+}
+
+/// Check system resources and warn if constrained (Phase 3.4)
+async fn check_resource_constraints(socket_path: Option<&str>, operation: &str) -> Result<bool> {
+    // Try to get profile from daemon
+    let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
+        Ok(c) => c,
+        Err(_) => return Ok(true), // If daemon unavailable, proceed anyway
+    };
+
+    let profile_response = client.get_profile().await?;
+    let profile = match profile_response {
+        ResponseData::Profile(data) => data,
+        _ => return Ok(true), // If unexpected response, proceed anyway
+    };
+
+    // Check if system is resource-constrained
+    if profile.is_constrained {
+        println!("⚠️  Resource Constraint Warning");
+        println!("═══════════════════════════════════════════════════════════════");
+        println!();
+        println!("  Your system is resource-constrained:");
+        println!("    • RAM: {} MB available of {} MB total ({:.1}%)",
+            profile.available_memory_mb,
+            profile.total_memory_mb,
+            (profile.available_memory_mb as f64 / profile.total_memory_mb as f64) * 100.0
+        );
+        println!("    • CPU: {} cores", profile.cpu_cores);
+        println!("    • Disk: {} GB available", profile.available_disk_gb);
+        println!();
+        println!("  Operation '{}' may:", operation);
+        println!("    - Consume significant system resources");
+        println!("    - Take longer than usual to complete");
+        println!("    - Impact system responsiveness");
+        println!();
+        println!("  Consider:");
+        println!("    - Closing other applications");
+        println!("    - Running during off-peak hours");
+        println!("    - Using --dry-run flag to preview changes");
+        println!("═══════════════════════════════════════════════════════════════");
+        println!();
+
+        // Ask for confirmation
+        eprint!("Proceed with operation? [y/N]: ");
+        use std::io::Write;
+        std::io::stderr().flush()?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Operation cancelled.");
+            return Ok(false);
+        }
+        println!();
+    }
+
+    Ok(true)
 }
 
 /// Get state and capabilities from daemon (Phase 0.3d)

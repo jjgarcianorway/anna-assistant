@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️  **Phase 3.4: Resource Constraint Warnings**
+
+Adds proactive warnings before resource-intensive operations on constrained systems.
+
+#### Added
+
+**Smart Resource Warnings for Heavy Operations**:
+- Automatically checks system resources before `annactl update` and `annactl install`
+- Warns users on resource-constrained systems (<4GB RAM, <2 cores, or <10GB disk)
+- Shows current resource availability with percentages
+- Lists potential impacts:
+  * Significant resource consumption
+  * Longer operation times
+  * Reduced system responsiveness
+- Provides helpful recommendations:
+  * Close other applications
+  * Run during off-peak hours
+  * Use --dry-run to preview changes
+- Requires user confirmation (y/N) to proceed
+- Skips warning when using --dry-run flag
+
+**Implementation**:
+- `crates/annactl/src/main.rs`: 58 lines added for resource checking
+- Helper function `check_resource_constraints()`
+- Integration with Update and Install commands
+- Graceful fallback if daemon unavailable
+
+**User Experience**:
+```bash
+$ sudo annactl update
+
+⚠️  Resource Constraint Warning
+═══════════════════════════════════════════════════════════════
+  Your system is resource-constrained:
+    • RAM: 1024 MB available of 2048 MB total (50.0%)
+    • CPU: 2 cores
+    • Disk: 8 GB available
+
+  Operation 'system update' may:
+    - Consume significant system resources
+    - Take longer than usual to complete
+    - Impact system responsiveness
+
+  Consider:
+    - Closing other applications
+    - Running during off-peak hours
+    - Using --dry-run flag to preview changes
+═══════════════════════════════════════════════════════════════
+
+Proceed with operation? [y/N]:
+```
+
+**Benefits**:
+- Prevents system overload on constrained hardware
+- Educates users about resource requirements
+- Reduces support requests from failed operations
+- Allows informed decision-making
+
+---
+
 ### 📊 **Phase 3.3: Metrics Command**
 
 Adds `annactl metrics` command for displaying system metrics in multiple formats.
