@@ -455,6 +455,48 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Spawn profile metrics update task (Phase 3.1)
+    tokio::spawn(async move {
+        // Initialize metrics and profiler
+        let metrics = network::ConsensusMetrics::new();
+        let mut profiler = profile::SystemProfiler::new();
+        info!("System profile metrics initialized");
+
+        // Update profile every 60 seconds
+        let profile_update_interval = tokio::time::Duration::from_secs(60);
+
+        loop {
+            tokio::time::sleep(profile_update_interval).await;
+
+            // Collect current system profile
+            match profiler.collect_profile() {
+                Ok(profile) => {
+                    // Update Prometheus metrics
+                    metrics.update_profile(&profile);
+
+                    // Log occasionally (every 10 minutes = 10 updates)
+                    // To avoid log spam, we only log every 10th update
+                    // This is tracked via a static counter
+                    use std::sync::atomic::{AtomicU64, Ordering};
+                    static UPDATE_COUNTER: AtomicU64 = AtomicU64::new(0);
+                    let count = UPDATE_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+                    if count % 10 == 0 {
+                        info!(
+                            "Profile metrics updated: {} MB RAM, {} cores, mode={:?}",
+                            profile.total_memory_mb,
+                            profile.cpu_cores,
+                            profile.recommended_monitoring_mode
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to collect system profile: {}", e);
+                }
+            }
+        }
+    });
+
     // Start RPC server
     tokio::select! {
         result = rpc_server::start_server(state) => {

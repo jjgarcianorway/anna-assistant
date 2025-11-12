@@ -5,6 +5,49 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 📊 **Phase 3.1: Profile Metrics Export to Prometheus**
+
+Extends Phase 3's adaptive intelligence with Prometheus metrics for system profiling data.
+
+#### Added
+
+**Prometheus Metrics for System Profile**:
+- 8 new Prometheus metrics tracking system resources and adaptive state:
+  * `anna_system_memory_total_mb` - Total system RAM in MB
+  * `anna_system_memory_available_mb` - Available system RAM in MB
+  * `anna_system_cpu_cores` - Number of CPU cores
+  * `anna_system_disk_total_gb` - Total disk space in GB
+  * `anna_system_disk_available_gb` - Available disk space in GB
+  * `anna_system_uptime_seconds` - System uptime in seconds
+  * `anna_profile_mode` - Current monitoring mode (0=minimal, 1=light, 2=full)
+  * `anna_profile_constrained` - Resource constraint status (0=no, 1=yes)
+- `ConsensusMetrics::update_profile()` method to update metrics from SystemProfile
+- Background task in daemon that collects profile every 60 seconds
+- Metrics automatically updated throughout daemon lifetime
+- Minimal logging (every 10 minutes) to avoid log spam
+
+**Implementation**:
+- `crates/annad/src/network/metrics.rs`: 89 lines added for metric registration and update logic
+- `crates/annad/src/main.rs`: 40 lines added for background profile update task
+
+**Usage**:
+```bash
+# Metrics exposed at /metrics endpoint (when consensus RPC server enabled)
+curl http://localhost:8080/metrics | grep anna_system
+
+# Example output:
+# anna_system_memory_total_mb 16384
+# anna_system_memory_available_mb 8192
+# anna_system_cpu_cores 8
+# anna_profile_mode 2
+```
+
+**Citation**: [prometheus:best-practices]
+
+---
+
 ## [3.0.0-alpha.1] - 2025-11-12
 
 ### 🧠 **Phase 3: Adaptive Intelligence & Smart Profiling**
