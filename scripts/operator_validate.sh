@@ -69,7 +69,7 @@ fi
 
 # 4. annactl version equals 1.16.3-alpha.1
 echo -n "Checking version... "
-ACTUAL_VERSION=$(annactl --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
+ACTUAL_VERSION=$(annactl --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
 if [ "$ACTUAL_VERSION" = "$EXPECTED_VERSION" ]; then
     echo -e "${GREEN}${CHECK} ${ACTUAL_VERSION}${RESET}"
 else
