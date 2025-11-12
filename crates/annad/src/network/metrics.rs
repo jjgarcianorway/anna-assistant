@@ -34,6 +34,16 @@ pub struct ConsensusMetrics {
     // Phase 2 metrics
     pub pinning_violations_total: CounterVec,
 
+    // Phase 3 metrics (adaptive intelligence)
+    pub system_memory_total_mb: IntGauge,
+    pub system_memory_available_mb: IntGauge,
+    pub system_cpu_cores: IntGauge,
+    pub system_disk_total_gb: IntGauge,
+    pub system_disk_available_gb: IntGauge,
+    pub system_uptime_seconds: IntGauge,
+    pub profile_mode: IntGauge,  // 0=minimal, 1=light, 2=full
+    pub profile_constrained: IntGauge,  // 0=no, 1=yes
+
     registry: Arc<Registry>,
 }
 
@@ -121,6 +131,55 @@ impl ConsensusMetrics {
             registry
         ).unwrap();
 
+        // Phase 3 metrics (adaptive intelligence)
+        let system_memory_total_mb = register_int_gauge_with_registry!(
+            "anna_system_memory_total_mb",
+            "Total system memory in MB",
+            registry
+        ).unwrap();
+
+        let system_memory_available_mb = register_int_gauge_with_registry!(
+            "anna_system_memory_available_mb",
+            "Available system memory in MB",
+            registry
+        ).unwrap();
+
+        let system_cpu_cores = register_int_gauge_with_registry!(
+            "anna_system_cpu_cores",
+            "Number of CPU cores",
+            registry
+        ).unwrap();
+
+        let system_disk_total_gb = register_int_gauge_with_registry!(
+            "anna_system_disk_total_gb",
+            "Total disk space in GB",
+            registry
+        ).unwrap();
+
+        let system_disk_available_gb = register_int_gauge_with_registry!(
+            "anna_system_disk_available_gb",
+            "Available disk space in GB",
+            registry
+        ).unwrap();
+
+        let system_uptime_seconds = register_int_gauge_with_registry!(
+            "anna_system_uptime_seconds",
+            "System uptime in seconds",
+            registry
+        ).unwrap();
+
+        let profile_mode = register_int_gauge_with_registry!(
+            "anna_profile_mode",
+            "Monitoring mode: 0=minimal, 1=light, 2=full",
+            registry
+        ).unwrap();
+
+        let profile_constrained = register_int_gauge_with_registry!(
+            "anna_profile_constrained",
+            "Resource-constrained status: 0=no, 1=yes",
+            registry
+        ).unwrap();
+
         Self {
             rounds_total,
             byzantine_nodes_total,
@@ -133,6 +192,14 @@ impl ConsensusMetrics {
             tls_handshakes_total,
             rate_limit_violations_total,
             pinning_violations_total,
+            system_memory_total_mb,
+            system_memory_available_mb,
+            system_cpu_cores,
+            system_disk_total_gb,
+            system_disk_available_gb,
+            system_uptime_seconds,
+            profile_mode,
+            profile_constrained,
             registry: Arc::new(registry),
         }
     }
@@ -189,6 +256,28 @@ impl ConsensusMetrics {
         self.pinning_violations_total
             .with_label_values(&[peer])
             .inc();
+    }
+
+    /// Update system profile metrics (Phase 3)
+    pub fn update_profile(&self, profile: &crate::profile::SystemProfile) {
+        self.system_memory_total_mb.set(profile.total_memory_mb as i64);
+        self.system_memory_available_mb.set(profile.available_memory_mb as i64);
+        self.system_cpu_cores.set(profile.cpu_cores as i64);
+        self.system_disk_total_gb.set(profile.total_disk_gb as i64);
+        self.system_disk_available_gb.set(profile.available_disk_gb as i64);
+        self.system_uptime_seconds.set(profile.uptime_seconds as i64);
+
+        // Convert monitoring mode to numeric value
+        let mode_value = match profile.recommended_monitoring_mode {
+            crate::profile::MonitoringMode::Minimal => 0,
+            crate::profile::MonitoringMode::Light => 1,
+            crate::profile::MonitoringMode::Full => 2,
+        };
+        self.profile_mode.set(mode_value);
+
+        // Convert constrained flag to numeric value
+        let constrained_value = if profile.is_constrained() { 1 } else { 0 };
+        self.profile_constrained.set(constrained_value);
     }
 
     /// Export metrics in Prometheus text format
