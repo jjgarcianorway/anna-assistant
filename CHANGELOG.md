@@ -7,6 +7,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📋 **Phase 3.5 Planning: Next-Generation Intelligence Features**
+
+Comprehensive design documentation for Anna's evolution toward greater autonomy and usability.
+
+#### Design Documents Added
+
+**Command Classification System** (`docs/COMMAND_CLASSIFICATION.md`):
+- Comprehensive classification of all 30+ commands into three categories:
+  * 🟢 **User-Safe** (9 commands): help, status, ping, health, profile, metrics, monitor status, self-update --check, triage
+  * 🟡 **Advanced** (12 commands): update, install, backup, doctor, rollback, repair, audit, monitor install, rescue, collect-logs, self-update --list
+  * 🔴 **Internal** (8 commands): sentinel, config, conscience, empathy, collective, mirror, chronos, consensus
+- Adaptive help system design with context-aware command visibility
+- Command metadata structure for risk assessment
+- Progressive disclosure UX pattern for safer user experience
+- Security considerations and accessibility features
+
+**Persistent Context Layer** (`docs/PERSISTENT_CONTEXT.md`):
+- SQLite-based session continuity system design
+- Complete database schema with 6 tables:
+  * `action_history`: Track all actions Anna performed
+  * `system_state_log`: Historical system state snapshots
+  * `user_preferences`: User-configured settings and learned preferences
+  * `command_usage`: Track command usage for learning
+  * `learning_patterns`: Detected patterns and learned behaviors
+  * `session_metadata`: Track user sessions for context
+- Rust API structure for context module
+- Usage examples for learning optimal update times, resource prediction, command recommendations
+- Privacy-first design: no personal data, only system metadata
+- Data retention policies and cleanup strategies
+- Migration strategy (Phases 3.4-3.7)
+
+**Automated Monitoring Setup** (`docs/AUTOMATED_MONITORING_SETUP.md`):
+- Zero-configuration path from bare system to production-ready observability
+- `annactl setup-monitoring` command design with resource-aware adaptation
+- Beautiful Grafana dashboard templates:
+  * Anna Overview: System health at a glance
+  * Resource Metrics: Memory, CPU, disk trends over time
+  * Action History: Command success rates and analytics
+  * Consensus Health: Distributed system metrics (Phase 1.7+)
+- Prometheus configuration templates for light and full modes
+- Grafana provisioning with automatic datasource and dashboard setup
+- TLS certificate generation for secure access
+- Systemd service integration for anna-prometheus and anna-grafana
+- Alert rules for proactive system monitoring
+- Idempotent installation with upgrade preservation
+
+**Monitoring Dashboard Templates**:
+- `monitoring/dashboards/anna-overview.json`: Executive summary dashboard with 8 panels
+  * System status, monitoring mode, resource constraints, uptime
+  * Memory and disk usage gauges with thresholds
+  * Recent actions time series
+  * Rolling 24h success rate
+- `monitoring/dashboards/anna-resources.json`: Deep resource analysis with 8 panels
+  * Memory timeline with total/available/used
+  * Memory and disk percentage with threshold highlighting
+  * CPU cores display
+  * Uptime timeline
+  * Mode change state timeline
+  * Resource constraint event tracking
+
+**Prometheus Configuration**:
+- `monitoring/prometheus/prometheus-light.yml`: Optimized for 2-4 GB RAM
+  * 60s scrape interval
+  * 30-day retention, 2GB size limit
+  * Anna daemon and Prometheus self-monitoring
+- `monitoring/prometheus/prometheus-full.yml`: Full-featured for >4 GB RAM
+  * 15s scrape interval
+  * 90-day retention, 10GB size limit
+  * Node exporter, Grafana metrics, Alertmanager integration
+- `monitoring/prometheus/rules/anna-alerts.yml`: Comprehensive alert rules
+  * Memory alerts (high usage, critical usage)
+  * Disk space alerts (low, critical)
+  * System state alerts (degraded, critical)
+  * Resource constraint alerts
+  * Consensus health alerts (Phase 1.7+)
+  * Action failure rate alerts
+  * Probe failure alerts
+
+**Grafana Provisioning**:
+- `monitoring/grafana/provisioning/datasources/prometheus.yml`: Auto-configured Prometheus datasource
+- `monitoring/grafana/provisioning/dashboards/anna.yml`: Dashboard provider configuration
+
+**Self-Healing Roadmap** (`docs/SELF_HEALING_ROADMAP.md`):
+- Vision for transforming Anna from reactive to proactive maintenance
+- 4-level healing maturity model:
+  * **Level 0**: Detection Only (current - v3.0.0-alpha.3) ✅
+  * **Level 1**: Guided Repair (v3.0.0-beta.1) - Suggest fixes with user confirmation
+  * **Level 2**: Supervised Healing (v3.0.0) - Auto-fix safe issues, notify user
+  * **Level 3**: Autonomous Healing (v4.0.0+) - Predictive maintenance, self-optimization
+- Healing policy configuration system with risk assessment
+- Rollback/undo mechanism for reversible actions
+- Circuit breaker pattern to prevent runaway healing
+- Safety guarantees: pre-flight checks, snapshots, dry-run mode
+- User control: healing policies, consent levels, configuration UI
+- New Prometheus metrics for healing observability
+- Testing strategy with unit, integration, and manual tests
+- Complete implementation roadmap through Phase 4.0
+
+#### Design Principles
+
+All designs follow Anna's core principles:
+- **Safety First**: Never perform destructive actions without approval
+- **Transparency**: Always explain what's happening and why
+- **Privacy First**: No personal data collection, only system metadata
+- **User Control**: Users configure policies and maintain oversight
+- **Gradual Autonomy**: Start simple, enable advanced features progressively
+- **Offline**: No cloud sync, all data stays local
+- **Reversible**: Every action can be undone
+
+#### What's Next
+
+**Phase 3.6 (v3.0.0-alpha.4)**: Begin implementation of persistent context layer
+- Create SQLite schema and migrations
+- Implement basic CRUD operations for action history
+- Add context module to anna_common crate
+
+**Phase 3.7 (v3.0.0-alpha.5)**: Implement automated monitoring setup
+- Build `annactl setup-monitoring` command
+- Integrate dashboard provisioning
+- Add TLS certificate generation
+
+**Phase 3.8 (v3.0.0-beta.1)**: Begin self-healing infrastructure
+- Implement healing policy configuration
+- Add risk assessment framework
+- Create rollback mechanism
+
+**Citation**: [progressive-disclosure:ux-patterns], [sqlite:best-practices], [prometheus:configuration], [grafana:provisioning], [chaos-engineering:netflix], [self-healing:kubernetes-operators]
+
 ---
 
 ## [3.0.0-alpha.3] - 2025-11-12

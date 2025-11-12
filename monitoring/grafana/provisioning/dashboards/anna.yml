@@ -1,0 +1,16 @@
+# Grafana Dashboard Provisioning
+# Automatically configured by Anna Assistant
+
+apiVersion: 1
+
+providers:
+  - name: 'Anna Assistant Dashboards'
+    orgId: 1
+    folder: 'Anna'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/anna/monitoring/grafana/dashboards
+      foldersFromFilesStructure: false
