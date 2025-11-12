@@ -12,7 +12,9 @@ pub mod config_parser;
 pub mod context; // Phase 3.6: Persistent context layer
 pub mod ignore_filters;
 pub mod ipc;
+pub mod learning; // Phase 3.7: Learning engine
 pub mod paths; // rc.13.2: Dual-mode socket support
+pub mod prediction; // Phase 3.7: Prediction engine
 pub mod rollback;
 pub mod self_healing; // Phase 3.1/3.2: Self-healing framework
 pub mod types;
