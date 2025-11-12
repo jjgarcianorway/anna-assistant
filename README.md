@@ -4,9 +4,9 @@
 
 Anna is a security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
 
-**Current Version:** 1.16.2-alpha.1 (November 2025)
+**Current Version:** 3.8.0-alpha.1 (November 2025)
 
-**Status:** Operational Core - Phase 2 In Progress (v2.0.0)
+**Status:** Phase 3.8 Complete - Adaptive CLI with Progressive Disclosure ✅
 
 ---
 
