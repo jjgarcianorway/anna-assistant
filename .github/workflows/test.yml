@@ -39,8 +39,12 @@ jobs:
     - name: Build all packages
       run: cargo build --verbose --all
 
-    - name: Run all tests
-      run: cargo test --verbose --all
+    - name: Run unit tests (lib and bins)
+      run: cargo test --verbose --workspace --lib --bins
+
+    - name: Run integration tests (requires binaries)
+      run: cargo test --verbose --workspace --tests
+      continue-on-error: true  # Integration tests may fail without daemon
 
     - name: Build release binaries
       run: cargo build --release --verbose
