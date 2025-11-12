@@ -218,6 +218,8 @@ mod tests {
         predicted: SystemMetrics,
         actual: SystemMetrics,
     ) -> AuditEntry {
+        let errors = super::super::align::compute_errors(&predicted, &actual);
+
         AuditEntry {
             audit_id: uuid::Uuid::new_v4().to_string(),
             forecast_id: uuid::Uuid::new_v4().to_string(),
@@ -226,7 +228,7 @@ mod tests {
             horizon_hours: 24,
             predicted,
             actual,
-            errors: super::super::align::compute_errors(&predicted, &actual),
+            errors,
             temporal_integrity_score: 0.8,
             bias_findings: Vec::new(),
             adjustment_plan: None,
