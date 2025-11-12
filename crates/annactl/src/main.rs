@@ -189,6 +189,17 @@ enum Commands {
         #[command(subcommand)]
         subcommand: ConsensusSubcommand,
     },
+
+    /// Self-update annactl binary (Phase 2.0)
+    SelfUpdate {
+        /// Check for updates without installing
+        #[arg(long)]
+        check: bool,
+
+        /// Show available versions
+        #[arg(long)]
+        list: bool,
+    },
 }
 
 /// Sentinel subcommands
@@ -402,6 +413,11 @@ async fn main() -> Result<()> {
     };
 
     // Phase 1.8: Handle consensus commands early (standalone PoC, no daemon)
+    // Handle self-update command (doesn't need daemon)
+    if let Commands::SelfUpdate { check, list } = &cli.command {
+        return execute_self_update_command(*check, *list).await;
+    }
+
     if let Commands::Consensus { subcommand } = &cli.command {
         match subcommand {
             ConsensusSubcommand::Status { round_id, json } => {
@@ -444,6 +460,7 @@ async fn main() -> Result<()> {
         Commands::Mirror { .. } => "mirror",
         Commands::Chronos { .. } => "chronos",
         Commands::Consensus { .. } => "consensus",
+        Commands::SelfUpdate { .. } => "self-update",
     };
 
     // Try to connect to daemon and get state
@@ -801,6 +818,88 @@ async fn execute_ping_command(
     }
 }
 
+/// Execute self-update command (Phase 2.0)
+async fn execute_self_update_command(check: bool, list: bool) -> Result<()> {
+    const REPO_OWNER: &str = "jjgarcianorway";
+    const REPO_NAME: &str = "anna-assistant";
+    const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+    if list {
+        // List available versions from GitHub releases
+        println!("Fetching available versions...");
+        match reqwest::get(format!(
+            "https://api.github.com/repos/{}/{}/releases",
+            REPO_OWNER, REPO_NAME
+        ))
+        .await
+        {
+            Ok(response) => {
+                if let Ok(releases) = response.json::<serde_json::Value>().await {
+                    if let Some(releases_array) = releases.as_array() {
+                        println!("\nAvailable versions:");
+                        for release in releases_array.iter().take(10) {
+                            if let Some(tag) = release["tag_name"].as_str() {
+                                let prerelease = release["prerelease"].as_bool().unwrap_or(false);
+                                let label = if prerelease { "(pre-release)" } else { "" };
+                                println!("  {} {}", tag, label);
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to fetch releases: {}", e);
+                std::process::exit(EXIT_GENERAL_ERROR);
+            }
+        }
+        std::process::exit(EXIT_SUCCESS);
+    }
+
+    if check {
+        // Check for updates without installing
+        println!("Current version: {}", CURRENT_VERSION);
+        println!("Checking for updates...");
+
+        match reqwest::get(format!(
+            "https://api.github.com/repos/{}/{}/releases/latest",
+            REPO_OWNER, REPO_NAME
+        ))
+        .await
+        {
+            Ok(response) => {
+                if let Ok(release) = response.json::<serde_json::Value>().await {
+                    if let Some(latest_tag) = release["tag_name"].as_str() {
+                        // Strip 'v' prefix if present
+                        let latest_version = latest_tag.trim_start_matches('v');
+
+                        if latest_version != CURRENT_VERSION {
+                            println!("\n✨ Update available: {} → {}", CURRENT_VERSION, latest_version);
+                            println!("\nTo update:");
+                            println!("  1. Download: https://github.com/{}/{}/releases/tag/{}",
+                                REPO_OWNER, REPO_NAME, latest_tag);
+                            println!("  2. Or use package manager:");
+                            println!("     - Arch: yay -S anna-assistant-bin");
+                            println!("     - Homebrew: brew upgrade anna-assistant");
+                        } else {
+                            println!("✓ You are running the latest version ({})", CURRENT_VERSION);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to check for updates: {}", e);
+                std::process::exit(EXIT_GENERAL_ERROR);
+            }
+        }
+
+        std::process::exit(EXIT_SUCCESS);
+    }
+
+    // No flags - show usage
+    eprintln!("Usage: annactl self-update --check | --list");
+    std::process::exit(EXIT_GENERAL_ERROR);
+}
+
 /// Get state and capabilities from daemon (Phase 0.3d)
 async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String, String, Vec<CommandCapabilityData>)> {
     let mut client = rpc_client::RpcClient::connect_with_path(socket_path).await?;
@@ -990,6 +1089,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Consensus { .. } => {
             // Should not reach here - handled in main
             unreachable!("Consensus command should be handled separately");
+        }
+        Commands::SelfUpdate { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("SelfUpdate command should be handled separately");
         }
     }
 
