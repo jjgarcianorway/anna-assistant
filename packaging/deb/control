@@ -1,0 +1,24 @@
+Package: anna-daemon
+Version: 1.6.0-rc.1
+Section: admin
+Priority: optional
+Architecture: amd64
+Depends: systemd, adduser, logrotate
+Maintainer: Anna Assistant Team <maintainer@example.com>
+Homepage: https://github.com/yourusername/anna-assistant
+Description: Anna Assistant - Ethical AI system maintenance daemon
+ Anna is an autonomous system assistant that provides ethical, wiki-grounded
+ advice for Arch Linux maintenance tasks. Features include:
+ .
+  - Temporal forecasting with bias detection (Chronos Loop)
+  - Mirror audit and self-reflection (Phase 1.6)
+  - Advisory-only parameter adjustments (never auto-applied)
+  - Append-only audit trail with durability guarantees
+  - Conscience sovereignty enforcement
+ .
+ This package includes:
+  - annad: The Anna daemon with RPC server
+  - annactl: CLI client for interacting with the daemon
+  - Systemd service configuration
+  - Logrotate configuration for audit logs
+  - AppArmor profile for security isolation

@@ -1,0 +1,121 @@
+policy_module(anna, 1.6.0)
+
+########################################
+# SELinux policy for Anna Assistant Daemon
+# Last modified: 2025-11-12
+#
+# Installation:
+#   checkmodule -M -m -o anna.mod selinux.anna.te
+#   semodule_package -o anna.pp -m anna.mod
+#   semodule -i anna.pp
+#
+# Verify:
+#   semodule -l | grep anna
+#   sestatus
+########################################
+
+require {
+    type init_t;
+    type unconfined_t;
+    type tmp_t;
+    type sysfs_t;
+    type proc_t;
+    class unix_stream_socket { connectto };
+    class file { read write create open getattr setattr append unlink };
+    class dir { read write create add_name remove_name search };
+    class capability { dac_override dac_read_search setgid setuid };
+    class process { signal };
+}
+
+########################################
+# Type declarations
+########################################
+
+type anna_t;
+type anna_exec_t;
+type anna_var_lib_t;
+type anna_var_log_t;
+type anna_runtime_t;
+
+# Mark as domain
+domain_type(anna_t)
+
+# Mark executables
+init_daemon_domain(anna_t, anna_exec_t)
+
+# File contexts
+files_type(anna_var_lib_t)
+logging_log_file(anna_var_log_t)
+files_pid_file(anna_runtime_t)
+
+########################################
+# Anna daemon policy
+########################################
+
+# Allow execution
+allow anna_t anna_exec_t:file { read execute execute_no_trans getattr };
+
+# Allow state directory access
+allow anna_t anna_var_lib_t:dir { read write create add_name remove_name search getattr setattr };
+allow anna_t anna_var_lib_t:file { read write create open getattr setattr append unlink };
+
+# Allow log directory access
+allow anna_t anna_var_log_t:dir { read write create add_name remove_name search getattr setattr };
+allow anna_t anna_var_log_t:file { read write create open getattr setattr append };
+
+# Allow runtime directory for Unix socket
+allow anna_t anna_runtime_t:dir { read write create add_name remove_name search getattr };
+allow anna_t anna_runtime_t:sock_file { create write unlink getattr setattr };
+allow anna_t anna_runtime_t:unix_stream_socket { create bind listen accept };
+
+# Allow network access (for Phase 1.7 distributed consensus)
+allow anna_t self:tcp_socket { create connect listen accept read write bind getopt setopt };
+allow anna_t self:udp_socket { create connect read write bind getopt setopt };
+
+# Allow reading system information
+allow anna_t proc_t:file { read getattr open };
+allow anna_t sysfs_t:dir { read search };
+allow anna_t sysfs_t:file { read getattr open };
+
+# Allow reading package database
+allow anna_t var_lib_t:dir { read search };
+allow anna_t var_lib_t:file { read getattr open };
+
+# Allow temporary files
+allow anna_t tmp_t:dir { read write create add_name remove_name search };
+allow anna_t tmp_t:file { read write create open getattr setattr unlink };
+
+# Allow basic capabilities
+allow anna_t self:capability { dac_override dac_read_search setgid setuid };
+
+# Allow signals
+allow anna_t self:process { signal };
+allow init_t anna_t:process { signal };
+
+########################################
+# File contexts (to be added to .fc file)
+########################################
+
+# /usr/bin/annad          -- gen_context(system_u:object_r:anna_exec_t,s0)
+# /var/lib/anna(/.*)?     -- gen_context(system_u:object_r:anna_var_lib_t,s0)
+# /var/log/anna(/.*)?     -- gen_context(system_u:object_r:anna_var_log_t,s0)
+# /run/anna(/.*)?         -- gen_context(system_u:object_r:anna_runtime_t,s0)
+
+########################################
+# ADVISORY MODE ENFORCEMENT NOTES
+########################################
+#
+# This SELinux policy DOES NOT prevent advisory mode from being disabled
+# via configuration. However, the daemon enforces advisory-only mode through:
+#
+#   1. Code-level: No auto-apply paths in RPC handlers (rpc_server.rs)
+#   2. CLI-level: Warnings on all adjustment outputs (mirror_commands.rs)
+#   3. Documentation: Security model in CHANGELOG.md
+#
+# The policy could be extended to use booleans to enforce advisory mode:
+#   bool anna_advisory_only true;
+#   if (!anna_advisory_only) {
+#       # deny parameter mutation operations
+#   }
+#
+# Citation: [archwiki:SELinux]

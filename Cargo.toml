@@ -4,10 +4,11 @@ members = [
     "crates/annad",
     "crates/annactl",
     "crates/anna_common",
+    "tools/consensus_sim",
 ]
 
 [workspace.package]
-version = "1.6.0-rc.1"
+version = "1.16.0-alpha.1"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -52,5 +53,30 @@ console = "0.15"
 # File system watching
 notify = "6.1"
 
+# Cryptography (Phase 1.8)
+ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+sha2 = "0.10"
+rand = "0.8"
+hex = "0.4"
+
 # Configuration
 toml = "0.8"
+
+# Networking (Phase 1.9)
+axum = "0.7"
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["trace", "cors", "timeout", "limit"] }
+hyper = { version = "1.0", features = ["client", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "http2", "tokio"] }
+http-body-util = "0.1"
+
+# TLS (Phase 1.11 + 1.12)
+rustls = "0.23"
+tokio-rustls = "0.26"
+rustls-pemfile = "2.1"
+
+# Metrics (Phase 1.9)
+prometheus = { version = "0.13", features = ["process"] }
+
+# Caching (Phase 1.11)
+lru = "0.12"

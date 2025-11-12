@@ -1,0 +1,22 @@
+# Node 1 Peer Configuration (TLS Testnet)
+allow_insecure_peers: false
+
+tls:
+  ca_cert: /etc/anna/tls/ca.pem
+  server_cert: /etc/anna/tls/server.pem
+  server_key: /etc/anna/tls/server.key
+  client_cert: /etc/anna/tls/client.pem
+  client_key: /etc/anna/tls/client.key
+
+peers:
+  - node_id: node_001
+    address: anna-node-1
+    port: 8001
+
+  - node_id: node_002
+    address: anna-node-2
+    port: 8002
+
+  - node_id: node_003
+    address: anna-node-3
+    port: 8003

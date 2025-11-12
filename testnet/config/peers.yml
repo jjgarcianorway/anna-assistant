@@ -1,0 +1,13 @@
+# Peer configuration for 3-node testnet (Phase 1.9)
+peers:
+  - node_id: "node_001"
+    address: "anna-node-1"
+    port: 8001
+
+  - node_id: "node_002"
+    address: "anna-node-2"
+    port: 8002
+
+  - node_id: "node_003"
+    address: "anna-node-3"
+    port: 8003

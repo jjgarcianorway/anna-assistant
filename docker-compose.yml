@@ -1,0 +1,66 @@
+# Docker Compose configuration for Anna 3-node consensus testnet
+# Phase 1.9 - Networked Consensus Integration
+
+version: '3.8'
+
+services:
+  anna-node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.testnet
+    container_name: anna-node-1
+    hostname: anna-node-1
+    environment:
+      - NODE_ID=node_001
+      - RPC_PORT=8001
+      - RUST_LOG=info
+    ports:
+      - "8001:8001"
+      - "9001:9090"  # Prometheus metrics
+    volumes:
+      - ./testnet/config/peers.yml:/etc/anna/peers.yml:ro
+      - ./artifacts/testnet/node1:/var/lib/anna
+    networks:
+      - anna-testnet
+
+  anna-node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.testnet
+    container_name: anna-node-2
+    hostname: anna-node-2
+    environment:
+      - NODE_ID=node_002
+      - RPC_PORT=8002
+      - RUST_LOG=info
+    ports:
+      - "8002:8002"
+      - "9002:9090"
+    volumes:
+      - ./testnet/config/peers.yml:/etc/anna/peers.yml:ro
+      - ./artifacts/testnet/node2:/var/lib/anna
+    networks:
+      - anna-testnet
+
+  anna-node-3:
+    build:
+      context: .
+      dockerfile: Dockerfile.testnet
+    container_name: anna-node-3
+    hostname: anna-node-3
+    environment:
+      - NODE_ID=node_003
+      - RPC_PORT=8003
+      - RUST_LOG=info
+    ports:
+      - "8003:8003"
+      - "9003:9090"
+    volumes:
+      - ./testnet/config/peers.yml:/etc/anna/peers.yml:ro
+      - ./artifacts/testnet/node3:/var/lib/anna
+    networks:
+      - anna-testnet
+
+networks:
+  anna-testnet:
+    driver: bridge

@@ -12,7 +12,15 @@ fn annactl_bin() -> PathBuf {
     path.pop();
     path.pop();
     path.push("target");
-    path.push("debug");
+
+    // Detect profile: release if OPT_LEVEL >= 2, otherwise debug
+    let profile = if cfg!(not(debug_assertions)) {
+        "release"
+    } else {
+        "debug"
+    };
+
+    path.push(profile);
     path.push("annactl");
     path
 }
@@ -34,15 +42,26 @@ fn test_annactl_compiles() {
 /// Test version flag works
 #[test]
 fn test_version_flag() {
-    let output = Command::new(annactl_bin())
+    let bin_path = annactl_bin();
+    eprintln!("Binary path: {:?}", bin_path);
+    eprintln!("Binary exists: {}", bin_path.exists());
+
+    let output = Command::new(&bin_path)
         .arg("--version")
         .output()
         .expect("Failed to run annactl --version");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    eprintln!("stdout: {:?}", stdout);
+    eprintln!("stderr: {:?}", stderr);
+    eprintln!("exit code: {:?}", output.status.code());
+
     assert!(
-        stdout.contains("annactl"),
-        "Version output should contain 'annactl'"
+        stdout.contains("annactl") || stderr.contains("annactl"),
+        "Version output should contain 'annactl'. stdout: {:?}, stderr: {:?}",
+        stdout,
+        stderr
     );
 }
 

@@ -1,0 +1,22 @@
+# Phase 1.7: Testnet Peer Configuration
+# Static peer list for 3-node consensus cluster
+
+peers:
+  - node_id: "node_aabbccddeeff0011"
+    pubkey: "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
+    endpoint: "http://172.20.0.10:8080"  # anna-node-1
+
+  - node_id: "node_1122334455667788"
+    pubkey: "1122334455667788aabbccddeeff00112233445566778899aabbccddeeff0011"
+    endpoint: "http://172.20.0.11:8080"  # anna-node-2
+
+  - node_id: "node_99aabbccddeeff00"
+    pubkey: "99aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
+    endpoint: "http://172.20.0.12:8080"  # anna-node-3
+
+# Consensus configuration
+quorum_threshold: "majority"  # Options: majority, two_thirds
+byzantine_deviation_threshold: 0.3  # TIS delta tolerance
+byzantine_window_count: 3  # Consecutive deviations before flagging
+
+# Citation: [archwiki:System_maintenance]

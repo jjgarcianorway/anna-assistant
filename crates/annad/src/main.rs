@@ -82,12 +82,14 @@ mod autonomy;
 mod chronos; // Phase 1.5: Chronos Loop
 mod collective; // Phase 1.3: Collective Mind
 mod conscience; // Phase 1.1: Conscience layer
+mod consensus; // Phase 1.7: Distributed Consensus (STUB)
 mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod install; // Phase 0.8: Installation subsystem
 mod mirror; // Phase 1.4: Mirror Protocol
 mod mirror_audit; // Phase 1.6: Mirror Audit
+mod network; // Phase 1.9: Network layer for distributed consensus
 mod notifier;
 mod recommender;
 mod recovery; // Phase 0.6: Recovery framework

@@ -40,7 +40,10 @@ Type=simple
 User=root
 SupplementaryGroups=anna
 
-# rc.13.2: Simplified startup - remove stale socket if present
+# rc.13.3: Ensure runtime directory exists with correct ownership before startup
+# This fixes race condition where socket creation fails if /run/anna doesn't exist
+PermissionsStartOnly=true
+ExecStartPre=/usr/bin/install -d -m0750 -o root -g anna /run/anna
 ExecStartPre=/bin/rm -f /run/anna/anna.sock
 ExecStart=/usr/local/bin/annad
 

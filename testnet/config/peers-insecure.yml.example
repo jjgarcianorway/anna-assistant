@@ -1,0 +1,19 @@
+# Anna Consensus Peer Configuration - INSECURE MODE
+# ⚠️  WARNING: TLS DISABLED - NOT RECOMMENDED FOR PRODUCTION
+
+# Allow insecure (non-TLS) peer communication
+allow_insecure_peers: true
+
+# Peer list
+peers:
+  - node_id: node_001
+    address: localhost
+    port: 8001
+
+  - node_id: node_002
+    address: localhost
+    port: 8002
+
+  - node_id: node_003
+    address: localhost
+    port: 8003

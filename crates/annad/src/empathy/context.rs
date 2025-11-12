@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn test_strain_index_calculation() {
         let config = EmpathyConfig::default();
-        let analyzer = ContextAnalyzer::new(config);
+        let analyzer = ContextAnalyzer::new(config.clone());
 
         let metrics = ContextMetrics {
             error_rate: 5.0,

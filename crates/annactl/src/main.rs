@@ -10,6 +10,7 @@
 pub mod errors;
 mod chronos_commands; // Phase 1.5
 mod collective_commands; // Phase 1.3
+mod consensus_commands; // Phase 1.8
 mod conscience_commands; // Phase 1.1
 mod empathy_commands; // Phase 1.2
 mod health_commands;
@@ -174,6 +175,13 @@ enum Commands {
         #[command(subcommand)]
         subcommand: ChronosSubcommand,
     },
+
+    /// Distributed consensus (Phase 1.7 - STUB)
+    Consensus {
+        /// Subcommand: status, submit, reconcile
+        #[command(subcommand)]
+        subcommand: ConsensusSubcommand,
+    },
 }
 
 /// Sentinel subcommands
@@ -296,6 +304,36 @@ enum ChronosSubcommand {
     Align,
 }
 
+/// Consensus subcommands (Phase 1.7 - STUB)
+#[derive(Subcommand)]
+enum ConsensusSubcommand {
+    /// Show consensus status
+    Status {
+        /// Round ID to query (optional, defaults to latest)
+        #[arg(short, long)]
+        round_id: Option<String>,
+        /// Output JSON format
+        #[arg(long)]
+        json: bool,
+    },
+    /// Submit observation to consensus
+    Submit {
+        /// Path to observation JSON file
+        observation_path: String,
+    },
+    /// Reconcile consensus for window
+    Reconcile {
+        /// Window hours for reconciliation
+        #[arg(default_value = "24")]
+        window: u64,
+        /// Output JSON format
+        #[arg(long)]
+        json: bool,
+    },
+    /// Initialize Ed25519 keys for consensus
+    InitKeys,
+}
+
 // Phase 0.3: Remove all legacy subcommand enums
 // Commands are now flat and state-checked at runtime
 
@@ -356,6 +394,24 @@ async fn main() -> Result<()> {
         }
     };
 
+    // Phase 1.8: Handle consensus commands early (standalone PoC, no daemon)
+    if let Commands::Consensus { subcommand } = &cli.command {
+        match subcommand {
+            ConsensusSubcommand::Status { round_id, json } => {
+                return consensus_commands::execute_consensus_status_command(round_id.clone(), *json).await;
+            }
+            ConsensusSubcommand::Submit { observation_path } => {
+                return consensus_commands::execute_consensus_submit_command(observation_path).await;
+            }
+            ConsensusSubcommand::Reconcile { window, json } => {
+                return consensus_commands::execute_consensus_reconcile_command(*window, *json).await;
+            }
+            ConsensusSubcommand::InitKeys => {
+                return consensus_commands::execute_consensus_init_keys_command().await;
+            }
+        }
+    }
+
     // Phase 0.3c: State-aware dispatch
     // Get command name first
     let command_name = match &cli.command {
@@ -379,6 +435,7 @@ async fn main() -> Result<()> {
         Commands::Collective { .. } => "collective",
         Commands::Mirror { .. } => "mirror",
         Commands::Chronos { .. } => "chronos",
+        Commands::Consensus { .. } => "consensus",
     };
 
     // Try to connect to daemon and get state
@@ -559,6 +616,27 @@ async fn main() -> Result<()> {
                 }
                 ChronosSubcommand::Align => {
                     return chronos_commands::execute_chronos_align_command().await.map_err(|e| e.into());
+                }
+            }
+        }
+        // Phase 1.8: Consensus commands (PoC)
+        Commands::Consensus { subcommand } => {
+            match subcommand {
+                ConsensusSubcommand::Status { round_id, json } => {
+                    consensus_commands::execute_consensus_status_command(round_id.clone(), *json).await?;
+                    return Ok(());
+                }
+                ConsensusSubcommand::Submit { observation_path } => {
+                    consensus_commands::execute_consensus_submit_command(observation_path).await?;
+                    return Ok(());
+                }
+                ConsensusSubcommand::Reconcile { window, json } => {
+                    consensus_commands::execute_consensus_reconcile_command(*window, *json).await?;
+                    return Ok(());
+                }
+                ConsensusSubcommand::InitKeys => {
+                    consensus_commands::execute_consensus_init_keys_command().await?;
+                    return Ok(());
                 }
             }
         }
@@ -801,6 +879,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Chronos { .. } => {
             // Should not reach here - handled in main
             unreachable!("Chronos command should be handled separately");
+        }
+        Commands::Consensus { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Consensus command should be handled separately");
         }
     }
 
