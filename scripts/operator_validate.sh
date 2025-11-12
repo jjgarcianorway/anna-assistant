@@ -69,7 +69,7 @@ fi
 
 # 4. annactl version equals 1.16.3-alpha.1
 echo -n "Checking version... "
-ACTUAL_VERSION=$(annactl --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
+ACTUAL_VERSION=$(annactl --version </dev/null 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
 if [ "$ACTUAL_VERSION" = "$EXPECTED_VERSION" ]; then
     echo -e "${GREEN}${CHECK} ${ACTUAL_VERSION}${RESET}"
 else
@@ -79,7 +79,7 @@ fi
 
 # 5. status runs
 echo -n "Testing annactl status... "
-if annactl status >/dev/null 2>&1; then
+if annactl status </dev/null >/dev/null 2>&1; then
     echo -e "${GREEN}${CHECK} OK${RESET}"
 else
     echo -e "${RED}${CROSS} FAILED${RESET}"
@@ -88,7 +88,7 @@ fi
 
 # 6. health runs
 echo -n "Testing annactl health... "
-if annactl health >/dev/null 2>&1; then
+if annactl health </dev/null >/dev/null 2>&1; then
     echo -e "${GREEN}${CHECK} OK${RESET}"
 else
     echo -e "${RED}${CROSS} FAILED${RESET}"
