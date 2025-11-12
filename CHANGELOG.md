@@ -5,6 +5,72 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-alpha.1] - 2025-11-12 (In Progress)
+
+### 🚀 **Phase 2 Foundation: Secure-by-Default Ops & Recovery**
+
+Phase 2 kickoff with core security and reliability features. **Status**: Foundation complete, full release pending.
+
+#### Added
+
+**Certificate Pinning (Complete)**:
+- Custom `rustls::ServerCertVerifier` enforcing SHA256 fingerprint validation during TLS handshakes
+- `PinningConfig` loader for `/etc/anna/pinned_certs.json` with validation
+- Fail-closed enforcement on certificate mismatch
+- Masked fingerprint logging (first 15 + last 8 chars shown)
+- Prometheus metric: `anna_pinning_violations_total{peer}`
+- Full documentation: `docs/CERTIFICATE_PINNING.md` with OpenSSL commands and rotation playbook
+
+**Autonomous Recovery Supervisor (Complete)**:
+- `supervisor` module with exponential backoff and circuit breakers
+- Exponential backoff: floor 100ms, ceiling 30s, ±25% jitter, 2x multiplier
+- Circuit breaker: 5 failures → open, 60s timeout, 3 successes → closed
+- Task registry for supervision state tracking
+- 9 unit tests covering backoff math, circuit transitions, task lifecycle
+
+**Documentation**:
+- `docs/PHASE_2_OVERVIEW.md` - Comprehensive Phase 2 roadmap with milestones and acceptance criteria
+- Updated README.md with Phase 2 status
+
+#### Changed
+
+- `network/metrics.rs`: Added `anna_pinning_violations_total{peer}` metric
+- `network/pinning_verifier.rs`: Added `Debug` impl for rustls compatibility
+- `network/pinning_verifier.rs`: Integrated metrics emission on violations
+
+#### Implementation Status
+
+**Completed** (6 commits):
+- ✅ Certificate pinning verifier with rustls integration
+- ✅ Certificate pinning configuration loader
+- ✅ Pinning violation metrics
+- ✅ Certificate pinning documentation
+- ✅ Supervisor backoff module
+- ✅ Supervisor circuit breaker module
+- ✅ Supervisor task registry
+- ✅ Phase 2 planning documentation
+
+**Pending** (deferred to v2.0.0-alpha.2 or later):
+- ⏳ Grafana dashboards (anna-overview.json, anna-tls.json, anna-consensus.json, anna-rate-limiting.json)
+- ⏳ Prometheus alert rules (anna-critical.yml, anna-warnings.yml)
+- ⏳ `docs/OBSERVABILITY.md` with import guide
+- ⏳ `annactl self-update --check` dry-run mode
+- ⏳ AUR PKGBUILD (packaging/aur/anna-assistant-bin/)
+- ⏳ Homebrew formula (packaging/homebrew/anna-assistant.rb)
+- ⏳ `docs/PACKAGING.md` maintainer guide
+- ⏳ TLS-pinned testnet (`testnet/docker-compose.pinned.yml`, `testnet/scripts/run_tls_pinned_rounds.sh`)
+- ⏳ CI matrix job with cargo caching
+- ⏳ Integration tests for pinning and supervisor
+
+#### References
+
+- [OWASP: Certificate Pinning](https://owasp.org/www-community/controls/Certificate_and_Public_Key_Pinning)
+- [Netflix: Circuit Breaker Pattern](https://netflixtechblog.com/making-the-netflix-api-more-resilient-a8ec62159c2d)
+- [AWS: Exponential Backoff and Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/)
+- [rustls: ServerCertVerifier](https://docs.rs/rustls/latest/rustls/client/trait.ServerCertVerifier.html)
+
+---
+
 ## [1.16.2-alpha.1] - 2025-11-12
 
 ### Fixed
