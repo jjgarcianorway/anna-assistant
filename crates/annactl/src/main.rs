@@ -1056,6 +1056,42 @@ async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bo
         _ => anyhow::bail!("Unexpected response type for GetProfile"),
     };
 
+    // Phase 3.2: Adaptive UI hint - warn if minimal mode
+    if profile.recommended_monitoring_mode == "minimal" && force_mode.is_none() {
+        println!("⚠️  Adaptive Intelligence Warning");
+        println!("═══════════════════════════════════════════════════════════════");
+        println!();
+        println!("  Your system is running in MINIMAL mode due to limited resources.");
+        println!("  Installing external monitoring tools (Prometheus/Grafana) is");
+        println!("  NOT recommended as it may impact system performance.");
+        println!();
+        println!("  System Constraints:");
+        println!("    • RAM: {} MB (recommend >2GB for light mode)", profile.total_memory_mb);
+        println!("    • CPU: {} cores", profile.cpu_cores);
+        println!("    • Disk: {} GB available", profile.available_disk_gb);
+        println!();
+        println!("  Anna's internal monitoring is active and sufficient for your system.");
+        println!("  Use 'annactl health' and 'annactl status' for system insights.");
+        println!();
+        println!("  To override this warning: annactl monitor install --force-mode <mode>");
+        println!("═══════════════════════════════════════════════════════════════");
+        println!();
+
+        // Ask for confirmation
+        eprint!("Continue anyway? [y/N]: ");
+        use std::io::Write;
+        std::io::stderr().flush()?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Installation cancelled.");
+            return Ok(());
+        }
+        println!();
+    }
+
     // Determine monitoring mode
     let mode = if let Some(forced) = force_mode {
         let normalized = forced.to_lowercase();
@@ -1220,6 +1256,40 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
 
     println!("Internal Stats: ✓ Available (via daemon)");
     println!("  Commands: annactl status, annactl health");
+    println!();
+
+    // Phase 3.2: Adaptive UI hints - mode-specific guidance
+    match profile.recommended_monitoring_mode.as_str() {
+        "minimal" => {
+            println!("💡 Adaptive Intelligence Hint:");
+            println!("   Your system is in MINIMAL mode. External monitoring tools are");
+            println!("   not recommended due to limited resources. Anna's internal stats");
+            println!("   provide all essential system health information.");
+            println!();
+            println!("   Recommended commands:");
+            println!("   • annactl status     - View system state and recommendations");
+            println!("   • annactl health     - Check system health metrics");
+        }
+        "light" => {
+            println!("💡 Adaptive Intelligence Hint:");
+            println!("   Your system is in LIGHT mode. Prometheus metrics are available");
+            println!("   for advanced monitoring, but Grafana dashboards are not recommended");
+            println!("   due to RAM or session constraints.");
+            println!();
+            println!("   Prometheus metrics: http://localhost:9090");
+            println!("   Internal stats: annactl status, annactl health");
+        }
+        "full" => {
+            println!("💡 Adaptive Intelligence Hint:");
+            println!("   Your system is in FULL mode. All monitoring features are available");
+            println!("   including Grafana dashboards for visualization.");
+            println!();
+            println!("   Grafana: http://localhost:3000");
+            println!("   Prometheus: http://localhost:9090");
+            println!("   Internal stats: annactl status, annactl health");
+        }
+        _ => {}
+    }
 
     std::process::exit(EXIT_SUCCESS);
 }

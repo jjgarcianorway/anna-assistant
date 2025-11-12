@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 💡 **Phase 3.2: Adaptive UI Hints**
+
+Makes the CLI context-aware by providing mode-specific guidance and warnings.
+
+#### Added
+
+**Smart Warning System for Monitor Commands**:
+- Warns users in MINIMAL mode before installing monitoring tools
+- Shows resource constraints (RAM, CPU, disk) and recommendations
+- Requires confirmation (y/N) to proceed with installation in minimal mode
+- Suggests alternative commands: `annactl health`, `annactl status`
+- Can be overridden with `--force-mode` flag
+
+**Mode-Specific Guidance in Status Command**:
+- `annactl monitor status` now shows adaptive intelligence hints
+- MINIMAL mode: Recommends internal stats only
+- LIGHT mode: Points to Prometheus, explains Grafana unavailability
+- FULL mode: Shows all available monitoring endpoints
+- Helpful command suggestions based on current mode
+
+**Implementation**:
+- `crates/annactl/src/main.rs`: 68 lines added for adaptive UI logic
+- User confirmation dialog for potentially harmful actions
+- Context-aware help messages with mode rationale
+
+**User Experience**:
+```bash
+# Minimal mode warning example:
+$ annactl monitor install
+
+⚠️  Adaptive Intelligence Warning
+═══════════════════════════════════════════════════════════════
+  Your system is running in MINIMAL mode due to limited resources.
+  Installing external monitoring tools (Prometheus/Grafana) is
+  NOT recommended as it may impact system performance.
+
+  System Constraints:
+    • RAM: 1536 MB (recommend >2GB for light mode)
+    • CPU: 2 cores
+    • Disk: 15 GB available
+
+  Anna's internal monitoring is active and sufficient for your system.
+  Use 'annactl health' and 'annactl status' for system insights.
+
+  To override this warning: annactl monitor install --force-mode <mode>
+═══════════════════════════════════════════════════════════════
+
+Continue anyway? [y/N]:
+```
+
+**Citation**: [ux-best-practices:context-aware-interfaces]
+
+---
+
 ### 📊 **Phase 3.1: Profile Metrics Export to Prometheus**
 
 Extends Phase 3's adaptive intelligence with Prometheus metrics for system profiling data.
