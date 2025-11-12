@@ -1,0 +1,183 @@
+version: '3.8'
+
+# Anna Assistant TLS-Pinned Testnet
+# Phase 2.0.0-alpha.1 - Certificate pinning testing environment
+#
+# This testnet consists of 3 nodes with mutual TLS and certificate pinning:
+# - node1: Primary node (bootstrap)
+# - node2: Secondary node (correct certificate, pinned)
+# - node3: Test node (can be used to simulate MITM with wrong cert)
+#
+# Usage:
+#   docker-compose -f docker-compose.pinned.yml up -d
+#   docker-compose -f docker-compose.pinned.yml logs -f
+#   docker-compose -f docker-compose.pinned.yml down
+
+services:
+  # Node 1: Bootstrap node
+  node1:
+    image: rust:1.75
+    container_name: anna-node1
+    hostname: node1.anna.local
+    networks:
+      anna_testnet:
+        ipv4_address: 172.20.0.10
+    volumes:
+      - ../:/workspace:ro
+      - ./configs/node1:/etc/anna
+      - ./certs:/certs:ro
+      - node1_data:/var/lib/anna
+    working_dir: /workspace
+    command: >
+      sh -c "
+      cargo build --release &&
+      /workspace/target/release/annad
+      "
+    environment:
+      - RUST_LOG=info
+      - ANNA_NODE_ID=node1
+      - ANNA_BIND_ADDR=0.0.0.0:8080
+      - ANNA_TLS_CERT=/certs/node1/cert.pem
+      - ANNA_TLS_KEY=/certs/node1/key.pem
+      - ANNA_TLS_CA=/certs/ca/ca-cert.pem
+      - ANNA_PINNING_CONFIG=/etc/anna/pinning.toml
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Prometheus metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Node 2: Secondary node with valid pinned certificate
+  node2:
+    image: rust:1.75
+    container_name: anna-node2
+    hostname: node2.anna.local
+    networks:
+      anna_testnet:
+        ipv4_address: 172.20.0.11
+    volumes:
+      - ../:/workspace:ro
+      - ./configs/node2:/etc/anna
+      - ./certs:/certs:ro
+      - node2_data:/var/lib/anna
+    working_dir: /workspace
+    command: >
+      sh -c "
+      cargo build --release &&
+      /workspace/target/release/annad
+      "
+    environment:
+      - RUST_LOG=info
+      - ANNA_NODE_ID=node2
+      - ANNA_BIND_ADDR=0.0.0.0:8080
+      - ANNA_TLS_CERT=/certs/node2/cert.pem
+      - ANNA_TLS_KEY=/certs/node2/key.pem
+      - ANNA_TLS_CA=/certs/ca/ca-cert.pem
+      - ANNA_PINNING_CONFIG=/etc/anna/pinning.toml
+      - ANNA_BOOTSTRAP_PEERS=node1.anna.local:8080
+    ports:
+      - "8081:8080"
+      - "9091:9090"
+    depends_on:
+      - node1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Node 3: Test node (for MITM simulation)
+  node3:
+    image: rust:1.75
+    container_name: anna-node3
+    hostname: node3.anna.local
+    networks:
+      anna_testnet:
+        ipv4_address: 172.20.0.12
+    volumes:
+      - ../:/workspace:ro
+      - ./configs/node3:/etc/anna
+      - ./certs:/certs:ro
+      - node3_data:/var/lib/anna
+    working_dir: /workspace
+    command: >
+      sh -c "
+      cargo build --release &&
+      /workspace/target/release/annad
+      "
+    environment:
+      - RUST_LOG=info
+      - ANNA_NODE_ID=node3
+      - ANNA_BIND_ADDR=0.0.0.0:8080
+      - ANNA_TLS_CERT=/certs/node3/cert.pem
+      - ANNA_TLS_KEY=/certs/node3/key.pem
+      - ANNA_TLS_CA=/certs/ca/ca-cert.pem
+      - ANNA_PINNING_CONFIG=/etc/anna/pinning.toml
+      - ANNA_BOOTSTRAP_PEERS=node1.anna.local:8080,node2.anna.local:8080
+    ports:
+      - "8082:8080"
+      - "9092:9090"
+    depends_on:
+      - node1
+      - node2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: anna-prometheus
+    networks:
+      - anna_testnet
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9093:9090"
+    depends_on:
+      - node1
+      - node2
+      - node3
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: anna-grafana
+    networks:
+      - anna_testnet
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../observability/grafana:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+networks:
+  anna_testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  node1_data:
+  node2_data:
+  node3_data:
+  prometheus_data:
+  grafana_data:
