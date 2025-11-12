@@ -24,6 +24,7 @@ jobs:
       with:
         toolchain: stable
         rustflags: ''  # Don't treat warnings as errors for now
+        cache: true  # Enable cargo caching
 
     - name: Extract version from tag
       id: get_version
@@ -65,20 +66,33 @@ jobs:
         fi
         echo "✓ annactl version verified"
 
+    - name: Strip binaries
+      run: |
+        strip target/release/annad
+        strip target/release/annactl
+        echo "✓ Binaries stripped"
+
     - name: Prepare release artifacts
       run: |
-        mkdir -p release
-        cp target/release/annad release/annad-x86_64-linux
-        cp target/release/annactl release/annactl-x86_64-linux
-        chmod +x release/*
-        ls -lh release/
+        VERSION_CLEAN=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
+        mkdir -p release-${{ steps.get_version.outputs.VERSION }}
+        cp target/release/annad "release-${{ steps.get_version.outputs.VERSION }}/annad-${VERSION_CLEAN}-x86_64-unknown-linux-gnu"
+        cp target/release/annactl "release-${{ steps.get_version.outputs.VERSION }}/annactl-${VERSION_CLEAN}-x86_64-unknown-linux-gnu"
+        chmod +x release-${{ steps.get_version.outputs.VERSION }}/*
+        ls -lh release-${{ steps.get_version.outputs.VERSION }}/
+
+    - name: Generate checksums
+      run: |
+        cd release-${{ steps.get_version.outputs.VERSION }}
+        sha256sum * > SHA256SUMS
+        cat SHA256SUMS
+        echo "✓ Checksums generated"
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          release/annad-x86_64-linux
-          release/annactl-x86_64-linux
+          release-${{ steps.get_version.outputs.VERSION }}/*
         body: |
           # Anna Assistant ${{ steps.get_version.outputs.VERSION }}
 
