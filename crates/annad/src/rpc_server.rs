@@ -1448,7 +1448,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             let capabilities = crate::state::get_capabilities(detection.state);
 
             // Convert to IPC response type
-            let data: Vec<anna_common::ipc::CommandCapabilityData> = capabilities
+            let commands: Vec<anna_common::ipc::CommandCapabilityData> = capabilities
                 .into_iter()
                 .map(|cap| anna_common::ipc::CommandCapabilityData {
                     name: cap.name,
@@ -1459,7 +1459,112 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 })
                 .collect();
 
+            // Phase 3.0: Add system profile for adaptive intelligence
+            let mut profiler = crate::profile::SystemProfiler::new();
+            let (monitoring_mode, monitoring_rationale, is_constrained) =
+                match profiler.collect_profile() {
+                    Ok(profile) => {
+                        let mode = match profile.recommended_monitoring_mode {
+                            crate::profile::MonitoringMode::Full => "full",
+                            crate::profile::MonitoringMode::Light => "light",
+                            crate::profile::MonitoringMode::Minimal => "minimal",
+                        }
+                        .to_string();
+                        let rationale = profile.monitoring_rationale();
+                        let constrained = profile.is_constrained();
+                        (mode, rationale, constrained)
+                    }
+                    Err(e) => {
+                        warn!("Failed to collect system profile: {}", e);
+                        (
+                            "light".to_string(),
+                            "Unable to detect system profile, using light mode as default".to_string(),
+                            false,
+                        )
+                    }
+                };
+
+            let data = anna_common::ipc::CapabilitiesData {
+                commands,
+                monitoring_mode,
+                monitoring_rationale,
+                is_constrained,
+            };
+
             Ok(ResponseData::Capabilities(data))
+        }
+
+        Method::GetProfile => {
+            info!("GetProfile method called");
+
+            // Phase 3.0: Collect system profile for adaptive intelligence
+            let mut profiler = crate::profile::SystemProfiler::new();
+            match profiler.collect_profile() {
+                Ok(profile) => {
+                    // Convert enums to strings for IPC
+                    let virtualization = match &profile.virtualization {
+                        crate::profile::VirtualizationInfo::None => "none".to_string(),
+                        crate::profile::VirtualizationInfo::VM(vtype) => format!("vm:{}", vtype),
+                        crate::profile::VirtualizationInfo::Container(ctype) => {
+                            format!("container:{}", ctype)
+                        }
+                        crate::profile::VirtualizationInfo::Unknown => "unknown".to_string(),
+                    };
+
+                    let session_type = match &profile.session_type {
+                        crate::profile::SessionType::Desktop(s) => format!("desktop:{}", s),
+                        crate::profile::SessionType::Headless => "headless".to_string(),
+                        crate::profile::SessionType::SSH {
+                            client_ip,
+                            display_forwarding,
+                        } => {
+                            format!(
+                                "ssh:{}:forwarding={}",
+                                client_ip.as_deref().unwrap_or("unknown"),
+                                display_forwarding
+                            )
+                        }
+                        crate::profile::SessionType::Console => "console".to_string(),
+                        crate::profile::SessionType::Unknown => "unknown".to_string(),
+                    };
+
+                    let monitoring_mode = match profile.recommended_monitoring_mode {
+                        crate::profile::MonitoringMode::Full => "full",
+                        crate::profile::MonitoringMode::Light => "light",
+                        crate::profile::MonitoringMode::Minimal => "minimal",
+                    }
+                    .to_string();
+
+                    // Call methods that borrow profile before moving fields
+                    let monitoring_rationale = profile.monitoring_rationale();
+                    let is_constrained = profile.is_constrained();
+                    let timestamp = profile.timestamp.to_rfc3339();
+
+                    let data = anna_common::ipc::ProfileData {
+                        total_memory_mb: profile.total_memory_mb,
+                        available_memory_mb: profile.available_memory_mb,
+                        cpu_cores: profile.cpu_cores,
+                        total_disk_gb: profile.total_disk_gb,
+                        available_disk_gb: profile.available_disk_gb,
+                        uptime_seconds: profile.uptime_seconds,
+                        virtualization,
+                        session_type,
+                        gpu_present: profile.gpu_info.present,
+                        gpu_vendor: profile.gpu_info.vendor,
+                        gpu_model: profile.gpu_info.model,
+                        recommended_monitoring_mode: monitoring_mode,
+                        monitoring_rationale,
+                        is_constrained,
+                        timestamp,
+                    };
+
+                    Ok(ResponseData::Profile(data))
+                }
+                Err(e) => {
+                    error!("Failed to collect system profile: {}", e);
+                    Err(format!("Failed to collect system profile: {}", e))
+                }
+            }
         }
 
         Method::HealthProbe => {

@@ -200,6 +200,13 @@ enum Commands {
         #[arg(long)]
         list: bool,
     },
+
+    /// Show system profile and adaptive intelligence (Phase 3.0)
+    Profile {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Sentinel subcommands
@@ -418,6 +425,11 @@ async fn main() -> Result<()> {
         return execute_self_update_command(*check, *list).await;
     }
 
+    // Handle profile command (Phase 3.0 - needs daemon)
+    if let Commands::Profile { json } = &cli.command {
+        return execute_profile_command(*json, cli.socket.as_deref()).await;
+    }
+
     if let Commands::Consensus { subcommand } = &cli.command {
         match subcommand {
             ConsensusSubcommand::Status { round_id, json } => {
@@ -461,6 +473,7 @@ async fn main() -> Result<()> {
         Commands::Chronos { .. } => "chronos",
         Commands::Consensus { .. } => "consensus",
         Commands::SelfUpdate { .. } => "self-update",
+        Commands::Profile { .. } => "profile",
     };
 
     // Try to connect to daemon and get state
@@ -900,6 +913,68 @@ async fn execute_self_update_command(check: bool, list: bool) -> Result<()> {
     std::process::exit(EXIT_GENERAL_ERROR);
 }
 
+/// Execute profile command (Phase 3.0)
+async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Result<()> {
+    use anna_common::ipc::ProfileData;
+
+    // Connect to daemon
+    let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to connect to daemon: {}", e);
+            eprintln!("Make sure annad is running (try: sudo systemctl start annad)");
+            std::process::exit(EXIT_DAEMON_UNAVAILABLE);
+        }
+    };
+
+    // Get system profile
+    let profile_response = client.get_profile().await?;
+    let profile = match profile_response {
+        ResponseData::Profile(data) => data,
+        _ => anyhow::bail!("Unexpected response type for GetProfile"),
+    };
+
+    if json {
+        // JSON output
+        let json_output = serde_json::to_string_pretty(&profile)?;
+        println!("{}", json_output);
+    } else {
+        // Human-readable output
+        println!("System Profile (Phase 3.0: Adaptive Intelligence)");
+        println!("==================================================\n");
+
+        println!("Resources:");
+        println!("  Memory:  {} MB total, {} MB available", profile.total_memory_mb, profile.available_memory_mb);
+        println!("  CPU:     {} cores", profile.cpu_cores);
+        println!("  Disk:    {} GB total, {} GB available", profile.total_disk_gb, profile.available_disk_gb);
+        println!("  Uptime:  {} seconds ({:.1} hours)", profile.uptime_seconds, profile.uptime_seconds as f64 / 3600.0);
+        println!();
+
+        println!("Environment:");
+        println!("  Virtualization: {}", profile.virtualization);
+        println!("  Session Type:   {}", profile.session_type);
+        if profile.gpu_present {
+            println!("  GPU:            {} ({})",
+                profile.gpu_vendor.as_deref().unwrap_or("Unknown"),
+                profile.gpu_model.as_deref().unwrap_or("Unknown model")
+            );
+        } else {
+            println!("  GPU:            Not detected");
+        }
+        println!();
+
+        println!("Adaptive Intelligence:");
+        println!("  Monitoring Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
+        println!("  Rationale:       {}", profile.monitoring_rationale);
+        println!("  Constrained:     {}", if profile.is_constrained { "Yes" } else { "No" });
+        println!();
+
+        println!("Timestamp: {}", profile.timestamp);
+    }
+
+    std::process::exit(EXIT_SUCCESS);
+}
+
 /// Get state and capabilities from daemon (Phase 0.3d)
 async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String, String, Vec<CommandCapabilityData>)> {
     let mut client = rpc_client::RpcClient::connect_with_path(socket_path).await?;
@@ -913,14 +988,15 @@ async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String
 
     // Get capabilities
     let caps_response = client.get_capabilities().await?;
-    let capabilities = match caps_response {
-        ResponseData::Capabilities(caps) => caps,
+    let caps_data = match caps_response {
+        ResponseData::Capabilities(data) => data,
         _ => anyhow::bail!("Unexpected response type for GetCapabilities"),
     };
 
     // Return state name, state citation, and full capabilities list
+    // Phase 3.0: Extract commands from CapabilitiesData
     let citation = state_citation(&state_data.state);
-    Ok((state_data.state, citation.to_string(), capabilities))
+    Ok((state_data.state, citation.to_string(), caps_data.commands))
 }
 
 /// Execute help command (Phase 0.3d)
@@ -1093,6 +1169,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::SelfUpdate { .. } => {
             // Should not reach here - handled in main
             unreachable!("SelfUpdate command should be handled separately");
+        }
+        Commands::Profile { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Profile command should be handled separately");
         }
     }
 

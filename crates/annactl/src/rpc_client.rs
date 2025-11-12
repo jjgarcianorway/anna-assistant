@@ -186,6 +186,12 @@ impl RpcClient {
         self.call(Method::GetCapabilities).await
     }
 
+    /// Get system profile for adaptive intelligence (Phase 3.0)
+    /// Citation: [linux:proc][systemd:detect-virt][xdg:session]
+    pub async fn get_profile(&mut self) -> Result<ResponseData> {
+        self.call(Method::GetProfile).await
+    }
+
     /// Run health probes (Phase 0.5b)
     /// Citation: [archwiki:System_maintenance]
     pub async fn health_run(

@@ -266,6 +266,10 @@ pub enum Method {
         /// Window hours for reflection (default 24)
         window_hours: Option<u64>,
     },
+
+    /// Get system profile for adaptive intelligence (Phase 3.0)
+    /// Citation: [linux:proc][systemd:detect-virt][xdg:session]
+    GetProfile,
 }
 
 /// Response data variants
@@ -330,9 +334,9 @@ pub enum ResponseData {
     /// Citation: [archwiki:system_maintenance]
     StateDetection(StateDetectionData),
 
-    /// Available capabilities for current state (Phase 0.2b)
+    /// Available capabilities for current state (Phase 3.0: adaptive intelligence)
     /// Citation: [archwiki:system_maintenance]
-    Capabilities(Vec<CommandCapabilityData>),
+    Capabilities(CapabilitiesData),
 
     /// Health probe result (Phase 0.2b)
     HealthProbe { ok: bool, version: String },
@@ -448,6 +452,10 @@ pub enum ResponseData {
     /// Mirror temporal reflection result (Phase 1.6)
     /// Citation: [archwiki:System_maintenance]
     MirrorReflectTemporal(MirrorReflectTemporalData),
+
+    /// System profile for adaptive intelligence (Phase 3.0)
+    /// Citation: [linux:proc][systemd:detect-virt][xdg:session]
+    Profile(ProfileData),
 }
 
 /// Type of streaming chunk
@@ -561,6 +569,20 @@ pub struct CommandCapabilityData {
     pub citation: String,
     /// Whether command requires root privileges
     pub requires_root: bool,
+}
+
+/// Capabilities response with adaptive intelligence (Phase 3.0)
+/// Citation: [archwiki:system_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilitiesData {
+    /// Available commands for current state
+    pub commands: Vec<CommandCapabilityData>,
+    /// Monitoring mode (full/light/minimal)
+    pub monitoring_mode: String,
+    /// Rationale for monitoring mode selection
+    pub monitoring_rationale: String,
+    /// Whether system is resource-constrained
+    pub is_constrained: bool,
 }
 
 /// Health run result (Phase 0.5)
@@ -1496,4 +1518,40 @@ pub struct MirrorReflectTemporalData {
     pub recommended_adjustments: Option<AdjustmentPlanData>,
     /// Summary
     pub summary: String,
+}
+
+/// System profile data for adaptive intelligence (Phase 3.0)
+/// Citation: [linux:proc][systemd:detect-virt][xdg:session]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileData {
+    /// Total system RAM in MB
+    pub total_memory_mb: u64,
+    /// Available RAM in MB
+    pub available_memory_mb: u64,
+    /// Number of CPU cores
+    pub cpu_cores: usize,
+    /// Total disk space in GB
+    pub total_disk_gb: u64,
+    /// Available disk space in GB
+    pub available_disk_gb: u64,
+    /// System uptime in seconds
+    pub uptime_seconds: u64,
+    /// Virtualization type (none, vm, container, unknown)
+    pub virtualization: String,
+    /// Session type (desktop, headless, ssh, console, unknown)
+    pub session_type: String,
+    /// GPU present
+    pub gpu_present: bool,
+    /// GPU vendor (if present)
+    pub gpu_vendor: Option<String>,
+    /// GPU model (if present)
+    pub gpu_model: Option<String>,
+    /// Recommended monitoring mode (minimal, light, full)
+    pub recommended_monitoring_mode: String,
+    /// Human-readable rationale for monitoring mode selection
+    pub monitoring_rationale: String,
+    /// Whether system is resource-constrained
+    pub is_constrained: bool,
+    /// Timestamp when profile was collected
+    pub timestamp: String,
 }
