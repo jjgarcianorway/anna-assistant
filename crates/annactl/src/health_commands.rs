@@ -3,8 +3,10 @@
 //! Phase 0.5b: CLI integration for health, doctor, and rescue list
 //! Citation: [archwiki:System_maintenance]
 
+use crate::context_detection;
 use crate::errors::*;
 use crate::logging::{ErrorDetails, LogEntry};
+use crate::predictive_hints;
 use crate::rpc_client::RpcClient;
 use anna_common::ipc::{HealthRunData, ResponseData};
 use anyhow::{Context, Result};
@@ -63,6 +65,10 @@ pub async fn execute_health_command(
         print_health_summary(&data);
         println!("Details saved: {}", report_path.display());
     }
+
+    // Phase 3.8: Display predictive hints
+    let use_color = context_detection::should_use_color();
+    let _ = predictive_hints::display_predictive_hints("health", json, use_color).await;
 
     // Log to ctl.jsonl
     let duration_ms = start_time.elapsed().as_millis() as u64;

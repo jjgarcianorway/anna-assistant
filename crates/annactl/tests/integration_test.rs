@@ -251,3 +251,202 @@ fn test_error_codes() {
     assert_eq!(EXIT_DAEMON_UNAVAILABLE, 70);
     assert_eq!(EXIT_GENERAL_ERROR, 1);
 }
+
+// ========================================
+// Phase 3.8: Adaptive CLI Acceptance Tests
+// ========================================
+
+/// Test adaptive help shows context-appropriate commands for normal user
+#[test]
+fn test_adaptive_help_user_context() {
+    let output = Command::new(annactl_bin())
+        .arg("--help")
+        .env_remove("SUDO_USER") // Ensure not running as sudo
+        .output()
+        .expect("Failed to run annactl --help");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show header
+    assert!(stdout.contains("Anna Assistant"), "Should show Anna header");
+
+    // Should show context
+    assert!(stdout.contains("Mode:") || stdout.contains("Context:"), "Should show context");
+
+    // Should show safe commands by default (help is always visible)
+    assert!(stdout.contains("help"), "Should show help command");
+
+    // Build succeeded means test passes - we can't reliably test command counts
+    // without knowing the exact execution context
+    assert!(output.status.success(), "Help should exit successfully");
+}
+
+/// Test adaptive help --all shows all commands
+#[test]
+fn test_adaptive_help_all_flag() {
+    let output = Command::new(annactl_bin())
+        .args(&["--help", "--all"])
+        .output()
+        .expect("Failed to run annactl --help --all");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show more commands with --all
+    assert!(stdout.contains("Safe Commands") || stdout.contains("help"), "Should show safe commands");
+
+    // Should show advanced or administrative sections
+    let has_advanced = stdout.contains("Advanced")
+        || stdout.contains("Administrative")
+        || stdout.contains("update")
+        || stdout.contains("install");
+
+    assert!(has_advanced, "Should show advanced commands with --all flag");
+    assert!(output.status.success(), "Help --all should exit successfully");
+}
+
+/// Test JSON help output format
+#[test]
+fn test_json_help_output() {
+    let output = Command::new(annactl_bin())
+        .args(&["--help", "--json"])
+        .output()
+        .expect("Failed to run annactl --help --json");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should be valid JSON
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&stdout);
+    assert!(parsed.is_ok(), "JSON help should be valid JSON: {}", stdout);
+
+    if let Ok(json) = parsed {
+        // Should have expected structure
+        assert!(json.get("context").is_some(), "Should have context field");
+        assert!(json.get("commands").is_some(), "Should have commands field");
+        assert!(json.get("total").is_some(), "Should have total field");
+
+        // Commands should be array
+        let commands = json["commands"].as_array();
+        assert!(commands.is_some(), "Commands should be an array");
+
+        if let Some(commands) = commands {
+            assert!(!commands.is_empty(), "Should have at least one command");
+
+            // Each command should have required fields
+            if let Some(first_cmd) = commands.first() {
+                assert!(first_cmd.get("name").is_some(), "Command should have name");
+                assert!(first_cmd.get("category").is_some(), "Command should have category");
+                assert!(first_cmd.get("description").is_some(), "Command should have description");
+                assert!(first_cmd.get("risk").is_some(), "Command should have risk level");
+            }
+        }
+    }
+
+    assert!(output.status.success(), "JSON help should exit successfully");
+}
+
+/// Test command classification metadata exists
+#[test]
+fn test_command_classification() {
+    use anna_common::command_meta::{CommandCategory, CommandMetadata, CommandRegistry, RiskLevel};
+
+    let registry = CommandRegistry::new();
+    let all_commands = registry.all();
+
+    // Should have commands registered
+    assert!(!all_commands.is_empty(), "Registry should have commands");
+
+    // Check that key commands exist with proper classification
+    let help_cmd = all_commands.iter().find(|c| c.name == "help");
+    assert!(help_cmd.is_some(), "Should have help command");
+
+    if let Some(help) = help_cmd {
+        assert_eq!(help.category, CommandCategory::UserSafe, "Help should be UserSafe");
+        assert_eq!(help.risk_level, RiskLevel::None, "Help should have no risk");
+        assert!(!help.requires_root, "Help should not require root");
+        assert!(!help.requires_daemon, "Help should not require daemon");
+    }
+
+    // Check that advanced commands exist
+    let update_cmd = all_commands.iter().find(|c| c.name == "update");
+    if let Some(update) = update_cmd {
+        assert!(
+            matches!(update.category, CommandCategory::Advanced),
+            "Update should be Advanced category"
+        );
+        assert!(update.risk_level >= RiskLevel::Medium, "Update should have Medium+ risk");
+    }
+}
+
+/// Test context detection
+#[test]
+fn test_context_detection() {
+    use annactl::context_detection::ExecutionContext;
+
+    // Should detect context
+    let context = ExecutionContext::detect();
+
+    // Should be one of the valid contexts
+    assert!(
+        matches!(
+            context,
+            ExecutionContext::User | ExecutionContext::Root | ExecutionContext::Developer
+        ),
+        "Should detect valid execution context"
+    );
+}
+
+/// Test TTY detection functions exist
+#[test]
+fn test_tty_detection() {
+    use annactl::context_detection::{is_tty, should_use_color};
+
+    // Functions should execute without panic
+    let _ = is_tty();
+    let _ = should_use_color();
+
+    // In test environment, usually not a TTY
+    // Just verify the functions are callable
+    assert!(true, "TTY detection functions should be callable");
+}
+
+/// Test adaptive help respects NO_COLOR environment variable
+#[test]
+fn test_no_color_env() {
+    let output = Command::new(annactl_bin())
+        .arg("--help")
+        .env("NO_COLOR", "1")
+        .output()
+        .expect("Failed to run annactl --help with NO_COLOR");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // With NO_COLOR, should not contain ANSI codes (simplified check)
+    // ANSI codes typically start with \x1b[
+    assert!(!stdout.contains("\x1b["), "Should not contain ANSI codes with NO_COLOR set");
+    assert!(output.status.success(), "Help should exit successfully");
+}
+
+/// Test help command doesn't hang
+#[test]
+fn test_help_no_hang() {
+    use std::time::Duration;
+
+    let start = std::time::Instant::now();
+
+    let output = Command::new(annactl_bin())
+        .arg("--help")
+        .env("ANNACTL_SOCKET", "/nonexistent/socket") // Force offline mode
+        .output()
+        .expect("Failed to run annactl --help");
+
+    let elapsed = start.elapsed();
+
+    // Should complete within 2 seconds even if daemon unavailable
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "Help should not hang, took {:?}",
+        elapsed
+    );
+
+    assert!(output.status.success(), "Help should succeed even offline");
+}

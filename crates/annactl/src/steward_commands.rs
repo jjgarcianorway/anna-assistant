@@ -7,8 +7,10 @@ use anna_common::ipc::{ResponseData};
 use anyhow::{Context, Result};
 use std::time::Instant;
 
+use crate::context_detection;
 use crate::errors::*;
 use crate::logging::LogEntry;
+use crate::predictive_hints;
 use crate::rpc_client::RpcClient;
 
 /// Execute 'status' command - show comprehensive system health
@@ -96,6 +98,10 @@ pub async fn execute_status_command(
             println!("└─────────────────────────────────────────────────────────");
             println!();
             println!("{}", report.citation);
+
+            // Phase 3.8: Display predictive hints
+            let use_color = context_detection::should_use_color();
+            let _ = predictive_hints::display_predictive_hints("status", false, use_color).await;
 
             // Log command
             let duration_ms = start_time.elapsed().as_millis() as u64;

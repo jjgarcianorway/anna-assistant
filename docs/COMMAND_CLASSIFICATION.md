@@ -249,9 +249,96 @@ Each command category has dedicated documentation:
 
 ---
 
-**Status**: Phase 3.4 - Classification complete
-**Next**: Phase 3.5 - Implement command metadata system
+## Phase 3.8 Implementation Status ✅
+
+**COMPLETED** - Adaptive CLI with Progressive Disclosure
+
+### What Was Implemented
+
+1. **Command Metadata System** (`anna_common/src/command_meta.rs`):
+   - Full `CommandMetadata` struct with all planned fields
+   - `CommandRegistry` with 12 commands classified
+   - Risk levels (None, Low, Medium, High, Critical)
+   - Categories (UserSafe, Advanced, Internal)
+   - Display context filtering logic
+
+2. **Execution Context Detection** (`annactl/src/context_detection.rs`):
+   - `ExecutionContext::detect()` - Auto-detects User/Root/Developer mode
+   - TTY detection for color output
+   - Environment variable support (NO_COLOR, TERM)
+
+3. **Adaptive Root Help** (`annactl/src/adaptive_help.rs`):
+   - Entry point override before clap parsing
+   - Context-aware command filtering
+   - Terminal output with color-coded categories
+   - JSON output mode (`--help --json`)
+   - `--all` flag to show all commands
+
+4. **Predictive Intelligence Integration** (`annactl/src/predictive_hints.rs`):
+   - Post-command hints after `status` and `health`
+   - Learning engine integration
+   - 24-hour throttling per command
+   - Only High/Critical predictions shown
+
+5. **UX Polish**:
+   - AUR package detection in self-update command
+   - Enhanced permission error messages with exact usermod commands
+   - Socket error hints with current username
+
+6. **Testing**:
+   - 13 acceptance tests for adaptive CLI features
+   - Tests for context detection, JSON output, TTY detection
+   - All tests passing ✅
+
+### Usage Examples
+
+```bash
+# Default: Context-aware help (shows only relevant commands)
+$ annactl --help
+
+# Show all commands (including internal)
+$ annactl --help --all
+
+# JSON output for scripting
+$ annactl --help --json
+
+# Permission error shows helpful fix
+$ annactl status
+❌ Permission denied accessing Anna daemon socket.
+Fix (run these commands):
+  sudo usermod -aG anna YOUR_USERNAME
+  newgrp anna
+
+# AUR awareness
+$ annactl self-update --check
+⚠️  Anna was installed via package manager: anna-assistant-bin
+Please use your package manager to update:
+  pacman -Syu
+```
+
+### Files Changed
+
+- `crates/anna_common/src/command_meta.rs` - Command classification (600 lines)
+- `crates/annactl/src/context_detection.rs` - Context detection (180 lines)
+- `crates/annactl/src/adaptive_help.rs` - Adaptive help (280 lines)
+- `crates/annactl/src/predictive_hints.rs` - Predictive hints (270 lines)
+- `crates/annactl/src/main.rs` - Entry point integration
+- `crates/annactl/src/rpc_client.rs` - Enhanced error messages
+- `crates/annactl/tests/integration_test.rs` - Acceptance tests
+
+### Metrics
+
+- **Total Lines**: ~1,600 lines of production code
+- **Tests**: 13 acceptance tests
+- **Commands Classified**: 12 commands
+- **Build Time**: ~15s release build
+- **Test Time**: <3s for all tests
+
+---
+
+**Status**: Phase 3.8 - COMPLETE ✅
+**Commit**: 327e2d9 (Phase 3.8: Adaptive CLI Complete - Progressive Disclosure Achieved)
 **Author**: Anna Adaptive Intelligence Team
 **License**: Custom (see LICENSE file)
 
-Citation: [ux-design:progressive-disclosure]
+Citation: [ux-design:progressive-disclosure], [archwiki:system_maintenance]

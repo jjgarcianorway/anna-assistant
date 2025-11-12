@@ -22,6 +22,7 @@ pub mod logging;
 mod mirror_commands; // Phase 1.4
 mod monitor_setup; // Phase 3.1: Monitoring automation
 pub mod output;
+mod predictive_hints; // Phase 3.8: Post-command predictive intelligence
 mod rpc_client; // Phase 0.5b
 mod sentinel_cli; // Phase 1.0
 mod steward_commands; // Phase 0.9
@@ -930,11 +931,54 @@ async fn execute_ping_command(
     }
 }
 
-/// Execute self-update command (Phase 2.0)
+/// Detect if Anna was installed via package manager (AUR, etc.)
+fn detect_package_install() -> Option<String> {
+    // Check if annactl is owned by pacman
+    if let Ok(output) = std::process::Command::new("pacman")
+        .args(&["-Qo", "/usr/bin/annactl"])
+        .output()
+    {
+        if output.status.success() {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                // Output format: "/usr/bin/annactl is owned by package-name version"
+                if let Some(package) = stdout.split_whitespace().nth(4) {
+                    return Some(package.to_string());
+                }
+            }
+        }
+    }
+
+    // Check if in /usr/local (homebrew or manual install)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if exe_path.starts_with("/usr/local") {
+            return Some("homebrew/manual".to_string());
+        }
+    }
+
+    None
+}
+
+/// Execute self-update command (Phase 2.0 + Phase 3.8 AUR awareness)
 async fn execute_self_update_command(check: bool, list: bool) -> Result<()> {
     const REPO_OWNER: &str = "jjgarcianorway";
     const REPO_NAME: &str = "anna-assistant";
     const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+    // Phase 3.8: Check if installed via package manager
+    if let Some(package) = detect_package_install() {
+        println!("⚠️  Anna was installed via package manager: {}", package);
+        println!();
+        println!("Please use your package manager to update:");
+        if package.contains("anna-assistant") {
+            println!("  pacman -Syu              # System update (includes Anna)");
+            println!("  yay -Sua                 # AUR update only");
+        } else {
+            println!("  Check your package manager documentation");
+        }
+        println!();
+        println!("The self-update command is for manual/binary installations only.");
+        std::process::exit(EXIT_SUCCESS);
+    }
 
     if list {
         // List available versions from GitHub releases

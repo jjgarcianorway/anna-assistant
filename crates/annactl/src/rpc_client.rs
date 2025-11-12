@@ -131,11 +131,32 @@ impl RpcClient {
                 )
             }
             ErrorKind::PermissionDenied => {
+                // Phase 3.8: Enhanced permission error with current user
+                let current_user = std::env::var("USER").unwrap_or_else(|_| "YOUR_USERNAME".to_string());
                 format!(
-                    "Permission denied opening {}. Check group 'anna' and directory execute bits.\n\
-                     Fix: sudo usermod -aG anna \"$USER\" && newgrp anna\n\
-                     Debug: namei -l {}",
-                    path, path
+                    "❌ Permission denied accessing Anna daemon socket.\n\
+                     \n\
+                     Socket path: {}\n\
+                     \n\
+                     Your user account needs to be added to the 'anna' group.\n\
+                     \n\
+                     Fix (run these commands):\n\
+                     \n\
+                     1. Add your user to the 'anna' group:\n\
+                        sudo usermod -aG anna {}\n\
+                     \n\
+                     2. Apply the group change (choose one):\n\
+                        newgrp anna              # Apply immediately (current shell)\n\
+                        # OR logout and login     # Apply permanently\n\
+                     \n\
+                     3. Verify the fix:\n\
+                        groups | grep anna       # Should show 'anna' in output\n\
+                        annactl status           # Should work now\n\
+                     \n\
+                     Debug info:\n\
+                        ls -la {}        # Check socket permissions\n\
+                        namei -l {}      # Trace path permissions",
+                    path, current_user, path, path
                 )
             }
             ErrorKind::ConnectionRefused | ErrorKind::TimedOut => {

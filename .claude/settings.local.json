@@ -20,7 +20,11 @@
       "Bash(timeout 2 ./target/release/annactl:*)",
       "Bash(RUST_LOG=debug timeout 1s ./target/release/annactl:*)",
       "Bash(timeout 1s ./target/release/annactl:*)",
-      "Bash(timeout 3s ./target/release/annactl:*)"
+      "Bash(timeout 3s ./target/release/annactl:*)",
+      "Bash(cargo build:*)",
+      "Bash(./target/release/annactl:*)",
+      "Bash(cargo test:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
