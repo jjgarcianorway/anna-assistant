@@ -6,7 +6,7 @@
 
 set -e
 
-EXPECTED_VERSION="1.16.0-alpha.1"
+EXPECTED_VERSION="1.16.1-alpha.1"
 SOCKET_PATH="/run/anna/anna.sock"
 MAX_WAIT=30
 

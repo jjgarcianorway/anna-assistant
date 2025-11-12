@@ -4,7 +4,7 @@
 
 Anna is a security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
 
-**Current Version:** 1.16.0-alpha.1 (November 2025)
+**Current Version:** 1.16.1-alpha.1 (November 2025)
 
 **Status:** Operational Core - Active Development
 
@@ -650,7 +650,7 @@ man annad          # Daemon configuration
 
 ## Development Status
 
-### ✅ Shipped (v1.16.0-alpha.1)
+### ✅ Shipped (v1.16.1-alpha.1)
 - **Phase 0.3**: State-aware command dispatch with 6-state detection
 - **Phase 0.4**: Systemd hardening and security sandbox
 - **Phase 0.5**: Health monitoring (6 probes) + doctor diagnostics

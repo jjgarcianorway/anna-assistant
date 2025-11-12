@@ -14,7 +14,7 @@
 
 set -e
 
-EXPECTED_VERSION="1.16.0-alpha.1"
+EXPECTED_VERSION="1.16.1-alpha.1"
 INSTALL_DIR="/usr/local/bin"
 SOCKET_PATH="/run/anna/anna.sock"
 

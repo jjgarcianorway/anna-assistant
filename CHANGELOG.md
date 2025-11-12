@@ -5,7 +5,76 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.16.0-alpha.1] - 2025-11-12
+## [1.16.1-alpha.1] - 2025-11-12
+
+### 🔒 **SECURITY: TLS Materials Purge & Prevention**
+
+Critical security update that removes all committed TLS certificates and private keys from the repository history and implements comprehensive guards to prevent future commits of sensitive materials.
+
+#### Security Changes
+
+- **History Rewrite**: Purged `testnet/config/tls/` directory from entire git history using `git-filter-repo`
+  - Removed 9 files: `ca.key`, `ca.pem`, `ca.srl`, `node_*.key`, `node_*.pem`
+  - All commit SHAs changed due to history rewrite
+  - Previous tags invalidated and replaced
+
+- **Gitignore Protection**: Added comprehensive rules to prevent TLS material commits
+  - `testnet/config/tls/`
+  - `**/*.key`, `**/*.pem`, `**/*.srl`, `**/*.crt`, `**/*.csr`
+
+- **CI Security Guards** (`.github/workflows/consensus-smoke.yml`):
+  - Pre-build check: Fails if any tracked files match TLS patterns
+  - Ephemeral certificate generation: Calls `scripts/gen-selfsigned-ca.sh` before tests
+  - Prevents CI from running with committed certificates
+
+- **Pre-commit Hooks** (`.pre-commit-config.yaml`):
+  - `detect-secrets` hook for private key detection
+  - Explicit TLS material blocking hook (commit-time)
+  - Repository-wide TLS material check (push-time)
+  - Cargo fmt and clippy integration
+
+- **Documentation**: Created `testnet/config/README.md` with certificate generation guide
+
+#### Added
+
+- `.pre-commit-config.yaml`: Pre-commit hooks configuration
+- `testnet/config/README.md`: TLS certificate generation and security policy
+- `scripts/operator_validate.sh`: Minimal operator validation script (30s timeout, 6 checks)
+- `scripts/validate_release.sh`: Comprehensive release validation (12 checks)
+
+#### Changed
+
+- **CI Workflow**: Now generates ephemeral TLS certificates before running tests
+- **Testnet Setup**: Certificates must be generated locally via `scripts/gen-selfsigned-ca.sh`
+
+#### Removed
+
+- All committed TLS certificates and private keys from history
+- `testnet/config/tls/ca.key` (CA private key) - **SENSITIVE**
+- `testnet/config/tls/ca.pem` (CA certificate)
+- `testnet/config/tls/ca.srl` (CA serial number)
+- `testnet/config/tls/node_*.key` (Node private keys) - **SENSITIVE**
+- `testnet/config/tls/node_*.pem` (Node certificates)
+
+#### Security Rationale
+
+GitGuardian flagged committed private keys in `testnet/config/tls/`. Private keys and certificates must **never** be stored in version control, even for testing. All certificates must be generated ephemerally locally or in CI.
+
+**Migration Note**: This is a **history-rewriting release**. All commit SHAs after the initial TLS commit have changed. If you have local branches or forks, you will need to rebase or re-clone.
+
+**Git Filter-Repo Commands Used**:
+```bash
+git-filter-repo --path testnet/config/tls --invert-paths --force
+```
+
+#### References
+
+- [OWASP: Key Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html)
+- [GitGuardian: Secrets Detection](https://www.gitguardian.com/)
+
+---
+
+## [1.16.0-alpha.1] - 2025-11-12 [SUPERSEDED BY 1.16.1-alpha.1]
 
 ### 🔐 **Phase 1.16: Production Readiness - Certificate Pinning & Dual-Tier Rate Limiting**
 
