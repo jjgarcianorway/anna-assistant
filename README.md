@@ -4,9 +4,9 @@
 
 Anna is a security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
 
-**Current Version:** 1.16.1-alpha.1 (November 2025)
+**Current Version:** 1.16.2-alpha.1 (November 2025)
 
-**Status:** Operational Core - Active Development
+**Status:** Operational Core - Phase 2 In Progress (v2.0.0)
 
 ---
 
@@ -650,7 +650,7 @@ man annad          # Daemon configuration
 
 ## Development Status
 
-### ✅ Shipped (v1.16.1-alpha.1)
+### ✅ Shipped (v1.16.2-alpha.1)
 - **Phase 0.3**: State-aware command dispatch with 6-state detection
 - **Phase 0.4**: Systemd hardening and security sandbox
 - **Phase 0.5**: Health monitoring (6 probes) + doctor diagnostics
@@ -660,13 +660,22 @@ man annad          # Daemon configuration
 - **Phase 1.12-1.14**: Full mTLS implementation with live 3-node testnet
 - **Phase 1.15**: SIGHUP hot reload with atomic config swaps
 - **Phase 1.16**: Dual-tier rate limiting (burst + sustained) and certificate pinning infrastructure
+- **v1.16.1-alpha.1**: Security hardening - TLS materials purged from git history
+- **v1.16.2-alpha.1**: Critical RPC serialization bug fix
 - **Self-update**: Manual update via `annactl self-update` with SHA256 verification
 - **Audit logging**: JSONL logs with UUIDs and Arch Wiki citations
 
-### 🚧 In Progress (Phase 2)
-- **TLS handshake integration**: Custom `ServerCertVerifier` for certificate pinning enforcement
-- **Autonomous recovery**: Task supervision with exponential backoff
-- **Grafana dashboards**: Prometheus metrics visualization templates
+### 🚧 In Progress (Phase 2 - Target: v2.0.0-alpha.1)
+
+See [docs/PHASE_2_OVERVIEW.md](docs/PHASE_2_OVERVIEW.md) for detailed roadmap.
+
+**Core Objectives**:
+- **Certificate Pinning**: Enforce SHA256 fingerprint validation in TLS handshakes with rustls `ServerCertVerifier`
+- **Autonomous Recovery Supervisor**: Exponential backoff for failed tasks, circuit breakers, metrics
+- **Observability Pack**: Grafana dashboards + Prometheus alerts for production monitoring
+- **Distribution**: AUR and Homebrew packaging skeletons
+- **Self-Update Enhancement**: `annactl self-update --check` dry-run mode
+- **TLS-Pinned Testnet**: Multi-node testnet with SIGHUP hot reload validation
 
 ### 📋 Planned
 - **v2.0**: Enhanced observability and recovery
