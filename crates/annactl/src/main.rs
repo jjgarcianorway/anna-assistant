@@ -207,6 +207,31 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Install monitoring stack (Grafana/Prometheus) based on system profile (Phase 3.0)
+    Monitor {
+        /// Subcommand: install, status
+        #[command(subcommand)]
+        subcommand: MonitorSubcommand,
+    },
+}
+
+/// Monitor subcommands (Phase 3.0)
+#[derive(Subcommand)]
+enum MonitorSubcommand {
+    /// Install monitoring stack (adaptive based on system resources)
+    Install {
+        /// Force monitoring mode (full/light/minimal) - overrides auto-detection
+        #[arg(long)]
+        force_mode: Option<String>,
+
+        /// Dry run (show what would be installed)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
+
+    /// Show monitoring stack status
+    Status,
 }
 
 /// Sentinel subcommands
@@ -430,6 +455,18 @@ async fn main() -> Result<()> {
         return execute_profile_command(*json, cli.socket.as_deref()).await;
     }
 
+    // Handle monitor command (Phase 3.0 - needs daemon)
+    if let Commands::Monitor { subcommand } = &cli.command {
+        match subcommand {
+            MonitorSubcommand::Install { force_mode, dry_run } => {
+                return execute_monitor_install_command(force_mode.clone(), *dry_run, cli.socket.as_deref()).await;
+            }
+            MonitorSubcommand::Status => {
+                return execute_monitor_status_command(cli.socket.as_deref()).await;
+            }
+        }
+    }
+
     if let Commands::Consensus { subcommand } = &cli.command {
         match subcommand {
             ConsensusSubcommand::Status { round_id, json } => {
@@ -474,6 +511,7 @@ async fn main() -> Result<()> {
         Commands::Consensus { .. } => "consensus",
         Commands::SelfUpdate { .. } => "self-update",
         Commands::Profile { .. } => "profile",
+        Commands::Monitor { .. } => "monitor",
     };
 
     // Try to connect to daemon and get state
@@ -969,8 +1007,219 @@ async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Resul
         println!("  Constrained:     {}", if profile.is_constrained { "Yes" } else { "No" });
         println!();
 
+        // Phase 3.0: SSH tunnel suggestions (Remote Access Policy)
+        if profile.session_type.starts_with("ssh:") {
+            println!("Remote Access:");
+            let has_display = profile.session_type.contains("forwarding=true");
+            if has_display {
+                println!("  SSH X11 forwarding detected - GUI tools available");
+            } else {
+                println!("  SSH session detected (no X11 forwarding)");
+            }
+
+            // Show tunnel instructions for Full mode
+            if profile.recommended_monitoring_mode == "full" {
+                println!();
+                println!("  💡 To access Grafana dashboards, create an SSH tunnel:");
+                println!("     ssh -L 3000:localhost:3000 user@host");
+                println!("     Then browse to: http://localhost:3000");
+            } else if profile.recommended_monitoring_mode == "light" {
+                println!();
+                println!("  💡 Prometheus metrics available at: http://localhost:9090");
+                println!("     Create SSH tunnel: ssh -L 9090:localhost:9090 user@host");
+            }
+            println!();
+        }
+
         println!("Timestamp: {}", profile.timestamp);
     }
+
+    std::process::exit(EXIT_SUCCESS);
+}
+
+/// Execute monitor install command (Phase 3.0)
+async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bool, socket_path: Option<&str>) -> Result<()> {
+    // Connect to daemon to get system profile
+    let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to connect to daemon: {}", e);
+            eprintln!("Make sure annad is running (try: sudo systemctl start annad)");
+            std::process::exit(EXIT_DAEMON_UNAVAILABLE);
+        }
+    };
+
+    // Get system profile
+    let profile_response = client.get_profile().await?;
+    let profile = match profile_response {
+        ResponseData::Profile(data) => data,
+        _ => anyhow::bail!("Unexpected response type for GetProfile"),
+    };
+
+    // Determine monitoring mode
+    let mode = if let Some(forced) = force_mode {
+        let normalized = forced.to_lowercase();
+        if !["full", "light", "minimal"].contains(&normalized.as_str()) {
+            eprintln!("Error: Invalid mode '{}'. Must be: full, light, or minimal", forced);
+            std::process::exit(EXIT_GENERAL_ERROR);
+        }
+        println!("⚠️  Using FORCED mode: {}", normalized.to_uppercase());
+        println!("   (System recommendation: {})\n", profile.recommended_monitoring_mode.to_uppercase());
+        normalized
+    } else {
+        profile.recommended_monitoring_mode.clone()
+    };
+
+    println!("Monitoring Stack Installation (Phase 3.0: Adaptive Intelligence)");
+    println!("====================================================================\n");
+
+    println!("System Profile:");
+    println!("  Memory: {} MB  |  CPU: {} cores  |  Constrained: {}",
+        profile.total_memory_mb, profile.cpu_cores,
+        if profile.is_constrained { "Yes" } else { "No" });
+    println!("  Recommended Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
+    println!();
+
+    match mode.as_str() {
+        "full" => {
+            println!("Installation Plan [FULL MODE]:");
+            println!("  ✓ Prometheus (metrics collector)");
+            println!("  ✓ Grafana (visualization dashboards)");
+            println!("  ✓ Anna dashboards (pre-configured)");
+            println!();
+            println!("Requirements: >4GB RAM, GUI session");
+            println!();
+
+            if !dry_run {
+                println!("Installation commands:");
+                println!("  sudo pacman -S prometheus grafana");
+                println!("  sudo systemctl enable --now prometheus grafana");
+                println!();
+                println!("Dashboard setup:");
+                println!("  1. Browse to: http://localhost:3000 (Grafana)");
+                println!("  2. Default credentials: admin/admin");
+                println!("  3. Add Prometheus datasource: http://localhost:9090");
+                println!();
+                println!("⚠️  Automatic installation not yet implemented.");
+                println!("   Please run the commands above manually.");
+            } else {
+                println!("[DRY RUN] Would install Prometheus + Grafana");
+            }
+        }
+        "light" => {
+            println!("Installation Plan [LIGHT MODE]:");
+            println!("  ✓ Prometheus (metrics collector)");
+            println!("  ✗ Grafana (skipped - insufficient RAM or no GUI)");
+            println!();
+            println!("Requirements: 2-4GB RAM");
+            println!();
+
+            if !dry_run {
+                println!("Installation commands:");
+                println!("  sudo pacman -S prometheus");
+                println!("  sudo systemctl enable --now prometheus");
+                println!();
+                println!("Metrics access:");
+                println!("  Browse to: http://localhost:9090");
+                println!("  Or query via: curl http://localhost:9090/metrics");
+                println!();
+                println!("⚠️  Automatic installation not yet implemented.");
+                println!("   Please run the commands above manually.");
+            } else {
+                println!("[DRY RUN] Would install Prometheus only");
+            }
+        }
+        "minimal" => {
+            println!("Installation Plan [MINIMAL MODE]:");
+            println!("  ✗ External monitoring (insufficient resources)");
+            println!("  ✓ Internal stats only (already available via daemon)");
+            println!();
+            println!("Your system has limited resources (< 2GB RAM).");
+            println!("Anna will use internal statistics tracking only.");
+            println!();
+            println!("To view internal stats:");
+            println!("  annactl status");
+            println!("  annactl health");
+            println!();
+
+            if !dry_run {
+                println!("✓ No installation required for minimal mode.");
+            } else {
+                println!("[DRY RUN] No external monitoring to install");
+            }
+        }
+        _ => unreachable!("Mode validation should prevent this"),
+    }
+
+    println!();
+    println!("Citation: [archwiki:prometheus][archwiki:grafana][observability:best-practices]");
+
+    std::process::exit(EXIT_SUCCESS);
+}
+
+/// Execute monitor status command (Phase 3.0)
+async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()> {
+    // Connect to daemon to get system profile
+    let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to connect to daemon: {}", e);
+            eprintln!("Make sure annad is running (try: sudo systemctl start annad)");
+            std::process::exit(EXIT_DAEMON_UNAVAILABLE);
+        }
+    };
+
+    // Get system profile
+    let profile_response = client.get_profile().await?;
+    let profile = match profile_response {
+        ResponseData::Profile(data) => data,
+        _ => anyhow::bail!("Unexpected response type for GetProfile"),
+    };
+
+    println!("Monitoring Stack Status (Phase 3.0)");
+    println!("====================================\n");
+
+    println!("System Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
+    println!("Rationale:   {}\n", profile.monitoring_rationale);
+
+    // Check Prometheus status
+    let prometheus_active = std::process::Command::new("systemctl")
+        .args(&["is-active", "prometheus"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    println!("Prometheus:");
+    if prometheus_active {
+        println!("  Status: ✓ Running");
+        println!("  Access: http://localhost:9090");
+    } else {
+        println!("  Status: ✗ Not running");
+        println!("  Install: sudo pacman -S prometheus");
+    }
+    println!();
+
+    // Check Grafana status (only for Full mode)
+    if profile.recommended_monitoring_mode == "full" {
+        let grafana_active = std::process::Command::new("systemctl")
+            .args(&["is-active", "grafana"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        println!("Grafana:");
+        if grafana_active {
+            println!("  Status: ✓ Running");
+            println!("  Access: http://localhost:3000");
+        } else {
+            println!("  Status: ✗ Not running");
+            println!("  Install: sudo pacman -S grafana");
+        }
+        println!();
+    }
+
+    println!("Internal Stats: ✓ Available (via daemon)");
+    println!("  Commands: annactl status, annactl health");
 
     std::process::exit(EXIT_SUCCESS);
 }
@@ -1173,6 +1422,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Profile { .. } => {
             // Should not reach here - handled in main
             unreachable!("Profile command should be handled separately");
+        }
+        Commands::Monitor { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Monitor command should be handled separately");
         }
     }
 
