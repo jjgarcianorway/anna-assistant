@@ -122,6 +122,14 @@ pub struct DaemonState {
     pub current_state: RwLock<crate::state::StateDetection>,
     /// Sentinel daemon (Phase 1.0)
     pub sentinel: Option<Arc<crate::sentinel::SentinelDaemon>>,
+    /// Collective mind (Phase 1.3)
+    pub collective: Option<Arc<crate::collective::CollectiveMind>>,
+    /// Mirror protocol (Phase 1.4)
+    pub mirror: Option<Arc<crate::mirror::MirrorProtocol>>,
+    /// Chronos loop (Phase 1.5)
+    pub chronos: Option<Arc<crate::chronos::ChronosLoop>>,
+    /// Mirror audit (Phase 1.6)
+    pub mirror_audit: Option<Arc<tokio::sync::RwLock<crate::mirror_audit::MirrorAudit>>>,
 }
 
 impl DaemonState {
@@ -147,6 +155,10 @@ impl DaemonState {
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
             current_state: RwLock::new(current_state),
             sentinel: None, // Will be set later in main.rs
+            collective: None, // Will be set later in main.rs
+            mirror: None, // Will be set later in main.rs
+            chronos: None, // Will be set later in main.rs
+            mirror_audit: None, // Will be set later in main.rs
         })
     }
 }
@@ -2286,6 +2298,610 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                     }
                 }
                 None => Err("Conscience layer not initialized".to_string()),
+            }
+        }
+
+        // Phase 1.2: Empathy commands
+        Method::EmpathyPulse => {
+            info!("EmpathyPulse method called");
+
+            // Get empathy kernel from sentinel
+            let empathy = match &state.sentinel {
+                Some(s) => s.get_empathy(),
+                None => None,
+            };
+
+            match empathy {
+                Some(e) => {
+                    let pulse = e.get_pulse().await;
+
+                    let data = anna_common::ipc::EmpathyPulseData {
+                        timestamp: pulse.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                        empathy_index: pulse.empathy_index,
+                        strain_index: pulse.strain_index,
+                        resonance_map: anna_common::ipc::ResonanceMapData {
+                            user_resonance: pulse.resonance_map.user_resonance,
+                            system_resonance: pulse.resonance_map.system_resonance,
+                            environment_resonance: pulse.resonance_map.environment_resonance,
+                            recent_adjustments: pulse.resonance_map.recent_adjustments.iter().map(|adj| {
+                                anna_common::ipc::ResonanceAdjustmentData {
+                                    timestamp: adj.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                    stakeholder: adj.stakeholder.clone(),
+                                    delta: adj.delta,
+                                    reason: adj.reason.clone(),
+                                }
+                            }).collect(),
+                        },
+                        context_summary: pulse.context_summary,
+                        recent_perceptions: pulse.recent_perceptions.iter().map(|p| {
+                            anna_common::ipc::PerceptionRecordData {
+                                timestamp: p.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                action: format!("{:?}", p.action),
+                                stakeholder_impacts: anna_common::ipc::StakeholderImpactsData {
+                                    user: anna_common::ipc::StakeholderImpactData {
+                                        score: p.stakeholder_impacts.user.score,
+                                        impact_type: p.stakeholder_impacts.user.impact_type.clone(),
+                                        reasoning: p.stakeholder_impacts.user.reasoning.clone(),
+                                    },
+                                    system: anna_common::ipc::StakeholderImpactData {
+                                        score: p.stakeholder_impacts.system.score,
+                                        impact_type: p.stakeholder_impacts.system.impact_type.clone(),
+                                        reasoning: p.stakeholder_impacts.system.reasoning.clone(),
+                                    },
+                                    environment: anna_common::ipc::StakeholderImpactData {
+                                        score: p.stakeholder_impacts.environment.score,
+                                        impact_type: p.stakeholder_impacts.environment.impact_type.clone(),
+                                        reasoning: p.stakeholder_impacts.environment.reasoning.clone(),
+                                    },
+                                },
+                                context_factors: p.context_factors.clone(),
+                                adaptation: p.adaptation.clone(),
+                            }
+                        }).collect(),
+                    };
+
+                    Ok(ResponseData::EmpathyPulse(data))
+                }
+                None => Err("Empathy kernel not initialized".to_string()),
+            }
+        }
+
+        Method::EmpathySimulate { action } => {
+            info!("EmpathySimulate method called for action: {}", action);
+
+            // Get empathy kernel from sentinel
+            let empathy = match &state.sentinel {
+                Some(s) => s.get_empathy(),
+                None => None,
+            };
+
+            match empathy {
+                Some(e) => {
+                    // Parse action string to SentinelAction
+                    let parsed_action = match action.as_str() {
+                        "SystemUpdate" => crate::sentinel::SentinelAction::SystemUpdate { dry_run: false },
+                        "RestartService" => crate::sentinel::SentinelAction::RestartService {
+                            service: "example-service".to_string()
+                        },
+                        "SyncDatabases" => crate::sentinel::SentinelAction::SyncDatabases,
+                        _ => crate::sentinel::SentinelAction::None,
+                    };
+
+                    match e.simulate(&parsed_action).await {
+                        Ok(simulation) => {
+                            let data = anna_common::ipc::EmpathySimulationData {
+                                action: simulation.action,
+                                evaluation: anna_common::ipc::EmpathyEvaluationData {
+                                    should_defer: simulation.evaluation.should_defer,
+                                    deferral_reason: simulation.evaluation.deferral_reason,
+                                    stakeholder_impacts: anna_common::ipc::StakeholderImpactsData {
+                                        user: anna_common::ipc::StakeholderImpactData {
+                                            score: simulation.evaluation.stakeholder_impacts.user.score,
+                                            impact_type: simulation.evaluation.stakeholder_impacts.user.impact_type,
+                                            reasoning: simulation.evaluation.stakeholder_impacts.user.reasoning,
+                                        },
+                                        system: anna_common::ipc::StakeholderImpactData {
+                                            score: simulation.evaluation.stakeholder_impacts.system.score,
+                                            impact_type: simulation.evaluation.stakeholder_impacts.system.impact_type,
+                                            reasoning: simulation.evaluation.stakeholder_impacts.system.reasoning,
+                                        },
+                                        environment: anna_common::ipc::StakeholderImpactData {
+                                            score: simulation.evaluation.stakeholder_impacts.environment.score,
+                                            impact_type: simulation.evaluation.stakeholder_impacts.environment.impact_type,
+                                            reasoning: simulation.evaluation.stakeholder_impacts.environment.reasoning,
+                                        },
+                                    },
+                                    context_factors: simulation.evaluation.context_factors,
+                                    recommended_delay: simulation.evaluation.recommended_delay,
+                                    tone_adaptation: simulation.evaluation.tone_adaptation,
+                                },
+                                reasoning: simulation.reasoning,
+                                would_proceed: simulation.would_proceed,
+                            };
+                            Ok(ResponseData::EmpathySimulation(data))
+                        }
+                        Err(e) => Err(format!("Simulation failed: {}", e)),
+                    }
+                }
+                None => Err("Empathy kernel not initialized".to_string()),
+            }
+        }
+
+        // Phase 1.3: Collective mind commands
+        Method::CollectiveStatus => {
+            info!("CollectiveStatus method called");
+
+            match &state.collective {
+                Some(collective) => {
+                    let status = collective.get_status().await;
+
+                    let data = anna_common::ipc::CollectiveStatusData {
+                        enabled: status.enabled,
+                        node_id: status.node_id,
+                        connected_peers: status.connected_peers,
+                        total_peers: status.total_peers,
+                        avg_network_empathy: status.avg_network_empathy,
+                        avg_network_strain: status.avg_network_strain,
+                        recent_decisions: status.recent_decisions,
+                        network_health: status.network_health,
+                    };
+
+                    Ok(ResponseData::CollectiveStatus(data))
+                }
+                None => {
+                    // Return disabled state if collective not initialized
+                    let data = anna_common::ipc::CollectiveStatusData {
+                        enabled: false,
+                        node_id: "not_initialized".to_string(),
+                        connected_peers: 0,
+                        total_peers: 0,
+                        avg_network_empathy: 0.0,
+                        avg_network_strain: 0.0,
+                        recent_decisions: 0,
+                        network_health: 0.0,
+                    };
+
+                    Ok(ResponseData::CollectiveStatus(data))
+                }
+            }
+        }
+
+        Method::CollectiveTrust { peer_id } => {
+            info!("CollectiveTrust method called for peer: {}", peer_id);
+
+            match &state.collective {
+                Some(collective) => {
+                    match collective.get_peer_trust(&peer_id).await {
+                        Some(trust_details) => {
+                            let data = anna_common::ipc::CollectiveTrustData {
+                                peer_id: trust_details.peer_info.id.clone(),
+                                peer_name: trust_details.peer_info.name.clone(),
+                                peer_address: trust_details.peer_info.address.to_string(),
+                                overall_trust: trust_details.trust_score.overall,
+                                honesty: trust_details.trust_score.honesty,
+                                reliability: trust_details.trust_score.reliability,
+                                ethical_alignment: trust_details.trust_score.ethical_alignment,
+                                messages_received: trust_details.recent_messages,
+                                messages_validated: trust_details.trust_score.messages_validated,
+                                last_interaction: trust_details.last_interaction.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                connected: trust_details.peer_info.connected,
+                            };
+
+                            Ok(ResponseData::CollectiveTrust(data))
+                        }
+                        None => Err(format!("Peer {} not found in network", peer_id)),
+                    }
+                }
+                None => Err("Collective mind not initialized".to_string()),
+            }
+        }
+
+        Method::CollectiveExplain { consensus_id } => {
+            info!("CollectiveExplain method called for consensus: {}", consensus_id);
+
+            match &state.collective {
+                Some(collective) => {
+                    match collective.get_consensus_explanation(&consensus_id).await {
+                        Some(explanation) => {
+                            let votes_data: Vec<anna_common::ipc::ConsensusVoteData> = explanation
+                                .record
+                                .votes
+                                .values()
+                                .map(|vote| {
+                                    anna_common::ipc::ConsensusVoteData {
+                                        peer_id: vote.peer_id.clone(),
+                                        vote: format!("{:?}", vote.vote),
+                                        weight: vote.weight,
+                                        ethical_score: vote.ethical_score,
+                                        reasoning: vote.reasoning.clone(),
+                                        trust_score: 0.0, // Will be filled with actual trust score
+                                    }
+                                })
+                                .collect();
+
+                            let data = anna_common::ipc::CollectiveExplanationData {
+                                consensus_id: explanation.record.id.clone(),
+                                action: explanation.record.action.clone(),
+                                decision: format!("{:?}", explanation.record.decision),
+                                timestamp: explanation.record.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                votes: votes_data,
+                                total_participants: explanation.record.votes.len(),
+                                approval_percentage: explanation.approval_percentage,
+                                weighted_approval: explanation.weighted_approval,
+                                reasoning: explanation.reasoning_trail,
+                            };
+
+                            Ok(ResponseData::CollectiveExplanation(data))
+                        }
+                        None => Err(format!("Consensus decision {} not found", consensus_id)),
+                    }
+                }
+                None => Err("Collective mind not initialized".to_string()),
+            }
+        }
+
+        // Phase 1.4: Mirror protocol commands
+        Method::MirrorReflect => {
+            info!("MirrorReflect method called");
+
+            match &state.mirror {
+                Some(mirror) => {
+                    match mirror.generate_reflection().await {
+                        Ok(reflection) => {
+                            let data = anna_common::ipc::MirrorReflectionData {
+                                reflection_id: reflection.id,
+                                timestamp: reflection.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                period_start: reflection.period_start.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                period_end: reflection.period_end.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                self_coherence: reflection.self_coherence,
+                                ethical_decisions_count: reflection.ethical_decisions.len(),
+                                conscience_actions_count: reflection.conscience_actions.len(),
+                                avg_empathy_index: reflection.empathy_summary.avg_empathy_index,
+                                avg_strain_index: reflection.empathy_summary.avg_strain_index,
+                                empathy_trend: reflection.empathy_summary.empathy_trend,
+                                adaptations_count: reflection.empathy_summary.adaptations_count,
+                                self_identified_biases: reflection.self_identified_biases,
+                            };
+
+                            Ok(ResponseData::MirrorReflection(data))
+                        }
+                        Err(e) => Err(format!("Reflection generation failed: {}", e)),
+                    }
+                }
+                None => Err("Mirror protocol not initialized".to_string()),
+            }
+        }
+
+        Method::MirrorAudit => {
+            info!("MirrorAudit method called");
+
+            match &state.mirror {
+                Some(mirror) => {
+                    match mirror.get_audit_summary().await {
+                        Ok(audit) => {
+                            let data = anna_common::ipc::MirrorAuditData {
+                                enabled: audit.enabled,
+                                current_coherence: audit.current_coherence,
+                                last_reflection: audit.last_reflection.map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
+                                last_consensus: audit.last_consensus.map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
+                                recent_reflections_count: audit.recent_reflections_count,
+                                received_critiques_count: audit.received_critiques_count,
+                                active_remediations_count: audit.active_remediations_count,
+                                network_coherence: audit.network_coherence,
+                                recent_critiques: audit.recent_critiques.into_iter().map(|c| {
+                                    anna_common::ipc::CritiqueSummary {
+                                        critic_id: c.critic_id,
+                                        coherence_assessment: c.coherence_assessment,
+                                        inconsistencies_count: c.inconsistencies_count,
+                                        biases_count: c.biases_count,
+                                        recommendations: c.recommendations,
+                                    }
+                                }).collect(),
+                            };
+
+                            Ok(ResponseData::MirrorAudit(data))
+                        }
+                        Err(e) => Err(format!("Audit generation failed: {}", e)),
+                    }
+                }
+                None => Err("Mirror protocol not initialized".to_string()),
+            }
+        }
+
+        Method::MirrorRepair => {
+            info!("MirrorRepair method called");
+
+            match &state.mirror {
+                Some(mirror) => {
+                    match mirror.apply_pending_remediations().await {
+                        Ok(report) => {
+                            let data = anna_common::ipc::MirrorRepairData {
+                                timestamp: report.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                total_remediations: report.total_remediations,
+                                successful_remediations: report.successful_remediations,
+                                failed_remediations: report.failed_remediations,
+                                summary: report.summary.clone(),
+                                applied_remediations: report.details.into_iter().filter_map(|r| {
+                                    if r.applied {
+                                        Some(anna_common::ipc::RemediationSummary {
+                                            description: format!("Action {} applied", r.action_id),
+                                            remediation_type: "ParameterAdjustment".to_string(),
+                                            expected_impact: r.reason.clone(),
+                                            parameter_adjustments: r.adjustments_made,
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                }).collect(),
+                            };
+
+                            Ok(ResponseData::MirrorRepair(data))
+                        }
+                        Err(e) => Err(format!("Remediation failed: {}", e)),
+                    }
+                }
+                None => Err("Mirror protocol not initialized".to_string()),
+            }
+        }
+
+        // Phase 1.5: Chronos loop commands
+        Method::ChronosForecast { window_hours } => {
+            info!("ChronosForecast method called for {} hours", window_hours);
+
+            match &state.chronos {
+                Some(chronos) => {
+                    match chronos.generate_forecast(window_hours).await {
+                        Ok(result) => {
+                            let forecast = &result.forecast;
+                            let projection = &result.projection;
+
+                            // Get final projected state
+                            let final_state = forecast
+                                .consensus_scenario
+                                .as_ref()
+                                .and_then(|s| s.snapshots.last());
+
+                            let (final_health, final_empathy, final_strain, final_coherence) =
+                                if let Some(state) = final_state {
+                                    (
+                                        state.metrics.health_score,
+                                        state.metrics.empathy_index,
+                                        state.metrics.strain_index,
+                                        state.metrics.network_coherence,
+                                    )
+                                } else {
+                                    (0.0, 0.0, 0.0, 0.0)
+                                };
+
+                            // Map stakeholder impacts
+                            let stakeholder_impacts: std::collections::HashMap<String, f64> =
+                                projection
+                                    .stakeholder_impacts
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.impact_score))
+                                    .collect();
+
+                            let trajectory_str = format!("{:?}", projection.ethical_trajectory);
+
+                            let data = anna_common::ipc::ChronosForecastData {
+                                forecast_id: forecast.forecast_id.clone(),
+                                generated_at: forecast.generated_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                horizon_hours: forecast.horizon_hours,
+                                confidence: forecast.confidence,
+                                final_health,
+                                final_empathy,
+                                final_strain,
+                                final_coherence,
+                                temporal_empathy_index: projection.temporal_empathy_index,
+                                moral_cost: projection.moral_cost,
+                                ethical_trajectory: trajectory_str,
+                                stakeholder_impacts,
+                                divergence_warnings: forecast.divergence_warnings.clone(),
+                                recommendations: projection.intervention_recommendations.clone(),
+                                archive_hash: result.archive_hash,
+                            };
+
+                            Ok(ResponseData::ChronosForecast(data))
+                        }
+                        Err(e) => Err(format!("Forecast generation failed: {}", e)),
+                    }
+                }
+                None => Err("Chronos loop not initialized".to_string()),
+            }
+        }
+
+        Method::ChronosAudit => {
+            info!("ChronosAudit method called");
+
+            match &state.chronos {
+                Some(chronos) => {
+                    let summary = chronos.get_audit_summary().await;
+
+                    let recent_forecasts: Vec<anna_common::ipc::ForecastSummary> = summary
+                        .recent_forecasts
+                        .iter()
+                        .map(|f| anna_common::ipc::ForecastSummary {
+                            forecast_id: f.forecast_id.clone(),
+                            generated_at: f.generated_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            horizon_hours: f.horizon_hours,
+                            confidence: f.confidence,
+                            warnings_count: f.warnings_count,
+                            moral_cost: f.moral_cost,
+                        })
+                        .collect();
+
+                    let data = anna_common::ipc::ChronosAuditData {
+                        total_archived: summary.total_archived,
+                        recent_forecasts,
+                    };
+
+                    Ok(ResponseData::ChronosAudit(data))
+                }
+                None => Err("Chronos loop not initialized".to_string()),
+            }
+        }
+
+        Method::ChronosAlign => {
+            info!("ChronosAlign method called");
+
+            match &state.chronos {
+                Some(chronos) => {
+                    match chronos.align_parameters().await {
+                        Ok(()) => {
+                            let data = anna_common::ipc::ChronosAlignData {
+                                status: "Parameters aligned successfully".to_string(),
+                                parameters_aligned: 0,
+                                parameter_changes: std::collections::HashMap::new(),
+                            };
+
+                            Ok(ResponseData::ChronosAlign(data))
+                        }
+                        Err(e) => Err(format!("Parameter alignment failed: {}", e)),
+                    }
+                }
+                None => Err("Chronos loop not initialized".to_string()),
+            }
+        }
+
+        Method::MirrorAuditForecast { window_hours } => {
+            info!("MirrorAuditForecast method called");
+
+            let window = window_hours.unwrap_or(24);
+
+            match &state.mirror_audit {
+                Some(audit_lock) => {
+                    let audit = audit_lock.read().await;
+                    let summary = audit.get_summary();
+
+                    // Convert types to IPC data structures
+                    let active_biases: Vec<anna_common::ipc::BiasFindingData> = summary
+                        .active_biases
+                        .iter()
+                        .map(|b| anna_common::ipc::BiasFindingData {
+                            kind: format!("{:?}", b.kind),
+                            confidence: b.confidence,
+                            evidence: b.evidence.clone(),
+                            magnitude: b.magnitude,
+                            sample_size: b.sample_size,
+                        })
+                        .collect();
+
+                    let pending_adjustments: Vec<anna_common::ipc::AdjustmentPlanData> = summary
+                        .pending_adjustments
+                        .iter()
+                        .map(|p| anna_common::ipc::AdjustmentPlanData {
+                            plan_id: p.plan_id.clone(),
+                            created_at: p.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            target: format!("{:?}", p.target),
+                            adjustments: p
+                                .adjustments
+                                .iter()
+                                .map(|a| anna_common::ipc::ParameterAdjustmentData {
+                                    parameter: a.parameter.clone(),
+                                    current_value: a.current_value,
+                                    recommended_value: a.recommended_value,
+                                    reason: a.reason.clone(),
+                                })
+                                .collect(),
+                            expected_improvement: p.expected_improvement,
+                            rationale: p.rationale.clone(),
+                        })
+                        .collect();
+
+                    let data = anna_common::ipc::MirrorAuditTemporalData {
+                        total_audits: summary.total_audits,
+                        last_audit_at: summary
+                            .last_audit_at
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
+                        average_temporal_integrity: summary.average_temporal_integrity,
+                        active_biases,
+                        pending_adjustments,
+                    };
+
+                    Ok(ResponseData::MirrorAuditForecast(data))
+                }
+                None => Err("Mirror audit not initialized".to_string()),
+            }
+        }
+
+        Method::MirrorReflectTemporal { window_hours } => {
+            info!("MirrorReflectTemporal method called");
+
+            let window = window_hours.unwrap_or(24);
+
+            match &state.mirror_audit {
+                Some(audit_lock) => {
+                    let audit = audit_lock.read().await;
+                    let summary = audit.get_summary();
+
+                    // Generate reflection summary
+                    let biases_count = summary.active_biases.len();
+                    let avg_score = summary.average_temporal_integrity.unwrap_or(0.5);
+
+                    let reflection_summary = if biases_count > 0 {
+                        format!(
+                            "Temporal self-reflection reveals {} systematic bias pattern(s) with average integrity {:.1}%. \
+                             Recommended adjustments have been generated for review.",
+                            biases_count,
+                            avg_score * 100.0
+                        )
+                    } else {
+                        format!(
+                            "Temporal self-reflection shows healthy forecast accuracy with {:.1}% integrity. \
+                             No systematic biases detected.",
+                            avg_score * 100.0
+                        )
+                    };
+
+                    // Convert biases
+                    let biases_detected: Vec<anna_common::ipc::BiasFindingData> = summary
+                        .active_biases
+                        .iter()
+                        .map(|b| anna_common::ipc::BiasFindingData {
+                            kind: format!("{:?}", b.kind),
+                            confidence: b.confidence,
+                            evidence: b.evidence.clone(),
+                            magnitude: b.magnitude,
+                            sample_size: b.sample_size,
+                        })
+                        .collect();
+
+                    // Get first adjustment plan if available
+                    let recommended_adjustments = summary.pending_adjustments.first().map(|p| {
+                        anna_common::ipc::AdjustmentPlanData {
+                            plan_id: p.plan_id.clone(),
+                            created_at: p.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            target: format!("{:?}", p.target),
+                            adjustments: p
+                                .adjustments
+                                .iter()
+                                .map(|a| anna_common::ipc::ParameterAdjustmentData {
+                                    parameter: a.parameter.clone(),
+                                    current_value: a.current_value,
+                                    recommended_value: a.recommended_value,
+                                    reason: a.reason.clone(),
+                                })
+                                .collect(),
+                            expected_improvement: p.expected_improvement,
+                            rationale: p.rationale.clone(),
+                        }
+                    });
+
+                    let data = anna_common::ipc::MirrorReflectTemporalData {
+                        reflection_id: uuid::Uuid::new_v4().to_string(),
+                        generated_at: chrono::Utc::now()
+                            .format("%Y-%m-%d %H:%M:%S UTC")
+                            .to_string(),
+                        window_hours: window,
+                        temporal_integrity_score: avg_score,
+                        biases_detected,
+                        recommended_adjustments,
+                        summary: reflection_summary,
+                    };
+
+                    Ok(ResponseData::MirrorReflectTemporal(data))
+                }
+                None => Err("Mirror audit not initialized".to_string()),
             }
         }
     };

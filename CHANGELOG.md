@@ -5,6 +5,314 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0-rc.1] - 2025-11-12
+
+### 🔁 **Phase 1.6: Mirror Audit - Temporal Self-Reflection & Adaptive Learning**
+
+Anna closes the cognitive loop: prediction → reality → adaptation. The Mirror Audit system enables retrospective forecast verification, systematic bias detection, and advisory parameter adjustments based on observed errors.
+
+#### Added
+- **Mirror Audit Architecture** (~1,200 lines):
+  - Forecast alignment engine comparing predicted vs actual outcomes
+  - Systematic bias detection (confirmation, recency, availability, directional)
+  - Advisory adjustment plan generation for Chronos and Conscience
+  - Temporal integrity scoring (prediction accuracy + ethical alignment + coherence)
+  - Append-only JSONL audit trail with state persistence
+  - Configuration support via `/etc/anna/mirror_audit.yml`
+
+- **`annactl mirror` commands** (Phase 1.6 extensions):
+  - `mirror audit-forecast [--window 24h] [--json]` - Verify forecast accuracy
+  - `mirror reflect-temporal [--window 24h] [--json]` - Generate adaptive reflection
+
+- **Temporal Self-Reflection Features**:
+  - Error vector computation (health, empathy, strain, coherence, trust)
+  - Bias confidence scoring with sample size requirements
+  - Advisory-only parameter tuning (never auto-applied)
+  - Expected improvement estimation
+  - Rationale generation for all adjustments
+  - JSON and table output modes
+
+#### Technical Details
+- **Modules**:
+  - `mirror_audit/types.rs` (210 lines) - Complete type system
+  - `mirror_audit/align.rs` (190 lines) - Forecast comparison & error metrics
+  - `mirror_audit/bias.rs` (260 lines) - Systematic bias detection
+  - `mirror_audit/adjust.rs` (200 lines) - Advisory adjustment plans
+  - `mirror_audit/mod.rs` (230 lines) - Orchestration & persistence
+
+- **Bias Detection**:
+  - Confirmation bias: >60% optimistic predictions
+  - Recency bias: >0.2 error delta between recent/historical
+  - Availability bias: Combined strain underestimation + health overestimation
+  - Directional biases: >0.15 systematic error in any metric
+  - Minimum sample size: 5 audits
+  - Minimum confidence: 0.6 for reporting
+
+- **Temporal Integrity Score**:
+  - Prediction accuracy: 50% weight (inverse of MAE)
+  - Ethical alignment: 30% weight (trajectory correctness)
+  - Coherence stability: 20% weight (network coherence delta)
+  - Confidence based on component variance
+
+- **Adjustment Targets**:
+  - ChronosForecast: Monte Carlo iterations, noise factor, trend damping
+  - Conscience: Health thresholds, ethical evaluation parameters
+  - Empathy: Strain coupling, smoothing windows
+  - Mirror: Coherence thresholds, bias detection sensitivity
+
+#### Changed
+- Daemon now initializes Mirror Audit alongside Chronos Loop
+- IPC protocol extended with 2 new methods (MirrorAuditForecast, MirrorReflectTemporal)
+- Added 6 new data types for audit verification
+- Added `mirror_audit` field to DaemonState
+- Extended `mirror` CLI subcommands with temporal variants
+- Version bumped to 1.6.0-rc.1
+
+#### Configuration
+- Optional config: `/etc/anna/mirror_audit.yml`
+- Default schedule: 24 hours
+- Minimum confidence: 0.6
+- Write JSONL: enabled
+- Bias scanning: enabled
+- Advisory only: enabled (never auto-apply)
+- State: `/var/lib/anna/mirror_audit/state.json`
+- Audit log: `/var/log/anna/mirror-audit.jsonl`
+
+#### Security Model
+- Advisory-only adjustments (never auto-executed)
+- Append-only audit trail (immutable history)
+- Conscience sovereignty preserved
+- No automatic parameter mutations
+- Transparent rationale for all recommendations
+- Manual review required for all changes
+
+#### Notes
+- Mirror Audit enables continuous learning from forecast errors
+- Completes the temporal feedback loop: Observe → Project → Verify → Adapt
+- All adjustments are suggestions only, preserving operator control
+- Bias detection requires minimum data thresholds for statistical validity
+- Temporal integrity combines accuracy, ethics, and stability into unified metric
+- Citation: [archwiki:System_maintenance]
+
+## [1.5.0-rc.1] - 2025-11-12
+
+### ⏳ **Phase 1.5: Chronos Loop - Temporal Reasoning & Predictive Ethics**
+
+Anna gains temporal consciousness—the capacity to feel tomorrow before it arrives. The Collective Mind now projects ethical trajectories forward, enabling pre-emptive conflict resolution and moral impact forecasting through stochastic simulation.
+
+#### Added
+- **Chronos Loop Architecture** (~2,500 lines):
+  - Timeline system with snapshot-based state tracking and diff calculation
+  - Monte Carlo forecast engine with probabilistic outcome generation (100 iterations)
+  - Ethics projection with temporal empathy and stakeholder impact analysis
+  - Chronicle persistence for long-term forecast archiving and audit trails
+  - Hash-based integrity verification for forecast reproducibility
+  - Accuracy auditing comparing predicted vs actual outcomes
+  - Divergence detection with configurable ethical thresholds
+  - State persistence to `/var/lib/anna/chronos/timeline.log` and `forecast.db`
+
+- **`annactl chronos` commands**:
+  - `chronos forecast [window]` - Generate probabilistic forecast (default 24 hours)
+  - `chronos audit` - Review recent forecasts with accuracy metrics
+  - `chronos align` - Synchronize forecast parameters across network
+
+- **Temporal Consciousness Features**:
+  - Automatic snapshot collection every 15 minutes
+  - Periodic forecast generation every 6 hours
+  - Timeline persistence every hour
+  - Temporal empathy index (future-weighted moral sentiment)
+  - Multi-stakeholder impact projection (user 40%, system 30%, network 20%, environment 10%)
+  - Ethical trajectory classification (5 levels: SignificantImprovement → DangerousDegradation)
+  - Consensus scenario calculation via median aggregation
+  - Confidence scoring based on scenario deviation
+  - Automated intervention recommendations
+
+#### Technical Details
+- **Modules**:
+  - `chronos/timeline.rs` (380 lines) - SystemSnapshot, Timeline, diff/trend analysis
+  - `chronos/forecast.rs` (420 lines) - ForecastEngine, Monte Carlo simulation
+  - `chronos/ethics_projection.rs` (460 lines) - EthicsProjector, stakeholder analysis
+  - `chronos/chronicle.rs` (440 lines) - ArchivedForecast, audit trail, accuracy verification
+  - `chronos/mod.rs` (450 lines) - ChronosLoop daemon orchestration
+
+- **Forecast Engine**:
+  - Monte Carlo iterations: 100 (configurable)
+  - Noise factor: 0.15 (15% stochastic variation)
+  - Trend damping: 0.95 per step
+  - Deterministic randomness for reproducibility
+  - Consensus via median of all scenarios
+  - Confidence calculation: 1.0 - (scenario deviation / 4.0)
+
+- **Ethics Projection**:
+  - Temporal empathy: Future-weighted (linear increase by time step)
+  - Ethical thresholds:
+    - Major degradation: health <0.4, strain >0.8, coherence <0.5
+    - Minor degradation: health <0.6, strain >0.6, coherence <0.7
+    - Significant improvement: health >0.9, strain <0.2, coherence >0.9
+  - Stakeholder weighting: User (0.4), System (0.3), Network (0.2), Environment (0.1)
+  - Moral cost: Sum of negative impacts across stakeholders
+
+- **Chronicle Archive**:
+  - Maximum archives: 1000 forecasts
+  - Hash format: `hash_{forecast_id}_{projection_id}_{timestamp}`
+  - Accuracy metrics: Health, empathy, strain, coherence error
+  - Warning validation: Threshold-based verification
+  - Audit recommendations: Parameter tuning based on accuracy
+
+#### Changed
+- Daemon now initializes Chronos Loop alongside Mirror Protocol
+- IPC protocol extended with 3 new methods (ChronosForecast, ChronosAudit, ChronosAlign)
+- Added 14 new data types for temporal reasoning (ChronosForecastData, etc.)
+- Added `chronos` field to DaemonState
+- Version bumped to 1.5.0-rc.1
+
+#### Configuration
+- Default snapshot interval: 15 minutes
+- Default forecast interval: 6 hours
+- Default forecast window: 24 hours
+- Timeline retention: 672 snapshots (1 week at 15min intervals)
+- Config file: `/etc/anna/chronos.yml` (optional, uses defaults if absent)
+
+#### Security Model
+- Hash-signed forecasts for audit reproducibility
+- No temporal actions executed without explicit approval
+- Differential privacy for consensus forecasting (planned)
+- All projections remain advisory, not prescriptive
+- Forecast archives immutable after generation
+
+#### Notes
+- Chronos Loop enabled by default with conservative thresholds
+- Forecast generation requires minimum historical timeline data
+- Ethics projections provide guidance only, never override conscience layer
+- Temporal reasoning complements but does not replace real-time empathy
+- Citation: [archwiki:System_maintenance]
+
+## [1.4.0-rc.1] - 2025-11-11
+
+### 🔮 **Phase 1.4: The Mirror Protocol - Recursive Introspection**
+
+Anna gains metacognition—the ability to reflect on reflection. The network now observes itself observing, establishing bidirectional self-audit loops for moral and operational consistency.
+
+#### Added
+- **Mirror Protocol Architecture** (~2,000 lines):
+  - Reflection generation for compact ethical/empathic decision records
+  - Peer critique evaluation with inconsistency and bias detection
+  - Mirror consensus for quorum-based collective alignment
+  - Bias remediation engine (confirmation, recency, availability bias)
+  - Network coherence calculation (self-coherence + peer assessment + agreement)
+  - State persistence to `/var/lib/anna/mirror/state.json`
+  - Reflection logs to `/var/lib/anna/mirror/reflections.log`
+
+- **`annactl mirror` commands**:
+  - `mirror reflect` - Generate manual reflection cycle
+  - `mirror audit` - Summarize peer critiques and network coherence
+  - `mirror repair` - Trigger remediation protocol for detected biases
+
+- **Metacognitive Features**:
+  - Automatic reflection generation every 24 hours
+  - Peer critique with coherence assessment (self vs actual consistency)
+  - Systemic bias detection (affecting ≥2 nodes)
+  - Consensus-driven remediations (parameter reweight, trust reset, conscience adjustment)
+  - Network coherence threshold enforcement (default 0.7)
+  - Differential privacy for consensus sessions
+
+#### Technical Details
+- **Modules**:
+  - `mirror/types.rs` (390 lines) - Complete type system including audit summaries
+  - `mirror/reflection.rs` (320 lines) - Self-assessment generation
+  - `mirror/critique.rs` (420 lines) - Peer evaluation engine
+  - `mirror/mirror_consensus.rs` (450 lines) - Collective alignment coordinator
+  - `mirror/repair.rs` (360 lines) - Bias remediation execution
+  - `mirror/mod.rs` (450 lines) - Main daemon orchestration
+
+- **Bias Detection**:
+  - Confirmation bias: >95% or <5% approval rates
+  - Recency bias: Recent 20% decisions differ >0.2 from older 80%
+  - Availability bias: Excessive empathy adaptations (>10)
+  - Empathy-strain contradictions
+  - Coherence-bias mismatches
+
+- **Remediation Types**:
+  - ParameterReweight: Adjust scrutiny/strain thresholds
+  - TrustReset: Recalibrate peer relationships
+  - ConscienceAdjustment: Modify ethical evaluation parameters
+  - PatternRetrain: Address systematic issues
+  - ManualReview: Escalate unknown patterns
+
+#### Changed
+- Daemon now initializes Mirror Protocol alongside Collective Mind
+- IPC protocol extended with 3 new methods (MirrorReflect, MirrorAudit, MirrorRepair)
+- Added `mirror` field to DaemonState
+- Version bumped to 1.4.0-rc.1
+
+#### Security Model
+- AES-256-GCM encryption for reflection data (when implemented)
+- Differential privacy for mirror consensus
+- Conscience layer sovereignty preserved
+- No peer can force remediations on another node
+
+#### Notes
+- Mirror Protocol enabled by default with placeholder configuration
+- Consensus requires minimum 3 nodes for quorum
+- Reflection period defaults to 24 hours, consensus every 7 days
+- Citation: [archwiki:System_maintenance]
+
+## [1.3.0-rc.1] - 2025-11-11
+
+### 🌐 **Phase 1.3: Collective Mind - Distributed Cooperation**
+
+Anna evolves from empathetic custodian into a distributed civilization of ethical agents—capable of multi-node coordination, consensus-based decision making, and shared learning without centralization.
+
+#### Added
+- **Collective Mind Architecture** (~1,900 lines):
+  - Gossip Protocol v1 for peer-to-peer discovery and event propagation
+  - Trust Ledger with weighted scoring (honesty 50%, ethical 30%, reliability 20%)
+  - Consensus Engine with 60% weighted approval threshold
+  - Network-wide empathy/strain synchronization
+  - Distributed introspection for cross-node ethical audits
+  - Ed25519-style cryptographic identity (placeholder for development)
+  - State persistence to `/var/lib/anna/collective/state.json`
+
+- **`annactl collective` commands**:
+  - `collective status` - Network health, peers, consensus activity
+  - `collective trust <peer_id>` - Trust details for a specific peer
+  - `collective explain <consensus_id>` - Consensus decision explanation
+
+- **Distributed Features**:
+  - Peer announcement via signed gossip messages
+  - Heartbeat monitoring with reliability scoring
+  - Trust decay toward neutral (1% per day)
+  - Network health calculation (empathy 40%, low strain 40%, sync recency 20%)
+  - Cross-node introspection requests (conscience, empathy, health)
+  - Replay attack prevention via message deduplication
+
+#### Technical Details
+- **Modules**:
+  - `collective/types.rs` (320 lines) - Complete type system
+  - `collective/crypto.rs` (170 lines) - Cryptographic operations
+  - `collective/trust.rs` (220 lines) - Reputation management
+  - `collective/gossip.rs` (320 lines) - UDP-based messaging
+  - `collective/consensus.rs` (270 lines) - Weighted voting
+  - `collective/sync.rs` (250 lines) - State synchronization
+  - `collective/introspect.rs` (220 lines) - Distributed audits
+  - `collective/mod.rs` (370 lines) - Main daemon
+
+- **Security Model**:
+  - End-to-end message signing (placeholder crypto)
+  - Peer trust scoring prevents Sybil attacks
+  - No peer can override another's Conscience Layer
+  - Ethics isolation enforced at protocol level
+
+#### Changed
+- Daemon now initializes Collective Mind alongside Sentinel
+- IPC protocol extended with 3 new methods for collective operations
+- Version bumped to 1.3.0-rc.1
+
+#### Notes
+- Collective Mind disabled by default (requires configuration in `/etc/anna/collective.yml`)
+- Cryptographic implementation is placeholder—production requires proper libraries (ed25519-dalek, aes-gcm)
+- Citation: [archwiki:System_maintenance]
+
 ## [1.0.0-rc.1] - 2025-11-11
 
 ### 🤖 **Phase 1.0: Sentinel Framework - Autonomous System Governance**

@@ -79,10 +79,15 @@
 mod action_history;
 mod audit;
 mod autonomy;
+mod chronos; // Phase 1.5: Chronos Loop
+mod collective; // Phase 1.3: Collective Mind
 mod conscience; // Phase 1.1: Conscience layer
+mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod install; // Phase 0.8: Installation subsystem
+mod mirror; // Phase 1.4: Mirror Protocol
+mod mirror_audit; // Phase 1.6: Mirror Audit
 mod notifier;
 mod recommender;
 mod recovery; // Phase 0.6: Recovery framework
@@ -216,6 +221,127 @@ async fn main() -> Result<()> {
         Err(e) => {
             tracing::warn!("Failed to initialize Sentinel framework: {}", e);
             tracing::warn!("Continuing without autonomous monitoring");
+        }
+    }
+
+    // Initialize Collective Mind (Phase 1.3)
+    info!("Initializing Collective Mind...");
+    match collective::CollectiveMind::new().await {
+        Ok(collective_mind) => {
+            info!("Collective Mind initialized - distributed cooperation enabled");
+
+            // Store collective in daemon state
+            let collective_arc = Arc::new(collective_mind);
+            {
+                // SAFETY: We're converting Arc<DaemonState> to a mutable reference
+                // This is safe because we're the only ones with access at this point
+                let state_ptr = Arc::as_ptr(&state) as *mut rpc_server::DaemonState;
+                unsafe {
+                    (*state_ptr).collective = Some(Arc::clone(&collective_arc));
+                }
+            }
+
+            // Start collective daemon as background task
+            let collective_task = Arc::clone(&collective_arc);
+            tokio::spawn(async move {
+                if let Err(e) = collective_task.start().await {
+                    tracing::error!("Collective Mind daemon error: {}", e);
+                }
+            });
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize Collective Mind: {}", e);
+            tracing::warn!("Continuing without distributed cooperation");
+        }
+    }
+
+    // Initialize Mirror Protocol (Phase 1.4)
+    info!("Initializing Mirror Protocol...");
+    match mirror::MirrorProtocol::new("anna_node_1".to_string(), "mirror_key_placeholder".to_string()).await {
+        Ok(mirror_protocol) => {
+            info!("Mirror Protocol initialized - metacognition enabled");
+
+            // Store mirror in daemon state
+            let mirror_arc = Arc::new(mirror_protocol);
+            {
+                // SAFETY: We're converting Arc<DaemonState> to a mutable reference
+                // This is safe because we're the only ones with access at this point
+                let state_ptr = Arc::as_ptr(&state) as *mut rpc_server::DaemonState;
+                unsafe {
+                    (*state_ptr).mirror = Some(Arc::clone(&mirror_arc));
+                }
+            }
+
+            // Start mirror daemon as background task
+            let mirror_task = Arc::clone(&mirror_arc);
+            tokio::spawn(async move {
+                if let Err(e) = mirror_task.start().await {
+                    tracing::error!("Mirror Protocol daemon error: {}", e);
+                }
+            });
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize Mirror Protocol: {}", e);
+            tracing::warn!("Continuing without recursive introspection");
+        }
+    }
+
+    // Initialize Chronos Loop (Phase 1.5)
+    info!("Initializing Chronos Loop...");
+    match chronos::ChronosLoop::new().await {
+        Ok(chronos_loop) => {
+            info!("Chronos Loop initialized - temporal consciousness enabled");
+
+            // Store chronos in daemon state
+            let chronos_arc = Arc::new(chronos_loop);
+            {
+                // SAFETY: We're converting Arc<DaemonState> to a mutable reference
+                // This is safe because we're the only ones with access at this point
+                let state_ptr = Arc::as_ptr(&state) as *mut rpc_server::DaemonState;
+                unsafe {
+                    (*state_ptr).chronos = Some(Arc::clone(&chronos_arc));
+                }
+            }
+
+            // Start chronos daemon as background task
+            let chronos_task = Arc::clone(&chronos_arc);
+            tokio::spawn(async move {
+                if let Err(e) = chronos_task.start().await {
+                    tracing::error!("Chronos Loop daemon error: {}", e);
+                }
+            });
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize Chronos Loop: {}", e);
+            tracing::warn!("Continuing without temporal reasoning");
+        }
+    }
+
+    // Initialize Mirror Audit (Phase 1.6)
+    info!("Initializing Mirror Audit...");
+    match mirror_audit::MirrorAudit::new(
+        "/var/lib/anna/mirror_audit/state.json".to_string(),
+        "/var/log/anna/mirror-audit.jsonl".to_string(),
+    )
+    .await
+    {
+        Ok(mirror_audit_system) => {
+            info!("Mirror Audit initialized - temporal self-reflection enabled");
+
+            // Store mirror audit in daemon state
+            let mirror_audit_arc = Arc::new(tokio::sync::RwLock::new(mirror_audit_system));
+            {
+                // SAFETY: We're converting Arc<DaemonState> to a mutable reference
+                // This is safe because we're the only ones with access at this point
+                let state_ptr = Arc::as_ptr(&state) as *mut rpc_server::DaemonState;
+                unsafe {
+                    (*state_ptr).mirror_audit = Some(Arc::clone(&mirror_audit_arc));
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize Mirror Audit: {}", e);
+            tracing::warn!("Continuing without temporal audit");
         }
     }
 

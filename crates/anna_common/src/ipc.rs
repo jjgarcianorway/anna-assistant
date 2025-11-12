@@ -197,6 +197,76 @@ pub enum Method {
     /// Trigger manual conscience introspection (Phase 1.1)
     /// Citation: [archwiki:System_maintenance]
     ConscienceIntrospect,
+
+    /// Get current empathy pulse (Phase 1.2)
+    /// Citation: [archwiki:System_maintenance]
+    EmpathyPulse,
+
+    /// Simulate empathy evaluation for an action (Phase 1.2)
+    /// Citation: [archwiki:System_maintenance]
+    EmpathySimulate {
+        /// Action to simulate
+        action: String,
+    },
+
+    /// Get collective mind status (Phase 1.3)
+    /// Citation: [archwiki:System_maintenance]
+    CollectiveStatus,
+
+    /// Get trust details for a peer (Phase 1.3)
+    /// Citation: [archwiki:System_maintenance]
+    CollectiveTrust {
+        /// Peer ID to query
+        peer_id: String,
+    },
+
+    /// Explain a consensus decision (Phase 1.3)
+    /// Citation: [archwiki:System_maintenance]
+    CollectiveExplain {
+        /// Consensus ID to explain
+        consensus_id: String,
+    },
+
+    /// Generate reflection report (Phase 1.4)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorReflect,
+
+    /// Get mirror audit summary (Phase 1.4)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorAudit,
+
+    /// Trigger bias remediation (Phase 1.4)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorRepair,
+
+    /// Generate temporal forecast (Phase 1.5)
+    /// Citation: [archwiki:System_maintenance]
+    ChronosForecast {
+        /// Forecast window (hours)
+        window_hours: u64,
+    },
+
+    /// Get chronos audit summary (Phase 1.5)
+    /// Citation: [archwiki:System_maintenance]
+    ChronosAudit,
+
+    /// Align forecast parameters across network (Phase 1.5)
+    /// Citation: [archwiki:System_maintenance]
+    ChronosAlign,
+
+    /// Run temporal forecast audit (Phase 1.6)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorAuditForecast {
+        /// Window hours for audit (default 24)
+        window_hours: Option<u64>,
+    },
+
+    /// Generate temporal self-reflection with adaptive learning (Phase 1.6)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorReflectTemporal {
+        /// Window hours for reflection (default 24)
+        window_hours: Option<u64>,
+    },
 }
 
 /// Response data variants
@@ -327,6 +397,58 @@ pub enum ResponseData {
     /// Conscience action result (Phase 1.1)
     /// Citation: [archwiki:System_maintenance]
     ConscienceActionResult(String),
+
+    /// Empathy pulse (Phase 1.2)
+    /// Citation: [archwiki:System_maintenance]
+    EmpathyPulse(EmpathyPulseData),
+
+    /// Empathy simulation result (Phase 1.2)
+    /// Citation: [archwiki:System_maintenance]
+    EmpathySimulation(EmpathySimulationData),
+
+    /// Collective mind status (Phase 1.3)
+    /// Citation: [archwiki:System_maintenance]
+    CollectiveStatus(CollectiveStatusData),
+
+    /// Collective peer trust details (Phase 1.3)
+    /// Citation: [archwiki:System_maintenance]
+    CollectiveTrust(CollectiveTrustData),
+
+    /// Collective consensus explanation (Phase 1.3)
+    /// Citation: [archwiki:System_maintenance]
+    CollectiveExplanation(CollectiveExplanationData),
+
+    /// Mirror reflection report (Phase 1.4)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorReflection(MirrorReflectionData),
+
+    /// Mirror audit summary (Phase 1.4)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorAudit(MirrorAuditData),
+
+    /// Mirror repair report (Phase 1.4)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorRepair(MirrorRepairData),
+
+    /// Chronos forecast result (Phase 1.5)
+    /// Citation: [archwiki:System_maintenance]
+    ChronosForecast(ChronosForecastData),
+
+    /// Chronos audit summary (Phase 1.5)
+    /// Citation: [archwiki:System_maintenance]
+    ChronosAudit(ChronosAuditData),
+
+    /// Chronos alignment result (Phase 1.5)
+    /// Citation: [archwiki:System_maintenance]
+    ChronosAlign(ChronosAlignData),
+
+    /// Mirror forecast audit result (Phase 1.6)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorAuditForecast(MirrorAuditTemporalData),
+
+    /// Mirror temporal reflection result (Phase 1.6)
+    /// Citation: [archwiki:System_maintenance]
+    MirrorReflectTemporal(MirrorReflectTemporalData),
 }
 
 /// Type of streaming chunk
@@ -906,4 +1028,473 @@ pub struct ConscienceIntrospectionData {
     pub violations_count: u64,
     /// Recommendations
     pub recommendations: Vec<String>,
+}
+
+/// Empathy pulse data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmpathyPulseData {
+    /// Timestamp
+    pub timestamp: String,
+    /// Empathy index (0.0-1.0)
+    pub empathy_index: f64,
+    /// Strain index (0.0-1.0)
+    pub strain_index: f64,
+    /// Resonance map
+    pub resonance_map: ResonanceMapData,
+    /// Context summary
+    pub context_summary: String,
+    /// Recent perceptions
+    pub recent_perceptions: Vec<PerceptionRecordData>,
+}
+
+/// Resonance map data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResonanceMapData {
+    /// User resonance (0.0-1.0)
+    pub user_resonance: f64,
+    /// System resonance (0.0-1.0)
+    pub system_resonance: f64,
+    /// Environment resonance (0.0-1.0)
+    pub environment_resonance: f64,
+    /// Recent adjustments
+    pub recent_adjustments: Vec<ResonanceAdjustmentData>,
+}
+
+/// Resonance adjustment data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResonanceAdjustmentData {
+    /// Timestamp
+    pub timestamp: String,
+    /// Stakeholder
+    pub stakeholder: String,
+    /// Delta
+    pub delta: f64,
+    /// Reason
+    pub reason: String,
+}
+
+/// Perception record data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerceptionRecordData {
+    /// Timestamp
+    pub timestamp: String,
+    /// Action
+    pub action: String,
+    /// Stakeholder impacts
+    pub stakeholder_impacts: StakeholderImpactsData,
+    /// Context factors
+    pub context_factors: Vec<String>,
+    /// Adaptation
+    pub adaptation: Option<String>,
+}
+
+/// Stakeholder impacts data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakeholderImpactsData {
+    /// User impact
+    pub user: StakeholderImpactData,
+    /// System impact
+    pub system: StakeholderImpactData,
+    /// Environment impact
+    pub environment: StakeholderImpactData,
+}
+
+/// Stakeholder impact data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StakeholderImpactData {
+    /// Impact score (0.0-1.0)
+    pub score: f64,
+    /// Impact type
+    pub impact_type: String,
+    /// Reasoning
+    pub reasoning: String,
+}
+
+/// Empathy simulation data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmpathySimulationData {
+    /// Action simulated
+    pub action: String,
+    /// Evaluation
+    pub evaluation: EmpathyEvaluationData,
+    /// Reasoning explanation
+    pub reasoning: String,
+    /// Would action proceed?
+    pub would_proceed: bool,
+}
+
+/// Empathy evaluation data (Phase 1.2)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmpathyEvaluationData {
+    /// Should defer?
+    pub should_defer: bool,
+    /// Deferral reason
+    pub deferral_reason: Option<String>,
+    /// Stakeholder impacts
+    pub stakeholder_impacts: StakeholderImpactsData,
+    /// Context factors
+    pub context_factors: Vec<String>,
+    /// Recommended delay (seconds)
+    pub recommended_delay: u64,
+    /// Tone adaptation
+    pub tone_adaptation: Option<String>,
+}
+
+/// Collective mind status data (Phase 1.3)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectiveStatusData {
+    /// Is collective mind enabled?
+    pub enabled: bool,
+    /// This node's ID
+    pub node_id: String,
+    /// Number of connected peers
+    pub connected_peers: usize,
+    /// Total known peers
+    pub total_peers: usize,
+    /// Average network empathy (0.0-1.0)
+    pub avg_network_empathy: f64,
+    /// Average network strain (0.0-1.0)
+    pub avg_network_strain: f64,
+    /// Number of recent consensus decisions
+    pub recent_decisions: usize,
+    /// Overall network health (0.0-1.0)
+    pub network_health: f64,
+}
+
+/// Collective peer trust data (Phase 1.3)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectiveTrustData {
+    /// Peer ID
+    pub peer_id: String,
+    /// Peer name
+    pub peer_name: String,
+    /// Peer address
+    pub peer_address: String,
+    /// Overall trust score (0.0-1.0)
+    pub overall_trust: f64,
+    /// Honesty score (0.0-1.0)
+    pub honesty: f64,
+    /// Reliability score (0.0-1.0)
+    pub reliability: f64,
+    /// Ethical alignment score (0.0-1.0)
+    pub ethical_alignment: f64,
+    /// Total messages received
+    pub messages_received: u64,
+    /// Messages validated
+    pub messages_validated: u64,
+    /// Last interaction timestamp
+    pub last_interaction: String,
+    /// Connected?
+    pub connected: bool,
+}
+
+/// Collective consensus explanation data (Phase 1.3)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectiveExplanationData {
+    /// Consensus ID
+    pub consensus_id: String,
+    /// Action being decided
+    pub action: String,
+    /// Decision outcome
+    pub decision: String,
+    /// Timestamp
+    pub timestamp: String,
+    /// Vote breakdown
+    pub votes: Vec<ConsensusVoteData>,
+    /// Total participants
+    pub total_participants: usize,
+    /// Approval percentage
+    pub approval_percentage: f64,
+    /// Weighted approval percentage
+    pub weighted_approval: f64,
+    /// Reasoning
+    pub reasoning: String,
+}
+
+/// Consensus vote data (Phase 1.3)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsensusVoteData {
+    /// Peer ID
+    pub peer_id: String,
+    /// Vote type
+    pub vote: String,
+    /// Vote weight
+    pub weight: f64,
+    /// Ethical score
+    pub ethical_score: f64,
+    /// Reasoning
+    pub reasoning: String,
+    /// Trust score at time of vote
+    pub trust_score: f64,
+}
+
+/// Mirror reflection data (Phase 1.4)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorReflectionData {
+    /// Reflection ID
+    pub reflection_id: String,
+    /// Timestamp
+    pub timestamp: String,
+    /// Period start
+    pub period_start: String,
+    /// Period end
+    pub period_end: String,
+    /// Self-coherence score (0.0-1.0)
+    pub self_coherence: f64,
+    /// Ethical decisions count
+    pub ethical_decisions_count: usize,
+    /// Conscience actions count
+    pub conscience_actions_count: usize,
+    /// Average empathy index
+    pub avg_empathy_index: f64,
+    /// Average strain index
+    pub avg_strain_index: f64,
+    /// Empathy trend
+    pub empathy_trend: String,
+    /// Adaptations count
+    pub adaptations_count: usize,
+    /// Self-identified biases
+    pub self_identified_biases: Vec<String>,
+}
+
+/// Mirror audit data (Phase 1.4)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorAuditData {
+    /// Is enabled?
+    pub enabled: bool,
+    /// Current coherence
+    pub current_coherence: f64,
+    /// Last reflection time
+    pub last_reflection: Option<String>,
+    /// Last consensus time
+    pub last_consensus: Option<String>,
+    /// Recent reflections count
+    pub recent_reflections_count: usize,
+    /// Received critiques count
+    pub received_critiques_count: usize,
+    /// Active remediations count
+    pub active_remediations_count: usize,
+    /// Network coherence (if in consensus)
+    pub network_coherence: Option<f64>,
+    /// Recent critiques summary
+    pub recent_critiques: Vec<CritiqueSummary>,
+}
+
+/// Critique summary (Phase 1.4)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CritiqueSummary {
+    /// Critic ID
+    pub critic_id: String,
+    /// Coherence assessment
+    pub coherence_assessment: f64,
+    /// Inconsistencies count
+    pub inconsistencies_count: usize,
+    /// Biases count
+    pub biases_count: usize,
+    /// Recommendations
+    pub recommendations: Vec<String>,
+}
+
+/// Mirror repair data (Phase 1.4)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorRepairData {
+    /// Timestamp
+    pub timestamp: String,
+    /// Total remediations
+    pub total_remediations: usize,
+    /// Successful remediations
+    pub successful_remediations: usize,
+    /// Failed remediations
+    pub failed_remediations: usize,
+    /// Summary
+    pub summary: String,
+    /// Applied remediations
+    pub applied_remediations: Vec<RemediationSummary>,
+}
+
+/// Remediation summary (Phase 1.4)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemediationSummary {
+    /// Description
+    pub description: String,
+    /// Type
+    pub remediation_type: String,
+    /// Expected impact
+    pub expected_impact: String,
+    /// Parameter adjustments
+    pub parameter_adjustments: std::collections::HashMap<String, f64>,
+}
+
+/// Chronos forecast data (Phase 1.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChronosForecastData {
+    /// Forecast ID
+    pub forecast_id: String,
+    /// Generated timestamp
+    pub generated_at: String,
+    /// Forecast horizon (hours)
+    pub horizon_hours: u64,
+    /// Confidence score (0.0-1.0)
+    pub confidence: f64,
+    /// Final projected health score
+    pub final_health: f64,
+    /// Final projected empathy index
+    pub final_empathy: f64,
+    /// Final projected strain index
+    pub final_strain: f64,
+    /// Final projected network coherence
+    pub final_coherence: f64,
+    /// Temporal empathy index
+    pub temporal_empathy_index: f64,
+    /// Moral cost
+    pub moral_cost: f64,
+    /// Ethical trajectory
+    pub ethical_trajectory: String,
+    /// Stakeholder impacts
+    pub stakeholder_impacts: std::collections::HashMap<String, f64>,
+    /// Divergence warnings
+    pub divergence_warnings: Vec<String>,
+    /// Intervention recommendations
+    pub recommendations: Vec<String>,
+    /// Archive hash
+    pub archive_hash: String,
+}
+
+/// Chronos audit data (Phase 1.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChronosAuditData {
+    /// Total archived forecasts
+    pub total_archived: usize,
+    /// Recent forecasts
+    pub recent_forecasts: Vec<ForecastSummary>,
+}
+
+/// Forecast summary (Phase 1.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForecastSummary {
+    /// Forecast ID
+    pub forecast_id: String,
+    /// Generated timestamp
+    pub generated_at: String,
+    /// Horizon (hours)
+    pub horizon_hours: u64,
+    /// Confidence
+    pub confidence: f64,
+    /// Warnings count
+    pub warnings_count: usize,
+    /// Moral cost
+    pub moral_cost: f64,
+}
+
+/// Chronos alignment data (Phase 1.5)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChronosAlignData {
+    /// Alignment status
+    pub status: String,
+    /// Parameters aligned
+    pub parameters_aligned: usize,
+    /// Parameter changes
+    pub parameter_changes: std::collections::HashMap<String, String>,
+}
+
+/// Mirror audit temporal data (Phase 1.6)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorAuditTemporalData {
+    /// Total audits performed
+    pub total_audits: usize,
+    /// Last audit timestamp
+    pub last_audit_at: Option<String>,
+    /// Average temporal integrity score
+    pub average_temporal_integrity: Option<f64>,
+    /// Active bias findings
+    pub active_biases: Vec<BiasFindingData>,
+    /// Pending adjustment plans
+    pub pending_adjustments: Vec<AdjustmentPlanData>,
+}
+
+/// Bias finding data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BiasFindingData {
+    /// Type of bias
+    pub kind: String,
+    /// Confidence [0.0..1.0]
+    pub confidence: f64,
+    /// Supporting evidence
+    pub evidence: String,
+    /// Magnitude of bias
+    pub magnitude: f64,
+    /// Sample size
+    pub sample_size: usize,
+}
+
+/// Adjustment plan data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdjustmentPlanData {
+    /// Plan ID
+    pub plan_id: String,
+    /// Created timestamp
+    pub created_at: String,
+    /// Target subsystem
+    pub target: String,
+    /// Parameter adjustments
+    pub adjustments: Vec<ParameterAdjustmentData>,
+    /// Expected improvement [0.0..1.0]
+    pub expected_improvement: f64,
+    /// Rationale
+    pub rationale: String,
+}
+
+/// Parameter adjustment data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParameterAdjustmentData {
+    /// Parameter name
+    pub parameter: String,
+    /// Current value (if known)
+    pub current_value: Option<f64>,
+    /// Recommended value
+    pub recommended_value: f64,
+    /// Justification
+    pub reason: String,
+}
+
+/// Mirror reflect temporal data (Phase 1.6)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorReflectTemporalData {
+    /// Reflection ID
+    pub reflection_id: String,
+    /// Generated timestamp
+    pub generated_at: String,
+    /// Window hours analyzed
+    pub window_hours: u64,
+    /// Temporal integrity score
+    pub temporal_integrity_score: f64,
+    /// Detected biases
+    pub biases_detected: Vec<BiasFindingData>,
+    /// Recommended adjustments
+    pub recommended_adjustments: Option<AdjustmentPlanData>,
+    /// Summary
+    pub summary: String,
 }

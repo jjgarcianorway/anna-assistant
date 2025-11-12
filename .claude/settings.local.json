@@ -22,7 +22,8 @@
       "Bash(groups:*)",
       "Bash(release-v1.0.0-rc.13.2/annad )",
       "Bash(release-v1.0.0-rc.13.2/annactl )",
-      "Bash(release-v1.0.0-rc.13.2/SHA256SUMS)"
+      "Bash(release-v1.0.0-rc.13.2/SHA256SUMS)",
+      "Bash(./target/debug/annad:*)"
     ],
     "deny": [],
     "ask": []

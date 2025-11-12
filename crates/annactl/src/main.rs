@@ -8,10 +8,14 @@
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
 pub mod errors;
+mod chronos_commands; // Phase 1.5
+mod collective_commands; // Phase 1.3
 mod conscience_commands; // Phase 1.1
+mod empathy_commands; // Phase 1.2
 mod health_commands;
 mod install_command; // Phase 0.8
 pub mod logging;
+mod mirror_commands; // Phase 1.4
 pub mod output;
 mod rpc_client; // Phase 0.5b
 mod sentinel_cli; // Phase 1.0
@@ -142,6 +146,34 @@ enum Commands {
         #[command(subcommand)]
         subcommand: ConscienceSubcommand,
     },
+
+    /// Empathy kernel (Phase 1.2)
+    Empathy {
+        /// Subcommand: pulse, simulate
+        #[command(subcommand)]
+        subcommand: EmpathySubcommand,
+    },
+
+    /// Collective mind (Phase 1.3)
+    Collective {
+        /// Subcommand: status, trust, explain
+        #[command(subcommand)]
+        subcommand: CollectiveSubcommand,
+    },
+
+    /// Mirror protocol (Phase 1.4)
+    Mirror {
+        /// Subcommand: reflect, audit, repair
+        #[command(subcommand)]
+        subcommand: MirrorSubcommand,
+    },
+
+    /// Chronos loop (Phase 1.5)
+    Chronos {
+        /// Subcommand: forecast, audit, align
+        #[command(subcommand)]
+        subcommand: ChronosSubcommand,
+    },
 }
 
 /// Sentinel subcommands
@@ -189,6 +221,79 @@ enum ConscienceSubcommand {
     },
     /// Run manual introspection
     Introspect,
+}
+
+/// Empathy subcommands (Phase 1.2)
+#[derive(Subcommand)]
+enum EmpathySubcommand {
+    /// Show current empathy pulse
+    Pulse,
+    /// Simulate empathy evaluation for an action
+    Simulate {
+        /// Action to simulate (e.g., "SystemUpdate", "RestartService")
+        action: String,
+    },
+}
+
+/// Collective subcommands (Phase 1.3)
+#[derive(Subcommand)]
+enum CollectiveSubcommand {
+    /// Show network status
+    Status,
+    /// Show trust details for a peer
+    Trust {
+        /// Peer ID to query
+        peer_id: String,
+    },
+    /// Explain a consensus decision
+    Explain {
+        /// Consensus ID to explain
+        consensus_id: String,
+    },
+}
+
+/// Mirror subcommands (Phase 1.4 + 1.6)
+#[derive(Subcommand)]
+enum MirrorSubcommand {
+    /// Generate manual reflection cycle
+    Reflect,
+    /// Summarize last peer critiques
+    Audit,
+    /// Trigger remediation protocol
+    Repair,
+    /// Audit forecast accuracy (Phase 1.6)
+    AuditForecast {
+        /// Window hours for audit
+        #[arg(default_value = "24")]
+        window: u64,
+        /// Output JSON format
+        #[arg(long)]
+        json: bool,
+    },
+    /// Generate temporal self-reflection (Phase 1.6)
+    ReflectTemporal {
+        /// Window hours for reflection
+        #[arg(default_value = "24")]
+        window: u64,
+        /// Output JSON format
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// Chronos subcommands (Phase 1.5)
+#[derive(Subcommand)]
+enum ChronosSubcommand {
+    /// Generate temporal forecast
+    Forecast {
+        /// Forecast window in hours
+        #[arg(default_value = "24")]
+        window: u64,
+    },
+    /// View archived forecasts
+    Audit,
+    /// Align forecast parameters across network
+    Align,
 }
 
 // Phase 0.3: Remove all legacy subcommand enums
@@ -270,6 +375,10 @@ async fn main() -> Result<()> {
         Commands::Sentinel { .. } => "sentinel",
         Commands::Config { .. } => "config",
         Commands::Conscience { .. } => "conscience",
+        Commands::Empathy { .. } => "empathy",
+        Commands::Collective { .. } => "collective",
+        Commands::Mirror { .. } => "mirror",
+        Commands::Chronos { .. } => "chronos",
     };
 
     // Try to connect to daemon and get state
@@ -391,6 +500,65 @@ async fn main() -> Result<()> {
                 }
                 ConscienceSubcommand::Introspect => {
                     return conscience_commands::execute_conscience_introspect_command(&req_id, &state, start_time).await;
+                }
+            }
+        }
+        // Phase 1.2: Empathy commands
+        Commands::Empathy { subcommand } => {
+            match subcommand {
+                EmpathySubcommand::Pulse => {
+                    return empathy_commands::execute_empathy_pulse_command().await.map_err(|e| e.into());
+                }
+                EmpathySubcommand::Simulate { action } => {
+                    return empathy_commands::execute_empathy_simulate_command(action).await.map_err(|e| e.into());
+                }
+            }
+        }
+        // Phase 1.3: Collective mind commands
+        Commands::Collective { subcommand } => {
+            match subcommand {
+                CollectiveSubcommand::Status => {
+                    return collective_commands::execute_collective_status_command().await.map_err(|e| e.into());
+                }
+                CollectiveSubcommand::Trust { peer_id } => {
+                    return collective_commands::execute_collective_trust_command(peer_id).await.map_err(|e| e.into());
+                }
+                CollectiveSubcommand::Explain { consensus_id } => {
+                    return collective_commands::execute_collective_explain_command(consensus_id).await.map_err(|e| e.into());
+                }
+            }
+        }
+        // Phase 1.4: Mirror protocol commands
+        Commands::Mirror { subcommand } => {
+            match subcommand {
+                MirrorSubcommand::Reflect => {
+                    return mirror_commands::execute_mirror_reflect_command().await.map_err(|e| e.into());
+                }
+                MirrorSubcommand::Audit => {
+                    return mirror_commands::execute_mirror_audit_command().await.map_err(|e| e.into());
+                }
+                MirrorSubcommand::Repair => {
+                    return mirror_commands::execute_mirror_repair_command().await.map_err(|e| e.into());
+                }
+                MirrorSubcommand::AuditForecast { window, json } => {
+                    return mirror_commands::execute_mirror_audit_forecast_command(*window, *json).await.map_err(|e| e.into());
+                }
+                MirrorSubcommand::ReflectTemporal { window, json } => {
+                    return mirror_commands::execute_mirror_reflect_temporal_command(*window, *json).await.map_err(|e| e.into());
+                }
+            }
+        }
+        // Phase 1.5: Chronos loop commands
+        Commands::Chronos { subcommand } => {
+            match subcommand {
+                ChronosSubcommand::Forecast { window } => {
+                    return chronos_commands::execute_chronos_forecast_command(*window).await.map_err(|e| e.into());
+                }
+                ChronosSubcommand::Audit => {
+                    return chronos_commands::execute_chronos_audit_command().await.map_err(|e| e.into());
+                }
+                ChronosSubcommand::Align => {
+                    return chronos_commands::execute_chronos_align_command().await.map_err(|e| e.into());
                 }
             }
         }
@@ -617,6 +785,22 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Conscience { .. } => {
             // Should not reach here - handled in main
             unreachable!("Conscience command should be handled separately");
+        }
+        Commands::Empathy { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Empathy command should be handled separately");
+        }
+        Commands::Collective { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Collective command should be handled separately");
+        }
+        Commands::Mirror { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Mirror command should be handled separately");
+        }
+        Commands::Chronos { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Chronos command should be handled separately");
         }
     }
 

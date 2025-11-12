@@ -21,7 +21,7 @@ use tokio::fs::{create_dir_all, OpenOptions};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 const SENTINEL_LOG_DIR: &str = "/var/log/anna";
 const SENTINEL_LOG_FILE: &str = "sentinel.jsonl";
@@ -36,6 +36,8 @@ pub struct SentinelDaemon {
     event_bus: Arc<EventBus>,
     /// Conscience daemon (Phase 1.1)
     conscience: Option<Arc<ConscienceDaemon>>,
+    /// Empathy kernel (Phase 1.2)
+    empathy: Option<Arc<crate::empathy::EmpathyKernel>>,
     /// Start time
     start_time: Instant,
 }
@@ -74,10 +76,25 @@ impl SentinelDaemon {
             }
         };
 
+        // Initialize empathy kernel (Phase 1.2)
+        let empathy = match crate::empathy::EmpathyKernel::new().await {
+            Ok(e) => {
+                let empathy_arc = Arc::new(e);
+                info!("Empathy kernel initialized");
+                Some(empathy_arc)
+            }
+            Err(e) => {
+                warn!("Failed to initialize empathy kernel: {}", e);
+                warn!("Continuing without contextual awareness");
+                None
+            }
+        };
+
         info!(
-            "Sentinel initialized (autonomous_mode={}, conscience={})",
+            "Sentinel initialized (autonomous_mode={}, conscience={}, empathy={})",
             config.autonomous_mode,
-            conscience.is_some()
+            conscience.is_some(),
+            empathy.is_some()
         );
 
         Ok(Self {
@@ -85,6 +102,7 @@ impl SentinelDaemon {
             config: Arc::new(RwLock::new(config)),
             event_bus,
             conscience,
+            empathy,
             start_time: Instant::now(),
         })
     }
@@ -102,6 +120,11 @@ impl SentinelDaemon {
         // Spawn conscience introspection scheduler (Phase 1.1)
         if self.conscience.is_some() {
             self.spawn_introspection_scheduler().await;
+        }
+
+        // Spawn empathy digest scheduler (Phase 1.2)
+        if self.empathy.is_some() {
+            self.spawn_empathy_digest_scheduler().await;
         }
 
         // Spawn event processor
@@ -227,6 +250,39 @@ impl SentinelDaemon {
         });
     }
 
+    /// Spawn empathy digest scheduler (Phase 1.2)
+    async fn spawn_empathy_digest_scheduler(&self) {
+        let empathy = match &self.empathy {
+            Some(e) => Arc::clone(e),
+            None => return,
+        };
+
+        tokio::spawn(async move {
+            // Run every 7 days (weekly)
+            let mut interval = interval(Duration::from_secs(7 * 24 * 60 * 60));
+
+            loop {
+                interval.tick().await;
+
+                info!("Generating weekly empathy digest");
+                match empathy.generate_weekly_digest().await {
+                    Ok(digest) => {
+                        info!("Weekly empathy digest generated successfully");
+                        debug!("Digest preview:\n{}", &digest[..digest.len().min(500)]);
+                    }
+                    Err(e) => {
+                        error!("Failed to generate empathy digest: {}", e);
+                    }
+                }
+
+                // Also save state periodically
+                if let Err(e) = empathy.save_state().await {
+                    error!("Failed to save empathy state: {}", e);
+                }
+            }
+        });
+    }
+
     /// Get current metrics
     pub async fn get_metrics(&self) -> SentinelMetrics {
         let state = self.state.read().await;
@@ -294,6 +350,11 @@ impl SentinelDaemon {
     /// Get conscience daemon reference (Phase 1.1)
     pub fn get_conscience(&self) -> Option<Arc<ConscienceDaemon>> {
         self.conscience.clone()
+    }
+
+    /// Get empathy kernel reference (Phase 1.2)
+    pub fn get_empathy(&self) -> Option<Arc<crate::empathy::EmpathyKernel>> {
+        self.empathy.clone()
     }
 }
 
