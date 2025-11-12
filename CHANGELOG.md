@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [3.0.0-alpha.2] - 2025-11-12
+
 ### 💡 **Phase 3.2: Adaptive UI Hints**
 
 Makes the CLI context-aware by providing mode-specific guidance and warnings.

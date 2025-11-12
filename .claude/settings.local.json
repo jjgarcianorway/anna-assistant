@@ -14,7 +14,8 @@
       "Bash(annactl health:*)",
       "Bash(strace:*)",
       "Bash(RUST_BACKTRACE=1 cargo test:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(cargo update:*)"
     ],
     "deny": [],
     "ask": []
