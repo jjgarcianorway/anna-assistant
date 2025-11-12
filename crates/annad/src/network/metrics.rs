@@ -31,6 +31,9 @@ pub struct ConsensusMetrics {
     // Phase 1.15 metrics
     pub rate_limit_violations_total: CounterVec,
 
+    // Phase 2 metrics
+    pub pinning_violations_total: CounterVec,
+
     registry: Arc<Registry>,
 }
 
@@ -110,6 +113,14 @@ impl ConsensusMetrics {
             registry
         ).unwrap();
 
+        // Phase 2 metrics
+        let pinning_violations_total = register_counter_vec_with_registry!(
+            "anna_pinning_violations_total",
+            "Total number of certificate pinning violations by peer",
+            &["peer"],
+            registry
+        ).unwrap();
+
         Self {
             rounds_total,
             byzantine_nodes_total,
@@ -121,6 +132,7 @@ impl ConsensusMetrics {
             peer_backoff_seconds,
             tls_handshakes_total,
             rate_limit_violations_total,
+            pinning_violations_total,
             registry: Arc::new(registry),
         }
     }
@@ -169,6 +181,13 @@ impl ConsensusMetrics {
     pub fn record_rate_limit_violation(&self, scope: &str) {
         self.rate_limit_violations_total
             .with_label_values(&[scope])
+            .inc();
+    }
+
+    /// Record certificate pinning violation (Phase 2)
+    pub fn record_pinning_violation(&self, peer: &str) {
+        self.pinning_violations_total
+            .with_label_values(&[peer])
             .inc();
     }
 

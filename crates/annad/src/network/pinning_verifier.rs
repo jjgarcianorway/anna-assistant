@@ -47,13 +47,29 @@ impl PinningConfig {
 pub struct PinningVerifier {
     config: Arc<PinningConfig>,
     fallback_verifier: Arc<dyn ServerCertVerifier>,
+    metrics: Option<Arc<super::metrics::ConsensusMetrics>>,
+}
+
+impl std::fmt::Debug for PinningVerifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PinningVerifier")
+            .field("config", &self.config)
+            .field("fallback_verifier", &"<dyn ServerCertVerifier>")
+            .field("metrics", &self.metrics.is_some())
+            .finish()
+    }
 }
 
 impl PinningVerifier {
-    pub fn new(config: Arc<PinningConfig>, fallback: Arc<dyn ServerCertVerifier>) -> Self {
+    pub fn new(
+        config: Arc<PinningConfig>,
+        fallback: Arc<dyn ServerCertVerifier>,
+        metrics: Option<Arc<super::metrics::ConsensusMetrics>>,
+    ) -> Self {
         Self {
             config,
             fallback_verifier: fallback,
+            metrics,
         }
     }
 
@@ -93,7 +109,17 @@ impl ServerCertVerifier for PinningVerifier {
         )?;
 
         // Then, perform pinning validation
-        let hostname = server_name.as_ref().to_str();
+        let hostname = match server_name {
+            ServerName::DnsName(dns) => dns.as_ref(),
+            ServerName::IpAddress(ip) => {
+                warn!("Certificate pinning: IP address in server name not supported, skipping");
+                return Ok(ServerCertVerified::assertion());
+            }
+            _ => {
+                warn!("Certificate pinning: unknown server name type, skipping");
+                return Ok(ServerCertVerified::assertion());
+            }
+        };
 
         // Check if we have a pin configured for this peer
         if let Some(expected_fp) = self.config.get_pin(hostname) {
@@ -110,10 +136,10 @@ impl ServerCertVerifier for PinningVerifier {
                     "Certificate pinning violation detected"
                 );
 
-                // Emit metric (will be integrated in next commit)
-                // metrics.anna_pinning_violations_total
-                //     .with_label_values(&[hostname])
-                //     .inc();
+                // Emit metric
+                if let Some(ref metrics) = self.metrics {
+                    metrics.record_pinning_violation(hostname);
+                }
 
                 if self.config.enforce {
                     return Err(TlsError::General(
