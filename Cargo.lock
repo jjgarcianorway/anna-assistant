@@ -69,6 +69,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "console",
+ "owo-colors",
  "reqwest",
  "serde",
  "serde_json",

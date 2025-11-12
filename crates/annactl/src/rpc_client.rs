@@ -40,6 +40,28 @@ impl RpcClient {
         "/run/anna.sock".to_string()
     }
 
+    /// Quick connect (single attempt, short timeout) - for availability checks
+    pub async fn connect_quick(socket_path: Option<&str>) -> Result<Self> {
+        use std::time::Duration;
+
+        let path = Self::discover_socket_path(socket_path);
+
+        match tokio::time::timeout(
+            Duration::from_millis(200),
+            UnixStream::connect(&path),
+        )
+        .await
+        {
+            Ok(Ok(stream)) => {
+                let (reader, writer) = stream.into_split();
+                let reader = BufReader::new(reader);
+                Ok(Self { reader, writer })
+            }
+            Ok(Err(e)) => Err(anyhow::anyhow!("Daemon unavailable: {}", e)),
+            Err(_) => Err(anyhow::anyhow!("Connection timeout")),
+        }
+    }
+
     /// Connect to the daemon with retry logic and errno-specific error messages
     ///
     /// v1.16.2-alpha.2: Socket discovery order and detailed error hints

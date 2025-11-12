@@ -14,6 +14,7 @@ mod consensus_commands; // Phase 1.8
 mod conscience_commands; // Phase 1.1
 mod empathy_commands; // Phase 1.2
 mod health_commands;
+mod help_commands; // Phase 3.1: Adaptive help
 mod install_command; // Phase 0.8
 pub mod logging;
 mod mirror_commands; // Phase 1.4
@@ -53,9 +54,16 @@ enum Commands {
     /// Show system status and daemon health
     Status,
 
-    /// Show available commands for current state
+    /// Show available commands (adaptive and context-aware)
     Help {
-        /// Output JSON only
+        /// Show help for specific command
+        command: Option<String>,
+
+        /// Show all commands (including internal)
+        #[arg(long)]
+        all: bool,
+
+        /// Output JSON only (legacy)
         #[arg(long)]
         json: bool,
     },
@@ -500,6 +508,12 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Phase 3.1: Handle help command early (doesn't need daemon)
+    if matches!(cli.command, Commands::Help { .. }) {
+        let socket_path = cli.socket.as_deref();
+        return execute_help_command_standalone(&cli.command, socket_path, &req_id, start_time).await;
+    }
+
     // Phase 0.3c: State-aware dispatch
     // Get command name first
     let command_name = match &cli.command {
@@ -561,12 +575,6 @@ async fn main() -> Result<()> {
             std::process::exit(EXIT_DAEMON_UNAVAILABLE);
         }
     };
-
-    // Phase 0.3d: Handle help command specially
-    if matches!(cli.command, Commands::Help { .. }) {
-        return execute_help_command(&cli.command, &state, &capabilities, &req_id, start_time)
-            .await;
-    }
 
     // v1.16.3: Handle ping command (simple 1-RTT check)
     if matches!(cli.command, Commands::Ping) {
@@ -1532,7 +1540,52 @@ async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String
     Ok((state_data.state, citation.to_string(), caps_data.commands))
 }
 
-/// Execute help command (Phase 0.3d)
+/// Execute help command standalone (Phase 3.1 - doesn't require daemon)
+async fn execute_help_command_standalone(
+    command: &Commands,
+    socket_path: Option<&str>,
+    req_id: &str,
+    start_time: Instant,
+) -> Result<()> {
+    let (cmd_name, show_all, _json) = match command {
+        Commands::Help { command, all, json } => (command.clone(), *all, *json),
+        _ => unreachable!(),
+    };
+
+    // Build display context from current system state
+    let context = help_commands::build_context(socket_path).await;
+
+    // Display adaptive help
+    if let Err(e) = help_commands::display_help(cmd_name, show_all, context).await {
+        eprintln!("Error displaying help: {}", e);
+        std::process::exit(1);
+    }
+
+    // Log the help command
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+    let log_entry = LogEntry {
+        ts: LogEntry::now(),
+        req_id: req_id.to_string(),
+        state: "unknown".to_string(),
+        command: "help".to_string(),
+        allowed: Some(true),
+        args: if show_all {
+            vec!["--all".to_string()]
+        } else {
+            vec![]
+        },
+        exit_code: EXIT_SUCCESS,
+        citation: "[archwiki:System_maintenance]".to_string(),
+        duration_ms,
+        ok: true,
+        error: None,
+    };
+    let _ = log_entry.write();
+
+    std::process::exit(EXIT_SUCCESS);
+}
+
+/// Execute help command (Phase 0.3d - Legacy, requires daemon)
 async fn execute_help_command(
     command: &Commands,
     state: &str,
@@ -1540,42 +1593,69 @@ async fn execute_help_command(
     req_id: &str,
     start_time: Instant,
 ) -> Result<()> {
-    let json_only = matches!(command, Commands::Help { json: true });
+    let (cmd_name, show_all, json_only) = match command {
+        Commands::Help { command, all, json } => (command.clone(), *all, *json),
+        _ => unreachable!(),
+    };
 
-    // Sort capabilities alphabetically by name
+    // Phase 3.1: Use adaptive help system if not JSON mode
+    if !json_only {
+        // Build display context from current system state
+        let socket_path = std::env::var("ANNAD_SOCKET").ok();
+        let context = help_commands::build_context(socket_path.as_deref()).await;
+
+        // Display adaptive help
+        if let Err(e) = help_commands::display_help(cmd_name, show_all, context).await {
+            eprintln!("Error displaying help: {}", e);
+            std::process::exit(1);
+        }
+
+        // Log the help command
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+        let log_entry = LogEntry {
+            ts: LogEntry::now(),
+            req_id: req_id.to_string(),
+            state: state.to_string(),
+            command: "help".to_string(),
+            allowed: Some(true),
+            args: if show_all {
+                vec!["--all".to_string()]
+            } else {
+                vec![]
+            },
+            exit_code: EXIT_SUCCESS,
+            citation: state_citation(state).to_string(),
+            duration_ms,
+            ok: true,
+            error: None,
+        };
+        let _ = log_entry.write();
+
+        std::process::exit(EXIT_SUCCESS);
+    }
+
+    // Legacy JSON output (for backwards compatibility)
     let mut sorted_caps = capabilities.to_vec();
     sorted_caps.sort_by(|a, b| a.name.cmp(&b.name));
 
-    if json_only {
-        // JSON output only
-        let commands: Vec<serde_json::Value> = sorted_caps
-            .iter()
-            .map(|cap| {
-                serde_json::json!({
-                    "name": cap.name,
-                    "desc": cap.description,
-                    "citation": cap.citation
-                })
+    let commands: Vec<serde_json::Value> = sorted_caps
+        .iter()
+        .map(|cap| {
+            serde_json::json!({
+                "name": cap.name,
+                "desc": cap.description,
+                "citation": cap.citation
             })
-            .collect();
+        })
+        .collect();
 
-        let output = serde_json::json!({
-            "version": VERSION,
-            "ok": true,
-            "state": state,
-            "commands": commands
-        });
-        println!("{}", serde_json::to_string_pretty(&output)?);
-    } else {
-        // Human-readable output
-        println!("current state: {}", state);
-        for cap in &sorted_caps {
-            println!(
-                "{:<16}  {:<50}  {}",
-                cap.name, cap.description, cap.citation
-            );
-        }
-    }
+    let output = serde_json::json!({
+        "version": VERSION,
+        "ok": true,
+        "state": state,
+        "commands": commands
+    });
+    println!("{}", serde_json::to_string_pretty(&output)?);
 
     // Log the help command
     let duration_ms = start_time.elapsed().as_millis() as u64;
@@ -1585,11 +1665,7 @@ async fn execute_help_command(
         state: state.to_string(),
         command: "help".to_string(),
         allowed: Some(true),
-        args: if json_only {
-            vec!["--json".to_string()]
-        } else {
-            vec![]
-        },
+        args: vec!["--json".to_string()],
         exit_code: EXIT_SUCCESS,
         citation: state_citation(state).to_string(),
         duration_ms,
