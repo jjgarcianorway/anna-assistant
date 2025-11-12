@@ -14,6 +14,7 @@ pub mod ignore_filters;
 pub mod ipc;
 pub mod paths; // rc.13.2: Dual-mode socket support
 pub mod rollback;
+pub mod self_healing; // Phase 3.1/3.2: Self-healing framework
 pub mod types;
 pub mod updater; // Beta.89: Rollback command generation
 
