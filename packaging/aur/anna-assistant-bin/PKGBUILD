@@ -1,6 +1,6 @@
 # Maintainer: Juan Jose Garcia <jjgarcianorway@gmail.com>
 pkgname=anna-assistant-bin
-pkgver=1.16.3_alpha.1
+pkgver=2.0.0_alpha.1
 pkgrel=1
 pkgdesc="Arch Linux AI assistant with ethical AI, consensus, and self-healing capabilities"
 arch=('x86_64')
