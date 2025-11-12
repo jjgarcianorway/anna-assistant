@@ -1,62 +1,88 @@
-# Certificate Pinning Guide (Phase 1.16)
+# Certificate Pinning Guide
+
+**Status**: Phase 2 (v2.0.0-alpha.1) - Fully Integrated
+**Feature**: SHA256 fingerprint-based certificate pinning for TLS connections
+
+---
 
 ## Overview
 
-Certificate pinning provides an additional layer of security for mTLS connections by validating that peer certificates match pre-approved SHA256 fingerprints. This prevents man-in-the-middle attacks even if the CA is compromised.
+Certificate pinning enforces cryptographic identity by validating peer certificates against known SHA256 fingerprints during TLS handshakes. This prevents MITM attacks even if a Certificate Authority is compromised.
 
-## Status
+**Implementation**: Custom rustls `ServerCertVerifier` with fail-closed enforcement.
 
-**Phase 1.16**: Infrastructure and tooling implemented. Full TLS integration planned for Phase 2.
-
+**Phase 2 Status**:
 - ✅ SHA256 fingerprint computation
-- ✅ Pinning configuration structure
-- ✅ Fingerprint validation logic
-- ⏳ TLS handshake integration (Phase 2)
+- ✅ Configuration loading and validation
+- ✅ rustls ServerCertVerifier integration
+- ✅ Prometheus metric: `anna_pinning_violations_total{peer}`
+- ✅ Masked fingerprint logging
+- ✅ Hot-reload support via SIGHUP
 
-## Computing Certificate Fingerprints
+## Extracting Certificate Fingerprints
 
-Use the provided script to compute SHA256 fingerprints:
+### From PEM Certificate (OpenSSL)
 
 ```bash
-./scripts/print-cert-fingerprint.sh /etc/anna/certs/peer_node_001.pem
+openssl x509 -in cert.pem -noout -fingerprint -sha256 | \
+  sed 's/SHA256 Fingerprint=/sha256:/' | \
+  tr -d ':' | \
+  tr '[:upper:]' '[:lower:]'
 ```
 
-Output:
+**Example Output**:
 ```
-Certificate: /etc/anna/certs/peer_node_001.pem
-SHA256 Fingerprint: a1b2c3d4e5f6...
+sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
 
-Add to /etc/anna/pinned_certs.json:
-{
-  "enable_pinning": true,
-  "pin_client_certs": false,
-  "pins": {
-    "node_001": "a1b2c3d4e5f6..."
-  }
-}
+### From Live TLS Server
+
+```bash
+echo | openssl s_client -connect node1.example.com:8443 -showcerts 2>/dev/null | \
+  openssl x509 -noout -fingerprint -sha256 | \
+  sed 's/SHA256 Fingerprint=/sha256:/' | \
+  tr -d ':' | \
+  tr '[:upper:]' '[:lower:]'
 ```
+
+### Batch Extract (All Testnet Certificates)
+
+```bash
+for cert in testnet/config/tls/*.pem; do
+    [[ $cert == *"ca.pem" ]] && continue
+    hostname=$(basename "$cert" .pem)
+    fp=$(openssl x509 -in "$cert" -noout -fingerprint -sha256 | \
+        sed 's/SHA256 Fingerprint=/sha256:/' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+    echo "  \"$hostname\": \"$fp\""
+done
+```
+
+---
 
 ## Configuration
 
-Create `/etc/anna/pinned_certs.json`:
+### File Location
+
+`/etc/anna/pinned_certs.json`
+
+### Schema (Phase 2)
 
 ```json
 {
-  "enable_pinning": true,
-  "pin_client_certs": false,
-  "pins": {
-    "node_001": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
-    "node_002": "b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678",
-    "node_003": "c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890"
+  "enforce": true,
+  "peers": {
+    "node1.example.com": "sha256:HEXDIGEST64CHARS",
+    "node2.example.com": "sha256:HEXDIGEST64CHARS",
+    "192.168.1.10": "sha256:HEXDIGEST64CHARS"
   }
 }
 ```
 
-### Configuration Fields
+**Fields**:
+- `enforce` (boolean): Fail-closed on mismatch. Default: `true`
+- `peers` (object): Map of hostname/IP → SHA256 fingerprint
 
-- **enable_pinning** (bool): Master switch for certificate pinning
-- **pin_client_certs** (bool): Also validate client certificates (in addition to server certs)
-- **pins** (map): Node ID → SHA256 fingerprint mapping
+**Note**: Phase 2 uses simplified schema. Old Phase 1.16 format is deprecated.
 
 ## Security Considerations
 
@@ -72,20 +98,34 @@ Create `/etc/anna/pinned_certs.json`:
 - Dynamic peer discovery
 - Short-lived connections
 
-### Certificate Rotation
+### Certificate Rotation Playbook
 
-When rotating certificates:
+**Zero-Downtime Rotation** (4 steps):
 
-1. **Pre-compute new fingerprints:**
-   ```bash
-   ./scripts/print-cert-fingerprint.sh /etc/anna/certs/new_cert.pem
-   ```
+```bash
+# Step 1: Generate new certificate
+openssl req -new -nodes -newkey rsa:4096 \
+  -keyout node1.new.key -out node1.new.csr \
+  -subj "/CN=node1.example.com"
 
-2. **Update pinning config with BOTH old and new fingerprints** (dual-pinning period)
+openssl x509 -req -in node1.new.csr -CA ca.pem -CAkey ca.key \
+  -CAcreateserial -out node1.new.pem -days 365
 
-3. **Deploy new certs to all nodes**
+# Step 2: Extract new fingerprint
+NEW_FP=$(openssl x509 -in node1.new.pem -noout -fingerprint -sha256 | \
+  sed 's/SHA256 Fingerprint=/sha256:/' | tr -d ':' | tr '[:upper:]' '[:lower:]')
 
-4. **Remove old fingerprints after rollout completes**
+# Step 3: Update pinning config on ALL peers
+# Edit /etc/anna/pinned_certs.json on all nodes
+sudo systemctl reload annad  # or kill -HUP
+
+# Step 4: Deploy new cert to node1
+sudo cp node1.new.pem /etc/anna/tls/node1.pem
+sudo cp node1.new.key /etc/anna/tls/node1.key
+sudo systemctl reload annad
+```
+
+**Verify**: Check `anna_pinning_violations_total` metric (should be 0)
 
 ### Threat Model
 
@@ -99,36 +139,39 @@ Does NOT defend against:
 - Misconfigured pinning (wrong fingerprints)
 - Pinning config file tampering (protect with file integrity monitoring)
 
-## API Usage (Phase 1.16)
+## Monitoring (Phase 2)
 
-```rust
-use anna_common::network::PinningConfig;
-
-// Load configuration
-let config = PinningConfig::load_from_file("/etc/anna/pinned_certs.json").await?;
-
-// Validate certificate fingerprint
-let cert_der: &[u8] = /* DER-encoded certificate */;
-let node_id = "node_001";
-
-if config.validate_fingerprint(node_id, cert_der) {
-    println!("✓ Certificate fingerprint matches");
-} else {
-    println!("✗ Certificate fingerprint mismatch - possible MITM attack!");
-}
-
-// Compute fingerprint
-let fingerprint = PinningConfig::compute_fingerprint(cert_der);
-println!("SHA256: {}", fingerprint);
-```
-
-## Metrics
-
-Certificate pinning violations are tracked via:
+### Prometheus Metric
 
 ```
-annad_tls_handshake_total{status="cert_pinning_failed"}
+anna_pinning_violations_total{peer="node1.example.com"} 0
+anna_pinning_violations_total{peer="node2.example.com"} 0
 ```
+
+**Labels**:
+- `peer`: Hostname or IP of peer with mismatched certificate
+
+**Alert Example**:
+```yaml
+- alert: AnnaCertificatePinningViolation
+  expr: increase(anna_pinning_violations_total[5m]) > 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Certificate pinning violation"
+    description: "Peer {{ $labels.peer }} presented unexpected certificate. Possible MITM."
+```
+
+### Logs
+
+Violations logged with **masked fingerprints** (security):
+
+```
+ERROR peer=node1.example.com expected="sha256:1234567...90abcdef" actual="sha256:abcdef0...12345678" msg="Certificate pinning violation detected"
+```
+
+Only first 15 and last 8 characters shown to prevent log-based attacks.
 
 ## Troubleshooting
 
