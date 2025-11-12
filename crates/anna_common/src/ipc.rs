@@ -29,7 +29,6 @@ fn default_api_version() -> String {
 
 /// Request methods
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "params")]
 pub enum Method {
     /// Get daemon status
     Status,

@@ -5,6 +5,16 @@ All notable changes to Anna Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2-alpha.1] - 2025-11-12
+
+### Fixed
+
+- **CRITICAL**: Fixed RPC communication failure between annactl and annad
+  - Removed adjacently-tagged serde enum serialization from `Method` enum in `crates/anna_common/src/ipc.rs:32`
+  - Changed from `#[serde(tag = "type", content = "params")]` to default enum serialization
+  - Resolves "Invalid request JSON: invalid type: string 'status', expected adjacently tagged enum Method" error
+  - All annactl commands now work correctly (status, health, doctor, etc.)
+
 ## [1.16.1-alpha.1] - 2025-11-12
 
 ### 🔒 **SECURITY: TLS Materials Purge & Prevention**
