@@ -15,7 +15,12 @@
       "Bash(strace:*)",
       "Bash(RUST_BACKTRACE=1 cargo test:*)",
       "Bash(test:*)",
-      "Bash(cargo update:*)"
+      "Bash(cargo update:*)",
+      "Bash(timeout 3 ./target/release/annactl:*)",
+      "Bash(timeout 2 ./target/release/annactl:*)",
+      "Bash(RUST_LOG=debug timeout 1s ./target/release/annactl:*)",
+      "Bash(timeout 1s ./target/release/annactl:*)",
+      "Bash(timeout 3s ./target/release/annactl:*)"
     ],
     "deny": [],
     "ask": []

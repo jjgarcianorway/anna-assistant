@@ -18,6 +18,7 @@ mod help_commands; // Phase 3.1: Adaptive help
 mod install_command; // Phase 0.8
 pub mod logging;
 mod mirror_commands; // Phase 1.4
+mod monitor_setup; // Phase 3.1: Monitoring automation
 pub mod output;
 mod rpc_client; // Phase 0.5b
 mod sentinel_cli; // Phase 1.0
@@ -1153,74 +1154,11 @@ async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bo
     println!("  Recommended Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
     println!();
 
+    // Execute installation based on mode
     match mode.as_str() {
-        "full" => {
-            println!("Installation Plan [FULL MODE]:");
-            println!("  ✓ Prometheus (metrics collector)");
-            println!("  ✓ Grafana (visualization dashboards)");
-            println!("  ✓ Anna dashboards (pre-configured)");
-            println!();
-            println!("Requirements: >4GB RAM, GUI session");
-            println!();
-
-            if !dry_run {
-                println!("Installation commands:");
-                println!("  sudo pacman -S prometheus grafana");
-                println!("  sudo systemctl enable --now prometheus grafana");
-                println!();
-                println!("Dashboard setup:");
-                println!("  1. Browse to: http://localhost:3000 (Grafana)");
-                println!("  2. Default credentials: admin/admin");
-                println!("  3. Add Prometheus datasource: http://localhost:9090");
-                println!();
-                println!("⚠️  Automatic installation not yet implemented.");
-                println!("   Please run the commands above manually.");
-            } else {
-                println!("[DRY RUN] Would install Prometheus + Grafana");
-            }
-        }
-        "light" => {
-            println!("Installation Plan [LIGHT MODE]:");
-            println!("  ✓ Prometheus (metrics collector)");
-            println!("  ✗ Grafana (skipped - insufficient RAM or no GUI)");
-            println!();
-            println!("Requirements: 2-4GB RAM");
-            println!();
-
-            if !dry_run {
-                println!("Installation commands:");
-                println!("  sudo pacman -S prometheus");
-                println!("  sudo systemctl enable --now prometheus");
-                println!();
-                println!("Metrics access:");
-                println!("  Browse to: http://localhost:9090");
-                println!("  Or query via: curl http://localhost:9090/metrics");
-                println!();
-                println!("⚠️  Automatic installation not yet implemented.");
-                println!("   Please run the commands above manually.");
-            } else {
-                println!("[DRY RUN] Would install Prometheus only");
-            }
-        }
-        "minimal" => {
-            println!("Installation Plan [MINIMAL MODE]:");
-            println!("  ✗ External monitoring (insufficient resources)");
-            println!("  ✓ Internal stats only (already available via daemon)");
-            println!();
-            println!("Your system has limited resources (< 2GB RAM).");
-            println!("Anna will use internal statistics tracking only.");
-            println!();
-            println!("To view internal stats:");
-            println!("  annactl status");
-            println!("  annactl health");
-            println!();
-
-            if !dry_run {
-                println!("✓ No installation required for minimal mode.");
-            } else {
-                println!("[DRY RUN] No external monitoring to install");
-            }
-        }
+        "full" => monitor_setup::install_full_mode(dry_run)?,
+        "light" => monitor_setup::install_light_mode(dry_run)?,
+        "minimal" => monitor_setup::install_minimal_mode()?,
         _ => unreachable!("Mode validation should prevent this"),
     }
 
@@ -1256,10 +1194,7 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
     println!("Rationale:   {}\n", profile.monitoring_rationale);
 
     // Check Prometheus status
-    let prometheus_active = std::process::Command::new("systemctl")
-        .args(&["is-active", "prometheus"])
-        .output()
-        .map(|o| o.status.success())
+    let prometheus_active = monitor_setup::check_service_status("prometheus")
         .unwrap_or(false);
 
     println!("Prometheus:");
@@ -1268,16 +1203,13 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
         println!("  Access: http://localhost:9090");
     } else {
         println!("  Status: ✗ Not running");
-        println!("  Install: sudo pacman -S prometheus");
+        println!("  Install: annactl monitor install");
     }
     println!();
 
     // Check Grafana status (only for Full mode)
     if profile.recommended_monitoring_mode == "full" {
-        let grafana_active = std::process::Command::new("systemctl")
-            .args(&["is-active", "grafana"])
-            .output()
-            .map(|o| o.status.success())
+        let grafana_active = monitor_setup::check_service_status("grafana")
             .unwrap_or(false);
 
         println!("Grafana:");
@@ -1286,7 +1218,7 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
             println!("  Access: http://localhost:3000");
         } else {
             println!("  Status: ✗ Not running");
-            println!("  Install: sudo pacman -S grafana");
+            println!("  Install: annactl monitor install");
         }
         println!();
     }
