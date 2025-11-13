@@ -62,7 +62,13 @@
       "Bash(release-v3.9.1-alpha.1/annactl-3.9.1-alpha.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v3.9.1-alpha.1/annad-3.9.1-alpha.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v3.9.1-alpha.1/SHA256SUMS)",
-      "Bash(./release-v3.10.0-alpha.1/annactl-3.10.0-alpha.1-x86_64-unknown-linux-gnu:*)"
+      "Bash(./release-v3.10.0-alpha.1/annactl-3.10.0-alpha.1-x86_64-unknown-linux-gnu:*)",
+      "Bash(release-v4.0.0-beta.1/annactl-4.0.0-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v4.0.0-beta.1/annad-4.0.0-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v4.0.0-beta.1/SHA256SUMS)",
+      "Bash(cargo run:*)",
+      "Bash(rustc:*)",
+      "Bash(/tmp/disk_example)"
     ],
     "deny": [],
     "ask": []

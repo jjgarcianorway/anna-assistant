@@ -1,21 +1,22 @@
-//! Daily checkup command - one-shot health and prediction summary
+//! Daily checkup command - REAL analysis with USEFUL output
 //!
-//! Phase 4.0: Core Caretaker Workflows
+//! Phase 4.1: Actually helpful disk analysis
 //! Citation: [archwiki:System_maintenance]
 
 use crate::context_detection;
 use crate::errors::*;
 use crate::logging::LogEntry;
 use crate::rpc_client::RpcClient;
+use anna_common::disk_analysis::{DiskAnalysis, RecommendationRisk};
+use anna_common::display::*;
 use anna_common::ipc::{HealthRunData, ResponseData};
 use anyhow::{Context, Result};
 use chrono::Utc;
-use owo_colors::OwoColorize;
 use serde_json::json;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
-/// Execute daily checkup command (Phase 4.0)
+/// Execute daily checkup command
 pub async fn execute_daily_command(
     json: bool,
     state: &str,
@@ -23,12 +24,12 @@ pub async fn execute_daily_command(
     start_time: Instant,
 ) -> Result<()> {
     let mut client = RpcClient::connect()
-        .await
-        .context("Failed to connect to daemon")?;
+        .await.context("Failed to connect to daemon")?;
 
-    // Run curated set of checks for daily use
+    let use_color = context_detection::should_use_color();
+
+    // Run basic health probes
     let probes = vec![
-        "disk-space".to_string(),
         "pacman-db".to_string(),
         "systemd-units".to_string(),
         "journal-errors".to_string(),
@@ -36,61 +37,67 @@ pub async fn execute_daily_command(
     ];
 
     let response = client.health_run(10000, probes).await?;
-
     let health_data = match response {
         ResponseData::HealthRun(data) => data,
-        _ => {
-            anyhow::bail!("Invalid response from daemon");
-        }
+        _ => anyhow::bail!("Invalid response from daemon"),
     };
 
-    // Check for pending reboots
-    let needs_reboot = check_needs_reboot();
+    // Do REAL disk analysis
+    let disk_analysis = DiskAnalysis::analyze_root()?;
 
-    // Get predictions (top 3)
-    let predictions = get_top_predictions(&mut client, 3).await?;
+    // Determine overall status
+    let has_failures = health_data.summary.fail > 0;
+    let disk_critical = disk_analysis.usage_percent > 90.0;
+    let disk_warning = disk_analysis.usage_percent > 80.0;
 
-    // Save report
-    let report_path = save_daily_report(&health_data, &predictions, needs_reboot).await?;
+    let status_level = if has_failures || disk_critical {
+        StatusLevel::Critical
+    } else if health_data.summary.warn > 0 || disk_warning {
+        StatusLevel::Warning
+    } else {
+        StatusLevel::Success
+    };
 
     if json {
-        // JSON output
+        // JSON output for automation
         let json_output = json!({
             "timestamp": Utc::now().to_rfc3339(),
+            "status": match status_level {
+                StatusLevel::Critical => "critical",
+                StatusLevel::Warning => "warning",
+                StatusLevel::Success => "success",
+                _ => "info",
+            },
             "health_summary": {
                 "ok": health_data.summary.ok,
                 "warn": health_data.summary.warn,
                 "fail": health_data.summary.fail,
             },
+            "disk": {
+                "total_gb": disk_analysis.total_bytes / (1024 * 1024 * 1024),
+                "used_gb": disk_analysis.used_bytes / (1024 * 1024 * 1024),
+                "available_gb": disk_analysis.available_bytes / (1024 * 1024 * 1024),
+                "usage_percent": disk_analysis.usage_percent,
+                "top_consumers": disk_analysis.top_consumers,
+            },
             "probes": health_data.results,
-            "needs_reboot": needs_reboot,
-            "predictions": predictions,
-            "report_path": report_path.display().to_string(),
         });
         println!("{}", serde_json::to_string_pretty(&json_output)?);
     } else {
-        // Human output (compact, max 24 lines)
-        print_daily_summary(&health_data, &predictions, needs_reboot, &report_path);
+        // Human output - beautiful and useful
+        print_daily_output(&health_data, &disk_analysis, status_level, use_color);
     }
 
-    // Log to ctl.jsonl
+    // Log command
     let duration_ms = start_time.elapsed().as_millis() as u64;
-    let exit_code = if health_data.summary.fail > 0 {
-        1
-    } else {
-        EXIT_SUCCESS
-    };
+    let exit_code = if has_failures || disk_critical { 1 } else { EXIT_SUCCESS };
     let log_entry = LogEntry {
         ts: LogEntry::now(),
         req_id: req_id.to_string(),
         state: state.to_string(),
         command: "daily".to_string(),
         allowed: Some(true),
-        args: if json {
-            vec!["--json".to_string()]
-        } else {
-            vec![]
-        },
+        args: if json { vec!["--json".to_string()] } else { vec![] },
         exit_code,
         citation: "[archwiki:System_maintenance]".to_string(),
         duration_ms,
@@ -102,239 +109,152 @@ pub async fn execute_daily_command(
     std::process::exit(exit_code);
 }
 
-/// Print compact daily summary (max 24 lines)
-fn print_daily_summary(
+/// Print beautiful, useful daily output
+fn print_daily_output(
     health_data: &HealthRunData,
-    predictions: &[PredictionInfo],
-    needs_reboot: bool,
-    report_path: &Path,
+    disk_analysis: &DiskAnalysis,
+    status_level: StatusLevel,
+    use_color: bool,
 ) {
-    let use_color = context_detection::should_use_color();
-
-    // Header (1 line)
-    println!("{}", "═".repeat(60));
-    println!(
-        "{}",
-        if use_color {
-            "📋 DAILY CHECKUP".bold().to_string()
-        } else {
-            "DAILY CHECKUP".to_string()
-        }
+    // Main status section
+    let mut section = Section::new(
+        format!("Daily System Check - {}",
+            Utc::now().format("%Y-%m-%d %H:%M")),
+        status_level,
+        use_color,
     );
-    println!("{}", "═".repeat(60));
 
-    // Health summary (1 line)
-    let status_icon = if health_data.summary.fail > 0 {
-        if use_color {
-            "❌".red().to_string()
-        } else {
-            "FAIL".red().to_string()
+    // Overall health
+    let health_summary = format!(
+        "Health: {} ok, {} warnings, {} failures",
+        health_data.summary.ok,
+        health_data.summary.warn,
+        health_data.summary.fail
+    );
+    section.add_line(health_summary);
+    section.add_blank();
+
+    // Disk status
+    let disk_status = format!(
+        "Disk: {:.1}% used ({} / {} total)",
+        disk_analysis.usage_percent,
+        format_bytes(disk_analysis.available_bytes),
+        format_bytes(disk_analysis.total_bytes)
+    );
+    section.add_line(disk_status);
+
+    print!("{}", section.render());
+
+    // Show problems if any
+    let has_problems = health_data.summary.fail > 0
+        || health_data.summary.warn > 0
+        || disk_analysis.usage_percent > 80.0;
+
+    if has_problems {
+        println!("\n📊 Issues Detected:\n");
+
+        // Failed probes
+        for result in &health_data.results {
+            if result.status == "fail" {
+                let msg = result.details.get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Issue detected");
+                println!("  ❌ {}: {}", result.probe, msg);
+            }
         }
-    } else if health_data.summary.warn > 0 {
-        if use_color {
-            "⚠️ ".yellow().to_string()
+
+        // Warning probes
+        for result in &health_data.results {
+            if result.status == "warn" {
+                let msg = result.details.get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Warning");
+                println!("  ⚠️  {}: {}", result.probe, msg);
+            }
+        }
+
+        // Disk analysis if needed
+        if disk_analysis.usage_percent > 80.0 {
+            println!("\n📁 Disk Space Analysis:\n");
+            println!("  Your disk is {:.1}% full. Here's what's using space:\n",
+                disk_analysis.usage_percent);
+
+            for consumer in &disk_analysis.top_consumers {
+                println!("  {} {:<20} {:>10}  {}",
+                    consumer.category.icon(),
+                    consumer.category.name(),
+                    consumer.size_human,
+                    consumer.path.display()
+                );
+            }
+
+            // Get and show recommendations
+            let recommendations = disk_analysis.get_recommendations();
+            if !recommendations.is_empty() {
+                println!("\n🎯 Recommended Actions:\n");
+
+                for (i, rec) in recommendations.iter().enumerate() {
+                    println!("{}. {}", i + 1, rec.title);
+                    if let Some(cmd) = &rec.command {
+                        println!("   $ {}", cmd);
+                    }
+                    println!("   📖 {}", rec.explanation);
+                    if let Some(warning) = &rec.warning {
+                        println!("   ⚠️  {}", warning);
+                    }
+                    println!("   💾 Impact: Frees {}", rec.estimated_savings_human);
+
+                    let wiki_url = if let Some(section) = &rec.wiki_section {
+                        format!("{}#{}", rec.wiki_url, section)
+                    } else {
+                        rec.wiki_url.clone()
+                    };
+                    println!("   🔗 Arch Wiki: {}", wiki_url);
+
+                    // Show risk level
+                    let risk_label = match rec.risk_level {
+                        RecommendationRisk::Safe => "✅ Safe",
+                        RecommendationRisk::Low => "🟢 Low Risk",
+                        RecommendationRisk::Medium => "🟡 Medium Risk",
+                        RecommendationRisk::High => "🔴 High Risk",
+                    };
+                    println!("   Risk: {}", risk_label);
+                    println!();
+                }
+            }
+        }
+
+        println!("\n💡 Next Steps:");
+        if disk_analysis.usage_percent > 90.0 {
+            println!("   Run the disk space cleanup commands above (start with the safest)");
+        } else if health_data.summary.fail > 0 {
+            println!("   Run 'annactl repair' to attempt automatic fixes");
         } else {
-            "WARN".yellow().to_string()
+            println!("   Run 'annactl health' for detailed diagnostics");
         }
     } else {
-        if use_color {
-            "✅".green().to_string()
-        } else {
-            "OK".green().to_string()
-        }
-    };
-    println!(
-        "Health: {} ({} ok, {} warn, {} fail)",
-        status_icon, health_data.summary.ok, health_data.summary.warn, health_data.summary.fail
-    );
-
-    // Show only failed or warning probes (max 5 lines)
-    let mut shown_issues = 0;
-    for result in &health_data.results {
-        if result.status != "ok" && shown_issues < 5 {
-            let icon = if result.status == "fail" {
-                if use_color {
-                    "  ❌".red().to_string()
-                } else {
-                    "  FAIL".red().to_string()
-                }
-            } else {
-                if use_color {
-                    "  ⚠️ ".yellow().to_string()
-                } else {
-                    "  WARN".yellow().to_string()
-                }
-            };
-            // Extract message from details if available
-            let msg = result
-                .details
-                .get("message")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Issue detected");
-            println!("{} {}: {}", icon, result.probe, msg);
-            shown_issues += 1;
-        }
+        println!("\n✅ All systems healthy!");
+        println!("\n💡 Your system is running smoothly. No action needed.");
     }
 
-    // Reboot notice (1 line if needed)
-    if needs_reboot {
-        println!(
-            "{}",
-            if use_color {
-                "🔄 System reboot recommended".yellow()
-            } else {
-                "System reboot recommended".yellow()
-            }
-        );
-    }
-
-    // Predictions (max 3 lines + header)
-    if !predictions.is_empty() {
-        println!();
-        println!(
-            "{}",
-            if use_color {
-                "🔮 PREDICTIONS".bold().to_string()
-            } else {
-                "PREDICTIONS".to_string()
-            }
-        );
-        for pred in predictions.iter().take(3) {
-            let icon = match pred.priority.as_str() {
-                "Critical" | "High" => {
-                    if use_color {
-                        "🔴".red().to_string()
-                    } else {
-                        "HIGH".red().to_string()
-                    }
-                }
-                "Medium" => {
-                    if use_color {
-                        "🟡".yellow().to_string()
-                    } else {
-                        "MED".yellow().to_string()
-                    }
-                }
-                _ => {
-                    if use_color {
-                        "🟢".green().to_string()
-                    } else {
-                        "LOW".green().to_string()
-                    }
-                }
-            };
-            println!("  {} {}", icon, pred.title);
-            if let Some(suggestion) = &pred.suggestion {
-                println!("     → {}", suggestion);
-            }
-        }
-    }
-
-    // Footer (3 lines)
     println!();
-    println!("{}", "─".repeat(60));
-    println!("Report: {}", report_path.display());
-    println!(
-        "Next: {}",
-        if health_data.summary.fail > 0 || health_data.summary.warn > 0 {
-            "annactl repair (to fix issues)"
-        } else {
-            "annactl status (for detailed view)"
-        }
-    );
 }
 
-/// Check if system needs reboot
-fn check_needs_reboot() -> bool {
-    // Common indicators that a reboot is needed
-    std::path::Path::new("/var/run/reboot-required").exists()
-        || std::path::Path::new("/usr/lib/modules").read_dir().map_or(false, |mut entries| {
-            // Check if there are kernel modules for versions other than current
-            let current_kernel = std::fs::read_to_string("/proc/version")
-                .unwrap_or_default()
-                .split_whitespace()
-                .nth(2)
-                .unwrap_or("")
-                .to_string();
-            entries.any(|e| {
-                e.ok()
-                    .and_then(|e| e.file_name().into_string().ok())
-                    .map_or(false, |name| !current_kernel.starts_with(&name))
-            })
-        })
-}
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
 
-/// Get top N predictions from daemon
-async fn get_top_predictions(
-    client: &mut RpcClient,
-    limit: usize,
-) -> Result<Vec<PredictionInfo>> {
-    // For Phase 4.0, we'll use a placeholder until we wire up the prediction RPC
-    // In a real implementation, this would call client.get_predictions()
-    // For now, return empty to avoid blocking on infrastructure
-    Ok(Vec::new())
-}
-
-/// Simplified prediction info for daily display
-#[derive(Debug, Clone, serde::Serialize)]
-struct PredictionInfo {
-    priority: String,
-    title: String,
-    suggestion: Option<String>,
-}
-
-/// Save daily report to disk
-async fn save_daily_report(
-    health_data: &HealthRunData,
-    predictions: &[PredictionInfo],
-    needs_reboot: bool,
-) -> Result<PathBuf> {
-    let timestamp = Utc::now().format("%Y%m%d-%H%M%S");
-    let filename = format!("daily-{}.json", timestamp);
-
-    // Try primary path first, fall back to user home
-    let report_dir = pick_report_dir();
-    let report_path = report_dir.join(&filename);
-
-    let report = json!({
-        "type": "daily",
-        "timestamp": Utc::now().to_rfc3339(),
-        "health_summary": {
-            "ok": health_data.summary.ok,
-            "warn": health_data.summary.warn,
-            "fail": health_data.summary.fail,
-        },
-        "probes": health_data.results,
-        "needs_reboot": needs_reboot,
-        "predictions": predictions,
-        "citation": "[archwiki:System_maintenance]",
-    });
-
-    tokio::fs::write(&report_path, serde_json::to_string_pretty(&report)?)
-        .await
-        .context("Failed to write daily report")?;
-
-    Ok(report_path)
-}
-
-/// Pick report directory (primary or fallback)
-fn pick_report_dir() -> PathBuf {
-    let primary = PathBuf::from("/var/lib/anna/reports");
-    if primary.exists() && is_writable(&primary) {
-        primary
+    if bytes >= TB {
+        format!("{:.1}TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.1}GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1}MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1}KB", bytes as f64 / KB as f64)
     } else {
-        // Fallback to user home
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        PathBuf::from(home).join(".local/state/anna/reports")
+        format!("{}B", bytes)
     }
-}
-
-/// Check if directory is writable
-fn is_writable(path: &Path) -> bool {
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(path.join(".test"))
-        .and_then(|_| std::fs::remove_file(path.join(".test")))
-        .is_ok()
 }

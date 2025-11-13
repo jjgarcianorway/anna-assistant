@@ -10,6 +10,8 @@ pub mod command_meta; // Phase 3.1: Command classification
 pub mod config;
 pub mod config_parser;
 pub mod context; // Phase 3.6: Persistent context layer
+pub mod disk_analysis; // Phase 4.1: Real disk space analysis (not token checks)
+pub mod display; // Phase 4.1: Beautiful, consistent output library (Anna's voice)
 pub mod github_releases; // Phase 3.10: GitHub API client for auto-upgrade
 pub mod ignore_filters;
 pub mod installation_source; // Phase 3.10: AUR-aware auto-upgrade
