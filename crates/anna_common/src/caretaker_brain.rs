@@ -244,7 +244,128 @@ impl CaretakerBrain {
             }
         }
 
+        // 3. Check for pacman lock file issues
+        Self::check_pacman_lock(&mut issues);
+
+        // 4. Check laptop power management
+        Self::check_laptop_power_management(&mut issues);
+
+        // 5. Check GPU driver status
+        Self::check_gpu_drivers(&mut issues);
+
         CaretakerAnalysis::from_issues(issues)
+    }
+
+    /// Check for pacman lock file issues
+    fn check_pacman_lock(issues: &mut Vec<CaretakerIssue>) {
+        let lock_file = std::path::Path::new("/var/lib/pacman/db.lck");
+
+        if lock_file.exists() {
+            // Check if lock file is stale (older than 1 hour)
+            if let Ok(metadata) = std::fs::metadata(lock_file) {
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(elapsed) = modified.elapsed() {
+                        if elapsed.as_secs() > 3600 {
+                            issues.push(
+                                CaretakerIssue::new(
+                                    IssueSeverity::Warning,
+                                    "Stale pacman lock file detected",
+                                    "Pacman database is locked but appears to be stale. This prevents package operations.",
+                                    "Run 'sudo rm /var/lib/pacman/db.lck' to remove the lock"
+                                )
+                                .with_reference("https://wiki.archlinux.org/title/Pacman#%22Failed_to_init_transaction_(unable_to_lock_database)%22_error")
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Check laptop power management configuration
+    fn check_laptop_power_management(issues: &mut Vec<CaretakerIssue>) {
+        // Detect if this is a laptop by checking for battery
+        let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
+                         std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+
+        if !has_battery {
+            return; // Not a laptop
+        }
+
+        // Check if TLP or other power management is installed and enabled
+        let tlp_installed = std::process::Command::new("which")
+            .arg("tlp")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        let tlp_enabled = std::process::Command::new("systemctl")
+            .args(&["is-enabled", "tlp.service"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if tlp_installed && !tlp_enabled {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Warning,
+                    "Laptop detected but TLP not enabled",
+                    "TLP is installed but not enabled. Your battery life could be significantly better.",
+                    "Run 'sudo systemctl enable --now tlp.service'"
+                )
+                .with_repair_action("tlp-config")
+                .with_reference("https://wiki.archlinux.org/title/TLP")
+            );
+        } else if !tlp_installed {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Info,
+                    "Laptop detected without power management",
+                    "Consider installing TLP for better battery life and thermal management.",
+                    "Install with: 'sudo pacman -S tlp' then 'sudo systemctl enable --now tlp.service'"
+                )
+                .with_reference("https://wiki.archlinux.org/title/TLP")
+            );
+        }
+    }
+
+    /// Check GPU driver status
+    fn check_gpu_drivers(issues: &mut Vec<CaretakerIssue>) {
+        // Check for NVIDIA GPU
+        let has_nvidia = std::process::Command::new("lspci")
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                Some(output.to_lowercase().contains("nvidia"))
+            })
+            .unwrap_or(false);
+
+        if !has_nvidia {
+            return; // No NVIDIA GPU detected
+        }
+
+        // Check if NVIDIA driver is loaded
+        let nvidia_loaded = std::process::Command::new("lsmod")
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                Some(output.contains("nvidia"))
+            })
+            .unwrap_or(false);
+
+        if !nvidia_loaded {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Warning,
+                    "NVIDIA GPU detected but driver not loaded",
+                    "You have an NVIDIA GPU but the proprietary driver is not loaded. GPU acceleration won't work.",
+                    "Install NVIDIA driver: 'sudo pacman -S nvidia nvidia-utils'"
+                )
+                .with_reference("https://wiki.archlinux.org/title/NVIDIA")
+            );
+        }
     }
 
     /// Interpret a probe result into human-readable terms

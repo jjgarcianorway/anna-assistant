@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0-beta.1] - 2025-11-13
+
+### Deep System Scan and First Run Experience
+
+**Anna now behaves like a real sysadmin from the very first interaction.**
+
+When you run `annactl daily` for the first time, Anna automatically:
+- Detects this is first contact
+- Shows a friendly welcome message
+- Runs a deep system scan
+- Presents prioritized findings with clear actions
+- Remembers the results for future comparisons
+
+No more manual `init` discovery - Anna is smart from hello.
+
+#### New Features
+
+**First Run Detection** (`crates/annactl/src/first_run.rs`)
+- Automatic detection using multiple signals (context DB, config, marker file)
+- Welcome message on first contact
+- Deep scan on first `daily` run
+- Marker file creation after successful scan
+
+**Extended Caretaker Brain Detectors**
+- **Pacman Lock File**: Detects stale pacman database locks (>1 hour old)
+- **Laptop Power Management**: Detects battery and checks if TLP is installed/enabled
+- **GPU Driver Status**: Detects NVIDIA GPUs and checks if driver is loaded
+- All detectors produce actionable `CaretakerIssue` objects with:
+  - Clear severity (Critical, Warning, Info)
+  - Plain English explanation
+  - Specific fix command
+  - Arch Wiki reference
+
+**Daily Command Enhancement**
+- Detects first run and shows "First System Scan" header
+- Marks first run complete after successful scan
+- Maintains fast performance on subsequent runs
+
+#### Bug Fixes
+
+**Upgrade Command**
+- Fixed "Text file busy" error during upgrade
+- Now stops daemon before replacing binaries, then starts it
+- Added proper error handling for daemon stop/start
+
+**Caretaker Brain**
+- Fixed issue sorting (enum Ord was backwards)
+- Consensus smoke test now passes
+
+#### Documentation Updates
+
+**PRODUCT_VISION.md**
+- Added "User Experience Principles" section
+- Documented first contact behavior
+- Added principle: "First run experience matters - users form opinions in the first 60 seconds"
+
+**README.md**
+- Added "First Run" section with example
+- Lists all issues Anna checks on first scan
+- Clarified that first run is automatic
+
+#### What Anna Now Detects
+
+On first run (and every run), Anna checks:
+1. **Disk space** on `/`, `/home`, `/var` (Critical <5%, Warning <10%)
+2. **Failed systemd units** via health probes
+3. **Pacman health** - stale lock files
+4. **Laptop power** - battery detected but no TLP
+5. **GPU drivers** - NVIDIA GPU without driver loaded
+6. **Service issues** - TLP installed but not enabled
+7. **System health** via existing probe infrastructure
+
+#### Performance
+
+- First run: ~5-10 seconds (deep scan)
+- Subsequent runs: ~2 seconds (normal daily check)
+- No performance impact on non-first runs
+
+---
+
 ## [4.2.0-beta.1] - 2025-11-13
 
 ### Vision Lock and Cleanup

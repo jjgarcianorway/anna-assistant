@@ -37,10 +37,38 @@ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/s
 
 That's it. Anna is now watching your system.
 
-### Daily Use
+### First Run
+
+The first time you interact with Anna, she'll automatically scan your system:
 
 ```bash
-# Every morning
+annactl daily
+
+# Anna detects this is first run and shows:
+# 👋 Welcome to Anna!
+#
+# Looks like this is the first time I see this machine.
+# I will run a deeper scan once and then remember the results.
+#
+# Running first system scan...
+#
+# [Shows prioritized issues and recommendations]
+```
+
+Anna checks for common issues:
+- Disk space on `/`, `/home`, and `/var`
+- Failed or degraded systemd services
+- Pacman health (stale locks)
+- Power management (laptops)
+- GPU drivers (NVIDIA detection)
+- Journal errors and warnings
+
+### Daily Use
+
+After first run, Anna is lightning fast:
+
+```bash
+# Every morning (takes ~2 seconds)
 annactl daily
 
 # If something is wrong

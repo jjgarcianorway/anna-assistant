@@ -95,6 +95,27 @@ Anna is successful when:
 3. Users recommend Anna to other Arch users as "essential"
 4. The documentation is so clear that new users are productive in under 5 minutes
 
+## User Experience Principles
+
+### First Contact
+
+On first contact Anna performs a one-time deep scan of the machine and presents a short list of concrete issues and improvements. **The user should never have to discover the initial setup command by reading documentation.**
+
+When you run `annactl` or `annactl daily` for the first time:
+- Anna automatically detects this is the first run
+- Shows a friendly welcome message
+- Runs a deeper system scan
+- Presents prioritized findings with clear actions
+- Remembers the scan results for future comparisons
+
+### Daily Use
+
+After first run, Anna is extremely lightweight:
+- `annactl daily` - two-second morning check (the core workflow)
+- `annactl status` - detailed view when you need it
+- `sudo annactl repair` - fix issues interactively
+- `annactl upgrade` - keep Anna updated
+
 ## What This Means for Development
 
 - **Stop building infrastructure for infrastructure's sake**
@@ -102,6 +123,7 @@ Anna is successful when:
 - **Keep the command surface small** - hide complexity behind `--help --all`
 - **Write docs for users, not archaeologists** - no one cares about "Phase 3.7"
 - **Make the default case trivial** - `annactl daily` should be all most users need
+- **First run experience matters** - users form opinions in the first 60 seconds
 
 ## The Vision in One Sentence
 

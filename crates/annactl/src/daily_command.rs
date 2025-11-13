@@ -5,6 +5,7 @@
 
 use crate::context_detection;
 use crate::errors::*;
+use crate::first_run;
 use crate::logging::LogEntry;
 use crate::rpc_client::RpcClient;
 use anna_common::caretaker_brain::{CaretakerBrain, IssueSeverity};
@@ -23,10 +24,16 @@ pub async fn execute_daily_command(
     req_id: &str,
     start_time: Instant,
 ) -> Result<()> {
+    let use_color = context_detection::should_use_color();
+
+    // Phase 4.3: Detect first run and show welcome message
+    let is_first_run = first_run::is_first_run();
+    if is_first_run && !json {
+        first_run::display_first_run_message(use_color);
+    }
+
     let mut client = RpcClient::connect()
         .await.context("Failed to connect to daemon")?;
-
-    let use_color = context_detection::should_use_color();
 
     // Run basic health probes
     let probes = vec![
@@ -80,7 +87,7 @@ pub async fn execute_daily_command(
         println!("{}", serde_json::to_string_pretty(&json_output)?);
     } else {
         // Human output - caretaker brain provides prioritized insights
-        print_daily_output(&health_data, &disk_analysis, &caretaker_analysis, status_level, use_color);
+        print_daily_output(&health_data, &disk_analysis, &caretaker_analysis, status_level, use_color, is_first_run);
     }
 
     // Log command
@@ -101,6 +108,11 @@ pub async fn execute_daily_command(
     };
     let _ = log_entry.write();
 
+    // Phase 4.3: Mark first run as complete after successful scan
+    if is_first_run && exit_code == EXIT_SUCCESS {
+        let _ = first_run::mark_first_run_complete();
+    }
+
     std::process::exit(exit_code);
 }
 
@@ -111,11 +123,17 @@ fn print_daily_output(
     caretaker_analysis: &anna_common::caretaker_brain::CaretakerAnalysis,
     status_level: StatusLevel,
     use_color: bool,
+    is_first_run: bool,
 ) {
     // Main status section with caretaker summary
+    let header = if is_first_run {
+        format!("First System Scan - {}", Utc::now().format("%Y-%m-%d %H:%M"))
+    } else {
+        format!("Daily System Check - {}", Utc::now().format("%Y-%m-%d %H:%M"))
+    };
+
     let mut section = Section::new(
-        format!("Daily System Check - {}",
-            Utc::now().format("%Y-%m-%d %H:%M")),
+        header,
         status_level,
         use_color,
     );
