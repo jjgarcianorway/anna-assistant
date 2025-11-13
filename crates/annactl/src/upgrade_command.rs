@@ -118,13 +118,18 @@ pub async fn execute_upgrade_command(auto_yes: bool, check_only: bool) -> Result
     backup_current_binaries()?;
     println!("✅ Backup complete");
 
-    // Step 9: Install new binaries
+    // Step 9: Stop daemon before replacing binaries
+    println!("⏸️  Stopping daemon...");
+    stop_daemon()?;
+    println!("✅ Daemon stopped");
+
+    // Step 10: Install new binaries
     println!("📦 Installing v{}...", latest_version);
     install_binaries(&annactl_path, &annad_path)?;
     println!("✅ Installation complete");
 
-    // Step 10: Restart daemon
-    println!("🔄 Restarting daemon...");
+    // Step 11: Start daemon with new binaries
+    println!("🔄 Starting daemon...");
     restart_daemon()?;
     println!("✅ Daemon restarted");
 
@@ -264,15 +269,35 @@ fn install_binaries(annactl_src: &Path, annad_src: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Restart daemon
-fn restart_daemon() -> Result<()> {
+/// Stop daemon before upgrade
+fn stop_daemon() -> Result<()> {
     let output = Command::new("systemctl")
-        .args(&["restart", "annad"])
+        .args(&["stop", "annad"])
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("Failed to restart daemon: {}", stderr);
+        // Daemon might not be running, that's ok
+        if !stderr.contains("not loaded") && !stderr.contains("not found") {
+            anyhow::bail!("Failed to stop daemon: {}", stderr);
+        }
+    }
+
+    // Wait for daemon to fully stop
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    Ok(())
+}
+
+/// Restart daemon
+fn restart_daemon() -> Result<()> {
+    let output = Command::new("systemctl")
+        .args(&["start", "annad"])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Failed to start daemon: {}", stderr);
     }
 
     // Wait for daemon to start
