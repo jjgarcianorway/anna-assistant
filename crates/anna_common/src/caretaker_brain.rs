@@ -115,7 +115,8 @@ impl CaretakerAnalysis {
     /// Create analysis from a list of issues
     pub fn from_issues(mut issues: Vec<CaretakerIssue>) -> Self {
         // Sort by severity (Critical > Warning > Info)
-        issues.sort_by(|a, b| a.severity.cmp(&b.severity).reverse());
+        // Derived Ord already provides this order: Critical (0) < Warning (1) < Info (2)
+        issues.sort_by(|a, b| a.severity.cmp(&b.severity));
 
         let overall_status = if issues.iter().any(|i| i.severity == IssueSeverity::Critical) {
             "critical"
