@@ -73,7 +73,10 @@
       "Bash(release-v4.1.0-beta.1/annad-4.1.0-beta.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v4.1.0-beta.1/SHA256SUMS)",
       "Bash(annactl upgrade:*)",
-      "Bash(/usr/local/bin/annactl:*)"
+      "Bash(/usr/local/bin/annactl:*)",
+      "Bash(release-v4.1.1-beta.1/annactl-4.1.1-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v4.1.1-beta.1/annad-4.1.1-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v4.1.1-beta.1/SHA256SUMS)"
     ],
     "deny": [],
     "ask": []

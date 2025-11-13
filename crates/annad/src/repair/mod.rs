@@ -6,7 +6,8 @@
 mod actions;
 
 pub use actions::{
-    disk_space_repair, firmware_microcode_repair, pacman_db_repair, services_failed_repair,
+    bluetooth_service_repair, disk_space_repair, firmware_microcode_repair,
+    missing_firmware_repair, pacman_db_repair, services_failed_repair, tlp_config_repair,
 };
 
 use anna_common::ipc::RepairAction;
@@ -81,6 +82,9 @@ async fn repair_single_probe(probe: &str, dry_run: bool) -> Result<RepairAction>
         "pacman-db" => pacman_db_repair(dry_run).await,
         "services-failed" => services_failed_repair(dry_run).await,
         "firmware-microcode" => firmware_microcode_repair(dry_run).await,
+        "tlp-config" => tlp_config_repair(dry_run).await,
+        "missing-firmware" => missing_firmware_repair(dry_run).await,
+        "bluetooth-service" => bluetooth_service_repair(dry_run).await,
         _ => Err(anyhow::anyhow!("Unknown probe: {}", probe)),
     }
 }

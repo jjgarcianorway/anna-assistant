@@ -199,6 +199,208 @@ impl HealthProbe for PacmanDbProbe {
     }
 }
 
+/// TLP configuration probe - detects if TLP is installed but not enabled
+/// Citation: [archwiki:TLP#Installation]
+pub struct TlpConfigProbe;
+
+impl HealthProbe for TlpConfigProbe {
+    fn name(&self) -> &str {
+        "tlp-config"
+    }
+
+    fn description(&self) -> &str {
+        "Check if TLP service is properly configured"
+    }
+
+    fn citation(&self) -> &str {
+        "[archwiki:TLP#Installation]"
+    }
+
+    fn run(&self) -> Result<ProbeResult> {
+        let start = Instant::now();
+
+        // Check if TLP package is installed
+        let tlp_installed = Command::new("pacman")
+            .args(&["-Q", "tlp"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        let status = if !tlp_installed {
+            // TLP not installed = OK (no misconfiguration)
+            ProbeStatus::Ok
+        } else {
+            // TLP installed - check if service is enabled
+            let service_enabled = Command::new("systemctl")
+                .args(&["is-enabled", "tlp.service"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if service_enabled {
+                ProbeStatus::Ok
+            } else {
+                ProbeStatus::Warn
+            }
+        };
+
+        let message = match status {
+            ProbeStatus::Warn => "TLP installed but tlp.service not enabled - power saving won't apply on boot",
+            _ => "TLP configuration OK"
+        };
+
+        Ok(ProbeResult {
+            probe: self.name().to_string(),
+            status,
+            details: serde_json::json!({
+                "message": message,
+                "installed": tlp_installed,
+            }),
+            citation: self.citation().to_string(),
+            duration_ms: start.elapsed().as_millis() as u64,
+        })
+    }
+}
+
+/// Missing firmware probe - checks dmesg for firmware load failures
+/// Citation: [archwiki:mkinitcpio#Possibly_missing_firmware_for_module_XXXX]
+pub struct MissingFirmwareProbe;
+
+impl HealthProbe for MissingFirmwareProbe {
+    fn name(&self) -> &str {
+        "missing-firmware"
+    }
+
+    fn description(&self) -> &str {
+        "Check for missing firmware in dmesg"
+    }
+
+    fn citation(&self) -> &str {
+        "[archwiki:mkinitcpio#Possibly_missing_firmware_for_module_XXXX]"
+    }
+
+    fn run(&self) -> Result<ProbeResult> {
+        let start = Instant::now();
+
+        // Check dmesg for firmware load failures
+        let output = Command::new("dmesg")
+            .output()
+            .context("Failed to execute dmesg")?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // Look for common firmware error patterns
+        let firmware_errors: Vec<&str> = stdout
+            .lines()
+            .filter(|line| {
+                line.contains("firmware: failed to load") ||
+                line.contains("Direct firmware load") ||
+                line.contains("Possible missing firmware")
+            })
+            .take(5) // Limit to first 5
+            .collect();
+
+        let status = if firmware_errors.is_empty() {
+            ProbeStatus::Ok
+        } else if firmware_errors.len() <= 2 {
+            ProbeStatus::Warn
+        } else {
+            ProbeStatus::Fail
+        };
+
+        Ok(ProbeResult {
+            probe: self.name().to_string(),
+            status,
+            details: serde_json::json!({
+                "message": if firmware_errors.is_empty() {
+                    "No firmware errors detected"
+                } else {
+                    "Missing firmware detected - may affect hardware functionality"
+                },
+                "errors": firmware_errors,
+                "count": firmware_errors.len(),
+            }),
+            citation: self.citation().to_string(),
+            duration_ms: start.elapsed().as_millis() as u64,
+        })
+    }
+}
+
+/// Bluetooth service probe - checks if bluetooth service is failing
+/// Citation: [archwiki:Bluetooth#Installation]
+pub struct BluetoothServiceProbe;
+
+impl HealthProbe for BluetoothServiceProbe {
+    fn name(&self) -> &str {
+        "bluetooth-service"
+    }
+
+    fn description(&self) -> &str {
+        "Check if Bluetooth service is working"
+    }
+
+    fn citation(&self) -> &str {
+        "[archwiki:Bluetooth#Installation]"
+    }
+
+    fn run(&self) -> Result<ProbeResult> {
+        let start = Instant::now();
+
+        // Check if bluetooth package is installed
+        let bluez_installed = Command::new("pacman")
+            .args(&["-Q", "bluez"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        let status = if !bluez_installed {
+            // Bluetooth not installed = OK (user doesn't want it)
+            ProbeStatus::Ok
+        } else {
+            // Bluetooth installed - check service status
+            let service_active = Command::new("systemctl")
+                .args(&["is-active", "bluetooth.service"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if service_active {
+                ProbeStatus::Ok
+            } else {
+                // Check if it's enabled but failed
+                let service_enabled = Command::new("systemctl")
+                    .args(&["is-enabled", "bluetooth.service"])
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false);
+
+                if service_enabled {
+                    ProbeStatus::Fail // Enabled but not running = problem
+                } else {
+                    ProbeStatus::Warn // Installed but not enabled = potential issue
+                }
+            }
+        };
+
+        let message = match status {
+            ProbeStatus::Fail => "Bluetooth service enabled but not running",
+            ProbeStatus::Warn => "Bluetooth installed but service not enabled",
+            _ => "Bluetooth configuration OK"
+        };
+
+        Ok(ProbeResult {
+            probe: self.name().to_string(),
+            status,
+            details: serde_json::json!({
+                "message": message,
+                "installed": bluez_installed,
+            }),
+            citation: self.citation().to_string(),
+            duration_ms: start.elapsed().as_millis() as u64,
+        })
+    }
+}
+
 /// Mockable test probe for integration testing
 /// Reads TEST_PROBE_STATUS environment variable to force specific outcomes
 #[cfg(test)]

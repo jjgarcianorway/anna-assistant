@@ -4,7 +4,8 @@
 //! Citation: [archwiki:System_maintenance]
 
 use super::{
-    DiskSpaceProbe, HealthProbe, PacmanDbProbe, ProbeResult, ProbeStatus, SystemdUnitsProbe,
+    BluetoothServiceProbe, DiskSpaceProbe, HealthProbe, MissingFirmwareProbe, PacmanDbProbe,
+    ProbeResult, ProbeStatus, SystemdUnitsProbe, TlpConfigProbe,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,9 @@ pub async fn run_all_probes() -> Result<HealthSummary> {
         }),
         Box::new(SystemdUnitsProbe),
         Box::new(PacmanDbProbe),
+        Box::new(TlpConfigProbe),
+        Box::new(MissingFirmwareProbe),
+        Box::new(BluetoothServiceProbe),
     ];
 
     let mut results = Vec::new();
@@ -115,6 +119,9 @@ pub async fn run_probe(probe_name: &str) -> Result<ProbeResult> {
         }),
         "systemd-units" => Box::new(SystemdUnitsProbe),
         "pacman-db" => Box::new(PacmanDbProbe),
+        "tlp-config" => Box::new(TlpConfigProbe),
+        "missing-firmware" => Box::new(MissingFirmwareProbe),
+        "bluetooth-service" => Box::new(BluetoothServiceProbe),
         _ => anyhow::bail!("Unknown probe: {}", probe_name),
     };
 

@@ -45,37 +45,65 @@ pub async fn disk_space_repair(dry_run: bool) -> Result<RepairAction> {
         }
     }
 
-    // Action 2: Clean pacman cache (requires paccache from pacman-contrib)
-    let paccache_cmd = "paccache -r -k 2";
+    // Action 2: Clean pacman cache (paccache -rk1 = keep only latest version)
+    // This matches the recommendation we show users and frees the most space
+    let paccache_cmd = "paccache -rk1";
     if dry_run {
         info!("[DRY-RUN] Would execute: {}", paccache_cmd);
         actions_taken.push(format!("[dry-run] {}", paccache_cmd));
     } else {
         // Check if paccache is available
-        if Command::new("which")
+        let paccache_available = Command::new("which")
             .arg("paccache")
             .output()
             .map(|o| o.status.success())
-            .unwrap_or(false)
-        {
-            info!("Executing: {}", paccache_cmd);
-            let output = Command::new("paccache")
-                .args(&["-r", "-k", "2"])
-                .output()
-                .context("Failed to execute paccache")?;
+            .unwrap_or(false);
 
-            last_exit_code = output.status.code().unwrap_or(1);
-            if output.status.success() {
-                actions_taken.push("paccache -r -k 2 (success)".to_string());
-            } else {
+        if !paccache_available {
+            // Install pacman-contrib to get paccache
+            info!("paccache not found, installing pacman-contrib...");
+            let install_output = Command::new("pacman")
+                .args(&["-S", "--noconfirm", "--needed", "pacman-contrib"])
+                .output()
+                .context("Failed to install pacman-contrib")?;
+
+            if !install_output.status.success() {
                 all_success = false;
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                actions_taken.push(format!("paccache failed: {}", stderr));
-                warn!("paccache failed: {}", stderr);
+                let stderr = String::from_utf8_lossy(&install_output.stderr);
+                actions_taken.push(format!("Failed to install pacman-contrib: {}", stderr));
+                warn!("Failed to install pacman-contrib: {}", stderr);
+            } else {
+                actions_taken.push("Installed pacman-contrib".to_string());
+                info!("pacman-contrib installed successfully");
             }
-        } else {
-            warn!("paccache not available (install pacman-contrib)");
-            actions_taken.push("paccache not available (skipped)".to_string());
+        }
+
+        // Now run paccache (either it was already available or we just installed it)
+        info!("Executing: {}", paccache_cmd);
+        let output = Command::new("paccache")
+            .args(&["-rk1"])
+            .output();
+
+        match output {
+            Ok(output) => {
+                last_exit_code = output.status.code().unwrap_or(1);
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // paccache outputs how many packages were removed
+                    actions_taken.push(format!("paccache -rk1: {}", stdout.trim()));
+                    info!("paccache succeeded: {}", stdout.trim());
+                } else {
+                    all_success = false;
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    actions_taken.push(format!("paccache failed: {}", stderr));
+                    warn!("paccache failed: {}", stderr);
+                }
+            }
+            Err(e) => {
+                all_success = false;
+                actions_taken.push(format!("Could not execute paccache: {}", e));
+                warn!("Could not execute paccache: {}", e);
+            }
         }
     }
 
@@ -293,5 +321,111 @@ pub async fn firmware_microcode_repair(dry_run: bool) -> Result<RepairAction> {
         success: dry_run || exit_code == 0,
         details,
         citation: "[archwiki:Microcode]".to_string(),
+    })
+}
+
+/// Repair tlp-config probe - enable TLP service if TLP is installed
+///
+/// Citation: [archwiki:TLP#Installation]
+pub async fn tlp_config_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("tlp-config repair: dry_run={}", dry_run);
+
+    let cmd = "systemctl enable --now tlp.service";
+    let mut exit_code = 0;
+    let mut details = String::new();
+
+    if dry_run {
+        info!("[DRY-RUN] Would execute: {}", cmd);
+        details = format!("[dry-run] {}", cmd);
+    } else {
+        info!("Executing: {}", cmd);
+        let output = Command::new("systemctl")
+            .args(&["enable", "--now", "tlp.service"])
+            .output()
+            .context("Failed to enable TLP service")?;
+
+        exit_code = output.status.code().unwrap_or(1);
+        if output.status.success() {
+            details = "TLP service enabled and started".to_string();
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            details = format!("Failed to enable TLP: {}", stderr);
+            warn!("{}", details);
+        }
+    }
+
+    Ok(RepairAction {
+        probe: "tlp-config".to_string(),
+        action: "enable_tlp_service".to_string(),
+        command: Some(cmd.to_string()),
+        exit_code: if dry_run { None } else { Some(exit_code) },
+        success: dry_run || exit_code == 0,
+        details,
+        citation: "[archwiki:TLP#Installation]".to_string(),
+    })
+}
+
+/// Repair bluetooth-service probe - enable and start bluetooth service
+///
+/// Citation: [archwiki:Bluetooth#Installation]
+pub async fn bluetooth_service_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("bluetooth-service repair: dry_run={}", dry_run);
+
+    let cmd = "systemctl enable --now bluetooth.service";
+    let mut exit_code = 0;
+    let mut details = String::new();
+
+    if dry_run {
+        info!("[DRY-RUN] Would execute: {}", cmd);
+        details = format!("[dry-run] {}", cmd);
+    } else {
+        info!("Executing: {}", cmd);
+        let output = Command::new("systemctl")
+            .args(&["enable", "--now", "bluetooth.service"])
+            .output()
+            .context("Failed to enable Bluetooth service")?;
+
+        exit_code = output.status.code().unwrap_or(1);
+        if output.status.success() {
+            details = "Bluetooth service enabled and started".to_string();
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            details = format!("Failed to enable Bluetooth: {}", stderr);
+            warn!("{}", details);
+        }
+    }
+
+    Ok(RepairAction {
+        probe: "bluetooth-service".to_string(),
+        action: "enable_bluetooth_service".to_string(),
+        command: Some(cmd.to_string()),
+        exit_code: if dry_run { None } else { Some(exit_code) },
+        success: dry_run || exit_code == 0,
+        details,
+        citation: "[archwiki:Bluetooth#Installation]".to_string(),
+    })
+}
+
+/// Repair missing-firmware probe - show guidance for missing firmware
+///
+/// Citation: [archwiki:mkinitcpio#Possibly_missing_firmware_for_module_XXXX]
+pub async fn missing_firmware_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("missing-firmware repair: dry_run={}", dry_run);
+
+    // This repair is informational - missing firmware often requires specific packages
+    // or AUR packages depending on the hardware
+    let details = "Missing firmware detected. Check dmesg for specific firmware files needed. \
+                   Common solutions: install linux-firmware, mkinitcpio-firmware (AUR), or \
+                   suppress warnings by adding MODULE.blacklist=1 to kernel parameters if \
+                   firmware is not needed for your hardware.".to_string();
+
+    Ok(RepairAction {
+        probe: "missing-firmware".to_string(),
+        action: "firmware_guidance".to_string(),
+        command: None, // No automatic fix - requires user to identify hardware needs
+        exit_code: Some(0),
+        success: true,
+        details,
+        citation: "[archwiki:mkinitcpio#Possibly_missing_firmware_for_module_XXXX]".to_string(),
     })
 }

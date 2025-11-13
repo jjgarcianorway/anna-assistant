@@ -7,7 +7,8 @@ mod probes;
 mod runner;
 
 pub use probes::{
-    DiskSpaceProbe, HealthProbe, PacmanDbProbe, ProbeResult, ProbeStatus, SystemdUnitsProbe,
+    BluetoothServiceProbe, DiskSpaceProbe, HealthProbe, MissingFirmwareProbe, PacmanDbProbe,
+    ProbeResult, ProbeStatus, SystemdUnitsProbe, TlpConfigProbe,
 };
 pub use runner::{get_health_summary, run_all_probes, run_probe, HealthSummary};
 
