@@ -429,3 +429,194 @@ pub async fn missing_firmware_repair(dry_run: bool) -> Result<RepairAction> {
         citation: "[archwiki:mkinitcpio#Possibly_missing_firmware_for_module_XXXX]".to_string(),
     })
 }
+
+/// Repair journal-cleanup probe
+///
+/// Action: Clean old journal entries to reduce log volume
+///
+/// Citation: [archwiki:Systemd/Journal#Journal_size_limit]
+pub async fn journal_cleanup_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("journal-cleanup repair: dry_run={}", dry_run);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let mut last_exit_code = 0;
+
+    // Vacuum journal to last 7 days
+    let cmd = "journalctl --vacuum-time=7d";
+    if dry_run {
+        info!("[DRY-RUN] Would execute: {}", cmd);
+        actions_taken.push(format!("[dry-run] {}", cmd));
+    } else {
+        info!("Executing: {}", cmd);
+        let output = Command::new("journalctl")
+            .args(&["--vacuum-time=7d"])
+            .output()
+            .context("Failed to execute journalctl")?;
+
+        last_exit_code = output.status.code().unwrap_or(1);
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            actions_taken.push(format!("journalctl --vacuum-time=7d: {}", stdout.trim()));
+        } else {
+            all_success = false;
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            actions_taken.push(format!("journalctl failed: {}", stderr));
+            warn!("journalctl failed: {}", stderr);
+        }
+    }
+
+    Ok(RepairAction {
+        probe: "journal-cleanup".to_string(),
+        action: "vacuum_journal".to_string(),
+        command: Some(cmd.to_string()),
+        exit_code: if dry_run { None } else { Some(last_exit_code) },
+        success: all_success,
+        details: actions_taken.join("; "),
+        citation: "[archwiki:Systemd/Journal#Journal_size_limit]".to_string(),
+    })
+}
+
+/// Repair orphaned-packages probe
+///
+/// Action: Remove orphaned packages that are no longer needed
+///
+/// Citation: [archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]
+pub async fn orphaned_packages_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("orphaned-packages repair: dry_run={}", dry_run);
+
+    // First, get list of orphaned packages
+    let list_output = Command::new("pacman")
+        .args(&["-Qtdq"])
+        .output()
+        .context("Failed to query orphaned packages")?;
+
+    if !list_output.status.success() {
+        // No orphaned packages found
+        return Ok(RepairAction {
+            probe: "orphaned-packages".to_string(),
+            action: "remove_orphans".to_string(),
+            command: None,
+            exit_code: Some(0),
+            success: true,
+            details: "No orphaned packages found".to_string(),
+            citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]".to_string(),
+        });
+    }
+
+    let orphans = String::from_utf8_lossy(&list_output.stdout);
+    let orphan_list: Vec<&str> = orphans.lines().filter(|l| !l.trim().is_empty()).collect();
+    let count = orphan_list.len();
+
+    if count == 0 {
+        return Ok(RepairAction {
+            probe: "orphaned-packages".to_string(),
+            action: "remove_orphans".to_string(),
+            command: None,
+            exit_code: Some(0),
+            success: true,
+            details: "No orphaned packages found".to_string(),
+            citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]".to_string(),
+        });
+    }
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let mut last_exit_code = 0;
+
+    // Build removal command
+    let cmd = format!("pacman -Rns --noconfirm {}", orphan_list.join(" "));
+    if dry_run {
+        info!("[DRY-RUN] Would remove {} orphaned packages", count);
+        actions_taken.push(format!("[dry-run] Would remove {} packages: {}", count, orphan_list.join(", ")));
+    } else {
+        info!("Removing {} orphaned packages", count);
+        let output = Command::new("pacman")
+            .arg("-Rns")
+            .arg("--noconfirm")
+            .args(&orphan_list)
+            .output()
+            .context("Failed to remove orphaned packages")?;
+
+        last_exit_code = output.status.code().unwrap_or(1);
+        if output.status.success() {
+            actions_taken.push(format!("Removed {} orphaned packages", count));
+        } else {
+            all_success = false;
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            actions_taken.push(format!("Failed to remove orphans: {}", stderr));
+            warn!("Failed to remove orphans: {}", stderr);
+        }
+    }
+
+    Ok(RepairAction {
+        probe: "orphaned-packages".to_string(),
+        action: "remove_orphans".to_string(),
+        command: Some(cmd),
+        exit_code: if dry_run { None } else { Some(last_exit_code) },
+        success: all_success,
+        details: actions_taken.join("; "),
+        citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]".to_string(),
+    })
+}
+
+/// Repair core-dump-cleanup probe
+///
+/// Action: Remove old core dumps to free disk space
+///
+/// Citation: [archwiki:Core_dump#Disabling_automatic_core_dumps]
+pub async fn core_dump_cleanup_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("core-dump-cleanup repair: dry_run={}", dry_run);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let mut last_exit_code = 0;
+
+    // Use coredumpctl to vacuum old dumps (older than 30 days)
+    let cmd = "coredumpctl vacuum --keep-free=1G";
+    if dry_run {
+        info!("[DRY-RUN] Would execute: {}", cmd);
+        actions_taken.push(format!("[dry-run] {}", cmd));
+    } else {
+        info!("Executing: {}", cmd);
+        let output = Command::new("coredumpctl")
+            .args(&["vacuum", "--keep-free=1G"])
+            .output();
+
+        match output {
+            Ok(output) => {
+                last_exit_code = output.status.code().unwrap_or(1);
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    actions_taken.push(format!("coredumpctl vacuum: {}", stdout.trim()));
+                } else {
+                    // coredumpctl might not be available or no dumps to clean
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    if stderr.contains("No coredumps found") {
+                        actions_taken.push("No core dumps found to clean".to_string());
+                        last_exit_code = 0;
+                    } else {
+                        all_success = false;
+                        actions_taken.push(format!("coredumpctl failed: {}", stderr));
+                        warn!("coredumpctl failed: {}", stderr);
+                    }
+                }
+            }
+            Err(e) => {
+                all_success = false;
+                actions_taken.push(format!("Could not execute coredumpctl: {}", e));
+                warn!("Could not execute coredumpctl: {}", e);
+            }
+        }
+    }
+
+    Ok(RepairAction {
+        probe: "core-dump-cleanup".to_string(),
+        action: "vacuum_coredumps".to_string(),
+        command: Some(cmd.to_string()),
+        exit_code: if dry_run { None } else { Some(last_exit_code) },
+        success: all_success,
+        details: actions_taken.join("; "),
+        citation: "[archwiki:Core_dump#Disabling_automatic_core_dumps]".to_string(),
+    })
+}

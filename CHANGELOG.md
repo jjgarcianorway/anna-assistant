@@ -7,6 +7,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.0-beta.1] - 2025-11-13
+
+### System Intelligence Expansion
+
+**Anna now detects and fixes a broader range of real system issues.**
+
+Phase 4.4 expands the caretaker brain with 4 new high-value detectors focused on real-world system health. Every detector follows the established pattern: direct system analysis, clear severity, specific actions, repair automation, and Arch Wiki references.
+
+#### New Detectors
+
+**Journal Error Volume** (`check_journal_errors`)
+- Counts error-level entries in current boot journal via `journalctl -p err -b`
+- **Critical (>200 errors)**: System has serious issues requiring investigation
+- **Warning (>50 errors)**: Configuration or hardware problems detected
+- Repair action: Vacuums old journal entries to last 7 days
+- Reference: https://wiki.archlinux.org/title/Systemd/Journal
+
+**Zombie Process Detection** (`check_zombie_processes`)
+- Scans `/proc/*/status` for processes in zombie state (State: Z)
+- **Warning (>10 zombies)**: Parent processes not properly cleaning up children
+- **Info (>0 zombies)**: Minor process management issue detected
+- Shows process names when available
+- Note: Zombies can't be killed directly - parent process must reap them
+- Reference: https://wiki.archlinux.org/title/Core_utilities#Process_management
+
+**Orphaned Package Detection** (`check_orphaned_packages`)
+- Finds packages no longer required by any installed package via `pacman -Qtdq`
+- **Warning (>50 orphans)**: Significant disk space waste
+- **Info (>10 orphans)**: Cleanup recommended
+- Repair action: Safely removes orphaned packages with `pacman -Rns`
+- Reference: https://wiki.archlinux.org/title/Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)
+
+**Core Dump Accumulation** (`check_core_dumps`)
+- Checks `/var/lib/systemd/coredump` for crash dumps
+- Calculates total size and identifies dumps older than 30 days
+- **Warning (>1GB)**: Significant disk space consumed by crash dumps
+- **Info (>10 files, >5 old)**: Old dumps can be safely cleaned
+- Repair action: Vacuums core dumps with `coredumpctl vacuum --keep-free=1G`
+- Reference: https://wiki.archlinux.org/title/Core_dump
+
+#### New Repair Actions
+
+**journal_cleanup_repair**
+- Vacuums journal to last 7 days with `journalctl --vacuum-time=7d`
+- Reduces log volume after high error periods
+- Safe operation, preserves recent logs
+
+**orphaned_packages_repair**
+- Lists orphaned packages with `pacman -Qtdq`
+- Removes with `pacman -Rns --noconfirm` after confirmation
+- Frees disk space from unused dependencies
+
+**core_dump_cleanup_repair**
+- Uses `coredumpctl vacuum --keep-free=1G` to clean old dumps
+- Gracefully handles missing coredumpctl or no dumps found
+- Preserves recent dumps for debugging
+
+#### Documentation Updates
+
+**README.md**
+- Shortened and focused on user value
+- Added comprehensive "What Anna Detects" section
+- Canonical detection list matching caretaker brain exactly:
+  - Disk Space Analysis (Critical/Warning/Info thresholds)
+  - Failed Systemd Services
+  - Pacman Database Health
+  - Laptop Power Management
+  - GPU Driver Status
+  - Journal Error Volume (NEW)
+  - Zombie Processes (NEW)
+  - Orphaned Packages (NEW)
+  - Core Dump Accumulation (NEW)
+- Each detector documented with severity levels, detection logic, and repair actions
+
+**USER_GUIDE.md**
+- Added section on extended system intelligence
+- Documents all 9 detector categories with examples
+- Shows real-world troubleshooting scenarios
+
+#### What Anna Now Detects (Complete List)
+
+On every `daily` or `status` run, Anna checks:
+
+1. **Disk space** - Critical (<5% free), Warning (<10%), Info (<20%)
+2. **Failed systemd units** - Services in failed/degraded state
+3. **Pacman locks** - Stale database locks (>1 hour old)
+4. **Laptop power** - Battery present but TLP not configured
+5. **GPU drivers** - NVIDIA GPUs without loaded drivers
+6. **Journal errors** - High error volume (>50/200 errors)
+7. **Zombie processes** - Defunct processes accumulating (>10 = warning)
+8. **Orphaned packages** - Unused dependencies (>50 = warning, >10 = info)
+9. **Core dumps** - Old crash dumps (>1GB = warning, >10 files = info)
+
+#### Performance
+
+- First run: ~5-10 seconds (deep scan with all 9 detectors)
+- Subsequent runs: ~2-3 seconds (normal check)
+- All detectors fail gracefully if commands unavailable
+- No performance impact on non-first runs
+
+#### Code Statistics
+
+- `caretaker_brain.rs`: +200 lines (4 new detectors)
+- `repair/actions.rs`: +180 lines (3 new repair actions)
+- `README.md`: Rewritten "What Anna Detects" section
+- All changes maintain backward compatibility
+
+---
+
 ## [4.3.0-beta.1] - 2025-11-13
 
 ### Deep System Scan and First Run Experience

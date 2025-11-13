@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She continuously analyzes your machine - hardware, software, services, and configuration - and helps you fix and improve everything in the simplest possible way.
 
-**Current Version:** 4.2.0-beta.1
+**Current Version:** 4.4.0-beta.1
 
 ---
 
@@ -55,13 +55,16 @@ annactl daily
 # [Shows prioritized issues and recommendations]
 ```
 
-Anna checks for common issues:
-- Disk space on `/`, `/home`, and `/var`
-- Failed or degraded systemd services
-- Pacman health (stale locks)
-- Power management (laptops)
-- GPU drivers (NVIDIA detection)
-- Journal errors and warnings
+Anna checks for:
+- **Disk space**: Critical/warning levels, package cache, logs
+- **Failed systemd services**: Units not running properly
+- **Pacman health**: Stale database locks (>1 hour)
+- **Laptop power**: TLP installation and configuration
+- **GPU drivers**: NVIDIA GPUs without loaded drivers
+- **Journal errors**: High error volume (>50 errors per boot)
+- **Zombie processes**: Accumulating defunct processes
+- **Orphaned packages**: Unused dependencies (>10 packages)
+- **Core dumps**: Old crash dumps consuming disk space
 
 ### Daily Use
 
@@ -167,39 +170,73 @@ This includes:
 
 ---
 
-## How Anna Helps
+## What Anna Detects
 
-### 1. Detects Real Problems
+Anna's caretaker brain performs these checks on every run:
 
-Anna checks for:
-- **Disk Space** - Package cache, logs, downloads consuming space
-- **Service Failures** - systemd services not running
-- **Misconfigurations** - TLP not enabled, Bluetooth not started
-- **Missing Firmware** - Hardware not functioning optimally
-- **Package Updates** - Security fixes available
+### Disk Space Analysis
+- **Critical (>95% full)**: Immediate action required, system at risk
+- **Warning (>90% full)**: Package cache cleanup recommended
+- **Info (>80% full)**: Proactive space management suggested
+- **Recommendation**: `paccache -rk1` to free package cache space
 
-### 2. Explains in Plain English
+### Failed Systemd Services
+- Detects services in failed or degraded state
+- Shows which services and what failed
+- **Repair**: Attempts to restart failed services
 
-No jargon. No acronyms. Just clear explanations:
-- "Your disk is 96% full. Package cache can free 30GB."
-- "TLP is installed but not enabled. Your battery life could be better."
-- "3 updates available including a kernel security fix."
+### Pacman Database Health
+- Detects stale lock files (>1 hour old)
+- Prevents package operation failures
+- **Repair**: Safely removes stale locks after verification
 
-### 3. Provides Clear Fixes
+### Laptop Power Management
+- Auto-detects laptops via battery presence
+- Checks if TLP is installed and enabled
+- **Warning**: TLP installed but not enabled
+- **Info**: TLP not installed, battery life could improve
+- **Repair**: Enables TLP service
+
+### GPU Driver Status
+- Detects NVIDIA GPUs via `lspci`
+- Checks if driver kernel module is loaded
+- **Warning**: GPU present but driver not loaded
+- **Recommendation**: Install nvidia and nvidia-utils packages
+
+### Journal Error Volume
+- Counts error-level entries in current boot journal
+- **Critical (>200 errors)**: System has serious issues
+- **Warning (>50 errors)**: Configuration or hardware problems
+- **Repair**: Cleans old journal entries (vacuum to 7 days)
+
+### Zombie Processes
+- Scans `/proc` for processes in zombie state
+- **Warning (>10 zombies)**: Parent processes not cleaning up
+- **Info (>0 zombies)**: Minor process management issue
+- **Note**: Zombies can't be killed directly - parent must reap them
+
+### Orphaned Packages
+- Finds packages no longer required by any installed package
+- **Warning (>50 orphans)**: Significant disk space waste
+- **Info (>10 orphans)**: Cleanup recommended
+- **Repair**: Removes orphaned packages with `pacman -Rns`
+
+### Core Dump Accumulation
+- Checks `/var/lib/systemd/coredump` for crash dumps
+- Identifies dumps older than 30 days
+- **Warning (>1GB)**: Significant disk space consumed
+- **Info (>10 files, >5 old)**: Old dumps can be cleaned
+- **Repair**: Vacuums core dumps with `coredumpctl`
+
+---
 
 Every issue comes with:
-- **Exact command to run** - Copy-paste ready
-- **Plain English explanation** - What it does and why
-- **Arch Wiki reference** - Direct link to relevant section
-- **Risk level** - Safe, Low, Medium, or High
-- **Estimated impact** - "Frees 30GB", "Improves battery life"
-
-### 4. Actually Executes Fixes
-
-`annactl repair` doesn't just show recommendations - it:
-1. Installs missing tools if needed (e.g., pacman-contrib)
-2. Executes the fix with confirmation
-3. Reports what was done and the result
+- **Severity level**: Critical, Warning, or Info
+- **Plain English explanation**: What's wrong and why it matters
+- **Specific action**: Exact command to run
+- **Arch Wiki reference**: Direct link to official documentation
+- **Estimated impact**: What you'll gain (disk space, performance, etc.)
+- **Repair action**: Can be fixed automatically via `annactl repair`
 
 ---
 

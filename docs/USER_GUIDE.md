@@ -1,7 +1,7 @@
 # Anna Assistant User Guide
 
-**Version**: 3.8.0-alpha.1
-**Phase**: Adaptive CLI with Progressive Disclosure
+**Version**: 4.4.0-beta.1
+**Focus**: System Caretaker - Real Problem Detection and Repair
 **Audience**: End users, system administrators
 
 ---
@@ -244,6 +244,372 @@ Examples:
 Usage:
   annactl status
 ```
+
+## System Intelligence and Detection
+
+Anna's caretaker brain continuously monitors your system across 9 major categories. This section explains what Anna detects, why it matters, and how to interpret the findings.
+
+### Detection Categories
+
+#### 1. Disk Space Analysis
+
+Anna monitors root filesystem usage and identifies space consumers:
+
+```bash
+$ annactl status
+
+📊 Detailed Analysis:
+
+🔴 Critical Issues:
+
+  • Disk 96% full - system at risk
+    Your disk is critically full. This can cause system instability and data loss. Immediate action required.
+    💡 Run 'sudo annactl repair' to clean up space
+    📚 https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem
+```
+
+**Severity Levels:**
+- **Critical (>95% full)**: System at risk, operations may fail
+- **Warning (>90% full)**: Action needed soon
+- **Info (>80% full)**: Consider cleanup
+
+**What Anna Checks:**
+- Root filesystem usage via `df /`
+- Package cache size (`/var/cache/pacman/pkg`)
+- Log directory size (`/var/log`)
+- Common large directories
+
+**Repair Actions:**
+- `paccache -rk1`: Keeps only latest package version (safest, most effective)
+- `journalctl --vacuum-size=100M`: Reduces journal size
+- Guidance on manual cleanup for user directories
+
+#### 2. Failed Systemd Services
+
+Detects services in failed or degraded state:
+
+```bash
+🔴 Critical Issues:
+
+  • Failed systemd services detected
+    Some system services are not running properly.
+    💡 Run 'sudo annactl repair services-failed' to restart failed services
+```
+
+**What Anna Checks:**
+- Runs `systemctl list-units --failed`
+- Identifies which services failed and why
+- Checks service dependencies
+
+**Repair Actions:**
+- Attempts `systemctl restart` for failed services
+- Reports success/failure for each service
+- Provides guidance if restart fails
+
+#### 3. Pacman Database Health
+
+Detects stale pacman lock files that prevent package operations:
+
+```bash
+⚠️ Warnings:
+
+  • Stale pacman lock file detected
+    Pacman database is locked but appears to be stale. This prevents package operations.
+    💡 Run 'sudo rm /var/lib/pacman/db.lck' to remove the lock
+    📚 https://wiki.archlinux.org/title/Pacman#Failed_to_init_transaction
+```
+
+**What Anna Checks:**
+- Existence of `/var/lib/pacman/db.lck`
+- Lock file age (stale if >1 hour old)
+- No active pacman process
+
+**Repair Actions:**
+- Safely removes stale lock file after verification
+- Allows package operations to proceed
+
+#### 4. Laptop Power Management
+
+Auto-detects laptops and checks power management configuration:
+
+```bash
+⚠️ Warnings:
+
+  • Laptop detected but TLP not enabled
+    TLP is installed but not enabled. Your battery life could be significantly better.
+    💡 Run 'sudo systemctl enable --now tlp.service'
+    📚 https://wiki.archlinux.org/title/TLP
+```
+
+**What Anna Checks:**
+- Battery presence in `/sys/class/power_supply/BAT0` or `BAT1`
+- TLP installation via `which tlp`
+- TLP service status via `systemctl is-enabled tlp.service`
+
+**Repair Actions:**
+- Enables and starts TLP service
+- Immediate battery life improvement
+
+#### 5. GPU Driver Status
+
+Detects GPUs and checks if proper drivers are loaded:
+
+```bash
+⚠️ Warnings:
+
+  • NVIDIA GPU detected but driver not loaded
+    You have an NVIDIA GPU but the proprietary driver is not loaded. GPU acceleration won't work.
+    💡 Install NVIDIA driver: 'sudo pacman -S nvidia nvidia-utils'
+    📚 https://wiki.archlinux.org/title/NVIDIA
+```
+
+**What Anna Checks:**
+- NVIDIA GPU presence via `lspci`
+- Driver module loaded via `lsmod | grep nvidia`
+
+**Repair Actions:**
+- Provides package installation guidance
+- User confirms driver installation (requires reboot)
+
+#### 6. Journal Error Volume (NEW in 4.4)
+
+Monitors system journal for high error rates:
+
+```bash
+🔴 Critical Issues:
+
+  • High journal error volume (237 errors)
+    Your system journal has an unusually high number of errors this boot. This indicates serious system issues that need investigation.
+    💡 Review errors with 'journalctl -p err -b' and investigate the most frequent issues
+    📊 237 errors need investigation
+    📚 https://wiki.archlinux.org/title/Systemd/Journal
+```
+
+**What Anna Checks:**
+- Error-level entries in current boot via `journalctl -p err -b`
+- Counts non-empty lines
+
+**Severity Levels:**
+- **Critical (>200 errors)**: Serious system issues
+- **Warning (>50 errors)**: Configuration or hardware problems
+
+**Repair Actions:**
+- Vacuums old journal entries (last 7 days) with `journalctl --vacuum-time=7d`
+- Preserves recent logs for debugging
+- Reduces journal disk usage
+
+**Troubleshooting Tips:**
+- Review errors: `journalctl -p err -b | less`
+- Find most common: `journalctl -p err -b | awk '{print $5}' | sort | uniq -c | sort -rn | head`
+- Address root cause before vacuuming
+
+#### 7. Zombie Process Detection (NEW in 4.4)
+
+Scans for defunct processes accumulating on the system:
+
+```bash
+ℹ️ Recommendations:
+
+  • 3 zombie process(es) detected (bash, python, systemd)
+    Zombie processes are harmless but may indicate improper process management.
+    💡 Use 'ps aux | grep Z' to identify zombies and check their parent processes
+    📚 https://wiki.archlinux.org/title/Core_utilities#Process_management
+```
+
+**What Anna Checks:**
+- Scans `/proc/*/status` for `State: Z`
+- Extracts process names when available
+- Counts total zombie processes
+
+**Severity Levels:**
+- **Warning (>10 zombies)**: Parent process issue
+- **Info (>0 zombies)**: Minor issue, usually harmless
+
+**Important Notes:**
+- Zombies can't be killed directly
+- Parent process must reap them
+- Usually indicates application bug
+- Zero resource consumption
+
+**Troubleshooting:**
+```bash
+# Find zombies and their parents
+$ ps -eo pid,ppid,stat,comm | grep Z
+
+# Check parent process
+$ ps -p <PPID> -o pid,comm,cmd
+
+# If parent is alive, it should reap the zombie
+# If parent is dead, init should reap it
+```
+
+#### 8. Orphaned Package Detection (NEW in 4.4)
+
+Finds packages no longer required by any installed package:
+
+```bash
+⚠️ Warnings:
+
+  • 63 orphaned packages found
+    Many packages are installed as dependencies but no longer required by any package. These consume disk space unnecessarily.
+    💡 Remove with 'sudo pacman -Rns $(pacman -Qtdq)' after reviewing the list
+    📚 https://wiki.archlinux.org/title/Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)
+```
+
+**What Anna Checks:**
+- Runs `pacman -Qtdq` to list orphaned packages
+- Counts total orphans
+
+**Severity Levels:**
+- **Warning (>50 orphans)**: Significant disk waste
+- **Info (>10 orphans)**: Cleanup recommended
+
+**Repair Actions:**
+- Lists orphaned packages
+- Removes with `pacman -Rns` after user confirmation
+- Frees disk space from unused dependencies
+
+**Safe Review Process:**
+```bash
+# List orphaned packages
+$ pacman -Qtd
+
+# See what would be removed
+$ pacman -Rns $(pacman -Qtdq) --print
+
+# Actually remove (via Anna)
+$ sudo annactl repair orphaned-packages
+```
+
+#### 9. Core Dump Accumulation (NEW in 4.4)
+
+Monitors crash dumps consuming disk space:
+
+```bash
+ℹ️ Recommendations:
+
+  • 15 core dumps found (342 MB)
+    8 dumps are older than 30 days and can likely be removed.
+    💡 Review with 'coredumpctl list' and clean old dumps with 'sudo coredumpctl vacuum --keep-free=1G'
+    📚 https://wiki.archlinux.org/title/Core_dump
+```
+
+**What Anna Checks:**
+- Scans `/var/lib/systemd/coredump` for dump files
+- Calculates total size in MB
+- Identifies dumps older than 30 days
+
+**Severity Levels:**
+- **Warning (>1GB)**: Significant space consumed
+- **Info (>10 files, >5 old)**: Cleanup recommended
+
+**Repair Actions:**
+- Uses `coredumpctl vacuum --keep-free=1G` to clean old dumps
+- Preserves recent dumps for debugging
+- Gracefully handles missing coredumpctl
+
+**Troubleshooting:**
+```bash
+# List all core dumps
+$ coredumpctl list
+
+# Show info about specific dump
+$ coredumpctl info <PID>
+
+# Extract specific dump
+$ coredumpctl dump <PID> -o core.dump
+
+# Clean old dumps (via Anna)
+$ sudo annactl repair core-dump-cleanup
+```
+
+### Real-World Scenarios
+
+#### Scenario 1: Disk Nearly Full
+
+```bash
+$ annactl daily
+
+🔴 First System Scan - 2025-11-13 13:58
+
+2 critical, 2 warnings detected
+
+Health: 4 ok, 1 warnings, 1 failures
+Disk: 96.5% used (24.7GB / 802.1GB total)
+
+🔍 Issues Detected (prioritized):
+
+1. 🔴 Disk 96% full - system at risk
+2. 🔴 disk-space issue
+3. ⚠️ TLP not properly configured
+4. ⚠️ 63 orphaned packages found
+
+# Fix it all at once
+$ sudo annactl repair
+
+# Or fix specific issues
+$ sudo annactl repair disk-space
+$ sudo annactl repair orphaned-packages
+```
+
+#### Scenario 2: System Logging Errors
+
+```bash
+$ annactl status
+
+🔴 Critical Issues:
+
+  • High journal error volume (237 errors)
+
+# Investigate first
+$ journalctl -p err -b | less
+
+# Find patterns
+$ journalctl -p err -b | grep -oP '(?<=: ).*' | sort | uniq -c | sort -rn | head -10
+
+# Clean up after fixing root cause
+$ sudo annactl repair journal-cleanup
+```
+
+#### Scenario 3: First Run on New Machine
+
+```bash
+$ annactl daily
+
+👋 Welcome to Anna!
+
+Looks like this is the first time I see this machine.
+I will run a deeper scan once and then remember the results.
+
+Running first system scan...
+
+# Anna checks ALL 9 categories and prioritizes findings
+# You get immediate visibility into system health
+# Fix critical issues first, then warnings, then info
+```
+
+### Detection Summary
+
+| Category | Check Frequency | Severity Levels | Auto-Repair |
+|----------|----------------|-----------------|-------------|
+| Disk Space | Every run | Critical/Warning/Info | Yes |
+| Failed Services | Every run | Critical | Yes |
+| Pacman Locks | Every run | Warning | Yes |
+| Laptop Power | First run + daily | Warning/Info | Yes |
+| GPU Drivers | First run + daily | Warning | No (guidance) |
+| Journal Errors | Every run | Critical/Warning | Yes |
+| Zombie Processes | Every run | Warning/Info | No (guidance) |
+| Orphaned Packages | Every run | Warning/Info | Yes |
+| Core Dumps | Every run | Warning/Info | Yes |
+
+**Key Principles:**
+- All detectors fail gracefully if commands unavailable
+- All issues include Arch Wiki references
+- Repair actions require explicit user confirmation
+- Critical issues are always prioritized
+- First run performs deep scan, subsequent runs are fast (~2s)
+
+---
 
 ## Advanced Features
 

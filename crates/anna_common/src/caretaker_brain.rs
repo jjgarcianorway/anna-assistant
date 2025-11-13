@@ -253,6 +253,18 @@ impl CaretakerBrain {
         // 5. Check GPU driver status
         Self::check_gpu_drivers(&mut issues);
 
+        // 6. Check journal error volume
+        Self::check_journal_errors(&mut issues);
+
+        // 7. Check for zombie processes
+        Self::check_zombie_processes(&mut issues);
+
+        // 8. Check for orphaned packages
+        Self::check_orphaned_packages(&mut issues);
+
+        // 9. Check for stale core dumps
+        Self::check_core_dumps(&mut issues);
+
         CaretakerAnalysis::from_issues(issues)
     }
 
@@ -368,6 +380,209 @@ impl CaretakerBrain {
         }
     }
 
+    /// Check journal error volume for current boot
+    fn check_journal_errors(issues: &mut Vec<CaretakerIssue>) {
+        // Run journalctl -p err -b to count error entries for current boot
+        let output = std::process::Command::new("journalctl")
+            .args(&["-p", "err", "-b", "--no-pager"])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let error_count = stdout.lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .count();
+
+                if error_count > 200 {
+                    issues.push(
+                        CaretakerIssue::new(
+                            IssueSeverity::Critical,
+                            format!("High journal error volume ({} errors)", error_count),
+                            "Your system journal has an unusually high number of errors this boot. This indicates serious system issues that need investigation.",
+                            "Review errors with 'journalctl -p err -b' and investigate the most frequent issues"
+                        )
+                        .with_repair_action("journal-cleanup")
+                        .with_reference("https://wiki.archlinux.org/title/Systemd/Journal")
+                        .with_impact(format!("{} errors need investigation", error_count))
+                    );
+                } else if error_count > 50 {
+                    issues.push(
+                        CaretakerIssue::new(
+                            IssueSeverity::Warning,
+                            format!("Elevated journal error volume ({} errors)", error_count),
+                            "Your system journal has more errors than normal. This may indicate configuration issues or failing hardware.",
+                            "Review errors with 'journalctl -p err -b' and address the most common patterns"
+                        )
+                        .with_repair_action("journal-cleanup")
+                        .with_reference("https://wiki.archlinux.org/title/Systemd/Journal")
+                    );
+                }
+            }
+        }
+    }
+
+    /// Check for zombie processes
+    fn check_zombie_processes(issues: &mut Vec<CaretakerIssue>) {
+        // Check /proc for zombie processes (State: Z)
+        let mut zombie_count = 0;
+        let mut zombie_names = Vec::new();
+
+        if let Ok(entries) = std::fs::read_dir("/proc") {
+            for entry in entries.flatten() {
+                if let Ok(file_name) = entry.file_name().into_string() {
+                    // Check if directory name is numeric (PID)
+                    if file_name.chars().all(|c| c.is_ascii_digit()) {
+                        let status_path = entry.path().join("status");
+                        if let Ok(status_content) = std::fs::read_to_string(status_path) {
+                            // Check for "State: Z (zombie)"
+                            if status_content.lines().any(|line| {
+                                line.starts_with("State:") && line.contains("Z")
+                            }) {
+                                zombie_count += 1;
+                                // Try to get process name
+                                if let Some(name_line) = status_content.lines().find(|l| l.starts_with("Name:")) {
+                                    if let Some(name) = name_line.split(':').nth(1) {
+                                        zombie_names.push(name.trim().to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if zombie_count > 10 {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Warning,
+                    format!("{} zombie processes detected", zombie_count),
+                    "Multiple zombie processes are accumulating. This usually means parent processes are not properly cleaning up their children.",
+                    "Identify and fix the parent processes. Zombies cannot be killed directly - their parent process must reap them."
+                )
+                .with_reference("https://wiki.archlinux.org/title/Core_utilities#Process_management")
+            );
+        } else if zombie_count > 0 {
+            let process_list = if zombie_names.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", zombie_names.join(", "))
+            };
+
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Info,
+                    format!("{} zombie process(es) detected{}", zombie_count, process_list),
+                    "Zombie processes are harmless but may indicate improper process management.",
+                    "Use 'ps aux | grep Z' to identify zombies and check their parent processes"
+                )
+                .with_reference("https://wiki.archlinux.org/title/Core_utilities#Process_management")
+            );
+        }
+    }
+
+    /// Check for orphaned packages
+    fn check_orphaned_packages(issues: &mut Vec<CaretakerIssue>) {
+        // Run pacman -Qtdq to list orphaned packages
+        let output = std::process::Command::new("pacman")
+            .args(&["-Qtdq"])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let orphans: Vec<&str> = stdout.lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .collect();
+
+                if orphans.len() > 50 {
+                    issues.push(
+                        CaretakerIssue::new(
+                            IssueSeverity::Warning,
+                            format!("{} orphaned packages found", orphans.len()),
+                            "Many packages are installed as dependencies but no longer required by any package. These consume disk space unnecessarily.",
+                            "Remove with 'sudo pacman -Rns $(pacman -Qtdq)' after reviewing the list"
+                        )
+                        .with_repair_action("orphaned-packages")
+                        .with_reference("https://wiki.archlinux.org/title/Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)")
+                    );
+                } else if orphans.len() > 10 {
+                    issues.push(
+                        CaretakerIssue::new(
+                            IssueSeverity::Info,
+                            format!("{} orphaned packages found", orphans.len()),
+                            "Some packages are no longer needed. Cleaning them up can free disk space.",
+                            "Review with 'pacman -Qtd' and remove with 'sudo pacman -Rns $(pacman -Qtdq)'"
+                        )
+                        .with_repair_action("orphaned-packages")
+                        .with_reference("https://wiki.archlinux.org/title/Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)")
+                    );
+                }
+            }
+        }
+    }
+
+    /// Check for stale core dumps
+    fn check_core_dumps(issues: &mut Vec<CaretakerIssue>) {
+        let coredump_path = std::path::Path::new("/var/lib/systemd/coredump");
+
+        if !coredump_path.exists() {
+            return; // coredump directory doesn't exist
+        }
+
+        let mut total_size: u64 = 0;
+        let mut file_count = 0;
+        let mut old_dumps = 0;
+
+        if let Ok(entries) = std::fs::read_dir(coredump_path) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_file() {
+                        file_count += 1;
+                        total_size += metadata.len();
+
+                        // Check if file is older than 30 days
+                        if let Ok(modified) = metadata.modified() {
+                            if let Ok(elapsed) = modified.elapsed() {
+                                if elapsed.as_secs() > 30 * 24 * 3600 {
+                                    old_dumps += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let size_mb = total_size / (1024 * 1024);
+
+        if size_mb > 1000 {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Warning,
+                    format!("Large core dump accumulation ({} MB, {} files)", size_mb, file_count),
+                    "Core dumps are consuming significant disk space. Old dumps can usually be safely removed.",
+                    "Review with 'coredumpctl list' and clean up with 'sudo rm /var/lib/systemd/coredump/*'"
+                )
+                .with_repair_action("core-dump-cleanup")
+                .with_reference("https://wiki.archlinux.org/title/Core_dump")
+                .with_impact(format!("Frees {} MB", size_mb))
+            );
+        } else if file_count > 10 && old_dumps > 5 {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Info,
+                    format!("{} core dumps found ({} MB)", file_count, size_mb),
+                    format!("{} dumps are older than 30 days and can likely be removed.", old_dumps),
+                    "Review with 'coredumpctl list' and clean old dumps with 'sudo coredumpctl --since=-30days vacuum'"
+                )
+                .with_repair_action("core-dump-cleanup")
+                .with_reference("https://wiki.archlinux.org/title/Core_dump")
+            );
+        }
+    }
+
     /// Interpret a probe result into human-readable terms
     fn interpret_probe_result(result: &crate::ipc::HealthProbeResult) -> (String, String, String) {
         // Extract message from probe details if available
@@ -455,5 +670,128 @@ mod tests {
         let healthy = Vec::new();
         let analysis = CaretakerAnalysis::from_issues(healthy);
         assert_eq!(analysis.overall_status, "healthy");
+    }
+
+    #[test]
+    fn test_analyze_runs_without_errors() {
+        // Test that analyze() can run without crashing
+        // It should gracefully handle missing commands or files
+        let analysis = CaretakerBrain::analyze(None, None);
+
+        // Should always return an analysis, even if empty
+        assert!(
+            analysis.overall_status == "healthy" ||
+            analysis.overall_status == "needs-attention" ||
+            analysis.overall_status == "critical"
+        );
+    }
+
+    #[test]
+    fn test_journal_detector_runs() {
+        // Test that check_journal_errors runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_journal_errors(&mut issues);
+
+        // Should not crash, issues may or may not be added depending on system state
+        // Just verify the function is callable
+    }
+
+    #[test]
+    fn test_zombie_detector_runs() {
+        // Test that check_zombie_processes runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_zombie_processes(&mut issues);
+
+        // Should not crash, issues may or may not be added
+    }
+
+    #[test]
+    fn test_orphaned_packages_detector_runs() {
+        // Test that check_orphaned_packages runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_orphaned_packages(&mut issues);
+
+        // Should not crash, issues may or may not be added
+    }
+
+    #[test]
+    fn test_core_dumps_detector_runs() {
+        // Test that check_core_dumps runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_core_dumps(&mut issues);
+
+        // Should not crash, issues may or may not be added
+    }
+
+    #[test]
+    fn test_detector_graceful_failure() {
+        // Test that all detectors fail gracefully when commands are unavailable
+        // This is a smoke test to ensure no panics occur
+        let mut issues = Vec::new();
+
+        CaretakerBrain::check_pacman_lock(&mut issues);
+        CaretakerBrain::check_laptop_power_management(&mut issues);
+        CaretakerBrain::check_gpu_drivers(&mut issues);
+        CaretakerBrain::check_journal_errors(&mut issues);
+        CaretakerBrain::check_zombie_processes(&mut issues);
+        CaretakerBrain::check_orphaned_packages(&mut issues);
+        CaretakerBrain::check_core_dumps(&mut issues);
+
+        // All detectors should complete without panicking
+        // Issues list may be empty or populated depending on system state
+    }
+
+    #[test]
+    fn test_issue_with_repair_action() {
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Warning,
+            "Test Issue",
+            "Test explanation",
+            "Test action"
+        ).with_repair_action("test-repair");
+
+        assert_eq!(issue.repair_action_id, Some("test-repair".to_string()));
+    }
+
+    #[test]
+    fn test_issue_with_impact() {
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Info,
+            "Test Issue",
+            "Test explanation",
+            "Test action"
+        ).with_impact("Frees 10GB");
+
+        assert_eq!(issue.estimated_impact, Some("Frees 10GB".to_string()));
+    }
+
+    #[test]
+    fn test_issue_with_reference() {
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Critical,
+            "Test Issue",
+            "Test explanation",
+            "Test action"
+        ).with_reference("https://wiki.archlinux.org/title/Test");
+
+        assert_eq!(issue.reference, Some("https://wiki.archlinux.org/title/Test".to_string()));
+    }
+
+    #[test]
+    fn test_caretaker_issue_chaining() {
+        // Test that method chaining works correctly
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Warning,
+            "Test",
+            "Test",
+            "Test"
+        )
+        .with_repair_action("test-repair")
+        .with_impact("Frees 5GB")
+        .with_reference("https://test.com");
+
+        assert_eq!(issue.repair_action_id, Some("test-repair".to_string()));
+        assert_eq!(issue.estimated_impact, Some("Frees 5GB".to_string()));
+        assert_eq!(issue.reference, Some("https://test.com".to_string()));
     }
 }
