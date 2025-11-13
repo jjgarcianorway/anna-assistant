@@ -137,6 +137,9 @@ pub async fn execute_doctor_command(
     // Save doctor report
     let report_path = save_doctor_report(&data).await?;
 
+    // Phase 3.9: Check installation source
+    let install_check = check_installation_source();
+
     if json {
         // JSON output with doctor wrapper
         let doctor_output = serde_json::json!({
@@ -147,11 +150,13 @@ pub async fn execute_doctor_command(
             "report": report_path.display().to_string(),
             "citation": "[archwiki:System_maintenance]",
             "probes": data.results,
+            "installation_source": install_check,
         });
         println!("{}", serde_json::to_string_pretty(&doctor_output)?);
     } else {
         // Human output
         print_doctor_summary(&data);
+        print_installation_check(&install_check);
         println!("Report saved: {}", report_path.display());
     }
 
@@ -429,6 +434,73 @@ pub async fn execute_repair_command(
     let _ = log_entry.write();
 
     std::process::exit(exit_code);
+}
+
+/// Check installation source (Phase 3.9: AUR awareness)
+#[derive(serde::Serialize)]
+struct InstallationCheck {
+    source: String,
+    status: String,
+    recommendation: Option<String>,
+}
+
+fn check_installation_source() -> InstallationCheck {
+    use std::process::Command;
+
+    // Check if annactl is managed by pacman
+    let pacman_check = Command::new("pacman")
+        .args(&["-Qo", "/usr/bin/annactl"])
+        .output();
+
+    if let Ok(output) = pacman_check {
+        if output.status.success() {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                // Output format: "/usr/bin/annactl is owned by package-name version"
+                if let Some(package) = stdout.split_whitespace().nth(4) {
+                    return InstallationCheck {
+                        source: format!("Package Manager ({})", package),
+                        status: "ok".to_string(),
+                        recommendation: None,
+                    };
+                }
+            }
+        }
+    }
+
+    // Check if in /usr/local (manual install)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if exe_path.starts_with("/usr/local") {
+            return InstallationCheck {
+                source: "Manual Installation (/usr/local)".to_string(),
+                status: "ok".to_string(),
+                recommendation: Some("Consider using AUR for easier updates: yay -S anna-assistant-bin".to_string()),
+            };
+        }
+    }
+
+    // Unknown/mixed installation
+    InstallationCheck {
+        source: "Unknown".to_string(),
+        status: "warn".to_string(),
+        recommendation: Some("Unable to determine installation method. Reinstall via AUR or GitHub releases.".to_string()),
+    }
+}
+
+fn print_installation_check(check: &InstallationCheck) {
+    println!();
+    println!("Installation Source Check:");
+
+    let status_icon = match check.status.as_str() {
+        "ok" => "✓",
+        "warn" => "⚠️",
+        _ => "•",
+    };
+
+    println!("  {} Source: {}", status_icon, check.source);
+
+    if let Some(rec) = &check.recommendation {
+        println!("  💡 {}", rec);
+    }
 }
 
 /// Helper to log and exit
