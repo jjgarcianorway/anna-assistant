@@ -10,6 +10,7 @@ use crate::predictive_hints;
 use crate::rpc_client::RpcClient;
 use anna_common::ipc::{HealthRunData, ResponseData};
 use anyhow::{Context, Result};
+use owo_colors::OwoColorize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -435,6 +436,47 @@ pub async fn execute_repair_command(
         .await
         .context("Failed to connect to daemon")?;
 
+    let use_color = context_detection::should_use_color();
+
+    // Phase 4.0: Enhanced repair with user confirmation and risk awareness
+    if !dry_run && probe == "all" {
+        // Interactive mode: show what will be repaired and ask for confirmation
+        println!("{}", "═".repeat(60));
+        println!(
+            "{}",
+            if use_color {
+                "🔧 SYSTEM REPAIR".bold().to_string()
+            } else {
+                "SYSTEM REPAIR".to_string()
+            }
+        );
+        println!("{}", "═".repeat(60));
+        println!();
+        println!("Anna will attempt to fix detected issues automatically.");
+        println!("Only low-risk actions will be performed.");
+        println!();
+        println!(
+            "{}",
+            if use_color {
+                "⚠️  Actions may modify system state!".yellow().to_string()
+            } else {
+                "WARNING: Actions may modify system state!".to_string()
+            }
+        );
+        println!();
+        print!("Proceed with repair? [y/N]: ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+            println!("Repair cancelled.");
+            std::process::exit(EXIT_SUCCESS);
+        }
+        println!();
+    }
+
     // Call repair_probe
     let response = client.repair_probe(probe.to_string(), dry_run).await?;
 
@@ -459,30 +501,70 @@ pub async fn execute_repair_command(
         1 // Repair failed
     };
 
-    // Print results (plain text, no markdown)
+    // Phase 4.0: Enhanced output with better formatting
     if dry_run {
-        println!("[anna] repair simulation: probe={}", probe);
+        println!(
+            "{}",
+            if use_color {
+                "🔍 REPAIR SIMULATION (dry run)".bold().to_string()
+            } else {
+                "REPAIR SIMULATION (dry run)".to_string()
+            }
+        );
     } else {
-        println!("[anna] repair: probe={}", probe);
+        println!(
+            "{}",
+            if use_color {
+                "🔧 EXECUTING REPAIRS".bold().to_string()
+            } else {
+                "EXECUTING REPAIRS".to_string()
+            }
+        );
     }
+    println!();
+
+    let mut total_success = 0;
+    let mut total_failed = 0;
 
     for repair in &data.repairs {
-        let status = if repair.success { "OK" } else { "FAIL" };
-        println!(
-            "[anna] probe: {} — {} ({})",
-            repair.probe, repair.action, status
-        );
+        let icon = if repair.success {
+            total_success += 1;
+            if use_color {
+                "✅".green().to_string()
+            } else {
+                "OK".green().to_string()
+            }
+        } else {
+            total_failed += 1;
+            if use_color {
+                "❌".red().to_string()
+            } else {
+                "FAIL".red().to_string()
+            }
+        };
+
+        println!("{} {}", icon, repair.probe);
+        println!("  Action: {}", repair.action);
+
         if !repair.details.is_empty() {
-            println!("  {}", repair.details);
+            println!("  Details: {}", repair.details);
         }
-        if !dry_run {
-            println!("  Citation: {}", repair.citation);
+
+        if !dry_run && !repair.citation.is_empty() {
+            println!("  Source: {}", repair.citation);
         }
+        println!();
     }
 
-    println!("{}", data.message);
-    if !dry_run {
-        println!("Citation: {}", data.citation);
+    // Summary
+    println!("{}", "─".repeat(60));
+    println!(
+        "Summary: {} succeeded, {} failed",
+        total_success, total_failed
+    );
+
+    if !dry_run && !data.citation.is_empty() {
+        println!("Reference: {}", data.citation);
     }
 
     // Log to ctl.jsonl

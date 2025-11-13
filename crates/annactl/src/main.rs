@@ -14,6 +14,7 @@ mod collective_commands; // Phase 1.3
 mod consensus_commands; // Phase 1.8
 mod conscience_commands; // Phase 1.1
 mod context_detection; // Phase 3.8: Context detection
+mod daily_command; // Phase 4.0: Daily checkup workflow
 mod empathy_commands; // Phase 1.2
 mod health_commands;
 mod help_commands; // Phase 3.1: Adaptive help
@@ -110,6 +111,13 @@ enum Commands {
 
     /// Check system health (all states) - Phase 0.5
     Health {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Daily checkup - quick health summary with predictions (Phase 4.0)
+    Daily {
         /// Output JSON only
         #[arg(long)]
         json: bool,
@@ -623,6 +631,7 @@ async fn main() -> Result<()> {
         Commands::Rescue { .. } => "rescue",
         Commands::Backup { .. } => "backup",
         Commands::Health { .. } => "health",
+        Commands::Daily { .. } => "daily",
         Commands::Doctor { .. } => "doctor",
         Commands::Rollback { .. } => "rollback",
         Commands::Triage => "triage",
@@ -686,6 +695,10 @@ async fn main() -> Result<()> {
     match &cli.command {
         Commands::Health { json } => {
             return health_commands::execute_health_command(*json, &state, &req_id, start_time)
+                .await;
+        }
+        Commands::Daily { json } => {
+            return daily_command::execute_daily_command(*json, &state, &req_id, start_time)
                 .await;
         }
         Commands::Doctor { json } => {
@@ -1798,6 +1811,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Health { .. } => {
             // Should not reach here - handled in main
             unreachable!("Health command should be handled separately");
+        }
+        Commands::Daily { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Daily command should be handled separately");
         }
         Commands::Doctor { .. } => {
             // Should not reach here - handled in main

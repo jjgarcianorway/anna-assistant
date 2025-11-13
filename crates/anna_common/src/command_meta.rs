@@ -330,7 +330,25 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
                 "annactl health --json",
                 "annactl health --probe systemd-failed-units",
             ],
-            see_also: &["status", "doctor"],
+            see_also: &["status", "doctor", "daily"],
+        },
+        CommandMetadata {
+            name: "daily",
+            category: CommandCategory::UserSafe,
+            risk_level: RiskLevel::None,
+            requires_root: false,
+            requires_daemon: true,
+            available_states: &[],
+            description_short: "Daily checkup - quick health summary",
+            description_long: "Run a quick daily checkup with curated health checks and top predictions. \
+                              Shows: disk space, pacman status, failed services, journal errors, and pending reboots. \
+                              Output is compact (fits in 24 lines) and perfect for morning system checks. \
+                              Saves a JSON report for tracking over time.",
+            examples: &[
+                "annactl daily",
+                "annactl daily --json",
+            ],
+            see_also: &["health", "status", "repair"],
         },
         CommandMetadata {
             name: "metrics",

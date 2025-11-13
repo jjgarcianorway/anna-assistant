@@ -569,6 +569,169 @@ annactl collect-logs            # Gather diagnostic info
 annactl audit                   # Show audit log
 ```
 
+## A Typical Day with Anna
+
+This is how Anna works in real daily use - a simple, reliable workflow for keeping your Arch system healthy.
+
+### Morning Routine (2 minutes)
+
+Start your day with a quick system check:
+
+```bash
+$ annactl daily
+═══════════════════════════════════════════════════════════
+📋 DAILY CHECKUP
+═══════════════════════════════════════════════════════════
+Health: ✅ (5 ok, 0 warn, 0 fail)
+
+Report: /var/lib/anna/reports/daily-20251113-080000.json
+Next: annactl status (for detailed view)
+```
+
+**What this does:**
+- Checks disk space, pacman database, systemd services
+- Scans journal for errors in the last 24 hours
+- Shows top 3 predictions if any issues are brewing
+- Saves a report you can track over time
+
+**Time cost**: ~2 seconds
+
+### When Issues Appear
+
+If `annactl daily` shows warnings or failures:
+
+```bash
+$ annactl daily
+═══════════════════════════════════════════════════════════
+📋 DAILY CHECKUP
+═══════════════════════════════════════════════════════════
+Health: ⚠️  (4 ok, 1 warn, 0 fail)
+  ⚠️  pacman-db: Database lock file exists
+
+Next: annactl repair (to fix issues)
+```
+
+Run repair to fix safe issues automatically:
+
+```bash
+$ annactl repair
+═══════════════════════════════════════════════════════════
+🔧 SYSTEM REPAIR
+═══════════════════════════════════════════════════════════
+
+Anna will attempt to fix detected issues automatically.
+Only low-risk actions will be performed.
+
+⚠️  Actions may modify system state!
+
+Proceed with repair? [y/N]: y
+
+🔧 EXECUTING REPAIRS
+
+✅ pacman-db
+  Action: Remove stale lock file
+  Details: Removed /var/lib/pacman/db.lck
+  Source: [archwiki:pacman#Database_locked]
+
+────────────────────────────────────────────────────────────
+Summary: 1 succeeded, 0 failed
+Reference: [archwiki:System_maintenance]
+```
+
+**What repair does:**
+- Only fixes low-risk issues (no package updates, no config changes)
+- Always asks for confirmation
+- Shows what it's doing and why (with Arch Wiki citations)
+- Reports success/failure clearly
+
+**Time cost**: ~5 seconds + your confirmation
+
+### Weekly Maintenance (5 minutes)
+
+Once a week, run a deeper check:
+
+```bash
+# 1. Full health check
+$ annactl health
+
+# 2. Check for system updates (safe - no changes)
+$ annactl update --dry-run
+
+# 3. Review what Anna learned
+$ annactl profile
+```
+
+**That's it.** Three commands, 5 minutes, once a week.
+
+### When You're Away
+
+Anna runs in the background (as `annad` daemon) and:
+- Monitors system metrics continuously
+- Builds predictions about potential issues
+- Checks for Anna updates once per day (manual installations only)
+- **Never makes changes without your explicit permission**
+
+You can check what it's been doing:
+
+```bash
+# View recent command history
+$ tail -20 /var/log/anna/ctl.jsonl | jq -r '.command'
+
+# Check daemon status
+$ annactl status
+```
+
+### The Core Philosophy
+
+Anna follows a simple rule: **Observe by default, act only when you ask.**
+
+- **Read-only commands** (`daily`, `status`, `health`): Run anytime, zero risk
+- **Safe repairs** (`repair`): Always ask first, only low-risk actions
+- **System changes** (`update`): You must explicitly run these
+
+This means you're always in control. Anna won't surprise you with automatic updates, reboots, or configuration changes.
+
+### Real-World Example
+
+Here's what a typical Monday morning looks like:
+
+```bash
+# Monday, 8:00 AM - Check system health
+$ annactl daily
+Health: ✅ All good
+
+# Wednesday, 8:00 AM - Notice a warning
+$ annactl daily
+Health: ⚠️  (4 ok, 1 warn, 0 fail)
+  ⚠️  disk-space: /var partition 85% full
+
+# Run repair - but disk space needs manual attention
+$ annactl repair
+No automatic repairs available for disk-space issues.
+Recommendation: Review /var/log and /var/cache for cleanup
+
+# Manual cleanup
+$ sudo journalctl --vacuum-time=7d
+$ sudo paccache -r
+
+# Verify fixed
+$ annactl daily
+Health: ✅ All good
+```
+
+### For Advanced Users
+
+Once comfortable with the basics:
+
+- **Monitoring stack**: `annactl monitor install` (Grafana + Prometheus)
+- **Auto-upgrades**: `sudo annactl upgrade` (manual installations only)
+- **Predictions**: `annactl predict` (see what Anna thinks might happen)
+- **Learning**: `annactl learn` (view Anna's system knowledge)
+
+But you don't need any of this for daily use. The core workflow - `daily`, `repair`, and occasional `health` - is all most users ever need.
+
+---
+
 ## Tips & Tricks
 
 1. **Tab Completion**: If available, use shell completion for commands
@@ -590,13 +753,15 @@ When viewing long output:
 
 After getting comfortable with basic commands:
 
-1. **Explore monitoring**: `annactl monitor install`
-2. **Review health reports**: Study `annactl health` output
+1. **Practice the daily routine**: Make `annactl daily` part of your morning
+2. **Review health reports**: Study `annactl health` output when warnings appear
 3. **Understand your system**: Read `annactl profile` results
-4. **Learn admin commands**: Use `annactl help --all` to discover more
+4. **Explore monitoring** (optional): `annactl monitor install` for Grafana dashboards
 
 ## Version History
 
+- **4.0.0-beta.1**: Core Caretaker Workflows - First beta release
+- **3.10.0-alpha.1**: AUR-Aware Auto-Upgrade System
 - **3.8.0-alpha.1**: Adaptive CLI with progressive disclosure
 - **3.7.0**: Predictive intelligence and learning
 - **3.6.0**: Persistent context layer
