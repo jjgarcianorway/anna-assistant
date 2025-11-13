@@ -8,7 +8,8 @@ mod actions;
 pub use actions::{
     bluetooth_service_repair, core_dump_cleanup_repair, disk_space_repair,
     firmware_microcode_repair, journal_cleanup_repair, missing_firmware_repair,
-    orphaned_packages_repair, pacman_db_repair, services_failed_repair, tlp_config_repair,
+    orphaned_packages_repair, pacman_db_repair, services_failed_repair,
+    time_sync_enable_repair, tlp_config_repair,
 };
 
 use anna_common::ipc::RepairAction;
@@ -89,6 +90,7 @@ async fn repair_single_probe(probe: &str, dry_run: bool) -> Result<RepairAction>
         "journal-cleanup" => journal_cleanup_repair(dry_run).await,
         "orphaned-packages" => orphaned_packages_repair(dry_run).await,
         "core-dump-cleanup" => core_dump_cleanup_repair(dry_run).await,
+        "time-sync-enable" => time_sync_enable_repair(dry_run).await,
         _ => Err(anyhow::anyhow!("Unknown probe: {}", probe)),
     }
 }

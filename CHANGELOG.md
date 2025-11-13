@@ -7,6 +7,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.5.0-beta.1] - 2025-11-13
+
+### Desktop & Safety Essentials
+
+**Anna now covers desktop and safety basics: time sync, firewall, and backups.**
+
+Phase 4.5 adds three essential detectors focused on common desktop and safety issues. All follow the established pattern: direct system checks, clear severity levels, specific actions, and Arch Wiki references. Firewall and backup remain guidance-only for safety.
+
+#### New Detectors
+
+**Time Synchronization** (`check_time_sync`)
+- Checks for active NTP services: systemd-timesyncd, chronyd, ntpd
+- **Warning**: No network time synchronization active
+- **Info**: Service available but not enabled
+- Repair action: Enables systemd-timesyncd (safe, checks for conflicts first)
+- Reference: https://wiki.archlinux.org/title/Systemd-timesyncd
+- **Why it matters**: Clock drift breaks TLS certificates and log timestamps
+
+**Firewall Status** (`check_firewall_status`)
+- Detects networked machines (non-loopback interfaces up)
+- Checks for ufw, firewalld, nftables, iptables rules
+- **Warning**: Online machine with no active firewall
+- **Info**: Firewall installed but not active
+- **Guidance only**: Shows exact commands, never auto-enables for safety
+- Reference: https://wiki.archlinux.org/title/Uncomplicated_Firewall
+- Conservative detection: never claims "no firewall" if rules exist
+
+**Backup Awareness** (`check_backup_awareness`)
+- Looks for common backup tools: timeshift, borg, restic, rsnapshot
+- Checks btrfs systems for snapshot capability
+- **Info only**: Non-intrusive reminder
+- No automatic action - backup config is personal
+- Reference: https://wiki.archlinux.org/title/Backup_programs
+- Suggests specific tools with installation commands
+
+#### New Repair Action
+
+**time_sync_enable_repair**
+- Enables and starts systemd-timesyncd
+- Conservative safety checks:
+  - Confirms systemd-timesyncd is available
+  - Checks for conflicting NTP services (chronyd, ntpd)
+  - Declines to act if another service is active
+  - Verifies synchronization after enabling
+- Safe for automatic execution via `sudo annactl repair time-sync-enable`
+
+#### No Repair Actions for Firewall or Backups
+
+Following the principle of safety over convenience:
+- **Firewall**: Too risky to auto-enable (could lock out SSH, break networking)
+- **Backups**: Configuration is complex and personal
+- Both provide clear guidance with exact commands to copy-paste
+
+#### Documentation Updates
+
+**README.md**
+- Version updated to 4.5.0-beta.1
+- Detection list now shows all 12 categories
+- Added concise descriptions for time sync, firewall, and backups
+- Maintained short, user-facing style
+
+**USER_GUIDE.md**
+- Version updated to 4.5.0-beta.1
+- Added sections for all 3 new detectors with examples
+- Detection summary table updated (12 categories)
+- Emphasized safety approach for firewall (guidance only)
+- Clarified backup is info-level only
+
+#### What Anna Now Detects (Complete List - 12 Categories)
+
+On every `daily` or `status` run, Anna checks:
+
+1. **Disk space** - Critical/Warning/Info levels, auto-repair
+2. **Failed systemd units** - Critical, auto-repair
+3. **Pacman locks** - Warning, auto-repair
+4. **Laptop power** - Warning/Info, auto-repair (TLP)
+5. **GPU drivers** - Warning, guidance only
+6. **Journal errors** - Critical/Warning, auto-repair
+7. **Zombie processes** - Warning/Info, guidance only
+8. **Orphaned packages** - Warning/Info, auto-repair
+9. **Core dumps** - Warning/Info, auto-repair
+10. **Time synchronization** ✨ - Warning/Info, auto-repair
+11. **Firewall status** ✨ - Warning/Info, guidance only
+12. **Backup awareness** ✨ - Info only, guidance only
+
+#### Performance
+
+- First run: ~5-10 seconds (deep scan, all 12 detectors)
+- Subsequent runs: ~2-3 seconds (unchanged from 4.4)
+- All new detectors fail gracefully if commands unavailable
+- No performance impact on existing functionality
+
+#### Code Statistics
+
+- `caretaker_brain.rs`: +280 lines (3 new detector methods)
+- `repair/actions.rs`: +110 lines (time_sync_enable_repair)
+- `repair/mod.rs`: +1 line (repair action registration)
+- `README.md`: Updated detection list, added 3 categories
+- `USER_GUIDE.md`: +100 lines (3 detector sections + table update)
+- Total: ~490 lines new code + comprehensive documentation
+
+---
+
 ## [4.4.0-beta.1] - 2025-11-13
 
 ### System Intelligence Expansion

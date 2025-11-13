@@ -1,7 +1,7 @@
 # Anna Assistant User Guide
 
-**Version**: 4.4.0-beta.1
-**Focus**: System Caretaker - Real Problem Detection and Repair
+**Version**: 4.5.0-beta.1
+**Focus**: Desktop & Safety Essentials - Complete System Caretaker
 **Audience**: End users, system administrators
 
 ---
@@ -523,6 +523,102 @@ $ coredumpctl dump <PID> -o core.dump
 $ sudo annactl repair core-dump-cleanup
 ```
 
+#### 10. Time Synchronization (NEW in 4.5)
+
+Ensures your system clock is synchronized with network time:
+
+```bash
+ℹ️ Recommendations:
+
+  • Time synchronization not enabled
+    systemd-timesyncd is available but not enabled. Your system clock may drift over time.
+    💡 Run 'sudo systemctl enable --now systemd-timesyncd.service'
+    📚 https://wiki.archlinux.org/title/Systemd-timesyncd
+```
+
+**What Anna Checks:**
+- Active NTP services: systemd-timesyncd, chronyd, ntpd
+- Service availability and enabled status
+
+**Severity Levels:**
+- **Warning**: No network time synchronization active
+- **Info**: Service available but not enabled
+
+**Repair Actions:**
+- Enables systemd-timesyncd via `sudo annactl repair time-sync-enable`
+- Safe automatic action, checks for conflicting NTP services first
+- Verifies synchronization after enabling
+
+**Why It Matters:**
+Clock drift causes TLS certificate validation failures, incorrect log timestamps, and issues with time-sensitive applications.
+
+#### 11. Firewall Status (NEW in 4.5)
+
+Detects networked machines without firewall protection:
+
+```bash
+⚠️ Warnings:
+
+  • No active firewall detected
+    This machine appears to be online with no active firewall. Incoming connections are not filtered.
+    💡 Install ufw: 'sudo pacman -S ufw', then configure: 'sudo ufw allow ssh && sudo ufw enable'
+    📚 https://wiki.archlinux.org/title/Uncomplicated_Firewall
+```
+
+**What Anna Checks:**
+- Network interfaces (skips if only loopback)
+- Active firewall solutions: ufw, firewalld, nftables, iptables
+- Installed but inactive firewall packages
+
+**Severity Levels:**
+- **Warning**: Online machine with no firewall
+- **Info**: Firewall installed but not active
+
+**Important:** Firewall configuration is **guidance only**. Anna will never automatically enable or configure firewall rules for safety reasons. You must review and enable manually.
+
+**Safe Firewall Setup:**
+```bash
+# Install ufw
+$ sudo pacman -S ufw
+
+# Allow SSH first (important!)
+$ sudo ufw allow ssh
+
+# Enable firewall
+$ sudo ufw enable
+
+# Check status
+$ sudo ufw status
+```
+
+#### 12. Backup Awareness (NEW in 4.5)
+
+Reminds you to configure backups if none are detected:
+
+```bash
+ℹ️ Recommendations:
+
+  • No backup or snapshot tools detected
+    No common backup tools (timeshift, borg, restic) detected. If this machine holds important data, consider configuring backups.
+    💡 Options: Install timeshift ('pacman -S timeshift'), borg ('pacman -S borg'), or restic ('pacman -S restic')
+    📚 https://wiki.archlinux.org/title/Backup_programs
+```
+
+**What Anna Checks:**
+- Common backup tools: timeshift, borg, restic, rsnapshot
+- btrfs systems with snapshot capability
+
+**Severity Level:**
+- **Info only**: Non-intrusive reminder
+
+**No Automatic Action:** Backup configuration is complex and personal. Anna provides suggestions only.
+
+**Backup Options:**
+- **Timeshift**: GUI-friendly, great for btrfs/ext4 snapshots
+- **Borg**: Deduplicating encrypted backups to local/remote storage
+- **Restic**: Fast, efficient backups with multiple backends
+- **btrfs snapshots**: Built-in if using btrfs filesystem
+
 ### Real-World Scenarios
 
 #### Scenario 1: Disk Nearly Full
@@ -583,7 +679,7 @@ I will run a deeper scan once and then remember the results.
 
 Running first system scan...
 
-# Anna checks ALL 9 categories and prioritizes findings
+# Anna checks ALL 12 categories and prioritizes findings
 # You get immediate visibility into system health
 # Fix critical issues first, then warnings, then info
 ```
@@ -601,6 +697,9 @@ Running first system scan...
 | Zombie Processes | Every run | Warning/Info | No (guidance) |
 | Orphaned Packages | Every run | Warning/Info | Yes |
 | Core Dumps | Every run | Warning/Info | Yes |
+| Time Sync ✨ | Every run | Warning/Info | Yes |
+| Firewall ✨ | Every run | Warning/Info | No (guidance) |
+| Backups ✨ | Every run | Info only | No (guidance) |
 
 **Key Principles:**
 - All detectors fail gracefully if commands unavailable

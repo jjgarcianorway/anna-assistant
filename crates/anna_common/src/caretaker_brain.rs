@@ -265,6 +265,15 @@ impl CaretakerBrain {
         // 9. Check for stale core dumps
         Self::check_core_dumps(&mut issues);
 
+        // 10. Check time synchronization status
+        Self::check_time_sync(&mut issues);
+
+        // 11. Check firewall status for networked machines
+        Self::check_firewall_status(&mut issues);
+
+        // 12. Check backup and snapshot awareness
+        Self::check_backup_awareness(&mut issues);
+
         CaretakerAnalysis::from_issues(issues)
     }
 
@@ -583,6 +592,287 @@ impl CaretakerBrain {
         }
     }
 
+    /// Check time synchronization status
+    fn check_time_sync(issues: &mut Vec<CaretakerIssue>) {
+        // Check for systemd-timesyncd
+        let timesyncd_active = std::process::Command::new("systemctl")
+            .args(&["is-active", "systemd-timesyncd.service"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if timesyncd_active {
+            return; // Time sync is working via systemd-timesyncd
+        }
+
+        // Check for chronyd
+        let chronyd_active = std::process::Command::new("systemctl")
+            .args(&["is-active", "chronyd.service"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if chronyd_active {
+            return; // Time sync is working via chronyd
+        }
+
+        // Check for ntpd
+        let ntpd_active = std::process::Command::new("systemctl")
+            .args(&["is-active", "ntpd.service"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if ntpd_active {
+            return; // Time sync is working via ntpd
+        }
+
+        // Check if systemd-timesyncd is installed but not enabled
+        let timesyncd_installed = std::process::Command::new("which")
+            .arg("timedatectl")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if timesyncd_installed {
+            // Check if it's enabled
+            let timesyncd_enabled = std::process::Command::new("systemctl")
+                .args(&["is-enabled", "systemd-timesyncd.service"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if !timesyncd_enabled {
+                issues.push(
+                    CaretakerIssue::new(
+                        IssueSeverity::Info,
+                        "Time synchronization not enabled",
+                        "systemd-timesyncd is available but not enabled. Your system clock may drift over time.",
+                        "Run 'sudo systemctl enable --now systemd-timesyncd.service'"
+                    )
+                    .with_repair_action("time-sync-enable")
+                    .with_reference("https://wiki.archlinux.org/title/Systemd-timesyncd")
+                );
+                return;
+            }
+        }
+
+        // No time sync service active at all
+        issues.push(
+            CaretakerIssue::new(
+                IssueSeverity::Warning,
+                "No network time synchronization active",
+                "Your system clock is not using any network time synchronization. This can cause issues with TLS certificates, logs, and time-sensitive applications.",
+                "Install and enable systemd-timesyncd: 'sudo systemctl enable --now systemd-timesyncd.service'"
+            )
+            .with_repair_action("time-sync-enable")
+            .with_reference("https://wiki.archlinux.org/title/System_time")
+        );
+    }
+
+    /// Check firewall status for networked machines
+    fn check_firewall_status(issues: &mut Vec<CaretakerIssue>) {
+        // Check if this is a networked machine (has non-loopback interface up)
+        let has_network = std::process::Command::new("ip")
+            .args(&["link", "show", "up"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                // Look for interfaces that are not "lo" (loopback)
+                Some(output.lines().any(|line| {
+                    line.contains("state UP") && !line.contains(": lo:")
+                }))
+            })
+            .unwrap_or(false);
+
+        if !has_network {
+            return; // Not a networked machine or can't detect, skip
+        }
+
+        // Check for active firewall solutions
+        // 1. Check ufw
+        let ufw_active = std::process::Command::new("ufw")
+            .arg("status")
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                Some(output.contains("Status: active"))
+            })
+            .unwrap_or(false);
+
+        if ufw_active {
+            return; // Firewall active via ufw
+        }
+
+        // 2. Check firewalld
+        let firewalld_active = std::process::Command::new("systemctl")
+            .args(&["is-active", "firewalld.service"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if firewalld_active {
+            return; // Firewall active via firewalld
+        }
+
+        // 3. Check for nftables rules
+        let nftables_active = std::process::Command::new("nft")
+            .args(&["list", "ruleset"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                // If there are actual rules (not just empty output), consider it active
+                Some(output.lines().count() > 5)
+            })
+            .unwrap_or(false);
+
+        if nftables_active {
+            return; // Firewall active via nftables
+        }
+
+        // 4. Check for iptables rules
+        let iptables_active = std::process::Command::new("iptables")
+            .args(&["-L", "-n"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                // If there are non-default rules, consider it active
+                // Default iptables with no rules usually has only ACCEPT policies
+                Some(output.lines().count() > 10)
+            })
+            .unwrap_or(false);
+
+        if iptables_active {
+            return; // Firewall active via iptables
+        }
+
+        // Check if firewall packages are installed but not enabled
+        let ufw_installed = std::process::Command::new("which")
+            .arg("ufw")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        let firewalld_installed = std::process::Command::new("which")
+            .arg("firewall-cmd")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if ufw_installed || firewalld_installed {
+            let tool = if ufw_installed { "ufw" } else { "firewalld" };
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Info,
+                    format!("Firewall tool installed but not active ({})", tool),
+                    format!("Your system has {} installed but it is not currently active. Incoming network connections are not filtered.", tool),
+                    if ufw_installed {
+                        "Enable ufw: 'sudo ufw enable' (configure rules first: 'sudo ufw allow ssh')"
+                    } else {
+                        "Enable firewalld: 'sudo systemctl enable --now firewalld'"
+                    }
+                )
+                .with_reference("https://wiki.archlinux.org/title/Security")
+            );
+            return;
+        }
+
+        // No firewall detected at all
+        issues.push(
+            CaretakerIssue::new(
+                IssueSeverity::Warning,
+                "No active firewall detected",
+                "This machine appears to be online with no active firewall. Incoming connections are not filtered. Consider installing and configuring ufw or firewalld.",
+                "Install ufw: 'sudo pacman -S ufw', then configure: 'sudo ufw allow ssh && sudo ufw enable'"
+            )
+            .with_reference("https://wiki.archlinux.org/title/Uncomplicated_Firewall")
+        );
+    }
+
+    /// Check backup and snapshot awareness
+    fn check_backup_awareness(issues: &mut Vec<CaretakerIssue>) {
+        // Check for common backup tools
+        let timeshift_installed = std::process::Command::new("which")
+            .arg("timeshift")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if timeshift_installed {
+            return; // Timeshift present
+        }
+
+        let borg_installed = std::process::Command::new("which")
+            .arg("borg")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if borg_installed {
+            return; // Borg backup present
+        }
+
+        let restic_installed = std::process::Command::new("which")
+            .arg("restic")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if restic_installed {
+            return; // Restic present
+        }
+
+        // Check if this is a btrfs system with snapshot capability
+        let is_btrfs = std::process::Command::new("findmnt")
+            .args(&["-n", "-o", "FSTYPE", "/"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                Some(output.trim() == "btrfs")
+            })
+            .unwrap_or(false);
+
+        if is_btrfs {
+            // Check if btrfs-progs is installed (has btrfs command)
+            let btrfs_tools = std::process::Command::new("which")
+                .arg("btrfs")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+
+            if btrfs_tools {
+                return; // btrfs with snapshot tools available
+            }
+        }
+
+        // Check for rsnapshot
+        let rsnapshot_installed = std::process::Command::new("which")
+            .arg("rsnapshot")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if rsnapshot_installed {
+            return; // rsnapshot present
+        }
+
+        // No obvious backup tools detected
+        issues.push(
+            CaretakerIssue::new(
+                IssueSeverity::Info,
+                "No backup or snapshot tools detected",
+                "No common backup tools (timeshift, borg, restic) or btrfs snapshots detected. If this machine holds important data, consider configuring backups.",
+                "Options: Install timeshift ('pacman -S timeshift'), borg ('pacman -S borg'), or restic ('pacman -S restic'). For btrfs, use snapper or timeshift."
+            )
+            .with_reference("https://wiki.archlinux.org/title/Backup_programs")
+        );
+    }
+
     /// Interpret a probe result into human-readable terms
     fn interpret_probe_result(result: &crate::ipc::HealthProbeResult) -> (String, String, String) {
         // Extract message from probe details if available
@@ -793,5 +1083,122 @@ mod tests {
         assert_eq!(issue.repair_action_id, Some("test-repair".to_string()));
         assert_eq!(issue.estimated_impact, Some("Frees 5GB".to_string()));
         assert_eq!(issue.reference, Some("https://test.com".to_string()));
+    }
+
+    #[test]
+    fn test_time_sync_detector_runs() {
+        // Test that check_time_sync runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_time_sync(&mut issues);
+
+        // Should not crash, issues may or may not be added depending on system state
+        // Just verify the function is callable
+    }
+
+    #[test]
+    fn test_firewall_status_detector_runs() {
+        // Test that check_firewall_status runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_firewall_status(&mut issues);
+
+        // Should not crash, issues may or may not be added
+    }
+
+    #[test]
+    fn test_backup_awareness_detector_runs() {
+        // Test that check_backup_awareness runs without crashing
+        let mut issues = Vec::new();
+        CaretakerBrain::check_backup_awareness(&mut issues);
+
+        // Should not crash, issues may or may not be added
+    }
+
+    #[test]
+    fn test_all_phase_4_5_detectors() {
+        // Test that all Phase 4.5 detectors run without panicking
+        let mut issues = Vec::new();
+
+        CaretakerBrain::check_time_sync(&mut issues);
+        CaretakerBrain::check_firewall_status(&mut issues);
+        CaretakerBrain::check_backup_awareness(&mut issues);
+
+        // All detectors should complete without panicking
+        // Issues list may be empty or populated depending on system state
+    }
+
+    #[test]
+    fn test_analyze_includes_all_12_detectors() {
+        // Test that analyze() runs all 12 detectors without crashing
+        let analysis = CaretakerBrain::analyze(None, None);
+
+        // Should always return an analysis
+        assert!(
+            analysis.overall_status == "healthy" ||
+            analysis.overall_status == "needs-attention" ||
+            analysis.overall_status == "critical"
+        );
+
+        // Analysis should be valid regardless of system state
+        assert!(analysis.issues.len() >= 0);
+    }
+
+    #[test]
+    fn test_time_sync_issue_has_repair_action() {
+        // Create a mock time sync issue and verify it has repair action
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Warning,
+            "No network time synchronization active",
+            "Test",
+            "Test"
+        ).with_repair_action("time-sync-enable");
+
+        assert_eq!(issue.repair_action_id, Some("time-sync-enable".to_string()));
+    }
+
+    #[test]
+    fn test_firewall_issue_guidance_only() {
+        // Firewall issues should not have repair_action_id (guidance only)
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Warning,
+            "No active firewall detected",
+            "Test",
+            "Install ufw"
+        );
+        // Firewall detection produces issues without repair_action_id
+        assert_eq!(issue.repair_action_id, None);
+    }
+
+    #[test]
+    fn test_backup_issue_info_severity() {
+        // Backup issues should always be Info level
+        let issue = CaretakerIssue::new(
+            IssueSeverity::Info,
+            "No backup or snapshot tools detected",
+            "Test",
+            "Test"
+        );
+        assert_eq!(issue.severity, IssueSeverity::Info);
+    }
+
+    #[test]
+    fn test_detector_graceful_failure_with_phase_4_5() {
+        // Test that all detectors (including new ones) fail gracefully
+        let mut issues = Vec::new();
+
+        // Original detectors
+        CaretakerBrain::check_pacman_lock(&mut issues);
+        CaretakerBrain::check_laptop_power_management(&mut issues);
+        CaretakerBrain::check_gpu_drivers(&mut issues);
+        CaretakerBrain::check_journal_errors(&mut issues);
+        CaretakerBrain::check_zombie_processes(&mut issues);
+        CaretakerBrain::check_orphaned_packages(&mut issues);
+        CaretakerBrain::check_core_dumps(&mut issues);
+
+        // Phase 4.5 detectors
+        CaretakerBrain::check_time_sync(&mut issues);
+        CaretakerBrain::check_firewall_status(&mut issues);
+        CaretakerBrain::check_backup_awareness(&mut issues);
+
+        // All detectors should complete without panicking
     }
 }

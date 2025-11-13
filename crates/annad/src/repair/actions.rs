@@ -620,3 +620,111 @@ pub async fn core_dump_cleanup_repair(dry_run: bool) -> Result<RepairAction> {
         citation: "[archwiki:Core_dump#Disabling_automatic_core_dumps]".to_string(),
     })
 }
+
+/// Repair time-sync-enable probe
+///
+/// Action: Enable and start systemd-timesyncd for network time synchronization
+///
+/// Citation: [archwiki:Systemd-timesyncd]
+pub async fn time_sync_enable_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("time-sync-enable repair: dry_run={}", dry_run);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let mut last_exit_code = 0;
+
+    // Check if systemd-timesyncd is available
+    let timesyncd_available = Command::new("which")
+        .arg("timedatectl")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !timesyncd_available {
+        return Ok(RepairAction {
+            probe: "time-sync-enable".to_string(),
+            action: "enable_timesyncd".to_string(),
+            command: None,
+            exit_code: Some(1),
+            success: false,
+            details: "systemd-timesyncd is not available on this system".to_string(),
+            citation: "[archwiki:System_time]".to_string(),
+        });
+    }
+
+    // Check if another NTP service is already active
+    let chronyd_active = Command::new("systemctl")
+        .args(&["is-active", "chronyd.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let ntpd_active = Command::new("systemctl")
+        .args(&["is-active", "ntpd.service"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if chronyd_active || ntpd_active {
+        let service = if chronyd_active { "chronyd" } else { "ntpd" };
+        return Ok(RepairAction {
+            probe: "time-sync-enable".to_string(),
+            action: "enable_timesyncd".to_string(),
+            command: None,
+            exit_code: Some(0),
+            success: false,
+            details: format!("Another time sync service ({}) appears to be active; not enabling systemd-timesyncd", service),
+            citation: "[archwiki:System_time]".to_string(),
+        });
+    }
+
+    // Enable and start systemd-timesyncd
+    let cmd = "systemctl enable --now systemd-timesyncd.service";
+    if dry_run {
+        info!("[DRY-RUN] Would execute: {}", cmd);
+        actions_taken.push(format!("[dry-run] {}", cmd));
+    } else {
+        info!("Executing: {}", cmd);
+        let output = Command::new("systemctl")
+            .args(&["enable", "--now", "systemd-timesyncd.service"])
+            .output()
+            .context("Failed to enable systemd-timesyncd")?;
+
+        last_exit_code = output.status.code().unwrap_or(1);
+        if output.status.success() {
+            actions_taken.push("systemd-timesyncd enabled and started".to_string());
+
+            // Give it a moment to sync
+            std::thread::sleep(std::time::Duration::from_millis(500));
+
+            // Check status
+            let status_output = Command::new("timedatectl")
+                .arg("show")
+                .output();
+
+            if let Ok(status) = status_output {
+                let status_str = String::from_utf8_lossy(&status.stdout);
+                if status_str.contains("NTPSynchronized=yes") {
+                    actions_taken.push("Time synchronization active and synced".to_string());
+                } else {
+                    actions_taken.push("Service started; synchronization in progress".to_string());
+                }
+            }
+        } else {
+            all_success = false;
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            actions_taken.push(format!("Failed to enable systemd-timesyncd: {}", stderr));
+            warn!("Failed to enable systemd-timesyncd: {}", stderr);
+        }
+    }
+
+    Ok(RepairAction {
+        probe: "time-sync-enable".to_string(),
+        action: "enable_timesyncd".to_string(),
+        command: Some(cmd.to_string()),
+        exit_code: if dry_run { None } else { Some(last_exit_code) },
+        success: all_success,
+        details: actions_taken.join("; "),
+        citation: "[archwiki:Systemd-timesyncd]".to_string(),
+    })
+}

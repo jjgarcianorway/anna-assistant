@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She continuously analyzes your machine - hardware, software, services, and configuration - and helps you fix and improve everything in the simplest possible way.
 
-**Current Version:** 4.4.0-beta.1
+**Current Version:** 4.5.0-beta.1
 
 ---
 
@@ -65,6 +65,9 @@ Anna checks for:
 - **Zombie processes**: Accumulating defunct processes
 - **Orphaned packages**: Unused dependencies (>10 packages)
 - **Core dumps**: Old crash dumps consuming disk space
+- **Time synchronization**: Network time sync not configured
+- **Firewall status**: Networked machines without firewall protection
+- **Backup awareness**: No backup or snapshot tools detected
 
 ### Daily Use
 
@@ -227,6 +230,27 @@ Anna's caretaker brain performs these checks on every run:
 - **Warning (>1GB)**: Significant disk space consumed
 - **Info (>10 files, >5 old)**: Old dumps can be cleaned
 - **Repair**: Vacuums core dumps with `coredumpctl`
+
+### Time Synchronization
+- Checks for active NTP services (systemd-timesyncd, chronyd, ntpd)
+- **Warning**: No network time synchronization active
+- **Info**: Service available but not enabled
+- **Repair**: Enables systemd-timesyncd (safe, automatic)
+- Prevents clock drift that causes TLS and logging issues
+
+### Firewall Status
+- Detects networked machines (non-loopback interfaces up)
+- Checks for ufw, firewalld, nftables, or iptables rules
+- **Warning**: Online machine with no firewall detected
+- **Info**: Firewall installed but not active
+- **Guidance only**: Shows exact commands to enable (not auto-enabled for safety)
+
+### Backup Awareness
+- Looks for common backup tools (timeshift, borg, restic, rsnapshot)
+- Checks btrfs systems for snapshot capability
+- **Info only**: No automatic action
+- Suggests specific backup solutions with installation commands
+- Arch Wiki reference for backup strategies
 
 ---
 
