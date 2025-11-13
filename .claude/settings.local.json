@@ -26,7 +26,21 @@
       "Bash(cargo test:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nPhase 3.8: Adaptive CLI - Predictive Hints & UX Polish\n\n**Predictive Intelligence Integration**\n\nImplemented:\n- predictive_hints.rs (270 lines): Post-command intelligence\n- Displays High/Critical predictions after status/health\n- 24-hour throttle per command (avoids alert fatigue)\n- Learning engine integration with ActionSummary aggregation\n- Silent failure if context DB unavailable\n- Skips in JSON mode and non-TTY\n\n**UX Polish**\n\nAUR Awareness (main.rs):\n- Detects package-managed installations via pacman -Qo\n- Prevents self-update for AUR packages\n- Shows appropriate update commands (pacman/yay)\n\nPermission Error Polish (rpc_client.rs):\n- Enhanced PermissionDenied error messages\n- Shows exact usermod command with current username\n- Step-by-step fix instructions with verification commands\n- Debug info (ls -la, namei -l)\n\n**Acceptance Tests**\n\nintegration_test.rs:\n- 13 new acceptance tests for Phase 3.8 features\n- Tests for adaptive help, JSON output, TTY detection\n- All tests passing (13/13) ✅\n\n**Documentation**\n\n- Created USER_GUIDE.md (400+ lines)\n  - Comprehensive user-facing guide\n  - Quick start, common tasks, troubleshooting\n  - Command quick reference and best practices\n\n- Updated COMMAND_CLASSIFICATION.md\n  - Phase 3.8 implementation status\n  - Usage examples and metrics\n\n- Updated CHANGELOG.md\n  - Full Phase 3.8 section with details\n  - ~1,600 lines production code + 400 lines docs\n\n**Integration Points**\n\n- steward_commands.rs: Predictive hints after status\n- health_commands.rs: Predictive hints after health\n- lib.rs: Export context_detection for tests\n\n**Test Results**\n- Build: Clean (warnings only)\n- Tests: 13/13 passing ✅\n- Performance: <100ms help display, <2s offline\n\n**Phase 3.8 Status**: COMPLETE ✅\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh --version:*)",
+      "Bash(gh release:*)",
+      "Bash(release-v3.8.0-alpha.1/*)",
+      "Bash(annactl-3.8.0-alpha.1-x86_64-unknown-linux-gnu )",
+      "Bash(annad-3.8.0-alpha.1-x86_64-unknown-linux-gnu )",
+      "Bash(SHA256SUMS)",
+      "Bash(release-v3.8.0-alpha.1/annactl-3.8.0-alpha.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v3.8.0-alpha.1/annad-3.8.0-alpha.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v3.8.0-alpha.1/SHA256SUMS)",
+      "Bash(chmod:*)",
+      "Bash(./annactl-3.8.0-alpha.1-x86_64-unknown-linux-gnu:*)",
+      "Bash(sudo ./target/release/annactl:*)"
     ],
     "deny": [],
     "ask": []

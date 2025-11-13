@@ -237,8 +237,8 @@ fn print_usage_footer(context: &ExecutionContext, show_all: bool, use_color: boo
 fn build_display_context(exec_ctx: &ExecutionContext) -> DisplayContext {
     DisplayContext {
         user_level: exec_ctx.to_user_level(),
-        daemon_available: false, // Quick mode for help display
-        system_state: "unknown".to_string(),
+        daemon_available: true, // Show all commands in help, even if daemon not running
+        system_state: "healthy".to_string(), // Assume healthy for help display
         is_constrained: false,
         monitoring_mode: None,
     }

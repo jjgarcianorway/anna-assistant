@@ -434,6 +434,16 @@ async fn main() -> Result<()> {
         std::process::exit(0);
     }
 
+    // Check for --help --all --json (all three)
+    if args.len() >= 4
+        && args.contains(&"--help".to_string())
+        && args.contains(&"--all".to_string())
+        && args.contains(&"--json".to_string())
+    {
+        adaptive_help::display_adaptive_root_help(true, true);
+        std::process::exit(0);
+    }
+
     // Check for --help --all
     if args.len() >= 3 && args.contains(&"--help".to_string()) && args.contains(&"--all".to_string()) {
         adaptive_help::display_adaptive_root_help(true, false);
