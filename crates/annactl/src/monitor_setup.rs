@@ -212,37 +212,77 @@ pub fn install_full_mode(dry_run: bool) -> Result<()> {
     println!("  Grafana:    {}", if grafana_installed { "✓ Installed" } else { "✗ Not installed" });
     println!();
 
-    // Install packages if needed
-    let mut packages_to_install = Vec::new();
+    // Install Prometheus first (required for Grafana to be useful)
     if !prometheus_installed {
-        packages_to_install.push("prometheus");
-    }
-    if !grafana_installed {
-        packages_to_install.push("grafana");
-    }
-
-    if !packages_to_install.is_empty() {
-        install_packages(&packages_to_install, dry_run)?;
+        install_packages(&["prometheus"], dry_run)?;
     } else {
-        println!("✓ All packages already installed");
+        println!("✓ Prometheus already installed");
     }
 
-    // Deploy configurations
+    // Deploy Prometheus configuration
     deploy_prometheus_config("full", dry_run)?;
+
+    // Start Prometheus first
+    enable_and_start_services(&["prometheus"], dry_run)?;
+
+    // Phase 3.9: Check if Prometheus is running before provisioning Grafana
+    let prometheus_running = check_service_status("prometheus").unwrap_or(false);
+
+    if !prometheus_running && !dry_run {
+        println!("\n⚠️  Prometheus is not running - skipping Grafana installation");
+        println!("   Grafana requires Prometheus for metrics datasource.");
+        println!("   Fix Prometheus first, then run: annactl monitor install");
+        return Ok(());
+    }
+
+    // Now install and configure Grafana
+    if !grafana_installed {
+        install_packages(&["grafana"], dry_run)?;
+    } else {
+        println!("✓ Grafana already installed");
+    }
+
+    // Deploy Grafana dashboards
     deploy_grafana_dashboards(dry_run)?;
 
-    // Enable and start services
-    enable_and_start_services(&["prometheus", "grafana"], dry_run)?;
+    // Start Grafana
+    enable_and_start_services(&["grafana"], dry_run)?;
 
     if !dry_run {
         println!("\n✅ Full monitoring stack installed successfully!");
-        println!("\nAccess points:");
+        println!("\n📊 Access Points:");
         println!("  Prometheus: http://localhost:9090");
-        println!("  Grafana:    http://localhost:3000 (admin/admin)");
-        println!("\nNext steps:");
+        println!("  Grafana:    http://localhost:3000");
+        println!();
+        println!("🔑 Default Credentials:");
+        println!("  Username: admin");
+        println!("  Password: admin");
+        println!("  (Change on first login)");
+        println!();
+
+        // Phase 3.9: Detect SSH session and show tunnel command
+        if let Ok(session_type) = std::env::var("SSH_CONNECTION") {
+            if !session_type.is_empty() {
+                println!("🌐 Remote Access (SSH session detected):");
+                println!();
+                println!("  To access Grafana from your local machine, create an SSH tunnel:");
+                println!("  [33mssh -L 3000:localhost:3000 {}@<host>[39m",
+                    std::env::var("USER").unwrap_or_else(|_| "user".to_string()));
+                println!();
+                println!("  Then browse to: http://localhost:3000");
+                println!();
+                println!("  For Prometheus:");
+                println!("  [33mssh -L 9090:localhost:9090 {}@<host>[39m",
+                    std::env::var("USER").unwrap_or_else(|_| "user".to_string()));
+                println!();
+            }
+        }
+
+        println!("📝 Next Steps:");
         println!("  1. Browse to Grafana and change the default password");
-        println!("  2. Add Prometheus datasource in Grafana: http://localhost:9090");
+        println!("  2. Prometheus datasource is auto-configured: http://localhost:9090");
         println!("  3. Import Anna dashboards from /var/lib/grafana/dashboards/");
+        println!("  4. View metrics: annactl metrics --prometheus");
     }
 
     Ok(())
@@ -275,11 +315,33 @@ pub fn install_light_mode(dry_run: bool) -> Result<()> {
 
     if !dry_run {
         println!("\n✅ Light monitoring stack installed successfully!");
-        println!("\nAccess points:");
+        println!("\n📊 Access Points:");
         println!("  Prometheus: http://localhost:9090");
         println!("  Metrics API: http://localhost:9090/metrics");
-        println!("\nNote: Grafana not installed (light mode)");
-        println!("      Use Prometheus web UI for metrics visualization");
+        println!();
+
+        // Phase 3.9: Detect SSH session and show tunnel command
+        if let Ok(session_type) = std::env::var("SSH_CONNECTION") {
+            if !session_type.is_empty() {
+                println!("🌐 Remote Access (SSH session detected):");
+                println!();
+                println!("  To access Prometheus from your local machine, create an SSH tunnel:");
+                println!("  [33mssh -L 9090:localhost:9090 {}@<host>[39m",
+                    std::env::var("USER").unwrap_or_else(|_| "user".to_string()));
+                println!();
+                println!("  Then browse to: http://localhost:9090");
+                println!();
+            }
+        }
+
+        println!("💡 Note: Grafana not installed (light mode)");
+        println!("   Use Prometheus web UI for metrics visualization");
+        println!("   Or export to external monitoring via federation");
+        println!();
+        println!("📝 Next Steps:");
+        println!("  1. Browse to Prometheus: http://localhost:9090");
+        println!("  2. Explore Anna metrics: annactl metrics --prometheus");
+        println!("  3. Query PromQL: anna_system_memory_available_mb");
     }
 
     Ok(())
