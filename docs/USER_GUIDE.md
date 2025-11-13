@@ -366,6 +366,30 @@ $ sudo systemctl enable annad
 $ sudo journalctl -u annad -f
 ```
 
+### Health/Doctor Commands Fail (v3.9.0-alpha.1 Known Issue)
+
+**Fixed in v3.9.1-alpha.1**: Report directory permissions
+
+If `annactl health` or `annactl doctor` fail with "Permission denied" on v3.9.0-alpha.1:
+
+```bash
+# Quick fix: Create reports directory with correct permissions
+sudo install -d -o root -g anna -m 0770 /var/lib/anna/reports
+sudo chmod 0750 /var/lib/anna /var/log/anna
+sudo setfacl -d -m g:anna:rwx /var/lib/anna/reports
+
+# Verify
+annactl health
+# Should now work and show: "Details saved: /var/lib/anna/reports/health-*.json"
+```
+
+**Why this happened**: v3.9.0-alpha.1 created directories as 0700 (root-only), preventing anna group members from writing reports.
+
+**Permanent fix**: Upgrade to v3.9.1-alpha.1 or later, which includes:
+- Systemd unit with correct directory modes
+- CLI fallback to `~/.local/state/anna/reports` if primary path not writable
+- tmpfiles.d configuration for permission self-healing
+
 ### Self-Update Issues
 
 If Anna was installed via package manager:

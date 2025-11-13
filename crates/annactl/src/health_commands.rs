@@ -10,7 +10,7 @@ use crate::predictive_hints;
 use crate::rpc_client::RpcClient;
 use anna_common::ipc::{HealthRunData, ResponseData};
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 /// Execute health command (Phase 0.5b)
@@ -296,9 +296,82 @@ fn print_doctor_summary(data: &HealthRunData) {
     println!();
 }
 
-/// Save health report to /var/lib/anna/reports/
+/// Phase 3.9.1: Pick report directory with graceful fallback
+///
+/// Priority order:
+/// 1. /var/lib/anna/reports (if writable)
+/// 2. $XDG_STATE_HOME/anna/reports
+/// 3. ~/.local/state/anna/reports
+/// 4. /tmp (last resort)
+fn pick_report_dir() -> PathBuf {
+    use std::path::Path;
+
+    // Try primary path (0770 root:anna)
+    let primary = Path::new("/var/lib/anna/reports");
+    if is_writable(primary) {
+        return primary.to_path_buf();
+    }
+
+    // Try XDG_STATE_HOME
+    if let Ok(xdg) = std::env::var("XDG_STATE_HOME") {
+        let path = Path::new(&xdg).join("anna/reports");
+        if ensure_writable(&path).is_ok() {
+            return path;
+        }
+    }
+
+    // Try ~/.local/state
+    if let Some(home) = dirs::home_dir() {
+        let path = home.join(".local/state/anna/reports");
+        if ensure_writable(&path).is_ok() {
+            return path;
+        }
+    }
+
+    // Last resort: /tmp
+    PathBuf::from("/tmp")
+}
+
+/// Check if directory is writable
+fn is_writable(path: &Path) -> bool {
+    use std::fs;
+
+    // Check if directory exists and is writable
+    if !path.exists() {
+        return false;
+    }
+
+    // Try creating a test file
+    let test_file = path.join(".write_test");
+    match fs::write(&test_file, b"test") {
+        Ok(_) => {
+            let _ = fs::remove_file(&test_file);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Ensure directory exists and is writable
+fn ensure_writable(path: &Path) -> Result<()> {
+    use std::fs;
+
+    // Create directory if it doesn't exist
+    if !path.exists() {
+        fs::create_dir_all(path)?;
+    }
+
+    // Test write access
+    let test_file = path.join(".write_test");
+    fs::write(&test_file, b"test")?;
+    fs::remove_file(&test_file)?;
+
+    Ok(())
+}
+
+/// Save health report to /var/lib/anna/reports/ with fallback
 async fn save_health_report(data: &HealthRunData) -> Result<PathBuf> {
-    let reports_dir = PathBuf::from("/var/lib/anna/reports");
+    let reports_dir = pick_report_dir();
     tokio::fs::create_dir_all(&reports_dir).await?;
 
     let timestamp = chrono::Utc::now().to_rfc3339();
@@ -319,9 +392,9 @@ async fn save_health_report(data: &HealthRunData) -> Result<PathBuf> {
     Ok(report_path)
 }
 
-/// Save doctor report to /var/lib/anna/reports/
+/// Save doctor report to /var/lib/anna/reports/ with fallback
 async fn save_doctor_report(data: &HealthRunData) -> Result<PathBuf> {
-    let reports_dir = PathBuf::from("/var/lib/anna/reports");
+    let reports_dir = pick_report_dir();
     tokio::fs::create_dir_all(&reports_dir).await?;
 
     let timestamp = chrono::Utc::now().to_rfc3339();

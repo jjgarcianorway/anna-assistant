@@ -210,20 +210,27 @@ sudo chown -R root:anna /etc/anna
 sudo chmod 755 /etc/anna
 sudo chmod 644 /etc/anna/*.toml
 
-# Log directory (anna group write)
-sudo chown -R annad:anna /var/log/anna
+# Log directory (anna group readable - v3.9.1)
+sudo chown -R root:anna /var/log/anna
 sudo chmod 750 /var/log/anna
 sudo chmod 640 /var/log/anna/*.jsonl
 
-# Socket directory
-sudo chown -R annad:anna /run/anna
+# Socket directory (anna group writable - v3.9.1)
+sudo chown -R root:anna /run/anna
 sudo chmod 770 /run/anna
-sudo chmod 660 /run/anna/annad.sock
+sudo chmod 660 /run/anna/anna.sock
 
-# State directory
-sudo chown -R annad:anna /var/lib/anna
+# State directory (anna group readable - v3.9.1)
+sudo chown -R root:anna /var/lib/anna
 sudo chmod 750 /var/lib/anna
 sudo chmod 640 /var/lib/anna/*.db
+
+# Reports directory (anna group writable - v3.9.1 FIX)
+sudo mkdir -p /var/lib/anna/reports
+sudo chown root:anna /var/lib/anna/reports
+sudo chmod 770 /var/lib/anna/reports
+# Set default ACL for future files
+sudo setfacl -d -m g:anna:rwx /var/lib/anna/reports
 ```
 
 ### Socket Security

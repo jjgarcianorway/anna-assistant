@@ -46,7 +46,18 @@
       "Bash(cat:*)",
       "Bash(annactl-3.9.0-alpha.1-x86_64-unknown-linux-gnu )",
       "Bash(annad-3.9.0-alpha.1-x86_64-unknown-linux-gnu )",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(systemctl status:*)",
+      "Bash(getent group:*)",
+      "Bash(sg anna -c:*)",
+      "Bash(journalctl:*)",
+      "Bash(timeout 2s strace:*)",
+      "Bash(pacman -Qo:*)",
+      "Bash(sudo install:*)",
+      "Bash(sudo chown:*)",
+      "Bash(sudo chmod:*)",
+      "Bash(sudo setfacl:*)",
+      "Bash(getfacl:*)"
     ],
     "deny": [],
     "ask": []

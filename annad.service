@@ -117,22 +117,22 @@ Nice=0
 # Working directory for daemon (rc.13.2: use root since /var/lib/anna may not exist yet)
 WorkingDirectory=/
 
-# Phase 0.4: Secure directory structure
-# Runtime directory for socket (root:anna 0750)
+# Phase 3.9.1: Secure directory structure with anna group write access
+# Runtime directory for socket (root:anna 0770)
 RuntimeDirectory=anna
-RuntimeDirectoryMode=0750
+RuntimeDirectoryMode=0770
 
-# Ensure files created by service default to 0660 for group anna (rc.13.1 fix)
+# Ensure files created by service default to 0660 for group anna
 UMask=007
 
-# Log directory (root:root 0700)
+# Log directory (root:anna 0750) - group readable for diagnostics
 LogsDirectory=anna
-LogsDirectoryMode=0700
+LogsDirectoryMode=0750
 
-# State directory (root:root 0700)
-# rc.13.2: Ensure /var/lib/anna and subdirectories exist
+# State directory (root:anna 0770) - group writable for reports
+# Fixes: v3.9.1 - Allow anna group to write health/doctor reports
 StateDirectory=anna anna/reports anna/alerts
-StateDirectoryMode=0700
+StateDirectoryMode=0770
 
 # Configuration directory
 ConfigurationDirectory=anna

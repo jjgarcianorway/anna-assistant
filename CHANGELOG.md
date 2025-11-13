@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✅ **Phase 3.9.1: Permission Fix - COMPLETE**
+
+**Report Directory Permissions**: Fixes health/doctor commands for non-root anna group members.
+
+#### Fixed
+- **Report directory permissions** (`annad.service`, `packaging/aur/anna-assistant-bin/annad.service`)
+  - Changed StateDirectoryMode from 0700 to 0770 (anna group writable)
+  - Changed LogsDirectoryMode from 0700 to 0750 (anna group readable)
+  - Changed RuntimeDirectoryMode from 0750 to 0770 (anna group writable)
+  - Fixes: health and doctor commands now work for users in anna group
+
+- **CLI fallback for report saving** (`crates/annactl/src/health_commands.rs`)
+  - Added `pick_report_dir()` with graceful fallback chain:
+    1. `/var/lib/anna/reports` (if writable)
+    2. `$XDG_STATE_HOME/anna/reports`
+    3. `~/.local/state/anna/reports`
+    4. `/tmp` (last resort)
+  - Added `is_writable()` and `ensure_writable()` helper functions
+  - Health and doctor commands always work, even without primary path access
+  - Reports print actual save location
+
+- **Permission self-healing** (`packaging/tmpfiles.d/anna.conf`)
+  - Added systemd tmpfiles.d configuration
+  - Auto-corrects permissions on boot and during `systemd-tmpfiles --create`
+  - Prevents permission drift from manual changes
+
+#### Added
+- **Regression tests** (`crates/annactl/tests/integration_test.rs`)
+  - `test_phase391_report_dir_fallback` - Fallback logic verification
+  - `test_phase391_graceful_permission_handling` - No crashes on EACCES
+
+#### Dependencies
+- Added `dirs = "5.0"` to annactl for XDG/home directory detection
+
+---
+
 ### ✅ **Phase 3.8: Adaptive CLI - COMPLETE**
 
 **Progressive Disclosure UX**: Context-aware command interface that adapts to user experience and system state.

@@ -28,3 +28,4 @@ reqwest = { version = "0.11", features = ["json"] }
 clap_complete = "4.5"
 owo-colors = "4.1"
 libc = "0.2" # For TTY detection (Phase 3.8)
+dirs = "5.0" # For XDG/home directory detection (Phase 3.9.1)

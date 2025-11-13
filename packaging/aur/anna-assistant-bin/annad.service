@@ -23,12 +23,14 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
+
+# Phase 3.9.1: Directory permissions - anna group write access
 RuntimeDirectory=anna
-RuntimeDirectoryMode=0750
+RuntimeDirectoryMode=0770
 LogsDirectory=anna
 LogsDirectoryMode=0750
-StateDirectory=anna
-StateDirectoryMode=0750
+StateDirectory=anna anna/reports anna/alerts
+StateDirectoryMode=0770
 UMask=0007
 
 # Phase 3.9: Kernel and system protection
