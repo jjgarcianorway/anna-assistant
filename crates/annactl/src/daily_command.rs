@@ -12,6 +12,7 @@ use anna_common::caretaker_brain::{CaretakerBrain, IssueSeverity};
 use anna_common::disk_analysis::{DiskAnalysis, RecommendationRisk};
 use anna_common::display::*;
 use anna_common::ipc::{HealthRunData, ResponseData};
+use anna_common::profile::MachineProfile;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde_json::json;
@@ -52,10 +53,14 @@ pub async fn execute_daily_command(
     // Do REAL disk analysis
     let disk_analysis = DiskAnalysis::analyze_root()?;
 
-    // Use caretaker brain to analyze everything and prioritize issues
+    // Detect machine profile (Phase 4.6)
+    let profile = MachineProfile::detect();
+
+    // Use caretaker brain to analyze everything and prioritize issues (profile-aware)
     let caretaker_analysis = CaretakerBrain::analyze(
         Some(&health_data.results),
-        Some(&disk_analysis)
+        Some(&disk_analysis),
+        profile
     );
 
     // Determine overall status from caretaker analysis

@@ -255,6 +255,35 @@ impl ContextDb {
                 [],
             )?;
 
+            // Create issue_tracking table (Phase 4.6: Noise Control)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS issue_tracking (
+                    issue_key TEXT PRIMARY KEY,
+                    first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_shown DATETIME,
+                    times_shown INTEGER DEFAULT 0,
+                    times_ignored INTEGER DEFAULT 0,
+                    last_repair_attempt DATETIME,
+                    repair_success BOOLEAN,
+                    severity TEXT NOT NULL,
+                    last_details TEXT
+                )",
+                [],
+            )?;
+
+            // Create indexes for issue_tracking
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_issue_last_seen
+                 ON issue_tracking(last_seen)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_issue_severity
+                 ON issue_tracking(severity)",
+                [],
+            )?;
+
             debug!("Database schema initialized successfully");
             Ok(())
         })

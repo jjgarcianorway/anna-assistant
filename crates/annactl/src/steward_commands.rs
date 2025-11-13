@@ -7,6 +7,7 @@ use anna_common::caretaker_brain::{CaretakerBrain, IssueSeverity};
 use anna_common::disk_analysis::DiskAnalysis;
 use anna_common::display::*;
 use anna_common::ipc::ResponseData;
+use anna_common::profile::MachineProfile;
 use anyhow::{Context, Result};
 use std::time::Instant;
 
@@ -44,10 +45,14 @@ pub async fn execute_status_command(
     // Do REAL disk analysis
     let disk_analysis = DiskAnalysis::analyze_root()?;
 
-    // Use caretaker brain for intelligent analysis
+    // Detect machine profile (Phase 4.6)
+    let profile = MachineProfile::detect();
+
+    // Use caretaker brain for intelligent analysis (profile-aware)
     let caretaker_analysis = CaretakerBrain::analyze(
         Some(&health_data.results),
-        Some(&disk_analysis)
+        Some(&disk_analysis),
+        profile
     );
 
     // Determine status level from caretaker analysis

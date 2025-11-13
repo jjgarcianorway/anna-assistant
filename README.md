@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She continuously analyzes your machine - hardware, software, services, and configuration - and helps you fix and improve everything in the simplest possible way.
 
-**Current Version:** 4.5.0-beta.1
+**Current Version:** 4.6.0-beta.1
 
 ---
 
@@ -22,6 +22,16 @@ Anna silently watches your Arch machine, spots problems before they get bad, and
 - ❌ Not a monitoring platform (she's for your local machine)
 - ❌ Not an AI chatbot (she doesn't have conversations)
 - ❌ Not a remote management server (she runs locally)
+
+### Profile-Aware Intelligence
+
+Anna automatically detects what kind of machine she's running on and adjusts her behavior accordingly:
+
+- **Laptops** - More focus on battery/power management, firewall warnings (mobile networks), GPU drivers
+- **Desktops** - GPU and graphics-focused checks, moderate firewall suggestions
+- **Server-like** - Quieter about desktop-specific concerns, focus on core system health
+
+This means you get **relevant hints** without noise. A headless server won't be nagged about TLP, and a laptop won't miss critical battery management tips.
 
 ---
 

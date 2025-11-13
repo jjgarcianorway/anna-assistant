@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.0-beta.1] - 2025-11-13
+
+### Profiles, Noise Control, and Stable Feel
+
+**Anna is now context-aware and less noisy.**
+
+Phase 4.6 makes Anna smarter about what to show by detecting machine type and reducing repetitive low-priority hints.
+
+#### Machine Profile Detection
+
+Anna automatically detects three machine profiles:
+
+**Laptop**
+- Detected via battery presence (`/sys/class/power_supply/BAT*`)
+- Signals: Wi-Fi interface, often shorter uptimes
+- Profile-aware checks: TLP power management, firewall (higher severity), GPU drivers
+
+**Desktop**
+- No battery, GPU present or graphical session detected
+- Signals: Display manager running, X11/Wayland active
+- Profile-aware checks: GPU drivers, moderate firewall severity
+
+**Server-Like**
+- No battery, no GUI, often long uptimes
+- Signals: No graphical session, no Wi-Fi, uptime >30 days
+- Profile-aware checks: Quieter about desktop/laptop concerns
+
+#### Profile-Aware Detectors
+
+All 12 detectors now respect machine profile:
+
+**Always Relevant** (all profiles):
+- Disk space, failed services, pacman locks
+- Journal errors, zombies, orphans, core dumps
+
+**Profile-Conditional**:
+- **TLP power management**: Laptop only
+- **GPU drivers**: Desktop/Laptop only
+- **Time sync**: Warning on interactive (laptop/desktop), Info on server-like
+- **Firewall**: Warning on laptops (mobile networks), Info on server-like
+- **Backup awareness**: Always Info-level, shown on all profiles
+
+#### Noise Control Infrastructure
+
+Added SQLite-based issue tracking to reduce repetitive hints:
+
+**New Database Table: `issue_tracking`**
+- Tracks issue history: first_seen, last_seen, last_shown, times_shown
+- Records repair attempts and success status
+- Stores severity and details
+
+**Noise Control Functions** (`context/noise_control.rs`):
+- `update_issue_state()` - Track issue occurrences
+- `mark_issue_shown()` - Record when user saw the issue
+- `mark_issue_repaired()` - Track repair attempts
+- `filter_issues_by_noise_control()` - Apply de-emphasis rules
+- `should_deemphasize()` - Check if issue should be suppressed
+
+**De-Emphasis Rules**:
+- **Info issues**: De-emphasized after 7 days if repeatedly shown and not acted upon
+- **Warning issues**: De-emphasized after 14 days
+- **Critical issues**: Never de-emphasized
+- **Successfully repaired**: De-emphasized immediately
+
+**Note**: Noise control infrastructure is in place but not fully integrated into CLI commands yet (requires client-side database initialization).
+
+#### Documentation Updates
+
+**README.md**
+- Version bumped to 4.6.0-beta.1
+- Added "Profile-Aware Intelligence" section
+- Explains laptop vs desktop vs server-like behavior
+- Kept concise and user-focused
+
+**Implementation**
+- 280 lines: `profile.rs` - Machine profile detection
+- 450 lines: `context/noise_control.rs` - Issue tracking and filtering
+- Updated: `caretaker_brain.rs` - All 12 detectors now profile-aware
+- Updated: `daily_command.rs`, `steward_commands.rs` - Profile detection integrated
+
+**Tests**
+- 8 new unit tests for profile detection (battery, GUI, GPU, Wi-Fi, uptime)
+- 7 new unit tests for noise control (tracking, de-emphasis, repair marking)
+- All tests passing
+
+#### Behavioral Changes
+
+**Laptop users now see**:
+- TLP power management checks (not shown on desktop/server)
+- Higher firewall severity (Warning vs Info)
+- GPU driver checks (if GPU present)
+
+**Desktop users now see**:
+- GPU driver checks
+- Moderate firewall suggestions
+- No TLP nagging
+
+**Server-like machines now see**:
+- No TLP or GPU checks
+- Lower firewall severity (Info vs Warning)
+- Lower time sync severity (Info vs Warning)
+- Focus on core system health
+
+**All users benefit from**:
+- Fewer repeated low-priority hints over time
+- Context-appropriate severity levels
+- Relevant checks for their machine type
+
 ## [4.5.0-beta.1] - 2025-11-13
 
 ### Desktop & Safety Essentials

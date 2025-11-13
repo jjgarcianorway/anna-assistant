@@ -6,10 +6,15 @@
 
 pub mod actions;
 pub mod db;
+pub mod noise_control;
 
 // Re-export commonly used types
 pub use actions::{ActionHistory, ActionOutcome, ResourceSnapshot};
 pub use db::{ContextDb, DbLocation};
+pub use noise_control::{
+    filter_issues_by_noise_control, get_issue_state, mark_issue_ignored, mark_issue_repaired,
+    mark_issue_shown, update_issue_state, IssueState, NoiseControlConfig,
+};
 
 use anyhow::Result;
 use std::sync::Arc;

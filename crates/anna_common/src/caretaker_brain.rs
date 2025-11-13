@@ -8,6 +8,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::profile::MachineProfile;
+
 /// Severity of an issue or recommendation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum IssueSeverity {
@@ -166,12 +168,13 @@ impl CaretakerBrain {
     /// - Health check results
     /// - System metrics
     /// - Predictive analysis
-    /// - Environment profile
+    /// - Machine profile (laptop/desktop/server-like)
     ///
     /// Returns a prioritized list of what the user should care about
     pub fn analyze(
         health_results: Option<&[crate::ipc::HealthProbeResult]>,
         disk_analysis: Option<&crate::disk_analysis::DiskAnalysis>,
+        profile: MachineProfile,
     ) -> CaretakerAnalysis {
         let mut issues = Vec::new();
 
@@ -245,40 +248,40 @@ impl CaretakerBrain {
         }
 
         // 3. Check for pacman lock file issues
-        Self::check_pacman_lock(&mut issues);
+        Self::check_pacman_lock(&mut issues, profile);
 
         // 4. Check laptop power management
-        Self::check_laptop_power_management(&mut issues);
+        Self::check_laptop_power_management(&mut issues, profile);
 
         // 5. Check GPU driver status
-        Self::check_gpu_drivers(&mut issues);
+        Self::check_gpu_drivers(&mut issues, profile);
 
         // 6. Check journal error volume
-        Self::check_journal_errors(&mut issues);
+        Self::check_journal_errors(&mut issues, profile);
 
         // 7. Check for zombie processes
-        Self::check_zombie_processes(&mut issues);
+        Self::check_zombie_processes(&mut issues, profile);
 
         // 8. Check for orphaned packages
-        Self::check_orphaned_packages(&mut issues);
+        Self::check_orphaned_packages(&mut issues, profile);
 
         // 9. Check for stale core dumps
-        Self::check_core_dumps(&mut issues);
+        Self::check_core_dumps(&mut issues, profile);
 
         // 10. Check time synchronization status
-        Self::check_time_sync(&mut issues);
+        Self::check_time_sync(&mut issues, profile);
 
         // 11. Check firewall status for networked machines
-        Self::check_firewall_status(&mut issues);
+        Self::check_firewall_status(&mut issues, profile);
 
         // 12. Check backup and snapshot awareness
-        Self::check_backup_awareness(&mut issues);
+        Self::check_backup_awareness(&mut issues, profile);
 
         CaretakerAnalysis::from_issues(issues)
     }
 
-    /// Check for pacman lock file issues
-    fn check_pacman_lock(issues: &mut Vec<CaretakerIssue>) {
+    /// Check for pacman lock file issues (always relevant)
+    fn check_pacman_lock(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         let lock_file = std::path::Path::new("/var/lib/pacman/db.lck");
 
         if lock_file.exists() {
@@ -303,14 +306,11 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check laptop power management configuration
-    fn check_laptop_power_management(issues: &mut Vec<CaretakerIssue>) {
-        // Detect if this is a laptop by checking for battery
-        let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists() ||
-                         std::path::Path::new("/sys/class/power_supply/BAT1").exists();
-
-        if !has_battery {
-            return; // Not a laptop
+    /// Check laptop power management configuration (laptop only)
+    fn check_laptop_power_management(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+        // Only check on laptops
+        if !profile.is_laptop() {
+            return;
         }
 
         // Check if TLP or other power management is installed and enabled
@@ -350,8 +350,12 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check GPU driver status
-    fn check_gpu_drivers(issues: &mut Vec<CaretakerIssue>) {
+    /// Check GPU driver status (desktop/laptop only)
+    fn check_gpu_drivers(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+        // Only relevant on interactive systems (desktop/laptop)
+        if !profile.is_interactive() {
+            return;
+        }
         // Check for NVIDIA GPU
         let has_nvidia = std::process::Command::new("lspci")
             .output()
@@ -389,8 +393,8 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check journal error volume for current boot
-    fn check_journal_errors(issues: &mut Vec<CaretakerIssue>) {
+    /// Check journal error volume for current boot (always relevant)
+    fn check_journal_errors(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Run journalctl -p err -b to count error entries for current boot
         let output = std::process::Command::new("journalctl")
             .args(&["-p", "err", "-b", "--no-pager"])
@@ -431,8 +435,8 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check for zombie processes
-    fn check_zombie_processes(issues: &mut Vec<CaretakerIssue>) {
+    /// Check for zombie processes (always relevant)
+    fn check_zombie_processes(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Check /proc for zombie processes (State: Z)
         let mut zombie_count = 0;
         let mut zombie_names = Vec::new();
@@ -491,8 +495,8 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check for orphaned packages
-    fn check_orphaned_packages(issues: &mut Vec<CaretakerIssue>) {
+    /// Check for orphaned packages (always relevant)
+    fn check_orphaned_packages(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Run pacman -Qtdq to list orphaned packages
         let output = std::process::Command::new("pacman")
             .args(&["-Qtdq"])
@@ -532,8 +536,8 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check for stale core dumps
-    fn check_core_dumps(issues: &mut Vec<CaretakerIssue>) {
+    /// Check for stale core dumps (always relevant)
+    fn check_core_dumps(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         let coredump_path = std::path::Path::new("/var/lib/systemd/coredump");
 
         if !coredump_path.exists() {
@@ -592,8 +596,8 @@ impl CaretakerBrain {
         }
     }
 
-    /// Check time synchronization status
-    fn check_time_sync(issues: &mut Vec<CaretakerIssue>) {
+    /// Check time synchronization status (profile-aware severity)
+    fn check_time_sync(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
         // Check for systemd-timesyncd
         let timesyncd_active = std::process::Command::new("systemctl")
             .args(&["is-active", "systemd-timesyncd.service"])
@@ -658,9 +662,16 @@ impl CaretakerBrain {
         }
 
         // No time sync service active at all
+        // Severity depends on profile: Warning for interactive, Info for server-like
+        let severity = if profile.is_interactive() {
+            IssueSeverity::Warning
+        } else {
+            IssueSeverity::Info
+        };
+
         issues.push(
             CaretakerIssue::new(
-                IssueSeverity::Warning,
+                severity,
                 "No network time synchronization active",
                 "Your system clock is not using any network time synchronization. This can cause issues with TLS certificates, logs, and time-sensitive applications.",
                 "Install and enable systemd-timesyncd: 'sudo systemctl enable --now systemd-timesyncd.service'"
@@ -670,8 +681,8 @@ impl CaretakerBrain {
         );
     }
 
-    /// Check firewall status for networked machines
-    fn check_firewall_status(issues: &mut Vec<CaretakerIssue>) {
+    /// Check firewall status for networked machines (profile-aware severity)
+    fn check_firewall_status(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
         // Check if this is a networked machine (has non-loopback interface up)
         let has_network = std::process::Command::new("ip")
             .args(&["link", "show", "up"])
@@ -782,9 +793,16 @@ impl CaretakerBrain {
         }
 
         // No firewall detected at all
+        // Severity depends on profile: Warning for laptops (mobile/untrusted networks), Info for server-like
+        let severity = if profile.is_laptop() {
+            IssueSeverity::Warning
+        } else {
+            IssueSeverity::Info
+        };
+
         issues.push(
             CaretakerIssue::new(
-                IssueSeverity::Warning,
+                severity,
                 "No active firewall detected",
                 "This machine appears to be online with no active firewall. Incoming connections are not filtered. Consider installing and configuring ufw or firewalld.",
                 "Install ufw: 'sudo pacman -S ufw', then configure: 'sudo ufw allow ssh && sudo ufw enable'"
@@ -793,8 +811,8 @@ impl CaretakerBrain {
         );
     }
 
-    /// Check backup and snapshot awareness
-    fn check_backup_awareness(issues: &mut Vec<CaretakerIssue>) {
+    /// Check backup and snapshot awareness (always info-level only)
+    fn check_backup_awareness(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Check for common backup tools
         let timeshift_installed = std::process::Command::new("which")
             .arg("timeshift")
@@ -966,7 +984,7 @@ mod tests {
     fn test_analyze_runs_without_errors() {
         // Test that analyze() can run without crashing
         // It should gracefully handle missing commands or files
-        let analysis = CaretakerBrain::analyze(None, None);
+        let analysis = CaretakerBrain::analyze(None, None, MachineProfile::Unknown);
 
         // Should always return an analysis, even if empty
         assert!(
@@ -980,7 +998,7 @@ mod tests {
     fn test_journal_detector_runs() {
         // Test that check_journal_errors runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_journal_errors(&mut issues);
+        CaretakerBrain::check_journal_errors(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added depending on system state
         // Just verify the function is callable
@@ -990,7 +1008,7 @@ mod tests {
     fn test_zombie_detector_runs() {
         // Test that check_zombie_processes runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_zombie_processes(&mut issues);
+        CaretakerBrain::check_zombie_processes(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added
     }
@@ -999,7 +1017,7 @@ mod tests {
     fn test_orphaned_packages_detector_runs() {
         // Test that check_orphaned_packages runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_orphaned_packages(&mut issues);
+        CaretakerBrain::check_orphaned_packages(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added
     }
@@ -1008,7 +1026,7 @@ mod tests {
     fn test_core_dumps_detector_runs() {
         // Test that check_core_dumps runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_core_dumps(&mut issues);
+        CaretakerBrain::check_core_dumps(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added
     }
@@ -1019,13 +1037,13 @@ mod tests {
         // This is a smoke test to ensure no panics occur
         let mut issues = Vec::new();
 
-        CaretakerBrain::check_pacman_lock(&mut issues);
-        CaretakerBrain::check_laptop_power_management(&mut issues);
-        CaretakerBrain::check_gpu_drivers(&mut issues);
-        CaretakerBrain::check_journal_errors(&mut issues);
-        CaretakerBrain::check_zombie_processes(&mut issues);
-        CaretakerBrain::check_orphaned_packages(&mut issues);
-        CaretakerBrain::check_core_dumps(&mut issues);
+        CaretakerBrain::check_pacman_lock(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_laptop_power_management(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_gpu_drivers(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_journal_errors(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_zombie_processes(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_orphaned_packages(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_core_dumps(&mut issues, MachineProfile::Unknown);
 
         // All detectors should complete without panicking
         // Issues list may be empty or populated depending on system state
@@ -1089,7 +1107,7 @@ mod tests {
     fn test_time_sync_detector_runs() {
         // Test that check_time_sync runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_time_sync(&mut issues);
+        CaretakerBrain::check_time_sync(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added depending on system state
         // Just verify the function is callable
@@ -1099,7 +1117,7 @@ mod tests {
     fn test_firewall_status_detector_runs() {
         // Test that check_firewall_status runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_firewall_status(&mut issues);
+        CaretakerBrain::check_firewall_status(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added
     }
@@ -1108,7 +1126,7 @@ mod tests {
     fn test_backup_awareness_detector_runs() {
         // Test that check_backup_awareness runs without crashing
         let mut issues = Vec::new();
-        CaretakerBrain::check_backup_awareness(&mut issues);
+        CaretakerBrain::check_backup_awareness(&mut issues, MachineProfile::Unknown);
 
         // Should not crash, issues may or may not be added
     }
@@ -1118,9 +1136,9 @@ mod tests {
         // Test that all Phase 4.5 detectors run without panicking
         let mut issues = Vec::new();
 
-        CaretakerBrain::check_time_sync(&mut issues);
-        CaretakerBrain::check_firewall_status(&mut issues);
-        CaretakerBrain::check_backup_awareness(&mut issues);
+        CaretakerBrain::check_time_sync(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_firewall_status(&mut issues, MachineProfile::Unknown);
+        CaretakerBrain::check_backup_awareness(&mut issues, MachineProfile::Unknown);
 
         // All detectors should complete without panicking
         // Issues list may be empty or populated depending on system state
@@ -1129,7 +1147,7 @@ mod tests {
     #[test]
     fn test_analyze_includes_all_12_detectors() {
         // Test that analyze() runs all 12 detectors without crashing
-        let analysis = CaretakerBrain::analyze(None, None);
+        let analysis = CaretakerBrain::analyze(None, None, MachineProfile::Unknown);
 
         // Should always return an analysis
         assert!(
@@ -1184,20 +1202,21 @@ mod tests {
     fn test_detector_graceful_failure_with_phase_4_5() {
         // Test that all detectors (including new ones) fail gracefully
         let mut issues = Vec::new();
+        let profile = MachineProfile::Unknown;  // Phase 4.6: profile parameter
 
         // Original detectors
-        CaretakerBrain::check_pacman_lock(&mut issues);
-        CaretakerBrain::check_laptop_power_management(&mut issues);
-        CaretakerBrain::check_gpu_drivers(&mut issues);
-        CaretakerBrain::check_journal_errors(&mut issues);
-        CaretakerBrain::check_zombie_processes(&mut issues);
-        CaretakerBrain::check_orphaned_packages(&mut issues);
-        CaretakerBrain::check_core_dumps(&mut issues);
+        CaretakerBrain::check_pacman_lock(&mut issues, profile);
+        CaretakerBrain::check_laptop_power_management(&mut issues, profile);
+        CaretakerBrain::check_gpu_drivers(&mut issues, profile);
+        CaretakerBrain::check_journal_errors(&mut issues, profile);
+        CaretakerBrain::check_zombie_processes(&mut issues, profile);
+        CaretakerBrain::check_orphaned_packages(&mut issues, profile);
+        CaretakerBrain::check_core_dumps(&mut issues, profile);
 
         // Phase 4.5 detectors
-        CaretakerBrain::check_time_sync(&mut issues);
-        CaretakerBrain::check_firewall_status(&mut issues);
-        CaretakerBrain::check_backup_awareness(&mut issues);
+        CaretakerBrain::check_time_sync(&mut issues, profile);
+        CaretakerBrain::check_firewall_status(&mut issues, profile);
+        CaretakerBrain::check_backup_awareness(&mut issues, profile);
 
         // All detectors should complete without panicking
     }
