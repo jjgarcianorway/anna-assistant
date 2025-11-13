@@ -102,22 +102,64 @@ See `testnet/config/README.md` for certificate generation guidance.
 
 ## Security Features
 
-### Systemd Hardening (Phase 0.4)
+### Systemd Hardening (Phase 0.4 + Phase 3.9)
 
-Anna runs with a strict systemd security sandbox:
+Anna runs with a strict systemd security sandbox. **Phase 3.9** adds enhanced hardening:
 
 ```ini
-NoNewPrivileges=yes
-PrivateTmp=yes
+[Service]
+# User/Group isolation
+User=annad
+Group=anna
+SupplementaryGroups=
+
+# Capability restrictions (Phase 3.9)
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SYS_ADMIN
+AmbientCapabilities=
+NoNewPrivileges=true
+
+# File system restrictions
+PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
+ProtectHome=true
+ReadWritePaths=/var/log/anna /var/lib/anna /run/anna
+
+# Kernel restrictions
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+
+# Network restrictions
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=yes
-LockPersonality=yes
-RestrictRealtime=yes
+IPAddressDeny=any
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+
+# System call filtering
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+
+# Device access
+DevicePolicy=closed
+DeviceAllow=/dev/null rw
+DeviceAllow=/dev/zero rw
+DeviceAllow=/dev/urandom r
+```
+
+**To apply Phase 3.9 hardening**:
+
+```bash
+# Backup and edit service file
+sudo cp /usr/lib/systemd/system/annad.service /etc/systemd/system/annad.service.backup
+sudo systemctl edit --full annad.service
+# (Add directives above)
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl restart annad
+sudo systemctl status annad
 ```
 
 ### Rate Limiting (Phase 1.16)
@@ -133,6 +175,169 @@ SHA256 fingerprint validation infrastructure (Phase 2 integration planned).
 ### Cryptographic Identity (Phase 1.7)
 
 Ed25519 signatures for distributed consensus.
+
+---
+
+## System Hardening Guide (Phase 3.9)
+
+### Permission Model
+
+Anna uses a layered permission model:
+
+#### 🟢 User-Safe Commands (No Special Permissions)
+- `help`, `status`, `health`, `metrics`, `profile`, `ping`
+- `learn`, `predict` (read-only analysis)
+- **Risk**: None - read-only operations
+- **Requirement**: User in `anna` group
+
+#### 🟡 Advanced Commands (Root/Sudo Required)
+- `init`, `update`, `install`, `doctor`, `repair`, `monitor`
+- **Risk**: Medium - modifies system state
+- **Requirement**: User must be in `anna` group + use sudo
+
+#### 🔴 Internal Commands (Developer/Diagnostic)
+- `sentinel`, `conscience`, `consensus`
+- **Risk**: Low - diagnostic/monitoring only
+- **Requirement**: Developer mode or explicit flag
+
+### File System Security
+
+Verify and enforce correct permissions:
+
+```bash
+# Configuration directory (root-only write)
+sudo chown -R root:anna /etc/anna
+sudo chmod 755 /etc/anna
+sudo chmod 644 /etc/anna/*.toml
+
+# Log directory (anna group write)
+sudo chown -R annad:anna /var/log/anna
+sudo chmod 750 /var/log/anna
+sudo chmod 640 /var/log/anna/*.jsonl
+
+# Socket directory
+sudo chown -R annad:anna /run/anna
+sudo chmod 770 /run/anna
+sudo chmod 660 /run/anna/annad.sock
+
+# State directory
+sudo chown -R annad:anna /var/lib/anna
+sudo chmod 750 /var/lib/anna
+sudo chmod 640 /var/lib/anna/*.db
+```
+
+### Socket Security
+
+Unix domain socket with group-based access:
+
+```bash
+# Verify socket permissions
+ls -la /run/anna/annad.sock
+# Expected: srw-rw---- 1 annad anna
+
+# Only users in 'anna' group can connect
+id $USER | grep anna
+
+# Add user to group
+sudo usermod -aG anna $USER
+newgrp anna  # Activate new group
+```
+
+### Self-Healing Safety (Phase 3.9)
+
+**Self-healing is DISABLED by default**:
+
+```toml
+# /etc/anna/sentinel.toml
+[self_healing]
+enabled = false  # Must be explicitly enabled
+max_actions_per_hour = 3
+allow_service_restart = false
+allow_package_update = false
+```
+
+**Risk Level Enforcement**:
+
+| Risk Level | Examples | Auto-Healing |
+|------------|----------|--------------|
+| None | Monitoring, logging | ✅ Always safe |
+| Low | Clear cache, restart non-critical services | ✅ When enabled |
+| Medium | Update packages, restart critical services | ❌ Manual only |
+| High | Modify config files | ❌ Manual only |
+| Critical | System-wide changes | ❌ Manual only |
+
+**Safety Guarantees**:
+- No automatic actions without `enable_self_healing = true`
+- Medium+ risk actions NEVER execute automatically
+- All actions logged with reasoning in `/var/log/anna/actions.log`
+- User can always rollback via `annactl rollback`
+
+### Audit and Logging
+
+All commands are logged for audit purposes:
+
+```bash
+# Command audit log (JSON format)
+/var/log/anna/ctl.jsonl
+
+# Example entry
+{
+  "ts": "2025-11-13T10:30:45Z",
+  "req_id": "abc123",
+  "state": "configured",
+  "command": "update",
+  "allowed": true,
+  "args": ["--dry-run"],
+  "exit_code": 0,
+  "duration_ms": 1234,
+  "ok": true,
+  "citation": "[archwiki:system_maintenance]"
+}
+
+# Query recent commands
+jq -r '.command' /var/log/anna/ctl.jsonl | tail -20
+
+# Find failed commands
+jq 'select(.ok == false)' /var/log/anna/ctl.jsonl
+
+# Average command duration
+jq -s 'map(.duration_ms) | add / length' /var/log/anna/ctl.jsonl
+```
+
+### Monitoring Security
+
+Anna's monitoring components are opt-in and localhost-only:
+
+```bash
+# Prometheus (localhost only)
+# http://localhost:9090
+
+# Grafana (localhost only, default: admin/admin)
+# http://localhost:3000
+
+# For remote access, use SSH tunnels (never expose ports):
+ssh -L 3000:localhost:3000 user@host
+ssh -L 9090:localhost:9090 user@host
+
+# Firewall rules (if needed)
+sudo ufw allow from 127.0.0.1 to any port 9090
+sudo ufw allow from 127.0.0.1 to any port 3000
+```
+
+### Security Checklist
+
+After installation, verify:
+
+- [ ] Daemon running as dedicated `annad` user (not root)
+- [ ] Your user added to `anna` group
+- [ ] Socket permissions correct (`srw-rw---- annad:anna`)
+- [ ] Configuration directory owned by root (`/etc/anna`)
+- [ ] Self-healing disabled by default
+- [ ] Logs writable by anna group
+- [ ] Systemd hardening directives applied
+- [ ] Monitoring (if installed) bound to localhost only
+- [ ] SSH tunnels configured for remote access
+- [ ] Regular updates enabled
 
 ---
 
@@ -190,5 +395,5 @@ We follow coordinated disclosure:
 
 ---
 
-**Last Updated**: 2025-11-12
+**Last Updated**: 2025-11-13 (Phase 3.9 hardening documentation added)
 **Maintained By**: Anna Assistant Security Team
