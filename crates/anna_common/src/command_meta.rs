@@ -318,7 +318,7 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "health",
-            category: CommandCategory::UserSafe,
+            category: CommandCategory::Internal,
             risk_level: RiskLevel::None,
             requires_root: false,
             requires_daemon: true,
@@ -352,7 +352,7 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "metrics",
-            category: CommandCategory::UserSafe,
+            category: CommandCategory::Internal,
             risk_level: RiskLevel::None,
             requires_root: false,
             requires_daemon: true,
@@ -368,7 +368,7 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "profile",
-            category: CommandCategory::UserSafe,
+            category: CommandCategory::Internal,
             risk_level: RiskLevel::None,
             requires_root: false,
             requires_daemon: true,
@@ -383,7 +383,7 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "ping",
-            category: CommandCategory::UserSafe,
+            category: CommandCategory::Internal,
             risk_level: RiskLevel::None,
             requires_root: false,
             requires_daemon: true,
@@ -397,7 +397,7 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "learn",
-            category: CommandCategory::UserSafe,
+            category: CommandCategory::Internal,
             risk_level: RiskLevel::None,
             requires_root: false,
             requires_daemon: false,
@@ -413,7 +413,7 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "predict",
-            category: CommandCategory::UserSafe,
+            category: CommandCategory::Internal,
             risk_level: RiskLevel::None,
             requires_root: false,
             requires_daemon: false,
@@ -429,9 +429,9 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "upgrade",
-            category: CommandCategory::Advanced,
+            category: CommandCategory::UserSafe,
             risk_level: RiskLevel::Medium,
-            requires_root: true,
+            requires_root: false,
             requires_daemon: false,
             available_states: &[],
             description_short: "Upgrade Anna to the latest version",
@@ -495,9 +495,9 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
         },
         CommandMetadata {
             name: "repair",
-            category: CommandCategory::Advanced,
+            category: CommandCategory::UserSafe,
             risk_level: RiskLevel::Medium,
-            requires_root: true,
+            requires_root: false,
             requires_daemon: true,
             available_states: &[],
             description_short: "Repair failed health probes",

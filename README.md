@@ -1,32 +1,27 @@
 # Anna Assistant
 
-**Autonomous Arch Linux System Administrator**
+**Your Knowledgeable Arch Linux Caretaker**
 
-Anna is a security-hardened system administration daemon for Arch Linux. She provides state-aware command dispatch, comprehensive health monitoring, and Arch Wiki-cited operations.
+Anna is a local system and desktop caretaker for Arch Linux. She continuously analyzes your machine - hardware, software, services, and configuration - and helps you fix and improve everything in the simplest possible way.
 
-**Current Version:** 3.8.0-alpha.1 (November 2025)
-
-**Status:** Phase 3.8 Complete - Adaptive CLI with Progressive Disclosure ✅
+**Current Version:** 4.2.0-beta.1
 
 ---
 
 ## What Anna Does
 
-Anna is a **minimal, auditable sysadmin core** focused on:
+Anna silently watches your Arch machine, spots problems before they get bad, and either fixes them or tells you exactly what to do.
 
-- **State-Aware Operations**: Commands adapt to system state (ISO live, recovery, fresh install, configured, degraded)
-- **Health Monitoring**: Proactive system checks with Arch Wiki citations
-- **Diagnostic Tools**: System health analysis and recovery planning
-- **Comprehensive Logging**: Every action logged with citations to `/var/log/anna/`
-- **Security First**: Systemd sandbox, strict permissions, no privilege escalation
+**Core Capabilities:**
+- **Morning Health Check** - Two-second answer to "Is my system OK?"
+- **Automatic Problem Detection** - Disk space, service failures, misconfigurations, missing firmware
+- **Interactive Repairs** - Guided fixing with clear explanations and Arch Wiki references
+- **Zero Ceremony** - Most users only need `annactl daily`
 
-**What Anna Is NOT:**
-- ❌ Desktop environment manager (removed in 1.0 reset)
-- ❌ Hyprland/i3/sway bundle installer (removed)
-- ❌ TUI application (removed, returns in 2.0)
-- ❌ Application recommender system (removed)
-
-Anna is a **system administrator, not a user assistant**. One daemon, one socket, one truth.
+**What Anna is NOT:**
+- ❌ Not a monitoring platform (she's for your local machine)
+- ❌ Not an AI chatbot (she doesn't have conversations)
+- ❌ Not a remote management server (she runs locally)
 
 ---
 
@@ -34,776 +29,200 @@ Anna is a **system administrator, not a user assistant**. One daemon, one socket
 
 ### Installation
 
-```bash
-# One-line install (recommended)
-curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
-
-# Or clone and build from source
-git clone https://github.com/jjgarcianorway/anna-assistant.git
-cd anna-assistant
-cargo build --release
-sudo cp target/release/{annad,annactl} /usr/local/bin/
-sudo systemctl enable --now annad
-```
-
-### Basic Usage
+One command installs everything:
 
 ```bash
-# Check system status
-annactl status
-
-# Run health checks
-annactl health
-
-# Get diagnostic report
-annactl doctor
-
-# List recovery plans
-annactl rescue list
-
-# Show available commands
-annactl help
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sh
 ```
 
-### Updates
+That's it. Anna is now watching your system.
 
-Anna provides self-update capability:
+### Daily Use
 
 ```bash
-# Manually update to latest release
-annactl self-update
+# Every morning
+annactl daily
 
-# Or use the update script directly
-/usr/local/bin/anna-assistant/scripts/self_update.sh
+# If something is wrong
+sudo annactl repair
+
+# That's all most people need
 ```
 
-The self-update process:
-- Fetches latest GitHub release
-- Verifies SHA256 checksums
-- Stops daemon safely
-- Performs atomic binary swap
-- Restarts daemon
-- Verifies socket connectivity
+### Example Session
+
+```bash
+$ annactl daily
+╔══════════════════════════════════════════════════════════╗
+║ 🔴 Daily System Check - 2025-11-13 12:27 ║
+╚══════════════════════════════════════════════════════════╝
+
+Health: 2 ok, 0 warnings, 1 failures
+
+Disk: 96.5% used (24.8GB / 802.1GB total)
+
+📊 Issues Detected:
+
+  ❌ disk-space: Issue detected
+
+📁 Disk Space Analysis:
+
+  Your disk is 96.5% full. Here's what's using space:
+
+  ⬇️ Downloads                71.0GB  /home/user/Downloads
+  📦 Packages                 29.9GB  /var/cache/pacman/pkg
+
+🎯 Recommended Actions:
+
+1. Clean package cache
+   $ sudo paccache -rk1
+   📖 Keeps only the latest version of each package
+   💾 Impact: Frees 29.9GB
+   🔗 Arch Wiki: https://wiki.archlinux.org/title/Pacman#Cleaning_the_package_cache
+   Risk: ✅ Safe
+
+💡 Next Steps:
+   Run the disk space cleanup commands above (start with the safest)
+
+$ sudo annactl repair
+════════════════════════════════════════════════════════════
+🔧 SYSTEM REPAIR
+════════════════════════════════════════════════════════════
+
+Anna will attempt to fix detected issues automatically.
+Only low-risk actions will be performed.
+
+⚠️  Actions may modify system state!
+
+Proceed with repair? [y/N]: y
+
+🔧 EXECUTING REPAIRS
+
+✅ disk-space
+  Action: cleanup_disk_space
+  Details: Installed pacman-contrib; paccache -rk1: removed 847 packages (29.4GB)
+  Source: [archwiki:System_maintenance#Clean_the_filesystem]
+
+────────────────────────────────────────────────────────────
+Summary: 1 succeeded, 0 failed
+```
 
 ---
 
 ## Commands
 
-### System Status
+Anna has a simple command surface. Most people only need 3 commands:
+
 ```bash
-annactl status              # Show daemon health and system state
-annactl help                # List available commands for current state
-annactl help --json         # JSON output for scripting
+annactl daily       # Quick morning health check
+annactl status      # Detailed system status
+sudo annactl repair # Fix detected issues
 ```
 
-### Health Monitoring (Phase 0.5)
+### Advanced Commands
+
+For power users and troubleshooting, Anna has additional commands:
+
 ```bash
-annactl health              # Run all health probes
-annactl health --json       # JSON output with full details
-annactl doctor              # Diagnostic report with recommendations
-annactl doctor --json       # JSON diagnostic output
+annactl --help --all   # Show all commands including advanced
 ```
 
-**Health Probes:**
-- `disk-space`: Filesystem usage monitoring
-- `pacman-db`: Package database integrity
-- `systemd-units`: Failed unit detection
-- `journal-errors`: System log analysis
-- `services-failed`: Service health
-- `firmware-microcode`: Microcode status
-
-**Exit Codes:**
-- `0` - All checks passed
-- `1` - One or more failures detected
-- `2` - Warnings detected (no failures)
-- `64` - Command not available in current state
-- `65` - Invalid daemon response
-- `70` - Daemon unavailable
-
-### Installation (Phase 0.8)
-```bash
-annactl install                # Interactive Arch Linux installation (iso_live only)
-annactl install --dry-run      # Simulate installation without executing
-```
-
-**Installation Steps:**
-1. Disk setup (manual partitioning)
-2. Base system installation (pacstrap)
-3. System configuration (fstab, locale, timezone)
-4. Bootloader (systemd-boot or GRUB)
-5. User creation with sudo access
-
-**Requirements:**
-- Must run as root
-- Only available in iso_live state (Arch ISO environment)
-- Network connectivity required for pacstrap
-
-**Output Example:**
-```
-[anna] disk_setup — Partition, format, and mount disks (OK)
-  formatted sda2 as ext4; formatted sda1 as FAT32; mounted root to /mnt
-  Citation: [archwiki:Installation_guide#Partition_the_disks]
-[anna] base_system — Install base packages with pacstrap (OK)
-  installed 7 packages successfully
-  Citation: [archwiki:Installation_guide#Install_essential_packages]
-[anna] Installation complete!
-[anna] Next steps:
-  1. Reboot: umount -R /mnt && reboot
-  2. Log in with created user credentials
-  3. Change default passwords immediately
-```
-
-**Installation Log:**
-All steps logged to `/var/log/anna/install.jsonl` with timestamps and Arch Wiki citations.
-
-### Lifecycle Management (Phase 0.9)
-```bash
-annactl status                 # Comprehensive system health report
-annactl update                 # Orchestrated system update with pacman
-annactl update --dry-run       # Simulate update without executing
-annactl audit                  # Security and integrity audit
-```
-
-**System Health (`status`):**
-- Service status monitoring (failed, active, enabled)
-- Package update detection via checkupdates
-- System log analysis (journalctl errors)
-- Actionable recommendations
-
-**Update Orchestration (`update`):**
-- Package updates via `pacman -Syu`
-- Automatic service restart detection
-- Package change tracking (old → new versions)
-- Dry-run mode for risk-free preview
-
-**Security Audit (`audit`):**
-- Package integrity checks (`pacman -Qkk`)
-- GPG keyring verification
-- File permission validation (`/etc/passwd`, `/etc/shadow`, `/etc/sudoers`)
-- Security baseline checks (firewall, SSH hardening)
-- Configuration compliance (fstab mount options)
-
-**Output Example:**
-```
-$ annactl status
-┌─────────────────────────────────────────────────────────
-│ SYSTEM HEALTH REPORT
-├─────────────────────────────────────────────────────────
-│ Status:    Healthy
-│ Timestamp: 2025-11-11T17:00:00Z
-│ State:     configured
-├─────────────────────────────────────────────────────────
-│ All critical services: OK
-│ UPDATES AVAILABLE: 5
-│   • linux 6.6.1 → 6.6.2
-│   • systemd 255.1 → 255.2
-│   ... and 3 more
-├─────────────────────────────────────────────────────────
-│ RECOMMENDATIONS:
-│   • Updates available - run 'annactl update'
-└─────────────────────────────────────────────────────────
-
-[archwiki:System_maintenance]
-```
-
-**Steward Log:**
-All lifecycle operations logged to `/var/log/anna/steward.jsonl` with timestamps and Arch Wiki citations.
-
-### Sentinel Framework (Phase 1.0)
-```bash
-annactl sentinel status        # Show sentinel daemon status
-annactl sentinel metrics       # Detailed metrics and event counts
-annactl config get             # View current configuration
-annactl config set <key> <val> # Update configuration at runtime
-```
-
-**Autonomous Daemon:**
-Anna runs as a persistent sentinel that continuously monitors and responds to system events:
-- Periodic health checks (every 5 minutes)
-- Update scans (every hour)
-- Security audits (every 24 hours)
-- Service failure detection and auto-restart (opt-in)
-- Package drift notifications
-- Log anomaly monitoring
-
-**Configuration Keys:**
-- `autonomous_mode` - Enable autonomous operations (default: false)
-- `health_check_interval` - Seconds between checks (default: 300)
-- `update_scan_interval` - Seconds between scans (default: 3600)
-- `audit_interval` - Seconds between audits (default: 86400)
-- `auto_repair_services` - Auto-restart failed services (default: false)
-- `auto_update` - Auto-install updates (default: false)
-- `auto_update_threshold` - Max packages for auto-update (default: 5)
-- `adaptive_scheduling` - Adjust frequencies by stability (default: true)
-
-**Observability:**
-- Real-time metrics: uptime, event counts, error rates
-- System drift index (0.0-1.0 scale)
-- State persistence in `/var/lib/anna/state.json`
-- Structured event logging to `/var/log/anna/sentinel.jsonl`
-
-**Output Example:**
-```
-$ annactl sentinel status
-┌─────────────────────────────────────────────────────────
-│ SENTINEL STATUS
-├─────────────────────────────────────────────────────────
-│ Enabled:        ✓ Yes
-│ Autonomous:     ✗ Inactive
-│ Uptime:         3600 seconds
-│ System State:   configured
-├─────────────────────────────────────────────────────────
-│ HEALTH
-│ Status:         Healthy
-│ Last Check:     2025-11-11T18:00:00Z
-└─────────────────────────────────────────────────────────
-
-$ annactl config set autonomous_mode true
-[anna] Configuration updated: autonomous_mode = true
-```
-
-**Safety Guarantees:**
-- All automated actions require explicit configuration
-- Never modifies `/home` or `/data` directories
-- Configuration changes logged with timestamps
-- Dry-run validation for all mutations
-
-### Repair Actions (Phase 0.7)
-```bash
-annactl repair                 # Repair all failed probes
-annactl repair --dry-run       # Simulate repairs without executing
-annactl repair disk-space      # Repair specific probe
-```
-
-**Automated Repairs:**
-- `disk-space` → Clean systemd journal + pacman cache
-- `pacman-db` → Synchronize package databases
-- `services-failed` → Restart failed systemd units
-- `firmware-microcode` → Install missing CPU microcode
-
-**Output Example:**
-```
-[anna] repair: probe=disk-space
-[anna] probe: disk-space — cleanup_disk_space (OK)
-  journalctl --vacuum-size=100M (success); paccache -r -k 2 (success)
-  Citation: [archwiki:System_maintenance#Clean_the_filesystem]
-All repairs completed successfully
-Citation: [archwiki:System_maintenance]
-```
-
-**Audit Trail:**
-All repair actions logged to `/var/log/anna/audit.jsonl` with timestamps, commands, and results.
-
-### Recovery (Phase 0.6 - Foundation)
-```bash
-annactl rescue list         # Show available recovery plans
-```
-
-**Recovery Plans:**
-- `bootloader`: GRUB/systemd-boot repair ([archwiki:GRUB#Installation])
-- `initramfs`: Rebuild initramfs images ([archwiki:Mkinitcpio])
-- `pacman-db`: Database repair ([archwiki:Pacman/Tips_and_tricks])
-- `fstab`: Filesystem table validation ([archwiki:Fstab])
-- `systemd`: Unit restoration ([archwiki:Systemd])
+This includes:
+- `health` - Detailed health probe execution
+- `metrics` - System metrics display
+- `profile` - Environment and hardware analysis
+- `doctor` - Comprehensive diagnostics
+- `learn` - View learning patterns
+- `predict` - Show predictive analysis
+- `upgrade` - Update Anna herself
+- `ping` - Test daemon connection
 
 ---
 
-## Architecture
+## How Anna Helps
 
-### System Overview
+### 1. Detects Real Problems
 
-```
-┌─────────────────────────────────────┐
-│        annad (Daemon)               │
-│                                     │
-│  ┌──────────┐    ┌──────────────┐ │
-│  │  State   │    │    Health    │ │
-│  │ Machine  │    │  Subsystem   │ │
-│  └────┬─────┘    └──────┬───────┘ │
-│       │                 │          │
-│       ▼                 ▼          │
-│  ┌─────────────────────────────┐  │
-│  │      RPC Server             │  │
-│  │    (Unix Socket)            │  │
-│  └──────────┬──────────────────┘  │
-└─────────────┼─────────────────────┘
-              │
-              ▼
-      /run/anna/anna.sock
-       (root:anna 0660)
-              │
-              ▼
-       ┌──────────┐
-       │ annactl  │
-       └──────────┘
-```
+Anna checks for:
+- **Disk Space** - Package cache, logs, downloads consuming space
+- **Service Failures** - systemd services not running
+- **Misconfigurations** - TLP not enabled, Bluetooth not started
+- **Missing Firmware** - Hardware not functioning optimally
+- **Package Updates** - Security fixes available
 
-### State Machine
+### 2. Explains in Plain English
 
-Anna detects and adapts to six system states:
+No jargon. No acronyms. Just clear explanations:
+- "Your disk is 96% full. Package cache can free 30GB."
+- "TLP is installed but not enabled. Your battery life could be better."
+- "3 updates available including a kernel security fix."
 
-1. **iso_live**: Running from Arch ISO
-2. **recovery_candidate**: Chroot-ready environment
-3. **post_install_minimal**: Fresh Arch install
-4. **configured**: Fully configured system
-5. **degraded**: System with detected issues
-6. **unknown**: Unable to determine state
+### 3. Provides Clear Fixes
 
-Commands are only available in states where they're safe to execute.
+Every issue comes with:
+- **Exact command to run** - Copy-paste ready
+- **Plain English explanation** - What it does and why
+- **Arch Wiki reference** - Direct link to relevant section
+- **Risk level** - Safe, Low, Medium, or High
+- **Estimated impact** - "Frees 30GB", "Improves battery life"
 
-### File Structure
+### 4. Actually Executes Fixes
 
-```
-/usr/local/bin/
-├── annad                   # Daemon binary
-└── annactl                 # CLI client
-
-/var/lib/anna/
-├── reports/                # Health and doctor reports (0700)
-│   ├── health-*.json       # Health check results (0600)
-│   └── doctor-*.json       # Diagnostic reports (0600)
-└── alerts/                 # Failed probe alerts (0700)
-    └── *.json              # Per-probe alert files (0600)
-
-/var/log/anna/
-├── ctl.jsonl               # Command execution log
-└── health.jsonl            # Health check history
-
-/run/anna/
-└── anna.sock               # IPC socket (root:anna 0660)
-
-/etc/systemd/system/
-├── annad.service           # Daemon service unit
-└── annad.socket            # Socket activation unit
-
-/usr/local/lib/anna/
-├── health/                 # Health probe definitions (YAML)
-└── recovery/               # Recovery plan definitions (YAML)
-```
-
----
-
-## Security
-
-### Systemd Hardening
-
-Anna runs with strict systemd sandboxing:
-
-```ini
-[Service]
-# Security
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=yes
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-SystemCallArchitectures=native
-
-# File Access
-ReadWritePaths=/var/lib/anna /var/log/anna
-```
-
-### Permissions
-
-- **Socket**: `root:anna` with mode `0660`
-- **System group**: Users must be in `anna` group
-- **Reports**: Mode `0600` (root-only read)
-- **Directories**: Mode `0700` (root-only access)
-- **Logs**: Append-only JSONL format
-
-### Audit Trail
-
-Every command execution is logged with:
-- ISO 8601 timestamp
-- UUID request ID
-- System state at execution time
-- Exit code and duration
-- Arch Wiki citation
-- Success/failure status
-
-Example log entry:
-```json
-{
-  "ts": "2025-11-11T13:00:00Z",
-  "req_id": "550e8400-e29b-41d4-a716-446655440000",
-  "state": "configured",
-  "command": "health",
-  "allowed": true,
-  "args": [],
-  "exit_code": 0,
-  "citation": "[archwiki:System_maintenance]",
-  "duration_ms": 45,
-  "ok": true
-}
-```
-
----
-
-## Health Monitoring (Phase 0.5)
-
-### Probes
-
-Each health probe:
-- Executes read-only system checks
-- Reports status: `ok`, `warn`, or `fail`
-- Includes Arch Wiki citation
-- Logs execution time
-- Creates alerts for failures
-
-### Report Generation
-
-```bash
-annactl health
-# Output:
-# Health summary: ok=5 warn=1 fail=0
-# warn: disk-space  [archwiki:System_maintenance#Check_for_errors]
-# Details saved: /var/lib/anna/reports/health-2025-11-11T13:00:00Z.json
-```
-
-### Doctor Diagnostics
-
-```bash
-annactl doctor
-# Output:
-# Doctor report for state: configured
-# Failed probes: none
-# Degraded units: 0
-# Top journal errors: (see details)
-# Citations: [archwiki:System_maintenance] ...
-# Report saved: /var/lib/anna/reports/doctor-2025-11-11T13:00:00Z.json
-```
-
----
-
-## Testing
-
-### Integration Tests
-
-```bash
-# Run health CLI tests
-cargo test --package annad --test health_cli_tests
-
-# Run all tests
-cargo test --workspace
-```
-
-**Test Coverage:**
-- 10 integration tests for health CLI
-- Exit code validation (0, 1, 2, 64, 65, 70)
-- Report generation and permissions
-- JSON schema validation
-- Control log verification
-
-### CI Pipeline
-
-GitHub Actions workflow validates:
-- Code formatting (`cargo fmt --check`)
-- Linting (`cargo clippy`)
-- Performance benchmarks (<200ms health command)
-- Unauthorized write detection
-- JSON schema compliance
-- File permissions (0600/0700)
-
----
-
-## Development
-
-### Building from Source
-
-```bash
-git clone https://github.com/YOUR_ORG/anna-assistant.git
-cd anna-assistant
-git checkout anna-1.0-reset
-
-# Build release binaries
-cargo build --release
-
-# Install locally
-sudo ./scripts/install.sh --local
-
-# Start daemon
-sudo systemctl start annad
-
-# Run commands
-annactl status
-annactl health
-```
-
-### Running Tests
-
-```bash
-# Unit tests
-cargo test --lib
-
-# Integration tests
-cargo test --test '*'
-
-# Health CLI tests specifically
-cargo test --package annad --test health_cli_tests
-
-# With output
-cargo test -- --nocapture
-```
-
-### Project Structure
-
-```
-anna-assistant/
-├── crates/
-│   ├── annad/              # Daemon
-│   │   └── src/
-│   │       ├── health/     # Health subsystem (Phase 0.5)
-│   │       ├── recovery/   # Recovery framework (Phase 0.6)
-│   │       ├── state/      # State detection (Phase 0.3)
-│   │       └── rpc_server.rs
-│   ├── annactl/            # CLI client
-│   │   └── src/
-│   │       ├── health_commands.rs
-│   │       └── main.rs
-│   └── anna_common/        # Shared types
-├── assets/
-│   ├── health/             # Health probe YAML definitions
-│   └── recovery/           # Recovery plan YAML definitions
-├── scripts/
-│   ├── install.sh          # Installation script
-│   └── uninstall.sh        # Uninstallation script
-├── tests/
-│   └── schemas/            # JSON schemas for validation
-└── docs/
-    └── ANNA-1.0-RESET.md   # Architecture documentation
-```
-
----
-
-## Migration from Beta/RC.11
-
-**⚠️ BREAKING CHANGES - See MIGRATION-1.0.md**
-
-Anna 1.0 removed several features present in earlier versions:
-
-### Removed Features
-- Desktop environment bundles (Hyprland, i3, sway)
-- Application installation system
-- TUI (terminal user interface)
-- Recommendation engine
-- Pywal integration
-- Hardware detection for DEs
-- `annactl setup` command
-- `annactl apply` command (replaced with recovery plans)
-- `annactl advise` command
-
-### What Remains
-- ✅ Core daemon (`annad`)
-- ✅ CLI client (`annactl`)
-- ✅ State detection
-- ✅ Health monitoring
-- ✅ System diagnostics
-- ✅ Recovery framework (foundation)
-- ✅ Comprehensive logging
-- ✅ Security hardening
-
-### Migration Path
-1. Uninstall old version: `sudo ./scripts/uninstall.sh`
-2. Remove old configs: `rm -rf ~/.config/anna`
-3. Install rc.13: `curl -sSL .../scripts/install.sh | sh`
-4. Verify: `annactl health`
+`annactl repair` doesn't just show recommendations - it:
+1. Installs missing tools if needed (e.g., pacman-contrib)
+2. Executes the fix with confirmation
+3. Reports what was done and the result
 
 ---
 
 ## Documentation
 
-### Core Documentation
+- **[Product Vision](docs/PRODUCT_VISION.md)** - What Anna is and why
+- **[User Guide](docs/USER_GUIDE.md)** - Detailed usage flows and scenarios
+- **[Changelog](CHANGELOG.md)** - Version history and updates
 
-- **ANNA-1.0-RESET.md**: Architecture and design decisions
-- **MIGRATION-1.0.md**: Breaking changes and migration guide
-- **SECURITY_AUDIT.md**: Security model and hardening
-- **CHANGELOG.md**: Version history and release notes
-- **docs/IPC_API.md**: RPC protocol documentation
-
-### Phase 1 Documentation (Distributed Consensus & Production Hardening)
-
-- **[Phase 1.7](docs/phase_1_7_distributed_consensus.md)**: Distributed Consensus Foundation
-- **[Phase 1.9](docs/phase_1_9_networked_consensus.md)**: Networked Consensus with RPC
-- **[Phase 1.10](docs/phase_1_10_operational_robustness.md)**: Operational Robustness (Idempotency, Timeouts)
-- **[Phase 1.11](docs/phase_1_11_production_hardening.md)**: Production Hardening (Body Limits, Rate Limiting)
-- **[Phase 1.12](docs/phase_1_12_server_tls.md)**: Server-Side TLS Architecture
-- **[Phase 1.13](docs/phase_1_13_server_tls_implementation.md)**: Server-Side TLS Implementation
-- **[Phase 1.14](docs/phase_1_14_tls_live_server.md)**: Live TLS Testnet
-- **[Phase 1.15](docs/phase_1_15_hot_reload_recovery.md)**: SIGHUP Hot Reload & Enhanced Rate Limiting
-- **[Certificate Pinning](docs/CERTIFICATE_PINNING.md)**: SHA256 Fingerprint Validation
-- **[Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)**: Deployment Guide
-
-### Man Pages
-
-```bash
-man annactl        # CLI usage
-man annad          # Daemon configuration
-```
+For historical and internal documentation, see `docs/archive/`.
 
 ---
 
-## Development Status
+## Philosophy
 
-### ✅ Shipped (v1.16.2-alpha.1)
-- **Phase 0.3**: State-aware command dispatch with 6-state detection
-- **Phase 0.4**: Systemd hardening and security sandbox
-- **Phase 0.5**: Health monitoring (6 probes) + doctor diagnostics
-- **Phase 0.6**: Recovery framework foundation (types, parser, chroot)
-- **Phase 1.7-1.9**: Distributed consensus with Ed25519 cryptography and networked RPC
-- **Phase 1.10-1.11**: Operational robustness (idempotency, timeouts, rate limiting)
-- **Phase 1.12-1.14**: Full mTLS implementation with live 3-node testnet
-- **Phase 1.15**: SIGHUP hot reload with atomic config swaps
-- **Phase 1.16**: Dual-tier rate limiting (burst + sustained) and certificate pinning infrastructure
-- **v1.16.1-alpha.1**: Security hardening - TLS materials purged from git history
-- **v1.16.2-alpha.1**: Critical RPC serialization bug fix
-- **Self-update**: Manual update via `annactl self-update` with SHA256 verification
-- **Audit logging**: JSONL logs with UUIDs and Arch Wiki citations
+> Anna is the knowledgeable sysadmin friend who silently watches your Arch machine, spots problems before they get bad, and either fixes them or tells you exactly what to do - with as little ceremony as possible.
 
-### 🚧 In Progress (Phase 2 - Target: v2.0.0-alpha.1)
-
-See [docs/PHASE_2_OVERVIEW.md](docs/PHASE_2_OVERVIEW.md) for detailed roadmap.
-
-**Core Objectives**:
-- **Certificate Pinning**: Enforce SHA256 fingerprint validation in TLS handshakes with rustls `ServerCertVerifier`
-- **Autonomous Recovery Supervisor**: Exponential backoff for failed tasks, circuit breakers, metrics
-- **Observability Pack**: Grafana dashboards + Prometheus alerts for production monitoring
-- **Distribution**: AUR and Homebrew packaging skeletons
-- **Self-Update Enhancement**: `annactl self-update --check` dry-run mode
-- **TLS-Pinned Testnet**: Multi-node testnet with SIGHUP hot reload validation
-
-### 📋 Planned
-- **v2.0**: Enhanced observability and recovery
-  - Full certificate pinning enforcement in TLS handshake
-  - Autonomous task recovery with supervision trees
-  - Grafana dashboard integration
-  - Executable recovery plans (`annactl rescue run <plan>`)
-- **v2.1**: User experience enhancements
-  - Optional TUI (terminal user interface)
-  - User-mode operation (no sudo required)
-  - Dual-socket support (user/system)
-
-### ⚠️  Known Issues
-
-The following test suites have pre-existing failures unrelated to Phase 1.16 changes:
-- **chronos**: Timeline and Chronicle tests (2 failures) - floating point precision
-- **collective**: CollectiveMind initialization (2 failures) - permission errors in test env
-- **mirror**: Reflection generation (5 failures) - string indexing bounds
-
-These failures are tracked for Phase 2 and do not affect Phase 1.16 functionality (consensus, TLS, rate limiting, certificate pinning).
-
----
-
-## Troubleshooting
-
-### Socket Connection Issues
-
-**Problem**: `annactl` commands fail with "Permission denied" or "Socket not found"
-
-**Solution**:
-```bash
-# 1. Check socket path and permissions
-namei -l /run/anna/anna.sock
-
-# 2. Verify group membership
-groups | grep anna
-
-# 3. If not in group, add yourself
-sudo usermod -aG anna "$USER"
-newgrp anna  # Or logout and login
-
-# 4. Check daemon status
-sudo systemctl status annad
-sudo journalctl -u annad -n 50
-```
-
-**Expected permissions**:
-- Directory: `/run/anna` should be `root:anna 750`
-- Socket: `/run/anna/anna.sock` should be `root:anna 660`
-
-### Environment Overrides
-
-**Custom socket path**:
-```bash
-# Method 1: Flag (highest priority)
-annactl --socket /path/to/custom.sock status
-
-# Method 2: Environment variable
-export ANNAD_SOCKET=/path/to/custom.sock
-annactl status
-```
-
-**Custom log file** (v1.16.3+):
-```bash
-# Override default XDG path
-export ANNACTL_LOG_FILE=/tmp/annactl.jsonl
-annactl status
-
-# Disable file logging (stdout only)
-export ANNACTL_LOG_FILE=/dev/null
-annactl status
-```
-
-### Quick Diagnostics
-
-```bash
-# Test daemon connectivity (v1.16.3+)
-annactl ping
-
-# Run full validation suite
-curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/operator_validate.sh | bash
-```
-
-**References**:
-- [archwiki:System_maintenance#Troubleshooting](https://wiki.archlinux.org/title/System_maintenance#Troubleshooting)
-- [archwiki:XDG_Base_Directory](https://wiki.archlinux.org/title/XDG_Base_Directory)
+**Principles:**
+1. **Few commands, high value** - 80% of value from 3-4 commands
+2. **Two-second answer** - `annactl daily` tells you if you're OK
+3. **Plain English** - No internal jargon or phase numbers
+4. **Opinionated** - Clear recommendations based on Arch Wiki best practices
 
 ---
 
 ## Contributing
 
-See `CONTRIBUTING.md` for:
-- Code style guidelines
-- Testing requirements
-- Pull request process
-- Security disclosure policy
+Anna follows a strict product guardrail:
+
+**Any new feature must answer:**
+1. What specific problem on the user's machine does it detect or fix?
+2. How does it appear to the user through `daily`, `status`, `repair`, or `init`?
+
+If you can't answer both, don't build it.
+
+See `docs/PRODUCT_VISION.md` for the full vision.
 
 ---
 
 ## License
 
-[Your License Here]
+GPL-3.0-or-later
 
 ---
 
-## Support
+## Links
 
-- **Issues**: https://github.com/YOUR_ORG/anna-assistant/issues
-- **Documentation**: https://docs.annaassistant.dev
-- **Wiki**: https://wiki.archlinux.org
-
----
-
-## Credits
-
-Anna Assistant is built on the foundation of the Arch Linux community and adheres strictly to Arch Wiki standards.
-
-**Citations:**
-- [archwiki:System_maintenance]
-- [archwiki:System_maintenance#Troubleshooting]
-- [archwiki:Chroot#Using_arch-chroot]
-- [archwiki:GRUB#Installation]
-- [archwiki:Mkinitcpio]
-- [archwiki:Pacman]
-- [archwiki:Systemd]
+- **GitHub**: https://github.com/jjgarcianorway/anna-assistant
+- **Issues**: https://github.com/jjgarcianorway/anna-assistant/issues
+- **Releases**: https://github.com/jjgarcianorway/anna-assistant/releases
 
 ---
 
-**Anna Assistant v1.16.3-alpha.1 - UX Polish & Socket Reliability**
-
-*Security-hardened • State-aware • Wiki-strict • Production-ready*
+**Stop worrying about your system. Let Anna watch it for you.**

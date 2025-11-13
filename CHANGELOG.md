@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0-beta.1] - 2025-11-13
+
+### Vision Lock and Cleanup
+
+**This is not a feature release. This is a cleanup release.**
+
+Anna had powerful internals but looked like a research project. This release locks the product vision and cleans up the mess.
+
+### What Changed
+
+#### Documentation Overhaul
+- **NEW**: `docs/PRODUCT_VISION.md` - The north star. Read this first.
+- **REWRITTEN**: `README.md` - Clean, user-focused, no phase archaeology
+- **ARCHIVED**: 24 old documents moved to `docs/archive/` - Phase docs, internal design notes, historical artifacts
+- **PRINCIPLE**: Docs now describe flows (how to use Anna), not phases (how she was built)
+
+#### Caretaker Brain
+- **NEW**: `crates/anna_common/src/caretaker_brain.rs` - Core analysis engine
+- Ties together health checks, disk analysis, metrics, and profile into actionable insights
+- Produces prioritized list of issues with severity, explanation, and fix
+- Foundation for making Anna's intelligence accessible, not buried
+
+#### Product Guardrail
+- **HARD RULE**: Any new feature must answer:
+  1. What specific problem on the user's machine does it detect or fix?
+  2. How does it appear to the user through `daily`, `status`, `repair`, or `init`?
+- If you can't answer both, don't build it.
+
+#### What This Means
+- Anna is no longer a museum of subsystems
+- The vision is locked: **local system caretaker, simple and trustworthy**
+- Future development must align with `PRODUCT_VISION.md`
+- Command surface stays small - most users only need 3 commands
+
+### Breaking Changes
+- None. This is a documentation and internal organization cleanup.
+- All existing commands work the same way.
+
+### For Future Contributors
+- Read `docs/PRODUCT_VISION.md` before proposing features
+- Historical/internal docs are in `docs/archive/`
+- User-facing docs are `README.md`, `docs/USER_GUIDE.md`, `docs/PRODUCT_VISION.md`
+
+---
+
 ### ✅ **Phase 4.0: Core Caretaker Workflows - COMPLETE** 🎉
 
 **First Beta Release**: Transition from infrastructure to user-visible workflows. Anna is now useful for daily system maintenance, not just beautifully engineered internals.

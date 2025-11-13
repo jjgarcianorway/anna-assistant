@@ -5,25 +5,26 @@
 
 pub mod advice_cache;
 pub mod beautiful;
+pub mod caretaker_brain; // Core analysis engine - ties everything together
 pub mod categories;
-pub mod command_meta; // Phase 3.1: Command classification
+pub mod command_meta;
 pub mod config;
 pub mod config_parser;
-pub mod context; // Phase 3.6: Persistent context layer
-pub mod disk_analysis; // Phase 4.1: Real disk space analysis (not token checks)
-pub mod display; // Phase 4.1: Beautiful, consistent output library (Anna's voice)
-pub mod github_releases; // Phase 3.10: GitHub API client for auto-upgrade
+pub mod context;
+pub mod disk_analysis;
+pub mod display;
+pub mod github_releases;
 pub mod ignore_filters;
-pub mod installation_source; // Phase 3.10: AUR-aware auto-upgrade
+pub mod installation_source;
 pub mod ipc;
-pub mod learning; // Phase 3.7: Learning engine
-pub mod paths; // rc.13.2: Dual-mode socket support
-pub mod prediction; // Phase 3.7: Prediction engine
-pub mod prediction_actions; // Phase 3.9: Wire predictions to self-healing
+pub mod learning;
+pub mod paths;
+pub mod prediction;
+pub mod prediction_actions;
 pub mod rollback;
-pub mod self_healing; // Phase 3.1/3.2: Self-healing framework
+pub mod self_healing;
 pub mod types;
-pub mod updater; // Beta.89: Rollback command generation
+pub mod updater;
 
 pub use advice_cache::*;
 pub use beautiful::*;

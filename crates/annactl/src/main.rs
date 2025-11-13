@@ -70,7 +70,7 @@ enum Commands {
         /// Show help for specific command
         command: Option<String>,
 
-        /// Show all commands (including internal)
+        /// Show all commands (including advanced)
         #[arg(long)]
         all: bool,
 
@@ -79,7 +79,10 @@ enum Commands {
         json: bool,
     },
 
+    // Advanced commands (hidden by default - use --help --all to see these)
+
     /// Ping daemon (1-RTT health check)
+    #[command(hide = true)]
     Ping,
 
     // TODO: Update command not yet implemented - commented out to reduce command bloat
@@ -91,6 +94,7 @@ enum Commands {
     // },
 
     /// Interactive Arch Linux installation (iso_live state only)
+    #[command(hide = true)]
     Install {
         /// Dry run (simulate without executing)
         #[arg(short = 'n', long)]
@@ -98,12 +102,14 @@ enum Commands {
     },
 
     /// Rescue and recovery tools (iso_live, recovery_candidate states)
+    #[command(hide = true)]
     Rescue {
         /// Subcommand: detect, chroot, repair
         subcommand: Option<String>,
     },
 
     /// Create system backup (configured state)
+    #[command(hide = true)]
     Backup {
         /// Destination path
         #[arg(short, long)]
@@ -111,6 +117,7 @@ enum Commands {
     },
 
     /// Check system health (all states) - Phase 0.5
+    #[command(hide = true)]
     Health {
         /// Output JSON only
         #[arg(long)]
@@ -125,6 +132,7 @@ enum Commands {
     },
 
     /// Run system diagnostics (configured, degraded states) - Phase 0.5
+    #[command(hide = true)]
     Doctor {
         /// Output JSON only
         #[arg(long)]
@@ -132,15 +140,18 @@ enum Commands {
     },
 
     /// Rollback actions (configured, degraded states)
+    #[command(hide = true)]
     Rollback {
         /// Action ID or 'last'
         target: Option<String>,
     },
 
     /// Analyze system issues (degraded state only)
+    #[command(hide = true)]
     Triage,
 
     /// Collect diagnostic logs (degraded state only)
+    #[command(hide = true)]
     CollectLogs {
         /// Output directory
         #[arg(short, long)]
@@ -163,6 +174,7 @@ enum Commands {
     // Audit,
 
     /// Sentinel management (Phase 1.0)
+    #[command(hide = true)]
     Sentinel {
         /// Subcommand: status, metrics
         #[command(subcommand)]
@@ -170,6 +182,7 @@ enum Commands {
     },
 
     /// Configuration management (Phase 1.0)
+    #[command(hide = true)]
     Config {
         /// Subcommand: get, set
         #[command(subcommand)]
@@ -177,6 +190,7 @@ enum Commands {
     },
 
     /// Conscience governance (Phase 1.1)
+    #[command(hide = true)]
     Conscience {
         /// Subcommand: review, explain, approve, reject, introspect
         #[command(subcommand)]
@@ -184,6 +198,7 @@ enum Commands {
     },
 
     /// Empathy kernel (Phase 1.2)
+    #[command(hide = true)]
     Empathy {
         /// Subcommand: pulse, simulate
         #[command(subcommand)]
@@ -191,6 +206,7 @@ enum Commands {
     },
 
     /// Collective mind (Phase 1.3)
+    #[command(hide = true)]
     Collective {
         /// Subcommand: status, trust, explain
         #[command(subcommand)]
@@ -198,6 +214,7 @@ enum Commands {
     },
 
     /// Mirror protocol (Phase 1.4)
+    #[command(hide = true)]
     Mirror {
         /// Subcommand: reflect, audit, repair
         #[command(subcommand)]
@@ -205,6 +222,7 @@ enum Commands {
     },
 
     /// Chronos loop (Phase 1.5)
+    #[command(hide = true)]
     Chronos {
         /// Subcommand: forecast, audit, align
         #[command(subcommand)]
@@ -212,6 +230,7 @@ enum Commands {
     },
 
     /// Distributed consensus (Phase 1.7 - STUB)
+    #[command(hide = true)]
     Consensus {
         /// Subcommand: status, submit, reconcile
         #[command(subcommand)]
@@ -219,6 +238,7 @@ enum Commands {
     },
 
     /// Self-update annactl binary (Phase 2.0)
+    #[command(hide = true)]
     SelfUpdate {
         /// Check for updates without installing
         #[arg(long)]
@@ -230,6 +250,7 @@ enum Commands {
     },
 
     /// Show system profile and adaptive intelligence (Phase 3.0)
+    #[command(hide = true)]
     Profile {
         /// Output JSON only
         #[arg(long)]
@@ -237,6 +258,7 @@ enum Commands {
     },
 
     /// Install monitoring stack (Grafana/Prometheus) based on system profile (Phase 3.0)
+    #[command(hide = true)]
     Monitor {
         /// Subcommand: install, status
         #[command(subcommand)]
@@ -244,6 +266,7 @@ enum Commands {
     },
 
     /// Display system metrics in Prometheus format (Phase 3.3)
+    #[command(hide = true)]
     Metrics {
         /// Output in Prometheus exposition format
         #[arg(long)]
@@ -255,6 +278,7 @@ enum Commands {
     },
 
     /// Analyze action history and detect patterns (Phase 3.7)
+    #[command(hide = true)]
     Learn {
         /// Output JSON only
         #[arg(long)]
@@ -270,6 +294,7 @@ enum Commands {
     },
 
     /// Show predictive intelligence and recommendations (Phase 3.7)
+    #[command(hide = true)]
     Predict {
         /// Output JSON only
         #[arg(long)]
