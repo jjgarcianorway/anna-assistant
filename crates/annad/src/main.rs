@@ -78,6 +78,7 @@
 
 mod action_history;
 mod audit;
+mod auto_updater; // Phase 3.10: Auto-upgrade service
 mod autonomy;
 mod chronos; // Phase 1.5: Chronos Loop
 mod collective; // Phase 1.3: Collective Mind
@@ -403,57 +404,11 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Spawn auto-update check task
-    tokio::spawn(async move {
-        // Check for updates every 2 hours (more frequent during active beta development)
-        let update_check_interval = tokio::time::Duration::from_secs(2 * 60 * 60);
-
-        loop {
-            tokio::time::sleep(update_check_interval).await;
-
-            info!("Running scheduled update check");
-            match anna_common::updater::check_for_updates().await {
-                Ok(update_info) => {
-                    if update_info.is_update_available {
-                        info!(
-                            "Update available: {} → {}",
-                            update_info.current_version, update_info.latest_version
-                        );
-
-                        // Auto-install updates (always-on, no tier required)
-                        info!("Auto-installing update...");
-                        match anna_common::updater::perform_update(&update_info).await {
-                            Ok(_) => {
-                                info!("Auto-update installed successfully! Daemon will restart.");
-
-                                // Send notification to user
-                                let _ = std::process::Command::new("notify-send")
-                                    .arg("--app-name=Anna Assistant")
-                                    .arg("--icon=system-software-update")
-                                    .arg("--expire-time=10000")
-                                    .arg("Anna Updated Automatically")
-                                    .arg(&format!(
-                                        "Updated from {} to {}",
-                                        update_info.current_version, update_info.latest_version
-                                    ))
-                                    .spawn();
-
-                                // Daemon will be restarted by systemd after binary replacement
-                            }
-                            Err(e) => {
-                                tracing::error!("Auto-update failed: {}", e);
-                            }
-                        }
-                    } else {
-                        info!("Already on latest version: {}", update_info.current_version);
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to check for updates: {}", e);
-                }
-            }
-        }
-    });
+    // Spawn auto-update check task (Phase 3.10: AUR-aware auto-upgrade)
+    {
+        let updater = auto_updater::AutoUpdater::new();
+        updater.start();
+    }
 
     // Spawn profile metrics update task (Phase 3.1)
     tokio::spawn(async move {

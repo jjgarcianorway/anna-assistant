@@ -323,6 +323,71 @@ Grafana: http://localhost:3000
   Password: (check /etc/grafana/grafana.ini)
 ```
 
+## Upgrading Anna
+
+Anna supports automatic upgrades that respect your package manager.
+
+### AUR Installations (Recommended)
+
+If installed via AUR (yay/paru):
+
+```bash
+# Update Anna along with your system
+yay -Syu
+
+# Or update Anna specifically
+yay -S anna-assistant-bin
+```
+
+**Why AUR?** Package managers track dependencies, maintain file ownership, and provide rollback via pacman.
+
+### Manual Installations
+
+If installed manually (GitHub release or curl):
+
+```bash
+# Check for updates
+annactl upgrade --check
+
+# Interactive upgrade (with confirmation)
+sudo annactl upgrade
+
+# Automated upgrade (no confirmation)
+sudo annactl upgrade --yes
+```
+
+**What happens during upgrade:**
+1. ✅ Detects installation source (blocks if AUR-managed)
+2. 🌐 Checks GitHub for latest release
+3. 📥 Downloads binaries and SHA256SUMS
+4. 🔐 Verifies checksums before installation
+5. 💾 Backs up current version to `/var/lib/anna/backup/`
+6. 📦 Replaces binaries with new version
+7. 🔄 Restarts daemon automatically
+
+### Rollback
+
+If an upgrade fails:
+
+```bash
+sudo annactl rollback
+# Restores from /var/lib/anna/backup/
+```
+
+### Automatic Background Checks
+
+The daemon checks for updates every 24 hours (manual installations only):
+
+```bash
+# Check last update check time
+cat /var/lib/anna/last_update_check
+
+# View update check logs
+journalctl -u annad | grep -i update
+```
+
+**Note**: Background checks only log availability. You must run `sudo annactl upgrade` to install updates.
+
 ## Troubleshooting
 
 ### Permission Denied Errors

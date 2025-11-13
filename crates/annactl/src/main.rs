@@ -28,6 +28,7 @@ mod predictive_hints; // Phase 3.8: Post-command predictive intelligence
 mod rpc_client; // Phase 0.5b
 mod sentinel_cli; // Phase 1.0
 mod steward_commands; // Phase 0.9
+mod upgrade_command; // Phase 3.10: Auto-upgrade system
 
 use anna_common::ipc::{CommandCapabilityData, ResponseData};
 use anyhow::Result;
@@ -267,6 +268,17 @@ enum Commands {
         /// Show all predictions (default: only high/critical)
         #[arg(long)]
         all: bool,
+    },
+
+    /// Upgrade Anna to the latest version (Phase 3.10)
+    Upgrade {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+
+        /// Check for updates without installing
+        #[arg(long)]
+        check: bool,
     },
 }
 
@@ -594,6 +606,11 @@ async fn main() -> Result<()> {
         return learning_commands::execute_predict_command(*json, *all).await;
     }
 
+    // Phase 3.10: Handle upgrade command early (doesn't need daemon, requires root)
+    if let Commands::Upgrade { yes, check } = &cli.command {
+        return upgrade_command::execute_upgrade_command(*yes, *check).await;
+    }
+
     // Phase 0.3c: State-aware dispatch
     // Get command name first
     let command_name = match &cli.command {
@@ -626,6 +643,7 @@ async fn main() -> Result<()> {
         Commands::Metrics { .. } => "metrics",
         Commands::Learn { .. } => "learn",
         Commands::Predict { .. } => "predict",
+        Commands::Upgrade { .. } => "upgrade",
     };
 
     // Try to connect to daemon and get state
@@ -1859,6 +1877,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Predict { .. } => {
             // Should not reach here - handled in main
             unreachable!("Predict command should be handled separately");
+        }
+        Commands::Upgrade { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Upgrade command should be handled separately");
         }
     }
 

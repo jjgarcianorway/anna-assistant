@@ -311,6 +311,49 @@ jq 'select(.ok == false)' /var/log/anna/ctl.jsonl
 jq -s 'map(.duration_ms) | add / length' /var/log/anna/ctl.jsonl
 ```
 
+## Auto-Update Security (Phase 3.10)
+
+### Installation Source Detection
+
+Anna automatically detects how it was installed:
+
+- **AUR/Pacman**: Auto-update **disabled** (respects package manager)
+- **Manual (GitHub/curl)**: Auto-update **enabled** (safe upgrade path)
+
+```bash
+# Check installation source
+sudo annactl doctor
+# Shows: "Installation Source: AUR Package (anna-assistant-bin)"
+#    or: "Installation Source: Manual Installation (/usr/local/bin)"
+```
+
+### Upgrade Security
+
+When upgrading manually-installed Anna:
+
+1. **SHA256 Verification**: All binaries verified against GitHub checksums
+2. **Backup Before Replace**: Previous version saved to `/var/lib/anna/backup/`
+3. **Atomic Updates**: Binary replacement is atomic (no partial installs)
+4. **Rollback Support**: `sudo annactl rollback` restores from backup
+5. **Network Security**: GitHub API over HTTPS with 10s timeout
+6. **Permission Check**: Only root can perform upgrades
+
+```bash
+# Safe upgrade workflow
+sudo annactl upgrade           # Interactive with confirmation
+sudo annactl upgrade --check   # Check only, no install
+sudo annactl rollback          # Restore previous version
+```
+
+### Daemon Auto-Update Behavior
+
+For manual installations, the daemon checks for updates every 24 hours:
+
+- **What it does**: Queries GitHub API, logs availability
+- **What it doesn't do**: Never auto-installs without explicit user action
+- **Logs**: `/var/log/anna/` and `journalctl -u annad`
+- **Disable**: AUR installations disable this automatically
+
 ### Monitoring Security
 
 Anna's monitoring components are opt-in and localhost-only:

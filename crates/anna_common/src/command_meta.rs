@@ -409,6 +409,25 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
             ],
             see_also: &["learn", "status", "health"],
         },
+        CommandMetadata {
+            name: "upgrade",
+            category: CommandCategory::Advanced,
+            risk_level: RiskLevel::Medium,
+            requires_root: true,
+            requires_daemon: false,
+            available_states: &[],
+            description_short: "Upgrade Anna to the latest version",
+            description_long: "Check for updates and upgrade Anna binaries from GitHub releases. \
+                              Automatically disabled for AUR-managed installations (use pacman/yay instead). \
+                              Downloads binaries, verifies SHA256 checksums, backs up current version, \
+                              and restarts the daemon.",
+            examples: &[
+                "sudo annactl upgrade",
+                "sudo annactl upgrade --yes",
+                "annactl upgrade --check",
+            ],
+            see_also: &["doctor", "status"],
+        },
 
         // Advanced Commands (🟡)
         CommandMetadata {

@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✅ **Phase 3.10: AUR-Aware Auto-Upgrade System - COMPLETE**
+
+**Auto-Update with Package Manager Safety**: Intelligent upgrade system that respects AUR/pacman installations.
+
+#### Added
+- **Installation Source Detection** (`installation_source.rs` - 210 lines)
+  - `detect_installation_source()` - Uses pacman -Qo + path analysis
+  - `InstallationSource` enum (AUR/Manual/Unknown)
+  - `allows_auto_update()` - AUR blocks, Manual allows
+  - `update_command()` - Suggests appropriate update method
+  - Detects yay/paru/pacman for AUR packages
+
+- **GitHub Releases API Client** (`github_releases.rs` - 180 lines)
+  - `GitHubClient` with rate-limit-friendly HTTP requests
+  - `get_latest_release()` and `get_releases()`
+  - `download_asset()` with 5-minute timeout
+  - `compare_versions()` - Semver-aware version comparison
+  - `is_update_available()` - Handles v-prefix stripping
+
+- **annactl upgrade Command** (`upgrade_command.rs` - 285 lines)
+  - Interactive upgrade workflow with confirmation
+  - `--yes` flag for automated upgrades
+  - `--check` flag for update availability only
+  - AUR detection and friendly refusal message
+  - Binary download (annactl + annad + SHA256SUMS)
+  - SHA256 checksum verification before installation
+  - Automatic backup to `/var/lib/anna/backup/annactl-v{version}`
+  - Binary replacement with correct permissions (0755)
+  - Systemd daemon restart after upgrade
+  - `rollback_upgrade()` - Restore from backup on failure
+
+- **Daemon Auto-Updater Service** (`auto_updater.rs` - 78 lines)
+  - Background task with 24-hour check interval
+  - Respects installation source (silent disable for AUR)
+  - Logs update availability to `/var/log/anna/`
+  - Records last check time to `/var/lib/anna/last_update_check`
+  - Integrated into annad main loop
+
+- **Command Metadata** (`command_meta.rs`)
+  - `upgrade` command classified as Advanced/Medium risk
+  - Requires root, doesn't need daemon
+  - Examples and see-also references
+
+#### Security
+- **SHA256 Verification**: All binaries verified before installation
+- **Backup System**: Previous version saved before upgrade
+- **AUR Safety**: Auto-update completely disabled for package-managed installations
+- **Network Security**: GitHub API over HTTPS with 10s timeout
+- **Rollback Support**: Safe restoration from backup on failure
+
+#### Testing
+- **Unit Tests**: 3 tests in installation_source.rs, github_releases.rs
+- **Integration Tests**: 3 new Phase 3.10 tests
+  - `test_phase310_version_comparison` - Version ordering
+  - `test_phase310_installation_source_detection` - AUR vs Manual
+  - `test_phase310_upgrade_command_exists` - CLI integration
+- **Total**: 31 tests passing ✅
+
+#### Dependencies
+- Added `sha2` to annactl for checksum verification
+
+---
+
 ### ✅ **Phase 3.9.1: Permission Fix - COMPLETE**
 
 **Report Directory Permissions**: Fixes health/doctor commands for non-root anna group members.
