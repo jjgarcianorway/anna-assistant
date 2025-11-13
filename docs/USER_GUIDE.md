@@ -10,7 +10,62 @@
 
 Anna is an intelligent Arch Linux administration assistant that helps you maintain, update, and monitor your system with confidence. This guide covers everything you need to know to use Anna effectively.
 
-## Quick Start
+## 🚀 3-Minute Quickstart
+
+New to Anna? Get up and running in 3 minutes:
+
+### Step 1: Install (30 seconds)
+
+```bash
+# Via AUR (recommended for Arch Linux)
+yay -S anna-assistant-bin
+
+# Or download binary from GitHub releases
+# https://github.com/jjgarcianorway/anna-assistant/releases/latest
+```
+
+### Step 2: Initialize (1 minute)
+
+```bash
+# Initialize configuration (creates /etc/anna)
+sudo annactl init
+
+# Enable and start the daemon
+sudo systemctl enable --now annad
+
+# Add your user to anna group
+sudo usermod -aG anna $USER
+newgrp anna
+```
+
+### Step 3: Your First Commands (1.5 minutes)
+
+```bash
+# Check system status
+annactl status
+
+# Run health diagnostics
+annactl health
+
+# See what Anna learned about your system
+annactl profile
+
+# Get help anytime
+annactl help
+```
+
+**That's it!** 🎉 Anna is now monitoring your system and ready to help.
+
+### What's Next?
+
+- **Learn the safest commands**: `help`, `status`, `health`, `profile` (read-only, always safe)
+- **Explore predictive intelligence**: `annactl learn` and `annactl predict`
+- **Install monitoring** (optional): `annactl monitor install`
+- **Read the full guide below** for advanced features
+
+---
+
+## Full Quick Start Guide
 
 ### Installation
 
