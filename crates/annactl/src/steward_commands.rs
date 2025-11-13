@@ -1,314 +1,188 @@
-//! Steward commands - lifecycle management operations
+//! Status command - system health with REAL analysis
 //!
-//! Phase 0.9: System health, updates, and audit commands
+//! Phase 4.1: Make status as useful as daily
 //! Citation: [archwiki:System_maintenance]
 
-use anna_common::ipc::{ResponseData};
+use anna_common::disk_analysis::DiskAnalysis;
+use anna_common::display::*;
+use anna_common::ipc::ResponseData;
 use anyhow::{Context, Result};
 use std::time::Instant;
 
 use crate::context_detection;
 use crate::errors::*;
 use crate::logging::LogEntry;
-use crate::predictive_hints;
 use crate::rpc_client::RpcClient;
 
-/// Execute 'status' command - show comprehensive system health
+/// Execute 'status' command - show system health with intelligent analysis
 pub async fn execute_status_command(
     req_id: &str,
     state: &str,
     start_time: Instant,
 ) -> Result<()> {
-    // Connect to daemon
     let mut client = RpcClient::connect().await?;
+    let use_color = context_detection::should_use_color();
 
-    // Call system_health RPC
+    // Get system health from daemon
     let response = client
         .system_health()
         .await
         .context("Failed to get system health")?;
 
-    // Parse response
-    match response {
-        ResponseData::HealthReport(report) => {
-            // Display health report
-            println!("┌─────────────────────────────────────────────────────────");
-            println!("│ SYSTEM HEALTH REPORT");
-            println!("├─────────────────────────────────────────────────────────");
-            println!("│ Status:    {}", report.overall_status);
-            println!("│ Timestamp: {}", report.timestamp);
-            println!("│ State:     {}", state);
-            println!("├─────────────────────────────────────────────────────────");
+    let report = match response {
+        ResponseData::HealthReport(report) => report,
+        _ => anyhow::bail!("Invalid response from daemon"),
+    };
 
-            // Services
-            let failed_services: Vec<_> = report
-                .services
-                .iter()
-                .filter(|s| s.state == "failed")
-                .collect();
+    // Do REAL disk analysis
+    let disk_analysis = DiskAnalysis::analyze_root()?;
 
-            if !failed_services.is_empty() {
-                println!("│ FAILED SERVICES:");
-                for svc in &failed_services {
-                    println!("│   • {} ({})", svc.name, svc.state);
-                }
-            } else {
-                println!("│ All critical services: OK");
-            }
+    // Determine status level
+    let failed_services: Vec<_> = report
+        .services
+        .iter()
+        .filter(|s| s.state == "failed")
+        .collect();
 
-            // Packages
-            let updates_available: Vec<_> = report
-                .packages
-                .iter()
-                .filter(|p| p.update_available)
-                .collect();
+    let has_failures = !failed_services.is_empty() || !report.log_issues.is_empty();
+    let disk_critical = disk_analysis.usage_percent > 90.0;
+    let disk_warning = disk_analysis.usage_percent > 80.0;
 
-            if !updates_available.is_empty() {
-                println!("│ UPDATES AVAILABLE: {}", updates_available.len());
-                for pkg in updates_available.iter().take(5) {
-                    println!("│   • {} {}", pkg.name, pkg.version);
-                }
-                if updates_available.len() > 5 {
-                    println!("│   ... and {} more", updates_available.len() - 5);
-                }
-            } else {
-                println!("│ System is up to date");
-            }
+    let status_level = if has_failures || disk_critical {
+        StatusLevel::Critical
+    } else if disk_warning || !report.log_issues.is_empty() {
+        StatusLevel::Warning
+    } else {
+        StatusLevel::Success
+    };
 
-            // Log issues
-            if !report.log_issues.is_empty() {
-                println!("│ LOG ISSUES: {}", report.log_issues.len());
-                for issue in report.log_issues.iter().take(3) {
-                    println!("│   • [{}] {}", issue.severity, issue.message.chars().take(50).collect::<String>());
-                }
-                if report.log_issues.len() > 3 {
-                    println!("│   ... and {} more", report.log_issues.len() - 3);
-                }
-            }
+    // Main status section
+    let mut section = Section::new(
+        format!("System Status - {}", report.overall_status),
+        status_level,
+        use_color,
+    );
 
-            // Recommendations
-            if !report.recommendations.is_empty() {
-                println!("├─────────────────────────────────────────────────────────");
-                println!("│ RECOMMENDATIONS:");
-                for rec in &report.recommendations {
-                    println!("│   • {}", rec);
-                }
-            }
+    section.add_line(format!("State: {}", state));
+    section.add_line(format!("Timestamp: {}", report.timestamp));
+    section.add_blank();
 
-            println!("└─────────────────────────────────────────────────────────");
-            println!();
-            println!("{}", report.citation);
+    // Disk status
+    let disk_status = format!(
+        "Disk: {:.1}% used ({} available)",
+        disk_analysis.usage_percent,
+        format_bytes(disk_analysis.available_bytes)
+    );
+    section.add_line(disk_status);
 
-            // Phase 3.8: Display predictive hints
-            let use_color = context_detection::should_use_color();
-            let _ = predictive_hints::display_predictive_hints("status", false, use_color).await;
-
-            // Log command
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let log_entry = LogEntry {
-                ts: LogEntry::now(),
-                req_id: req_id.to_string(),
-                command: "status".to_string(),
-                state: state.to_string(),
-                allowed: Some(true),
-                args: vec![],
-                exit_code: EXIT_SUCCESS,
-                duration_ms,
-                ok: true,
-                error: None,
-                citation: report.citation,
-            };
-            let _ = log_entry.write();
-
-            std::process::exit(EXIT_SUCCESS);
-        }
-        _ => {
-            anyhow::bail!("Unexpected response type from daemon");
-        }
+    // Services
+    if !failed_services.is_empty() {
+        section.add_blank();
+        section.add_line(format!("Failed services: {}", failed_services.len()));
     }
+
+    // Updates
+    let updates: Vec<_> = report
+        .packages
+        .iter()
+        .filter(|p| p.update_available)
+        .collect();
+    if !updates.is_empty() {
+        section.add_line(format!("Updates available: {}", updates.len()));
+    }
+
+    print!("{}", section.render());
+
+    // Show details if there are issues
+    if has_failures || disk_warning {
+        println!("\n📊 Details:\n");
+
+        // Failed services details
+        for svc in &failed_services {
+            println!("  ❌ Service: {} ({})", svc.name, svc.state);
+        }
+
+        // Log issues (top 3)
+        for issue in report.log_issues.iter().take(3) {
+            let msg: String = issue.message.chars().take(80).collect();
+            println!("  ⚠️  Log: [{}] {}", issue.severity, msg);
+        }
+        if report.log_issues.len() > 3 {
+            println!("     ... and {} more log issues", report.log_issues.len() - 3);
+        }
+
+        // Disk analysis if needed
+        if disk_warning {
+            println!("\n📁 Disk Space:\n");
+            for consumer in disk_analysis.top_consumers.iter().take(3) {
+                println!("  {} {:<20} {:>10}",
+                    consumer.category.icon(),
+                    consumer.category.name(),
+                    consumer.size_human
+                );
+            }
+        }
+
+        // Recommendations
+        println!("\n💡 Recommendations:\n");
+        if disk_critical {
+            println!("  1. Run 'annactl daily' for detailed disk analysis and cleanup steps");
+        } else if disk_warning {
+            println!("  1. Run 'annactl daily' to see disk cleanup options");
+        }
+        if has_failures {
+            println!("  2. Run 'annactl repair' to attempt automatic fixes");
+        }
+        if !report.log_issues.is_empty() {
+            println!("  3. Review logs with: journalctl -p err -n 50");
+        }
+    } else {
+        println!("\n✅ All systems healthy\n");
+    }
+
+    println!("\n{}\n", report.citation);
+
+    // Log command
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+    let exit_code = if has_failures || disk_critical {
+        1
+    } else {
+        EXIT_SUCCESS
+    };
+
+    let log_entry = LogEntry {
+        ts: LogEntry::now(),
+        req_id: req_id.to_string(),
+        state: state.to_string(),
+        command: "status".to_string(),
+        allowed: Some(true),
+        args: vec![],
+        exit_code,
+        citation: report.citation,
+        duration_ms,
+        ok: exit_code == EXIT_SUCCESS,
+        error: None,
+    };
+    let _ = log_entry.write();
+
+    std::process::exit(exit_code);
 }
 
-/// Execute 'update' command - perform system update
-pub async fn execute_update_command(
-    dry_run: bool,
-    req_id: &str,
-    state: &str,
-    start_time: Instant,
-) -> Result<()> {
-    // Connect to daemon
-    let mut client = RpcClient::connect().await?;
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
 
-    // Call system_update RPC
-    let response = client
-        .system_update(dry_run)
-        .await
-        .context("Failed to perform system update")?;
-
-    // Parse response
-    match response {
-        ResponseData::UpdateReport(report) => {
-            // Display update report
-            println!("┌─────────────────────────────────────────────────────────");
-            if dry_run {
-                println!("│ SYSTEM UPDATE (DRY RUN)");
-            } else {
-                println!("│ SYSTEM UPDATE");
-            }
-            println!("├─────────────────────────────────────────────────────────");
-            println!("│ Status:    {}", if report.success { "SUCCESS" } else { "FAILED" });
-            println!("│ Timestamp: {}", report.timestamp);
-            println!("├─────────────────────────────────────────────────────────");
-
-            // Packages updated
-            if !report.packages_updated.is_empty() {
-                println!("│ PACKAGES UPDATED: {}", report.packages_updated.len());
-                for pkg in report.packages_updated.iter().take(10) {
-                    println!("│   • {} {} → {}", pkg.name, pkg.old_version, pkg.new_version);
-                }
-                if report.packages_updated.len() > 10 {
-                    println!("│   ... and {} more", report.packages_updated.len() - 10);
-                }
-            } else {
-                println!("│ No packages to update");
-            }
-
-            // Services restarted
-            if !report.services_restarted.is_empty() {
-                println!("│ SERVICES RESTARTED:");
-                for svc in &report.services_restarted {
-                    println!("│   • {}", svc);
-                }
-            }
-
-            // Snapshot
-            if let Some(snapshot_path) = &report.snapshot_path {
-                println!("│ Snapshot: {}", snapshot_path);
-            }
-
-            println!("├─────────────────────────────────────────────────────────");
-            println!("│ {}", report.message);
-            println!("└─────────────────────────────────────────────────────────");
-            println!();
-            println!("{}", report.citation);
-
-            // Log command
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let args = if dry_run { vec!["--dry-run".to_string()] } else { vec![] };
-            let log_entry = LogEntry {
-                ts: LogEntry::now(),
-                req_id: req_id.to_string(),
-                command: "update".to_string(),
-                state: state.to_string(),
-                allowed: Some(true),
-                args,
-                exit_code: if report.success { EXIT_SUCCESS } else { EXIT_COMMAND_FAILED },
-                duration_ms,
-                ok: report.success,
-                error: None,
-                citation: report.citation,
-            };
-            let _ = log_entry.write();
-
-            std::process::exit(if report.success { EXIT_SUCCESS } else { EXIT_COMMAND_FAILED });
-        }
-        _ => {
-            anyhow::bail!("Unexpected response type from daemon");
-        }
-    }
-}
-
-/// Execute 'audit' command - perform system audit
-pub async fn execute_audit_command(
-    req_id: &str,
-    state: &str,
-    start_time: Instant,
-) -> Result<()> {
-    // Connect to daemon
-    let mut client = RpcClient::connect().await?;
-
-    // Call system_audit RPC
-    let response = client
-        .system_audit()
-        .await
-        .context("Failed to perform system audit")?;
-
-    // Parse response
-    match response {
-        ResponseData::AuditReport(report) => {
-            // Display audit report
-            println!("┌─────────────────────────────────────────────────────────");
-            println!("│ SYSTEM AUDIT REPORT");
-            println!("├─────────────────────────────────────────────────────────");
-            println!("│ Compliance: {}", if report.compliant { "✓ PASS" } else { "✗ FAIL" });
-            println!("│ Timestamp:  {}", report.timestamp);
-            println!("├─────────────────────────────────────────────────────────");
-
-            // Integrity checks
-            let failed_integrity: Vec<_> = report
-                .integrity
-                .iter()
-                .filter(|i| !i.passed)
-                .collect();
-
-            if !failed_integrity.is_empty() {
-                println!("│ INTEGRITY FAILURES: {}", failed_integrity.len());
-                for check in &failed_integrity {
-                    println!("│   • {} ({}): {}", check.component, check.check_type, check.details);
-                }
-            } else {
-                println!("│ All integrity checks: PASSED ({} checks)", report.integrity.len());
-            }
-
-            // Security findings
-            if !report.security_findings.is_empty() {
-                println!("│ SECURITY FINDINGS: {}", report.security_findings.len());
-                for finding in &report.security_findings {
-                    println!("│   • [{}] {}", finding.severity.to_uppercase(), finding.description);
-                    println!("│     → {}", finding.recommendation);
-                }
-            } else {
-                println!("│ No security findings");
-            }
-
-            // Configuration issues
-            if !report.config_issues.is_empty() {
-                println!("│ CONFIGURATION ISSUES: {}", report.config_issues.len());
-                for issue in &report.config_issues {
-                    println!("│   • {}: {}", issue.file, issue.issue);
-                    println!("│     Expected: {}", issue.expected);
-                    println!("│     Actual:   {}", issue.actual);
-                }
-            } else {
-                println!("│ No configuration issues");
-            }
-
-            println!("├─────────────────────────────────────────────────────────");
-            println!("│ {}", report.message);
-            println!("└─────────────────────────────────────────────────────────");
-            println!();
-            println!("{}", report.citation);
-
-            // Log command
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let log_entry = LogEntry {
-                ts: LogEntry::now(),
-                req_id: req_id.to_string(),
-                command: "audit".to_string(),
-                state: state.to_string(),
-                allowed: Some(true),
-                args: vec![],
-                exit_code: EXIT_SUCCESS,
-                duration_ms,
-                ok: true,
-                error: None,
-                citation: report.citation,
-            };
-            let _ = log_entry.write();
-
-            std::process::exit(EXIT_SUCCESS);
-        }
-        _ => {
-            anyhow::bail!("Unexpected response type from daemon");
-        }
+    if bytes >= TB {
+        format!("{:.1}TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.1}GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1}MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1}KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{}B", bytes)
     }
 }

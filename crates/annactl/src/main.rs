@@ -82,12 +82,13 @@ enum Commands {
     /// Ping daemon (1-RTT health check)
     Ping,
 
-    /// Update system packages (configured state only)
-    Update {
-        /// Dry run (show what would be updated)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-    },
+    // TODO: Update command not yet implemented - commented out to reduce command bloat
+    // /// Update system packages (configured state only)
+    // Update {
+    //     /// Dry run (show what would be updated)
+    //     #[arg(short = 'n', long)]
+    //     dry_run: bool,
+    // },
 
     /// Interactive Arch Linux installation (iso_live state only)
     Install {
@@ -157,8 +158,9 @@ enum Commands {
         dry_run: bool,
     },
 
-    /// System audit - integrity and security check (Phase 0.9)
-    Audit,
+    // TODO: Audit command not yet implemented - commented out to reduce command bloat
+    // /// System audit - integrity and security check (Phase 0.9)
+    // Audit,
 
     /// Sentinel management (Phase 1.0)
     Sentinel {
@@ -626,7 +628,7 @@ async fn main() -> Result<()> {
         Commands::Status => "status",
         Commands::Help { .. } => "help",
         Commands::Ping => "ping",
-        Commands::Update { .. } => "update",
+        // Commands::Update { .. } => "update",
         Commands::Install { .. } => "install",
         Commands::Rescue { .. } => "rescue",
         Commands::Backup { .. } => "backup",
@@ -637,7 +639,7 @@ async fn main() -> Result<()> {
         Commands::Triage => "triage",
         Commands::CollectLogs { .. } => "collect-logs",
         Commands::Repair { .. } => "repair",
-        Commands::Audit => "audit",
+        // Commands::Audit => "audit",
         Commands::Sentinel { .. } => "sentinel",
         Commands::Config { .. } => "config",
         Commands::Conscience { .. } => "conscience",
@@ -739,19 +741,19 @@ async fn main() -> Result<()> {
         Commands::Status => {
             return steward_commands::execute_status_command(&req_id, &state, start_time).await;
         }
-        Commands::Update { dry_run } => {
-            // Phase 3.4: Check resource constraints before heavy operation
-            if !*dry_run {
-                if !check_resource_constraints(socket_path, "system update").await? {
-                    std::process::exit(EXIT_SUCCESS);
-                }
-            }
-            return steward_commands::execute_update_command(*dry_run, &req_id, &state, start_time)
-                .await;
-        }
-        Commands::Audit => {
-            return steward_commands::execute_audit_command(&req_id, &state, start_time).await;
-        }
+        // Commands::Update { dry_run } => {
+        //     // Phase 3.4: Check resource constraints before heavy operation
+        //     if !*dry_run {
+        //         if !check_resource_constraints(socket_path, "system update").await? {
+        //             std::process::exit(EXIT_SUCCESS);
+        //         }
+        //     }
+        //     return steward_commands::execute_update_command(*dry_run, &req_id, &state, start_time)
+        //         .await;
+        // }
+        // Commands::Audit => {
+        //     return steward_commands::execute_audit_command(&req_id, &state, start_time).await;
+        // }
         // Phase 1.0: Sentinel commands
         Commands::Sentinel { subcommand } => {
             match subcommand {
@@ -1785,18 +1787,18 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
             // Should not reach here - handled in main
             unreachable!("Ping command should be handled separately");
         }
-        Commands::Update { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Update command should be handled separately");
-        }
+        // Commands::Update { .. } => {
+        //     // Should not reach here - handled in main
+        //     unreachable!("Update command should be handled separately");
+        // }
         Commands::Install { .. } => {
             // Should not reach here - handled separately
             unreachable!("Install command should be handled separately");
         }
-        Commands::Audit => {
-            // Should not reach here - handled in main
-            unreachable!("Audit command should be handled separately");
-        }
+        // Commands::Audit => {
+        //     // Should not reach here - handled in main
+        //     unreachable!("Audit command should be handled separately");
+        // }
         Commands::Rescue { subcommand } => {
             println!("[anna] rescue command allowed in state: {}", state);
             println!("[anna] subcommand: {:?} (no-op)", subcommand);

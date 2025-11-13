@@ -68,7 +68,12 @@
       "Bash(release-v4.0.0-beta.1/SHA256SUMS)",
       "Bash(cargo run:*)",
       "Bash(rustc:*)",
-      "Bash(/tmp/disk_example)"
+      "Bash(/tmp/disk_example)",
+      "Bash(release-v4.1.0-beta.1/annactl-4.1.0-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v4.1.0-beta.1/annad-4.1.0-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v4.1.0-beta.1/SHA256SUMS)",
+      "Bash(annactl upgrade:*)",
+      "Bash(/usr/local/bin/annactl:*)"
     ],
     "deny": [],
     "ask": []

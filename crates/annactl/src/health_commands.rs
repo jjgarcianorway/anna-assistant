@@ -438,6 +438,75 @@ pub async fn execute_repair_command(
 
     let use_color = context_detection::should_use_color();
 
+    // Phase 4.1: Check disk space first - it's a common issue
+    let disk_analysis = anna_common::disk_analysis::DiskAnalysis::analyze_root()?;
+
+    if disk_analysis.usage_percent > 80.0 && probe == "all" {
+        // Show disk space issue and recommendations FIRST
+        println!("{}", "═".repeat(60));
+        println!("{}", if use_color {
+            "💾 DISK SPACE ISSUE DETECTED".bold().yellow().to_string()
+        } else {
+            "DISK SPACE ISSUE DETECTED".to_string()
+        });
+        println!("{}", "═".repeat(60));
+        println!();
+        println!("Your disk is {:.1}% full ({} available).",
+            disk_analysis.usage_percent,
+            format_bytes(disk_analysis.available_bytes));
+        println!();
+        println!("Top space consumers:");
+        for consumer in disk_analysis.top_consumers.iter().take(5) {
+            println!("  {} {:<20} {:>10}  {}",
+                consumer.category.icon(),
+                consumer.category.name(),
+                consumer.size_human,
+                consumer.path.display()
+            );
+        }
+        println!();
+
+        let recommendations = disk_analysis.get_recommendations();
+        if !recommendations.is_empty() {
+            println!("🎯 Recommended Actions:");
+            println!();
+            for (i, rec) in recommendations.iter().enumerate() {
+                println!("{}. {}", i + 1, rec.title);
+                if let Some(cmd) = &rec.command {
+                    println!("   $ {}", cmd);
+                }
+                println!("   📖 {}", rec.explanation);
+                if let Some(warning) = &rec.warning {
+                    println!("   ⚠️  {}", warning);
+                }
+                println!("   💾 Impact: Frees {}", rec.estimated_savings_human);
+
+                let wiki_url = if let Some(section) = &rec.wiki_section {
+                    format!("{}#{}", rec.wiki_url, section)
+                } else {
+                    rec.wiki_url.clone()
+                };
+                println!("   🔗 Arch Wiki: {}", wiki_url);
+
+                let risk_label = match rec.risk_level {
+                    anna_common::disk_analysis::RecommendationRisk::Safe => "✅ Safe",
+                    anna_common::disk_analysis::RecommendationRisk::Low => "🟢 Low Risk",
+                    anna_common::disk_analysis::RecommendationRisk::Medium => "🟡 Medium Risk",
+                    anna_common::disk_analysis::RecommendationRisk::High => "🔴 High Risk",
+                };
+                println!("   Risk: {}", risk_label);
+                println!();
+            }
+
+            println!("💡 Run these commands manually to free up disk space.");
+            println!("   Anna cannot execute them automatically for safety.");
+            println!();
+        }
+
+        println!("{}", "═".repeat(60));
+        println!();
+    }
+
     // Phase 4.0: Enhanced repair with user confirmation and risk awareness
     if !dry_run && probe == "all" {
         // Interactive mode: show what will be repaired and ask for confirmation
@@ -683,4 +752,23 @@ fn log_and_exit(
     };
     let _ = log_entry.write();
     std::process::exit(exit_code);
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes >= TB {
+        format!("{:.1}TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.1}GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1}MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1}KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{}B", bytes)
+    }
 }
