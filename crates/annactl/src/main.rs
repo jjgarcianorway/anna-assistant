@@ -18,6 +18,7 @@ mod empathy_commands; // Phase 1.2
 mod health_commands;
 mod help_commands; // Phase 3.1: Adaptive help
 mod install_command; // Phase 0.8
+mod learning_commands; // Phase 3.9: Learn and predict commands
 pub mod logging;
 mod mirror_commands; // Phase 1.4
 mod monitor_setup; // Phase 3.1: Monitoring automation
@@ -236,6 +237,32 @@ enum Commands {
         /// Output JSON only
         #[arg(long)]
         json: bool,
+    },
+
+    /// Analyze action history and detect patterns (Phase 3.7)
+    Learn {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+
+        /// Minimum confidence level (low, medium, high, very-high)
+        #[arg(long, default_value = "medium")]
+        min_confidence: String,
+
+        /// Analysis window in days
+        #[arg(long, default_value = "30")]
+        days: i64,
+    },
+
+    /// Show predictive intelligence and recommendations (Phase 3.7)
+    Predict {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+
+        /// Show all predictions (default: only high/critical)
+        #[arg(long)]
+        all: bool,
     },
 }
 
@@ -549,6 +576,15 @@ async fn main() -> Result<()> {
         return execute_help_command_standalone(&cli.command, socket_path, &req_id, start_time).await;
     }
 
+    // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
+    if let Commands::Learn { json, min_confidence, days } = &cli.command {
+        return learning_commands::execute_learn_command(*json, min_confidence, *days).await;
+    }
+
+    if let Commands::Predict { json, all } = &cli.command {
+        return learning_commands::execute_predict_command(*json, *all).await;
+    }
+
     // Phase 0.3c: State-aware dispatch
     // Get command name first
     let command_name = match &cli.command {
@@ -578,6 +614,8 @@ async fn main() -> Result<()> {
         Commands::Profile { .. } => "profile",
         Commands::Monitor { .. } => "monitor",
         Commands::Metrics { .. } => "metrics",
+        Commands::Learn { .. } => "learn",
+        Commands::Predict { .. } => "predict",
     };
 
     // Try to connect to daemon and get state
@@ -1799,6 +1837,14 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Metrics { .. } => {
             // Should not reach here - handled in main
             unreachable!("Metrics command should be handled separately");
+        }
+        Commands::Learn { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Learn command should be handled separately");
+        }
+        Commands::Predict { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Predict command should be handled separately");
         }
     }
 

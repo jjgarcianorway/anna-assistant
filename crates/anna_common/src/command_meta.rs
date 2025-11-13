@@ -363,6 +363,38 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
             ],
             see_also: &["status"],
         },
+        CommandMetadata {
+            name: "learn",
+            category: CommandCategory::UserSafe,
+            risk_level: RiskLevel::None,
+            requires_root: false,
+            requires_daemon: false,
+            available_states: &[],
+            description_short: "Analyze patterns in action history",
+            description_long: "Detect patterns in system behavior including maintenance windows, recurring failures, and usage habits. Uses local action history from the context database.",
+            examples: &[
+                "annactl learn",
+                "annactl learn --json",
+                "annactl learn --min-confidence high --days 60",
+            ],
+            see_also: &["predict", "status"],
+        },
+        CommandMetadata {
+            name: "predict",
+            category: CommandCategory::UserSafe,
+            risk_level: RiskLevel::None,
+            requires_root: false,
+            requires_daemon: false,
+            available_states: &[],
+            description_short: "Show predictive intelligence",
+            description_long: "Display predictions and recommendations based on detected patterns. By default shows only high and critical priority predictions.",
+            examples: &[
+                "annactl predict",
+                "annactl predict --all",
+                "annactl predict --json",
+            ],
+            see_also: &["learn", "status", "health"],
+        },
 
         // Advanced Commands (🟡)
         CommandMetadata {
