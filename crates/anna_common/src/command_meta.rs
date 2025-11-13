@@ -272,6 +272,20 @@ fn create_command_metadata() -> Vec<CommandMetadata> {
     vec![
         // User-Safe Commands (🟢)
         CommandMetadata {
+            name: "init",
+            category: CommandCategory::Advanced,
+            risk_level: RiskLevel::Low,
+            requires_root: true,
+            requires_daemon: false,
+            available_states: &[],
+            description_short: "Initialize Anna (first-run wizard)",
+            description_long: "Create /etc/anna directory and generate default configuration files. Detects system constraints and provides guidance for first-time setup. Requires root permissions.",
+            examples: &[
+                "sudo annactl init",
+            ],
+            see_also: &["help", "status", "profile"],
+        },
+        CommandMetadata {
             name: "help",
             category: CommandCategory::UserSafe,
             risk_level: RiskLevel::None,

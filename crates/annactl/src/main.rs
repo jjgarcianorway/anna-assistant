@@ -17,6 +17,7 @@ mod context_detection; // Phase 3.8: Context detection
 mod empathy_commands; // Phase 1.2
 mod health_commands;
 mod help_commands; // Phase 3.1: Adaptive help
+mod init_command; // Phase 3.9: First-run wizard
 mod install_command; // Phase 0.8
 mod learning_commands; // Phase 3.9: Learn and predict commands
 pub mod logging;
@@ -56,6 +57,9 @@ struct Cli {
 /// Phase 0.3: Simplified command set - all commands check state availability
 #[derive(Subcommand)]
 enum Commands {
+    /// Initialize Anna (first-run wizard) - creates /etc/anna and config files
+    Init,
+
     /// Show system status and daemon health
     Status,
 
@@ -576,6 +580,11 @@ async fn main() -> Result<()> {
         return execute_help_command_standalone(&cli.command, socket_path, &req_id, start_time).await;
     }
 
+    // Phase 3.9: Handle init command early (doesn't need daemon)
+    if matches!(cli.command, Commands::Init) {
+        return init_command::execute_init_command().await;
+    }
+
     // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
     if let Commands::Learn { json, min_confidence, days } = &cli.command {
         return learning_commands::execute_learn_command(*json, min_confidence, *days).await;
@@ -588,6 +597,7 @@ async fn main() -> Result<()> {
     // Phase 0.3c: State-aware dispatch
     // Get command name first
     let command_name = match &cli.command {
+        Commands::Init => "init",
         Commands::Status => "status",
         Commands::Help { .. } => "help",
         Commands::Ping => "ping",
@@ -1728,6 +1738,10 @@ async fn execute_help_command(
 /// All commands just print success message and return exit code
 async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
     match command {
+        Commands::Init => {
+            // Should not reach here - handled in main
+            unreachable!("Init command should be handled separately");
+        }
         Commands::Status => {
             // Should not reach here - handled in main
             unreachable!("Status command should be handled separately");
