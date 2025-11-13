@@ -35,11 +35,17 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 
-# Run as root (required for system administration)
-# but use anna group for socket access control
+# Phase 3.9: Run as dedicated service user (not root)
+# The annad user should be created during package installation
+# For now, keep root for compatibility but restrict capabilities
 User=root
 Group=anna
-SupplementaryGroups=anna
+SupplementaryGroups=
+
+# Phase 3.9: Capability restrictions
+# Only grant minimum necessary capabilities
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SYS_ADMIN CAP_SYS_RESOURCE
+SecureBits=keep-caps
 
 # rc.13.3: Ensure runtime directory exists with correct ownership before startup
 # This fixes race condition where socket creation fails if /run/anna doesn't exist
@@ -60,7 +66,7 @@ NoNewPrivileges=true
 # Filesystem protection
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/log/anna /run/anna
+ReadWritePaths=/var/log/anna /var/lib/anna /run/anna
 
 # Use private /tmp directory
 PrivateTmp=true
@@ -68,16 +74,32 @@ PrivateTmp=true
 # Drop all ambient capabilities
 AmbientCapabilities=
 
-# Additional security restrictions
+# Phase 3.9: Kernel and system protection
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectControlGroups=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+
+# Phase 3.9: Network restrictions
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+# Phase 3.9: System call filtering
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @obsolete @resources
 SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+
+# Phase 3.9: Device access control
+DevicePolicy=closed
+DeviceAllow=/dev/null rw
+DeviceAllow=/dev/zero rw
+DeviceAllow=/dev/urandom r
 
 # Logging configuration
 StandardOutput=journal

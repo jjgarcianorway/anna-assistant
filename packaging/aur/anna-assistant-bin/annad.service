@@ -7,19 +7,55 @@ After=network.target
 Type=simple
 User=root
 Group=anna
+SupplementaryGroups=
 ExecStart=/usr/bin/annad
 Restart=on-failure
 RestartSec=10s
+
+# Phase 3.9: Capability restrictions
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SYS_ADMIN CAP_SYS_RESOURCE
+SecureBits=keep-caps
+AmbientCapabilities=
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/anna /run/anna
+ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
+LogsDirectory=anna
+LogsDirectoryMode=0750
+StateDirectory=anna
+StateDirectoryMode=0750
 UMask=0007
+
+# Phase 3.9: Kernel and system protection
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+
+# Phase 3.9: Network restrictions
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+# Phase 3.9: System call filtering
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @obsolete @resources
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+
+# Phase 3.9: Device access control
+DevicePolicy=closed
+DeviceAllow=/dev/null rw
+DeviceAllow=/dev/zero rw
+DeviceAllow=/dev/urandom r
 
 # Logging
 StandardOutput=journal
