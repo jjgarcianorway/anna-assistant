@@ -1,8 +1,9 @@
 //! Status command - system health with REAL analysis
 //!
-//! Phase 4.1: Make status as useful as daily
+//! Phase 4.3: Enhanced with caretaker brain intelligence
 //! Citation: [archwiki:System_maintenance]
 
+use anna_common::caretaker_brain::{CaretakerBrain, IssueSeverity};
 use anna_common::disk_analysis::DiskAnalysis;
 use anna_common::display::*;
 use anna_common::ipc::ResponseData;
@@ -23,48 +24,48 @@ pub async fn execute_status_command(
     let mut client = RpcClient::connect().await?;
     let use_color = context_detection::should_use_color();
 
-    // Get system health from daemon
-    let response = client
-        .system_health()
-        .await
-        .context("Failed to get system health")?;
+    // Run comprehensive health probes
+    let probes = vec![
+        "pacman-db".to_string(),
+        "systemd-units".to_string(),
+        "journal-errors".to_string(),
+        "services-failed".to_string(),
+        "tlp-config".to_string(),
+        "bluetooth-service".to_string(),
+        "missing-firmware".to_string(),
+    ];
 
-    let report = match response {
-        ResponseData::HealthReport(report) => report,
-        _ => anyhow::bail!("Invalid response from daemon"),
+    let health_response = client.health_run(15000, probes).await?;
+    let health_data = match health_response {
+        ResponseData::HealthRun(data) => data,
+        _ => anyhow::bail!("Invalid health response from daemon"),
     };
 
     // Do REAL disk analysis
     let disk_analysis = DiskAnalysis::analyze_root()?;
 
-    // Determine status level
-    let failed_services: Vec<_> = report
-        .services
-        .iter()
-        .filter(|s| s.state == "failed")
-        .collect();
+    // Use caretaker brain for intelligent analysis
+    let caretaker_analysis = CaretakerBrain::analyze(
+        Some(&health_data.results),
+        Some(&disk_analysis)
+    );
 
-    let has_failures = !failed_services.is_empty() || !report.log_issues.is_empty();
-    let disk_critical = disk_analysis.usage_percent > 90.0;
-    let disk_warning = disk_analysis.usage_percent > 80.0;
-
-    let status_level = if has_failures || disk_critical {
-        StatusLevel::Critical
-    } else if disk_warning || !report.log_issues.is_empty() {
-        StatusLevel::Warning
-    } else {
-        StatusLevel::Success
+    // Determine status level from caretaker analysis
+    let status_level = match caretaker_analysis.overall_status.as_str() {
+        "critical" => StatusLevel::Critical,
+        "needs-attention" => StatusLevel::Warning,
+        _ => StatusLevel::Success,
     };
 
     // Main status section
     let mut section = Section::new(
-        format!("System Status - {}", report.overall_status),
+        format!("System Status - {}", caretaker_analysis.overall_status),
         status_level,
         use_color,
     );
 
     section.add_line(format!("State: {}", state));
-    section.add_line(format!("Timestamp: {}", report.timestamp));
+    section.add_line(&caretaker_analysis.summary);
     section.add_blank();
 
     // Disk status
@@ -75,76 +76,95 @@ pub async fn execute_status_command(
     );
     section.add_line(disk_status);
 
-    // Services
-    if !failed_services.is_empty() {
-        section.add_blank();
-        section.add_line(format!("Failed services: {}", failed_services.len()));
-    }
-
-    // Updates
-    let updates: Vec<_> = report
-        .packages
-        .iter()
-        .filter(|p| p.update_available)
-        .collect();
-    if !updates.is_empty() {
-        section.add_line(format!("Updates available: {}", updates.len()));
-    }
+    // Health summary
+    section.add_line(format!(
+        "Health: {} ok, {} warnings, {} failures",
+        health_data.summary.ok,
+        health_data.summary.warn,
+        health_data.summary.fail
+    ));
 
     print!("{}", section.render());
 
-    // Show details if there are issues
-    if has_failures || disk_warning {
-        println!("\n📊 Details:\n");
+    // Show detailed analysis from caretaker brain
+    if !caretaker_analysis.issues.is_empty() {
+        println!("\n📊 Detailed Analysis:\n");
 
-        // Failed services details
-        for svc in &failed_services {
-            println!("  ❌ Service: {} ({})", svc.name, svc.state);
-        }
+        // Group issues by severity
+        let critical: Vec<_> = caretaker_analysis.issues.iter()
+            .filter(|i| i.severity == IssueSeverity::Critical)
+            .collect();
+        let warnings: Vec<_> = caretaker_analysis.issues.iter()
+            .filter(|i| i.severity == IssueSeverity::Warning)
+            .collect();
+        let info: Vec<_> = caretaker_analysis.issues.iter()
+            .filter(|i| i.severity == IssueSeverity::Info)
+            .collect();
 
-        // Log issues (top 3)
-        for issue in report.log_issues.iter().take(3) {
-            let msg: String = issue.message.chars().take(80).collect();
-            println!("  ⚠️  Log: [{}] {}", issue.severity, msg);
-        }
-        if report.log_issues.len() > 3 {
-            println!("     ... and {} more log issues", report.log_issues.len() - 3);
-        }
-
-        // Disk analysis if needed
-        if disk_warning {
-            println!("\n📁 Disk Space:\n");
-            for consumer in disk_analysis.top_consumers.iter().take(3) {
-                println!("  {} {:<20} {:>10}",
-                    consumer.category.icon(),
-                    consumer.category.name(),
-                    consumer.size_human
-                );
+        // Show critical issues first
+        if !critical.is_empty() {
+            println!("🔴 Critical Issues:\n");
+            for issue in critical {
+                println!("  • {}", issue.title);
+                println!("    {}", issue.explanation);
+                println!("    💡 {}", issue.recommended_action);
+                if let Some(impact) = &issue.estimated_impact {
+                    println!("    📊 {}", impact);
+                }
+                if let Some(reference) = &issue.reference {
+                    println!("    📚 {}", reference);
+                }
+                println!();
             }
         }
 
-        // Recommendations
-        println!("\n💡 Recommendations:\n");
-        if disk_critical {
-            println!("  1. Run 'annactl daily' for detailed disk analysis and cleanup steps");
-        } else if disk_warning {
-            println!("  1. Run 'annactl daily' to see disk cleanup options");
+        // Then warnings
+        if !warnings.is_empty() {
+            println!("⚠️  Warnings:\n");
+            for issue in warnings {
+                println!("  • {}", issue.title);
+                println!("    {}", issue.explanation);
+                println!("    💡 {}", issue.recommended_action);
+                if let Some(reference) = &issue.reference {
+                    println!("    📚 {}", reference);
+                }
+                println!();
+            }
         }
-        if has_failures {
-            println!("  2. Run 'annactl repair' to attempt automatic fixes");
+
+        // Then info
+        if !info.is_empty() {
+            println!("ℹ️  Recommendations:\n");
+            for issue in info {
+                println!("  • {}", issue.title);
+                println!("    {}", issue.explanation);
+                println!("    💡 {}", issue.recommended_action);
+                if let Some(reference) = &issue.reference {
+                    println!("    📚 {}", reference);
+                }
+                println!();
+            }
         }
-        if !report.log_issues.is_empty() {
-            println!("  3. Review logs with: journalctl -p err -n 50");
+
+        println!("💡 Next Steps:");
+        let has_critical = caretaker_analysis.issues.iter()
+            .any(|i| i.severity == IssueSeverity::Critical);
+        if has_critical {
+            println!("   🚨 Run 'sudo annactl repair' to fix critical issues");
+        } else {
+            println!("   Run 'sudo annactl repair' to attempt automatic fixes");
         }
+        println!("   Or review each issue and fix manually");
     } else {
         println!("\n✅ All systems healthy\n");
+        println!("💡 Your system is running smoothly. No action needed.");
     }
 
-    println!("\n{}\n", report.citation);
+    println!();
 
     // Log command
     let duration_ms = start_time.elapsed().as_millis() as u64;
-    let exit_code = if has_failures || disk_critical {
+    let exit_code = if caretaker_analysis.overall_status == "critical" {
         1
     } else {
         EXIT_SUCCESS
@@ -158,7 +178,7 @@ pub async fn execute_status_command(
         allowed: Some(true),
         args: vec![],
         exit_code,
-        citation: report.citation,
+        citation: "[archwiki:System_maintenance]".to_string(),
         duration_ms,
         ok: exit_code == EXIT_SUCCESS,
         error: None,
