@@ -597,11 +597,12 @@ impl ContextDb {
                 )?;
             }
 
-            // Checkpoint WAL to ensure data is visible to other processes
-            // This is critical for multi-user scenarios (daemon=root, annactl=user)
-            conn.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
+            // Force FULL checkpoint to ensure data is immediately visible
+            // PASSIVE wasn't enough - annactl reads before checkpoint completes
+            // FULL ensures all WAL data is written to main DB file synchronously
+            conn.pragma_update(None, "wal_checkpoint", "FULL")?;
 
-            debug!("Saved LLM configuration and checkpointed WAL");
+            debug!("Saved LLM configuration and checkpointed WAL (FULL)");
             Ok(())
         })
         .await??;
