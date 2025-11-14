@@ -65,6 +65,270 @@ annactl help
 
 ---
 
+## First-Run: Setting Up Anna's Brain 🧠
+
+The first time you interact with Anna (via `annactl` or `annactl "question"`), she will guide you through a one-time setup to configure her "brain" - a language model that helps her understand natural language questions.
+
+### Why Does Anna Need a Brain?
+
+Without a language model, Anna can only understand specific commands and keywords. With one, she can:
+- Understand questions phrased naturally: "why is my system slow?"
+- Explain technical concepts in plain English
+- Have contextual conversations about your system
+- Provide more detailed, tailored suggestions
+
+### The Setup Wizard
+
+Anna will:
+1. **Assess your hardware**: Check your RAM, CPU, and GPU capabilities
+2. **Present three options**:
+   - Local model (privacy-first, automatic)
+   - Remote API (faster, but data leaves your machine)
+   - Skip for now (limited conversational ability)
+3. **Handle everything automatically** if you choose local
+
+### Option 1: Local Model (Recommended)
+
+**What happens:**
+- Anna installs Ollama via pacman or AUR (yay)
+- Downloads a model sized for your hardware:
+  - **Tiny** (1.3 GB): llama3.2:1b for systems with 4GB RAM, 2 cores
+  - **Small** (2.0 GB): llama3.2:3b for systems with 8GB RAM, 4 cores
+  - **Medium** (4.7 GB): llama3.1:8b for systems with 16GB RAM, 6+ cores
+- Enables and starts the Ollama service
+- Tests that everything works
+
+**Pros:**
+- ✅ **Complete privacy**: All processing stays on your machine
+- ✅ **No costs**: Free forever, no API fees
+- ✅ **Works offline**: No internet required after initial download
+- ✅ **Automatic**: Zero manual configuration
+
+**Cons:**
+- ⚠️ Initial download (1-5 GB depending on model)
+- ⚠️ Uses some RAM and CPU when answering questions
+- ⚠️ Slower responses on low-end machines
+
+**What Anna tells you:**
+
+```
+🧠 Setting Up My Brain
+
+Let me check your machine's capabilities...
+
+💻 Hardware Assessment
+
+System: 8GB RAM, 4 CPU cores
+Capability: Medium - Good for local LLM with small models
+
+⚙️ Configuration Options
+
+1. Set up a local model automatically (recommended - privacy-first)
+2. Configure a remote API (OpenAI-compatible) instead
+3. Skip for now and use rule-based assistance only
+
+Choose an option (1-3): 1
+
+🏠 Local Model Setup
+
+I will:
+  • Install or enable Ollama if needed
+  • Download model: llama3.2:3b (~2.0 GB)
+  • Start the service and test it
+
+Proceed with setup? (y/n): y
+
+Setting up local model... This may take a few minutes.
+
+✓ My local brain is ready!
+I can now understand questions much better while keeping
+your data completely private on this machine.
+```
+
+### Option 2: Remote API
+
+**What happens:**
+- You provide an OpenAI-compatible API endpoint
+- You provide an API key environment variable name
+- You specify which model to use (e.g., `gpt-4o-mini`)
+- Anna saves the configuration
+
+**Pros:**
+- ✅ Fast responses even on low-end machines
+- ✅ Access to very capable models
+- ✅ No local resource usage
+
+**Cons:**
+- ⚠️ **Your questions leave your machine**
+- ⚠️ **Costs money** (charged by API provider)
+- ⚠️ Requires internet connection
+- ⚠️ Provider sees your system information
+
+**Anna shows clear warnings:**
+
+```
+☁️ Remote API Setup
+
+⚠️ Important Privacy Notice
+
+Using a remote API means:
+  • Your system information may be sent to the provider
+  • You may be charged per request by your provider
+  • Your data leaves this machine
+
+Do you still want to configure a remote API? (y/n): _
+```
+
+If you proceed, Anna will ask for:
+1. API key environment variable name (e.g., `OPENAI_API_KEY`)
+2. Base URL (default: `https://api.openai.com/v1`)
+3. Model name (default: `gpt-4o-mini`)
+
+### Option 3: Skip for Now
+
+**What happens:**
+- Anna uses built-in rules and Arch Wiki only
+- No additional software installed
+- Limited conversational ability
+
+**What you get:**
+- ✅ System diagnostics still work
+- ✅ Suggestions still generated
+- ✅ All monitoring functions available
+- ⚠️ Cannot answer natural language questions well
+- ⚠️ Limited explanation capability
+
+**You can always set up later** by asking:
+```bash
+annactl "set up your brain"
+```
+
+### Brain Upgrades: When Your Machine Gets Stronger
+
+If you upgrade your RAM or CPU, Anna will notice and offer a **one-time** suggestion to upgrade to a better model:
+
+```
+🚀 My Brain Can Upgrade!
+
+Great news! Your machine got more powerful.
+I can now upgrade to a better language model:
+
+  New model: llama3.1:8b
+  Download size: ~4.7 GB
+  Profile: ollama-llama3.1-8b
+
+To upgrade, ask me: "Upgrade your brain" or "Set up your brain"
+```
+
+This notification appears **once**. No repeated nagging.
+
+### Re-running the Setup
+
+If you skipped initial setup or want to switch from local to remote (or vice versa):
+
+```bash
+# In REPL mode
+annactl
+> set up your brain
+> switch to local model
+> use remote API instead
+
+# One-shot
+annactl "set up your brain"
+```
+
+Anna will guide you through the wizard again.
+
+---
+
+## Automatic Updates 🔄
+
+Anna keeps herself up to date automatically, with zero manual intervention.
+
+### How It Works
+
+**Every 10 minutes**, the Anna daemon (`annad`):
+1. Checks GitHub releases for new versions
+2. If a newer version exists:
+   - Downloads new binaries (`annactl` and `annad`)
+   - Downloads `SHA256SUMS` file
+   - Verifies cryptographic checksums
+   - Backs up current binaries (with rollback capability)
+   - Atomically swaps binaries in `/usr/local/bin`
+   - Restarts the daemon
+   - Records the update
+
+**Next time you interact with Anna**, she announces the update **once**:
+
+```
+✨ I Updated Myself!
+
+I upgraded from v5.4.0 to v5.5.0
+
+What's new:
+  • Added automatic brain upgrade detection
+  • Improved LLM setup wizard UX
+  • Fixed permission handling for Ollama
+  • Enhanced changelog parsing
+
+[Then answers your question normally]
+```
+
+After showing this once, the notice is cleared and never shown again.
+
+### For Package Manager Installations
+
+If you installed Anna via AUR (`yay -S anna-assistant-bin`) or pacman, Anna:
+- **Detects** that she's package-managed
+- **Does NOT** replace binaries (respects your package manager)
+- **Notifies** you when a new version is available
+- **Shows** the appropriate update command:
+  ```
+  New version v5.5.0 is available!
+  Update with: yay -Syu anna-assistant-bin
+  ```
+
+### Safety Guarantees
+
+**Cryptographic Verification:**
+- Every binary download is verified against SHA256SUMS
+- If checksums don't match, the update is aborted
+- No partial or corrupted binaries are ever installed
+
+**Atomic Operations:**
+- Binary replacement is atomic (rename, not copy)
+- No partial states during updates
+- Either fully updated or fully rolled back
+
+**Automatic Backups:**
+- Every binary replacement creates a backup
+- Tracked by Anna's file backup system
+- Can be rolled back if needed
+
+**No Interruption:**
+- Updates happen silently in the background
+- Daemon restart is seamless (< 1 second downtime)
+- Your active `annactl` session is unaffected
+- Next interaction shows one-time notice
+
+### Disabling Auto-Update (Not Recommended)
+
+If you want to disable auto-updates:
+```bash
+sudo systemctl stop annad
+# Edit /etc/systemd/system/annad.service
+# Add: Environment="ANNA_DISABLE_AUTOUPDATE=1"
+sudo systemctl daemon-reload
+sudo systemctl start annad
+```
+
+**Note**: This is not recommended. Anna's auto-update system is designed to be:
+- **Safe**: Cryptographically verified, atomic, with backups
+- **Transparent**: One-time notifications, not intrusive
+- **Reliable**: Respects package managers, handles errors gracefully
+
+---
+
 ## Full Quick Start Guide
 
 ### Installation

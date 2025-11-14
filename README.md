@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.3.0-beta.1 (Conversational UX)
+**Version:** 5.5.0-beta.1 (Autonomous LLM & Auto-Update)
 
 ---
 
@@ -115,6 +115,117 @@ This checks and fixes:
 - Context database problems
 
 Always explains what it's checking and asks for confirmation before making changes that require sudo.
+
+---
+
+## First-Run Experience
+
+The first time you talk to Anna (`annactl` or `annactl "question"`), she will introduce herself and offer to set up her "brain" - a language model that helps her understand your questions better.
+
+### Three Options
+
+Anna will assess your machine's capabilities and present three options:
+
+**1. Local Model (Recommended - Privacy First)**
+- Automatically installs and configures Ollama
+- Downloads an appropriate model based on your RAM and CPU
+- All processing stays on your machine
+- Free, no API costs
+- Works offline
+
+**2. Remote API (OpenAI-Compatible)**
+- Connect to OpenAI, Anthropic, or compatible API
+- You provide API key and endpoint
+- Faster responses on lower-end machines
+- **Warning**: Your questions leave your machine and may cost money
+- Anna clearly explains privacy and cost implications
+
+**3. Skip for Now**
+- Anna works with built-in rules and Arch Wiki only
+- Limited conversational ability
+- You can set up the brain later by asking: "Anna, set up your brain"
+
+### What Gets Installed (Local Path)
+
+If you choose local setup:
+- **Ollama** via pacman or AUR (yay)
+- A language model (1-5 GB depending on your hardware):
+  - **Tiny** (1.3 GB): 4GB RAM, 2 cores → llama3.2:1b
+  - **Small** (2.0 GB): 8GB RAM, 4 cores → llama3.2:3b
+  - **Medium** (4.7 GB): 16GB RAM, 6+ cores → llama3.1:8b
+- Ollama service enabled and started
+- One-time model download
+
+Anna handles everything automatically. No manual steps required.
+
+### Brain Upgrades
+
+If your machine gets more RAM or CPU power, Anna will notice and offer a **one-time suggestion** to upgrade to a better model:
+
+```
+🚀 My Brain Can Upgrade!
+
+Great news! Your machine got more powerful.
+I can now upgrade to a better language model:
+
+  New model: llama3.1:8b
+  Download size: ~4.7 GB
+  Profile: ollama-llama3.1-8b
+
+To upgrade, ask me: "Upgrade your brain" or "Set up your brain"
+```
+
+This only appears once. No nagging.
+
+---
+
+## Auto-Update System
+
+Anna keeps herself up to date automatically.
+
+### For Manual Installations (curl installer)
+
+Every 10 minutes, Anna's daemon:
+1. Checks GitHub releases for new versions
+2. Downloads new binaries + SHA256SUMS
+3. Verifies checksums cryptographically
+4. Backs up current binaries (with rollback capability)
+5. Atomically swaps binaries in `/usr/local/bin`
+6. Restarts the daemon
+7. Records the update
+
+**Next time you interact with Anna:**
+
+```
+✨ I Updated Myself!
+
+I upgraded from v5.4.0 to v5.5.0
+
+What's new:
+  • Added automatic brain upgrade detection
+  • Improved LLM setup wizard UX
+  • Fixed permission handling for Ollama
+  • Enhanced changelog parsing
+
+[Then answers your question normally]
+```
+
+This notice appears **once per update**, then never again.
+
+### For Package Manager Installations (AUR, pacman)
+
+Anna detects package-managed installations and:
+- **Does not** replace binaries (respects your package manager)
+- Notifies you that a new version is available
+- Shows you the command to update: `pacman -Syu anna` or `yay -Syu anna`
+
+### Safety Guarantees
+
+- **Cryptographic verification**: Updates fail if SHA256 mismatch
+- **Atomic operations**: No partial states during swap
+- **Automatic backups**: Every binary replacement is backed up
+- **Rollback capability**: File backup system tracks all changes
+- **No interruption**: Updates happen in background, daemon restart is seamless
 
 ---
 
