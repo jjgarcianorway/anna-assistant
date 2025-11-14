@@ -1,822 +1,966 @@
 # Language Contract
 
-**Version:** 1.0.0
-**Status:** Canonical Specification
-**Last Updated:** 2025-01-14
+**Contract Version:** 1.0
+**Anna Minimum Version:** 5.3.0-beta.1
+**Last Updated:** 2025-11-14
+
+---
 
 ## 1. Purpose
 
-### What This Contract Solves
+This contract governs language selection, tone, and terminal formatting for all user-facing output in Anna Assistant.
 
-Anna Assistant operates across multiple components (annactl, annad, UI libraries, LLM layer) and must provide a **deterministic, consistent user experience** regardless of:
+**Core Principles:**
 
-- User's system locale
-- Terminal capabilities
-- Component boundaries
-- LLM model capabilities
+1. **No Direct Output Bypass:** No module is allowed to bypass this contract and print directly to `stdout`/`stderr` without going through the UI abstraction layer. All user-facing output must use the `UI` type from `anna_common::display`.
 
-Without this contract, language selection would be:
-- **Non-deterministic** - Different components might choose different languages
-- **Inconsistent** - Tone, formality, and emoji usage would vary unpredictably
-- **Fragile** - Terminal capability mismatches would cause broken output
-- **Confusing** - Users would see mixed languages in a single interaction
+2. **Consistency Over Cleverness:** Anna must speak in a single language per interaction, with consistent tone and formatting. Mixed-language responses are bugs, not features.
 
-### Why Every Module Must Obey
+3. **Graceful Degradation:** Anna must work in any terminal environment - from modern GUI terminals with TrueColor and emoji support, down to ancient TTY with ASCII-only. Terminal capability detection is automatic and mandatory.
 
-This contract is **authoritative**. All Anna components must:
+4. **Natural Configuration:** Users change Anna's language through natural commands ("use Spanish", "cambia al español"), never by manually editing config files. Anna manages her own configuration.
 
-1. **Never implement their own language selection logic**
-2. **Always query the canonical configuration source**
-3. **Never mix languages in a single response**
-4. **Always respect terminal capability constraints**
-5. **Never fail due to terminal limitations**
+**Why This Matters:**
 
-Violation of this contract creates a degraded user experience and breaks Anna's core promise: **"I speak your language, adapt to your terminal, and never surprise you."**
+Anna is not just a command-line tool - she's a conversational system administrator. Her personality, tone, and language choice are part of the user experience. This contract ensures that experience remains consistent, accessible, and respectful of user preferences across all interactions.
 
 ---
 
-## 2. Deterministic Language Priority System
+## 2. Language Priority Rules
 
-This hierarchy is **immutable law** for all Anna components.
+Anna determines her output language using a strict, deterministic priority system. This ordering is **mandatory** - any deviation is a bug.
 
 ### Priority Order (Highest to Lowest)
 
-```
-1. Explicit User Instruction
-   ↓ (if not set)
-2. Persistent User Preference from Database
-   ↓ (if not set)
-3. System Locale (LANG/LC_MESSAGES)
-   ↓ (if not detected)
-4. English Fallback
-```
+1. **Explicit User Instruction** (Highest Priority)
+   - Natural language commands in the current session
+   - Examples: "use English", "cambia al español", "parle français"
+   - Takes effect immediately and is persisted to the database
 
-### Rule 1: Explicit User Instruction (Highest Priority)
+2. **Persistent User Preference from Database**
+   - Loaded from `user_preferences` table in context database
+   - Survives across sessions
+   - Set by previous explicit user instruction
 
-**Definition:** The user directly tells Anna to use a specific language during the current session.
+3. **System Locale**
+   - Detected from `LANG` or `LC_MESSAGES` environment variables
+   - Example: `LANG=es_ES.UTF-8` → Spanish
+   - Used when no explicit preference exists
 
-**Examples:**
-- `annactl "use Spanish"`
-- `annactl "cambia al español"`
-- In REPL: `"Anna, speak Norwegian"`
+4. **English Fallback** (Lowest Priority)
+   - Always available as final fallback
+   - Ensures Anna always works, even in degraded environments
 
-**Behavior:**
-- Takes effect **immediately**
-- Persists to database **automatically**
-- Overrides all other sources
-- Applies to **all subsequent output** in that session and future sessions
+### Implementation Location
 
-**Implementation:**
+This logic is implemented in:
 ```rust
-// User says: "use Spanish"
-config.set_user_language(Language::Spanish);
-db.save_language_config(&config).await?;
-```
-
-### Rule 2: Persistent User Preference
-
-**Definition:** Previously saved language preference from the database.
-
-**Storage:** `user_preferences.language` in SQLite context database
-
-**Behavior:**
-- Loaded on startup
-- Survives restarts
-- Can be cleared to revert to system locale
-
-**Implementation:**
-```rust
-let config = db.load_language_config().await?;
-let lang = config.effective_language();
-```
-
-### Rule 3: System Locale
-
-**Definition:** Language detected from environment variables.
-
-**Detection Order:**
-1. `LC_ALL`
-2. `LC_MESSAGES`
-3. `LANG`
-
-**Parsing:**
-- Extract language code from `LANG=es_ES.UTF-8` → `es`
-- Map to supported language: `es` → `Language::Spanish`
-- If unsupported, continue to fallback
-
-**Implementation:**
-```rust
-fn detect_system_language() -> Option<Language> {
-    if let Ok(lang) = env::var("LANG") {
-        let lang_code = lang.split('_').next()?.split('.').next()?;
-        return Language::from_str(lang_code);
+// crates/anna_common/src/language.rs
+impl LanguageConfig {
+    pub fn effective_language(&self) -> Language {
+        // 1. User explicit choice (highest priority)
+        if let Some(lang) = self.user_language {
+            return lang;
+        }
+        // 2. System locale
+        if let Some(lang) = self.system_language {
+            return lang;
+        }
+        // 3. English fallback
+        Language::English
     }
-    None
 }
 ```
 
-### Rule 4: English Fallback
+### Rules for Contributors
 
-**Definition:** Default when all other sources are unavailable.
+- **Adding New Languages:** Must plug into this system via `Language` enum and locale detection. Do not invent separate language selection logic.
+- **Priority Changes:** Changing this priority order requires a contract version bump and explicit approval.
+- **Testing:** Any change to language selection logic must include tests verifying the priority order.
 
-**Behavior:**
-- Always available
-- Never fails
-- Used as last resort
+---
 
-**Rationale:** English has the widest support and prevents crashes.
+## 3. Supported Languages & Profiles
 
-### Enforcement
+Anna currently supports six languages, each with its own personality profile.
 
-**Every component must:**
+### English (Default)
+
+- **Formality:** Professional but approachable
+- **Emoji Usage:** Normal (when terminal supports it)
+- **Contractions:** Yes ("I'm", "don't", "you're")
+- **Confirmation Tone:** Direct and clear
+- **Example Confirmation:**
+  ```
+  Language changed ✓
+  Now speaking: English
+  ```
+
+### Spanish (Español)
+
+- **Formality:** Warm and friendly
+- **Emoji Usage:** Normal
+- **Contractions:** Minimal (more formal Spanish structure)
+- **Confirmation Tone:** Warm and conversational
+- **Example Confirmation:**
+  ```
+  Idioma cambiado ✓
+  Ahora hablo: Español
+  ```
+
+### Norwegian (Norsk)
+
+- **Formality:** Casual and direct
+- **Emoji Usage:** Conservative
+- **Contractions:** Common in casual speech
+- **Confirmation Tone:** Brief and straightforward
+- **Example Confirmation:**
+  ```
+  Språk endret ✓
+  Snakker nå: Norsk
+  ```
+
+### German (Deutsch)
+
+- **Formality:** More formal
+- **Emoji Usage:** Minimal
+- **Contractions:** Rare (formal German structure)
+- **Confirmation Tone:** Clear and precise
+- **Example Confirmation:**
+  ```
+  Sprache geändert ✓
+  Spreche jetzt: Deutsch
+  ```
+
+### French (Français)
+
+- **Formality:** Polite and structured
+- **Emoji Usage:** Normal
+- **Contractions:** Common (je suis → j'suis in casual)
+- **Confirmation Tone:** Polite and complete
+- **Example Confirmation:**
+  ```
+  Langue changée ✓
+  Je parle maintenant: Français
+  ```
+
+### Portuguese (Português)
+
+- **Formality:** Friendly and conversational
+- **Emoji Usage:** Normal
+- **Contractions:** Common
+- **Confirmation Tone:** Warm and clear
+- **Example Confirmation:**
+  ```
+  Idioma alterado ✓
+  Falando agora: Português
+  ```
+
+### Implementation Location
+
+Language profiles are implemented in:
 ```rust
-let config = LanguageConfig::new(); // Auto-detects system locale
-let effective = config.effective_language(); // Applies priority rules
-let profile = effective.profile(); // Get translations and tone
-```
-
-**Never:**
-```rust
-// ❌ WRONG - Direct locale check bypasses priority
-if env::var("LANG").unwrap_or_default().starts_with("es") {
-    println!("Hola");
+// crates/anna_common/src/language.rs
+impl LanguageConfig {
+    pub fn profile(&self) -> LanguageProfile {
+        // Returns LanguageProfile with:
+        // - language: Language
+        // - translations: Translations
+        // - tone: ToneProfile
+    }
 }
 ```
 
 ---
 
-## 3. Terminal Capabilities Contract
+## 4. Terminal Capabilities Contract
 
-### Capability Detection
-
-Anna must detect terminal capabilities **once at startup** and cache the result:
-
-```rust
-pub struct TerminalCapabilities {
-    pub color_support: ColorSupport,
-    pub unicode_support: bool,
-    pub emoji_support: bool,
-    pub is_tty: bool,
-}
-```
+Anna automatically detects terminal capabilities and adapts her output accordingly. Users should never see broken glyphs, missing colors, or garbled box-drawing characters.
 
 ### Color Support Levels
 
-| Level | Description | Detection | ANSI Codes |
-|-------|-------------|-----------|------------|
-| `None` | No colors | `TERM=dumb` or not a TTY | None |
-| `Basic16` | 16 colors | `TERM=xterm` | `\x1b[31m` (red) |
-| `Extended256` | 256 colors | `TERM=xterm-256color` | `\x1b[38;5;196m` |
-| `TrueColor` | 24-bit RGB | `COLORTERM=truecolor` | `\x1b[38;2;255;0;0m` |
+| Level | Description | Detection | Usage |
+|-------|-------------|-----------|-------|
+| **None** | No colors | `TERM=dumb` or not a TTY | Plain text only |
+| **Basic16** | 16 ANSI colors | `TERM=xterm` | Basic colors for success/error/warning |
+| **Extended256** | 256 colors | `TERM=xterm-256color` | Richer color palette |
+| **TrueColor** | 24-bit RGB | `COLORTERM=truecolor` | Full color spectrum |
 
-**Fallback Rule:** Always degrade gracefully.
-
-```
-TrueColor → Extended256 → Basic16 → None
-```
+**Detection Order:**
+1. Check `COLORTERM` for `truecolor`
+2. Check `TERM` for `256color`
+3. Check `TERM` for basic xterm support
+4. Check if `stdout` is a TTY
+5. Fallback to `None`
 
 ### Unicode Support
 
 **Detection:**
-```rust
-fn detect_unicode_support() -> bool {
-    for var in &["LC_ALL", "LC_CTYPE", "LANG"] {
-        if let Ok(val) = env::var(var) {
-            if val.to_uppercase().contains("UTF-8") {
-                return true;
-            }
-        }
-    }
-    false
-}
-```
+- Check `LANG` environment variable for UTF-8 encoding
+- Example: `LANG=en_US.UTF-8` → Unicode supported
+- Fallback: ASCII mode if no UTF-8 detected
 
-**Fallback Behavior:**
+**Usage:**
+- Unicode: Box-drawing characters (─, ┌, ┐, └, ┘, │)
+- ASCII: Plain text equivalents (-, +, |)
 
-| Feature | Unicode Supported | Unicode NOT Supported |
-|---------|-------------------|----------------------|
-| Box drawing | `│ ─ ┌ ┐` | `\| - + +` |
-| Bullets | `•` | `*` |
-| Arrows | `→` | `->` |
-| Checkmarks | `✓` | `[OK]` |
-| Crosses | `✗` | `[X]` |
+### Emoji Support & Fallback
 
-### Emoji Support
+Anna uses emoji when appropriate and safe. When emoji are not supported, automatic text substitution occurs.
+
+**Emoji → Text Mapping:**
+
+| Emoji | Text Equivalent | Usage |
+|-------|-----------------|-------|
+| ✓ | [OK] | Success confirmations |
+| ✗ | [X] | Failures |
+| ⚠️ | [!] | Warnings |
+| 🔐 | [SECURE] | Security-related actions |
+| 💡 | [TIP] | Suggestions |
+| 📊 | [STAT] | Statistics |
+| 🏛️ | [WIKI] | Arch Wiki references |
+| 📖 | [DOCS] | Documentation |
+| 📄 | [MAN] | Man pages |
+| 🔧 | [FIX] | Repair actions |
 
 **Detection:**
+- Emoji support is assumed if terminal has Unicode support
+- Can be disabled explicitly via terminal capabilities
+
+### Box-Drawing Character Substitution
+
+| Unicode | ASCII | Usage |
+|---------|-------|-------|
+| ┌ | + | Top-left corner |
+| ┐ | + | Top-right corner |
+| └ | + | Bottom-left corner |
+| ┘ | + | Bottom-right corner |
+| ─ | - | Horizontal line |
+| │ | \| | Vertical line |
+
+### Mandatory Rules
+
+1. **Always Detect:** Terminal capabilities must be detected on every UI instantiation
+2. **Never Crash:** If detection fails, default to ASCII-only, no-color mode
+3. **Respect User:** If `NO_COLOR` environment variable is set, disable colors
+4. **Graceful Fallback:** Prefer readable ASCII over broken Unicode
+
+### Implementation Location
+
+Terminal capability detection is implemented in:
 ```rust
-emoji_support = unicode_support && is_tty
-```
-
-**Usage Rules:**
-
-| Language | Emoji Style | Example |
-|----------|-------------|---------|
-| English | Moderate | `✓ Success` |
-| Spanish | Moderate | `✓ Éxito` |
-| Norwegian | Moderate | `✓ Suksess` |
-| German | Minimal | `Erfolg` (no emoji) |
-| French | Moderate | `✓ Succès` |
-| Portuguese | Moderate | `✓ Sucesso` |
-
-**When `emoji_support = false`:**
-```
-✓ → [OK]
-✗ → [X]
-⚠️ → [!]
-🔒 → [SECURE]
-```
-
-### TTY Detection
-
-```rust
-is_tty = std::io::stdout().is_terminal()
-```
-
-**Behavior:**
-
-| Output Target | Color | Emoji | Formatting |
-|---------------|-------|-------|------------|
-| Interactive TTY | Yes | Yes | Full |
-| Pipe/Redirect | No | No | Plain text |
-| Log file | No | No | Timestamps only |
-
----
-
-## 4. Tone and Personality Contract
-
-### Language Profiles
-
-Each language has a mandatory tone profile:
-
-```rust
-pub struct ToneProfile {
-    pub formality: Formality,
-    pub use_contractions: bool,
-    pub emoji_style: EmojiStyle,
+// crates/anna_common/src/language.rs
+impl TerminalCapabilities {
+    pub fn detect() -> Self {
+        // Detects color, Unicode, emoji support
+        // Returns safe defaults if detection fails
+    }
 }
 ```
 
-### English (Casual)
-
-- **Formality:** Casual
-- **Contractions:** Yes ("I'm", "you're", "can't")
-- **Emoji:** Moderate
-- **Pronouns:** Direct second person ("you", "your")
-- **Confirmation:** Friendly ("Got it!", "Done!")
-- **Errors:** Empathetic ("Oops, that didn't work. Let's try...")
-
-### Spanish (Casual)
-
-- **Formality:** Casual (tú, not usted)
-- **Contractions:** Yes ("pa'" for "para", informal speech)
-- **Emoji:** Moderate
-- **Pronouns:** Direct second person ("tú", "tu")
-- **Confirmation:** Warm ("¡Listo!", "¡Perfecto!")
-- **Errors:** Supportive ("No pude hacer eso. Intenta...")
-
-### Norwegian (Casual)
-
-- **Formality:** Casual
-- **Contractions:** Yes (Norwegian allows contractions)
-- **Emoji:** Moderate
-- **Pronouns:** Direct second person ("du", "din")
-- **Confirmation:** Direct ("Ferdig!", "Greit!")
-- **Errors:** Practical ("Det fungerte ikke. Prøv...")
-
-### German (Polite)
-
-- **Formality:** Polite (Sie, not du)
-- **Contractions:** No (formal German avoids contractions)
-- **Emoji:** Minimal
-- **Pronouns:** Formal second person ("Sie", "Ihr")
-- **Confirmation:** Professional ("Erledigt", "Verstanden")
-- **Errors:** Clear ("Das hat nicht funktioniert. Versuchen Sie...")
-
-### French (Polite)
-
-- **Formality:** Polite (vous, not tu)
-- **Contractions:** Yes (standard French contractions: "l'", "d'")
-- **Emoji:** Moderate
-- **Pronouns:** Formal second person ("vous", "votre")
-- **Confirmation:** Courteous ("Terminé", "D'accord")
-- **Errors:** Respectful ("Cela n'a pas fonctionné. Essayez...")
-
-### Portuguese (Casual)
-
-- **Formality:** Casual (você, not o senhor/a senhora)
-- **Contractions:** Yes (Brazilian Portuguese uses contractions)
-- **Emoji:** Moderate
-- **Pronouns:** Direct second person ("você", "seu")
-- **Confirmation:** Friendly ("Pronto!", "Tudo certo!")
-- **Errors:** Encouraging ("Isso não funcionou. Tente...")
-
-### Application Rule
-
-**Every module must:**
+Fallback rendering is implemented in:
 ```rust
-let profile = config.profile();
-let tone = profile.tone;
-
-// Use translations
-println!("{}", profile.translations.success);
-
-// Respect formality
-if tone.formality == Formality::Polite {
-    // Use formal pronouns, avoid casual language
-}
-
-// Apply emoji style
-if tone.emoji_style == EmojiStyle::Minimal {
-    // Strip emojis or use text alternatives
+// crates/anna_common/src/display.rs
+impl UI {
+    fn render_emoji(&self, emoji: &str) -> String { /* ... */ }
+    fn render_box_char(&self, unicode: &str, ascii: &str) -> String { /* ... */ }
 }
 ```
 
 ---
 
-## 5. Interface Contract
+## 5. UI Abstraction Layer Contract
 
-### The UI Abstraction Layer
+All user-facing output must go through the `UI` abstraction layer. Direct use of `println!`, `eprintln!`, or manual ANSI formatting is prohibited in user-facing code.
 
-**Principle:** No component may directly format output. All formatting must go through the UI abstraction layer.
+### Core Principle
 
-**Prohibited:**
+**Business logic should provide semantic information, not presentation details.**
+
+✅ **Correct:**
 ```rust
-// ❌ WRONG - Direct formatting
-println!("✓ Success!");
-println!("\x1b[32mDone\x1b[0m");
+let ui = UI::auto();
+ui.error("Failed to connect to daemon");
 ```
 
-**Required:**
+❌ **Wrong:**
 ```rust
-// ✅ CORRECT - UI abstraction
-ui.success("Done");
-ui.section_header("System Status");
-ui.bullet_list(&items);
+eprintln!("\x1b[31mError:\x1b[0m Failed to connect to daemon");
 ```
 
-### UI Layer Responsibilities
+### Key Methods
 
-The UI layer must:
+#### Status Messages
+```rust
+ui.success("Operation completed");    // Green checkmark + message
+ui.error("Operation failed");         // Red X + message
+ui.warning("Potential issue");        // Yellow warning + message
+ui.info("General information");       // Blue info + message
+```
 
-1. **Apply terminal capabilities automatically**
-   - Strip colors if `color_support == None`
-   - Replace emojis if `emoji_support == false`
-   - Use ASCII box-drawing if `unicode_support == false`
+#### Structural Elements
+```rust
+ui.section_header("🔐", "Security Settings");  // Section with icon
+ui.bullet_list(&["Item 1", "Item 2"]);         // Bulleted list
+ui.numbered_list(&["Step 1", "Step 2"]);       // Numbered list
+```
 
-2. **Apply language profile**
-   - Use correct translations
-   - Respect tone and formality
-   - Apply emoji style rules
+#### User Interaction
+```rust
+let confirmed = ui.prompt_yes_no("Continue?");  // Boolean prompt
+let choice = ui.prompt_choice("Select:", &["A", "B", "C"]);  // Multi-choice
+```
 
-3. **Handle degradation gracefully**
-   - Never crash due to unsupported features
-   - Always provide readable fallback
+#### Advanced Display
+```rust
+ui.progress(3, 10, "Processing");      // Progress indicator
+ui.spinner("Loading...");              // Thinking indicator
+ui.box_content("Title", &["Line 1"]); // Content in a box
+ui.summary("Results", &[              // Key-value summary
+    ("Status", "OK"),
+    ("Count", "42"),
+]);
+```
 
-### Required UI Components
+#### Semantic Commands
+```rust
+ui.thinking();                                 // "Thinking..." indicator
+ui.done("Task completed");                    // Final confirmation
+ui.command("sudo systemctl restart annad", true);  // Show command
+ui.explain("This is an explanation...");      // Detailed explanation
+ui.wiki_link("Arch Linux", "https://...");   // Documentation link
+```
 
-Every module must have access to:
+### UI Instantiation
+
+**Automatic (Recommended):**
+```rust
+let ui = UI::auto();  // Loads language config automatically
+```
+
+**Explicit (When you have a config):**
+```rust
+let config = LanguageConfig::new();  // or load from DB
+let ui = UI::new(&config);
+```
+
+### Legacy Compatibility
+
+For gradual migration, legacy helper functions remain available:
+```rust
+print_section_header("💡", "Title");  // Internally uses UI
+print_thinking();                      // Internally uses UI
+```
+
+These are deprecated and should be replaced with `UI` methods in new code.
+
+### Rules for Contributors
+
+1. **No Direct Terminal Output:** Use `UI` methods, not `println!` or ANSI codes
+2. **Semantic Over Visual:** Specify what (error, success), not how (red, green)
+3. **Let UI Handle Adaptation:** UI layer applies language, tone, emoji, and color based on terminal capabilities
+4. **Test Both Modes:** Test your output in both rich terminal and ASCII-only mode
+
+### Implementation Location
 
 ```rust
-pub trait UILayer {
-    fn success(&self, message: &str);
-    fn error(&self, message: &str);
-    fn warning(&self, message: &str);
-    fn info(&self, message: &str);
+// crates/anna_common/src/display.rs
+pub struct UI {
+    profile: LanguageProfile,
+    caps: TerminalCapabilities,
+}
 
-    fn section_header(&self, icon: &str, title: &str);
-    fn bullet_list(&self, items: &[&str]);
-    fn numbered_list(&self, items: &[&str]);
-
-    fn progress(&self, current: usize, total: usize, label: &str);
-    fn spinner(&self, message: &str);
-
-    fn prompt_yes_no(&self, question: &str) -> bool;
-    fn prompt_choice(&self, question: &str, choices: &[&str]) -> usize;
+impl UI {
+    pub fn success(&self, message: &str) { /* ... */ }
+    pub fn error(&self, message: &str) { /* ... */ }
+    // ... 15+ methods total
 }
 ```
 
 ---
 
-## 6. Interaction Rules
+## 6. Interaction Rules for Language Changes
 
-### Language Change Flow
+Users change Anna's language through natural commands, not configuration files.
 
-**User Request:**
-```
-User: "Anna, use Spanish"
-```
+### Supported Command Patterns
 
-**System Behavior:**
-1. Parse intent: `Intent::Language { language: Some("spanish") }`
-2. Validate language is supported
-3. Load current config from database
-4. Update: `config.set_user_language(Language::Spanish)`
-5. Persist: `db.save_language_config(&config).await?`
-6. **Confirm in NEW language:** `"Idioma cambiado ✓"`
-7. Apply to all subsequent output
+Anna recognizes language change requests in multiple forms:
 
-**Critical:** The confirmation must be in the **target language**, not the source language.
+**English:**
+- "use English"
+- "speak English"
+- "switch to English"
 
-### Immediate Effect
+**Spanish:**
+- "cambia al español"
+- "usa español"
+- "habla español"
 
-Language changes take effect **immediately** for:
-- Current session
-- All future sessions
-- REPL interactions
-- All commands
-- All annad responses
-- LLM-generated content
+**French:**
+- "parle français"
+- "utilise le français"
 
-### Persistence Rules
+**German:**
+- "wechsle zu Deutsch"
+- "spreche Deutsch"
 
-**When to persist:**
-- User explicitly sets a language
-- Immediately after validation
+**Norwegian:**
+- "snakk norsk"
+- "bruk norsk"
 
-**When NOT to persist:**
-- Auto-detection of system locale
-- Temporary session overrides (none exist - all changes persist)
+**Portuguese:**
+- "fala português"
+- "usa português"
 
-**Storage location:**
-- SQLite database: `context.db` → `user_preferences.language`
-- User mode: `~/.local/share/anna/context.db`
-- System mode: `/var/lib/anna/context.db`
+### Implementation Flow
 
-### LLM Layer Alignment
+1. **User Issues Command**
+   - In REPL: `> use Spanish`
+   - One-shot: `annactl "cambia al español"`
 
-**The LLM must be instructed:**
+2. **Intent Detection**
+   - `intent_router.rs` detects Language intent
+   - Extracts requested language from command
 
-```
-CRITICAL INSTRUCTION:
-You are responding in {language_name}.
-You must ONLY output in {language_name}.
-Do not mix languages.
-Do not apologize for language limitations.
-Use the tone profile: {formality}, {emoji_style}.
-```
+3. **Language Change**
+   - Load current `LanguageConfig` from database
+   - Set `user_language` to new preference
+   - Save updated config to database
+
+4. **Confirmation (Critical Rule)**
+   - **The confirmation MUST be displayed in the NEW language**
+   - Create new UI instance with new config
+   - Display localized confirmation
 
 **Example:**
 ```
-CRITICAL INSTRUCTION:
-You are responding in Spanish.
-You must ONLY output in Spanish.
-Do not mix languages.
-Do not apologize for language limitations.
-Use the tone profile: Casual, Moderate emoji.
+User: "cambia al español"
+
+Anna:
+Idioma cambiado ✓
+Ahora hablo: Español
 ```
 
-### Repair Flow Language Compliance
+### Persistence
 
-**All repair flows must:**
-1. Load language config before generating output
-2. Use profile translations for all UI text
-3. Display commands in monospace (language-agnostic)
-4. Explain command effects in user's language
+- Language preference is immediately saved to `user_preferences` table in context database
+- Loaded automatically on next session
+- Path: `~/.local/share/anna/context.db` (Linux) or system-appropriate location
 
-**Example (Spanish):**
-```
-Voy a ejecutar:
-  sudo pacman -Syu
+### Applies To
 
-Esto actualizará todos los paquetes del sistema.
-¿Quieres continuar? [sí/no]:
+This behavior is consistent across:
+- REPL (conversational mode)
+- One-shot commands (`annactl "..."`)
+- Future conversational endpoints
+
+### Implementation Location
+
+```rust
+// crates/annactl/src/intent_router.rs
+pub enum Intent {
+    Language { language: Option<String> },
+    // ...
+}
+
+pub fn route_intent(input: &str) -> Intent {
+    // Detects language change patterns
+}
+
+// crates/annactl/src/repl.rs & main.rs
+Intent::Language { language } => {
+    // Load config, change language, save to DB
+    // Confirm in NEW language
+}
 ```
 
 ---
 
-## 7. Safety and Fallback Rules
+## 7. Fallback, Safety, and Error Handling
 
-### Never Fail on Missing Fonts
+Anna must never crash due to language or formatting problems. Graceful degradation is mandatory.
 
-**Rule:** If a character cannot be rendered, substitute it. Never crash.
+### Database Unavailability
+
+**Scenario:** Context database cannot be opened or is corrupted.
+
+**Behavior:**
+1. Log warning (if logging is available)
+2. Use in-memory `LanguageConfig` for current session
+3. Fall back to system locale detection
+4. If locale detection fails, use English
+5. Continue operating normally
 
 **Implementation:**
 ```rust
-fn safe_render(text: &str, caps: &TerminalCapabilities) -> String {
-    if !caps.unicode_support {
-        text.replace("✓", "[OK]")
-            .replace("✗", "[X]")
-            .replace("→", "->")
-            .replace("│", "|")
-    } else {
-        text.to_string()
+let config = if let Ok(db) = &db_result {
+    db.load_language_config().await.unwrap_or_default()
+} else {
+    LanguageConfig::new()  // Falls back to locale → English
+};
+```
+
+### Terminal Capability Detection Failure
+
+**Scenario:** Cannot determine terminal capabilities (rare).
+
+**Behavior:**
+1. Default to safe mode:
+   - `ColorSupport::None`
+   - `unicode_support: false`
+   - `emoji_support: false`
+   - `is_tty: false`
+2. Continue operating in ASCII-only, no-color mode
+3. All output remains readable
+
+**Implementation:**
+```rust
+impl TerminalCapabilities {
+    pub fn detect() -> Self {
+        // Never panics
+        // Returns safe defaults if detection fails
     }
 }
 ```
 
-### Never Output Unsupported Characters
+### Language Profile Loading Failure
 
-**Detection:**
-- Test terminal capabilities at startup
-- Cache results
-- Apply substitutions automatically
+**Scenario:** Requested language has incomplete translation data (bug).
 
-**Example:**
+**Behavior:**
+1. Fall back to English translations for missing strings
+2. Log error (if logging available)
+3. Continue operating
+
+**Current Status:** All supported languages have complete translation tables. This is defensive programming for future extensions.
+
+### NO_COLOR Environment Variable
+
+**Scenario:** User sets `NO_COLOR=1` environment variable.
+
+**Behavior:**
+- Disable all color output
+- Continue using emoji and Unicode if terminal supports them
+- Respect user preference absolutely
+
+**Implementation:**
 ```rust
-if !caps.emoji_support {
-    // Replace all emojis with text equivalents
-    output = strip_emojis(output);
+pub fn should_use_color() -> bool {
+    if std::env::var("NO_COLOR").is_ok() {
+        return false;
+    }
+    std::io::stdout().is_terminal()
 }
 ```
 
-### Always Degrade Gracefully
+### Startup Logging
 
-**Degradation Levels:**
+At startup or first use, Anna should log (at debug level):
+- Detected terminal capability profile
+- Chosen language and source (user preference, locale, or fallback)
+- Color support level
+- Unicode/Emoji availability
 
-| Full Capability | Medium | Minimal | ASCII-Only |
-|-----------------|--------|---------|------------|
-| TrueColor, Unicode, Emoji | 256-color, Unicode | 16-color, ASCII | No color, ASCII |
-| `✓ Done` | `✓ Done` | `[OK] Done` | `[OK] Done` |
-| `🔒 Secure` | `🔒 Secure` | `[SECURE]` | `[SECURE]` |
-| Red error text | Red error text | `[ERROR]` | `[ERROR]` |
+This aids debugging user issues related to formatting.
 
-**Rule:** Output must always be readable at the lowest capability level.
-
-### Always Log Terminal Capability Profile
-
-**On startup, log:**
+**Example Debug Log:**
 ```
-[INFO] Terminal capabilities detected:
-  Color support: Extended256
-  Unicode support: true
-  Emoji support: true
-  TTY: true
+DEBUG: Terminal capabilities detected: color=256, unicode=true, emoji=true
+DEBUG: Language selected: Spanish (source: user preference)
 ```
 
-**Rationale:** Essential for debugging user reports of garbled output.
+### Never-Fail Guarantee
+
+The following operations must never panic:
+- Terminal capability detection
+- Language config loading
+- Language profile creation
+- UI method calls (success, error, etc.)
+- Emoji/Unicode fallback rendering
+
+If any of these fail internally, they should log and return safe defaults.
 
 ---
 
-## 8. Required Tests
+## 8. Testing Requirements
 
-### Mandatory Test Coverage
+The language and UI systems must maintain comprehensive test coverage.
+
+### Mandatory Test Categories
 
 #### 1. Language Parsing Tests
 
-```rust
-#[test]
-fn test_language_from_string() {
-    assert_eq!(Language::from_str("english"), Some(Language::English));
-    assert_eq!(Language::from_str("español"), Some(Language::Spanish));
-    assert_eq!(Language::from_str("es"), Some(Language::Spanish));
-    assert_eq!(Language::from_str("invalid"), None);
-}
-```
+**Purpose:** Verify all supported languages can be parsed from various inputs.
 
-#### 2. Priority System Tests
+**Tests:**
+- `test_language_parsing` - ISO codes, native names, case-insensitive matching
+- All language codes (en, es, no, de, fr, pt)
+- Invalid inputs return `None`
 
-```rust
-#[test]
-fn test_priority_user_over_system() {
-    let mut config = LanguageConfig::new();
-    config.system_language = Some(Language::Spanish);
-    config.set_user_language(Language::English);
-    assert_eq!(config.effective_language(), Language::English);
-}
+**Location:** `crates/anna_common/src/language.rs::tests`
 
-#[test]
-fn test_priority_system_over_fallback() {
-    let mut config = LanguageConfig::new();
-    config.system_language = Some(Language::Norwegian);
-    config.user_language = None;
-    assert_eq!(config.effective_language(), Language::Norwegian);
-}
+#### 2. Language Priority System Tests
 
-#[test]
-fn test_priority_fallback() {
-    let config = LanguageConfig {
-        user_language: None,
-        system_language: None,
-        terminal: TerminalCapabilities::detect(),
-    };
-    assert_eq!(config.effective_language(), Language::English);
-}
-```
+**Purpose:** Verify deterministic priority order is enforced.
 
-#### 3. Persistence Tests
+**Tests:**
+- `test_language_priority` - User > System > English hierarchy
+- Explicit user choice overrides system locale
+- Clearing user preference reverts to system/English
+- Database persistence survives across sessions
 
-```rust
-#[tokio::test]
-async fn test_language_persistence() {
-    let db = ContextDb::open(DbLocation::Custom(temp_path)).await.unwrap();
+**Location:** `crates/anna_common/src/language.rs::tests`
 
-    let mut config = LanguageConfig::new();
-    config.set_user_language(Language::Spanish);
-    db.save_language_config(&config).await.unwrap();
+#### 3. Terminal Capability Tests
 
-    let loaded = db.load_language_config().await.unwrap();
-    assert_eq!(loaded.user_language, Some(Language::Spanish));
-}
-```
+**Purpose:** Verify capability detection and fallback behavior.
 
-#### 4. Terminal Capability Tests
+**Tests:**
+- `test_terminal_detection` - Color levels properly detected
+- `test_emoji_support_detection` - Emoji vs ASCII fallback
+- All color support levels valid (None/Basic16/Extended256/TrueColor)
+- Forced ASCII mode works correctly
 
-```rust
-#[test]
-fn test_color_detection() {
-    env::set_var("COLORTERM", "truecolor");
-    let caps = TerminalCapabilities::detect();
-    assert_eq!(caps.color_support, ColorSupport::TrueColor);
-}
+**Location:** `crates/anna_common/src/language.rs::tests`
 
-#[test]
-fn test_unicode_detection() {
-    env::set_var("LANG", "en_US.UTF-8");
-    let caps = TerminalCapabilities::detect();
-    assert!(caps.unicode_support);
-}
-```
+#### 4. Tone Profile Tests
 
-#### 5. Emoji/ASCII Fallback Tests
+**Purpose:** Verify language-specific tone settings.
 
-```rust
-#[test]
-fn test_emoji_fallback() {
-    let caps = TerminalCapabilities {
-        emoji_support: false,
-        ..Default::default()
-    };
+**Tests:**
+- `test_tone_profiles` - Each language has correct tone profile
+- Formality levels set correctly
+- Contraction usage matches language expectations
+- Emoji style appropriate for language
 
-    assert_eq!(ui.safe_render("✓ Done", &caps), "[OK] Done");
-    assert_eq!(ui.safe_render("⚠️ Warning", &caps), "[!] Warning");
-}
-```
+**Location:** `crates/anna_common/src/language.rs::tests`
 
-#### 6. Tone Profile Tests
+#### 5. Translation Loading Tests
 
-```rust
-#[test]
-fn test_german_formality() {
-    let profile = Language::German.profile();
-    assert_eq!(profile.tone.formality, Formality::Polite);
-    assert_eq!(profile.tone.use_contractions, false);
-}
+**Purpose:** Verify translations load correctly for each language.
 
-#[test]
-fn test_english_casual() {
-    let profile = Language::English.profile();
-    assert_eq!(profile.tone.formality, Formality::Casual);
-    assert!(profile.tone.use_contractions);
-}
-```
+**Tests:**
+- `test_translation_loading` - All translation strings present
+- `test_language_native_names` - Native names correct
+- Spanish has "sí"/"no" for yes/no
+- French has "oui"/"non"
+- All supported languages have complete translation tables
 
-#### 7. Intent Detection Tests
+**Location:** `crates/anna_common/src/language.rs::tests`
 
-```rust
-#[test]
-fn test_language_intent_detection() {
-    assert_eq!(
-        route_intent("use Spanish"),
-        Intent::Language { language: Some("spanish".to_string()) }
-    );
-    assert_eq!(
-        route_intent("cambia al español"),
-        Intent::Language { language: Some("spanish".to_string()) }
-    );
-}
-```
+#### 6. No Language Mixing Tests (Critical)
+
+**Purpose:** Verify single-language responses, no contamination.
+
+**Tests:**
+- `test_no_language_mixing` - Single config produces single language
+- User preference always wins over system locale
+- Translations all in same language
+- No mixed English/Spanish fragments
+
+**Location:** `crates/anna_common/src/language.rs::tests`
+
+#### 7. UI Integration Tests
+
+**Purpose:** Verify UI layer respects language and terminal capabilities.
+
+**Tests:**
+- `test_language_integration` - UI uses correct language profile
+- Color fallback works
+- Emoji substitution works
+- Box-drawing substitution works
+
+**Location:** `crates/anna_common/src/display.rs::tests`
 
 #### 8. Regression Tests
 
+**Purpose:** Prevent reintroduction of known bugs.
+
+**Tests to Add:**
+- Mixed language responses (if this bug occurs)
+- Broken Unicode in ASCII terminals (if this bug occurs)
+- Language change not persisting (if this bug occurs)
+
+### Running Tests
+
+```bash
+# All language tests
+cargo test -p anna_common language
+
+# All display tests
+cargo test -p anna_common display
+
+# Full test suite
+cargo test --workspace
+```
+
+### Test Coverage Requirements
+
+- Language parsing: 100% of supported languages
+- Priority system: All 4 priority levels
+- Terminal capabilities: All 4 color levels + Unicode/Emoji
+- Tone profiles: All 6 languages
+- No language mixing: At least 2 language combinations
+
+### Adding New Tests
+
+When adding new language features:
+1. Add test for the feature
+2. Add regression test if fixing a bug
+3. Ensure existing tests still pass
+4. Update this section of the contract
+
+---
+
+## 9. Versioning
+
+This contract is versioned independently of Anna's release version.
+
+**Current Version:** 1.0
+
+### Semantic Versioning
+
+- **Major version (X.0):** Breaking changes to rules or behavior
+  - Example: Changing language priority order
+  - Example: Removing a supported language
+  - Example: Incompatible changes to UI method signatures
+
+- **Minor version (1.X):** Backward-compatible additions
+  - Example: Adding a new supported language
+  - Example: Adding new UI methods
+  - Example: Extending terminal capability detection
+
+- **Patch version (1.0.X):** Clarifications, fixes, documentation updates
+  - Example: Fixing typos in this document
+  - Example: Adding examples
+  - Example: Clarifying ambiguous rules
+
+### Compatibility
+
+**Anna Minimum Version:** 5.3.0-beta.1
+
+This contract requires Anna version 5.3.0-beta.1 or later, which includes:
+- Complete language system (`anna_common::language`)
+- UI abstraction layer (`anna_common::display`)
+- Database persistence for language preferences
+- Intent routing for natural language commands
+
+### Changing the Contract
+
+**Before Making Breaking Changes:**
+1. Discuss the change with the team
+2. Document the reason for the change
+3. Update all affected code
+4. Update all tests
+5. Bump the contract version
+6. Update Anna's minimum version if required
+
+**After Making Changes:**
+1. Update this document
+2. Commit with message: `docs: update LANGUAGE_CONTRACT to vX.Y`
+3. Announce the change to contributors
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2025-11-14 | Initial contract based on Task 3 implementation |
+
+---
+
+## 10. Modules That Must Comply
+
+This section tracks which modules currently follow the Language Contract and which are pending migration.
+
+### ✅ Fully Compliant Modules
+
+These modules correctly use the UI abstraction layer and respect language preferences:
+
+- **`crates/annactl/src/repl.rs`**
+  - REPL (conversational interface)
+  - All intent handlers use `UI` methods
+  - Language change confirmations in new language
+  - Error messages use `UI.error()`
+
+- **`crates/annactl/src/main.rs`**
+  - One-shot command handler (`handle_one_shot_query`)
+  - All intent handlers updated
+  - Personality and language change flows integrated
+
+- **`crates/annactl/src/suggestion_display.rs`**
+  - Suggestion formatting uses `UI` methods
+  - Section headers, bullet lists, emoji fallback
+
+- **`crates/annactl/src/intent_router.rs`**
+  - Detects language change intents
+  - Multilingual command pattern recognition
+
+- **`crates/anna_common/src/display.rs`**
+  - Core UI abstraction implementation
+  - Terminal capability detection
+  - Emoji and Unicode fallback
+
+- **`crates/anna_common/src/language.rs`**
+  - Language priority system
+  - Tone profiles and translations
+  - Database persistence
+
+### ⚠️ Partially Compliant Modules
+
+These modules exist but have not been fully updated to use the UI abstraction:
+
+- **`crates/annactl/src/report_display.rs`**
+  - Report generation (called less frequently)
+  - Uses some legacy display functions
+  - **Migration Priority:** Medium
+
+- **`crates/annactl/src/action_executor.rs`**
+  - Action execution and confirmation prompts
+  - Low UI impact (mostly subprocess execution)
+  - **Migration Priority:** Low
+
+- **`crates/anna_common/src/personality.rs`**
+  - Personality trait settings (humor, verbosity)
+  - Currently separate from language system
+  - **Migration Priority:** Medium (should eventually merge with tone profiles)
+
+### ❌ Non-Compliant Modules
+
+These modules do not use the UI abstraction and may produce output that violates the contract:
+
+- **Daemon modules (`crates/annad/src/**`)**
+  - Daemon logging and notifications
+  - Background processes with no direct user interaction
+  - **Migration Priority:** Low (daemon output is for logs, not user-facing)
+  - **Exception:** System logs may use direct `tracing` macros
+
+- **`crates/annactl/src/repair_command.rs`** (if exists)
+  - Self-repair commands
+  - **Migration Priority:** Medium
+
+- **Legacy test output**
+  - Some tests may print directly for debugging
+  - **Migration Priority:** Very Low (test output is not user-facing)
+
+### Migration Roadmap
+
+**High Priority (Next Release):**
+- None remaining - core interface is compliant
+
+**Medium Priority (Future Release):**
+- `report_display.rs` - Convert to UI abstraction
+- `personality.rs` - Integrate with language tone profiles
+- `repair_command.rs` - Update prompts and confirmations
+
+**Low Priority (Incremental):**
+- `action_executor.rs` - Standardize subprocess output formatting
+- Daemon modules - Consider structured logging that respects locale
+
+**Out of Scope:**
+- Pure background processes (no user interaction)
+- Internal debug logging (use `tracing` crate)
+- Test scaffolding
+
+### Adding New Modules
+
+When creating new user-facing modules:
+1. ✅ Use `UI::auto()` for output
+2. ✅ Never use `println!` or `eprintln!` for user messages
+3. ✅ Load `LanguageConfig` if you need translations
+4. ✅ Add tests that verify language and terminal fallback behavior
+5. ✅ Update this section to list your module as compliant
+
+---
+
+## Appendix: Quick Reference
+
+### Creating a UI Instance
+
 ```rust
-#[test]
-fn test_no_mixed_languages() {
-    // Ensure response generator never mixes languages
-    let config = LanguageConfig::with_language(Language::Spanish);
-    let output = generate_response(&config, "system status");
-    assert!(!output.contains("English"));
-    assert!(!output.contains("Error")); // Should be "Error" not mixed
+use anna_common::display::UI;
+
+// Automatic (recommended)
+let ui = UI::auto();
+
+// Explicit with config
+use anna_common::language::LanguageConfig;
+let config = LanguageConfig::new();
+let ui = UI::new(&config);
+```
+
+### Displaying Messages
+
+```rust
+ui.success("Operation completed successfully");
+ui.error("Failed to connect to database");
+ui.warning("This action cannot be undone");
+ui.info("System is up to date");
+```
+
+### Detecting Language
+
+```rust
+use anna_common::language::{Language, LanguageConfig};
+
+let config = LanguageConfig::new();
+let lang = config.effective_language();
+
+match lang {
+    Language::English => { /* ... */ },
+    Language::Spanish => { /* ... */ },
+    // ...
+}
+```
+
+### Changing Language
+
+```rust
+use anna_common::language::{Language, LanguageConfig};
+use anna_common::context::db::{ContextDb, DbLocation};
+
+let mut config = LanguageConfig::new();
+config.set_user_language(Language::Spanish);
+
+// Save to database
+let db_location = DbLocation::auto_detect();
+if let Ok(db) = ContextDb::open(db_location).await {
+    db.save_language_config(&config).await?;
+}
+
+// Confirm in new language
+let ui = UI::new(&config);
+let profile = config.profile();
+ui.success(&format!("{} ✓", profile.translations.language_changed));
+```
+
+### Checking Terminal Capabilities
+
+```rust
+use anna_common::language::TerminalCapabilities;
+
+let caps = TerminalCapabilities::detect();
+
+if caps.use_emojis() {
+    println!("✓ Emoji supported");
+} else {
+    println!("[OK] Emoji not supported, using text");
 }
 ```
 
 ---
 
-## 9. Versioning Rules
+## Contact & Contributions
 
-### Semantic Versioning
+For questions about this contract:
+- Open an issue on GitHub with tag `[language-contract]`
+- Reference specific section numbers for clarity
 
-This contract follows [Semantic Versioning 2.0.0](https://semver.org/).
-
-**Format:** `MAJOR.MINOR.PATCH`
-
-**Current Version:** `1.0.0`
-
-### Version Change Rules
-
-#### MAJOR Version (Breaking Changes)
-
-**Increment when:**
-- Changing priority order
-- Removing a supported language
-- Changing terminal capability detection logic
-- Modifying tone profile contracts
-- Breaking UI abstraction interface
-
-**Example:** `1.0.0` → `2.0.0`
-
-**Announcement:** Breaking changes require:
-- Migration guide
-- Deprecation notices (at least 1 minor version in advance)
-- Updated documentation
-
-#### MINOR Version (Backward-Compatible Changes)
-
-**Increment when:**
-- Adding new supported languages
-- Adding new terminal capability levels
-- Enhancing fallback rules
-- Adding new UI components
-- Expanding tone profiles
-
-**Example:** `1.0.0` → `1.1.0`
-
-**Announcement:** Minor changes require:
-- Update CHANGELOG
-- Test new features
-- No migration needed
-
-#### PATCH Version (Bug Fixes)
-
-**Increment when:**
-- Fixing language detection bugs
-- Correcting translations
-- Fixing terminal capability edge cases
-- Improving fallback behavior
-
-**Example:** `1.0.0` → `1.0.1`
-
-**Announcement:** Patch changes require:
-- Bug fix notes in CHANGELOG
-
-### Language Addition Process
-
-**To add a new language (MINOR version bump):**
-
-1. Add to `Language` enum
-2. Implement `LanguageProfile` with:
-   - Translations for all common strings
-   - Tone profile (formality, contractions, emoji style)
-   - Native language name
-3. Add parsing support in `from_str()`
-4. Add intent detection keywords
-5. Write tests for the new language
-6. Update this document
-7. Bump MINOR version
-
-**Required approvals:**
-- Native speaker review of translations
-- Tone profile validation
-- Test coverage verification
+For proposed changes:
+- Open a PR with changes to this document
+- Include rationale for the change
+- Update version number if breaking
 
 ---
 
-## Compliance Checklist
-
-Every Anna component must verify:
-
-- [ ] Language priority logic matches Section 2
-- [ ] Terminal capabilities detected per Section 3
-- [ ] Tone profiles applied per Section 4
-- [ ] All output goes through UI layer (Section 5)
-- [ ] Language changes persist correctly (Section 6)
-- [ ] Fallback rules implemented (Section 7)
-- [ ] All required tests pass (Section 8)
-- [ ] Version tracked per Section 9
-
----
-
-## Change Log
-
-### Version 1.0.0 (2025-01-14)
-
-**Initial Release**
-
-- Established canonical language priority system
-- Defined terminal capability detection rules
-- Specified tone profiles for 6 languages
-- Created UI abstraction contract
-- Documented safety and fallback requirements
-- Defined mandatory test coverage
-- Established versioning rules
-
-**Supported Languages:**
-- English
-- Spanish
-- Norwegian
-- German
-- French
-- Portuguese
-
----
-
-## References
-
-- Implementation: `crates/anna_common/src/language.rs`
-- Database persistence: `crates/anna_common/src/context/db.rs`
-- Intent detection: `crates/annactl/src/intent_router.rs`
-- Tests: `crates/anna_common/src/language.rs#tests`
-
----
-
-**End of Language Contract v1.0.0**
+**End of Language Contract v1.0**
