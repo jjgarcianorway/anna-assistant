@@ -57,11 +57,15 @@ fn check_disk_space(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion
                      Immediate action is needed.",
                     disk.mount_point, disk.usage_percent as u8
                 ))
+                .why_it_matters(
+                    "A full disk can prevent your system from booting, cause crashes, and lead to data loss. \
+                     Package managers and applications need free disk space to function properly."
+                )
                 .impact("Prevents system crashes and allows normal operations to continue.")
-                .add_doc_link(
-                    DocumentationLink::arch_wiki(
+                .add_knowledge_source(
+                    KnowledgeSource::arch_wiki(
                         "System_maintenance#Disk_usage",
-                        "Arch Wiki guide on managing disk space"
+                        "Disk space management"
                     )
                 )
             );
@@ -79,11 +83,15 @@ fn check_disk_space(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion
                      especially during system updates.",
                     disk.mount_point, disk.usage_percent as u8
                 ))
+                .why_it_matters(
+                    "System updates can fail if there isn't enough free space, potentially leaving your system in a broken state. \
+                     Addressing this now prevents emergencies later."
+                )
                 .impact("Free up space before it becomes critical.")
-                .add_doc_link(
-                    DocumentationLink::arch_wiki(
+                .add_knowledge_source(
+                    KnowledgeSource::arch_wiki(
                         "System_maintenance#Disk_usage",
-                        "Arch Wiki guide on disk space management"
+                        "Disk space management"
                     )
                 )
             );
@@ -124,14 +132,18 @@ fn check_packages(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion>)
                     "The pacman-contrib package provides paccache, a tool for safely cleaning \
                      old package versions from the cache. Without it, manual cache management is more risky."
                 )
+                .why_it_matters(
+                    "Without paccache, you would have to manually clean the package cache, which can be error-prone. \
+                     Having the proper tools prevents accidental deletion of packages you might need for downgrades."
+                )
                 .impact(format!(
                     "Enables safe cleanup of your {:.1} GB pacman cache.",
                     snapshot.packages.cache_size_mb / 1024.0
                 ))
-                .add_doc_link(
-                    DocumentationLink::arch_wiki(
+                .add_knowledge_source(
+                    KnowledgeSource::arch_wiki(
                         "Pacman#Cleaning_the_package_cache",
-                        "Arch Wiki guide on pacman cache management"
+                        "Pacman cache management"
                     )
                 )
                 .auto_fixable(
@@ -174,11 +186,15 @@ fn check_system_health(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggest
                 snapshot.memory.used_mb,
                 snapshot.memory.total_mb
             ))
+            .why_it_matters(
+                "While Linux uses memory efficiently for caching, consistently high memory usage can cause \
+                 slowdowns and make applications swap to disk, which hurts performance."
+            )
             .impact("Awareness of memory usage patterns.")
-            .add_doc_link(
-                DocumentationLink::arch_wiki(
+            .add_knowledge_source(
+                KnowledgeSource::arch_wiki(
                     "System_maintenance#Memory",
-                    "Arch Wiki guide on memory management"
+                    "Memory management"
                 )
             )
         );
@@ -200,11 +216,15 @@ fn check_system_health(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggest
                 snapshot.cpu.load_avg_1min,
                 snapshot.cpu.cores
             ))
+            .why_it_matters(
+                "Sustained high CPU load can cause your system to become unresponsive, drain laptop battery quickly, \
+                 and may indicate runaway processes or poorly optimized software."
+            )
             .impact("Awareness of CPU usage patterns.")
-            .add_doc_link(
-                DocumentationLink::arch_wiki(
+            .add_knowledge_source(
+                KnowledgeSource::arch_wiki(
                     "System_maintenance#Performance",
-                    "Arch Wiki guide on performance monitoring"
+                    "Performance monitoring"
                 )
             )
         );
@@ -244,17 +264,21 @@ fn check_audio_stack(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestio
                  Without it, applications won't be able to play sound.",
                 missing_services.join(", ")
             ))
+            .why_it_matters(
+                "Without a working audio stack, media players, games, video calls, and notification sounds won't work. \
+                 This makes your desktop experience incomplete and frustrating."
+            )
             .impact("Enables audio playback and recording for all applications.")
-            .add_doc_link(
-                DocumentationLink::arch_wiki(
+            .add_knowledge_source(
+                KnowledgeSource::arch_wiki(
                     "PipeWire",
-                    "Arch Wiki comprehensive guide on PipeWire setup"
+                    "PipeWire setup and configuration"
                 )
             )
-            .add_doc_link(
-                DocumentationLink::arch_wiki(
+            .add_knowledge_source(
+                KnowledgeSource::arch_wiki(
                     "PipeWire#Installation",
-                    "Step-by-step installation instructions"
+                    "PipeWire installation instructions"
                 )
             )
             .auto_fixable(
@@ -586,5 +610,116 @@ mod tests {
         let keys_after_a: Vec<&str> = filtered[1..].iter().map(|s| s.key.as_str()).collect();
         assert!(keys_after_a.contains(&"suggestion-b"), "suggestion-b should be present");
         assert!(keys_after_a.contains(&"suggestion-c"), "suggestion-c should be present");
+    }
+
+    // Task 10: Arch Wiki backing tests
+
+    #[test]
+    fn test_disk_space_critical_has_knowledge_source() {
+        let mut snapshot = SystemTelemetry::minimal();
+        snapshot.disks.push(DiskInfo {
+            mount_point: "/".to_string(),
+            total_mb: 100_000,
+            used_mb: 95_000,
+            usage_percent: 95.0,
+            fs_type: "ext4".to_string(),
+            smart_status: None,
+        });
+
+        let suggestions = generate_suggestions(&snapshot);
+
+        // Find the disk space suggestion
+        let disk_suggestion = suggestions.iter().find(|s| s.key.contains("disk-space")).unwrap();
+
+        // Must have knowledge sources
+        assert!(
+            !disk_suggestion.knowledge_sources.is_empty(),
+            "Disk space suggestion must have knowledge sources"
+        );
+
+        // Must have why_it_matters
+        assert!(
+            !disk_suggestion.why_it_matters.trim().is_empty(),
+            "Disk space suggestion must have why_it_matters"
+        );
+
+        // Should link to Arch Wiki System_maintenance
+        assert!(
+            disk_suggestion.knowledge_sources.iter().any(|s| s.url.contains("System_maintenance")),
+            "Should have Arch Wiki System_maintenance source"
+        );
+    }
+
+    #[test]
+    fn test_audio_suggestion_has_knowledge_sources() {
+        let mut snapshot = SystemTelemetry::minimal();
+        snapshot.audio.has_sound_hardware = true;
+        snapshot.audio.pipewire_running = false;
+
+        let suggestions = generate_suggestions(&snapshot);
+
+        // Find audio suggestion
+        let audio_suggestion = suggestions.iter().find(|s| s.key == "audio-stack-config").unwrap();
+
+        // Must have at least one knowledge source
+        assert!(
+            !audio_suggestion.knowledge_sources.is_empty(),
+            "Audio suggestion must have knowledge sources"
+        );
+
+        // Must have why_it_matters
+        assert!(
+            !audio_suggestion.why_it_matters.trim().is_empty(),
+            "Audio suggestion must have why_it_matters"
+        );
+
+        // Should link to Arch Wiki PipeWire page
+        assert!(
+            audio_suggestion.knowledge_sources.iter().any(|s| s.url.contains("PipeWire")),
+            "Should have Arch Wiki PipeWire source"
+        );
+    }
+
+    #[test]
+    fn test_all_generated_suggestions_have_required_fields() {
+        let mut snapshot = SystemTelemetry::minimal();
+
+        // Create conditions that generate multiple suggestions
+        snapshot.disks.push(DiskInfo {
+            mount_point: "/".to_string(),
+            total_mb: 100_000,
+            used_mb: 85_000,
+            usage_percent: 85.0,
+            fs_type: "ext4".to_string(),
+            smart_status: None,
+        });
+        snapshot.packages.cache_size_mb = 5000.0;
+        snapshot.audio.has_sound_hardware = true;
+        snapshot.audio.pipewire_running = false;
+
+        let suggestions = generate_suggestions(&snapshot);
+
+        // All suggestions must have knowledge sources (for config/performance/security suggestions)
+        for suggestion in &suggestions {
+            if matches!(
+                suggestion.category,
+                SuggestionCategory::Disk
+                    | SuggestionCategory::Packages
+                    | SuggestionCategory::Desktop
+                    | SuggestionCategory::Security
+                    | SuggestionCategory::Performance
+            ) {
+                assert!(
+                    !suggestion.knowledge_sources.is_empty(),
+                    "Suggestion '{}' must have at least one knowledge source",
+                    suggestion.key
+                );
+                assert!(
+                    !suggestion.why_it_matters.trim().is_empty(),
+                    "Suggestion '{}' must have why_it_matters",
+                    suggestion.key
+                );
+            }
+        }
     }
 }

@@ -31,6 +31,12 @@ pub fn display_suggestions(suggestions: &[&Suggestion]) {
         println!("   {}", suggestion.explanation);
         println!();
 
+        // Why this matters (Task 10: explicit user-focused reasoning)
+        if !suggestion.why_it_matters.is_empty() {
+            println!("   🧠 Why this matters: {}", suggestion.why_it_matters);
+            println!();
+        }
+
         // Impact
         if !suggestion.impact.is_empty() {
             println!("   💪 Impact: {}", suggestion.impact);
@@ -56,17 +62,12 @@ pub fn display_suggestions(suggestions: &[&Suggestion]) {
             println!();
         }
 
-        // Documentation links
-        if !suggestion.docs.is_empty() {
-            println!("   📚 Learn more:");
-            for doc in &suggestion.docs {
-                let source_icon = match doc.source {
-                    DocSource::ArchWiki => "🏛️",
-                    DocSource::OfficialDocs => "📖",
-                    DocSource::ManPage => "📄",
-                };
-                println!("      {} {}", source_icon, doc.description);
-                println!("         {}", doc.url);
+        // Knowledge sources (Task 10: Arch Wiki backing)
+        if !suggestion.knowledge_sources.is_empty() {
+            println!("   📚 Sources:");
+            for source in &suggestion.knowledge_sources {
+                println!("      • {}", source.label);
+                println!("         {}", source.url);
             }
             println!();
         }

@@ -6,6 +6,16 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Knowledge source for a suggestion (Task 10: Arch Wiki backing)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeSource {
+    /// Short human-readable label (e.g. "Arch Wiki: Pacman cache")
+    pub label: String,
+
+    /// Canonical URL (prefer Arch Wiki or official docs linked from Arch Wiki)
+    pub url: String,
+}
+
 /// A single system improvement suggestion
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Suggestion {
@@ -15,14 +25,19 @@ pub struct Suggestion {
     /// Short title
     pub title: String,
 
-    /// Detailed explanation in plain English
+    /// Detailed explanation in plain English ("What is going on")
     pub explanation: String,
 
-    /// Why this matters (impact)
+    /// Why the user should care (Task 10: explicit "why")
+    /// 1-3 sentences of plain language explaining user-visible effects
+    pub why_it_matters: String,
+
+    /// Impact description
     pub impact: String,
 
-    /// Documentation URLs (Arch Wiki preferred)
-    pub docs: Vec<DocumentationLink>,
+    /// Knowledge sources (Arch Wiki or official docs) (Task 10)
+    /// Must have at least one source for config/performance/security suggestions
+    pub knowledge_sources: Vec<KnowledgeSource>,
 
     /// Priority level
     pub priority: SuggestionPriority,
@@ -102,32 +117,6 @@ pub enum SuggestionCategory {
     Configuration,
 }
 
-/// Documentation link with context
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocumentationLink {
-    /// URL
-    pub url: String,
-
-    /// Description of what this link covers
-    pub description: String,
-
-    /// Source type
-    pub source: DocSource,
-}
-
-/// Source of documentation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DocSource {
-    /// Arch Wiki (preferred)
-    ArchWiki,
-
-    /// Official project documentation
-    OfficialDocs,
-
-    /// Manual pages
-    ManPage,
-}
-
 /// Estimated impact of applying a fix
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EstimatedImpact {
@@ -156,8 +145,9 @@ impl Suggestion {
             key: key.into(),
             title: title.into(),
             explanation: String::new(),
+            why_it_matters: String::new(),
             impact: String::new(),
-            docs: Vec::new(),
+            knowledge_sources: Vec::new(),
             priority,
             category,
             auto_fixable: false,
@@ -168,9 +158,15 @@ impl Suggestion {
         }
     }
 
-    /// Add explanation
+    /// Add explanation ("What is going on")
     pub fn explanation(mut self, explanation: impl Into<String>) -> Self {
         self.explanation = explanation.into();
+        self
+    }
+
+    /// Add "why this matters" (Task 10: explicit user-focused reasoning)
+    pub fn why_it_matters(mut self, why: impl Into<String>) -> Self {
+        self.why_it_matters = why.into();
         self
     }
 
@@ -180,19 +176,18 @@ impl Suggestion {
         self
     }
 
-    /// Add a documentation link
-    pub fn add_doc(mut self, url: impl Into<String>, description: impl Into<String>, source: DocSource) -> Self {
-        self.docs.push(DocumentationLink {
+    /// Add a knowledge source (Task 10: Arch Wiki backing)
+    pub fn add_source(mut self, label: impl Into<String>, url: impl Into<String>) -> Self {
+        self.knowledge_sources.push(KnowledgeSource {
+            label: label.into(),
             url: url.into(),
-            description: description.into(),
-            source,
         });
         self
     }
 
-    /// Add a documentation link object directly
-    pub fn add_doc_link(mut self, link: DocumentationLink) -> Self {
-        self.docs.push(link);
+    /// Add a knowledge source object directly
+    pub fn add_knowledge_source(mut self, source: KnowledgeSource) -> Self {
+        self.knowledge_sources.push(source);
         self
     }
 
@@ -227,22 +222,20 @@ impl Suggestion {
     }
 }
 
-impl DocumentationLink {
-    /// Create an Arch Wiki link
+impl KnowledgeSource {
+    /// Create an Arch Wiki knowledge source (Task 10)
     pub fn arch_wiki(section: &str, description: impl Into<String>) -> Self {
         Self {
+            label: format!("Arch Wiki: {}", description.into()),
             url: format!("https://wiki.archlinux.org/title/{}", section),
-            description: description.into(),
-            source: DocSource::ArchWiki,
         }
     }
 
-    /// Create an official docs link
+    /// Create an official docs knowledge source
     pub fn official(url: impl Into<String>, description: impl Into<String>) -> Self {
         Self {
+            label: format!("Official docs: {}", description.into()),
             url: url.into(),
-            description: description.into(),
-            source: DocSource::OfficialDocs,
         }
     }
 }
@@ -337,14 +330,18 @@ pub mod common_suggestions {
              but uses significant disk space over time.",
             cache_size_mb / 1024.0
         ))
+        .why_it_matters(
+            "This can cause your disk to fill up and make package updates fail. \
+             A full disk can prevent your system from booting or cause crashes."
+        )
         .impact(format!(
             "Cleaning the cache will free up approximately {:.1} GB of disk space.",
             cache_size_mb / 1024.0
         ))
-        .add_doc_link(
-            DocumentationLink::arch_wiki(
+        .add_knowledge_source(
+            KnowledgeSource::arch_wiki(
                 "Pacman#Cleaning_the_package_cache",
-                "Arch Wiki guide on cleaning pacman cache"
+                "Pacman cache management"
             )
         )
         .auto_fixable(
@@ -372,11 +369,15 @@ pub mod common_suggestions {
              by any explicitly installed package. These are safe to remove.",
             count
         ))
+        .why_it_matters(
+            "Orphaned packages waste disk space and increase the time needed for system updates. \
+             Removing them keeps your system lean and reduces maintenance overhead."
+        )
         .impact("Frees up disk space and reduces package update overhead.")
-        .add_doc_link(
-            DocumentationLink::arch_wiki(
+        .add_knowledge_source(
+            KnowledgeSource::arch_wiki(
                 "Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)",
-                "Arch Wiki guide on orphaned packages"
+                "Removing orphaned packages"
             )
         )
         .auto_fixable(
@@ -399,11 +400,15 @@ pub mod common_suggestions {
              Failed services may indicate configuration issues or missing dependencies.",
             services.join(", ")
         ))
+        .why_it_matters(
+            "Failed services can cause applications to malfunction, prevent features from working, \
+             or indicate deeper system problems that could lead to instability or data loss."
+        )
         .impact("Failed services may affect system functionality or stability.")
-        .add_doc_link(
-            DocumentationLink::arch_wiki(
+        .add_knowledge_source(
+            KnowledgeSource::arch_wiki(
                 "Systemd#Investigating_failed_services",
-                "Arch Wiki guide on investigating service failures"
+                "Investigating systemd failures"
             )
         )
     }
@@ -469,5 +474,88 @@ mod tests {
         let top = engine.get_top_suggestions(10);
         assert!(top.len() <= 5, "Should cap at 5 suggestions");
         assert!(top.len() >= 2, "Should show at least 2 suggestions");
+    }
+
+    // Task 10: Knowledge source and why_it_matters tests
+
+    #[test]
+    fn test_knowledge_source_creation() {
+        let source = KnowledgeSource::arch_wiki("Pacman#Cache", "Pacman cache management");
+
+        assert_eq!(source.label, "Arch Wiki: Pacman cache management");
+        assert!(source.url.contains("wiki.archlinux.org"));
+        assert!(source.url.contains("Pacman#Cache"));
+    }
+
+    #[test]
+    fn test_suggestion_has_knowledge_sources() {
+        let suggestion = Suggestion::new(
+            "test-suggestion",
+            "Test Suggestion",
+            SuggestionPriority::High,
+            SuggestionCategory::Configuration,
+        )
+        .add_source("Arch Wiki: Test", "https://wiki.archlinux.org/title/Test");
+
+        assert_eq!(suggestion.knowledge_sources.len(), 1);
+        assert_eq!(suggestion.knowledge_sources[0].label, "Arch Wiki: Test");
+        assert_eq!(suggestion.knowledge_sources[0].url, "https://wiki.archlinux.org/title/Test");
+    }
+
+    #[test]
+    fn test_suggestion_has_why_it_matters() {
+        let why = "This prevents crashes and data loss by ensuring proper configuration.";
+        let suggestion = Suggestion::new(
+            "test-suggestion",
+            "Test Suggestion",
+            SuggestionPriority::High,
+            SuggestionCategory::Security,
+        )
+        .why_it_matters(why);
+
+        assert_eq!(suggestion.why_it_matters, why);
+        assert!(!suggestion.why_it_matters.is_empty());
+    }
+
+    #[test]
+    fn test_common_suggestions_have_sources_and_why() {
+        let pacman_suggestion = common_suggestions::pacman_cache_cleanup(5000.0);
+
+        // Must have at least one knowledge source
+        assert!(
+            !pacman_suggestion.knowledge_sources.is_empty(),
+            "Pacman cache suggestion must have knowledge sources"
+        );
+
+        // Must have why_it_matters
+        assert!(
+            !pacman_suggestion.why_it_matters.trim().is_empty(),
+            "Pacman cache suggestion must have why_it_matters"
+        );
+
+        // Should link to Arch Wiki
+        assert!(
+            pacman_suggestion.knowledge_sources.iter().any(|s| s.url.contains("wiki.archlinux.org")),
+            "Should have Arch Wiki source"
+        );
+    }
+
+    #[test]
+    fn test_orphaned_packages_has_sources_and_why() {
+        let orphan_suggestion = common_suggestions::orphaned_packages(20);
+
+        assert!(!orphan_suggestion.knowledge_sources.is_empty());
+        assert!(!orphan_suggestion.why_it_matters.trim().is_empty());
+        assert!(orphan_suggestion.knowledge_sources[0].url.contains("Pacman"));
+    }
+
+    #[test]
+    fn test_failed_services_has_sources_and_why() {
+        let services = vec!["test.service".to_string()];
+        let service_suggestion = common_suggestions::failed_services(services);
+
+        assert!(!service_suggestion.knowledge_sources.is_empty());
+        assert!(!service_suggestion.why_it_matters.trim().is_empty());
+        assert!(service_suggestion.knowledge_sources[0].url.contains("Systemd"));
     }
 }
