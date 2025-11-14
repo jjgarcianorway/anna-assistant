@@ -16,13 +16,18 @@ use crate::llm_wizard;
 pub async fn start_repl() -> Result<()> {
     print_repl_welcome();
 
-    // Phase Next Step 2: Check if LLM setup is needed before entering main loop
+    // Phase Next Step 2 & 3: Check LLM setup and brain upgrade notifications before REPL loop
     let ui = UI::auto();
     let db_location = DbLocation::auto_detect();
     if let Ok(db) = ContextDb::open(db_location).await {
+        // Check if setup wizard needs to run
         if let Err(e) = crate::run_llm_setup_if_needed(&ui, &db).await {
-            // Log warning but continue - setup is optional
             eprintln!("Warning: LLM setup check failed: {}", e);
+        }
+
+        // Check for brain upgrade notifications
+        if let Err(e) = crate::check_brain_upgrade_notification(&ui, &db).await {
+            eprintln!("Warning: Brain upgrade check failed: {}", e);
         }
     }
 

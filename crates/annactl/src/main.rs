@@ -578,6 +578,28 @@ pub(crate) async fn run_llm_setup_if_needed(ui: &anna_common::display::UI, db: &
     Ok(())
 }
 
+/// Check for and display pending brain upgrade notification (Phase Next: Step 3)
+pub(crate) async fn check_brain_upgrade_notification(ui: &anna_common::display::UI, db: &anna_common::context::db::ContextDb) -> anyhow::Result<()> {
+    use anna_common::llm_upgrade::get_and_clear_pending_upgrade;
+
+    if let Some((profile_id, model_name, size_gb)) = get_and_clear_pending_upgrade(db).await? {
+        println!();
+        ui.section_header("🚀", "My Brain Can Upgrade!");
+        println!();
+        ui.info("Great news! Your machine got more powerful.");
+        ui.info("I can now upgrade to a better language model:");
+        println!();
+        ui.info(&format!("  New model: {}", model_name));
+        ui.info(&format!("  Download size: ~{:.1} GB", size_gb));
+        ui.info(&format!("  Profile: {}", profile_id));
+        println!();
+        ui.info("To upgrade, ask me: \"Upgrade your brain\" or \"Set up your brain\"");
+        println!();
+    }
+
+    Ok(())
+}
+
 /// Handle LLM query (Task 12)
 async fn handle_llm_query(user_text: &str) {
     use anna_common::display::UI;
@@ -655,13 +677,18 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
     use anna_common::context::db::{ContextDb, DbLocation};
     use intent_router::{Intent, PersonalityAdjustment};
 
-    // Phase Next Step 2: Check if LLM setup is needed before processing query
+    // Phase Next Step 2 & 3: Check LLM setup and brain upgrade notifications
     let ui = UI::auto();
     let db_location = DbLocation::auto_detect();
     if let Ok(db) = ContextDb::open(db_location).await {
+        // Check if setup wizard needs to run
         if let Err(e) = run_llm_setup_if_needed(&ui, &db).await {
-            // Log warning but continue - setup is optional
             eprintln!("Warning: LLM setup check failed: {}", e);
+        }
+
+        // Check for brain upgrade notifications
+        if let Err(e) = check_brain_upgrade_notification(&ui, &db).await {
+            eprintln!("Warning: Brain upgrade check failed: {}", e);
         }
     }
 

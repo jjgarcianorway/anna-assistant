@@ -265,28 +265,29 @@ async fn setup_skip(ui: &UI, db: &ContextDb) -> Result<()> {
 
 /// Store initial capability tier for upgrade detection
 async fn store_initial_capability(db: &ContextDb, capability: LlmCapability) -> Result<()> {
-    // TODO: Implement capability storage for upgrade detection (Step 3)
-    // For now, we'll skip this and implement it in Step 3 when we add
-    // the upgrade detection system. This requires adding a method to ContextDb
-    // to store user preferences, or extending the LlmConfig to include this.
-
-    // Serialize capability as string for logging
+    // Serialize capability as string
     let tier_str = match capability {
         LlmCapability::High => "high",
         LlmCapability::Medium => "medium",
         LlmCapability::Low => "low",
     };
 
-    // Initial LLM capability tier recorded (storage pending Step 3)
-    eprintln!("Debug: Initial LLM capability tier: {} (storage pending Step 3)", tier_str);
+    // Store in database using generic preference storage
+    db.save_preference("llm_initial_capability", tier_str).await?;
 
     Ok(())
 }
 
 /// Get stored initial capability tier
-pub async fn get_initial_capability(_db: &ContextDb) -> Result<Option<LlmCapability>> {
-    // TODO: Implement capability retrieval for upgrade detection (Step 3)
-    // For now, return None - upgrade detection will be implemented in Step 3
+pub async fn get_initial_capability(db: &ContextDb) -> Result<Option<LlmCapability>> {
+    // Load from database
+    let tier_str = db.load_preference("llm_initial_capability").await?;
 
-    Ok(None)
+    // Parse string to capability enum
+    Ok(tier_str.and_then(|s| match s.as_str() {
+        "high" => Some(LlmCapability::High),
+        "medium" => Some(LlmCapability::Medium),
+        "low" => Some(LlmCapability::Low),
+        _ => None,
+    }))
 }

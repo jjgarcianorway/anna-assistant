@@ -509,6 +509,52 @@ impl ContextDb {
         Ok(())
     }
 
+    /// Save a string preference
+    pub async fn save_preference(&self, key: &str, value: &str) -> Result<()> {
+        let conn = Arc::clone(&self.conn);
+        let key = key.to_string();
+        let value = value.to_string();
+
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let conn = conn.blocking_lock();
+
+            conn.execute(
+                "INSERT OR REPLACE INTO user_preferences (key, value, value_type, updated_at)
+                 VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
+                params![key, value, "string"],
+            )?;
+
+            debug!("Saved preference: {}", key);
+            Ok(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    /// Load a string preference
+    pub async fn load_preference(&self, key: &str) -> Result<Option<String>> {
+        let conn = Arc::clone(&self.conn);
+        let key = key.to_string();
+
+        tokio::task::spawn_blocking(move || -> Result<Option<String>> {
+            let conn = conn.blocking_lock();
+
+            let result: Result<String, _> = conn.query_row(
+                "SELECT value FROM user_preferences WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            );
+
+            match result {
+                Ok(value) => Ok(Some(value)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
+        })
+        .await?
+    }
+
     /// Load LLM configuration
     pub async fn load_llm_config(&self) -> Result<crate::llm::LlmConfig> {
         let conn = Arc::clone(&self.conn);

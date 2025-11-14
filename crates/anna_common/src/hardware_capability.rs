@@ -7,19 +7,21 @@ use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
 /// Hardware capability assessment for local LLM
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Ordered from Low < Medium < High for upgrade detection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LlmCapability {
-    /// High capability: 16+ GB RAM, 4+ cores
-    /// Recommended: Local LLM with medium models
-    High,
+    /// Low capability: < 8 GB RAM or < 2 cores
+    /// Not recommended: Better to use remote LLM or degraded mode
+    Low,
 
     /// Medium capability: 8-16 GB RAM, 2-4 cores
     /// Possible: Local LLM with small models, may be slower
     Medium,
 
-    /// Low capability: < 8 GB RAM or < 2 cores
-    /// Not recommended: Better to use remote LLM or degraded mode
-    Low,
+    /// High capability: 16+ GB RAM, 4+ cores
+    /// Recommended: Local LLM with medium models
+    High,
 }
 
 impl LlmCapability {
