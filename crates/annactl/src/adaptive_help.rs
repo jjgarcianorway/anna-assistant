@@ -26,6 +26,7 @@ pub fn display_adaptive_root_help(show_all: bool, json_mode: bool) {
 
 /// Display simple, user-focused help (default)
 fn display_simple_help() {
+    use anna_common::terminal_format as fmt;
     let ui = UI::auto();
 
     println!();
@@ -33,32 +34,34 @@ fn display_simple_help() {
     ui.info("Your local caretaker for this Arch Linux machine");
     println!();
 
-    ui.info("Anna is a conversational system administrator. Just talk to her:");
+    println!("Anna is a conversational system administrator. Just talk to her.");
     println!();
 
-    ui.section_header("💬", "Natural Language Usage");
-    ui.info("Ask Anna anything about your system:");
+    ui.section_header("📋", "Commands");
     println!();
-    ui.info("  annactl \"how are you?\"");
-    ui.info("  annactl \"my computer feels slow\"");
-    ui.info("  annactl \"what should I improve?\"");
-    ui.info("  annactl \"generate a report\"");
-    println!();
-    ui.info("Or start a conversation:");
-    println!();
-    ui.info("  annactl");
+    println!("  {}  - Start interactive conversation (REPL)", fmt::bold("annactl"));
+    println!("  {}  - Show comprehensive health report", fmt::bold("annactl status"));
+    println!("  {}    - Show this help message", fmt::bold("annactl help"));
     println!();
 
-    ui.section_header("🔧", "Self-Check");
-    ui.info("Check Anna's own health:");
+    ui.section_header("💬", "Natural Language Examples");
     println!();
-    ui.info("  annactl repair");
+    println!("Ask Anna anything about your system:");
+    println!();
+    println!("  annactl \"how are you?\"");
+    println!("  annactl \"my computer feels slow\"");
+    println!("  annactl \"what should I improve?\"");
+    println!("  annactl \"fix yourself\"");
+    println!();
+    println!("Or start a conversation:");
+    println!();
+    println!("  annactl");
     println!();
 
     ui.section_header("📚", "More Information");
-    ui.info("Change language: annactl \"use Spanish\" / \"cambia al español\"");
-    ui.info("Advanced commands: annactl --help --all");
-    ui.info("Documentation: https://github.com/jjgarcianorway/anna-assistant");
+    println!();
+    println!("Change language: annactl \"use Spanish\" / \"cambia al español\"");
+    println!("Documentation: https://github.com/jjgarcianorway/anna-assistant");
     println!();
 }
 

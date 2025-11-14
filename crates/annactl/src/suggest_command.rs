@@ -9,10 +9,12 @@
 //! - Respect prerequisites (drivers before apps, security before cosmetics)
 
 use anyhow::Result;
+use anna_common::terminal_format as fmt;
 use std::time::Instant;
 
 use crate::errors::*;
 use crate::logging::LogEntry;
+use crate::systemd;
 
 /// Execute 'suggest' command - show prioritized suggestions
 pub async fn execute_suggest_command(
@@ -21,25 +23,56 @@ pub async fn execute_suggest_command(
     state: &str,
     start_time: Instant,
 ) -> Result<()> {
-    // TODO: Implement real suggestion prioritization
-    // This should:
-    // - Detect system issues and missing components
-    // - Prioritize by: severity, prerequisites, user profile
-    // - Show ONLY top 2-5 suggestions
-    // - Filter out discarded suggestions
-    // - Provide clear explanations and citations
-    // - Suggest concrete next steps
+    println!("{}", fmt::bold("Prioritized Suggestions"));
+    println!("{}", "=".repeat(50));
+    println!();
 
-    println!("Prioritized Suggestions");
-    println!("=======================\n");
-    println!("[TODO: Suggestion prioritization engine]\n");
-    println!("This command will show the 2-5 most important");
-    println!("suggestions for improving your system.\n");
-    println!("Each suggestion will explain:");
-    println!("  - What the issue is");
-    println!("  - Why it matters");
-    println!("  - How to fix it");
-    println!("  - Reference links (Arch Wiki, etc.)\n");
+    let mut suggestions: Vec<Suggestion> = Vec::new();
+
+    // Check 1: Daemon status
+    if let Ok(status) = systemd::get_service_status() {
+        if status.needs_repair() {
+            suggestions.push(Suggestion {
+                priority: 1, // Highest priority
+                title: "Anna daemon is not running or not enabled".to_string(),
+                description: format!(
+                    "The Anna daemon ({}) monitors your system in the background. \
+                     Without it, Anna cannot detect issues proactively or provide \
+                     automated suggestions.",
+                    status.summary()
+                ),
+                fix: "Run: annactl repair".to_string(),
+                reference: "[archwiki:Systemd#Using_units]".to_string(),
+            });
+        }
+    }
+
+    // TODO: Add more suggestions
+    // - Missing security updates
+    // - Orphaned packages
+    // - Full disk warnings
+    // - etc.
+
+    // Display suggestions
+    if suggestions.is_empty() {
+        println!("{}", fmt::success("No urgent suggestions at this time."));
+        println!();
+        println!("{}", fmt::dimmed("Your system looks good! Anna will notify you if issues are detected."));
+        println!();
+    } else {
+        println!("{}", fmt::dimmed(&format!("Found {} suggestion(s):", suggestions.len())));
+        println!();
+
+        for (i, suggestion) in suggestions.iter().enumerate() {
+            println!("{}", fmt::bold(&format!("{}. {}", i + 1, suggestion.title)));
+            println!();
+            println!("   {}", suggestion.description);
+            println!();
+            println!("   {} {}", fmt::bold("Fix:"), suggestion.fix);
+            println!("   {} {}", fmt::dimmed("Ref:"), fmt::dimmed(&suggestion.reference));
+            println!();
+        }
+    }
 
     // Log command
     let duration_ms = start_time.elapsed().as_millis() as u64;
@@ -59,4 +92,18 @@ pub async fn execute_suggest_command(
     let _ = log_entry.write();
 
     Ok(())
+}
+
+/// A suggestion for improving the system
+struct Suggestion {
+    /// Priority (1 = highest)
+    priority: u32,
+    /// Short title
+    title: String,
+    /// Detailed description explaining why it matters
+    description: String,
+    /// How to fix it
+    fix: String,
+    /// Reference to documentation
+    reference: String,
 }

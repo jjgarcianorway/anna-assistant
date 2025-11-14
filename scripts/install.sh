@@ -203,6 +203,104 @@ echo -e "${CYAN}${ARROW}${RESET} Setting up security configuration..."
 curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/scripts/setup-security.sh" | sudo bash || error_exit "Failed to setup security"
 echo -e "${GREEN}${CHECK}${RESET} Security configured"
 
+# LLM Setup - Ollama installation and model configuration
+echo
+echo -e "${BOLD}${BLUE}LLM Setup${RESET}"
+echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
+echo
+echo "Anna requires an LLM (Language Model) to understand natural language."
+echo "Let me set up Ollama with a local model suitable for your hardware."
+echo
+
+# Detect hardware
+echo -e "${CYAN}${ARROW}${RESET} Detecting hardware..."
+CPU_CORES=$(nproc 2>/dev/null || echo "4")
+TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
+TOTAL_RAM_GB=$((TOTAL_RAM_KB / 1024 / 1024))
+HAS_GPU=0
+if lspci 2>/dev/null | grep -iE "(VGA|3D|Display).*NVIDIA" >/dev/null; then
+    HAS_GPU=1
+fi
+
+echo -e "${GREEN}${CHECK}${RESET} CPU: ${CPU_CORES} cores"
+echo -e "${GREEN}${CHECK}${RESET} RAM: ${TOTAL_RAM_GB} GB"
+if [ "$HAS_GPU" -eq 1 ]; then
+    echo -e "${GREEN}${CHECK}${RESET} GPU: NVIDIA detected"
+else
+    echo -e "${GRAY}  No GPU detected (CPU-only mode)${RESET}"
+fi
+echo
+
+# Select appropriate model based on hardware
+if [ "$TOTAL_RAM_GB" -ge 16 ] && [ "$HAS_GPU" -eq 1 ]; then
+    MODEL="llama3.2:3b"
+    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (recommended for your hardware)"
+elif [ "$TOTAL_RAM_GB" -ge 8 ]; then
+    MODEL="llama3.2:3b"
+    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (3B parameter model)"
+else
+    MODEL="llama3.2:1b"
+    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (lightweight 1B model)"
+fi
+echo
+
+# Check if Ollama is installed
+if ! command -v ollama >/dev/null 2>&1; then
+    echo -e "${CYAN}${ARROW}${RESET} Installing Ollama..."
+
+    # Install Ollama using official installer
+    if curl -fsSL https://ollama.com/install.sh | sh; then
+        echo -e "${GREEN}${CHECK}${RESET} Ollama installed"
+    else
+        echo
+        error_exit "Failed to install Ollama. Anna requires an LLM to function."
+    fi
+else
+    echo -e "${GREEN}${CHECK}${RESET} Ollama already installed"
+fi
+
+# Start Ollama service
+echo -e "${CYAN}${ARROW}${RESET} Starting Ollama service..."
+sudo systemctl enable ollama 2>/dev/null || true
+sudo systemctl start ollama 2>/dev/null || true
+
+# Wait for Ollama to be ready
+sleep 2
+
+# Pull the selected model
+echo
+echo -e "${CYAN}${ARROW}${RESET} Downloading LLM model: ${MODEL}"
+echo -e "${GRAY}This may take a few minutes depending on your connection...${RESET}"
+
+if ollama pull "$MODEL" 2>&1 | tee /tmp/ollama-pull.log; then
+    echo -e "${GREEN}${CHECK}${RESET} Model downloaded successfully"
+else
+    echo
+    error_exit "Failed to download LLM model. Anna requires an LLM to function."
+fi
+
+# Verify model is available
+echo -e "${CYAN}${ARROW}${RESET} Verifying model..."
+if ollama list | grep -q "$MODEL"; then
+    echo -e "${GREEN}${CHECK}${RESET} Model ${MODEL} is ready"
+else
+    error_exit "Model verification failed"
+fi
+
+# Configure Anna to use this model
+echo -e "${CYAN}${ARROW}${RESET} Configuring Anna to use ${MODEL}..."
+# This will be done by annad on first startup via the database
+# For now, we just verify Ollama is working
+if curl -s -f http://localhost:11434/api/version >/dev/null 2>&1; then
+    echo -e "${GREEN}${CHECK}${RESET} Ollama API is responding"
+else
+    echo -e "${YELLOW}⚠${RESET}  Ollama API not responding (will retry on startup)"
+fi
+
+echo
+echo -e "${GREEN}${CHECK}${RESET} LLM setup complete"
+echo
+
 # Systemd service
 echo -e "${CYAN}${ARROW}${RESET} Installing systemd service..."
 curl -fsSL -o "$TEMP_DIR/annad.service" "https://raw.githubusercontent.com/${REPO}/main/annad.service" || error_exit "Failed to download service"
@@ -219,16 +317,16 @@ else
     sudo systemctl enable --now annad
 fi
 
-# Wait for daemon to be ready (up to 30 seconds) - rc.13.1 improved readiness check
+# Wait for daemon to be ready and verify health
 echo -e "${CYAN}${ARROW}${RESET} Waiting for daemon to be ready..."
 READY=0
 WAIT_SECS=30
 for i in $(seq 1 $WAIT_SECS); do
     if [ -S /run/anna/anna.sock ]; then
-        # Try a lightweight call; help will return success or permission error
-        if "$INSTALL_DIR/annactl" help >/dev/null 2>&1; then
+        # Check health using annactl status
+        if "$INSTALL_DIR/annactl" status >/dev/null 2>&1; then
             READY=1
-            echo -e "${GREEN}${CHECK}${RESET} Daemon ready (${i}s)"
+            echo -e "${GREEN}${CHECK}${RESET} Daemon ready and healthy (${i}s)"
             break
         fi
     fi
@@ -236,7 +334,18 @@ for i in $(seq 1 $WAIT_SECS); do
 done
 
 if [ "$READY" -ne 1 ]; then
-    echo -e "${YELLOW}⚠${RESET}  Daemon socket not reachable after ${WAIT_SECS}s"
+    echo
+    echo -e "${RED}${CROSS}${RESET} ${BOLD}Daemon failed health check${RESET}"
+    echo
+    echo -e "${YELLOW}Troubleshooting:${RESET}"
+    echo -e "  1. Check daemon status: ${CYAN}systemctl status annad${RESET}"
+    echo -e "  2. View logs: ${CYAN}journalctl -u annad -n 50${RESET}"
+    echo -e "  3. Verify permissions: ${CYAN}ls -la /run/anna${RESET}"
+    echo
+    echo -e "If you're in a new shell, you may need to reload your groups:"
+    echo -e "  ${CYAN}newgrp anna${RESET}"
+    echo
+    error_exit "Installation completed but daemon is not healthy"
 fi
 
 # Group access guidance (rc.13.1 user experience improvement)

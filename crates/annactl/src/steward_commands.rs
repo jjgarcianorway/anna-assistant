@@ -312,9 +312,9 @@ pub async fn execute_status_command(
         let has_critical = caretaker_analysis.issues.iter()
             .any(|i| i.severity == IssueSeverity::Critical);
         if has_critical {
-            println!("   🚨 Run 'sudo annactl repair' to fix critical issues");
+            println!("   🚨 Ask me: 'what should I improve?' to see critical issues");
         } else {
-            println!("   Run 'sudo annactl repair' to attempt automatic fixes");
+            println!("   Ask me: 'what should I improve?' to see suggestions");
         }
         println!("   Or review each issue and fix manually");
     } else {

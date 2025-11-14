@@ -14,28 +14,76 @@ use crate::llm_wizard;
 
 /// Start the conversational REPL
 pub async fn start_repl() -> Result<()> {
-    print_repl_welcome();
-
-    // Phase Next Step 2, 3 & 5: Check update, LLM setup, and brain upgrade notifications before REPL loop
     let ui = UI::auto();
     let db_location = DbLocation::auto_detect();
 
-    // Check for update notification (Step 5)
-    if let Err(e) = crate::check_update_notification(&ui).await {
-        eprintln!("Warning: Update notification check failed: {}", e);
+    // Open database
+    let db = match ContextDb::open(db_location).await {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("Warning: Failed to open context database: {}", e);
+            eprintln!("Continuing without database features...");
+            print_repl_welcome();
+            // Continue without DB features - just show welcome
+            return run_repl_loop().await;
+        }
+    };
+
+    // Display version banner with mode and update status
+    crate::version_banner::display_startup_banner(&db).await;
+
+    // Check health and auto-repair before starting REPL
+    let health = match crate::health::HealthReport::check(true).await {
+        Ok(report) => report,
+        Err(e) => {
+            ui.error(&format!("Failed to check Anna's health: {}", e));
+            return Err(e);
+        }
+    };
+
+    // If auto-repair happened, show what was fixed
+    if let Some(repair) = &health.last_repair {
+        println!();
+        if repair.success {
+            ui.success("✓ Auto-repair completed");
+        } else {
+            ui.warning("⚠ Auto-repair partially completed");
+        }
+        for action in &repair.actions {
+            println!("  • {}", action);
+        }
+        println!();
     }
 
-    if let Ok(db) = ContextDb::open(db_location).await {
-        // Check if setup wizard needs to run (Step 2)
-        if let Err(e) = crate::run_llm_setup_if_needed(&ui, &db).await {
+    // If health is still broken after repair, refuse to start REPL
+    if health.status == crate::health::HealthStatus::Broken {
+        ui.error("✗ Anna cannot start: critical health issues remain");
+        println!();
+        println!("Please run 'annactl status' for details");
+        println!();
+        std::process::exit(1);
+    }
+
+    // Check if setup wizard needs to run
+    if let Err(e) = crate::run_llm_setup_if_needed(&ui, &db).await {
+        // Don't show SQL errors to user
+        if !e.to_string().contains("updated_at") {
             eprintln!("Warning: LLM setup check failed: {}", e);
         }
-
-        // Check for brain upgrade notifications (Step 3)
-        if let Err(e) = crate::check_brain_upgrade_notification(&ui, &db).await {
-            eprintln!("Warning: Brain upgrade check failed: {}", e);
-        }
     }
+
+    // Check for brain upgrade notifications
+    if let Err(e) = crate::check_brain_upgrade_notification(&ui, &db).await {
+        eprintln!("Warning: Brain upgrade check failed: {}", e);
+    }
+
+    print_repl_welcome();
+
+    run_repl_loop().await
+}
+
+/// Main REPL loop (factored out for clarity)
+async fn run_repl_loop() -> Result<()> {
 
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
@@ -97,7 +145,34 @@ pub async fn start_repl() -> Result<()> {
             Intent::Suggest => {
                 let ui = UI::auto();
                 ui.thinking();
-                crate::suggestion_display::show_suggestions_conversational();
+                // Use Anna's internal suggestion engine (checks Anna's health, system basics)
+                match crate::suggestions::get_suggestions() {
+                    Ok(suggestions) => {
+                        crate::suggestions::display_suggestions(&suggestions);
+                    }
+                    Err(e) => {
+                        ui.error(&format!("Failed to generate suggestions: {}", e));
+                        println!();
+                    }
+                }
+            }
+
+            Intent::AnnaSelfRepair => {
+                let ui = UI::auto();
+                ui.thinking();
+                ui.section_header("🔧", "Anna Self-Repair");
+                println!();
+
+                // Use Anna's internal repair engine
+                match crate::repair::repair() {
+                    Ok(report) => {
+                        crate::repair::display_repair_report(&report);
+                    }
+                    Err(e) => {
+                        ui.error(&format!("Failed to run self-repair: {}", e));
+                        println!();
+                    }
+                }
             }
 
             Intent::Repair { .. } => {

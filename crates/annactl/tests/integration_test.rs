@@ -1139,15 +1139,15 @@ fn test_task6_error_messages_use_ui() {
     assert!(!output.status.success(), "Invalid flag should exit with error");
 }
 
-/// Task 6: Test repair command runs without crashing (self-health check)
+/// Task 6: Test status command shows Anna's health (replaces old repair command)
 #[test]
 fn test_task6_repair_self_health_no_crash() {
     use std::time::Duration;
 
-    // Use timeout to prevent hanging
+    // Test the new architecture: annactl status checks Anna's health
     let child = Command::new(annactl_bin())
-        .arg("repair")
-        .stdin(std::process::Stdio::piped()) // Provide stdin in case it prompts
+        .arg("status")
+        .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn();
@@ -1165,16 +1165,16 @@ fn test_task6_repair_self_health_no_crash() {
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     let stderr = String::from_utf8_lossy(&output.stderr);
 
-                    // Should show self-health check output
+                    // Should show Anna status check output
                     assert!(
-                        stdout.contains("Anna") || stdout.contains("health") || stdout.contains("Check"),
-                        "Repair should show self-health output. stdout: {}, stderr: {}",
+                        stdout.contains("Anna Status Check") || stdout.contains("Version") || stdout.contains("Daemon"),
+                        "Status should show Anna health output. stdout: {}, stderr: {}",
                         stdout,
                         stderr
                     );
 
                     // Should have exited (not hung)
-                    assert!(true, "Repair command completed without hanging");
+                    assert!(true, "Status command completed without hanging");
                 }
             } else {
                 // Still running after 5 seconds - kill it and fail

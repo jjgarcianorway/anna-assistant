@@ -10,6 +10,8 @@ use anyhow::Result;
 pub enum Intent {
     /// Check Anna's own health
     AnnaStatus,
+    /// Repair Anna's own components (daemon, etc.)
+    AnnaSelfRepair,
     /// Generate system report
     Report,
     /// Show prioritized suggestions
@@ -80,6 +82,19 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::AnnaStatus;
     }
 
+    // Anna self-repair (fix yourself, repair anna, etc.)
+    if (contains_any(&words, &["fix", "repair", "heal"])
+        && (contains_any(&words, &["yourself", "anna", "self"])
+            || lower.contains("your own")
+            || lower.contains("auto repair")))
+        || lower.contains("fix yourself")
+        || lower.contains("repair yourself")
+        || lower.contains("check your own service")
+        || lower.contains("repair anna")
+        || lower.contains("fix anna") {
+        return Intent::AnnaSelfRepair;
+    }
+
     // Privacy explanation
     if contains_any(&words, &["privacy", "store", "data", "telemetry", "tracking"]) {
         return Intent::Privacy;
@@ -109,9 +124,12 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::Repair { action_id: None };
     }
 
-    // Suggestions
-    if contains_any(&words, &["suggest", "suggestion", "suggestions", "recommend", "should", "improve", "better"])
-        || (contains_any(&words, &["what", "how"]) && contains_any(&words, &["fix", "improve"])) {
+    // Suggestions (what should I improve, top suggestions, recommendations)
+    if contains_any(&words, &["suggest", "suggestion", "suggestions", "recommend", "recommendations", "should", "improve", "better"])
+        || (contains_any(&words, &["what", "how"]) && contains_any(&words, &["fix", "improve"]))
+        || lower.contains("top suggestions")
+        || lower.contains("what should i improve")
+        || lower.contains("what are your recommendations") {
         return Intent::Suggest;
     }
 
@@ -271,6 +289,17 @@ mod tests {
         assert_eq!(route_intent("Anna, are you ok?"), Intent::AnnaStatus);
         assert_eq!(route_intent("How are you anna"), Intent::AnnaStatus);
         assert_eq!(route_intent("Is Anna working?"), Intent::AnnaStatus);
+    }
+
+    #[test]
+    fn test_anna_self_repair_intent() {
+        assert_eq!(route_intent("fix yourself"), Intent::AnnaSelfRepair);
+        assert_eq!(route_intent("repair yourself"), Intent::AnnaSelfRepair);
+        assert_eq!(route_intent("check your own service"), Intent::AnnaSelfRepair);
+        assert_eq!(route_intent("auto repair"), Intent::AnnaSelfRepair);
+        assert_eq!(route_intent("Anna, fix yourself"), Intent::AnnaSelfRepair);
+        assert_eq!(route_intent("repair anna"), Intent::AnnaSelfRepair);
+        assert_eq!(route_intent("fix anna"), Intent::AnnaSelfRepair);
     }
 
     #[test]

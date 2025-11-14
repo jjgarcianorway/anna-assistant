@@ -1,10 +1,10 @@
 //! Discard command - let user ignore suggestions they don't care about
 //!
-//! Real Anna: `annactl discard <suggestion-key>`
+//! Real Anna: Via REPL - ask "ignore that suggestion"
 //! Purpose: Mark a suggestion as discarded so it won't be shown again
 //! Behavior:
 //! - Marks suggestion as discarded in context database
-//! - `annactl suggest` won't show it unless there's a strong reason
+//! - Won't show it again unless there's a strong reason
 //! - Can be un-discarded later if needed
 
 use anyhow::Result;
@@ -31,7 +31,7 @@ pub async fn execute_discard_command(
     println!("==================\n");
     println!("[TODO: Discard implementation]\n");
     println!("Would discard suggestion: {}\n", key);
-    println!("This suggestion will no longer appear in 'annactl suggest'");
+    println!("This suggestion will no longer appear when you ask 'what should I improve?'");
     println!("unless a critical security issue makes it relevant again.\n");
 
     // Log command

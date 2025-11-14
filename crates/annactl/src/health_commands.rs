@@ -676,16 +676,28 @@ pub async fn execute_self_health_repair(
     // Track issues found
     let mut issues: Vec<SelfHealthIssue> = Vec::new();
 
-    // Check 1: Is annad daemon running?
+    // Check 1: Is annad daemon healthy?
     ui.info("Checking daemon status...");
-    let daemon_running = check_daemon_running();
-    if !daemon_running {
+    let daemon_status = crate::systemd::get_service_status();
+    let daemon_running = daemon_status.as_ref().map(|s| s.active).unwrap_or(false);
+
+    if let Ok(status) = &daemon_status {
+        if status.needs_repair() {
+            issues.push(SelfHealthIssue {
+                severity: IssueSeverity::High,
+                description: format!("Anna daemon: {}", status.summary()),
+                fix_description: "Ask me to fix myself in REPL".to_string(),
+                fix_command: Some("annactl (then: 'fix yourself')".to_string()),
+                auto_fixable: true,
+            });
+        }
+    } else if let Err(e) = &daemon_status {
         issues.push(SelfHealthIssue {
             severity: IssueSeverity::High,
-            description: "Anna daemon (annad) is not running".to_string(),
-            fix_description: "Start the daemon service".to_string(),
-            fix_command: Some("sudo systemctl start annad".to_string()),
-            auto_fixable: true,
+            description: format!("Failed to check daemon status: {}", e),
+            fix_description: "Check if systemd is available".to_string(),
+            fix_command: None,
+            auto_fixable: false,
         });
     }
 
@@ -791,7 +803,24 @@ pub async fn execute_self_health_repair(
         ui.info(&format!("Fixing: {}", issue.description));
 
         if let Some(cmd) = &issue.fix_command {
-            let result = apply_fix(cmd).await;
+            // Special handling for daemon repair
+            let result = if issue.description.contains("Anna daemon") {
+                // Use systemd module for comprehensive daemon repair
+                match crate::systemd::repair_service() {
+                    Ok(report) => {
+                        // Print repair details
+                        for line in report.lines() {
+                            if !line.is_empty() {
+                                ui.info(&format!("  {}", line));
+                            }
+                        }
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                }
+            } else {
+                apply_fix(cmd).await
+            };
 
             match result {
                 Ok(_) => {

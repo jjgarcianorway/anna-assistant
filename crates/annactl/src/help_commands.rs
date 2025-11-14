@@ -230,9 +230,8 @@ fn display_footer(context: &DisplayContext, show_all: bool) -> Result<()> {
     match context.system_state.as_str() {
         "degraded" => {
             println!("  ⭐ Your system is degraded. Try:");
-            println!("     annactl doctor     - Diagnose and fix issues");
-            println!("     annactl repair     - Repair failed probes");
-            println!("     annactl rollback   - Undo recent changes");
+            println!("     annactl            - Interactive REPL (ask me to fix issues)");
+            println!("     annactl status     - Check Anna's health");
         }
         "iso_live" => {
             println!("  ⭐ You're in ISO live mode. Try:");

@@ -12,6 +12,7 @@ pub mod errors;
 mod intent_router; // Natural language → intent mapping
 mod llm_wizard; // First-run LLM setup wizard
 mod repl; // Conversational REPL
+mod version_banner; // Startup version banner and update notifications
 
 // Internal intent handlers (not exposed as CLI commands)
 mod action_executor; // Execute approved suggestions
@@ -19,6 +20,7 @@ mod autonomy_command; // Handle autonomy intent
 mod context_detection;
 mod discard_command; // Handle discard intent
 mod first_run;
+mod health; // Central health model and auto-repair
 mod health_commands; // Contains repair logic - will be refactored
 mod help_commands;
 mod init_command;
@@ -30,10 +32,12 @@ pub mod output;
 mod report_command; // Handle report intent
 mod report_display; // Display professional reports
 mod rpc_client;
+mod repair; // Internal repair engine (not a CLI command)
 mod status_command; // Handle anna_status intent
-mod suggest_command; // Handle suggest intent
+mod suggestions; // Internal suggestions engine (not a CLI command)
 mod suggestion_display; // Display suggestions with Arch Wiki links
 mod system_query; // Query real system state
+mod systemd; // Systemd service management utilities
 mod upgrade_command;
 
 // TODO: Delete these experimental/developer commands in next cleanup
@@ -70,8 +74,9 @@ struct Cli {
     #[arg(long, global = true)]
     socket: Option<String>,
 
+    /// Subcommand (if not provided, starts interactive REPL)
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 /// Phase 0.3: Simplified command set - all commands check state availability
@@ -86,6 +91,10 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Show version and assistance mode (undocumented - use banner instead)
+    #[command(hide = true)]
+    Version,
 
     /// Show available commands (adaptive and context-aware)
     Help {
@@ -193,17 +202,6 @@ enum Commands {
         /// Output directory
         #[arg(short, long)]
         output: Option<String>,
-    },
-
-    /// Repair failed probes (Phase 0.7)
-    Repair {
-        /// Probe to repair (or "all" for all failed probes)
-        #[arg(default_value = "all")]
-        probe: String,
-
-        /// Dry run (simulate without executing)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
     },
 
     // TODO: Audit command not yet implemented - commented out to reduce command bloat
@@ -817,14 +815,41 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
         Intent::Suggest => {
             let ui = UI::auto();
             ui.thinking();
-            suggestion_display::show_suggestions_conversational();
+            // Use Anna's internal suggestion engine (checks Anna's health, system basics)
+            match suggestions::get_suggestions() {
+                Ok(suggestions) => {
+                    suggestions::display_suggestions(&suggestions);
+                }
+                Err(e) => {
+                    ui.error(&format!("Failed to generate suggestions: {}", e));
+                    println!();
+                }
+            }
+        }
+
+        Intent::AnnaSelfRepair => {
+            let ui = UI::auto();
+            ui.thinking();
+            ui.section_header("🔧", "Anna Self-Repair");
+            println!();
+
+            // Use Anna's internal repair engine
+            match repair::repair() {
+                Ok(report) => {
+                    repair::display_repair_report(&report);
+                }
+                Err(e) => {
+                    ui.error(&format!("Failed to run self-repair: {}", e));
+                    println!();
+                }
+            }
         }
 
         Intent::Repair { .. } => {
             let ui = UI::auto();
             println!();
-            ui.info("To fix issues, use: annactl repair");
-            ui.info("That command checks Anna's own health and fixes permission/dependency issues.");
+            ui.info("[General system repair coming soon]");
+            ui.info("For now, ask me 'what should I improve?' to see suggestions.");
             println!();
         }
 
@@ -1064,9 +1089,11 @@ async fn main() -> Result<()> {
         let first_arg = &args[1];
 
         // Known subcommands that should NOT be treated as natural language
+        // Public commands: status, version, help
+        // Hidden/internal commands kept for backwards compatibility
         let known_subcommands = [
-            "init", "status", "help", "repair", "doctor", "upgrade", "ping",
-            "version", "health", "daily", "triage", "rollback", "backup",
+            "init", "status", "help", "version", "doctor", "upgrade", "ping",
+            "health", "daily", "triage", "rollback", "backup",
             "install", "rescue", "collect-logs", "sentinel", "config",
             "conscience", "empathy", "collective", "consensus", "chronos",
             "mirror", "learning", "learn", "predict", "issues"
@@ -1165,19 +1192,33 @@ async fn main() -> Result<()> {
         }
     };
 
+    // Handle no command -> start interactive REPL
+    if cli.command.is_none() {
+        return repl::start_repl().await;
+    }
+
+    // Unwrap command (we know it's Some at this point)
+    let command = cli.command.as_ref().unwrap();
+
+    // Handle version command
+    if matches!(command, Commands::Version) {
+        version_banner::display_version_only().await;
+        return Ok(());
+    }
+
     // Phase 1.8: Handle consensus commands early (standalone PoC, no daemon)
     // Handle self-update command (doesn't need daemon)
-    if let Commands::SelfUpdate { check, list } = &cli.command {
+    if let Commands::SelfUpdate { check, list } = command {
         return execute_self_update_command(*check, *list).await;
     }
 
     // Handle profile command (Phase 3.0 - needs daemon)
-    if let Commands::Profile { json } = &cli.command {
+    if let Commands::Profile { json } = command {
         return execute_profile_command(*json, cli.socket.as_deref()).await;
     }
 
     // Handle monitor command (Phase 3.0 - needs daemon)
-    if let Commands::Monitor { subcommand } = &cli.command {
+    if let Commands::Monitor { subcommand } = command {
         match subcommand {
             MonitorSubcommand::Install { force_mode, dry_run } => {
                 return execute_monitor_install_command(force_mode.clone(), *dry_run, cli.socket.as_deref()).await;
@@ -1189,11 +1230,11 @@ async fn main() -> Result<()> {
     }
 
     // Handle metrics command (Phase 3.3 - needs daemon)
-    if let Commands::Metrics { prometheus, json } = &cli.command {
+    if let Commands::Metrics { prometheus, json } = command {
         return execute_metrics_command(*prometheus, *json, cli.socket.as_deref()).await;
     }
 
-    if let Commands::Consensus { subcommand } = &cli.command {
+    if let Commands::Consensus { subcommand } = command {
         match subcommand {
             ConsensusSubcommand::Status { round_id, json } => {
                 return consensus_commands::execute_consensus_status_command(round_id.clone(), *json).await;
@@ -1211,22 +1252,22 @@ async fn main() -> Result<()> {
     }
 
     // Phase 3.1: Handle help command early (doesn't need daemon)
-    if matches!(cli.command, Commands::Help { .. }) {
+    if matches!(command, Commands::Help { .. }) {
         let socket_path = cli.socket.as_deref();
-        return execute_help_command_standalone(&cli.command, socket_path, &req_id, start_time).await;
+        return execute_help_command_standalone(command, socket_path, &req_id, start_time).await;
     }
 
     // Phase 3.9: Handle init command early (doesn't need daemon)
-    if matches!(cli.command, Commands::Init) {
+    if matches!(command, Commands::Init) {
         return init_command::execute_init_command().await;
     }
 
     // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
-    if let Commands::Learn { json, min_confidence, days } = &cli.command {
+    if let Commands::Learn { json, min_confidence, days } = command {
         return learning_commands::execute_learn_command(*json, min_confidence, *days).await;
     }
 
-    if let Commands::Predict { json, all } = &cli.command {
+    if let Commands::Predict { json, all } = command {
         return learning_commands::execute_predict_command(*json, *all).await;
     }
 
@@ -1238,15 +1279,16 @@ async fn main() -> Result<()> {
     // - status (Anna self-health)
 
     // Phase 3.10: Handle upgrade command early (doesn't need daemon, requires root)
-    if let Commands::Upgrade { yes, check } = &cli.command {
+    if let Commands::Upgrade { yes, check } = command {
         return upgrade_command::execute_upgrade_command(*yes, *check).await;
     }
 
     // Phase 0.3c: State-aware dispatch
     // Get command name first
-    let command_name = match &cli.command {
+    let command_name = match command {
         Commands::Init => "init",
         Commands::Help { .. } => "help",
+        Commands::Version => "version",
         Commands::Ping => "ping",
         // Commands::Update { .. } => "update",
         Commands::Install { .. } => "install",
@@ -1260,7 +1302,6 @@ async fn main() -> Result<()> {
         Commands::Rollback { .. } => "rollback",
         Commands::Triage => "triage",
         Commands::CollectLogs { .. } => "collect-logs",
-        Commands::Repair { .. } => "repair",
         // Commands::Audit => "audit",
         Commands::Sentinel { .. } => "sentinel",
         Commands::Config { .. } => "config",
@@ -1314,12 +1355,12 @@ async fn main() -> Result<()> {
     };
 
     // v1.16.3: Handle ping command (simple 1-RTT check)
-    if matches!(cli.command, Commands::Ping) {
+    if matches!(command, Commands::Ping) {
         return execute_ping_command(socket_path, &req_id, start_time).await;
     }
 
     // Phase 0.5b: Handle health commands specially (they bypass state checks)
-    match &cli.command {
+    match command {
         Commands::Health { json } => {
             return health_commands::execute_health_command(*json, &state, &req_id, start_time)
                 .await;
@@ -1338,23 +1379,6 @@ async fn main() -> Result<()> {
             println!("This command has been replaced by the conversational interface.");
             println!("Just run 'annactl' and ask: 'What should I improve?'");
             std::process::exit(0);
-        }
-        Commands::Repair { probe, dry_run } => {
-            // Task 6: Default to self-health check (Anna's own health)
-            // The old probe-based system repair is deprecated
-            if probe == "all" && !dry_run {
-                return health_commands::execute_self_health_repair(&req_id, start_time).await;
-            } else {
-                // Fall back to old probe-based repair for compatibility
-                return health_commands::execute_repair_command(
-                    probe,
-                    *dry_run,
-                    &state,
-                    &req_id,
-                    start_time,
-                )
-                .await;
-            }
         }
         Commands::Install { dry_run } => {
             // Phase 3.4: Check resource constraints before heavy operation
@@ -1376,11 +1400,15 @@ async fn main() -> Result<()> {
                 return health_commands::execute_rescue_list_command(&req_id, start_time).await;
             }
         }
-        // Phase 0.9: Steward commands
-        Commands::Status { .. } => {
-            println!("This command has been replaced by the conversational interface.");
-            println!("Just run 'annactl' and ask: 'How are you, any problems?'");
-            std::process::exit(0);
+        // Phase 0.9: Steward commands - Anna's own health check
+        Commands::Status { json } => {
+            return status_command::execute_anna_status_command(
+                *json,
+                &req_id,
+                &state,
+                start_time,
+            )
+            .await;
         }
         // Commands::Update { dry_run } => {
         //     // Phase 3.4: Check resource constraints before heavy operation
@@ -1546,7 +1574,7 @@ async fn main() -> Result<()> {
     }
 
     // Command is allowed - execute no-op handler and log
-    let exit_code = execute_noop_command(&cli.command, &state).await?;
+    let exit_code = execute_noop_command(command, &state).await?;
     let duration_ms = start_time.elapsed().as_millis() as u64;
 
     // Find the citation for this specific command
@@ -2420,6 +2448,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
             // Should not reach here - handled in main
             unreachable!("Status command should be handled separately");
         }
+        Commands::Version => {
+            // Should not reach here - handled in main
+            unreachable!("Version command should be handled separately");
+        }
         Commands::Help { .. } => {
             // Should not reach here - handled in main
             unreachable!("Help command should be handled separately");
@@ -2466,10 +2498,6 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Issues { .. } => {
             // Should not reach here - handled in main
             unreachable!("Issues command should be handled separately");
-        }
-        Commands::Repair { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Repair command should be handled separately");
         }
         Commands::Rollback { target } => {
             println!("[anna] rollback command allowed in state: {}", state);

@@ -1,13 +1,15 @@
 #!/bin/bash
-# Anna Assistant Uninstaller
-# Cleanly removes Anna from your system
+# Anna Assistant - Uninstaller
+# Safely removes Anna with optional data backup
 
 set -e
 
-REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
+DATA_DIR="/var/lib/anna"
+LOG_DIR="/var/log/anna"
+CONFIG_DIR="/etc/anna"
 
-# Colors (pastel theme with ASCII fallback)
+# Colors
 if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 256 ]; then
     BLUE='\033[38;5;117m'
     GREEN='\033[38;5;120m'
@@ -17,142 +19,189 @@ if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 256 ]; 
     GRAY='\033[38;5;250m'
     RESET='\033[0m'
     BOLD='\033[1m'
-    CHECK="✓"; CROSS="✗"; WARN="⚠"; INFO="ℹ"; ARROW="→"
+    CHECK="✓"; CROSS="✗"; ARROW="→"
 else
-    # ASCII fallback
     BLUE=''; GREEN=''; YELLOW=''; RED=''; CYAN=''; GRAY=''; RESET=''; BOLD=''
-    CHECK="[OK]"; CROSS="[X]"; WARN="[!]"; INFO="[i]"; ARROW="->"
+    CHECK="[OK]"; CROSS="[X]"; ARROW="->"
 fi
-
-print_header() {
-    echo
-    echo -e "${BOLD}${CYAN}========================================================${RESET}"
-    echo -e "${BOLD}${RED}        Anna Assistant${RESET} ${CYAN}Uninstaller${RESET}"
-    echo -e "${BOLD}${CYAN}========================================================${RESET}"
-    echo
-}
 
 error_exit() {
     echo -e "${RED}${CROSS} $1${RESET}" >&2
     exit 1
 }
 
-print_header
-
-# Check if sudo is available
-if ! command -v sudo >/dev/null 2>&1; then
-    error_exit "sudo is required but not installed. Please install sudo first."
-fi
-
-# Ask for confirmation
-echo -e "${YELLOW}${WARN}${RESET} ${BOLD}This will remove Anna Assistant from your system${RESET}"
+# Header
 echo
-echo -e "${GRAY}The following will be removed:${RESET}"
-echo -e "  ${ARROW} Daemon and client binaries"
-echo -e "  ${ARROW} Systemd service"
-echo -e "  ${ARROW} User data and configuration ${RED}(your settings and history will be lost!)${RESET}"
+echo -e "${BOLD}${CYAN}====================================================${RESET}"
+echo -e "${BOLD}${BLUE}    Anna Assistant Uninstaller${RESET}"
+echo -e "${BOLD}${CYAN}====================================================${RESET}"
 echo
 
-read -p "$(echo -e ${YELLOW}Are you sure you want to uninstall? [y/N]: ${RESET})" -n 1 -r < /dev/tty
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${CYAN}${INFO}${RESET} Uninstall cancelled"
+# Check if Anna is installed
+if [ ! -f "$INSTALL_DIR/annactl" ] && [ ! -f "$INSTALL_DIR/annad" ]; then
+    echo -e "${YELLOW}${ARROW}${RESET} Anna doesn't appear to be installed."
+    echo
     exit 0
 fi
 
-echo
-echo -e "${CYAN}${ARROW}${RESET} Beginning uninstallation..."
-echo
+# Get current version
+VERSION=""
+if command -v annactl >/dev/null 2>&1; then
+    VERSION=$(annactl --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
+fi
 
-# Stop and disable service
+echo "This will remove Anna Assistant from your system."
+echo
+if [ -n "$VERSION" ] && [ "$VERSION" != "unknown" ]; then
+    echo -e "${GRAY}Current version: ${CYAN}v${VERSION}${RESET}"
+    echo
+fi
+
+# Check sudo early
+command -v sudo >/dev/null 2>&1 || error_exit "sudo required"
+
+# Stop daemon first
+echo -e "${CYAN}${ARROW}${RESET} Stopping Anna daemon..."
 if systemctl is-active --quiet annad 2>/dev/null; then
-    echo -e "${CYAN}${ARROW}${RESET} Stopping annad service..."
     sudo systemctl stop annad
-    echo -e "${GREEN}${CHECK}${RESET} Service stopped"
+    echo -e "${GREEN}${CHECK}${RESET} Daemon stopped"
+else
+    echo -e "${GRAY}  Daemon not running${RESET}"
 fi
 
-if systemctl is-enabled --quiet annad 2>/dev/null; then
-    echo -e "${CYAN}${ARROW}${RESET} Disabling annad service..."
-    sudo systemctl disable annad
-    echo -e "${GREEN}${CHECK}${RESET} Service disabled"
+# Ask about data
+echo
+echo -e "${BOLD}${YELLOW}Data Management${RESET}"
+echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
+echo
+
+DATA_SIZE="0"
+if [ -d "$DATA_DIR" ]; then
+    DATA_SIZE=$(du -sh "$DATA_DIR" 2>/dev/null | cut -f1 || echo "unknown")
 fi
 
-# Kill any remaining processes
-sudo pkill -x annad 2>/dev/null && echo -e "${GREEN}${CHECK}${RESET} Stopped annad process" || true
-sudo pkill -x annactl 2>/dev/null || true
-
-# Wait for processes to fully stop
-sleep 1
-
-# Remove systemd service
-if [ -f /etc/systemd/system/annad.service ]; then
-    echo -e "${CYAN}${ARROW}${RESET} Removing systemd service..."
-    sudo rm -f /etc/systemd/system/annad.service
-    sudo systemctl daemon-reload
-    echo -e "${GREEN}${CHECK}${RESET} Service file removed"
+echo "Anna has stored data and knowledge about your system:"
+if [ -d "$DATA_DIR" ]; then
+    echo -e "  ${CYAN}${DATA_DIR}${RESET} (${DATA_SIZE})"
 fi
+if [ -d "$LOG_DIR" ]; then
+    echo -e "  ${CYAN}${LOG_DIR}${RESET}"
+fi
+echo
+
+echo -e "${BOLD}Do you want to delete Anna's data? [y/N]:${RESET} "
+read -r DELETE_DATA < /dev/tty
+echo
+
+BACKUP_CREATED=false
+BACKUP_PATH=""
+
+if [[ $DELETE_DATA =~ ^[Yy]$ ]]; then
+    # Offer backup
+    echo -e "${BOLD}Would you like to create a backup before deleting? [Y/n]:${RESET} "
+    read -r CREATE_BACKUP < /dev/tty
+    echo
+
+    if [[ ! $CREATE_BACKUP =~ ^[Nn]$ ]]; then
+        # Create backup
+        BACKUP_DIR="$HOME/anna-backups"
+        mkdir -p "$BACKUP_DIR"
+
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        if [ -n "$VERSION" ] && [ "$VERSION" != "unknown" ]; then
+            BACKUP_NAME="anna-backup-v${VERSION}-${TIMESTAMP}.tar.gz"
+        else
+            BACKUP_NAME="anna-backup-${TIMESTAMP}.tar.gz"
+        fi
+        BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
+
+        echo -e "${CYAN}${ARROW}${RESET} Creating backup..."
+        echo -e "${GRAY}Backup location: ${BACKUP_PATH}${RESET}"
+
+        # Create tarball
+        BACKUP_DIRS=""
+        [ -d "$DATA_DIR" ] && BACKUP_DIRS="$BACKUP_DIRS $DATA_DIR"
+        [ -d "$LOG_DIR" ] && BACKUP_DIRS="$BACKUP_DIRS $LOG_DIR"
+        [ -d "$CONFIG_DIR" ] && BACKUP_DIRS="$BACKUP_DIRS $CONFIG_DIR"
+
+        if [ -n "$BACKUP_DIRS" ]; then
+            if sudo tar czf "$BACKUP_PATH" $BACKUP_DIRS 2>/dev/null; then
+                sudo chown "$USER:$(id -gn)" "$BACKUP_PATH"
+                BACKUP_SIZE=$(du -sh "$BACKUP_PATH" 2>/dev/null | cut -f1 || echo "unknown")
+                echo -e "${GREEN}${CHECK}${RESET} Backup created: ${BACKUP_PATH} (${BACKUP_SIZE})"
+                BACKUP_CREATED=true
+            else
+                echo -e "${RED}${CROSS}${RESET} Backup failed"
+            fi
+        else
+            echo -e "${GRAY}  No data to backup${RESET}"
+        fi
+        echo
+    fi
+
+    # Delete data
+    echo -e "${CYAN}${ARROW}${RESET} Deleting Anna's data..."
+
+    [ -d "$DATA_DIR" ] && sudo rm -rf "$DATA_DIR"
+    [ -d "$LOG_DIR" ] && sudo rm -rf "$LOG_DIR"
+    [ -d "$CONFIG_DIR" ] && sudo rm -rf "$CONFIG_DIR"
+
+    echo -e "${GREEN}${CHECK}${RESET} Data deleted"
+else
+    echo -e "${GRAY}Keeping Anna's data (can be reused on reinstall)${RESET}"
+fi
+
+echo
 
 # Remove binaries
 echo -e "${CYAN}${ARROW}${RESET} Removing binaries..."
-sudo rm -f "${INSTALL_DIR}/annad"
-sudo rm -f "${INSTALL_DIR}/annactl"
+sudo rm -f "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
 echo -e "${GREEN}${CHECK}${RESET} Binaries removed"
 
-# Ask about user data
+# Remove systemd service
+echo -e "${CYAN}${ARROW}${RESET} Removing systemd service..."
+sudo systemctl disable annad 2>/dev/null || true
+sudo rm -f /etc/systemd/system/annad.service
+sudo systemctl daemon-reload
+echo -e "${GREEN}${CHECK}${RESET} Service removed"
+
+# Remove shell completions
+echo -e "${CYAN}${ARROW}${RESET} Removing shell completions..."
+sudo rm -f /usr/share/bash-completion/completions/annactl
+sudo rm -f /usr/share/zsh/site-functions/_annactl
+sudo rm -f /usr/share/fish/vendor_completions.d/annactl.fish
+echo -e "${GREEN}${CHECK}${RESET} Completions removed"
+
+# Success message
 echo
-echo -e "${YELLOW}${WARN}${RESET} ${BOLD}Remove user data?${RESET}"
-echo
-echo -e "${GRAY}This will delete:${RESET}"
-echo -e "  ${ARROW} Configuration (${CYAN}/etc/anna/${RESET})"
-echo -e "  ${ARROW} Logs (${CYAN}/var/log/anna/${RESET})"
-echo -e "  ${ARROW} Runtime data (${CYAN}/run/anna/${RESET})"
-echo -e "  ${ARROW} Cache (${CYAN}/var/cache/anna/${RESET})"
+echo -e "${BOLD}${GREEN}====================================================${RESET}"
+echo -e "${BOLD}${GREEN}  ✓ Anna Assistant Uninstalled${RESET}"
+echo -e "${BOLD}${GREEN}====================================================${RESET}"
 echo
 
-read -p "$(echo -e ${YELLOW}Remove user data? [y/N]: ${RESET})" -n 1 -r < /dev/tty
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+if [ "$BACKUP_CREATED" = true ]; then
+    echo -e "${BOLD}${CYAN}Backup Information:${RESET}"
     echo
-    echo -e "${CYAN}${ARROW}${RESET} Removing user data..."
-
-    if [ -d /etc/anna ]; then
-        sudo rm -rf /etc/anna
-        echo -e "${GREEN}${CHECK}${RESET} Configuration removed"
-    fi
-
-    if [ -d /var/log/anna ]; then
-        sudo rm -rf /var/log/anna
-        echo -e "${GREEN}${CHECK}${RESET} Logs removed"
-    fi
-
-    if [ -d /run/anna ]; then
-        sudo rm -rf /run/anna
-        echo -e "${GREEN}${CHECK}${RESET} Runtime data removed"
-    fi
-
-    if [ -d /var/cache/anna ]; then
-        sudo rm -rf /var/cache/anna
-        echo -e "${GREEN}${CHECK}${RESET} Cache removed"
-    fi
-else
+    echo -e "Your Anna data has been backed up to:"
+    echo -e "  ${CYAN}${BACKUP_PATH}${RESET}"
     echo
-    echo -e "${CYAN}${INFO}${RESET} User data preserved"
-    echo -e "${GRAY}  You can manually remove it later from:${RESET}"
-    echo -e "${GRAY}  - /etc/anna/${RESET}"
-    echo -e "${GRAY}  - /var/log/anna/${RESET}"
-    echo -e "${GRAY}  - /var/cache/anna/${RESET}"
+    echo "To restore this backup on a future installation:"
+    echo -e "  1. Install Anna: ${GRAY}curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash${RESET}"
+    echo -e "  2. Stop daemon: ${GRAY}sudo systemctl stop annad${RESET}"
+    echo -e "  3. Restore backup: ${GRAY}sudo tar xzf ${BACKUP_PATH} -C /${RESET}"
+    echo -e "  4. Restart daemon: ${GRAY}sudo systemctl start annad${RESET}"
+    echo
 fi
 
-echo
-echo -e "${BOLD}${GREEN}========================================================${RESET}"
-echo -e "${BOLD}${GREEN}      Anna Assistant Successfully Uninstalled${RESET}"
-echo -e "${BOLD}${GREEN}========================================================${RESET}"
-echo
-echo -e "${GRAY}Thanks for using Anna! We're sorry to see you go.${RESET}"
-echo
-echo -e "${CYAN}${INFO}${RESET} ${BOLD}To reinstall Anna in the future:${RESET}"
-echo -e "  ${CYAN}curl -sSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh | sh${RESET}"
-echo
-echo -e "${CYAN}${INFO}${RESET} ${BOLD}Got feedback? We'd love to hear it:${RESET}"
-echo -e "  ${CYAN}https://github.com/${REPO}/issues${RESET}"
+if [[ ! $DELETE_DATA =~ ^[Yy]$ ]]; then
+    echo -e "${BOLD}${YELLOW}Note:${RESET} Anna's data was preserved"
+    echo
+    echo "Data location: ${CYAN}${DATA_DIR}${RESET}"
+    echo
+    echo "To remove it manually later:"
+    echo -e "  ${GRAY}sudo rm -rf ${DATA_DIR} ${LOG_DIR}${RESET}"
+    echo
+fi
+
+echo "Thank you for trying Anna!"
 echo
