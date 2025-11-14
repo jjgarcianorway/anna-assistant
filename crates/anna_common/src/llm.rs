@@ -506,4 +506,87 @@ mod tests {
         assert!(prompt.contains("never claim to execute"));
         assert!(prompt.contains("Arch Wiki"));
     }
+
+    #[test]
+    fn test_local_config_from_profile() {
+        use crate::model_profiles::{ModelProfile, QualityTier};
+
+        let profile = ModelProfile {
+            id: "test-profile".to_string(),
+            engine: "ollama".to_string(),
+            model_name: "llama3.2:3b".to_string(),
+            min_ram_gb: 8,
+            recommended_cores: 4,
+            quality_tier: QualityTier::Small,
+            description: "Test model".to_string(),
+            size_gb: 2.0,
+        };
+
+        let config = LlmConfig::from_profile(&profile);
+
+        assert_eq!(config.mode, LlmMode::Local);
+        assert_eq!(config.backend, LlmBackendKind::LocalHttp);
+        assert_eq!(config.model, Some("llama3.2:3b".to_string()));
+        assert_eq!(config.model_profile_id, Some("test-profile".to_string()));
+        assert!(config.base_url.is_some());
+        assert!(config.api_key_env.is_none()); // Local doesn't need API key
+        assert!(config.cost_per_1k_tokens.is_none()); // Local is free
+    }
+
+    #[test]
+    fn test_remote_config_with_cost_tracking() {
+        let config = LlmConfig::remote(
+            "https://api.openai.com/v1",
+            "gpt-4o-mini",
+            "OPENAI_API_KEY",
+            0.00015,
+        );
+
+        assert_eq!(config.mode, LlmMode::Remote);
+        assert_eq!(config.backend, LlmBackendKind::RemoteOpenAiCompatible);
+        assert_eq!(config.model, Some("gpt-4o-mini".to_string()));
+        assert_eq!(config.api_key_env, Some("OPENAI_API_KEY".to_string()));
+        assert_eq!(config.cost_per_1k_tokens, Some(0.00015));
+        assert!(config.model_profile_id.is_none()); // Remote doesn't use profiles
+    }
+
+    #[test]
+    fn test_disabled_config_is_not_usable() {
+        let config = LlmConfig::disabled();
+
+        assert_eq!(config.mode, LlmMode::Disabled);
+        assert_eq!(config.backend, LlmBackendKind::Disabled);
+        assert!(!config.is_usable());
+        assert!(config.model.is_none());
+    }
+
+    #[test]
+    fn test_llm_routing_with_configured_backend() {
+        // Create a local config (would work if Ollama is running)
+        let config = LlmConfig::local("http://localhost:11434/v1", "test-model");
+
+        // Should be usable
+        assert!(config.is_usable());
+        assert_eq!(config.mode, LlmMode::Local);
+    }
+
+    #[test]
+    fn test_llm_routing_with_disabled_backend() {
+        let config = LlmConfig::disabled();
+
+        // Should not be usable
+        assert!(!config.is_usable());
+
+        // Client creation should fail
+        let result = LlmClient::from_config(&config);
+        assert!(matches!(result, Err(LlmError::Disabled)));
+    }
+
+    #[test]
+    fn test_not_configured_default() {
+        let config = LlmConfig::default();
+
+        assert_eq!(config.mode, LlmMode::NotConfigured);
+        assert!(!config.is_usable());
+    }
 }

@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(new\"\n\n**Step 5: Update Notification System**\n\nCLI-side notification (annactl):\n\n1. check_update_notification():\n   - Reads PENDING_NOTICE_FILE on startup\n   - Parses \"from_version)"
+      "Bash(name:*)"
     ],
     "deny": [],
     "ask": []

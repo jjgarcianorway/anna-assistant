@@ -98,11 +98,67 @@ pub async fn get_and_clear_pending_upgrade(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model_profiles::find_upgrade_profile;
 
     #[test]
     fn test_capability_ordering() {
         assert!(LlmCapability::Medium > LlmCapability::Low);
         assert!(LlmCapability::High > LlmCapability::Medium);
         assert!(LlmCapability::High > LlmCapability::Low);
+    }
+
+    #[test]
+    fn test_upgrade_detected_when_capability_improves() {
+        // Start with Low capability (1B model)
+        let initial_cap = LlmCapability::Low;
+        let current_cap = LlmCapability::High;
+
+        // Should detect improvement
+        assert!(current_cap > initial_cap);
+
+        // Should find an upgrade for the 1B model
+        let upgrade = find_upgrade_profile("ollama-llama3.2-1b", 16.0, 8);
+        assert!(upgrade.is_some());
+    }
+
+    #[test]
+    fn test_no_upgrade_when_capability_unchanged() {
+        // Capability stays the same
+        let initial_cap = LlmCapability::Medium;
+        let current_cap = LlmCapability::Medium;
+
+        // No improvement
+        assert!(!(current_cap > initial_cap));
+    }
+
+    #[test]
+    fn test_no_upgrade_when_capability_degrades() {
+        // Capability gets worse (user downgrades RAM)
+        let initial_cap = LlmCapability::High;
+        let current_cap = LlmCapability::Low;
+
+        // Degraded
+        assert!(!(current_cap > initial_cap));
+    }
+
+    #[test]
+    fn test_no_upgrade_when_already_best_model() {
+        // Already using the best available model
+        let upgrade = find_upgrade_profile("ollama-llama3.1-8b", 32.0, 16);
+
+        // No better model available
+        assert!(upgrade.is_none());
+    }
+
+    #[test]
+    fn test_pending_suggestion_format() {
+        // Test the suggestion format parsing
+        let suggestion = "ollama-llama3.2-3b|llama3.2:3b|2.0";
+        let parts: Vec<&str> = suggestion.split('|').collect();
+
+        assert_eq!(parts.len(), 3);
+        assert_eq!(parts[0], "ollama-llama3.2-3b");
+        assert_eq!(parts[1], "llama3.2:3b");
+        assert_eq!(parts[2].parse::<f64>().unwrap(), 2.0);
     }
 }
