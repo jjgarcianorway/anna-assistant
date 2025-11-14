@@ -81,6 +81,10 @@ impl ContextDb {
             conn.pragma_update(None, "journal_mode", "WAL")
                 .context("Failed to enable WAL mode")?;
 
+            // Set WAL synchronous mode for better cross-user compatibility
+            conn.pragma_update(None, "synchronous", "NORMAL")
+                .context("Failed to set synchronous mode")?;
+
             // Enable foreign keys
             conn.pragma_update(None, "foreign_keys", "ON")
                 .context("Failed to enable foreign keys")?;
@@ -593,7 +597,11 @@ impl ContextDb {
                 )?;
             }
 
-            debug!("Saved LLM configuration");
+            // Checkpoint WAL to ensure data is visible to other processes
+            // This is critical for multi-user scenarios (daemon=root, annactl=user)
+            conn.pragma_update(None, "wal_checkpoint", "PASSIVE")?;
+
+            debug!("Saved LLM configuration and checkpointed WAL");
             Ok(())
         })
         .await??;
