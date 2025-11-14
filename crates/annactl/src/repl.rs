@@ -6,13 +6,25 @@
 use anyhow::Result;
 use anna_common::display::{UI, print_repl_welcome, print_prompt, print_privacy_explanation};
 use anna_common::language::LanguageConfig;
+use anna_common::context::db::{ContextDb, DbLocation};
 use std::io::{self, BufRead};
 
 use crate::intent_router::{self, Intent};
+use crate::llm_wizard;
 
 /// Start the conversational REPL
 pub async fn start_repl() -> Result<()> {
     print_repl_welcome();
+
+    // Phase Next Step 2: Check if LLM setup is needed before entering main loop
+    let ui = UI::auto();
+    let db_location = DbLocation::auto_detect();
+    if let Ok(db) = ContextDb::open(db_location).await {
+        if let Err(e) = crate::run_llm_setup_if_needed(&ui, &db).await {
+            // Log warning but continue - setup is optional
+            eprintln!("Warning: LLM setup check failed: {}", e);
+        }
+    }
 
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
@@ -302,8 +314,13 @@ pub async fn start_repl() -> Result<()> {
 
                 let ui = UI::auto();
 
-                // Load LLM config (default is disabled)
-                let config = LlmConfig::default(); // TODO: Load from DB/config file
+                // Load LLM config from database
+                let db_location = DbLocation::auto_detect();
+                let config = if let Ok(db) = ContextDb::open(db_location).await {
+                    db.load_llm_config().await.unwrap_or_default()
+                } else {
+                    LlmConfig::default()
+                };
 
                 // Create LLM client
                 let client = match LlmClient::from_config(&config) {

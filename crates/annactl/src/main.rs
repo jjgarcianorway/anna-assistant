@@ -10,6 +10,7 @@
 pub mod errors;
 // Core modules for conversational Anna (Phase 5.1)
 mod intent_router; // Natural language → intent mapping
+mod llm_wizard; // First-run LLM setup wizard
 mod repl; // Conversational REPL
 
 // Internal intent handlers (not exposed as CLI commands)
@@ -569,6 +570,14 @@ fn state_citation(state: &str) -> &'static str {
     }
 }
 
+/// Check if LLM setup is needed and run wizard if so (Phase Next: Step 2)
+pub(crate) async fn run_llm_setup_if_needed(ui: &anna_common::display::UI, db: &anna_common::context::db::ContextDb) -> anyhow::Result<()> {
+    if llm_wizard::needs_llm_setup(db).await? {
+        llm_wizard::run_llm_setup_wizard(ui, db).await?;
+    }
+    Ok(())
+}
+
 /// Handle LLM query (Task 12)
 async fn handle_llm_query(user_text: &str) {
     use anna_common::display::UI;
@@ -577,8 +586,13 @@ async fn handle_llm_query(user_text: &str) {
 
     let ui = UI::auto();
 
-    // Load LLM config (default is disabled)
-    let config = LlmConfig::default(); // TODO: Load from DB/config file
+    // Load LLM config from database
+    let db_location = DbLocation::auto_detect();
+    let config = if let Ok(db) = ContextDb::open(db_location).await {
+        db.load_llm_config().await.unwrap_or_default()
+    } else {
+        LlmConfig::default()
+    };
 
     // Create LLM client
     let client = match LlmClient::from_config(&config) {
@@ -638,7 +652,18 @@ async fn handle_llm_query(user_text: &str) {
 /// Handle a single conversational query (annactl "question")
 async fn handle_one_shot_query(query: &str) -> Result<()> {
     use anna_common::display::{UI, print_privacy_explanation};
+    use anna_common::context::db::{ContextDb, DbLocation};
     use intent_router::{Intent, PersonalityAdjustment};
+
+    // Phase Next Step 2: Check if LLM setup is needed before processing query
+    let ui = UI::auto();
+    let db_location = DbLocation::auto_detect();
+    if let Ok(db) = ContextDb::open(db_location).await {
+        if let Err(e) = run_llm_setup_if_needed(&ui, &db).await {
+            // Log warning but continue - setup is optional
+            eprintln!("Warning: LLM setup check failed: {}", e);
+        }
+    }
 
     let intent = intent_router::route_intent(query);
 
