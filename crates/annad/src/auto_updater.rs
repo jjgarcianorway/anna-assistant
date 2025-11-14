@@ -64,7 +64,8 @@ impl AutoUpdater {
 
     /// Check for updates and install if available
     async fn check_and_update(&self) {
-        info!("Checking for updates...");
+        info!("🔄 Auto-update check starting...");
+        info!("   Current version: v{}", env!("CARGO_PKG_VERSION"));
 
         // Record check time
         if let Err(e) = self.record_check_time().await {
@@ -74,44 +75,53 @@ impl AutoUpdater {
         let current_version = env!("CARGO_PKG_VERSION");
 
         // Fetch latest release
+        info!("   Fetching latest release from GitHub...");
         let client = GitHubClient::new(GITHUB_OWNER, GITHUB_REPO);
 
         let latest_release = match client.get_latest_release().await {
-            Ok(release) => release,
+            Ok(release) => {
+                info!("   ✓ Successfully fetched release info");
+                release
+            }
             Err(e) => {
-                error!("Failed to fetch latest release: {}", e);
+                error!("   ✗ Failed to fetch latest release from GitHub: {}", e);
+                error!("   Check network connectivity and GitHub API status");
                 return;
             }
         };
 
         let latest_version = latest_release.version();
+        info!("   Latest version on GitHub: v{}", latest_version);
 
         // Check if update is available
         if !is_update_available(current_version, latest_version) {
-            info!("Already running latest version: v{}", current_version);
+            info!("   ✓ Already running latest version");
             return;
         }
 
-        info!("Update available: v{} → v{}", current_version, latest_version);
+        info!("   🎯 Update available: v{} → v{}", current_version, latest_version);
 
         // Step 4: Perform automatic update
+        info!("   Starting automatic update process...");
         match self.perform_update(&latest_release, latest_version).await {
             Ok(()) => {
-                info!("Update successfully installed: v{}", latest_version);
+                info!("   ✓ Update successfully installed: v{}", latest_version);
 
                 // Write update record and pending notice
                 if let Err(e) = self.write_update_records(current_version, latest_version).await {
-                    warn!("Failed to write update records: {}", e);
+                    warn!("   Failed to write update records: {}", e);
                 }
 
                 // Restart daemon
-                info!("Restarting daemon to apply update...");
+                info!("   Restarting daemon to apply update...");
                 if let Err(e) = self.restart_daemon().await {
-                    error!("Failed to restart daemon: {}", e);
+                    error!("   ✗ Failed to restart daemon: {}", e);
+                    error!("   You may need to manually restart: sudo systemctl restart annad");
                 }
             }
             Err(e) => {
-                error!("Failed to perform update: {}", e);
+                error!("   ✗ Failed to perform update: {}", e);
+                error!("   Auto-update will retry in 10 minutes");
             }
         }
     }
@@ -121,13 +131,14 @@ impl AutoUpdater {
         use anna_common::file_backup::{FileBackup, FileOperation};
         use std::path::PathBuf;
 
-        info!("Starting automatic update to v{}", version);
+        info!("      Preparing update to v{}...", version);
 
         // Create change set ID for backup tracking
         let change_set_id = format!("auto_update_{}", version);
 
         // Download new binaries
         let temp_dir = PathBuf::from("/tmp/anna_update");
+        info!("      Creating temporary directory: {}", temp_dir.display());
         tokio::fs::create_dir_all(&temp_dir).await?;
 
         // Download annactl and annad binaries
@@ -149,25 +160,33 @@ impl AutoUpdater {
         let checksums_tmp = temp_dir.join("SHA256SUMS");
 
         // Download files
-        info!("Downloading binaries...");
+        info!("      Downloading annactl binary...");
         self.download_file(&annactl_url, &annactl_tmp).await?;
+        info!("      ✓ annactl downloaded");
+
+        info!("      Downloading annad binary...");
         self.download_file(&annad_url, &annad_tmp).await?;
+        info!("      ✓ annad downloaded");
+
+        info!("      Downloading SHA256SUMS...");
         self.download_file(&checksums_url, &checksums_tmp).await?;
+        info!("      ✓ SHA256SUMS downloaded");
 
         // Verify checksums
-        info!("Verifying checksums...");
+        info!("      Verifying checksums...");
         self.verify_checksums(&temp_dir).await?;
 
         // Backup current binaries
-        info!("Backing up current binaries...");
+        info!("      Creating backups of current binaries...");
         let annactl_path = PathBuf::from("/usr/local/bin/annactl");
         let annad_path = PathBuf::from("/usr/local/bin/annad");
 
         FileBackup::create_backup(&annactl_path, &change_set_id, FileOperation::Modified)?;
         FileBackup::create_backup(&annad_path, &change_set_id, FileOperation::Modified)?;
+        info!("      ✓ Backups created");
 
         // Atomic swap (move new binaries to /usr/local/bin)
-        info!("Installing new binaries...");
+        info!("      Installing new binaries to /usr/local/bin...");
         tokio::fs::rename(&annactl_tmp, &annactl_path).await?;
         tokio::fs::rename(&annad_tmp, &annad_path).await?;
 

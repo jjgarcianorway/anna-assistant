@@ -327,9 +327,18 @@ impl ChangeAction {
     pub fn validate(&self) -> Result<()> {
         // Check if action is forbidden
         if self.risk == ChangeRisk::Forbidden {
+            // Include path in error message for file operations
+            let detail = match &self.kind {
+                ChangeActionKind::EditFile { path, .. } | ChangeActionKind::AppendToFile { path, .. } => {
+                    format!(" (Path: {})", path.display())
+                }
+                _ => String::new(),
+            };
+
             anyhow::bail!(
-                "Action '{}' is FORBIDDEN: {}",
+                "Action '{}' is FORBIDDEN{}: {}",
                 self.description,
+                detail,
                 ChangeRisk::Forbidden.worst_case()
             );
         }
@@ -418,18 +427,10 @@ impl ChangeRecipe {
 
     /// Validate entire recipe
     pub fn validate(&self) -> Result<()> {
-        // Check if any action is forbidden
-        if self.overall_risk == ChangeRisk::Forbidden {
-            anyhow::bail!(
-                "Recipe '{}' contains FORBIDDEN actions that are too dangerous to automate",
-                self.title
-            );
-        }
-
-        // Validate each action
+        // Validate each action (this will catch forbidden actions with detailed error messages)
         for action in &self.actions {
             action.validate().with_context(|| {
-                format!("Action '{}' in recipe '{}'", action.description, self.title)
+                format!("In recipe '{}'", self.title)
             })?;
         }
 

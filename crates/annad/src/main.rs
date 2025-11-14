@@ -88,6 +88,7 @@ mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod install; // Phase 0.8: Installation subsystem
+mod llm_bootstrap; // LLM auto-detection and configuration
 mod mirror; // Phase 1.4: Mirror Protocol
 mod mirror_audit; // Phase 1.6: Mirror Audit
 mod network; // Phase 1.9: Network layer for distributed consensus
@@ -109,7 +110,7 @@ use anyhow::Result;
 use rpc_server::DaemonState;
 use std::env;
 use std::sync::Arc;
-use tracing::{info, Level};
+use tracing::{info, warn, Level};
 use tracing_subscriber;
 
 // Version is embedded at build time
@@ -195,6 +196,11 @@ async fn main() -> Result<()> {
 
     // Initialize daemon state
     let state = Arc::new(DaemonState::new(VERSION.to_string(), facts, advice).await?);
+
+    // Bootstrap LLM if not configured (RC.11.3: auto-detect Ollama)
+    if let Err(e) = llm_bootstrap::bootstrap_llm_if_needed().await {
+        warn!("LLM bootstrap failed: {}", e);
+    }
 
     info!("Anna Daemon ready");
 

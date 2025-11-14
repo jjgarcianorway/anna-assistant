@@ -27,10 +27,8 @@ pub async fn run_llm_setup_wizard(ui: &UI, db: &ContextDb) -> Result<()> {
     // Step 1: Explain what this is about
     println!();
     ui.section_header("🧠", "Setting Up My Brain");
-    println!();
     ui.info("I use a language model to understand your questions and explain");
     ui.info("things about your system in natural language.");
-    println!();
     ui.info("Let me check your machine's capabilities...");
     println!();
 
@@ -38,14 +36,12 @@ pub async fn run_llm_setup_wizard(ui: &UI, db: &ContextDb) -> Result<()> {
     let hw = HardwareAssessment::assess();
 
     ui.section_header("💻", "Hardware Assessment");
-    println!();
     ui.info(&format!("System: {}", hw.summary()));
     ui.info(&format!("Capability: {}", hw.llm_capability.description()));
     println!();
 
     // Step 3: Present options
     ui.section_header("⚙️", "Configuration Options");
-    println!();
 
     let options = if hw.llm_capability.is_local_recommended() {
         vec![
@@ -101,7 +97,6 @@ pub async fn run_llm_setup_wizard(ui: &UI, db: &ContextDb) -> Result<()> {
 async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> Result<()> {
     println!();
     ui.section_header("🏠", "Local Model Setup");
-    println!();
 
     // Select appropriate model profile
     let profile = select_model_for_capability(hw.llm_capability)
@@ -113,7 +108,6 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
         &format!("Download model: {} (~{:.1} GB)", profile.model_name, profile.size_gb),
         "Start the service and test it",
     ]);
-    println!();
 
     print!("Proceed with setup? (y/n): ");
     io::stdout().flush()?;
@@ -126,9 +120,7 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
         return setup_skip(ui, db).await;
     }
 
-    println!();
     ui.info("Setting up local model... This may take a few minutes.");
-    println!();
 
     // Run Ollama installer
     let installer = OllamaInstaller::new();
@@ -144,7 +136,6 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
             // Store initial capability tier for upgrade detection
             store_initial_capability(db, hw.llm_capability).await?;
 
-            println!();
             ui.success("✓ My local brain is ready!");
             ui.info("I can now understand questions much better while keeping");
             ui.info("your data completely private on this machine.");
@@ -154,13 +145,8 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
         }
         Err(e) => {
             // Local model setup failed
-            println!();
             ui.error("Local model setup failed.");
-            println!();
-
-            // Show the detailed error message
             eprintln!("{}", e);
-            println!();
 
             // Offer alternatives
             ui.info("What would you like to do?");
@@ -168,7 +154,6 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
                 "1. Try again later (I'll use built-in rules for now)",
                 "2. Configure a remote API instead",
             ]);
-            println!();
 
             print!("Choose an option (1-2): ");
             io::stdout().flush()?;
@@ -183,7 +168,6 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
                 }
                 _ => {
                     // Default: save disabled config and continue
-                    println!();
                     ui.info("Okay, I'll use my built-in rules and the Arch Wiki for now.");
                     ui.info("You can set up my brain later by asking:");
                     ui.info("  \"Anna, set up your brain\"");
@@ -203,7 +187,6 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
 async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
     println!();
     ui.section_header("☁️", "Remote API Setup");
-    println!();
 
     ui.warning("⚠️ Important Privacy Notice");
     ui.info("Using a remote API means:");
@@ -212,7 +195,6 @@ async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
         "You may be charged per request by your provider",
         "Your data leaves this machine",
     ]);
-    println!();
 
     print!("Do you still want to configure a remote API? (y/n): ");
     io::stdout().flush()?;
@@ -224,9 +206,7 @@ async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
         return setup_skip(ui, db).await;
     }
 
-    println!();
     ui.info("Please provide the following information:");
-    println!();
 
     // Get API key
     print!("API key environment variable name (e.g., OPENAI_API_KEY): ");
@@ -261,7 +241,6 @@ async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
     let config = LlmConfig::remote(base_url, model, api_key_env, 0.00015);
     db.save_llm_config(&config).await?;
 
-    println!();
     ui.success("✓ Remote API configured");
     ui.info("I will now use the remote API to answer questions.");
     println!();
@@ -271,7 +250,6 @@ async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
 
 /// Skip LLM setup for now
 async fn setup_skip(ui: &UI, db: &ContextDb) -> Result<()> {
-    println!();
     ui.info("Okay, I will use my built-in rules and the Arch Wiki only.");
     ui.info("My answers will be more limited, but I can still help with:");
     ui.bullet_list(&[
@@ -279,7 +257,6 @@ async fn setup_skip(ui: &UI, db: &ContextDb) -> Result<()> {
         "Common issues and fixes",
         "Arch Wiki based suggestions",
     ]);
-    println!();
     ui.info("You can ask me to set up my brain anytime by saying:");
     ui.info("  \"Anna, set up your brain\"");
     println!();

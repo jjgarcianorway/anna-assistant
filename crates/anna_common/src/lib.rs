@@ -35,6 +35,8 @@ pub mod personality; // Phase 5.1: Conversational personality controls
 pub mod prediction;
 pub mod profile;
 pub mod prediction_actions;
+pub mod prompt_builder; // Phase 9: LLM prompt construction with safety
+pub mod recipe_validator; // Phase 9: LLM response parsing and validation
 pub mod rollback;
 pub mod self_healing;
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration

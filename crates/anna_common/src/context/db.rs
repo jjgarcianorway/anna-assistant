@@ -370,7 +370,26 @@ impl ContextDb {
             let conn = conn.blocking_lock();
 
             // Migration 1: Add updated_at column to user_preferences (v5.5.0)
-            // Check if column exists first
+            info!("Checking database migrations...");
+
+            // Check if user_preferences table exists first
+            let table_exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='user_preferences'",
+                    [],
+                    |row| {
+                        let count: i64 = row.get(0)?;
+                        Ok(count > 0)
+                    },
+                )
+                .context("Failed to check if user_preferences table exists")?;
+
+            if !table_exists {
+                debug!("user_preferences table doesn't exist yet, skipping migration");
+                return Ok(());
+            }
+
+            // Check if column exists
             let column_exists: bool = conn
                 .query_row(
                     "SELECT COUNT(*) FROM pragma_table_info('user_preferences') WHERE name='updated_at'",
@@ -379,29 +398,35 @@ impl ContextDb {
                         let count: i64 = row.get(0)?;
                         Ok(count > 0)
                     },
-                )?;
+                )
+                .context("Failed to check if updated_at column exists")?;
 
             if !column_exists {
-                debug!("Running migration: Adding updated_at column to user_preferences");
+                info!("Running migration: Adding updated_at column to user_preferences");
 
                 // SQLite doesn't allow non-constant defaults, so use NULL
                 conn.execute(
                     "ALTER TABLE user_preferences ADD COLUMN updated_at DATETIME",
                     [],
-                )?;
+                )
+                .context("Failed to add updated_at column")?;
 
                 // Copy set_at values to updated_at for existing rows
                 conn.execute(
                     "UPDATE user_preferences SET updated_at = set_at WHERE updated_at IS NULL",
                     [],
-                )?;
+                )
+                .context("Failed to backfill updated_at values")?;
 
-                info!("Migration complete: Added updated_at column to user_preferences");
+                info!("✓ Migration complete: Added updated_at column to user_preferences");
+            } else {
+                debug!("Migration not needed: updated_at column already exists");
             }
 
             Ok(())
         })
-        .await??;
+        .await?
+        .context("Database migration task failed")?;
 
         Ok(())
     }
@@ -542,11 +567,31 @@ impl ContextDb {
         tokio::task::spawn_blocking(move || -> Result<()> {
             let conn = conn.blocking_lock();
 
-            conn.execute(
-                "INSERT OR REPLACE INTO user_preferences (key, value, value_type, updated_at)
-                 VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
-                params!["llm_config", config_json, "json"],
-            )?;
+            // Check if updated_at column exists, use appropriate SQL
+            let has_updated_at: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('user_preferences') WHERE name='updated_at'",
+                    [],
+                    |row| {
+                        let count: i64 = row.get(0)?;
+                        Ok(count > 0)
+                    },
+                )?;
+
+            if has_updated_at {
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_preferences (key, value, value_type, updated_at)
+                     VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
+                    params!["llm_config", config_json, "json"],
+                )?;
+            } else {
+                // Fallback for databases without updated_at column
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_preferences (key, value, value_type)
+                     VALUES (?1, ?2, ?3)",
+                    params!["llm_config", config_json, "json"],
+                )?;
+            }
 
             debug!("Saved LLM configuration");
             Ok(())
@@ -565,11 +610,31 @@ impl ContextDb {
         tokio::task::spawn_blocking(move || -> Result<()> {
             let conn = conn.blocking_lock();
 
-            conn.execute(
-                "INSERT OR REPLACE INTO user_preferences (key, value, value_type, updated_at)
-                 VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
-                params![key, value, "string"],
-            )?;
+            // Check if updated_at column exists, use appropriate SQL
+            let has_updated_at: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('user_preferences') WHERE name='updated_at'",
+                    [],
+                    |row| {
+                        let count: i64 = row.get(0)?;
+                        Ok(count > 0)
+                    },
+                )?;
+
+            if has_updated_at {
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_preferences (key, value, value_type, updated_at)
+                     VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
+                    params![key, value, "string"],
+                )?;
+            } else {
+                // Fallback for databases without updated_at column
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_preferences (key, value, value_type)
+                     VALUES (?1, ?2, ?3)",
+                    params![key, value, "string"],
+                )?;
+            }
 
             debug!("Saved preference: {}", key);
             Ok(())

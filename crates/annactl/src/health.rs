@@ -335,21 +335,114 @@ async fn check_ollama_model_available(model: &str) -> bool {
 
 /// Repair LLM backend
 async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
-    if llm.backend == "Ollama" {
-        // Try to start Ollama service
-        let status = Command::new("sudo")
-            .args(&["systemctl", "start", "ollama"])
-            .status()
-            .context("Failed to start Ollama service")?;
+    let mut actions: Vec<String> = Vec::new();
 
-        if status.success() {
-            Ok("Started Ollama service".to_string())
-        } else {
-            Err(anyhow::anyhow!("Failed to start Ollama"))
+    // Check network connectivity first
+    let network_ok = Command::new("ping")
+        .args(&["-c", "1", "-W", "2", "1.1.1.1"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !network_ok {
+        return Err(anyhow::anyhow!("Network unavailable - cannot download LLM components"));
+    }
+
+    if llm.backend == "Ollama" || llm.backend == "None" {
+        // Check if Ollama is installed
+        let ollama_installed = Command::new("which")
+            .arg("ollama")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !ollama_installed {
+            actions.push("Installing Ollama...".to_string());
+            // Install Ollama using official script
+            let install_result = Command::new("sh")
+                .arg("-c")
+                .arg("curl -fsSL https://ollama.com/install.sh | sh")
+                .status();
+
+            if !install_result.map(|s| s.success()).unwrap_or(false) {
+                return Err(anyhow::anyhow!("Failed to install Ollama"));
+            }
+            actions.push("✓ Ollama installed".to_string());
         }
+
+        // Ensure Ollama service is enabled and running
+        if !llm.backend_running {
+            actions.push("Starting Ollama service...".to_string());
+            Command::new("sudo")
+                .args(&["systemctl", "enable", "--now", "ollama"])
+                .status()
+                .context("Failed to enable Ollama service")?;
+
+            // Wait for service to be ready
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            actions.push("✓ Ollama service started".to_string());
+        }
+
+        // Check if a model is available
+        if !llm.model_available {
+            actions.push("Downloading LLM model...".to_string());
+
+            // Detect hardware to select appropriate model
+            let ram_gb = get_system_ram_gb();
+            let model = if ram_gb >= 8 { "llama3.2:3b" } else { "llama3.2:1b" };
+
+            actions.push(format!("Downloading {}...", model));
+
+            let pull_result = Command::new("ollama")
+                .args(&["pull", model])
+                .status();
+
+            if !pull_result.map(|s| s.success()).unwrap_or(false) {
+                return Err(anyhow::anyhow!("Failed to download model {}", model));
+            }
+
+            actions.push(format!("✓ Model {} downloaded", model));
+
+            // Save LLM config to database
+            use anna_common::context::db::{ContextDb, DbLocation};
+            use anna_common::llm::LlmConfig;
+
+            let db = ContextDb::open(DbLocation::auto_detect()).await?;
+            let config = LlmConfig::local("http://127.0.0.1:11434/v1", model);
+            db.save_llm_config(&config).await?;
+
+            actions.push("✓ LLM configured in Anna".to_string());
+        }
+
+        // Restart daemon to pick up new config
+        if !actions.is_empty() {
+            actions.push("Restarting Anna daemon...".to_string());
+            Command::new("sudo")
+                .args(&["systemctl", "restart", "annad"])
+                .status()
+                .context("Failed to restart daemon")?;
+            actions.push("✓ Daemon restarted".to_string());
+        }
+
+        Ok(actions.join("\n"))
     } else {
         Ok("No auto-repair available for this LLM backend".to_string())
     }
+}
+
+/// Get system RAM in GB
+fn get_system_ram_gb() -> usize {
+    let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    for line in meminfo.lines() {
+        if line.starts_with("MemTotal:") {
+            if let Some(kb_str) = line.split_whitespace().nth(1) {
+                if let Ok(kb) = kb_str.parse::<usize>() {
+                    return kb / 1024 / 1024;
+                }
+            }
+        }
+    }
+    4 // Default fallback
 }
 
 /// Check if a group exists
