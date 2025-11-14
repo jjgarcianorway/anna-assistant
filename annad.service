@@ -85,9 +85,12 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 
 # Phase 3.9: Network restrictions
+# NOTE: Removed IPAddressDeny/IPAddressAllow due to MediaTek mt7921e driver bug
+# These restrictions cause netlink operations that crash the WiFi driver
+# See: "nl80211: send_event_marker failed: Source based routing not supported"
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-IPAddressDeny=any
-IPAddressAllow=localhost
+# IPAddressDeny=any
+# IPAddressAllow=localhost
 
 # Phase 3.9: System call filtering
 SystemCallFilter=@system-service
