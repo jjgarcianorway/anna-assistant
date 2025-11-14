@@ -5,7 +5,10 @@
       "Bash(release-v5.5.0-beta.1/annad-5.5.0-beta.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v5.5.0-beta.1/annactl-5.5.0-beta.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v5.5.0-beta.1/SHA256SUMS)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(release-v5.5.1-beta.1/annactl-5.5.1-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v5.5.1-beta.1/annad-5.5.1-beta.1-x86_64-unknown-linux-gnu )",
+      "Bash(release-v5.5.1-beta.1/SHA256SUMS)"
     ],
     "deny": [],
     "ask": []
