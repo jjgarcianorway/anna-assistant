@@ -234,6 +234,10 @@ pub enum LlmError {
 pub trait LlmBackend: Send + Sync {
     /// Send a chat request and get a response
     fn chat(&self, prompt: &LlmPrompt) -> Result<LlmResponse, LlmError>;
+
+    /// Send a chat request and stream the response word-by-word
+    /// Calls the callback with each chunk of text as it arrives
+    fn chat_stream(&self, prompt: &LlmPrompt, callback: &mut dyn FnMut(&str)) -> Result<(), LlmError>;
 }
 
 /// Dummy backend (always returns disabled error)
@@ -241,6 +245,10 @@ pub struct DummyBackend;
 
 impl LlmBackend for DummyBackend {
     fn chat(&self, _prompt: &LlmPrompt) -> Result<LlmResponse, LlmError> {
+        Err(LlmError::Disabled)
+    }
+
+    fn chat_stream(&self, _prompt: &LlmPrompt, _callback: &mut dyn FnMut(&str)) -> Result<(), LlmError> {
         Err(LlmError::Disabled)
     }
 }
@@ -359,6 +367,82 @@ impl LlmBackend for HttpOpenAiBackend {
 
         Ok(LlmResponse { text })
     }
+
+    fn chat_stream(&self, prompt: &LlmPrompt, callback: &mut dyn FnMut(&str)) -> Result<(), LlmError> {
+        use std::io::{BufRead, BufReader};
+
+        // Build the request with streaming enabled
+        let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
+
+        let request_body = serde_json::json!({
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": prompt.system
+                },
+                {
+                    "role": "user",
+                    "content": prompt.user
+                }
+            ],
+            "max_tokens": self.max_tokens,
+            "temperature": 0.7,
+            "stream": true
+        });
+
+        let client = reqwest::blocking::Client::new();
+        let mut req = client.post(&url)
+            .header("Content-Type", "application/json");
+
+        // Add Authorization header if API key is present
+        if let Some(ref key) = self.api_key {
+            req = req.header("Authorization", format!("Bearer {}", key));
+        }
+
+        let response = req
+            .json(&request_body)
+            .send()
+            .map_err(|e| LlmError::HttpError(format!("Request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().unwrap_or_else(|_| "".to_string());
+            return Err(LlmError::HttpError(format!("HTTP {}: {}", status, body)));
+        }
+
+        // Read the streaming response line by line (Server-Sent Events format)
+        let reader = BufReader::new(response);
+        for line in reader.lines() {
+            let line = line.map_err(|e| LlmError::HttpError(format!("Failed to read stream: {}", e)))?;
+
+            // Skip empty lines
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            // SSE format: "data: {json}"
+            if let Some(json_str) = line.strip_prefix("data: ") {
+                // Check for stream end marker
+                if json_str == "[DONE]" {
+                    break;
+                }
+
+                // Parse the JSON chunk
+                let chunk: serde_json::Value = serde_json::from_str(json_str)
+                    .map_err(|e| LlmError::HttpError(format!("Failed to parse chunk: {}", e)))?;
+
+                // Extract delta content from: choices[0].delta.content
+                if let Some(content) = chunk["choices"][0]["delta"]["content"].as_str() {
+                    if !content.is_empty() {
+                        callback(content);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// LLM client (high-level interface)
@@ -389,6 +473,12 @@ impl LlmClient {
     /// Send a chat request
     pub fn chat(&self, prompt: &LlmPrompt) -> Result<LlmResponse, LlmError> {
         self.backend.chat(prompt)
+    }
+
+    /// Send a chat request and stream the response word-by-word
+    /// Calls the callback with each chunk of text as it arrives
+    pub fn chat_stream(&self, prompt: &LlmPrompt, callback: &mut dyn FnMut(&str)) -> Result<(), LlmError> {
+        self.backend.chat_stream(prompt, callback)
     }
 
     /// Get Anna's system prompt

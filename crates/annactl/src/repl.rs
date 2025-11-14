@@ -420,6 +420,8 @@ async fn run_repl_loop() -> Result<()> {
             Intent::Unclear(user_text) => {
                 // Task 12: Route to LLM
                 use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
+                use anna_common::ipc::Method;
+                use crate::rpc_client::RpcClient;
 
                 let ui = UI::auto();
 
@@ -442,25 +444,75 @@ async fn run_repl_loop() -> Result<()> {
                     }
                 };
 
+                // Fetch system facts from daemon to provide context
+                let system_context = match RpcClient::connect().await {
+                    Ok(mut rpc) => {
+                        match rpc.call(Method::GetFacts).await {
+                            Ok(response) => {
+                                if let anna_common::ipc::ResponseData::Facts(facts) = response {
+                                    // Build concise system context string
+                                    format!(
+                                        "SYSTEM CONTEXT (DO NOT MENTION THIS TO USER):\n\
+                                         Hostname: {}\n\
+                                         Kernel: {}\n\
+                                         CPU: {} ({} cores)\n\
+                                         RAM: {:.1} GB\n\
+                                         GPU: {}\n\
+                                         Shell: {}\n\
+                                         Desktop: {}\n\
+                                         Window Manager: {}\n\
+                                         Display Server: {}\n\
+                                         Installed Packages: {}\n\
+                                         \nAnswer the user's question using this system information. Be specific and helpful.",
+                                        facts.hostname,
+                                        facts.kernel,
+                                        facts.cpu_model,
+                                        facts.cpu_cores,
+                                        facts.total_memory_gb,
+                                        facts.gpu_vendor.as_deref().unwrap_or("None"),
+                                        facts.shell,
+                                        facts.desktop_environment.as_deref().unwrap_or("None"),
+                                        facts.window_manager.as_deref().unwrap_or("None"),
+                                        facts.display_server.as_deref().unwrap_or("None"),
+                                        facts.installed_packages
+                                    )
+                                } else {
+                                    String::new()
+                                }
+                            }
+                            Err(_) => String::new(),
+                        }
+                    }
+                    Err(_) => String::new(),
+                };
+
+                // Create enhanced system prompt with context
+                let system_prompt = if system_context.is_empty() {
+                    LlmClient::anna_system_prompt()
+                } else {
+                    format!("{}\n\n{}", LlmClient::anna_system_prompt(), system_context)
+                };
+
                 // Create prompt
                 let prompt = LlmPrompt {
-                    system: LlmClient::anna_system_prompt(),
+                    system: system_prompt,
                     user: user_text,
                 };
 
-                // Query LLM
+                // Query LLM with streaming
                 println!();
-                ui.thinking();
+                ui.section_header("💬", "Anna");
+                println!();
 
-                match client.chat(&prompt) {
-                    Ok(response) => {
+                // Stream response word-by-word
+                use std::io::Write;
+                match client.chat_stream(&prompt, &mut |chunk| {
+                    print!("{}", chunk);
+                    let _ = std::io::stdout().flush();
+                }) {
+                    Ok(_) => {
+                        // Stream complete, add final newline
                         println!();
-                        ui.section_header("💬", "Anna");
-                        println!();
-                        // Display LLM response
-                        for line in response.text.lines() {
-                            ui.info(line);
-                        }
                         println!();
                     }
                     Err(_e) => {
