@@ -2,326 +2,379 @@
 
 **Your Knowledgeable Arch Linux Caretaker**
 
-Anna is a local system and desktop caretaker for Arch Linux. She continuously analyzes your machine - hardware, software, services, and configuration - and helps you fix and improve everything in the simplest possible way.
+Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Current Version:** 4.6.0-beta.1
-
----
-
-## What Anna Does
-
-Anna silently watches your Arch machine, spots problems before they get bad, and either fixes them or tells you exactly what to do.
-
-**Core Capabilities:**
-- **Morning Health Check** - Two-second answer to "Is my system OK?"
-- **Automatic Problem Detection** - Disk space, service failures, misconfigurations, missing firmware
-- **Interactive Repairs** - Guided fixing with clear explanations and Arch Wiki references
-- **Zero Ceremony** - Most users only need `annactl daily`
-
-**What Anna is NOT:**
-- ❌ Not a monitoring platform (she's for your local machine)
-- ❌ Not an AI chatbot (she doesn't have conversations)
-- ❌ Not a remote management server (she runs locally)
-
-### Profile-Aware Intelligence
-
-Anna automatically detects what kind of machine she's running on and adjusts her behavior accordingly:
-
-- **Laptops** - More focus on battery/power management, firewall warnings (mobile networks), GPU drivers
-- **Desktops** - GPU and graphics-focused checks, moderate firewall suggestions
-- **Server-like** - Quieter about desktop-specific concerns, focus on core system health
-
-This means you get **relevant hints** without noise. A headless server won't be nagged about TLP, and a laptop won't miss critical battery management tips.
+**Version:** 5.3.0-beta.1 (Conversational UX)
 
 ---
 
-## Quick Start
+## What is Anna?
 
-### Installation
+Anna is:
+- **A local caretaker** - Watches your Arch system, spots problems, suggests improvements
+- **A bridge to documentation** - Every suggestion is grounded in Arch Wiki or official docs
+- **Warm and professional** - Explains things clearly, honest about tradeoffs and uncertainty
+- **Transparent and safe** - Always explains what will change, always asks before acting
 
-One command installs everything:
+Anna is **not**:
+- ❌ Not a generic monitoring platform
+- ❌ Not a chatbot for weather or general conversation
+- ❌ Not a remote management server
+- ❌ Not running commands behind your back
+
+---
+
+## Installation
+
+One-line install:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 ```
 
-That's it. Anna is now watching your system.
+The installer will:
+1. Introduce Anna and explain what she does
+2. Explain privacy (all data stays local)
+3. Ask for your consent
+4. Set up the daemon and CLI tools
+5. Show you how to get started
 
-### First Run
+---
 
-The first time you interact with Anna, she'll automatically scan your system:
+## How to Use Anna
+
+There are **exactly two commands**:
+
+### 1. Talk to Anna - `annactl` or `annactl "question"`
+
+Ask Anna anything about your system in natural language.
+
+**Start a conversation:**
+```bash
+annactl
+```
+
+This opens an interactive session where you can have a back-and-forth conversation with Anna.
+
+**One-shot queries:**
+```bash
+annactl "how are you?"
+annactl "my computer feels slower than usual, any idea why?"
+annactl "what are the top 3 things I should improve?"
+annactl "prepare a report about this machine for my boss"
+annactl "what do you store about me?"
+```
+
+**What you can ask:**
+- System status and health
+- Problems and suggestions for improvement
+- Generate professional reports
+- Privacy and data handling questions
+- Fix specific issues (Anna will explain and ask for approval)
+- Adjust Anna's personality (humor, verbosity)
+
+**Examples:**
+```bash
+# Status check
+annactl "how are you?"
+annactl "any problems with my system?"
+
+# Get suggestions
+annactl "what should I improve?"
+annactl "my system feels slow"
+
+# Generate reports
+annactl "generate a report"
+annactl "I need a summary for my boss"
+
+# Privacy
+annactl "what do you store about me?"
+annactl "tell me about privacy"
+
+# Personality adjustment
+annactl "be more brief"
+annactl "show personality settings"
+
+# Help
+annactl "help"
+annactl "what can you do?"
+```
+
+### 2. Check Anna's Own Health - `annactl repair`
+
+This is **only for Anna's own health**, not for fixing your system.
 
 ```bash
-annactl daily
-
-# Anna detects this is first run and shows:
-# 👋 Welcome to Anna!
-#
-# Looks like this is the first time I see this machine.
-# I will run a deeper scan once and then remember the results.
-#
-# Running first system scan...
-#
-# [Shows prioritized issues and recommendations]
+annactl repair
 ```
 
-Anna checks for:
-- **Disk space**: Critical/warning levels, package cache, logs
-- **Failed systemd services**: Units not running properly
-- **Pacman health**: Stale database locks (>1 hour)
-- **Laptop power**: TLP installation and configuration
-- **GPU drivers**: NVIDIA GPUs without loaded drivers
-- **Journal errors**: High error volume (>50 errors per boot)
-- **Zombie processes**: Accumulating defunct processes
-- **Orphaned packages**: Unused dependencies (>10 packages)
-- **Core dumps**: Old crash dumps consuming disk space
-- **Time synchronization**: Network time sync not configured
-- **Firewall status**: Networked machines without firewall protection
-- **Backup awareness**: No backup or snapshot tools detected
+This checks and fixes:
+- Anna's permissions and groups
+- Missing dependencies Anna needs
+- Socket and service issues
+- Context database problems
 
-### Daily Use
+Always explains what it's checking and asks for confirmation before making changes that require sudo.
 
-After first run, Anna is lightning fast:
+---
+
+## Languages & Terminal Support
+
+Anna speaks multiple languages and adapts to your terminal's capabilities.
+
+### Supported Languages
+
+Anna can communicate in:
+- **English** (default)
+- **Spanish** (Español)
+- **Norwegian** (Norsk)
+- **German** (Deutsch)
+- **French** (Français)
+- **Portuguese** (Português)
+
+Change Anna's language naturally:
+```bash
+annactl "use Spanish"
+annactl "cambia al español"
+annactl "parle français"
+annactl "spreche Deutsch"
+```
+
+Anna will confirm the change in the NEW language and remember your preference.
+
+### Terminal Adaptation
+
+Anna automatically detects your terminal's capabilities and adapts:
+- **Color support**: TrueColor → 256 colors → 16 colors → no color
+- **Unicode support**: Full Unicode → ASCII fallback
+- **Emoji support**: Native emoji → text replacements (✓ → [OK], ⚠️ → [!])
+
+This means Anna works beautifully in modern terminals and gracefully degrades for older TTY environments. You never see broken glyphs or garbled output.
+
+---
+
+## How Anna Works
+
+### Telemetry Collection
+
+The `annad` daemon continuously collects:
+- Hardware info (CPU, RAM, disks, battery, GPU)
+- Software state (packages, updates, services)
+- Resource usage over time
+- Configuration state (window manager, display, audio)
+- Usage patterns at a coarse level (e.g., "lots of coding", "mostly browser")
+
+**All data stays on your machine.** No exfiltration. No remote logging.
+
+### Knowledge Sources
+
+Anna's knowledge hierarchy:
+1. **Arch Wiki** - Primary knowledge base
+2. **Official project docs** - Secondary (linked from Arch Wiki)
+3. **Your system** - What annad observes about this machine
+
+### Suggestions and Actions
+
+**Suggestions:**
+- Explained in plain English
+- Always include documentation URLs (Arch Wiki first)
+- Only 2-5 suggestions at a time (not overwhelming)
+- Prioritized by impact and safety
+
+**Actions:**
+- Only executed after you explicitly agree
+- Anna shows exactly what will change (commands, config files, packages)
+- Explains why it's safe and what risks exist
+- Links to documentation sources
+- All changes are logged for rollback
+
+### Change Logging and Rollback
+
+When Anna makes changes to your system:
+- Each change is logged as a **Change Unit** with:
+  - Unique ID and human-readable label
+  - Commands run, files modified, packages changed
+  - Timestamps and result
+  - Your original request that triggered it
+
+You can roll back changes:
+```bash
+annactl "roll back your latest changes"
+annactl "I'm not happy with the KDE install, put my system back"
+```
+
+Anna shows what will be rolled back and asks for confirmation before proceeding.
+
+### Reports
+
+Request professional reports for managers or documentation:
 
 ```bash
-# Every morning (takes ~2 seconds)
-annactl daily
-
-# If something is wrong
-sudo annactl repair
-
-# That's all most people need
+annactl "prepare a report for my boss"
 ```
 
-### Example Session
+Reports include:
+- Machine overview (hardware, OS, uptime, usage patterns)
+- Status and health summary
+- Key issues and how they were addressed
+- Tradeoffs (improvements vs costs)
+- Recommended next steps
+
+Tone is professional, clear, and non-technical enough for managers.
+
+---
+
+## Privacy
+
+**What Anna stores locally:**
+- System metrics (CPU, RAM, disk, services)
+- Configuration state
+- Usage patterns (coarse level, no file contents)
+- Change history
+- Suggestions and decisions
+
+**What Anna NEVER does:**
+- Read personal file contents
+- Send data to external servers
+- Track you for advertising
+- Run commands without your approval
+
+**Network access:**
+- Only to Arch Wiki and official project documentation
+- Only when generating suggestions or looking up information
+- Never for telemetry or data exfiltration
+
+Ask Anna anytime: `annactl "what do you store about me?"`
+
+---
+
+## Personality
+
+Anna has a warm, professional personality with subtle wit. You can adjust her behavior:
 
 ```bash
-$ annactl daily
-╔══════════════════════════════════════════════════════════╗
-║ 🔴 Daily System Check - 2025-11-13 12:27 ║
-╚══════════════════════════════════════════════════════════╝
-
-Health: 2 ok, 0 warnings, 1 failures
-
-Disk: 96.5% used (24.8GB / 802.1GB total)
-
-📊 Issues Detected:
-
-  ❌ disk-space: Issue detected
-
-📁 Disk Space Analysis:
-
-  Your disk is 96.5% full. Here's what's using space:
-
-  ⬇️ Downloads                71.0GB  /home/user/Downloads
-  📦 Packages                 29.9GB  /var/cache/pacman/pkg
-
-🎯 Recommended Actions:
-
-1. Clean package cache
-   $ sudo paccache -rk1
-   📖 Keeps only the latest version of each package
-   💾 Impact: Frees 29.9GB
-   🔗 Arch Wiki: https://wiki.archlinux.org/title/Pacman#Cleaning_the_package_cache
-   Risk: ✅ Safe
-
-💡 Next Steps:
-   Run the disk space cleanup commands above (start with the safest)
-
-$ sudo annactl repair
-════════════════════════════════════════════════════════════
-🔧 SYSTEM REPAIR
-════════════════════════════════════════════════════════════
-
-Anna will attempt to fix detected issues automatically.
-Only low-risk actions will be performed.
-
-⚠️  Actions may modify system state!
-
-Proceed with repair? [y/N]: y
-
-🔧 EXECUTING REPAIRS
-
-✅ disk-space
-  Action: cleanup_disk_space
-  Details: Installed pacman-contrib; paccache -rk1: removed 847 packages (29.4GB)
-  Source: [archwiki:System_maintenance#Clean_the_filesystem]
-
-────────────────────────────────────────────────────────────
-Summary: 1 succeeded, 0 failed
+annactl "be more funny"           # Increase humor
+annactl "please don't joke"       # Decrease humor
+annactl "be more brief"           # Concise answers
+annactl "explain in more detail"  # Thorough explanations
+annactl "show personality settings" # View current settings
 ```
+
+Settings are saved to `~/.config/anna/personality.toml`.
 
 ---
 
-## Commands
+## Autonomy
 
-Anna has a simple command surface. Most people only need 3 commands:
+By default, Anna **does not** change your system automatically. All actions require explicit approval.
 
+The only autonomous behavior:
+- Anna checks for her own updates every 10 minutes
+- If configured for auto-update, she may update herself safely (checksums, backups, rollback)
+
+Everything else requires you to initiate through `annactl`.
+
+---
+
+## Examples
+
+**Morning health check:**
 ```bash
-annactl daily       # Quick morning health check
-annactl status      # Detailed system status
-sudo annactl repair # Fix detected issues
+annactl "how's everything looking?"
 ```
 
-### Advanced Commands
-
-For power users and troubleshooting, Anna has additional commands:
-
+**Get improvement suggestions:**
 ```bash
-annactl --help --all   # Show all commands including advanced
+annactl "what should I improve?"
 ```
 
-This includes:
-- `health` - Detailed health probe execution
-- `metrics` - System metrics display
-- `profile` - Environment and hardware analysis
-- `doctor` - Comprehensive diagnostics
-- `learn` - View learning patterns
-- `predict` - Show predictive analysis
-- `upgrade` - Update Anna herself
-- `ping` - Test daemon connection
+**Fix a specific issue:**
+```bash
+# Anna detects low disk space
+annactl "can you help me fix the disk space issue?"
+# Anna explains the problem, suggests solutions
+# You approve, Anna applies the fix and logs it
+```
+
+**Generate a report for documentation:**
+```bash
+annactl "generate a comprehensive system report"
+```
+
+**Adjust Anna's tone:**
+```bash
+annactl "be more serious, I prefer professional communication"
+```
+
+**Check what Anna stores:**
+```bash
+annactl "what data do you keep about me?"
+```
 
 ---
 
-## What Anna Detects
+## Technical Details
 
-Anna's caretaker brain performs these checks on every run:
+**Architecture:**
+- `annad` - Secure telemetry daemon (runs as system service)
+- `annactl` - CLI frontend (conversational interface)
+- Local SQLite database for context and history
+- File-based config in `~/.config/anna/` and `/etc/anna/`
 
-### Disk Space Analysis
-- **Critical (>95% full)**: Immediate action required, system at risk
-- **Warning (>90% full)**: Package cache cleanup recommended
-- **Info (>80% full)**: Proactive space management suggested
-- **Recommendation**: `paccache -rk1` to free package cache space
+**Security:**
+- Runs with minimal privileges
+- Uses group-based socket permissions
+- No unsafe automatic operations (no fsck, no repartitioning)
+- All changes are logged and reversible when possible
 
-### Failed Systemd Services
-- Detects services in failed or degraded state
-- Shows which services and what failed
-- **Repair**: Attempts to restart failed services
-
-### Pacman Database Health
-- Detects stale lock files (>1 hour old)
-- Prevents package operation failures
-- **Repair**: Safely removes stale locks after verification
-
-### Laptop Power Management
-- Auto-detects laptops via battery presence
-- Checks if TLP is installed and enabled
-- **Warning**: TLP installed but not enabled
-- **Info**: TLP not installed, battery life could improve
-- **Repair**: Enables TLP service
-
-### GPU Driver Status
-- Detects NVIDIA GPUs via `lspci`
-- Checks if driver kernel module is loaded
-- **Warning**: GPU present but driver not loaded
-- **Recommendation**: Install nvidia and nvidia-utils packages
-
-### Journal Error Volume
-- Counts error-level entries in current boot journal
-- **Critical (>200 errors)**: System has serious issues
-- **Warning (>50 errors)**: Configuration or hardware problems
-- **Repair**: Cleans old journal entries (vacuum to 7 days)
-
-### Zombie Processes
-- Scans `/proc` for processes in zombie state
-- **Warning (>10 zombies)**: Parent processes not cleaning up
-- **Info (>0 zombies)**: Minor process management issue
-- **Note**: Zombies can't be killed directly - parent must reap them
-
-### Orphaned Packages
-- Finds packages no longer required by any installed package
-- **Warning (>50 orphans)**: Significant disk space waste
-- **Info (>10 orphans)**: Cleanup recommended
-- **Repair**: Removes orphaned packages with `pacman -Rns`
-
-### Core Dump Accumulation
-- Checks `/var/lib/systemd/coredump` for crash dumps
-- Identifies dumps older than 30 days
-- **Warning (>1GB)**: Significant disk space consumed
-- **Info (>10 files, >5 old)**: Old dumps can be cleaned
-- **Repair**: Vacuums core dumps with `coredumpctl`
-
-### Time Synchronization
-- Checks for active NTP services (systemd-timesyncd, chronyd, ntpd)
-- **Warning**: No network time synchronization active
-- **Info**: Service available but not enabled
-- **Repair**: Enables systemd-timesyncd (safe, automatic)
-- Prevents clock drift that causes TLS and logging issues
-
-### Firewall Status
-- Detects networked machines (non-loopback interfaces up)
-- Checks for ufw, firewalld, nftables, or iptables rules
-- **Warning**: Online machine with no firewall detected
-- **Info**: Firewall installed but not active
-- **Guidance only**: Shows exact commands to enable (not auto-enabled for safety)
-
-### Backup Awareness
-- Looks for common backup tools (timeshift, borg, restic, rsnapshot)
-- Checks btrfs systems for snapshot capability
-- **Info only**: No automatic action
-- Suggests specific backup solutions with installation commands
-- Arch Wiki reference for backup strategies
+**Compatibility:**
+- Arch Linux only
+- x86_64 architecture
+- Systemd required
 
 ---
 
-Every issue comes with:
-- **Severity level**: Critical, Warning, or Info
-- **Plain English explanation**: What's wrong and why it matters
-- **Specific action**: Exact command to run
-- **Arch Wiki reference**: Direct link to official documentation
-- **Estimated impact**: What you'll gain (disk space, performance, etc.)
-- **Repair action**: Can be fixed automatically via `annactl repair`
+## Development
+
+**Build from source:**
+```bash
+git clone https://github.com/jjgarcianorway/anna-assistant
+cd anna-assistant
+cargo build --release
+```
+
+**Run tests:**
+```bash
+cargo test
+```
+
+**Contribute:**
+See `CONTRIBUTING.md` for guidelines.
 
 ---
 
-## Documentation
+## Roadmap
 
-- **[Product Vision](docs/PRODUCT_VISION.md)** - What Anna is and why
-- **[User Guide](docs/USER_GUIDE.md)** - Detailed usage flows and scenarios
-- **[Changelog](CHANGELOG.md)** - Version history and updates
+See [ROADMAP.md](./ROADMAP.md) for planned features and development priorities.
 
-For historical and internal documentation, see `docs/archive/`.
-
----
-
-## Philosophy
-
-> Anna is the knowledgeable sysadmin friend who silently watches your Arch machine, spots problems before they get bad, and either fixes them or tells you exactly what to do - with as little ceremony as possible.
-
-**Principles:**
-1. **Few commands, high value** - 80% of value from 3-4 commands
-2. **Two-second answer** - `annactl daily` tells you if you're OK
-3. **Plain English** - No internal jargon or phase numbers
-4. **Opinionated** - Clear recommendations based on Arch Wiki best practices
-
----
-
-## Contributing
-
-Anna follows a strict product guardrail:
-
-**Any new feature must answer:**
-1. What specific problem on the user's machine does it detect or fix?
-2. How does it appear to the user through `daily`, `status`, `repair`, or `init`?
-
-If you can't answer both, don't build it.
-
-See `docs/PRODUCT_VISION.md` for the full vision.
+Current focus:
+- Enhanced suggestion engine with Arch Wiki integration
+- Change logging and rollback infrastructure
+- Professional report generation
+- System degradation tracking
 
 ---
 
 ## License
 
-GPL-3.0-or-later
+MIT License - See [LICENSE](./LICENSE) for details.
 
 ---
 
-## Links
+## Support
 
-- **GitHub**: https://github.com/jjgarcianorway/anna-assistant
-- **Issues**: https://github.com/jjgarcianorway/anna-assistant/issues
-- **Releases**: https://github.com/jjgarcianorway/anna-assistant/releases
+**Issues:** https://github.com/jjgarcianorway/anna-assistant/issues
 
----
+**Documentation:** This README and the Arch Wiki links Anna provides
 
-**Stop worrying about your system. Let Anna watch it for you.**
+**Philosophy:** Anna is designed to be self-explanatory. If you need to read extensive docs, we've failed. Just ask Anna.

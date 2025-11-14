@@ -9,8 +9,8 @@ She continuously analyzes your machine - hardware, software, services, and confi
 ## Who is Anna for?
 
 - Individual Arch Linux users who want their system to "just work"
-- Admins managing a small fleet of workstations (1-10 machines)
-- Anyone who wants a knowledgeable sysadmin friend watching their back
+- Anyone who wants a knowledgeable sysadmin companion watching their back
+- People who prefer talking to their computer in natural language
 
 ## Core Responsibilities
 
