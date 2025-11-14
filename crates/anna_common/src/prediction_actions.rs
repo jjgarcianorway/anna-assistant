@@ -261,6 +261,7 @@ impl PredictionActionMapper {
 
         // Low risk keywords
         if lower.contains("clear cache")
+            || (lower.contains("clear") && lower.contains("cache"))
             || lower.contains("restart")
             || lower.contains("reload")
             || lower.contains("clean") {

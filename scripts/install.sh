@@ -37,9 +37,33 @@ echo -e "${GRAY}    Your Friendly Arch Linux System Administrator${RESET}"
 echo -e "${BOLD}${CYAN}====================================================${RESET}"
 echo
 
-# Brief intro
-echo -e "${GRAY}Anna monitors your Arch Linux system with health checks,${RESET}"
-echo -e "${GRAY}diagnostics, and recovery tools - all with Arch Wiki citations.${RESET}"
+# Get username for personalized greeting
+USERNAME=${SUDO_USER:-${USER}}
+
+# Warm greeting (Phase 5.1: Conversational UX)
+echo -e "${BOLD}Hello ${GREEN}${USERNAME}${RESET}${BOLD},${RESET}"
+echo
+echo "Thank you for giving me the chance to live on your computer 😉"
+echo
+echo "My name is Anna and my main goal is to be a bridge between"
+echo "the technical documentation and you, only for this machine:"
+echo "your hardware, software and how you actually use it."
+echo
+
+echo -e "${BOLD}${BLUE}How do I work?${RESET}"
+echo
+echo "- I watch your system locally."
+echo "- I compare what I see with best practices from the Arch Wiki."
+echo "- I suggest improvements, explain them in plain English,"
+echo "  and only change things after you approve them."
+echo
+
+echo -e "${BOLD}${BLUE}What about privacy?${RESET}"
+echo
+echo "- I do not send your data anywhere."
+echo "- I keep telemetry and notes on this machine only."
+echo "- I read the Arch Wiki and official documentation when needed."
+echo "- I never run commands behind your back."
 echo
 
 # Check if already installed
@@ -106,18 +130,22 @@ if [ -n "$RELEASE_NOTES" ]; then
 fi
 
 echo
-echo -e "${BOLD}What will be done:${RESET}"
-echo -e "  ${ARROW} Install ${CYAN}annad${RESET} and ${CYAN}annactl${RESET} to ${INSTALL_DIR}"
-echo -e "  ${ARROW} Install systemd service (${CYAN}annad.service${RESET})"
-echo -e "  ${ARROW} Enable and start the daemon"
-echo -e "  ${ARROW} Install shell completions (bash/zsh/fish)"
+echo -e "${BOLD}This is what I am doing now:${RESET}"
+echo -e "  ${ARROW} Installing binaries (${CYAN}annad${RESET} and ${CYAN}annactl${RESET}) to ${INSTALL_DIR}"
+echo -e "  ${ARROW} Setting up systemd service"
+echo -e "  ${ARROW} Verifying permissions and groups"
+echo -e "  ${ARROW} Installing shell completions"
 echo
 
-# Confirmation
-read -p "$(echo -e ${BOLD}${GREEN}Continue with installation? [y/N]:${RESET} )" -r < /dev/tty
+# Warm confirmation prompt
+echo -e "${BOLD}Do you want me to continue with the installation and setup? [y/N]:${RESET} "
+read -r REPLY < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${GRAY}Installation cancelled${RESET}"
+    echo
+    echo -e "${GRAY}No problem! If you change your mind, just run this installer again.${RESET}"
+    echo -e "${GRAY}Have a great day, ${USERNAME}!${RESET}"
+    echo
     exit 0
 fi
 
@@ -225,11 +253,18 @@ echo -e "${BOLD}${GREEN}====================================================${RE
 echo -e "${BOLD}${GREEN}  ✓ Installation Complete! ${TAG}${RESET}"
 echo -e "${BOLD}${GREEN}====================================================${RESET}"
 echo
-echo -e "${BOLD}${CYAN}Quick Start:${RESET}"
-echo -e "  ${CYAN}annactl status${RESET}  ${GRAY}# Check daemon and system state${RESET}"
-echo -e "  ${CYAN}annactl health${RESET}  ${GRAY}# Run system health checks${RESET}"
-echo -e "  ${CYAN}annactl doctor${RESET}  ${GRAY}# Get diagnostic report${RESET}"
-echo -e "  ${CYAN}annactl help${RESET}    ${GRAY}# Show available commands${RESET}"
+echo -e "${BOLD}${CYAN}Let's Get Started:${RESET}"
+echo
+echo "Just run:"
+echo -e "  ${CYAN}annactl${RESET}"
+echo
+echo "Then you can talk to me naturally, for example:"
+echo -e "  ${GRAY}\"Anna, can you tell me my average CPU usage in the last 3 days\"${RESET}"
+echo -e "  ${GRAY}\"Anna, my computer feels slower than usual, did you see any reason\"${RESET}"
+echo -e "  ${GRAY}\"How are you, any problems with my system\"${RESET}"
+echo -e "  ${GRAY}\"What do you store about me\"${RESET}"
+echo
+echo -e "${BOLD}I'm ready to help you keep this machine healthy!${RESET}"
 echo
 echo -e "${GRAY}${ARROW} Full docs: ${CYAN}https://github.com/${REPO}${RESET}"
 echo

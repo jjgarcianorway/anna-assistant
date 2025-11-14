@@ -6,7 +6,7 @@ use chrono::{DateTime, Duration, Utc};
 use rusqlite::Connection;
 use tracing::{debug, info};
 
-use crate::caretaker_brain::{CaretakerIssue, IssueSeverity};
+use crate::caretaker_brain::{CaretakerIssue, IssueSeverity, IssueVisibility};
 
 /// Issue tracking state for noise control
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl Default for NoiseControlConfig {
 
 /// Update issue tracking state in database
 pub fn update_issue_state(conn: &Connection, issue: &CaretakerIssue) -> Result<()> {
-    let issue_key = issue_key_from_title(&issue.title);
+    let issue_key = issue.issue_key();
     let severity_str = severity_to_string(&issue.severity);
     let now = Utc::now();
 
@@ -203,6 +203,90 @@ pub fn should_deemphasize(
     }
 }
 
+/// Apply visibility hints to issues based on noise control rules (Phase 4.7)
+///
+/// This function updates issue tracking and sets visibility hints on each issue.
+/// Unlike filter_issues_by_noise_control, it doesn't split issues - it sets visibility
+/// so CLI commands can decide how to display them.
+pub fn apply_visibility_hints(
+    conn: &Connection,
+    mut issues: Vec<CaretakerIssue>,
+    config: &NoiseControlConfig,
+) -> Result<Vec<CaretakerIssue>> {
+    for issue in &mut issues {
+        let issue_key = issue.issue_key();
+
+        // Update tracking state for this issue
+        update_issue_state(conn, issue)?;
+
+        // Get current state
+        let state = get_issue_state(conn, &issue_key)?;
+
+        // Determine visibility based on state and config
+        let visibility = if let Some(state) = state {
+            determine_visibility(&state, config)
+        } else {
+            // No state yet (first run), show normally
+            IssueVisibility::VisibleNormal
+        };
+
+        // Set visibility on the issue
+        issue.visibility = visibility;
+
+        // Mark as shown (we'll increment this for all issues)
+        // CLI commands can call mark_issue_shown separately if needed
+    }
+
+    Ok(issues)
+}
+
+/// Determine visibility hint based on issue state and config
+fn determine_visibility(state: &IssueState, config: &NoiseControlConfig) -> IssueVisibility {
+    let now = Utc::now();
+
+    // Critical issues are always normal visibility
+    if state.severity == IssueSeverity::Critical && config.never_deemphasize_critical {
+        return IssueVisibility::VisibleNormal;
+    }
+
+    // If successfully repaired, de-emphasize
+    if let Some(true) = state.repair_success {
+        return IssueVisibility::Deemphasized;
+    }
+
+    // Check if issue has been shown recently
+    if let Some(last_shown) = state.last_shown {
+        let days_since_shown = (now - last_shown).num_days();
+
+        match state.severity {
+            IssueSeverity::Critical => IssueVisibility::VisibleNormal, // Never de-emphasize Critical
+            IssueSeverity::Warning => {
+                // Warning: mark as low priority if shown repeatedly
+                if days_since_shown < config.warning_deemphasis_days && state.times_shown > 3 {
+                    IssueVisibility::VisibleButLowPriority
+                } else if days_since_shown >= config.warning_deemphasis_days {
+                    IssueVisibility::VisibleButLowPriority
+                } else {
+                    IssueVisibility::VisibleNormal
+                }
+            }
+            IssueSeverity::Info => {
+                // Info: de-emphasize after threshold if shown repeatedly
+                if days_since_shown < config.info_deemphasis_days && state.times_shown > 2 {
+                    IssueVisibility::Deemphasized
+                } else if days_since_shown >= config.info_deemphasis_days {
+                    IssueVisibility::Deemphasized
+                } else {
+                    IssueVisibility::VisibleNormal
+                }
+            }
+        }
+    } else {
+        // Never shown before
+        IssueVisibility::VisibleNormal
+    }
+}
+
 /// Filter issues based on noise control rules
 pub fn filter_issues_by_noise_control(
     conn: &Connection,
@@ -213,7 +297,7 @@ pub fn filter_issues_by_noise_control(
     let mut suppressed_issues = Vec::new();
 
     for issue in issues {
-        let issue_key = issue_key_from_title(&issue.title);
+        let issue_key = issue.issue_key();
 
         // Update tracking state for this issue
         update_issue_state(conn, &issue)?;
@@ -279,6 +363,194 @@ fn parse_datetime(s: &str) -> DateTime<Utc> {
     DateTime::parse_from_rfc3339(s)
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(|_| Utc::now())
+}
+
+// ============================================================================
+// Phase 4.9: Issue Decisions - User Control Layer
+// ============================================================================
+
+/// Decision type for user-controlled issue visibility
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DecisionType {
+    /// User has acknowledged the issue and doesn't want to see it in daily
+    Acknowledged,
+    /// User has snoozed the issue until a specific date
+    Snoozed,
+}
+
+impl DecisionType {
+    fn to_string(&self) -> &'static str {
+        match self {
+            DecisionType::Acknowledged => "acknowledged",
+            DecisionType::Snoozed => "snoozed",
+        }
+    }
+
+    fn from_string(s: &str) -> Option<Self> {
+        match s {
+            "acknowledged" => Some(DecisionType::Acknowledged),
+            "snoozed" => Some(DecisionType::Snoozed),
+            _ => None,
+        }
+    }
+}
+
+/// User decision about an issue
+#[derive(Debug, Clone)]
+pub struct IssueDecision {
+    pub decision_type: DecisionType,
+    pub snooze_until: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Set issue as acknowledged by user
+///
+/// Acknowledged issues are de-emphasized in daily unless they become Critical.
+/// They remain visible in status with [acknowledged] marker.
+pub fn set_issue_acknowledged(conn: &Connection, issue_key: &str) -> Result<()> {
+    let now = Utc::now();
+
+    conn.execute(
+        "INSERT INTO issue_decisions (issue_key, decision_type, snooze_until, created_at, updated_at)
+         VALUES (?1, ?2, NULL, ?3, ?3)
+         ON CONFLICT(issue_key) DO UPDATE SET
+             decision_type = ?2,
+             snooze_until = NULL,
+             updated_at = ?3",
+        rusqlite::params![issue_key, DecisionType::Acknowledged.to_string(), now.to_rfc3339()],
+    )
+    .context("Failed to set issue acknowledged")?;
+
+    info!("Issue acknowledged: {}", issue_key);
+    Ok(())
+}
+
+/// Set issue as snoozed until a specific date
+///
+/// Snoozed issues are de-emphasized in daily until the snooze date passes,
+/// unless they become Critical. They remain visible in status with [snoozed until DATE] marker.
+pub fn set_issue_snoozed(conn: &Connection, issue_key: &str, until: DateTime<Utc>) -> Result<()> {
+    let now = Utc::now();
+
+    conn.execute(
+        "INSERT INTO issue_decisions (issue_key, decision_type, snooze_until, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?4)
+         ON CONFLICT(issue_key) DO UPDATE SET
+             decision_type = ?2,
+             snooze_until = ?3,
+             updated_at = ?4",
+        rusqlite::params![
+            issue_key,
+            DecisionType::Snoozed.to_string(),
+            until.to_rfc3339(),
+            now.to_rfc3339()
+        ],
+    )
+    .context("Failed to set issue snoozed")?;
+
+    info!("Issue snoozed until {}: {}", until, issue_key);
+    Ok(())
+}
+
+/// Clear user decision for an issue
+///
+/// Removes any acknowledgment or snooze, allowing normal noise control rules to apply.
+pub fn clear_issue_decision(conn: &Connection, issue_key: &str) -> Result<()> {
+    conn.execute(
+        "DELETE FROM issue_decisions WHERE issue_key = ?1",
+        rusqlite::params![issue_key],
+    )
+    .context("Failed to clear issue decision")?;
+
+    info!("Cleared decision for issue: {}", issue_key);
+    Ok(())
+}
+
+/// Get user decision for an issue if one exists
+pub fn get_issue_decision(conn: &Connection, issue_key: &str) -> Result<Option<IssueDecision>> {
+    let mut stmt = conn.prepare(
+        "SELECT decision_type, snooze_until, created_at, updated_at
+         FROM issue_decisions
+         WHERE issue_key = ?1",
+    )?;
+
+    let result = stmt.query_row([issue_key], |row| {
+        let decision_type_str: String = row.get(0)?;
+        let snooze_until_str: Option<String> = row.get(1)?;
+        let created_at_str: String = row.get(2)?;
+        let updated_at_str: String = row.get(3)?;
+
+        Ok(IssueDecision {
+            decision_type: DecisionType::from_string(&decision_type_str)
+                .unwrap_or(DecisionType::Acknowledged),
+            snooze_until: snooze_until_str.map(|s| parse_datetime(&s)),
+            created_at: parse_datetime(&created_at_str),
+            updated_at: parse_datetime(&updated_at_str),
+        })
+    });
+
+    match result {
+        Ok(decision) => Ok(Some(decision)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Apply issue decisions on top of noise control visibility
+///
+/// This function should be called after apply_visibility_hints to layer user decisions.
+/// Critical issues always override decisions and remain visible.
+pub fn apply_issue_decisions(
+    conn: &Connection,
+    mut issues: Vec<CaretakerIssue>,
+) -> Result<Vec<CaretakerIssue>> {
+    let now = Utc::now();
+
+    for issue in &mut issues {
+        let issue_key = issue.issue_key();
+
+        // Get user decision if any
+        if let Some(decision) = get_issue_decision(conn, &issue_key)? {
+            // Store decision info for display (always, even for Critical)
+            match decision.decision_type {
+                DecisionType::Acknowledged => {
+                    issue.decision_info = Some(("acknowledged".to_string(), None));
+                }
+                DecisionType::Snoozed => {
+                    if let Some(until) = decision.snooze_until {
+                        let date_str = until.format("%Y-%m-%d").to_string();
+                        issue.decision_info = Some(("snoozed".to_string(), Some(date_str)));
+                    }
+                }
+            }
+
+            // Critical issues always override decisions (don't change visibility)
+            if issue.severity == IssueSeverity::Critical {
+                continue;
+            }
+
+            // Apply visibility changes for non-critical issues
+            match decision.decision_type {
+                DecisionType::Acknowledged => {
+                    // De-emphasize acknowledged issues
+                    issue.visibility = IssueVisibility::Deemphasized;
+                }
+                DecisionType::Snoozed => {
+                    // Check if snooze period has expired
+                    if let Some(until) = decision.snooze_until {
+                        if now < until {
+                            // Still snoozed, de-emphasize
+                            issue.visibility = IssueVisibility::Deemphasized;
+                        }
+                        // If expired, normal noise control rules apply (keep existing visibility)
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(issues)
 }
 
 #[cfg(test)]
@@ -371,10 +643,11 @@ mod tests {
             "Enable systemd-timesyncd"
         ).with_repair_action("time-sync-enable");
 
+        let issue_key = issue.issue_key();
         update_issue_state(&conn, &issue).unwrap();
-        mark_issue_repaired(&conn, "time-sync-disabled", true).unwrap();
+        mark_issue_repaired(&conn, &issue_key, true).unwrap();
 
-        let state = get_issue_state(&conn, "time-sync-disabled")
+        let state = get_issue_state(&conn, &issue_key)
             .unwrap()
             .unwrap();
         assert_eq!(state.repair_success, Some(true));

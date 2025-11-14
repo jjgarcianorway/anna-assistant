@@ -253,18 +253,27 @@ fn install_binaries(annactl_src: &Path, annad_src: &Path) -> Result<()> {
     let annactl_dest = install_dir.join("annactl");
     let annad_dest = install_dir.join("annad");
 
-    // Set executable permissions
+    // Set executable permissions on source files
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = std::fs::Permissions::from_mode(0o755);
+        let perms = std::fs::Permissions::from_mode(0o755);
         std::fs::set_permissions(annactl_src, perms.clone())?;
         std::fs::set_permissions(annad_src, perms)?;
     }
 
-    // Copy new binaries
-    std::fs::copy(annactl_src, &annactl_dest)?;
-    std::fs::copy(annad_src, &annad_dest)?;
+    // Use atomic rename strategy to avoid "Text file busy" error
+    // Step 1: Copy to temporary files
+    let annactl_tmp = install_dir.join(".annactl.new");
+    let annad_tmp = install_dir.join(".annad.new");
+
+    std::fs::copy(annactl_src, &annactl_tmp)?;
+    std::fs::copy(annad_src, &annad_tmp)?;
+
+    // Step 2: Atomically rename temporary files to final destination
+    // This works even if the current binary is running
+    std::fs::rename(&annactl_tmp, &annactl_dest)?;
+    std::fs::rename(&annad_tmp, &annad_dest)?;
 
     Ok(())
 }

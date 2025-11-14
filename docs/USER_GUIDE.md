@@ -1,7 +1,7 @@
 # Anna Assistant User Guide
 
-**Version**: 4.5.0-beta.1
-**Focus**: Desktop & Safety Essentials - Complete System Caretaker
+**Version**: 5.2.0-beta.1
+**Focus**: Storage & Network Reliability (Don't Lose Data, Don't Break Network)
 **Audience**: End users, system administrators
 
 ---
@@ -159,6 +159,553 @@ Advanced Commands (6 available)
 - **Risk**: Low but requires technical knowledge
 - **Examples**: `sentinel`, `config`, `conscience`
 
+---
+
+## Machine Profiles and Adaptive Behavior
+
+### Profile Detection (Phase 4.6)
+
+Anna automatically detects what kind of machine she's running on and adapts her behavior accordingly:
+
+**Laptop Profile**
+- Detected by: Battery presence, AC adapter, laptop-specific hardware
+- Focus areas: Battery life, power management (TLP), suspend/resume, mobile security (firewall)
+- Behavior: More insistent about TLP, watchful of battery-draining issues
+
+**Desktop Profile**
+- Detected by: No battery, desktop-class components, gaming peripherals
+- Focus areas: GPU drivers, graphics performance, moderate desktop concerns
+- Behavior: Balanced approach between server and laptop
+
+**Server-Like Profile**
+- Detected by: No display server, no graphical packages, server-oriented services
+- Focus areas: Core system health, services, disk space, updates
+- Behavior: Quiet about desktop-specific concerns (GPU, TLP, etc.)
+
+You can see your detected profile in command output:
+```bash
+$ annactl daily
+Daily System Check (Laptop) - 2025-01-15 09:30
+...
+
+$ annactl status
+System Status (Server-Like) - healthy
+...
+```
+
+### Noise Control (Phase 4.7)
+
+Anna learns from your behavior and adapts over time to avoid nagging:
+
+**How It Works**
+- **First 2-3 times**: Low-priority suggestions (Info hints) are shown in `annactl daily`
+- **After that**: If you ignore a suggestion, it fades into the background
+- **Critical issues**: Always shown, never de-emphasized
+- **Full visibility**: All issues remain visible in `annactl status`
+
+**Example: Time Sync Suggestion**
+
+```bash
+# First time
+$ annactl daily
+Daily System Check (Desktop) - 2025-01-15 09:30
+...
+ℹ️  Time synchronization not enabled
+    systemd-timesyncd is available but not enabled...
+    💡 Run 'sudo systemctl enable --now systemd-timesyncd.service'
+
+# After showing 2-3 times without being fixed
+$ annactl daily
+Daily System Check (Desktop) - 2025-01-15 09:35
+...
+✅ System is stable!
+💡 1 low-priority hint hidden (see 'annactl status' for details)
+
+# Still available in status
+$ annactl status
+System Status (Desktop) - healthy
+...
+ℹ️  Recommendations:
+  • Time synchronization not enabled
+    [full details shown]
+```
+
+**Benefits**
+- Calm, predictable experience - no nagging
+- Critical issues always get attention
+- You stay aware of long-term recommendations
+- Nothing is hidden - just de-emphasized in daily view
+
+### User Control (Phase 4.9)
+
+**The Decision Layer** - Beyond automatic noise control, you have explicit control over what Anna tells you about.
+
+Anna's visibility system has three layers:
+1. **Automatic noise control**: Low-priority hints naturally fade after 2-3 viewings
+2. **User decisions**: You explicitly acknowledge or snooze specific issues
+3. **Display filtering**: `daily` shows only what needs attention, `status` shows everything
+
+**When to Use User Control**
+
+- **Acknowledge**: "I know about this, stop showing it in daily" (e.g., firewall on trusted network)
+- **Snooze**: "Hide this for 30 days, I'll deal with it later" (e.g., orphaned packages)
+- **Reset**: "Return to normal behavior" (reverts acknowledge/snooze)
+
+**The `annactl issues` Command**
+
+List all issues with their decision status:
+
+```bash
+$ annactl issues
+
+📋 Current Issues and Decisions:
+
+Severity    Key                            Decision             Title
+----------------------------------------------------------------------------------------------------
+⚠️  WARNING firewall-inactive               acknowledged         No active firewall detected
+ℹ️  INFO    orphaned-packages              snoozed until 2025-12-15  63 orphaned packages found
+⚠️  WARNING tlp-not-enabled                 none                 Laptop detected but TLP not en...
+
+💡 Tip: Use 'annactl issues --acknowledge <key>' to acknowledge an issue
+   Or 'annactl issues --snooze <key> --days 30' to snooze it
+```
+
+**Acknowledge an Issue** - Keep in status, hide from daily:
+
+```bash
+$ annactl issues --acknowledge firewall-inactive
+
+✅ Issue 'firewall-inactive' acknowledged
+   It will no longer appear in daily, but remains visible in status.
+```
+
+**Behavior after acknowledging:**
+- ❌ Won't appear in `annactl daily` output
+- ✅ Remains visible in `annactl status` with `[acknowledged]` marker
+- ✅ Persists across reboots and Anna updates
+- ✅ Applies even if issue isn't currently present
+
+**Example Use Case:** You decide not to enable a firewall on your trusted home network laptop. Acknowledging the firewall warning silences the daily nag while keeping you aware in detailed status.
+
+**Snooze an Issue** - Temporarily hide for N days:
+
+```bash
+$ annactl issues --snooze orphaned-packages --days 30
+
+⏰ Issue 'orphaned-packages' snoozed for 30 days (until 2025-12-15)
+   It will not appear in daily until that date.
+```
+
+**Behavior after snoozing:**
+- ❌ Won't appear in `annactl daily` until snooze expires
+- ❌ Won't appear in `annactl status` until snooze expires
+- ✅ After expiration, returns to normal visibility
+- ✅ Can be extended by snoozing again
+
+**Example Use Case:** You have 63 orphaned packages but want to deal with them in one cleanup session next month. Snoozing for 30 days hides the issue until you're ready.
+
+**Reset a Decision** - Return to normal behavior:
+
+```bash
+$ annactl issues --reset firewall-inactive
+
+🔄 Decision reset for issue 'firewall-inactive'
+   Normal noise control rules will apply again.
+```
+
+**After resetting:**
+- Issue returns to normal visibility behavior
+- Noise control rules apply (first 2-3 times shown, then de-emphasized if ignored)
+- Can be acknowledged or snoozed again later
+
+**Decision Persistence**
+
+- Decisions are stored in `/var/lib/anna/context.db`
+- Survive system reboots and Anna upgrades
+- Apply by issue key, not by instance (works even if issue not currently present)
+- Can be inspected with `annactl issues` list command
+
+**Visibility Summary by Command**
+
+| Command | Shows Acknowledged? | Shows Snoozed? | Shows Deemphasized? |
+|---------|-------------------|----------------|---------------------|
+| `daily` | ❌ No | ❌ No | ❌ No (says "X hidden") |
+| `status` | ✅ Yes (marked) | ❌ No | ✅ Yes (full list) |
+| `issues` | ✅ Yes | ✅ Yes | ✅ Yes |
+
+**Real-World Scenario: Firewall on Trusted Network**
+
+```bash
+# First time - Anna suggests firewall
+$ annactl daily
+...
+⚠️  No active firewall detected
+    This machine appears to be online with no active firewall...
+
+# You decide: trusted home network, don't need firewall
+# Acknowledge the issue
+$ annactl issues --acknowledge firewall-inactive
+
+# Next time - no more daily nagging
+$ annactl daily
+✅ System is stable!
+
+# But still visible in detailed status with marker
+$ annactl status
+...
+⚠️  Warnings:
+  • No active firewall detected [acknowledged]
+    ...
+```
+
+**JSON Output for Scripts**
+
+Get machine-readable output for automation:
+
+```bash
+# Daily with visible issues only (compact)
+$ annactl daily --json
+{
+  "profile": "Laptop",
+  "timestamp": "2025-11-13T09:30:00Z",
+  "health": {
+    "ok": 4,
+    "warnings": 1,
+    "failures": 0
+  },
+  "disk": {
+    "used_percent": 87.2,
+    "total_bytes": 512000000000,
+    "available_bytes": 65536000000
+  },
+  "issues": [
+    {
+      "key": "disk-space-warning",
+      "title": "Disk 87% full - action needed soon",
+      "severity": "warning",
+      "visibility": "normal",
+      "category": "disk_space",
+      "summary": "Your disk is getting full...",
+      "recommended_action": "Run 'sudo annactl repair'",
+      "repair_action_id": "cleanup-disk-space",
+      "reference": "https://wiki.archlinux.org/title/System_maintenance",
+      "impact": "Frees 30GB",
+      "decision": {
+        "kind": "none",
+        "snoozed_until": null
+      }
+    }
+  ],
+  "deemphasized_issue_count": 2
+}
+
+# Status with ALL issues including deemphasized (comprehensive)
+$ annactl status --json
+{
+  "profile": "Laptop",
+  "timestamp": "2025-11-13T09:30:00Z",
+  "health": { ... },
+  "disk": { ... },
+  "issues": [
+    {
+      "key": "firewall-inactive",
+      "title": "No active firewall detected",
+      "severity": "warning",
+      "visibility": "normal",
+      "decision": {
+        "kind": "acknowledged",
+        "snoozed_until": null
+      }
+      ...
+    },
+    {
+      "key": "orphaned-packages",
+      "severity": "info",
+      "visibility": "deemphasized",
+      "decision": {
+        "kind": "snoozed",
+        "snoozed_until": "2025-12-15"
+      }
+      ...
+    }
+  ]
+}
+```
+
+**JSON Fields Explained:**
+- `key`: Stable identifier for tracking issues
+- `severity`: `"critical"`, `"warning"`, or `"info"`
+- `visibility`: `"normal"`, `"low_priority"`, or `"deemphasized"`
+- `category`: Issue category (e.g., `"disk_space"`, `"pacman_locks"`)
+- `decision.kind`: `"none"`, `"acknowledged"`, or `"snoozed"`
+- `decision.snoozed_until`: ISO 8601 date if snoozed, null otherwise
+
+**Integration Examples:**
+
+Monitor specific issues:
+```bash
+# Check if critical issues exist
+critical_count=$(annactl daily --json | jq '[.issues[] | select(.severity=="critical")] | length')
+if [ "$critical_count" -gt 0 ]; then
+  notify-send "Anna Alert" "$critical_count critical issues detected"
+fi
+```
+
+Track disk space trends:
+```bash
+# Log disk usage daily
+annactl daily --json | jq -r '"\(.timestamp),\(.disk.used_percent)"' >> /var/log/disk-usage.csv
+```
+
+**Decision Layer Philosophy**
+
+Anna's three-layer system creates calm, predictable behavior:
+
+1. **First layer (automatic)**: Noise control learns what you ignore
+2. **Second layer (explicit)**: You tell Anna what to hide
+3. **Third layer (display)**: Commands show appropriate detail level
+
+This means:
+- **No nagging**: Low-priority items fade naturally
+- **No surprises**: You control what you see
+- **No hiding**: Everything remains accessible in `status`
+
+### Phase 5.0: Storage & Network Reliability
+
+**The "Don't Lose My Data, Don't Break My Network" Release**
+
+Anna now monitors for early warning signs of disk failure and network issues - the kind of problems that escalate quickly if ignored.
+
+**Three New Detector Categories (15→18 Total)**
+
+**16. Disk SMART Health** (`check_disk_smart_health()` in `caretaker_brain.rs`):
+
+Early warning system for failing disks using smartmontools.
+
+**What Anna Checks:**
+- Runs `smartctl -H /dev/sdX` on all non-removable disks and NVMe devices
+- Detects SMART health status: PASSED, PREFAIL, FAILING, FAILED
+- If smartmontools not installed: suggests installation (Info severity)
+
+**Severity Levels:**
+- **Critical**: SMART health is FAILING or FAILED - disk may fail imminently
+- **Warning**: SMART health shows PREFAIL or warnings - early warning signs
+- **Info**: smartmontools not installed but disks are present
+
+**Repair Action:**
+- **Guidance only** - No auto-repair (too dangerous)
+- `disk-smart-guidance`: Provides structured backup and replacement guidance
+- Explicitly warns against running fsck or repartition on failing disks
+- Recommends: immediate backup, detailed SMART review, extended tests, disk replacement
+
+**Why It Matters:**
+Disk failure is often preceded by SMART warnings. Catching these early gives you time to back up data and plan replacement before catastrophic failure.
+
+**Example:**
+```bash
+$ annactl daily
+🔴 Disk SMART health failing (sda)
+   SMART health check reports that /dev/sda is FAILING. This disk may fail soon and cause data loss.
+   💡 Action: Back up important data immediately and plan disk replacement
+   📊 Impact: Risk of data loss; immediate backup recommended
+
+$ sudo annactl repair disk-smart-guidance
+⚠️  SMART health issues detected:
+
+1. Back up important data IMMEDIATELY
+   - Your disk may fail at any time
+   - Use rsync, borg, or similar tools
+
+2. Review detailed SMART data:
+   sudo smartctl -a /dev/sda
+
+3. Run extended SMART test:
+   sudo smartctl -t long /dev/sda
+
+⚠️  DO NOT RUN fsck or repartition on a failing disk
+```
+
+**17. Filesystem / Kernel Storage Errors** (`check_filesystem_errors()` in `caretaker_brain.rs`):
+
+Detects repeated filesystem errors in kernel logs that suggest disk or filesystem corruption.
+
+**What Anna Checks:**
+- Scans `journalctl -k -b` (kernel messages, this boot only)
+- Looks for: "EXT4-fs error", "BTRFS error", "XFS error", "I/O error" on block devices
+- Counts error frequency and collects sample messages
+
+**Severity Levels:**
+- **Critical**: 10+ serious filesystem errors this boot
+- **Warning**: 3-9 filesystem errors this boot
+- Silent if no significant errors (not Info-level)
+
+**Repair Action:**
+- **Guidance only** - Never runs fsck automatically (data loss risk)
+- `filesystem-errors-guidance`: Provides filesystem-specific repair instructions
+- Recommends: backup first, check SMART health, schedule fsck from live environment
+- Different guidance for EXT4 (e2fsck), BTRFS (scrub), XFS (xfs_repair)
+
+**Why It Matters:**
+Filesystem errors in kernel logs often indicate failing disks or corruption. Early detection prevents data loss by prompting immediate backup and diagnostic actions.
+
+**Example:**
+```bash
+$ annactl status
+⚠️  Filesystem errors detected (12 errors)
+   Kernel reported 12 filesystem or I/O errors this boot. This may indicate failing disk or filesystem corruption.
+   💡 Action: Check backups, avoid heavy writes, and schedule a filesystem check from a live environment
+
+$ sudo annactl repair filesystem-errors-guidance
+⚠️  Filesystem errors detected in kernel log:
+
+1. Back up important data IMMEDIATELY
+2. Review kernel errors:
+   journalctl -k -b | grep -i 'error\|fail'
+
+3. Check disk SMART health:
+   sudo smartctl -a /dev/sdX
+
+4. Schedule filesystem check from live environment:
+   For EXT4:
+   - Boot from Arch ISO or live USB
+   - sudo e2fsck -f /dev/sdX
+
+⚠️  DO NOT run filesystem checks on mounted filesystems
+   Always use a live environment or unmount first
+```
+
+**18. Network & DNS Health** (`check_network_health()` in `caretaker_brain.rs`):
+
+Detects "desktop feels broken" network issues: no connectivity or broken DNS.
+
+**What Anna Checks:**
+- Checks if any network interface has an IP address (excluding loopback)
+- Tests connectivity with `ping -c1 -W2 archlinux.org` (DNS + connectivity)
+- If DNS fails: tests direct IP ping to `1.1.1.1` to differentiate DNS vs connectivity
+
+**Profile Behavior:**
+- **Laptop/Desktop**: Full checks with Critical/Warning severity
+- **Server-Like**: Skipped (servers typically have dedicated network monitoring)
+
+**Severity Levels:**
+- **Critical**: No IP addresses assigned OR no external connectivity to IP
+- **Warning**: IP connectivity works but DNS resolution fails
+
+**Repair Action:**
+- **Conservative service restart only** - Never edits config files
+- `network-health-repair`: Detects NetworkManager vs systemd-networkd, restarts if appropriate
+- If no recognized network manager: prints guidance for manual troubleshooting
+- Dry-run mode safe to test
+
+**Why It Matters:**
+Network issues on desktops/laptops often manifest as "nothing works" - catching DNS vs connectivity problems helps users troubleshoot effectively.
+
+**Example:**
+```bash
+$ annactl daily
+⚠️  DNS resolution failing
+   Network connectivity works but DNS resolution is broken. Most Internet services will fail.
+   💡 Action: Check /etc/resolv.conf and restart network services: 'sudo systemctl restart NetworkManager'
+
+$ sudo annactl repair network-health-repair
+✅ network-health-repair: Restarted NetworkManager
+
+# Now DNS should work again
+$ ping archlinux.org
+PING archlinux.org (95.217.163.246) 56(84) bytes of data.
+```
+
+**Phase 5.0 Integration**
+
+All three detectors integrate seamlessly with existing Anna systems:
+
+**Profile-Aware:**
+- SMART & filesystem errors: All profiles
+- Network health: Desktop/Laptop only (Server-Like skipped)
+
+**Noise Control:**
+- SMART Info (install suggestion): Can be de-emphasized after 2-3 viewings
+- SMART Critical/Warning: Always visible (too important to hide)
+- Filesystem Critical: Always visible
+- Network Critical/Warning: Always visible
+
+**User Decisions:**
+- Can acknowledge SMART Info to hide daily install nagging
+- **Cannot** suppress Critical issues (SMART failing, filesystem errors, network down)
+- Snooze not recommended for Critical issues
+
+**JSON Output:**
+All issues appear in `annactl daily --json` and `annactl status --json` with proper:
+- `category`: "disk_smart_health", "filesystem_errors", "network_health"
+- `severity`: "critical", "warning", or "info"
+- `visibility`: Always "normal" for Critical issues
+- `repair_action_id`: "disk-smart-guidance", "filesystem-errors-guidance", "network-health-repair"
+
+**Safety Philosophy**
+
+Phase 5.0 maintains Anna's "don't make things worse" principle:
+
+**Storage Detectors (SMART, Filesystem):**
+- **Guidance only** - Never run destructive operations
+- No auto-fsck, no repartitioning, no filesystem modifications
+- Clear warnings about when operations are safe vs dangerous
+- Emphasis on backup first, then diagnostics
+
+**Network Detector:**
+- **Service restart only** - Never edit config files
+- Detects active network manager before acting
+- Dry-run mode available for safety
+- Falls back to manual guidance if uncertain
+
+**Real-World Scenario: Failing Disk**
+
+```bash
+# Morning: Anna detects early SMART warning
+$ annactl daily
+⚠️  Disk SMART health warning (sda)
+   SMART health check reports warnings for /dev/sda. The disk may be developing problems.
+
+# User acknowledges but starts backup immediately
+$ rsync -av /home/user/ /mnt/backup/
+
+# Days later: Disk condition worsens
+$ annactl daily
+🔴 Disk SMART health failing (sda)
+🔴 Filesystem errors detected (15 errors)
+
+   Critical issues detected - run 'sudo annactl repair' now
+
+# User gets detailed guidance
+$ sudo annactl repair disk-smart-guidance
+$ sudo annactl repair filesystem-errors-guidance
+
+# Result: User backs up data, orders replacement disk, avoids catastrophic data loss
+```
+
+**Detector Count: 18 Categories Total**
+
+Anna now monitors:
+1. Disk space (15 detectors from Phases 0-4.8)
+2. Failed services
+3. Pacman locks
+4. Laptop power (TLP)
+5. GPU drivers
+6. Journal errors
+7. Zombie processes
+8. Orphaned packages
+9. Core dumps
+10. Time sync
+11. Firewall status
+12. Backup awareness
+13. User services (Desktop/Laptop)
+14. Broken autostart (Desktop/Laptop)
+15. Heavy cache/trash
+16. **Disk SMART health** (Phase 5.0)
+17. **Filesystem errors** (Phase 5.0)
+18. **Network & DNS health** (Phase 5.0, Desktop/Laptop)
+
+---
+
 ## Common Tasks
 
 ### Checking System Status
@@ -219,6 +766,312 @@ Packages to upgrade:
 # Actually perform the update (requires root)
 $ sudo annactl update
 ```
+
+### Repairing System Issues
+
+Anna can automatically fix many common system issues, with strong safety guarantees:
+
+#### Preview Before Acting
+
+Always preview repairs before executing them:
+
+```bash
+# See exactly what Anna would do, without making any changes
+$ sudo annactl repair --dry-run
+
+════════════════════════════════════════════════════════════
+🔧 SYSTEM REPAIR (DRY RUN)
+════════════════════════════════════════════════════════════
+
+Anna would attempt to fix detected issues automatically.
+Only low-risk actions would be performed.
+
+⚠️  This is a DRY RUN - no changes will be made!
+
+📋 PLANNED REPAIRS
+
+✅ disk-space
+  Action: cleanup_disk_space
+  Would run: paccache -rk1
+  Impact: Would free ~12.4GB from package cache
+  Risk: ✅ Safe (keeps latest package version)
+
+✅ failed-service: bluetooth.service
+  Action: restart_service
+  Would run: systemctl restart bluetooth.service
+  Impact: Would restart bluetooth service
+  Risk: ⚠️  Low (service restart only)
+
+────────────────────────────────────────────────────────────
+Summary: 2 actions planned, 0 blocked
+```
+
+#### Execute Repairs
+
+After reviewing the dry-run output:
+
+```bash
+# Actually perform the repairs
+$ sudo annactl repair
+
+════════════════════════════════════════════════════════════
+🔧 SYSTEM REPAIR
+════════════════════════════════════════════════════════════
+
+Anna will attempt to fix detected issues automatically.
+Only low-risk actions will be performed.
+
+⚠️  Actions may modify system state!
+
+Proceed with repair? [y/N]: y
+
+🔧 EXECUTING REPAIRS
+
+✅ disk-space
+  Action: cleanup_disk_space
+  Details: Installed pacman-contrib; paccache -rk1: removed 847 packages (12.4GB)
+  Source: [archwiki:System_maintenance#Clean_the_filesystem]
+
+✅ failed-service: bluetooth.service
+  Action: restart_service
+  Details: systemctl restart bluetooth.service: succeeded
+  Source: [archwiki:Systemd#Using_units]
+
+────────────────────────────────────────────────────────────
+Summary: 2 succeeded, 0 failed
+
+All repairs logged to context database.
+Run 'annactl repairs' to view full history.
+```
+
+#### View Repair History
+
+Anna maintains a complete history of all repair actions for transparency:
+
+```bash
+# Show recent repairs (requires --help --all to discover)
+$ annactl repairs
+
+════════════════════════════════════════════════════════════
+🔧 REPAIR HISTORY
+════════════════════════════════════════════════════════════
+
+✅ disk-space
+  Time:   2025-11-13T10:30:00Z
+  Action: cleanup_disk_space
+  Result: success
+  Installed pacman-contrib; paccache -rk1: removed 847 packages (12.4GB)
+
+✅ failed-service
+  Time:   2025-11-13T10:30:05Z
+  Action: restart_service
+  Result: success
+  systemctl restart bluetooth.service: succeeded
+
+────────────────────────────────────────────────────────────
+Showing 2 most recent repairs
+Use --json for machine-readable output
+
+# JSON output for scripting
+$ annactl repairs --json
+{
+  "schema_version": "v1",
+  "repairs": [...]
+}
+```
+
+#### Safety Principles
+
+Anna follows strict safety principles - she never makes things worse:
+
+**Storage Safety:**
+- Disk SMART and filesystem errors: **guidance only**
+- Never runs fsck, repartition, or destructive operations automatically
+- Clear warnings about safe vs dangerous operations
+- Backup first, then diagnose
+
+**Network Safety:**
+- Only restarts services (NetworkManager/systemd-networkd)
+- Never edits configuration files
+- Falls back to manual guidance if uncertain
+
+**Transparency:**
+- All actions are logged to the context database
+- Repair history always available via `annactl repairs`
+- Dry-run mode shows exact commands before execution
+- JSON output available for automation (`--json`)
+
+**Reversibility:**
+- Package operations use pacman (can be rolled back)
+- Service restarts are non-destructive
+- Configuration never modified automatically
+- Manual rollback guidance provided when needed
+
+### Weekly System Summary
+
+Anna can provide a 7-day overview combining behavioral patterns with repair activity:
+
+```bash
+# Human-readable weekly summary
+$ annactl weekly
+
+════════════════════════════════════════════════════════════
+🗓️  WEEKLY SYSTEM SUMMARY - Laptop Profile (Last 7 Days)
+════════════════════════════════════════════════════════════
+
+📅 Period: 2025-11-06 → 2025-11-13
+
+📊 Recurring Issues
+
+   • orphaned-packages flapped 3 times (Appeared/disappeared repeatedly)
+     💡 Consider addressing this more permanently.
+
+   • disk-space escalated (Severity increased from Info to Warning)
+     ⚠️  This issue is getting worse over time.
+
+🔧 Repairs Executed
+
+   • cleanup_disk_space - Ran 2 times (last: 2025-11-13 10:30)
+   • orphaned-packages - Ran 3 times (last: 2025-11-12 15:20)
+
+💡 Suggested Habits
+
+   • You ran 'orphaned-packages' 3 times this week. Maybe add a monthly cleanup to your routine.
+
+────────────────────────────────────────────────────────────
+💡 For detailed patterns, run 'annactl insights'
+   For current status, run 'annactl status'
+
+# JSON output for monitoring/scripts
+$ annactl weekly --json
+{
+  "schema_version": "v1",
+  "generated_at": "2025-11-13T10:45:00Z",
+  "profile": "Laptop",
+  "window_start": "2025-11-06T10:45:00Z",
+  "window_end": "2025-11-13T10:45:00Z",
+  "total_observations": 42,
+  "recurring_issues": [...],
+  "escalating_issues": [...],
+  "long_term_issues": [...],
+  "repairs": [...],
+  "suggestions": [...]
+}
+```
+
+**What the Weekly Report Shows:**
+
+- **Recurring Issues** - Problems that appeared/disappeared multiple times (flapping)
+- **Escalating Issues** - Problems that got worse over time
+- **Long-term Issues** - Items visible for weeks without resolution
+- **Repairs Executed** - What Anna fixed and how often
+- **Suggested Habits** - Rule-based recommendations for preventive maintenance
+
+**When to Use:**
+
+- Weekly system review (e.g., every Monday morning)
+- Understanding repair patterns over time
+- Planning preventive maintenance
+- Monitoring scripts via `--json` output
+
+**Discovery Hint:**
+
+Anna may hint once per week if patterns exist:
+```
+💡 Weekly snapshot available. For a 7-day overview run: 'annactl weekly'.
+```
+
+### Behavioral Insights (Advanced)
+
+Anna silently observes your system over time and can detect patterns that aren't obvious from a single snapshot. This is completely optional and requires no configuration.
+
+```bash
+# View behavioral patterns (hidden command - requires --help --all)
+$ annactl insights
+
+════════════════════════════════════════════════════════════
+📊 INSIGHTS REPORT (Last 30 Days) - Laptop Profile
+════════════════════════════════════════════════════════════
+
+📈 Analyzed 127 observations
+
+🔄 Flapping Issues
+   Issues that appear and disappear repeatedly (last 14 days)
+
+   • orphaned-packages
+     Appeared 6 times over 14 days without permanent resolution
+     Confidence: 85%
+
+📈 Escalating Issues
+   Issues that increased in severity over time
+
+   • disk-space
+     Severity increased from Info → Warning → Critical
+     Details: Severity increased by 2 levels
+     Time span: 21 days
+     Confidence: 100%
+
+⏳ Long-term Unaddressed Issues
+   Issues visible for more than 14 days without resolution
+
+   • time-sync-disabled
+     Visible for 30 days across 18 observations
+     Confidence: 90%
+
+🔝 Top Recurring Issues
+
+   1. orphaned-packages (15 appearances)
+   2. disk-space (12 appearances)
+   3. failed-autostart (8 appearances)
+
+────────────────────────────────────────────────────────────
+💡 These patterns are based on your system's behavior over time.
+   For current status, run 'annactl status'
+   For quick health check, run 'annactl daily'
+
+# JSON output for automation
+$ annactl insights --json
+{
+  "schema_version": "v1",
+  "generated_at": "2025-11-13T10:30:00Z",
+  "profile": "Laptop",
+  "analysis_window_days": 30,
+  "total_observations": 127,
+  "flapping": [...],
+  "escalating": [...],
+  "long_term": [...],
+  "profile_transitions": [...],
+  "top_recurring_issues": [...]
+}
+```
+
+**Pattern Types:**
+
+- **Flapping** - Issues that appear/disappear >5 times in 2 weeks
+- **Escalation** - Severity increases over time (e.g., Info → Warning → Critical)
+- **Long-term Unaddressed** - Visible for >14 days without action
+- **Profile Transitions** - Machine profile changes (e.g., Laptop → Desktop in VMs)
+
+**How It Works:**
+
+1. Anna records system state after every `daily` and `status` command
+2. Observations stored in context database (`/var/lib/anna/context.db`)
+3. Pattern detection runs on demand when you call `insights` or `weekly`
+4. All patterns calculated using rule-based algorithms (no AI/ML)
+
+**Discovery Hint:**
+
+Anna may hint once per day if patterns exist:
+```
+💡 Insight: Recurring patterns detected. For details run 'annactl insights'.
+```
+
+**When to Use:**
+
+- Understanding why issues keep coming back
+- Planning permanent fixes for recurring problems
+- Spotting trends before they become critical
+- Monitoring long-term system behavior
 
 ### Getting Help for Specific Commands
 
@@ -619,6 +1472,145 @@ Reminds you to configure backups if none are detected:
 - **Restic**: Fast, efficient backups with multiple backends
 - **btrfs snapshots**: Built-in if using btrfs filesystem
 
+#### 13. User Services Failed (NEW in 4.8)
+
+Detects failing user-level systemd services (desktop/laptop only):
+
+```bash
+⚠️ Warnings:
+
+  • 2 user services failing
+    User-level systemd services are failing: pipewire.service, wireplumber.service. This may cause desktop features to not work properly.
+    💡 Check with 'systemctl --user status' and run 'sudo annactl repair user-services-failed'
+    📚 https://wiki.archlinux.org/title/Systemd/User
+```
+
+**What Anna Checks:**
+- Runs `systemctl --user list-units --failed`
+- Identifies which user services are in failed state
+- Only runs on Desktop and Laptop profiles (skipped on Server-like)
+
+**Severity Levels:**
+- **Critical**: Core desktop services failing (plasma-, gnome-, pipewire, wireplumber)
+- **Warning**: Other user services failing
+
+**Repair Actions:**
+- Auto-restarts safe services: pipewire, wireplumber, pipewire-pulse
+- Provides guidance for other services (manual investigation recommended)
+- Reports restart success/failure
+
+**Why It Matters:**
+User services power your desktop audio, session management, and many desktop features. When they fail, you might not hear audio, see notifications, or use certain desktop features properly.
+
+**Troubleshooting:**
+```bash
+# Check all user services
+$ systemctl --user status
+
+# Check specific failed service
+$ systemctl --user status pipewire.service
+
+# View service logs
+$ journalctl --user -xeu pipewire.service
+
+# Restart via Anna (safest)
+$ sudo annactl repair user-services-failed
+```
+
+#### 14. Broken Autostart Entries (NEW in 4.8)
+
+Detects .desktop autostart files pointing to missing programs (desktop/laptop only):
+
+```bash
+⚠️ Warnings:
+
+  • 3 broken autostart entries
+    Desktop autostart entries point to missing programs: old-app.desktop (old-app), removed-tool.desktop (removed-tool), uninstalled.desktop (uninstalled). These will fail silently on login.
+    💡 Review with 'ls ~/.config/autostart/' and run 'sudo annactl repair broken-autostart'
+    📚 https://wiki.archlinux.org/title/XDG_Autostart
+```
+
+**What Anna Checks:**
+- Scans `~/.config/autostart` and `/etc/xdg/autostart` for .desktop files
+- Parses Exec= lines to extract command names
+- Checks if commands exist in PATH via `which`
+- Only runs on Desktop and Laptop profiles (skipped on Server-like)
+
+**Severity Levels:**
+- **Warning (>3 broken)**: Many broken entries cluttering autostart
+- **Info (1-3 broken)**: Minor cleanup recommended
+
+**Repair Actions:**
+- Moves broken user entries to `~/.config/autostart/disabled/`
+- Provides guidance for system entries (requires manual intervention)
+- Safe: doesn't delete, only disables
+
+**Why It Matters:**
+Broken autostart entries accumulate when you uninstall applications. They fail silently every login, slowing down your session startup and cluttering your autostart directory.
+
+**Troubleshooting:**
+```bash
+# List all autostart entries
+$ ls -la ~/.config/autostart/
+
+# Check what each entry does
+$ cat ~/.config/autostart/some-app.desktop
+
+# Disable via Anna (moves to disabled/)
+$ sudo annactl repair broken-autostart
+
+# Re-enable if needed
+$ mv ~/.config/autostart/disabled/some-app.desktop ~/.config/autostart/
+```
+
+#### 15. Heavy User Cache & Trash (NEW in 4.8)
+
+Monitors user cache and trash directories consuming disk space:
+
+```bash
+⚠️ Warnings:
+
+  • Large user cache and trash (12 GB)
+    User cache (8,456 MB) and trash (3,821 MB) are consuming 12 GB. This is safe to clean.
+    💡 Run 'rm -rf ~/.cache/* ~/.local/share/Trash/*' or use 'sudo annactl repair heavy-user-cache'
+    💾 Impact: Frees 12 GB
+    📚 https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem
+```
+
+**What Anna Checks:**
+- Calculates size of `~/.cache` directory
+- Calculates size of `~/.local/share/Trash` directory
+- Runs on all profiles (Desktop, Laptop, and Server-like)
+
+**Severity Levels:**
+- **Warning (>10GB total)**: Significant disk space consumed
+- **Info (single dir >2GB)**: Cleanup recommended
+
+**Repair Actions:**
+- Cleans `~/.cache/*` (application temporary files)
+- Empties `~/.local/share/Trash/*` (desktop trash)
+- Reports MB/GB freed
+- Safe: cache and trash are meant to be clearable
+
+**Why It Matters:**
+Cache directories grow over time as applications store temporary data. The desktop trash holds deleted files until manually emptied. Both are safe to clean and can free significant disk space.
+
+**Troubleshooting:**
+```bash
+# Check cache size
+$ du -sh ~/.cache
+
+# Check trash size
+$ du -sh ~/.local/share/Trash
+
+# Clean via Anna (safest)
+$ sudo annactl repair heavy-user-cache
+
+# Manual clean (advanced)
+$ rm -rf ~/.cache/*
+$ rm -rf ~/.local/share/Trash/*
+```
+
 ### Real-World Scenarios
 
 #### Scenario 1: Disk Nearly Full
@@ -679,10 +1671,88 @@ I will run a deeper scan once and then remember the results.
 
 Running first system scan...
 
-# Anna checks ALL 12 categories and prioritizes findings
+# Anna checks ALL 15 categories and prioritizes findings
 # You get immediate visibility into system health
 # Fix critical issues first, then warnings, then info
 ```
+
+#### Scenario 4: Desktop Hygiene - User Services and Cache (NEW in 4.8)
+
+This scenario shows Anna detecting desktop-level issues on a laptop:
+
+```bash
+$ annactl daily
+
+╔══════════════════════════════════════════════════════════╗
+║ 🔴 Daily System Check - 2025-11-13 14:22 ║
+╚══════════════════════════════════════════════════════════╝
+
+Health: 5 ok, 1 warnings, 2 failures
+
+Disk: 87.2% used (210.5GB / 512.0GB total)
+
+📊 Issues Detected:
+
+  🔴 2 user services failing (pipewire.service, wireplumber.service)
+  ⚠️ Large user cache and trash (12 GB)
+  ℹ️ 2 broken autostart entries
+
+💡 Run 'sudo annactl repair' to fix these issues
+
+# Fix all desktop hygiene issues
+$ sudo annactl repair
+
+════════════════════════════════════════════════════════════
+🔧 SYSTEM REPAIR
+════════════════════════════════════════════════════════════
+
+Anna will attempt to fix detected issues automatically.
+Only low-risk actions will be performed.
+
+⚠️  Actions may modify system state!
+
+Proceed with repair? [y/N]: y
+
+🔧 EXECUTING REPAIRS
+
+✅ user-services-failed
+  Action: restart_user_services
+  Details: Restarted pipewire.service; Restarted wireplumber.service. Total freed: ~10,234MB
+  Source: [archwiki:Systemd/User]
+
+✅ heavy-user-cache
+  Action: clean_user_cache
+  Details: Cleaned cache (~8,456MB freed); Cleaned trash (~3,778MB freed). Total freed: ~12,234MB
+  Source: [archwiki:System_maintenance#Clean_the_filesystem]
+
+✅ broken-autostart
+  Action: disable_broken_entries
+  Details: Disabled old-app.desktop; Disabled removed-tool.desktop
+  Source: [archwiki:XDG_Autostart]
+
+────────────────────────────────────────────────────────────
+Summary: 3 succeeded, 0 failed
+
+# Check disk space improvement
+$ annactl status
+
+Disk: 84.8% used (198.3GB / 512.0GB total)
+# Freed 12.2GB from cache and trash cleanup!
+
+Health: All checks passed ✅
+```
+
+**What happened:**
+1. Anna detected failing audio services (pipewire, wireplumber) - common after system updates
+2. Found 12GB of accumulated cache and trash files
+3. Identified 2 broken autostart entries pointing to uninstalled programs
+4. Repair automatically:
+   - Restarted the safe audio services (audio works again!)
+   - Cleaned cache and trash (12GB freed)
+   - Moved broken autostart entries to disabled/ folder
+5. Result: Working audio, faster login, 12GB disk space freed
+
+**Desktop/Laptop Focus:** These checks only run on Desktop and Laptop profiles. Server-like systems skip user services and autostart checks to avoid noise.
 
 ### Detection Summary
 
@@ -700,6 +1770,9 @@ Running first system scan...
 | Time Sync ✨ | Every run | Warning/Info | Yes |
 | Firewall ✨ | Every run | Warning/Info | No (guidance) |
 | Backups ✨ | Every run | Info only | No (guidance) |
+| User Services 🖥️ | Every run | Critical/Warning | Yes (safe only) |
+| Broken Autostart 🖥️ | Every run | Warning/Info | Yes (user only) |
+| Heavy Cache/Trash 🖥️ | Every run | Warning/Info | Yes |
 
 **Key Principles:**
 - All detectors fail gracefully if commands unavailable

@@ -6,10 +6,12 @@
 mod actions;
 
 pub use actions::{
-    bluetooth_service_repair, core_dump_cleanup_repair, disk_space_repair,
-    firmware_microcode_repair, journal_cleanup_repair, missing_firmware_repair,
-    orphaned_packages_repair, pacman_db_repair, services_failed_repair,
-    time_sync_enable_repair, tlp_config_repair,
+    bluetooth_service_repair, broken_autostart_repair, core_dump_cleanup_repair,
+    disk_smart_guidance, disk_space_repair, filesystem_errors_guidance,
+    firmware_microcode_repair, heavy_user_cache_repair, journal_cleanup_repair,
+    missing_firmware_repair, network_health_repair, orphaned_packages_repair,
+    pacman_db_repair, services_failed_repair, time_sync_enable_repair,
+    tlp_config_repair, user_services_failed_repair,
 };
 
 use anna_common::ipc::RepairAction;
@@ -91,6 +93,14 @@ async fn repair_single_probe(probe: &str, dry_run: bool) -> Result<RepairAction>
         "orphaned-packages" => orphaned_packages_repair(dry_run).await,
         "core-dump-cleanup" => core_dump_cleanup_repair(dry_run).await,
         "time-sync-enable" => time_sync_enable_repair(dry_run).await,
+        // Phase 4.8: Desktop hygiene repairs
+        "user-services-failed" => user_services_failed_repair(dry_run).await,
+        "broken-autostart" => broken_autostart_repair(dry_run).await,
+        "heavy-user-cache" => heavy_user_cache_repair(dry_run).await,
+        // Phase 5.0: Storage & network reliability (guidance/conservative)
+        "disk-smart-guidance" => disk_smart_guidance(dry_run).await,
+        "filesystem-errors-guidance" => filesystem_errors_guidance(dry_run).await,
+        "network-health-repair" => network_health_repair(dry_run).await,
         _ => Err(anyhow::anyhow!("Unknown probe: {}", probe)),
     }
 }

@@ -148,10 +148,25 @@ pub fn compare_versions(current: &str, latest: &str) -> std::cmp::Ordering {
     let latest = latest.strip_prefix('v').unwrap_or(latest);
 
     // Parse version components
-    let current_parts = parse_version(current);
-    let latest_parts = parse_version(latest);
+    let (c_major, c_minor, c_patch, c_pre) = parse_version(current);
+    let (l_major, l_minor, l_patch, l_pre) = parse_version(latest);
 
-    current_parts.cmp(&latest_parts)
+    // Compare major.minor.patch first
+    match (c_major.cmp(&l_major), c_minor.cmp(&l_minor), c_patch.cmp(&l_patch)) {
+        (Ordering::Equal, Ordering::Equal, Ordering::Equal) => {
+            // Same base version, compare prerelease
+            // Stable (None) > Prerelease (Some)
+            match (&c_pre, &l_pre) {
+                (None, None) => Ordering::Equal,
+                (Some(_), None) => Ordering::Less,    // current is prerelease, latest is stable
+                (None, Some(_)) => Ordering::Greater, // current is stable, latest is prerelease
+                (Some(c), Some(l)) => c.cmp(l),       // both prerelease, compare lexicographically
+            }
+        }
+        (Ordering::Equal, Ordering::Equal, patch_cmp) => patch_cmp,
+        (Ordering::Equal, minor_cmp, _) => minor_cmp,
+        (major_cmp, _, _) => major_cmp,
+    }
 }
 
 /// Check if update is available
@@ -160,11 +175,11 @@ pub fn is_update_available(current: &str, latest: &str) -> bool {
 }
 
 /// Parse version string into comparable tuple
-fn parse_version(version: &str) -> (u32, u32, u32, String) {
+fn parse_version(version: &str) -> (u32, u32, u32, Option<String>) {
     // Format: major.minor.patch-prerelease
     let parts: Vec<&str> = version.split('-').collect();
     let version_parts = parts[0];
-    let prerelease = parts.get(1).unwrap_or(&"").to_string();
+    let prerelease = parts.get(1).map(|s| s.to_string());
 
     let nums: Vec<u32> = version_parts
         .split('.')
@@ -193,12 +208,16 @@ mod tests {
 
     #[test]
     fn test_version_parsing() {
-        let v1 = parse_version("3.9.1-alpha.1");
-        let v2 = parse_version("3.9.1");
-        let v3 = parse_version("3.10.0");
-
-        assert!(v1 < v2); // alpha < stable
-        assert!(v2 < v3); // 3.9 < 3.10
+        // Test that version parsing produces correct comparisons
+        // Use compare_versions since direct tuple comparison doesn't handle prerelease correctly
+        assert_eq!(
+            compare_versions("3.9.1-alpha.1", "3.9.1"),
+            std::cmp::Ordering::Less
+        ); // alpha < stable
+        assert_eq!(
+            compare_versions("3.9.1", "3.10.0"),
+            std::cmp::Ordering::Less
+        ); // 3.9 < 3.10
     }
 
     #[test]

@@ -21,6 +21,23 @@ pub enum IssueSeverity {
     Info,
 }
 
+/// Visibility hint for noise control (Phase 4.7)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IssueVisibility {
+    /// Normal visibility - show in daily and status
+    VisibleNormal,
+    /// Low priority - shown but de-emphasized in daily
+    VisibleButLowPriority,
+    /// De-emphasized - grouped/suppressed in daily, full detail in status
+    Deemphasized,
+}
+
+impl Default for IssueVisibility {
+    fn default() -> Self {
+        IssueVisibility::VisibleNormal
+    }
+}
+
 /// A concrete issue or improvement opportunity detected on this machine
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaretakerIssue {
@@ -50,6 +67,15 @@ pub struct CaretakerIssue {
     /// Estimated impact of fixing this
     /// Example: "Frees 30GB disk space"
     pub estimated_impact: Option<String>,
+
+    /// Visibility hint for noise control (Phase 4.7)
+    #[serde(default)]
+    pub visibility: IssueVisibility,
+
+    /// User decision info for display (Phase 4.9)
+    /// Example: Some(("acknowledged", None)) or Some(("snoozed", Some("2025-11-20")))
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_info: Option<(String, Option<String>)>,
 }
 
 impl CaretakerIssue {
@@ -68,6 +94,8 @@ impl CaretakerIssue {
             repair_action_id: None,
             reference: None,
             estimated_impact: None,
+            visibility: IssueVisibility::default(),
+            decision_info: None,
         }
     }
 
@@ -87,6 +115,31 @@ impl CaretakerIssue {
     pub fn with_impact(mut self, impact: impl Into<String>) -> Self {
         self.estimated_impact = Some(impact.into());
         self
+    }
+
+    /// Set visibility hint (Phase 4.7)
+    pub fn with_visibility(mut self, visibility: IssueVisibility) -> Self {
+        self.visibility = visibility;
+        self
+    }
+
+    /// Generate stable issue key for noise control tracking
+    /// This creates a consistent key from the title for database tracking
+    pub fn issue_key(&self) -> String {
+        // Use repair_action_id if available for stability
+        if let Some(ref action_id) = self.repair_action_id {
+            return action_id.clone();
+        }
+
+        // Otherwise, generate from title (same logic as noise_control.rs)
+        self.title
+            .trim()
+            .to_lowercase()
+            .replace("detected", "")
+            .replace("found", "")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join("-")
     }
 }
 
@@ -276,6 +329,26 @@ impl CaretakerBrain {
 
         // 12. Check backup and snapshot awareness
         Self::check_backup_awareness(&mut issues, profile);
+
+        // Phase 4.8: Desktop hygiene detectors
+        // 13. Check user services failures (systemd --user)
+        Self::check_user_services_failures(&mut issues, profile);
+
+        // 14. Check for broken autostart entries
+        Self::check_broken_autostart_entries(&mut issues, profile);
+
+        // 15. Check for heavy user cache and trash
+        Self::check_heavy_user_cache(&mut issues, profile);
+
+        // Phase 5.0: Storage & Network Reliability
+        // 16. Check disk SMART health
+        Self::check_disk_smart_health(&mut issues, profile);
+
+        // 17. Check for filesystem errors in kernel log
+        Self::check_filesystem_errors(&mut issues, profile);
+
+        // 18. Check network connectivity and DNS
+        Self::check_network_health(&mut issues, profile);
 
         CaretakerAnalysis::from_issues(issues)
     }
@@ -889,6 +962,488 @@ impl CaretakerBrain {
             )
             .with_reference("https://wiki.archlinux.org/title/Backup_programs")
         );
+    }
+
+    /// Phase 4.8: Check for failing user services (systemd --user)
+    /// Desktop/Laptop only
+    fn check_user_services_failures(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+        // Skip for server-like systems
+        if profile == MachineProfile::ServerLike {
+            return;
+        }
+
+        let output = std::process::Command::new("systemctl")
+            .args(&["--user", "list-units", "--failed", "--no-legend", "--plain"])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let failed_units: Vec<&str> = stdout.lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .filter_map(|line| line.split_whitespace().next())
+                    .collect();
+
+                if failed_units.is_empty() {
+                    return;
+                }
+
+                // Classify severity based on unit names
+                let is_core_desktop = failed_units.iter().any(|unit| {
+                    unit.starts_with("plasma-")
+                        || unit.starts_with("gnome-")
+                        || unit.contains("wireplumber")
+                        || unit.contains("pipewire")
+                });
+
+                let severity = if is_core_desktop {
+                    IssueSeverity::Critical
+                } else {
+                    IssueSeverity::Warning
+                };
+
+                // Show up to 5 failed units
+                let unit_list = failed_units.iter()
+                    .take(5)
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                let more_count = failed_units.len().saturating_sub(5);
+                let unit_display = if more_count > 0 {
+                    format!("{} (and {} more)", unit_list, more_count)
+                } else {
+                    unit_list
+                };
+
+                issues.push(
+                    CaretakerIssue::new(
+                        severity,
+                        format!("{} user service{} failing", failed_units.len(), if failed_units.len() == 1 { "" } else { "s" }),
+                        format!("User-level systemd services are failing: {}. This may cause desktop features to not work properly.", unit_display),
+                        "Check with 'systemctl --user status' and 'journalctl --user -xeu <service>'"
+                    )
+                    .with_repair_action("user-services-failed")
+                    .with_reference("https://wiki.archlinux.org/title/Systemd/User")
+                );
+            }
+        }
+    }
+
+    /// Phase 4.8: Check for broken autostart entries (.desktop files)
+    /// Desktop/Laptop only
+    fn check_broken_autostart_entries(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+        // Skip for server-like systems
+        if profile == MachineProfile::ServerLike {
+            return;
+        }
+
+        let mut broken_entries = Vec::new();
+
+        // Check user autostart directory
+        if let Some(home) = std::env::var_os("HOME") {
+            let user_autostart = std::path::PathBuf::from(home).join(".config/autostart");
+            Self::scan_autostart_dir(&user_autostart, &mut broken_entries);
+        }
+
+        // Check system autostart directory
+        let system_autostart = std::path::Path::new("/etc/xdg/autostart");
+        Self::scan_autostart_dir(system_autostart, &mut broken_entries);
+
+        if broken_entries.is_empty() {
+            return;
+        }
+
+        let severity = if broken_entries.len() > 3 {
+            IssueSeverity::Warning
+        } else {
+            IssueSeverity::Info
+        };
+
+        // Show up to 3 broken entries
+        let entry_list = broken_entries.iter()
+            .take(3)
+            .map(|(name, exec)| format!("{} ({})", name, exec))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let more_count = broken_entries.len().saturating_sub(3);
+        let display = if more_count > 0 {
+            format!("{} (and {} more)", entry_list, more_count)
+        } else {
+            entry_list
+        };
+
+        issues.push(
+            CaretakerIssue::new(
+                severity,
+                format!("{} broken autostart entr{}", broken_entries.len(), if broken_entries.len() == 1 { "y" } else { "ies" }),
+                format!("Desktop autostart entries point to missing programs: {}. These will fail silently on login.", display),
+                "Review with 'ls ~/.config/autostart/' and disable broken entries"
+            )
+            .with_repair_action("broken-autostart")
+            .with_reference("https://wiki.archlinux.org/title/XDG_Autostart")
+        );
+    }
+
+    /// Helper: Scan a .desktop autostart directory for broken entries
+    fn scan_autostart_dir(dir: &std::path::Path, broken: &mut Vec<(String, String)>) {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("desktop") {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        // Simple parser for Exec= line
+                        for line in content.lines() {
+                            if let Some(exec_line) = line.strip_prefix("Exec=") {
+                                // Get the first word (the command)
+                                if let Some(command) = exec_line.split_whitespace().next() {
+                                    // Check if command exists in PATH
+                                    let exists = std::process::Command::new("which")
+                                        .arg(command)
+                                        .output()
+                                        .map(|o| o.status.success())
+                                        .unwrap_or(false);
+
+                                    if !exists {
+                                        let name = path.file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("unknown")
+                                            .to_string();
+                                        broken.push((name, command.to_string()));
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Phase 4.8: Check for heavy user cache and trash
+    /// All profiles, but messaging differs
+    fn check_heavy_user_cache(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+        if let Some(home) = std::env::var_os("HOME") {
+            let home_path = std::path::PathBuf::from(home);
+            let cache_path = home_path.join(".cache");
+            let trash_path = home_path.join(".local/share/Trash");
+
+            let cache_size = Self::dir_size(&cache_path);
+            let trash_size = Self::dir_size(&trash_path);
+
+            let total_mb = (cache_size + trash_size) / (1024 * 1024);
+            let cache_mb = cache_size / (1024 * 1024);
+            let trash_mb = trash_size / (1024 * 1024);
+
+            // Thresholds: Info if single dir > 2GB, Warning if total > 10GB
+            let total_gb = total_mb / 1024;
+
+            if total_mb > 10240 {
+                // Warning: > 10GB total
+                issues.push(
+                    CaretakerIssue::new(
+                        IssueSeverity::Warning,
+                        format!("Large user cache and trash ({} GB)", total_gb),
+                        format!("User cache ({} MB) and trash ({} MB) are consuming {} GB. This is safe to clean.", cache_mb, trash_mb, total_gb),
+                        "Run 'rm -rf ~/.cache/* ~/.local/share/Trash/*' or use 'sudo annactl repair'"
+                    )
+                    .with_repair_action("heavy-user-cache")
+                    .with_impact(format!("Frees {} GB", total_gb))
+                    .with_reference("https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem")
+                );
+            } else if cache_mb > 2048 || trash_mb > 2048 {
+                // Info: single directory > 2GB
+                let which = if cache_mb > trash_mb { "cache" } else { "trash" };
+                let size_gb = if cache_mb > trash_mb { cache_mb / 1024 } else { trash_mb / 1024 };
+
+                issues.push(
+                    CaretakerIssue::new(
+                        IssueSeverity::Info,
+                        format!("Large user {} ({} GB)", which, size_gb),
+                        format!("User {} directory is {} GB. Cleaning it can free disk space safely.", which, size_gb),
+                        format!("Clean with 'rm -rf ~/.{}/*' or use 'annactl repair'", if which == "cache" { "cache" } else { "local/share/Trash" })
+                    )
+                    .with_repair_action("heavy-user-cache")
+                    .with_impact(format!("Frees ~{} GB", size_gb))
+                    .with_reference("https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem")
+                );
+            }
+        }
+    }
+
+    /// Phase 5.0: Check disk SMART health for early warning of disk failure
+    fn check_disk_smart_health(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
+        // Check if smartctl is available
+        let smartctl_check = std::process::Command::new("which")
+            .arg("smartctl")
+            .output();
+
+        if smartctl_check.is_err() || !smartctl_check.unwrap().status.success() {
+            // smartctl not installed - give Info suggestion on systems with disks
+            if let Ok(output) = std::process::Command::new("lsblk")
+                .arg("-d")
+                .arg("-n")
+                .arg("-o")
+                .arg("NAME,TYPE")
+                .output()
+            {
+                if let Ok(stdout) = String::from_utf8(output.stdout) {
+                    // Check if there are any disk or nvme devices
+                    if stdout.lines().any(|line| line.contains("disk") || line.contains("nvme")) {
+                        issues.push(
+                            CaretakerIssue::new(
+                                IssueSeverity::Info,
+                                "SMART monitoring not installed",
+                                "smartmontools is not installed. SMART monitoring can provide early warning of disk failure.",
+                                "Install smartmontools: 'sudo pacman -S smartmontools'"
+                            )
+                            .with_reference("https://wiki.archlinux.org/title/S.M.A.R.T.")
+                        );
+                    }
+                }
+            }
+            return;
+        }
+
+        // Get list of block devices
+        let lsblk_output = std::process::Command::new("lsblk")
+            .arg("-d")
+            .arg("-n")
+            .arg("-o")
+            .arg("NAME,TYPE")
+            .output();
+
+        if let Ok(output) = lsblk_output {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                for line in stdout.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 && (parts[1] == "disk" || parts[1] == "nvme") {
+                        let device = parts[0];
+                        let device_path = format!("/dev/{}", device);
+
+                        // Check SMART health for this device
+                        let smart_output = std::process::Command::new("smartctl")
+                            .arg("-H")
+                            .arg(&device_path)
+                            .output();
+
+                        if let Ok(smart_result) = smart_output {
+                            if let Ok(smart_stdout) = String::from_utf8(smart_result.stdout) {
+                                // Check for FAILED status
+                                if smart_stdout.contains("FAILED") || smart_stdout.contains("FAILING_NOW") {
+                                    issues.push(
+                                        CaretakerIssue::new(
+                                            IssueSeverity::Critical,
+                                            format!("Disk SMART health failing ({})", device),
+                                            format!("SMART health check reports that {} is FAILING. This disk may fail soon and cause data loss.", device_path),
+                                            "Back up important data immediately and plan disk replacement"
+                                        )
+                                        .with_repair_action("disk-smart-guidance")
+                                        .with_impact("Risk of data loss; immediate backup recommended")
+                                        .with_reference("https://wiki.archlinux.org/title/S.M.A.R.T.")
+                                    );
+                                } else if smart_stdout.contains("PREFAIL") || smart_stdout.contains("WARNING") {
+                                    issues.push(
+                                        CaretakerIssue::new(
+                                            IssueSeverity::Warning,
+                                            format!("Disk SMART health warning ({})", device),
+                                            format!("SMART health check reports warnings for {}. The disk may be developing problems.", device_path),
+                                            "Back up important data and monitor disk health"
+                                        )
+                                        .with_repair_action("disk-smart-guidance")
+                                        .with_impact("Early warning; backup and monitoring recommended")
+                                        .with_reference("https://wiki.archlinux.org/title/S.M.A.R.T.")
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Phase 5.0: Check for filesystem errors in kernel log
+    fn check_filesystem_errors(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
+        // Scan kernel journal for filesystem errors
+        let journal_output = std::process::Command::new("journalctl")
+            .arg("-k")  // kernel messages
+            .arg("-b")  // this boot only
+            .arg("--no-pager")
+            .output();
+
+        if let Ok(output) = journal_output {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                // Look for filesystem error patterns
+                let mut error_count = 0;
+                let mut error_samples: Vec<String> = Vec::new();
+
+                for line in stdout.lines() {
+                    let lower = line.to_lowercase();
+                    if lower.contains("ext4-fs error") ||
+                       lower.contains("btrfs error") ||
+                       lower.contains("xfs error") ||
+                       (lower.contains("i/o error") && (lower.contains("/dev/sd") || lower.contains("/dev/nvme")))
+                    {
+                        error_count += 1;
+                        if error_samples.len() < 3 {
+                            // Collect up to 3 sample error messages
+                            if let Some(msg_start) = line.find(']') {
+                                if msg_start + 2 < line.len() {
+                                    error_samples.push(line[msg_start + 2..].trim().to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Report if significant errors found
+                if error_count >= 10 {
+                    let sample_text = if !error_samples.is_empty() {
+                        format!(" Examples: {}", error_samples.join("; "))
+                    } else {
+                        String::new()
+                    };
+
+                    issues.push(
+                        CaretakerIssue::new(
+                            IssueSeverity::Critical,
+                            format!("Filesystem errors detected ({} errors)", error_count),
+                            format!("Kernel reported {} filesystem or I/O errors this boot. This may indicate failing disk or filesystem corruption.{}", error_count, sample_text),
+                            "Check backups, avoid heavy writes, and schedule a filesystem check from a live environment"
+                        )
+                        .with_repair_action("filesystem-errors-guidance")
+                        .with_impact("May indicate failing disk or filesystem corruption; risk of data loss")
+                        .with_reference("https://wiki.archlinux.org/title/File_systems")
+                    );
+                } else if error_count >= 3 {
+                    issues.push(
+                        CaretakerIssue::new(
+                            IssueSeverity::Warning,
+                            format!("Filesystem warnings detected ({} errors)", error_count),
+                            format!("Kernel reported {} filesystem or I/O errors this boot. Monitor for recurring issues.", error_count),
+                            "Review errors with 'journalctl -k -b | grep -i error' and monitor disk health"
+                        )
+                        .with_repair_action("filesystem-errors-guidance")
+                        .with_impact("May indicate disk or filesystem issues")
+                        .with_reference("https://wiki.archlinux.org/title/File_systems")
+                    );
+                }
+            }
+        }
+    }
+
+    /// Phase 5.0: Check network connectivity and DNS health
+    fn check_network_health(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+        // Only run on Desktop and Laptop profiles
+        // For servers, networking issues are usually handled by dedicated monitoring
+        if profile == MachineProfile::ServerLike {
+            return;
+        }
+
+        // 1. Check if any network interface is up and has an IP
+        let ip_output = std::process::Command::new("ip")
+            .arg("addr")
+            .arg("show")
+            .output();
+
+        let mut has_ip = false;
+        if let Ok(output) = ip_output {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                // Look for inet addresses (excluding loopback)
+                for line in stdout.lines() {
+                    if line.contains("inet ") && !line.contains("127.0.0.1") && !line.contains("::1") {
+                        has_ip = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if !has_ip {
+            issues.push(
+                CaretakerIssue::new(
+                    IssueSeverity::Critical,
+                    "No network connectivity detected",
+                    "No network interfaces have IP addresses assigned. System cannot reach external hosts.",
+                    "Check network configuration and restart NetworkManager: 'sudo systemctl restart NetworkManager'"
+                )
+                .with_repair_action("network-health-repair")
+                .with_impact("System is offline; all Internet services unavailable")
+                .with_reference("https://wiki.archlinux.org/title/Network_configuration")
+            );
+            return;
+        }
+
+        // 2. Check connectivity to a well-known host (DNS resolution + connectivity)
+        let ping_output = std::process::Command::new("ping")
+            .arg("-c1")
+            .arg("-W2")
+            .arg("archlinux.org")
+            .output();
+
+        let dns_works = ping_output.is_ok() && ping_output.unwrap().status.success();
+
+        if !dns_works {
+            // 3. Try direct IP ping to differentiate DNS vs connectivity
+            let ip_ping = std::process::Command::new("ping")
+                .arg("-c1")
+                .arg("-W2")
+                .arg("1.1.1.1")  // Cloudflare DNS
+                .output();
+
+            let ip_connectivity = ip_ping.is_ok() && ip_ping.unwrap().status.success();
+
+            if !ip_connectivity {
+                issues.push(
+                    CaretakerIssue::new(
+                        IssueSeverity::Critical,
+                        "No external network connectivity",
+                        "Network interfaces are up but cannot reach external hosts. Router or gateway may be offline.",
+                        "Check router/gateway and restart network services: 'sudo systemctl restart NetworkManager'"
+                    )
+                    .with_repair_action("network-health-repair")
+                    .with_impact("System cannot reach Internet; all external services unavailable")
+                    .with_reference("https://wiki.archlinux.org/title/Network_configuration")
+                );
+            } else {
+                // IP works but DNS doesn't
+                issues.push(
+                    CaretakerIssue::new(
+                        IssueSeverity::Warning,
+                        "DNS resolution failing",
+                        "Network connectivity works but DNS resolution is broken. Most Internet services will fail.",
+                        "Check /etc/resolv.conf and restart network services: 'sudo systemctl restart NetworkManager'"
+                    )
+                    .with_repair_action("network-health-repair")
+                    .with_impact("DNS broken; most Internet services will fail")
+                    .with_reference("https://wiki.archlinux.org/title/Domain_name_resolution")
+                );
+            }
+        }
+    }
+
+    /// Helper: Calculate directory size in bytes
+    fn dir_size(path: &std::path::Path) -> u64 {
+        if !path.exists() {
+            return 0;
+        }
+
+        let mut total = 0u64;
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_file() {
+                        total += metadata.len();
+                    } else if metadata.is_dir() {
+                        total += Self::dir_size(&entry.path());
+                    }
+                }
+            }
+        }
+        total
     }
 
     /// Interpret a probe result into human-readable terms

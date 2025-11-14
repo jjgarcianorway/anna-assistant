@@ -12,8 +12,10 @@ pub mod noise_control;
 pub use actions::{ActionHistory, ActionOutcome, ResourceSnapshot};
 pub use db::{ContextDb, DbLocation};
 pub use noise_control::{
-    filter_issues_by_noise_control, get_issue_state, mark_issue_ignored, mark_issue_repaired,
-    mark_issue_shown, update_issue_state, IssueState, NoiseControlConfig,
+    apply_issue_decisions, apply_visibility_hints, clear_issue_decision, filter_issues_by_noise_control,
+    get_issue_decision, get_issue_state, mark_issue_ignored, mark_issue_repaired, mark_issue_shown,
+    set_issue_acknowledged, set_issue_snoozed, update_issue_state, DecisionType, IssueDecision,
+    IssueState, NoiseControlConfig,
 };
 
 use anyhow::Result;
@@ -131,6 +133,224 @@ pub async fn get_action_count() -> Result<i64> {
 pub async fn maintenance() -> Result<()> {
     let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
     db.maintenance().await
+}
+
+/// Ensure context database is initialized and ready to use (Phase 4.7)
+///
+/// This is idempotent and safe to call on every run. It will:
+/// - Initialize the database if not already initialized
+/// - Create tables if they don't exist
+/// - Return quickly if already initialized
+pub async fn ensure_initialized() -> Result<()> {
+    if db().is_some() {
+        // Already initialized
+        return Ok(());
+    }
+
+    // Initialize with auto-detected location
+    initialize().await
+}
+
+// Phase 5.1: Repair History Functions
+
+/// Record a repair action in history
+pub async fn record_repair(
+    issue_key: impl Into<String>,
+    repair_action_id: impl Into<String>,
+    result: impl Into<String>,
+    summary: impl Into<String>,
+) -> Result<i64> {
+    let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
+
+    let issue_key = issue_key.into();
+    let repair_action_id = repair_action_id.into();
+    let result = result.into();
+    let summary = summary.into();
+
+    let id = db
+        .execute(move |conn| {
+            conn.execute(
+                "INSERT INTO repair_history (issue_key, repair_action_id, result, summary)
+                 VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![&issue_key, &repair_action_id, &result, &summary],
+            )?;
+            Ok(conn.last_insert_rowid())
+        })
+        .await?;
+
+    debug!("Recorded repair with ID: {}", id);
+    Ok(id)
+}
+
+/// Repair history entry
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RepairHistoryEntry {
+    pub id: i64,
+    pub timestamp: String,
+    pub issue_key: String,
+    pub repair_action_id: String,
+    pub result: String,
+    pub summary: String,
+}
+
+/// Get recent repairs from history
+pub async fn get_recent_repairs(limit: usize) -> Result<Vec<RepairHistoryEntry>> {
+    let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
+
+    let entries = db
+        .execute(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, timestamp, issue_key, repair_action_id, result, summary
+                 FROM repair_history
+                 ORDER BY timestamp DESC
+                 LIMIT ?1",
+            )?;
+
+            let rows = stmt.query_map([limit], |row| {
+                Ok(RepairHistoryEntry {
+                    id: row.get(0)?,
+                    timestamp: row.get(1)?,
+                    issue_key: row.get(2)?,
+                    repair_action_id: row.get(3)?,
+                    result: row.get(4)?,
+                    summary: row.get(5)?,
+                })
+            })?;
+
+            let mut entries = Vec::new();
+            for row in rows {
+                entries.push(row?);
+            }
+            Ok(entries)
+        })
+        .await?;
+
+    Ok(entries)
+}
+
+// Phase 5.2: Observation Recording Functions
+
+/// Observation entry for time-series analysis
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Observation {
+    pub id: i64,
+    pub timestamp: String,
+    pub issue_key: String,
+    pub severity: i32,
+    pub profile: String,
+    pub visible: bool,
+    pub decision: Option<String>,
+}
+
+/// Record an observation for behavioral analysis
+pub async fn record_observation(
+    issue_key: impl Into<String>,
+    severity: i32,
+    profile: impl Into<String>,
+    visible: bool,
+    decision: Option<String>,
+) -> Result<i64> {
+    let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
+
+    let issue_key = issue_key.into();
+    let profile = profile.into();
+
+    let id = db
+        .execute(move |conn| {
+            conn.execute(
+                "INSERT INTO observations (issue_key, severity, profile, visible, decision)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![&issue_key, severity, &profile, visible as i32, &decision],
+            )?;
+            Ok(conn.last_insert_rowid())
+        })
+        .await?;
+
+    debug!("Recorded observation with ID: {}", id);
+    Ok(id)
+}
+
+/// Get observations for an issue within a time window
+pub async fn get_observations(
+    issue_key: &str,
+    days_back: i64,
+) -> Result<Vec<Observation>> {
+    let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
+
+    let issue_key = issue_key.to_string();
+
+    let observations = db
+        .execute(move |conn| {
+            let cutoff = chrono::Utc::now() - chrono::Duration::days(days_back);
+            let cutoff_str = cutoff.to_rfc3339();
+
+            let mut stmt = conn.prepare(
+                "SELECT id, timestamp, issue_key, severity, profile, visible, decision
+                 FROM observations
+                 WHERE issue_key = ?1 AND timestamp >= ?2
+                 ORDER BY timestamp DESC",
+            )?;
+
+            let rows = stmt.query_map([&issue_key, &cutoff_str], |row| {
+                Ok(Observation {
+                    id: row.get(0)?,
+                    timestamp: row.get(1)?,
+                    issue_key: row.get(2)?,
+                    severity: row.get(3)?,
+                    profile: row.get(4)?,
+                    visible: row.get::<_, i32>(5)? != 0,
+                    decision: row.get(6)?,
+                })
+            })?;
+
+            let mut observations = Vec::new();
+            for row in rows {
+                observations.push(row?);
+            }
+            Ok(observations)
+        })
+        .await?;
+
+    Ok(observations)
+}
+
+/// Get all observations within a time window (for pattern analysis)
+pub async fn get_all_observations(days_back: i64) -> Result<Vec<Observation>> {
+    let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
+
+    let observations = db
+        .execute(move |conn| {
+            let cutoff = chrono::Utc::now() - chrono::Duration::days(days_back);
+            let cutoff_str = cutoff.to_rfc3339();
+
+            let mut stmt = conn.prepare(
+                "SELECT id, timestamp, issue_key, severity, profile, visible, decision
+                 FROM observations
+                 WHERE timestamp >= ?1
+                 ORDER BY timestamp DESC",
+            )?;
+
+            let rows = stmt.query_map([&cutoff_str], |row| {
+                Ok(Observation {
+                    id: row.get(0)?,
+                    timestamp: row.get(1)?,
+                    issue_key: row.get(2)?,
+                    severity: row.get(3)?,
+                    profile: row.get(4)?,
+                    visible: row.get::<_, i32>(5)? != 0,
+                    decision: row.get(6)?,
+                })
+            })?;
+
+            let mut observations = Vec::new();
+            for row in rows {
+                observations.push(row?);
+            }
+            Ok(observations)
+        })
+        .await?;
+
+    Ok(observations)
 }
 
 #[cfg(test)]

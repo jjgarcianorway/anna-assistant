@@ -728,3 +728,552 @@ pub async fn time_sync_enable_repair(dry_run: bool) -> Result<RepairAction> {
         citation: "[archwiki:Systemd-timesyncd]".to_string(),
     })
 }
+
+/// Phase 4.8: Repair user-services-failed probe
+///
+/// Action: Restart common safe user services (pipewire, wireplumber)
+/// For other services, provide guidance only
+///
+/// Citation: [archwiki:Systemd/User]
+pub async fn user_services_failed_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("user-services-failed repair: dry_run={}", dry_run);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let mut last_exit_code = 0;
+
+    // Get list of failed user services
+    let output = Command::new("systemctl")
+        .args(&["--user", "list-units", "--failed", "--no-legend", "--plain"])
+        .output();
+
+    if let Ok(output) = output {
+        if !output.status.success() {
+            return Ok(RepairAction {
+                probe: "user-services-failed".to_string(),
+                action: "restart_user_services".to_string(),
+                command: None,
+                exit_code: Some(1),
+                success: false,
+                details: "Failed to list user services".to_string(),
+                citation: "[archwiki:Systemd/User]".to_string(),
+            });
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let failed_units: Vec<&str> = stdout.lines()
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| line.split_whitespace().next())
+            .collect();
+
+        if failed_units.is_empty() {
+            return Ok(RepairAction {
+                probe: "user-services-failed".to_string(),
+                action: "restart_user_services".to_string(),
+                command: None,
+                exit_code: Some(0),
+                success: true,
+                details: "No failed user services found".to_string(),
+                citation: "[archwiki:Systemd/User]".to_string(),
+            });
+        }
+
+        // Safe services we can auto-restart: pipewire, wireplumber
+        let safe_services = ["pipewire.service", "wireplumber.service", "pipewire-pulse.service"];
+        let mut restarted = Vec::new();
+        let mut guidance_only = Vec::new();
+
+        for unit in &failed_units {
+            if safe_services.iter().any(|s| unit.contains(s)) {
+                // Safe to restart
+                let cmd = format!("systemctl --user restart {}", unit);
+                if dry_run {
+                    info!("[DRY-RUN] Would execute: {}", cmd);
+                    actions_taken.push(format!("[dry-run] restart {}", unit));
+                    restarted.push(unit.to_string());
+                } else {
+                    info!("Executing: {}", cmd);
+                    let restart_output = Command::new("systemctl")
+                        .args(&["--user", "restart", unit])
+                        .output();
+
+                    if let Ok(restart) = restart_output {
+                        last_exit_code = restart.status.code().unwrap_or(1);
+                        if restart.status.success() {
+                            actions_taken.push(format!("Restarted {}", unit));
+                            restarted.push(unit.to_string());
+                        } else {
+                            all_success = false;
+                            let stderr = String::from_utf8_lossy(&restart.stderr);
+                            actions_taken.push(format!("Failed to restart {}: {}", unit, stderr));
+                        }
+                    }
+                }
+            } else {
+                // Not safe to auto-restart - guidance only
+                guidance_only.push(unit.to_string());
+            }
+        }
+
+        // Add guidance for services we didn't restart
+        if !guidance_only.is_empty() {
+            let guidance = format!(
+                "Manual action needed for: {}. Check with 'systemctl --user status' and 'journalctl --user -xeu <service>'",
+                guidance_only.join(", ")
+            );
+            actions_taken.push(guidance);
+        }
+
+        let details = if actions_taken.is_empty() {
+            "No actions taken".to_string()
+        } else {
+            actions_taken.join("; ")
+        };
+
+        Ok(RepairAction {
+            probe: "user-services-failed".to_string(),
+            action: "restart_user_services".to_string(),
+            command: Some("systemctl --user restart <service>".to_string()),
+            exit_code: if dry_run { None } else { Some(last_exit_code) },
+            success: all_success,
+            details,
+            citation: "[archwiki:Systemd/User]".to_string(),
+        })
+    } else {
+        Ok(RepairAction {
+            probe: "user-services-failed".to_string(),
+            action: "restart_user_services".to_string(),
+            command: None,
+            exit_code: Some(1),
+            success: false,
+            details: "Unable to check user services".to_string(),
+            citation: "[archwiki:Systemd/User]".to_string(),
+        })
+    }
+}
+
+/// Phase 4.8: Repair broken-autostart probe
+///
+/// Action: Disable broken autostart entries in user's ~/.config/autostart
+/// System-wide entries in /etc/xdg/autostart are guidance only
+///
+/// Citation: [archwiki:XDG_Autostart]
+pub async fn broken_autostart_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("broken-autostart repair: dry_run={}", dry_run);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let last_exit_code = 0;
+
+    let home = match std::env::var("HOME") {
+        Ok(h) => h,
+        Err(_) => {
+            return Ok(RepairAction {
+                probe: "broken-autostart".to_string(),
+                action: "disable_broken_autostart".to_string(),
+                command: None,
+                exit_code: Some(1),
+                success: false,
+                details: "HOME environment variable not set".to_string(),
+                citation: "[archwiki:XDG_Autostart]".to_string(),
+            });
+        }
+    };
+
+    let user_autostart = std::path::PathBuf::from(&home).join(".config/autostart");
+
+    if !user_autostart.exists() {
+        return Ok(RepairAction {
+            probe: "broken-autostart".to_string(),
+            action: "disable_broken_autostart".to_string(),
+            command: None,
+            exit_code: Some(0),
+            success: true,
+            details: "No user autostart directory found".to_string(),
+            citation: "[archwiki:XDG_Autostart]".to_string(),
+        });
+    }
+
+    // Scan for broken entries
+    let mut broken = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&user_autostart) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("desktop") {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    for line in content.lines() {
+                        if let Some(exec_line) = line.strip_prefix("Exec=") {
+                            if let Some(command) = exec_line.split_whitespace().next() {
+                                let exists = Command::new("which")
+                                    .arg(command)
+                                    .output()
+                                    .map(|o| o.status.success())
+                                    .unwrap_or(false);
+
+                                if !exists {
+                                    broken.push(path.clone());
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if broken.is_empty() {
+        return Ok(RepairAction {
+            probe: "broken-autostart".to_string(),
+            action: "disable_broken_autostart".to_string(),
+            command: None,
+            exit_code: Some(0),
+            success: true,
+            details: "No broken autostart entries found".to_string(),
+            citation: "[archwiki:XDG_Autostart]".to_string(),
+        });
+    }
+
+    // Create disabled directory
+    let disabled_dir = user_autostart.join("disabled");
+
+    for path in broken {
+        let filename = path.file_name().unwrap().to_string_lossy();
+        if dry_run {
+            info!("[DRY-RUN] Would disable: {}", filename);
+            actions_taken.push(format!("[dry-run] disable {}", filename));
+        } else {
+            // Create disabled directory if it doesn't exist
+            if !disabled_dir.exists() {
+                if let Err(e) = std::fs::create_dir_all(&disabled_dir) {
+                    all_success = false;
+                    actions_taken.push(format!("Failed to create disabled directory: {}", e));
+                    continue;
+                }
+            }
+
+            // Move file to disabled directory
+            let dest = disabled_dir.join(&filename.to_string());
+            match std::fs::rename(&path, &dest) {
+                Ok(_) => {
+                    actions_taken.push(format!("Disabled {}", filename));
+                }
+                Err(e) => {
+                    all_success = false;
+                    actions_taken.push(format!("Failed to disable {}: {}", filename, e));
+                }
+            }
+        }
+    }
+
+    let details = if actions_taken.is_empty() {
+        "No actions taken".to_string()
+    } else {
+        actions_taken.join("; ")
+    };
+
+    Ok(RepairAction {
+        probe: "broken-autostart".to_string(),
+        action: "disable_broken_autostart".to_string(),
+        command: Some("mv ~/.config/autostart/<broken>.desktop ~/.config/autostart/disabled/".to_string()),
+        exit_code: if dry_run { None } else { Some(last_exit_code) },
+        success: all_success,
+        details,
+        citation: "[archwiki:XDG_Autostart]".to_string(),
+    })
+}
+
+/// Phase 4.8: Repair heavy-user-cache probe
+///
+/// Action: Clean ~/.cache and ~/.local/share/Trash
+/// Safe: these directories are designed to be cleared
+///
+/// Citation: [archwiki:System_maintenance#Clean_the_filesystem]
+pub async fn heavy_user_cache_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("heavy-user-cache repair: dry_run={}", dry_run);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+    let last_exit_code = 0;
+
+    let home = match std::env::var("HOME") {
+        Ok(h) => h,
+        Err(_) => {
+            return Ok(RepairAction {
+                probe: "heavy-user-cache".to_string(),
+                action: "clean_user_cache".to_string(),
+                command: None,
+                exit_code: Some(1),
+                success: false,
+                details: "HOME environment variable not set".to_string(),
+                citation: "[archwiki:System_maintenance#Clean_the_filesystem]".to_string(),
+            });
+        }
+    };
+
+    let home_path = std::path::PathBuf::from(&home);
+    let cache_path = home_path.join(".cache");
+    let trash_path = home_path.join(".local/share/Trash");
+
+    let mut total_freed = 0u64;
+
+    // Clean cache
+    if cache_path.exists() {
+        let before_size = dir_size(&cache_path);
+        if dry_run {
+            info!("[DRY-RUN] Would clean ~/.cache ({}MB)", before_size / (1024 * 1024));
+            actions_taken.push(format!("[dry-run] clean cache (~{}MB)", before_size / (1024 * 1024)));
+            total_freed += before_size;
+        } else {
+            info!("Cleaning ~/.cache");
+            if let Ok(entries) = std::fs::read_dir(&cache_path) {
+                for entry in entries.flatten() {
+                    if let Err(e) = std::fs::remove_dir_all(entry.path()).or_else(|_| std::fs::remove_file(entry.path())) {
+                        warn!("Failed to remove {:?}: {}", entry.path(), e);
+                    }
+                }
+                let after_size = dir_size(&cache_path);
+                let freed = before_size.saturating_sub(after_size);
+                total_freed += freed;
+                actions_taken.push(format!("Cleaned cache (~{}MB freed)", freed / (1024 * 1024)));
+            } else {
+                all_success = false;
+                actions_taken.push("Failed to read cache directory".to_string());
+            }
+        }
+    }
+
+    // Clean trash
+    if trash_path.exists() {
+        let before_size = dir_size(&trash_path);
+        if dry_run {
+            info!("[DRY-RUN] Would clean ~/.local/share/Trash ({}MB)", before_size / (1024 * 1024));
+            actions_taken.push(format!("[dry-run] clean trash (~{}MB)", before_size / (1024 * 1024)));
+            total_freed += before_size;
+        } else {
+            info!("Cleaning ~/.local/share/Trash");
+            if let Ok(entries) = std::fs::read_dir(&trash_path) {
+                for entry in entries.flatten() {
+                    if let Err(e) = std::fs::remove_dir_all(entry.path()).or_else(|_| std::fs::remove_file(entry.path())) {
+                        warn!("Failed to remove {:?}: {}", entry.path(), e);
+                    }
+                }
+                let after_size = dir_size(&trash_path);
+                let freed = before_size.saturating_sub(after_size);
+                total_freed += freed;
+                actions_taken.push(format!("Cleaned trash (~{}MB freed)", freed / (1024 * 1024)));
+            } else {
+                all_success = false;
+                actions_taken.push("Failed to read trash directory".to_string());
+            }
+        }
+    }
+
+    let details = if actions_taken.is_empty() {
+        "No cache or trash directories found".to_string()
+    } else {
+        format!("{}. Total freed: ~{}MB", actions_taken.join("; "), total_freed / (1024 * 1024))
+    };
+
+    Ok(RepairAction {
+        probe: "heavy-user-cache".to_string(),
+        action: "clean_user_cache".to_string(),
+        command: Some("rm -rf ~/.cache/* ~/.local/share/Trash/*".to_string()),
+        exit_code: if dry_run { None } else { Some(last_exit_code) },
+        success: all_success,
+        details,
+        citation: "[archwiki:System_maintenance#Clean_the_filesystem]".to_string(),
+    })
+}
+
+/// Phase 5.0: Disk SMART health guidance (guidance only, no auto-repair)
+pub async fn disk_smart_guidance(_dry_run: bool) -> Result<RepairAction> {
+    info!("Providing SMART health guidance");
+
+    let guidance = vec![
+        "⚠️  SMART health issues detected:",
+        "",
+        "1. Back up important data IMMEDIATELY",
+        "   - Your disk may fail at any time",
+        "   - Use rsync, borg, or similar tools",
+        "",
+        "2. Review detailed SMART data:",
+        "   sudo smartctl -a /dev/sdX",
+        "",
+        "3. Run extended SMART test:",
+        "   sudo smartctl -t long /dev/sdX",
+        "   (Check status with: sudo smartctl -a /dev/sdX)",
+        "",
+        "4. Plan disk replacement",
+        "   - Order replacement disk now",
+        "   - Avoid heavy disk usage until replacement",
+        "",
+        "⚠️  DO NOT RUN fsck or repartition on a failing disk",
+        "   This may accelerate failure and cause data loss",
+    ];
+
+    Ok(RepairAction {
+        probe: "disk-smart-guidance".to_string(),
+        action: "print_guidance".to_string(),
+        command: None,
+        exit_code: Some(0),
+        success: true,
+        details: guidance.join("\n"),
+        citation: "[archwiki:S.M.A.R.T.]".to_string(),
+    })
+}
+
+/// Phase 5.0: Filesystem errors guidance (guidance only, no auto-repair)
+pub async fn filesystem_errors_guidance(_dry_run: bool) -> Result<RepairAction> {
+    info!("Providing filesystem errors guidance");
+
+    let guidance = vec![
+        "⚠️  Filesystem errors detected in kernel log:",
+        "",
+        "1. Back up important data IMMEDIATELY",
+        "   - These errors suggest disk or filesystem issues",
+        "",
+        "2. Review kernel errors:",
+        "   journalctl -k -b | grep -i 'error\\|fail'",
+        "",
+        "3. Check disk SMART health:",
+        "   sudo smartctl -a /dev/sdX",
+        "",
+        "4. Schedule filesystem check from live environment:",
+        "",
+        "   For EXT4:",
+        "   - Boot from Arch ISO or live USB",
+        "   - sudo e2fsck -f /dev/sdX",
+        "",
+        "   For BTRFS:",
+        "   - sudo btrfs scrub start /mountpoint",
+        "   - sudo btrfs scrub status /mountpoint",
+        "",
+        "   For XFS:",
+        "   - sudo xfs_repair /dev/sdX",
+        "",
+        "⚠️  DO NOT run filesystem checks on mounted filesystems",
+        "   Always use a live environment or unmount first",
+    ];
+
+    Ok(RepairAction {
+        probe: "filesystem-errors-guidance".to_string(),
+        action: "print_guidance".to_string(),
+        command: None,
+        exit_code: Some(0),
+        success: true,
+        details: guidance.join("\n"),
+        citation: "[archwiki:File_systems]".to_string(),
+    })
+}
+
+/// Phase 5.0: Network health repair (conservative service restart only)
+pub async fn network_health_repair(dry_run: bool) -> Result<RepairAction> {
+    info!("Attempting network health repair");
+
+    // Detect active network management stack
+    let nm_active = std::process::Command::new("systemctl")
+        .args(&["is-active", "NetworkManager"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim() == "active")
+        .unwrap_or(false);
+
+    let networkd_active = std::process::Command::new("systemctl")
+        .args(&["is-active", "systemd-networkd"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim() == "active")
+        .unwrap_or(false);
+
+    let mut actions_taken = Vec::new();
+    let mut all_success = true;
+
+    if nm_active {
+        // Restart NetworkManager
+        if dry_run {
+            info!("[DRY-RUN] Would restart NetworkManager");
+            actions_taken.push("[dry-run] restart NetworkManager".to_string());
+        } else {
+            info!("Restarting NetworkManager");
+            let result = std::process::Command::new("systemctl")
+                .args(&["restart", "NetworkManager"])
+                .status();
+
+            if let Ok(status) = result {
+                if status.success() {
+                    actions_taken.push("Restarted NetworkManager".to_string());
+                } else {
+                    all_success = false;
+                    actions_taken.push("Failed to restart NetworkManager".to_string());
+                }
+            } else {
+                all_success = false;
+                actions_taken.push("Could not execute NetworkManager restart".to_string());
+            }
+        }
+    } else if networkd_active {
+        // Restart systemd-networkd
+        if dry_run {
+            info!("[DRY-RUN] Would restart systemd-networkd");
+            actions_taken.push("[dry-run] restart systemd-networkd".to_string());
+        } else {
+            info!("Restarting systemd-networkd");
+            let result = std::process::Command::new("systemctl")
+                .args(&["restart", "systemd-networkd"])
+                .status();
+
+            if let Ok(status) = result {
+                if status.success() {
+                    actions_taken.push("Restarted systemd-networkd".to_string());
+                } else {
+                    all_success = false;
+                    actions_taken.push("Failed to restart systemd-networkd".to_string());
+                }
+            } else {
+                all_success = false;
+                actions_taken.push("Could not execute systemd-networkd restart".to_string());
+            }
+        }
+    } else {
+        // No recognized network manager
+        actions_taken.push("No recognized network manager (NetworkManager/systemd-networkd) active".to_string());
+        actions_taken.push("Guidance: Check network configuration manually with 'ip addr' and 'ip route'".to_string());
+        all_success = false;
+    }
+
+    let details = actions_taken.join("; ");
+
+    Ok(RepairAction {
+        probe: "network-health-repair".to_string(),
+        action: "restart_network_services".to_string(),
+        command: Some("sudo systemctl restart NetworkManager".to_string()),
+        exit_code: if dry_run { None } else { Some(if all_success { 0 } else { 1 }) },
+        success: all_success,
+        details,
+        citation: "[archwiki:Network_configuration]".to_string(),
+    })
+}
+
+/// Helper: Calculate directory size recursively
+fn dir_size(path: &std::path::Path) -> u64 {
+    if !path.exists() {
+        return 0;
+    }
+
+    let mut total = 0u64;
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_file() {
+                    total += metadata.len();
+                } else if metadata.is_dir() {
+                    total += dir_size(&entry.path());
+                }
+            }
+        }
+    }
+    total
+}
