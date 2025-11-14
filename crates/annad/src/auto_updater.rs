@@ -1,18 +1,23 @@
 // Auto-Updater Service for Daemon
-// Phase 3.10: AUR-Aware Auto-Upgrade System
+// Phase Next: Aggressive Auto-Update with Transparent Notifications
 //
-// Daily background check for updates, with automatic upgrade for manual installations
+// 10-minute check interval with automatic binary replacement for manual installations
 
 use anna_common::github_releases::{GitHubClient, is_update_available};
 use anna_common::installation_source::{detect_current_installation, InstallationSource};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::time;
-use tracing::{error, info, warn};
+use tokio::fs;
+use tracing::{debug, error, info, warn};
 
 const GITHUB_OWNER: &str = "jjgarcianorway";
 const GITHUB_REPO: &str = "anna-assistant";
-const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60); // 24 hours
+const CHECK_INTERVAL: Duration = Duration::from_secs(10 * 60); // 10 minutes
+const INITIAL_DELAY: Duration = Duration::from_secs(5 * 60); // 5 minutes after startup
 const LAST_CHECK_FILE: &str = "/var/lib/anna/last_update_check";
+const UPDATE_RECORD_FILE: &str = "/var/lib/anna/last_update_applied";
+const PENDING_NOTICE_FILE: &str = "/var/lib/anna/pending_update_notice";
 
 pub struct AutoUpdater {
     enabled: bool,
@@ -43,15 +48,15 @@ impl AutoUpdater {
                 return;
             }
 
-            info!("Auto-update service started (checks every 24h)");
+            info!("Auto-update service started (checks every 10 minutes)");
 
-            // Initial delay: 1 hour after startup
-            time::sleep(Duration::from_secs(60 * 60)).await;
+            // Initial delay: 5 minutes after startup
+            time::sleep(INITIAL_DELAY).await;
 
             loop {
                 self.check_and_update().await;
 
-                // Wait 24 hours before next check
+                // Wait 10 minutes before next check
                 time::sleep(CHECK_INTERVAL).await;
             }
         })

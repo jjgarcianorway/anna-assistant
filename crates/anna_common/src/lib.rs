@@ -17,6 +17,7 @@ pub mod context;
 pub mod disk_analysis;
 pub mod display;
 pub mod github_releases;
+pub mod hardware_capability; // Hardware capability detection for local LLM
 pub mod ignore_filters;
 pub mod insights; // Phase 5.2: Behavioral insights engine
 pub mod installation_source;
@@ -24,6 +25,7 @@ pub mod ipc;
 pub mod language; // Language system with natural configuration
 pub mod learning;
 pub mod llm; // Task 12: LLM abstraction layer
+pub mod ollama_installer; // Automatic local LLM bootstrap
 pub mod paths;
 pub mod personality; // Phase 5.1: Conversational personality controls
 pub mod prediction;
