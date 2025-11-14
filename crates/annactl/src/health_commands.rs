@@ -8,6 +8,7 @@ use crate::errors::*;
 use crate::logging::{ErrorDetails, LogEntry};
 use crate::predictive_hints;
 use crate::rpc_client::RpcClient;
+use anna_common::display::UI;
 use anna_common::ipc::{HealthRunData, ResponseData};
 use anyhow::{Context, Result};
 use owo_colors::OwoColorize;
@@ -658,6 +659,335 @@ pub async fn execute_repair_command(
     let _ = log_entry.write();
 
     std::process::exit(exit_code);
+}
+
+/// Execute self-health repair command (Task 6: Anna's own health check)
+pub async fn execute_self_health_repair(
+    req_id: &str,
+    start_time: Instant,
+) -> Result<()> {
+    let ui = UI::auto();
+
+    println!();
+    ui.section_header("🔧", "Anna Self-Health Check");
+    ui.info("Checking Anna's own operational health...");
+    println!();
+
+    // Track issues found
+    let mut issues: Vec<SelfHealthIssue> = Vec::new();
+
+    // Check 1: Is annad daemon running?
+    ui.info("Checking daemon status...");
+    let daemon_running = check_daemon_running();
+    if !daemon_running {
+        issues.push(SelfHealthIssue {
+            severity: IssueSeverity::High,
+            description: "Anna daemon (annad) is not running".to_string(),
+            fix_description: "Start the daemon service".to_string(),
+            fix_command: Some("sudo systemctl start annad".to_string()),
+            auto_fixable: true,
+        });
+    }
+
+    // Check 2: Can we connect to daemon socket?
+    ui.info("Checking daemon connectivity...");
+    let socket_ok = check_socket_connectivity().await;
+    if !socket_ok && daemon_running {
+        let username = std::env::var("USER").unwrap_or_else(|_| "your-username".to_string());
+        issues.push(SelfHealthIssue {
+            severity: IssueSeverity::High,
+            description: "Cannot connect to daemon socket".to_string(),
+            fix_description: "Check socket permissions and group membership".to_string(),
+            fix_command: Some(format!("sudo usermod -a -G anna {}", username)),
+            auto_fixable: true,
+        });
+    }
+
+    // Check 3: Context database accessibility
+    ui.info("Checking context database...");
+    let db_issues = check_context_database();
+    issues.extend(db_issues);
+
+    // Check 4: Key directories
+    ui.info("Checking key directories...");
+    let dir_issues = check_key_directories();
+    issues.extend(dir_issues);
+
+    println!();
+
+    // Present findings
+    if issues.is_empty() {
+        ui.success("All checks passed! Anna is healthy.");
+        println!();
+
+        // Log success and exit
+        log_self_health_result(req_id, start_time, EXIT_SUCCESS, None);
+        std::process::exit(EXIT_SUCCESS);
+    }
+
+    // Show issues
+    ui.section_header("⚠️", "Issues Found");
+    println!();
+
+    for (i, issue) in issues.iter().enumerate() {
+        let severity_icon = match issue.severity {
+            IssueSeverity::High => "🔴",
+            IssueSeverity::Medium => "🟡",
+            IssueSeverity::Low => "🟢",
+        };
+
+        ui.info(&format!("{}. {} {}", i + 1, severity_icon, issue.description));
+        ui.info(&format!("   Fix: {}", issue.fix_description));
+
+        if let Some(cmd) = &issue.fix_command {
+            ui.info(&format!("   Command: {}", cmd));
+        }
+        println!();
+    }
+
+    // Ask if user wants to fix issues
+    let fixable_count = issues.iter().filter(|i| i.auto_fixable).count();
+
+    if fixable_count == 0 {
+        ui.warning("No automatic fixes available. Please review and fix manually.");
+        println!();
+        log_self_health_result(req_id, start_time, 1, Some("Manual intervention required".to_string()));
+        std::process::exit(1);
+    }
+
+    ui.section_header("🔨", "Proposed Fixes");
+    ui.info(&format!("{} issue(s) can be fixed automatically.", fixable_count));
+    println!();
+
+    let fixable_issues: Vec<_> = issues.iter().filter(|i| i.auto_fixable).collect();
+    for (i, issue) in fixable_issues.iter().enumerate() {
+        ui.info(&format!("{}. {}", i + 1, issue.fix_description));
+        if let Some(cmd) = &issue.fix_command {
+            ui.info(&format!("   $ {}", cmd));
+        }
+    }
+    println!();
+
+    ui.warning("Some commands may require sudo privileges.");
+    println!();
+
+    // Confirmation prompt
+    if !ui.prompt_yes_no("Proceed with automatic fixes?") {
+        ui.info("Repair cancelled. No changes made.");
+        println!();
+        log_self_health_result(req_id, start_time, EXIT_SUCCESS, Some("User cancelled".to_string()));
+        std::process::exit(EXIT_SUCCESS);
+    }
+
+    println!();
+    ui.section_header("⚙️", "Applying Fixes");
+    println!();
+
+    // Apply fixes
+    let mut success_count = 0;
+    let mut fail_count = 0;
+
+    for issue in fixable_issues {
+        ui.info(&format!("Fixing: {}", issue.description));
+
+        if let Some(cmd) = &issue.fix_command {
+            let result = apply_fix(cmd).await;
+
+            match result {
+                Ok(_) => {
+                    ui.success("  ✓ Fixed");
+                    success_count += 1;
+                }
+                Err(e) => {
+                    ui.error(&format!("  ✗ Failed: {}", e));
+                    fail_count += 1;
+                }
+            }
+        }
+        println!();
+    }
+
+    // Summary
+    ui.section_header("📊", "Summary");
+    ui.info(&format!("Fixes applied: {} succeeded, {} failed", success_count, fail_count));
+    println!();
+
+    if fail_count > 0 {
+        ui.warning("Some fixes failed. Please review errors above.");
+        ui.info("You may need to run some commands manually with sudo.");
+        println!();
+        log_self_health_result(req_id, start_time, 1, Some(format!("{} fixes failed", fail_count)));
+        std::process::exit(1);
+    } else {
+        ui.success("All fixes applied successfully!");
+        ui.info("Anna should now be fully operational.");
+        println!();
+        log_self_health_result(req_id, start_time, EXIT_SUCCESS, None);
+        std::process::exit(EXIT_SUCCESS);
+    }
+}
+
+// Self-health data structures
+
+#[derive(Debug)]
+struct SelfHealthIssue {
+    severity: IssueSeverity,
+    description: String,
+    fix_description: String,
+    fix_command: Option<String>,
+    auto_fixable: bool,
+}
+
+#[derive(Debug)]
+enum IssueSeverity {
+    High,
+    Medium,
+    Low,
+}
+
+// Self-health check functions
+
+fn check_daemon_running() -> bool {
+    use std::process::Command;
+
+    let output = Command::new("systemctl")
+        .args(&["is-active", "annad"])
+        .output();
+
+    match output {
+        Ok(out) => out.status.success(),
+        Err(_) => false,
+    }
+}
+
+async fn check_socket_connectivity() -> bool {
+    RpcClient::connect().await.is_ok()
+}
+
+fn check_context_database() -> Vec<SelfHealthIssue> {
+    let mut issues = Vec::new();
+
+    // Check primary location
+    let primary_db = Path::new("/var/lib/anna/context/context.db");
+    let user_db = dirs::home_dir().map(|h| h.join(".local/share/anna/context.db"));
+
+    let db_path = if primary_db.exists() {
+        Some(primary_db)
+    } else if let Some(ref path) = user_db {
+        if path.exists() {
+            Some(path.as_path())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(db) = db_path {
+        // Check if readable
+        if !db.metadata().map(|m| m.permissions().readonly()).unwrap_or(true) {
+            // Database exists and is writable
+        } else {
+            issues.push(SelfHealthIssue {
+                severity: IssueSeverity::Medium,
+                description: format!("Context database is read-only: {}", db.display()),
+                fix_description: "Fix database permissions".to_string(),
+                fix_command: Some(format!("sudo chmod 660 {}", db.display())),
+                auto_fixable: false, // Requires careful permission handling
+            });
+        }
+    } else {
+        issues.push(SelfHealthIssue {
+            severity: IssueSeverity::Low,
+            description: "Context database not found".to_string(),
+            fix_description: "Database will be created on first daemon run".to_string(),
+            fix_command: None,
+            auto_fixable: false,
+        });
+    }
+
+    issues
+}
+
+fn check_key_directories() -> Vec<SelfHealthIssue> {
+    let mut issues = Vec::new();
+
+    let dirs_to_check = vec![
+        ("/etc/anna", "0755", "Configuration directory"),
+        ("/var/lib/anna", "0770", "Data directory"),
+        ("/var/log/anna", "0770", "Log directory"),
+        ("/run/anna", "0770", "Runtime directory"),
+    ];
+
+    for (dir_path, _expected_perms, description) in dirs_to_check {
+        let path = Path::new(dir_path);
+
+        if !path.exists() {
+            issues.push(SelfHealthIssue {
+                severity: IssueSeverity::Medium,
+                description: format!("{} missing: {}", description, dir_path),
+                fix_description: format!("Create {} directory", description.to_lowercase()),
+                fix_command: Some(format!("sudo mkdir -p {} && sudo chown root:anna {} && sudo chmod 770 {}",
+                    dir_path, dir_path, dir_path)),
+                auto_fixable: false, // Requires sudo
+            });
+        }
+    }
+
+    issues
+}
+
+async fn apply_fix(command: &str) -> Result<()> {
+    use std::process::Command;
+
+    // Parse command (simple split on whitespace)
+    let parts: Vec<&str> = command.split_whitespace().collect();
+
+    if parts.is_empty() {
+        return Err(anyhow::anyhow!("Empty command"));
+    }
+
+    let (program, args) = if parts[0] == "sudo" {
+        if parts.len() < 2 {
+            return Err(anyhow::anyhow!("Invalid sudo command"));
+        }
+        (parts[1], &parts[2..])
+    } else {
+        (parts[0], &parts[1..])
+    };
+
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .context("Failed to execute command")?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(anyhow::anyhow!("{}", stderr.trim()))
+    }
+}
+
+fn log_self_health_result(req_id: &str, start_time: Instant, exit_code: i32, error_msg: Option<String>) {
+    let duration_ms = start_time.elapsed().as_millis() as u64;
+    let log_entry = LogEntry {
+        ts: LogEntry::now(),
+        req_id: req_id.to_string(),
+        state: "unknown".to_string(),
+        command: "repair".to_string(),
+        allowed: Some(true),
+        args: vec![],
+        exit_code,
+        citation: "[anna:self-health]".to_string(),
+        duration_ms,
+        ok: exit_code == EXIT_SUCCESS,
+        error: error_msg.map(|msg| ErrorDetails {
+            code: "SELF_HEALTH_ISSUE".to_string(),
+            message: msg,
+        }),
+    };
+    let _ = log_entry.write();
 }
 
 /// Check installation source (Phase 3.9: AUR awareness)

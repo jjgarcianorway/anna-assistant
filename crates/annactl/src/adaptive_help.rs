@@ -4,6 +4,7 @@
 // Context-aware command display for progressive disclosure
 
 use anna_common::command_meta::{CommandCategory, CommandMetadata, CommandRegistry, DisplayContext};
+use anna_common::display::UI;
 use crate::context_detection::{ExecutionContext, should_use_color};
 use owo_colors::OwoColorize;
 
@@ -16,7 +17,49 @@ pub fn display_adaptive_root_help(show_all: bool, json_mode: bool) {
         return;
     }
 
-    display_terminal_help(&context, show_all);
+    if show_all {
+        display_terminal_help(&context, show_all);
+    } else {
+        display_simple_help();
+    }
+}
+
+/// Display simple, user-focused help (default)
+fn display_simple_help() {
+    let ui = UI::auto();
+
+    println!();
+    ui.section_header("🤖", "Anna Assistant");
+    ui.info("Your local caretaker for this Arch Linux machine");
+    println!();
+
+    ui.info("Anna is a conversational system administrator. Just talk to her:");
+    println!();
+
+    ui.section_header("💬", "Natural Language Usage");
+    ui.info("Ask Anna anything about your system:");
+    println!();
+    ui.info("  annactl \"how are you?\"");
+    ui.info("  annactl \"my computer feels slow\"");
+    ui.info("  annactl \"what should I improve?\"");
+    ui.info("  annactl \"generate a report\"");
+    println!();
+    ui.info("Or start a conversation:");
+    println!();
+    ui.info("  annactl");
+    println!();
+
+    ui.section_header("🔧", "Self-Check");
+    ui.info("Check Anna's own health:");
+    println!();
+    ui.info("  annactl repair");
+    println!();
+
+    ui.section_header("📚", "More Information");
+    ui.info("Change language: annactl \"use Spanish\" / \"cambia al español\"");
+    ui.info("Advanced commands: annactl --help --all");
+    ui.info("Documentation: https://github.com/jjgarcianorway/anna-assistant");
+    println!();
 }
 
 /// Display help in JSON format (machine-readable)

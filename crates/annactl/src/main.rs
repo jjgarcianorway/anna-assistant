@@ -47,6 +47,7 @@ mod mirror_commands;
 mod predictive_hints;
 mod sentinel_cli;
 
+use anna_common::display::UI;
 use anna_common::ipc::{CommandCapabilityData, ResponseData};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -884,8 +885,16 @@ async fn main() -> Result<()> {
                 _ => 2, // Default clap error code
             };
 
-            // Print the error message
-            eprintln!("{}", err);
+            // Print the error message using UI abstraction (language-aware)
+            let ui = UI::auto();
+            ui.error(&format!("{}", err));
+            println!();
+            ui.info("Try talking to Anna in natural language:");
+            ui.info("  annactl \"how are you?\"");
+            ui.info("  annactl \"what should I improve?\"");
+            println!();
+            ui.info("Or run: annactl --help");
+            println!();
 
             // Log the error
             let duration_ms = start_time.elapsed().as_millis() as u64;
@@ -1086,14 +1095,21 @@ async fn main() -> Result<()> {
             std::process::exit(0);
         }
         Commands::Repair { probe, dry_run } => {
-            return health_commands::execute_repair_command(
-                probe,
-                *dry_run,
-                &state,
-                &req_id,
-                start_time,
-            )
-            .await;
+            // Task 6: Default to self-health check (Anna's own health)
+            // The old probe-based system repair is deprecated
+            if probe == "all" && !dry_run {
+                return health_commands::execute_self_health_repair(&req_id, start_time).await;
+            } else {
+                // Fall back to old probe-based repair for compatibility
+                return health_commands::execute_repair_command(
+                    probe,
+                    *dry_run,
+                    &state,
+                    &req_id,
+                    start_time,
+                )
+                .await;
+            }
         }
         Commands::Install { dry_run } => {
             // Phase 3.4: Check resource constraints before heavy operation
