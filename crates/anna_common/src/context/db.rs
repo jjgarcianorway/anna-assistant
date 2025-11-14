@@ -284,6 +284,72 @@ impl ContextDb {
                 [],
             )?;
 
+            // Create issue_decisions table (Phase 4.9: User Control)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS issue_decisions (
+                    issue_key TEXT PRIMARY KEY,
+                    decision_type TEXT NOT NULL,
+                    snooze_until DATETIME,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                [],
+            )?;
+
+            // Create index for issue_decisions snooze_until
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_decision_snooze
+                 ON issue_decisions(snooze_until)",
+                [],
+            )?;
+
+            // Create repair_history table (Phase 5.1: Safety Rails)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS repair_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    issue_key TEXT NOT NULL,
+                    repair_action_id TEXT NOT NULL,
+                    result TEXT NOT NULL,
+                    summary TEXT NOT NULL
+                )",
+                [],
+            )?;
+
+            // Create index for repair_history timestamp (for recent queries)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_repair_timestamp
+                 ON repair_history(timestamp DESC)",
+                [],
+            )?;
+
+            // Create observations table (Phase 5.2: Observer Layer)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS observations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    issue_key TEXT NOT NULL,
+                    severity INTEGER NOT NULL,
+                    profile TEXT NOT NULL,
+                    visible INTEGER NOT NULL,
+                    decision TEXT
+                )",
+                [],
+            )?;
+
+            // Create indexes for observations queries
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_observations_timestamp
+                 ON observations(timestamp DESC)",
+                [],
+            )?;
+
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_observations_issue
+                 ON observations(issue_key, timestamp DESC)",
+                [],
+            )?;
+
             debug!("Database schema initialized successfully");
             Ok(())
         })
@@ -380,6 +446,90 @@ impl ContextDb {
 
         Ok(())
     }
+
+    /// Save language configuration
+    pub async fn save_language_config(&self, config: &crate::language::LanguageConfig) -> Result<()> {
+        let conn = Arc::clone(&self.conn);
+        let user_lang = config.user_language.map(|l| l.code().to_string());
+        let system_lang = config.system_language.map(|l| l.code().to_string());
+
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let conn = conn.blocking_lock();
+
+            // Store user language preference
+            if let Some(lang) = user_lang {
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_preferences (key, value, value_type, description)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    ["language", &lang, "string", "User's preferred language"],
+                )?;
+            } else {
+                // Remove user preference to fall back to system
+                conn.execute(
+                    "DELETE FROM user_preferences WHERE key = ?1",
+                    ["language"],
+                )?;
+            }
+
+            // Store detected system language for reference
+            if let Some(lang) = system_lang {
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_preferences (key, value, value_type, description)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    ["system_language", &lang, "string", "Auto-detected system language"],
+                )?;
+            }
+
+            Ok(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    /// Load language configuration
+    pub async fn load_language_config(&self) -> Result<crate::language::LanguageConfig> {
+        let conn = Arc::clone(&self.conn);
+
+        let (user_lang_str, system_lang_str) = tokio::task::spawn_blocking(move || -> Result<(Option<String>, Option<String>)> {
+            let conn = conn.blocking_lock();
+
+            // Load user language preference
+            let user_lang = conn
+                .query_row(
+                    "SELECT value FROM user_preferences WHERE key = ?1",
+                    ["language"],
+                    |row| row.get::<_, String>(0),
+                )
+                .ok();
+
+            // Load system language
+            let system_lang = conn
+                .query_row(
+                    "SELECT value FROM user_preferences WHERE key = ?1",
+                    ["system_language"],
+                    |row| row.get::<_, String>(0),
+                )
+                .ok();
+
+            Ok((user_lang, system_lang))
+        })
+        .await??;
+
+        let mut config = crate::language::LanguageConfig::new();
+
+        // Parse user language
+        if let Some(lang_str) = user_lang_str {
+            config.user_language = crate::language::Language::from_str(&lang_str);
+        }
+
+        // Use stored system language if available, otherwise detect fresh
+        if let Some(lang_str) = system_lang_str {
+            config.system_language = crate::language::Language::from_str(&lang_str);
+        }
+
+        Ok(config)
+    }
 }
 
 #[cfg(test)]
@@ -411,8 +561,8 @@ mod tests {
             .await
             .unwrap();
 
-        // Should have created 6 tables
-        assert!(result >= 6);
+        // Should have created 7 tables (Phase 4.9 added issue_decisions)
+        assert!(result >= 7);
     }
 
     #[tokio::test]

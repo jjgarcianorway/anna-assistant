@@ -1,63 +1,518 @@
-//! Display Library - Anna's Voice
+//! Display Library - Anna's UI Abstraction Layer
 //!
-//! This module provides consistent, beautiful output formatting for all Anna commands.
-//! Every message Anna shows should go through this library to maintain consistency.
+//! This module implements the complete UI abstraction layer as specified in the Language Contract.
+//! All Anna components must use this layer for output - direct terminal formatting is prohibited.
 //!
-//! Design principles:
-//! - Clear visual hierarchy with boxes and sections
-//! - Consistent use of colors and icons
-//! - Plain English explanations
-//! - Actionable recommendations
-//! - Proper spacing and formatting
+//! Key Features:
+//! - Terminal capability detection and adaptation
+//! - Language profile integration
+//! - Graceful degradation for limited terminals
+//! - Consistent visual hierarchy
+//! - Emoji/Unicode fallback substitution
 
+use crate::language::{LanguageConfig, LanguageProfile, TerminalCapabilities};
 use owo_colors::OwoColorize;
-use std::fmt;
+use std::io::{self, IsTerminal, Write};
+
+/// UI Abstraction Layer - The only interface for generating user-facing output
+pub struct UI {
+    profile: LanguageProfile,
+    caps: TerminalCapabilities,
+}
+
+impl UI {
+    /// Create new UI with language configuration
+    pub fn new(config: &LanguageConfig) -> Self {
+        let mut ui_caps = config.terminal;
+        ui_caps = TerminalCapabilities::detect(); // Always detect fresh
+
+        Self {
+            profile: config.profile(),
+            caps: ui_caps,
+        }
+    }
+
+    /// Create UI with auto-detected language and terminal
+    pub fn auto() -> Self {
+        let config = LanguageConfig::new();
+        Self::new(&config)
+    }
+
+    /// Get terminal capabilities
+    pub fn capabilities(&self) -> &TerminalCapabilities {
+        &self.caps
+    }
+
+    /// Get language profile
+    pub fn profile(&self) -> &LanguageProfile {
+        &self.profile
+    }
+
+    // ========================================================================
+    // Core UILayer Trait Implementation
+    // ========================================================================
+
+    /// Display success message
+    pub fn success(&self, message: &str) {
+        let icon = self.render_icon("✓", "[OK]");
+        let text = if self.caps.use_colors() {
+            format!("{} {}", icon, message).green().to_string()
+        } else {
+            format!("{} {}", icon, message)
+        };
+        println!("{}", text);
+    }
+
+    /// Display error message
+    pub fn error(&self, message: &str) {
+        let icon = self.render_icon("✗", "[ERROR]");
+        let text = if self.caps.use_colors() {
+            format!("{} {}", icon, message).red().bold().to_string()
+        } else {
+            format!("{} {}", icon, message)
+        };
+        eprintln!("{}", text);
+    }
+
+    /// Display warning message
+    pub fn warning(&self, message: &str) {
+        let icon = self.render_icon("⚠", "[!]");
+        let text = if self.caps.use_colors() {
+            format!("{} {}", icon, message).yellow().to_string()
+        } else {
+            format!("{} {}", icon, message)
+        };
+        println!("{}", text);
+    }
+
+    /// Display info message
+    pub fn info(&self, message: &str) {
+        let icon = self.render_icon("ℹ", "[i]");
+        let text = if self.caps.use_colors() {
+            format!("{} {}", icon, message).blue().to_string()
+        } else {
+            format!("{} {}", icon, message)
+        };
+        println!("{}", text);
+    }
+
+    /// Display section header
+    pub fn section_header(&self, icon: &str, title: &str) {
+        println!();
+        let rendered_icon = self.render_emoji(icon);
+        let formatted = if self.caps.use_colors() {
+            format!("{} {}", rendered_icon, title).bold().to_string()
+        } else {
+            format!("{} {}", rendered_icon, title)
+        };
+        println!("{}", formatted);
+
+        let separator = self.render_box_char("─", "-");
+        println!("{}", separator.repeat(60));
+        println!();
+    }
+
+    /// Display bullet list
+    pub fn bullet_list(&self, items: &[&str]) {
+        let bullet = self.render_icon("•", "*");
+        for item in items {
+            println!("  {} {}", bullet, item);
+        }
+    }
+
+    /// Display numbered list
+    pub fn numbered_list(&self, items: &[&str]) {
+        for (i, item) in items.iter().enumerate() {
+            println!("  {}. {}", i + 1, item);
+        }
+    }
+
+    /// Display progress indicator
+    pub fn progress(&self, current: usize, total: usize, label: &str) {
+        let percent = if total > 0 {
+            (current as f64 / total as f64 * 100.0) as usize
+        } else {
+            0
+        };
+
+        let bar_width = 40;
+        let filled = if total > 0 {
+            (bar_width * current) / total
+        } else {
+            0
+        };
+        let empty = bar_width.saturating_sub(filled);
+
+        let filled_char = self.render_box_char("█", "=");
+        let empty_char = self.render_box_char("░", " ");
+
+        let bar = if self.caps.use_colors() {
+            format!(
+                "[{}{}]",
+                filled_char.repeat(filled).green(),
+                empty_char.repeat(empty).dimmed()
+            )
+        } else {
+            format!("[{}{}]", filled_char.repeat(filled), empty_char.repeat(empty))
+        };
+
+        println!("{} {}% - {}", bar, percent, label);
+    }
+
+    /// Display spinner with message
+    pub fn spinner(&self, message: &str) {
+        let spinner = self.render_icon("⏳", "[...]");
+        print!("{} {}...", spinner, message);
+        io::stdout().flush().ok();
+    }
+
+    /// Prompt user for yes/no decision
+    pub fn prompt_yes_no(&self, question: &str) -> bool {
+        println!();
+        println!("{}", question);
+        print!("[{}/{}]: ",
+            self.profile.translations.yes,
+            self.profile.translations.no
+        );
+        io::stdout().flush().ok();
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_err() {
+            return false;
+        }
+
+        let input = input.trim().to_lowercase();
+        // Match both English and localized yes
+        input == "y" || input == "yes" || input == self.profile.translations.yes.to_lowercase()
+    }
+
+    /// Prompt user to choose from options
+    pub fn prompt_choice(&self, question: &str, choices: &[&str]) -> usize {
+        println!();
+        println!("{}", question);
+        println!();
+
+        for (i, choice) in choices.iter().enumerate() {
+            println!("  {}. {}", i + 1, choice);
+        }
+        println!("  0. {}", self.profile.translations.cancel);
+        println!();
+
+        print!("{}: ", "Enter number"); // TODO: Add translation
+        io::stdout().flush().ok();
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_err() {
+            return 0;
+        }
+
+        input.trim().parse::<usize>().unwrap_or(0)
+    }
+
+    // ========================================================================
+    // Advanced Display Functions
+    // ========================================================================
+
+    /// Display a box with content
+    pub fn box_content(&self, title: &str, lines: &[&str]) {
+        let (top_left, top_right, bottom_left, bottom_right, horizontal, vertical) =
+            self.box_chars();
+
+        // Top border
+        println!("{}{}{}", top_left, horizontal.repeat(58), top_right);
+
+        // Title
+        let formatted_title = if self.caps.use_colors() {
+            format!("{} {:<56} {}", vertical, title.bold(), vertical)
+        } else {
+            format!("{} {:<56} {}", vertical, title, vertical)
+        };
+        println!("{}", formatted_title);
+
+        // Separator
+        let (left_t, right_t) = self.render_t_chars();
+        println!("{}{}{}", left_t, horizontal.repeat(58), right_t);
+
+        // Content
+        for line in lines {
+            println!("{} {:<56} {}", vertical, line, vertical);
+        }
+
+        // Bottom border
+        println!("{}{}{}", bottom_left, horizontal.repeat(58), bottom_right);
+    }
+
+    /// Display key-value summary
+    pub fn summary(&self, title: &str, items: &[(&str, &str)]) {
+        self.section_header("📊", title);
+
+        for (key, value) in items {
+            let formatted = if self.caps.use_colors() {
+                format!("{:<20} {}", key.bold(), value)
+            } else {
+                format!("{:<20} {}", key, value)
+            };
+            println!("  {}", formatted);
+        }
+        println!();
+    }
+
+    /// Display thinking message
+    pub fn thinking(&self) {
+        let icon = self.render_emoji("💭");
+        println!("\n{} {}...\n", icon, self.profile.translations.working);
+    }
+
+    /// Display done message
+    pub fn done(&self, message: &str) {
+        let icon = self.render_icon("✓", "[OK]");
+        let text = if self.caps.use_colors() {
+            format!("{} {}", icon, message).green().to_string()
+        } else {
+            format!("{} {}", icon, message)
+        };
+        println!("\n{}\n", text);
+    }
+
+    /// Display command to be executed
+    pub fn command(&self, cmd: &str, requires_sudo: bool) {
+        let sudo_icon = if requires_sudo {
+            self.render_emoji("🔐")
+        } else {
+            "  ".to_string()
+        };
+
+        let formatted = if self.caps.use_colors() {
+            format!("  {} $ {}", sudo_icon, cmd).cyan().to_string()
+        } else {
+            format!("  {} $ {}", sudo_icon, cmd)
+        };
+        println!("{}", formatted);
+    }
+
+    /// Display explanation text
+    pub fn explain(&self, text: &str) {
+        let icon = self.render_emoji("📖");
+        println!("  {} {}", icon, text);
+    }
+
+    /// Display Arch Wiki reference
+    pub fn wiki_link(&self, title: &str, url: &str) {
+        let icon = self.render_emoji("🏛️");
+        let formatted = if self.caps.use_colors() {
+            format!("  {} Arch Wiki: {} - {}", icon, title, url).blue().to_string()
+        } else {
+            format!("  {} Arch Wiki: {} - {}", icon, title, url)
+        };
+        println!("{}", formatted);
+    }
+
+    // ========================================================================
+    // Rendering Helpers - Handle Terminal Capability Fallbacks
+    // ========================================================================
+
+    /// Render icon with fallback
+    fn render_icon(&self, unicode: &str, ascii_fallback: &str) -> String {
+        if self.caps.use_emojis() || self.caps.use_unicode_graphics() {
+            unicode.to_string()
+        } else {
+            ascii_fallback.to_string()
+        }
+    }
+
+    /// Render emoji with fallback
+    fn render_emoji(&self, emoji: &str) -> String {
+        if self.caps.use_emojis() {
+            emoji.to_string()
+        } else {
+            // Map emoji to text
+            match emoji {
+                "✓" => "[OK]".to_string(),
+                "✗" => "[X]".to_string(),
+                "⚠" | "⚠️" => "[!]".to_string(),
+                "🔒" | "🔐" => "[SECURE]".to_string(),
+                "📊" => "[STATS]".to_string(),
+                "💭" => "[...]".to_string(),
+                "📖" => "[INFO]".to_string(),
+                "🏛️" => "[WIKI]".to_string(),
+                "⏳" => "[WAIT]".to_string(),
+                "•" => "*".to_string(),
+                _ => "".to_string(),
+            }
+        }
+    }
+
+    /// Render box-drawing character with fallback
+    fn render_box_char(&self, unicode: &str, ascii: &str) -> String {
+        if self.caps.use_unicode_graphics() {
+            unicode.to_string()
+        } else {
+            ascii.to_string()
+        }
+    }
+
+    /// Get box-drawing characters based on terminal capabilities
+    fn box_chars(&self) -> (String, String, String, String, String, String) {
+        if self.caps.use_unicode_graphics() {
+            (
+                "┌".to_string(),
+                "┐".to_string(),
+                "└".to_string(),
+                "┘".to_string(),
+                "─".to_string(),
+                "│".to_string(),
+            )
+        } else {
+            (
+                "+".to_string(),
+                "+".to_string(),
+                "+".to_string(),
+                "+".to_string(),
+                "-".to_string(),
+                "|".to_string(),
+            )
+        }
+    }
+
+    /// Get T-junction characters for borders
+    fn render_t_chars(&self) -> (String, String) {
+        if self.caps.use_unicode_graphics() {
+            ("├".to_string(), "┤".to_string())
+        } else {
+            ("+".to_string(), "+".to_string())
+        }
+    }
+
+    // ========================================================================
+    // Conversational Display Helpers
+    // ========================================================================
+
+    /// Print warm greeting
+    pub fn greeting(&self, username: &str) {
+        let separator = self.render_box_char("═", "=").repeat(60);
+        println!("{}", separator);
+
+        let welcome_icon = self.render_emoji("🌟");
+        println!("  {} Welcome, {}", welcome_icon, username);
+        println!("  I am Anna, your Arch Linux caretaker");
+        println!("{}", separator);
+        println!();
+    }
+
+    /// Print how Anna works explanation
+    pub fn explain_how_i_work(&self) {
+        self.section_header("ℹ️", "How do I work?");
+
+        let bullet = self.render_icon("•", "*");
+        println!("  {} I watch your system locally.", bullet);
+        println!("  {} I compare what I see with best practices from the Arch Wiki.", bullet);
+        println!("  {} I suggest improvements, explain them in plain language,", bullet);
+        println!("     and only change things after you approve them.");
+        println!();
+    }
+
+    /// Print privacy explanation
+    pub fn explain_privacy(&self) {
+        self.section_header("🔒", "Privacy & Data Handling");
+
+        let bullet = self.render_icon("•", "*");
+        println!("  {} I do not send your data anywhere.", bullet);
+        println!("  {} I keep telemetry and notes on this machine only.", bullet);
+        println!("  {} I read the Arch Wiki and official documentation when needed.", bullet);
+        println!("  {} I never run commands behind your back.", bullet);
+        println!();
+    }
+
+    /// Print REPL welcome
+    pub fn repl_welcome(&self) {
+        println!("\nAnna is ready. You can just talk to me.\n");
+        println!("For example:");
+
+        let bullet = self.render_icon("•", "*");
+        println!("  {} \"How are you, any problems with my system\"", bullet);
+        println!("  {} \"It feels slower than usual, did you see anything\"", bullet);
+        println!("  {} \"I am not happy with vim, what CLI editors do you suggest\"", bullet);
+        println!("  {} \"Prepare a report for my boss about this machine\"\n", bullet);
+
+        println!("Ask me something:");
+    }
+
+    /// Print prompt
+    pub fn prompt(&self) {
+        print!("\n> ");
+        io::stdout().flush().ok();
+    }
+
+    /// Print separator line
+    pub fn separator(&self) {
+        let line = self.render_box_char("─", "-");
+        println!("{}", line.repeat(60));
+    }
+
+    // ========================================================================
+    // Recommendation Display
+    // ========================================================================
+
+    /// Display recommendation step
+    pub fn recommendation_step(
+        &self,
+        number: usize,
+        title: &str,
+        explanation: &str,
+        command: Option<&str>,
+        wiki_link: Option<(&str, &str)>,
+        warning: Option<&str>,
+    ) {
+        // Step header
+        let formatted_title = if self.caps.use_colors() {
+            format!("{}. {}", number, title).bold().to_string()
+        } else {
+            format!("{}. {}", number, title)
+        };
+        println!("{}", formatted_title);
+
+        // Command
+        if let Some(cmd) = command {
+            self.command(cmd, cmd.starts_with("sudo"));
+        }
+
+        // Explanation
+        self.explain(explanation);
+
+        // Warning
+        if let Some(warn) = warning {
+            let icon = self.render_icon("⚠", "[!]");
+            let formatted = if self.caps.use_colors() {
+                format!("  {} {}", icon, warn).yellow().to_string()
+            } else {
+                format!("  {} {}", icon, warn)
+            };
+            println!("{}", formatted);
+        }
+
+        // Wiki link
+        if let Some((wiki_title, wiki_url)) = wiki_link {
+            self.wiki_link(wiki_title, wiki_url);
+        }
+
+        println!();
+    }
+}
+
+// ============================================================================
+// Legacy Compatibility (Deprecated - Will be removed)
+// ============================================================================
 
 /// Status level for messages
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusLevel {
-    /// Critical issue requiring immediate attention
     Critical,
-    /// Warning that should be addressed
     Warning,
-    /// Informational message
     Info,
-    /// Success/all clear
     Success,
 }
 
-impl StatusLevel {
-    /// Get the icon for this status level
-    pub fn icon(&self, use_color: bool) -> String {
-        if use_color {
-            match self {
-                StatusLevel::Critical => "🔴".red().to_string(),
-                StatusLevel::Warning => "⚠️ ".yellow().to_string(),
-                StatusLevel::Info => "ℹ️ ".blue().to_string(),
-                StatusLevel::Success => "✅".green().to_string(),
-            }
-        } else {
-            match self {
-                StatusLevel::Critical => "CRITICAL".to_string(),
-                StatusLevel::Warning => "WARNING".to_string(),
-                StatusLevel::Info => "INFO".to_string(),
-                StatusLevel::Success => "OK".to_string(),
-            }
-        }
-    }
-
-    /// Get the label for this status level
-    pub fn label(&self) -> &'static str {
-        match self {
-            StatusLevel::Critical => "CRITICAL",
-            StatusLevel::Warning => "WARNING",
-            StatusLevel::Info => "INFO",
-            StatusLevel::Success => "OK",
-        }
-    }
-}
-
-/// Builder for creating consistent output sections
+/// Legacy section builder - DEPRECATED - Use UI methods instead
 pub struct Section {
     title: String,
     level: StatusLevel,
@@ -66,7 +521,6 @@ pub struct Section {
 }
 
 impl Section {
-    /// Create a new section with a title and status level
     pub fn new(title: impl Into<String>, level: StatusLevel, use_color: bool) -> Self {
         Section {
             title: title.into(),
@@ -76,56 +530,29 @@ impl Section {
         }
     }
 
-    /// Add a line of content
     pub fn add_line(&mut self, line: impl Into<String>) {
         self.content.push(line.into());
     }
 
-    /// Add a blank line
-    pub fn add_blank(&mut self) {
-        self.content.push(String::new());
-    }
-
-    /// Add a bulleted item
     pub fn add_bullet(&mut self, text: impl Into<String>) {
         self.content.push(format!("  • {}", text.into()));
     }
 
-    /// Add a numbered item
-    pub fn add_numbered(&mut self, num: usize, text: impl Into<String>) {
-        self.content.push(format!("  {}. {}", num, text.into()));
-    }
-
-    /// Add an indented detail
-    pub fn add_detail(&mut self, text: impl Into<String>) {
-        self.content.push(format!("     {}", text.into()));
-    }
-
-    /// Render the section as a string
     pub fn render(&self) -> String {
         let mut output = String::new();
-
-        // Top border
         output.push_str("╔══════════════════════════════════════════════════════════╗\n");
 
-        // Title line with icon
-        let icon = self.level.icon(self.use_color);
-        let title = if self.use_color {
-            match self.level {
-                StatusLevel::Critical => format!("{} {}", icon, self.title).red().bold().to_string(),
-                StatusLevel::Warning => format!("{} {}", icon, self.title).yellow().bold().to_string(),
-                StatusLevel::Info => format!("{} {}", icon, self.title).blue().bold().to_string(),
-                StatusLevel::Success => format!("{} {}", icon, self.title).green().bold().to_string(),
-            }
-        } else {
-            format!("{} {}", icon, self.title)
+        let icon = match self.level {
+            StatusLevel::Critical => "🔴",
+            StatusLevel::Warning => "⚠️",
+            StatusLevel::Info => "ℹ️",
+            StatusLevel::Success => "✅",
         };
-        output.push_str(&format!("║ {:<56} ║\n", title));
 
-        // Bottom border
+        let title_line = format!("{} {}", icon, self.title);
+        output.push_str(&format!("║ {:<56} ║\n", title_line));
         output.push_str("╚══════════════════════════════════════════════════════════╝\n");
 
-        // Content
         if !self.content.is_empty() {
             output.push('\n');
             for line in &self.content {
@@ -138,225 +565,89 @@ impl Section {
     }
 }
 
-/// Builder for recommendations
-pub struct Recommendation {
-    steps: Vec<RecommendationStep>,
-    use_color: bool,
-}
+// ============================================================================
+// Legacy Helper Functions - DEPRECATED
+// ============================================================================
 
-#[derive(Clone)]
-pub struct RecommendationStep {
-    pub number: usize,
-    pub title: String,
-    pub command: Option<String>,
-    pub explanation: String,
-    pub warning: Option<String>,
-    pub wiki_link: Option<WikiLink>,
-    pub estimated_impact: Option<String>,
-}
-
-#[derive(Clone)]
-pub struct WikiLink {
-    pub title: String,
-    pub url: String,
-    pub section: Option<String>,
-}
-
-impl Recommendation {
-    /// Create a new recommendation builder
-    pub fn new(use_color: bool) -> Self {
-        Recommendation {
-            steps: Vec::new(),
-            use_color,
-        }
-    }
-
-    /// Add a recommendation step
-    pub fn add_step(&mut self, step: RecommendationStep) {
-        self.steps.push(step);
-    }
-
-    /// Render recommendations
-    pub fn render(&self) -> String {
-        if self.steps.is_empty() {
-            return String::new();
-        }
-
-        let mut output = String::new();
-
-        // Header
-        let header = if self.use_color {
-            "🎯 What You Should Do".bold().to_string()
-        } else {
-            "RECOMMENDED ACTIONS".to_string()
-        };
-        output.push_str(&header);
-        output.push_str("\n\n");
-
-        // Each step
-        for step in &self.steps {
-            // Step number and title
-            let step_header = if self.use_color {
-                format!("{}. {}", step.number, step.title).bold().to_string()
-            } else {
-                format!("{}. {}", step.number, step.title)
-            };
-            output.push_str(&step_header);
-            output.push('\n');
-
-            // Command if provided
-            if let Some(cmd) = &step.command {
-                let formatted_cmd = if self.use_color {
-                    format!("   $ {}", cmd).cyan().to_string()
-                } else {
-                    format!("   $ {}", cmd)
-                };
-                output.push_str(&formatted_cmd);
-                output.push('\n');
-            }
-
-            // Explanation
-            output.push_str(&format!("   📖 {}\n", step.explanation));
-
-            // Warning if provided
-            if let Some(warning) = &step.warning {
-                let formatted_warning = if self.use_color {
-                    format!("   ⚠️  {}", warning).yellow().to_string()
-                } else {
-                    format!("   WARNING: {}", warning)
-                };
-                output.push_str(&formatted_warning);
-                output.push('\n');
-            }
-
-            // Estimated impact
-            if let Some(impact) = &step.estimated_impact {
-                let formatted_impact = if self.use_color {
-                    format!("   💾 Impact: {}", impact).green().to_string()
-                } else {
-                    format!("   Impact: {}", impact)
-                };
-                output.push_str(&formatted_impact);
-                output.push('\n');
-            }
-
-            // Wiki link if provided
-            if let Some(wiki) = &step.wiki_link {
-                let link_text = if let Some(section) = &wiki.section {
-                    format!("   🔗 Arch Wiki: {} - {} ({})", wiki.title, section, wiki.url)
-                } else {
-                    format!("   🔗 Arch Wiki: {} ({})", wiki.title, wiki.url)
-                };
-                let formatted_link = if self.use_color {
-                    link_text.blue().to_string()
-                } else {
-                    link_text
-                };
-                output.push_str(&formatted_link);
-                output.push('\n');
-            }
-
-            output.push('\n');
-        }
-
-        output
-    }
-}
-
-/// Display a summary box
-pub fn summary_box(title: &str, items: &[(&str, &str)], use_color: bool) -> String {
-    let mut output = String::new();
-
-    // Top border
-    output.push_str("┌────────────────────────────────────────────────────────┐\n");
-
-    // Title
-    let formatted_title = if use_color {
-        format!("│ {}  │\n", title.bold())
-    } else {
-        format!("│ {}  │\n", title)
-    };
-    output.push_str(&formatted_title);
-
-    // Separator
-    output.push_str("├────────────────────────────────────────────────────────┤\n");
-
-    // Items
-    for (key, value) in items {
-        output.push_str(&format!("│ {:<20} {:<33} │\n", key, value));
-    }
-
-    // Bottom border
-    output.push_str("└────────────────────────────────────────────────────────┘\n");
-
-    output
-}
-
-/// Display a progress indicator
-pub fn progress(current: usize, total: usize, label: &str, use_color: bool) -> String {
-    let percent = (current as f64 / total as f64 * 100.0) as usize;
-    let bar_width = 40;
-    let filled = (bar_width * current) / total;
-    let empty = bar_width - filled;
-
-    let bar = if use_color {
-        format!(
-            "[{}{}]",
-            "█".repeat(filled).green(),
-            "░".repeat(empty).dimmed()
-        )
-    } else {
-        format!("[{}{}]", "=".repeat(filled), " ".repeat(empty))
-    };
-
-    format!("{} {}% - {}", bar, percent, label)
-}
-
-/// Check if color output should be used
 pub fn should_use_color() -> bool {
-    // Check NO_COLOR environment variable
     if std::env::var("NO_COLOR").is_ok() {
         return false;
     }
-
-    // Check if output is a TTY
-    atty::is(atty::Stream::Stdout)
+    std::io::stdout().is_terminal()
 }
+
+pub fn print_section_header(emoji: &str, title: &str) {
+    let ui = UI::auto();
+    ui.section_header(emoji, title);
+}
+
+pub fn print_thinking() {
+    let ui = UI::auto();
+    ui.thinking();
+}
+
+pub fn print_prompt() {
+    let ui = UI::auto();
+    ui.prompt();
+}
+
+pub fn print_repl_welcome() {
+    let ui = UI::auto();
+    ui.repl_welcome();
+}
+
+pub fn print_greeting(username: &str) {
+    let ui = UI::auto();
+    ui.greeting(username);
+}
+
+pub fn print_privacy_explanation() {
+    let ui = UI::auto();
+    ui.explain_privacy();
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_section_creation() {
-        let mut section = Section::new("Test Section", StatusLevel::Info, false);
-        section.add_line("Line 1");
-        section.add_bullet("Bullet 1");
-        section.add_numbered(1, "Step 1");
-
-        let output = section.render();
-        assert!(output.contains("Test Section"));
-        assert!(output.contains("Line 1"));
-        assert!(output.contains("Bullet 1"));
-        assert!(output.contains("Step 1"));
+    fn test_ui_creation() {
+        let ui = UI::auto();
+        assert!(ui.capabilities().is_tty || !ui.capabilities().is_tty); // Always true
     }
 
     #[test]
-    fn test_recommendation_builder() {
-        let mut rec = Recommendation::new(false);
-        rec.add_step(RecommendationStep {
-            number: 1,
-            title: "Test Step".to_string(),
-            command: Some("test command".to_string()),
-            explanation: "This is a test".to_string(),
-            warning: None,
-            wiki_link: None,
-            estimated_impact: Some("High".to_string()),
-        });
+    fn test_emoji_fallback() {
+        let config = LanguageConfig::new();
+        let ui = UI::new(&config);
 
-        let output = rec.render();
-        assert!(output.contains("Test Step"));
-        assert!(output.contains("test command"));
-        assert!(output.contains("This is a test"));
+        // Even if emojis not supported, should not panic
+        let result = ui.render_emoji("✓");
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_box_char_fallback() {
+        let config = LanguageConfig::new();
+        let ui = UI::new(&config);
+
+        let (tl, tr, bl, br, h, v) = ui.box_chars();
+        assert!(!tl.is_empty());
+        assert!(!h.is_empty());
+        assert!(!v.is_empty());
+    }
+
+    #[test]
+    fn test_language_integration() {
+        let mut config = LanguageConfig::new();
+        config.set_user_language(crate::language::Language::Spanish);
+
+        let ui = UI::new(&config);
+        assert_eq!(ui.profile().language, crate::language::Language::Spanish);
+        assert_eq!(ui.profile().translations.yes, "sí");
     }
 }

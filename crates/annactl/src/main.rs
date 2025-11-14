@@ -8,29 +8,44 @@
 // Phase 0.3a: Commands module will be reimplemented in 0.3c
 // mod commands;
 pub mod errors;
-mod adaptive_help; // Phase 3.8: Adaptive root help
-mod chronos_commands; // Phase 1.5
-mod collective_commands; // Phase 1.3
-mod consensus_commands; // Phase 1.8
-mod conscience_commands; // Phase 1.1
-mod context_detection; // Phase 3.8: Context detection
-mod daily_command; // Phase 4.0: Daily checkup workflow
-mod first_run; // Phase 4.3: First run detection and bootstrap
-mod empathy_commands; // Phase 1.2
-mod health_commands;
-mod help_commands; // Phase 3.1: Adaptive help
-mod init_command; // Phase 3.9: First-run wizard
-mod install_command; // Phase 0.8
-mod learning_commands; // Phase 3.9: Learn and predict commands
+// Core modules for conversational Anna (Phase 5.1)
+mod intent_router; // Natural language → intent mapping
+mod repl; // Conversational REPL
+
+// Internal intent handlers (not exposed as CLI commands)
+mod action_executor; // Execute approved suggestions
+mod autonomy_command; // Handle autonomy intent
+mod context_detection;
+mod discard_command; // Handle discard intent
+mod first_run;
+mod health_commands; // Contains repair logic - will be refactored
+mod help_commands;
+mod init_command;
+mod install_command;
+mod json_types;
 pub mod logging;
-mod mirror_commands; // Phase 1.4
-mod monitor_setup; // Phase 3.1: Monitoring automation
+mod monitor_setup;
 pub mod output;
-mod predictive_hints; // Phase 3.8: Post-command predictive intelligence
-mod rpc_client; // Phase 0.5b
-mod sentinel_cli; // Phase 1.0
-mod steward_commands; // Phase 0.9
-mod upgrade_command; // Phase 3.10: Auto-upgrade system
+mod report_command; // Handle report intent
+mod report_display; // Display professional reports
+mod rpc_client;
+mod status_command; // Handle anna_status intent
+mod suggest_command; // Handle suggest intent
+mod suggestion_display; // Display suggestions with Arch Wiki links
+mod system_query; // Query real system state
+mod upgrade_command;
+
+// TODO: Delete these experimental/developer commands in next cleanup
+mod adaptive_help;
+mod chronos_commands;
+mod collective_commands;
+mod consensus_commands;
+mod conscience_commands;
+mod empathy_commands;
+mod learning_commands;
+mod mirror_commands;
+mod predictive_hints;
+mod sentinel_cli;
 
 use anna_common::ipc::{CommandCapabilityData, ResponseData};
 use anyhow::Result;
@@ -64,7 +79,11 @@ enum Commands {
     Init,
 
     /// Show system status and daemon health
-    Status,
+    Status {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+    },
 
     /// Show available commands (adaptive and context-aware)
     Help {
@@ -138,6 +157,21 @@ enum Commands {
         /// Output JSON only
         #[arg(long)]
         json: bool,
+    },
+
+    /// Manage issue decisions (acknowledge, snooze, reset) - Phase 4.9
+    #[command(hide = true)]
+    Issues {
+        /// Subcommand: acknowledge, snooze, reset, or list (default)
+        subcommand: Option<String>,
+
+        /// Issue key to operate on
+        #[arg(long)]
+        key: Option<String>,
+
+        /// Days to snooze (for snooze subcommand)
+        #[arg(long)]
+        days: Option<u32>,
     },
 
     /// Rollback actions (configured, degraded states)
@@ -304,6 +338,38 @@ enum Commands {
         /// Show all predictions (default: only high/critical)
         #[arg(long)]
         all: bool,
+    },
+
+    /// Show behavioral insights from observation history (Phase 5.3)
+    #[command(hide = true)]
+    Insights {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+
+        /// Number of days to analyze (default: 30)
+        #[arg(long, default_value = "30")]
+        days: i64,
+    },
+
+    /// Show repair history (Phase 5.1)
+    #[command(hide = true)]
+    Repairs {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+
+        /// Number of recent repairs to show
+        #[arg(long, default_value = "20")]
+        limit: usize,
+    },
+
+    /// Show weekly system summary (Phase 5.4)
+    #[command(hide = true)]
+    Weekly {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
     },
 
     /// Upgrade Anna to the latest version (Phase 3.10)
@@ -502,13 +568,281 @@ fn state_citation(state: &str) -> &'static str {
     }
 }
 
+/// Handle a single conversational query (annactl "question")
+async fn handle_one_shot_query(query: &str) -> Result<()> {
+    use anna_common::display::{UI, print_privacy_explanation};
+    use intent_router::{Intent, PersonalityAdjustment};
+
+    let intent = intent_router::route_intent(query);
+
+    match intent {
+        Intent::Exit => {
+            let ui = UI::auto();
+            println!();
+            ui.info("Goodbye!");
+            println!();
+        }
+
+        Intent::AnnaStatus => {
+            let ui = UI::auto();
+            ui.thinking();
+            ui.success("I'm running and ready to help!");
+            ui.info("All my systems are operational.");
+            println!();
+        }
+
+        Intent::Privacy => {
+            let ui = UI::auto();
+            ui.section_header("🔒", "Privacy & Data Handling");
+            print_privacy_explanation();
+        }
+
+        Intent::Report => {
+            let ui = UI::auto();
+            ui.thinking();
+            report_display::generate_professional_report();
+        }
+
+        Intent::Suggest => {
+            let ui = UI::auto();
+            ui.thinking();
+            suggestion_display::show_suggestions_conversational();
+        }
+
+        Intent::Repair { .. } => {
+            let ui = UI::auto();
+            println!();
+            ui.info("To fix issues, use: annactl repair");
+            ui.info("That command checks Anna's own health and fixes permission/dependency issues.");
+            println!();
+        }
+
+        Intent::Discard { .. } => {
+            let ui = UI::auto();
+            println!();
+            ui.info("[Discard functionality coming soon]");
+            ui.info("This will let you hide suggestions you don't want to see.");
+            println!();
+        }
+
+        Intent::Autonomy { .. } => {
+            let ui = UI::auto();
+            println!();
+            ui.info("[Autonomy controls coming soon]");
+            ui.info("This will let you adjust how much Anna can do automatically.");
+            println!();
+        }
+
+        Intent::Apply { .. } => {
+            let ui = UI::auto();
+            ui.thinking();
+            ui.info("Let me show you the available fixes...");
+            println!();
+
+            // Generate suggestions
+            let suggestions = suggestion_display::generate_suggestions_from_telemetry();
+            let mut engine = anna_common::suggestions::SuggestionEngine::new();
+
+            for suggestion in suggestions {
+                engine.add_suggestion(suggestion);
+            }
+
+            let top = engine.get_top_suggestions(5);
+
+            // Filter to auto-fixable only
+            let auto_fixable: Vec<_> = top.into_iter().filter(|s| s.auto_fixable).collect();
+
+            if auto_fixable.is_empty() {
+                ui.info("I don't have any suggestions that I can automatically fix right now.");
+                ui.info("Review the suggestions with: annactl \"what should I improve?\"");
+                println!();
+                return Ok(());
+            }
+
+            // Convert from references to owned for selection
+            let suggestions_vec: Vec<anna_common::suggestions::Suggestion> =
+                auto_fixable.into_iter().map(|s| s.clone()).collect();
+            let suggestions_ref: Vec<&anna_common::suggestions::Suggestion> =
+                suggestions_vec.iter().collect();
+
+            if let Some(idx) = action_executor::select_suggestion_to_apply(&suggestions_ref) {
+                if idx < suggestions_vec.len() {
+                    action_executor::execute_suggestion(&suggestions_vec[idx]).await?;
+                }
+            }
+        }
+
+        Intent::Personality { adjustment } => {
+            use anna_common::personality::{PersonalityConfig, Verbosity};
+
+            let ui = UI::auto();
+            let mut config = PersonalityConfig::load();
+
+            match adjustment {
+                PersonalityAdjustment::IncreaseHumor => {
+                    config.adjust_humor(true);
+                    println!();
+                    ui.success("Okay! I'll be a bit more playful 😊");
+                    ui.info(&format!("Current humor level: {} - {}", config.humor_level, config.humor_description()));
+                    println!();
+                }
+                PersonalityAdjustment::DecreaseHumor => {
+                    config.adjust_humor(false);
+                    println!();
+                    ui.success("Got it. I'll keep things more serious.");
+                    ui.info(&format!("Current humor level: {} - {}", config.humor_level, config.humor_description()));
+                    println!();
+                }
+                PersonalityAdjustment::MoreBrief => {
+                    config.set_verbosity(Verbosity::Low);
+                    println!();
+                    ui.success("Understood. I'll be more concise.");
+                    println!();
+                }
+                PersonalityAdjustment::MoreDetailed => {
+                    config.set_verbosity(Verbosity::High);
+                    println!();
+                    ui.success("Sure! I'll provide more detailed explanations.");
+                    println!();
+                }
+                PersonalityAdjustment::Show => {
+                    println!();
+                    ui.section_header("📊", "Current Personality Settings");
+                    ui.info(&format!("Humor:     {} - {}", config.humor_level, config.humor_description()));
+                    ui.info(&format!("Verbosity: {}", config.verbosity_description()));
+                    println!();
+                }
+            }
+
+            if !matches!(adjustment, PersonalityAdjustment::Show) {
+                if let Err(e) = config.save() {
+                    ui.warning(&format!("Note: Couldn't save settings: {}", e));
+                    println!();
+                } else {
+                    ui.success("✓ Settings saved");
+                    println!();
+                }
+            }
+        }
+
+        Intent::Language { language } => {
+            use anna_common::language::{Language, LanguageConfig};
+            use anna_common::context::db::{ContextDb, DbLocation};
+
+            let ui = UI::auto();
+
+            if let Some(lang_str) = language {
+                // Parse the requested language
+                if let Some(lang) = Language::from_str(&lang_str) {
+                    // Load current config
+                    let db_location = DbLocation::auto_detect();
+                    let db_result = ContextDb::open(db_location).await;
+
+                    let mut config = if let Ok(db) = &db_result {
+                        db.load_language_config().await.unwrap_or_default()
+                    } else {
+                        LanguageConfig::new()
+                    };
+
+                    // Set the new language
+                    config.set_user_language(lang);
+
+                    // Save to database
+                    if let Ok(db) = &db_result {
+                        if let Err(e) = db.save_language_config(&config).await {
+                            println!();
+                            ui.warning(&format!("Warning: Couldn't persist language setting: {}", e));
+                            println!();
+                        }
+                    }
+
+                    // Confirm in the NEW language (create UI with new config)
+                    let new_ui = UI::new(&config);
+                    let profile = config.profile();
+                    println!();
+                    new_ui.success(&format!("{} ✓", profile.translations.language_changed));
+                    new_ui.info(&format!("{} {}", profile.translations.now_speaking, lang.native_name()));
+                    println!();
+                } else {
+                    println!();
+                    ui.info("I don't recognize that language. I can speak:");
+                    ui.bullet_list(&[
+                        "English",
+                        "Español (Spanish)",
+                        "Norsk (Norwegian)",
+                        "Deutsch (German)",
+                        "Français (French)",
+                        "Português (Portuguese)",
+                    ]);
+                    println!();
+                }
+            } else {
+                println!();
+                ui.info("Which language would you like me to use?");
+                ui.info("Try: \"annactl \\\"use English\\\"\" or \"annactl \\\"cambia al español\\\"");
+                println!();
+            }
+        }
+
+        Intent::Help => {
+            let ui = UI::auto();
+            ui.section_header("💡", "What I Can Help With");
+            ui.info("I'm Anna, your Arch Linux caretaker.");
+            println!();
+            ui.info("Try asking:");
+            ui.bullet_list(&[
+                "\"How are you?\" - Check my status",
+                "\"Any problems with my system?\" - Get suggestions",
+                "\"Generate a report\" - Create system summary",
+                "\"What do you store?\" - Privacy information",
+            ]);
+            println!();
+            ui.info("Or just run 'annactl' to start a conversation.");
+            println!();
+        }
+
+        Intent::OffTopic => {
+            let ui = UI::auto();
+            println!();
+            ui.info(&intent_router::offtopic_response());
+        }
+
+        Intent::Unclear => {
+            let ui = UI::auto();
+            println!();
+            ui.info(&intent_router::unclear_response());
+        }
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Phase 3.8: Intercept root help before clap parsing for adaptive display
+    // Phase 5.1: Conversational UX - Start REPL if no arguments
     let args: Vec<String> = std::env::args().collect();
 
+    // If no arguments at all, start conversational REPL
+    if args.len() == 1 {
+        return repl::start_repl().await;
+    }
+
+    // One-shot conversational query: annactl "question"
+    // If single argument that's not a known flag/subcommand, treat as conversational query
+    if args.len() == 2
+        && !args[1].starts_with("--")
+        && !args[1].starts_with("-")
+        && !matches!(
+            args[1].as_str(),
+            "init" | "status" | "help" | "repair" | "doctor" | "upgrade" | "ping" | "version"
+        )
+    {
+        return handle_one_shot_query(&args[1]).await;
+    }
+
+    // Phase 3.8: Intercept root help for adaptive display
     // Check for root help invocation
-    if args.len() == 1 || (args.len() == 2 && (args[1] == "--help" || args[1] == "-h")) {
+    if args.len() == 2 && (args[1] == "--help" || args[1] == "-h") {
         adaptive_help::display_adaptive_root_help(false, false);
         std::process::exit(0);
     }
@@ -642,6 +976,13 @@ async fn main() -> Result<()> {
         return learning_commands::execute_predict_command(*json, *all).await;
     }
 
+    // TODO: Wire new real Anna commands here
+    // - report
+    // - suggest
+    // - discard
+    // - autonomy
+    // - status (Anna self-health)
+
     // Phase 3.10: Handle upgrade command early (doesn't need daemon, requires root)
     if let Commands::Upgrade { yes, check } = &cli.command {
         return upgrade_command::execute_upgrade_command(*yes, *check).await;
@@ -651,7 +992,6 @@ async fn main() -> Result<()> {
     // Get command name first
     let command_name = match &cli.command {
         Commands::Init => "init",
-        Commands::Status => "status",
         Commands::Help { .. } => "help",
         Commands::Ping => "ping",
         // Commands::Update { .. } => "update",
@@ -661,6 +1001,8 @@ async fn main() -> Result<()> {
         Commands::Health { .. } => "health",
         Commands::Daily { .. } => "daily",
         Commands::Doctor { .. } => "doctor",
+        Commands::Issues { .. } => "issues",
+        Commands::Status { .. } => "status",
         Commands::Rollback { .. } => "rollback",
         Commands::Triage => "triage",
         Commands::CollectLogs { .. } => "collect-logs",
@@ -680,6 +1022,9 @@ async fn main() -> Result<()> {
         Commands::Metrics { .. } => "metrics",
         Commands::Learn { .. } => "learn",
         Commands::Predict { .. } => "predict",
+        Commands::Insights { .. } => "insights",
+        Commands::Repairs { .. } => "repairs",
+        Commands::Weekly { .. } => "weekly",
         Commands::Upgrade { .. } => "upgrade",
     };
 
@@ -725,13 +1070,20 @@ async fn main() -> Result<()> {
             return health_commands::execute_health_command(*json, &state, &req_id, start_time)
                 .await;
         }
-        Commands::Daily { json } => {
-            return daily_command::execute_daily_command(*json, &state, &req_id, start_time)
-                .await;
+        // TODO: These old commands replaced by conversational REPL
+        Commands::Daily { .. } => {
+            println!("This command has been replaced by the conversational interface.");
+            println!("Just run 'annactl' with no arguments and ask me anything!");
+            std::process::exit(0);
         }
         Commands::Doctor { json } => {
             return health_commands::execute_doctor_command(*json, &state, &req_id, start_time)
                 .await;
+        }
+        Commands::Issues { .. } => {
+            println!("This command has been replaced by the conversational interface.");
+            println!("Just run 'annactl' and ask: 'What should I improve?'");
+            std::process::exit(0);
         }
         Commands::Repair { probe, dry_run } => {
             return health_commands::execute_repair_command(
@@ -764,8 +1116,10 @@ async fn main() -> Result<()> {
             }
         }
         // Phase 0.9: Steward commands
-        Commands::Status => {
-            return steward_commands::execute_status_command(&req_id, &state, start_time).await;
+        Commands::Status { .. } => {
+            println!("This command has been replaced by the conversational interface.");
+            println!("Just run 'annactl' and ask: 'How are you, any problems?'");
+            std::process::exit(0);
         }
         // Commands::Update { dry_run } => {
         //     // Phase 3.4: Check resource constraints before heavy operation
@@ -1801,7 +2155,7 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
             // Should not reach here - handled in main
             unreachable!("Init command should be handled separately");
         }
-        Commands::Status => {
+        Commands::Status { .. } => {
             // Should not reach here - handled in main
             unreachable!("Status command should be handled separately");
         }
@@ -1847,6 +2201,10 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Doctor { .. } => {
             // Should not reach here - handled in main
             unreachable!("Doctor command should be handled separately");
+        }
+        Commands::Issues { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Issues command should be handled separately");
         }
         Commands::Repair { .. } => {
             // Should not reach here - handled in main
@@ -1922,6 +2280,18 @@ async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
         Commands::Predict { .. } => {
             // Should not reach here - handled in main
             unreachable!("Predict command should be handled separately");
+        }
+        Commands::Insights { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Insights command should be handled separately");
+        }
+        Commands::Repairs { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Repairs command should be handled separately");
+        }
+        Commands::Weekly { .. } => {
+            // Should not reach here - handled in main
+            unreachable!("Weekly command should be handled separately");
         }
         Commands::Upgrade { .. } => {
             // Should not reach here - handled in main
