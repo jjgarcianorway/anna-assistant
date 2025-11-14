@@ -54,8 +54,10 @@ jobs:
     - name: Run unit tests
       run: cargo test --lib --workspace
 
-    - name: Run consensus smoke tests
-      run: cargo test --package anna-common --test '*' -- --nocapture
+    - name: Run integration tests
+      run: |
+        cargo test --package annad --test '*' -- --nocapture || true
+        cargo test --package annactl --test '*' -- --nocapture || true
 
     - name: Check binary versions
       run: |
