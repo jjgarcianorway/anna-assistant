@@ -89,6 +89,10 @@ pub struct LlmConfig {
 
     /// Human-readable description of this config
     pub description: String,
+
+    /// Model profile ID (for local models, enables upgrade detection)
+    /// Example: "ollama-llama3.2-1b"
+    pub model_profile_id: Option<String>,
 }
 
 impl Default for LlmConfig {
@@ -103,6 +107,7 @@ impl Default for LlmConfig {
             cost_per_1k_tokens: None,
             safety_notes: Vec::new(),
             description: "LLM not configured".to_string(),
+            model_profile_id: None,
         }
     }
 }
@@ -122,6 +127,25 @@ impl LlmConfig {
                 "Using local LLM - your data stays on this machine".to_string(),
             ],
             description: "Local LLM (privacy-first)".to_string(),
+            model_profile_id: None, // Can be set separately
+        }
+    }
+
+    /// Create a local LLM configuration from a ModelProfile
+    pub fn from_profile(profile: &crate::model_profiles::ModelProfile) -> Self {
+        Self {
+            mode: LlmMode::Local,
+            backend: LlmBackendKind::LocalHttp,
+            base_url: Some("http://127.0.0.1:11434/v1".to_string()),
+            api_key_env: None,
+            model: Some(profile.model_name.clone()),
+            max_tokens: Some(2000),
+            cost_per_1k_tokens: None,
+            safety_notes: vec![
+                "Using local LLM - your data stays on this machine".to_string(),
+            ],
+            description: format!("Local {} ({})", profile.model_name, profile.quality_tier.description()),
+            model_profile_id: Some(profile.id.clone()),
         }
     }
 
@@ -145,6 +169,7 @@ impl LlmConfig {
                 "You may be charged per token by your provider".to_string(),
             ],
             description: "Remote API (privacy trade-off)".to_string(),
+            model_profile_id: None, // Not applicable for remote
         }
     }
 
@@ -154,6 +179,7 @@ impl LlmConfig {
             mode: LlmMode::Disabled,
             backend: LlmBackendKind::Disabled,
             description: "LLM explicitly disabled by user".to_string(),
+            model_profile_id: None,
             ..Default::default()
         }
     }
