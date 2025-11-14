@@ -94,19 +94,179 @@ impl AutoUpdater {
 
         info!("Update available: v{} → v{}", current_version, latest_version);
 
-        // For now, just log the update availability
-        // Full automatic upgrade will be implemented after user approval mechanism
-        info!("Auto-upgrade not yet fully implemented - user must run 'sudo annactl upgrade'");
+        // Step 4: Perform automatic update
+        match self.perform_update(&latest_release, latest_version).await {
+            Ok(()) => {
+                info!("Update successfully installed: v{}", latest_version);
 
-        // TODO: Implement automatic download and installation
-        // This would require:
-        // 1. Download new binaries
-        // 2. Verify checksums
-        // 3. Backup current version
-        // 4. Replace binaries
-        // 5. Restart daemon
-        //
-        // For Phase 3.10, we'll log and notify, but require manual upgrade
+                // Write update record and pending notice
+                if let Err(e) = self.write_update_records(current_version, latest_version).await {
+                    warn!("Failed to write update records: {}", e);
+                }
+
+                // Restart daemon
+                info!("Restarting daemon to apply update...");
+                if let Err(e) = self.restart_daemon().await {
+                    error!("Failed to restart daemon: {}", e);
+                }
+            }
+            Err(e) => {
+                error!("Failed to perform update: {}", e);
+            }
+        }
+    }
+
+    /// Perform the actual update
+    async fn perform_update(&self, release: &anna_common::github_releases::GitHubRelease, version: &str) -> anyhow::Result<()> {
+        use anna_common::file_backup::{FileBackup, FileOperation};
+        use std::path::PathBuf;
+
+        info!("Starting automatic update to v{}", version);
+
+        // Create change set ID for backup tracking
+        let change_set_id = format!("auto_update_{}", version);
+
+        // Download new binaries
+        let temp_dir = PathBuf::from("/tmp/anna_update");
+        tokio::fs::create_dir_all(&temp_dir).await?;
+
+        // Download annactl and annad binaries
+        let annactl_url = format!(
+            "https://github.com/{}/{}/releases/download/{}/annactl-{}-x86_64-unknown-linux-gnu",
+            GITHUB_OWNER, GITHUB_REPO, release.tag_name, version
+        );
+        let annad_url = format!(
+            "https://github.com/{}/{}/releases/download/{}/annad-{}-x86_64-unknown-linux-gnu",
+            GITHUB_OWNER, GITHUB_REPO, release.tag_name, version
+        );
+        let checksums_url = format!(
+            "https://github.com/{}/{}/releases/download/{}/SHA256SUMS",
+            GITHUB_OWNER, GITHUB_REPO, release.tag_name
+        );
+
+        let annactl_tmp = temp_dir.join("annactl");
+        let annad_tmp = temp_dir.join("annad");
+        let checksums_tmp = temp_dir.join("SHA256SUMS");
+
+        // Download files
+        info!("Downloading binaries...");
+        self.download_file(&annactl_url, &annactl_tmp).await?;
+        self.download_file(&annad_url, &annad_tmp).await?;
+        self.download_file(&checksums_url, &checksums_tmp).await?;
+
+        // Verify checksums
+        info!("Verifying checksums...");
+        self.verify_checksums(&temp_dir).await?;
+
+        // Backup current binaries
+        info!("Backing up current binaries...");
+        let annactl_path = PathBuf::from("/usr/local/bin/annactl");
+        let annad_path = PathBuf::from("/usr/local/bin/annad");
+
+        FileBackup::create_backup(&annactl_path, &change_set_id, FileOperation::Modified)?;
+        FileBackup::create_backup(&annad_path, &change_set_id, FileOperation::Modified)?;
+
+        // Atomic swap (move new binaries to /usr/local/bin)
+        info!("Installing new binaries...");
+        tokio::fs::rename(&annactl_tmp, &annactl_path).await?;
+        tokio::fs::rename(&annad_tmp, &annad_path).await?;
+
+        // Set executable permissions
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o755);
+            std::fs::set_permissions(&annactl_path, perms.clone())?;
+            std::fs::set_permissions(&annad_path, perms)?;
+        }
+
+        // Cleanup temp dir
+        let _ = tokio::fs::remove_dir_all(&temp_dir).await;
+
+        info!("Binaries successfully updated");
+        Ok(())
+    }
+
+    /// Download a file from URL
+    async fn download_file(&self, url: &str, dest: &PathBuf) -> anyhow::Result<()> {
+        let response = reqwest::get(url).await?;
+        if !response.status().is_success() {
+            anyhow::bail!("Failed to download {}: HTTP {}", url, response.status());
+        }
+
+        let bytes = response.bytes().await?;
+        tokio::fs::write(dest, &bytes).await?;
+
+        Ok(())
+    }
+
+    /// Verify SHA256 checksums
+    async fn verify_checksums(&self, dir: &PathBuf) -> anyhow::Result<()> {
+        use sha2::{Sha256, Digest};
+
+        let checksums_file = dir.join("SHA256SUMS");
+        let checksums_content = tokio::fs::read_to_string(&checksums_file).await?;
+
+        for line in checksums_content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() != 2 {
+                continue;
+            }
+
+            let expected_hash = parts[0];
+            let filename = parts[1];
+
+            // Skip files we didn't download
+            if !filename.starts_with("anna") {
+                continue;
+            }
+
+            let file_path = dir.join(filename.trim_start_matches("./"));
+            if !file_path.exists() {
+                continue;
+            }
+
+            // Compute actual hash
+            let file_bytes = tokio::fs::read(&file_path).await?;
+            let mut hasher = Sha256::new();
+            hasher.update(&file_bytes);
+            let actual_hash = format!("{:x}", hasher.finalize());
+
+            if actual_hash != expected_hash {
+                anyhow::bail!(
+                    "Checksum mismatch for {}: expected {}, got {}",
+                    filename, expected_hash, actual_hash
+                );
+            }
+
+            info!("✓ Checksum verified: {}", filename);
+        }
+
+        Ok(())
+    }
+
+    /// Write update records for notification
+    async fn write_update_records(&self, from_version: &str, to_version: &str) -> Result<(), std::io::Error> {
+        let record = format!("{}|{}", from_version, to_version);
+        tokio::fs::write(UPDATE_RECORD_FILE, &record).await?;
+        tokio::fs::write(PENDING_NOTICE_FILE, &record).await?;
+        Ok(())
+    }
+
+    /// Restart the daemon
+    async fn restart_daemon(&self) -> anyhow::Result<()> {
+        // Use systemctl to restart the daemon
+        let output = tokio::process::Command::new("systemctl")
+            .args(&["restart", "annad"])
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to restart daemon: {}", stderr);
+        }
+
+        Ok(())
     }
 
     /// Record last check time

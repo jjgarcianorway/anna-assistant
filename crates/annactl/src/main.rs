@@ -600,6 +600,92 @@ pub(crate) async fn check_brain_upgrade_notification(ui: &anna_common::display::
     Ok(())
 }
 
+/// Check for and display update notification (Phase Next: Step 5)
+pub(crate) async fn check_update_notification(ui: &anna_common::display::UI) -> anyhow::Result<()> {
+    const PENDING_NOTICE_FILE: &str = "/var/lib/anna/pending_update_notice";
+    const CHANGELOG_PATH: &str = "/usr/share/doc/anna/CHANGELOG.md";
+
+    // Check if update notification is pending
+    let update_record = match tokio::fs::read_to_string(PENDING_NOTICE_FILE).await {
+        Ok(content) => content,
+        Err(_) => return Ok(()), // No pending update
+    };
+
+    // Parse: "from_version|to_version"
+    let parts: Vec<&str> = update_record.trim().split('|').collect();
+    if parts.len() != 2 {
+        return Ok(());
+    }
+
+    let from_version = parts[0];
+    let to_version = parts[1];
+
+    // Display update notification
+    println!();
+    ui.section_header("✨", "I Updated Myself!");
+    println!();
+    ui.success(&format!("I upgraded from v{} to v{}", from_version, to_version));
+    println!();
+
+    // Try to extract changelog for this version
+    if let Ok(changes) = extract_version_changelog(to_version).await {
+        if !changes.is_empty() {
+            ui.info("What's new:");
+            for change in changes.iter().take(4) {
+                ui.info(&format!("  • {}", change));
+            }
+            println!();
+        }
+    } else {
+        ui.info("Check the full changelog for details.");
+        println!();
+    }
+
+    // Clear the pending notice file
+    let _ = tokio::fs::remove_file(PENDING_NOTICE_FILE).await;
+
+    Ok(())
+}
+
+/// Extract changelog entries for a specific version
+async fn extract_version_changelog(version: &str) -> anyhow::Result<Vec<String>> {
+    const CHANGELOG_PATH: &str = "/usr/share/doc/anna/CHANGELOG.md";
+
+    // Try to read changelog from installed location
+    let changelog = tokio::fs::read_to_string(CHANGELOG_PATH).await?;
+
+    let mut changes = Vec::new();
+    let mut in_version_section = false;
+    let version_header = format!("## [{}]", version);
+
+    for line in changelog.lines() {
+        // Check if we've entered the version section
+        if line.starts_with(&version_header) || line.starts_with(&format!("## v{}", version)) {
+            in_version_section = true;
+            continue;
+        }
+
+        // Stop if we hit the next version section
+        if in_version_section && line.starts_with("## ") {
+            break;
+        }
+
+        // Collect bullet points from the version section
+        if in_version_section {
+            let trimmed = line.trim();
+            if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+                // Remove bullet and trim
+                let change = trimmed[2..].trim().to_string();
+                if !change.is_empty() {
+                    changes.push(change);
+                }
+            }
+        }
+    }
+
+    Ok(changes)
+}
+
 /// Handle LLM query (Task 12)
 async fn handle_llm_query(user_text: &str) {
     use anna_common::display::UI;
@@ -677,16 +763,22 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
     use anna_common::context::db::{ContextDb, DbLocation};
     use intent_router::{Intent, PersonalityAdjustment};
 
-    // Phase Next Step 2 & 3: Check LLM setup and brain upgrade notifications
+    // Phase Next Step 2, 3 & 5: Check LLM setup, brain upgrade, and update notifications
     let ui = UI::auto();
     let db_location = DbLocation::auto_detect();
+
+    // Check for update notification (Step 5)
+    if let Err(e) = check_update_notification(&ui).await {
+        eprintln!("Warning: Update notification check failed: {}", e);
+    }
+
     if let Ok(db) = ContextDb::open(db_location).await {
-        // Check if setup wizard needs to run
+        // Check if setup wizard needs to run (Step 2)
         if let Err(e) = run_llm_setup_if_needed(&ui, &db).await {
             eprintln!("Warning: LLM setup check failed: {}", e);
         }
 
-        // Check for brain upgrade notifications
+        // Check for brain upgrade notifications (Step 3)
         if let Err(e) = check_brain_upgrade_notification(&ui, &db).await {
             eprintln!("Warning: Brain upgrade check failed: {}", e);
         }
