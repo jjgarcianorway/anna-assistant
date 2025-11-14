@@ -114,48 +114,74 @@ impl OllamaInstaller {
     pub fn install_ollama(&self) -> Result<Vec<String>> {
         let mut commands = Vec::new();
 
-        info!("Installing Ollama via pacman...");
-
-        // Try official repo first
-        let install_cmd = if self.use_sudo {
-            vec!["sudo", "pacman", "-S", "--noconfirm", "ollama"]
-        } else {
-            vec!["pacman", "-S", "--noconfirm", "ollama"]
-        };
-
-        let output = Command::new(install_cmd[0])
-            .args(&install_cmd[1..])
+        // First, check if Ollama package exists in official repos
+        info!("Checking for Ollama package in official repos...");
+        let check_cmd = vec!["pacman", "-Si", "ollama"];
+        let check_output = Command::new("pacman")
+            .args(&["-Si", "ollama"])
             .output()
-            .context("Failed to execute pacman")?;
+            .context("Failed to check package availability")?;
 
-        commands.push(install_cmd.join(" "));
+        let in_official_repos = check_output.status.success();
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            warn!("Pacman install failed: {}", stderr);
+        if in_official_repos {
+            info!("Ollama found in official repos - installing via pacman...");
 
-            // Try AUR with yay if available
-            if self.is_yay_installed()? {
-                info!("Trying AUR install with yay...");
-                let yay_cmd = vec!["yay", "-S", "--noconfirm", "ollama"];
-
-                let output = Command::new("yay")
-                    .args(&yay_cmd[1..])
-                    .output()
-                    .context("Failed to execute yay")?;
-
-                commands.push(yay_cmd.join(" "));
-
-                if !output.status.success() {
-                    anyhow::bail!("Failed to install Ollama via pacman or yay");
-                }
+            let install_cmd = if self.use_sudo {
+                vec!["sudo", "pacman", "-S", "--noconfirm", "ollama"]
             } else {
-                anyhow::bail!("Ollama not in official repos and yay not available");
+                vec!["pacman", "-S", "--noconfirm", "ollama"]
+            };
+
+            let output = Command::new(install_cmd[0])
+                .args(&install_cmd[1..])
+                .output()
+                .context("Failed to execute pacman")?;
+
+            commands.push(install_cmd.join(" "));
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                anyhow::bail!("Failed to install Ollama via pacman: {}", stderr);
             }
+
+            info!("Ollama installed successfully from official repos");
+            return Ok(commands);
         }
 
-        info!("Ollama installed successfully");
-        Ok(commands)
+        // Not in official repos - try AUR if helper is available
+        warn!("Ollama not found in official repos - checking for AUR helpers...");
+
+        if self.is_yay_installed()? {
+            info!("Found yay - installing Ollama from AUR...");
+            let yay_cmd = vec!["yay", "-S", "--noconfirm", "ollama"];
+
+            let output = Command::new("yay")
+                .args(&yay_cmd[1..])
+                .output()
+                .context("Failed to execute yay")?;
+
+            commands.push(yay_cmd.join(" "));
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                anyhow::bail!("Failed to install Ollama from AUR: {}", stderr);
+            }
+
+            info!("Ollama installed successfully from AUR");
+            return Ok(commands);
+        }
+
+        // No package available and no AUR helper
+        anyhow::bail!(
+            "Cannot install Ollama automatically:\n\
+             • Ollama is not in official Arch repos\n\
+             • No AUR helper (yay) found\n\n\
+             To fix this:\n\
+             1. Install an AUR helper: sudo pacman -S yay\n\
+             2. Or manually install Ollama: curl -fsSL https://ollama.com/install.sh | sh\n\
+             3. Then run this setup again, or choose 'Remote API' option"
+        );
     }
 
     /// Check if yay is installed

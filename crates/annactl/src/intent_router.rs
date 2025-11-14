@@ -28,6 +28,8 @@ pub enum Intent {
     Personality { adjustment: PersonalityAdjustment },
     /// Change language
     Language { language: Option<String> },
+    /// Set up or reconfigure LLM brain
+    SetupBrain,
     /// Show help/examples
     Help,
     /// Exit the REPL
@@ -173,6 +175,15 @@ pub fn route_intent(input: &str) -> Intent {
         && (contains_any(&words, &["answer", "response", "talk", "be", "explain"])
             || lower.contains("more detail")) {
         return Intent::Personality { adjustment: PersonalityAdjustment::MoreDetailed };
+    }
+
+    // LLM brain setup or reconfiguration
+    if (contains_any(&words, &["set", "setup", "configure", "install"])
+        && contains_any(&words, &["brain", "llm", "model"]))
+        || (lower.contains("set up") && contains_any(&words, &["brain", "llm"]))
+        || lower.contains("setup brain")
+        || lower.contains("configure brain") {
+        return Intent::SetupBrain;
     }
 
     // Off-topic detection (weather, jokes, general chitchat) - check before Help

@@ -355,7 +355,54 @@ impl ContextDb {
         })
         .await??;
 
+        // Run migrations for schema changes
+        self.run_migrations().await?;
+
         info!("Context database schema ready");
+        Ok(())
+    }
+
+    /// Run database migrations for backwards compatibility
+    async fn run_migrations(&self) -> Result<()> {
+        let conn = Arc::clone(&self.conn);
+
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let conn = conn.blocking_lock();
+
+            // Migration 1: Add updated_at column to user_preferences (v5.5.0)
+            // Check if column exists first
+            let column_exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('user_preferences') WHERE name='updated_at'",
+                    [],
+                    |row| {
+                        let count: i64 = row.get(0)?;
+                        Ok(count > 0)
+                    },
+                )?;
+
+            if !column_exists {
+                debug!("Running migration: Adding updated_at column to user_preferences");
+
+                // SQLite doesn't allow non-constant defaults, so use NULL
+                conn.execute(
+                    "ALTER TABLE user_preferences ADD COLUMN updated_at DATETIME",
+                    [],
+                )?;
+
+                // Copy set_at values to updated_at for existing rows
+                conn.execute(
+                    "UPDATE user_preferences SET updated_at = set_at WHERE updated_at IS NULL",
+                    [],
+                )?;
+
+                info!("Migration complete: Added updated_at column to user_preferences");
+            }
+
+            Ok(())
+        })
+        .await??;
+
         Ok(())
     }
 
@@ -671,5 +718,107 @@ mod tests {
             }
             DbLocation::Custom(_) => panic!("Should not be custom"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_migration_adds_updated_at_column() {
+        use rusqlite::Connection;
+
+        let temp_dir = tempdir().unwrap();
+        let db_path = temp_dir.path().join("test_migration.db");
+
+        // Create a database with old schema (no updated_at column)
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute(
+                "CREATE TABLE user_preferences (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    value_type TEXT NOT NULL,
+                    set_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    set_by TEXT,
+                    description TEXT
+                )",
+                [],
+            )
+            .unwrap();
+
+            // Insert some test data
+            conn.execute(
+                "INSERT INTO user_preferences (key, value, value_type, set_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params!["test_key", "test_value", "string", "2025-11-01 10:00:00"],
+            )
+            .unwrap();
+        }
+
+        // Open with ContextDb - should run migration
+        let location = DbLocation::Custom(db_path.clone());
+        let db = ContextDb::open(location).await.unwrap();
+
+        // Verify updated_at column exists and was populated
+        let has_updated_at = db
+            .execute(|conn| {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('user_preferences') WHERE name='updated_at'",
+                    [],
+                    |row| row.get(0),
+                )?;
+                Ok(count > 0)
+            })
+            .await
+            .unwrap();
+
+        assert!(has_updated_at, "updated_at column should exist after migration");
+
+        // Verify existing data was migrated (updated_at should equal set_at)
+        let migrated_correctly = db
+            .execute(|conn| {
+                let updated_at: String = conn.query_row(
+                    "SELECT updated_at FROM user_preferences WHERE key = ?1",
+                    params!["test_key"],
+                    |row| row.get(0),
+                )?;
+                Ok(updated_at == "2025-11-01 10:00:00")
+            })
+            .await
+            .unwrap();
+
+        assert!(migrated_correctly, "Existing rows should have updated_at = set_at after migration");
+    }
+
+    #[tokio::test]
+    async fn test_save_preference_works_after_migration() {
+        let temp_dir = tempdir().unwrap();
+        let db_path = temp_dir.path().join("test_save_pref.db");
+        let location = DbLocation::Custom(db_path);
+
+        let db = ContextDb::open(location).await.unwrap();
+
+        // This should work without errors (uses updated_at column)
+        db.save_preference("test_key", "test_value").await.unwrap();
+
+        // Verify it was saved
+        let loaded = db.load_preference("test_key").await.unwrap();
+        assert_eq!(loaded, Some("test_value".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_save_llm_config_works_after_migration() {
+        let temp_dir = tempdir().unwrap();
+        let db_path = temp_dir.path().join("test_llm_config.db");
+        let location = DbLocation::Custom(db_path);
+
+        let db = ContextDb::open(location).await.unwrap();
+
+        // Create a test LLM config
+        let config = crate::llm::LlmConfig::disabled();
+
+        // This should work without errors (uses updated_at column)
+        db.save_llm_config(&config).await.unwrap();
+
+        // Verify it was saved
+        let loaded = db.load_llm_config().await.unwrap();
+        assert_eq!(loaded.mode, crate::llm::LlmMode::Disabled);
     }
 }

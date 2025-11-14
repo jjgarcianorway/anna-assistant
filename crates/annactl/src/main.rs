@@ -995,6 +995,26 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
             }
         }
 
+        Intent::SetupBrain => {
+            use anna_common::context::db::{ContextDb, DbLocation};
+
+            let ui = UI::auto();
+            let db_location = DbLocation::auto_detect();
+
+            match ContextDb::open(db_location).await {
+                Ok(db) => {
+                    println!();
+                    ui.info("Starting LLM brain setup...");
+                    if let Err(e) = llm_wizard::run_llm_setup_wizard(&ui, &db).await {
+                        ui.error(&format!("Setup failed: {}", e));
+                    }
+                }
+                Err(e) => {
+                    ui.error(&format!("Could not access database: {}", e));
+                }
+            }
+        }
+
         Intent::Help => {
             let ui = UI::auto();
             ui.section_header("💡", "What I Can Help With");

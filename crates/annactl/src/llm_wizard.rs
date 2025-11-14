@@ -154,19 +154,47 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
         }
         Err(e) => {
             // Local model setup failed
-            eprintln!("Warning: Local model setup failed: {}", e);
-
             println!();
             ui.error("Local model setup failed.");
-            ui.info("For now, I will answer with my built-in rules and");
-            ui.info("the Arch Wiki only.");
             println!();
 
-            // Save disabled config
-            let config = LlmConfig::disabled();
-            db.save_llm_config(&config).await?;
+            // Show the detailed error message
+            eprintln!("{}", e);
+            println!();
 
-            Ok(())
+            // Offer alternatives
+            ui.info("What would you like to do?");
+            ui.bullet_list(&[
+                "1. Try again later (I'll use built-in rules for now)",
+                "2. Configure a remote API instead",
+            ]);
+            println!();
+
+            print!("Choose an option (1-2): ");
+            io::stdout().flush()?;
+
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+
+            match input.trim() {
+                "2" => {
+                    // User wants to try remote API
+                    return setup_remote_api(ui, db).await;
+                }
+                _ => {
+                    // Default: save disabled config and continue
+                    println!();
+                    ui.info("Okay, I'll use my built-in rules and the Arch Wiki for now.");
+                    ui.info("You can set up my brain later by asking:");
+                    ui.info("  \"Anna, set up your brain\"");
+                    println!();
+
+                    let config = LlmConfig::disabled();
+                    db.save_llm_config(&config).await?;
+
+                    Ok(())
+                }
+            }
         }
     }
 }

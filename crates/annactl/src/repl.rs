@@ -295,6 +295,29 @@ pub async fn start_repl() -> Result<()> {
                 }
             }
 
+            Intent::SetupBrain => {
+                use anna_common::context::db::{ContextDb, DbLocation};
+
+                let ui = UI::auto();
+                ui.thinking();
+                println!();
+                ui.info("Starting LLM brain setup...");
+
+                let db_location = DbLocation::auto_detect();
+                match ContextDb::open(db_location).await {
+                    Ok(db) => {
+                        if let Err(e) = crate::llm_wizard::run_llm_setup_wizard(&ui, &db).await {
+                            ui.error(&format!("Setup failed: {}", e));
+                            println!();
+                        }
+                    }
+                    Err(e) => {
+                        ui.error(&format!("Could not access database: {}", e));
+                        println!();
+                    }
+                }
+            }
+
             Intent::Help => {
                 let ui = UI::auto();
                 ui.thinking();
