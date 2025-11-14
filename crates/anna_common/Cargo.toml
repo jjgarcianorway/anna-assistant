@@ -20,6 +20,8 @@ libc = "0.2" # For root detection in updater (Beta.88)
 uuid = { workspace = true } # For self-healing framework (Phase 3.1)
 atty = "0.2" # For TTY detection in display library (Phase 4.1)
 sysinfo = { workspace = true } # For telemetry collection (Task 8)
+sha2 = "0.10" # For file backup SHA256 verification
+nix = { version = "0.27", features = ["user"] } # For UID detection in backup manager
 
 # Database for persistent context (Phase 3.6)
 rusqlite = { workspace = true }

@@ -1,16 +1,39 @@
-//! LLM Abstraction Layer - Task 12
+//! LLM Abstraction Layer - Tasks 12 & A
 //!
 //! Provides a clean abstraction for Language Model interactions.
-//! Default: Disabled (no network calls)
+//! Default: Not configured (prompts user to set up LLM)
 //!
 //! Safety guarantees:
 //! - LLM output is text only, never executed
 //! - Backend disabled by default
 //! - No network calls unless explicitly configured
 //! - API keys handled via environment variables
+//! - Local LLM preferred, remote with warnings
 
 use serde::{Deserialize, Serialize};
 use std::env;
+
+/// LLM operational mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LlmMode {
+    /// LLM is not configured yet
+    NotConfigured,
+
+    /// Using a local LLM (Ollama, etc.) - preferred
+    Local,
+
+    /// Using a remote API (OpenAI, etc.) - with privacy/cost warnings
+    Remote,
+
+    /// Explicitly disabled by user
+    Disabled,
+}
+
+impl Default for LlmMode {
+    fn default() -> Self {
+        Self::NotConfigured
+    }
+}
 
 /// LLM backend type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,8 +41,11 @@ pub enum LlmBackendKind {
     /// No LLM backend (default)
     Disabled,
 
-    /// HTTP OpenAI-compatible API (e.g., local LLaMA, OpenAI, etc.)
-    HttpOpenAiCompatible,
+    /// Local HTTP backend (e.g., Ollama)
+    LocalHttp,
+
+    /// Remote OpenAI-compatible API
+    RemoteOpenAiCompatible,
 }
 
 impl Default for LlmBackendKind {
@@ -31,31 +57,117 @@ impl Default for LlmBackendKind {
 /// LLM configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmConfig {
+    /// Operational mode
+    pub mode: LlmMode,
+
     /// Backend type
     pub backend: LlmBackendKind,
 
-    /// Base URL for HTTP backend (e.g., "http://localhost:8080/v1")
+    /// Base URL for HTTP backend
+    /// Examples:
+    /// - Local: "http://localhost:11434/v1" (Ollama)
+    /// - Remote: "https://api.openai.com/v1"
     pub base_url: Option<String>,
 
     /// Environment variable name containing API key (e.g., "OPENAI_API_KEY")
+    /// Not required for local backends
     pub api_key_env: Option<String>,
 
-    /// Model name (e.g., "gpt-4.1-mini", "llama-3")
+    /// Model name (e.g., "llama3", "gpt-4o-mini")
     pub model: Option<String>,
 
     /// Maximum tokens in response
     pub max_tokens: Option<u32>,
+
+    /// Estimated cost per 1000 tokens (USD) - for remote backends
+    /// Used to show approximate cost to user
+    pub cost_per_1k_tokens: Option<f64>,
+
+    /// Safety notes shown to user for this config
+    /// e.g., "Using remote API may send system info to provider"
+    pub safety_notes: Vec<String>,
+
+    /// Human-readable description of this config
+    pub description: String,
 }
 
 impl Default for LlmConfig {
     fn default() -> Self {
         Self {
+            mode: LlmMode::NotConfigured,
             backend: LlmBackendKind::Disabled,
             base_url: None,
             api_key_env: None,
             model: None,
             max_tokens: Some(500), // Conservative default
+            cost_per_1k_tokens: None,
+            safety_notes: Vec::new(),
+            description: "LLM not configured".to_string(),
         }
+    }
+}
+
+impl LlmConfig {
+    /// Create a local LLM configuration (Ollama-style)
+    pub fn local(base_url: impl Into<String>, model: impl Into<String>) -> Self {
+        Self {
+            mode: LlmMode::Local,
+            backend: LlmBackendKind::LocalHttp,
+            base_url: Some(base_url.into()),
+            api_key_env: None,
+            model: Some(model.into()),
+            max_tokens: Some(2000), // Local can handle more
+            cost_per_1k_tokens: None, // Local is free
+            safety_notes: vec![
+                "Using local LLM - your data stays on this machine".to_string(),
+            ],
+            description: "Local LLM (privacy-first)".to_string(),
+        }
+    }
+
+    /// Create a remote LLM configuration (OpenAI-compatible)
+    pub fn remote(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        api_key_env: impl Into<String>,
+        cost_per_1k: f64,
+    ) -> Self {
+        Self {
+            mode: LlmMode::Remote,
+            backend: LlmBackendKind::RemoteOpenAiCompatible,
+            base_url: Some(base_url.into()),
+            api_key_env: Some(api_key_env.into()),
+            model: Some(model.into()),
+            max_tokens: Some(1000), // Conservative for cost control
+            cost_per_1k_tokens: Some(cost_per_1k),
+            safety_notes: vec![
+                "Using remote API - system info may be sent to provider".to_string(),
+                "You may be charged per token by your provider".to_string(),
+            ],
+            description: "Remote API (privacy trade-off)".to_string(),
+        }
+    }
+
+    /// Explicitly disable LLM
+    pub fn disabled() -> Self {
+        Self {
+            mode: LlmMode::Disabled,
+            backend: LlmBackendKind::Disabled,
+            description: "LLM explicitly disabled by user".to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// Check if LLM is usable
+    pub fn is_usable(&self) -> bool {
+        matches!(self.mode, LlmMode::Local | LlmMode::Remote)
+    }
+
+    /// Get estimated cost for a conversation (tokens)
+    pub fn estimated_cost(&self, tokens: u32) -> Option<f64> {
+        self.cost_per_1k_tokens.map(|cost_per_1k| {
+            (tokens as f64 / 1000.0) * cost_per_1k
+        })
     }
 }
 
@@ -107,16 +219,17 @@ impl LlmBackend for DummyBackend {
     }
 }
 
-/// HTTP OpenAI-compatible backend
+/// HTTP OpenAI-compatible backend (supports both local and remote)
 pub struct HttpOpenAiBackend {
     base_url: String,
     api_key: Option<String>,
     model: String,
     max_tokens: u32,
+    is_local: bool,
 }
 
 impl HttpOpenAiBackend {
-    /// Create a new HTTP OpenAI backend
+    /// Create a new HTTP backend from config
     pub fn new(config: &LlmConfig) -> Result<Self, LlmError> {
         let base_url = config.base_url.clone()
             .ok_or_else(|| LlmError::ConfigError("base_url is required for HTTP backend".to_string()))?;
@@ -124,17 +237,33 @@ impl HttpOpenAiBackend {
         let model = config.model.clone()
             .ok_or_else(|| LlmError::ConfigError("model is required for HTTP backend".to_string()))?;
 
+        let is_local = config.mode == LlmMode::Local;
+
         // Try to read API key from environment if configured
         let api_key = if let Some(env_var) = &config.api_key_env {
             match env::var(env_var) {
                 Ok(key) if !key.is_empty() => Some(key),
-                Ok(_) => return Err(LlmError::ConfigError(format!("API key env var {} is empty", env_var))),
+                Ok(_) => {
+                    if is_local {
+                        // Local servers don't need API keys
+                        None
+                    } else {
+                        return Err(LlmError::ConfigError(format!("API key env var {} is empty", env_var)));
+                    }
+                }
                 Err(_) => {
-                    // API key not required for local servers, optional
-                    None
+                    if is_local {
+                        // API key not required for local servers
+                        None
+                    } else {
+                        return Err(LlmError::ConfigError(format!("API key env var {} not found", env_var)));
+                    }
                 }
             }
         } else {
+            if !is_local {
+                return Err(LlmError::ConfigError("API key env var required for remote backend".to_string()));
+            }
             None
         };
 
@@ -145,6 +274,7 @@ impl HttpOpenAiBackend {
             api_key,
             model,
             max_tokens,
+            is_local,
         })
     }
 }
@@ -213,9 +343,16 @@ pub struct LlmClient {
 impl LlmClient {
     /// Create LLM client from configuration
     pub fn from_config(config: &LlmConfig) -> Result<Self, LlmError> {
+        // Check if LLM is configured and usable
+        if !config.is_usable() {
+            return Err(LlmError::Disabled);
+        }
+
         let backend: Box<dyn LlmBackend> = match config.backend {
-            LlmBackendKind::Disabled => Box::new(DummyBackend),
-            LlmBackendKind::HttpOpenAiCompatible => {
+            LlmBackendKind::Disabled => {
+                return Err(LlmError::Disabled);
+            }
+            LlmBackendKind::LocalHttp | LlmBackendKind::RemoteOpenAiCompatible => {
                 Box::new(HttpOpenAiBackend::new(config)?)
             }
         };
@@ -270,26 +407,16 @@ mod tests {
     #[test]
     fn test_client_from_disabled_config() {
         let config = LlmConfig::default();
-        let client = LlmClient::from_config(&config).unwrap();
 
-        let prompt = LlmPrompt {
-            system: "test".to_string(),
-            user: "hello".to_string(),
-        };
-
-        let result = client.chat(&prompt);
+        // Creating a client from a disabled/not configured config should fail
+        let result = LlmClient::from_config(&config);
         assert!(matches!(result, Err(LlmError::Disabled)));
     }
 
     #[test]
     fn test_http_backend_requires_base_url() {
-        let config = LlmConfig {
-            backend: LlmBackendKind::HttpOpenAiCompatible,
-            base_url: None,
-            api_key_env: None,
-            model: Some("test-model".to_string()),
-            max_tokens: Some(100),
-        };
+        let mut config = LlmConfig::local("", "test-model");
+        config.base_url = None;
 
         let result = HttpOpenAiBackend::new(&config);
         assert!(matches!(result, Err(LlmError::ConfigError(_))));
@@ -297,16 +424,51 @@ mod tests {
 
     #[test]
     fn test_http_backend_requires_model() {
-        let config = LlmConfig {
-            backend: LlmBackendKind::HttpOpenAiCompatible,
-            base_url: Some("http://localhost:8080/v1".to_string()),
-            api_key_env: None,
-            model: None,
-            max_tokens: Some(100),
-        };
+        let mut config = LlmConfig::local("http://localhost:8080/v1", "");
+        config.model = None;
 
         let result = HttpOpenAiBackend::new(&config);
         assert!(matches!(result, Err(LlmError::ConfigError(_))));
+    }
+
+    #[test]
+    fn test_local_config_creation() {
+        let config = LlmConfig::local("http://localhost:11434/v1", "llama3");
+
+        assert_eq!(config.mode, LlmMode::Local);
+        assert_eq!(config.backend, LlmBackendKind::LocalHttp);
+        assert_eq!(config.base_url, Some("http://localhost:11434/v1".to_string()));
+        assert_eq!(config.model, Some("llama3".to_string()));
+        assert!(config.cost_per_1k_tokens.is_none()); // Local is free
+        assert!(config.is_usable());
+    }
+
+    #[test]
+    fn test_remote_config_creation() {
+        let config = LlmConfig::remote(
+            "https://api.openai.com/v1",
+            "gpt-4o-mini",
+            "OPENAI_API_KEY",
+            0.00015,
+        );
+
+        assert_eq!(config.mode, LlmMode::Remote);
+        assert_eq!(config.backend, LlmBackendKind::RemoteOpenAiCompatible);
+        assert_eq!(config.cost_per_1k_tokens, Some(0.00015));
+        assert!(config.is_usable());
+
+        // Test cost estimation
+        let cost = config.estimated_cost(10000);
+        assert!(cost.is_some());
+        assert!((cost.unwrap() - 0.0015).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_disabled_config() {
+        let config = LlmConfig::disabled();
+
+        assert_eq!(config.mode, LlmMode::Disabled);
+        assert!(!config.is_usable());
     }
 
     #[test]

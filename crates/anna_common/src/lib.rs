@@ -9,6 +9,7 @@ pub mod caretaker_brain; // Core analysis engine - ties everything together
 pub mod categories;
 pub mod change_log; // Phase 5.1: Change logging and rollback
 pub mod change_log_db; // Phase 5.1: SQLite persistence for change logs
+pub mod file_backup; // File backup system with SHA256 verification
 pub mod command_meta;
 pub mod config;
 pub mod config_parser;

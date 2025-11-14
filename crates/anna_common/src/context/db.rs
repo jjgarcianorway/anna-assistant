@@ -2,7 +2,7 @@
 // Phase 3.6: Session Continuity
 
 use anyhow::{Context, Result};
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -485,6 +485,56 @@ impl ContextDb {
         .await??;
 
         Ok(())
+    }
+
+    /// Save LLM configuration
+    pub async fn save_llm_config(&self, config: &crate::llm::LlmConfig) -> Result<()> {
+        let conn = Arc::clone(&self.conn);
+        let config_json = serde_json::to_string(config)?;
+
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let conn = conn.blocking_lock();
+
+            conn.execute(
+                "INSERT OR REPLACE INTO user_preferences (key, value, value_type, updated_at)
+                 VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
+                params!["llm_config", config_json, "json"],
+            )?;
+
+            debug!("Saved LLM configuration");
+            Ok(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    /// Load LLM configuration
+    pub async fn load_llm_config(&self) -> Result<crate::llm::LlmConfig> {
+        let conn = Arc::clone(&self.conn);
+
+        tokio::task::spawn_blocking(move || -> Result<crate::llm::LlmConfig> {
+            let conn = conn.blocking_lock();
+
+            let result: Result<String, _> = conn.query_row(
+                "SELECT value FROM user_preferences WHERE key = ?1",
+                params!["llm_config"],
+                |row| row.get(0),
+            );
+
+            match result {
+                Ok(json) => {
+                    let config: crate::llm::LlmConfig = serde_json::from_str(&json)?;
+                    Ok(config)
+                }
+                Err(rusqlite::Error::QueryReturnedNoRows) => {
+                    // No config saved yet, return default
+                    Ok(crate::llm::LlmConfig::default())
+                }
+                Err(e) => Err(e.into()),
+            }
+        })
+        .await?
     }
 
     /// Load language configuration
