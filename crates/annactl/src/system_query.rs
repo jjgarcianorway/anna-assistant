@@ -23,6 +23,7 @@ pub fn query_system_telemetry() -> Result<SystemTelemetry> {
         security: query_security()?,
         desktop: query_desktop().ok(),
         boot: query_boot().ok(),
+        audio: query_audio()?,
     })
 }
 
@@ -453,4 +454,64 @@ fn query_boot() -> Result<BootInfo> {
         avg_boot_time_secs: None, // Would need historical data
         trend: None,
     })
+}
+
+fn query_audio() -> Result<AudioTelemetry> {
+    // Check for sound hardware (same logic as in telemetry.rs)
+    let has_sound_hardware = check_sound_hardware();
+
+    // Check PipeWire services
+    let pipewire_running = Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let wireplumber_running = Command::new("systemctl")
+        .args(&["--user", "is-active", "wireplumber"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let pipewire_pulse_running = Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire-pulse"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    Ok(AudioTelemetry {
+        has_sound_hardware,
+        pipewire_running,
+        wireplumber_running,
+        pipewire_pulse_running,
+    })
+}
+
+fn check_sound_hardware() -> bool {
+    // Method 1: aplay -l (ALSA)
+    if let Ok(output) = Command::new("aplay").arg("-l").output() {
+        if output.status.success() {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                if stdout.contains("card ") {
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Method 2: Check /proc/asound/cards
+    if let Ok(content) = std::fs::read_to_string("/proc/asound/cards") {
+        if !content.trim().is_empty() && !content.contains("no soundcards") {
+            return true;
+        }
+    }
+
+    // Method 3: Check for sound devices in /dev/snd
+    if let Ok(entries) = std::fs::read_dir("/dev/snd") {
+        if entries.count() > 0 {
+            return true;
+        }
+    }
+
+    false
 }

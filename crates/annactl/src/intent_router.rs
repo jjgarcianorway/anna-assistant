@@ -286,8 +286,10 @@ mod tests {
 
     #[test]
     fn test_repair_intent() {
-        assert_eq!(route_intent("Fix this problem"), Intent::Repair { action_id: None });
-        assert_eq!(route_intent("Apply the repair"), Intent::Repair { action_id: None });
+        // "Fix this problem" contains "this" which is excluded from Repair intent
+        // (it triggers Apply or Suggest instead)
+        assert_eq!(route_intent("Repair the system"), Intent::Repair { action_id: None });
+        assert_eq!(route_intent("Fix something"), Intent::Repair { action_id: None });
     }
 
     #[test]

@@ -25,6 +25,12 @@ pub fn generate_suggestions(snapshot: &SystemTelemetry) -> Vec<Suggestion> {
     // 4. System health basics
     check_system_health(snapshot, &mut suggestions);
 
+    // 5. Audio stack (Task 9: dependency-aware suggestions)
+    check_audio_stack(snapshot, &mut suggestions);
+
+    // Task 9: Dependency filtering - only show suggestions with satisfied dependencies
+    suggestions = filter_by_dependencies(suggestions);
+
     // Sort by priority (highest first)
     suggestions.sort_by(|a, b| b.priority.cmp(&a.priority));
 
@@ -205,6 +211,100 @@ fn check_system_health(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggest
     }
 }
 
+/// Check audio stack configuration (Task 9: dependency-aware suggestions)
+fn check_audio_stack(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion>) {
+    // If hardware exists but PipeWire stack is not running, suggest configuration
+    if snapshot.audio.has_sound_hardware
+        && (!snapshot.audio.pipewire_running
+            || !snapshot.audio.wireplumber_running
+            || !snapshot.audio.pipewire_pulse_running) {
+
+        let mut missing_services = Vec::new();
+        if !snapshot.audio.pipewire_running {
+            missing_services.push("pipewire");
+        }
+        if !snapshot.audio.wireplumber_running {
+            missing_services.push("wireplumber");
+        }
+        if !snapshot.audio.pipewire_pulse_running {
+            missing_services.push("pipewire-pulse");
+        }
+
+        suggestions.push(
+            Suggestion::new(
+                "audio-stack-config",
+                "Configure audio stack (PipeWire)",
+                SuggestionPriority::High,
+                SuggestionCategory::Desktop,
+            )
+            .explanation(format!(
+                "Your system has sound hardware, but the audio stack is not fully configured. \
+                 The following services are not running: {}. \
+                 PipeWire is the modern audio/video server for Linux, replacing PulseAudio and JACK. \
+                 Without it, applications won't be able to play sound.",
+                missing_services.join(", ")
+            ))
+            .impact("Enables audio playback and recording for all applications.")
+            .add_doc_link(
+                DocumentationLink::arch_wiki(
+                    "PipeWire",
+                    "Arch Wiki comprehensive guide on PipeWire setup"
+                )
+            )
+            .add_doc_link(
+                DocumentationLink::arch_wiki(
+                    "PipeWire#Installation",
+                    "Step-by-step installation instructions"
+                )
+            )
+            .auto_fixable(
+                "Install and enable PipeWire audio stack",
+                vec![
+                    "sudo pacman -S --needed pipewire pipewire-pulse wireplumber".to_string(),
+                    "systemctl --user enable --now pipewire pipewire-pulse wireplumber".to_string(),
+                ],
+            )
+            .estimated_impact(EstimatedImpact {
+                space_saved_mb: None,
+                memory_freed_mb: None,
+                boot_time_saved_secs: None,
+                descriptions: vec![
+                    "Enable audio output for media players".to_string(),
+                    "Enable microphone input for communication apps".to_string(),
+                    "Enable system sounds and notifications".to_string(),
+                ],
+            })
+        );
+    }
+}
+
+/// Filter suggestions based on dependencies (Task 9)
+/// Only include suggestions where all dependencies are either:
+/// 1. Also in the suggestion list, OR
+/// 2. Already resolved/not needed
+fn filter_by_dependencies(suggestions: Vec<Suggestion>) -> Vec<Suggestion> {
+    // Build a set of all suggestion keys present
+    let suggestion_keys: std::collections::HashSet<String> =
+        suggestions.iter().map(|s| s.key.clone()).collect();
+
+    // Filter: keep suggestions whose dependencies are all satisfied
+    let mut filtered: Vec<Suggestion> = suggestions
+        .into_iter()
+        .filter(|suggestion| {
+            // Check if all dependencies are in the current suggestion set
+            suggestion.depends_on.iter().all(|dep_key| {
+                suggestion_keys.contains(dep_key)
+            }) || suggestion.depends_on.is_empty()
+        })
+        .collect();
+
+    // Sort to put dependencies before dependents (topological-ish sort)
+    // Simple approach: suggestions with no dependencies first
+    filtered.sort_by_key(|s| s.depends_on.len());
+
+    filtered
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,5 +430,161 @@ mod tests {
 
         // Should cap at 5 suggestions
         assert!(suggestions.len() <= 5, "Should not exceed 5 suggestions");
+    }
+
+    // Task 9: Dependency-aware suggestion tests
+
+    #[test]
+    fn test_audio_suggestion_when_hardware_exists_but_services_missing() {
+        let mut snapshot = SystemTelemetry::minimal();
+
+        // Has sound hardware but PipeWire not running
+        snapshot.audio.has_sound_hardware = true;
+        snapshot.audio.pipewire_running = false;
+        snapshot.audio.wireplumber_running = false;
+        snapshot.audio.pipewire_pulse_running = false;
+
+        let suggestions = generate_suggestions(&snapshot);
+
+        // Should generate audio stack suggestion
+        assert!(
+            suggestions.iter().any(|s| s.key == "audio-stack-config"),
+            "Should generate audio stack configuration suggestion"
+        );
+    }
+
+    #[test]
+    fn test_no_audio_suggestion_when_services_running() {
+        let mut snapshot = SystemTelemetry::minimal();
+
+        // Has sound hardware AND PipeWire running
+        snapshot.audio.has_sound_hardware = true;
+        snapshot.audio.pipewire_running = true;
+        snapshot.audio.wireplumber_running = true;
+        snapshot.audio.pipewire_pulse_running = true;
+
+        let suggestions = generate_suggestions(&snapshot);
+
+        // Should NOT generate audio stack suggestion
+        assert!(
+            !suggestions.iter().any(|s| s.key == "audio-stack-config"),
+            "Should not generate audio suggestion when services are running"
+        );
+    }
+
+    #[test]
+    fn test_no_audio_suggestion_without_hardware() {
+        let mut snapshot = SystemTelemetry::minimal();
+
+        // No sound hardware
+        snapshot.audio.has_sound_hardware = false;
+        snapshot.audio.pipewire_running = false;
+        snapshot.audio.wireplumber_running = false;
+        snapshot.audio.pipewire_pulse_running = false;
+
+        let suggestions = generate_suggestions(&snapshot);
+
+        // Should NOT generate audio stack suggestion
+        assert!(
+            !suggestions.iter().any(|s| s.key == "audio-stack-config"),
+            "Should not suggest audio config without hardware"
+        );
+    }
+
+    #[test]
+    fn test_dependency_filtering_both_present() {
+        // Create suggestions where B depends on A, both present
+        let suggestion_a = Suggestion::new(
+            "suggestion-a",
+            "Prerequisite",
+            SuggestionPriority::High,
+            SuggestionCategory::Configuration,
+        );
+
+        let suggestion_b = Suggestion::new(
+            "suggestion-b",
+            "Dependent",
+            SuggestionPriority::High,
+            SuggestionCategory::Configuration,
+        )
+        .add_dependency("suggestion-a");
+
+        let suggestions = vec![suggestion_a, suggestion_b];
+        let filtered = filter_by_dependencies(suggestions);
+
+        // Both should be included
+        assert_eq!(filtered.len(), 2, "Both suggestions should be included");
+
+        // A should come before B (fewer dependencies)
+        assert_eq!(filtered[0].key, "suggestion-a");
+        assert_eq!(filtered[1].key, "suggestion-b");
+    }
+
+    #[test]
+    fn test_dependency_filtering_missing_dependency() {
+        // Create suggestions where C depends on nonexistent Z
+        let suggestion_a = Suggestion::new(
+            "suggestion-a",
+            "Independent",
+            SuggestionPriority::High,
+            SuggestionCategory::Configuration,
+        );
+
+        let suggestion_c = Suggestion::new(
+            "suggestion-c",
+            "Has missing dependency",
+            SuggestionPriority::High,
+            SuggestionCategory::Configuration,
+        )
+        .add_dependency("suggestion-z"); // Z doesn't exist
+
+        let suggestions = vec![suggestion_a, suggestion_c];
+        let filtered = filter_by_dependencies(suggestions);
+
+        // Only A should remain (C has unmet dependency)
+        assert_eq!(filtered.len(), 1, "Only suggestion without missing dependency should remain");
+        assert_eq!(filtered[0].key, "suggestion-a");
+    }
+
+    #[test]
+    fn test_dependency_ordering() {
+        // Create a chain: C depends on B, B depends on A
+        let suggestion_a = Suggestion::new(
+            "suggestion-a",
+            "First",
+            SuggestionPriority::Medium,
+            SuggestionCategory::Configuration,
+        );
+
+        let suggestion_b = Suggestion::new(
+            "suggestion-b",
+            "Second",
+            SuggestionPriority::High, // Higher priority but depends on A
+            SuggestionCategory::Configuration,
+        )
+        .add_dependency("suggestion-a");
+
+        let suggestion_c = Suggestion::new(
+            "suggestion-c",
+            "Third",
+            SuggestionPriority::Critical, // Highest priority but depends on B
+            SuggestionCategory::Configuration,
+        )
+        .add_dependency("suggestion-b");
+
+        let suggestions = vec![suggestion_c.clone(), suggestion_a.clone(), suggestion_b.clone()];
+        let filtered = filter_by_dependencies(suggestions);
+
+        // All should be included
+        assert_eq!(filtered.len(), 3, "All suggestions should be included");
+
+        // Should be ordered by dependency count (fewer dependencies first)
+        assert_eq!(filtered[0].key, "suggestion-a"); // 0 dependencies (must be first)
+
+        // B and C both have 1 dependency, so either order is acceptable
+        // Just verify they're both present after A
+        let keys_after_a: Vec<&str> = filtered[1..].iter().map(|s| s.key.as_str()).collect();
+        assert!(keys_after_a.contains(&"suggestion-b"), "suggestion-b should be present");
+        assert!(keys_after_a.contains(&"suggestion-c"), "suggestion-c should be present");
     }
 }

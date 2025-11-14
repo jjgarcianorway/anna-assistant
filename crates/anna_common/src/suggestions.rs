@@ -41,6 +41,9 @@ pub struct Suggestion {
 
     /// Estimated impact on metrics
     pub estimated_impact: Option<EstimatedImpact>,
+
+    /// Dependencies - keys of suggestions that should be addressed first (Task 9)
+    pub depends_on: Vec<String>,
 }
 
 /// Priority of a suggestion
@@ -161,6 +164,7 @@ impl Suggestion {
             fix_description: None,
             fix_commands: Vec::new(),
             estimated_impact: None,
+            depends_on: Vec::new(),
         }
     }
 
@@ -207,6 +211,18 @@ impl Suggestion {
     /// Add estimated impact
     pub fn estimated_impact(mut self, impact: EstimatedImpact) -> Self {
         self.estimated_impact = Some(impact);
+        self
+    }
+
+    /// Add dependencies (Task 9: dependency-aware suggestions)
+    pub fn depends_on(mut self, keys: Vec<String>) -> Self {
+        self.depends_on = keys;
+        self
+    }
+
+    /// Add a single dependency
+    pub fn add_dependency(mut self, key: impl Into<String>) -> Self {
+        self.depends_on.push(key.into());
         self
     }
 }

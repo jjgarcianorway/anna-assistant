@@ -43,6 +43,9 @@ pub struct SystemTelemetry {
 
     /// Boot performance
     pub boot: Option<BootInfo>,
+
+    /// Audio stack info (Task 9: dependency-aware suggestions)
+    pub audio: AudioTelemetry,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,6 +246,22 @@ pub enum BootTrend {
     Degrading,
 }
 
+/// Audio stack telemetry (Task 9: dependency-aware suggestions)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioTelemetry {
+    /// System has sound hardware
+    pub has_sound_hardware: bool,
+
+    /// PipeWire daemon is running
+    pub pipewire_running: bool,
+
+    /// WirePlumber session manager is running
+    pub wireplumber_running: bool,
+
+    /// PipeWire PulseAudio compatibility is running
+    pub pipewire_pulse_running: bool,
+}
+
 /// Telemetry query interface
 /// This is what annactl uses to request telemetry from annad
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -361,6 +380,12 @@ impl SystemTelemetry {
             },
             desktop: None,
             boot: None,
+            audio: AudioTelemetry {
+                has_sound_hardware: false,
+                pipewire_running: false,
+                wireplumber_running: false,
+                pipewire_pulse_running: false,
+            },
         }
     }
 
@@ -381,6 +406,7 @@ impl SystemTelemetry {
             security: collect_security_info(),
             desktop: collect_desktop_info(),
             boot: None, // Boot info collection is expensive, skip for now
+            audio: collect_audio_info(), // Task 9: audio stack awareness
         }
     }
 }
@@ -745,4 +771,74 @@ fn collect_desktop_info() -> Option<DesktopInfo> {
     } else {
         None
     }
+}
+
+fn collect_audio_info() -> AudioTelemetry {
+    use std::process::Command;
+
+    // Check for sound hardware (Task 9: minimal audio detection)
+    // Try multiple methods, fail gracefully
+    let has_sound_hardware = check_sound_hardware();
+
+    // Check if PipeWire services are running
+    let pipewire_running = Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire"])
+        .output()
+        .ok()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    let wireplumber_running = Command::new("systemctl")
+        .args(&["--user", "is-active", "wireplumber"])
+        .output()
+        .ok()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    let pipewire_pulse_running = Command::new("systemctl")
+        .args(&["--user", "is-active", "pipewire-pulse"])
+        .output()
+        .ok()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    AudioTelemetry {
+        has_sound_hardware,
+        pipewire_running,
+        wireplumber_running,
+        pipewire_pulse_running,
+    }
+}
+
+fn check_sound_hardware() -> bool {
+    use std::process::Command;
+
+    // Method 1: aplay -l (ALSA)
+    if let Ok(output) = Command::new("aplay").arg("-l").output() {
+        if output.status.success() {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                // aplay -l lists cards, if there are any, we have hardware
+                if stdout.contains("card ") {
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Method 2: Check /proc/asound/cards
+    if let Ok(content) = std::fs::read_to_string("/proc/asound/cards") {
+        if !content.trim().is_empty() && !content.contains("no soundcards") {
+            return true;
+        }
+    }
+
+    // Method 3: Check for sound devices in /dev/snd
+    if let Ok(entries) = std::fs::read_dir("/dev/snd") {
+        let count = entries.count();
+        if count > 0 {
+            return true;
+        }
+    }
+
+    false
 }

@@ -85,6 +85,21 @@ pub fn display_suggestions(suggestions: &[&Suggestion]) {
             }
         }
 
+        // Dependencies information (Task 9: dependency-aware UX)
+        if !suggestion.depends_on.is_empty() {
+            println!("   ⚠️  Prerequisites:");
+            println!("      This suggestion assumes you first address:");
+            for dep_key in &suggestion.depends_on {
+                // Try to find the dependency suggestion to show its title
+                if let Some(dep) = suggestions.iter().find(|s| &s.key == dep_key) {
+                    println!("      • {}", dep.title);
+                } else {
+                    println!("      • {}", dep_key);
+                }
+            }
+            println!();
+        }
+
         // Separator between suggestions
         if i < suggestions.len() - 1 {
             println!("   ───────────────────────────────────────");
