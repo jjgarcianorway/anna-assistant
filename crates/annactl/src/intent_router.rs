@@ -34,8 +34,8 @@ pub enum Intent {
     Exit,
     /// Off-topic query (not sysadmin related)
     OffTopic,
-    /// Unclear intent
-    Unclear,
+    /// Unclear intent (Task 12: route to LLM)
+    Unclear(String),
 }
 
 /// Personality adjustment types
@@ -185,8 +185,8 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::Help;
     }
 
-    // Default: unclear intent
-    Intent::Unclear
+    // Default: unclear intent (Task 12: route to LLM with original input)
+    Intent::Unclear(input.to_string())
 }
 
 /// Check if words contains any of the targets
@@ -308,8 +308,15 @@ mod tests {
 
     #[test]
     fn test_unclear_intent() {
-        assert_eq!(route_intent("asdfasdf"), Intent::Unclear);
-        assert_eq!(route_intent("random words here"), Intent::Unclear);
+        assert!(matches!(route_intent("asdfasdf"), Intent::Unclear(_)));
+        assert!(matches!(route_intent("random words here"), Intent::Unclear(_)));
+
+        // Verify the text is preserved
+        if let Intent::Unclear(text) = route_intent("test message") {
+            assert_eq!(text, "test message");
+        } else {
+            panic!("Expected Unclear intent");
+        }
     }
 
     #[test]

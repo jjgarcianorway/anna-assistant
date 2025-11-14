@@ -22,6 +22,7 @@ pub mod installation_source;
 pub mod ipc;
 pub mod language; // Language system with natural configuration
 pub mod learning;
+pub mod llm; // Task 12: LLM abstraction layer
 pub mod paths;
 pub mod personality; // Phase 5.1: Conversational personality controls
 pub mod prediction;

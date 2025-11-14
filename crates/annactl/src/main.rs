@@ -569,6 +569,72 @@ fn state_citation(state: &str) -> &'static str {
     }
 }
 
+/// Handle LLM query (Task 12)
+async fn handle_llm_query(user_text: &str) {
+    use anna_common::display::UI;
+    use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
+    use anna_common::context::db::{ContextDb, DbLocation};
+
+    let ui = UI::auto();
+
+    // Load LLM config (default is disabled)
+    let config = LlmConfig::default(); // TODO: Load from DB/config file
+
+    // Create LLM client
+    let client = match LlmClient::from_config(&config) {
+        Ok(client) => client,
+        Err(e) => {
+            println!();
+            ui.info("LLM assistance is not configured yet.");
+            ui.info("I can still help with:");
+            ui.bullet_list(&[
+                "System status: \"how are you?\"",
+                "Suggestions: \"what should I improve?\"",
+                "Reports: \"generate a report\"",
+                "Privacy: \"what do you store?\"",
+            ]);
+            println!();
+            ui.info("To enable LLM assistance, configure an OpenAI-compatible endpoint.");
+            println!();
+            return;
+        }
+    };
+
+    // Create prompt
+    let prompt = LlmPrompt {
+        system: LlmClient::anna_system_prompt(),
+        user: user_text.to_string(),
+    };
+
+    // Query LLM
+    println!();
+    ui.thinking();
+
+    match client.chat(&prompt) {
+        Ok(response) => {
+            println!();
+            ui.section_header("💬", "Anna");
+            println!();
+            // Display LLM response using UI abstraction
+            for line in response.text.lines() {
+                ui.info(line);
+            }
+            println!();
+        }
+        Err(e) => {
+            println!();
+            ui.info("LLM assistance is not configured yet.");
+            ui.info("I can still help with specific commands:");
+            ui.bullet_list(&[
+                "System status: \"how are you?\"",
+                "Suggestions: \"what should I improve?\"",
+                "Reports: \"generate a report\"",
+            ]);
+            println!();
+        }
+    }
+}
+
 /// Handle a single conversational query (annactl "question")
 async fn handle_one_shot_query(query: &str) -> Result<()> {
     use anna_common::display::{UI, print_privacy_explanation};
@@ -808,10 +874,9 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
             ui.info(&intent_router::offtopic_response());
         }
 
-        Intent::Unclear => {
-            let ui = UI::auto();
-            println!();
-            ui.info(&intent_router::unclear_response());
+        Intent::Unclear(user_text) => {
+            // Task 12: Route to LLM
+            handle_llm_query(&user_text).await;
         }
     }
 
@@ -828,17 +893,33 @@ async fn main() -> Result<()> {
         return repl::start_repl().await;
     }
 
-    // One-shot conversational query: annactl "question"
-    // If single argument that's not a known flag/subcommand, treat as conversational query
-    if args.len() == 2
-        && !args[1].starts_with("--")
-        && !args[1].starts_with("-")
-        && !matches!(
-            args[1].as_str(),
-            "init" | "status" | "help" | "repair" | "doctor" | "upgrade" | "ping" | "version"
-        )
-    {
-        return handle_one_shot_query(&args[1]).await;
+    // Task 11: Natural language without quotes
+    // If arguments present but first arg is not a known subcommand/flag,
+    // treat all args as natural language query
+    if args.len() >= 2 {
+        let first_arg = &args[1];
+
+        // Known subcommands that should NOT be treated as natural language
+        let known_subcommands = [
+            "init", "status", "help", "repair", "doctor", "upgrade", "ping",
+            "version", "health", "daily", "triage", "rollback", "backup",
+            "install", "rescue", "collect-logs", "sentinel", "config",
+            "conscience", "empathy", "collective", "consensus", "chronos",
+            "mirror", "learning", "learn", "predict", "issues"
+        ];
+
+        // Check if it's a flag (starts with - or --)
+        let is_flag = first_arg.starts_with("--") || first_arg.starts_with("-");
+
+        // Check if it's a known subcommand
+        let is_known_command = known_subcommands.contains(&first_arg.as_str());
+
+        // If not a flag and not a known command, treat as natural language
+        if !is_flag && !is_known_command {
+            // Join all args from index 1 onwards with spaces
+            let query = args[1..].join(" ");
+            return handle_one_shot_query(&query).await;
+        }
     }
 
     // Phase 3.8: Intercept root help for adaptive display

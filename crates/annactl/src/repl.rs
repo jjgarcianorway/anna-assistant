@@ -296,10 +296,53 @@ pub async fn start_repl() -> Result<()> {
                 ui.info(&intent_router::offtopic_response());
             }
 
-            Intent::Unclear => {
+            Intent::Unclear(user_text) => {
+                // Task 12: Route to LLM
+                use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
+
                 let ui = UI::auto();
+
+                // Load LLM config (default is disabled)
+                let config = LlmConfig::default(); // TODO: Load from DB/config file
+
+                // Create LLM client
+                let client = match LlmClient::from_config(&config) {
+                    Ok(client) => client,
+                    Err(_e) => {
+                        // LLM not configured, show default unclear response
+                        println!();
+                        ui.info(&intent_router::unclear_response());
+                        continue;
+                    }
+                };
+
+                // Create prompt
+                let prompt = LlmPrompt {
+                    system: LlmClient::anna_system_prompt(),
+                    user: user_text,
+                };
+
+                // Query LLM
                 println!();
-                ui.info(&intent_router::unclear_response());
+                ui.thinking();
+
+                match client.chat(&prompt) {
+                    Ok(response) => {
+                        println!();
+                        ui.section_header("💬", "Anna");
+                        println!();
+                        // Display LLM response
+                        for line in response.text.lines() {
+                            ui.info(line);
+                        }
+                        println!();
+                    }
+                    Err(_e) => {
+                        // LLM failed, show default unclear response
+                        println!();
+                        ui.info(&intent_router::unclear_response());
+                    }
+                }
             }
         }
     }
