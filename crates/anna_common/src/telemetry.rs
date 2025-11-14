@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use sysinfo::System;
 
 /// Complete system telemetry snapshot
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -361,5 +362,387 @@ impl SystemTelemetry {
             desktop: None,
             boot: None,
         }
+    }
+
+    /// Collect a live system snapshot (Task 8: Deep Caretaker v0.1)
+    /// Fast, read-only telemetry collection (completes in <1 second)
+    pub fn collect() -> Self {
+        use crate::profile::MachineProfile;
+
+        Self {
+            timestamp: Utc::now(),
+            hardware: collect_hardware_info(),
+            disks: collect_disk_info(),
+            memory: collect_memory_info(),
+            cpu: collect_cpu_info(),
+            packages: collect_package_info(),
+            services: collect_service_info(),
+            network: collect_network_info(),
+            security: collect_security_info(),
+            desktop: collect_desktop_info(),
+            boot: None, // Boot info collection is expensive, skip for now
+        }
+    }
+}
+
+// Task 8: Telemetry collection functions (read-only, fast, safe)
+
+fn collect_hardware_info() -> HardwareInfo {
+    use std::process::Command;
+    use crate::profile::MachineProfile;
+
+    let profile = MachineProfile::detect();
+    let machine_type = match profile {
+        MachineProfile::Laptop => MachineType::Laptop,
+        MachineProfile::Desktop => MachineType::Desktop,
+        MachineProfile::ServerLike => MachineType::Server,
+        MachineProfile::Unknown => MachineType::Desktop,
+    };
+
+    // Get CPU model
+    let cpu_model = std::fs::read_to_string("/proc/cpuinfo")
+        .ok()
+        .and_then(|content| {
+            content
+                .lines()
+                .find(|line| line.starts_with("model name"))
+                .and_then(|line| line.split(':').nth(1))
+                .map(|s| s.trim().to_string())
+        })
+        .unwrap_or_else(|| "Unknown CPU".to_string());
+
+    // Get total RAM
+    let total_ram_mb = System::new_all()
+        .total_memory() / 1024 / 1024;
+
+    // Check for battery
+    let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
+        || std::path::Path::new("/sys/class/power_supply/BAT1").exists();
+
+    // Check for GPU (simple detection)
+    let has_gpu = Command::new("lspci")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.contains("VGA") || s.contains("3D"))
+        .unwrap_or(false);
+
+    let gpu_info = if has_gpu {
+        Command::new("lspci")
+            .output()
+            .ok()
+            .and_then(|output| String::from_utf8(output.stdout).ok())
+            .and_then(|s| {
+                s.lines()
+                    .find(|line| line.contains("VGA") || line.contains("3D"))
+                    .map(|line| line.to_string())
+            })
+    } else {
+        None
+    };
+
+    HardwareInfo {
+        cpu_model,
+        total_ram_mb,
+        machine_type,
+        has_battery,
+        has_gpu,
+        gpu_info,
+    }
+}
+
+fn collect_disk_info() -> Vec<DiskInfo> {
+    use std::process::Command;
+
+    let output = Command::new("df")
+        .args(&["-h", "--output=target,size,used,pcent,fstype"])
+        .output()
+        .ok();
+
+    if let Some(output) = output {
+        if let Ok(stdout) = String::from_utf8(output.stdout) {
+            return stdout
+                .lines()
+                .skip(1) // Skip header
+                .filter_map(|line| {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 5 {
+                        let mount_point = parts[0].to_string();
+                        // Only report /, /home, /var
+                        if mount_point == "/" || mount_point == "/home" || mount_point == "/var" {
+                            let size_str = parts[1];
+                            let used_str = parts[2];
+                            let percent_str = parts[3].trim_end_matches('%');
+                            let fs_type = parts[4].to_string();
+
+                            let total_mb = parse_size_to_mb(size_str);
+                            let used_mb = parse_size_to_mb(used_str);
+                            let usage_percent = percent_str.parse::<f64>().unwrap_or(0.0);
+
+                            return Some(DiskInfo {
+                                mount_point,
+                                total_mb,
+                                used_mb,
+                                usage_percent,
+                                fs_type,
+                                smart_status: None, // SMART requires elevated permissions
+                            });
+                        }
+                    }
+                    None
+                })
+                .collect();
+        }
+    }
+
+    Vec::new()
+}
+
+fn parse_size_to_mb(size_str: &str) -> u64 {
+    let size_str = size_str.trim();
+    if let Some(num_str) = size_str.chars().take_while(|c| c.is_numeric() || *c == '.').collect::<String>().parse::<f64>().ok() {
+        if size_str.ends_with('G') {
+            return (num_str * 1024.0) as u64;
+        } else if size_str.ends_with('M') {
+            return num_str as u64;
+        } else if size_str.ends_with('K') {
+            return (num_str / 1024.0) as u64;
+        } else if size_str.ends_with('T') {
+            return (num_str * 1024.0 * 1024.0) as u64;
+        }
+    }
+    0
+}
+
+fn collect_memory_info() -> MemoryInfo {
+    let mut sys = System::new();
+    sys.refresh_memory();
+
+    let total_mb = sys.total_memory() / 1024 / 1024;
+    let available_mb = sys.available_memory() / 1024 / 1024;
+    let used_mb = sys.used_memory() / 1024 / 1024;
+    let swap_total_mb = sys.total_swap() / 1024 / 1024;
+    let swap_used_mb = sys.used_swap() / 1024 / 1024;
+
+    let usage_percent = if total_mb > 0 {
+        (used_mb as f64 / total_mb as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    MemoryInfo {
+        total_mb,
+        available_mb,
+        used_mb,
+        swap_total_mb,
+        swap_used_mb,
+        usage_percent,
+    }
+}
+
+fn collect_cpu_info() -> CpuInfo {
+    let mut sys = System::new();
+    sys.refresh_cpu();
+
+    let cores = sys.cpus().len() as u32;
+
+    // Get load average from /proc/loadavg
+    let (load_avg_1min, load_avg_5min) = std::fs::read_to_string("/proc/loadavg")
+        .ok()
+        .and_then(|content| {
+            let parts: Vec<&str> = content.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let one_min = parts[0].parse::<f64>().ok()?;
+                let five_min = parts[1].parse::<f64>().ok()?;
+                Some((one_min, five_min))
+            } else {
+                None
+            }
+        })
+        .unwrap_or((0.0, 0.0));
+
+    CpuInfo {
+        cores,
+        load_avg_1min,
+        load_avg_5min,
+        usage_percent: None, // Would need sampling over time
+    }
+}
+
+fn collect_package_info() -> PackageInfo {
+    use std::process::Command;
+
+    // Count installed packages
+    let total_installed = Command::new("pacman")
+        .args(&["-Q"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.lines().count() as u64)
+        .unwrap_or(0);
+
+    // Count orphaned packages
+    let orphaned = Command::new("pacman")
+        .args(&["-Qtdq"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.lines().count() as u64)
+        .unwrap_or(0);
+
+    // Get cache size
+    let cache_size_mb = Command::new("du")
+        .args(&["-sm", "/var/cache/pacman/pkg"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .and_then(|s| {
+            s.split_whitespace()
+                .next()
+                .and_then(|num| num.parse::<f64>().ok())
+        })
+        .unwrap_or(0.0);
+
+    // Check for updates (fast check, don't sync)
+    let updates_available = 0; // Skip for now, requires pacman -Qu which may be slow
+
+    PackageInfo {
+        total_installed,
+        updates_available,
+        orphaned,
+        cache_size_mb,
+        last_update: None, // Would need to parse pacman logs
+    }
+}
+
+fn collect_service_info() -> ServiceInfo {
+    use std::process::Command;
+
+    let mut failed_units = Vec::new();
+
+    // Get failed services
+    if let Ok(output) = Command::new("systemctl")
+        .args(&["--failed", "--no-pager", "--no-legend"])
+        .output()
+    {
+        if let Ok(stdout) = String::from_utf8(output.stdout) {
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let name = parts[0].to_string();
+                    let unit_type = if name.ends_with(".service") {
+                        "service".to_string()
+                    } else if name.ends_with(".timer") {
+                        "timer".to_string()
+                    } else {
+                        "unit".to_string()
+                    };
+
+                    failed_units.push(FailedUnit {
+                        name,
+                        unit_type,
+                        failed_since: None,
+                        message: None,
+                    });
+                }
+            }
+        }
+    }
+
+    // Count total units
+    let total_units = Command::new("systemctl")
+        .args(&["list-units", "--all", "--no-pager", "--no-legend"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.lines().count() as u64)
+        .unwrap_or(0);
+
+    ServiceInfo {
+        total_units,
+        failed_units,
+        recently_restarted: Vec::new(), // Would need journalctl parsing
+    }
+}
+
+fn collect_network_info() -> NetworkInfo {
+    use std::process::Command;
+
+    // Simple connectivity check
+    let is_connected = Command::new("ip")
+        .args(&["route"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.contains("default"))
+        .unwrap_or(false);
+
+    // Get primary interface
+    let primary_interface = Command::new("ip")
+        .args(&["route", "show", "default"])
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .and_then(|s| {
+            s.split_whitespace()
+                .skip_while(|&w| w != "dev")
+                .nth(1)
+                .map(|s| s.to_string())
+        });
+
+    // Check firewall (simplified)
+    let firewall_active = std::process::Command::new("systemctl")
+        .args(&["is-active", "ufw"])
+        .output()
+        .ok()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+
+    let firewall_type = if firewall_active {
+        Some("ufw".to_string())
+    } else {
+        None
+    };
+
+    NetworkInfo {
+        is_connected,
+        primary_interface,
+        firewall_active,
+        firewall_type,
+    }
+}
+
+fn collect_security_info() -> SecurityInfo {
+    SecurityInfo {
+        failed_ssh_attempts: 0, // Would need journalctl parsing
+        auto_updates_enabled: false, // Would need to check specific services
+        audit_warnings: Vec::new(),
+    }
+}
+
+fn collect_desktop_info() -> Option<DesktopInfo> {
+    use std::env;
+
+    // Check if we're in a desktop session
+    let display_server = if env::var("WAYLAND_DISPLAY").is_ok() {
+        Some("Wayland".to_string())
+    } else if env::var("DISPLAY").is_ok() {
+        Some("X11".to_string())
+    } else {
+        None
+    };
+
+    if display_server.is_some() {
+        let de_name = env::var("XDG_CURRENT_DESKTOP").ok();
+        let wm_name = env::var("XDG_SESSION_DESKTOP").ok();
+
+        Some(DesktopInfo {
+            de_name,
+            wm_name,
+            display_server,
+            monitor_count: 1, // Would need xrandr or similar
+        })
+    } else {
+        None
     }
 }
