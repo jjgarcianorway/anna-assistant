@@ -40,6 +40,7 @@ pub mod self_healing;
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod suggestion_engine; // Task 8: Deep Caretaker v0.1 - Rule-based suggestion generation
 pub mod telemetry; // Telemetry structures from annad
+pub mod terminal_format; // Phase 8: Beautiful terminal formatting
 pub mod types;
 pub mod updater;
 
