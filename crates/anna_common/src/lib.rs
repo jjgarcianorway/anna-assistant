@@ -14,6 +14,7 @@ pub mod change_log_db; // Phase 5.1: SQLite persistence for change logs
 pub mod change_recipe; // Phase 7: Safe change recipes with strict guardrails
 pub mod change_recipe_display; // Phase 7: UI display for change recipes
 pub mod file_backup; // File backup system with SHA256 verification
+pub mod filesystem_health; // Filesystem health detection (Ext4, XFS, ZFS fsck/scrub status)
 pub mod command_meta;
 pub mod config;
 pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)

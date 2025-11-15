@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.40] - 2025-11-15
+
+### Added - Filesystem Health Detection 💾
+
+**Ext4 Filesystem Health:**
+Anna now monitors Ext4 filesystem integrity:
+- Ext4 filesystem detection from /proc/mounts
+- tune2fs integration for filesystem status
+- Last checked timestamp tracking
+- Check interval monitoring
+- Filesystem error count detection
+- Filesystem state tracking (clean/error)
+- Automatic fsck recommendation for error states
+- Per-device mount point mapping
+
+**XFS Filesystem Health:**
+Comprehensive XFS monitoring:
+- XFS filesystem detection from /proc/mounts
+- xfs_info integration for filesystem information
+- Log version detection
+- Metadata error tracking
+- XFS corruption detection from dmesg
+- Per-device error count tracking
+- Automatic xfs_repair recommendations
+
+**ZFS Pool Health:**
+Complete ZFS pool monitoring:
+- zpool status integration
+- Pool state detection (ONLINE/DEGRADED/FAULTED)
+- Read/write/checksum error tracking
+- Last scrub timestamp detection
+- Scrub in progress detection
+- Degraded pool identification
+- Automatic scrub recommendations
+- Critical error alerting for data integrity
+
+**Filesystem Error Detection:**
+Cross-filesystem error monitoring:
+- dmesg integration for filesystem errors
+- Error severity classification (Critical/Warning/Info)
+- Timestamp extraction from kernel logs
+- Pattern matching for ext4/xfs/zfs errors
+- Corruption detection across all filesystem types
+- Centralized error reporting
+
+**Health Scoring:**
+- Filesystem health score calculation (0-100)
+- Critical error detection (30 point deduction each)
+- Warning error tracking (10 point deduction each)
+- Degraded pool penalties (20 points per pool)
+- Recommended fsck tracking (5 points per filesystem)
+- Overall filesystem health status
+
+**Implementation Details:**
+- `filesystem_health.rs`: 400 lines - Ext4/XFS/ZFS monitoring
+- Integration with SystemFacts telemetry
+- Real-time filesystem error detection
+- Proactive maintenance recommendations
+- Data integrity protection
+
+**Detection Items (79/99):**
+- Ext4 fsck status/errors detection
+- XFS log/errors detection
+- ZFS pools/scrubs detection
+
 ## [5.7.0-beta.39] - 2025-11-15
 
 ### Added - GPU Compute Capabilities & Voltage Monitoring 🔬⚡

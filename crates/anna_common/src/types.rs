@@ -336,6 +336,8 @@ pub struct SystemFacts {
     pub gpu_compute: Option<crate::gpu_compute::GpuComputeCapabilities>, // GPU compute (CUDA/OpenCL/ROCm/oneAPI)
     #[serde(default)]
     pub voltage_monitoring: Option<crate::voltage_monitoring::VoltageMonitoring>, // Voltage anomalies
+    #[serde(default)]
+    pub filesystem_health: Option<crate::filesystem_health::FilesystemHealth>, // Filesystem health (Ext4/XFS/ZFS fsck/scrub status)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

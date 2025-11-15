@@ -139,9 +139,9 @@ annactl "what's the state of my system?"
 - [x] Kernel lockdown mode ✅ (beta.35)
 - [x] Btrfs subvolumes/snapshots ✅ (beta.26)
 - [x] Btrfs balance status ✅ (beta.26)
-- [ ] Ext4 fsck status/errors
-- [ ] XFS log/errors
-- [ ] ZFS pools/scrubs
+- [x] Ext4 fsck status/errors ✅ (beta.40)
+- [x] XFS log/errors ✅ (beta.40)
+- [x] ZFS pools/scrubs ✅ (beta.40)
 - [ ] Backup tools installed
 - [ ] Last backup timestamp
 - [ ] Backup integrity errors
