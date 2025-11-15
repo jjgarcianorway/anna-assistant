@@ -332,6 +332,10 @@ pub struct SystemFacts {
     pub cpu_throttling: Option<crate::cpu_throttling::CpuThrottling>, // CPU throttling and power states (throttle events, C-states, thermal events)
     #[serde(default)]
     pub gpu_throttling: Option<crate::gpu_throttling::GpuThrottling>, // GPU throttling (NVIDIA/AMD/Intel thermal/power limits)
+    #[serde(default)]
+    pub gpu_compute: Option<crate::gpu_compute::GpuComputeCapabilities>, // GPU compute (CUDA/OpenCL/ROCm/oneAPI)
+    #[serde(default)]
+    pub voltage_monitoring: Option<crate::voltage_monitoring::VoltageMonitoring>, // Voltage anomalies
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.39] - 2025-11-15
+
+### Added - GPU Compute Capabilities & Voltage Monitoring 🔬⚡
+
+**GPU Compute Detection:**
+Anna now detects GPU compute frameworks for ML/AI workloads:
+- CUDA support detection (nvidia-smi integration)
+- CUDA version and driver version tracking
+- Per-GPU compute capability detection (e.g., 8.6)
+- GPU count and multi-GPU support
+- OpenCL support detection (clinfo integration)
+- OpenCL platform and device enumeration
+- Cross-platform compute capability tracking
+- ROCm support detection for AMD GPUs (rocm-smi integration)
+- ROCm and HIP version tracking
+- AMD GPU count for compute workloads
+- Intel oneAPI support detection (dpcpp compiler check)
+- Level Zero runtime detection
+- Unified compute framework detection
+- Smart recommendations for missing frameworks
+
+**Voltage Monitoring & Anomaly Detection:**
+Comprehensive voltage rail monitoring:
+- /sys/class/hwmon voltage sensor scanning
+- Per-rail voltage tracking (millivolts)
+- Min/max/nominal voltage detection
+- Voltage deviation percentage calculation
+- Critical rail identification (Vcore, CPU, GPU, V12)
+- Voltage status classification (Normal/Warning/Critical)
+- Undervoltage detection (<5% and <10% thresholds)
+- Overvoltage detection (>5% and >10% thresholds)
+- Voltage anomaly reporting with severity levels
+- PSU health recommendations
+- System stability warnings
+
+**Implementation Details:**
+- `gpu_compute.rs`: 380 lines - CUDA/OpenCL/ROCm/oneAPI detection
+- `voltage_monitoring.rs`: 325 lines - hwmon voltage sensor integration
+- Integration with SystemFacts telemetry
+- Real-time voltage anomaly detection
+- GPU compute capability recommendations
+
 ## [5.7.0-beta.38] - 2025-11-15
 
 ### Added - GPU Throttling Events Detection 🎮🔥

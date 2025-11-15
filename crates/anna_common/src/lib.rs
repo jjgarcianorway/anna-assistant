@@ -22,6 +22,8 @@ pub mod context;
 pub mod cpu_performance; // CPU performance detection (governors, microcode, flags)
 pub mod cpu_throttling; // CPU throttling and power state detection (throttle events, C-states)
 pub mod gpu_throttling; // GPU throttling detection (NVIDIA, AMD, Intel thermal/power limits)
+pub mod gpu_compute; // GPU compute capabilities (CUDA, OpenCL, ROCm, oneAPI)
+pub mod voltage_monitoring; // Voltage monitoring and anomaly detection
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
 pub mod desktop_automation; // Desktop automation helpers (wallpaper, config updates, reload)
 pub mod disk_analysis;
