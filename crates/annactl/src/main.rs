@@ -272,6 +272,7 @@ async fn handle_llm_query(user_text: &str) {
     let prompt = LlmPrompt {
         system: LlmClient::anna_system_prompt(),
         user: user_text.to_string(),
+        conversation_history: None,  // No conversation memory for one-shot commands
     };
 
     // Query LLM

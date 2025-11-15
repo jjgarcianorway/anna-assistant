@@ -191,6 +191,13 @@ impl LlmConfig {
     }
 }
 
+/// A single message in a conversation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String,  // "system", "user", "assistant"
+    pub content: String,
+}
+
 /// LLM prompt structure
 #[derive(Debug, Clone)]
 pub struct LlmPrompt {
@@ -199,6 +206,11 @@ pub struct LlmPrompt {
 
     /// User's question/input
     pub user: String,
+
+    /// Optional conversation history (for multi-turn conversations)
+    /// If provided, this will be used instead of system + user
+    /// Format: Vec of messages with roles "user" and "assistant"
+    pub conversation_history: Option<Vec<ChatMessage>>,
 }
 
 /// LLM response
@@ -312,18 +324,32 @@ impl LlmBackend for HttpOpenAiBackend {
         // Build the request
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
 
-        let request_body = serde_json::json!({
-            "model": self.model,
-            "messages": [
-                {
+        // Build messages array - use conversation_history if provided, otherwise fallback to system + user
+        let messages = if let Some(ref history) = prompt.conversation_history {
+            // Use the conversation history directly
+            history.iter().map(|msg| {
+                serde_json::json!({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+            }).collect::<Vec<_>>()
+        } else {
+            // Fallback to simple system + user (backwards compatible)
+            vec![
+                serde_json::json!({
                     "role": "system",
                     "content": prompt.system
-                },
-                {
+                }),
+                serde_json::json!({
                     "role": "user",
                     "content": prompt.user
-                }
-            ],
+                })
+            ]
+        };
+
+        let request_body = serde_json::json!({
+            "model": self.model,
+            "messages": messages,
             "max_tokens": self.max_tokens,
             "temperature": 0.7
         });
@@ -368,18 +394,32 @@ impl LlmBackend for HttpOpenAiBackend {
         // Build the request with streaming enabled
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
 
-        let request_body = serde_json::json!({
-            "model": self.model,
-            "messages": [
-                {
+        // Build messages array - use conversation_history if provided, otherwise fallback to system + user
+        let messages = if let Some(ref history) = prompt.conversation_history {
+            // Use the conversation history directly
+            history.iter().map(|msg| {
+                serde_json::json!({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+            }).collect::<Vec<_>>()
+        } else {
+            // Fallback to simple system + user (backwards compatible)
+            vec![
+                serde_json::json!({
                     "role": "system",
                     "content": prompt.system
-                },
-                {
+                }),
+                serde_json::json!({
                     "role": "user",
                     "content": prompt.user
-                }
-            ],
+                })
+            ]
+        };
+
+        let request_body = serde_json::json!({
+            "model": self.model,
+            "messages": messages,
             "max_tokens": self.max_tokens,
             "temperature": 0.7,
             "stream": true
@@ -517,6 +557,7 @@ mod tests {
         let prompt = LlmPrompt {
             system: "test".to_string(),
             user: "hello".to_string(),
+            conversation_history: None,
         };
 
         let result = backend.chat(&prompt);

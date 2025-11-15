@@ -185,9 +185,13 @@ async fn display_startup_summary(ui: &UI) {
 
 /// Main REPL loop (factored out for clarity)
 async fn run_repl_loop() -> Result<()> {
+    use anna_common::llm::ChatMessage;
 
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
+
+    // Conversation memory - stores full conversation history for LLM context
+    let mut conversation_history: Vec<ChatMessage> = Vec::new();
 
     loop {
         print_prompt();
@@ -519,7 +523,7 @@ async fn run_repl_loop() -> Result<()> {
             }
 
             Intent::Unclear(user_text) => {
-                // Task 12: Route to LLM
+                // Task 12: Route to LLM with conversation memory
                 use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
                 use anna_common::ipc::Method;
                 use crate::rpc_client::RpcClient;
@@ -570,6 +574,21 @@ async fn run_repl_loop() -> Result<()> {
                                                  5. Check the EXACT values in: window_manager, desktop_environment, display_server\n\
                                                  6. Failed services are in 'failed_services' array - if empty, there are NONE\n\
                                                  \n\
+                                                 ANSWER FROM DATA FIRST:\n\
+                                                 - If user asks \"what GPU/nvidia card do I have?\" → Check gpu_model and gpu_vram_mb fields and TELL THEM directly\n\
+                                                 - If user asks about CPU → Tell them from cpu_model field\n\
+                                                 - If user asks about RAM → Tell them from total_ram_gb field\n\
+                                                 - If user asks about disk/storage → Tell them from storage_devices array\n\
+                                                 - DON'T suggest commands like 'lspci' or 'free' when the answer is ALREADY in the JSON\n\
+                                                 - ONLY suggest commands if the data is NOT in the JSON or user explicitly asks how to check\n\
+                                                 \n\
+                                                 PACMAN COMMAND RULES (CRITICAL - DO NOT MAKE UP OPTIONS):\n\
+                                                 - For orphan packages: Use 'sudo pacman -Rns $(pacman -Qtdq)' - NOT 'pacman -Ds' (doesn't exist!)\n\
+                                                 - For package cache cleanup: Use 'sudo pacman -Sc' or 'paccache -r'\n\
+                                                 - For installed packages: Use 'pacman -Q' (query) - NOT 'pacman -D'\n\
+                                                 - NEVER invent pacman options - if unsure, don't suggest the command\n\
+                                                 - Valid pacman operations: -S (sync/install), -R (remove), -Q (query), -U (upgrade), -F (files)\n\
+                                                 \n\
                                                  Response Guidelines:\n\
                                                  - Be specific using ACTUAL data from JSON (GPU model, service names, versions)\n\
                                                  - Check failed_services, slow_services, orphan_packages, storage_devices for issues\n\
@@ -598,10 +617,28 @@ async fn run_repl_loop() -> Result<()> {
                     format!("{}\n\n{}", LlmClient::anna_system_prompt(), system_context)
                 };
 
-                // Create prompt
+                // Build conversation history with system message + all previous messages + current user message
+                let mut messages = vec![
+                    ChatMessage {
+                        role: "system".to_string(),
+                        content: system_prompt.clone(),
+                    }
+                ];
+
+                // Add all previous conversation turns
+                messages.extend(conversation_history.clone());
+
+                // Add current user message
+                messages.push(ChatMessage {
+                    role: "user".to_string(),
+                    content: user_text.clone(),
+                });
+
+                // Create prompt with conversation history
                 let prompt = LlmPrompt {
                     system: system_prompt,
-                    user: user_text,
+                    user: user_text.clone(),
+                    conversation_history: Some(messages),
                 };
 
                 // Query LLM with streaming
@@ -609,16 +646,36 @@ async fn run_repl_loop() -> Result<()> {
                 ui.section_header("💬", "Anna");
                 println!();
 
+                // Capture assistant response for conversation memory
+                let mut assistant_response = String::new();
+
                 // Stream response word-by-word
                 use std::io::Write;
                 match client.chat_stream(&prompt, &mut |chunk| {
                     print!("{}", chunk);
                     let _ = std::io::stdout().flush();
+                    assistant_response.push_str(chunk);  // Capture for memory
                 }) {
                     Ok(_) => {
                         // Stream complete, add final newline
                         println!();
                         println!();
+
+                        // Add both user and assistant messages to conversation history
+                        conversation_history.push(ChatMessage {
+                            role: "user".to_string(),
+                            content: user_text,
+                        });
+                        conversation_history.push(ChatMessage {
+                            role: "assistant".to_string(),
+                            content: assistant_response,
+                        });
+
+                        // Keep conversation history to last 10 turns (20 messages: 10 user + 10 assistant)
+                        // to prevent context from growing too large
+                        if conversation_history.len() > 20 {
+                            conversation_history.drain(0..(conversation_history.len() - 20));
+                        }
                     }
                     Err(_e) => {
                         // LLM failed, show default unclear response

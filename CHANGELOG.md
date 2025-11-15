@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.15] - 2025-11-15
+
+### Added - Conversation Memory & Better Command Validation 🧠
+
+**Problems:**
+1. Anna had NO memory between messages - kept asking same questions after "cancel"
+2. Anna suggested WRONG pacman commands (e.g., `pacman -Ds` doesn't exist!)
+3. Anna suggested commands instead of answering from existing JSON data
+
+**User Feedback:**
+- "problem of hanging after question to apply audio stack / install pacman-contrib or cancel... I always say cancel but then it is there forever"
+- "can you cleanup orphan packages? → suggested `pacman -Ds` which is WRONG!"
+- "what nvidia card do I have? → suggested lspci command instead of just answering from GPU data"
+
+#### ✅ What's Fixed (beta.15)
+
+**1. Conversation Memory (llm.rs + repl.rs)**
+- **Before**: Each message was independent - no memory of previous exchanges
+- **After**: Full conversation history maintained across REPL session (last 10 turns)
+- **Impact**: Anna remembers when you say "cancel" and won't keep asking the same thing
+
+**Files Modified:**
+- `crates/anna_common/src/llm.rs`:
+  - Added `ChatMessage` struct for conversation turns (lines 194-199)
+  - Added `conversation_history` field to `LlmPrompt` (lines 210-213)
+  - Updated `HttpOpenAiBackend` to send full message history (lines 327-348, 397-418)
+- `crates/annactl/src/repl.rs`:
+  - Added `conversation_history` vector to REPL loop (lines 193-194)
+  - Build messages array with system + history + current user message (lines 605-620)
+  - Capture and store assistant responses (lines 634-663)
+  - Limit history to 20 messages (10 turns) to prevent context overflow
+
+**2. Enhanced Anti-Hallucination Rules (repl.rs)**
+- Added "ANSWER FROM DATA FIRST" section to LLM prompt (lines 577-583):
+  - ✅ If user asks about GPU → Tell from `gpu_model` field, don't suggest `lspci`
+  - ✅ If user asks about CPU → Tell from `cpu_model` field
+  - ✅ If user asks about RAM → Tell from `total_ram_gb` field
+  - ✅ ONLY suggest commands if data is NOT in JSON
+
+- Added "PACMAN COMMAND RULES" section (lines 585-590):
+  - ✅ For orphan packages: Use `pacman -Rns $(pacman -Qtdq)` - NOT `pacman -Ds`
+  - ✅ For cache cleanup: Use `pacman -Sc` or `paccache -r`
+  - ✅ NEVER invent pacman options
+  - ✅ Valid operations: -S (install), -R (remove), -Q (query), -U (upgrade), -F (files)
+
+**Technical Implementation:**
+- Conversation memory uses OpenAI's messages format: `[{role, content}, ...]`
+- System message prepended to every request with full telemetry JSON
+- History pruned to last 20 messages to prevent token limit issues
+- Backwards compatible: old code without `conversation_history` still works
+
+**Example Flow (NEW):**
+```
+User: "What should I fix?"
+Anna: "You have 45 orphaned packages. Want me to clean them up?"
+User: "No, cancel"
+Anna: [remembers "cancel" in context]
+User: "What about my disk?"
+Anna: [WON'T ask about orphan packages again - knows you declined]
+```
+
+**Example Flow (OLD - BEFORE FIX):**
+```
+User: "What should I fix?"
+Anna: "You have 45 orphaned packages. Want me to clean them up?"
+User: "No, cancel"
+User: "What about my disk?"
+Anna: "You have 45 orphaned packages. Want me to clean them up?" [NO MEMORY!]
+```
+
+---
+
 ## [5.7.0-beta.14] - 2025-11-15
 
 ### Added - Proactive Startup Summary 🔔
