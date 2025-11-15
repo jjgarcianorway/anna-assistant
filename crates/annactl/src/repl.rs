@@ -577,7 +577,7 @@ async fn run_repl_loop() -> Result<()> {
                                                  ANSWER FROM DATA FIRST:\n\
                                                  - If user asks \"what GPU/nvidia card do I have?\" → Check gpu_model and gpu_vram_mb fields and TELL THEM directly\n\
                                                  - If user asks about CPU → Tell them from cpu_model field\n\
-                                                 - If user asks about RAM → Tell them from total_ram_gb field\n\
+                                                 - If user asks about RAM → Tell them from total_memory_gb field\n\
                                                  - If user asks about disk/storage → Tell them from storage_devices array\n\
                                                  - DON'T suggest commands like 'lspci' or 'free' when the answer is ALREADY in the JSON\n\
                                                  - ONLY suggest commands if the data is NOT in the JSON or user explicitly asks how to check\n\

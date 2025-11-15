@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.18] - 2025-11-15
+
+### Fixed - RAM Field Reference Bug 🐛
+
+**Problem:**
+Anna couldn't answer "How much RAM do I have?" correctly because the LLM prompt referenced a non-existent field name.
+
+**Root Cause:**
+The anti-hallucination prompt in `repl.rs` line 580 instructed the LLM to check `total_ram_gb` field, but the actual field in SystemFacts is `total_memory_gb`. When users asked about RAM, the LLM couldn't find the field and would either:
+- Say "I don't have that information"
+- Hallucinate a value
+- Suggest running `free -h` instead of answering from data
+
+**Impact:**
+- Users asking "how much RAM" got wrong/missing information
+- LLM suggested commands instead of using existing telemetry data
+- Violated the "ANSWER FROM DATA FIRST" principle
+
+**Fix:**
+Changed the prompt to reference the correct field name `total_memory_gb` (the actual field defined in types.rs:267).
+
+**Files Modified:**
+- Cargo.toml: version bump to 5.7.0-beta.18
+- CHANGELOG.md: detailed explanation of fix
+- crates/annactl/src/repl.rs (line 580):
+  Changed `total_ram_gb` → `total_memory_gb`
+
+Now Anna can correctly tell users how much RAM they have by reading the `total_memory_gb` field from SystemFacts.
+
 ## [5.7.0-beta.17] - 2025-11-15
 
 ### Fixed - Daemon Health Check CI Workflow 🔨
