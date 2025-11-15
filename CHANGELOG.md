@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.31] - 2025-11-15
+
+### Added - Network Monitoring & Diagnostics 🌐📡
+
+**Active Network Interface Detection:**
+Anna now comprehensively monitors all network interfaces:
+- Interface type classification (Ethernet, WiFi, Loopback, Virtual, Bridge, Tunnel)
+- MAC address, MTU, and link speed detection
+- IPv4 and IPv6 address enumeration per interface
+- Interface up/down status monitoring
+- Comprehensive interface statistics (RX/TX bytes, packets, errors, drops)
+- Address configuration method detection (DHCP, Static, Link-local)
+
+**IP Version Status Monitoring:**
+Complete IPv4 and IPv6 connectivity awareness:
+- IPv4/IPv6 enabled status detection
+- Connectivity verification (non-link-local addresses)
+- Default gateway detection for both IPv4 and IPv6
+- Address count per IP version
+- Routing table enumeration with gateway, interface, metric, and protocol
+
+**DHCP vs Static Configuration Detection:**
+Automatic detection of address configuration methods:
+- NetworkManager integration for DHCP/static detection
+- systemd-networkd lease file checking
+- Link-local address identification
+- Per-interface configuration method tracking
+
+**DNSSEC Status Monitoring:**
+DNS security validation awareness:
+- DNSSEC enabled status detection
+- Resolver identification (systemd-resolved, unbound, etc.)
+- Validation mode detection (yes, allow-downgrade)
+- Integration with resolvectl for systemd-resolved systems
+
+**Network Latency Measurements:**
+Real-time latency monitoring to critical targets:
+- Gateway latency measurement via ping
+- DNS server latency tracking
+- Internet connectivity latency (8.8.8.8)
+- Average round-trip time calculation in milliseconds
+
+**Packet Loss Statistics:**
+Network reliability monitoring:
+- Packet loss percentage to gateway
+- Packet loss to DNS servers
+- Packet loss to internet targets
+- Measurement success tracking
+
+**Routing Table Enumeration:**
+Complete routing information:
+- IPv4 and IPv6 route detection
+- Destination network in CIDR notation
+- Gateway IP addresses
+- Output interface per route
+- Route metric and protocol (kernel, boot, static, dhcp)
+
+**Firewall Rules Detection:**
+Active firewall monitoring:
+- Firewall type detection (iptables, nftables, ufw, firewalld)
+- Firewall active status verification
+- Rule count enumeration
+- Default policy detection (INPUT, OUTPUT, FORWARD chains)
+- Framework for open port detection
+
+**Implementation:**
+- New `network_monitoring` module in `anna_common` with `NetworkMonitoring::detect()` (~750 lines)
+- Integrated into `SystemFacts` telemetry as `network_monitoring` field
+- Interface detection via /sys/class/net with comprehensive sysfs parsing
+- NetworkManager and systemd-networkd integration for configuration detection
+- Real-time ping measurements for latency and packet loss
+- `ip route` parsing for routing table enumeration
+- iptables/nftables rule detection for firewall awareness
+
+**Files Added:**
+- `crates/anna_common/src/network_monitoring.rs` (~750 lines)
+
+**Impact:**
+Anna can now diagnose network issues and optimize connectivity:
+- 🔍 **Network troubleshooting** (interface down, packet loss, high latency)
+- 📊 **Connectivity monitoring** (IPv4/IPv6 status, gateway reachability)
+- ⚙️ **Configuration awareness** (DHCP vs static, DNSSEC status)
+- 🔒 **Security monitoring** (firewall status, active rules)
+- 🌐 **Routing analysis** (default routes, multi-homing detection)
+
 ## [5.7.0-beta.30] - 2025-11-15
 
 ### Added - Storage Health & Performance Detection 💾📊

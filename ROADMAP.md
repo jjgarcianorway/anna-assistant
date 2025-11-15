@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.30
+**Current Version:** 5.7.0-beta.31
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -86,15 +86,15 @@ annactl "what's the state of my system?"
 - [x] Partition alignment ✅ (beta.30)
 - [x] Filesystem types ✅ (beta.26)
 - [x] TRIM status ✅ (beta.26)
-- [ ] Network interfaces (active)
-- [ ] DHCP vs static config
-- [ ] IPv4/IPv6 status
+- [x] Network interfaces (active) ✅ (beta.31)
+- [x] DHCP vs static config ✅ (beta.31)
+- [x] IPv4/IPv6 status ✅ (beta.31)
 - [x] DNS servers ✅ (beta.27)
-- [ ] DNSSEC status
-- [ ] Network latency
-- [ ] Packet loss
-- [ ] Route table
-- [ ] Active firewall rules
+- [x] DNSSEC status ✅ (beta.31)
+- [x] Network latency ✅ (beta.31)
+- [x] Packet loss ✅ (beta.31)
+- [x] Route table ✅ (beta.31)
+- [x] Active firewall rules ✅ (beta.31)
 - [x] NVMe temperatures ✅ (beta.29)
 - [x] Fan speeds ✅ (beta.29)
 - [x] Voltage readings ✅ (beta.29)
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.31 | 2025-11-15 | Milestone 1 | Network monitoring: interfaces, latency, packet loss, routes, firewall (~750 lines) |
 | 5.7.0-beta.30 | 2025-11-15 | Milestone 1 | Storage health & performance: SMART, I/O errors, partition alignment (~570 lines) |
 | 5.7.0-beta.29 | 2025-11-15 | Milestone 1 | Hardware monitoring: sensors, power, memory (~935 lines) |
 | 5.7.0-beta.28 | 2025-11-15 | Milestone 1 | Graphics, security, virtualization, package mgmt (~1400 lines) |

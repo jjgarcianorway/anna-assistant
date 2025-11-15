@@ -22,6 +22,7 @@ use anna_common::sensors::SensorsInfo;
 use anna_common::power::PowerInfo;
 use anna_common::memory_usage::MemoryUsageInfo;
 use anna_common::storage::StorageInfo;
+use anna_common::network_monitoring::NetworkMonitoring;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -124,6 +125,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         power_info: Some(PowerInfo::detect()),
         memory_usage_info: Some(MemoryUsageInfo::detect()),
         storage_info: Some(StorageInfo::detect()),
+        network_monitoring: Some(NetworkMonitoring::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

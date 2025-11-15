@@ -39,6 +39,7 @@ pub mod llm_upgrade; // Step 3: Hardware upgrade detection for brain improvement
 pub mod memory_usage; // Memory usage detection (RAM, swap, OOM events)
 pub mod model_profiles; // Data-driven model selection with upgrade paths
 pub mod network_config; // Network configuration detection (DNS, NetworkManager, Wi-Fi)
+pub mod network_monitoring; // Network monitoring (interfaces, latency, packet loss, routes, firewall)
 pub mod ollama_installer; // Automatic local LLM bootstrap
 pub mod package_mgmt; // Package management configuration (pacman.conf, mirrorlist, AUR)
 pub mod paths;
