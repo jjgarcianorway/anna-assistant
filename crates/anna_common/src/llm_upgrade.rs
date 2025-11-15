@@ -4,7 +4,7 @@
 
 use crate::context::db::ContextDb;
 use crate::hardware_capability::{HardwareAssessment, LlmCapability};
-use crate::llm::LlmConfig;
+// LlmConfig imported but not used - removed
 use crate::model_profiles::find_upgrade_profile;
 use anyhow::Result;
 

@@ -450,7 +450,39 @@ impl UI {
         println!("  {} \"I am not happy with vim, what CLI editors do you suggest\"", bullet);
         println!("  {} \"Prepare a report for my boss about this machine\"\n", bullet);
 
+        // Show status bar with helpful keyboard shortcuts
+        self.repl_status_bar();
+
         println!("Ask me something:");
+    }
+
+    /// Print REPL status bar with keyboard shortcuts and context
+    pub fn repl_status_bar(&self) {
+        let separator = self.render_box_char("─", "-");
+        let sep_line = separator.repeat(70);
+
+        let formatted = if self.caps.use_colors() {
+            format!("{}", sep_line.dimmed())
+        } else {
+            sep_line.clone()
+        };
+        println!("{}", formatted);
+
+        let help_text = "Shortcuts: 'help' for examples  •  'exit' to quit  •  'status' for system health";
+
+        let centered = if self.caps.use_colors() {
+            format!("{}", help_text.dimmed())
+        } else {
+            help_text.to_string()
+        };
+        println!("{}", centered);
+
+        let formatted_bottom = if self.caps.use_colors() {
+            format!("{}\n", sep_line.dimmed())
+        } else {
+            format!("{}\n", sep_line)
+        };
+        println!("{}", formatted_bottom);
     }
 
     /// Print prompt

@@ -4,7 +4,7 @@
 // This module connects the prediction engine to the self-healing framework,
 // mapping predictions to concrete actions while respecting risk levels.
 
-use crate::prediction::{Prediction, PredictionType, Priority};
+use crate::prediction::{Prediction, PredictionType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

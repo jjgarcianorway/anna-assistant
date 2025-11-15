@@ -2,7 +2,7 @@
 // Phase 4.6: Profiles, Noise Control, and Stable Feel
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use tracing::{debug, info};
 

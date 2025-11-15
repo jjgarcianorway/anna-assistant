@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Machine profile types that Anna recognizes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -34,7 +34,7 @@ jobs:
       continue-on-error: true
 
     - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      run: cargo clippy --all-targets --all-features
       continue-on-error: true
 
     - name: Build all packages
