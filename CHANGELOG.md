@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.45] - 2025-11-15
+
+### Added - User Behavior Patterns Part 2 🌐
+
+**Networking Behavior Patterns:**
+Anna now tracks network usage patterns:
+- Active connection counting (ss integration)
+- Bandwidth usage from /proc/net/dev
+- Bytes sent/received tracking
+- Packets sent/received counting
+- Network activity level classification (Low/Medium/High)
+- Connection threshold analysis
+- Frequently accessed hosts (planned)
+
+**Application Behavior Patterns:**
+Application usage tracking and categorization:
+- Running application enumeration (ps integration)
+- Application categorization (Browser/Editor/Container/Network/Other)
+- Application category distribution
+- Process pattern analysis
+- Frequently used application tracking (planned)
+- Recently used application tracking (planned)
+
+**Gaming/GPU Usage Patterns:**
+Gaming system detection and analysis:
+- Steam installation detection
+- Steam games library counting
+- Gaming process detection (steam/wine/proton/gamemode/lutris)
+- Gaming system classification
+- GPU gaming hours tracking (planned)
+- Gaming activity pattern recognition
+
+**Implementation Details:**
+- Enhanced `user_behavior.rs` module
+- Network statistics from /proc/net/dev
+- Process categorization algorithms
+- Steam library integration
+- Gaming process pattern matching
+
+**Detection Items (97/99):**
+- Networking behavior detection
+- Application behavior detection
+- Gaming/GPU usage patterns detection
+
 ## [5.7.0-beta.44] - 2025-11-15
 
 ### Added - User Behavior Patterns Part 1 👤

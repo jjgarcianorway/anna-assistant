@@ -162,9 +162,9 @@ annactl "what's the state of my system?"
 - [x] Command execution patterns ✅ (beta.44)
 - [x] Resource usage patterns ✅ (beta.44)
 - [x] Disk usage patterns ✅ (beta.44)
-- [ ] Networking behavior
-- [ ] Application behavior
-- [ ] Gaming/GPU usage patterns
+- [x] Networking behavior ✅ (beta.45)
+- [x] Application behavior ✅ (beta.45)
+- [x] Gaming/GPU usage patterns ✅ (beta.45)
 - [ ] Development workflow patterns
 - [ ] Security behavior patterns
 
