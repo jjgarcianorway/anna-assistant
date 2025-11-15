@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.20] - 2025-11-15
+
+### Fixed - Reduced Excessive Spacing in REPL 📏
+
+**Problem:**
+REPL output had too much vertical spacing, wasting screen real estate and making conversations harder to follow.
+
+**Root Cause:**
+Multiple `println!()` calls scattered across code:
+- `repl.rs` line 645: blank line before section_header
+- `display.rs` line 117: blank line inside section_header after separator
+- `repl.rs` line 647: blank line after section_header
+- `repl.rs` lines 686-687: TWO blank lines after LLM response
+
+This resulted in:
+- 2 blank lines before "Anna" header
+- 1 blank line after separator
+- 2 blank lines after response
+- Total: 5 unnecessary blank lines per interaction
+
+**Impact:**
+- Screen space wasted on blank lines instead of content
+- Difficult to scroll through conversation history
+- Unprofessional appearance
+- User feedback: "output must be formatted much better"
+
+**Fix:**
+Reduced to minimal, clean spacing:
+- 1 blank line before header (from section_header line 101)
+- 0 blank lines after separator
+- 1 blank line after response
+- Total: 2 blank lines per interaction (60% reduction)
+
+**Before:**
+```
+[blank]
+[blank]
+💬 Anna
+────────────────────
+[blank]
+Response text here
+[blank]
+[blank]
+```
+
+**After:**
+```
+[blank]
+💬 Anna
+────────────────────
+Response text here
+[blank]
+```
+
+**Files Modified:**
+- Cargo.toml: version bump to 5.7.0-beta.20
+- CHANGELOG.md: detailed explanation of fix
+- crates/anna_common/src/display.rs (line 117):
+  Removed trailing `println!()` from section_header
+- crates/annactl/src/repl.rs (lines 645, 647, 687):
+  Removed 3 unnecessary `println!()` calls
+
+This makes conversations more compact and easier to follow.
+
 ## [5.7.0-beta.19] - 2025-11-15
 
 ### Fixed - Text Wrapping in REPL Responses 📝

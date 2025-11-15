@@ -642,9 +642,7 @@ async fn run_repl_loop() -> Result<()> {
                 };
 
                 // Query LLM with streaming
-                println!();
                 ui.section_header("💬", "Anna");
-                println!();
 
                 // Capture assistant response for conversation memory
                 let mut assistant_response = String::new();
@@ -683,7 +681,6 @@ async fn run_repl_loop() -> Result<()> {
                 }) {
                     Ok(_) => {
                         // Stream complete, add final newline
-                        println!();
                         println!();
 
                         // Add both user and assistant messages to conversation history

@@ -114,7 +114,6 @@ impl UI {
             separator.repeat(60)
         };
         println!("{}", sep_colored);
-        println!();
     }
 
     /// Display bullet list
