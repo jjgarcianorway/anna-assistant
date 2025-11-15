@@ -320,6 +320,8 @@ pub struct SystemFacts {
     pub kernel_modules: Option<crate::kernel_modules::KernelModules>, // Kernel and boot (installed kernels, modules, boot config, DKMS)
     #[serde(default)]
     pub package_health: Option<crate::package_health::PackageHealth>, // Package health (unowned files, conflicts, database corruption)
+    #[serde(default)]
+    pub initramfs_info: Option<crate::initramfs::InitramfsInfo>, // Initramfs configuration (mkinitcpio/dracut, hooks, modules, compression)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

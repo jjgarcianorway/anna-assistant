@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.34] - 2025-11-15
+
+### Added - Initramfs Configuration Detection 🔧💾
+
+**Initramfs Tool Detection:**
+Anna now detects and monitors initramfs configuration:
+- Tool detection (mkinitcpio vs dracut)
+- Tool version information
+- Configuration file location and parsing
+
+**Hook Configuration (mkinitcpio):**
+Complete hook monitoring for mkinitcpio:
+- Configured hooks from /etc/mkinitcpio.conf
+- Missing required hooks detection (base, udev, filesystems)
+- Hook order validation
+- Required vs optional hooks identification
+
+**Module Configuration:**
+Initramfs module tracking:
+- Configured modules in initramfs
+- Missing required modules detection
+- Module dependencies
+- Hardware-specific module recommendations
+
+**Compression Detection:**
+Compression configuration monitoring:
+- Compression type detection (gzip, bzip2, lzma, xz, lz4, zstd)
+- Compression level tracking
+- Decompression speed categorization (VeryFast, Fast, Moderate, Slow)
+- Compression ratio estimates (Low, Medium, High, VeryHigh)
+- Performance vs size tradeoff analysis
+
+**Health Checks:**
+Initramfs file integrity:
+- Initramfs file existence in /boot
+- File size and modification tracking
+- Freshness detection (outdated vs kernel)
+- Configuration consistency validation
+
+**Implementation:**
+- New `initramfs` module in `anna_common` with `InitramfsInfo::detect()` (~590 lines)
+- Integrated into `SystemFacts` telemetry as `initramfs_info` field
+- /etc/mkinitcpio.conf parsing
+- /etc/dracut.conf parsing
+- Initramfs file enumeration from /boot
+- Hook and module validation
+
+**Files Added:**
+- `crates/anna_common/src/initramfs.rs` (~590 lines)
+
+**Impact:**
+Anna can now ensure proper initramfs configuration:
+- 🔍 **Missing hooks** (detect before boot failure)
+- 📦 **Module completeness** (ensure all required modules present)
+- ⚙️ **Compression optimization** (balance boot speed vs size)
+- ✅ **File freshness** (detect outdated initramfs)
+- 🔧 **Configuration validation** (prevent boot issues)
+
 ## [5.7.0-beta.33] - 2025-11-15
 
 ### Added - Package Management Health Detection 📦🔍

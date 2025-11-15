@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.33
+**Current Version:** 5.7.0-beta.34
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -121,9 +121,9 @@ annactl "what's the state of my system?"
 - [ ] systemd daemon crashes
 - [x] systemd critical timers ✅ (beta.27)
 - [ ] System load averages
-- [ ] mkinitcpio/dracut config
-- [ ] Missing initramfs hooks/modules
-- [ ] Initramfs compression type
+- [x] mkinitcpio/dracut config ✅ (beta.34)
+- [x] Missing initramfs hooks/modules ✅ (beta.34)
+- [x] Initramfs compression type ✅ (beta.34)
 - [x] pacman configuration ✅ (beta.28)
 - [x] Mirror speed/age ✅ (beta.28)
 - [x] pacman database corruption ✅ (beta.33)
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.34 | 2025-11-15 | Milestone 1 | Initramfs config: mkinitcpio/dracut, hooks, modules, compression (~590 lines) |
 | 5.7.0-beta.33 | 2025-11-15 | Milestone 1 | Package health: database corruption, file conflicts, partial upgrades (~590 lines) |
 | 5.7.0-beta.32 | 2025-11-15 | Milestone 1 | Kernel & boot detection: modules, DKMS, boot entries, boot health (~1050 lines) |
 | 5.7.0-beta.31 | 2025-11-15 | Milestone 1 | Network monitoring: interfaces, latency, packet loss, routes, firewall (~750 lines) |
