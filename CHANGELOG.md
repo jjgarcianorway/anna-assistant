@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.46] - 2025-11-15
+
+### Added - User Behavior Patterns Part 3 (Final) 💻🔒
+
+**Development Workflow Patterns:**
+Anna now understands your development environment:
+- Git repository counting (find .git directories)
+- Programming language detection by file extensions:
+  - Rust (.rs), Python (.py), JavaScript (.js), TypeScript (.ts)
+  - Go (.go), Java (.java), C (.c), C++ (.cpp)
+- Development tools detection (cargo/npm/pip/maven/gradle/make)
+- Build tool usage from bash history
+- Development system classification
+- Repository organization insights
+
+**Security Behavior Patterns:**
+Security awareness and activity tracking:
+- Sudo usage counting from bash history
+- SSH connection counting (ss integration, port 22)
+- Failed login attempts from systemd journal
+- Security awareness level classification:
+  - High: >100 sudo uses, no failed logins
+  - Medium: >20 sudo uses
+  - Low: minimal sudo usage
+- SSH activity pattern analysis
+- Security practice assessment
+
+**User Profile Inference:**
+Intelligent user classification and profiling:
+- Primary use case determination:
+  - Gaming (Steam installed, gaming processes)
+  - Development (git repos, programming languages)
+  - ServerAdmin (high sudo/SSH usage)
+  - Workstation, MediaProduction, GeneralUse
+- Secondary use case identification
+- Experience level inference (Beginner/Intermediate/Advanced/Expert)
+  - Based on unique command count (50/100/200+ commands)
+- Activity level classification (Light/Moderate/Heavy)
+  - Based on total command count (1000/10000+ commands)
+- Smart recommendations based on detected profile
+
+**Implementation Details:**
+- Complete `user_behavior.rs` module (600 lines total)
+- Git repository enumeration
+- Programming language file detection
+- Security log analysis (systemd journal)
+- User profiling algorithm
+- Context-aware recommendations
+
+**Detection Items (99/99):**
+- Development workflow patterns detection
+- Security behavior patterns detection
+
 ## [5.7.0-beta.45] - 2025-11-15
 
 ### Added - User Behavior Patterns Part 2 🌐

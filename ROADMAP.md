@@ -165,8 +165,8 @@ annactl "what's the state of my system?"
 - [x] Networking behavior ✅ (beta.45)
 - [x] Application behavior ✅ (beta.45)
 - [x] Gaming/GPU usage patterns ✅ (beta.45)
-- [ ] Development workflow patterns
-- [ ] Security behavior patterns
+- [x] Development workflow patterns ✅ (beta.46)
+- [x] Security behavior patterns ✅ (beta.46)
 
 #### LLM Contextualization
 - [ ] System identity summary
