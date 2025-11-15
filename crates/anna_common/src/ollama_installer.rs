@@ -36,6 +36,12 @@ pub struct OllamaInstaller {
     use_sudo: bool,
 }
 
+impl Default for OllamaInstaller {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OllamaInstaller {
     /// Create a new installer
     pub fn new() -> Self {
@@ -116,9 +122,9 @@ impl OllamaInstaller {
 
         // First, check if Ollama package exists in official repos
         info!("Checking for Ollama package in official repos...");
-        let check_cmd = vec!["pacman", "-Si", "ollama"];
+        let check_cmd = ["pacman", "-Si", "ollama"];
         let check_output = Command::new("pacman")
-            .args(&["-Si", "ollama"])
+            .args(["-Si", "ollama"])
             .output()
             .context("Failed to check package availability")?;
 
@@ -154,7 +160,7 @@ impl OllamaInstaller {
 
         if self.is_yay_installed()? {
             info!("Found yay - installing Ollama from AUR...");
-            let yay_cmd = vec!["yay", "-S", "--noconfirm", "ollama"];
+            let yay_cmd = ["yay", "-S", "--noconfirm", "ollama"];
 
             let output = Command::new("yay")
                 .args(&yay_cmd[1..])
@@ -240,10 +246,10 @@ impl OllamaInstaller {
 
         info!("Pulling model: {}", model);
 
-        let pull_cmd = vec!["ollama", "pull", model];
+        let pull_cmd = ["ollama", "pull", model];
 
         let output = Command::new("ollama")
-            .args(&["pull", model])
+            .args(["pull", model])
             .output()
             .context("Failed to pull Ollama model")?;
 

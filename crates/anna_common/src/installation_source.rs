@@ -76,7 +76,7 @@ pub fn detect_installation_source(binary_path: &str) -> InstallationSource {
     if path.starts_with("/usr/bin") {
         // Double-check with pacman
         if let Ok(output) = Command::new("pacman")
-            .args(&["-Qo", binary_path])
+            .args(["-Qo", binary_path])
             .output()
         {
             if output.status.success() {
@@ -111,7 +111,7 @@ pub fn detect_installation_source(binary_path: &str) -> InstallationSource {
 /// Check if binary is owned by a pacman package
 fn check_pacman_ownership(binary_path: &str) -> Option<String> {
     let output = Command::new("pacman")
-        .args(&["-Qo", binary_path])
+        .args(["-Qo", binary_path])
         .output()
         .ok()?;
 

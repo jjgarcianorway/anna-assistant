@@ -15,8 +15,10 @@ use std::env;
 
 /// LLM operational mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LlmMode {
     /// LLM is not configured yet
+    #[default]
     NotConfigured,
 
     /// Using a local LLM (Ollama, etc.) - preferred
@@ -29,16 +31,13 @@ pub enum LlmMode {
     Disabled,
 }
 
-impl Default for LlmMode {
-    fn default() -> Self {
-        Self::NotConfigured
-    }
-}
 
 /// LLM backend type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LlmBackendKind {
     /// No LLM backend (default)
+    #[default]
     Disabled,
 
     /// Local HTTP backend (e.g., Ollama)
@@ -48,11 +47,6 @@ pub enum LlmBackendKind {
     RemoteOpenAiCompatible,
 }
 
-impl Default for LlmBackendKind {
-    fn default() -> Self {
-        Self::Disabled
-    }
-}
 
 /// LLM configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

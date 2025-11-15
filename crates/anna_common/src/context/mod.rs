@@ -123,7 +123,7 @@ pub async fn get_action_count() -> Result<i64> {
     let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
 
     let count = db
-        .execute(move |conn| actions::get_action_count(conn))
+        .execute(actions::get_action_count)
         .await?;
 
     Ok(count)

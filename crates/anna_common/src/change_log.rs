@@ -311,6 +311,12 @@ impl ChangeAction {
     }
 }
 
+impl Default for MetricsSnapshot {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsSnapshot {
     /// Create a new metrics snapshot with current timestamp
     pub fn new() -> Self {

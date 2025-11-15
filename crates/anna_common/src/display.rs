@@ -209,7 +209,7 @@ impl UI {
         println!("  0. {}", self.profile.translations.cancel);
         println!();
 
-        print!("{}: ", "Enter number"); // TODO: Add translation
+        print!("Enter number: "); // TODO: Add translation
         io::stdout().flush().ok();
 
         let mut input = String::new();

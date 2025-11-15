@@ -9,7 +9,6 @@
 //! Outputs machine-readable JSON reports to ./artifacts/simulations/
 
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::fs;
 use std::path::PathBuf;
 
@@ -103,7 +102,7 @@ fn simulate_healthy_quorum(node_count: usize) -> SimulationReport {
     }
 
     // Compute consensus
-    let quorum_threshold = (node_count + 1) / 2;
+    let quorum_threshold = node_count.div_ceil(2);
     let quorum_reached = observations.len() >= quorum_threshold;
 
     let consensus_tis = if quorum_reached {
@@ -148,7 +147,7 @@ fn simulate_slow_node(node_count: usize) -> SimulationReport {
 
     // Last node is slow - doesn't submit
 
-    let quorum_threshold = (node_count + 1) / 2;
+    let quorum_threshold = node_count.div_ceil(2);
     let quorum_reached = observations.len() >= quorum_threshold;
 
     let consensus_tis = if quorum_reached {
@@ -222,7 +221,7 @@ fn simulate_byzantine(node_count: usize) -> SimulationReport {
         .filter(|o| !byzantine_nodes.contains(&o.node_id))
         .collect();
 
-    let quorum_threshold = (node_count + 1) / 2;
+    let quorum_threshold = node_count.div_ceil(2);
     let quorum_reached = valid_observations.len() >= quorum_threshold;
 
     let consensus_tis = if quorum_reached {
@@ -313,7 +312,7 @@ fn main() {
     }
 
     // Validate nodes
-    if nodes < 3 || nodes > 7 {
+    if !(3..=7).contains(&nodes) {
         eprintln!("Error: nodes must be between 3 and 7");
         std::process::exit(1);
     }

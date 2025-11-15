@@ -130,7 +130,7 @@ pub fn validate_llm_response(
             if let Some(sug) = suggestion {
                 error_msg.push_str(&format!("\nSuggestion: {}", sug));
             }
-            return Err(anyhow!(error_msg));
+            Err(anyhow!(error_msg))
         }
         LlmResponse::Success { recipe } => {
             // Step 3: Convert to ChangeRecipe

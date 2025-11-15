@@ -125,8 +125,8 @@ impl PromptBuilder {
         let mut context = String::from("# System Context\n\n");
 
         // OS and hardware
-        context.push_str(&format!("## Platform\n"));
-        context.push_str(&format!("- OS: Arch Linux\n"));
+        context.push_str(&"## Platform\n".to_string());
+        context.push_str(&"- OS: Arch Linux\n".to_string());
         context.push_str(&format!(
             "- CPU: {} ({} cores)\n",
             telemetry.hardware.cpu_model,
@@ -144,10 +144,10 @@ impl PromptBuilder {
                 crate::telemetry::MachineType::Server => "Server",
             }
         ));
-        context.push_str("\n");
+        context.push('\n');
 
         // Packages
-        context.push_str(&format!("## Package Status\n"));
+        context.push_str(&"## Package Status\n".to_string());
         context.push_str(&format!("- Total installed: {}\n", telemetry.packages.total_installed));
         if telemetry.packages.updates_available > 0 {
             context.push_str(&format!("- Updates available: {}\n", telemetry.packages.updates_available));
@@ -155,11 +155,11 @@ impl PromptBuilder {
         if telemetry.packages.orphaned > 0 {
             context.push_str(&format!("- Orphaned packages: {}\n", telemetry.packages.orphaned));
         }
-        context.push_str("\n");
+        context.push('\n');
 
         // Desktop environment
         if let Some(ref desktop) = telemetry.desktop {
-            context.push_str(&format!("## Desktop Environment\n"));
+            context.push_str(&"## Desktop Environment\n".to_string());
             if let Some(ref de) = desktop.de_name {
                 context.push_str(&format!("- DE: {}\n", de));
             }
@@ -169,16 +169,16 @@ impl PromptBuilder {
             if let Some(ref display) = desktop.display_server {
                 context.push_str(&format!("- Display: {}\n", display));
             }
-            context.push_str("\n");
+            context.push('\n');
         }
 
         // Services
-        context.push_str(&format!("## System Services\n"));
+        context.push_str(&"## System Services\n".to_string());
         context.push_str(&format!("- Total units: {}\n", telemetry.services.total_units));
         if !telemetry.services.failed_units.is_empty() {
             context.push_str(&format!("- Failed units: {}\n", telemetry.services.failed_units.len()));
         }
-        context.push_str("\n");
+        context.push('\n');
 
         context
     }
@@ -198,39 +198,39 @@ impl PromptBuilder {
         rules.push_str("- Mass delete operations (rm -rf /*, find -delete)\n");
         rules.push_str("- Network stack rewrites\n");
         rules.push_str("- System-critical package removal (systemd, kernel, pacman)\n");
-        rules.push_str("\n");
+        rules.push('\n');
 
         rules.push_str("## Forbidden Paths\n\n");
         for path in &self.safety_context.forbidden_paths {
             rules.push_str(&format!("- {}\n", path));
         }
-        rules.push_str("\n");
+        rules.push('\n');
 
         rules.push_str("## Risk Levels\n\n");
         rules.push_str("- **Low**: Cosmetic changes (wallpaper, terminal colors)\n");
         rules.push_str("  - No sudo required\n");
         rules.push_str("  - Worst case: User doesn't like the look\n");
-        rules.push_str("\n");
+        rules.push('\n');
         rules.push_str("- **Medium**: User config changes (vim, zsh, git)\n");
         rules.push_str("  - No sudo required (user files only)\n");
         rules.push_str("  - Worst case: Application fails to start until config fixed\n");
-        rules.push_str("\n");
+        rules.push('\n');
         rules.push_str("- **High**: System config or packages\n");
         rules.push_str("  - Sudo required\n");
         rules.push_str("  - Worst case: System services fail, manual recovery needed\n");
-        rules.push_str("\n");
+        rules.push('\n');
 
         if !self.safety_context.allow_system_changes {
             rules.push_str("## Restrictions for Current Context\n\n");
             rules.push_str("- System-wide changes: DISABLED\n");
             rules.push_str("- Only user-space modifications allowed\n");
-            rules.push_str("\n");
+            rules.push('\n');
         }
 
         if !self.safety_context.allow_package_operations {
             rules.push_str("- Package operations: DISABLED\n");
             rules.push_str("- No pacman/yay commands\n");
-            rules.push_str("\n");
+            rules.push('\n');
         }
 
         rules.push_str("## Required Safety Measures\n\n");
@@ -238,7 +238,7 @@ impl PromptBuilder {
         rules.push_str("- Sudo requirements must be explicit per action\n");
         rules.push_str("- File modifications require backup strategy\n");
         rules.push_str("- Destructive edits (ReplaceEntire) need strong justification\n");
-        rules.push_str("\n");
+        rules.push('\n');
 
         rules
     }

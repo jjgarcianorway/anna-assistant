@@ -303,7 +303,7 @@ async fn perform_auto_repair(report: &HealthReport) -> Result<RepairRecord> {
 /// Check if Ollama is running
 fn check_ollama_running() -> bool {
     Command::new("systemctl")
-        .args(&["is-active", "--quiet", "ollama"])
+        .args(["is-active", "--quiet", "ollama"])
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -313,7 +313,7 @@ fn check_ollama_running() -> bool {
 async fn check_ollama_reachable() -> bool {
     // Try to ping Ollama API
     let output = Command::new("curl")
-        .args(&["-s", "-f", "http://localhost:11434/api/version"])
+        .args(["-s", "-f", "http://localhost:11434/api/version"])
         .output();
 
     output.map(|o| o.status.success()).unwrap_or(false)
@@ -322,7 +322,7 @@ async fn check_ollama_reachable() -> bool {
 /// Check if a specific model is available in Ollama
 async fn check_ollama_model_available(model: &str) -> bool {
     let output = Command::new("ollama")
-        .args(&["list"])
+        .args(["list"])
         .output();
 
     if let Ok(output) = output {
@@ -339,7 +339,7 @@ async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
 
     // Check network connectivity first
     let network_ok = Command::new("ping")
-        .args(&["-c", "1", "-W", "2", "1.1.1.1"])
+        .args(["-c", "1", "-W", "2", "1.1.1.1"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
@@ -374,7 +374,7 @@ async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
         if !llm.backend_running {
             actions.push("Starting Ollama service...".to_string());
             Command::new("sudo")
-                .args(&["systemctl", "enable", "--now", "ollama"])
+                .args(["systemctl", "enable", "--now", "ollama"])
                 .status()
                 .context("Failed to enable Ollama service")?;
 
@@ -394,7 +394,7 @@ async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
             actions.push(format!("Downloading {}...", model));
 
             let pull_result = Command::new("ollama")
-                .args(&["pull", model])
+                .args(["pull", model])
                 .status();
 
             if !pull_result.map(|s| s.success()).unwrap_or(false) {
@@ -418,7 +418,7 @@ async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
         if !actions.is_empty() {
             actions.push("Restarting Anna daemon...".to_string());
             Command::new("sudo")
-                .args(&["systemctl", "restart", "annad"])
+                .args(["systemctl", "restart", "annad"])
                 .status()
                 .context("Failed to restart daemon")?;
             actions.push("✓ Daemon restarted".to_string());
@@ -448,7 +448,7 @@ fn get_system_ram_gb() -> usize {
 /// Check if a group exists
 fn check_group_exists(group: &str) -> bool {
     Command::new("getent")
-        .args(&["group", group])
+        .args(["group", group])
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -457,7 +457,7 @@ fn check_group_exists(group: &str) -> bool {
 /// Check if user is in a group
 fn check_user_in_group(user: &str, group: &str) -> bool {
     let output = Command::new("id")
-        .args(&["-nG", user])
+        .args(["-nG", user])
         .output();
 
     if let Ok(output) = output {
@@ -486,7 +486,7 @@ fn check_data_dir_permissions() -> bool {
 /// Get recent journal errors
 fn get_recent_journal_errors() -> Result<Vec<String>> {
     let output = Command::new("journalctl")
-        .args(&[
+        .args([
             "-u", "annad",
             "-p", "warning..alert",
             "-n", "5",

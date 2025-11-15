@@ -167,12 +167,12 @@ impl ChangeLogDb {
 
             let metrics_before = unit.metrics_before
                 .as_ref()
-                .map(|m| serde_json::to_string(m))
+                .map(serde_json::to_string)
                 .transpose()?;
 
             let metrics_after = unit.metrics_after
                 .as_ref()
-                .map(|m| serde_json::to_string(m))
+                .map(serde_json::to_string)
                 .transpose()?;
 
             // Insert or replace change unit

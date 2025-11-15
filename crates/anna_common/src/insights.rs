@@ -134,7 +134,7 @@ fn detect_flapping(observations: &[Observation], days_back: i64) -> Result<Vec<B
         if obs.timestamp >= cutoff_str {
             issue_observations
                 .entry(obs.issue_key.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(obs);
         }
     }
@@ -189,7 +189,7 @@ fn detect_escalations(observations: &[Observation]) -> Result<Vec<BehaviorInsigh
     for obs in observations {
         issue_observations
             .entry(obs.issue_key.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(obs);
     }
 
@@ -245,7 +245,7 @@ fn detect_longterm_unaddressed(observations: &[Observation]) -> Result<Vec<Behav
             // Only count observations where issue is visible and no decision made
             issue_observations
                 .entry(obs.issue_key.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(obs);
         }
     }
@@ -291,7 +291,7 @@ fn detect_profile_transitions(observations: &[Observation]) -> Result<Vec<Behavi
     for obs in observations {
         issue_observations
             .entry(obs.issue_key.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(obs);
     }
 

@@ -23,8 +23,10 @@ pub enum IssueSeverity {
 
 /// Visibility hint for noise control (Phase 4.7)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum IssueVisibility {
     /// Normal visibility - show in daily and status
+    #[default]
     VisibleNormal,
     /// Low priority - shown but de-emphasized in daily
     VisibleButLowPriority,
@@ -32,11 +34,6 @@ pub enum IssueVisibility {
     Deemphasized,
 }
 
-impl Default for IssueVisibility {
-    fn default() -> Self {
-        IssueVisibility::VisibleNormal
-    }
-}
 
 /// A concrete issue or improvement opportunity detected on this machine
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -394,7 +391,7 @@ impl CaretakerBrain {
             .unwrap_or(false);
 
         let tlp_enabled = std::process::Command::new("systemctl")
-            .args(&["is-enabled", "tlp.service"])
+            .args(["is-enabled", "tlp.service"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -433,9 +430,9 @@ impl CaretakerBrain {
         let has_nvidia = std::process::Command::new("lspci")
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
-                Some(output.to_lowercase().contains("nvidia"))
+                output.to_lowercase().contains("nvidia")
             })
             .unwrap_or(false);
 
@@ -447,9 +444,9 @@ impl CaretakerBrain {
         let nvidia_loaded = std::process::Command::new("lsmod")
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
-                Some(output.contains("nvidia"))
+                output.contains("nvidia")
             })
             .unwrap_or(false);
 
@@ -470,7 +467,7 @@ impl CaretakerBrain {
     fn check_journal_errors(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Run journalctl -p err -b to count error entries for current boot
         let output = std::process::Command::new("journalctl")
-            .args(&["-p", "err", "-b", "--no-pager"])
+            .args(["-p", "err", "-b", "--no-pager"])
             .output();
 
         if let Ok(output) = output {
@@ -572,7 +569,7 @@ impl CaretakerBrain {
     fn check_orphaned_packages(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Run pacman -Qtdq to list orphaned packages
         let output = std::process::Command::new("pacman")
-            .args(&["-Qtdq"])
+            .args(["-Qtdq"])
             .output();
 
         if let Ok(output) = output {
@@ -673,7 +670,7 @@ impl CaretakerBrain {
     fn check_time_sync(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
         // Check for systemd-timesyncd
         let timesyncd_active = std::process::Command::new("systemctl")
-            .args(&["is-active", "systemd-timesyncd.service"])
+            .args(["is-active", "systemd-timesyncd.service"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -684,7 +681,7 @@ impl CaretakerBrain {
 
         // Check for chronyd
         let chronyd_active = std::process::Command::new("systemctl")
-            .args(&["is-active", "chronyd.service"])
+            .args(["is-active", "chronyd.service"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -695,7 +692,7 @@ impl CaretakerBrain {
 
         // Check for ntpd
         let ntpd_active = std::process::Command::new("systemctl")
-            .args(&["is-active", "ntpd.service"])
+            .args(["is-active", "ntpd.service"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -714,7 +711,7 @@ impl CaretakerBrain {
         if timesyncd_installed {
             // Check if it's enabled
             let timesyncd_enabled = std::process::Command::new("systemctl")
-                .args(&["is-enabled", "systemd-timesyncd.service"])
+                .args(["is-enabled", "systemd-timesyncd.service"])
                 .output()
                 .map(|o| o.status.success())
                 .unwrap_or(false);
@@ -758,15 +755,15 @@ impl CaretakerBrain {
     fn check_firewall_status(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
         // Check if this is a networked machine (has non-loopback interface up)
         let has_network = std::process::Command::new("ip")
-            .args(&["link", "show", "up"])
+            .args(["link", "show", "up"])
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
                 // Look for interfaces that are not "lo" (loopback)
-                Some(output.lines().any(|line| {
+                output.lines().any(|line| {
                     line.contains("state UP") && !line.contains(": lo:")
-                }))
+                })
             })
             .unwrap_or(false);
 
@@ -780,9 +777,9 @@ impl CaretakerBrain {
             .arg("status")
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
-                Some(output.contains("Status: active"))
+                output.contains("Status: active")
             })
             .unwrap_or(false);
 
@@ -792,7 +789,7 @@ impl CaretakerBrain {
 
         // 2. Check firewalld
         let firewalld_active = std::process::Command::new("systemctl")
-            .args(&["is-active", "firewalld.service"])
+            .args(["is-active", "firewalld.service"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -803,13 +800,13 @@ impl CaretakerBrain {
 
         // 3. Check for nftables rules
         let nftables_active = std::process::Command::new("nft")
-            .args(&["list", "ruleset"])
+            .args(["list", "ruleset"])
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
                 // If there are actual rules (not just empty output), consider it active
-                Some(output.lines().count() > 5)
+                output.lines().count() > 5
             })
             .unwrap_or(false);
 
@@ -819,14 +816,14 @@ impl CaretakerBrain {
 
         // 4. Check for iptables rules
         let iptables_active = std::process::Command::new("iptables")
-            .args(&["-L", "-n"])
+            .args(["-L", "-n"])
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
                 // If there are non-default rules, consider it active
                 // Default iptables with no rules usually has only ACCEPT policies
-                Some(output.lines().count() > 10)
+                output.lines().count() > 10
             })
             .unwrap_or(false);
 
@@ -919,12 +916,12 @@ impl CaretakerBrain {
 
         // Check if this is a btrfs system with snapshot capability
         let is_btrfs = std::process::Command::new("findmnt")
-            .args(&["-n", "-o", "FSTYPE", "/"])
+            .args(["-n", "-o", "FSTYPE", "/"])
             .output()
             .ok()
-            .and_then(|o| {
+            .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
-                Some(output.trim() == "btrfs")
+                output.trim() == "btrfs"
             })
             .unwrap_or(false);
 
@@ -973,7 +970,7 @@ impl CaretakerBrain {
         }
 
         let output = std::process::Command::new("systemctl")
-            .args(&["--user", "list-units", "--failed", "--no-legend", "--plain"])
+            .args(["--user", "list-units", "--failed", "--no-legend", "--plain"])
             .output();
 
         if let Ok(output) = output {

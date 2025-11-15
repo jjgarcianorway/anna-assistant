@@ -122,7 +122,7 @@ impl ActionHistory {
         let resource_json = self
             .resource_snapshot
             .as_ref()
-            .map(|r| serde_json::to_string(r))
+            .map(serde_json::to_string)
             .transpose()?;
 
         conn.execute(

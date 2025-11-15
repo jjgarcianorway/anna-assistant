@@ -240,7 +240,7 @@ async fn run_repl_loop() -> Result<()> {
 
                 // Convert from references to owned for selection
                 let suggestions_vec: Vec<anna_common::suggestions::Suggestion> =
-                    auto_fixable.into_iter().map(|s| s.clone()).collect();
+                    auto_fixable.into_iter().cloned().collect();
                 let suggestions_ref: Vec<&anna_common::suggestions::Suggestion> =
                     suggestions_vec.iter().collect();
 

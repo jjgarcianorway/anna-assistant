@@ -281,7 +281,7 @@ fn install_binaries(annactl_src: &Path, annad_src: &Path) -> Result<()> {
 /// Stop daemon before upgrade
 fn stop_daemon() -> Result<()> {
     let output = Command::new("systemctl")
-        .args(&["stop", "annad"])
+        .args(["stop", "annad"])
         .output()?;
 
     if !output.status.success() {
@@ -301,7 +301,7 @@ fn stop_daemon() -> Result<()> {
 /// Restart daemon
 fn restart_daemon() -> Result<()> {
     let output = Command::new("systemctl")
-        .args(&["start", "annad"])
+        .args(["start", "annad"])
         .output()?;
 
     if !output.status.success() {

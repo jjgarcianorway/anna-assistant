@@ -115,7 +115,7 @@ async fn gather_installation_config() -> Result<InstallConfigData> {
     println!("[anna] Disk Setup");
     println!("Available partitions:");
     let _ = std::process::Command::new("lsblk")
-        .args(&["-o", "NAME,SIZE,TYPE,MOUNTPOINT"])
+        .args(["-o", "NAME,SIZE,TYPE,MOUNTPOINT"])
         .status();
     println!();
 

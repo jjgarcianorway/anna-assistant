@@ -185,7 +185,7 @@ async fn get_llm_mode_string() -> String {
 /// Display recent journal logs
 fn display_recent_logs() {
     let output = Command::new("journalctl")
-        .args(&[
+        .args([
             "-u", "annad",
             "-n", "10",
             "--no-pager",

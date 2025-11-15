@@ -79,7 +79,7 @@ pub fn get_service_status() -> Result<ServiceStatus> {
 /// Check if service unit file exists
 fn check_service_exists() -> Result<bool> {
     let output = Command::new("systemctl")
-        .args(&["list-unit-files", SERVICE_NAME])
+        .args(["list-unit-files", SERVICE_NAME])
         .output()
         .context("Failed to run systemctl list-unit-files")?;
 
@@ -91,7 +91,7 @@ fn check_service_exists() -> Result<bool> {
 /// Check if service is enabled (will start on boot)
 fn check_service_enabled() -> Result<bool> {
     let output = Command::new("systemctl")
-        .args(&["is-enabled", SERVICE_NAME])
+        .args(["is-enabled", SERVICE_NAME])
         .output()
         .context("Failed to run systemctl is-enabled")?;
 
@@ -103,7 +103,7 @@ fn check_service_enabled() -> Result<bool> {
 /// Returns (active, failed)
 fn check_service_active() -> Result<(bool, bool)> {
     let output = Command::new("systemctl")
-        .args(&["is-active", SERVICE_NAME])
+        .args(["is-active", SERVICE_NAME])
         .output()
         .context("Failed to run systemctl is-active")?;
 
@@ -118,7 +118,7 @@ fn check_service_active() -> Result<(bool, bool)> {
 /// Get detailed service status text
 fn get_service_status_text() -> Result<String> {
     let output = Command::new("systemctl")
-        .args(&["status", SERVICE_NAME, "--no-pager", "--lines=0"])
+        .args(["status", SERVICE_NAME, "--no-pager", "--lines=0"])
         .output()
         .context("Failed to run systemctl status")?;
 
@@ -139,7 +139,7 @@ pub fn install_service_file() -> Result<()> {
 
     // Copy service file to systemd directory
     let output = Command::new("sudo")
-        .args(&["cp", SERVICE_FILE_SOURCE, SERVICE_FILE_DEST])
+        .args(["cp", SERVICE_FILE_SOURCE, SERVICE_FILE_DEST])
         .output()
         .context("Failed to copy service file (need sudo)")?;
 
@@ -161,7 +161,7 @@ pub fn install_service_file() -> Result<()> {
 /// This is idempotent - safe to run multiple times
 pub fn reload_systemd() -> Result<()> {
     let output = Command::new("sudo")
-        .args(&["systemctl", "daemon-reload"])
+        .args(["systemctl", "daemon-reload"])
         .output()
         .context("Failed to reload systemd daemon")?;
 
@@ -180,7 +180,7 @@ pub fn reload_systemd() -> Result<()> {
 /// This is idempotent - safe to run multiple times
 pub fn enable_service() -> Result<()> {
     let output = Command::new("sudo")
-        .args(&["systemctl", "enable", SERVICE_NAME])
+        .args(["systemctl", "enable", SERVICE_NAME])
         .output()
         .context("Failed to enable service")?;
 
@@ -199,7 +199,7 @@ pub fn enable_service() -> Result<()> {
 /// This is idempotent - safe to run multiple times
 pub fn start_service() -> Result<()> {
     let output = Command::new("sudo")
-        .args(&["systemctl", "start", SERVICE_NAME])
+        .args(["systemctl", "start", SERVICE_NAME])
         .output()
         .context("Failed to start service")?;
 
@@ -218,7 +218,7 @@ pub fn start_service() -> Result<()> {
 /// This is idempotent - safe to run multiple times
 pub fn restart_service() -> Result<()> {
     let output = Command::new("sudo")
-        .args(&["systemctl", "restart", SERVICE_NAME])
+        .args(["systemctl", "restart", SERVICE_NAME])
         .output()
         .context("Failed to restart service")?;
 
@@ -235,7 +235,7 @@ pub fn restart_service() -> Result<()> {
 /// Get failure reason from journalctl (last 50 lines)
 pub fn get_failure_reason() -> Result<String> {
     let output = Command::new("sudo")
-        .args(&["journalctl", "-u", SERVICE_NAME, "-n", "50", "--no-pager"])
+        .args(["journalctl", "-u", SERVICE_NAME, "-n", "50", "--no-pager"])
         .output()
         .context("Failed to get service logs")?;
 

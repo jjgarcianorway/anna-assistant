@@ -880,7 +880,7 @@ fn check_daemon_running() -> bool {
     use std::process::Command;
 
     let output = Command::new("systemctl")
-        .args(&["is-active", "annad"])
+        .args(["is-active", "annad"])
         .output();
 
     match output {
@@ -1032,7 +1032,7 @@ fn check_installation_source() -> InstallationCheck {
 
     // Check if annactl is managed by pacman
     let pacman_check = Command::new("pacman")
-        .args(&["-Qo", "/usr/bin/annactl"])
+        .args(["-Qo", "/usr/bin/annactl"])
         .output();
 
     if let Ok(output) = pacman_check {

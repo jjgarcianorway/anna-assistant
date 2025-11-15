@@ -200,7 +200,7 @@ fn query_cpu() -> Result<CpuInfo> {
     let loadavg = std::fs::read_to_string("/proc/loadavg")?;
     let parts: Vec<&str> = loadavg.split_whitespace().collect();
 
-    let load_avg_1min = parts.get(0)
+    let load_avg_1min = parts.first()
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
@@ -219,7 +219,7 @@ fn query_cpu() -> Result<CpuInfo> {
 fn query_packages() -> Result<PackageInfo> {
     // Get total installed packages
     let total_installed = Command::new("pacman")
-        .args(&["-Q"])
+        .args(["-Q"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -236,7 +236,7 @@ fn query_packages() -> Result<PackageInfo> {
 
     // Get orphaned packages
     let orphaned = Command::new("pacman")
-        .args(&["-Qtdq"])
+        .args(["-Qtdq"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -245,7 +245,7 @@ fn query_packages() -> Result<PackageInfo> {
 
     // Get pacman cache size
     let cache_size_mb = Command::new("du")
-        .args(&["-sm", "/var/cache/pacman/pkg"])
+        .args(["-sm", "/var/cache/pacman/pkg"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -286,7 +286,7 @@ fn query_packages() -> Result<PackageInfo> {
 fn query_services() -> Result<ServiceInfo> {
     // Get failed systemd units
     let output = Command::new("systemctl")
-        .args(&["list-units", "--failed", "--no-pager", "--no-legend"])
+        .args(["list-units", "--failed", "--no-pager", "--no-legend"])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -296,7 +296,7 @@ fn query_services() -> Result<ServiceInfo> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if !parts.is_empty() {
             let name = parts[0].to_string();
-            let unit_type = name.split('.').last().unwrap_or("service").to_string();
+            let unit_type = name.split('.').next_back().unwrap_or("service").to_string();
 
             failed_units.push(FailedUnit {
                 name,
@@ -309,7 +309,7 @@ fn query_services() -> Result<ServiceInfo> {
 
     // Count total units
     let total_output = Command::new("systemctl")
-        .args(&["list-units", "--no-pager", "--no-legend"])
+        .args(["list-units", "--no-pager", "--no-legend"])
         .output()?;
 
     let total_units = String::from_utf8_lossy(&total_output.stdout)
@@ -326,14 +326,14 @@ fn query_services() -> Result<ServiceInfo> {
 fn query_network() -> Result<NetworkInfo> {
     // Check if connected
     let is_connected = Command::new("ping")
-        .args(&["-c", "1", "-W", "2", "8.8.8.8"])
+        .args(["-c", "1", "-W", "2", "8.8.8.8"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
 
     // Get primary interface
     let primary_interface = Command::new("ip")
-        .args(&["route", "show", "default"])
+        .args(["route", "show", "default"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -346,12 +346,12 @@ fn query_network() -> Result<NetworkInfo> {
 
     // Check firewall
     let firewall_active = Command::new("systemctl")
-        .args(&["is-active", "ufw"])
+        .args(["is-active", "ufw"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
         || Command::new("systemctl")
-            .args(&["is-active", "iptables"])
+            .args(["is-active", "iptables"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -377,7 +377,7 @@ fn query_network() -> Result<NetworkInfo> {
 fn query_security() -> Result<SecurityInfo> {
     // Count failed SSH attempts from journal
     let failed_ssh_attempts = Command::new("journalctl")
-        .args(&["-u", "sshd", "--since", "1 week ago", "-g", "Failed password"])
+        .args(["-u", "sshd", "--since", "1 week ago", "-g", "Failed password"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -387,7 +387,7 @@ fn query_security() -> Result<SecurityInfo> {
     // Check for auto-updates
     let auto_updates_enabled = Path::new("/etc/systemd/system/timers.target.wants/pacman-auto-update.timer").exists()
         || Command::new("systemctl")
-            .args(&["is-enabled", "pacman-auto-update.timer"])
+            .args(["is-enabled", "pacman-auto-update.timer"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -435,8 +435,8 @@ fn query_boot() -> Result<BootInfo> {
         .find(|line| line.contains("="))
         .and_then(|line| {
             line.split('=')
-                .last()
-                .and_then(|s| s.trim().split_whitespace().next())
+                .next_back()
+                .and_then(|s| s.split_whitespace().next())
                 .and_then(|time_str| {
                     // Parse formats like "5.123s" or "1min 30.5s"
                     if time_str.contains("min") {
@@ -462,19 +462,19 @@ fn query_audio() -> Result<AudioTelemetry> {
 
     // Check PipeWire services
     let pipewire_running = Command::new("systemctl")
-        .args(&["--user", "is-active", "pipewire"])
+        .args(["--user", "is-active", "pipewire"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
 
     let wireplumber_running = Command::new("systemctl")
-        .args(&["--user", "is-active", "wireplumber"])
+        .args(["--user", "is-active", "wireplumber"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
 
     let pipewire_pulse_running = Command::new("systemctl")
-        .args(&["--user", "is-active", "pipewire-pulse"])
+        .args(["--user", "is-active", "pipewire-pulse"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);

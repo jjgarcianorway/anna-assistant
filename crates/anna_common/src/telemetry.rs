@@ -480,7 +480,7 @@ fn collect_disk_info() -> Vec<DiskInfo> {
     use std::process::Command;
 
     let output = Command::new("df")
-        .args(&["-h", "--output=target,size,used,pcent,fstype"])
+        .args(["-h", "--output=target,size,used,pcent,fstype"])
         .output()
         .ok();
 
@@ -525,7 +525,7 @@ fn collect_disk_info() -> Vec<DiskInfo> {
 
 fn parse_size_to_mb(size_str: &str) -> u64 {
     let size_str = size_str.trim();
-    if let Some(num_str) = size_str.chars().take_while(|c| c.is_numeric() || *c == '.').collect::<String>().parse::<f64>().ok() {
+    if let Ok(num_str) = size_str.chars().take_while(|c| c.is_numeric() || *c == '.').collect::<String>().parse::<f64>() {
         if size_str.ends_with('G') {
             return (num_str * 1024.0) as u64;
         } else if size_str.ends_with('M') {
@@ -599,7 +599,7 @@ fn collect_package_info() -> PackageInfo {
 
     // Count installed packages
     let total_installed = Command::new("pacman")
-        .args(&["-Q"])
+        .args(["-Q"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -608,7 +608,7 @@ fn collect_package_info() -> PackageInfo {
 
     // Count orphaned packages
     let orphaned = Command::new("pacman")
-        .args(&["-Qtdq"])
+        .args(["-Qtdq"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -617,7 +617,7 @@ fn collect_package_info() -> PackageInfo {
 
     // Get cache size
     let cache_size_mb = Command::new("du")
-        .args(&["-sm", "/var/cache/pacman/pkg"])
+        .args(["-sm", "/var/cache/pacman/pkg"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -647,7 +647,7 @@ fn collect_service_info() -> ServiceInfo {
 
     // Get failed services
     if let Ok(output) = Command::new("systemctl")
-        .args(&["--failed", "--no-pager", "--no-legend"])
+        .args(["--failed", "--no-pager", "--no-legend"])
         .output()
     {
         if let Ok(stdout) = String::from_utf8(output.stdout) {
@@ -676,7 +676,7 @@ fn collect_service_info() -> ServiceInfo {
 
     // Count total units
     let total_units = Command::new("systemctl")
-        .args(&["list-units", "--all", "--no-pager", "--no-legend"])
+        .args(["list-units", "--all", "--no-pager", "--no-legend"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -695,7 +695,7 @@ fn collect_network_info() -> NetworkInfo {
 
     // Simple connectivity check
     let is_connected = Command::new("ip")
-        .args(&["route"])
+        .args(["route"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -704,7 +704,7 @@ fn collect_network_info() -> NetworkInfo {
 
     // Get primary interface
     let primary_interface = Command::new("ip")
-        .args(&["route", "show", "default"])
+        .args(["route", "show", "default"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -717,7 +717,7 @@ fn collect_network_info() -> NetworkInfo {
 
     // Check firewall (simplified)
     let firewall_active = std::process::Command::new("systemctl")
-        .args(&["is-active", "ufw"])
+        .args(["is-active", "ufw"])
         .output()
         .ok()
         .map(|output| output.status.success())
@@ -781,21 +781,21 @@ fn collect_audio_info() -> AudioTelemetry {
 
     // Check if PipeWire services are running
     let pipewire_running = Command::new("systemctl")
-        .args(&["--user", "is-active", "pipewire"])
+        .args(["--user", "is-active", "pipewire"])
         .output()
         .ok()
         .map(|output| output.status.success())
         .unwrap_or(false);
 
     let wireplumber_running = Command::new("systemctl")
-        .args(&["--user", "is-active", "wireplumber"])
+        .args(["--user", "is-active", "wireplumber"])
         .output()
         .ok()
         .map(|output| output.status.success())
         .unwrap_or(false);
 
     let pipewire_pulse_running = Command::new("systemctl")
-        .args(&["--user", "is-active", "pipewire-pulse"])
+        .args(["--user", "is-active", "pipewire-pulse"])
         .output()
         .ok()
         .map(|output| output.status.success())

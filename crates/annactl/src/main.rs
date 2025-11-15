@@ -445,7 +445,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
 
             // Convert from references to owned for selection
             let suggestions_vec: Vec<anna_common::suggestions::Suggestion> =
-                auto_fixable.into_iter().map(|s| s.clone()).collect();
+                auto_fixable.into_iter().cloned().collect();
             let suggestions_ref: Vec<&anna_common::suggestions::Suggestion> =
                 suggestions_vec.iter().collect();
 
@@ -771,7 +771,7 @@ async fn main() -> Result<()> {
     // Handle monitor command (Phase 3.0 - needs daemon)
     // Handle metrics command (Phase 3.3 - needs daemon)
     // Phase 3.1: Handle help command early (doesn't need daemon)
-    if matches!(command, Commands::Help { .. }) {
+    if matches!(command, Commands::Help) {
         let socket_path = cli.socket.as_deref();
         return execute_help_command_standalone(command, socket_path, &req_id, start_time).await;
     }
@@ -989,7 +989,7 @@ async fn execute_ping_command(
 fn detect_package_install() -> Option<String> {
     // Check if annactl is owned by pacman
     if let Ok(output) = std::process::Command::new("pacman")
-        .args(&["-Qo", "/usr/bin/annactl"])
+        .args(["-Qo", "/usr/bin/annactl"])
         .output()
     {
         if output.status.success() {

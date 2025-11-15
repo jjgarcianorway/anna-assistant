@@ -262,6 +262,12 @@ pub enum UserPreference {
     Snoozed,
 }
 
+impl Default for SuggestionEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SuggestionEngine {
     /// Create a new suggestion engine
     pub fn new() -> Self {

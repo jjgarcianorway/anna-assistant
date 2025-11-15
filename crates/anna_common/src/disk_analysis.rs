@@ -308,7 +308,7 @@ impl DiskRecommendation {
 /// Get filesystem statistics using df
 fn get_filesystem_stats(mount_point: &Path) -> Result<(u64, u64, u64)> {
     let output = Command::new("df")
-        .args(&["--block-size=1", mount_point.to_str().unwrap()])
+        .args(["--block-size=1", mount_point.to_str().unwrap()])
         .output()
         .context("Failed to run df command")?;
 
@@ -344,7 +344,7 @@ fn get_dir_size(path: &str) -> Result<u64> {
     }
 
     let output = Command::new("du")
-        .args(&["-sb", path])
+        .args(["-sb", path])
         .output()
         .context("Failed to run du command")?;
 

@@ -41,6 +41,7 @@ fn is_daemon_running() -> bool {
 
 /// Test 1: health command with all ok should exit 0
 #[test]
+#[ignore] // Requires running daemon
 fn test_health_all_ok() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -71,6 +72,7 @@ fn test_health_all_ok() {
 
 /// Test 2: health command with one warn should exit 2
 #[test]
+#[ignore] // Requires running daemon
 fn test_health_with_warn() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -103,6 +105,7 @@ fn test_health_with_warn() {
 
 /// Test 3: health command with one fail should exit 1
 #[test]
+#[ignore] // Requires running daemon
 fn test_health_with_fail() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -135,6 +138,7 @@ fn test_health_with_fail() {
 
 /// Test 4: health command should generate report
 #[test]
+#[ignore] // Requires running daemon
 fn test_health_report_generation() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -192,6 +196,7 @@ fn test_health_report_generation() {
 
 /// Test 5: doctor command should produce diagnostic report
 #[test]
+#[ignore] // Requires running daemon
 fn test_doctor_report() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -226,6 +231,7 @@ fn test_doctor_report() {
 
 /// Test 6: doctor command with --json should output valid JSON
 #[test]
+#[ignore] // Requires running daemon
 fn test_doctor_json_output() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -256,6 +262,7 @@ fn test_doctor_json_output() {
 
 /// Test 7: rescue list should display recovery plans
 #[test]
+#[ignore] // Requires running daemon
 fn test_rescue_list() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");
@@ -302,6 +309,7 @@ fn test_daemon_unavailable_exit_code() {
 
 /// Test 9: health command should write to ctl.jsonl log
 #[test]
+#[ignore] // Requires running daemon
 fn test_health_logging() {
     if !is_daemon_running() {
         eprintln!("Skipping test: daemon not running");

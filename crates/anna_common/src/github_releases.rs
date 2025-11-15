@@ -186,7 +186,7 @@ fn parse_version(version: &str) -> (u32, u32, u32, Option<String>) {
         .filter_map(|s| s.parse().ok())
         .collect();
 
-    let major = nums.get(0).copied().unwrap_or(0);
+    let major = nums.first().copied().unwrap_or(0);
     let minor = nums.get(1).copied().unwrap_or(0);
     let patch = nums.get(2).copied().unwrap_or(0);
 

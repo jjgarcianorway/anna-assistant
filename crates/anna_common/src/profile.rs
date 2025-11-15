@@ -10,6 +10,7 @@ use tracing::debug;
 
 /// Machine profile types that Anna recognizes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MachineProfile {
     /// Laptop - has battery, often shorter uptimes, Wi-Fi
     Laptop,
@@ -21,6 +22,7 @@ pub enum MachineProfile {
     ServerLike,
 
     /// Unknown - couldn't determine profile
+    #[default]
     Unknown,
 }
 
@@ -102,7 +104,7 @@ impl MachineProfile {
 
         for service in &dm_services {
             if let Ok(output) = std::process::Command::new("systemctl")
-                .args(&["is-active", service])
+                .args(["is-active", service])
                 .output()
             {
                 if output.status.success() {
@@ -147,7 +149,7 @@ impl MachineProfile {
     fn has_wifi() -> bool {
         // Check for wireless interfaces
         if let Ok(output) = std::process::Command::new("ip")
-            .args(&["link", "show"])
+            .args(["link", "show"])
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -211,11 +213,6 @@ impl MachineProfile {
     }
 }
 
-impl Default for MachineProfile {
-    fn default() -> Self {
-        MachineProfile::Unknown
-    }
-}
 
 impl std::fmt::Display for MachineProfile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
