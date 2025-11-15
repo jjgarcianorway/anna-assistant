@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.32] - 2025-11-15
+
+### Added - Kernel & Boot System Detection 🐧⚙️
+
+**Installed Kernel Detection:**
+Anna now tracks all installed kernels on your system:
+- Kernel version enumeration from /boot and pacman
+- Kernel type classification (Mainline, LTS, Zen, Hardened, Custom)
+- Currently running kernel identification
+- Kernel package name tracking
+- Kernel image and initramfs path verification
+- Completeness checking (all required files present)
+- Multiple kernel installation detection
+
+**Kernel Module Monitoring:**
+Complete visibility into loaded and failed modules:
+- Currently loaded kernel modules from /proc/modules
+- Module size and usage count tracking
+- Module dependency resolution (used_by relationships)
+- Module state monitoring (Live, Loading, Unloading)
+- Broken module detection from dmesg and journald
+- Module loading error tracking with error sources
+- Missing dependency identification
+
+**DKMS (Dynamic Kernel Module Support) Status:**
+Full DKMS module tracking and failure detection:
+- DKMS installation detection
+- DKMS module enumeration with version tracking
+- Per-kernel build status (Installed, Built, Failed, NotBuilt)
+- Failed DKMS build detection from journal
+- Module compatibility tracking across kernel versions
+
+**Boot Entry Validation:**
+Comprehensive boot configuration monitoring:
+- systemd-boot entry detection from /boot/loader/entries
+- GRUB configuration parsing from /boot/grub/grub.cfg
+- Boot entry validation (kernel and initramfs existence)
+- Bootloader type identification (systemd-boot, GRUB, rEFInd)
+- Kernel and initramfs path extraction per entry
+- Boot entry sanity checking with validation errors
+
+**Boot Health Monitoring:**
+System boot reliability tracking:
+- Last boot timestamp detection
+- Boot error collection from systemd journal
+- Boot warning enumeration
+- Failed boot attempt counting
+- Boot duration measurement via systemd-analyze
+- Boot-related journal error classification (Critical, Error, Warning)
+- Failed service identification during boot
+
+**Module Error Tracking:**
+Detailed module failure analysis:
+- Module loading errors from journal
+- Error message collection with timestamps
+- Error source classification (dmesg, journal, missing dependencies)
+- Module-specific failure tracking
+
+**Implementation:**
+- New `kernel_modules` module in `anna_common` with `KernelModules::detect()` (~1050 lines)
+- Integrated into `SystemFacts` telemetry as `kernel_modules` field
+- Multi-source kernel detection (/boot directory + pacman packages)
+- /proc/modules parsing for loaded module enumeration
+- dmesg and journalctl integration for error detection
+- DKMS status parsing from `dkms status` command
+- systemd-boot .conf file parsing
+- GRUB grub.cfg parsing for boot entries
+- systemd-analyze integration for boot performance
+
+**Files Added:**
+- `crates/anna_common/src/kernel_modules.rs` (~1050 lines)
+
+**Impact:**
+Anna can now monitor kernel health and boot reliability:
+- 🔍 **Kernel troubleshooting** (broken modules, DKMS failures, missing dependencies)
+- 📦 **Kernel management** (LTS vs mainline tracking, multi-kernel setups)
+- ⚠️ **Boot diagnostics** (failed services, boot errors, slow boot detection)
+- 🔧 **Boot entry validation** (missing kernels/initramfs, broken bootloader configs)
+- 📊 **Module health** (loading failures, dependency issues)
+- ⏱️ **Boot performance** (boot duration tracking, slow service identification)
+
 ## [5.7.0-beta.31] - 2025-11-15
 
 ### Added - Network Monitoring & Diagnostics 🌐📡

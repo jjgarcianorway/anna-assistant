@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.31
+**Current Version:** 5.7.0-beta.32
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -107,15 +107,15 @@ annactl "what's the state of my system?"
 
 #### Software Detection
 - [x] Kernel version ✅
-- [ ] Installed kernels (LTS vs mainline)
-- [ ] Loaded kernel modules
-- [ ] Broken kernel modules
-- [ ] DKMS failures
+- [x] Installed kernels (LTS vs mainline) ✅ (beta.32)
+- [x] Loaded kernel modules ✅ (beta.32)
+- [x] Broken kernel modules ✅ (beta.32)
+- [x] DKMS failures ✅ (beta.32)
 - [x] Boot system (UEFI vs BIOS) ✅ (beta.25)
 - [x] Secure Boot status ✅ (beta.25)
 - [x] Bootloader (systemd-boot vs GRUB) ✅ (beta.25)
-- [ ] Boot entries sanity check
-- [ ] Boot errors/warnings
+- [x] Boot entries sanity check ✅ (beta.32)
+- [x] Boot errors/warnings ✅ (beta.32)
 - [x] systemd failed units ✅ (beta.27)
 - [x] systemd slow-starting units ✅ (beta.27)
 - [ ] systemd daemon crashes
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.32 | 2025-11-15 | Milestone 1 | Kernel & boot detection: modules, DKMS, boot entries, boot health (~1050 lines) |
 | 5.7.0-beta.31 | 2025-11-15 | Milestone 1 | Network monitoring: interfaces, latency, packet loss, routes, firewall (~750 lines) |
 | 5.7.0-beta.30 | 2025-11-15 | Milestone 1 | Storage health & performance: SMART, I/O errors, partition alignment (~570 lines) |
 | 5.7.0-beta.29 | 2025-11-15 | Milestone 1 | Hardware monitoring: sensors, power, memory (~935 lines) |

@@ -316,6 +316,8 @@ pub struct SystemFacts {
     pub storage_info: Option<crate::storage::StorageInfo>, // Storage detection (SSD/HDD, SMART status, health, I/O errors)
     #[serde(default)]
     pub network_monitoring: Option<crate::network_monitoring::NetworkMonitoring>, // Network monitoring (interfaces, latency, packet loss, routes, firewall)
+    #[serde(default)]
+    pub kernel_modules: Option<crate::kernel_modules::KernelModules>, // Kernel and boot (installed kernels, modules, boot config, DKMS)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU
