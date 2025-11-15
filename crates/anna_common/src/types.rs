@@ -286,6 +286,10 @@ pub struct SystemFacts {
     pub display_server: Option<String>,      // X11, Wayland
     #[serde(default)]
     pub desktop_config: Option<crate::config_file::DesktopConfig>, // Parsed desktop config (wallpaper, theme, startup apps)
+    #[serde(default)]
+    pub boot_info: Option<crate::boot::BootInfo>, // Boot system detection (UEFI/BIOS, Secure Boot, bootloader)
+    #[serde(default)]
+    pub audio_info: Option<crate::audio::AudioInfo>, // Audio system detection (PipeWire, Pulse, ALSA, devices)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

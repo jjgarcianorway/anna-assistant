@@ -4,7 +4,9 @@
 //! the daemon (annad) and CLI client (annactl).
 
 pub mod advice_cache;
+pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
 pub mod beautiful;
+pub mod boot; // Boot system detection (UEFI/BIOS, Secure Boot, bootloader)
 pub mod caretaker_brain; // Core analysis engine - ties everything together
 pub mod categories;
 pub mod change_log; // Phase 5.1: Change logging and rollback

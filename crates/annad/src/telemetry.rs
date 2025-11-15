@@ -8,6 +8,8 @@ use anna_common::{
 };
 use anna_common::desktop::{DesktopInfo, DesktopEnvironment, SessionType};
 use anna_common::config_file::DesktopConfig;
+use anna_common::boot::BootInfo;
+use anna_common::audio::AudioInfo;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -96,6 +98,8 @@ pub async fn collect_facts() -> Result<SystemFacts> {
             }
         },
         desktop_config: DesktopConfig::parse(),
+        boot_info: Some(BootInfo::detect()),
+        audio_info: Some(AudioInfo::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

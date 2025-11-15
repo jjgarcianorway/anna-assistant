@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.25] - 2025-11-15
+
+### Added - System Detection: Boot and Audio 🔍
+
+**Boot System Detection:**
+Anna now detects comprehensive boot system information:
+- Firmware type detection (UEFI vs BIOS)
+- Secure Boot status detection (enabled/disabled/not supported)
+- Boot loader identification (systemd-boot, GRUB, rEFInd, Syslinux)
+- EFI variables availability
+- ESP (EFI System Partition) mount point detection
+
+**Audio System Detection:**
+Complete audio stack detection for modern Linux systems:
+- Audio server detection (PipeWire, PulseAudio, ALSA-only)
+- JACK availability detection
+- Audio server running status
+- Default sink (output device) detection
+- Default source (input device) detection
+- Sink and source counting
+- Monitor device filtering for accurate counts
+
+**Implementation:**
+- New `boot` module in `anna_common` with `BootInfo::detect()`
+- New `audio` module in `anna_common` with `AudioInfo::detect()`
+- Integrated into `SystemFacts` telemetry for comprehensive system knowledge
+- Multiple fallback detection methods for robustness
+- Supports both modern (PipeWire) and legacy (PulseAudio, ALSA) audio stacks
+
+**Files Added:**
+- `crates/anna_common/src/boot.rs` (~303 lines)
+- `crates/anna_common/src/audio.rs` (~248 lines)
+
+**Impact:**
+Anna now has deeper knowledge of system boot configuration and audio setup, enabling better context-aware advice for boot-related issues, audio troubleshooting, and system configuration recommendations.
+
 ## [5.7.0-beta.24] - 2025-11-15
 
 ### Added - TUI REPL Foundation 🖥️
