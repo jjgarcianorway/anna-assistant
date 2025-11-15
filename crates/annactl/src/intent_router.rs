@@ -209,13 +209,13 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::OffTopic;
     }
 
-    // Help - only for actual help requests, not system information queries
-    if (contains_any(&words, &["help"]) && !contains_any(&words, &["ram", "memory", "cpu", "system", "computer", "disk", "storage"]))
-        || (contains_any(&words, &["how"]) && contains_any(&words, &["use", "anna", "work", "command"]))
-        || (contains_any(&words, &["what"]) && contains_any(&words, &["command", "example"]))
+    // Help - ONLY for explicit help requests, everything else goes to LLM
+    if contains_any(&words, &["help"])
+        || lower == "?"
         || lower.contains("show me examples")
         || lower.contains("what can you do")
-        || lower.contains("how do i use") {
+        || lower.contains("list commands")
+        || lower.contains("available commands") {
         return Intent::Help;
     }
 
