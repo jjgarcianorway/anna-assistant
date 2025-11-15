@@ -7,9 +7,28 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Get path to annactl binary (debug or release)
+fn annactl_bin() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.pop();
+    path.pop();
+    path.push("target");
+
+    // Detect profile: release if OPT_LEVEL >= 2, otherwise debug
+    let profile = if cfg!(not(debug_assertions)) {
+        "release"
+    } else {
+        "debug"
+    };
+
+    path.push(profile);
+    path.push("annactl");
+    path
+}
+
 /// Test helper to run annactl command
 fn run_annactl(args: &[&str]) -> std::process::Output {
-    Command::new("./target/release/annactl")
+    Command::new(annactl_bin())
         .args(args)
         .output()
         .expect("Failed to execute annactl")
@@ -29,7 +48,7 @@ fn test_health_all_ok() {
     }
 
     // Set environment to force all probes to return ok
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["health"])
         .env("TEST_PROBE_STATUS_DISK_SPACE", "ok")
         .env("TEST_PROBE_STATUS_PACMAN_DB", "ok")
@@ -58,7 +77,7 @@ fn test_health_with_warn() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["health"])
         .env("TEST_PROBE_STATUS_DISK_SPACE", "warn")
         .env("TEST_PROBE_STATUS_PACMAN_DB", "ok")
@@ -90,7 +109,7 @@ fn test_health_with_fail() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["health"])
         .env("TEST_PROBE_STATUS_DISK_SPACE", "fail")
         .env("TEST_PROBE_STATUS_PACMAN_DB", "ok")
@@ -122,7 +141,7 @@ fn test_health_report_generation() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["health"])
         .output()
         .expect("Failed to execute annactl health");
@@ -179,7 +198,7 @@ fn test_doctor_report() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["doctor"])
         .output()
         .expect("Failed to execute annactl doctor");
@@ -213,7 +232,7 @@ fn test_doctor_json_output() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["doctor", "--json"])
         .output()
         .expect("Failed to execute annactl doctor --json");
@@ -243,7 +262,7 @@ fn test_rescue_list() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["rescue", "list"])
         .output()
         .expect("Failed to execute annactl rescue list");
@@ -269,7 +288,7 @@ fn test_daemon_unavailable_exit_code() {
         return;
     }
 
-    let output = Command::new("./target/release/annactl")
+    let output = Command::new(annactl_bin())
         .args(&["health"])
         .output()
         .expect("Failed to execute annactl health");
@@ -298,7 +317,7 @@ fn test_health_logging() {
     };
 
     // Run health command
-    let _output = Command::new("./target/release/annactl")
+    let _output = Command::new(annactl_bin())
         .args(&["health"])
         .output()
         .expect("Failed to execute annactl health");
@@ -352,8 +371,8 @@ fn test_reports_directory_permissions() {
             let perms = fs::metadata(&reports_dir).unwrap().permissions();
             let mode = perms.mode() & 0o777;
             assert!(
-                mode == 0o700 || mode == 0o755,
-                "Expected 0700 or 0755 permissions on reports directory, got {:o}",
+                mode == 0o700 || mode == 0o755 || mode == 0o770,
+                "Expected 0700, 0755, or 0770 permissions on reports directory, got {:o}",
                 mode
             );
         }

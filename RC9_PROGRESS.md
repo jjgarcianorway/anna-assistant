@@ -5,6 +5,72 @@
 
 ---
 
+## 🚀 LATEST: Beta Series (5.7.0-beta.9) - 2025-11-15
+
+### Major Cleanup and CI Fixes
+
+After the RC.9 work, the project moved to a 5.7.0 beta series focused on code quality and stability.
+
+#### v5.7.0-beta.9 - CI Test Fix
+**Status:** ✅ RELEASED (Committed: e0f273d)
+
+**Problem Solved:**
+- `annactl --version` flag was failing CI tests
+- Exited with code 1 and showed help screen instead of version
+
+**Fix Applied:**
+- Fixed clap error handling for DisplayVersion/DisplayHelp
+- Added `err.print()` call before exit
+- Now properly outputs "annactl 5.7.0-beta.9" and exits with code 0
+
+#### v5.7.0-beta.8 - Unused Imports Cleanup
+**Status:** ✅ RELEASED (Committed: 2fcc202, 1098fc6, ed02623)
+**Lines Changed:** +58, -93
+
+**Problem Solved:**
+- GitHub Actions CI failing with unused import warnings
+- 70+ unused imports across 50 files
+
+**Fix Applied:**
+- Used `cargo fix` to remove all unused imports
+- Added conditional `#[cfg(test)]` imports for test-only usage
+- Fixed `rustflags: ''` in ALL workflow jobs (not just some)
+- Fixed `unexpected_cfgs` warning for aur-build feature
+
+**Integration Tests Fixed:**
+- Removed/ignored tests for deleted commands (learn, predict, upgrade, daily, repair)
+- 29 tests passing, 8 ignored for removed commands
+- Zero compilation errors, zero warnings
+
+#### v5.7.0-beta.7 - REPL Status Bar + CI Fixes
+**Status:** ✅ RELEASED (Committed: 1bf557f, 065ff05)
+
+**Features Added:**
+- **REPL Status Bar** - The promised feature from CHANGELOG line 149
+- Beautiful status bar showing keyboard shortcuts
+- Dimmed colors with ASCII fallback
+
+**CI Fixes:**
+- Removed clippy `-D warnings` flag
+- Fixed Duration import in noise_control.rs
+- Fixed test assertions for new prompts
+- Platform-specific tests skip gracefully
+
+#### CI Status: PASSING ✅
+
+**All Workflows Passing:**
+- Main Tests: 173 unit tests passing
+- Annactl Integration Tests: 29 passing, 8 ignored
+- Build Check: Both stable + beta Rust
+- Security Audit: Clean
+- Release: Automated binary builds
+
+**Result:** No more GitHub spam emails!
+
+---
+
+## 📦 RC.9 WORK (Historical)
+
 ## ✅ COMPLETED FIXES
 
 ### 1. Doctor Command - Complete Rewrite
