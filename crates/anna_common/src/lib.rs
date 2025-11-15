@@ -21,6 +21,7 @@ pub mod config_parser;
 pub mod context;
 pub mod cpu_performance; // CPU performance detection (governors, microcode, flags)
 pub mod cpu_throttling; // CPU throttling and power state detection (throttle events, C-states)
+pub mod gpu_throttling; // GPU throttling detection (NVIDIA, AMD, Intel thermal/power limits)
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
 pub mod desktop_automation; // Desktop automation helpers (wallpaper, config updates, reload)
 pub mod disk_analysis;

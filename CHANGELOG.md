@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.38] - 2025-11-15
+
+### Added - GPU Throttling Events Detection 🎮🔥
+
+**NVIDIA GPU Throttling:**
+Anna now monitors NVIDIA GPU performance and thermal state:
+- nvidia-smi integration for GPU telemetry
+- Per-GPU throttle reason detection
+- Thermal throttling detection (HW Thermal Slowdown)
+- Power throttling detection (SW Power Cap, HW Power Brake)
+- Hardware slowdown detection (HW Slowdown emergency)
+- GPU temperature, power draw, and power limit monitoring
+- GPU and memory utilization percentage tracking
+- Performance state tracking (P0-P12)
+- Clock throttling status per GPU
+
+**AMD GPU Throttling:**
+Comprehensive AMD GPU thermal monitoring:
+- sysfs integration via /sys/class/drm for AMD GPUs
+- Per-GPU temperature monitoring from hwmon interface
+- Power draw tracking (microwatts to watts conversion)
+- GPU busy percentage detection
+- Thermal throttling detection (>90°C edge temp threshold)
+- Per-device path tracking
+- Multi-GPU support
+
+**Intel GPU Throttling:**
+Intel integrated graphics thermal monitoring:
+- sysfs integration via /sys/class/drm/gt/hwmon for Intel GPUs
+- Temperature monitoring from i915 driver
+- Thermal throttling detection (>95°C threshold)
+- Intel-specific hwmon path traversal
+- Integrated GPU support
+
+**Performance Recommendations:**
+Intelligent GPU health analysis:
+- Thermal throttling warnings for all GPU vendors
+- Power throttling alerts for NVIDIA GPUs
+- Hardware slowdown emergency detection
+- Cooling improvement suggestions
+- GPU-specific recommendations
+
+**Implementation:**
+- New `gpu_throttling` module in `anna_common` (~420 lines)
+- Integrated into `SystemFacts` telemetry
+- nvidia-smi CSV output parsing
+- AMD sysfs hwmon interface parsing
+- Intel i915 hwmon interface parsing
+- Vendor detection via PCI vendor IDs (0x1002=AMD, 0x8086=Intel)
+- Multi-GPU support for all vendors
+
+**Files Added:**
+- `crates/anna_common/src/gpu_throttling.rs` (~420 lines)
+
+**Impact:**
+Anna can now provide comprehensive GPU thermal monitoring:
+- 🎮 **Gaming Performance** (GPU throttling detection during high loads)
+- 🔥 **Thermal Health** (per-GPU temperature and throttling tracking)
+- ⚡ **Power Management** (power limit detection for NVIDIA GPUs)
+- 🏎️ **Performance State** (P-state tracking for power/perf balance)
+- 💨 **Cooling Assessment** (throttling warnings indicate cooling issues)
+- 🖥️ **Multi-GPU Support** (all GPUs monitored independently)
+
 ## [5.7.0-beta.37] - 2025-11-15
 
 ### Added - CPU Throttling & Power States Detection 🌡️⚡

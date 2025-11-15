@@ -330,6 +330,8 @@ pub struct SystemFacts {
     pub orphaned_packages: Option<crate::orphaned_packages::OrphanedPackages>, // Orphaned packages (pacman -Qtd, size tracking, removal safety)
     #[serde(default)]
     pub cpu_throttling: Option<crate::cpu_throttling::CpuThrottling>, // CPU throttling and power states (throttle events, C-states, thermal events)
+    #[serde(default)]
+    pub gpu_throttling: Option<crate::gpu_throttling::GpuThrottling>, // GPU throttling (NVIDIA/AMD/Intel thermal/power limits)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU
