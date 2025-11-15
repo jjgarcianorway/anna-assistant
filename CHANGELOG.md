@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.23] - 2025-11-15
+
+### Added - Desktop Automation Helpers ⚡
+
+**Feature:**
+Safe helper functions for desktop automation tasks with automatic backup and rollback support.
+
+**Capabilities:**
+- **Wallpaper Management:**
+  - List wallpapers in any directory (filters .jpg, .png, .webp, .gif, .bmp)
+  - Pick random wallpaper from directory
+  - Change wallpaper with automatic config backup
+  - Support for multiple wallpaper setters
+
+- **Desktop Environment Support:**
+  - **Hyprland:** hyprpaper config updates with automatic restart
+  - **i3/Sway:** feh, swaybg, nitrogen integration
+  - **Desktop Reload:** Automatic reload after changes (hyprctl, i3-msg, swaymsg)
+
+- **Safety Features:**
+  - Automatic config file backup before changes
+  - SHA256 verification of backups
+  - Rollback capability if changes fail
+  - Change set tracking with timestamps
+
+**Implementation:**
+```rust
+// List wallpapers
+let wallpapers = list_wallpapers("/home/user/Pictures/wallpapers")?;
+
+// Pick random wallpaper
+let random_wp = pick_random_wallpaper("/home/user/Pictures/wallpapers")?;
+
+// Change wallpaper (with automatic backup)
+let result = change_wallpaper(&random_wp)?;
+// Returns: WallpaperChangeResult {
+//   previous_wallpaper: Some("/old/wallpaper.jpg"),
+//   new_wallpaper: "/new/wallpaper.jpg",
+//   backup: Some(FileBackup {...}),
+//   commands_executed: ["pkill hyprpaper", "hyprpaper"]
+// }
+
+// Reload desktop
+reload_desktop()?;
+```
+
+**How it Works:**
+1. Detects desktop environment (Hyprland, i3, Sway)
+2. Parses current config to find wallpaper setter
+3. Creates SHA256-verified backup of config files
+4. Updates config with new wallpaper path
+5. Reloads wallpaper setter
+6. Returns backup info for rollback if needed
+
+**Foundation for Conversational Automation:**
+These helpers enable future conversational commands like:
+- "Change my wallpaper to a random one from Pictures/wallpapers"
+- "Set my wallpaper to nature.jpg"
+- "What wallpapers do I have?"
+
+Anna can now safely execute desktop automation tasks with full backup/rollback support.
+
+**Files Modified:**
+- `crates/anna_common/src/desktop_automation.rs` (new module, 300+ lines)
+- `crates/anna_common/src/lib.rs` (exported desktop_automation module)
+
 ## [5.7.0-beta.22] - 2025-11-15
 
 ### Added - Desktop Config File Parsing 📄

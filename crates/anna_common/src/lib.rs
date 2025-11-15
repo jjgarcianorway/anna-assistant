@@ -18,6 +18,7 @@ pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)
 pub mod config_parser;
 pub mod context;
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
+pub mod desktop_automation; // Desktop automation helpers (wallpaper, config updates, reload)
 pub mod disk_analysis;
 pub mod display;
 pub mod github_releases;
