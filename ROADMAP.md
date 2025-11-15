@@ -1,12 +1,12 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.3.0-beta.1
+**Current Version:** 5.7.0-beta.29
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
 ---
 
-## Milestone 0 - Companion Shell ✅ (Current)
+## Milestone 0 - Companion Shell ✅ (Complete)
 
 **Goal:** Create a natural, conversational interface where you can talk to Anna.
 
@@ -29,7 +29,7 @@ annactl "use Spanish"
 
 ---
 
-## Milestone 1 - Deep Caretaker 🚧 (In Progress)
+## Milestone 1 - Deep Caretaker 🚧 (In Progress - ~35% Complete)
 
 **Goal:** Anna proactively watches your system and suggests improvements based on Arch Wiki knowledge.
 
@@ -58,6 +58,122 @@ annactl "what's the state of my system?"
 - Never overwhelming (max 2-5 suggestions)
 - Explain tradeoffs honestly
 - Safe by default
+
+### System Detection Progress
+
+#### Hardware Detection
+- [x] CPU model, cores, threads ✅ (beta.27)
+- [x] CPU flags (SSE, AVX, AVX2, AVX-512) ✅ (beta.27)
+- [x] CPU governor ✅ (beta.27)
+- [x] CPU microcode package/version ✅ (beta.27)
+- [x] CPU temperatures ✅ (beta.29)
+- [ ] CPU throttling events
+- [ ] CPU power states
+- [x] GPU vendor, model, driver ✅ (beta.28)
+- [x] GPU VRAM ✅ (partial)
+- [ ] GPU CUDA/OpenCL support detection
+- [x] GPU temperatures ✅ (beta.29)
+- [ ] GPU throttling events
+- [x] Memory total/available RAM ✅ (beta.29)
+- [x] Swap config/type/usage ✅ (beta.29)
+- [x] OOM events ✅ (beta.29)
+- [x] Memory pressure (PSI) ✅ (beta.29)
+- [ ] Storage device types (SSD vs HDD)
+- [ ] SMART status
+- [ ] Storage health degradation
+- [ ] Storage I/O errors
+- [ ] Storage throughput/latency
+- [ ] Partition alignment
+- [x] Filesystem types ✅ (beta.26)
+- [x] TRIM status ✅ (beta.26)
+- [ ] Network interfaces (active)
+- [ ] DHCP vs static config
+- [ ] IPv4/IPv6 status
+- [x] DNS servers ✅ (beta.27)
+- [ ] DNSSEC status
+- [ ] Network latency
+- [ ] Packet loss
+- [ ] Route table
+- [ ] Active firewall rules
+- [x] NVMe temperatures ✅ (beta.29)
+- [x] Fan speeds ✅ (beta.29)
+- [x] Voltage readings ✅ (beta.29)
+- [ ] Voltage anomalies
+- [x] AC vs battery status ✅ (beta.29)
+- [x] Battery health ✅ (beta.29)
+- [x] Battery charge cycles ✅ (beta.29)
+- [x] Power draw ✅ (beta.29)
+- [x] TLP/power-profiles-daemon status ✅ (beta.29)
+
+#### Software Detection
+- [x] Kernel version ✅
+- [ ] Installed kernels (LTS vs mainline)
+- [ ] Loaded kernel modules
+- [ ] Broken kernel modules
+- [ ] DKMS failures
+- [x] Boot system (UEFI vs BIOS) ✅ (beta.25)
+- [x] Secure Boot status ✅ (beta.25)
+- [x] Bootloader (systemd-boot vs GRUB) ✅ (beta.25)
+- [ ] Boot entries sanity check
+- [ ] Boot errors/warnings
+- [x] systemd failed units ✅ (beta.27)
+- [x] systemd slow-starting units ✅ (beta.27)
+- [ ] systemd daemon crashes
+- [x] systemd critical timers ✅ (beta.27)
+- [ ] System load averages
+- [ ] mkinitcpio/dracut config
+- [ ] Missing initramfs hooks/modules
+- [ ] Initramfs compression type
+- [x] pacman configuration ✅ (beta.28)
+- [x] Mirror speed/age ✅ (beta.28)
+- [ ] pacman database corruption
+- [ ] Partial upgrades
+- [ ] Orphaned packages
+- [ ] Unowned files
+- [ ] Conflicting files
+- [x] Firewall type/status ✅ (beta.28)
+- [x] SSH configuration ✅ (beta.28)
+- [ ] SELinux/AppArmor status
+- [ ] Polkit configuration
+- [ ] Sudoers configuration
+- [ ] Kernel lockdown mode
+- [x] Btrfs subvolumes/snapshots ✅ (beta.26)
+- [x] Btrfs balance status ✅ (beta.26)
+- [ ] Ext4 fsck status/errors
+- [ ] XFS log/errors
+- [ ] ZFS pools/scrubs
+- [ ] Backup tools installed
+- [ ] Last backup timestamp
+- [ ] Backup integrity errors
+- [ ] Missing snapshots
+- [x] Docker/Podman service status ✅ (beta.28)
+- [ ] Broken containers
+- [ ] High CPU containers
+- [ ] Missing cgroup limits
+- [x] KVM capability ✅ (beta.28)
+- [ ] Nested virtualization
+- [ ] QEMU performance flags
+- [x] Display server (X11/Wayland) ✅ (beta.28)
+- [ ] Display driver issues
+- [ ] Resolution/refresh rate
+- [ ] Multi-monitor issues
+
+#### User Behavior Detection
+- [ ] Command execution patterns
+- [ ] Resource usage patterns
+- [ ] Disk usage patterns
+- [ ] Networking behavior
+- [ ] Application behavior
+- [ ] Gaming/GPU usage patterns
+- [ ] Development workflow patterns
+- [ ] Security behavior patterns
+
+#### LLM Contextualization
+- [ ] System identity summary
+- [ ] Stability indicators
+- [ ] Performance indicators
+- [ ] Risk indicators
+- [ ] Inferred user goals
 
 ---
 
@@ -140,6 +256,11 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.29 | 2025-11-15 | Milestone 1 | Hardware monitoring: sensors, power, memory (~935 lines) |
+| 5.7.0-beta.28 | 2025-11-15 | Milestone 1 | Graphics, security, virtualization, package mgmt (~1400 lines) |
+| 5.7.0-beta.27 | 2025-11-15 | Milestone 1 | Systemd health, network config, CPU performance (~925 lines) |
+| 5.7.0-beta.26 | 2025-11-15 | Milestone 1 | Filesystem features (TRIM, LUKS, Btrfs) |
+| 5.7.0-beta.25 | 2025-11-14 | Milestone 1 | Boot info, audio system, desktop detection |
 | 5.3.0-beta.1 | 2025-11-14 | Milestone 0 | Conversational interface, multi-language support, UI abstraction |
 | 5.2.0-beta.1 | 2025-11 | Milestone 0 | Intent routing, personality system |
 | 5.1.0-beta.1 | 2025-11 | Milestone 0 | REPL foundation |
