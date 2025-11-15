@@ -7,6 +7,7 @@ use anna_common::{
     SSDInfo, StorageDevice, SwapConfiguration, SystemFacts, SystemdService,
 };
 use anna_common::desktop::{DesktopInfo, DesktopEnvironment, SessionType};
+use anna_common::config_file::DesktopConfig;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -94,6 +95,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
                 SessionType::Unknown => None,
             }
         },
+        desktop_config: DesktopConfig::parse(),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

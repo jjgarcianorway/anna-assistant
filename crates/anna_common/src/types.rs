@@ -284,6 +284,8 @@ pub struct SystemFacts {
     pub window_manager: Option<String>,      // Hyprland, i3, sway, bspwm, etc.
     pub compositor: Option<String>,          // Hyprland, picom, etc.
     pub display_server: Option<String>,      // X11, Wayland
+    #[serde(default)]
+    pub desktop_config: Option<crate::config_file::DesktopConfig>, // Parsed desktop config (wallpaper, theme, startup apps)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

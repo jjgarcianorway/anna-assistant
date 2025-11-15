@@ -14,6 +14,7 @@ pub mod change_recipe_display; // Phase 7: UI display for change recipes
 pub mod file_backup; // File backup system with SHA256 verification
 pub mod command_meta;
 pub mod config;
+pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)
 pub mod config_parser;
 pub mod context;
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)

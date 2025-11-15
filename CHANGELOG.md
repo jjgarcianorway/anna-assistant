@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.22] - 2025-11-15
+
+### Added - Desktop Config File Parsing 📄
+
+**Feature:**
+Anna can now parse desktop environment config files to understand wallpapers, themes, startup apps, and other settings.
+
+**Implementation:**
+- Created `config_file` module in `anna_common`
+- Parses Hyprland, i3, and Sway config files
+- Extracts wallpaper settings (hyprpaper, feh, swaybg, nitrogen)
+- Extracts theme colors and GTK/icon themes
+- Detects startup applications
+- Parses key-value settings and variables
+
+**Supported Config Formats:**
+- **Hyprland:** `~/.config/hypr/hyprland.conf` + `hyprpaper.conf`
+  - Parses `exec-once`, `exec` commands
+  - Detects hyprpaper, swaybg wallpaper setters
+  - Extracts general settings (key=value)
+- **i3/Sway:** `~/.config/i3/config`, `~/.config/sway/config`
+  - Parses `exec`, `exec_always` commands
+  - Detects feh, nitrogen, swaybg wallpaper setters
+  - Parses `set $variable value` declarations
+
+**Integration:**
+- Added `desktop_config` field to `SystemFacts` telemetry
+- Config info automatically collected and sent to LLM
+- Enables Anna to understand user's desktop preferences
+
+**Example Parsed Data:**
+```json
+{
+  "wallpaper": {
+    "setter": "hyprpaper",
+    "paths": ["/home/user/Pictures/wallpapers/nature.jpg"],
+    "config_file": "/home/user/.config/hypr/hyprpaper.conf"
+  },
+  "startup_apps": ["waybar", "hyprpaper", "dunst"],
+  "settings": {"gaps_in": "5", "gaps_out": "10"}
+}
+```
+
+**Impact:**
+This enables Anna to provide intelligent suggestions about desktop configuration and prepares for conversational desktop automation features.
+
+**Files Modified:**
+- `crates/anna_common/src/config_file.rs` (new module, 435 lines)
+- `crates/anna_common/src/lib.rs` (exported config_file module)
+- `crates/anna_common/src/types.rs` (added desktop_config field)
+- `crates/annad/src/telemetry.rs` (integrated config parsing)
+
 ## [5.7.0-beta.21] - 2025-11-15
 
 ### Added - Desktop Environment Detection 🖥️
