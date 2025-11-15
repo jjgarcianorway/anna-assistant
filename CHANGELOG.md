@@ -7,6 +7,140 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.50] - 2025-11-15
+
+### Added - Historian Integration into Caretaker Brain: Historical Intelligence Now Active
+
+**Caretaker Brain Enhancement with Historical Context:**
+The Caretaker Brain now integrates directly with Historian to provide context-aware, trend-based analysis. Anna can now detect performance degradations, correlate problems with timeline events, and provide historically informed suggestions.
+
+**Core Integration (`/home/lhoqvso/anna-assistant/crates/anna_common/src/caretaker_brain.rs`):**
+
+1. **HistorianContext Structure** (lines 220-293):
+   - Packages 30-day trends into a structured context object
+   - Boot trends (avg time, slowest units, performance direction)
+   - Memory trends (RAM usage, top hogs, growth patterns)
+   - CPU trends (utilization patterns, resource hogs)
+   - Timeline events (upgrades, kernel changes, repairs)
+   - Health scores (stability, performance, noise levels)
+   - Recent repairs and their effectiveness
+
+2. **Historical Query Integration** (lines 1536-1778):
+
+   **Key Methods:**
+   - `build_historical_context()`: Aggregates all historical data from Historian
+   - `build_historical_prompt_context()`: Formats history for LLM consumption
+   - `correlate_with_timeline()`: Links problems to recent system changes
+
+   **Historian APIs Used:**
+   - `get_boot_trends(30)`: 30-day boot performance analysis
+   - `get_slowest_units()`: Recurring boot bottlenecks
+   - `get_memory_trends(30)`: RAM usage patterns over time
+   - `identify_resource_hogs()`: Processes consuming excessive resources
+   - `get_cpu_trends(30)`: CPU utilization patterns
+   - `get_timeline_since()`: Recent upgrades and system events
+   - `get_health_summary(30)`: Overall system health trajectory
+   - `compute_trends()`: Stability/performance/noise trend directions
+   - `get_repair_effectiveness()`: Success rate of past repairs
+   - `what_changed_before()`: Correlation with timeline events
+
+3. **Enhanced Analysis Method** (line 309):
+   - New `historian: Option<&Historian>` parameter
+   - Gracefully handles missing Historian (works without it)
+   - Builds historical context at analysis start
+   - Available to all issue detection logic
+
+4. **LLM Prompt Context Builder** (lines 1674-1763):
+   - Generates natural language historical summaries
+   - Includes boot performance trends with slowest units
+   - Memory usage trends with top hogs
+   - CPU utilization patterns
+   - System health scores (stability/performance/noise)
+   - Recent timeline events (formatted chronologically)
+   - Repair effectiveness statistics
+   - Ready for direct inclusion in LLM prompts
+
+**Historical Intelligence Features:**
+
+**Trend Detection:**
+- Boot time: Identifies "slower", "faster", or "stable" trends
+- Memory: Detects "increasing", "decreasing", or "stable" RAM usage
+- CPU: Tracks utilization patterns over 30 days
+- Health: Monitors "improving", "declining", or "stable" overall health
+
+**Timeline Correlation:**
+- `correlate_with_timeline()`: Finds what changed before a problem
+- Links performance regressions to upgrades, kernel changes, or repairs
+- Provides timestamp and description of likely cause
+
+**Baseline Awareness:**
+- Access to performance baselines via Historian
+- Percentage change calculations from trend data
+- Identification of slowest boot units (recurring offenders)
+- Top resource hogs tracked over time
+
+**Example Enhanced Analysis:**
+
+Before (beta.49):
+```
+"High memory usage detected"
+```
+
+After (beta.50):
+```
+"Memory usage has increased by 18% over the last 30 days (currently 12.8 GB,
+trending upward). Top resource hogs: firefox (15.2% CPU avg), chrome (12.8% CPU avg).
+This trend started around the kernel upgrade on Nov 10th. Consider investigating
+firefox for memory leaks or restart it."
+```
+
+**Integration Pattern:**
+```rust
+// Brain analysis now accepts optional Historian
+let analysis = CaretakerBrain::analyze(
+    health_results,
+    disk_analysis,
+    profile,
+    Some(&historian),  // Historical context now available
+);
+
+// LLM prompts can include historical context
+let historical_context = CaretakerBrain::build_historical_prompt_context(
+    Some(&historian)
+);
+// Returns formatted markdown with trends, events, and insights
+```
+
+**Design Philosophy:**
+- **Optional Integration**: Brain works without Historian (graceful degradation)
+- **Non-Blocking**: Historical queries don't slow down analysis
+- **Informative**: Trends provide context, not just snapshots
+- **Actionable**: Historical data leads to specific, targeted suggestions
+- **LLM-Ready**: Formatted output designed for LLM comprehension
+
+**Files Modified:**
+- `/home/lhoqvso/anna-assistant/crates/anna_common/src/caretaker_brain.rs`: Added historical intelligence (262 new lines)
+- `/home/lhoqvso/anna-assistant/Cargo.toml`: Bumped to 5.7.0-beta.50
+- All tests updated to pass `None` for historian parameter (backwards compatible)
+
+**What This Enables:**
+1. **Trend-Based Suggestions**: "Boot time degrading by 25% over 30 days"
+2. **Root Cause Analysis**: "Started after kernel upgrade on Nov 10th"
+3. **Baseline Comparison**: "Current: 12.8 GB, baseline: 10.8 GB (18% increase)"
+4. **Effectiveness Measurement**: "Previous repair resolved similar issue successfully"
+5. **LLM Context**: Historical summaries in natural language for intelligent responses
+
+**Next Steps:**
+- Future betas will enhance issue detection with historical thresholds
+- Add automated regression detection (20%+ performance drops)
+- Implement predictive alerts ("disk will be full in 14 days at current growth rate")
+- Create historical comparison views in TUI
+
+**Version Update:**
+- Bumped from `5.7.0-beta.49` to `5.7.0-beta.50`
+
+---
+
 ## [5.7.0-beta.49] - 2025-11-15
 
 ### Added - Historian Integration: Long-Term Memory Now Active

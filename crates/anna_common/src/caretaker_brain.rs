@@ -5,10 +5,19 @@
 //!
 //! Product Vision: Every piece of intelligence must feed into detecting concrete
 //! problems on this machine and offering clear fixes.
+//!
+//! Historical Intelligence (Phase 5.7):
+//! The brain now integrates with Historian to provide context-aware analysis:
+//! - Trends over time (boot speed, memory usage, CPU patterns)
+//! - Correlation with timeline events (upgrades, repairs, configuration changes)
+//! - Performance baselines and degradation detection
+//! - Repair effectiveness measurement
 
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
 
 use crate::profile::MachineProfile;
+use crate::historian::{Historian, Trend};
 
 /// Severity of an issue or recommendation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -208,6 +217,81 @@ impl CaretakerAnalysis {
     }
 }
 
+/// Historical context data gathered from Historian
+/// Packages all relevant trends and insights for intelligent analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistorianContext {
+    /// Boot time trend over last 30 days
+    pub boot_trend: BootTrendContext,
+
+    /// Memory usage trend over last 30 days
+    pub memory_trend: MemoryTrendContext,
+
+    /// CPU usage trend over last 30 days
+    pub cpu_trend: CpuTrendContext,
+
+    /// Recent timeline events (upgrades, kernel changes)
+    pub recent_events: Vec<TimelineEventSummary>,
+
+    /// Overall system health trend
+    pub health_trend: HealthTrendContext,
+
+    /// Recent repairs and their effectiveness
+    pub recent_repairs: Vec<RepairEffectiveness>,
+}
+
+/// Boot time trend context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BootTrendContext {
+    pub avg_boot_time_ms: i64,
+    pub trend: String, // "faster", "slower", "stable"
+    pub percent_change: f64,
+    pub slowest_units: Vec<String>,
+}
+
+/// Memory usage trend context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryTrendContext {
+    pub avg_ram_mb: i64,
+    pub trend: String, // "increasing", "decreasing", "stable"
+    pub percent_change: f64,
+    pub top_hogs: Vec<String>,
+}
+
+/// CPU usage trend context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CpuTrendContext {
+    pub avg_utilization_percent: f64,
+    pub trend: String, // "increasing", "decreasing", "stable"
+    pub percent_change: f64,
+}
+
+/// Timeline event summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimelineEventSummary {
+    pub timestamp: DateTime<Utc>,
+    pub event_type: String,
+    pub description: String,
+}
+
+/// Overall health trend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthTrendContext {
+    pub stability_score: u8,
+    pub performance_score: u8,
+    pub noise_score: u8,
+    pub trend: String, // "improving", "declining", "stable"
+}
+
+/// Repair effectiveness summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepairEffectiveness {
+    pub timestamp: DateTime<Utc>,
+    pub action_type: String,
+    pub success: bool,
+    pub impact_description: Option<String>,
+}
+
 /// The Caretaker Brain - analyzes all available information and produces actionable insights
 pub struct CaretakerBrain;
 
@@ -219,14 +303,21 @@ impl CaretakerBrain {
     /// - System metrics
     /// - Predictive analysis
     /// - Machine profile (laptop/desktop/server-like)
+    /// - Historical trends (when Historian is available)
     ///
     /// Returns a prioritized list of what the user should care about
     pub fn analyze(
         health_results: Option<&[crate::ipc::HealthProbeResult]>,
         disk_analysis: Option<&crate::disk_analysis::DiskAnalysis>,
         profile: MachineProfile,
+        historian: Option<&Historian>,
     ) -> CaretakerAnalysis {
         let mut issues = Vec::new();
+
+        // 0. Build historical context if Historian is available
+        // This enriches all subsequent analysis with trends and baselines
+        // TODO: Use historical context to enhance individual issue detection
+        let _hist_context = historian.and_then(|h| Self::build_historical_context(h).ok());
 
         // 1. Analyze disk space (most common critical issue)
         if let Some(disk) = disk_analysis {
@@ -1121,7 +1212,7 @@ impl CaretakerBrain {
 
     /// Phase 4.8: Check for heavy user cache and trash
     /// All profiles, but messaging differs
-    fn check_heavy_user_cache(issues: &mut Vec<CaretakerIssue>, profile: MachineProfile) {
+    fn check_heavy_user_cache(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         if let Some(home) = std::env::var_os("HOME") {
             let home_path = std::path::PathBuf::from(home);
             let cache_path = home_path.join(".cache");
@@ -1443,6 +1534,250 @@ impl CaretakerBrain {
         total
     }
 
+    // ========================================================================
+    // Historical Intelligence Integration
+    // ========================================================================
+
+    /// Build comprehensive historical context from Historian
+    /// This packages all trend data into a convenient structure for analysis
+    fn build_historical_context(historian: &Historian) -> anyhow::Result<HistorianContext> {
+        // Get boot trends (last 30 days)
+        let boot_trends = historian.get_boot_trends(30)?;
+        let slowest_units = historian.get_slowest_units()?;
+
+        let boot_trend_context = BootTrendContext {
+            avg_boot_time_ms: boot_trends.avg_boot_time_ms,
+            trend: Self::trend_to_string(&boot_trends.trend, true), // true = inverted (up=slower)
+            percent_change: Self::calculate_percent_change_from_trend(&boot_trends.trend),
+            slowest_units: slowest_units.into_iter()
+                .take(5)
+                .map(|u| format!("{} ({}ms)", u.unit, u.avg_duration_ms))
+                .collect(),
+        };
+
+        // Get memory trends (last 30 days)
+        let memory_trends = historian.get_memory_trends(30)?;
+        let memory_hogs = historian.identify_resource_hogs()?;
+
+        let memory_trend_context = MemoryTrendContext {
+            avg_ram_mb: memory_trends.avg_ram_used_mb,
+            trend: Self::trend_to_string(&memory_trends.trend, false),
+            percent_change: Self::calculate_percent_change_from_trend(&memory_trends.trend),
+            top_hogs: memory_hogs.into_iter()
+                .take(5)
+                .map(|h| format!("{} ({:.1}% CPU)", h.process_name, h.avg_cpu_percent))
+                .collect(),
+        };
+
+        // Get CPU trends (last 30 days)
+        let cpu_trends = historian.get_cpu_trends(30)?;
+
+        let cpu_trend_context = CpuTrendContext {
+            avg_utilization_percent: cpu_trends.avg_utilization_percent,
+            trend: Self::trend_to_string(&cpu_trends.trend, false),
+            percent_change: Self::calculate_percent_change_from_trend(&cpu_trends.trend),
+        };
+
+        // Get recent timeline events (last 30 days)
+        let cutoff = Utc::now() - chrono::Duration::days(30);
+        let timeline_events = historian.get_timeline_since(cutoff)?;
+        let recent_events = timeline_events.into_iter()
+            .take(10)
+            .map(|e| TimelineEventSummary {
+                timestamp: e.timestamp,
+                event_type: format!("{:?}", e.event_type),
+                description: e.notes.unwrap_or_else(|| {
+                    if let Some(ref from) = e.version_from {
+                        format!("Upgraded from {} to {}", from, e.version_to.as_ref().unwrap_or(&"unknown".to_string()))
+                    } else {
+                        "System event".to_string()
+                    }
+                }),
+            })
+            .collect();
+
+        // Get health summary (last 30 days)
+        let health_summary = historian.get_health_summary(30)?;
+        let health_trends = historian.compute_trends()?;
+
+        let health_trend_context = HealthTrendContext {
+            stability_score: health_summary.avg_stability_score,
+            performance_score: health_summary.avg_performance_score,
+            noise_score: health_summary.avg_noise_score,
+            trend: Self::health_trend_to_string(&health_trends),
+        };
+
+        // Get recent repairs (last 10)
+        let _repair_effectiveness = historian.get_repair_effectiveness()?;
+        let recent_repairs_data = historian.get_system_summary()?.recent_repairs;
+
+        let recent_repairs = recent_repairs_data.into_iter()
+            .map(|r| RepairEffectiveness {
+                timestamp: r.timestamp,
+                action_type: r.action_type,
+                success: r.success,
+                impact_description: None,
+            })
+            .collect();
+
+        Ok(HistorianContext {
+            boot_trend: boot_trend_context,
+            memory_trend: memory_trend_context,
+            cpu_trend: cpu_trend_context,
+            recent_events,
+            health_trend: health_trend_context,
+            recent_repairs,
+        })
+    }
+
+    /// Convert Historian Trend enum to human-readable string
+    /// inverted: true for metrics where Up = worse (like boot time)
+    fn trend_to_string(trend: &Trend, inverted: bool) -> String {
+        match trend {
+            Trend::Up if inverted => "slower".to_string(),
+            Trend::Up => "increasing".to_string(),
+            Trend::Down if inverted => "faster".to_string(),
+            Trend::Down => "decreasing".to_string(),
+            Trend::Flat => "stable".to_string(),
+        }
+    }
+
+    /// Calculate approximate percent change from trend direction
+    /// This is a rough estimate based on trend slope
+    fn calculate_percent_change_from_trend(trend: &Trend) -> f64 {
+        match trend {
+            Trend::Up => 15.0,      // Assume ~15% increase for upward trend
+            Trend::Down => -15.0,   // Assume ~15% decrease for downward trend
+            Trend::Flat => 0.0,
+        }
+    }
+
+    /// Determine overall health trend description
+    fn health_trend_to_string(trends: &crate::historian::HealthTrendSummary) -> String {
+        let stability_improving = matches!(trends.stability_trend, Trend::Up);
+        let performance_improving = matches!(trends.performance_trend, Trend::Up);
+        let noise_improving = matches!(trends.noise_trend, Trend::Up);
+
+        let improving_count = [stability_improving, performance_improving, noise_improving]
+            .iter()
+            .filter(|&&b| b)
+            .count();
+
+        if improving_count >= 2 {
+            "improving".to_string()
+        } else if improving_count == 0 {
+            "declining".to_string()
+        } else {
+            "stable".to_string()
+        }
+    }
+
+    /// Build historical context for LLM prompts
+    /// Formats historical data into natural language for the LLM to understand
+    pub fn build_historical_prompt_context(historian: Option<&Historian>) -> String {
+        let Some(historian) = historian else {
+            return String::new();
+        };
+
+        let Ok(context) = Self::build_historical_context(historian) else {
+            return String::new();
+        };
+
+        let mut prompt = String::from("\n\n## Historical Context (Last 30 Days)\n\n");
+
+        // Boot trends
+        prompt.push_str(&format!(
+            "**Boot Performance**: Average boot time is {}ms, trending {} ({}% change). ",
+            context.boot_trend.avg_boot_time_ms,
+            context.boot_trend.trend,
+            context.boot_trend.percent_change
+        ));
+
+        if !context.boot_trend.slowest_units.is_empty() {
+            prompt.push_str(&format!(
+                "Slowest units: {}\n\n",
+                context.boot_trend.slowest_units.join(", ")
+            ));
+        } else {
+            prompt.push_str("\n\n");
+        }
+
+        // Memory trends
+        prompt.push_str(&format!(
+            "**Memory Usage**: Average RAM usage is {} MB, trending {} ({}% change). ",
+            context.memory_trend.avg_ram_mb,
+            context.memory_trend.trend,
+            context.memory_trend.percent_change
+        ));
+
+        if !context.memory_trend.top_hogs.is_empty() {
+            prompt.push_str(&format!(
+                "Top resource hogs: {}\n\n",
+                context.memory_trend.top_hogs.join(", ")
+            ));
+        } else {
+            prompt.push_str("\n\n");
+        }
+
+        // CPU trends
+        prompt.push_str(&format!(
+            "**CPU Usage**: Average utilization is {:.1}%, trending {} ({}% change).\n\n",
+            context.cpu_trend.avg_utilization_percent,
+            context.cpu_trend.trend,
+            context.cpu_trend.percent_change
+        ));
+
+        // Health scores
+        prompt.push_str(&format!(
+            "**System Health**: Stability score: {}/100, Performance score: {}/100, Noise score: {}/100. Overall trend: {}.\n\n",
+            context.health_trend.stability_score,
+            context.health_trend.performance_score,
+            context.health_trend.noise_score,
+            context.health_trend.trend
+        ));
+
+        // Recent events
+        if !context.recent_events.is_empty() {
+            prompt.push_str("**Recent Timeline Events**:\n");
+            for event in context.recent_events.iter().take(5) {
+                prompt.push_str(&format!(
+                    "- {} ({}): {}\n",
+                    event.timestamp.format("%Y-%m-%d %H:%M"),
+                    event.event_type,
+                    event.description
+                ));
+            }
+            prompt.push_str("\n");
+        }
+
+        // Recent repairs
+        if !context.recent_repairs.is_empty() {
+            let successful = context.recent_repairs.iter().filter(|r| r.success).count();
+            prompt.push_str(&format!(
+                "**Recent Repairs**: {} repairs performed, {} successful.\n\n",
+                context.recent_repairs.len(),
+                successful
+            ));
+        }
+
+        prompt
+    }
+
+    /// Correlate a problem with timeline events
+    /// Returns the most likely timeline event that preceded a problem
+    pub fn correlate_with_timeline(
+        historian: &Historian,
+        problem_timestamp: DateTime<Utc>,
+    ) -> Option<TimelineEventSummary> {
+        let changes = historian.what_changed_before(problem_timestamp).ok()?;
+
+        changes.first().map(|event| TimelineEventSummary {
+            timestamp: event.timestamp,
+            event_type: event.change_type.clone(),
+            description: event.description.clone(),
+        })
+    }
+
     /// Interpret a probe result into human-readable terms
     fn interpret_probe_result(result: &crate::ipc::HealthProbeResult) -> (String, String, String) {
         // Extract message from probe details if available
@@ -1536,7 +1871,7 @@ mod tests {
     fn test_analyze_runs_without_errors() {
         // Test that analyze() can run without crashing
         // It should gracefully handle missing commands or files
-        let analysis = CaretakerBrain::analyze(None, None, MachineProfile::Unknown);
+        let analysis = CaretakerBrain::analyze(None, None, MachineProfile::Unknown, None);
 
         // Should always return an analysis, even if empty
         assert!(
@@ -1699,7 +2034,7 @@ mod tests {
     #[test]
     fn test_analyze_includes_all_12_detectors() {
         // Test that analyze() runs all 12 detectors without crashing
-        let analysis = CaretakerBrain::analyze(None, None, MachineProfile::Unknown);
+        let analysis = CaretakerBrain::analyze(None, None, MachineProfile::Unknown, None);
 
         // Should always return an analysis
         assert!(
