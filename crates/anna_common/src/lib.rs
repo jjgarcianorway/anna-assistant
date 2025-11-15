@@ -55,6 +55,7 @@ pub mod prompt_builder; // Phase 9: LLM prompt construction with safety
 pub mod recipe_validator; // Phase 9: LLM response parsing and validation
 pub mod rollback;
 pub mod security; // Security configuration (firewall, SSH config, umask)
+pub mod security_features; // Security features (SELinux, AppArmor, Polkit, sudo, kernel lockdown)
 pub mod sensors; // Hardware sensors detection (CPU/GPU temps, fan speeds)
 pub mod storage; // Storage detection (SSD/HDD, SMART status, health, I/O errors, alignment)
 pub mod self_healing;

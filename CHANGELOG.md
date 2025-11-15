@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.35] - 2025-11-15
+
+### Added - Security Features Detection 🔒🛡️
+
+**SELinux Status Detection:**
+Anna now monitors Security-Enhanced Linux configuration:
+- Installation status detection
+- SELinux enabled/disabled state
+- SELinux mode (Enforcing, Permissive, Disabled)
+- Policy type detection (targeted, strict, mls, etc.)
+- SELinux version tracking
+- Denial count from audit log (/var/log/audit/audit.log)
+- Mode enforcement validation
+
+**AppArmor Status Detection:**
+Complete AppArmor Mandatory Access Control monitoring:
+- Installation status via /sys/kernel/security/apparmor
+- Kernel module enabled state
+- AppArmor loaded status
+- Profile statistics (loaded, enforcing, complaining, unconfined)
+- Version detection via apparmor_parser
+- Profile count tracking
+- Enforcement mode distribution
+
+**Polkit Configuration:**
+PolicyKit privilege management monitoring:
+- Polkit installation status
+- Polkit service running state (systemctl is-active polkit)
+- Available action count via pkaction
+- Custom rule detection in /etc/polkit-1/rules.d/
+- Local authority rule detection in /etc/polkit-1/localauthority/
+- JavaScript and INI rule tracking
+- Configuration issue detection
+
+**Sudoers Configuration Analysis:**
+Comprehensive sudo privilege monitoring:
+- Sudo installation detection
+- Sudo version tracking
+- Configuration validity via visudo -c
+- Main sudoers file parsing (/etc/sudoers)
+- sudoers.d directory scanning
+- Passwordless sudo detection (NOPASSWD entries)
+- All-access user tracking (ALL=(ALL) ALL)
+- Timestamp timeout configuration
+- use_pty security flag detection
+- Configuration file statistics (entries, includes)
+- Security issue identification
+
+**Kernel Lockdown Detection:**
+Kernel security lockdown monitoring:
+- Lockdown support detection (/sys/kernel/security/lockdown)
+- Lockdown mode tracking (None, Integrity, Confidentiality)
+- Integrity protection status
+- Confidentiality protection status
+- Lockdown capability detection
+
+**Security Issue Analysis:**
+Automated security assessment with priority ranking:
+- MAC (Mandatory Access Control) absence detection
+- SELinux permissive mode warnings
+- AppArmor complaining profile tracking
+- Polkit service failure detection
+- Passwordless sudo privilege warnings
+- use_pty flag missing alerts
+- Kernel lockdown disabled warnings
+- Severity classification (Low, Medium, High, Critical)
+- Actionable recommendations for each issue
+
+**Implementation:**
+- New `security_features` module in `anna_common` with `SecurityFeatures::detect()` (~650 lines)
+- Integrated into `SystemFacts` telemetry as `security_features` field
+- SELinux status parsing via sestatus
+- AppArmor status via aa-status
+- Polkit actions via pkaction
+- Sudoers validation via visudo -c
+- Kernel lockdown via /sys/kernel/security/lockdown
+- Comprehensive security issue analysis engine
+
+**Files Added:**
+- `crates/anna_common/src/security_features.rs` (~650 lines)
+
+**Impact:**
+Anna can now provide comprehensive security monitoring:
+- 🔒 **MAC Detection** (SELinux/AppArmor status and configuration)
+- 🛡️ **Privilege Monitoring** (sudo configuration and polkit tracking)
+- 🔐 **Lockdown Status** (kernel security mode tracking)
+- ⚠️ **Security Warnings** (passwordless sudo, missing use_pty, permissive MAC)
+- 📊 **Severity Ranking** (prioritized security issues with recommendations)
+- ✅ **Configuration Validation** (sudoers syntax checking)
+
 ## [5.7.0-beta.34] - 2025-11-15
 
 ### Added - Initramfs Configuration Detection 🔧💾

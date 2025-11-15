@@ -322,6 +322,8 @@ pub struct SystemFacts {
     pub package_health: Option<crate::package_health::PackageHealth>, // Package health (unowned files, conflicts, database corruption)
     #[serde(default)]
     pub initramfs_info: Option<crate::initramfs::InitramfsInfo>, // Initramfs configuration (mkinitcpio/dracut, hooks, modules, compression)
+    #[serde(default)]
+    pub security_features: Option<crate::security_features::SecurityFeatures>, // Security features (SELinux, AppArmor, Polkit, sudo, kernel lockdown)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

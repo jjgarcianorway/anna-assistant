@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.34
+**Current Version:** 5.7.0-beta.35
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -29,7 +29,7 @@ annactl "use Spanish"
 
 ---
 
-## Milestone 1 - Deep Caretaker 🚧 (In Progress - ~35% Complete)
+## Milestone 1 - Deep Caretaker 🚧 (In Progress - ~67% Complete)
 
 **Goal:** Anna proactively watches your system and suggests improvements based on Arch Wiki knowledge.
 
@@ -133,10 +133,10 @@ annactl "what's the state of my system?"
 - [x] Conflicting files ✅ (beta.33)
 - [x] Firewall type/status ✅ (beta.28)
 - [x] SSH configuration ✅ (beta.28)
-- [ ] SELinux/AppArmor status
-- [ ] Polkit configuration
-- [ ] Sudoers configuration
-- [ ] Kernel lockdown mode
+- [x] SELinux/AppArmor status ✅ (beta.35)
+- [x] Polkit configuration ✅ (beta.35)
+- [x] Sudoers configuration ✅ (beta.35)
+- [x] Kernel lockdown mode ✅ (beta.35)
 - [x] Btrfs subvolumes/snapshots ✅ (beta.26)
 - [x] Btrfs balance status ✅ (beta.26)
 - [ ] Ext4 fsck status/errors
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.35 | 2025-11-15 | Milestone 1 | Security features: SELinux, AppArmor, Polkit, sudo, kernel lockdown (~650 lines) |
 | 5.7.0-beta.34 | 2025-11-15 | Milestone 1 | Initramfs config: mkinitcpio/dracut, hooks, modules, compression (~590 lines) |
 | 5.7.0-beta.33 | 2025-11-15 | Milestone 1 | Package health: database corruption, file conflicts, partial upgrades (~590 lines) |
 | 5.7.0-beta.32 | 2025-11-15 | Milestone 1 | Kernel & boot detection: modules, DKMS, boot entries, boot health (~1050 lines) |

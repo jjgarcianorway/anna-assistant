@@ -26,6 +26,7 @@ use anna_common::network_monitoring::NetworkMonitoring;
 use anna_common::kernel_modules::KernelModules;
 use anna_common::package_health::PackageHealth;
 use anna_common::initramfs::InitramfsInfo;
+use anna_common::security_features::SecurityFeatures;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -132,6 +133,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         kernel_modules: Some(KernelModules::detect()),
         package_health: Some(PackageHealth::detect()),
         initramfs_info: Some(InitramfsInfo::detect()),
+        security_features: Some(SecurityFeatures::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()
