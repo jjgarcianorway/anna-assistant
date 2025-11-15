@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.49
+**Current Version:** 5.7.0-beta.50
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.50 | 2025-11-15 | Milestone 1.2 | **Brain Gets Memory** - Historian integrated into caretaker brain! 10 APIs, LLM context, timeline correlation (~350 lines) |
 | 5.7.0-beta.49 | 2025-11-15 | Milestone 1.1 | **Historian Integration** - Memory system active! Boot/CPU/memory/disk recording, circuit breaker, daily aggregation (~571 lines) |
 | 5.7.0-beta.48 | 2025-11-15 | Milestone 1+ | **Historian: Anna's long-term memory system** - Time-series tracking, trend analysis, 13 categories, 46 functions, 23 database tables (~2,417 lines) |
 | 5.7.0-beta.47 | 2025-11-15 | Milestone 1 | LLM Contextualization: system identity, stability/performance/risk indicators, user goals (~500 lines) |
