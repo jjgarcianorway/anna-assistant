@@ -340,6 +340,8 @@ pub struct SystemFacts {
     pub filesystem_health: Option<crate::filesystem_health::FilesystemHealth>, // Filesystem health (Ext4/XFS/ZFS fsck/scrub status)
     #[serde(default)]
     pub backup_detection: Option<crate::backup_detection::BackupDetection>, // Backup tools and status (timeshift, snapper, borg, restic)
+    #[serde(default)]
+    pub container_virt_perf: Option<crate::container_virt_perf::ContainerVirtPerformance>, // Container/VM performance (broken containers, resource limits, nested virt)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

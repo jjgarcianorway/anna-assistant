@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.42] - 2025-11-15
+
+### Added - Container & Virtualization Performance 🐳
+
+**Broken Container Detection:**
+Anna now identifies failed containers:
+- Docker container status monitoring (docker ps -a)
+- Podman container status tracking
+- Exit code extraction and analysis
+- Non-zero exit code identification
+- Container failure tracking with timestamps
+- Image and creation date tracking
+- Per-runtime broken container lists
+
+**High CPU Container Detection:**
+Real-time container resource monitoring:
+- Docker stats integration (docker stats)
+- Podman stats integration (podman stats)
+- CPU percentage tracking per container
+- Memory usage monitoring
+- High CPU threshold detection (>80%)
+- Container resource usage snapshots
+- Performance bottleneck identification
+
+**Missing Resource Limits:**
+Container resource governance checking:
+- Docker inspect integration for limit detection
+- Memory limit validation (cgroup memory)
+- CPU limit checking (NanoCpus/CPUQuota)
+- Pids limit verification
+- Unlimited resource detection
+- Per-container limit status
+- Resource governance recommendations
+
+**Nested Virtualization Detection:**
+KVM nested virtualization support:
+- /dev/kvm availability checking
+- kvm_intel nested parameter reading
+- kvm_amd nested parameter reading
+- Nested virtualization status
+- Hypervisor detection (systemd-detect-virt)
+- VM-in-VM capability assessment
+- Performance optimization recommendations
+
+**QEMU Performance Detection:**
+Virtualization performance features:
+- QEMU installation detection
+- KVM acceleration status
+- CPU virtualization flags (VMX/SVM)
+- Intel VT-x detection (vmx flag)
+- AMD-V detection (svm flag)
+- Extended Page Tables (EPT) support
+- Nested Page Tables (NPT) support
+- VPID (Virtual Processor ID) support
+- libvirt installation and status
+- libvirtd service monitoring
+- Performance feature enumeration
+- Missing feature recommendations
+
+**Performance Scoring:**
+Overall container/VM performance assessment:
+- Performance score calculation (0-100)
+- Broken container penalties (10 points each)
+- High CPU container penalties (5 points each)
+- Missing limit penalties (3 points each)
+- Nested virtualization bonuses
+- KVM acceleration scoring
+- Optimization opportunity identification
+
+**Smart Recommendations:**
+Context-aware performance suggestions:
+- Broken container cleanup recommendations
+- High CPU investigation alerts
+- Resource limit addition suggestions
+- Nested virtualization enablement
+- KVM acceleration activation
+- Hardware virtualization BIOS settings
+- Performance feature optimization
+
+**Implementation Details:**
+- `container_virt_perf.rs`: 450 lines - comprehensive container/VM monitoring
+- Docker and Podman runtime support
+- Real-time stats integration
+- Resource limit inspection
+- CPU flag detection
+- Performance scoring algorithm
+
+**Detection Items (88/99):**
+- Broken containers detection
+- High CPU containers detection
+- Missing cgroup limits detection
+- Nested virtualization detection
+- QEMU performance flags detection
+
 ## [5.7.0-beta.41] - 2025-11-15
 
 ### Added - Backup Detection Suite 🛡️

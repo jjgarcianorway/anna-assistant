@@ -147,12 +147,12 @@ annactl "what's the state of my system?"
 - [x] Backup integrity errors ✅ (beta.41)
 - [x] Missing snapshots ✅ (beta.41)
 - [x] Docker/Podman service status ✅ (beta.28)
-- [ ] Broken containers
-- [ ] High CPU containers
-- [ ] Missing cgroup limits
+- [x] Broken containers ✅ (beta.42)
+- [x] High CPU containers ✅ (beta.42)
+- [x] Missing cgroup limits ✅ (beta.42)
 - [x] KVM capability ✅ (beta.28)
-- [ ] Nested virtualization
-- [ ] QEMU performance flags
+- [x] Nested virtualization ✅ (beta.42)
+- [x] QEMU performance flags ✅ (beta.42)
 - [x] Display server (X11/Wayland) ✅ (beta.28)
 - [ ] Display driver issues
 - [ ] Resolution/refresh rate

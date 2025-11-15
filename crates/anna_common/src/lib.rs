@@ -17,6 +17,7 @@ pub mod change_recipe_display; // Phase 7: UI display for change recipes
 pub mod file_backup; // File backup system with SHA256 verification
 pub mod filesystem_health; // Filesystem health detection (Ext4, XFS, ZFS fsck/scrub status)
 pub mod command_meta;
+pub mod container_virt_perf; // Container and virtualization performance (broken containers, resource limits, nested virt)
 pub mod config;
 pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)
 pub mod config_parser;
