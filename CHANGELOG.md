@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.11] - 2025-11-15
+
+### Fixed - System Report Now Shows Real Data! 📊
+
+**Problem:** The professional report (`annactl report`) was completely hardcoded with generic text, showing identical output for all computers.
+
+**User Feedback:** "report of two computers are too similar... report needs more details... not even the name of the computer is there!!!"
+
+#### 🐛 What Was Wrong
+
+**Before (beta.10 and earlier):**
+- Report showed "Modern multi-core processor" instead of actual CPU model
+- No hostname displayed
+- Identical output for every computer
+- All data was hardcoded generic text
+- Report completely ignored SystemFacts data
+
+**Example from user's testing:**
+- razorback and rocinante had IDENTICAL reports
+- No hostname, no specific hardware details
+- Failed to detect Hyprland on one machine
+- Both reports said the same thing despite different hardware
+
+#### ✅ What's Fixed (beta.11)
+
+**File Modified:** `crates/annactl/src/report_display.rs` (complete rewrite, lines 10-220)
+
+**Now Shows REAL Data:**
+- ✅ **Actual hostname** - Shows the computer name (razorback, rocinante, etc.)
+- ✅ **Real CPU model** - "AMD Ryzen 9 5900X" instead of "Modern multi-core processor"
+- ✅ **Real GPU info** - "NVIDIA GeForce RTX 4090 (24000 MB VRAM)" with actual model and VRAM
+- ✅ **Actual failed services** - Lists real service names if any are failed
+- ✅ **Real disk usage** - Calculates actual usage percentages per partition
+- ✅ **Boot time metrics** - Shows actual boot time in seconds
+- ✅ **Detected dev tools** - Lists actually installed development tools
+- ✅ **Specific recommendations** - Based on real disk usage, failed services, etc.
+
+#### 🔧 Technical Changes
+
+```rust
+// OLD: Hardcoded generic text
+ui.info("Operating System: Modern Arch Linux installation");
+ui.info("Hardware: Modern multi-core processor with ample RAM");
+
+// NEW: Fetches real SystemFacts from daemon
+let facts = fetch_system_facts()?;
+ui.info(&format!("Machine: {}", facts.hostname));  // REAL hostname
+ui.info(&format!("CPU: {} ({} cores)", facts.cpu_model, facts.cpu_cores));  // REAL CPU
+```
+
+**Added:**
+- `fetch_system_facts()` function that fetches live data from annad daemon
+- Real-time calculation of disk usage percentages
+- Dynamic recommendations based on actual system state
+- Proper GPU model and VRAM display
+
+#### 📋 Expected Results
+
+Now when running `annactl report`, each computer shows unique, accurate data:
+
+**razorback:**
+- Hostname: razorback
+- CPU: [actual CPU model]
+- GPU: [actual GPU with VRAM]
+- Window Manager: Hyprland (detected correctly)
+
+**rocinante:**
+- Hostname: rocinante
+- CPU: [actual CPU model]
+- GPU: [actual GPU with VRAM]
+- Desktop: [actual DE or "Headless/server configuration"]
+
+No more identical reports!
+
+---
+
 ## [5.7.0-beta.10] - 2025-11-15
 
 ### CRITICAL UX FIX - Anna Now Actually Knows Your System! 🎯

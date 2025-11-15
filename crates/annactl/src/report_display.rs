@@ -4,22 +4,56 @@
 //! Create reports suitable for managers or documentation
 
 use anna_common::display::UI;
+use anna_common::ipc::{Method, ResponseData};
 use chrono::Local;
+use crate::rpc_client::RpcClient;
 
-/// Generate a professional system report
+/// Generate a professional system report using actual system data
 pub fn generate_professional_report() {
     let ui = UI::auto();
+
+    // Fetch real system facts from daemon
+    let facts = match fetch_system_facts() {
+        Some(f) => f,
+        None => {
+            ui.error("Unable to fetch system data from daemon");
+            return;
+        }
+    };
 
     println!();
     ui.section_header("📋", "System Report");
     ui.info(&format!("Generated: {}", Local::now().format("%Y-%m-%d %H:%M:%S")));
+    ui.info(&format!("Machine: {}", facts.hostname));
     println!();
 
     // Executive Summary
     ui.section_header("📊", "Executive Summary");
-    ui.info("This Arch Linux workstation is functioning well with a few minor");
-    ui.info("optimization opportunities. The system is stable and suitable for");
-    ui.info("daily development and office work.");
+
+    let health_status = if !facts.failed_services.is_empty() {
+        "functioning with some issues that require attention"
+    } else {
+        "functioning well"
+    };
+
+    ui.info(&format!("This {} workstation ({}) is {}.",
+        if facts.desktop_environment.is_some() || facts.window_manager.is_some() {
+            "desktop"
+        } else {
+            "server"
+        },
+        facts.hostname,
+        health_status
+    ));
+
+    if let Some(ref de) = facts.desktop_environment {
+        ui.info(&format!("Desktop environment: {}", de));
+    } else if let Some(ref wm) = facts.window_manager {
+        ui.info(&format!("Window manager: {}", wm));
+    } else {
+        ui.info("Headless/server configuration");
+    }
+
     println!();
 
     // Machine Overview
@@ -27,135 +61,161 @@ pub fn generate_professional_report() {
 
     ui.info("Operating System:");
     ui.bullet_list(&[
-        "Distribution: Arch Linux (rolling release)",
-        "Kernel: Latest stable Linux kernel",
-        "Package Manager: Pacman",
+        &format!("Distribution: Arch Linux ({})", facts.kernel),
+        &format!("Hostname: {}", facts.hostname),
+        &format!("Shell: {}", facts.shell),
+        &format!("Installed Packages: {}", facts.installed_packages),
     ]);
     println!();
 
     ui.info("Hardware Configuration:");
-    ui.bullet_list(&[
-        "Architecture: x86_64",
-        "CPU: Modern multi-core processor",
-        "Memory: Adequate RAM for development workloads",
-        "Storage: SSD-based storage with sufficient capacity",
-    ]);
+    let mut hw_info = vec![
+        format!("CPU: {} ({} cores)", facts.cpu_model, facts.cpu_cores),
+        format!("RAM: {:.1} GB total memory", facts.total_memory_gb),
+    ];
+
+    if let Some(ref gpu) = facts.gpu_model {
+        if let Some(vram_mb) = facts.gpu_vram_mb {
+            hw_info.push(format!("GPU: {} ({} MB VRAM)", gpu, vram_mb));
+        } else {
+            hw_info.push(format!("GPU: {}", gpu));
+        }
+    } else if let Some(ref vendor) = facts.gpu_vendor {
+        hw_info.push(format!("GPU: {} (vendor)", vendor));
+    }
+
+    if !facts.storage_devices.is_empty() {
+        let total_storage: f64 = facts.storage_devices.iter().map(|d| d.size_gb).sum();
+        hw_info.push(format!("Storage: {:.0} GB total across {} device(s)",
+            total_storage, facts.storage_devices.len()));
+    }
+
+    ui.bullet_list(&hw_info.iter().map(|s| s.as_str()).collect::<Vec<_>>());
     println!();
 
-    ui.info("Usage Profile:");
-    ui.bullet_list(&[
-        "Primary Use: Software development, system administration",
-        "Desktop Environment: Minimal/efficient window manager",
-        "Typical Workload: Terminal-heavy, code editing, web browsing",
-    ]);
-    println!();
+    if let Some(ref display) = facts.display_server {
+        ui.info("Display Configuration:");
+        let mut display_info = vec![format!("Display Server: {}", display)];
+        if let Some(ref de) = facts.desktop_environment {
+            display_info.push(format!("Desktop Environment: {}", de));
+        }
+        if let Some(ref wm) = facts.window_manager {
+            display_info.push(format!("Window Manager: {}", wm));
+        }
+        ui.bullet_list(&display_info.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        println!();
+    }
 
     // System Health
     ui.section_header("🏥", "System Health & Status");
 
-    ui.success("Overall Status: Healthy");
-    println!();
+    if facts.failed_services.is_empty() {
+        ui.success("Overall Status: Healthy - No failed services");
+    } else {
+        ui.warning(&format!("Overall Status: {} failed service(s) detected",
+            facts.failed_services.len()));
 
-    ui.info("Critical Services:");
-    ui.bullet_list(&[
-        "Core system services: All operational",
-        "Network connectivity: Functional",
-        "Package management: Up to date",
-        "Security updates: Current",
-    ]);
-    println!();
+        ui.info("Failed Services:");
+        for service in &facts.failed_services {
+            ui.bullet_list(&[&format!("❌ {}", service)]);
+        }
+        println!();
+    }
 
     ui.info("Resource Utilization:");
-    ui.bullet_list(&[
-        "Disk Space: Good (moderate cache accumulation noted)",
-        "Memory Usage: Normal for workload",
-        "CPU Load: Typical for development tasks",
-        "Boot Performance: Fast",
-    ]);
+    let mut resources = vec![];
+
+    // Disk space
+    for disk in &facts.storage_devices {
+        let usage_pct = (disk.used_gb / disk.size_gb) * 100.0;
+        let status = if usage_pct > 90.0 { "⚠️  CRITICAL" }
+                    else if usage_pct > 80.0 { "⚠️  Warning" }
+                    else { "✓ Good" };
+        resources.push(format!("{}: {:.1}/{:.1} GB ({:.0}%) - {}",
+            disk.mount_point, disk.used_gb, disk.size_gb, usage_pct, status));
+    }
+
+    // Boot time
+    if let Some(boot_time) = facts.boot_time_seconds {
+        let status = if boot_time > 60.0 { "⚠️  Slow" }
+                    else if boot_time > 30.0 { "Moderate" }
+                    else { "✓ Fast" };
+        resources.push(format!("Boot Time: {:.1}s - {}", boot_time, status));
+    }
+
+    // Package cache
+    if facts.package_cache_size_gb > 5.0 {
+        resources.push(format!("Package Cache: {:.1} GB - Consider cleanup",
+            facts.package_cache_size_gb));
+    }
+
+    ui.bullet_list(&resources.iter().map(|s| s.as_str()).collect::<Vec<_>>());
     println!();
 
-    // Issues & Improvements
-    ui.section_header("🔍", "Identified Issues & Improvements");
-
-    ui.warning("Priority: Medium");
-    ui.info("  Issue: Package cache accumulation");
-    ui.info("  Impact: ~3 GB of disk space consumed by old package versions");
-    ui.info("  Recommendation: Routine cleanup scheduled");
-    ui.info("  Risk: Low - this is normal maintenance");
-    println!();
-
-    ui.info("Priority: Low");
-    ui.info("  Issue: 15 orphaned packages");
-    ui.info("  Impact: Minor disk space usage, slight package update overhead");
-    ui.info("  Recommendation: Review and remove if unneeded");
-    ui.info("  Risk: Very low - safe to remove");
-    println!();
-
-    ui.success("No critical or high-priority issues detected.");
-    println!();
-
-    // Performance & Tradeoffs
-    ui.section_header("⚖️", "Performance & Tradeoffs");
-
-    ui.info("System Optimization:");
-    ui.bullet_list(&[
-        "This system prioritizes efficiency over features",
-        "Minimal desktop environment reduces resource overhead",
-        "Tradeoff: Lower memory/CPU usage vs. fewer visual effects",
-    ]);
-    println!();
-
-    ui.info("Maintenance Approach:");
-    ui.bullet_list(&[
-        "Rolling release model: Always up-to-date software",
-        "Tradeoff: Requires regular updates vs. long-term stability",
-        "Benefit: Access to latest features and security patches",
-    ]);
-    println!();
+    // Dev Tools
+    if !facts.dev_tools_detected.is_empty() {
+        ui.info("Development Tools Detected:");
+        ui.bullet_list(&facts.dev_tools_detected.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        println!();
+    }
 
     // Recommendations
-    ui.section_header("📝", "Recommended Next Steps");
+    ui.section_header("📝", "Recommended Actions");
 
-    ui.info("Short-term (This Week):");
-    ui.numbered_list(&[
-        "Clean package cache to reclaim ~2.5 GB of disk space",
-        "Review and remove orphaned packages",
-    ]);
-    println!();
+    let mut recommendations: Vec<String> = vec![];
 
-    ui.info("Medium-term (This Month):");
-    ui.numbered_list(&[
-        "Continue regular system updates",
-        "Monitor disk space trends",
-    ]);
-    println!();
+    if !facts.failed_services.is_empty() {
+        recommendations.push("Investigate and fix failed services".to_string());
+    }
 
-    ui.info("Long-term (Ongoing):");
-    ui.numbered_list(&[
-        "Maintain current update cadence",
-        "Review automated maintenance tasks quarterly",
-        "Consider backup strategy if not already in place",
-    ]);
+    for disk in &facts.storage_devices {
+        let usage_pct = (disk.used_gb / disk.size_gb) * 100.0;
+        if usage_pct > 80.0 {
+            recommendations.push(format!("Free up space on {} ({:.0}% full)",
+                disk.mount_point, usage_pct));
+        }
+    }
+
+    if facts.package_cache_size_gb > 5.0 {
+        recommendations.push("Clean package cache to reclaim disk space".to_string());
+    }
+
+    if !facts.orphan_packages.is_empty() {
+        recommendations.push(format!("Review {} orphaned packages",
+            facts.orphan_packages.len()));
+    }
+
+    if !facts.slow_services.is_empty() {
+        recommendations.push("Review slow-starting services to improve boot time".to_string());
+    }
+
+    if recommendations.is_empty() {
+        ui.success("No immediate actions required - system is running optimally!");
+    } else {
+        let refs: Vec<&str> = recommendations.iter().map(|s| s.as_str()).collect();
+        ui.numbered_list(&refs);
+    }
     println!();
 
     // Technical Notes
     ui.section_header("📋", "Technical Notes");
 
-    ui.info("This report was generated by Anna Assistant, an automated system");
-    ui.info("caretaker for Arch Linux. Anna continuously monitors system health,");
-    ui.info("applies best practices from the Arch Wiki, and provides actionable");
-    ui.info("recommendations.");
-    println!();
-
-    ui.info("All data in this report is collected locally. No information is");
-    ui.info("sent to external servers. Recommendations are based on official");
-    ui.info("Arch Linux documentation and established best practices.");
-    println!();
-
-    ui.info("For technical questions or implementation details, please contact");
-    ui.info("the system administrator.");
+    ui.info("This report was generated by Anna Assistant using real-time");
+    ui.info("system telemetry. All data is collected locally and reflects");
+    ui.info("the actual state of this machine at the time of generation.");
     println!();
 
     ui.success("Report Complete");
     println!();
+}
+
+/// Fetch system facts from daemon
+fn fetch_system_facts() -> Option<anna_common::types::SystemFacts> {
+    tokio::runtime::Runtime::new().ok()?.block_on(async {
+        let mut rpc = RpcClient::connect().await.ok()?;
+        match rpc.call(Method::GetFacts).await {
+            Ok(ResponseData::Facts(facts)) => Some(facts),
+            _ => None,
+        }
+    })
 }
