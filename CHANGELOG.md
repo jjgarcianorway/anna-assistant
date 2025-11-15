@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.16] - 2025-11-15
+
+### Fixed - Auto-Updater Cross-Filesystem Bug 🔧
+
+**Problem:**
+Auto-updater failed with "Invalid cross-device link (os error 18)" error, preventing automatic updates from working on razorback and other systems.
+
+**Root Cause:**
+The auto-updater downloaded binaries to `/tmp/anna_update` (tmpfs filesystem) and attempted to use `tokio::fs::rename()` to move them to `/usr/local/bin` (main filesystem). The `rename()` syscall does not work across different filesystems, causing the error.
+
+**Impact:**
+- Razorback stuck on beta.8, unable to update to any newer version
+- Auto-update process failing every 10 minutes with the same error
+- All improvements from beta.9-beta.15 were unavailable on affected systems
+
+**Fix:**
+Changed the update installation process from `rename()` to `copy()` + `delete()` pattern, which works correctly across different filesystems.
+
+**Files Modified:**
+- `crates/annad/src/auto_updater.rs` (lines 187-194):
+  - Replaced `tokio::fs::rename()` calls with `tokio::fs::copy()`
+  - Added cleanup of temporary files after successful copy
+  - Updated comment to document why copy is used instead of rename
+
+**Logs Showing the Problem:**
+```
+Nov 15 12:33:52 razorback annad[36463]: INFO annad::auto_updater: Installing new binaries to /usr/local/bin...
+Nov 15 12:33:52 razorback annad[36463]: ERROR annad::auto_updater: ✗ Failed to perform update: Invalid cross-device link (os error 18)
+Nov 15 12:33:52 razorback annad[36463]: ERROR annad::auto_updater: Auto-update will retry in 10 minutes
+```
+
+This fix is critical for the auto-updater to function correctly on systems with `/tmp` mounted as tmpfs (which is standard on most modern Linux distributions).
+
 ## [5.7.0-beta.15] - 2025-11-15
 
 ### Added - Conversation Memory & Better Command Validation 🧠

@@ -184,10 +184,14 @@ impl AutoUpdater {
         FileBackup::create_backup(&annad_path, &change_set_id, FileOperation::Modified)?;
         info!("      ✓ Backups created");
 
-        // Atomic swap (move new binaries to /usr/local/bin)
+        // Copy new binaries to /usr/local/bin (can't use rename across filesystems)
         info!("      Installing new binaries to /usr/local/bin...");
-        tokio::fs::rename(&annactl_tmp, &annactl_path).await?;
-        tokio::fs::rename(&annad_tmp, &annad_path).await?;
+        tokio::fs::copy(&annactl_tmp, &annactl_path).await?;
+        tokio::fs::copy(&annad_tmp, &annad_path).await?;
+
+        // Clean up temporary files
+        let _ = tokio::fs::remove_file(&annactl_tmp).await;
+        let _ = tokio::fs::remove_file(&annad_tmp).await;
 
         // Set executable permissions
         #[cfg(unix)]
