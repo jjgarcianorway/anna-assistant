@@ -12,20 +12,29 @@ use crate::intent_router::{self, Intent};
 
 /// Start the conversational REPL
 pub async fn start_repl() -> Result<()> {
-    let ui = UI::auto();
     let db_location = DbLocation::auto_detect();
 
-    // Open database
-    let db = match ContextDb::open(db_location).await {
-        Ok(db) => db,
+    // Open database and load language config
+    let (db, lang_config) = match ContextDb::open(db_location).await {
+        Ok(db) => {
+            // Load saved language config from database
+            let config = db.load_language_config().await.unwrap_or_default();
+            (db, config)
+        },
         Err(e) => {
             eprintln!("Warning: Failed to open context database: {}", e);
             eprintln!("Continuing without database features...");
-            print_repl_welcome();
-            // Continue without DB features - just show welcome
+            // Use default config (English) if database not available
+            let config = anna_common::language::LanguageConfig::new();
+            let ui = UI::new(&config);
+            ui.repl_welcome();
+            // Continue without DB features
             return run_repl_loop().await;
         }
     };
+
+    // Create UI with loaded language config
+    let ui = UI::new(&lang_config);
 
     // Display version banner with mode and update status
     crate::version_banner::display_startup_banner(&db).await;
@@ -75,7 +84,8 @@ pub async fn start_repl() -> Result<()> {
         eprintln!("Warning: Brain upgrade check failed: {}", e);
     }
 
-    print_repl_welcome();
+    // Show welcome message in user's language
+    ui.repl_welcome();
 
     run_repl_loop().await
 }

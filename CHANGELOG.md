@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.13] - 2025-11-15
+
+### Fixed - Language Persistence & Multilingual Support 🌍
+
+**Problems:**
+1. Language setting (Spanish, Norwegian, etc.) didn't persist between sessions
+2. Commands only worked in English (couldn't use "salir", "ayuda", etc.)
+
+**User Feedback:** "after changing the language and exiting, when I go back, the language is still english... commands like 'exit' or 'quit' are not translated... I should be able to exit with 'salir'"
+
+#### ✅ What's Fixed (beta.13)
+
+**1. Language Persistence (repl.rs)**
+- **Before**: `print_repl_welcome()` used `UI::auto()` which always loaded English
+- **After**: Load language config from database on REPL startup
+- Now respects saved language preference from previous session
+
+**File Modified:** `crates/annactl/src/repl.rs` (lines 14-37)
+
+```rust
+// OLD: Always English
+let ui = UI::auto();  // Creates default English UI
+
+// NEW: Load saved language
+let (db, lang_config) = match ContextDb::open(db_location).await {
+    Ok(db) => {
+        let config = db.load_language_config().await.unwrap_or_default();
+        (db, config)
+    },
+    ...
+};
+let ui = UI::new(&lang_config);  // Uses saved language!
+```
+
+**2. Multilingual Intent Detection (intent_router.rs)**
+Added support for 6 languages in all major intents:
+- **Exit**: salir (ES), avslutt (NO), beenden (DE), quitter (FR), sair (PT)
+- **Help**: ayuda (ES), hjelp (NO), hilfe (DE), aide (FR), ajuda (PT)
+- **Report**: informe/reporte (ES), rapport (NO), bericht (DE), rapport (FR), relatório (PT)
+- **Status**: estado/salud (ES), status/helse (NO), gesundheit (DE), santé (FR), saúde (PT)
+- **Privacy**: privacidad/datos (ES), personvern (NO), datenschutz (DE), vie privée (FR), privacidade (PT)
+
+**File Modified:** `crates/annactl/src/intent_router.rs` (lines 65-146, 252-268)
+
+#### 📋 Expected Behavior
+
+**Before:**
+- Set language to Spanish → Exit → Re-enter → Greeted in English ❌
+- Type "salir" → Command not recognized ❌
+- Type "ayuda" → Doesn't show help ❌
+
+**After:**
+- Set language to Spanish → Exit → Re-enter → Greeted in Spanish ✅
+- Type "salir" → Exits REPL ✅
+- Type "ayuda" → Shows help message ✅
+- Type "informe" → Generates report ✅
+
+**Supported Language Codes:**
+- 🇬🇧 English (EN) - default
+- 🇪🇸 Español (ES)
+- 🇳🇴 Norsk (NO)
+- 🇩🇪 Deutsch (DE)
+- 🇫🇷 Français (FR)
+- 🇧🇷 Português (PT)
+
+---
+
 ## [5.7.0-beta.12] - 2025-11-15
 
 ### Fixed - LLM Hallucination Prevention 🚫

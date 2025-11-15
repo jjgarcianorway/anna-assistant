@@ -62,45 +62,86 @@ pub fn route_intent(input: &str) -> Intent {
         .replace(".", " ");
     let words: Vec<&str> = cleaned.split_whitespace().collect();
 
-    // Exit intents
-    if matches!(lower.trim(), "exit" | "quit" | "bye" | "goodbye") {
+    // Exit intents (multilingual)
+    // EN: exit, quit, bye, goodbye
+    // ES: salir, adiós, chao
+    // NO: avslutt, hade
+    // DE: beenden, tschüss
+    // FR: quitter, au revoir
+    // PT: sair, tchau
+    if matches!(lower.trim(),
+        "exit" | "quit" | "bye" | "goodbye" |
+        "salir" | "adiós" | "adios" | "chao" |
+        "avslutt" | "hade" |
+        "beenden" | "tschüss" | "tschuess" |
+        "quitter" | "au revoir" |
+        "sair" | "tchau"
+    ) {
         return Intent::Exit;
     }
 
-    // Anna status (self-health check)
-    // Check this early to avoid "how" triggering Help
-    if contains_any(&words, &["status", "health", "ok", "working", "alive"])
-        && contains_any(&words, &["anna", "you", "your"]) {
+    // Anna status (self-health check) - multilingual
+    // EN: status, health, ok, working, alive, how are you
+    // ES: estado, salud, cómo estás
+    // NO: status, helse, hvordan har du det
+    // DE: status, gesundheit, wie geht's
+    // FR: statut, santé, comment vas-tu
+    // PT: estado, saúde, como está
+    if contains_any(&words, &["status", "health", "ok", "working", "alive",
+                              "estado", "salud", "helse", "gesundheit", "santé", "saúde"])
+        && contains_any(&words, &["anna", "you", "your", "tu", "du", "você"]) {
         return Intent::AnnaStatus;
     }
 
-    // Also catch "how are you" as status check (but not greetings like "hello how are you")
-    if (lower.contains("how are you") || lower.contains("how's it going"))
+    // Also catch "how are you" variants in multiple languages
+    if (lower.contains("how are you") || lower.contains("how's it going") ||
+        lower.contains("cómo estás") || lower.contains("como estas") ||
+        lower.contains("hvordan har du det") ||
+        lower.contains("wie geht's") || lower.contains("wie gehts") ||
+        lower.contains("comment vas-tu") || lower.contains("ça va") ||
+        lower.contains("como está") || lower.contains("tudo bem"))
         && (lower.contains("anna") || words.len() <= 5)
-        && !contains_any(&words, &["hello", "hi", "hey"]) {
+        && !contains_any(&words, &["hello", "hi", "hey", "hola", "hei", "bonjour", "olá"]) {
         return Intent::AnnaStatus;
     }
 
-    // Anna self-repair (fix yourself, repair anna, etc.)
-    if (contains_any(&words, &["fix", "repair", "heal"])
-        && (contains_any(&words, &["yourself", "anna", "self"])
+    // Anna self-repair (fix yourself, repair anna, etc.) - multilingual
+    if (contains_any(&words, &["fix", "repair", "heal", "reparar", "arreglar", "réparer", "consertar"])
+        && (contains_any(&words, &["yourself", "anna", "self", "ti misma", "deg selv", "dich selbst"])
             || lower.contains("your own")
             || lower.contains("auto repair")))
         || lower.contains("fix yourself")
         || lower.contains("repair yourself")
+        || lower.contains("repárate")
         || lower.contains("check your own service")
         || lower.contains("repair anna")
         || lower.contains("fix anna") {
         return Intent::AnnaSelfRepair;
     }
 
-    // Privacy explanation
-    if contains_any(&words, &["privacy", "store", "data", "telemetry", "tracking"]) {
+    // Privacy explanation - multilingual
+    if contains_any(&words, &["privacy", "store", "data", "telemetry", "tracking",
+                              "privacidad", "datos",
+                              "personvern", "lagring",
+                              "datenschutz", "daten",
+                              "vie privée", "données",
+                              "privacidade", "armazenamento"]) {
         return Intent::Privacy;
     }
 
-    // Report generation
-    if contains_any(&words, &["report", "summary", "boss", "document", "overview"]) {
+    // Report generation - multilingual
+    // EN: report, summary, document
+    // ES: informe, reporte, resumen
+    // NO: rapport, sammendrag
+    // DE: bericht, zusammenfassung
+    // FR: rapport, résumé
+    // PT: relatório, resumo
+    if contains_any(&words, &["report", "summary", "boss", "document", "overview",
+                              "informe", "reporte", "resumen",
+                              "rapport", "sammendrag",
+                              "bericht", "zusammenfassung",
+                              "résumé",
+                              "relatório", "resumo"]) {
         return Intent::Report;
     }
 
@@ -208,13 +249,21 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::OffTopic;
     }
 
-    // Help - ONLY for explicit help requests, everything else goes to LLM
-    if contains_any(&words, &["help"])
+    // Help - ONLY for explicit help requests, everything else goes to LLM (multilingual)
+    // EN: help, what can you do
+    // ES: ayuda, qué puedes hacer
+    // NO: hjelp, hva kan du gjøre
+    // DE: hilfe, was kannst du
+    // FR: aide, que peux-tu faire
+    // PT: ajuda, o que você pode fazer
+    if contains_any(&words, &["help", "ayuda", "hjelp", "hilfe", "aide", "ajuda"])
         || lower == "?"
         || lower.contains("show me examples")
-        || lower.contains("what can you do")
-        || lower.contains("list commands")
-        || lower.contains("available commands") {
+        || lower.contains("what can you do") || lower.contains("qué puedes hacer") || lower.contains("que puedes hacer")
+        || lower.contains("hva kan du gjøre") || lower.contains("was kannst du")
+        || lower.contains("que peux-tu faire") || lower.contains("o que você pode fazer")
+        || lower.contains("list commands") || lower.contains("lista comandos") || lower.contains("liste kommandoer")
+        || lower.contains("available commands") || lower.contains("comandos disponibles") {
         return Intent::Help;
     }
 
