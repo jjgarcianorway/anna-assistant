@@ -38,6 +38,7 @@ use anna_common::backup_detection::BackupDetection;
 use anna_common::container_virt_perf::ContainerVirtPerformance;
 use anna_common::display_issues::DisplayIssues;
 use anna_common::user_behavior::UserBehaviorPatterns;
+use anna_common::llm_context::LlmContext;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -65,7 +66,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
     let network_interfaces = get_network_interfaces();
     let package_groups = detect_package_groups();
 
-    Ok(SystemFacts {
+    let mut facts = SystemFacts {
         timestamp: Utc::now(),
 
         // Hardware
@@ -156,6 +157,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         container_virt_perf: Some(ContainerVirtPerformance::detect()),
         display_issues: Some(DisplayIssues::detect()),
         user_behavior: Some(UserBehaviorPatterns::detect()),
+        llm_context: None, // Will be populated after all other fields
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()
@@ -240,7 +242,12 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         audio_system: detect_audio_system(),
         audio_server_running: check_audio_server_running(),
         pipewire_session_manager: detect_pipewire_session_manager(),
-    })
+    };
+
+    // Generate LLM context from all collected facts (Beta.47)
+    facts.llm_context = Some(LlmContext::from_system_facts(&facts));
+
+    Ok(facts)
 }
 
 fn get_hostname() -> Result<String> {

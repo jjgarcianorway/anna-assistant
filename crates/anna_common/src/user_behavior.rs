@@ -567,7 +567,7 @@ fn detect_security_patterns() -> Option<SecurityPatterns> {
 
 fn infer_user_profile(
     command_patterns: &Option<CommandPatterns>,
-    application_patterns: &Option<ApplicationPatterns>,
+    _application_patterns: &Option<ApplicationPatterns>,
     gaming_patterns: &Option<GamingPatterns>,
     development_patterns: &Option<DevelopmentPatterns>,
     security_patterns: &Option<SecurityPatterns>,
@@ -638,7 +638,7 @@ fn infer_user_profile(
 
 fn generate_recommendations(
     profile: &UserProfile,
-    command_patterns: &Option<CommandPatterns>,
+    _command_patterns: &Option<CommandPatterns>,
     security_patterns: &Option<SecurityPatterns>,
 ) -> Vec<String> {
     let mut recommendations = Vec::new();

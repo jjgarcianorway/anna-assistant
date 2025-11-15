@@ -346,6 +346,8 @@ pub struct SystemFacts {
     pub display_issues: Option<crate::display_issues::DisplayIssues>, // Display driver issues and multi-monitor config
     #[serde(default)]
     pub user_behavior: Option<crate::user_behavior::UserBehaviorPatterns>, // User behavior patterns (commands, resources, development, gaming, security)
+    #[serde(default)]
+    pub llm_context: Option<crate::llm_context::LlmContext>, // LLM Contextualization - synthesized system intelligence
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

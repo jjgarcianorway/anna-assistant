@@ -46,6 +46,7 @@ pub mod ipc;
 pub mod language; // Language system with natural configuration
 pub mod learning;
 pub mod llm; // Task 12: LLM abstraction layer
+pub mod llm_context; // LLM Contextualization - Synthesizes all detection data for caretaker brain
 pub mod llm_upgrade; // Step 3: Hardware upgrade detection for brain improvements
 pub mod memory_usage; // Memory usage detection (RAM, swap, OOM events)
 pub mod model_profiles; // Data-driven model selection with upgrade paths

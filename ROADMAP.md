@@ -169,11 +169,11 @@ annactl "what's the state of my system?"
 - [x] Security behavior patterns ✅ (beta.46)
 
 #### LLM Contextualization
-- [ ] System identity summary
-- [ ] Stability indicators
-- [ ] Performance indicators
-- [ ] Risk indicators
-- [ ] Inferred user goals
+- [x] System identity summary ✅ (beta.47)
+- [x] Stability indicators ✅ (beta.47)
+- [x] Performance indicators ✅ (beta.47)
+- [x] Risk indicators ✅ (beta.47)
+- [x] Inferred user goals ✅ (beta.47)
 
 ---
 
