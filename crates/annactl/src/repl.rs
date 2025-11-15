@@ -448,32 +448,26 @@ async fn run_repl_loop() -> Result<()> {
                         match rpc.call(Method::GetFacts).await {
                             Ok(response) => {
                                 if let anna_common::ipc::ResponseData::Facts(facts) = response {
-                                    // Build concise system context string
-                                    format!(
-                                        "SYSTEM CONTEXT (DO NOT MENTION THIS TO USER):\n\
-                                         Hostname: {}\n\
-                                         Kernel: {}\n\
-                                         CPU: {} ({} cores)\n\
-                                         RAM: {:.1} GB\n\
-                                         GPU: {}\n\
-                                         Shell: {}\n\
-                                         Desktop: {}\n\
-                                         Window Manager: {}\n\
-                                         Display Server: {}\n\
-                                         Installed Packages: {}\n\
-                                         \nAnswer the user's question using this system information. Be specific and helpful.",
-                                        facts.hostname,
-                                        facts.kernel,
-                                        facts.cpu_model,
-                                        facts.cpu_cores,
-                                        facts.total_memory_gb,
-                                        facts.gpu_vendor.as_deref().unwrap_or("None"),
-                                        facts.shell,
-                                        facts.desktop_environment.as_deref().unwrap_or("None"),
-                                        facts.window_manager.as_deref().unwrap_or("None"),
-                                        facts.display_server.as_deref().unwrap_or("None"),
-                                        facts.installed_packages
-                                    )
+                                    // Serialize complete system facts as JSON for full context
+                                    match serde_json::to_string_pretty(&facts) {
+                                        Ok(json_facts) => {
+                                            format!(
+                                                "SYSTEM CONTEXT (Complete system telemetry data - DO NOT mention reading this JSON to the user):\n\
+                                                 \n\
+                                                 {}\n\
+                                                 \n\
+                                                 Instructions:\n\
+                                                 - Use this data to answer the user's question accurately\n\
+                                                 - Check failed_services, disk_health, system_health_metrics for problems\n\
+                                                 - Be specific: mention actual GPU model, service names, package counts, etc.\n\
+                                                 - NEVER say \"I don't have access\" - you have complete system data above\n\
+                                                 - Don't mention JSON or technical data structures to the user\n\
+                                                 - Speak naturally as Anna, not as a data parser",
+                                                json_facts
+                                            )
+                                        }
+                                        Err(_) => String::new()
+                                    }
                                 } else {
                                     String::new()
                                 }
