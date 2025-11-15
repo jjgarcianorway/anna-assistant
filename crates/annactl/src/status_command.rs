@@ -23,7 +23,6 @@ use anna_common::terminal_format as fmt;
 use std::process::Command;
 use std::time::Instant;
 
-use crate::errors::*;
 use crate::health::{HealthReport, HealthStatus};
 use crate::logging::{ErrorDetails, LogEntry};
 use crate::version_banner;

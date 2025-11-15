@@ -1101,7 +1101,7 @@ async fn execute_self_update_command(check: bool, list: bool) -> Result<()> {
 
 /// Execute profile command (Phase 3.0)
 async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Result<()> {
-    use anna_common::ipc::ProfileData;
+    
 
     // Connect to daemon
     let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {

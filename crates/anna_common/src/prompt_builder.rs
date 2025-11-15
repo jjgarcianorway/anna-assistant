@@ -12,7 +12,7 @@
 
 use crate::change_recipe::*;
 use crate::telemetry::SystemTelemetry;
-use anyhow::Result;
+#[cfg(test)]
 use serde_json::json;
 
 /// Safety context for LLM prompting

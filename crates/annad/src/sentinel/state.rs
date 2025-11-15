@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use tokio::fs::{create_dir_all, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tracing::{info, warn};
+use tracing::info;
 
 const STATE_DIR: &str = "/var/lib/anna";
 const STATE_FILE: &str = "state.json";

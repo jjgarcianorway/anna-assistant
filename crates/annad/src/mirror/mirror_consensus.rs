@@ -6,7 +6,7 @@
 use super::types::*;
 use chrono::Utc;
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 /// Mirror consensus coordinator

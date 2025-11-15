@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::fs;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Chronicle - historical archive of forecasts and projections
 pub struct Chronicle {

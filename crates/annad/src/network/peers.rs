@@ -4,13 +4,12 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
-use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs;
 use tokio::time::sleep;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// TLS configuration for mTLS
 #[derive(Debug, Clone, Serialize, Deserialize)]

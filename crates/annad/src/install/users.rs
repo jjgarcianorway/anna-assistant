@@ -4,7 +4,7 @@
 //! Citation: [archwiki:Users_and_groups]
 
 use super::types::{InstallConfig, StepResult};
-use anyhow::{Context, Result};
+use anyhow::Context;
 use std::process::Command;
 use tracing::info;
 

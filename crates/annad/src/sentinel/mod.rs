@@ -60,13 +60,9 @@ pub mod events;
 pub mod state;
 pub mod types;
 
-pub use daemon::{SentinelDaemon, write_log_entry};
-pub use events::{create_default_playbooks, EventBus};
-pub use state::{calculate_diff, load_config, load_state, save_config, save_state, StateDiff};
-pub use types::{
-    HealthSnapshot, ResponsePlaybook, SentinelAction, SentinelConfig, SentinelEvent,
-    SentinelLogEntry, SentinelMetrics, SentinelState, StateTransition,
-};
+pub use daemon::SentinelDaemon;
+pub use state::{load_config, load_state, save_config};
+pub use types::SentinelAction;
 
 use anyhow::Result;
 

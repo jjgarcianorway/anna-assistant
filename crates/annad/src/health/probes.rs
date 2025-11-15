@@ -6,8 +6,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use std::time::{Duration, Instant};
-use tracing::{debug, warn};
+use std::time::Instant;
 
 /// Health probe status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

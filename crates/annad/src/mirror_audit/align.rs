@@ -3,7 +3,7 @@
 //! Computes error vectors and temporal integrity scores
 //! Citation: [archwiki:System_maintenance]
 
-use super::types::{ErrorMetrics, OutcomeSnapshot, SystemMetrics, TemporalIntegrityScore};
+use super::types::{ErrorMetrics, SystemMetrics, TemporalIntegrityScore};
 use anyhow::Result;
 
 /// Compare predicted vs actual metrics and compute error vector

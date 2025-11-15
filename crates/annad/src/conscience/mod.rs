@@ -59,11 +59,11 @@ pub mod introspect;
 pub mod types;
 
 pub use ethics::EthicsEngine;
-pub use explain::{explain_decision, format_pending_actions, format_reasoning_tree, summarize_decision};
+pub use explain::format_reasoning_tree;
 pub use introspect::Introspector;
 pub use types::{
-    ConscienceDecision, ConscienceState, DecisionOutcome, EthicalScore, EthicsConfig,
-    IntrospectionReport, JournalEntry, PendingAction, ReasoningTree, RollbackPlan,
+    ConscienceDecision, ConscienceState, DecisionOutcome, EthicsConfig,
+    IntrospectionReport, JournalEntry, PendingAction, RollbackPlan,
 };
 
 use crate::sentinel::SentinelAction;
@@ -74,7 +74,7 @@ use std::sync::Arc;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Conscience daemon managing ethical governance

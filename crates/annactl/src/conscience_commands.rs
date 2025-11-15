@@ -7,7 +7,6 @@ use anna_common::ipc::ResponseData;
 use anyhow::{anyhow, Result};
 use std::time::Instant;
 
-use crate::errors::*;
 use crate::rpc_client::RpcClient;
 
 /// Execute conscience review command

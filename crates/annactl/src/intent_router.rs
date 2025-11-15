@@ -3,7 +3,6 @@
 //! Phase 5.1: Conversational UX
 //! Maps user's natural language input to one of Anna's internal intents
 
-use anyhow::Result;
 
 /// User intent parsed from natural language
 #[derive(Debug, Clone, PartialEq, Eq)]

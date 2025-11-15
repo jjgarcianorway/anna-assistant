@@ -5,11 +5,10 @@
 
 use anna_common::github_releases::{GitHubClient, is_update_available};
 use anna_common::installation_source::{detect_current_installation, InstallationSource};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time;
-use tokio::fs;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 const GITHUB_OWNER: &str = "jjgarcianorway";
 const GITHUB_REPO: &str = "anna-assistant";

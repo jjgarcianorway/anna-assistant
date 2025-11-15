@@ -10,8 +10,7 @@ mod audit;
 pub mod logging;
 
 pub use types::{
-    StewardConfig, HealthReport, UpdateReport, AuditReport,
-    ServiceStatus, PackageStatus, IntegrityStatus, HealthStatus,
+    HealthReport, UpdateReport, AuditReport, HealthStatus,
 };
 
 use anyhow::Result;

@@ -13,11 +13,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tower::ServiceBuilder;
 use tower_http::timeout::TimeoutLayer;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
-use crate::consensus::{AuditObservation, ConsensusEngine, ConsensusResult};
+use crate::consensus::{AuditObservation, ConsensusEngine};
 use super::metrics::ConsensusMetrics;
 
 /// Shared consensus state
@@ -262,7 +261,7 @@ async fn reconcile(
 ) -> Result<Json<serde_json::Value>, AppError> {
     debug!("Reconcile requested");
 
-    let mut consensus = state.consensus.write().await;
+    let consensus = state.consensus.write().await;
     let mut reconciled = 0;
 
     // Force consensus on all pending rounds

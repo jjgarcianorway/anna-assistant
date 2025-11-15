@@ -7,8 +7,8 @@ use super::types::{
     ConscienceDecision, ConscienceState, DecisionOutcome, EthicalViolation, IntrospectionReport,
 };
 use anyhow::Result;
-use chrono::{DateTime, Duration, Utc};
-use tracing::{debug, info, warn};
+use chrono::{Duration, Utc};
+use tracing::{debug, info};
 
 /// Introspection engine for self-review
 pub struct Introspector {

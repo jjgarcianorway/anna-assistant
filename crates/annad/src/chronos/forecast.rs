@@ -6,7 +6,6 @@
 use super::timeline::{SystemMetrics, SystemSnapshot, Timeline, Trend, TrendDirection};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::{debug, info};
 
 /// Forecast engine for predictive simulation

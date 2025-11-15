@@ -5,12 +5,10 @@
 
 use anyhow::Result;
 use anna_common::display::{UI, print_repl_welcome, print_prompt, print_privacy_explanation};
-use anna_common::language::LanguageConfig;
 use anna_common::context::db::{ContextDb, DbLocation};
 use std::io::{self, BufRead};
 
 use crate::intent_router::{self, Intent};
-use crate::llm_wizard;
 
 /// Start the conversational REPL
 pub async fn start_repl() -> Result<()> {

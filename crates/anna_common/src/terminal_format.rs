@@ -5,7 +5,6 @@
 //! Provides consistent, professional formatting for Anna's terminal output.
 //! Colors are subtle and WCAG-friendly. No hardcoded ANSI strings scattered everywhere.
 
-use std::fmt;
 
 /// ANSI color codes - WCAG-friendly palette
 pub mod colors {

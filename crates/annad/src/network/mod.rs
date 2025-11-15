@@ -17,14 +17,4 @@ pub mod pinning_verifier;
 pub mod reload;
 pub mod rpc;
 
-pub use idempotency::IdempotencyStore;
 pub use metrics::ConsensusMetrics;
-pub use middleware::{
-    RateLimiter, MAX_BODY_SIZE,
-    RATE_LIMIT_BURST_REQUESTS, RATE_LIMIT_BURST_WINDOW,
-    RATE_LIMIT_SUSTAINED_REQUESTS, RATE_LIMIT_SUSTAINED_WINDOW,
-};
-pub use peers::{PeerClient, PeerConfig, PeerList, TlsConfig};
-pub use pinning::PinningConfig;
-pub use reload::{ReloadableConfig, sighup_handler};
-pub use rpc::ConsensusRpcServer;

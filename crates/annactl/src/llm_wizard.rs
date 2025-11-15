@@ -3,13 +3,13 @@
 //! Guides the user through setting up Anna's "brain" - either a local LLM
 //! (privacy-first, automatic) or a remote API (opt-in with warnings).
 
-use anna_common::context::db::{ContextDb, DbLocation};
+use anna_common::context::db::ContextDb;
 use anna_common::display::UI;
 use anna_common::hardware_capability::{HardwareAssessment, LlmCapability};
 use anna_common::llm::LlmConfig;
-use anna_common::model_profiles::{select_model_for_capability, ModelProfile};
-use anna_common::ollama_installer::{OllamaInstaller, DEFAULT_OLLAMA_URL};
-use anyhow::{Context, Result};
+use anna_common::model_profiles::select_model_for_capability;
+use anna_common::ollama_installer::OllamaInstaller;
+use anyhow::Result;
 use std::io::{self, Write};
 
 /// Check if LLM setup wizard needs to run

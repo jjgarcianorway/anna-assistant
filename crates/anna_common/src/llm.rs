@@ -318,7 +318,7 @@ impl LlmBackend for HttpOpenAiBackend {
         // Build the request
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
 
-        let mut request_body = serde_json::json!({
+        let request_body = serde_json::json!({
             "model": self.model,
             "messages": [
                 {

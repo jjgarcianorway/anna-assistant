@@ -12,11 +12,11 @@ mod logging;
 
 pub use types::{
     InstallConfig, InstallResult, InstallStep, DiskSetupMode, BootloaderType,
-    InstallationState, StepResult,
+    InstallationState,
 };
 
-use anyhow::{Context, Result};
-use tracing::{info, warn, error};
+use anyhow::Result;
+use tracing::{info, warn};
 
 /// Perform guided Arch Linux installation
 ///

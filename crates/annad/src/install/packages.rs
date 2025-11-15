@@ -4,7 +4,7 @@
 //! Citation: [archwiki:Installation_guide#Install_essential_packages]
 
 use super::types::{InstallConfig, StepResult};
-use anyhow::{Context, Result};
+use anyhow::Context;
 use std::process::Command;
 use tracing::info;
 

@@ -13,7 +13,6 @@
 //! - Simplified Unicode fallback
 //! - Pure ASCII for limited TTY
 
-use anyhow;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::io::IsTerminal;

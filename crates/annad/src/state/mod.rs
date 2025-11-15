@@ -16,8 +16,6 @@ pub mod migrate; // Phase 1.10: State migration
 pub mod types;
 pub mod v2; // Phase 1.10: State schema v2
 
-pub use capabilities::{get_capabilities, CommandCapability};
+pub use capabilities::get_capabilities;
 pub use detector::detect_state;
-pub use migrate::StateMigrator;
-pub use types::{NetworkStatus, StateDetails, StateDetection, SystemState};
-pub use v2::StateV2;
+pub use types::StateDetection;

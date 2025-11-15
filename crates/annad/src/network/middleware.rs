@@ -1,11 +1,10 @@
 //! Request middleware for body limits and rate limiting (Phase 1.14)
 
 use axum::{
-    body::Body,
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -143,6 +143,7 @@ fn check_build_metadata() -> Option<InstallationSource> {
     // This can be set via RUSTFLAGS or build.rs
     // For now, we don't embed this, but it's a placeholder for future enhancement
 
+    #[cfg_attr(not(test), allow(unexpected_cfgs))]
     #[cfg(feature = "aur-build")]
     {
         return Some(InstallationSource::AUR {

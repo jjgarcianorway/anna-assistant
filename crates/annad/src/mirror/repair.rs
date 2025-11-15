@@ -4,7 +4,7 @@
 //! Citation: [archwiki:System_maintenance]
 
 use super::types::*;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 

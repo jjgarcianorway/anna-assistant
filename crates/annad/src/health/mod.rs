@@ -10,14 +10,14 @@ pub use probes::{
     BluetoothServiceProbe, DiskSpaceProbe, HealthProbe, MissingFirmwareProbe, PacmanDbProbe,
     ProbeResult, ProbeStatus, SystemdUnitsProbe, TlpConfigProbe,
 };
-pub use runner::{get_health_summary, run_all_probes, run_probe, HealthSummary};
+pub use runner::{get_health_summary, run_all_probes};
 
 #[cfg(test)]
 pub use probes::MockableProbe;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Health probe definition from YAML
 #[derive(Debug, Clone, Serialize, Deserialize)]

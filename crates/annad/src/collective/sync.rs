@@ -5,7 +5,7 @@
 
 use super::types::{NetworkEmpathyState, PeerId};
 use std::collections::HashMap;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// State synchronization manager
 pub struct SyncManager {

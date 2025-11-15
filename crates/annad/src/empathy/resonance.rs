@@ -4,7 +4,7 @@
 //! Citation: [archwiki:System_maintenance]
 
 use super::types::{
-    ContextMetrics, EmpathyEvaluation, ResonanceAdjustment, ResonanceMap, SentimentAnalysis,
+    ContextMetrics, ResonanceAdjustment, ResonanceMap, SentimentAnalysis,
     StakeholderImpact, StakeholderImpacts,
 };
 use crate::sentinel::SentinelAction;

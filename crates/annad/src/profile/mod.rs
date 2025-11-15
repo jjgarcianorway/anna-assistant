@@ -6,5 +6,5 @@ pub mod types;
 
 pub use detector::SystemProfiler;
 pub use types::{
-    GpuInfo, MonitoringMode, SessionType, SystemProfile, VirtualizationInfo,
+    MonitoringMode, SessionType, SystemProfile, VirtualizationInfo,
 };

@@ -1,7 +1,7 @@
 // Phase 3.0.0-alpha.1: System Profile Detector
 // Collects real system information for adaptive behavior
 
-use super::types::{GpuInfo, MonitoringMode, SessionType, SystemProfile, VirtualizationInfo};
+use super::types::{GpuInfo, SessionType, SystemProfile, VirtualizationInfo};
 use anyhow::Result;
 use std::process::Command;
 use sysinfo::{Disks, System};

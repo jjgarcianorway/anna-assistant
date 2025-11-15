@@ -5,7 +5,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Unique identifier for a forecast
 pub type ForecastId = String;

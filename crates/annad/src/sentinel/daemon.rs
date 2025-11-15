@@ -5,15 +5,13 @@
 //! Citation: [archwiki:System_maintenance]
 
 use super::events::{create_default_playbooks, EventBus};
-use super::state::{calculate_diff, load_config, load_state, save_state};
+use super::state::{load_config, load_state, save_state};
 use super::types::{
-    HealthSnapshot, SentinelAction, SentinelConfig, SentinelEvent, SentinelLogEntry,
+    SentinelAction, SentinelConfig, SentinelEvent, SentinelLogEntry,
     SentinelMetrics, SentinelState,
 };
 use crate::conscience::ConscienceDaemon;
 use anyhow::{Context, Result};
-use chrono::Utc;
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;

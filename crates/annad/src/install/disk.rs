@@ -4,7 +4,7 @@
 //! Citation: [archwiki:Installation_guide#Partition_the_disks]
 
 use super::types::{DiskSetupMode, InstallConfig, StepResult};
-use anyhow::{Context, Result};
+use anyhow::Context;
 use std::process::Command;
 use tracing::{info, warn};
 

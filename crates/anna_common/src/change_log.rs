@@ -3,7 +3,6 @@
 //! Phase 5.1: Conversational UX
 //! Every system change made by Anna is logged as a Change Unit for transparency and rollback
 
-use anyhow;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

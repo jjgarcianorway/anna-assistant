@@ -5,13 +5,14 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
+#[cfg(test)]
 use uuid::Uuid;
 
 pub mod crypto;
 pub mod rpc;
 pub mod state;
 
-use crate::mirror_audit::types::{BiasKind, SystemMetrics};
+use crate::mirror_audit::types::BiasKind;
 use crypto::{sign, verify, Keypair, PublicKey, Signature};
 
 // ============================================================================

@@ -4,7 +4,6 @@
 //! All data stays local, no network exfiltration
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use sysinfo::System;
 
@@ -392,7 +391,7 @@ impl SystemTelemetry {
     /// Collect a live system snapshot (Task 8: Deep Caretaker v0.1)
     /// Fast, read-only telemetry collection (completes in <1 second)
     pub fn collect() -> Self {
-        use crate::profile::MachineProfile;
+        
 
         Self {
             timestamp: Utc::now(),
