@@ -366,14 +366,28 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(target_os = "linux"), ignore)]
     fn test_is_package_installed() {
+        // Skip in CI if pacman is not available
+        if std::process::Command::new("pacman").arg("--version").output().is_err() {
+            eprintln!("Skipping test: pacman not available (not on Arch Linux)");
+            return;
+        }
+
         // Test with a package that's definitely installed (systemd on Arch)
         let result = is_package_installed("systemd");
         assert!(result.is_ok());
     }
 
     #[test]
+    #[cfg_attr(not(target_os = "linux"), ignore)]
     fn test_check_service_status() {
+        // Skip in CI if systemctl is not available
+        if std::process::Command::new("systemctl").arg("--version").output().is_err() {
+            eprintln!("Skipping test: systemctl not available");
+            return;
+        }
+
         // Test with systemd itself (always running)
         let result = check_service_status("systemd");
         assert!(result.is_ok());
