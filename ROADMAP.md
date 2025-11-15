@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.36
+**Current Version:** 5.7.0-beta.37
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -67,8 +67,8 @@ annactl "what's the state of my system?"
 - [x] CPU governor ✅ (beta.27)
 - [x] CPU microcode package/version ✅ (beta.27)
 - [x] CPU temperatures ✅ (beta.29)
-- [ ] CPU throttling events
-- [ ] CPU power states
+- [x] CPU throttling events ✅ (beta.37)
+- [x] CPU power states ✅ (beta.37)
 - [x] GPU vendor, model, driver ✅ (beta.28)
 - [x] GPU VRAM ✅ (partial)
 - [ ] GPU CUDA/OpenCL support detection
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.37 | 2025-11-15 | Milestone 1 | CPU throttling & power states: throttle events, thermal logs, C-states (~320 lines) |
 | 5.7.0-beta.36 | 2025-11-15 | Milestone 1 | System health: load averages, daemon crashes, uptime; orphaned packages (~640 lines) |
 | 5.7.0-beta.35 | 2025-11-15 | Milestone 1 | Security features: SELinux, AppArmor, Polkit, sudo, kernel lockdown (~650 lines) |
 | 5.7.0-beta.34 | 2025-11-15 | Milestone 1 | Initramfs config: mkinitcpio/dracut, hooks, modules, compression (~590 lines) |

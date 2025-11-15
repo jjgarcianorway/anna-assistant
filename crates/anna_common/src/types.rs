@@ -328,6 +328,8 @@ pub struct SystemFacts {
     pub system_health: Option<crate::system_health::SystemHealth>, // System health (load averages, daemon crashes, uptime)
     #[serde(default)]
     pub orphaned_packages: Option<crate::orphaned_packages::OrphanedPackages>, // Orphaned packages (pacman -Qtd, size tracking, removal safety)
+    #[serde(default)]
+    pub cpu_throttling: Option<crate::cpu_throttling::CpuThrottling>, // CPU throttling and power states (throttle events, C-states, thermal events)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

@@ -29,6 +29,7 @@ use anna_common::initramfs::InitramfsInfo;
 use anna_common::security_features::SecurityFeatures;
 use anna_common::system_health::SystemHealth;
 use anna_common::orphaned_packages::OrphanedPackages;
+use anna_common::cpu_throttling::CpuThrottling;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -138,6 +139,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         security_features: Some(SecurityFeatures::detect()),
         system_health: Some(SystemHealth::detect()),
         orphaned_packages: Some(OrphanedPackages::detect()),
+        cpu_throttling: Some(CpuThrottling::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

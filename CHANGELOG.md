@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.37] - 2025-11-15
+
+### Added - CPU Throttling & Power States Detection 🌡️⚡
+
+**CPU Throttling Events Detection:**
+Anna now monitors CPU thermal throttling and performance degradation:
+- Per-CPU core throttle count tracking from /sys/devices/system/cpu/cpu*/thermal_throttle/
+- Core throttle count detection (thermal throttling events per CPU)
+- Package throttle count detection (package-level thermal events)
+- Total throttling event aggregation across all CPUs
+- Throttling status detection (has_throttling boolean)
+- Throttle count categorization (>1000 = high throttling warning)
+
+**Thermal Event Monitoring:**
+Real-time thermal event tracking from system logs:
+- journalctl integration for thermal/temperature/throttle events
+- 24-hour thermal event history
+- Thermal event timestamp parsing (microsecond precision)
+- CPU ID extraction from thermal messages
+- Temperature extraction from log messages (°C detection)
+- Most recent 20 thermal events tracking
+- Thermal event correlation with throttling
+
+**CPU Power States (C-States) Detection:**
+Comprehensive CPU power management monitoring:
+- Available C-states detection per CPU from /sys/devices/system/cpu/cpu*/cpuidle/
+- C-state name and latency tracking
+- Deepest C-state identification (best power savings)
+- Per-CPU current C-state tracking
+- C-state enabled/disabled status per state
+- C-state latency values (microseconds)
+- Power management enabled detection
+- Total CPU count tracking
+
+**Performance Recommendations:**
+Intelligent throttling and power state analysis:
+- Throttling detection with core/package event counts
+- High throttling warnings (>1000 events = cooling/workload issue)
+- Thermal event correlation recommendations
+- C-state availability reporting
+- Power management status assessment
+- Deepest C-state reporting for power efficiency
+- System-specific power/performance guidance
+
+**Implementation:**
+- New `cpu_throttling` module in `anna_common` with `CpuThrottling::detect()` (~320 lines)
+- Integrated into `SystemFacts` telemetry as `cpu_throttling` field
+- Throttling count parsing from /sys thermal_throttle interface
+- journalctl JSON parsing for thermal events (last 24 hours)
+- C-state detection from /sys cpuidle interface
+- Per-CPU state tracking with latency information
+- Pattern-based CPU ID extraction from thermal messages
+- Temperature value extraction from log messages (°C, C, temp=)
+
+**Files Added:**
+- `crates/anna_common/src/cpu_throttling.rs` (~320 lines)
+
+**Impact:**
+Anna can now provide comprehensive CPU thermal and power monitoring:
+- 🌡️ **Thermal Monitoring** (throttling event detection with per-CPU granularity)
+- 📊 **Performance Health** (thermal event correlation with system performance)
+- ⚡ **Power Efficiency** (C-state detection for power savings analysis)
+- 🔧 **Cooling Assessment** (high throttling warnings for thermal issues)
+- 💡 **Power Management** (C-state availability and configuration tracking)
+- 🎯 **Workload Analysis** (throttling patterns reveal thermal stress)
+
 ## [5.7.0-beta.36] - 2025-11-15
 
 ### Added - System Health & Orphaned Packages Detection 📊🗑️
