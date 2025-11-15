@@ -87,7 +87,100 @@ pub async fn start_repl() -> Result<()> {
     // Show welcome message in user's language
     ui.repl_welcome();
 
+    // Proactive startup summary - inform user of any issues
+    display_startup_summary(&ui).await;
+
     run_repl_loop().await
+}
+
+/// Display proactive startup summary with system issues
+async fn display_startup_summary(ui: &UI) {
+    use crate::rpc_client::RpcClient;
+    use anna_common::ipc::Method;
+
+    // Fetch system facts from daemon
+    let facts = match RpcClient::connect().await {
+        Ok(mut rpc) => {
+            match rpc.call(Method::GetFacts).await {
+                Ok(anna_common::ipc::ResponseData::Facts(f)) => Some(f),
+                _ => None,
+            }
+        },
+        Err(_) => None,
+    };
+
+    let facts = match facts {
+        Some(f) => f,
+        None => return, // Can't connect to daemon, skip summary
+    };
+
+    let mut issues: Vec<String> = Vec::new();
+
+    // Check for failed services (CRITICAL)
+    if !facts.failed_services.is_empty() {
+        let count = facts.failed_services.len();
+        let services_list = if count <= 3 {
+            facts.failed_services.join(", ")
+        } else {
+            format!("{}, {} and {} more",
+                facts.failed_services[0],
+                facts.failed_services[1],
+                count - 2)
+        };
+        issues.push(format!("⚠️  {} failed service{}: {}",
+            count,
+            if count == 1 { "" } else { "s" },
+            services_list));
+    }
+
+    // Check for critical disk usage (>90%)
+    for disk in &facts.storage_devices {
+        let usage_pct = (disk.used_gb / disk.size_gb) * 100.0;
+        if usage_pct > 90.0 {
+            issues.push(format!("💾 {} is {:.0}% full ({:.1}/{:.1} GB)",
+                disk.mount_point, usage_pct, disk.used_gb, disk.size_gb));
+        }
+    }
+
+    // Check for slow boot time (>60s)
+    if let Some(boot_time) = facts.boot_time_seconds {
+        if boot_time > 60.0 {
+            let slow = if !facts.slow_services.is_empty() {
+                format!(" (slowest: {})", facts.slow_services[0].name)
+            } else {
+                String::new()
+            };
+            issues.push(format!("🐌 Slow boot time: {:.1}s{}", boot_time, slow));
+        }
+    }
+
+    // Check for orphaned packages (>50)
+    if facts.orphan_packages.len() > 50 {
+        issues.push(format!("📦 {} orphaned packages can be removed",
+            facts.orphan_packages.len()));
+    }
+
+    // Check for large package cache (>10GB)
+    if facts.package_cache_size_gb > 10.0 {
+        issues.push(format!("🗑️  Package cache: {:.1} GB (consider cleanup)",
+            facts.package_cache_size_gb));
+    }
+
+    // Display summary if there are issues
+    if !issues.is_empty() {
+        ui.warning("System Status:");
+        for issue in &issues {
+            println!("  {}", issue);
+        }
+
+        // Offer help
+        if !facts.failed_services.is_empty() || issues.iter().any(|i| i.contains("full")) {
+            ui.info("💡 Ask me for suggestions to fix these issues");
+        }
+    } else {
+        // Everything is fine - show brief positive message
+        ui.success("System is healthy");
+    }
 }
 
 /// Main REPL loop (factored out for clarity)

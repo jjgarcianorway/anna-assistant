@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.14] - 2025-11-15
+
+### Added - Proactive Startup Summary 🔔
+
+**Problem:** Anna was passive on startup - didn't inform about system issues, failed services, or critical problems
+
+**User Feedback:** "Anna must be as proactive as possible when is invoked.. So anna must inform the user about anything relevant, updates, package changes, system degradation, security attempts or intrusions or services not working or with errors"
+
+#### ✅ What's New (beta.14)
+
+**Proactive Startup Health Check (repl.rs)**
+- **Feature**: Anna now automatically displays system status on startup
+- **Before**: Silent greeting with no context about system health
+- **After**: Proactive summary showing critical issues immediately after greeting
+
+**File Modified:** `crates/annactl/src/repl.rs` (lines 96-184 - new `display_startup_summary()` function)
+
+**What Anna Now Checks On Startup:**
+1. ⚠️  **Failed Services** - Shows count and names of systemd services that failed
+2. 💾 **Critical Disk Usage** - Alerts if any partition >90% full
+3. ⏱️  **Slow Boot Time** - Warns if boot time >60 seconds
+4. 📦 **Orphaned Packages** - Alerts if >50 orphaned packages need cleanup
+5. 🗑️  **Large Package Cache** - Warns if pacman cache >10GB
+
+**Example Output:**
+```
+System Status:
+  ⚠️  2 failed services: bluetooth.service, systemd-networkd.service
+  💾 /home is 92% full (458.3/500.0 GB)
+  💡 Ask me for suggestions to fix these issues
+```
+
+**Impact:**
+- Users immediately see critical problems when opening Anna
+- No need to manually run `annactl status` or `annactl report`
+- Transforms Anna from reactive assistant to proactive system monitor
+- Directly addresses user requirement for startup notifications
+
+**Technical Implementation:**
+- Fetches complete SystemFacts from daemon via RPC on startup
+- Applies threshold-based checks for each category
+- Only displays summary if issues found (clean systems get "System is healthy")
+- Provides actionable suggestions for detected problems
+
+---
+
 ## [5.7.0-beta.13] - 2025-11-15
 
 ### Fixed - Language Persistence & Multilingual Support 🌍
