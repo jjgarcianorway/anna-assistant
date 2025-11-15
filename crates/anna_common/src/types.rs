@@ -298,6 +298,14 @@ pub struct SystemFacts {
     pub network_config: Option<crate::network_config::NetworkConfig>, // Network configuration (DNS, NetworkManager, Wi-Fi)
     #[serde(default)]
     pub cpu_performance: Option<crate::cpu_performance::CpuPerformance>, // CPU performance (governors, microcode, flags)
+    #[serde(default)]
+    pub graphics_info: Option<crate::graphics::GraphicsInfo>, // Graphics and display (Vulkan, OpenGL, session type)
+    #[serde(default)]
+    pub security_info: Option<crate::security::SecurityInfo>, // Security configuration (firewall, SSH config, umask)
+    #[serde(default)]
+    pub virtualization_info: Option<crate::virtualization::VirtualizationInfo>, // Virtualization (KVM, Docker, libvirt)
+    #[serde(default)]
+    pub package_mgmt_info: Option<crate::package_mgmt::PackageManagementInfo>, // Package management (pacman.conf, mirrorlist, AUR)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

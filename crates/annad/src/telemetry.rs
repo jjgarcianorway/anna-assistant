@@ -14,6 +14,10 @@ use anna_common::filesystem::FilesystemInfo;
 use anna_common::systemd_health::SystemdHealth;
 use anna_common::network_config::NetworkConfig;
 use anna_common::cpu_performance::CpuPerformance;
+use anna_common::graphics::GraphicsInfo;
+use anna_common::security::SecurityInfo;
+use anna_common::virtualization::VirtualizationInfo;
+use anna_common::package_mgmt::PackageManagementInfo;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -108,6 +112,10 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         systemd_health: Some(SystemdHealth::detect()),
         network_config: Some(NetworkConfig::detect()),
         cpu_performance: Some(CpuPerformance::detect()),
+        graphics_info: Some(GraphicsInfo::detect()),
+        security_info: Some(SecurityInfo::detect()),
+        virtualization_info: Some(VirtualizationInfo::detect()),
+        package_mgmt_info: Some(PackageManagementInfo::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

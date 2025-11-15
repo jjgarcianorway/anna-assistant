@@ -26,6 +26,7 @@ pub mod disk_analysis;
 pub mod filesystem; // Filesystem features detection (TRIM, LUKS, Btrfs)
 pub mod display;
 pub mod github_releases;
+pub mod graphics; // Graphics and display detection (Vulkan, OpenGL, session type)
 pub mod hardware_capability; // Hardware capability detection for local LLM
 pub mod ignore_filters;
 pub mod insights; // Phase 5.2: Behavioral insights engine
@@ -38,6 +39,7 @@ pub mod llm_upgrade; // Step 3: Hardware upgrade detection for brain improvement
 pub mod model_profiles; // Data-driven model selection with upgrade paths
 pub mod network_config; // Network configuration detection (DNS, NetworkManager, Wi-Fi)
 pub mod ollama_installer; // Automatic local LLM bootstrap
+pub mod package_mgmt; // Package management configuration (pacman.conf, mirrorlist, AUR)
 pub mod paths;
 pub mod personality; // Phase 5.1: Conversational personality controls
 pub mod prediction;
@@ -46,6 +48,7 @@ pub mod prediction_actions;
 pub mod prompt_builder; // Phase 9: LLM prompt construction with safety
 pub mod recipe_validator; // Phase 9: LLM response parsing and validation
 pub mod rollback;
+pub mod security; // Security configuration (firewall, SSH config, umask)
 pub mod self_healing;
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod suggestion_engine; // Task 8: Deep Caretaker v0.1 - Rule-based suggestion generation
@@ -54,6 +57,7 @@ pub mod telemetry; // Telemetry structures from annad
 pub mod terminal_format; // Phase 8: Beautiful terminal formatting
 pub mod types;
 pub mod updater;
+pub mod virtualization; // Virtualization and containerization (KVM, Docker, libvirt)
 
 pub use advice_cache::*;
 pub use beautiful::*;

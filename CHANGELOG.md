@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.28] - 2025-11-15
+
+### Added - Graphics, Security, Virtualization & Package Management Detection 🔐🎨
+
+**Graphics and Display Detection:**
+Anna now understands your graphics stack and display configuration:
+- Session type detection (Wayland, X11, TTY) via environment variables and loginctl
+- Vulkan support detection with device enumeration and API version
+- OpenGL support detection with version and renderer information
+- Compositor detection for both Wayland (Hyprland, Sway, etc.) and X11 (picom, compton)
+- Display server protocol details with environment-specific information
+- Multiple fallback methods for robustness (vulkaninfo, glxinfo, eglinfo, pacman queries)
+
+**Security Configuration Detection:**
+Comprehensive security posture monitoring:
+- Firewall type and status detection (UFW, nftables, iptables, firewalld)
+- Firewall rule counting for active configurations
+- SSH server status (running, enabled at boot)
+- SSH security level analysis (Strong, Moderate, Weak) with scoring algorithm
+- SSH configuration parsing (root login, password auth, port, X11 forwarding, protocol)
+- System umask detection from /etc/profile and /etc/bash.bashrc
+
+**Virtualization and Containerization Detection:**
+Complete virtualization stack awareness:
+- Hardware virtualization support (Intel VT-x via vmx, AMD-V via svm)
+- KVM kernel module status
+- IOMMU enablement detection for PCI passthrough
+- VFIO module and bound devices detection
+- Docker service status and container counting
+- Podman installation detection
+- libvirt/QEMU status and VM enumeration
+- VirtualBox installation detection
+
+**Package Management Configuration:**
+Arch Linux-specific package management insights:
+- pacman.conf parsing (ParallelDownloads, Color, VerbosePkgLists, ILoveCandy)
+- Mirrorlist age tracking and mirror counting
+- Reflector usage detection
+- AUR helper detection (yay, paru, pikaur, aurman, etc.) with version
+- Pacman cache analysis (size in MB, package count)
+
+**Implementation:**
+- New `graphics` module in `anna_common` with `GraphicsInfo::detect()` (~310 lines)
+- New `security` module in `anna_common` with `SecurityInfo::detect()` (~395 lines)
+- New `virtualization` module in `anna_common` with `VirtualizationInfo::detect()` (~277 lines)
+- New `package_mgmt` module in `anna_common` with `PackageManagementInfo::detect()` (~232 lines)
+- All four modules integrated into `SystemFacts` telemetry
+- Multiple detection methods with graceful fallbacks
+- Comprehensive enum types for strong typing (SessionType, FirewallType, SshSecurityLevel)
+
+**Files Added:**
+- `crates/anna_common/src/graphics.rs` (~310 lines)
+- `crates/anna_common/src/security.rs` (~395 lines)
+- `crates/anna_common/src/virtualization.rs` (~277 lines)
+- `crates/anna_common/src/package_mgmt.rs` (~232 lines)
+
+**Impact:**
+Anna now has deep understanding of critical system areas:
+- Graphics troubleshooting with Vulkan/OpenGL context
+- Security recommendations based on firewall and SSH configuration
+- Virtualization capability awareness for Docker, VMs, and GPU passthrough
+- Package management optimization suggestions
+- ~1400 lines of new detection code expanding Anna's system knowledge
+
 ## [5.7.0-beta.27] - 2025-11-15
 
 ### Added - Advanced System Monitoring: Systemd, Network & CPU 🔧

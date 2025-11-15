@@ -29,10 +29,10 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 |------|--------|-----------|--------|
 | GPU model(s) | `lspci -k \| grep -A3 -E 'VGA\|3D'` | [GPU drivers](https://wiki.archlinux.org/title/Xorg#Driver_installation) | ⚠️  Partial |
 | Driver in use | `lspci -k` | [NVIDIA](https://wiki.archlinux.org/title/NVIDIA), [AMDGPU](https://wiki.archlinux.org/title/AMDGPU) | ⚠️  Partial |
-| Vulkan/OpenGL support | `glxinfo -B`, `vulkaninfo` | [Vulkan](https://wiki.archlinux.org/title/Vulkan) | ❌ TODO |
+| Vulkan/OpenGL support | `glxinfo -B`, `vulkaninfo` | [Vulkan](https://wiki.archlinux.org/title/Vulkan) | ✅ Done (beta.28) |
 | PRIME offload | `nvidia-smi` (if NVIDIA) | [PRIME](https://wiki.archlinux.org/title/PRIME) | ❌ TODO |
-| Wayland/Xorg | `echo $XDG_SESSION_TYPE`, `loginctl show-session` | [Wayland](https://wiki.archlinux.org/title/Wayland) | ❌ TODO |
-| Compositor | `loginctl show-session` | - | ❌ TODO |
+| Wayland/Xorg | `echo $XDG_SESSION_TYPE`, `loginctl show-session` | [Wayland](https://wiki.archlinux.org/title/Wayland) | ✅ Done (beta.28) |
+| Compositor | `loginctl show-session` | - | ✅ Done (beta.28) |
 
 ### Audio
 | Fact | Source | Wiki Page | Status |
@@ -71,9 +71,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 ### Virtualization / Containers
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
-| KVM/SVM support | `lscpu \| grep Virtualization` | [KVM](https://wiki.archlinux.org/title/KVM) | ❌ TODO |
-| vfio bindings | `lsmod \| grep -E 'kvm\|vfio'` | [PCI passthrough](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF) | ❌ TODO |
-| libvirt/qemu/podman/docker | `systemctl is-active libvirtd`, `podman --version` | [libvirt](https://wiki.archlinux.org/title/Libvirt), [Docker](https://wiki.archlinux.org/title/Docker) | ❌ TODO |
+| KVM/SVM support | `lscpu \| grep Virtualization` | [KVM](https://wiki.archlinux.org/title/KVM) | ✅ Done (beta.28) |
+| vfio bindings | `lsmod \| grep -E 'kvm\|vfio'` | [PCI passthrough](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF) | ✅ Done (beta.28) |
+| libvirt/qemu/podman/docker | `systemctl is-active libvirtd`, `podman --version` | [libvirt](https://wiki.archlinux.org/title/Libvirt), [Docker](https://wiki.archlinux.org/title/Docker) | ✅ Done (beta.28) |
 
 ---
 
@@ -100,9 +100,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 ### Package Manager State
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
-| pacman.conf options | `/etc/pacman.conf` | [pacman](https://wiki.archlinux.org/title/Pacman) | ❌ TODO |
-| Mirrorlist freshness | `/etc/pacman.d/mirrorlist` (file age) | [Mirrors](https://wiki.archlinux.org/title/Mirrors) | ❌ TODO |
-| AUR helper presence | `command -v yay paru` | [AUR helpers](https://wiki.archlinux.org/title/AUR_helpers) | ❌ TODO |
+| pacman.conf options | `/etc/pacman.conf` | [pacman](https://wiki.archlinux.org/title/Pacman) | ✅ Done (beta.28) |
+| Mirrorlist freshness | `/etc/pacman.d/mirrorlist` (file age) | [Mirrors](https://wiki.archlinux.org/title/Mirrors) | ✅ Done (beta.28) |
+| AUR helper presence | `command -v yay paru` | [AUR helpers](https://wiki.archlinux.org/title/AUR_helpers) | ✅ Done (beta.28) |
 
 ### Installed Packages
 | Fact | Source | Wiki Page | Status |
@@ -138,9 +138,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
 | wheel group sudo | `getent group wheel`, `/etc/sudoers` | [sudo](https://wiki.archlinux.org/title/Sudo) | ❌ TODO |
-| ufw/nftables status | `systemctl is-active ufw`, `nft list ruleset` | [Uncomplicated Firewall](https://wiki.archlinux.org/title/Uncomplicated_Firewall) | ❌ TODO |
-| sshd config | `/etc/ssh/sshd_config` | [OpenSSH](https://wiki.archlinux.org/title/OpenSSH) | ❌ TODO |
-| Secure umask | `/etc/profile`, `/etc/bash.bashrc` | [Security](https://wiki.archlinux.org/title/Security#File_permissions) | ❌ TODO |
+| ufw/nftables status | `systemctl is-active ufw`, `nft list ruleset` | [Uncomplicated Firewall](https://wiki.archlinux.org/title/Uncomplicated_Firewall) | ✅ Done (beta.28) |
+| sshd config | `/etc/ssh/sshd_config` | [OpenSSH](https://wiki.archlinux.org/title/OpenSSH) | ✅ Done (beta.28) |
+| Secure umask | `/etc/profile`, `/etc/bash.bashrc` | [Security](https://wiki.archlinux.org/title/Security#File_permissions) | ✅ Done (beta.28) |
 
 ---
 
