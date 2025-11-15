@@ -6,6 +6,7 @@ use anna_common::{
     BatteryInfo, BluetoothStatus, CommandUsage, LocaleInfo, MediaUsageProfile, MicrocodeStatus,
     SSDInfo, StorageDevice, SwapConfiguration, SystemFacts, SystemdService,
 };
+use anna_common::desktop::{DesktopInfo, DesktopEnvironment, SessionType};
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -55,12 +56,44 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         has_wifi: detect_wifi(),
         has_ethernet: detect_ethernet(),
 
-        // User Environment
+        // User Environment (using unified desktop detection module)
         shell: detect_shell(),
-        desktop_environment: detect_desktop_environment(),
-        window_manager: detect_window_manager(),
-        compositor: detect_compositor(),
-        display_server: detect_display_server(),
+        desktop_environment: {
+            // Detect desktop environment once and reuse
+            let desktop_info = DesktopInfo::detect();
+
+            match desktop_info.environment {
+                DesktopEnvironment::None => None,
+                ref env => Some(env.name().to_string()),
+            }
+        },
+        window_manager: {
+            let desktop_info = DesktopInfo::detect();
+            match desktop_info.environment {
+                DesktopEnvironment::None => None,
+                ref env => Some(env.name().to_string()),
+            }
+        },
+        compositor: {
+            let desktop_info = DesktopInfo::detect();
+            match desktop_info.session_type {
+                SessionType::Wayland => match desktop_info.environment {
+                    DesktopEnvironment::Hyprland => Some("Hyprland".to_string()),
+                    DesktopEnvironment::Sway => Some("Sway".to_string()),
+                    _ => None,
+                },
+                _ => None,
+            }
+        },
+        display_server: {
+            let desktop_info = DesktopInfo::detect();
+            match desktop_info.session_type {
+                SessionType::Wayland => Some("wayland".to_string()),
+                SessionType::X11 => Some("x11".to_string()),
+                SessionType::Tty => Some("tty".to_string()),
+                SessionType::Unknown => None,
+            }
+        },
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

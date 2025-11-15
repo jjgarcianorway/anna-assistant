@@ -16,6 +16,7 @@ pub mod command_meta;
 pub mod config;
 pub mod config_parser;
 pub mod context;
+pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
 pub mod disk_analysis;
 pub mod display;
 pub mod github_releases;

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.21] - 2025-11-15
+
+### Added - Desktop Environment Detection 🖥️
+
+**Feature:**
+Anna can now detect desktop environments and session types to enable context-aware automation.
+
+**Implementation:**
+- Created new `desktop` module in `anna_common`
+- Detects desktop environments: Hyprland, i3, Sway, KDE, GNOME, Xfce
+- Detects session types: Wayland, X11, TTY
+- Automatically finds config directories and files for each DE
+- Integrated into SystemFacts telemetry for LLM awareness
+
+**Detection Logic:**
+- Checks `HYPRLAND_INSTANCE_SIGNATURE` for Hyprland
+- Checks `XDG_CURRENT_DESKTOP` for general DE detection
+- Checks `SWAYSOCK`, `I3SOCK` for specific window managers
+- Checks `XDG_SESSION_TYPE` for session type
+- Locates config files: `~/.config/hypr/hyprland.conf`, `~/.config/i3/config`, etc.
+
+**Impact:**
+Foundation for conversational desktop automation features like wallpaper changes, config modifications, and multi-step desktop customization.
+
+**Files Modified:**
+- `crates/anna_common/src/desktop.rs` (new module, 286 lines)
+- `crates/anna_common/src/lib.rs` (exported desktop module)
+- `crates/annad/src/telemetry.rs` (integrated desktop detection)
+
 ## [5.7.0-beta.20] - 2025-11-15
 
 ### Fixed - Reduced Excessive Spacing in REPL 📏
