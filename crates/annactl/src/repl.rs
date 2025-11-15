@@ -456,13 +456,23 @@ async fn run_repl_loop() -> Result<()> {
                                                  \n\
                                                  {}\n\
                                                  \n\
-                                                 Instructions:\n\
-                                                 - Use this data to answer the user's question accurately\n\
-                                                 - Check failed_services, disk_health, system_health_metrics for problems\n\
-                                                 - Be specific: mention actual GPU model, service names, package counts, etc.\n\
-                                                 - NEVER say \"I don't have access\" - you have complete system data above\n\
-                                                 - Don't mention JSON or technical data structures to the user\n\
-                                                 - Speak naturally as Anna, not as a data parser",
+                                                 CRITICAL ANTI-HALLUCINATION RULES:\n\
+                                                 1. ONLY state facts explicitly present in the JSON above\n\
+                                                 2. If a field is null, empty string, or empty array: DO NOT claim it exists\n\
+                                                 3. Examples of what NOT to do:\n\
+                                                    ❌ If window_manager is null → DON'T say \"you're running [any WM]\"\n\
+                                                    ❌ If desktop_environment is null → DON'T say \"you're running [any DE]\"\n\
+                                                    ❌ If display_server is \"Wayland\" → DON'T say \"you're running X11/Xorg\"\n\
+                                                 4. When a field is empty/null, you can say \"I don't see any [thing] installed\"\n\
+                                                 5. Check the EXACT values in: window_manager, desktop_environment, display_server\n\
+                                                 6. Failed services are in 'failed_services' array - if empty, there are NONE\n\
+                                                 \n\
+                                                 Response Guidelines:\n\
+                                                 - Be specific using ACTUAL data from JSON (GPU model, service names, versions)\n\
+                                                 - Check failed_services, slow_services, orphan_packages, storage_devices for issues\n\
+                                                 - Don't mention JSON or data structures - speak naturally as Anna\n\
+                                                 - If you're unsure, check the JSON field value again before answering\n\
+                                                 - NEVER make assumptions based on \"typical Arch Linux setups\"",
                                                 json_facts
                                             )
                                         }

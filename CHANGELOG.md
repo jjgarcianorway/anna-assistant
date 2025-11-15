@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.12] - 2025-11-15
+
+### Fixed - LLM Hallucination Prevention 🚫
+
+**Problem:** Anna was hallucinating - claiming software was installed when it wasn't.
+
+**User Feedback:** "in rocinante says that I'm running hyprland and is not even installed. And it says that I'm running Xorg that I'm not..."
+
+#### 🐛 Hallucination Examples
+
+**Before (beta.11 and earlier):**
+- Claimed "you're running Hyprland" when `window_manager` was null
+- Said "you're running Xorg" when `display_server` was "Wayland"
+- Made assumptions about "typical Arch Linux setups"
+- Confused null/empty fields with actual installed software
+
+#### ✅ What's Fixed (beta.12)
+
+**File Modified:** `crates/annactl/src/repl.rs` (lines 459-475)
+
+**Added CRITICAL ANTI-HALLUCINATION RULES to LLM prompt:**
+
+```
+1. ONLY state facts explicitly present in the JSON above
+2. If a field is null, empty string, or empty array: DO NOT claim it exists
+3. Examples of what NOT to do:
+   ❌ If window_manager is null → DON'T say "you're running [any WM]"
+   ❌ If desktop_environment is null → DON'T say "you're running [any DE]"
+   ❌ If display_server is "Wayland" → DON'T say "you're running X11/Xorg"
+4. When a field is empty/null, you can say "I don't see any [thing] installed"
+5. Check the EXACT values in: window_manager, desktop_environment, display_server
+6. Failed services are in 'failed_services' array - if empty, there are NONE
+```
+
+**Response Guidelines added:**
+- Be specific using ACTUAL data from JSON
+- If unsure, check the JSON field value again before answering
+- NEVER make assumptions based on "typical Arch Linux setups"
+
+#### 📋 Expected Improvements
+
+**Before:**
+- User: "What window manager am I running?"
+- Anna: "You're running Hyprland" ← WRONG (Hyprland not installed)
+
+**After:**
+- User: "What window manager am I running?"
+- Anna: "I don't see any window manager configured in your system" ← CORRECT
+
+**Before:**
+- User: "Am I running Xorg?"
+- Anna: "Yes, you're running Xorg" ← WRONG (display_server is Wayland)
+
+**After:**
+- User: "Am I running Xorg?"
+- Anna: "No, you're running Wayland as your display server" ← CORRECT
+
+---
+
 ## [5.7.0-beta.11] - 2025-11-15
 
 ### Fixed - System Report Now Shows Real Data! 📊
