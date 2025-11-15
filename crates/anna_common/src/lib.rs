@@ -19,6 +19,7 @@ pub mod config;
 pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)
 pub mod config_parser;
 pub mod context;
+pub mod cpu_performance; // CPU performance detection (governors, microcode, flags)
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
 pub mod desktop_automation; // Desktop automation helpers (wallpaper, config updates, reload)
 pub mod disk_analysis;
@@ -35,6 +36,7 @@ pub mod learning;
 pub mod llm; // Task 12: LLM abstraction layer
 pub mod llm_upgrade; // Step 3: Hardware upgrade detection for brain improvements
 pub mod model_profiles; // Data-driven model selection with upgrade paths
+pub mod network_config; // Network configuration detection (DNS, NetworkManager, Wi-Fi)
 pub mod ollama_installer; // Automatic local LLM bootstrap
 pub mod paths;
 pub mod personality; // Phase 5.1: Conversational personality controls
@@ -47,6 +49,7 @@ pub mod rollback;
 pub mod self_healing;
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod suggestion_engine; // Task 8: Deep Caretaker v0.1 - Rule-based suggestion generation
+pub mod systemd_health; // Systemd health detection (failed units, timers, journal)
 pub mod telemetry; // Telemetry structures from annad
 pub mod terminal_format; // Phase 8: Beautiful terminal formatting
 pub mod types;

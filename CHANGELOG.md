@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.27] - 2025-11-15
+
+### Added - Advanced System Monitoring: Systemd, Network & CPU 🔧
+
+**Systemd Health Detection:**
+Anna now monitors systemd service health and system maintenance:
+- Failed unit detection (services, timers, mounts, sockets)
+- Essential timer status monitoring (fstrim, reflector, paccache, tmpfiles-clean)
+- Journal disk usage tracking in MB
+- Journal rotation configuration detection
+- Complete unit state tracking (load state, active state, sub state)
+
+**Network Configuration Detection:**
+Comprehensive network stack monitoring:
+- Network manager detection (NetworkManager vs systemd-networkd vs both)
+- DNS resolver type detection (systemd-resolved, dnsmasq, static)
+- DNS server enumeration via resolvectl and /etc/resolv.conf
+- Wi-Fi interface detection
+- Wi-Fi power save status detection
+- Support for multiple network configurations
+
+**CPU Performance Detection:**
+Deep CPU configuration analysis:
+- CPU governor detection (per-core and uniform configurations)
+- Microcode package and version detection (Intel and AMD)
+- CPU feature flags detection (SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2)
+- Advanced instruction set detection (AVX, AVX2, AVX-512F)
+- AES-NI hardware encryption support detection
+- Hardware virtualization support (Intel VMX, AMD SVM)
+
+**Implementation:**
+- New `systemd_health` module in `anna_common` with `SystemdHealth::detect()`
+- New `network_config` module in `anna_common` with `NetworkConfig::detect()`
+- New `cpu_performance` module in `anna_common` with `CpuPerformance::detect()`
+- All three modules integrated into `SystemFacts` telemetry
+- Multiple fallback detection methods for reliability
+- Comprehensive error handling and graceful degradation
+
+**Files Added:**
+- `crates/anna_common/src/systemd_health.rs` (~296 lines)
+- `crates/anna_common/src/network_config.rs` (~279 lines)
+- `crates/anna_common/src/cpu_performance.rs` (~228 lines)
+
+**Impact:**
+Anna now has comprehensive awareness of system health, network configuration, and CPU capabilities:
+- Proactive detection of failed services and maintenance issues
+- Network troubleshooting with DNS and manager configuration context
+- CPU performance optimization recommendations based on governor and microcode status
+- Hardware capability awareness for local LLM optimization
+- System reliability monitoring through journal and timer tracking
+
 ## [5.7.0-beta.26] - 2025-11-15
 
 ### Added - Filesystem Features Detection 💾

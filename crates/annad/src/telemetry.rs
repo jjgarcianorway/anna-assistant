@@ -11,6 +11,9 @@ use anna_common::config_file::DesktopConfig;
 use anna_common::boot::BootInfo;
 use anna_common::audio::AudioInfo;
 use anna_common::filesystem::FilesystemInfo;
+use anna_common::systemd_health::SystemdHealth;
+use anna_common::network_config::NetworkConfig;
+use anna_common::cpu_performance::CpuPerformance;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -102,6 +105,9 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         boot_info: Some(BootInfo::detect()),
         audio_info: Some(AudioInfo::detect()),
         filesystem_info: Some(FilesystemInfo::detect()),
+        systemd_health: Some(SystemdHealth::detect()),
+        network_config: Some(NetworkConfig::detect()),
+        cpu_performance: Some(CpuPerformance::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

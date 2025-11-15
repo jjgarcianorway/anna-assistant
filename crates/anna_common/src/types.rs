@@ -292,6 +292,12 @@ pub struct SystemFacts {
     pub audio_info: Option<crate::audio::AudioInfo>, // Audio system detection (PipeWire, Pulse, ALSA, devices)
     #[serde(default)]
     pub filesystem_info: Option<crate::filesystem::FilesystemInfo>, // Filesystem features (TRIM, LUKS, Btrfs)
+    #[serde(default)]
+    pub systemd_health: Option<crate::systemd_health::SystemdHealth>, // Systemd health (failed units, timers, journal)
+    #[serde(default)]
+    pub network_config: Option<crate::network_config::NetworkConfig>, // Network configuration (DNS, NetworkManager, Wi-Fi)
+    #[serde(default)]
+    pub cpu_performance: Option<crate::cpu_performance::CpuPerformance>, // CPU performance (governors, microcode, flags)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

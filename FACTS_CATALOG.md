@@ -13,9 +13,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 |------|--------|-----------|--------|
 | CPU vendor/model | `/proc/cpuinfo`, `lscpu` | [Microcode](https://wiki.archlinux.org/title/Microcode) | ⚠️  Partial |
 | Cores/threads | `lscpu` | [CPU frequency scaling](https://wiki.archlinux.org/title/CPU_frequency_scaling) | ⚠️  Partial |
-| CPU flags (SSE/AVX) | `/proc/cpuinfo` | [Microcode](https://wiki.archlinux.org/title/Microcode) | ❌ TODO |
-| Current governor | `cpupower frequency-info` | [CPU frequency scaling](https://wiki.archlinux.org/title/CPU_frequency_scaling) | ❌ TODO |
-| Microcode package/version | `pacman -Q \| grep -E '(intel-ucode\|amd-ucode)'` | [Microcode](https://wiki.archlinux.org/title/Microcode) | ❌ TODO |
+| CPU flags (SSE/AVX) | `/proc/cpuinfo` | [Microcode](https://wiki.archlinux.org/title/Microcode) | ✅ Done (beta.27) |
+| Current governor | `cpupower frequency-info` | [CPU frequency scaling](https://wiki.archlinux.org/title/CPU_frequency_scaling) | ✅ Done (beta.27) |
+| Microcode package/version | `pacman -Q \| grep -E '(intel-ucode\|amd-ucode)'` | [Microcode](https://wiki.archlinux.org/title/Microcode) | ✅ Done (beta.27) |
 
 ### Motherboard / BIOS/UEFI / Boot
 | Fact | Source | Wiki Page | Status |
@@ -57,9 +57,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 |------|--------|-----------|--------|
 | NICs | `ip -br a` | [Network configuration](https://wiki.archlinux.org/title/Network_configuration) | ✅ Done |
 | Drivers | `ethtool -i <iface>` | - | ❌ TODO |
-| DNS resolver | `resolvectl status` | [systemd-resolved](https://wiki.archlinux.org/title/Systemd-resolved) | ❌ TODO |
-| NetworkManager/systemd-networkd | `nmcli general status`, `systemctl is-active systemd-networkd` | [NetworkManager](https://wiki.archlinux.org/title/NetworkManager) | ❌ TODO |
-| Wi-Fi power save | `iw dev <iface> get power_save` | [Power management](https://wiki.archlinux.org/title/Power_management#Network_interfaces) | ❌ TODO |
+| DNS resolver | `resolvectl status` | [systemd-resolved](https://wiki.archlinux.org/title/Systemd-resolved) | ✅ Done (beta.27) |
+| NetworkManager/systemd-networkd | `nmcli general status`, `systemctl is-active systemd-networkd` | [NetworkManager](https://wiki.archlinux.org/title/NetworkManager) | ✅ Done (beta.27) |
+| Wi-Fi power save | `iw dev <iface> get power_save` | [Power management](https://wiki.archlinux.org/title/Power_management#Network_interfaces) | ✅ Done (beta.27) |
 
 ### Sensors / Thermals / Battery (laptops)
 | Fact | Source | Wiki Page | Status |
@@ -126,9 +126,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 ### Systemd Services/Timers
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
-| Failed units | `systemctl --failed` | [systemd](https://wiki.archlinux.org/title/Systemd) | ❌ TODO |
-| Essential timers status | `systemctl is-enabled fstrim.timer reflector.timer` | [systemd/Timers](https://wiki.archlinux.org/title/Systemd/Timers) | ❌ TODO |
-| Journal size/rotation | `journalctl --disk-usage`, `/etc/systemd/journald.conf` | [systemd/Journal](https://wiki.archlinux.org/title/Systemd/Journal) | ❌ TODO |
+| Failed units | `systemctl --failed` | [systemd](https://wiki.archlinux.org/title/Systemd) | ✅ Done (beta.27) |
+| Essential timers status | `systemctl is-enabled fstrim.timer reflector.timer` | [systemd/Timers](https://wiki.archlinux.org/title/Systemd/Timers) | ✅ Done (beta.27) |
+| Journal size/rotation | `journalctl --disk-usage`, `/etc/systemd/journald.conf` | [systemd/Journal](https://wiki.archlinux.org/title/Systemd/Journal) | ✅ Done (beta.27) |
 
 ---
 
