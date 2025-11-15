@@ -602,7 +602,7 @@ mod tests {
 
         assert!(prompt.contains("Anna"));
         assert!(prompt.contains("Arch Linux"));
-        assert!(prompt.contains("never claim to execute"));
+        assert!(prompt.contains("can execute commands"));
         assert!(prompt.contains("Arch Wiki"));
     }
 
