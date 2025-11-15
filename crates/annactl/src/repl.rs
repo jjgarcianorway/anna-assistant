@@ -649,12 +649,37 @@ async fn run_repl_loop() -> Result<()> {
                 // Capture assistant response for conversation memory
                 let mut assistant_response = String::new();
 
-                // Stream response word-by-word
+                // Stream response with word-aware wrapping
                 use std::io::Write;
+                use anna_common::beautiful::terminal_width;
+
+                // Text wrapping state
+                let term_width = terminal_width().saturating_sub(3); // Leave margin
+                let mut current_col = 0;
+
                 match client.chat_stream(&prompt, &mut |chunk| {
-                    print!("{}", chunk);
-                    let _ = std::io::stdout().flush();
                     assistant_response.push_str(chunk);  // Capture for memory
+
+                    // Process chunk and handle wrapping
+                    for ch in chunk.chars() {
+                        if ch == '\n' {
+                            // Explicit newline: print and reset column
+                            print!("{}", ch);
+                            current_col = 0;
+                        } else {
+                            // Check if we need to wrap
+                            if current_col >= term_width && ch.is_whitespace() {
+                                // Wrap: print newline instead of the whitespace
+                                print!("\n");
+                                current_col = 0;
+                            } else {
+                                // Normal case: print character
+                                print!("{}", ch);
+                                current_col += 1;
+                            }
+                        }
+                    }
+                    let _ = std::io::stdout().flush();
                 }) {
                     Ok(_) => {
                         // Stream complete, add final newline

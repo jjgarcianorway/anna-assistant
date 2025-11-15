@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.19] - 2025-11-15
+
+### Fixed - Text Wrapping in REPL Responses 📝
+
+**Problem:**
+LLM responses in the REPL would wrap in the middle of words, breaking readability when lines exceeded terminal width.
+
+**Root Cause:**
+The streaming callback in `repl.rs` line 655 printed chunks directly without any text wrapping logic:
+```rust
+print!("{}", chunk);  // No wrapping, just raw output
+```
+
+This caused long lines to either:
+- Overflow the terminal and wrap at arbitrary positions (mid-word)
+- Get truncated or display incorrectly
+
+**Impact:**
+- Poor readability of LLM responses
+- Words split across lines (e.g., "understand" → "unders\ntand")
+- Unprofessional appearance compared to proper CLI tools
+- User feedback: "output must be formatted much better"
+
+**Fix:**
+Implemented word-aware text wrapping that:
+1. Detects terminal width using `anna_common::beautiful::terminal_width()`
+2. Tracks column position during streaming
+3. Wraps at whitespace boundaries when approaching terminal width
+4. Preserves explicit newlines from the LLM
+
+**Files Modified:**
+- Cargo.toml: version bump to 5.7.0-beta.19
+- CHANGELOG.md: detailed explanation of fix
+- crates/annactl/src/repl.rs (lines 652-683):
+  - Added terminal width detection
+  - Implemented column tracking during streaming
+  - Wrap at whitespace when column >= terminal_width - 3
+  - Preserve LLM-generated newlines
+
+**Example Before:**
+```
+This is a very long response that will wrap in the middle of wor
+ds and make reading difficult
+```
+
+**Example After:**
+```
+This is a very long response that will wrap at word boundaries
+and make reading much easier
+```
+
+This is a step toward the full TUI REPL planned for future releases.
+
 ## [5.7.0-beta.18] - 2025-11-15
 
 ### Fixed - RAM Field Reference Bug 🐛
