@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.36] - 2025-11-15
+
+### Added - System Health & Orphaned Packages Detection 📊🗑️
+
+**System Load Averages:**
+Anna now monitors system load and performance:
+- Load averages (1, 5, 15 minutes) from /proc/loadavg
+- CPU core count detection via num_cpus crate
+- Per-core load calculation (load / cores)
+- Load status categorization (Low <0.7, Moderate 0.7-1.0, High 1.0-2.0, Critical >2.0)
+- Overall system load status (worst of 1/5/15min)
+- Real-time performance health assessment
+
+**Daemon Crash Detection:**
+Comprehensive systemd service failure monitoring:
+- journalctl integration with JSON output parsing
+- Service failures in 24h and 7d time windows
+- Per-service crash count tracking
+- Exit code and signal extraction from systemd logs
+- Crash event timestamps with microsecond precision
+- Last crash time tracking per service
+- Most recent 10 crash events tracking
+- Service failure grouping and statistics
+
+**System Uptime:**
+System uptime monitoring:
+- Uptime in seconds from /proc/uptime
+- Uptime in days (floating point precision)
+- Boot time calculation (current time - uptime)
+- Boot timestamp with UTC timezone
+
+**Orphaned Package Detection:**
+Complete orphaned package management:
+- Orphaned packages via pacman -Qtd (dependencies no longer required)
+- Package size tracking (KB and MB)
+- Package install date parsing
+- Package descriptions from pacman -Qi
+- Total orphan count and total size calculation
+- Critical package detection (linux, kernel, systemd, glibc, gcc, bash, pacman, filesystem, base)
+- Removal safety analysis (unsafe if critical packages present)
+- Removal recommendations (command: sudo pacman -Rns $(pacman -Qtdq))
+- Large orphan detection (>100 MB packages)
+- Packages sorted by size (largest first)
+
+**Implementation:**
+- New `system_health` module in `anna_common` with `SystemHealth::detect()` (~400 lines)
+- New `orphaned_packages` module in `anna_common` with `OrphanedPackages::detect()` (~240 lines)
+- Integrated into `SystemFacts` telemetry as `system_health` and `orphaned_packages` fields
+- Load average parsing from /proc/loadavg
+- journalctl JSON parsing for crash events
+- Uptime parsing from /proc/uptime
+- pacman -Qtd for orphan detection
+- pacman -Qi for package details
+- Added num_cpus = "1.16" dependency for CPU core detection
+
+**Files Added:**
+- `crates/anna_common/src/system_health.rs` (~400 lines)
+- `crates/anna_common/src/orphaned_packages.rs` (~240 lines)
+
+**Impact:**
+Anna can now provide comprehensive system health monitoring:
+- 📊 **Performance Monitoring** (system load averages with per-core analysis)
+- 🔧 **Service Health** (daemon crash detection with exit codes and signals)
+- ⏱️ **Uptime Tracking** (system uptime and boot time)
+- 🗑️ **Package Cleanup** (orphaned package detection with size tracking)
+- ⚠️ **Safety Validation** (critical package protection during cleanup)
+- 💾 **Disk Space Recovery** (large orphan detection for space reclamation)
+
 ## [5.7.0-beta.35] - 2025-11-15
 
 ### Added - Security Features Detection 🔒🛡️

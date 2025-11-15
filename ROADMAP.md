@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.35
+**Current Version:** 5.7.0-beta.36
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -29,7 +29,7 @@ annactl "use Spanish"
 
 ---
 
-## Milestone 1 - Deep Caretaker 🚧 (In Progress - ~67% Complete)
+## Milestone 1 - Deep Caretaker 🚧 (In Progress - ~70% Complete)
 
 **Goal:** Anna proactively watches your system and suggests improvements based on Arch Wiki knowledge.
 
@@ -118,9 +118,9 @@ annactl "what's the state of my system?"
 - [x] Boot errors/warnings ✅ (beta.32)
 - [x] systemd failed units ✅ (beta.27)
 - [x] systemd slow-starting units ✅ (beta.27)
-- [ ] systemd daemon crashes
+- [x] systemd daemon crashes ✅ (beta.36)
 - [x] systemd critical timers ✅ (beta.27)
-- [ ] System load averages
+- [x] System load averages ✅ (beta.36)
 - [x] mkinitcpio/dracut config ✅ (beta.34)
 - [x] Missing initramfs hooks/modules ✅ (beta.34)
 - [x] Initramfs compression type ✅ (beta.34)
@@ -128,7 +128,7 @@ annactl "what's the state of my system?"
 - [x] Mirror speed/age ✅ (beta.28)
 - [x] pacman database corruption ✅ (beta.33)
 - [x] Partial upgrades ✅ (beta.33)
-- [ ] Orphaned packages
+- [x] Orphaned packages ✅ (beta.36)
 - [x] Unowned files ✅ (beta.33)
 - [x] Conflicting files ✅ (beta.33)
 - [x] Firewall type/status ✅ (beta.28)
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.36 | 2025-11-15 | Milestone 1 | System health: load averages, daemon crashes, uptime; orphaned packages (~640 lines) |
 | 5.7.0-beta.35 | 2025-11-15 | Milestone 1 | Security features: SELinux, AppArmor, Polkit, sudo, kernel lockdown (~650 lines) |
 | 5.7.0-beta.34 | 2025-11-15 | Milestone 1 | Initramfs config: mkinitcpio/dracut, hooks, modules, compression (~590 lines) |
 | 5.7.0-beta.33 | 2025-11-15 | Milestone 1 | Package health: database corruption, file conflicts, partial upgrades (~590 lines) |

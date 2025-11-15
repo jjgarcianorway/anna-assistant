@@ -324,6 +324,10 @@ pub struct SystemFacts {
     pub initramfs_info: Option<crate::initramfs::InitramfsInfo>, // Initramfs configuration (mkinitcpio/dracut, hooks, modules, compression)
     #[serde(default)]
     pub security_features: Option<crate::security_features::SecurityFeatures>, // Security features (SELinux, AppArmor, Polkit, sudo, kernel lockdown)
+    #[serde(default)]
+    pub system_health: Option<crate::system_health::SystemHealth>, // System health (load averages, daemon crashes, uptime)
+    #[serde(default)]
+    pub orphaned_packages: Option<crate::orphaned_packages::OrphanedPackages>, // Orphaned packages (pacman -Qtd, size tracking, removal safety)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

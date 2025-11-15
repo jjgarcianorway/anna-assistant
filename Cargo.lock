@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "5.7.0-beta.35"
+version = "5.7.0-beta.36"
 dependencies = [
  "anyhow",
  "atty",
@@ -48,6 +48,7 @@ dependencies = [
  "console",
  "libc",
  "nix 0.27.1",
+ "num_cpus",
  "owo-colors",
  "reqwest",
  "rusqlite",
@@ -66,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "5.7.0-beta.35"
+version = "5.7.0-beta.36"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -90,7 +91,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "5.7.0-beta.35"
+version = "5.7.0-beta.36"
 dependencies = [
  "anna_common",
  "anyhow",

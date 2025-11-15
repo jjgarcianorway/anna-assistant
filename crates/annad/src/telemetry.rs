@@ -27,6 +27,8 @@ use anna_common::kernel_modules::KernelModules;
 use anna_common::package_health::PackageHealth;
 use anna_common::initramfs::InitramfsInfo;
 use anna_common::security_features::SecurityFeatures;
+use anna_common::system_health::SystemHealth;
+use anna_common::orphaned_packages::OrphanedPackages;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -134,6 +136,8 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         package_health: Some(PackageHealth::detect()),
         initramfs_info: Some(InitramfsInfo::detect()),
         security_features: Some(SecurityFeatures::detect()),
+        system_health: Some(SystemHealth::detect()),
+        orphaned_packages: Some(OrphanedPackages::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

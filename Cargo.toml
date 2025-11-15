@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "5.7.0-beta.35"
+version = "5.7.0-beta.36"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -33,6 +33,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # System info
 sysinfo = "0.30"
+num_cpus = "1.16"
 
 # CLI
 clap = { version = "4.0", features = ["derive", "cargo"] }
