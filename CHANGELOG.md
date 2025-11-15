@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.17] - 2025-11-15
+
+### Fixed - Daemon Health Check CI Workflow 🔨
+
+**Problem:**
+The "Daemon Health Check" CI workflow has been failing since beta.12, blocking releases from passing all automated tests.
+
+**Root Cause:**
+The health check workflow was testing for outdated output format. It checked for `"state:"` in the `annactl status` output, but the modern status command outputs `"Anna Status Check"`, `"Core Health:"`, and `"Overall Status:"` instead.
+
+**Impact:**
+- CI builds showing red "failure" status since beta.12
+- Daemon health validation not running properly
+- Could miss actual daemon health issues
+
+**Fix:**
+Updated `.github/workflows/daemon-health.yml` line 166 to check for `"Anna Status Check"` instead of `"state:"`, matching the current `annactl status` output format.
+
+**Files Modified:**
+- Cargo.toml: version bump to 5.7.0-beta.17
+- CHANGELOG.md: detailed explanation of fix
+- .github/workflows/daemon-health.yml (line 166):
+  Changed grep check from `"state:"` to `"Anna Status Check"`
+
+This ensures CI health checks pass and properly validate daemon functionality.
+
 ## [5.7.0-beta.16] - 2025-11-15
 
 ### Fixed - Auto-Updater Cross-Filesystem Bug 🔧

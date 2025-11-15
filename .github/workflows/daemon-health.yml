@@ -162,11 +162,11 @@ jobs:
         OUTPUT=$(annactl status 2>&1 || true)
         echo "$OUTPUT"
 
-        # Should contain state information
-        if echo "$OUTPUT" | grep -q "state:"; then
-          echo "✓ annactl status returns valid state"
+        # Should contain status information
+        if echo "$OUTPUT" | grep -q "Anna Status Check"; then
+          echo "✓ annactl status returns valid status information"
         else
-          echo "✗ annactl status did not return state information"
+          echo "✗ annactl status did not return status information"
           exit 1
         fi
 
