@@ -76,6 +76,7 @@ pub mod system_health; // System health detection (load averages, daemon crashes
 pub mod systemd_health; // Systemd health detection (failed units, timers, journal)
 pub mod telemetry; // Telemetry structures from annad
 pub mod terminal_format; // Phase 8: Beautiful terminal formatting
+pub mod trend_detectors; // Milestone 1.3: Trend-based detection and proactive warnings
 pub mod types;
 pub mod updater;
 pub mod user_behavior; // User behavior pattern detection (commands, resources, development, gaming, security)

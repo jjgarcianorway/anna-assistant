@@ -316,8 +316,39 @@ impl CaretakerBrain {
 
         // 0. Build historical context if Historian is available
         // This enriches all subsequent analysis with trends and baselines
-        // TODO: Use historical context to enhance individual issue detection
         let _hist_context = historian.and_then(|h| Self::build_historical_context(h).ok());
+
+        // 0.5. Run trend-based detectors (Milestone 1.3)
+        // These use historical data to detect regressions and predict future issues
+        if let Some(h) = historian {
+            if let Ok(trend_detections) = crate::trend_detectors::run_all_detectors(h) {
+                for detection in trend_detections {
+                    let severity = match detection.severity {
+                        crate::trend_detectors::TrendSeverity::Critical => IssueSeverity::Critical,
+                        crate::trend_detectors::TrendSeverity::Warning => IssueSeverity::Warning,
+                        crate::trend_detectors::TrendSeverity::Info => IssueSeverity::Info,
+                    };
+
+                    let mut issue = CaretakerIssue::new(
+                        severity,
+                        detection.title,
+                        detection.description,
+                        detection.recommendation,
+                    );
+
+                    // Set repair action ID based on detector name
+                    issue.repair_action_id = Some(detection.detector_name);
+
+                    // Add supporting data as reference if available
+                    if !detection.supporting_data.is_empty() {
+                        let reference_text = detection.supporting_data.join("; ");
+                        issue.estimated_impact = Some(reference_text);
+                    }
+
+                    issues.push(issue);
+                }
+            }
+        }
 
         // 1. Analyze disk space (most common critical issue)
         if let Some(disk) = disk_analysis {

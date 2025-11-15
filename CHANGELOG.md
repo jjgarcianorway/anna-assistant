@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.51] - 2025-11-15
+
+### Added - Milestone 1.3: Trend-Based Detectors & Proactive Warnings
+
+**Intelligent Trend Analysis:**
+Anna now uses historical data to proactively detect problems before they become critical. The new trend detector system analyzes 30-day patterns to generate actionable warnings about system degradation and predict future issues.
+
+**New Module: Trend Detectors (`/home/lhoqvso/anna-assistant/crates/anna_common/src/trend_detectors.rs` - 370 lines):**
+
+6 intelligent detectors that use Historian data:
+
+1. **Boot Time Regression Detector** (lines 62-92):
+   - Alerts when boot time exceeds 15 seconds and is trending up
+   - Analyzes 30-day boot performance trends
+   - Recommends reviewing `systemd-analyze blame` output
+   - Example: "Boot time increasing: average 18.5s over last 30 days"
+
+2. **Memory Leak Detector** (lines 97-127):
+   - Detects sustained RAM growth over 30 days
+   - Triggers when memory usage trends upward above 4GB
+   - Suggests investigating long-running processes
+   - Example: "RAM usage steadily increasing: now averaging 6.2 GB"
+
+3. **Disk Growth Predictor** (lines 132-185):
+   - Calculates "disk will be full in N days" predictions
+   - Analyzes growth rates for /, /home, /var
+   - Severity levels: Critical (<7 days), Warning (<30 days), Info (<60 days)
+   - Example: "/ will be full in 22 days at current 1.2 GB/day growth rate"
+
+4. **Service Reliability Detector** (lines 190-233):
+   - Monitors service stability scores from Historian
+   - Alerts when services fall below 80% stability with crashes
+   - Provides journalctl commands for investigation
+   - Example: "nginx.service: 72% stability, 8 crashes recorded"
+
+5. **Performance Degradation Detector** (lines 238-298):
+   - Tracks overall system health scores (stability, performance, noise)
+   - Critical if scores below 50, Warning if below 70
+   - Analyzes 30-day health summary from Historian
+   - Example: "System health suboptimal: stability 65/100, performance 68/100"
+
+6. **CPU Pattern Detector** (lines 303-336):
+   - Detects sustained high CPU usage (>70%) with upward trend
+   - Warning severity for CPU >85%, Info for 70-85%
+   - Recommends reviewing cron jobs and systemd timers
+   - Example: "CPU averaging 78% over 30 days and increasing"
+
+**Caretaker Brain Integration (`/home/lhoqvso/anna-assistant/crates/anna_common/src/caretaker_brain.rs` lines 321-351):**
+- All trend detections automatically feed into the analyze() method
+- Trend detections become CaretakerIssues with appropriate severity
+- Supporting data added as estimated impact
+- Seamlessly integrates with existing issue detection
+
+**Detection Result Structure (lines 17-56):**
+```rust
+pub struct TrendDetection {
+    pub detector_name: String,      // e.g., "boot_regression"
+    pub severity: TrendSeverity,     // Info, Warning, Critical
+    pub title: String,               // "Boot Time Increasing"
+    pub description: String,         // Detailed explanation
+    pub recommendation: String,       // Actionable next steps
+    pub supporting_data: Vec<String>, // Evidence (timestamps, metrics)
+}
+```
+
+**Impact:**
+- Anna now predicts problems instead of just reacting to them
+- Disk space warnings come days/weeks before running out
+- Service reliability issues detected before production impact
+- Memory leaks caught early when still manageable
+- Boot time regressions identified when they start, not when unbearable
+
+**Files Modified:**
+- `crates/anna_common/src/trend_detectors.rs` (NEW - 370 lines)
+- `crates/anna_common/src/lib.rs`: Module export (line 79)
+- `crates/anna_common/src/caretaker_brain.rs`: Integration (lines 321-351)
+- `Cargo.toml`: Version bump to 5.7.0-beta.51
+
 ## [5.7.0-beta.50] - 2025-11-15
 
 ### Added - Historian Integration into Caretaker Brain: Historical Intelligence Now Active
