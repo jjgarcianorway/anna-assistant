@@ -64,9 +64,11 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 ### Sensors / Thermals / Battery (laptops)
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
-| Temps/fans | `sensors` | [lm_sensors](https://wiki.archlinux.org/title/Lm_sensors) | ❌ TODO |
-| TLP status | `tlp-stat -s -b` | [TLP](https://wiki.archlinux.org/title/TLP) | ❌ TODO |
-| Battery wear/capacity | `/sys/class/power_supply/BAT*/uevent` | [Laptop](https://wiki.archlinux.org/title/Laptop) | ❌ TODO |
+| Temps/fans | `sensors`, `/sys/class/nvme/*/device/hwmon`, `/sys/class/thermal` | [lm_sensors](https://wiki.archlinux.org/title/Lm_sensors) | ✅ Done (beta.29) |
+| TLP status | `systemctl status tlp`, `power-profiles-daemon` | [TLP](https://wiki.archlinux.org/title/TLP) | ✅ Done (beta.29) |
+| Battery wear/capacity | `/sys/class/power_supply/BAT*/` | [Laptop](https://wiki.archlinux.org/title/Laptop) | ✅ Done (beta.29) |
+| Memory/Swap usage | `/proc/meminfo`, `/proc/swaps`, `/proc/pressure/memory` | [Swap](https://wiki.archlinux.org/title/Swap) | ✅ Done (beta.29) |
+| OOM events | `journalctl -k` (kernel log) | [OOM killer](https://wiki.archlinux.org/title/Out_of_memory) | ✅ Done (beta.29) |
 
 ### Virtualization / Containers
 | Fact | Source | Wiki Page | Status |

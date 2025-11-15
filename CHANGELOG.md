@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.29] - 2025-11-15
+
+### Added - Hardware Monitoring: Sensors, Power & Memory 🌡️🔋💾
+
+**Hardware Sensors Detection:**
+Anna now monitors hardware temperatures, fan speeds, and voltages:
+- CPU temperature detection via lm_sensors with multiple fallback patterns (Core 0, Tctl, Package id 0)
+- GPU temperature detection supporting NVIDIA, AMD, and Intel GPUs
+- NVMe temperature monitoring via /sys/class/nvme/*/device/hwmon
+- Fan speed detection in RPM for all system fans
+- Voltage readings (Vcore, 12V, etc.) from hardware monitoring chips
+- Thermal zone detection via /sys/class/thermal for comprehensive temperature monitoring
+- Graceful fallback when lm_sensors is unavailable using kernel interfaces
+
+**Power and Battery Detection:**
+Complete laptop power management awareness:
+- Power source detection (AC vs Battery vs Unknown)
+- Battery health percentage calculation (capacity_full / capacity_design * 100)
+- Battery charge percentage and current status (Charging, Discharging, Full)
+- Battery capacity tracking (design, full, and current in Wh or mAh)
+- Charge cycle counting when available
+- Current power draw measurement in watts
+- Battery technology detection (Li-ion, Li-poly, etc.)
+- Power management daemon detection (TLP, power-profiles-daemon, laptop-mode-tools)
+- Service status tracking (running and enabled states)
+- Multiple power supply enumeration and counting
+
+**Memory Usage Detection:**
+Comprehensive RAM and swap monitoring:
+- Total, available, and used RAM in GB with usage percentage
+- Buffers and cached memory tracking
+- Swap configuration detection (type: partition, file, zram, mixed, none)
+- Individual swap device enumeration with size, usage, and priority
+- OOM (Out of Memory) event detection from kernel logs (last 24 hours)
+- OOM event parsing with killed process name, PID, and OOM score
+- Memory pressure monitoring via PSI (Pressure Stall Information)
+- PSI metrics for "some" and "full" pressure at 10s, 60s, and 300s intervals
+- Automatic detection via /proc/meminfo, /proc/swaps, and /proc/pressure/memory
+
+**Implementation:**
+- New `sensors` module in `anna_common` with `SensorsInfo::detect()` (~290 lines)
+- New `power` module in `anna_common` with `PowerInfo::detect()` (~295 lines)
+- New `memory_usage` module in `anna_common` with `MemoryUsageInfo::detect()` (~350 lines)
+- All three modules integrated into `SystemFacts` telemetry
+- Multiple detection methods with graceful fallbacks
+- Comprehensive enum types for strong typing (PowerSource, PowerDaemon, SwapType)
+
+**Files Added:**
+- `crates/anna_common/src/sensors.rs` (~290 lines)
+- `crates/anna_common/src/power.rs` (~295 lines)
+- `crates/anna_common/src/memory_usage.rs` (~350 lines)
+
+**Impact:**
+Anna now has real-time hardware monitoring capabilities:
+- Thermal monitoring for overheating detection and throttling issues
+- Laptop battery health tracking and degradation warnings
+- Memory pressure awareness for OOM prevention
+- Power management optimization recommendations
+- ~935 lines of new detection code for critical hardware metrics
+
 ## [5.7.0-beta.28] - 2025-11-15
 
 ### Added - Graphics, Security, Virtualization & Package Management Detection 🔐🎨

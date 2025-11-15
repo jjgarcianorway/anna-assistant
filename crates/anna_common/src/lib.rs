@@ -36,12 +36,14 @@ pub mod language; // Language system with natural configuration
 pub mod learning;
 pub mod llm; // Task 12: LLM abstraction layer
 pub mod llm_upgrade; // Step 3: Hardware upgrade detection for brain improvements
+pub mod memory_usage; // Memory usage detection (RAM, swap, OOM events)
 pub mod model_profiles; // Data-driven model selection with upgrade paths
 pub mod network_config; // Network configuration detection (DNS, NetworkManager, Wi-Fi)
 pub mod ollama_installer; // Automatic local LLM bootstrap
 pub mod package_mgmt; // Package management configuration (pacman.conf, mirrorlist, AUR)
 pub mod paths;
 pub mod personality; // Phase 5.1: Conversational personality controls
+pub mod power; // Power and battery detection (health, cycles, AC status, TLP)
 pub mod prediction;
 pub mod profile;
 pub mod prediction_actions;
@@ -49,6 +51,7 @@ pub mod prompt_builder; // Phase 9: LLM prompt construction with safety
 pub mod recipe_validator; // Phase 9: LLM response parsing and validation
 pub mod rollback;
 pub mod security; // Security configuration (firewall, SSH config, umask)
+pub mod sensors; // Hardware sensors detection (CPU/GPU temps, fan speeds)
 pub mod self_healing;
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod suggestion_engine; // Task 8: Deep Caretaker v0.1 - Rule-based suggestion generation

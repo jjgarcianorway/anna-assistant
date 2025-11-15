@@ -306,6 +306,12 @@ pub struct SystemFacts {
     pub virtualization_info: Option<crate::virtualization::VirtualizationInfo>, // Virtualization (KVM, Docker, libvirt)
     #[serde(default)]
     pub package_mgmt_info: Option<crate::package_mgmt::PackageManagementInfo>, // Package management (pacman.conf, mirrorlist, AUR)
+    #[serde(default)]
+    pub sensors_info: Option<crate::sensors::SensorsInfo>, // Hardware sensors (CPU/GPU temps, fan speeds)
+    #[serde(default)]
+    pub power_info: Option<crate::power::PowerInfo>, // Power and battery (health, cycles, AC status, TLP)
+    #[serde(default)]
+    pub memory_usage_info: Option<crate::memory_usage::MemoryUsageInfo>, // Memory usage (RAM, swap, OOM events)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

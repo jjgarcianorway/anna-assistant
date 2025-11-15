@@ -18,6 +18,9 @@ use anna_common::graphics::GraphicsInfo;
 use anna_common::security::SecurityInfo;
 use anna_common::virtualization::VirtualizationInfo;
 use anna_common::package_mgmt::PackageManagementInfo;
+use anna_common::sensors::SensorsInfo;
+use anna_common::power::PowerInfo;
+use anna_common::memory_usage::MemoryUsageInfo;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -116,6 +119,9 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         security_info: Some(SecurityInfo::detect()),
         virtualization_info: Some(VirtualizationInfo::detect()),
         package_mgmt_info: Some(PackageManagementInfo::detect()),
+        sensors_info: Some(SensorsInfo::detect()),
+        power_info: Some(PowerInfo::detect()),
+        memory_usage_info: Some(MemoryUsageInfo::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()
