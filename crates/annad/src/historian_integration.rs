@@ -106,9 +106,7 @@ impl HistorianIntegration {
     }
 
     /// Record boot information from system facts
-    /// NOTE: Current telemetry doesn't collect detailed boot metrics (boot_id, durations, etc.)
-    /// This is a placeholder for when boot telemetry is enhanced.
-    /// For now, we extract what we can from systemd_health (failed units)
+    /// Collects real boot metrics from systemd-analyze and system files
     pub fn record_boot_data(&self, facts: &SystemFacts) {
         if !self.circuit_breaker.should_attempt() {
             return;
@@ -118,60 +116,91 @@ impl HistorianIntegration {
         let circuit_breaker = Arc::clone(&self.circuit_breaker);
         let systemd_health = facts.systemd_health.clone();
 
-        tokio::spawn(async move {
+        tokio::task::spawn_blocking(move || {
             // Try to get boot ID from system
             let boot_id_result = std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
                 .ok()
                 .map(|s| s.trim().to_string());
 
-            if let Some(boot_id) = boot_id_result {
-                if let Ok(historian_lock) = historian.try_lock() {
-                    let now = Utc::now();
+            // Collect real boot metrics
+            let boot_duration_ms = crate::process_stats::get_boot_duration_ms();
+            let slowest_units_raw = crate::process_stats::get_slowest_units(10);
 
-                    // Extract failed units from systemd health
-                    let failed_units = systemd_health
-                        .as_ref()
-                        .map(|h| h.failed_units.iter().map(|u| u.name.clone()).collect())
-                        .unwrap_or_else(Vec::new);
+            tokio::spawn(async move {
+                if let Some(boot_id) = boot_id_result {
+                    if let Ok(historian_lock) = historian.try_lock() {
+                        let now = Utc::now();
 
-                    // Create a basic boot event
-                    // Most fields are None because current telemetry doesn't collect this data
-                    let boot_health_score = if failed_units.is_empty() { 100 } else { 75 };
-                    let boot_event = BootEvent {
-                        boot_id: boot_id.clone(),
-                        boot_timestamp: now, // Approximate - actual boot time not tracked
-                        shutdown_timestamp: None,
-                        boot_duration_ms: None, // Not tracked yet
-                        shutdown_duration_ms: None,
-                        target_reached: "graphical.target".to_string(), // Assumed
-                        time_to_target_ms: None, // Not tracked yet
-                        slowest_units: Vec::new(), // Not tracked yet
-                        failed_units,
-                        degraded_units: Vec::new(),
-                        fsck_triggered: false, // Not tracked yet
-                        fsck_duration_ms: None,
-                        kernel_errors: Vec::new(),
-                        boot_health_score, // Simple heuristic
-                    };
+                        // Extract failed units from systemd health
+                        let failed_units = systemd_health
+                            .as_ref()
+                            .map(|h| h.failed_units.iter().map(|u| u.name.clone()).collect())
+                            .unwrap_or_else(Vec::new);
 
-                    match historian_lock.record_boot_event(&boot_event) {
-                        Ok(_) => {
-                            circuit_breaker.record_success();
-                            info!("Recorded boot event to Historian (boot_id: {})", boot_id);
-                        }
-                        Err(e) => {
-                            circuit_breaker.record_failure();
-                            warn!("Failed to record boot event to Historian: {}", e);
+                        // Convert slowest units to SlowUnit structs
+                        let slowest_units: Vec<SlowUnit> = slowest_units_raw
+                            .into_iter()
+                            .map(|(unit, duration_ms)| SlowUnit {
+                                unit,
+                                duration_ms,
+                            })
+                            .collect();
+
+                        // Calculate boot health score based on multiple factors
+                        let boot_health_score = if failed_units.is_empty() && boot_duration_ms.is_some() {
+                            let duration = boot_duration_ms.unwrap();
+                            if duration < 10000 {
+                                100 // Fast boot, no failures
+                            } else if duration < 30000 {
+                                85 // Moderate boot, no failures
+                            } else {
+                                70 // Slow boot, no failures
+                            }
+                        } else if failed_units.is_empty() {
+                            90 // No failures but no boot time data
+                        } else if failed_units.len() <= 2 {
+                            60 // Few failures
+                        } else {
+                            40 // Many failures
+                        };
+
+                        let boot_event = BootEvent {
+                            boot_id: boot_id.clone(),
+                            boot_timestamp: now, // Approximate - actual boot time not tracked
+                            shutdown_timestamp: None,
+                            boot_duration_ms,
+                            shutdown_duration_ms: None,
+                            target_reached: "graphical.target".to_string(), // Assumed
+                            time_to_target_ms: boot_duration_ms, // Same as boot duration for now
+                            slowest_units,
+                            failed_units,
+                            degraded_units: Vec::new(),
+                            fsck_triggered: false, // Not tracked yet
+                            fsck_duration_ms: None,
+                            kernel_errors: Vec::new(),
+                            boot_health_score,
+                        };
+
+                        match historian_lock.record_boot_event(&boot_event) {
+                            Ok(_) => {
+                                circuit_breaker.record_success();
+                                let duration_str = boot_duration_ms
+                                    .map(|ms| format!("{} ms", ms))
+                                    .unwrap_or_else(|| "unknown".to_string());
+                                info!("Recorded boot event to Historian (boot_id: {}, duration: {})", boot_id, duration_str);
+                            }
+                            Err(e) => {
+                                circuit_breaker.record_failure();
+                                warn!("Failed to record boot event to Historian: {}", e);
+                            }
                         }
                     }
                 }
-            }
+            });
         });
     }
 
     /// Record CPU usage sample from system facts
-    /// NOTE: Current telemetry doesn't track detailed CPU usage percentage
-    /// This is a placeholder - we use basic system load instead
     pub fn record_cpu_sample(&self, facts: &SystemFacts) {
         if !self.circuit_breaker.should_attempt() {
             return;
@@ -184,41 +213,42 @@ impl HistorianIntegration {
         let now = Utc::now();
         let window_start = now - chrono::Duration::hours(1);
 
-        // Estimate CPU usage from number of cores
-        let cpu_cores = facts.cpu_cores as f64;
-        let cpu_usage = 0.0; // Not tracked in current telemetry - placeholder
-
-        let top_processes: Vec<ProcessCpuInfo> = Vec::new(); // Not tracked yet
-
         let throttle_count = facts.cpu_throttling.as_ref()
             .map(|t| if t.throttling_events.has_throttling { 1 } else { 0 })
             .unwrap_or(0);
 
-        tokio::spawn(async move {
-            if let Ok(historian_lock) = historian.try_lock() {
-                let cpu_sample = CpuSample {
-                    timestamp: now,
-                    window_start,
-                    window_end: now,
-                    avg_utilization_percent: cpu_usage,
-                    peak_utilization_percent: cpu_usage,
-                    idle_background_percent: Some(100.0 - cpu_usage),
-                    throttle_event_count: throttle_count,
-                    spike_count: 0, // Not tracked yet
-                    top_processes,
-                };
+        tokio::task::spawn_blocking(move || {
+            // Collect real CPU stats using sysinfo
+            let (avg_cpu, peak_cpu) = crate::process_stats::get_cpu_utilization();
+            let top_processes = crate::process_stats::get_top_cpu_processes(5);
 
-                match historian_lock.record_cpu_sample(&cpu_sample) {
-                    Ok(_) => {
-                        circuit_breaker.record_success();
-                        info!("Recorded CPU sample to Historian");
-                    }
-                    Err(e) => {
-                        circuit_breaker.record_failure();
-                        warn!("Failed to record CPU sample to Historian: {}", e);
+            tokio::spawn(async move {
+                if let Ok(historian_lock) = historian.try_lock() {
+                    let process_count = top_processes.len();
+                    let cpu_sample = CpuSample {
+                        timestamp: now,
+                        window_start,
+                        window_end: now,
+                        avg_utilization_percent: avg_cpu,
+                        peak_utilization_percent: peak_cpu,
+                        idle_background_percent: Some(100.0 - avg_cpu),
+                        throttle_event_count: throttle_count,
+                        spike_count: 0, // TODO: Implement spike detection with history
+                        top_processes,
+                    };
+
+                    match historian_lock.record_cpu_sample(&cpu_sample) {
+                        Ok(_) => {
+                            circuit_breaker.record_success();
+                            info!("Recorded CPU sample to Historian ({:.1}% avg, {} processes)", avg_cpu, process_count);
+                        }
+                        Err(e) => {
+                            circuit_breaker.record_failure();
+                            warn!("Failed to record CPU sample to Historian: {}", e);
+                        }
                     }
                 }
-            }
+            });
         });
     }
 
@@ -236,49 +266,51 @@ impl HistorianIntegration {
 
         // Extract memory data
         let memory_usage_info = facts.memory_usage_info.clone();
-        let swap_config = facts.swap_config.clone();
 
-        tokio::spawn(async move {
-            if let Some(mem) = memory_usage_info {
-                if let Ok(historian_lock) = historian.try_lock() {
-                    let ram_used_mb = (mem.used_ram_gb * 1024.0) as i64;
-                    let swap_used_mb = (mem.swap.used_gb * 1024.0) as i64;
+        tokio::task::spawn_blocking(move || {
+            // Collect real process memory stats
+            let top_memory_hogs = crate::process_stats::get_top_memory_processes(5);
 
-                    let top_memory_hogs: Vec<ProcessMemoryInfo> = Vec::new(); // Not tracked yet
+            tokio::spawn(async move {
+                if let Some(mem) = memory_usage_info {
+                    if let Ok(historian_lock) = historian.try_lock() {
+                        let ram_used_mb = (mem.used_ram_gb * 1024.0) as i64;
+                        let swap_used_mb = (mem.swap.used_gb * 1024.0) as i64;
 
-                    let oom_kill_count = mem.oom_events.len() as i32;
-                    let oom_victims = mem.oom_events.iter()
-                        .map(|e| OomVictim {
-                            process: e.killed_process.clone(),
-                            timestamp: now, // Approximate - OOMEvent doesn't have parsed timestamp
-                        })
-                        .collect();
+                        let oom_kill_count = mem.oom_events.len() as i32;
+                        let oom_victims = mem.oom_events.iter()
+                            .map(|e| OomVictim {
+                                process: e.killed_process.clone(),
+                                timestamp: now, // Approximate - OOMEvent doesn't have parsed timestamp
+                            })
+                            .collect();
 
-                    let memory_sample = MemorySample {
-                        timestamp: now,
-                        window_start,
-                        window_end: now,
-                        avg_ram_used_mb: ram_used_mb,
-                        peak_ram_used_mb: ram_used_mb, // We don't track peak separately yet
-                        avg_swap_used_mb: swap_used_mb,
-                        peak_swap_used_mb: swap_used_mb,
-                        oom_kill_count,
-                        oom_victims,
-                        top_memory_hogs,
-                    };
+                        let memory_sample = MemorySample {
+                            timestamp: now,
+                            window_start,
+                            window_end: now,
+                            avg_ram_used_mb: ram_used_mb,
+                            peak_ram_used_mb: ram_used_mb, // We don't track peak separately yet
+                            avg_swap_used_mb: swap_used_mb,
+                            peak_swap_used_mb: swap_used_mb,
+                            oom_kill_count,
+                            oom_victims,
+                            top_memory_hogs,
+                        };
 
-                    match historian_lock.record_memory_sample(&memory_sample) {
-                        Ok(_) => {
-                            circuit_breaker.record_success();
-                            info!("Recorded memory sample to Historian ({} MB RAM used, {} OOM events)", ram_used_mb, oom_kill_count);
-                        }
-                        Err(e) => {
-                            circuit_breaker.record_failure();
-                            warn!("Failed to record memory sample to Historian: {}", e);
+                        match historian_lock.record_memory_sample(&memory_sample) {
+                            Ok(_) => {
+                                circuit_breaker.record_success();
+                                info!("Recorded memory sample to Historian ({} MB RAM used, {} OOM events)", ram_used_mb, oom_kill_count);
+                            }
+                            Err(e) => {
+                                circuit_breaker.record_failure();
+                                warn!("Failed to record memory sample to Historian: {}", e);
+                            }
                         }
                     }
                 }
-            }
+            });
         });
     }
 

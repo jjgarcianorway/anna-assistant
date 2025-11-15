@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.52] - 2025-11-15
+
+### Added - Milestone 1.4: Real Telemetry Collection with sysinfo
+
+**From Placeholders to Reality:**
+Beta.48-51 built the Historian infrastructure, but it was recording placeholder data (CPU: 0.0%, empty process lists). Beta.52 completes the loop by connecting real system data to the Historian database.
+
+**New Module: Process Statistics (`/home/lhoqvso/anna-assistant/crates/annad/src/process_stats.rs` - 180 lines):**
+
+Real-time data collection using `sysinfo` crate:
+
+1. **CPU Statistics Collection** (lines 10-42):
+   - `get_top_cpu_processes(limit)` - Returns top N CPU-consuming processes
+   - `get_cpu_utilization()` - Calculates average and peak CPU usage across all cores
+   - 200ms sampling delay for accurate measurements
+   - Filters out idle processes (<0.1% CPU)
+   - Returns `ProcessCpuInfo` with name, cpu_percent, cumulative_time_ms
+
+2. **Memory Statistics Collection** (lines 45-72):
+   - `get_top_memory_processes(limit)` - Returns top N memory-consuming processes
+   - Filters out tiny processes (<10MB RSS)
+   - Returns `ProcessMemoryInfo` with name and rss_mb
+
+3. **Boot Metrics via systemd-analyze** (lines 75-126):
+   - `get_boot_duration_ms()` - Parses "systemd-analyze time" output
+   - `get_slowest_units(limit)` - Parses "systemd-analyze blame" output
+   - Extracts actual boot performance data for Historian
+
+4. **CPU Spike Detection** (lines 128-163):
+   - `detect_cpu_spikes()` - Compares current vs historical average
+   - Threshold-based spike counting for trend analysis
+
+**Enhanced Integration (`/home/lhoqvso/anna-assistant/crates/annad/src/historian_integration.rs`):**
+
+Updated all three data recording functions to use real data:
+
+1. **Boot Data Recording** (lines 108-201):
+   - BEFORE: boot_duration_ms: None, slowest_units: Vec::new()
+   - AFTER: Real boot metrics from systemd-analyze
+   - Improved boot health scoring based on actual duration
+   - 10 slowest units tracked with load times
+
+2. **CPU Sample Recording** (lines 203-253):
+   - BEFORE: avg_cpu: 0.0, top_processes: empty
+   - AFTER: Real CPU usage from sysinfo
+   - Uses `spawn_blocking` for non-blocking collection
+   - Tracks top 5 CPU-consuming processes
+
+3. **Memory Sample Recording** (lines 255-314):
+   - BEFORE: Empty process list placeholders
+   - AFTER: Real top 5 memory hogs from sysinfo
+   - Uses `spawn_blocking` for system call isolation
+
+**What This Enables:**
+
+Now the Historian has real data to analyze:
+- Trend detectors (Beta.51) can detect actual boot time regressions
+- Memory leak detection works with real memory samples
+- Disk predictions use actual growth rates
+- Service reliability tracking based on real crash data
+- Performance degradation alerts from genuine metrics
+
+**Before:** "Historian with eyes closed" - collecting 0.0% CPU, empty process lists
+**After:** "Historian with eyes open" - real system metrics flowing into the database
+
+Files Modified:
+- Cargo.toml: version 5.7.0-beta.52
+- ROADMAP.md: Added Beta.52 to version history
+- CHANGELOG.md: This entry
+- crates/annad/src/process_stats.rs: NEW - 180 lines of real data collection
+- crates/annad/src/main.rs: Added process_stats module declaration
+- crates/annad/src/historian_integration.rs: Updated boot/CPU/memory recording
+
 ## [5.7.0-beta.51] - 2025-11-15
 
 ### Added - Milestone 1.3: Trend-Based Detectors & Proactive Warnings

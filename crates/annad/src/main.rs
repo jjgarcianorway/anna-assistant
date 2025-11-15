@@ -88,6 +88,7 @@ mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod historian_integration; // Phase 5.7: Historian integration
+mod process_stats; // Phase 5.7: Process statistics for Historian
 mod install; // Phase 0.8: Installation subsystem
 mod llm_bootstrap; // LLM auto-detection and configuration
 mod mirror; // Phase 1.4: Mirror Protocol
