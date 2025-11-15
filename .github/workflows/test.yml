@@ -121,6 +121,7 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
+        rustflags: ''
         cache: true  # Enable cargo caching
 
     - name: Build with Rust ${{ matrix.rust }}
@@ -138,6 +139,7 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
+        rustflags: ''
         cache: true
 
     - name: Install cargo-audit
