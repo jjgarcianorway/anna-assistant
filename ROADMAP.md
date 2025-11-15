@@ -159,9 +159,9 @@ annactl "what's the state of my system?"
 - [x] Multi-monitor issues ✅ (beta.43)
 
 #### User Behavior Detection
-- [ ] Command execution patterns
-- [ ] Resource usage patterns
-- [ ] Disk usage patterns
+- [x] Command execution patterns ✅ (beta.44)
+- [x] Resource usage patterns ✅ (beta.44)
+- [x] Disk usage patterns ✅ (beta.44)
 - [ ] Networking behavior
 - [ ] Application behavior
 - [ ] Gaming/GPU usage patterns

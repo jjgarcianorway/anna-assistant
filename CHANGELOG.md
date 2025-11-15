@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.44] - 2025-11-15
+
+### Added - User Behavior Patterns Part 1 👤
+
+**Command Execution Patterns:**
+Anna now analyzes your command usage:
+- bash_history/zsh_history/fish_history parsing
+- Top command frequency tracking (top 20 commands)
+- Total and unique command counting
+- Shell type detection
+- Command usage distribution analysis
+- Historical command pattern analysis
+
+**Resource Usage Patterns:**
+System resource consumption tracking:
+- Typical CPU usage percentage
+- Typical memory usage patterns
+- Peak usage time identification
+- Resource-intensive application detection
+- Usage trend analysis
+
+**Disk Usage Patterns:**
+File and storage behavior analysis:
+- File type distribution analysis by extension
+- Largest directory identification
+- Total file counting
+- Storage growth rate tracking
+- Home directory analysis
+
+**Implementation Details:**
+- `user_behavior.rs`: 600 lines - comprehensive behavior analysis
+- Multi-shell support (bash/zsh/fish)
+- Historical data analysis
+- Pattern recognition algorithms
+- Usage profiling
+
+**Detection Items (94/99):**
+- Command execution patterns detection
+- Resource usage patterns detection
+- Disk usage patterns detection
+
 ## [5.7.0-beta.43] - 2025-11-15
 
 ### Added - Display Issues Detection 🖥️

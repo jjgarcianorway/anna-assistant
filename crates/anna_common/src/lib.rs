@@ -76,6 +76,7 @@ pub mod telemetry; // Telemetry structures from annad
 pub mod terminal_format; // Phase 8: Beautiful terminal formatting
 pub mod types;
 pub mod updater;
+pub mod user_behavior; // User behavior pattern detection (commands, resources, development, gaming, security)
 pub mod virtualization; // Virtualization and containerization (KVM, Docker, libvirt)
 
 pub use advice_cache::*;
