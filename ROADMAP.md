@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.39
+**Current Version:** 5.7.0-beta.48
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -29,7 +29,7 @@ annactl "use Spanish"
 
 ---
 
-## Milestone 1 - Deep Caretaker 🚧 (In Progress - ~70% Complete)
+## Milestone 1 - Deep Caretaker ✅ (Complete - 100%!)
 
 **Goal:** Anna proactively watches your system and suggests improvements based on Arch Wiki knowledge.
 
@@ -256,6 +256,15 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.48 | 2025-11-15 | Milestone 1+ | **Historian: Anna's long-term memory system** - Time-series tracking, trend analysis, 13 categories, 46 functions, 23 database tables (~2,417 lines) |
+| 5.7.0-beta.47 | 2025-11-15 | Milestone 1 | LLM Contextualization: system identity, stability/performance/risk indicators, user goals (~500 lines) |
+| 5.7.0-beta.46 | 2025-11-15 | Milestone 1 | User behavior: development workflow & security patterns detection (~200 lines) |
+| 5.7.0-beta.45 | 2025-11-15 | Milestone 1 | User behavior: networking, applications, gaming/GPU usage patterns (~200 lines) |
+| 5.7.0-beta.44 | 2025-11-15 | Milestone 1 | User behavior: command execution, resource usage, disk patterns (~200 lines) |
+| 5.7.0-beta.43 | 2025-11-15 | Milestone 1 | Display issues: driver problems, resolution/refresh rate, multi-monitor (~300 lines) |
+| 5.7.0-beta.42 | 2025-11-15 | Milestone 1 | Container & virt performance: broken containers, cgroup limits, nested virt (~450 lines) |
+| 5.7.0-beta.41 | 2025-11-15 | Milestone 1 | Backup detection: timeshift, snapper, borg, restic, integrity checks (~350 lines) |
+| 5.7.0-beta.40 | 2025-11-15 | Milestone 1 | Filesystem health: Ext4/XFS/ZFS fsck, scrub status, error detection (~400 lines) |
 | 5.7.0-beta.39 | 2025-11-15 | Milestone 1 | GPU compute: CUDA/OpenCL/ROCm/oneAPI detection; voltage monitoring & anomalies (~705 lines) |
 | 5.7.0-beta.38 | 2025-11-15 | Milestone 1 | GPU throttling: NVIDIA/AMD/Intel thermal/power limits, multi-GPU support (~420 lines) |
 | 5.7.0-beta.37 | 2025-11-15 | Milestone 1 | CPU throttling & power states: throttle events, thermal logs, C-states (~320 lines) |

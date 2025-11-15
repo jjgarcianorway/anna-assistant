@@ -36,6 +36,7 @@ pub mod display;
 pub mod github_releases;
 pub mod graphics; // Graphics and display detection (Vulkan, OpenGL, session type)
 pub mod hardware_capability; // Hardware capability detection for local LLM
+pub mod historian; // Historian - Long-term memory and trend analysis system
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod kernel_modules; // Kernel and boot detection (installed kernels, modules, boot config)

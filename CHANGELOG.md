@@ -7,6 +7,205 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.48] - 2025-11-15
+
+### Added - Historian: Anna's Long-Term Memory System 🧠📊
+
+**The Historian System - Complete Time-Series Tracking:**
+This is a foundational infrastructure release that transforms Anna from a "snapshot detector" into a system historian with comprehensive long-term memory and trend analysis capabilities.
+
+**Implementation Statistics:**
+- 2,417 total lines (575 schema + 1,842 implementation)
+- 46 public functions across 11 functional categories
+- 39 data structures for time-series tracking
+- SQLite-based persistent storage at `/var/lib/anna/historian.db`
+
+**Category 1: Global Timeline & Events**
+Timeline tracking since installation:
+- System installation date and version
+- All upgrades with timestamps (from→to version tracking)
+- Rollbacks, failed upgrades, partial upgrades
+- Kernel changes over time
+- Config migrations performed by Anna
+- Self-repair history: what was fixed, when, and whether it held or regressed
+- Enables answering "when did this start" and "what changed before it broke"
+
+**Category 2: Boot & Shutdown Analysis**
+Per-boot event logging and aggregates:
+- Boot timestamp, duration, and shutdown duration
+- Time to reach target (graphical/multi-user)
+- Slowest units with exact time cost
+- Boot failures and degraded units
+- Filesystem check triggers and duration
+- Kernel errors during early boot
+- Shutdown blocking services
+- Aggregated metrics: average boot time (7-day/30-day), trending analysis
+- Boot health score per boot with moving averages
+
+**Category 3: CPU Usage & Performance Trends**
+Hourly CPU sampling with historical aggregates:
+- Average and peak CPU utilization per core
+- Background load when "idle"
+- Top N processes by cumulative CPU time
+- Thermal throttling event counts
+- 100% spike detection (sustained high usage)
+- Trend analysis: "more background load than one month ago"
+- Identification of new processes becoming CPU hogs
+
+**Category 4: Memory & Swap Behavior**
+Memory usage tracking over time:
+- Average and peak RAM usage
+- Swap usage patterns and trends
+- OOM kill tracking with victim identification
+- Baseline RAM usage (right after boot vs current)
+- Swap dependency trend (rarely/often/constantly used)
+- Chronic memory hog identification
+- Memory footprint growth after updates
+
+**Category 5: Disk Space, I/O & Growth**
+Filesystem and I/O performance tracking:
+- Daily free space snapshots per filesystem
+- Growth rate per directory (/home, /var, /var/log, caches, containers)
+- Top directories contributing to growth
+- I/O stats: throughput, queue depth, latency buckets
+- Historical free space threshold crossing (80%, 90%)
+- Long-term growth curves and predictions
+- Log file explosion detection
+- I/O spike correlation with services/apps
+
+**Category 6: Network Quality & Stability**
+Network performance monitoring:
+- Latency tracking to gateway, DNS, mirrors
+- Packet loss percentage over time
+- Disconnect/reconnect event counting
+- DHCP renew failures
+- DNS resolution failures
+- VPN connect/disconnect events
+- Baseline latency vs current deviation
+- Time-of-day connectivity patterns
+- Interface stability scoring
+
+**Category 7: Service & Daemon Reliability**
+Per-service tracking for critical daemons:
+- Restart counts (crash vs intentional)
+- Time spent in failed state
+- Average start time trends
+- Config change timestamps
+- Stability score per service (0-100)
+- Flaky unit identification
+- Time since last crash
+- Reliability trend over releases
+
+**Category 8: Error & Warning Statistics**
+Intelligent log analysis:
+- Error/warning/critical count aggregation
+- Error source identification (service/kernel/application)
+- New error signature detection (never seen before)
+- Error rate trends (per hour/day)
+- Top recurring error messages
+- First occurrence tracking per signature
+- Correlation: errors that disappeared after repairs
+
+**Category 9: Performance Baselines & Deltas**
+Known-good state tracking:
+- Boot time baseline
+- Idle resource baseline (CPU/RAM/disk/network)
+- Custom workflow performance snapshots
+- Deviation from baseline with percentage change
+- Before/after measurements for big changes (GPU driver, kernel, LLM model)
+- Impact scoring for Anna repairs ("boot time reduced by 18%")
+
+**Category 10: User Behavior Statistics**
+Non-invasive usage pattern tracking:
+- Typical active hours
+- Heavy load vs low load periods
+- Common applications per time of day
+- Package update frequency
+- Anna invocation patterns
+- Anomaly detection (sudden heavy overnight CPU)
+- Optimization opportunity identification
+- Suggestion effectiveness correlation
+
+**Category 11: LLM Performance Statistics**
+LLM backend tracking:
+- Average latency of LLM responses
+- Memory footprint during inference
+- GPU/CPU utilization when model active
+- Failed LLM call tracking
+- Model change history (upgrades/downgrades)
+- Hardware requirement tracking
+- Performance impact of model changes
+- Temperature and fan noise correlation
+
+**Category 12: Self-Repair Effectiveness**
+Repair outcome tracking:
+- Trigger cause (health check/user request/startup)
+- Concrete actions taken
+- Metrics before and after (boot time, RAM, error rate)
+- Problem recurrence detection
+- User feedback integration (helpful/no change/made worse)
+- Repair success rate aggregation
+- Common recurring problems identification
+- Risky repair classification
+
+**Category 13: Synthesized Health Indicators**
+High-level system health scores:
+- Stability score (0-100) from all subsystems
+- Performance score (0-100) aggregated
+- Noise score (log verbosity/error rate)
+- Trend arrows for each score (↑/→/↓)
+- Last major regression identification + cause
+- Last major improvement identification + cause
+- Simple numbers the LLM can cite to users
+
+**Query APIs for LLM Integration:**
+Purpose-built query functions for intelligent analysis:
+- `get_system_summary()` - comprehensive state + recent trends
+- `answer_when_did_this_start(problem)` - correlate events with problem onset
+- `what_changed_before(timestamp)` - timeline of changes
+- `get_repair_impact(repair_id)` - before/after comparison
+- `recommend_baseline_update()` - suggest new baseline after improvements
+
+**Technical Implementation:**
+- SQLite with rusqlite for embedded database
+- ISO 8601 timestamp storage (human-readable, sortable)
+- JSON storage for flexible schema evolution
+- SHA256-based error signature deduplication
+- Linear regression for trend calculation
+- Pre-computed daily aggregates for fast queries
+- Automatic schema migration with version tracking
+- Prepared statements for query performance
+
+**Database Schema:**
+23 tables covering:
+- Events: system_timeline, repair_history, boot_events, vpn_events
+- Time-series: cpu_samples, memory_samples, disk_space_samples, io_samples, network_samples, llm_samples
+- Aggregates: boot_aggregates, cpu_aggregates, memory_aggregates, service_aggregates
+- Analysis: error_signatures, error_rate_samples, performance_deltas, health_scores
+- Patterns: usage_patterns, usage_anomalies, llm_model_history
+- Reference: baselines, service_reliability, directory_growth
+
+**Impact:**
+This transforms Anna from a collection of checks into an observant historian that can:
+- Talk about trends, degradations, and improvements
+- Explain "this started getting slow 2 weeks ago after kernel upgrade"
+- Measure effectiveness of her own repairs
+- Identify patterns invisible in single snapshots
+- Provide context the LLM needs for intelligent decisions
+
+**Next Steps:**
+- Milestone 1.1: Integrate Historian with telemetry collection loop
+- Milestone 1.2: Wire Historian query APIs into caretaker brain
+- Milestone 1.3: Enable trend-based suggestions and diagnostics
+
+**Files Modified:**
+- Cargo.toml: version bump to 5.7.0-beta.48
+- crates/anna_common/src/historian.rs: Complete implementation (2,417 lines)
+- crates/anna_common/src/lib.rs: Module export
+
+**Complexity:**
+This is one of the largest single-feature releases in Anna's history, laying the groundwork for truly intelligent system understanding. Anna now has memory.
+
 ## [5.7.0-beta.47] - 2025-11-15
 
 ### Added - LLM Contextualization - MILESTONE 1 COMPLETE! 🎉
