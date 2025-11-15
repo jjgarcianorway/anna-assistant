@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.8] - 2025-11-15
+
+### Code Quality - All Unused Imports Removed
+
+**Finally clean CI!** Removed all unused imports across the entire codebase.
+
+#### 🐛 Bug Fixes
+
+**CI Compilation Errors:**
+1. Removed 70+ unused imports across 50 files using `cargo fix`
+2. Added conditional `#[cfg(test)]` imports for test-only usage
+3. Added `rustflags: ''` to annactl-tests job to prevent warnings-as-errors
+4. Fixed `unexpected_cfgs` warning for aur-build feature
+
+**Result:** All 202 tests pass cleanly with zero warnings!
+
+#### 📦 Files Modified (50 total)
+
+- Workflow: `.github/workflows/test.yml`
+- anna_common: 9 files (change_log, noise_control, language, llm, prompt_builder, etc.)
+- annactl: 6 files (repl, intent_router, llm_wizard, main, etc.)
+- annad: 35 files (consensus, empathy, health, network, mirror, etc.)
+
+**Code stats:** -93 lines removed (unused imports), +58 lines added (conditional imports)
+
+---
+
 ## [5.7.0-beta.7] - 2025-11-15
 
 ### CI Fixes + REPL Status Bar (Promised Feature)
