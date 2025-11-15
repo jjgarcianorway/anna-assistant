@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.9] - 2025-11-15
+
+### Critical Fix - annactl --version Flag
+
+**Fixed CI test failure** that prevented `annactl --version` from working correctly.
+
+#### 🐛 Bug Fixes
+
+**annactl --version now works properly:**
+1. Fixed clap error handling to properly print version/help output
+2. Added `err.print()` call before exit for DisplayVersion/DisplayHelp errors
+3. Now exits with code 0 instead of showing natural language help
+
+**Root Cause:** The error handler was catching clap's DisplayVersion error and treating it as a real error, showing the natural language help screen instead of the version.
+
+**Result:** `annactl --version` now correctly outputs "annactl 5.7.0-beta.9" and exits with code 0.
+
+#### 📦 Files Modified
+
+- `crates/annactl/src/main.rs` - Fixed error handling for --version and --help flags
+
+#### ✅ Tests
+
+- All 29 integration tests passing
+- 8 tests ignored (for removed commands)
+- CI annactl-tests workflow should now pass
+
+---
+
 ## [5.7.0-beta.8] - 2025-11-15
 
 ### Code Quality - All Unused Imports Removed

@@ -699,6 +699,17 @@ async fn main() -> Result<()> {
         Err(err) => {
             // Check if it's an unknown argument/flag error
             use clap::error::ErrorKind;
+
+            // Handle --version and --help specially (these are not errors)
+            match err.kind() {
+                ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => {
+                    // Print the version/help output
+                    let _ = err.print();
+                    std::process::exit(0);
+                }
+                _ => {}
+            }
+
             let exit_code = match err.kind() {
                 ErrorKind::UnknownArgument => EXIT_COMMAND_NOT_AVAILABLE,
                 ErrorKind::InvalidSubcommand => EXIT_COMMAND_NOT_AVAILABLE,
