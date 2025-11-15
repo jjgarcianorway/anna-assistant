@@ -52,6 +52,7 @@ pub mod recipe_validator; // Phase 9: LLM response parsing and validation
 pub mod rollback;
 pub mod security; // Security configuration (firewall, SSH config, umask)
 pub mod sensors; // Hardware sensors detection (CPU/GPU temps, fan speeds)
+pub mod storage; // Storage detection (SSD/HDD, SMART status, health, I/O errors, alignment)
 pub mod self_healing;
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod suggestion_engine; // Task 8: Deep Caretaker v0.1 - Rule-based suggestion generation

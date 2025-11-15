@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.30] - 2025-11-15
+
+### Added - Storage Health & Performance Detection 💾📊
+
+**Storage Device Detection:**
+Anna now comprehensively monitors storage devices and their health:
+- Device type classification (SSD, HDD, NVMe, MMC, USB) via /sys/block rotational flag
+- Device capacity, model, serial number, and firmware version detection
+- SMART health status and monitoring (requires smartmontools)
+- Device identity extraction from sysfs and SMART data
+- Multiple device enumeration with automatic virtual device filtering (loop, ram, dm)
+
+**SMART Health Monitoring:**
+Complete storage health metrics via smartctl JSON output:
+- Overall health status (PASSED, FAILED, or device-specific messages)
+- SMART enabled status verification
+- Power-on hours and power cycle count tracking
+- Temperature monitoring in Celsius
+- Critical sector metrics (reallocated, pending, uncorrectable sectors)
+- Total data written/read tracking in TB for wear analysis
+- SSD wear leveling percentage for lifespan estimation
+- NVMe media errors and error log entry counting
+- Support for both ATA/SATA and NVMe SMART attributes
+
+**I/O Error and Performance Tracking:**
+- I/O error counts by type (read, write, flush, discard) from /sys/block
+- I/O scheduler detection (mq-deadline, none, bfq, kyber, etc.)
+- Queue depth configuration from /sys/block/*/queue
+- Placeholder framework for latency metrics (avg read/write in ms)
+
+**Partition Alignment Detection:**
+Critical for SSD performance optimization:
+- Partition start sector detection from /sys/block
+- Alignment offset calculation
+- Automatic alignment validation (2048-sector/1MiB standard)
+- Filesystem type detection per partition via lsblk
+- Per-partition alignment status reporting
+
+**Storage Health Summary:**
+Aggregate health indicators across all devices:
+- Failed device counting (SMART health failures)
+- Degraded device detection (high error counts, bad sectors, media errors)
+- Misaligned partition counting for performance issues
+- Total I/O error aggregation across all storage devices
+
+**Implementation:**
+- New `storage` module in `anna_common` with `StorageInfo::detect()` (~570 lines)
+- Integrated into `SystemFacts` telemetry as `storage_info` field
+- Device type classification with multiple detection methods
+- SMART data parsing from smartctl JSON output with comprehensive attribute extraction
+- Partition alignment checking for SSD optimization
+- Graceful fallback when smartmontools is unavailable
+
+**Files Added:**
+- `crates/anna_common/src/storage.rs` (~570 lines)
+
+**Impact:**
+Anna can now predict storage failures and optimize performance:
+- Early warning for failing drives (reallocated sectors, SMART failures)
+- SSD health tracking via wear leveling and total bytes written
+- Partition misalignment detection for performance degradation
+- Storage performance configuration awareness (scheduler, queue depth)
+- Comprehensive disk health summary for system reliability assessment
+
 ## [5.7.0-beta.29] - 2025-11-15
 
 ### Added - Hardware Monitoring: Sensors, Power & Memory 🌡️🔋💾

@@ -312,6 +312,8 @@ pub struct SystemFacts {
     pub power_info: Option<crate::power::PowerInfo>, // Power and battery (health, cycles, AC status, TLP)
     #[serde(default)]
     pub memory_usage_info: Option<crate::memory_usage::MemoryUsageInfo>, // Memory usage (RAM, swap, OOM events)
+    #[serde(default)]
+    pub storage_info: Option<crate::storage::StorageInfo>, // Storage detection (SSD/HDD, SMART status, health, I/O errors)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

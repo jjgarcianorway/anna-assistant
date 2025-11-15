@@ -224,7 +224,7 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 | Last update timestamp | `/var/lib/pacman/local/*/install` | [System maintenance](https://wiki.archlinux.org/title/System_maintenance) | ❌ TODO |
 | Pending updates | `checkupdates` | [System maintenance](https://wiki.archlinux.org/title/System_maintenance) | ⚠️  Partial |
 | Backups/Snapshots | `snapper list`, `btrbk list`, `timeshift --list` | [Snapper](https://wiki.archlinux.org/title/Snapper), [Btrbk](https://wiki.archlinux.org/title/Btrbk) | ❌ TODO |
-| Disk SMART health | `smartctl -H /dev/sdX` (opt-in) | [S.M.A.R.T.](https://wiki.archlinux.org/title/S.M.A.R.T.) | ❌ TODO |
+| Disk SMART health | `smartctl -H /dev/sdX` (opt-in) | [S.M.A.R.T.](https://wiki.archlinux.org/title/S.M.A.R.T.) | ✅ Done (beta.30) |
 | Journal size | `journalctl --disk-usage` | [systemd/Journal](https://wiki.archlinux.org/title/Systemd/Journal) | ❌ TODO |
 
 ---
