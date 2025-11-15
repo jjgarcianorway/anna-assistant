@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.49] - 2025-11-15
+
+### Added - Historian Integration: Long-Term Memory Now Active
+
+**Historian Integration into Telemetry Collection Loop:**
+The Historian system (implemented in beta.48) is now fully integrated into Anna's daemon lifecycle and telemetry collection system. Anna now actively records historical data and builds long-term trend baselines.
+
+**Integration Points:**
+1. **Daemon Startup Initialization** (`/home/lhoqvso/anna-assistant/crates/annad/src/main.rs`, lines 358-413):
+   - Creates `/var/lib/anna` directory if missing
+   - Initializes Historian database at `/var/lib/anna/historian.db`
+   - Records initial timeline event (daemon version tracking)
+   - Captures initial system telemetry snapshot
+   - Gracefully degrades if initialization fails (logs warning, continues without Historian)
+
+2. **Telemetry Collection Integration** (`/home/lhoqvso/anna-assistant/crates/annad/src/historian_integration.rs`, 331 lines):
+   - New `HistorianIntegration` helper with circuit breaker pattern
+   - Non-blocking background recording via `tokio::spawn`
+   - Automatic data extraction from `SystemFacts`
+
+   **Active Data Collectors:**
+   - **Boot Events**: Extracted from systemd boot info (boot_id, duration, slowest units, failed units, fsck triggers, health score)
+   - **CPU Samples**: Hourly snapshots (utilization %, throttling events, top processes)
+   - **Memory Samples**: Hourly RAM/swap usage (peak usage, top memory hogs)
+   - **Disk Snapshots**: Daily filesystem space tracking (per mount point)
+
+3. **Circuit Breaker for Graceful Degradation** (`historian_integration.rs`, lines 24-84):
+   - Tracks consecutive failures (0-5 threshold)
+   - After 5 failures: disables Historian for 1 hour
+   - Auto-resets after cooldown period
+   - Prevents Historian issues from impacting telemetry collection
+   - Logs warnings but never crashes daemon
+
+4. **Daily Aggregation Task** (`main.rs`, lines 469-527):
+   - Background task scheduled at 00:05 UTC daily
+   - Runs aggregations for previous day's data:
+     - Boot time aggregates (avg/min/max duration, health scores)
+     - CPU statistics (avg utilization, throttle events)
+     - Memory statistics (avg RAM/swap usage)
+     - Service stability scores
+     - Daily health scores (stability/performance/noise)
+   - Resilient to missed runs (catches up on daemon restart)
+
+5. **Automatic Recording Triggers:**
+   - **On daemon startup**: Initial system snapshot
+   - **On telemetry refresh** (~hourly): CPU, memory, disk data
+   - **On system change detection**: Boot events, config changes
+   - **Daily at 00:05 UTC**: Aggregate computation
+
+**Error Handling Philosophy:**
+- All Historian operations are non-blocking
+- Wrapped in `try_lock()` to avoid blocking telemetry
+- Failures logged as warnings, never errors
+- Circuit breaker prevents failure storms
+- Daemon continues normally if Historian is unavailable
+- **Design principle**: Historian is supplementary, not critical
+
+**Files Modified:**
+- `/home/lhoqvso/anna-assistant/crates/annad/src/main.rs`: Initialization and daily aggregation
+- `/home/lhoqvso/anna-assistant/crates/annad/src/rpc_server.rs`: Added `historian` field to `DaemonState`
+- **New file**: `/home/lhoqvso/anna-assistant/crates/annad/src/historian_integration.rs`: Integration layer with circuit breaker
+
+**Database Location:**
+- System mode: `/var/lib/anna/historian.db`
+- Persistent across daemon restarts
+- Auto-created on first run
+
+**What's Being Tracked (Active Now):**
+- Timeline events (Anna version upgrades)
+- Boot events (every system boot)
+- CPU samples (hourly)
+- Memory samples (hourly)
+- Disk space (daily snapshots)
+
+**What's Deferred (Not Yet Implemented):**
+- Network quality tracking
+- Service reliability events
+- Error signature collection
+- LLM performance tracking
+- User behavior patterns
+
+**Next Steps:**
+After this release stabilizes, future betas will:
+1. Add service state change monitoring
+2. Enable journalctl error collection
+3. Implement network quality sampling
+4. Build trend analysis APIs for UI/CLI
+5. Create historical comparison queries
+
+**Version Update:**
+- Bumped from `5.7.0-beta.48` to `5.7.0-beta.49`
+
 ## [5.7.0-beta.48] - 2025-11-15
 
 ### Added - Historian: Anna's Long-Term Memory System 🧠📊

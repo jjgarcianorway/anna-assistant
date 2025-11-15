@@ -130,6 +130,8 @@ pub struct DaemonState {
     pub chronos: Option<Arc<crate::chronos::ChronosLoop>>,
     /// Mirror audit (Phase 1.6)
     pub mirror_audit: Option<Arc<tokio::sync::RwLock<crate::mirror_audit::MirrorAudit>>>,
+    /// Historian - long-term memory and trend analysis (Phase 5.7)
+    pub historian: Option<Arc<tokio::sync::Mutex<anna_common::historian::Historian>>>,
 }
 
 impl DaemonState {
@@ -159,6 +161,7 @@ impl DaemonState {
             mirror: None, // Will be set later in main.rs
             chronos: None, // Will be set later in main.rs
             mirror_audit: None, // Will be set later in main.rs
+            historian: None, // Will be set later in main.rs
         })
     }
 }

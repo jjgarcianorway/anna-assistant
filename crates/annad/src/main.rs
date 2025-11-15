@@ -87,6 +87,7 @@ mod consensus; // Phase 1.7: Distributed Consensus (STUB)
 mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
+mod historian_integration; // Phase 5.7: Historian integration
 mod install; // Phase 0.8: Installation subsystem
 mod llm_bootstrap; // LLM auto-detection and configuration
 mod mirror; // Phase 1.4: Mirror Protocol
@@ -355,6 +356,62 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Initialize Historian (Phase 5.7: Long-term memory and trend analysis)
+    info!("Initializing Historian...");
+    // Create /var/lib/anna directory if it doesn't exist
+    if let Err(e) = std::fs::create_dir_all("/var/lib/anna") {
+        tracing::warn!("Failed to create /var/lib/anna directory: {}", e);
+        tracing::warn!("Historian will not be available");
+    } else {
+        match anna_common::historian::Historian::new("/var/lib/anna/historian.db") {
+            Ok(historian) => {
+                info!("Historian initialized - long-term trend analysis enabled");
+
+                // Store historian in daemon state
+                let historian_arc = Arc::new(tokio::sync::Mutex::new(historian));
+                {
+                    // SAFETY: We're converting Arc<DaemonState> to a mutable reference
+                    // This is safe because we're the only ones with access at this point
+                    let state_ptr = Arc::as_ptr(&state) as *mut rpc_server::DaemonState;
+                    unsafe {
+                        (*state_ptr).historian = Some(Arc::clone(&historian_arc));
+                    }
+                }
+
+                // Record initial timeline event: Anna daemon version
+                let historian_clone = Arc::clone(&historian_arc);
+                let version_str = VERSION.to_string();
+                tokio::spawn(async move {
+                    if let Ok(historian) = historian_clone.try_lock() {
+                        let timeline_event = anna_common::historian::TimelineEvent {
+                            event_type: anna_common::historian::TimelineEventType::Install,
+                            timestamp: chrono::Utc::now(),
+                            version_from: None,
+                            version_to: Some(version_str),
+                            kernel_from: None,
+                            kernel_to: None,
+                            metadata: serde_json::json!({"type": "daemon_start"}),
+                            notes: Some("Anna daemon initialized with Historian".to_string()),
+                        };
+                        if let Err(e) = historian.record_timeline_event(&timeline_event) {
+                            tracing::warn!("Failed to record initial timeline event: {}", e);
+                        }
+                    }
+                });
+
+                // Record initial telemetry data
+                let facts_clone = state.facts.read().await.clone();
+                let integration = historian_integration::HistorianIntegration::new(Arc::clone(&historian_arc));
+                integration.record_all(&facts_clone);
+                info!("Initial telemetry data recorded to Historian");
+            }
+            Err(e) => {
+                tracing::warn!("Failed to initialize Historian: {}", e);
+                tracing::warn!("Continuing without long-term trend analysis");
+            }
+        }
+    }
+
     // Set up system watcher for automatic advice refresh
     let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
     let _system_watcher = watcher::SystemWatcher::new(event_tx)?;
@@ -414,6 +471,63 @@ async fn main() -> Result<()> {
     {
         let updater = auto_updater::AutoUpdater::new();
         updater.start();
+    }
+
+    // Spawn Historian daily aggregation task (Phase 5.7)
+    {
+        let aggregation_state = Arc::clone(&state);
+        tokio::spawn(async move {
+            // Calculate time until next 00:05 UTC
+            let now = chrono::Utc::now();
+            let tomorrow_run = now
+                .date_naive()
+                .succ_opt()
+                .unwrap()
+                .and_hms_opt(0, 5, 0)
+                .unwrap()
+                .and_utc();
+            let initial_delay = (tomorrow_run - now).to_std().unwrap_or(std::time::Duration::from_secs(60));
+
+            info!("Historian aggregation scheduled for daily at 00:05 UTC (next run in {:?})", initial_delay);
+
+            // Wait until first scheduled time
+            tokio::time::sleep(initial_delay).await;
+
+            // Run aggregation daily
+            let daily_interval = tokio::time::Duration::from_secs(24 * 60 * 60);
+
+            loop {
+                info!("Running Historian daily aggregation");
+
+                if let Some(ref historian_arc) = aggregation_state.historian {
+                    if let Ok(historian) = historian_arc.try_lock() {
+                        let yesterday = (chrono::Utc::now() - chrono::Duration::days(1))
+                            .format("%Y-%m-%d")
+                            .to_string();
+
+                        // Run all aggregations for yesterday
+                        if let Err(e) = historian.compute_boot_aggregates(&yesterday) {
+                            tracing::warn!("Failed to compute boot aggregates: {}", e);
+                        }
+                        if let Err(e) = historian.compute_resource_aggregates(&yesterday) {
+                            tracing::warn!("Failed to compute resource aggregates (CPU/memory): {}", e);
+                        }
+                        if let Err(e) = historian.compute_service_aggregates(&yesterday) {
+                            tracing::warn!("Failed to compute service aggregates: {}", e);
+                        }
+                        if let Err(e) = historian.compute_daily_health_scores(&yesterday) {
+                            tracing::warn!("Failed to compute daily health scores: {}", e);
+                        }
+
+                        info!("Historian daily aggregation completed for {}", yesterday);
+                    } else {
+                        tracing::warn!("Could not acquire Historian lock for aggregation");
+                    }
+                }
+
+                tokio::time::sleep(daily_interval).await;
+            }
+        });
     }
 
     // Spawn profile metrics update task (Phase 3.1)
@@ -481,6 +595,23 @@ async fn refresh_advice(state: &Arc<DaemonState>) {
 
             // Check for critical issues and notify users
             notifier::check_and_notify_critical(&advice).await;
+
+            // Phase 5.7: Record telemetry data to Historian
+            // This is non-blocking and will gracefully degrade if Historian fails
+            if let Some(ref historian_arc) = state.historian {
+                let integration = historian_integration::HistorianIntegration::new(Arc::clone(historian_arc));
+                integration.record_all(&facts);
+
+                // Log circuit breaker status occasionally
+                let (failures, enabled) = integration.get_circuit_breaker_status();
+                if failures > 0 {
+                    tracing::warn!(
+                        "Historian circuit breaker status: {} failures, enabled: {}",
+                        failures,
+                        enabled
+                    );
+                }
+            }
 
             // Phase 0.2c: Re-detect system state and log transitions
             match crate::state::detect_state() {
