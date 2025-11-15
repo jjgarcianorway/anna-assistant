@@ -79,12 +79,9 @@ struct Cli {
     command: Option<Commands>,
 }
 
-/// Phase 0.3: Simplified command set - all commands check state availability
+/// Minimal command set - only public: status, help
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize Anna (first-run wizard) - creates /etc/anna and config files
-    Init,
-
     /// Show system status and daemon health
     Status {
         /// Output JSON only
@@ -92,468 +89,19 @@ enum Commands {
         json: bool,
     },
 
-    /// Show version and assistance mode (undocumented - use banner instead)
+    /// Show available commands
+    Help,
+
+    /// Show version (hidden - prefer banner)
     #[command(hide = true)]
     Version,
 
-    /// Show available commands (adaptive and context-aware)
-    Help {
-        /// Show help for specific command
-        command: Option<String>,
-
-        /// Show all commands (including advanced)
-        #[arg(long)]
-        all: bool,
-
-        /// Output JSON only (legacy)
-        #[arg(long)]
-        json: bool,
-    },
-
-    // Advanced commands (hidden by default - use --help --all to see these)
-
-    /// Ping daemon (1-RTT health check)
+    /// Ping daemon (hidden - for health checks)
     #[command(hide = true)]
     Ping,
-
-    // TODO: Update command not yet implemented - commented out to reduce command bloat
-    // /// Update system packages (configured state only)
-    // Update {
-    //     /// Dry run (show what would be updated)
-    //     #[arg(short = 'n', long)]
-    //     dry_run: bool,
-    // },
-
-    /// Interactive Arch Linux installation (iso_live state only)
-    #[command(hide = true)]
-    Install {
-        /// Dry run (simulate without executing)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-    },
-
-    /// Rescue and recovery tools (iso_live, recovery_candidate states)
-    #[command(hide = true)]
-    Rescue {
-        /// Subcommand: detect, chroot, repair
-        subcommand: Option<String>,
-    },
-
-    /// Create system backup (configured state)
-    #[command(hide = true)]
-    Backup {
-        /// Destination path
-        #[arg(short, long)]
-        dest: Option<String>,
-    },
-
-    /// Check system health (all states) - Phase 0.5
-    #[command(hide = true)]
-    Health {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Daily checkup - quick health summary with predictions (Phase 4.0)
-    Daily {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Run system diagnostics (configured, degraded states) - Phase 0.5
-    #[command(hide = true)]
-    Doctor {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Manage issue decisions (acknowledge, snooze, reset) - Phase 4.9
-    #[command(hide = true)]
-    Issues {
-        /// Subcommand: acknowledge, snooze, reset, or list (default)
-        subcommand: Option<String>,
-
-        /// Issue key to operate on
-        #[arg(long)]
-        key: Option<String>,
-
-        /// Days to snooze (for snooze subcommand)
-        #[arg(long)]
-        days: Option<u32>,
-    },
-
-    /// Rollback actions (configured, degraded states)
-    #[command(hide = true)]
-    Rollback {
-        /// Action ID or 'last'
-        target: Option<String>,
-    },
-
-    /// Analyze system issues (degraded state only)
-    #[command(hide = true)]
-    Triage,
-
-    /// Collect diagnostic logs (degraded state only)
-    #[command(hide = true)]
-    CollectLogs {
-        /// Output directory
-        #[arg(short, long)]
-        output: Option<String>,
-    },
-
-    // TODO: Audit command not yet implemented - commented out to reduce command bloat
-    // /// System audit - integrity and security check (Phase 0.9)
-    // Audit,
-
-    /// Sentinel management (Phase 1.0)
-    #[command(hide = true)]
-    Sentinel {
-        /// Subcommand: status, metrics
-        #[command(subcommand)]
-        subcommand: SentinelSubcommand,
-    },
-
-    /// Configuration management (Phase 1.0)
-    #[command(hide = true)]
-    Config {
-        /// Subcommand: get, set
-        #[command(subcommand)]
-        subcommand: ConfigSubcommand,
-    },
-
-    /// Conscience governance (Phase 1.1)
-    #[command(hide = true)]
-    Conscience {
-        /// Subcommand: review, explain, approve, reject, introspect
-        #[command(subcommand)]
-        subcommand: ConscienceSubcommand,
-    },
-
-    /// Empathy kernel (Phase 1.2)
-    #[command(hide = true)]
-    Empathy {
-        /// Subcommand: pulse, simulate
-        #[command(subcommand)]
-        subcommand: EmpathySubcommand,
-    },
-
-    /// Collective mind (Phase 1.3)
-    #[command(hide = true)]
-    Collective {
-        /// Subcommand: status, trust, explain
-        #[command(subcommand)]
-        subcommand: CollectiveSubcommand,
-    },
-
-    /// Mirror protocol (Phase 1.4)
-    #[command(hide = true)]
-    Mirror {
-        /// Subcommand: reflect, audit, repair
-        #[command(subcommand)]
-        subcommand: MirrorSubcommand,
-    },
-
-    /// Chronos loop (Phase 1.5)
-    #[command(hide = true)]
-    Chronos {
-        /// Subcommand: forecast, audit, align
-        #[command(subcommand)]
-        subcommand: ChronosSubcommand,
-    },
-
-    /// Distributed consensus (Phase 1.7 - STUB)
-    #[command(hide = true)]
-    Consensus {
-        /// Subcommand: status, submit, reconcile
-        #[command(subcommand)]
-        subcommand: ConsensusSubcommand,
-    },
-
-    /// Self-update annactl binary (Phase 2.0)
-    #[command(hide = true)]
-    SelfUpdate {
-        /// Check for updates without installing
-        #[arg(long)]
-        check: bool,
-
-        /// Show available versions
-        #[arg(long)]
-        list: bool,
-    },
-
-    /// Show system profile and adaptive intelligence (Phase 3.0)
-    #[command(hide = true)]
-    Profile {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Install monitoring stack (Grafana/Prometheus) based on system profile (Phase 3.0)
-    #[command(hide = true)]
-    Monitor {
-        /// Subcommand: install, status
-        #[command(subcommand)]
-        subcommand: MonitorSubcommand,
-    },
-
-    /// Display system metrics in Prometheus format (Phase 3.3)
-    #[command(hide = true)]
-    Metrics {
-        /// Output in Prometheus exposition format
-        #[arg(long)]
-        prometheus: bool,
-
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Analyze action history and detect patterns (Phase 3.7)
-    #[command(hide = true)]
-    Learn {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-
-        /// Minimum confidence level (low, medium, high, very-high)
-        #[arg(long, default_value = "medium")]
-        min_confidence: String,
-
-        /// Analysis window in days
-        #[arg(long, default_value = "30")]
-        days: i64,
-    },
-
-    /// Show predictive intelligence and recommendations (Phase 3.7)
-    #[command(hide = true)]
-    Predict {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-
-        /// Show all predictions (default: only high/critical)
-        #[arg(long)]
-        all: bool,
-    },
-
-    /// Show behavioral insights from observation history (Phase 5.3)
-    #[command(hide = true)]
-    Insights {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-
-        /// Number of days to analyze (default: 30)
-        #[arg(long, default_value = "30")]
-        days: i64,
-    },
-
-    /// Show repair history (Phase 5.1)
-    #[command(hide = true)]
-    Repairs {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-
-        /// Number of recent repairs to show
-        #[arg(long, default_value = "20")]
-        limit: usize,
-    },
-
-    /// Show weekly system summary (Phase 5.4)
-    #[command(hide = true)]
-    Weekly {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Upgrade Anna to the latest version (Phase 3.10)
-    Upgrade {
-        /// Skip confirmation prompt
-        #[arg(long)]
-        yes: bool,
-
-        /// Check for updates without installing
-        #[arg(long)]
-        check: bool,
-    },
 }
 
-/// Monitor subcommands (Phase 3.0)
-#[derive(Subcommand)]
-enum MonitorSubcommand {
-    /// Install monitoring stack (adaptive based on system resources)
-    Install {
-        /// Force monitoring mode (full/light/minimal) - overrides auto-detection
-        #[arg(long)]
-        force_mode: Option<String>,
-
-        /// Dry run (show what would be installed)
-        #[arg(short = 'n', long)]
-        dry_run: bool,
-    },
-
-    /// Show monitoring stack status
-    Status,
-}
-
-/// Sentinel subcommands
-#[derive(Subcommand)]
-enum SentinelSubcommand {
-    /// Show sentinel status
-    Status,
-    /// Show sentinel metrics
-    Metrics,
-}
-
-/// Config subcommands
-#[derive(Subcommand)]
-enum ConfigSubcommand {
-    /// Get configuration value
-    Get,
-    /// Set configuration value
-    Set {
-        /// Configuration key
-        key: String,
-        /// Configuration value
-        value: String,
-    },
-}
-
-/// Conscience subcommands (Phase 1.1)
-#[derive(Subcommand)]
-enum ConscienceSubcommand {
-    /// Show pending actions requiring review
-    Review,
-    /// Explain a conscience decision
-    Explain {
-        /// Decision ID to explain
-        decision_id: String,
-    },
-    /// Approve a flagged action
-    Approve {
-        /// Decision ID to approve
-        decision_id: String,
-    },
-    /// Reject a flagged action
-    Reject {
-        /// Decision ID to reject
-        decision_id: String,
-    },
-    /// Run manual introspection
-    Introspect,
-}
-
-/// Empathy subcommands (Phase 1.2)
-#[derive(Subcommand)]
-enum EmpathySubcommand {
-    /// Show current empathy pulse
-    Pulse,
-    /// Simulate empathy evaluation for an action
-    Simulate {
-        /// Action to simulate (e.g., "SystemUpdate", "RestartService")
-        action: String,
-    },
-}
-
-/// Collective subcommands (Phase 1.3)
-#[derive(Subcommand)]
-enum CollectiveSubcommand {
-    /// Show network status
-    Status,
-    /// Show trust details for a peer
-    Trust {
-        /// Peer ID to query
-        peer_id: String,
-    },
-    /// Explain a consensus decision
-    Explain {
-        /// Consensus ID to explain
-        consensus_id: String,
-    },
-}
-
-/// Mirror subcommands (Phase 1.4 + 1.6)
-#[derive(Subcommand)]
-enum MirrorSubcommand {
-    /// Generate manual reflection cycle
-    Reflect,
-    /// Summarize last peer critiques
-    Audit,
-    /// Trigger remediation protocol
-    Repair,
-    /// Audit forecast accuracy (Phase 1.6)
-    AuditForecast {
-        /// Window hours for audit
-        #[arg(default_value = "24")]
-        window: u64,
-        /// Output JSON format
-        #[arg(long)]
-        json: bool,
-    },
-    /// Generate temporal self-reflection (Phase 1.6)
-    ReflectTemporal {
-        /// Window hours for reflection
-        #[arg(default_value = "24")]
-        window: u64,
-        /// Output JSON format
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-/// Chronos subcommands (Phase 1.5)
-#[derive(Subcommand)]
-enum ChronosSubcommand {
-    /// Generate temporal forecast
-    Forecast {
-        /// Forecast window in hours
-        #[arg(default_value = "24")]
-        window: u64,
-    },
-    /// View archived forecasts
-    Audit,
-    /// Align forecast parameters across network
-    Align,
-}
-
-/// Consensus subcommands (Phase 1.7 - STUB)
-#[derive(Subcommand)]
-enum ConsensusSubcommand {
-    /// Show consensus status
-    Status {
-        /// Round ID to query (optional, defaults to latest)
-        #[arg(short, long)]
-        round_id: Option<String>,
-        /// Output JSON format
-        #[arg(long)]
-        json: bool,
-    },
-    /// Submit observation to consensus
-    Submit {
-        /// Path to observation JSON file
-        observation_path: String,
-    },
-    /// Reconcile consensus for window
-    Reconcile {
-        /// Window hours for reconciliation
-        #[arg(default_value = "24")]
-        window: u64,
-        /// Output JSON format
-        #[arg(long)]
-        json: bool,
-    },
-    /// Initialize Ed25519 keys for consensus
-    InitKeys,
-}
-
-// Phase 0.3: Remove all legacy subcommand enums
-// Commands are now flat and state-checked at runtime
+// All legacy subcommands removed - REPL is the primary interface
 
 /// Get canonical citation for a state (Phase 0.3d)
 fn state_citation(state: &str) -> &'static str {
@@ -1208,49 +756,9 @@ async fn main() -> Result<()> {
 
     // Phase 1.8: Handle consensus commands early (standalone PoC, no daemon)
     // Handle self-update command (doesn't need daemon)
-    if let Commands::SelfUpdate { check, list } = command {
-        return execute_self_update_command(*check, *list).await;
-    }
-
     // Handle profile command (Phase 3.0 - needs daemon)
-    if let Commands::Profile { json } = command {
-        return execute_profile_command(*json, cli.socket.as_deref()).await;
-    }
-
     // Handle monitor command (Phase 3.0 - needs daemon)
-    if let Commands::Monitor { subcommand } = command {
-        match subcommand {
-            MonitorSubcommand::Install { force_mode, dry_run } => {
-                return execute_monitor_install_command(force_mode.clone(), *dry_run, cli.socket.as_deref()).await;
-            }
-            MonitorSubcommand::Status => {
-                return execute_monitor_status_command(cli.socket.as_deref()).await;
-            }
-        }
-    }
-
     // Handle metrics command (Phase 3.3 - needs daemon)
-    if let Commands::Metrics { prometheus, json } = command {
-        return execute_metrics_command(*prometheus, *json, cli.socket.as_deref()).await;
-    }
-
-    if let Commands::Consensus { subcommand } = command {
-        match subcommand {
-            ConsensusSubcommand::Status { round_id, json } => {
-                return consensus_commands::execute_consensus_status_command(round_id.clone(), *json).await;
-            }
-            ConsensusSubcommand::Submit { observation_path } => {
-                return consensus_commands::execute_consensus_submit_command(observation_path).await;
-            }
-            ConsensusSubcommand::Reconcile { window, json } => {
-                return consensus_commands::execute_consensus_reconcile_command(*window, *json).await;
-            }
-            ConsensusSubcommand::InitKeys => {
-                return consensus_commands::execute_consensus_init_keys_command().await;
-            }
-        }
-    }
-
     // Phase 3.1: Handle help command early (doesn't need daemon)
     if matches!(command, Commands::Help { .. }) {
         let socket_path = cli.socket.as_deref();
@@ -1258,19 +766,7 @@ async fn main() -> Result<()> {
     }
 
     // Phase 3.9: Handle init command early (doesn't need daemon)
-    if matches!(command, Commands::Init) {
-        return init_command::execute_init_command().await;
-    }
-
     // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
-    if let Commands::Learn { json, min_confidence, days } = command {
-        return learning_commands::execute_learn_command(*json, min_confidence, *days).await;
-    }
-
-    if let Commands::Predict { json, all } = command {
-        return learning_commands::execute_predict_command(*json, *all).await;
-    }
-
     // TODO: Wire new real Anna commands here
     // - report
     // - suggest
@@ -1279,48 +775,13 @@ async fn main() -> Result<()> {
     // - status (Anna self-health)
 
     // Phase 3.10: Handle upgrade command early (doesn't need daemon, requires root)
-    if let Commands::Upgrade { yes, check } = command {
-        return upgrade_command::execute_upgrade_command(*yes, *check).await;
-    }
-
     // Phase 0.3c: State-aware dispatch
     // Get command name first
     let command_name = match command {
-        Commands::Init => "init",
-        Commands::Help { .. } => "help",
+        Commands::Status { .. } => "status",
+        Commands::Help => "help",
         Commands::Version => "version",
         Commands::Ping => "ping",
-        // Commands::Update { .. } => "update",
-        Commands::Install { .. } => "install",
-        Commands::Rescue { .. } => "rescue",
-        Commands::Backup { .. } => "backup",
-        Commands::Health { .. } => "health",
-        Commands::Daily { .. } => "daily",
-        Commands::Doctor { .. } => "doctor",
-        Commands::Issues { .. } => "issues",
-        Commands::Status { .. } => "status",
-        Commands::Rollback { .. } => "rollback",
-        Commands::Triage => "triage",
-        Commands::CollectLogs { .. } => "collect-logs",
-        // Commands::Audit => "audit",
-        Commands::Sentinel { .. } => "sentinel",
-        Commands::Config { .. } => "config",
-        Commands::Conscience { .. } => "conscience",
-        Commands::Empathy { .. } => "empathy",
-        Commands::Collective { .. } => "collective",
-        Commands::Mirror { .. } => "mirror",
-        Commands::Chronos { .. } => "chronos",
-        Commands::Consensus { .. } => "consensus",
-        Commands::SelfUpdate { .. } => "self-update",
-        Commands::Profile { .. } => "profile",
-        Commands::Monitor { .. } => "monitor",
-        Commands::Metrics { .. } => "metrics",
-        Commands::Learn { .. } => "learn",
-        Commands::Predict { .. } => "predict",
-        Commands::Insights { .. } => "insights",
-        Commands::Repairs { .. } => "repairs",
-        Commands::Weekly { .. } => "weekly",
-        Commands::Upgrade { .. } => "upgrade",
     };
 
     // Try to connect to daemon and get state
@@ -1359,194 +820,16 @@ async fn main() -> Result<()> {
         return execute_ping_command(socket_path, &req_id, start_time).await;
     }
 
-    // Phase 0.5b: Handle health commands specially (they bypass state checks)
-    match command {
-        Commands::Health { json } => {
-            return health_commands::execute_health_command(*json, &state, &req_id, start_time)
-                .await;
-        }
-        // TODO: These old commands replaced by conversational REPL
-        Commands::Daily { .. } => {
-            println!("This command has been replaced by the conversational interface.");
-            println!("Just run 'annactl' with no arguments and ask me anything!");
-            std::process::exit(0);
-        }
-        Commands::Doctor { json } => {
-            return health_commands::execute_doctor_command(*json, &state, &req_id, start_time)
-                .await;
-        }
-        Commands::Issues { .. } => {
-            println!("This command has been replaced by the conversational interface.");
-            println!("Just run 'annactl' and ask: 'What should I improve?'");
-            std::process::exit(0);
-        }
-        Commands::Install { dry_run } => {
-            // Phase 3.4: Check resource constraints before heavy operation
-            if !*dry_run {
-                if !check_resource_constraints(socket_path, "system installation").await? {
-                    std::process::exit(EXIT_SUCCESS);
-                }
-            }
-            return install_command::execute_install_command(
-                *dry_run,
-                &req_id,
-                &state,
-                start_time,
-            )
-            .await;
-        }
-        Commands::Rescue { subcommand } => {
-            if subcommand.as_deref() == Some("list") {
-                return health_commands::execute_rescue_list_command(&req_id, start_time).await;
-            }
-        }
-        // Phase 0.9: Steward commands - Anna's own health check
-        Commands::Status { json } => {
-            return status_command::execute_anna_status_command(
-                *json,
-                &req_id,
-                &state,
-                start_time,
-            )
-            .await;
-        }
-        // Commands::Update { dry_run } => {
-        //     // Phase 3.4: Check resource constraints before heavy operation
-        //     if !*dry_run {
-        //         if !check_resource_constraints(socket_path, "system update").await? {
-        //             std::process::exit(EXIT_SUCCESS);
-        //         }
-        //     }
-        //     return steward_commands::execute_update_command(*dry_run, &req_id, &state, start_time)
-        //         .await;
-        // }
-        // Commands::Audit => {
-        //     return steward_commands::execute_audit_command(&req_id, &state, start_time).await;
-        // }
-        // Phase 1.0: Sentinel commands
-        Commands::Sentinel { subcommand } => {
-            match subcommand {
-                SentinelSubcommand::Status => {
-                    return sentinel_cli::execute_sentinel_status_command(&req_id, &state, start_time).await;
-                }
-                SentinelSubcommand::Metrics => {
-                    return sentinel_cli::execute_sentinel_metrics_command(&req_id, &state, start_time).await;
-                }
-            }
-        }
-        Commands::Config { subcommand } => {
-            match subcommand {
-                ConfigSubcommand::Get => {
-                    return sentinel_cli::execute_config_get_command(&req_id, &state, start_time).await;
-                }
-                ConfigSubcommand::Set { key, value } => {
-                    return sentinel_cli::execute_config_set_command(key, value, &req_id, &state, start_time).await;
-                }
-            }
-        }
-        // Phase 1.1: Conscience commands
-        Commands::Conscience { subcommand } => {
-            match subcommand {
-                ConscienceSubcommand::Review => {
-                    return conscience_commands::execute_conscience_review_command(&req_id, &state, start_time).await;
-                }
-                ConscienceSubcommand::Explain { decision_id } => {
-                    return conscience_commands::execute_conscience_explain_command(decision_id, &req_id, &state, start_time).await;
-                }
-                ConscienceSubcommand::Approve { decision_id } => {
-                    return conscience_commands::execute_conscience_approve_command(decision_id, &req_id, &state, start_time).await;
-                }
-                ConscienceSubcommand::Reject { decision_id } => {
-                    return conscience_commands::execute_conscience_reject_command(decision_id, &req_id, &state, start_time).await;
-                }
-                ConscienceSubcommand::Introspect => {
-                    return conscience_commands::execute_conscience_introspect_command(&req_id, &state, start_time).await;
-                }
-            }
-        }
-        // Phase 1.2: Empathy commands
-        Commands::Empathy { subcommand } => {
-            match subcommand {
-                EmpathySubcommand::Pulse => {
-                    return empathy_commands::execute_empathy_pulse_command().await.map_err(|e| e.into());
-                }
-                EmpathySubcommand::Simulate { action } => {
-                    return empathy_commands::execute_empathy_simulate_command(action).await.map_err(|e| e.into());
-                }
-            }
-        }
-        // Phase 1.3: Collective mind commands
-        Commands::Collective { subcommand } => {
-            match subcommand {
-                CollectiveSubcommand::Status => {
-                    return collective_commands::execute_collective_status_command().await.map_err(|e| e.into());
-                }
-                CollectiveSubcommand::Trust { peer_id } => {
-                    return collective_commands::execute_collective_trust_command(peer_id).await.map_err(|e| e.into());
-                }
-                CollectiveSubcommand::Explain { consensus_id } => {
-                    return collective_commands::execute_collective_explain_command(consensus_id).await.map_err(|e| e.into());
-                }
-            }
-        }
-        // Phase 1.4: Mirror protocol commands
-        Commands::Mirror { subcommand } => {
-            match subcommand {
-                MirrorSubcommand::Reflect => {
-                    return mirror_commands::execute_mirror_reflect_command().await.map_err(|e| e.into());
-                }
-                MirrorSubcommand::Audit => {
-                    return mirror_commands::execute_mirror_audit_command().await.map_err(|e| e.into());
-                }
-                MirrorSubcommand::Repair => {
-                    return mirror_commands::execute_mirror_repair_command().await.map_err(|e| e.into());
-                }
-                MirrorSubcommand::AuditForecast { window, json } => {
-                    return mirror_commands::execute_mirror_audit_forecast_command(*window, *json).await.map_err(|e| e.into());
-                }
-                MirrorSubcommand::ReflectTemporal { window, json } => {
-                    return mirror_commands::execute_mirror_reflect_temporal_command(*window, *json).await.map_err(|e| e.into());
-                }
-            }
-        }
-        // Phase 1.5: Chronos loop commands
-        Commands::Chronos { subcommand } => {
-            match subcommand {
-                ChronosSubcommand::Forecast { window } => {
-                    return chronos_commands::execute_chronos_forecast_command(*window).await.map_err(|e| e.into());
-                }
-                ChronosSubcommand::Audit => {
-                    return chronos_commands::execute_chronos_audit_command().await.map_err(|e| e.into());
-                }
-                ChronosSubcommand::Align => {
-                    return chronos_commands::execute_chronos_align_command().await.map_err(|e| e.into());
-                }
-            }
-        }
-        // Phase 1.8: Consensus commands (PoC)
-        Commands::Consensus { subcommand } => {
-            match subcommand {
-                ConsensusSubcommand::Status { round_id, json } => {
-                    consensus_commands::execute_consensus_status_command(round_id.clone(), *json).await?;
-                    return Ok(());
-                }
-                ConsensusSubcommand::Submit { observation_path } => {
-                    consensus_commands::execute_consensus_submit_command(observation_path).await?;
-                    return Ok(());
-                }
-                ConsensusSubcommand::Reconcile { window, json } => {
-                    consensus_commands::execute_consensus_reconcile_command(*window, *json).await?;
-                    return Ok(());
-                }
-                ConsensusSubcommand::InitKeys => {
-                    consensus_commands::execute_consensus_init_keys_command().await?;
-                    return Ok(());
-                }
-            }
-        }
-        _ => {}
+    // Handle Status command
+    if let Commands::Status { json } = command {
+        return status_command::execute_anna_status_command(
+            *json,
+            &req_id,
+            &state,
+            start_time,
+        )
+        .await;
     }
-
     // Check if command is allowed in current state
     let allowed = capabilities.iter().any(|cap| cap.name == command_name);
 
@@ -1573,8 +856,8 @@ async fn main() -> Result<()> {
         std::process::exit(EXIT_COMMAND_NOT_AVAILABLE);
     }
 
-    // Command is allowed - execute no-op handler and log
-    let exit_code = execute_noop_command(command, &state).await?;
+    // Command is allowed - log and exit (all commands have their own handlers above)
+    let exit_code = EXIT_SUCCESS;
     let duration_ms = start_time.elapsed().as_millis() as u64;
 
     // Find the citation for this specific command
@@ -2302,23 +1585,33 @@ async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String
 /// Execute help command standalone (Phase 3.1 - doesn't require daemon)
 async fn execute_help_command_standalone(
     command: &Commands,
-    socket_path: Option<&str>,
+    _socket_path: Option<&str>,
     req_id: &str,
     start_time: Instant,
 ) -> Result<()> {
-    let (cmd_name, show_all, _json) = match command {
-        Commands::Help { command, all, json } => (command.clone(), *all, *json),
+    // Simplified Help - just display minimal help
+    match command {
+        Commands::Help => {},
         _ => unreachable!(),
     };
 
-    // Build display context from current system state
-    let context = help_commands::build_context(socket_path).await;
-
-    // Display adaptive help
-    if let Err(e) = help_commands::display_help(cmd_name, show_all, context).await {
-        eprintln!("Error displaying help: {}", e);
-        std::process::exit(1);
-    }
+    // Display minimal modern help
+    println!("\nAnna Assistant - Arch Linux System Administration\n");
+    println!("Anna is your intelligent system administrator that monitors,");
+    println!("maintains, and helps you understand your Arch Linux system.\n");
+    println!("Available commands:");
+    println!("  annactl           Start interactive session with Anna");
+    println!("  annactl status    Show Anna's health report");
+    println!("  annactl help      Show this help message\n");
+    println!("Usage:");
+    println!("  annactl           # Start REPL - just talk to Anna");
+    println!("  annactl status    # Check system health");
+    println!("  annactl help      # Show this help\n");
+    println!("Examples (in REPL):");
+    println!("  > How is my system?");
+    println!("  > Any problems I should know about?");
+    println!("  > Tell me about my computer");
+    println!("  > What's using all my disk space?\n");
 
     // Log the help command
     let duration_ms = start_time.elapsed().as_millis() as u64;
@@ -2328,11 +1621,7 @@ async fn execute_help_command_standalone(
         state: "unknown".to_string(),
         command: "help".to_string(),
         allowed: Some(true),
-        args: if show_all {
-            vec!["--all".to_string()]
-        } else {
-            vec![]
-        },
+        args: vec![],
         exit_code: EXIT_SUCCESS,
         citation: "[archwiki:System_maintenance]".to_string(),
         duration_ms,
@@ -2344,249 +1633,101 @@ async fn execute_help_command_standalone(
     std::process::exit(EXIT_SUCCESS);
 }
 
-/// Execute help command (Phase 0.3d - Legacy, requires daemon)
-async fn execute_help_command(
-    command: &Commands,
-    state: &str,
-    capabilities: &[CommandCapabilityData],
-    req_id: &str,
-    start_time: Instant,
-) -> Result<()> {
-    let (cmd_name, show_all, json_only) = match command {
-        Commands::Help { command, all, json } => (command.clone(), *all, *json),
-        _ => unreachable!(),
-    };
-
-    // Phase 3.1: Use adaptive help system if not JSON mode
-    if !json_only {
-        // Build display context from current system state
-        let socket_path = std::env::var("ANNAD_SOCKET").ok();
-        let context = help_commands::build_context(socket_path.as_deref()).await;
-
-        // Display adaptive help
-        if let Err(e) = help_commands::display_help(cmd_name, show_all, context).await {
-            eprintln!("Error displaying help: {}", e);
-            std::process::exit(1);
-        }
-
-        // Log the help command
-        let duration_ms = start_time.elapsed().as_millis() as u64;
-        let log_entry = LogEntry {
-            ts: LogEntry::now(),
-            req_id: req_id.to_string(),
-            state: state.to_string(),
-            command: "help".to_string(),
-            allowed: Some(true),
-            args: if show_all {
-                vec!["--all".to_string()]
-            } else {
-                vec![]
-            },
-            exit_code: EXIT_SUCCESS,
-            citation: state_citation(state).to_string(),
-            duration_ms,
-            ok: true,
-            error: None,
-        };
-        let _ = log_entry.write();
-
-        std::process::exit(EXIT_SUCCESS);
-    }
-
-    // Legacy JSON output (for backwards compatibility)
-    let mut sorted_caps = capabilities.to_vec();
-    sorted_caps.sort_by(|a, b| a.name.cmp(&b.name));
-
-    let commands: Vec<serde_json::Value> = sorted_caps
-        .iter()
-        .map(|cap| {
-            serde_json::json!({
-                "name": cap.name,
-                "desc": cap.description,
-                "citation": cap.citation
-            })
-        })
-        .collect();
-
-    let output = serde_json::json!({
-        "version": VERSION,
-        "ok": true,
-        "state": state,
-        "commands": commands
-    });
-    println!("{}", serde_json::to_string_pretty(&output)?);
-
-    // Log the help command
-    let duration_ms = start_time.elapsed().as_millis() as u64;
-    let log_entry = LogEntry {
-        ts: LogEntry::now(),
-        req_id: req_id.to_string(),
-        state: state.to_string(),
-        command: "help".to_string(),
-        allowed: Some(true),
-        args: vec!["--json".to_string()],
-        exit_code: EXIT_SUCCESS,
-        citation: state_citation(state).to_string(),
-        duration_ms,
-        ok: true,
-        error: None,
-    };
-    let _ = log_entry.write();
-
-    std::process::exit(EXIT_SUCCESS);
-}
-
-/// Execute no-op command handler (Phase 0.3c)
-/// All commands just print success message and return exit code
-async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
-    match command {
-        Commands::Init => {
-            // Should not reach here - handled in main
-            unreachable!("Init command should be handled separately");
-        }
-        Commands::Status { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Status command should be handled separately");
-        }
-        Commands::Version => {
-            // Should not reach here - handled in main
-            unreachable!("Version command should be handled separately");
-        }
-        Commands::Help { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Help command should be handled separately");
-        }
-        Commands::Ping => {
-            // Should not reach here - handled in main
-            unreachable!("Ping command should be handled separately");
-        }
-        // Commands::Update { .. } => {
-        //     // Should not reach here - handled in main
-        //     unreachable!("Update command should be handled separately");
-        // }
-        Commands::Install { .. } => {
-            // Should not reach here - handled separately
-            unreachable!("Install command should be handled separately");
-        }
-        // Commands::Audit => {
-        //     // Should not reach here - handled in main
-        //     unreachable!("Audit command should be handled separately");
-        // }
-        Commands::Rescue { subcommand } => {
-            println!("[anna] rescue command allowed in state: {}", state);
-            println!("[anna] subcommand: {:?} (no-op)", subcommand);
-        }
-        Commands::Backup { dest } => {
-            println!("[anna] backup command allowed in state: {}", state);
-            println!(
-                "[anna] dest: {:?} (no-op - no actual backup performed)",
-                dest
-            );
-        }
-        Commands::Health { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Health command should be handled separately");
-        }
-        Commands::Daily { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Daily command should be handled separately");
-        }
-        Commands::Doctor { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Doctor command should be handled separately");
-        }
-        Commands::Issues { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Issues command should be handled separately");
-        }
-        Commands::Rollback { target } => {
-            println!("[anna] rollback command allowed in state: {}", state);
-            println!(
-                "[anna] target: {:?} (no-op - no actual rollback performed)",
-                target
-            );
-        }
-        Commands::Triage => {
-            println!("[anna] triage command allowed in state: {}", state);
-            println!("[anna] (no-op - no actual triage performed)");
-        }
-        Commands::CollectLogs { output } => {
-            println!("[anna] collect-logs command allowed in state: {}", state);
-            println!("[anna] output: {:?} (no-op - no logs collected)", output);
-        }
-        Commands::Sentinel { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Sentinel command should be handled separately");
-        }
-        Commands::Config { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Config command should be handled separately");
-        }
-        Commands::Conscience { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Conscience command should be handled separately");
-        }
-        Commands::Empathy { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Empathy command should be handled separately");
-        }
-        Commands::Collective { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Collective command should be handled separately");
-        }
-        Commands::Mirror { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Mirror command should be handled separately");
-        }
-        Commands::Chronos { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Chronos command should be handled separately");
-        }
-        Commands::Consensus { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Consensus command should be handled separately");
-        }
-        Commands::SelfUpdate { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("SelfUpdate command should be handled separately");
-        }
-        Commands::Profile { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Profile command should be handled separately");
-        }
-        Commands::Monitor { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Monitor command should be handled separately");
-        }
-        Commands::Metrics { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Metrics command should be handled separately");
-        }
-        Commands::Learn { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Learn command should be handled separately");
-        }
-        Commands::Predict { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Predict command should be handled separately");
-        }
-        Commands::Insights { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Insights command should be handled separately");
-        }
-        Commands::Repairs { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Repairs command should be handled separately");
-        }
-        Commands::Weekly { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Weekly command should be handled separately");
-        }
-        Commands::Upgrade { .. } => {
-            // Should not reach here - handled in main
-            unreachable!("Upgrade command should be handled separately");
-        }
-    }
-
-    Ok(EXIT_SUCCESS)
-}
+// LEGACY: /// Execute help command (Phase 0.3d - Legacy, requires daemon)
+// LEGACY: async fn execute_help_command(
+// LEGACY:     command: &Commands,
+// LEGACY:     state: &str,
+// LEGACY:     capabilities: &[CommandCapabilityData],
+// LEGACY:     req_id: &str,
+// LEGACY:     start_time: Instant,
+// LEGACY: ) -> Result<()> {
+// LEGACY:     let (cmd_name, show_all, json_only) = match command {
+// LEGACY:         Commands::Help { command, all, json } => (command.clone(), *all, *json),
+// LEGACY:         _ => unreachable!(),
+// LEGACY:     };
+// LEGACY: 
+// LEGACY:     // Phase 3.1: Use adaptive help system if not JSON mode
+// LEGACY:     if !json_only {
+// LEGACY:         // Build display context from current system state
+// LEGACY:         let socket_path = std::env::var("ANNAD_SOCKET").ok();
+// LEGACY:         let context = help_commands::build_context(socket_path.as_deref()).await;
+// LEGACY: 
+// LEGACY:         // Display adaptive help
+// LEGACY:         if let Err(e) = help_commands::display_help(cmd_name, show_all, context).await {
+// LEGACY:             eprintln!("Error displaying help: {}", e);
+// LEGACY:             std::process::exit(1);
+// LEGACY:         }
+// LEGACY: 
+// LEGACY:         // Log the help command
+// LEGACY:         let duration_ms = start_time.elapsed().as_millis() as u64;
+// LEGACY:         let log_entry = LogEntry {
+// LEGACY:             ts: LogEntry::now(),
+// LEGACY:             req_id: req_id.to_string(),
+// LEGACY:             state: state.to_string(),
+// LEGACY:             command: "help".to_string(),
+// LEGACY:             allowed: Some(true),
+// LEGACY:             args: if show_all {
+// LEGACY:                 vec!["--all".to_string()]
+// LEGACY:             } else {
+// LEGACY:                 vec![]
+// LEGACY:             },
+// LEGACY:             exit_code: EXIT_SUCCESS,
+// LEGACY:             citation: state_citation(state).to_string(),
+// LEGACY:             duration_ms,
+// LEGACY:             ok: true,
+// LEGACY:             error: None,
+// LEGACY:         };
+// LEGACY:         let _ = log_entry.write();
+// LEGACY: 
+// LEGACY:         std::process::exit(EXIT_SUCCESS);
+// LEGACY:     }
+// LEGACY: 
+// LEGACY:     // Legacy JSON output (for backwards compatibility)
+// LEGACY:     let mut sorted_caps = capabilities.to_vec();
+// LEGACY:     sorted_caps.sort_by(|a, b| a.name.cmp(&b.name));
+// LEGACY: 
+// LEGACY:     let commands: Vec<serde_json::Value> = sorted_caps
+// LEGACY:         .iter()
+// LEGACY:         .map(|cap| {
+// LEGACY:             serde_json::json!({
+// LEGACY:                 "name": cap.name,
+// LEGACY:                 "desc": cap.description,
+// LEGACY:                 "citation": cap.citation
+// LEGACY:             })
+// LEGACY:         })
+// LEGACY:         .collect();
+// LEGACY: 
+// LEGACY:     let output = serde_json::json!({
+// LEGACY:         "version": VERSION,
+// LEGACY:         "ok": true,
+// LEGACY:         "state": state,
+// LEGACY:         "commands": commands
+// LEGACY:     });
+// LEGACY:     println!("{}", serde_json::to_string_pretty(&output)?);
+// LEGACY: 
+// LEGACY:     // Log the help command
+// LEGACY:     let duration_ms = start_time.elapsed().as_millis() as u64;
+// LEGACY:     let log_entry = LogEntry {
+// LEGACY:         ts: LogEntry::now(),
+// LEGACY:         req_id: req_id.to_string(),
+// LEGACY:         state: state.to_string(),
+// LEGACY:         command: "help".to_string(),
+// LEGACY:         allowed: Some(true),
+// LEGACY:         args: vec!["--json".to_string()],
+// LEGACY:         exit_code: EXIT_SUCCESS,
+// LEGACY:         citation: state_citation(state).to_string(),
+// LEGACY:         duration_ms,
+// LEGACY:         ok: true,
+// LEGACY:         error: None,
+// LEGACY:     };
+// LEGACY:     let _ = log_entry.write();
+// LEGACY: 
+// LEGACY:     std::process::exit(EXIT_SUCCESS);
+// LEGACY: }
+// LEGACY: 
+// LEGACY: /// Execute no-op command handler (Phase 0.3c)
+// LEGACY: /// All commands just print success message and return exit code
+// LEGACY: async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {
+// LEGACY:     match command {
+// LEGACY:     Ok(EXIT_SUCCESS)
+// LEGACY: }

@@ -56,7 +56,7 @@ impl UI {
     pub fn success(&self, message: &str) {
         let icon = self.render_icon("✓", "[OK]");
         let text = if self.caps.use_colors() {
-            format!("{} {}", icon, message).green().to_string()
+            format!("{} {}", icon.bright_green(), message)
         } else {
             format!("{} {}", icon, message)
         };
@@ -67,7 +67,7 @@ impl UI {
     pub fn error(&self, message: &str) {
         let icon = self.render_icon("✗", "[ERROR]");
         let text = if self.caps.use_colors() {
-            format!("{} {}", icon, message).red().bold().to_string()
+            format!("{} {}", icon.bright_red(), message)
         } else {
             format!("{} {}", icon, message)
         };
@@ -78,7 +78,7 @@ impl UI {
     pub fn warning(&self, message: &str) {
         let icon = self.render_icon("⚠", "[!]");
         let text = if self.caps.use_colors() {
-            format!("{} {}", icon, message).yellow().to_string()
+            format!("{} {}", icon.bright_yellow(), message)
         } else {
             format!("{} {}", icon, message)
         };
@@ -89,7 +89,7 @@ impl UI {
     pub fn info(&self, message: &str) {
         let icon = self.render_icon("ℹ", "[i]");
         let text = if self.caps.use_colors() {
-            format!("{} {}", icon, message).blue().to_string()
+            format!("{} {}", icon.cyan(), message.dimmed())
         } else {
             format!("{} {}", icon, message)
         };
@@ -101,14 +101,19 @@ impl UI {
         println!();
         let rendered_icon = self.render_emoji(icon);
         let formatted = if self.caps.use_colors() {
-            format!("{} {}", rendered_icon, title).bold().to_string()
+            format!("{} {}", rendered_icon, title.bright_cyan().bold())
         } else {
             format!("{} {}", rendered_icon, title)
         };
         println!("{}", formatted);
 
         let separator = self.render_box_char("─", "-");
-        println!("{}", separator.repeat(60));
+        let sep_colored = if self.caps.use_colors() {
+            separator.repeat(60).dimmed().to_string()
+        } else {
+            separator.repeat(60)
+        };
+        println!("{}", sep_colored);
         println!();
     }
 
@@ -149,14 +154,20 @@ impl UI {
         let bar = if self.caps.use_colors() {
             format!(
                 "[{}{}]",
-                filled_char.repeat(filled).green(),
-                empty_char.repeat(empty).dimmed()
+                filled_char.repeat(filled).bright_cyan(),
+                empty_char.repeat(empty).bright_black()
             )
         } else {
             format!("[{}{}]", filled_char.repeat(filled), empty_char.repeat(empty))
         };
 
-        println!("{} {}% - {}", bar, percent, label);
+        let formatted_percent = if self.caps.use_colors() {
+            format!("{}%", percent).bright_cyan().to_string()
+        } else {
+            format!("{}%", percent)
+        };
+
+        println!("{} {} - {}", bar, formatted_percent, label.dimmed());
     }
 
     /// Display spinner with message
@@ -260,14 +271,19 @@ impl UI {
     /// Display thinking message
     pub fn thinking(&self) {
         let icon = self.render_emoji("💭");
-        println!("\n{} {}...\n", icon, self.profile.translations.working);
+        let text = if self.caps.use_colors() {
+            format!("{} {}...", icon, self.profile.translations.working).dimmed().to_string()
+        } else {
+            format!("{} {}...", icon, self.profile.translations.working)
+        };
+        println!("\n{}\n", text);
     }
 
     /// Display done message
     pub fn done(&self, message: &str) {
         let icon = self.render_icon("✓", "[OK]");
         let text = if self.caps.use_colors() {
-            format!("{} {}", icon, message).green().to_string()
+            format!("{} {}", icon.bright_green(), message)
         } else {
             format!("{} {}", icon, message)
         };
