@@ -31,6 +31,7 @@ pub mod hardware_capability; // Hardware capability detection for local LLM
 pub mod ignore_filters;
 pub mod kernel_modules; // Kernel and boot detection (installed kernels, modules, boot config)
 pub mod insights; // Phase 5.2: Behavioral insights engine
+pub mod package_health; // Package health detection (unowned files, conflicts, database corruption)
 pub mod installation_source;
 pub mod ipc;
 pub mod language; // Language system with natural configuration

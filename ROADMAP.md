@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.32
+**Current Version:** 5.7.0-beta.33
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 
@@ -126,11 +126,11 @@ annactl "what's the state of my system?"
 - [ ] Initramfs compression type
 - [x] pacman configuration ✅ (beta.28)
 - [x] Mirror speed/age ✅ (beta.28)
-- [ ] pacman database corruption
-- [ ] Partial upgrades
+- [x] pacman database corruption ✅ (beta.33)
+- [x] Partial upgrades ✅ (beta.33)
 - [ ] Orphaned packages
-- [ ] Unowned files
-- [ ] Conflicting files
+- [x] Unowned files ✅ (beta.33)
+- [x] Conflicting files ✅ (beta.33)
 - [x] Firewall type/status ✅ (beta.28)
 - [x] SSH configuration ✅ (beta.28)
 - [ ] SELinux/AppArmor status
@@ -256,6 +256,7 @@ Open an issue with the `[feature-request]` tag and we'll discuss where it fits.
 
 | Version | Date | Milestone | Key Features |
 |---------|------|-----------|--------------|
+| 5.7.0-beta.33 | 2025-11-15 | Milestone 1 | Package health: database corruption, file conflicts, partial upgrades (~590 lines) |
 | 5.7.0-beta.32 | 2025-11-15 | Milestone 1 | Kernel & boot detection: modules, DKMS, boot entries, boot health (~1050 lines) |
 | 5.7.0-beta.31 | 2025-11-15 | Milestone 1 | Network monitoring: interfaces, latency, packet loss, routes, firewall (~750 lines) |
 | 5.7.0-beta.30 | 2025-11-15 | Milestone 1 | Storage health & performance: SMART, I/O errors, partition alignment (~570 lines) |

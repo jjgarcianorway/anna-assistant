@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.33] - 2025-11-15
+
+### Added - Package Management Health Detection 📦🔍
+
+**Package Database Health:**
+Anna now monitors pacman database integrity:
+- Database corruption detection via pacman -Qk
+- Database lock file checking
+- Package cache integrity verification
+- Sync database freshness tracking (warns if >30 days old)
+- Missing file detection in installed packages
+- Database health scoring with severity levels (Critical, Warning, Info)
+
+**File Ownership Issues:**
+Complete file ownership conflict detection:
+- Unowned files in system directories (/usr/bin, /usr/lib, /usr/share, /etc)
+- Conflicting files owned by multiple packages
+- Modified package files (checksum mismatches)
+- Deleted package files detection
+- Permission mismatch detection
+
+**Upgrade Health Monitoring:**
+Partial upgrade and held package detection:
+- Partial upgrade warnings via checkupdates
+- Critical system package update detection (linux, systemd, pacman)
+- IgnorePkg tracking from pacman.conf
+- Held back packages with version comparison
+- Available version vs installed version tracking
+
+**Broken Dependency Detection:**
+Package dependency health monitoring:
+- Broken dependencies via pacman -Dk
+- Missing dependencies identification
+- Version mismatch detection
+- Dependency conflict tracking
+- Unsatisfied dependency requirements
+
+**Modified File Tracking:**
+Package file integrity monitoring:
+- Modified file detection (checksum mismatch)
+- Deleted file tracking
+- Permission mismatch identification
+- Per-package modification reporting
+
+**Implementation:**
+- New `package_health` module in `anna_common` with `PackageHealth::detect()` (~590 lines)
+- Integrated into `SystemFacts` telemetry as `package_health` field
+- pacman -Qk integration for database health
+- pacman -Ql integration for file ownership conflicts
+- checkupdates integration for upgrade health
+- IgnorePkg parsing from pacman.conf
+- pacman -Dk integration for dependency checking
+
+**Files Added:**
+- `crates/anna_common/src/package_health.rs` (~590 lines)
+
+**Impact:**
+Anna can now proactively detect and warn about package management issues:
+- 🔍 **Database corruption** (detect before it causes problems)
+- ⚠️ **File conflicts** (multiple packages claiming same file)
+- 📦 **Unowned files** (files in system dirs not managed by pacman)
+- 🔄 **Partial upgrades** (avoid system instability)
+- 🔗 **Broken dependencies** (detect missing or conflicting deps)
+- ✅ **Package integrity** (modified/deleted package files)
+
 ## [5.7.0-beta.32] - 2025-11-15
 
 ### Added - Kernel & Boot System Detection 🐧⚙️

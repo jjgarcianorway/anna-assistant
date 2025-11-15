@@ -318,6 +318,8 @@ pub struct SystemFacts {
     pub network_monitoring: Option<crate::network_monitoring::NetworkMonitoring>, // Network monitoring (interfaces, latency, packet loss, routes, firewall)
     #[serde(default)]
     pub kernel_modules: Option<crate::kernel_modules::KernelModules>, // Kernel and boot (installed kernels, modules, boot config, DKMS)
+    #[serde(default)]
+    pub package_health: Option<crate::package_health::PackageHealth>, // Package health (unowned files, conflicts, database corruption)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU
