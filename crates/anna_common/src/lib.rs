@@ -5,6 +5,7 @@
 
 pub mod advice_cache;
 pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
+pub mod backup_detection; // Backup tool detection (timeshift, snapper, borg, restic)
 pub mod beautiful;
 pub mod boot; // Boot system detection (UEFI/BIOS, Secure Boot, bootloader)
 pub mod caretaker_brain; // Core analysis engine - ties everything together

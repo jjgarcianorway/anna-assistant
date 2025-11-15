@@ -34,6 +34,7 @@ use anna_common::gpu_throttling::GpuThrottling;
 use anna_common::gpu_compute::GpuComputeCapabilities;
 use anna_common::voltage_monitoring::VoltageMonitoring;
 use anna_common::filesystem_health::FilesystemHealth;
+use anna_common::backup_detection::BackupDetection;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
@@ -148,6 +149,7 @@ pub async fn collect_facts() -> Result<SystemFacts> {
         gpu_compute: Some(GpuComputeCapabilities::detect()),
         voltage_monitoring: Some(VoltageMonitoring::detect()),
         filesystem_health: Some(FilesystemHealth::detect()),
+        backup_detection: Some(BackupDetection::detect()),
         is_nvidia: detect_nvidia(),
         nvidia_driver_version: if detect_nvidia() {
             get_nvidia_driver_version()

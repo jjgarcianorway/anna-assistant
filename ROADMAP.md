@@ -142,10 +142,10 @@ annactl "what's the state of my system?"
 - [x] Ext4 fsck status/errors ✅ (beta.40)
 - [x] XFS log/errors ✅ (beta.40)
 - [x] ZFS pools/scrubs ✅ (beta.40)
-- [ ] Backup tools installed
-- [ ] Last backup timestamp
-- [ ] Backup integrity errors
-- [ ] Missing snapshots
+- [x] Backup tools installed ✅ (beta.41)
+- [x] Last backup timestamp ✅ (beta.41)
+- [x] Backup integrity errors ✅ (beta.41)
+- [x] Missing snapshots ✅ (beta.41)
 - [x] Docker/Podman service status ✅ (beta.28)
 - [ ] Broken containers
 - [ ] High CPU containers

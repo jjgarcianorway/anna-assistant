@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.41] - 2025-11-15
+
+### Added - Backup Detection Suite 🛡️
+
+**Backup Tool Detection:**
+Anna now detects installed backup and snapshot tools:
+- Timeshift detection and version tracking
+- Snapper detection and configuration status
+- Rsnapshot detection and installation check
+- Borg (BorgBackup) detection
+- Restic detection
+- Duplicity detection
+- Tool type classification (Snapshot/Incremental/Deduplication)
+- Configuration file detection and validation
+- Version information extraction
+
+**Last Backup Timestamp Detection:**
+Comprehensive backup recency tracking:
+- Timeshift snapshot listing and parsing
+- Snapper snapshot enumeration
+- Rsnapshot backup directory scanning
+- Last backup timestamp extraction
+- Backup age calculation (hours since last backup)
+- Backup location tracking
+- Multi-tool backup coordination
+
+**Backup Integrity Checking:**
+Automated backup health verification:
+- Timeshift backup location validation
+- Snapper snapshot directory existence
+- Backup accessibility checks
+- Error severity classification (Critical/Warning/Info)
+- Per-tool integrity status
+- Missing backup location detection
+- Configuration vs. reality validation
+
+**Missing Snapshot Detection:**
+Proactive backup monitoring:
+- Expected backup interval tracking
+- Snapshot schedule adherence checking
+- Tool-specific interval expectations (daily/weekly)
+- Installed-but-unused tool detection
+- Backup gap identification
+- Last seen timestamp tracking
+
+**Backup Status & Health Scoring:**
+Overall backup system assessment:
+- Backup status calculation (Healthy/Warning/Critical/NoBackupTool)
+- Health score (0-100) based on backup state
+- Recent backup detection (7-day threshold)
+- Critical error identification
+- Multi-tool redundancy tracking
+- Backup coverage assessment
+
+**Smart Recommendations:**
+Context-aware backup suggestions:
+- No backup tool warnings
+- Outdated backup alerts
+- Secondary backup tool recommendations
+- Configured-but-inactive tool detection
+- Redundancy improvement suggestions
+- Data protection best practices
+
+**Implementation Details:**
+- `backup_detection.rs`: 350 lines - comprehensive backup monitoring
+- Integration with SystemFacts telemetry
+- Real-time backup status tracking
+- Proactive data protection recommendations
+- Multi-tool backup orchestration
+
+**Detection Items (83/99):**
+- Backup tools installed detection
+- Last backup timestamp detection
+- Backup integrity error detection
+- Missing snapshots detection
+
 ## [5.7.0-beta.40] - 2025-11-15
 
 ### Added - Filesystem Health Detection 💾
