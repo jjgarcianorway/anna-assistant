@@ -7,3 +7,4 @@ pub mod context_detection;
 pub mod errors;
 pub mod logging;
 pub mod output;
+pub mod tui; // Phase 5.7: TUI REPL with ratatui

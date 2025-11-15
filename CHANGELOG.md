@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.24] - 2025-11-15
+
+### Added - TUI REPL Foundation 🖥️
+
+**Feature:**
+Foundation for a modern terminal UI (TUI) REPL using ratatui, inspired by Claude Code's clean interface.
+
+**Current Implementation:**
+- Full-screen terminal interface with clean layout
+- Message history display with scrollback support
+- Input field with cursor positioning
+- Keyboard navigation (arrows, page up/down, home/end)
+- Status bar with keyboard shortcuts
+- Efficient rendering with ratatui
+
+**Controls:**
+- Type and press Enter to send messages
+- Ctrl+C or Ctrl+Q to quit
+- Arrow keys or Page Up/Down to scroll history
+- Ctrl+A/E or Home/End to move cursor
+- Backspace/Delete for text editing
+
+**Launch:**
+```bash
+annactl tui  # Experimental - hidden command
+```
+
+**Architecture:**
+- Clean separation: `TuiApp` (state), `ui()` (rendering), event handling
+- Message history with role-based styling (User: cyan, Assistant: green)
+- Modular rendering functions for messages, input, status bar
+- Built on crossterm for terminal control and ratatui for UI
+
+**Roadmap:**
+- LLM integration for actual conversations
+- Message streaming support
+- Syntax highlighting for code blocks
+- Command history with up/down arrows
+- Copy/paste support
+- Search in conversation history
+- Split-pane view for context
+- Theme customization
+
+**Impact:**
+Provides a solid foundation for a modern TUI experience. While currently a prototype with echo responses, the architecture is in place for full integration with Anna's LLM capabilities.
+
+**Files Modified:**
+- `Cargo.toml`: Added ratatui 0.26, crossterm 0.27
+- `crates/annactl/Cargo.toml`: TUI dependencies
+- `crates/annactl/src/tui.rs` (new module, 310 lines)
+- `crates/annactl/src/lib.rs`: Exported tui module
+- `crates/annactl/src/main.rs`: Added `Tui` command
+
 ## [5.7.0-beta.23] - 2025-11-15
 
 ### Added - Desktop Automation Helpers ⚡

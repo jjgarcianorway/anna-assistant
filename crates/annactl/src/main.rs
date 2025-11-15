@@ -99,6 +99,10 @@ enum Commands {
     /// Ping daemon (hidden - for health checks)
     #[command(hide = true)]
     Ping,
+
+    /// Launch TUI REPL (experimental)
+    #[command(hide = true)]
+    Tui,
 }
 
 // All legacy subcommands removed - REPL is the primary interface
@@ -766,6 +770,11 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // Handle TUI command (Phase 5.7 - experimental)
+    if matches!(command, Commands::Tui) {
+        return annactl::tui::run().map_err(|e| anyhow::anyhow!("TUI error: {}", e));
+    }
+
     // Phase 1.8: Handle consensus commands early (standalone PoC, no daemon)
     // Handle self-update command (doesn't need daemon)
     // Handle profile command (Phase 3.0 - needs daemon)
@@ -794,6 +803,7 @@ async fn main() -> Result<()> {
         Commands::Help => "help",
         Commands::Version => "version",
         Commands::Ping => "ping",
+        Commands::Tui => "tui",
     };
 
     // Try to connect to daemon and get state
