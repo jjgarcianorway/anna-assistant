@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.26] - 2025-11-15
+
+### Added - Filesystem Features Detection 💾
+
+**TRIM/Discard Detection:**
+- Detect fstrim.timer status (enabled/disabled/available)
+- Detect continuous discard from mount options
+- Support for both timer-based and continuous TRIM strategies
+
+**LUKS Encryption Detection:**
+- Detect LUKS-encrypted devices
+- Parse `/proc/mounts` for dm-crypt devices
+- List all encrypted devices with full paths
+
+**Btrfs Features Detection:**
+- Detect if Btrfs is in use
+- List all Btrfs subvolumes with IDs and paths
+- Detect compression settings per mount point (zlib, lzo, zstd with levels)
+- Parse mount options for compression algorithms
+
+**Implementation:**
+- New `filesystem` module in `anna_common` with `FilesystemInfo::detect()`
+- Integrated into `SystemFacts` telemetry
+- Multiple detection methods for robustness
+- Support for all major Btrfs compression algorithms
+
+**Files Added:**
+- `crates/anna_common/src/filesystem.rs` (~390 lines)
+
+**Impact:**
+Anna now understands your filesystem configuration in depth, enabling better advice for:
+- SSD optimization and TRIM setup
+- Encryption troubleshooting
+- Btrfs configuration and compression tuning
+- Storage performance optimization
+
 ## [5.7.0-beta.25] - 2025-11-15
 
 ### Added - System Detection: Boot and Audio 🔍

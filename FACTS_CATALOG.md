@@ -20,8 +20,8 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 ### Motherboard / BIOS/UEFI / Boot
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
-| UEFI vs BIOS | `bootctl status`, `efibootmgr -v` | [Arch boot process](https://wiki.archlinux.org/title/Arch_boot_process) | ❌ TODO |
-| Secure Boot status | `dmesg \| grep -i secure` | [Secure Boot](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot) | ❌ TODO |
+| UEFI vs BIOS | `bootctl status`, `efibootmgr -v` | [Arch boot process](https://wiki.archlinux.org/title/Arch_boot_process) | ✅ Done (beta.25) |
+| Secure Boot status | `dmesg \| grep -i secure` | [Secure Boot](https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot) | ✅ Done (beta.25) |
 | Firmware versions | `dmidecode` | - | ❌ TODO |
 
 ### GPU / Graphics Stack
@@ -37,9 +37,9 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 ### Audio
 | Fact | Source | Wiki Page | Status |
 |------|--------|-----------|--------|
-| PipeWire/Pulse/ALSA | `pactl info`, `pw-cli info all` | [PipeWire](https://wiki.archlinux.org/title/PipeWire) | ❌ TODO |
-| Audio devices/profiles | `aplay -l` | [ALSA](https://wiki.archlinux.org/title/Advanced_Linux_Sound_Architecture) | ❌ TODO |
-| JACK presence | `command -v jackd` | [JACK](https://wiki.archlinux.org/title/JACK_Audio_Connection_Kit) | ❌ TODO |
+| PipeWire/Pulse/ALSA | `pactl info`, `pw-cli info all` | [PipeWire](https://wiki.archlinux.org/title/PipeWire) | ✅ Done (beta.25) |
+| Audio devices/profiles | `aplay -l` | [ALSA](https://wiki.archlinux.org/title/Advanced_Linux_Sound_Architecture) | ✅ Done (beta.25) |
+| JACK presence | `command -v jackd` | [JACK](https://wiki.archlinux.org/title/JACK_Audio_Connection_Kit) | ✅ Done (beta.25) |
 
 ### Storage / Filesystems / TRIM
 | Fact | Source | Wiki Page | Status |
@@ -47,10 +47,10 @@ Complete list of system facts that `annad` should collect for intelligent, Arch-
 | Disks/partitions | `lsblk -f` | [File systems](https://wiki.archlinux.org/title/File_systems) | ✅ Done |
 | FS types | `findmnt -rno TARGET,OPTIONS /` | [Btrfs](https://wiki.archlinux.org/title/Btrfs), [ext4](https://wiki.archlinux.org/title/Ext4) | ✅ Done |
 | Mount options | `findmnt` | [fstab](https://wiki.archlinux.org/title/Fstab) | ❌ TODO |
-| TRIM status | `systemctl status fstrim.timer` | [SSD](https://wiki.archlinux.org/title/Solid_state_drive) | ❌ TODO |
-| LUKS encryption | `cryptsetup status`, `lsblk -o FSTYPE` | [dm-crypt](https://wiki.archlinux.org/title/Dm-crypt) | ❌ TODO |
-| Btrfs subvolumes | `btrfs subvolume list -t /` | [Btrfs](https://wiki.archlinux.org/title/Btrfs#Subvolumes) | ❌ TODO |
-| Btrfs compression | `/etc/fstab` | [Btrfs](https://wiki.archlinux.org/title/Btrfs#Compression) | ❌ TODO |
+| TRIM status | `systemctl status fstrim.timer` | [SSD](https://wiki.archlinux.org/title/Solid_state_drive) | ✅ Done (beta.26) |
+| LUKS encryption | `cryptsetup status`, `lsblk -o FSTYPE` | [dm-crypt](https://wiki.archlinux.org/title/Dm-crypt) | ✅ Done (beta.26) |
+| Btrfs subvolumes | `btrfs subvolume list -t /` | [Btrfs](https://wiki.archlinux.org/title/Btrfs#Subvolumes) | ✅ Done (beta.26) |
+| Btrfs compression | `/etc/fstab` | [Btrfs](https://wiki.archlinux.org/title/Btrfs#Compression) | ✅ Done (beta.26) |
 
 ### Network
 | Fact | Source | Wiki Page | Status |

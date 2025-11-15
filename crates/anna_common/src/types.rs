@@ -290,6 +290,8 @@ pub struct SystemFacts {
     pub boot_info: Option<crate::boot::BootInfo>, // Boot system detection (UEFI/BIOS, Secure Boot, bootloader)
     #[serde(default)]
     pub audio_info: Option<crate::audio::AudioInfo>, // Audio system detection (PipeWire, Pulse, ALSA, devices)
+    #[serde(default)]
+    pub filesystem_info: Option<crate::filesystem::FilesystemInfo>, // Filesystem features (TRIM, LUKS, Btrfs)
 
     // GPU Detection (beta.41+)
     pub is_nvidia: bool,                       // Whether system has Nvidia GPU

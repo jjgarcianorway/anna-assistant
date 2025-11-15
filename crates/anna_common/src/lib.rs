@@ -22,6 +22,7 @@ pub mod context;
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
 pub mod desktop_automation; // Desktop automation helpers (wallpaper, config updates, reload)
 pub mod disk_analysis;
+pub mod filesystem; // Filesystem features detection (TRIM, LUKS, Btrfs)
 pub mod display;
 pub mod github_releases;
 pub mod hardware_capability; // Hardware capability detection for local LLM
