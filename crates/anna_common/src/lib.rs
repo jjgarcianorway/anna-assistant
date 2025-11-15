@@ -30,6 +30,7 @@ pub mod voltage_monitoring; // Voltage monitoring and anomaly detection
 pub mod desktop; // Desktop environment detection (Hyprland, i3, KDE, etc.)
 pub mod desktop_automation; // Desktop automation helpers (wallpaper, config updates, reload)
 pub mod disk_analysis;
+pub mod display_issues; // Display driver and multi-monitor issue detection
 pub mod filesystem; // Filesystem features detection (TRIM, LUKS, Btrfs)
 pub mod display;
 pub mod github_releases;

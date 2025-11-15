@@ -154,9 +154,9 @@ annactl "what's the state of my system?"
 - [x] Nested virtualization ✅ (beta.42)
 - [x] QEMU performance flags ✅ (beta.42)
 - [x] Display server (X11/Wayland) ✅ (beta.28)
-- [ ] Display driver issues
-- [ ] Resolution/refresh rate
-- [ ] Multi-monitor issues
+- [x] Display driver issues ✅ (beta.43)
+- [x] Resolution/refresh rate ✅ (beta.43)
+- [x] Multi-monitor issues ✅ (beta.43)
 
 #### User Behavior Detection
 - [ ] Command execution patterns

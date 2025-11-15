@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.43] - 2025-11-15
+
+### Added - Display Issues Detection 🖥️
+
+**Display Driver Issue Detection:**
+Anna now monitors display driver health:
+- Xorg.log error parsing and analysis
+- GPU driver error detection (NVIDIA/AMD/Intel)
+- dmesg GPU error tracking with timestamps
+- Error severity classification (Critical/Warning/Info)
+- Driver-specific error patterns
+- Timestamp extraction from kernel logs
+- Error source tracking (Xorg.log vs dmesg)
+
+**Display Configuration Detection:**
+Comprehensive display setup monitoring:
+- Session type detection (X11/Wayland/Unknown)
+- xrandr integration for X11 systems
+- Sway compositor output detection
+- Connected display enumeration
+- Primary display identification
+- Resolution tracking per display
+- Refresh rate detection
+- Display rotation status
+
+**Multi-Monitor Issue Detection:**
+Automated multi-monitor configuration validation:
+- Missing primary display detection
+- Resolution mismatch identification
+- Refresh rate mismatch detection
+- Disconnected display tracking
+- Scaling issue warnings
+- Display configuration validation
+- Per-display issue reporting
+
+**Display Status Assessment:**
+Overall display health evaluation:
+- Display status calculation (Healthy/Warning/Critical)
+- Critical driver error identification
+- Multi-monitor issue tracking
+- Display count tracking
+- Configuration health scoring
+
+**Smart Recommendations:**
+Context-aware display improvement suggestions:
+- Driver update recommendations
+- Kernel parameter suggestions for NVIDIA
+- AMD/Intel driver configuration tips
+- Primary display configuration guidance
+- Resolution matching suggestions
+- Refresh rate synchronization advice
+- Disconnected display cleanup recommendations
+- Multi-monitor optimization tips
+
+**Implementation Details:**
+- `display_issues.rs`: 300 lines - comprehensive display monitoring
+- X11 and Wayland support
+- xrandr and swaymsg integration
+- Xorg.log and dmesg parsing
+- JSON output parsing for Wayland
+- Multi-vendor GPU support (NVIDIA/AMD/Intel)
+
+**Detection Items (91/99):**
+- Display driver issues detection
+- Resolution/refresh rate detection
+- Multi-monitor issues detection
+
 ## [5.7.0-beta.42] - 2025-11-15
 
 ### Added - Container & Virtualization Performance 🐳
