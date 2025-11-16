@@ -571,6 +571,77 @@ impl HistorianIntegration {
         }
     }
 
+    /// Record service health/restarts and log counters
+    pub fn record_service_reliability(&self, facts: &SystemFacts) {
+        if !self.circuit_breaker.should_attempt() {
+            return;
+        }
+
+        let now = Utc::now().to_rfc3339();
+
+        // Failed units → service_health entries
+        if let Some(systemd) = &facts.systemd_health {
+            for unit in &systemd.failed_units {
+                let service_name = unit.name.clone();
+                let state = Some(unit.active_state.as_str());
+
+                let svc = service_name.clone();
+                let state_str = state.map(|s| s.to_string());
+                tokio::spawn({
+                    let now = now.clone();
+                    async move {
+                        if let Err(e) = context::record_service_health(
+                            &now,
+                            &svc,
+                            state_str.as_deref(),
+                            None,
+                            None,
+                            None,
+                        )
+                        .await
+                        {
+                            warn!("Failed to record service_health for {}: {}", svc, e);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Crashes → service_restarts (reason=crash) and log_window_counts (error tally)
+        if let Some(health) = &facts.system_health {
+            let total_crashes = health.daemon_crashes.total_crashes_24h as i64;
+
+            // Log window count as errors (per current window)
+            if total_crashes > 0 {
+                let ts = now.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = context::record_log_window_counts(
+                        &ts,
+                        Some(total_crashes),
+                        None,
+                        None,
+                        Some("systemd"),
+                    )
+                    .await
+                    {
+                        warn!("Failed to record log_window_counts: {}", e);
+                    }
+                });
+            }
+
+            for crash in &health.daemon_crashes.recent_crashes {
+                let ts = crash.timestamp.to_rfc3339();
+                let svc = crash.service_name.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = context::record_service_restart(&ts, &svc, Some("crash")).await
+                    {
+                        warn!("Failed to record service_restart for {}: {}", svc, e);
+                    }
+                });
+            }
+        }
+    }
+
     /// Record all telemetry data to Historian
     pub fn record_all(&self, facts: &SystemFacts) {
         // Record boot data (only if available and new)
@@ -587,6 +658,9 @@ impl HistorianIntegration {
 
         // Record network sample (latency/packet loss)
         self.record_network_sample(facts);
+
+        // Record service reliability + log counters
+        self.record_service_reliability(facts);
     }
 
     /// Get the current circuit breaker status
