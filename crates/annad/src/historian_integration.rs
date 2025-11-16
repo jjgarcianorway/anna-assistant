@@ -127,6 +127,32 @@ fn get_last_fs_used_gb(mountpoint: &str) -> Option<f64> {
     None
 }
 
+fn get_unit_start_times() -> HashMap<String, i64> {
+    let mut map = HashMap::new();
+    let output = Command::new("systemd-analyze").arg("blame").output();
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.trim().split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let time_str = parts[0].trim_end_matches('s').trim_end_matches("ms");
+                    let unit_name = parts[1..].join(" ");
+                    if let Ok(time) = time_str.parse::<f64>() {
+                        let time_ms = if parts[0].ends_with("ms") {
+                            time as i64
+                        } else {
+                            (time * 1000.0) as i64
+                        };
+                        map.insert(unit_name, time_ms);
+                    }
+                }
+            }
+        }
+    }
+    map
+}
+
 fn hash_message(message: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -278,6 +304,67 @@ impl HistorianIntegration {
                                         "Failed to record boot unit {} into context DB: {}",
                                         unit.unit, e
                                     );
+                                }
+                            }
+
+                            // Baseline/delta for boot time (one-time baseline, then deltas)
+                            if let Some(duration) = boot_event.boot_duration_ms {
+                                let label = "boot_auto";
+                                let duration_json =
+                                    serde_json::json!({ "boot_ms": duration }).to_string();
+
+                                if let Some(db) = context::db() {
+                                    let label_owned = label.to_string();
+                                    let ts_clone = ts_start.clone();
+                                    tokio::spawn(async move {
+                                        let existing: Option<(i64, String)> = db
+                                            .execute(move |conn| {
+                                                let mut stmt = conn
+                                                    .prepare("SELECT id, metrics FROM baselines WHERE label = ?1 ORDER BY created_at DESC LIMIT 1")
+                                                    .ok()?;
+                                                let mut rows = stmt.query(params![label_owned]).ok()?;
+                                                if let Some(row) = rows.next().transpose().ok()? {
+                                                    let id: i64 = row.get(0).ok()?;
+                                                    let metrics: String = row.get(1).ok()?;
+                                                    return Some((id, metrics));
+                                                }
+                                                None
+                                            })
+                                            .await
+                                            .unwrap_or(None);
+
+                                        if let Some((baseline_id, metrics)) = existing {
+                                            if let Ok(parsed) =
+                                                serde_json::from_str::<serde_json::Value>(&metrics)
+                                            {
+                                                if let Some(prev) =
+                                                    parsed.get("boot_ms").and_then(|v| v.as_i64())
+                                                {
+                                                    let delta_pct = ((duration as f64
+                                                        - prev as f64)
+                                                        / prev.max(1) as f64)
+                                                        * 100.0;
+                                                    let _ = context::record_baseline_delta(
+                                                        &ts_clone,
+                                                        baseline_id,
+                                                        "boot_ms",
+                                                        Some(delta_pct),
+                                                        Some("boot"),
+                                                        None,
+                                                    )
+                                                    .await;
+                                                    return;
+                                                }
+                                            }
+                                        }
+
+                                        let _ = context::record_baseline(
+                                            label,
+                                            &ts_clone,
+                                            Some(&duration_json),
+                                        )
+                                        .await;
+                                    });
                                 }
                             }
                         });
@@ -688,12 +775,14 @@ impl HistorianIntegration {
         }
 
         let now = Utc::now().to_rfc3339();
+        let start_times = get_unit_start_times();
 
         // Failed units → service_health entries
         if let Some(systemd) = &facts.systemd_health {
             for unit in &systemd.failed_units {
                 let service_name = unit.name.clone();
                 let state = Some(unit.active_state.as_str());
+                let start_ms = start_times.get(&service_name).copied();
 
                 let svc = service_name.clone();
                 let state_str = state.map(|s| s.to_string());
@@ -705,7 +794,7 @@ impl HistorianIntegration {
                             &svc,
                             state_str.as_deref(),
                             None,
-                            None,
+                            start_ms,
                             None,
                         )
                         .await
@@ -743,11 +832,33 @@ impl HistorianIntegration {
                 let ts = crash.timestamp.to_rfc3339();
                 let svc = crash.service_name.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = context::record_service_restart(&ts, &svc, Some("crash")).await
-                    {
-                        warn!("Failed to record service_restart for {}: {}", svc, e);
-                    }
-                });
+                        if let Err(e) = context::record_service_restart(&ts, &svc, Some("crash")).await
+                        {
+                            warn!("Failed to record service_restart for {}: {}", svc, e);
+                        }
+                    });
+
+                if let Ok(db) = context::db().ok_or(()).map_err(|_| ()) {
+                    let svc_clone = svc.clone();
+                    let now_clone = now.clone();
+                    tokio::spawn(async move {
+                        let start_ms = get_unit_start_times().get(&format!("{}.service", svc_clone)).copied();
+                        if let Some(ms) = start_ms {
+                            if let Err(e) = context::record_service_health(
+                                &now_clone,
+                                &format!("{}.service", svc_clone),
+                                Some("exited"),
+                                None,
+                                Some(ms),
+                                None,
+                            )
+                            .await
+                            {
+                                warn!("Failed to record service start time for {}: {}", svc_clone, e);
+                            }
+                        }
+                    });
+                }
             }
         }
     }
