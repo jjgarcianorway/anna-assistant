@@ -6,6 +6,7 @@
 
 pub mod actions;
 pub mod db;
+pub mod historian;
 pub mod noise_control;
 
 // Re-export commonly used types
@@ -17,6 +18,7 @@ pub use noise_control::{
     set_issue_acknowledged, set_issue_snoozed, update_issue_state, DecisionType, IssueDecision,
     IssueState, NoiseControlConfig,
 };
+pub use historian::*;
 
 use anyhow::Result;
 use std::sync::Arc;

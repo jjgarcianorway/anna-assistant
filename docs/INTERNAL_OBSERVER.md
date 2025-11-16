@@ -10,6 +10,27 @@ This document describes Anna's internal observation and behavioral analysis syst
 
 The Observer Layer transforms Anna from a snapshot-based analyzer into a time-series observer with memory. Every time a user runs `annactl daily` or `annactl status`, Anna silently records observations about system state, building a historical database for pattern detection.
 
+---
+
+## Historian Requirements (Long-Term Telemetry)
+
+The observer must keep append-only, structured history so the LLM can explain trends, regressions, and improvements:
+- **Global Timeline**: install date/version, all upgrades (from→to, timestamps), rollbacks, failed/partial upgrades, kernel changes, config migrations performed by Anna, count of self-repairs and whether they held or regressed.
+- **Boot/Shutdown**: per boot—timestamp, duration, time to graphical/multi-user, slowest units with timings, degraded/failed units, fsck runs/duration, early kernel errors, shutdown duration and blockers; aggregates—avg boot (7/30d), slowest recurring units, trend vs baseline, per-boot health score + moving average.
+- **CPU Usage**: per window—avg/peak per core, idle background load, top N processes by cumulative CPU, thermal throttling count, 100% spikes longer than N seconds; aggregates—idle pattern per hour of day, overall CPU trend, “new” top CPU processes.
+- **Memory/Swap**: per window—avg/peak RAM, swap usage/peak, OOM kills, processes repeatedly involved; aggregates—post-boot baseline vs now, swap dependency trend, chronic hogs, apps whose footprint grew after updates.
+- **Disk Space & I/O**: per filesystem—daily free-space snapshot, growth rate for home/var/log/tmp/caches/containers/VMs, top growth contributors, I/O throughput/latency/queue depth; aggregates—threshold crossings (80/90%), growth curves, log explosion, cache bloat, correlation of I/O spikes with specific services/apps.
+- **Network Quality**: per window—latency to gateway/8.8.8.8/Arch mirror, packet loss, disconnect/reconnect counts, DHCP renew failures, DNS resolution failures, VPN connect/disconnect events; aggregates—baseline vs current latency, time-of-day badness, unstable interfaces, correlation to suspend/resume or other actions.
+- **Service Reliability**: per key service (annad, display manager, network manager, etc.)—restarts, crashes vs intentional restarts, time in failed state, average start time, config change timestamps; aggregates—stability score per service, flaky units, time since last crash, reliability trend.
+- **Error/Warning Stats**: per window—counts of errors/warnings/criticals, sources (service/kernel/app), new error signatures; aggregates—error rate trend, top recurring errors, first-seen of each signature, disappearance after change/repair.
+- **Performance Baselines/Deltas**: baselines—boot time, idle CPU/RAM/disk/network, workflow snapshots (compile, browser tabs, game); deltas—percent deviation vs baseline, before/after for major changes (GPU driver, kernel, LLM model), impact score per repair/tuning.
+- **User Behavior (technical, non-creepy)**: typical active hours, heavy vs low load periods, common apps per time of day, package update cadence, frequency of running Anna; aggregates—routine steadiness vs anomalies (overnight load), optimizations that match real usage, whether prior suggestions were applied and improved metrics.
+- **LLM Stats**: response latency, backend memory footprint, GPU/CPU utilization when active, failed calls, model changes over time (which model/when/hardware requirements), impact of LLM use on temps/fans; aggregates—best-fit model for hardware without harming daily use, whether heavier models are safe, patterns of LLM unavailability.
+- **Self-Repair Effectiveness**: per repair/suggested action—trigger, actions taken, before/after metrics (boot time, RAM, error rate, etc.), recurrence, user feedback; aggregates—repair success rate, recurring problems, risky repairs to suggest but not auto-apply.
+- **Synthesized Indicators**: stability/performance/noise scores (0–100), trend arrows, last major regression + suspected cause, last major improvement + cause.
+
+---
+
 ## Architecture
 
 ### 1. Observations Table (Time-Series Memory)

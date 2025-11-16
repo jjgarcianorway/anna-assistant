@@ -22,6 +22,11 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
+## Documentation
+- Detection surface: `docs/DETECTION_SCOPE.md`
+- Observer/historian requirements: `docs/INTERNAL_OBSERVER.md`
+- Historian datasets/schema: `docs/HISTORIAN_SCHEMA.md`
+
 ---
 
 ## Installation

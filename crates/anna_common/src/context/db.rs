@@ -354,6 +354,423 @@ impl ContextDb {
                 [],
             )?;
 
+            // Historian: timeline of upgrades/config changes
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS timeline_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    kind TEXT NOT NULL,
+                    from_version TEXT,
+                    to_version TEXT,
+                    details TEXT,
+                    outcome TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_timeline_ts
+                 ON timeline_events(ts DESC)",
+                [],
+            )?;
+
+            // Historian: boot/shutdown tracking
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS boot_sessions (
+                    boot_id TEXT PRIMARY KEY,
+                    ts_start DATETIME NOT NULL,
+                    ts_end DATETIME,
+                    goal TEXT,
+                    time_to_goal_ms INTEGER,
+                    degraded INTEGER,
+                    fsck_ran INTEGER,
+                    fsck_duration_ms INTEGER,
+                    shutdown_duration_ms INTEGER,
+                    early_kernel_errors_count INTEGER,
+                    boot_health_score INTEGER
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS boot_unit_slowlog (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    boot_id TEXT NOT NULL,
+                    unit TEXT NOT NULL,
+                    duration_ms INTEGER,
+                    state TEXT,
+                    FOREIGN KEY(boot_id) REFERENCES boot_sessions(boot_id)
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_boot_sessions_ts
+                 ON boot_sessions(ts_start DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_boot_units_boot
+                 ON boot_unit_slowlog(boot_id)",
+                [],
+            )?;
+
+            // Historian: CPU usage windows
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS cpu_windows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    window_end DATETIME NOT NULL,
+                    avg_util_per_core TEXT,
+                    peak_util_per_core TEXT,
+                    idle_background_load REAL,
+                    throttling_events INTEGER,
+                    spikes_over_100pct INTEGER
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS cpu_top_processes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    process_name TEXT NOT NULL,
+                    cpu_time_seconds REAL
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_cpu_windows_start
+                 ON cpu_windows(window_start DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_cpu_top_window
+                 ON cpu_top_processes(window_start DESC)",
+                [],
+            )?;
+
+            // Historian: Memory/Swap
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS mem_windows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    avg_ram_mb REAL,
+                    peak_ram_mb REAL,
+                    swap_used_mb_avg REAL,
+                    swap_used_mb_peak REAL
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS oom_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    process_name TEXT,
+                    victim INTEGER,
+                    rss_mb REAL
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_mem_windows_start
+                 ON mem_windows(window_start DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_oom_ts
+                 ON oom_events(ts DESC)",
+                [],
+            )?;
+
+            // Historian: Disk capacity, growth, I/O
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS fs_capacity_daily (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    mountpoint TEXT NOT NULL,
+                    total_gb REAL,
+                    free_gb REAL
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS fs_growth (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    mountpoint TEXT NOT NULL,
+                    path_prefix TEXT,
+                    delta_gb REAL,
+                    contributors TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS fs_io_windows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    mountpoint TEXT NOT NULL,
+                    read_mb_s_avg REAL,
+                    write_mb_s_avg REAL,
+                    latency_ms_p50 REAL,
+                    latency_ms_p95 REAL,
+                    queue_depth_avg REAL,
+                    io_errors INTEGER
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_fs_capacity_ts
+                 ON fs_capacity_daily(ts DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_fs_growth_window
+                 ON fs_growth(window_start DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_fs_io_window
+                 ON fs_io_windows(window_start DESC)",
+                [],
+            )?;
+
+            // Historian: Network quality
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS net_windows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    iface TEXT,
+                    target TEXT,
+                    latency_ms_avg REAL,
+                    latency_ms_p95 REAL,
+                    packet_loss_pct REAL,
+                    dns_failures INTEGER,
+                    dhcp_failures INTEGER
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS net_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    iface TEXT,
+                    event TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_net_windows_start
+                 ON net_windows(window_start DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_net_events_ts
+                 ON net_events(ts DESC)",
+                [],
+            )?;
+
+            // Historian: Service reliability
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS service_health (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    service TEXT NOT NULL,
+                    state TEXT,
+                    time_in_failed_ms INTEGER,
+                    avg_start_time_ms INTEGER,
+                    config_change_ts DATETIME
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS service_restarts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    service TEXT NOT NULL,
+                    reason TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_service_health_ts
+                 ON service_health(ts DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_service_restart_ts
+                 ON service_restarts(ts DESC)",
+                [],
+            )?;
+
+            // Historian: Error/Warning signatures
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS log_window_counts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    errors INTEGER,
+                    warnings INTEGER,
+                    criticals INTEGER,
+                    source TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS log_signatures (
+                    signature_hash TEXT PRIMARY KEY,
+                    first_seen DATETIME NOT NULL,
+                    last_seen DATETIME NOT NULL,
+                    count INTEGER NOT NULL,
+                    source TEXT,
+                    sample_message TEXT,
+                    status TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_log_window_start
+                 ON log_window_counts(window_start DESC)",
+                [],
+            )?;
+
+            // Historian: Baselines and deltas
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS baselines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label TEXT NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    metrics TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS baseline_deltas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    baseline_id INTEGER NOT NULL,
+                    metric TEXT NOT NULL,
+                    delta_pct REAL,
+                    context TEXT,
+                    impact_score REAL,
+                    FOREIGN KEY(baseline_id) REFERENCES baselines(id)
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_baselines_created
+                 ON baselines(created_at DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_baseline_deltas_ts
+                 ON baseline_deltas(ts DESC)",
+                [],
+            )?;
+
+            // Historian: User behavior (opt-in)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS usage_patterns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    active_hours_detected INTEGER,
+                    heavy_load_minutes INTEGER,
+                    low_load_minutes INTEGER,
+                    package_updates_count INTEGER,
+                    anna_runs INTEGER
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS app_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    app TEXT NOT NULL,
+                    minutes_active INTEGER,
+                    category TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_usage_patterns_window
+                 ON usage_patterns(window_start DESC)",
+                [],
+            )?;
+
+            // Historian: LLM stats
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS llm_usage_windows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    window_start DATETIME NOT NULL,
+                    latency_ms_avg REAL,
+                    latency_ms_p95 REAL,
+                    backend_rss_mb REAL,
+                    gpu_util_pct_avg REAL,
+                    cpu_util_pct_avg REAL,
+                    failed_calls INTEGER
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS llm_model_changes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    model_name TEXT NOT NULL,
+                    reason TEXT,
+                    hw_requirements TEXT,
+                    notes TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_llm_usage_window
+                 ON llm_usage_windows(window_start DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_llm_model_changes
+                 ON llm_model_changes(ts DESC)",
+                [],
+            )?;
+
+            // Historian: Repair metrics
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS repair_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    repair_id INTEGER NOT NULL,
+                    metric TEXT NOT NULL,
+                    before_value REAL,
+                    after_value REAL,
+                    units TEXT,
+                    FOREIGN KEY(repair_id) REFERENCES repair_history(id)
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_repair_metrics_repair
+                 ON repair_metrics(repair_id)",
+                [],
+            )?;
+
+            // Historian: Synthesized scores
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS health_scores (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts DATETIME NOT NULL,
+                    stability_score INTEGER,
+                    performance_score INTEGER,
+                    noise_score INTEGER,
+                    trend_stability TEXT,
+                    trend_performance TEXT,
+                    trend_noise TEXT,
+                    last_regression TEXT,
+                    last_regression_cause TEXT,
+                    last_improvement TEXT,
+                    last_improvement_cause TEXT
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_health_scores_ts
+                 ON health_scores(ts DESC)",
+                [],
+            )?;
+
             debug!("Database schema initialized successfully");
             Ok(())
         })
