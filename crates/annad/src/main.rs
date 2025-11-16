@@ -88,13 +88,13 @@ mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod historian_integration; // Phase 5.7: Historian integration
-mod process_stats; // Phase 5.7: Process statistics for Historian
 mod install; // Phase 0.8: Installation subsystem
 mod llm_bootstrap; // LLM auto-detection and configuration
 mod mirror; // Phase 1.4: Mirror Protocol
 mod mirror_audit; // Phase 1.6: Mirror Audit
 mod network; // Phase 1.9: Network layer for distributed consensus
 mod notifier;
+mod process_stats; // Phase 5.7: Process statistics for Historian
 mod profile; // Phase 3.0: Adaptive Intelligence & Smart Profiling
 mod recommender;
 mod recovery; // Phase 0.6: Recovery framework
@@ -108,7 +108,7 @@ mod telemetry;
 mod watcher;
 mod wiki_cache;
 
-use anyhow::Result;
+use anyhow::{Context as AnyhowContext, Result};
 use rpc_server::DaemonState;
 use std::env;
 use std::sync::Arc;
@@ -147,7 +147,9 @@ async fn main() -> Result<()> {
                 println!();
                 println!("SOCKET PATHS:");
                 println!("    System mode: /run/anna/anna.sock (requires systemd + anna group)");
-                println!("    User mode:   $XDG_RUNTIME_DIR/anna/anna.sock or /tmp/anna-$UID/anna.sock");
+                println!(
+                    "    User mode:   $XDG_RUNTIME_DIR/anna/anna.sock or /tmp/anna-$UID/anna.sock"
+                );
                 return Ok(());
             }
             _ => {
@@ -166,6 +168,11 @@ async fn main() -> Result<()> {
     } else {
         info!("Anna Daemon {} starting in SYSTEM MODE", VERSION);
     }
+
+    // Initialize shared context database (historian tables live here)
+    anna_common::context::ensure_initialized()
+        .await
+        .context("Failed to initialize context database")?;
 
     // Store mode for RPC server
     let socket_mode = if user_mode { "user" } else { "system" };
@@ -269,7 +276,12 @@ async fn main() -> Result<()> {
 
     // Initialize Mirror Protocol (Phase 1.4)
     info!("Initializing Mirror Protocol...");
-    match mirror::MirrorProtocol::new("anna_node_1".to_string(), "mirror_key_placeholder".to_string()).await {
+    match mirror::MirrorProtocol::new(
+        "anna_node_1".to_string(),
+        "mirror_key_placeholder".to_string(),
+    )
+    .await
+    {
         Ok(mirror_protocol) => {
             info!("Mirror Protocol initialized - metacognition enabled");
 
@@ -402,7 +414,8 @@ async fn main() -> Result<()> {
 
                 // Record initial telemetry data
                 let facts_clone = state.facts.read().await.clone();
-                let integration = historian_integration::HistorianIntegration::new(Arc::clone(&historian_arc));
+                let integration =
+                    historian_integration::HistorianIntegration::new(Arc::clone(&historian_arc));
                 integration.record_all(&facts_clone);
                 info!("Initial telemetry data recorded to Historian");
             }
@@ -487,9 +500,14 @@ async fn main() -> Result<()> {
                 .and_hms_opt(0, 5, 0)
                 .unwrap()
                 .and_utc();
-            let initial_delay = (tomorrow_run - now).to_std().unwrap_or(std::time::Duration::from_secs(60));
+            let initial_delay = (tomorrow_run - now)
+                .to_std()
+                .unwrap_or(std::time::Duration::from_secs(60));
 
-            info!("Historian aggregation scheduled for daily at 00:05 UTC (next run in {:?})", initial_delay);
+            info!(
+                "Historian aggregation scheduled for daily at 00:05 UTC (next run in {:?})",
+                initial_delay
+            );
 
             // Wait until first scheduled time
             tokio::time::sleep(initial_delay).await;
@@ -511,7 +529,10 @@ async fn main() -> Result<()> {
                             tracing::warn!("Failed to compute boot aggregates: {}", e);
                         }
                         if let Err(e) = historian.compute_resource_aggregates(&yesterday) {
-                            tracing::warn!("Failed to compute resource aggregates (CPU/memory): {}", e);
+                            tracing::warn!(
+                                "Failed to compute resource aggregates (CPU/memory): {}",
+                                e
+                            );
                         }
                         if let Err(e) = historian.compute_service_aggregates(&yesterday) {
                             tracing::warn!("Failed to compute service aggregates: {}", e);
@@ -600,7 +621,8 @@ async fn refresh_advice(state: &Arc<DaemonState>) {
             // Phase 5.7: Record telemetry data to Historian
             // This is non-blocking and will gracefully degrade if Historian fails
             if let Some(ref historian_arc) = state.historian {
-                let integration = historian_integration::HistorianIntegration::new(Arc::clone(historian_arc));
+                let integration =
+                    historian_integration::HistorianIntegration::new(Arc::clone(historian_arc));
                 integration.record_all(&facts);
 
                 // Log circuit breaker status occasionally

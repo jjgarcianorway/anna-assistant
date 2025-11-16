@@ -9,13 +9,15 @@
 //! - Automatic data extraction from SystemFacts
 //! - Background task spawning to avoid blocking telemetry
 
+use anna_common::context;
 use anna_common::historian::{
-    BootEvent, CpuSample, MemorySample, Historian, SlowUnit, ProcessCpuInfo, ProcessMemoryInfo, OomVictim,
+    BootEvent, CpuSample, Historian, MemorySample, OomVictim, ProcessCpuInfo, ProcessMemoryInfo,
+    SlowUnit,
 };
 use anna_common::SystemFacts;
 use chrono::Utc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
@@ -140,29 +142,27 @@ impl HistorianIntegration {
                         // Convert slowest units to SlowUnit structs
                         let slowest_units: Vec<SlowUnit> = slowest_units_raw
                             .into_iter()
-                            .map(|(unit, duration_ms)| SlowUnit {
-                                unit,
-                                duration_ms,
-                            })
+                            .map(|(unit, duration_ms)| SlowUnit { unit, duration_ms })
                             .collect();
 
                         // Calculate boot health score based on multiple factors
-                        let boot_health_score = if failed_units.is_empty() && boot_duration_ms.is_some() {
-                            let duration = boot_duration_ms.unwrap();
-                            if duration < 10000 {
-                                100 // Fast boot, no failures
-                            } else if duration < 30000 {
-                                85 // Moderate boot, no failures
+                        let boot_health_score =
+                            if failed_units.is_empty() && boot_duration_ms.is_some() {
+                                let duration = boot_duration_ms.unwrap();
+                                if duration < 10000 {
+                                    100 // Fast boot, no failures
+                                } else if duration < 30000 {
+                                    85 // Moderate boot, no failures
+                                } else {
+                                    70 // Slow boot, no failures
+                                }
+                            } else if failed_units.is_empty() {
+                                90 // No failures but no boot time data
+                            } else if failed_units.len() <= 2 {
+                                60 // Few failures
                             } else {
-                                70 // Slow boot, no failures
-                            }
-                        } else if failed_units.is_empty() {
-                            90 // No failures but no boot time data
-                        } else if failed_units.len() <= 2 {
-                            60 // Few failures
-                        } else {
-                            40 // Many failures
-                        };
+                                40 // Many failures
+                            };
 
                         let boot_event = BootEvent {
                             boot_id: boot_id.clone(),
@@ -187,13 +187,63 @@ impl HistorianIntegration {
                                 let duration_str = boot_duration_ms
                                     .map(|ms| format!("{} ms", ms))
                                     .unwrap_or_else(|| "unknown".to_string());
-                                info!("Recorded boot event to Historian (boot_id: {}, duration: {})", boot_id, duration_str);
+                                info!(
+                                    "Recorded boot event to Historian (boot_id: {}, duration: {})",
+                                    boot_id, duration_str
+                                );
                             }
                             Err(e) => {
                                 circuit_breaker.record_failure();
                                 warn!("Failed to record boot event to Historian: {}", e);
                             }
                         }
+
+                        // Also persist to context historian tables (best-effort)
+                        let ts_start = boot_event.boot_timestamp.to_rfc3339();
+                        let degraded = !boot_event.failed_units.is_empty();
+                        let fsck_ran = boot_event.fsck_triggered;
+                        let kernel_error_count = boot_event.kernel_errors.len() as i64;
+                        let boot_health_score = Some(boot_event.boot_health_score as i64);
+
+                        let boot_units = boot_event.slowest_units.clone();
+                        let record_session = context::record_boot_session(
+                            &boot_id,
+                            &ts_start,
+                            boot_event
+                                .shutdown_timestamp
+                                .map(|ts| ts.to_rfc3339())
+                                .as_deref(),
+                            Some(&boot_event.target_reached),
+                            boot_event.boot_duration_ms,
+                            Some(degraded),
+                            Some(fsck_ran),
+                            boot_event.fsck_duration_ms,
+                            boot_event.shutdown_duration_ms,
+                            Some(kernel_error_count),
+                            boot_health_score,
+                        );
+
+                        tokio::spawn(async move {
+                            if let Err(e) = record_session.await {
+                                warn!("Failed to record boot_session into context DB: {}", e);
+                            }
+
+                            for unit in boot_units {
+                                if let Err(e) = context::record_boot_unit(
+                                    &boot_id,
+                                    &unit.unit,
+                                    Some(unit.duration_ms),
+                                    None,
+                                )
+                                .await
+                                {
+                                    warn!(
+                                        "Failed to record boot unit {} into context DB: {}",
+                                        unit.unit, e
+                                    );
+                                }
+                            }
+                        });
                     }
                 }
             });
@@ -213,8 +263,16 @@ impl HistorianIntegration {
         let now = Utc::now();
         let window_start = now - chrono::Duration::hours(1);
 
-        let throttle_count = facts.cpu_throttling.as_ref()
-            .map(|t| if t.throttling_events.has_throttling { 1 } else { 0 })
+        let throttle_count = facts
+            .cpu_throttling
+            .as_ref()
+            .map(|t| {
+                if t.throttling_events.has_throttling {
+                    1
+                } else {
+                    0
+                }
+            })
             .unwrap_or(0);
 
         tokio::task::spawn_blocking(move || {
@@ -240,13 +298,53 @@ impl HistorianIntegration {
                     match historian_lock.record_cpu_sample(&cpu_sample) {
                         Ok(_) => {
                             circuit_breaker.record_success();
-                            info!("Recorded CPU sample to Historian ({:.1}% avg, {} processes)", avg_cpu, process_count);
+                            info!(
+                                "Recorded CPU sample to Historian ({:.1}% avg, {} processes)",
+                                avg_cpu, process_count
+                            );
                         }
                         Err(e) => {
                             circuit_breaker.record_failure();
                             warn!("Failed to record CPU sample to Historian: {}", e);
                         }
                     }
+
+                    // Persist CPU window to context DB (best-effort)
+                    let window_start_str = window_start.to_rfc3339();
+                    let window_end_str = now.to_rfc3339();
+                    let avg_json = serde_json::to_string(&vec![avg_cpu]).ok();
+                    let peak_json = serde_json::to_string(&vec![peak_cpu]).ok();
+
+                    tokio::spawn(async move {
+                        if let Err(e) = context::record_cpu_window(
+                            &window_start_str,
+                            &window_end_str,
+                            avg_json.as_deref(),
+                            peak_json.as_deref(),
+                            cpu_sample.idle_background_percent,
+                            Some(cpu_sample.throttle_event_count as i64),
+                            Some(cpu_sample.spike_count as i64),
+                        )
+                        .await
+                        {
+                            warn!("Failed to record cpu_window into context DB: {}", e);
+                        }
+
+                        for proc in cpu_sample.top_processes {
+                            if let Err(e) = context::record_cpu_top_process(
+                                &window_start_str,
+                                &proc.name,
+                                proc.cumulative_time_ms as f64 / 1000.0,
+                            )
+                            .await
+                            {
+                                warn!(
+                                    "Failed to record cpu_top_process {} into context DB: {}",
+                                    proc.name, e
+                                );
+                            }
+                        }
+                    });
                 }
             });
         });
@@ -278,7 +376,9 @@ impl HistorianIntegration {
                         let swap_used_mb = (mem.swap.used_gb * 1024.0) as i64;
 
                         let oom_kill_count = mem.oom_events.len() as i32;
-                        let oom_victims = mem.oom_events.iter()
+                        let oom_victims = mem
+                            .oom_events
+                            .iter()
                             .map(|e| OomVictim {
                                 process: e.killed_process.clone(),
                                 timestamp: now, // Approximate - OOMEvent doesn't have parsed timestamp
@@ -308,6 +408,41 @@ impl HistorianIntegration {
                                 warn!("Failed to record memory sample to Historian: {}", e);
                             }
                         }
+
+                        // Persist memory window to context DB (best-effort)
+                        let window_start_str = window_start.to_rfc3339();
+                        let ts_str = now.to_rfc3339();
+                        let oom_events = memory_sample.oom_victims.clone();
+
+                        tokio::spawn(async move {
+                            if let Err(e) = context::record_mem_window(
+                                &window_start_str,
+                                Some(memory_sample.avg_ram_used_mb as f64),
+                                Some(memory_sample.peak_ram_used_mb as f64),
+                                Some(memory_sample.avg_swap_used_mb as f64),
+                                Some(memory_sample.peak_swap_used_mb as f64),
+                            )
+                            .await
+                            {
+                                warn!("Failed to record mem_window into context DB: {}", e);
+                            }
+
+                            for victim in oom_events {
+                                if let Err(e) = context::record_oom_event(
+                                    &ts_str,
+                                    Some(victim.process.as_str()),
+                                    Some(true),
+                                    None,
+                                )
+                                .await
+                                {
+                                    warn!(
+                                        "Failed to record oom_event for {}: {}",
+                                        victim.process, e
+                                    );
+                                }
+                            }
+                        });
                     }
                 }
             });
@@ -331,7 +466,12 @@ impl HistorianIntegration {
                     let used_gb = device.used_gb;
                     let inode_used_percent = None; // Not currently tracked
 
-                    match historian_lock.record_disk_snapshot(&device.mount_point, total_gb, used_gb, inode_used_percent) {
+                    match historian_lock.record_disk_snapshot(
+                        &device.mount_point,
+                        total_gb,
+                        used_gb,
+                        inode_used_percent,
+                    ) {
                         Ok(_) => {
                             circuit_breaker.record_success();
                             info!(
@@ -341,7 +481,10 @@ impl HistorianIntegration {
                         }
                         Err(e) => {
                             circuit_breaker.record_failure();
-                            warn!("Failed to record disk snapshot for {}: {}", device.mount_point, e);
+                            warn!(
+                                "Failed to record disk snapshot for {}: {}",
+                                device.mount_point, e
+                            );
                         }
                     }
                 }
