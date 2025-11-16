@@ -16,6 +16,9 @@ use anna_common::historian::{
 };
 use anna_common::SystemFacts;
 use chrono::Utc;
+use rusqlite::params;
+use std::collections::HashMap;
+use std::process::Command;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -97,6 +100,40 @@ impl HistorianCircuitBreaker {
 pub struct HistorianIntegration {
     historian: Arc<Mutex<Historian>>,
     circuit_breaker: Arc<HistorianCircuitBreaker>,
+}
+
+fn get_last_fs_used_gb(mountpoint: &str) -> Option<f64> {
+    if let Some(db) = context::db() {
+        let mount = mountpoint.to_string();
+        if let Ok(val) = db.execute(move |conn| {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT total_gb, free_gb FROM fs_capacity_daily WHERE mountpoint = ?1 ORDER BY ts DESC LIMIT 1",
+                )
+                .ok()?;
+            let mut rows = stmt.query(params![mount]).ok()?;
+            if let Some(row) = rows.next().transpose().ok()? {
+                let total: Option<f64> = row.get(0).ok();
+                let free: Option<f64> = row.get(1).ok();
+                if let (Some(t), Some(f)) = (total, free) {
+                    return Some((t - f).max(0.0));
+                }
+            }
+            None
+        }) {
+            return val;
+        }
+    }
+    None
+}
+
+fn hash_message(message: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    message.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
 }
 
 impl HistorianIntegration {
@@ -504,9 +541,82 @@ impl HistorianIntegration {
                             device.mount_point, e
                         );
                     }
+
+                    // Disk growth window (delta vs last snapshot)
+                    if let Some(previous_used) = get_last_fs_used_gb(&device.mount_point) {
+                        let delta = used_gb - previous_used;
+                        let window_ts = ts_now.clone();
+                        if let Err(e) = context::record_fs_growth(
+                            &window_ts,
+                            &device.mount_point,
+                            None,
+                            Some(delta),
+                            None,
+                        )
+                        .await
+                        {
+                            warn!(
+                                "Failed to record fs_growth for {} into context DB: {}",
+                                device.mount_point, e
+                            );
+                        }
+                    }
                 }
             }
         });
+    }
+
+    /// Record disk I/O windows (best-effort, single sample)
+    pub fn record_disk_io(&self) {
+        if !self.circuit_breaker.should_attempt() {
+            return;
+        }
+
+        // Read /proc/diskstats and record coarse metrics (no deltas tracked yet)
+        let ts = Utc::now().to_rfc3339();
+        if let Ok(contents) = std::fs::read_to_string("/proc/diskstats") {
+            for line in contents.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() < 14 {
+                    continue;
+                }
+                let name = parts[2];
+                // Skip loop and ram devices
+                if name.starts_with("loop") || name.starts_with("ram") {
+                    continue;
+                }
+                let read_sectors: f64 = parts[5].parse().unwrap_or(0.0);
+                let write_sectors: f64 = parts[9].parse().unwrap_or(0.0);
+                let read_time_ms: f64 = parts[6].parse().unwrap_or(0.0);
+                let write_time_ms: f64 = parts[10].parse().unwrap_or(0.0);
+
+                let read_mb = read_sectors * 512.0 / 1_000_000.0;
+                let write_mb = write_sectors * 512.0 / 1_000_000.0;
+
+                let latency_p50 = Some(((read_time_ms + write_time_ms) / 2.0).max(0.0));
+
+                let name_owned = name.to_string();
+                tokio::spawn({
+                    let ts = ts.clone();
+                    async move {
+                        if let Err(e) = context::record_fs_io_window(
+                            &ts,
+                            &name_owned,
+                            Some(read_mb),
+                            Some(write_mb),
+                            latency_p50,
+                            latency_p50,
+                            None,
+                            None,
+                        )
+                        .await
+                        {
+                            warn!("Failed to record fs_io_window for {}: {}", name_owned, e);
+                        }
+                    }
+                });
+            }
+        }
     }
 
     /// Record network quality sample from system facts
@@ -642,6 +752,105 @@ impl HistorianIntegration {
         }
     }
 
+    /// Record log signatures (deduped error patterns)
+    pub fn record_log_signatures(&self) {
+        if !self.circuit_breaker.should_attempt() {
+            return;
+        }
+
+        // Collect last hour of journalctl messages at warning or higher
+        let output = Command::new("journalctl")
+            .args(&[
+                "--since",
+                "1 hour ago",
+                "--priority=3..4",
+                "--output=short",
+                "--no-pager",
+            ])
+            .output();
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                let mut counts: HashMap<String, (String, i64)> = HashMap::new();
+
+                for line in stdout.lines() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    let msg = line.to_string();
+                    let hash = hash_message(&msg);
+                    let entry = counts.entry(hash.clone()).or_insert((msg, 0));
+                    entry.1 += 1;
+                }
+
+                let now = Utc::now().to_rfc3339();
+                for (hash, (sample, count)) in counts {
+                    let sample_clone = sample.clone();
+                    tokio::spawn({
+                        let now = now.clone();
+                        async move {
+                            if let Err(e) = context::upsert_log_signature(
+                                &hash,
+                                &now,
+                                &now,
+                                count,
+                                Some("journal"),
+                                Some(&sample_clone),
+                                Some("active"),
+                            )
+                            .await
+                            {
+                                warn!("Failed to upsert log signature: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    /// Record LLM usage window (placeholder counts)
+    pub fn record_llm_usage(&self) {
+        if !self.circuit_breaker.should_attempt() {
+            return;
+        }
+
+        let window_start = Utc::now().to_rfc3339();
+
+        tokio::spawn(async move {
+            // Load LLM config to get model name
+            let model_name = if let Some(db) = context::db() {
+                match db.load_llm_config().await {
+                    Ok(cfg) => Some(cfg.description.clone()),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+
+            if let Err(e) = context::record_llm_usage_window(
+                &window_start,
+                model_name.as_deref(),
+                Some(0),
+                Some(0),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(0),
+                None,
+                None,
+                None,
+            )
+            .await
+            {
+                warn!("Failed to record llm_usage_window: {}", e);
+            }
+        });
+    }
+
     /// Record all telemetry data to Historian
     pub fn record_all(&self, facts: &SystemFacts) {
         // Record boot data (only if available and new)
@@ -661,6 +870,15 @@ impl HistorianIntegration {
 
         // Record service reliability + log counters
         self.record_service_reliability(facts);
+
+        // Record disk I/O windows
+        self.record_disk_io();
+
+        // Record log signatures (warnings/errors)
+        self.record_log_signatures();
+
+        // Record LLM usage window (placeholder counts)
+        self.record_llm_usage();
     }
 
     /// Get the current circuit breaker status

@@ -80,7 +80,12 @@ pub async fn record_boot_session(
     .await
 }
 
-pub async fn record_boot_unit(boot_id: &str, unit: &str, duration_ms: Option<i64>, state: Option<&str>) -> Result<i64> {
+pub async fn record_boot_unit(
+    boot_id: &str,
+    unit: &str,
+    duration_ms: Option<i64>,
+    state: Option<&str>,
+) -> Result<i64> {
     let db = get_db()?;
     let boot_id = boot_id.to_string();
     let unit = unit.to_string();
@@ -124,7 +129,11 @@ pub async fn record_cpu_window(
     .await
 }
 
-pub async fn record_cpu_top_process(window_start: &str, process_name: &str, cpu_time_seconds: f64) -> Result<i64> {
+pub async fn record_cpu_top_process(
+    window_start: &str,
+    process_name: &str,
+    cpu_time_seconds: f64,
+) -> Result<i64> {
     let db = get_db()?;
     let window_start = window_start.to_string();
     let process_name = process_name.to_string();
@@ -161,7 +170,12 @@ pub async fn record_mem_window(
     .await
 }
 
-pub async fn record_oom_event(ts: &str, process_name: Option<&str>, victim: Option<bool>, rss_mb: Option<f64>) -> Result<i64> {
+pub async fn record_oom_event(
+    ts: &str,
+    process_name: Option<&str>,
+    victim: Option<bool>,
+    rss_mb: Option<f64>,
+) -> Result<i64> {
     let db = get_db()?;
     let process_name = process_name.map(|s| s.to_string());
     let ts = ts.to_string();
@@ -170,14 +184,24 @@ pub async fn record_oom_event(ts: &str, process_name: Option<&str>, victim: Opti
         conn.execute(
             "INSERT INTO oom_events (ts, process_name, victim, rss_mb)
              VALUES (?1, ?2, ?3, ?4)",
-            params![ts, process_name, victim.map(|b| if b { 1 } else { 0 }), rss_mb],
+            params![
+                ts,
+                process_name,
+                victim.map(|b| if b { 1 } else { 0 }),
+                rss_mb
+            ],
         )?;
         Ok(conn.last_insert_rowid())
     })
     .await
 }
 
-pub async fn record_fs_capacity(ts: &str, mountpoint: &str, total_gb: Option<f64>, free_gb: Option<f64>) -> Result<i64> {
+pub async fn record_fs_capacity(
+    ts: &str,
+    mountpoint: &str,
+    total_gb: Option<f64>,
+    free_gb: Option<f64>,
+) -> Result<i64> {
     let db = get_db()?;
     let ts = ts.to_string();
     let mountpoint = mountpoint.to_string();
@@ -210,7 +234,13 @@ pub async fn record_fs_growth(
         conn.execute(
             "INSERT INTO fs_growth (window_start, mountpoint, path_prefix, delta_gb, contributors)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![window_start, mountpoint, path_prefix, delta_gb, contributors],
+            params![
+                window_start,
+                mountpoint,
+                path_prefix,
+                delta_gb,
+                contributors
+            ],
         )?;
         Ok(conn.last_insert_rowid())
     })
@@ -411,7 +441,11 @@ pub async fn upsert_log_signature(
     .await
 }
 
-pub async fn record_baseline(label: &str, created_at: &str, metrics_json: Option<&str>) -> Result<i64> {
+pub async fn record_baseline(
+    label: &str,
+    created_at: &str,
+    metrics_json: Option<&str>,
+) -> Result<i64> {
     let db = get_db()?;
     let label = label.to_string();
     let created_at = created_at.to_string();
@@ -482,7 +516,12 @@ pub async fn record_usage_pattern(
     .await
 }
 
-pub async fn record_app_usage(window_start: &str, app: &str, minutes_active: Option<i64>, category: Option<&str>) -> Result<i64> {
+pub async fn record_app_usage(
+    window_start: &str,
+    app: &str,
+    minutes_active: Option<i64>,
+    category: Option<&str>,
+) -> Result<i64> {
     let db = get_db()?;
     let window_start = window_start.to_string();
     let app = app.to_string();
@@ -501,29 +540,42 @@ pub async fn record_app_usage(window_start: &str, app: &str, minutes_active: Opt
 
 pub async fn record_llm_usage_window(
     window_start: &str,
+    model_name: Option<&str>,
+    total_calls: Option<i64>,
+    success_calls: Option<i64>,
     latency_ms_avg: Option<f64>,
     latency_ms_p95: Option<f64>,
     backend_rss_mb: Option<f64>,
     gpu_util_pct_avg: Option<f64>,
     cpu_util_pct_avg: Option<f64>,
     failed_calls: Option<i64>,
+    cost_estimate: Option<f64>,
+    delta_latency_ms_avg: Option<f64>,
+    delta_latency_ms_p95: Option<f64>,
 ) -> Result<i64> {
     let db = get_db()?;
     let window_start = window_start.to_string();
+    let model_name = model_name.map(|s| s.to_string());
 
     db.execute(move |conn| {
         conn.execute(
-            "INSERT INTO llm_usage_windows (window_start, latency_ms_avg, latency_ms_p95, backend_rss_mb,
-                                            gpu_util_pct_avg, cpu_util_pct_avg, failed_calls)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO llm_usage_windows (window_start, model_name, total_calls, success_calls, latency_ms_avg, latency_ms_p95, backend_rss_mb,
+                                            gpu_util_pct_avg, cpu_util_pct_avg, failed_calls, cost_estimate, delta_latency_ms_avg, delta_latency_ms_p95)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 window_start,
+                model_name,
+                total_calls,
+                success_calls,
                 latency_ms_avg,
                 latency_ms_p95,
                 backend_rss_mb,
                 gpu_util_pct_avg,
                 cpu_util_pct_avg,
-                failed_calls
+                failed_calls,
+                cost_estimate,
+                delta_latency_ms_avg,
+                delta_latency_ms_p95
             ],
         )?;
         Ok(conn.last_insert_rowid())

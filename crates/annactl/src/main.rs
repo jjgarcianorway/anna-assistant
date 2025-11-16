@@ -22,6 +22,7 @@ mod discard_command; // Handle discard intent
 mod first_run;
 mod health; // Central health model and auto-repair
 mod health_commands; // Contains repair logic - will be refactored
+mod historian_cli;
 mod help_commands;
 mod init_command;
 mod install_command;
@@ -29,13 +30,13 @@ mod json_types;
 pub mod logging;
 mod monitor_setup;
 pub mod output;
+mod repair; // Internal repair engine (not a CLI command)
 mod report_command; // Handle report intent
 mod report_display; // Display professional reports
 mod rpc_client;
-mod repair; // Internal repair engine (not a CLI command)
 mod status_command; // Handle anna_status intent
-mod suggestions; // Internal suggestions engine (not a CLI command)
 mod suggestion_display; // Display suggestions with Arch Wiki links
+mod suggestions; // Internal suggestions engine (not a CLI command)
 mod system_query; // Query real system state
 mod systemd; // Systemd service management utilities
 mod upgrade_command;
@@ -44,8 +45,8 @@ mod upgrade_command;
 mod adaptive_help;
 mod chronos_commands;
 mod collective_commands;
-mod consensus_commands;
 mod conscience_commands;
+mod consensus_commands;
 mod empathy_commands;
 mod learning_commands;
 mod mirror_commands;
@@ -92,6 +93,13 @@ enum Commands {
     /// Show available commands
     Help,
 
+    /// Historian sanity inspection (developer)
+    #[command(hide = true)]
+    Historian {
+        #[command(subcommand)]
+        action: HistorianCommands,
+    },
+
     /// Show version (hidden - prefer banner)
     #[command(hide = true)]
     Version,
@@ -103,6 +111,11 @@ enum Commands {
     /// Launch TUI REPL (experimental)
     #[command(hide = true)]
     Tui,
+}
+
+#[derive(Subcommand)]
+enum HistorianCommands {
+    Inspect,
 }
 
 // All legacy subcommands removed - REPL is the primary interface
@@ -121,7 +134,10 @@ fn state_citation(state: &str) -> &'static str {
 }
 
 /// Check if LLM setup is needed and run wizard if so (Phase Next: Step 2)
-pub(crate) async fn run_llm_setup_if_needed(ui: &anna_common::display::UI, db: &anna_common::context::db::ContextDb) -> anyhow::Result<()> {
+pub(crate) async fn run_llm_setup_if_needed(
+    ui: &anna_common::display::UI,
+    db: &anna_common::context::db::ContextDb,
+) -> anyhow::Result<()> {
     if llm_wizard::needs_llm_setup(db).await? {
         llm_wizard::run_llm_setup_wizard(ui, db).await?;
     }
@@ -129,7 +145,10 @@ pub(crate) async fn run_llm_setup_if_needed(ui: &anna_common::display::UI, db: &
 }
 
 /// Check for and display pending brain upgrade notification (Phase Next: Step 3)
-pub(crate) async fn check_brain_upgrade_notification(ui: &anna_common::display::UI, db: &anna_common::context::db::ContextDb) -> anyhow::Result<()> {
+pub(crate) async fn check_brain_upgrade_notification(
+    ui: &anna_common::display::UI,
+    db: &anna_common::context::db::ContextDb,
+) -> anyhow::Result<()> {
     use anna_common::llm_upgrade::get_and_clear_pending_upgrade;
 
     if let Some((profile_id, model_name, size_gb)) = get_and_clear_pending_upgrade(db).await? {
@@ -174,7 +193,10 @@ pub(crate) async fn check_update_notification(ui: &anna_common::display::UI) -> 
     println!();
     ui.section_header("✨", "I Updated Myself!");
     println!();
-    ui.success(&format!("I upgraded from v{} to v{}", from_version, to_version));
+    ui.success(&format!(
+        "I upgraded from v{} to v{}",
+        from_version, to_version
+    ));
     println!();
 
     // Try to extract changelog for this version
@@ -238,9 +260,9 @@ async fn extract_version_changelog(version: &str) -> anyhow::Result<Vec<String>>
 
 /// Handle LLM query (Task 12)
 async fn handle_llm_query(user_text: &str) {
+    use anna_common::context::db::{ContextDb, DbLocation};
     use anna_common::display::UI;
     use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
-    use anna_common::context::db::{ContextDb, DbLocation};
 
     let ui = UI::auto();
 
@@ -276,7 +298,7 @@ async fn handle_llm_query(user_text: &str) {
     let prompt = LlmPrompt {
         system: LlmClient::anna_system_prompt(),
         user: user_text.to_string(),
-        conversation_history: None,  // No conversation memory for one-shot commands
+        conversation_history: None, // No conversation memory for one-shot commands
     };
 
     // Query LLM
@@ -310,8 +332,8 @@ async fn handle_llm_query(user_text: &str) {
 
 /// Handle a single conversational query (annactl "question")
 async fn handle_one_shot_query(query: &str) -> Result<()> {
-    use anna_common::display::{UI, print_privacy_explanation};
     use anna_common::context::db::{ContextDb, DbLocation};
+    use anna_common::display::{print_privacy_explanation, UI};
     use intent_router::{Intent, PersonalityAdjustment};
 
     // Phase Next Step 2, 3 & 5: Check LLM setup, brain upgrade, and update notifications
@@ -472,14 +494,22 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                     config.adjust_humor(true);
                     println!();
                     ui.success("Okay! I'll be a bit more playful 😊");
-                    ui.info(&format!("Current humor level: {} - {}", config.humor_level, config.humor_description()));
+                    ui.info(&format!(
+                        "Current humor level: {} - {}",
+                        config.humor_level,
+                        config.humor_description()
+                    ));
                     println!();
                 }
                 PersonalityAdjustment::DecreaseHumor => {
                     config.adjust_humor(false);
                     println!();
                     ui.success("Got it. I'll keep things more serious.");
-                    ui.info(&format!("Current humor level: {} - {}", config.humor_level, config.humor_description()));
+                    ui.info(&format!(
+                        "Current humor level: {} - {}",
+                        config.humor_level,
+                        config.humor_description()
+                    ));
                     println!();
                 }
                 PersonalityAdjustment::MoreBrief => {
@@ -497,7 +527,11 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                 PersonalityAdjustment::Show => {
                     println!();
                     ui.section_header("📊", "Current Personality Settings");
-                    ui.info(&format!("Humor:     {} - {}", config.humor_level, config.humor_description()));
+                    ui.info(&format!(
+                        "Humor:     {} - {}",
+                        config.humor_level,
+                        config.humor_description()
+                    ));
                     ui.info(&format!("Verbosity: {}", config.verbosity_description()));
                     println!();
                 }
@@ -515,8 +549,8 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
         }
 
         Intent::Language { language } => {
-            use anna_common::language::{Language, LanguageConfig};
             use anna_common::context::db::{ContextDb, DbLocation};
+            use anna_common::language::{Language, LanguageConfig};
 
             let ui = UI::auto();
 
@@ -540,7 +574,10 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                     if let Ok(db) = &db_result {
                         if let Err(e) = db.save_language_config(&config).await {
                             println!();
-                            ui.warning(&format!("Warning: Couldn't persist language setting: {}", e));
+                            ui.warning(&format!(
+                                "Warning: Couldn't persist language setting: {}",
+                                e
+                            ));
                             println!();
                         }
                     }
@@ -550,7 +587,11 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                     let profile = config.profile();
                     println!();
                     new_ui.success(&format!("{} ✓", profile.translations.language_changed));
-                    new_ui.info(&format!("{} {}", profile.translations.now_speaking, lang.native_name()));
+                    new_ui.info(&format!(
+                        "{} {}",
+                        profile.translations.now_speaking,
+                        lang.native_name()
+                    ));
                     println!();
                 } else {
                     println!();
@@ -568,7 +609,9 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
             } else {
                 println!();
                 ui.info("Which language would you like me to use?");
-                ui.info("Try: \"annactl \\\"use English\\\"\" or \"annactl \\\"cambia al español\\\"");
+                ui.info(
+                    "Try: \"annactl \\\"use English\\\"\" or \"annactl \\\"cambia al español\\\"",
+                );
                 println!();
             }
         }
@@ -645,11 +688,33 @@ async fn main() -> Result<()> {
         // Public commands: status, version, help
         // Hidden/internal commands kept for backwards compatibility
         let known_subcommands = [
-            "init", "status", "help", "version", "doctor", "upgrade", "ping",
-            "health", "daily", "triage", "rollback", "backup",
-            "install", "rescue", "collect-logs", "sentinel", "config",
-            "conscience", "empathy", "collective", "consensus", "chronos",
-            "mirror", "learning", "learn", "predict", "issues"
+            "init",
+            "status",
+            "help",
+            "version",
+            "doctor",
+            "upgrade",
+            "ping",
+            "health",
+            "daily",
+            "triage",
+            "rollback",
+            "backup",
+            "install",
+            "rescue",
+            "collect-logs",
+            "sentinel",
+            "config",
+            "conscience",
+            "empathy",
+            "collective",
+            "consensus",
+            "chronos",
+            "mirror",
+            "learning",
+            "learn",
+            "predict",
+            "issues",
         ];
 
         // Check if it's a flag (starts with - or --)
@@ -684,13 +749,19 @@ async fn main() -> Result<()> {
     }
 
     // Check for --help --all
-    if args.len() >= 3 && args.contains(&"--help".to_string()) && args.contains(&"--all".to_string()) {
+    if args.len() >= 3
+        && args.contains(&"--help".to_string())
+        && args.contains(&"--all".to_string())
+    {
         adaptive_help::display_adaptive_root_help(true, false);
         std::process::exit(0);
     }
 
     // Check for --json help
-    if args.len() >= 3 && args.contains(&"--help".to_string()) && args.contains(&"--json".to_string()) {
+    if args.len() >= 3
+        && args.contains(&"--help".to_string())
+        && args.contains(&"--json".to_string())
+    {
         adaptive_help::display_adaptive_root_help(false, true);
         std::process::exit(0);
     }
@@ -786,6 +857,16 @@ async fn main() -> Result<()> {
         return execute_help_command_standalone(command, socket_path, &req_id, start_time).await;
     }
 
+    // Historian inspection (developer-only, no daemon required)
+    if let Commands::Historian { action } = command {
+        match action {
+            HistorianCommands::Inspect => {
+                historian_cli::run_historian_inspect().await?;
+                return Ok(());
+            }
+        }
+    }
+
     // Phase 3.9: Handle init command early (doesn't need daemon)
     // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
     // TODO: Wire new real Anna commands here
@@ -801,6 +882,7 @@ async fn main() -> Result<()> {
     let command_name = match command {
         Commands::Status { .. } => "status",
         Commands::Help => "help",
+        Commands::Historian { .. } => "historian",
         Commands::Version => "version",
         Commands::Ping => "ping",
         Commands::Tui => "tui",
@@ -808,7 +890,8 @@ async fn main() -> Result<()> {
 
     // Try to connect to daemon and get state
     let socket_path = cli.socket.as_deref();
-    let (state, state_citation, capabilities) = match get_state_and_capabilities(socket_path).await {
+    let (state, state_citation, capabilities) = match get_state_and_capabilities(socket_path).await
+    {
         Ok(result) => result,
         Err(e) => {
             // Daemon unavailable
@@ -844,13 +927,8 @@ async fn main() -> Result<()> {
 
     // Handle Status command
     if let Commands::Status { json } = command {
-        return status_command::execute_anna_status_command(
-            *json,
-            &req_id,
-            &state,
-            start_time,
-        )
-        .await;
+        return status_command::execute_anna_status_command(*json, &req_id, &state, start_time)
+            .await;
     }
     // Check if command is allowed in current state
     let allowed = capabilities.iter().any(|cap| cap.name == command_name);
@@ -1094,10 +1172,15 @@ async fn execute_self_update_command(check: bool, list: bool) -> Result<()> {
                         let latest_version = latest_tag.trim_start_matches('v');
 
                         if latest_version != CURRENT_VERSION {
-                            println!("\n✨ Update available: {} → {}", CURRENT_VERSION, latest_version);
+                            println!(
+                                "\n✨ Update available: {} → {}",
+                                CURRENT_VERSION, latest_version
+                            );
                             println!("\nTo update:");
-                            println!("  1. Download: https://github.com/{}/{}/releases/tag/{}",
-                                REPO_OWNER, REPO_NAME, latest_tag);
+                            println!(
+                                "  1. Download: https://github.com/{}/{}/releases/tag/{}",
+                                REPO_OWNER, REPO_NAME, latest_tag
+                            );
                             println!("  2. Or use package manager:");
                             println!("     - Arch: yay -S anna-assistant-bin");
                             println!("     - Homebrew: brew upgrade anna-assistant");
@@ -1123,8 +1206,6 @@ async fn execute_self_update_command(check: bool, list: bool) -> Result<()> {
 
 /// Execute profile command (Phase 3.0)
 async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Result<()> {
-    
-
     // Connect to daemon
     let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
         Ok(c) => c,
@@ -1152,17 +1233,28 @@ async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Resul
         println!("==================================================\n");
 
         println!("Resources:");
-        println!("  Memory:  {} MB total, {} MB available", profile.total_memory_mb, profile.available_memory_mb);
+        println!(
+            "  Memory:  {} MB total, {} MB available",
+            profile.total_memory_mb, profile.available_memory_mb
+        );
         println!("  CPU:     {} cores", profile.cpu_cores);
-        println!("  Disk:    {} GB total, {} GB available", profile.total_disk_gb, profile.available_disk_gb);
-        println!("  Uptime:  {} seconds ({:.1} hours)", profile.uptime_seconds, profile.uptime_seconds as f64 / 3600.0);
+        println!(
+            "  Disk:    {} GB total, {} GB available",
+            profile.total_disk_gb, profile.available_disk_gb
+        );
+        println!(
+            "  Uptime:  {} seconds ({:.1} hours)",
+            profile.uptime_seconds,
+            profile.uptime_seconds as f64 / 3600.0
+        );
         println!();
 
         println!("Environment:");
         println!("  Virtualization: {}", profile.virtualization);
         println!("  Session Type:   {}", profile.session_type);
         if profile.gpu_present {
-            println!("  GPU:            {} ({})",
+            println!(
+                "  GPU:            {} ({})",
                 profile.gpu_vendor.as_deref().unwrap_or("Unknown"),
                 profile.gpu_model.as_deref().unwrap_or("Unknown model")
             );
@@ -1172,9 +1264,15 @@ async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Resul
         println!();
 
         println!("Adaptive Intelligence:");
-        println!("  Monitoring Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
+        println!(
+            "  Monitoring Mode: {}",
+            profile.recommended_monitoring_mode.to_uppercase()
+        );
         println!("  Rationale:       {}", profile.monitoring_rationale);
-        println!("  Constrained:     {}", if profile.is_constrained { "Yes" } else { "No" });
+        println!(
+            "  Constrained:     {}",
+            if profile.is_constrained { "Yes" } else { "No" }
+        );
         println!();
 
         // Phase 3.0: SSH tunnel suggestions (Remote Access Policy)
@@ -1208,7 +1306,11 @@ async fn execute_profile_command(json: bool, socket_path: Option<&str>) -> Resul
 }
 
 /// Execute monitor install command (Phase 3.0)
-async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bool, socket_path: Option<&str>) -> Result<()> {
+async fn execute_monitor_install_command(
+    force_mode: Option<String>,
+    dry_run: bool,
+    socket_path: Option<&str>,
+) -> Result<()> {
     // Connect to daemon to get system profile
     let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
         Ok(c) => c,
@@ -1236,7 +1338,10 @@ async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bo
         println!("  NOT recommended as it may impact system performance.");
         println!();
         println!("  System Constraints:");
-        println!("    • RAM: {} MB (recommend >2GB for light mode)", profile.total_memory_mb);
+        println!(
+            "    • RAM: {} MB (recommend >2GB for light mode)",
+            profile.total_memory_mb
+        );
         println!("    • CPU: {} cores", profile.cpu_cores);
         println!("    • Disk: {} GB available", profile.available_disk_gb);
         println!();
@@ -1266,11 +1371,17 @@ async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bo
     let mode = if let Some(forced) = force_mode {
         let normalized = forced.to_lowercase();
         if !["full", "light", "minimal"].contains(&normalized.as_str()) {
-            eprintln!("Error: Invalid mode '{}'. Must be: full, light, or minimal", forced);
+            eprintln!(
+                "Error: Invalid mode '{}'. Must be: full, light, or minimal",
+                forced
+            );
             std::process::exit(EXIT_GENERAL_ERROR);
         }
         println!("⚠️  Using FORCED mode: {}", normalized.to_uppercase());
-        println!("   (System recommendation: {})\n", profile.recommended_monitoring_mode.to_uppercase());
+        println!(
+            "   (System recommendation: {})\n",
+            profile.recommended_monitoring_mode.to_uppercase()
+        );
         normalized
     } else {
         profile.recommended_monitoring_mode.clone()
@@ -1280,10 +1391,16 @@ async fn execute_monitor_install_command(force_mode: Option<String>, dry_run: bo
     println!("====================================================================\n");
 
     println!("System Profile:");
-    println!("  Memory: {} MB  |  CPU: {} cores  |  Constrained: {}",
-        profile.total_memory_mb, profile.cpu_cores,
-        if profile.is_constrained { "Yes" } else { "No" });
-    println!("  Recommended Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
+    println!(
+        "  Memory: {} MB  |  CPU: {} cores  |  Constrained: {}",
+        profile.total_memory_mb,
+        profile.cpu_cores,
+        if profile.is_constrained { "Yes" } else { "No" }
+    );
+    println!(
+        "  Recommended Mode: {}",
+        profile.recommended_monitoring_mode.to_uppercase()
+    );
     println!();
 
     // Execute installation based on mode
@@ -1322,12 +1439,14 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
     println!("Monitoring Stack Status (Phase 3.0)");
     println!("====================================\n");
 
-    println!("System Mode: {}", profile.recommended_monitoring_mode.to_uppercase());
+    println!(
+        "System Mode: {}",
+        profile.recommended_monitoring_mode.to_uppercase()
+    );
     println!("Rationale:   {}\n", profile.monitoring_rationale);
 
     // Check Prometheus status
-    let prometheus_active = monitor_setup::check_service_status("prometheus")
-        .unwrap_or(false);
+    let prometheus_active = monitor_setup::check_service_status("prometheus").unwrap_or(false);
 
     println!("Prometheus:");
     if prometheus_active {
@@ -1341,8 +1460,7 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
 
     // Check Grafana status (only for Full mode)
     if profile.recommended_monitoring_mode == "full" {
-        let grafana_active = monitor_setup::check_service_status("grafana")
-            .unwrap_or(false);
+        let grafana_active = monitor_setup::check_service_status("grafana").unwrap_or(false);
 
         println!("Grafana:");
         if grafana_active {
@@ -1396,7 +1514,11 @@ async fn execute_monitor_status_command(socket_path: Option<&str>) -> Result<()>
 }
 
 /// Execute metrics command (Phase 3.3)
-async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Option<&str>) -> Result<()> {
+async fn execute_metrics_command(
+    prometheus: bool,
+    json: bool,
+    socket_path: Option<&str>,
+) -> Result<()> {
     // Connect to daemon to get system profile
     let mut client = match rpc_client::RpcClient::connect_with_path(socket_path).await {
         Ok(c) => c,
@@ -1437,7 +1559,10 @@ async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Opti
 
         println!("# HELP anna_system_memory_available_mb Available system memory in MB");
         println!("# TYPE anna_system_memory_available_mb gauge");
-        println!("anna_system_memory_available_mb {}", profile.available_memory_mb);
+        println!(
+            "anna_system_memory_available_mb {}",
+            profile.available_memory_mb
+        );
         println!();
 
         println!("# HELP anna_system_cpu_cores Number of CPU cores");
@@ -1452,7 +1577,10 @@ async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Opti
 
         println!("# HELP anna_system_disk_available_gb Available disk space in GB");
         println!("# TYPE anna_system_disk_available_gb gauge");
-        println!("anna_system_disk_available_gb {}", profile.available_disk_gb);
+        println!(
+            "anna_system_disk_available_gb {}",
+            profile.available_disk_gb
+        );
         println!();
 
         println!("# HELP anna_system_uptime_seconds System uptime in seconds");
@@ -1482,7 +1610,8 @@ async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Opti
 
         println!("Memory:");
         println!("  Total:     {} MB", profile.total_memory_mb);
-        println!("  Available: {} MB ({:.1}%)",
+        println!(
+            "  Available: {} MB ({:.1}%)",
             profile.available_memory_mb,
             (profile.available_memory_mb as f64 / profile.total_memory_mb as f64) * 100.0
         );
@@ -1494,22 +1623,30 @@ async fn execute_metrics_command(prometheus: bool, json: bool, socket_path: Opti
 
         println!("Disk:");
         println!("  Total:     {} GB", profile.total_disk_gb);
-        println!("  Available: {} GB ({:.1}%)",
+        println!(
+            "  Available: {} GB ({:.1}%)",
             profile.available_disk_gb,
             (profile.available_disk_gb as f64 / profile.total_disk_gb as f64) * 100.0
         );
         println!();
 
         println!("System:");
-        println!("  Uptime: {} seconds ({:.1} hours)",
+        println!(
+            "  Uptime: {} seconds ({:.1} hours)",
             profile.uptime_seconds,
             profile.uptime_seconds as f64 / 3600.0
         );
         println!();
 
         println!("Adaptive Intelligence:");
-        println!("  Mode:        {}", profile.recommended_monitoring_mode.to_uppercase());
-        println!("  Constrained: {}", if profile.is_constrained { "Yes" } else { "No" });
+        println!(
+            "  Mode:        {}",
+            profile.recommended_monitoring_mode.to_uppercase()
+        );
+        println!(
+            "  Constrained: {}",
+            if profile.is_constrained { "Yes" } else { "No" }
+        );
         println!("  Rationale:   {}", profile.monitoring_rationale);
         println!();
 
@@ -1542,7 +1679,8 @@ async fn check_resource_constraints(socket_path: Option<&str>, operation: &str) 
         println!("═══════════════════════════════════════════════════════════════");
         println!();
         println!("  Your system is resource-constrained:");
-        println!("    • RAM: {} MB available of {} MB total ({:.1}%)",
+        println!(
+            "    • RAM: {} MB available of {} MB total ({:.1}%)",
             profile.available_memory_mb,
             profile.total_memory_mb,
             (profile.available_memory_mb as f64 / profile.total_memory_mb as f64) * 100.0
@@ -1581,7 +1719,9 @@ async fn check_resource_constraints(socket_path: Option<&str>, operation: &str) 
 }
 
 /// Get state and capabilities from daemon (Phase 0.3d)
-async fn get_state_and_capabilities(socket_path: Option<&str>) -> Result<(String, String, Vec<CommandCapabilityData>)> {
+async fn get_state_and_capabilities(
+    socket_path: Option<&str>,
+) -> Result<(String, String, Vec<CommandCapabilityData>)> {
     let mut client = rpc_client::RpcClient::connect_with_path(socket_path).await?;
 
     // Get state
@@ -1613,7 +1753,7 @@ async fn execute_help_command_standalone(
 ) -> Result<()> {
     // Simplified Help - just display minimal help
     match command {
-        Commands::Help => {},
+        Commands::Help => {}
         _ => unreachable!(),
     };
 
@@ -1667,19 +1807,19 @@ async fn execute_help_command_standalone(
 // LEGACY:         Commands::Help { command, all, json } => (command.clone(), *all, *json),
 // LEGACY:         _ => unreachable!(),
 // LEGACY:     };
-// LEGACY: 
+// LEGACY:
 // LEGACY:     // Phase 3.1: Use adaptive help system if not JSON mode
 // LEGACY:     if !json_only {
 // LEGACY:         // Build display context from current system state
 // LEGACY:         let socket_path = std::env::var("ANNAD_SOCKET").ok();
 // LEGACY:         let context = help_commands::build_context(socket_path.as_deref()).await;
-// LEGACY: 
+// LEGACY:
 // LEGACY:         // Display adaptive help
 // LEGACY:         if let Err(e) = help_commands::display_help(cmd_name, show_all, context).await {
 // LEGACY:             eprintln!("Error displaying help: {}", e);
 // LEGACY:             std::process::exit(1);
 // LEGACY:         }
-// LEGACY: 
+// LEGACY:
 // LEGACY:         // Log the help command
 // LEGACY:         let duration_ms = start_time.elapsed().as_millis() as u64;
 // LEGACY:         let log_entry = LogEntry {
@@ -1700,14 +1840,14 @@ async fn execute_help_command_standalone(
 // LEGACY:             error: None,
 // LEGACY:         };
 // LEGACY:         let _ = log_entry.write();
-// LEGACY: 
+// LEGACY:
 // LEGACY:         std::process::exit(EXIT_SUCCESS);
 // LEGACY:     }
-// LEGACY: 
+// LEGACY:
 // LEGACY:     // Legacy JSON output (for backwards compatibility)
 // LEGACY:     let mut sorted_caps = capabilities.to_vec();
 // LEGACY:     sorted_caps.sort_by(|a, b| a.name.cmp(&b.name));
-// LEGACY: 
+// LEGACY:
 // LEGACY:     let commands: Vec<serde_json::Value> = sorted_caps
 // LEGACY:         .iter()
 // LEGACY:         .map(|cap| {
@@ -1718,7 +1858,7 @@ async fn execute_help_command_standalone(
 // LEGACY:             })
 // LEGACY:         })
 // LEGACY:         .collect();
-// LEGACY: 
+// LEGACY:
 // LEGACY:     let output = serde_json::json!({
 // LEGACY:         "version": VERSION,
 // LEGACY:         "ok": true,
@@ -1726,7 +1866,7 @@ async fn execute_help_command_standalone(
 // LEGACY:         "commands": commands
 // LEGACY:     });
 // LEGACY:     println!("{}", serde_json::to_string_pretty(&output)?);
-// LEGACY: 
+// LEGACY:
 // LEGACY:     // Log the help command
 // LEGACY:     let duration_ms = start_time.elapsed().as_millis() as u64;
 // LEGACY:     let log_entry = LogEntry {
@@ -1743,10 +1883,10 @@ async fn execute_help_command_standalone(
 // LEGACY:         error: None,
 // LEGACY:     };
 // LEGACY:     let _ = log_entry.write();
-// LEGACY: 
+// LEGACY:
 // LEGACY:     std::process::exit(EXIT_SUCCESS);
 // LEGACY: }
-// LEGACY: 
+// LEGACY:
 // LEGACY: /// Execute no-op command handler (Phase 0.3c)
 // LEGACY: /// All commands just print success message and return exit code
 // LEGACY: async fn execute_noop_command(command: &Commands, state: &str) -> Result<i32> {

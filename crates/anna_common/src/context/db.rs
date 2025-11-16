@@ -2,7 +2,7 @@
 // Phase 3.6: Session Continuity
 
 use anyhow::{Context, Result};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -43,7 +43,7 @@ impl DbLocation {
         // Check if running as root
         #[cfg(unix)]
         {
-            use libc::{geteuid};
+            use libc::geteuid;
             if unsafe { geteuid() } == 0 {
                 return DbLocation::System;
             }
@@ -74,8 +74,7 @@ impl ContextDb {
 
         // Open connection in blocking context
         let conn = tokio::task::spawn_blocking(move || -> Result<Connection> {
-            let conn = Connection::open(&db_path)
-                .context("Failed to open SQLite database")?;
+            let conn = Connection::open(&db_path).context("Failed to open SQLite database")?;
 
             // Enable WAL mode for better concurrency
             conn.pragma_update(None, "journal_mode", "WAL")
@@ -697,12 +696,18 @@ impl ContextDb {
                 "CREATE TABLE IF NOT EXISTS llm_usage_windows (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     window_start DATETIME NOT NULL,
+                    model_name TEXT,
+                    total_calls INTEGER,
+                    success_calls INTEGER,
                     latency_ms_avg REAL,
                     latency_ms_p95 REAL,
                     backend_rss_mb REAL,
                     gpu_util_pct_avg REAL,
                     cpu_util_pct_avg REAL,
-                    failed_calls INTEGER
+                    failed_calls INTEGER,
+                    cost_estimate REAL,
+                    delta_latency_ms_avg REAL,
+                    delta_latency_ms_p95 REAL
                 )",
                 [],
             )?;
@@ -844,6 +849,45 @@ impl ContextDb {
                 debug!("Migration not needed: updated_at column already exists");
             }
 
+            // Migration 2: Add LLM usage window columns (model_name, totals, cost, deltas)
+            let llm_table_exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='llm_usage_windows'",
+                    [],
+                    |row| {
+                        let count: i64 = row.get(0)?;
+                        Ok(count > 0)
+                    },
+                )
+                .unwrap_or(false);
+
+            if llm_table_exists {
+                let add_column_if_missing = |col: &str, sql: &str, conn: &rusqlite::Connection| -> Result<()> {
+                    let exists: bool = conn
+                        .query_row(
+                            "SELECT COUNT(*) FROM pragma_table_info('llm_usage_windows') WHERE name=?1",
+                            [col],
+                            |row| {
+                                let count: i64 = row.get(0)?;
+                                Ok(count > 0)
+                            },
+                        )
+                        .unwrap_or(false);
+                    if !exists {
+                        conn.execute(sql, []).context(format!("Failed to add column {}", col))?;
+                        info!("✓ Migration complete: Added {} to llm_usage_windows", col);
+                    }
+                    Ok(())
+                };
+
+                let _ = add_column_if_missing("model_name", "ALTER TABLE llm_usage_windows ADD COLUMN model_name TEXT", &conn);
+                let _ = add_column_if_missing("total_calls", "ALTER TABLE llm_usage_windows ADD COLUMN total_calls INTEGER", &conn);
+                let _ = add_column_if_missing("success_calls", "ALTER TABLE llm_usage_windows ADD COLUMN success_calls INTEGER", &conn);
+                let _ = add_column_if_missing("cost_estimate", "ALTER TABLE llm_usage_windows ADD COLUMN cost_estimate REAL", &conn);
+                let _ = add_column_if_missing("delta_latency_ms_avg", "ALTER TABLE llm_usage_windows ADD COLUMN delta_latency_ms_avg REAL", &conn);
+                let _ = add_column_if_missing("delta_latency_ms_p95", "ALTER TABLE llm_usage_windows ADD COLUMN delta_latency_ms_p95 REAL", &conn);
+            }
+
             Ok(())
         })
         .await?
@@ -941,7 +985,10 @@ impl ContextDb {
     }
 
     /// Save language configuration
-    pub async fn save_language_config(&self, config: &crate::language::LanguageConfig) -> Result<()> {
+    pub async fn save_language_config(
+        &self,
+        config: &crate::language::LanguageConfig,
+    ) -> Result<()> {
         let conn = Arc::clone(&self.conn);
         let user_lang = config.user_language.map(|l| l.code().to_string());
         let system_lang = config.system_language.map(|l| l.code().to_string());
@@ -958,10 +1005,7 @@ impl ContextDb {
                 )?;
             } else {
                 // Remove user preference to fall back to system
-                conn.execute(
-                    "DELETE FROM user_preferences WHERE key = ?1",
-                    ["language"],
-                )?;
+                conn.execute("DELETE FROM user_preferences WHERE key = ?1", ["language"])?;
             }
 
             // Store detected system language for reference
@@ -969,7 +1013,12 @@ impl ContextDb {
                 conn.execute(
                     "INSERT OR REPLACE INTO user_preferences (key, value, value_type, description)
                      VALUES (?1, ?2, ?3, ?4)",
-                    ["system_language", &lang, "string", "Auto-detected system language"],
+                    [
+                        "system_language",
+                        &lang,
+                        "string",
+                        "Auto-detected system language",
+                    ],
                 )?;
             }
 
@@ -1125,30 +1174,31 @@ impl ContextDb {
     pub async fn load_language_config(&self) -> Result<crate::language::LanguageConfig> {
         let conn = Arc::clone(&self.conn);
 
-        let (user_lang_str, system_lang_str) = tokio::task::spawn_blocking(move || -> Result<(Option<String>, Option<String>)> {
-            let conn = conn.blocking_lock();
+        let (user_lang_str, system_lang_str) =
+            tokio::task::spawn_blocking(move || -> Result<(Option<String>, Option<String>)> {
+                let conn = conn.blocking_lock();
 
-            // Load user language preference
-            let user_lang = conn
-                .query_row(
-                    "SELECT value FROM user_preferences WHERE key = ?1",
-                    ["language"],
-                    |row| row.get::<_, String>(0),
-                )
-                .ok();
+                // Load user language preference
+                let user_lang = conn
+                    .query_row(
+                        "SELECT value FROM user_preferences WHERE key = ?1",
+                        ["language"],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .ok();
 
-            // Load system language
-            let system_lang = conn
-                .query_row(
-                    "SELECT value FROM user_preferences WHERE key = ?1",
-                    ["system_language"],
-                    |row| row.get::<_, String>(0),
-                )
-                .ok();
+                // Load system language
+                let system_lang = conn
+                    .query_row(
+                        "SELECT value FROM user_preferences WHERE key = ?1",
+                        ["system_language"],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .ok();
 
-            Ok((user_lang, system_lang))
-        })
-        .await??;
+                Ok((user_lang, system_lang))
+            })
+            .await??;
 
         let mut config = crate::language::LanguageConfig::new();
 
@@ -1260,7 +1310,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(has_updated_at, "updated_at column should exist after migration");
+        assert!(
+            has_updated_at,
+            "updated_at column should exist after migration"
+        );
 
         // Verify existing data was migrated (updated_at should equal set_at)
         let migrated_correctly = db
@@ -1275,7 +1328,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(migrated_correctly, "Existing rows should have updated_at = set_at after migration");
+        assert!(
+            migrated_correctly,
+            "Existing rows should have updated_at = set_at after migration"
+        );
     }
 
     #[tokio::test]
