@@ -465,6 +465,7 @@ impl HistorianIntegration {
                     let total_gb = device.size_gb;
                     let used_gb = device.used_gb;
                     let inode_used_percent = None; // Not currently tracked
+                    let free_gb = (total_gb - used_gb).max(0.0);
 
                     match historian_lock.record_disk_snapshot(
                         &device.mount_point,
@@ -487,9 +488,87 @@ impl HistorianIntegration {
                             );
                         }
                     }
+
+                    // Persist capacity snapshot into context DB (best-effort)
+                    let ts_now = Utc::now().to_rfc3339();
+                    if let Err(e) = context::record_fs_capacity(
+                        &ts_now,
+                        &device.mount_point,
+                        Some(total_gb),
+                        Some(free_gb),
+                    )
+                    .await
+                    {
+                        warn!(
+                            "Failed to record fs_capacity for {} into context DB: {}",
+                            device.mount_point, e
+                        );
+                    }
                 }
             }
         });
+    }
+
+    /// Record network quality sample from system facts
+    pub fn record_network_sample(&self, facts: &SystemFacts) {
+        if !self.circuit_breaker.should_attempt() {
+            return;
+        }
+
+        if let Some(net) = &facts.network_monitoring {
+            let window_start = Utc::now();
+            let ts_str = window_start.to_rfc3339();
+
+            let targets = [
+                (
+                    "gateway",
+                    net.latency.gateway_latency_ms,
+                    net.packet_loss.gateway_loss_percent,
+                ),
+                (
+                    "dns",
+                    net.latency.dns_latency_ms,
+                    net.packet_loss.dns_loss_percent,
+                ),
+                (
+                    "internet",
+                    net.latency.internet_latency_ms,
+                    net.packet_loss.internet_loss_percent,
+                ),
+            ];
+
+            for (target, latency, loss) in targets {
+                if latency.is_some() || loss.is_some() {
+                    let latency_avg = latency;
+                    let latency_p95 = latency; // No percentile available; reuse avg
+                    let packet_loss_pct = loss;
+
+                    tokio::spawn({
+                        let ts_str = ts_str.clone();
+                        let target = target.to_string();
+                        async move {
+                            if let Err(e) = context::record_net_window(
+                                &ts_str,
+                                None,
+                                Some(&target),
+                                latency_avg,
+                                latency_p95,
+                                packet_loss_pct,
+                                None,
+                                None,
+                            )
+                            .await
+                            {
+                                warn!(
+                                    "Failed to record net_window ({}) into context DB: {}",
+                                    target, e
+                                );
+                            }
+                        }
+                    });
+                }
+            }
+        }
     }
 
     /// Record all telemetry data to Historian
@@ -505,6 +584,9 @@ impl HistorianIntegration {
 
         // Record disk snapshots (daily - but safe to call more often, it's just a snapshot)
         self.record_disk_snapshots(facts);
+
+        // Record network sample (latency/packet loss)
+        self.record_network_sample(facts);
     }
 
     /// Get the current circuit breaker status
