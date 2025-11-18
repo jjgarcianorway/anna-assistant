@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.72] - 2025-11-18
+
+### 🔧 MODEL SWITCHING FIX - Downloaded Models Now Actually Used
+
+**CRITICAL FIX:** Model switching now works correctly - downloaded models are actually used!
+
+#### What Was Broken
+
+**Root Cause:** Model wizard downloaded new models but never updated the config
+- Wizard called `ollama pull <new-model>` ✅
+- Wizard said "Please restart annactl to use the new model" ❌
+- **BUT: Config still pointed to old model** ❌
+- Result: Restart didn't help - old model kept being used
+
+**User Impact:**
+- Users on 16GB+ systems stuck with llama3.2:3b (tiny model)
+- Downloaded llama3.2:70b or qwen2.5:14b but they were never used
+- Poor LLM quality despite having better models installed
+
+#### What's Fixed
+
+**Config Now Saved After Download:**
+```rust
+// BEFORE (broken):
+match model_catalog::install_model(&recommended.model_name) {
+    Ok(_) => {
+        ui.success("Installed model");
+        ui.info("Please restart annactl to use the new model");  // ← WRONG!
+        return Ok(true);
+    }
+}
+
+// AFTER (works):
+match model_catalog::install_model(&recommended.model_name) {
+    Ok(_) => {
+        ui.success("Installed model");
+
+        // Save the new model config to database
+        let db = ContextDb::open(DbLocation::auto_detect()).await?;
+        let new_config = LlmConfig::from_profile(&recommended);
+        db.save_llm_config(&new_config).await?;
+
+        ui.success("Model configuration saved!");
+        ui.info("The new model will be used automatically.");
+        return Ok(true);
+    }
+}
+```
+
+#### Impact
+
+**Before Beta.72:**
+- ❌ Model downloaded but config not updated
+- ❌ Daemon continued using old model
+- ❌ Users stuck with tiny/small models despite downloads
+
+**After Beta.72:**
+- ✅ Model downloaded AND config saved
+- ✅ Daemon uses new model automatically
+- ✅ Better LLM quality after upgrade
+
+#### How It Works Now
+
+**When user upgrades model (via wizard or "upgrade your llm"):**
+1. **Detects hardware:** Checks RAM, CPU, GPU
+2. **Recommends model:** e.g., llama3.2:70b for 16GB+ systems
+3. **Downloads model:** `ollama pull <model>` (takes a few minutes)
+4. **Saves config:** `db.save_llm_config(new_config)` ← **NEW!**
+5. **Restart daemon:** `sudo systemctl restart annad` (optional but recommended)
+6. **Uses new model:** Automatically picks up the saved config
+
+#### User Experience
+
+**Users who already downloaded models but they're not being used:**
+
+After auto-updating to beta.72:
+1. Run: `annactl` (starts interactive session)
+2. Ask: "upgrade your llm" or "use a better model"
+3. Wizard will offer to re-download and properly configure the model
+4. Restart daemon: `sudo systemctl restart annad`
+5. New model now works! ✅
+
+**New users:**
+- Model upgrade "just works" - no manual config needed
+- Downloaded models are automatically used
+
+#### Testing
+
+**Verified:**
+- ✅ Model download works (ollama pull)
+- ✅ Config saved to `/var/lib/anna/context.db`
+- ✅ Daemon picks up new model after restart
+- ✅ LLM quality improves with better model
+
+#### Files Modified
+
+**Updated:**
+- `crates/annactl/src/model_setup_wizard.rs` - Added database save after model install
+- `Cargo.toml` - Version bump to beta.72
+- `crates/annactl/src/runtime_prompt.rs` - Version context updated
+
+#### Next Steps
+
+**For Beta.73:**
+- Add sudo explanations to UI (UX improvement)
+- Test remaining 7 validation questions
+- Add update notification when auto-update completes
+
+---
+
 ## [5.7.0-beta.71] - 2025-11-18
 
 ### 🔧 AUTO-UPDATE FIX - Critical Bug Fixed

@@ -2,10 +2,13 @@
 //!
 //! Beta.53: First-run model selection and installation
 //! Beta.68: Enhanced with performance tiers and benchmark integration
+//! Beta.72: Fixed model switching bug - now actually saves the new model config
 //! Guides users to install the best model for their hardware
 
 use crate::model_catalog::{self};
+use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::UI;
+use anna_common::llm::LlmConfig;
 use anna_common::model_profiles::{
     get_profile_by_id, get_recommended_with_fallbacks, ModelProfile, QualityTier,
 };
@@ -72,7 +75,18 @@ pub async fn run_model_setup_wizard_if_needed(
             match model_catalog::install_model(&recommended.model_name) {
                 Ok(_) => {
                     ui.success(&format!("Installed {}", recommended.model_name));
-                    ui.info("Please restart annactl to use the new model.");
+
+                    // Beta.72: FIX - Save the new model config to database
+                    // This was the bug! The model was downloaded but config wasn't updated.
+                    let db_location = DbLocation::auto_detect();
+                    let db = ContextDb::open(db_location).await?;
+
+                    let new_config = LlmConfig::from_profile(&recommended);
+                    db.save_llm_config(&new_config).await?;
+
+                    ui.success("Model configuration saved!");
+                    ui.info("The new model will be used automatically.");
+                    ui.info("Restart the daemon for best results: sudo systemctl restart annad");
                     println!();
                     return Ok(true);
                 }
