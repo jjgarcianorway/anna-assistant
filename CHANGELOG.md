@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.78] - 2025-11-18
+
+### REDDIT QA VALIDATION - Test Anna Against Real r/archlinux Questions!
+
+**NEW FEATURE:** Real-world validation system using actual community questions!
+
+#### The Vision
+
+Instead of synthetic tests, validate Anna against **real user problems** from r/archlinux:
+1. Fetch 500-1000 actual questions
+2. Run through Anna's LLM
+3. Compare to top-voted community answers
+4. Measure helpfulness and accuracy
+
+#### What's Included
+
+**1. Reddit QA Validator Module** (`reddit_qa_validator.rs`)
+- Data structures for questions, responses, validation
+- Similarity scoring between Anna and community
+- Automated validation suite
+- Report generation
+
+**2. Reddit Fetch Script** (`scripts/fetch_reddit_qa.sh`)
+```bash
+./scripts/fetch_reddit_qa.sh reddit_questions.json 1000
+```
+Fetches 1000 questions from r/archlinux using public JSON API.
+
+**3. Comprehensive Documentation** (`docs/reddit_qa_validation.md`)
+- Complete usage guide
+- Data formats
+- Validation workflow
+- Architecture diagrams
+- Example reports
+
+#### Example Validation Report
+
+```
+# Reddit QA Validation Report
+
+Total Questions: 1000
+Helpful Answers: 850 (85.0%)
+Community Match: 720 (72.0%)
+Avg Similarity: 0.75
+Pass Rate: 85.0%
+
+## ✅ Best Matches
+- "How do I enable tap-to-click?" - 92% similarity
+- "What's pacman -S vs yay -S?" - 88% similarity
+
+## ⚠ Areas for Improvement
+- Complex networking questions - 45% similarity
+- Niche hardware issues - 52% similarity
+```
+
+#### Why This Matters
+
+**Synthetic Tests:**
+- ✅ Validate technical correctness
+- ❌ Don't measure real-world helpfulness
+
+**Reddit Validation:**
+- ✅ Tests actual user problems
+- ✅ Compares against community wisdom
+- ✅ Identifies knowledge gaps
+- ✅ Tracks improvement over time
+
+#### Usage
+
+```bash
+# 1. Fetch questions
+./scripts/fetch_reddit_qa.sh data/questions.json 500
+
+# 2. Filter by topic
+jq '[.[] | select(.title | test("bluetooth"; "i"))]' questions.json > bluetooth.json
+
+# 3. Run validation
+cargo test --test reddit_qa_integration
+
+# 4. Generate report
+cat validation_report.md
+```
+
+#### Metrics Tracked
+
+1. **Helpfulness (1-5):** Does Anna's answer actually help?
+2. **Accuracy (1-5):** Is the information correct?
+3. **Completeness (1-5):** Are all aspects addressed?
+4. **Community Match (0.0-1.0):** Similarity to top answer
+
+#### Next Steps
+
+- **Beta.79:** Implement semantic similarity scoring (embeddings)
+- **Beta.80:** Add manual validation UI
+- **Beta.81:** Automated monthly validation runs
+- **Beta.82:** Public validation dashboard
+
+#### Files Changed
+
+- `crates/anna_common/src/reddit_qa_validator.rs` - New validation module
+- `crates/anna_common/src/lib.rs` - Export new module
+- `scripts/fetch_reddit_qa.sh` - Reddit fetch script
+- `docs/reddit_qa_validation.md` - Complete documentation
+
+#### Impact
+
+This enables **continuous real-world validation**:
+- Monthly validation runs
+- Track Anna's improvement
+- Identify weak areas
+- Compare against community expertise
+- Ensure Anna remains helpful as she evolves
+
+**This was inspired by user feedback:** Instead of just fixing TODOs, test Anna against REAL problems from Reddit to validate actual helpfulness!
+
+---
+
 ## [5.7.0-beta.77] - 2025-11-18
 
 ### LLM CONTEXT FIX - Accurate RAM & Disk Usage + Installer UX

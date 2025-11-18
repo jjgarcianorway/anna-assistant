@@ -6,6 +6,7 @@
 pub mod action_plan; // Beta.66: Secure ACTION_PLAN execution with validation
 pub mod advice_cache;
 pub mod qa_scenarios; // Beta.67: Real-world QA scenarios (vim, hardware, LLM upgrade)
+pub mod reddit_qa_validator; // Beta.78: Reddit-based validation (500-1000 real questions)
 pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
 pub mod backup_detection; // Backup tool detection (timeshift, snapper, borg, restic)
 pub mod beautiful;
