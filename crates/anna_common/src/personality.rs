@@ -7,6 +7,9 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+// Database integration for personality persistence
+use crate::context::db::ContextDb;
+
 /// A single personality trait with slider value (0-10)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalityTrait {
@@ -427,6 +430,93 @@ impl PersonalityConfig {
         } else {
             Err(conflicts)
         }
+    }
+
+    /// Load personality configuration from database
+    /// Returns default config if no traits found in database
+    pub async fn load_from_db(db: &ContextDb) -> Result<Self> {
+        let conn = db.conn();
+        let traits = tokio::task::spawn_blocking(move || -> Result<Vec<PersonalityTrait>> {
+            let conn_guard = conn.blocking_lock();
+            let mut stmt = conn_guard.prepare(
+                "SELECT trait_key, trait_name, value FROM personality ORDER BY id"
+            )?;
+
+            let traits: Result<Vec<PersonalityTrait>, _> = stmt
+                .query_map([], |row| {
+                    let key: String = row.get(0)?;
+                    let name: String = row.get(1)?;
+                    let value: u8 = row.get::<_, i64>(2)? as u8;
+                    Ok(PersonalityTrait::new(&key, &name, value))
+                })?
+                .collect();
+
+            traits.map_err(|e| anyhow::anyhow!("Failed to load personality traits: {}", e))
+        })
+        .await??;
+
+        if traits.is_empty() {
+            // No traits in database, return default
+            Ok(Self::default())
+        } else {
+            Ok(Self {
+                traits,
+                active: true,
+            })
+        }
+    }
+
+    /// Save personality configuration to database
+    /// Uses UPSERT (INSERT OR REPLACE) to handle updates
+    pub async fn save_to_db(&self, db: &ContextDb) -> Result<()> {
+        let traits = self.traits.clone();
+        let conn = db.conn();
+
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let mut conn_guard = conn.blocking_lock();
+            let tx = conn_guard.transaction()?;
+
+            for trait_item in &traits {
+                tx.execute(
+                    "INSERT OR REPLACE INTO personality (trait_key, trait_name, value, updated_at)
+                     VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
+                    [&trait_item.key, &trait_item.name, &trait_item.value.to_string()],
+                )?;
+            }
+
+            tx.commit()?;
+            Ok(())
+        })
+        .await??;
+
+        Ok(())
+    }
+
+    /// Migrate personality configuration from TOML file to database
+    /// This is a one-time migration for existing installations
+    pub async fn migrate_from_toml(db: &ContextDb) -> Result<()> {
+        // Load from TOML if it exists
+        let toml_config = if let Some(path) = Self::user_config_path() {
+            if path.exists() {
+                Self::load_from_path(&path)?
+            } else {
+                // No TOML file, nothing to migrate
+                return Ok(());
+            }
+        } else {
+            return Ok(());
+        };
+
+        // Save to database
+        toml_config.save_to_db(db).await?;
+
+        // Optionally backup the TOML file
+        if let Some(path) = Self::user_config_path() {
+            let backup_path = path.with_extension("toml.migrated");
+            std::fs::rename(&path, &backup_path)?;
+        }
+
+        Ok(())
     }
 }
 
