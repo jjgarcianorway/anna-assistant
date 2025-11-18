@@ -40,40 +40,25 @@ fn current_host() -> String {
 }
 
 fn status_bar(ctx: &ReplUiContext) -> String {
-    let time = Local::now().format("%Y-%m-%d %H:%M").to_string();
-    let health_tag = match ctx.health.status {
-        crate::health::HealthStatus::Healthy => fmt::success("✓ OK"),
-        crate::health::HealthStatus::Degraded => fmt::warning("⚠ DEGRADED"),
-        crate::health::HealthStatus::Broken => fmt::error("✗ BROKEN"),
+    let health_icon = match ctx.health.status {
+        crate::health::HealthStatus::Healthy => fmt::success("✓"),
+        crate::health::HealthStatus::Degraded => fmt::warning("⚠"),
+        crate::health::HealthStatus::Broken => fmt::error("✗"),
     };
 
-    // Create a visually distinct status bar with box characters
-    let sep = fmt::dimmed("│");
-    let bar_content = format!(
-        " {} {} {} LLM: {} {} {} {} User: {}@{} {} {}",
-        fmt::bold(&ctx.bar_prefix),
-        health_tag,
-        sep,
-        fmt::dimmed(&ctx.llm_mode),
-        sep,
-        fmt::dimmed(&ctx.auto_update),
-        sep,
-        fmt::bold(&format!("{}", ctx.user)),
-        ctx.host,
-        sep,
-        fmt::dimmed(&time)
-    );
-
-    // Add top border
-    let width = 100; // Fixed width for now
-    let top_border = fmt::dimmed(&format!("┌{}┐", "─".repeat(width)));
-    let bottom_border = fmt::dimmed(&format!("└{}┘", "─".repeat(width)));
-
-    format!("\n{}\n{}\n{}\n", top_border, bar_content, bottom_border)
+    // Simple one-line status bar
+    format!(
+        "{} {} {} {}",
+        fmt::dimmed(&ctx.bar_prefix),
+        health_icon,
+        fmt::dimmed(&format!("LLM: {}", ctx.llm_mode)),
+        fmt::dimmed(&format!("{}@{}", ctx.user, ctx.host))
+    )
 }
 
 fn print_status_bar(ctx: &ReplUiContext) {
-    print!("{}", status_bar(ctx));
+    println!("{}", status_bar(ctx));
+    println!();  // Blank line after status
 }
 
 /// Start the conversational REPL
@@ -136,9 +121,9 @@ pub async fn start_repl() -> Result<()> {
         println!();
         print_status_bar(&ctx);
         if repair.success {
-            ui.success("✓ Auto-repair completed");
+            ui.success("Auto-repair completed");  // ui.success() already adds ✓
         } else {
-            ui.warning("⚠ Auto-repair partially completed");
+            ui.warning("Auto-repair partially completed");  // ui.warning() already adds ⚠
         }
         for action in &repair.actions {
             println!("  • {}", action);

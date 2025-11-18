@@ -468,8 +468,8 @@ fn get_system_ram_gb() -> usize {
 fn check_group_exists(group: &str) -> bool {
     Command::new("getent")
         .args(["group", group])
-        .status()
-        .map(|s| s.success())
+        .output()  // Use output() instead of status() to capture stdout/stderr
+        .map(|o| o.status.success())
         .unwrap_or(false)
 }
 

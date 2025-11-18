@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.58] - 2025-11-18
+
+### Fixed - Critical UX Bugs
+
+**What's Fixed:**
+1. **Debug output leak**: No more `anna:x:964:lhoqvso,root` printed to console (changed `.status()` to `.output()` in `check_group_exists`)
+2. **Status bar**: Simplified from 100-char wide box to clean one-liner
+3. **Doubled symbols**: Fixed `✓ ✓` becoming just `✓` (ui methods already add icons)
+
+**Still Broken:**
+- Installer cancels and leaves daemon down (if Ollama registry is down)
+- No TUI interface (planned for beta.59)
+- LLM responses still hallucinating (need better model - llama3.1:8b)
+
+**To restart daemon after failed install:**
+```bash
+sudo systemctl start annad
+```
+
 ## [5.7.0-beta.57] - 2025-11-18
 
 ### Fixed - Installer Only Release
