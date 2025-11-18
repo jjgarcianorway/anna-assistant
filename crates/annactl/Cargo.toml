@@ -34,3 +34,4 @@ dirs = "5.0" # For XDG/home directory detection (Phase 3.9.1)
 sha2 = { workspace = true } # For checksum verification (Phase 3.10)
 rusqlite = { workspace = true }
 regex = "1.10" # For structured LLM output parsing (Beta.54)
+sysinfo = { workspace = true } # For system metrics in TUI (Phase 5.7)

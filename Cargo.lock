@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "5.7.0-beta.73"
+version = "5.7.0-beta.74"
 dependencies = [
  "anyhow",
  "atty",
@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "5.7.0-beta.73"
+version = "5.7.0-beta.74"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -86,6 +86,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sysinfo",
  "textwrap",
  "tokio",
  "uuid",
@@ -93,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "5.7.0-beta.73"
+version = "5.7.0-beta.74"
 dependencies = [
  "anna_common",
  "anyhow",
