@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.65] - 2025-11-18
+
+### Improved - Installer Optimization: Skip Re-downloading Same Version
+
+**What's Improved:**
+
+Installer now skips downloading binaries when reinstalling the same version:
+
+**Before:**
+```
+Reinstalling v5.7.0-beta.64...
+→ Downloading binaries...  (unnecessary download)
+✓ Downloaded successfully
+```
+
+**After:**
+```
+Reinstalling v5.7.0-beta.64...
+→ Reusing existing binaries (same version)...
+✓ Binaries ready (no download needed)
+```
+
+**How it works:**
+1. Checks if `CURRENT_VERSION == NEW_VERSION`
+2. Checks if binaries exist at `/usr/local/bin/annad` and `/usr/local/bin/annactl`
+3. If both true: copies existing binaries instead of downloading
+4. Otherwise: downloads from GitHub as usual
+
+**Impact:**
+- **Faster reinstalls:** No network delay when troubleshooting
+- **Works offline:** Can reinstall without internet if binaries exist
+- **Bandwidth savings:** No redundant downloads
+- **Better UX:** Clear message when skipping download
+
+**Use cases:**
+- Reinstalling after manual binary removal
+- Repairing permissions/services without re-downloading
+- Testing installer changes on same version
+
+**Files changed:**
+- `scripts/install.sh`: Added version check and binary reuse logic
+
 ## [5.7.0-beta.64] - 2025-11-18
 
 ### Fixed - Code Quality: Clippy Fixes (89 errors → 0)

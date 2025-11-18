@@ -167,19 +167,28 @@ fi
 ARCH=$(uname -m)
 [ "$ARCH" = "x86_64" ] || error_exit "Only x86_64 supported"
 
-# Get download URLs
+# Get download URLs (even if we don't use them, for validation)
 ANNAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name != null and (.name == "annad" or (.name | startswith("annad-")))) | .browser_download_url' | head -1)
 ANNACTL_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name != null and (.name == "annactl" or (.name | startswith("annactl-")))) | .browser_download_url' | head -1)
 [ -n "$ANNAD_URL" ] && [ -n "$ANNACTL_URL" ] || error_exit "Release assets not found"
 
-# Download
-echo -e "${CYAN}${ARROW}${RESET} Downloading binaries..."
+# Optimize: Skip download if reinstalling same version and binaries exist
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
-curl -fsSL -o "$TEMP_DIR/annad" "$ANNAD_URL" || error_exit "Download failed"
-curl -fsSL -o "$TEMP_DIR/annactl" "$ANNACTL_URL" || error_exit "Download failed"
-chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
-echo -e "${GREEN}${CHECK}${RESET} Downloaded successfully"
+
+if [ "$CURRENT_VERSION" = "$NEW_VERSION" ] && [ -f "$INSTALL_DIR/annad" ] && [ -f "$INSTALL_DIR/annactl" ]; then
+    echo -e "${CYAN}${ARROW}${RESET} Reusing existing binaries (same version)..."
+    cp "$INSTALL_DIR/annad" "$TEMP_DIR/annad"
+    cp "$INSTALL_DIR/annactl" "$TEMP_DIR/annactl"
+    chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
+    echo -e "${GREEN}${CHECK}${RESET} Binaries ready (no download needed)"
+else
+    echo -e "${CYAN}${ARROW}${RESET} Downloading binaries..."
+    curl -fsSL -o "$TEMP_DIR/annad" "$ANNAD_URL" || error_exit "Download failed"
+    curl -fsSL -o "$TEMP_DIR/annactl" "$ANNACTL_URL" || error_exit "Download failed"
+    chmod +x "$TEMP_DIR/annad" "$TEMP_DIR/annactl"
+    echo -e "${GREEN}${CHECK}${RESET} Downloaded successfully"
+fi
 
 # Stop running instances and clean up old daemon binaries (rc.13.1 compatibility fix)
 echo -e "${CYAN}${ARROW}${RESET} Stopping running instances..."
