@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **Installer daemon restart**: Installer now restarts daemon on error/cancel (doesn't leave daemon down)
+## [5.7.0-beta.59] - 2025-11-18
+
+### Fixed - Installer Daemon Restart + Doubled Symbols
+
+**What's Fixed:**
+1. **Installer daemon restart**: Installer now restarts daemon on error/cancel (doesn't leave system with stopped daemon)
+   - Added `DAEMON_WAS_STOPPED` flag to track if daemon was stopped
+   - `error_exit()` function now attempts `sudo systemctl start annad` before exiting
+   - Shows clear message if restart fails: "Could not restart daemon. Run: sudo systemctl start annad"
+   - Prevents broken system state after Cloudflare errors or install cancellation
+2. **Doubled symbols in status output**: Fixed `✓ ✓` becoming single `✓` in `annactl status`
+   - Changed `fmt::success("✓")` to `fmt::success("")` (function already adds symbol)
+   - Same for `fmt::error("✗")` and `fmt::warning("⚠")`
+   - Consistent with REPL fix from beta.58
 
 ## [5.7.0-beta.58] - 2025-11-18
 
