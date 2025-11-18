@@ -31,6 +31,7 @@ pub mod disk_analysis;
 pub mod display;
 pub mod display_issues; // Display driver and multi-monitor issue detection
 pub mod file_backup; // File backup system with SHA256 verification
+pub mod file_index; // Beta.84: File-level indexing - track every file on the system
 pub mod filesystem; // Filesystem features detection (TRIM, LUKS, Btrfs)
 pub mod filesystem_health; // Filesystem health detection (Ext4, XFS, ZFS fsck/scrub status)
 pub mod github_releases;
@@ -91,6 +92,7 @@ pub use beautiful::*;
 pub use categories::*;
 pub use config::*;
 pub use config_parser::*;
+pub use file_index::*; // Beta.84: File-level indexing
 pub use ignore_filters::*;
 pub use ipc::*;
 pub use paths::*;

@@ -337,7 +337,7 @@ mod tests {
         let config = PersonalityConfig::default();
         let trait_ref = config.get_trait("introvert_vs_extrovert");
         assert!(trait_ref.is_some());
-        assert_eq!(trait_ref.unwrap().value, 8);
+        assert_eq!(trait_ref.unwrap().value, 3);  // Beta.83: Changed from 8 to 3 to match INTERNAL_PROMPT.md
     }
 
     #[test]

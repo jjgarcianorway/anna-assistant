@@ -16,6 +16,7 @@ use anna_common::historian::{
 };
 use anna_common::SystemFacts;
 use chrono::Utc;
+use rusqlite; // Beta.84: For file index database operations
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -971,6 +972,99 @@ impl HistorianIntegration {
         });
     }
 
+    /// Beta.84: Record file index snapshot (daily or on-demand)
+    /// Tracks every file on the system for complete visibility
+    pub fn record_file_index_snapshot(&self) {
+        if !self.circuit_breaker.should_attempt() {
+            return;
+        }
+
+        // Spawn background task - file scanning can take time
+        tokio::spawn(async move {
+            use anna_common::{FileIndexConfig, FileIndexer};
+
+            // Load config (respects user privacy settings)
+            let config = FileIndexConfig::load();
+
+            if !config.enabled {
+                return;
+            }
+
+            let indexer = FileIndexer::new(config);
+
+            match indexer.scan_all() {
+                Ok(entries) => {
+                    info!("File index: scanned {} files", entries.len());
+
+                    // Store file entries in database
+                    if let Some(db) = context::db() {
+                        let db_clone = db.conn();
+                        let entry_count = entries.len();
+
+                        tokio::task::spawn_blocking(move || {
+                            let conn = db_clone.blocking_lock();
+
+                            // Begin transaction for bulk insert
+                            let tx = match conn.unchecked_transaction() {
+                                Ok(t) => t,
+                                Err(e) => {
+                                    warn!("Failed to start file_index transaction: {}", e);
+                                    return;
+                                }
+                            };
+
+                            let mut inserted = 0;
+                            let mut updated = 0;
+
+                            for entry in entries {
+                                // Use INSERT OR REPLACE to update existing entries
+                                let result = tx.execute(
+                                    "INSERT OR REPLACE INTO file_index
+                                     (path, size_bytes, mtime, owner_uid, owner_gid, permissions, file_type, indexed_at)
+                                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                                    &[
+                                        &entry.path as &dyn rusqlite::ToSql,
+                                        &(entry.size_bytes as i64) as &dyn rusqlite::ToSql,
+                                        &entry.mtime.to_rfc3339() as &dyn rusqlite::ToSql,
+                                        &(entry.owner_uid as i64) as &dyn rusqlite::ToSql,
+                                        &(entry.owner_gid as i64) as &dyn rusqlite::ToSql,
+                                        &(entry.permissions as i64) as &dyn rusqlite::ToSql,
+                                        &entry.file_type.as_str() as &dyn rusqlite::ToSql,
+                                        &entry.indexed_at.to_rfc3339() as &dyn rusqlite::ToSql,
+                                    ][..],
+                                );
+
+                                match result {
+                                    Ok(rows_affected) => {
+                                        if rows_affected > 0 {
+                                            inserted += 1;
+                                        } else {
+                                            updated += 1;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!("Failed to insert file entry {}: {}", entry.path, e);
+                                    }
+                                }
+                            }
+
+                            if let Err(e) = tx.commit() {
+                                warn!("Failed to commit file_index transaction: {}", e);
+                                return;
+                            }
+
+                            info!("File index: stored {} entries ({} inserted, {} updated)",
+                                  entry_count, inserted, updated);
+                        });
+                    }
+                }
+                Err(e) => {
+                    warn!("File index scan failed: {}", e);
+                }
+            }
+        });
+    }
+
     /// Record all telemetry data to Historian
     pub fn record_all(&self, facts: &SystemFacts) {
         // Record boot data (only if available and new)
@@ -999,6 +1093,9 @@ impl HistorianIntegration {
 
         // Record LLM usage window (placeholder counts)
         self.record_llm_usage();
+
+        // Beta.84: Record file index snapshot (runs in background)
+        self.record_file_index_snapshot();
     }
 
     /// Get the current circuit breaker status

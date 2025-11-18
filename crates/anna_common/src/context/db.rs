@@ -776,6 +776,64 @@ impl ContextDb {
                 [],
             )?;
 
+            // Beta.84: File-level indexing - track every file on the system
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS file_index (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL,
+                    size_bytes INTEGER NOT NULL,
+                    mtime DATETIME NOT NULL,
+                    owner_uid INTEGER NOT NULL,
+                    owner_gid INTEGER NOT NULL,
+                    permissions INTEGER NOT NULL,
+                    file_type TEXT NOT NULL,
+                    indexed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_file_index_path
+                 ON file_index(path)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_file_index_mtime
+                 ON file_index(mtime DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_file_index_size
+                 ON file_index(size_bytes DESC)",
+                [],
+            )?;
+
+            // Beta.84: File changes tracking
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS file_changes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL,
+                    change_type TEXT NOT NULL,
+                    old_size INTEGER,
+                    new_size INTEGER,
+                    old_mtime DATETIME,
+                    new_mtime DATETIME,
+                    old_permissions INTEGER,
+                    new_permissions INTEGER,
+                    detected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_file_changes_detected
+                 ON file_changes(detected_at DESC)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_file_changes_path
+                 ON file_changes(path)",
+                [],
+            )?;
+
             debug!("Database schema initialized successfully");
             Ok(())
         })

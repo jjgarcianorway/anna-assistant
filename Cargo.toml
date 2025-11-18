@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "5.7.0-beta.83"
+version = "5.7.0-beta.85"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -57,6 +57,7 @@ crossterm = "0.27"
 
 # File system watching
 notify = "6.1"
+walkdir = "2.4"  # Beta.84: Directory traversal for file indexing
 
 # Cryptography (Phase 1.8)
 ed25519-dalek = { version = "2.0", features = ["rand_core"] }

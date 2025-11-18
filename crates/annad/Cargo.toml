@@ -43,6 +43,7 @@ rustls = { workspace = true }
 tokio-rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
 lru = { workspace = true }
+rusqlite = { workspace = true } # Beta.84: File indexing database operations
 
 [dev-dependencies]
 tempfile = "3.0"

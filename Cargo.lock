@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "5.7.0-beta.83"
+version = "5.7.0-beta.85"
 dependencies = [
  "anyhow",
  "atty",
@@ -63,11 +63,12 @@ dependencies = [
  "toml",
  "tracing",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]
 name = "annactl"
-version = "5.7.0-beta.83"
+version = "5.7.0-beta.85"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -94,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "5.7.0-beta.83"
+version = "5.7.0-beta.85"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -114,6 +115,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest",
+ "rusqlite",
  "rustls 0.23.35",
  "rustls-pemfile 2.2.0",
  "serde",

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "bbs_308611",
+    "title": "Ways to install things - AUR and package management",
+    "question": "If a package isn't on pacman nor on Discover, what are the ways to install? Specifically, how do I install NordVPN CLI which appears in the AUR but not in standard repositories? Is installing another package manager the right approach? Can pacman install from custom repositories?",
+    "category": "package_management",
+    "difficulty": "beginner",
+    "url": "https://bbs.archlinux.org/viewtopic.php?id=308611",
+    "expected_topics": ["AUR", "makepkg", "yay", "paru", "custom repositories"]
+  },
+  {
+    "id": "bbs_308335",
+    "title": "Can't write hyprland instance signature to a file on startup",
+    "question": "I'm trying to automatically write the Hyprland instance signature to a file during startup using exec-once commands in my Hyprland configuration. I want this signature stored so my udev rules can access it for controlling screen refresh rates via hyprctl. I tried: 'exec-once = printf %s\\n \"$HYPRLAND_INSTANCE_SIGNATURE\" > /tmp/hyprinstancesig' and with 'sleep 1' and 'echo', but the file contains a stale instance signature from a previous session rather than the current one, causing udev rules to fail with connection errors. The commands work fine when executed manually in the terminal.",
+    "category": "desktop_environment",
+    "difficulty": "intermediate",
+    "url": "https://bbs.archlinux.org/viewtopic.php?id=308335",
+    "expected_topics": ["Hyprland", "environment variables", "exec-once", "udev", "systemd"]
+  },
+  {
+    "id": "bbs_303370",
+    "title": "Local repository for offline install (since 2025 - pacman 7.0.0 issues)",
+    "question": "I'm no longer able to create a local repository for an offline install to another system since the introduction of pacman 7.0.0. I get errors: 'restricting filesystem access failed because the landlock rule for the temporary download directory could not be added'. Only running commands as root works, but this defeats the purpose of pacman 7's new security features like 'DownloadUser = alpm'. How can I properly create an offline repository WITHOUT disabling those two new options (DownloadUser and DisableSandbox)?",
+    "category": "package_management",
+    "difficulty": "intermediate",
+    "url": "https://bbs.archlinux.org/viewtopic.php?id=303370",
+    "expected_topics": ["pacman 7", "offline repository", "DownloadUser", "DisableSandbox", "landlock", "cachedir", "absolute paths vs relative paths"]
+  }
+]
