@@ -147,7 +147,7 @@ fn detect_nvidia_throttling() -> Option<NvidiaThrottling> {
 
     // Query nvidia-smi for GPU information
     let output = Command::new("nvidia-smi")
-        .args(&[
+        .args([
             "--query-gpu=index,name,temperature.gpu,power.draw,power.limit,utilization.gpu,utilization.memory,pstate,clocks_throttle_reasons.active",
             "--format=csv,noheader,nounits",
         ])

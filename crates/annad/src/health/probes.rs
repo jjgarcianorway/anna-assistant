@@ -501,7 +501,8 @@ mod tests {
         // Test execution (may fail in CI without systemctl)
         if let Ok(result) = probe.run() {
             assert_eq!(result.probe, "systemd-units");
-            assert!(result.duration_ms >= 0);
+            // Duration should be reasonable (< 10 seconds)
+            assert!(result.duration_ms < 10000, "Probe took too long: {}ms", result.duration_ms);
         }
     }
 

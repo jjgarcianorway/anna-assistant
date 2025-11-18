@@ -244,15 +244,15 @@ mod tests {
     #[test]
     fn test_detect_block_devices() {
         let disks = detect_block_devices();
-        // Should return a list (possibly empty)
-        assert!(disks.is_empty() || !disks.is_empty());
+        // Test completes successfully if we get here (disks is a valid Vec)
+        let _ = disks.len();
     }
 
     #[test]
     fn test_detect_network_status() {
         let status = detect_network_status();
-        // Should return a valid status
-        assert!(status.has_interface || !status.has_interface);
+        // Test completes successfully if we get here (has_interface is a valid boolean)
+        let _ = status.has_interface;
     }
 
     // Mock filesystem tests

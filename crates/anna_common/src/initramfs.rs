@@ -530,12 +530,12 @@ fn detect_missing_hooks(hooks: &[String], tool: &InitramfsTool) -> Vec<MissingHo
 
 /// Detect missing required modules
 fn detect_missing_modules(_modules: &[String]) -> Vec<MissingModule> {
-    let missing = Vec::new();
+    
 
     // Hardware-specific module detection would go here
     // This would require detecting actual hardware
 
-    missing
+    Vec::new()
 }
 
 /// Find initramfs files in /boot

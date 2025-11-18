@@ -1837,7 +1837,7 @@ impl CaretakerBrain {
                     event.description
                 ));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         // Recent repairs
@@ -2147,8 +2147,8 @@ mod tests {
                 || analysis.overall_status == "critical"
         );
 
-        // Analysis should be valid regardless of system state
-        assert!(analysis.issues.len() >= 0);
+        // Analysis completed successfully (issues may or may not be found)
+        assert!(analysis.issues.len() < 1000, "Unreasonably many issues detected");
     }
 
     #[test]

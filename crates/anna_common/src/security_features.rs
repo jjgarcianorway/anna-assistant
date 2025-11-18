@@ -191,7 +191,7 @@ fn detect_selinux() -> SeLinuxStatus {
     // Count denials from audit log
     let denials_count = if Path::new("/var/log/audit/audit.log").exists() {
         Command::new("grep")
-            .args(&["-c", "avc.*denied", "/var/log/audit/audit.log"])
+            .args(["-c", "avc.*denied", "/var/log/audit/audit.log"])
             .output()
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -326,7 +326,7 @@ fn detect_polkit() -> PolkitConfig {
 
     // Check if polkit service is running
     let service_running = Command::new("systemctl")
-        .args(&["is-active", "polkit"])
+        .args(["is-active", "polkit"])
         .output()
         .ok()
         .map(|o| o.status.success())
@@ -530,21 +530,18 @@ fn detect_sudoers() -> SudoersConfig {
                                 if !passwordless_groups.contains(&group) {
                                     passwordless_groups.push(group);
                                 }
-                            } else {
-                                if !passwordless_users.contains(&user_part.to_string()) {
-                                    passwordless_users.push(user_part.to_string());
-                                }
+                            } else if !passwordless_users.contains(&user_part.to_string()) {
+                                passwordless_users.push(user_part.to_string());
                             }
                         }
                     }
 
                     if line.contains("ALL=(ALL)") && line.contains("ALL") {
                         if let Some(user_part) = line.split_whitespace().next() {
-                            if !user_part.starts_with('%') && user_part != "root" {
-                                if !all_access_users.contains(&user_part.to_string()) {
+                            if !user_part.starts_with('%') && user_part != "root"
+                                && !all_access_users.contains(&user_part.to_string()) {
                                     all_access_users.push(user_part.to_string());
                                 }
-                            }
                         }
                     }
                 }
@@ -728,8 +725,8 @@ fn analyze_security_issues(
     }
 
     // Check kernel lockdown
-    if lockdown.supported {
-        if matches!(lockdown.mode, Some(LockdownMode::None)) {
+    if lockdown.supported
+        && matches!(lockdown.mode, Some(LockdownMode::None)) {
             issues.push(SecurityIssue {
                 severity: SecuritySeverity::Medium,
                 category: "Kernel Lockdown".to_string(),
@@ -737,7 +734,6 @@ fn analyze_security_issues(
                 recommendation: "Enable kernel lockdown with 'lockdown=integrity' or 'lockdown=confidentiality' kernel parameter".to_string(),
             });
         }
-    }
 
     issues
 }

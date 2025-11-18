@@ -124,7 +124,7 @@ mod tests {
         let current_cap = LlmCapability::Medium;
 
         // No improvement
-        assert!(!(current_cap > initial_cap));
+        assert!((current_cap <= initial_cap));
     }
 
     #[test]
@@ -134,7 +134,7 @@ mod tests {
         let current_cap = LlmCapability::Low;
 
         // Degraded
-        assert!(!(current_cap > initial_cap));
+        assert!((current_cap <= initial_cap));
     }
 
     #[test]

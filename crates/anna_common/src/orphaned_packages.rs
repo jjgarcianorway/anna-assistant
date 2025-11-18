@@ -94,7 +94,7 @@ fn detect_orphaned_packages() -> Vec<OrphanPackage> {
     let mut packages = Vec::new();
 
     // Run pacman -Qtd to get orphaned packages (dependencies no longer required)
-    let output = Command::new("pacman").args(&["-Qtd"]).output();
+    let output = Command::new("pacman").args(["-Qtd"]).output();
 
     if let Ok(output) = output {
         if output.status.success() {
@@ -153,7 +153,7 @@ struct PackageInfo {
 
 fn get_package_info(package_name: &str) -> Option<PackageInfo> {
     let output = Command::new("pacman")
-        .args(&["-Qi", package_name])
+        .args(["-Qi", package_name])
         .output()
         .ok()?;
 

@@ -344,7 +344,7 @@ fn find_conflicting_files() -> Vec<FileConflict> {
                                 // Skip directories
                                 file_owners
                                     .entry(file.to_string())
-                                    .or_insert_with(Vec::new)
+                                    .or_default()
                                     .push(package.to_string());
                             }
                         }

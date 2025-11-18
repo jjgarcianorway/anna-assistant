@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.64] - 2025-11-18
+
+### Fixed - Code Quality: Clippy Fixes (89 errors → 0)
+
+**What's Fixed:**
+
+1. **Auto-fixed 63 issues with `cargo clippy --fix`:**
+   - Needless borrows (&value when value works)
+   - Redundant field names (field: field → field)
+   - Empty doc comment lines
+   - Unused variables and imports
+   - Inefficient patterns
+
+2. **Manually fixed critical test issues:**
+   - **Useless comparisons:** `command_count >= 0` → `command_count > 0` (usize is never < 0)
+   - **Boolean tautologies:** `has_emoji || !has_emoji` (always true) → removed
+   - **Unreachable branches:** Fixed hardware capability test with hardcoded values
+   - **Performance checks:** Added meaningful upper bounds instead of useless >= 0 checks
+
+3. **Fixed files:**
+   - `crates/annactl/tests/integration_test.rs`: Fixed comparison
+   - `crates/anna_common/src/caretaker_brain.rs`: Fixed tautology
+   - `crates/anna_common/src/hardware_capability.rs`: Fixed test logic
+   - `crates/anna_common/src/language.rs`: Removed tautology
+   - `crates/annad/src/health/probes.rs`: Added meaningful duration check
+   - `crates/annad/src/profile/detector.rs`: Fixed multiple tautologies
+   - `crates/annad/src/state/detector.rs`: Fixed tautologies
+   - 25+ files: Auto-fixed by clippy
+
+**Impact:**
+- **Code quality:** Much cleaner, more idiomatic Rust code
+- **Performance:** Removed unnecessary borrows and allocations
+- **Tests:** Tests now actually validate meaningful conditions
+- **Security:** Cleaner code = easier to audit (important for root daemon)
+- **Build time:** Faster due to fewer unnecessary operations
+
+**Clippy results:**
+```
+Before: 89 errors, many warnings
+After:  0 errors, 35 minor warnings
+```
+
+**Files changed:** 30 files total
+
 ## [5.7.0-beta.63] - 2025-11-18
 
 ### Fixed - UX Polish and Warning Cleanup

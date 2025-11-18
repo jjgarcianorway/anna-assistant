@@ -547,7 +547,7 @@ pub fn apply_issue_decisions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
+    
 
     fn create_test_db() -> Result<Connection> {
         let conn = Connection::open_in_memory()?;

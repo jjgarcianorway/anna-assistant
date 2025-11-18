@@ -681,7 +681,7 @@ fn parse_dkms_status_line(line: &str) -> Option<DkmsModule> {
     let version = module_parts[1].trim().to_string();
     let kernel_version = parts[1].trim().to_string();
 
-    let status_part = parts[2].split(':').last().unwrap_or("").trim();
+    let status_part = parts[2].split(':').next_back().unwrap_or("").trim();
     let status = match status_part {
         "installed" => DkmsBuildStatus::Installed,
         "built" => DkmsBuildStatus::Built,

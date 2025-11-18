@@ -605,8 +605,8 @@ mod tests {
         let has_emoji = caps.use_emojis();
         let has_unicode = caps.use_unicode_graphics();
 
-        // At least one should work (or both can be false for limited terminals)
-        assert!(has_emoji || has_unicode || (!has_emoji && !has_unicode));
+        // Capabilities should be determined (test passes if we get here)
+        let _ = (has_emoji, has_unicode);
 
         // Test forced ASCII mode
         caps.emoji_support = false;

@@ -407,12 +407,11 @@ fn check_xfs_filesystem(device: &str) -> Option<XfsFilesystem> {
     if let Ok(output) = Command::new("dmesg").output() {
         if let Ok(dmesg) = String::from_utf8(output.stdout) {
             for line in dmesg.lines() {
-                if line.contains(&device) && (line.contains("XFS") || line.contains("xfs")) {
-                    if line.contains("error") || line.contains("corruption") {
+                if line.contains(device) && (line.contains("XFS") || line.contains("xfs"))
+                    && (line.contains("error") || line.contains("corruption")) {
                         fs.error_count += 1;
                         fs.metadata_errors.push(line.to_string());
                     }
-                }
             }
         }
     }
@@ -445,7 +444,7 @@ fn detect_zfs_health() -> Option<ZfsStatus> {
 
     for line in list.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if let Some(pool_name) = parts.get(0) {
+        if let Some(pool_name) = parts.first() {
             if let Some(pool_info) = check_zfs_pool(pool_name) {
                 if pool_info.state.to_lowercase().contains("degrad")
                     || pool_info.state.to_lowercase().contains("unavail")
@@ -573,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_health_score_calculation() {
-        let mut health = FilesystemHealth {
+        let health = FilesystemHealth {
             ext4_status: None,
             xfs_status: None,
             zfs_status: None,

@@ -245,7 +245,8 @@ mod tests {
         let profile = profile.unwrap();
         assert!(profile.total_memory_mb > 0);
         assert!(profile.cpu_cores > 0);
-        assert!(profile.uptime_seconds >= 0);
+        // Uptime should be reasonable (< 1 year in seconds)
+        assert!(profile.uptime_seconds < 31536000, "Uptime seems unreasonable: {}s", profile.uptime_seconds);
     }
 
     #[test]
@@ -278,7 +279,7 @@ mod tests {
     #[test]
     fn test_detect_gpu() {
         let gpu = SystemProfiler::detect_gpu();
-        // Should return something (present or not)
-        assert!(gpu.present || !gpu.present); // Tautology to ensure struct is valid
+        // Test completes successfully if we get here (gpu.present is a valid boolean)
+        let _ = gpu.present;
     }
 }

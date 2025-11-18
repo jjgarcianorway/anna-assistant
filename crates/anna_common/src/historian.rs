@@ -659,17 +659,17 @@ impl Historian {
         let metrics_before = repair
             .metrics_before
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
         let metrics_after = repair
             .metrics_after
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
         let user_feedback = repair
             .user_feedback
             .as_ref()
-            .map(|f| serde_json::to_string(f))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let id = self.conn.execute(
@@ -892,7 +892,7 @@ impl Historian {
             .into_iter()
             .map(|(unit, (total_time, count))| SlowUnitStats {
                 unit,
-                avg_duration_ms: (total_time / count) as i64,
+                avg_duration_ms: (total_time / count),
                 occurrences: count as usize,
             })
             .collect();
@@ -1315,7 +1315,7 @@ impl Historian {
         event_type: &str,
         metadata: Option<&serde_json::Value>,
     ) -> Result<i64> {
-        let metadata_str = metadata.map(|m| serde_json::to_string(m)).transpose()?;
+        let metadata_str = metadata.map(serde_json::to_string).transpose()?;
 
         let id = self.conn.execute(
             "INSERT INTO service_reliability (timestamp, service_name, event_type, was_intentional, metadata)
@@ -1568,7 +1568,7 @@ impl Historian {
         let hardware_config = baseline
             .hardware_config
             .as_ref()
-            .map(|h| serde_json::to_string(h))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let id = self.conn.execute(

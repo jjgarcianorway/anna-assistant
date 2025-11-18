@@ -169,7 +169,7 @@ fn detect_daemon_crashes() -> DaemonCrashes {
     // Query journalctl for service failures in the last 7 days
     // Look for systemd service failures
     let output_7d = Command::new("journalctl")
-        .args(&[
+        .args([
             "--since",
             "7 days ago",
             "--unit=*.service",
@@ -180,7 +180,7 @@ fn detect_daemon_crashes() -> DaemonCrashes {
         .output();
 
     let output_24h = Command::new("journalctl")
-        .args(&[
+        .args([
             "--since",
             "24 hours ago",
             "--unit=*.service",
@@ -204,7 +204,7 @@ fn detect_daemon_crashes() -> DaemonCrashes {
     for crash in &crashes_7d {
         service_crashes
             .entry(crash.service_name.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(crash.clone());
     }
 
@@ -270,7 +270,7 @@ fn parse_crash_events(output: &Result<std::process::Output, std::io::Error>) -> 
                         if let Ok(micros) = timestamp_str.parse::<i64>() {
                             let secs = micros / 1_000_000;
                             let nsecs = ((micros % 1_000_000) * 1000) as u32;
-                            DateTime::from_timestamp(secs, nsecs).unwrap_or_else(|| Utc::now())
+                            DateTime::from_timestamp(secs, nsecs).unwrap_or_else(Utc::now)
                         } else {
                             Utc::now()
                         }

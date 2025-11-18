@@ -146,7 +146,7 @@ fn detect_thermal_events() -> Vec<ThermalEvent> {
 
     // Query journalctl for thermal events in the last 24 hours
     let output = Command::new("journalctl")
-        .args(&[
+        .args([
             "--since",
             "24 hours ago",
             "--grep=thermal|temperature|throttle",
@@ -174,7 +174,7 @@ fn detect_thermal_events() -> Vec<ThermalEvent> {
                         if let Ok(micros) = timestamp_str.parse::<i64>() {
                             let secs = micros / 1_000_000;
                             let nsecs = ((micros % 1_000_000) * 1000) as u32;
-                            DateTime::from_timestamp(secs, nsecs).unwrap_or_else(|| Utc::now())
+                            DateTime::from_timestamp(secs, nsecs).unwrap_or_else(Utc::now)
                         } else {
                             Utc::now()
                         }

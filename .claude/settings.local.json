@@ -55,7 +55,10 @@
       "Bash(lspci:*)",
       "Bash(nvidia-smi:*)",
       "Bash(/home/lhoqvso/.cargo/bin/cargo fix --lib -p anna_common --allow-dirty --allow-staged)",
-      "Bash(/home/lhoqvso/.cargo/bin/cargo fix --lib -p annactl --allow-dirty --allow-staged)"
+      "Bash(/home/lhoqvso/.cargo/bin/cargo fix --lib -p annactl --allow-dirty --allow-staged)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo clippy --workspace --all-targets -- -D warnings)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo clippy:*)"
     ],
     "deny": [],
     "ask": []

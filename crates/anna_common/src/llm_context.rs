@@ -377,7 +377,7 @@ impl LlmContext {
             } else if systemd.failed_units.len() > 2 {
                 overall_stability_score = overall_stability_score.saturating_sub(10);
                 ErrorRate::Moderate
-            } else if systemd.failed_units.len() > 0 {
+            } else if !systemd.failed_units.is_empty() {
                 ErrorRate::Low
             } else {
                 ErrorRate::Minimal
@@ -779,7 +779,7 @@ impl LlmContext {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     #[test]
     fn test_llm_context_summary() {

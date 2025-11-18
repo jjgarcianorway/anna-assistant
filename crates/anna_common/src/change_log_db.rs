@@ -433,7 +433,7 @@ mod tests {
 
         // Create multiple change units
         for i in 0..5 {
-            let mut unit = ChangeUnit::new(&format!("change-{}", i), &format!("Change {}", i));
+            let mut unit = ChangeUnit::new(format!("change-{}", i), format!("Change {}", i));
             unit.complete(ChangeStatus::Success);
             db.save_change_unit(&unit).await.unwrap();
         }

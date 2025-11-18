@@ -512,7 +512,7 @@ fn test_phase39_adaptive_help_shows_commands() {
     let command_count = stdout.matches("available)").count();
 
     assert!(
-        command_count >= 0,
+        command_count > 0,
         "Adaptive help should show command categories. stdout: {}",
         stdout
     );

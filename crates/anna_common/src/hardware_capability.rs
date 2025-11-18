@@ -139,21 +139,28 @@ mod tests {
 
     #[test]
     fn test_capability_classification() {
-        // High capability
+        // Test classification logic with sample values
+        // High capability: 32GB RAM, 8 cores
+        let ram_mb = 32000;
+        let cores = 8;
         assert_eq!(
-            if 32000 >= 16000 && 8 >= 4 {
+            if ram_mb >= 16000 && cores >= 4 {
                 LlmCapability::High
+            } else if ram_mb >= 8000 && cores >= 2 {
+                LlmCapability::Medium
             } else {
                 LlmCapability::Low
             },
             LlmCapability::High
         );
 
-        // Medium capability
+        // Medium capability: 12GB RAM, 4 cores
+        let ram_mb = 12000;
+        let cores = 4;
         assert_eq!(
-            if 12000 >= 16000 && 4 >= 4 {
+            if ram_mb >= 16000 && cores >= 4 {
                 LlmCapability::High
-            } else if 12000 >= 8000 && 4 >= 2 {
+            } else if ram_mb >= 8000 && cores >= 2 {
                 LlmCapability::Medium
             } else {
                 LlmCapability::Low
@@ -161,11 +168,13 @@ mod tests {
             LlmCapability::Medium
         );
 
-        // Low capability
+        // Low capability: 4GB RAM, 2 cores
+        let ram_mb = 4000;
+        let cores = 2;
         assert_eq!(
-            if 4000 >= 16000 && 2 >= 4 {
+            if ram_mb >= 16000 && cores >= 4 {
                 LlmCapability::High
-            } else if 4000 >= 8000 && 2 >= 2 {
+            } else if ram_mb >= 8000 && cores >= 2 {
                 LlmCapability::Medium
             } else {
                 LlmCapability::Low

@@ -136,7 +136,7 @@ fn detect_cuda_support() -> Option<CudaSupport> {
 
     // Query CUDA version via nvidia-smi
     let output = Command::new("nvidia-smi")
-        .args(&["--query-gpu=name,compute_cap", "--format=csv,noheader"])
+        .args(["--query-gpu=name,compute_cap", "--format=csv,noheader"])
         .output()
         .ok()?;
 
@@ -159,7 +159,7 @@ fn detect_cuda_support() -> Option<CudaSupport> {
 
     // Get CUDA version
     let version_output = Command::new("nvidia-smi")
-        .args(&["--query-gpu=driver_version", "--format=csv,noheader"])
+        .args(["--query-gpu=driver_version", "--format=csv,noheader"])
         .output()
         .ok()?;
 
@@ -270,7 +270,7 @@ fn detect_opencl_support() -> Option<OpenClSupport> {
         .and_then(|line| {
             line.split("OpenCL C")
                 .nth(1)
-                .map(|s| s.trim().split_whitespace().next().unwrap_or("").to_string())
+                .map(|s| s.split_whitespace().next().unwrap_or("").to_string())
         });
 
     Some(OpenClSupport {
@@ -312,7 +312,7 @@ fn detect_rocm_support() -> Option<RocmSupport> {
 
     // Try to get ROCm version from package
     let rocm_version = Command::new("dpkg")
-        .args(&["-l", "rocm-libs"])
+        .args(["-l", "rocm-libs"])
         .output()
         .ok()
         .and_then(|o| {

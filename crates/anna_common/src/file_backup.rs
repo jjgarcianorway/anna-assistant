@@ -391,8 +391,8 @@ impl BackupManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use tempfile::{tempdir, NamedTempFile};
+    
+    use tempfile::tempdir;
 
     #[test]
     fn test_file_backup_and_restore() {

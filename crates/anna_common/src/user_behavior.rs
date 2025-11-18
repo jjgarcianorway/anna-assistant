@@ -443,7 +443,7 @@ fn detect_gaming_patterns() -> Option<GamingPatterns> {
 }
 
 fn is_gaming_process(proc: &str) -> bool {
-    let gaming_keywords = vec!["steam", "wine", "proton", "gamemode", "lutris"];
+    let gaming_keywords = ["steam", "wine", "proton", "gamemode", "lutris"];
     gaming_keywords
         .iter()
         .any(|kw| proc.to_lowercase().contains(kw))
@@ -581,7 +581,7 @@ fn infer_user_profile(
     // Determine primary use case
     if let Some(dev) = development_patterns {
         if dev.is_development_system {
-            use_cases.push((UseCase::Development, dev.git_repositories as u32));
+            use_cases.push((UseCase::Development, dev.git_repositories));
         }
     }
 

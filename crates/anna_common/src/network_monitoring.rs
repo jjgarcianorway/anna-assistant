@@ -308,7 +308,7 @@ fn get_ip_addresses(if_name: &str) -> (Vec<String>, Vec<String>) {
     let mut ipv6_addrs = Vec::new();
 
     // Use `ip addr show` to get addresses
-    if let Ok(output) = Command::new("ip").args(&["addr", "show", if_name]).output() {
+    if let Ok(output) = Command::new("ip").args(["addr", "show", if_name]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             let trimmed = line.trim();
@@ -353,7 +353,7 @@ fn detect_address_config(
 ) -> AddressConfig {
     // Check if NetworkManager is managing this interface
     if let Ok(output) = Command::new("nmcli")
-        .args(&[
+        .args([
             "-t",
             "-f",
             "DEVICE,TYPE,METHOD",
@@ -470,7 +470,7 @@ fn detect_ipv6_status(interfaces: &[NetworkInterface]) -> IpVersionStatus {
 /// Get default gateway for IPv4
 fn get_default_gateway_v4() -> Option<String> {
     if let Ok(output) = Command::new("ip")
-        .args(&["-4", "route", "show", "default"])
+        .args(["-4", "route", "show", "default"])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -486,7 +486,7 @@ fn get_default_gateway_v4() -> Option<String> {
 /// Get default gateway for IPv6
 fn get_default_gateway_v6() -> Option<String> {
     if let Ok(output) = Command::new("ip")
-        .args(&["-6", "route", "show", "default"])
+        .args(["-6", "route", "show", "default"])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -503,7 +503,7 @@ fn get_default_gateway_v6() -> Option<String> {
 fn detect_dnssec_status() -> DnssecStatus {
     // Check if systemd-resolved is running
     let systemd_resolved_running = Command::new("systemctl")
-        .args(&["is-active", "systemd-resolved"])
+        .args(["is-active", "systemd-resolved"])
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
@@ -599,7 +599,7 @@ fn measure_packet_loss(
 /// Ping a host and return average latency in ms
 fn ping_host(host: &str, count: u32) -> Option<f64> {
     let output = Command::new("ping")
-        .args(&["-c", &count.to_string(), "-W", "1", host])
+        .args(["-c", &count.to_string(), "-W", "1", host])
         .output()
         .ok()?;
 
@@ -629,7 +629,7 @@ fn ping_host(host: &str, count: u32) -> Option<f64> {
 /// Ping a host and return packet loss percentage
 fn ping_loss(host: &str, count: u32) -> Option<f64> {
     let output = Command::new("ping")
-        .args(&["-c", &count.to_string(), "-W", "1", host])
+        .args(["-c", &count.to_string(), "-W", "1", host])
         .output()
         .ok()?;
 
@@ -656,7 +656,7 @@ fn get_routing_table() -> Vec<Route> {
     let mut routes = Vec::new();
 
     // Get IPv4 routes
-    if let Ok(output) = Command::new("ip").args(&["-4", "route", "show"]).output() {
+    if let Ok(output) = Command::new("ip").args(["-4", "route", "show"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             if let Some(route) = parse_route_line(line) {
@@ -666,7 +666,7 @@ fn get_routing_table() -> Vec<Route> {
     }
 
     // Get IPv6 routes
-    if let Ok(output) = Command::new("ip").args(&["-6", "route", "show"]).output() {
+    if let Ok(output) = Command::new("ip").args(["-6", "route", "show"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             if let Some(route) = parse_route_line(line) {
@@ -726,7 +726,7 @@ fn parse_route_line(line: &str) -> Option<Route> {
 /// Get firewall rules
 fn get_firewall_rules() -> FirewallRules {
     // Try nftables first
-    if let Ok(output) = Command::new("nft").args(&["list", "ruleset"]).output() {
+    if let Ok(output) = Command::new("nft").args(["list", "ruleset"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let rule_count = stdout
@@ -751,7 +751,7 @@ fn get_firewall_rules() -> FirewallRules {
     }
 
     // Try iptables
-    if let Ok(output) = Command::new("iptables").args(&["-L", "-n"]).output() {
+    if let Ok(output) = Command::new("iptables").args(["-L", "-n"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let rule_count = stdout

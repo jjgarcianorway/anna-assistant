@@ -125,8 +125,8 @@ impl PromptBuilder {
         let mut context = String::from("# System Context\n\n");
 
         // OS and hardware
-        context.push_str(&"## Platform\n".to_string());
-        context.push_str(&"- OS: Arch Linux\n".to_string());
+        context.push_str("## Platform\n");
+        context.push_str("- OS: Arch Linux\n");
         context.push_str(&format!(
             "- CPU: {} ({} cores)\n",
             telemetry.hardware.cpu_model, telemetry.cpu.cores
@@ -146,7 +146,7 @@ impl PromptBuilder {
         context.push('\n');
 
         // Packages
-        context.push_str(&"## Package Status\n".to_string());
+        context.push_str("## Package Status\n");
         context.push_str(&format!(
             "- Total installed: {}\n",
             telemetry.packages.total_installed
@@ -167,7 +167,7 @@ impl PromptBuilder {
 
         // Desktop environment
         if let Some(ref desktop) = telemetry.desktop {
-            context.push_str(&"## Desktop Environment\n".to_string());
+            context.push_str("## Desktop Environment\n");
             if let Some(ref de) = desktop.de_name {
                 context.push_str(&format!("- DE: {}\n", de));
             }
@@ -181,7 +181,7 @@ impl PromptBuilder {
         }
 
         // Services
-        context.push_str(&"## System Services\n".to_string());
+        context.push_str("## System Services\n");
         context.push_str(&format!(
             "- Total units: {}\n",
             telemetry.services.total_units
