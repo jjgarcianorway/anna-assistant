@@ -22,10 +22,59 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
+## Current Status (v5.7.0-beta.55)
+
+### ✅ What Works Now
+
+**Core Infrastructure:**
+- ✅ Daemon (annad) runs and collects system telemetry
+- ✅ CLI (annactl) communicates via Unix socket
+- ✅ Historian database stores 30-day trends
+- ✅ System facts collection (hardware, OS, packages, services)
+- ✅ Auto-update system (checks GitHub, verifies checksums, atomic swaps)
+
+**LLM Integration (NEW in beta.55):**
+- ✅ Local LLM setup via Ollama (automatic detection and installation)
+- ✅ Internal dialogue system (planning + answer rounds)
+- ✅ Telemetry-first approach (LLM checks data before answering)
+- ✅ Natural language queries work in REPL
+- ✅ 16-personalities trait system (8 adjustable traits)
+
+**User Interface:**
+- ✅ Interactive REPL (`annactl`)
+- ✅ One-shot queries (`annactl "question"`)
+- ✅ Status command (`annactl status`)
+- ✅ Startup health summary with 30-day trends
+- ✅ Terminal adaptation (color, unicode, emoji fallback)
+
+### 🚧 Partially Implemented / Needs Testing
+
+**Features that exist in code but may not be fully wired or tested:**
+- 🚧 Report generation (code exists, needs end-to-end testing)
+- 🚧 Change rollback system (logging infrastructure exists, rollback untested)
+- 🚧 Multi-language support (6 languages configured, translations incomplete)
+- 🚧 Suggestion engine with Arch Wiki integration (framework exists)
+- 🚧 Doctor/repair system (self-healing code exists, needs validation)
+
+### 📋 Planned / Not Yet Implemented
+
+**Roadmap features:**
+- 📋 Automated system fixes (currently: Anna suggests, you execute)
+- 📋 Proactive monitoring with notifications
+- 📋 Full change rollback with preview
+- 📋 Professional report generation (manager-friendly)
+- 📋 Complete multi-language translations
+
+**See [ROADMAP.md](./ROADMAP.md) and [CHANGELOG.md](./CHANGELOG.md) for details.**
+
+---
+
 ## Documentation
 - Detection surface: `docs/DETECTION_SCOPE.md`
 - Observer/historian requirements: `docs/INTERNAL_OBSERVER.md`
 - Historian datasets/schema: `docs/HISTORIAN_SCHEMA.md`
+- **Current status**: This README (honest status above)
+- **Release notes**: `CHANGELOG.md` (version-by-version changes)
 
 ---
 
