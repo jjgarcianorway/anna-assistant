@@ -1,6 +1,6 @@
 # Anna Assistant Architecture
 
-**Version:** 5.7.0-beta.53
+**Version:** 5.7.0-beta.69
 **Last Updated:** 2025-11-18
 
 ## High-Level Overview
@@ -351,6 +351,191 @@ annactl  # Interactive REPL
 - systemd
 - pacman/yay
 
+## Security Architecture
+
+**Added in Beta.66-68**: Production-ready security with injection-resistant execution pipeline.
+
+### Command Injection Protection (Beta.66)
+
+**Problem:** Shell command execution vulnerable to metacharacter injection.
+
+**Solution:** Multi-layer security with `ACTION_PLAN` validation:
+
+```rust
+// OLD (UNSAFE - deprecated):
+fn parse_command(cmd: &str) -> (String, Vec<String>) {
+    cmd.split_whitespace()... // ❌ Broken with quotes/spaces
+}
+
+// NEW (SECURE):
+pub struct ActionPlan {
+    steps: Vec<ActionStep>,
+}
+
+pub struct ActionStep {
+    commands: Vec<Vec<String>>,  // Structured, not shell strings
+    backup: Option<String>,      // ANNA_BACKUP.YYYYMMDD-HHMMSS
+    risk: ActionRisk,            // Low/Medium/High
+    requires_confirmation: bool,
+}
+```
+
+**Security Layers:**
+
+1. **Structured Commands**: `Vec<Vec<String>>` prevents shell interpretation
+2. **Mandatory Validation**: All plans validated before execution
+3. **Backup Enforcement**: Critical files require `ANNA_BACKUP` naming
+4. **Metacharacter Detection**: Rejects `;`, `&&`, `|`, backticks, `$()`
+5. **Risk Classification**: High/Medium risk requires user confirmation
+6. **Halt on Failure**: No cascading failures from broken commands
+
+**Example:**
+```rust
+let plan = ActionPlan::new(vec![
+    ActionStep {
+        commands: vec![
+            vec!["cp".to_string(), ".vimrc".to_string(),
+                 ".vimrc.ANNA_BACKUP.20251118-150000".to_string()],
+        ],
+        risk: ActionRisk::Medium,
+        requires_confirmation: true,
+        ...
+    }
+]);
+
+plan.validate()?;  // Checks backup naming, no metacharacters, etc.
+execute_action_plan(&plan).await?;  // Safe execution
+```
+
+**Testing:** 6 security tests validate injection prevention, backup naming, risk enforcement.
+
+### SafeCommand Builder
+
+**Injection-resistant command construction:**
+
+```rust
+let cmd = SafeCommand::new("git")
+    .arg("add")
+    .arg("file with spaces.txt")  // Automatically safe
+    .build()?;
+
+// Generates: ["git", "add", "file with spaces.txt"]
+// NOT: "git add file\ with\ spaces.txt"
+```
+
+**Benefits:**
+- No shell escaping needed
+- Spaces/quotes handled correctly by design
+- Cannot inject metacharacters
+
+### Backup Safety (Beta.66-67)
+
+**Mandatory backup naming convention:**
+- Format: `{original}.ANNA_BACKUP.YYYYMMDD-HHMMSS`
+- Example: `.vimrc.ANNA_BACKUP.20251118-143022`
+- Validation: Regex `\\.ANNA_BACKUP\\.\\d{8}-\\d{6}$`
+- Purpose: Easy identification, sortable, collision-free
+
+**Enforcement:**
+- ACTION_PLAN validation rejects incorrect naming
+- QA scenarios test backup creation
+- Restore hints provided automatically
+
+### Execution Safety
+
+**Halt on First Failure:**
+```rust
+for step in plan.steps {
+    let result = execute_step(&step).await?;
+    if !result.success() {
+        eprintln!("❌ Failed - Halting execution");
+        break;  // NO cascading damage
+    }
+}
+```
+
+**Risk-Based Confirmation:**
+- **Low Risk**: Auto-execute (e.g., `ls`, `systemctl status`)
+- **Medium Risk**: Require confirmation (e.g., file edits, service restarts)
+- **High Risk**: Strong warning + confirmation (e.g., package removal, config overwrites)
+
+### Deprecation Strategy
+
+**Safe migration from unsafe code:**
+```rust
+#[deprecated(since = "5.7.0-beta.66",
+             note = "Use SafeCommand::new() for injection-resistant execution")]
+fn parse_command(cmd: &str) -> (String, Vec<String>) {
+    eprintln!("⚠️  WARNING: Using deprecated unsafe parse_command()");
+    // ... old implementation
+}
+```
+
+- Existing code continues to work
+- Warnings guide migration
+- New code uses SafeCommand
+
+### Security Test Coverage
+
+**6 tests in `action_plan.rs`:**
+- `test_valid_action_plan` - Valid plans accepted
+- `test_reject_empty_commands` - Empty commands rejected
+- `test_reject_shell_metacharacters` - Injection attempts blocked
+- `test_reject_bad_backup_naming` - ANNA_BACKUP enforced
+- `test_high_risk_requires_confirmation` - Risk validation
+- `test_safe_command_builder` - Handles spaces/quotes correctly
+
+**9 tests in `qa_scenarios.rs`:**
+- Vim scenario: Backup creation, no duplicate blocks
+- Hardware scenario: Anti-hallucination validation
+- LLM upgrade scenario: Hardware-aware, backup-before-change
+
+**Total:** 15 security-focused tests, all passing.
+
+### Threat Model
+
+**Prevented Attacks:**
+
+1. **Shell Injection via LLM Output**
+   - Attacker: Malicious prompt → LLM generates `rm -rf / && ...`
+   - Defense: Structured commands, metacharacter validation
+
+2. **File Overwrite Without Backup**
+   - Attacker: Trick Anna to modify config without backup
+   - Defense: Mandatory `ANNA_BACKUP` naming validation
+
+3. **Cascading Failures**
+   - Attacker: One broken command damages entire system
+   - Defense: Halt on first failure
+
+4. **Privilege Escalation**
+   - Attacker: Use annad's root to run arbitrary commands
+   - Defense: SafeCommand prevents injection, risk classification limits damage
+
+**Residual Risks:**
+- LLM could still generate *valid but harmful* commands (requires human confirmation)
+- Social engineering (user approves bad ACTION_PLAN)
+- Mitigation: Medium/High risk requires explicit confirmation
+
+### Security Philosophy
+
+**"Fort Knox Security"** (User Requirement):
+1. **Defense in Depth**: Multiple validation layers
+2. **Fail Secure**: Reject on any validation failure
+3. **Audit Trail**: All actions logged (future: to Historian)
+4. **Least Privilege**: Only execute approved commands
+5. **Human in Loop**: High-risk operations require confirmation
+
+**NOT Trusted:**
+- LLM output (treat as untrusted user input)
+- Shell interpretation (bypass with structured commands)
+- File system state (validate before modifying)
+
+**Trusted:**
+- User confirmation (for Medium/High risk)
+- Validated ACTION_PLAN structure
+- Backup naming convention
+
 ## Future Enhancements
 
 See `ROADMAP.md` for detailed plans:
@@ -372,6 +557,6 @@ See `ROADMAP.md` for detailed plans:
 
 ## Version
 
-Current: **5.7.0-beta.53** (UX Revolution - Historian visibility + model selection)
+Current: **5.7.0-beta.69** (Production Security + Benchmarking + Model Catalog)
 
 For detailed changes, see `CHANGELOG.md`.

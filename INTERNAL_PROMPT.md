@@ -1,6 +1,6 @@
 # Anna Internal Prompt Structure
 
-**Version:** 5.7.0-beta.53
+**Version:** 5.7.0-beta.69
 **Last Updated:** 2025-11-18
 
 This document describes Anna's LLM prompt structure, which is built dynamically for each user query by `crates/annactl/src/runtime_prompt.rs`.
@@ -312,6 +312,144 @@ Do **NOT**:
 - Use generic AI disclaimers
 - Say "I'm just an AI"
 - Claim capabilities you don't have
+
+## Real-World QA Scenarios (Beta.67)
+
+**Added in Beta.67**: Real-world workflow examples validating Anna's behavior.
+
+### Scenario 1: Vim Syntax Highlighting
+
+**User Request:** "Enable syntax highlighting in vim"
+
+**Expected Behavior:**
+
+1. **Check for existing .vimrc**
+2. **Create backup with proper naming:**
+   ```
+   cp ~/.vimrc ~/.vimrc.ANNA_BACKUP.20251118-143022
+   ```
+3. **Append Anna configuration block:**
+   ```vim
+   " ═══ Anna Assistant Configuration ═══
+   " Added: 2025-11-18 14:30:22
+   syntax on
+   " ═══════════════════════════════════
+   ```
+4. **Verify no duplicate Anna blocks** (if .vimrc already had Anna config)
+5. **Provide restore instructions**
+
+**Anti-Patterns (DO NOT DO):**
+- ❌ Overwrite .vimrc without backup
+- ❌ Use generic backup names (`~/.vimrc.bak`)
+- ❌ Create duplicate Anna configuration blocks
+- ❌ Modify .vimrc without marking changes
+
+**Test Coverage:** `qa_scenarios.rs::VimSyntaxScenario`
+
+---
+
+### Scenario 2: Hardware Query ("What computer is this?")
+
+**User Request:** "What computer is this?"
+
+**Expected Behavior:**
+
+1. **Run telemetry commands:**
+   ```bash
+   lscpu  # Get CPU info
+   free -h  # Get memory
+   lsblk  # Get storage
+   lspci | grep VGA  # Get GPU
+   ```
+
+2. **Extract EXACT values from output:**
+   - CPU: "AMD Ryzen 9 7950X 16-Core Processor" (verbatim from lscpu)
+   - RAM: "31Gi" (exact from free -h output)
+   - Storage: "1.8T NVMe SSD" (from lsblk)
+   - GPU: "NVIDIA GeForce RTX 4060" (from lspci)
+
+3. **Provide factual summary with exact values:**
+   ```
+   Your computer has an AMD Ryzen 9 7950X 16-Core Processor with 31Gi of RAM,
+   1.8T NVMe SSD storage, and an NVIDIA GeForce RTX 4060 GPU.
+   ```
+
+**Anti-Patterns (DO NOT DO):**
+- ❌ **Vague language:** "approximately 32GB" (say "31Gi" exactly)
+- ❌ **Hallucinated specs:** Inventing CPU model not in lscpu output
+- ❌ **Rounded numbers:** "32GB" when output says "31Gi"
+- ❌ **Generic descriptions:** "high-end AMD processor" (say exact model)
+
+**Forbidden Words in Hardware Queries:**
+- "approximately", "around", "roughly", "about", "~"
+- Use EXACT values from command output
+
+**Test Coverage:** `qa_scenarios.rs::HardwareQueryScenario`
+
+---
+
+### Scenario 3: LLM Model Upgrade
+
+**User Request:** "I want to upgrade my LLM model"
+
+**Expected Behavior:**
+
+1. **Check current hardware:**
+   ```bash
+   free -h  # Total RAM
+   nproc    # CPU cores
+   ```
+
+2. **Hardware-aware model selection:**
+   - **High-end (32GB+, 12+ cores):** Recommend `llama3.1:8b`
+   - **Mid-range (16GB+, 6+ cores):** Recommend `llama3.2:3b`
+   - **Low-end (<16GB):** Refuse upgrade, explain limitations
+
+3. **Backup config BEFORE making changes:**
+   ```bash
+   cp ~/.config/anna/config.toml \
+      ~/.config/anna/config.toml.ANNA_BACKUP.20251118-143045
+   ```
+
+4. **Update config with new model**
+
+5. **Verify backup step comes BEFORE config update step** (in ACTION_PLAN)
+
+**Anti-Patterns (DO NOT DO):**
+- ❌ Recommend 8b model on 8GB RAM machine
+- ❌ Update config without backup
+- ❌ Backup AFTER changing config (too late!)
+- ❌ Recommend models without checking hardware
+
+**Test Coverage:** `qa_scenarios.rs::LlmUpgradeScenario`
+
+---
+
+### Key Principles from QA Scenarios
+
+1. **ANNA_BACKUP Naming:**
+   - Format: `{original}.ANNA_BACKUP.YYYYMMDD-HHMMSS`
+   - Example: `.vimrc.ANNA_BACKUP.20251118-143022`
+   - Always sortable, collision-free, easy to identify
+
+2. **Exact Values, No Approximations:**
+   - Hardware queries must use EXACT values from command output
+   - "31Gi" not "32GB approximately"
+   - "AMD Ryzen 9 7950X 16-Core Processor" verbatim
+
+3. **Backup Before Modify:**
+   - Backup step MUST come before modification step in ACTION_PLAN
+   - Validate order in plan validation
+
+4. **Hardware-Aware Decisions:**
+   - Check actual hardware before recommendations
+   - Don't recommend 8b models on low-RAM machines
+   - Provide clear explanations when hardware insufficient
+
+5. **No Duplicate Configuration:**
+   - Check if Anna has already configured something
+   - Don't append multiple Anna blocks to same file
+   - Update existing block instead of duplicating
 
 ## Implementation
 
