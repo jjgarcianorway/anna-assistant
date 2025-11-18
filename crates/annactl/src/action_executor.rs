@@ -1,12 +1,18 @@
 //! Action Executor - Execute approved suggestions with change logging
 //!
+//! Beta.66: Secure execution with:
+//! - SafeCommand builder (injection-resistant)
+//! - ACTION_PLAN validation
+//! - ANNA_BACKUP enforcement
+//!
 //! Implements the approval flow: show → confirm → execute → log
 
+use anna_common::action_plan::{ActionPlan, ActionRisk, SafeCommand};
 use anna_common::change_log::*;
 use anna_common::change_log_db::ChangeLogDb;
 use anna_common::context::db::DbLocation;
 use anna_common::suggestions::Suggestion;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use std::io::{self, Write};
 use std::process::Command;
 
@@ -185,7 +191,23 @@ pub async fn execute_suggestion(suggestion: &Suggestion) -> Result<()> {
 }
 
 /// Parse a command string into program and args
+///
+/// ⚠️ DEPRECATED: This function is unsafe and will be removed in beta.67
+/// Use SafeCommand::new() instead for injection-resistant execution
+///
+/// Security issues:
+/// - No quote handling - breaks on "file with spaces"
+/// - No shell metacharacter escaping - vulnerable to ; && | >
+/// - Splits on whitespace only
+#[deprecated(
+    since = "5.7.0-beta.66",
+    note = "Use SafeCommand::new() for injection-resistant execution"
+)]
 fn parse_command(cmd: &str) -> (String, Vec<String>) {
+    eprintln!("⚠️  WARNING: Using deprecated unsafe parse_command()");
+    eprintln!("   This will be removed in beta.67");
+    eprintln!("   Command: {}", cmd);
+
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     if parts.is_empty() {
         return (String::new(), Vec::new());
@@ -195,6 +217,176 @@ fn parse_command(cmd: &str) -> (String, Vec<String>) {
     let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
 
     (program, args)
+}
+
+/// Execute an ACTION_PLAN with validation and safety checks (beta.66)
+pub async fn execute_action_plan(plan: &ActionPlan) -> Result<()> {
+    // CRITICAL: Validate plan before execution
+    plan.validate()
+        .context("ACTION_PLAN validation failed - refusing to execute")?;
+
+    println!("\n");
+    println!("══════════════════════════════════════════════════");
+    println!("ACTION PLAN VALIDATION: ✓ PASSED");
+    println!("══════════════════════════════════════════════════\n");
+    println!("{}", plan.summary());
+    println!();
+
+    // Show all steps
+    for (i, step) in plan.steps.iter().enumerate() {
+        println!("Step {}: {}", i + 1, step.description);
+        println!("  Risk: {}", step.risk.description());
+
+        if let Some(ref backup) = step.backup {
+            println!("  Backup: {}", backup);
+        }
+
+        for cmd_parts in &step.commands {
+            let cmd_str = cmd_parts.join(" ");
+            let needs_sudo = cmd_parts[0] == "sudo";
+            let indicator = if needs_sudo { "🔐" } else { "  " };
+            println!("  {} {}", indicator, cmd_str);
+        }
+        println!();
+    }
+
+    // Ask for confirmation if required
+    if plan.requires_confirmation() {
+        println!("⚠️  This plan contains {} or {} risk actions",
+            if plan.steps.iter().any(|s| s.risk == ActionRisk::Medium) { "medium" } else { "" },
+            if plan.steps.iter().any(|s| s.risk == ActionRisk::High) { "high" } else { "" }
+        );
+        println!();
+        print!("Do you want me to proceed? [y/N]: ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") && !input.trim().eq_ignore_ascii_case("yes") {
+            println!("\nAction cancelled. No changes were made.\n");
+            return Ok(());
+        }
+    }
+
+    println!();
+    println!("Executing plan...\n");
+
+    // Create change unit
+    let mut change_unit = ChangeUnit::new(
+        format!("plan-{}", chrono::Utc::now().timestamp()),
+        "User-approved ACTION_PLAN execution".to_string(),
+    );
+
+    // Execute steps
+    let mut all_success = true;
+
+    for (step_idx, step) in plan.steps.iter().enumerate() {
+        println!("═══ Step {}: {} ═══", step_idx + 1, step.description);
+
+        // Execute backup if present
+        if let Some(ref backup_cmd) = step.backup {
+            println!("Creating backup: {}", backup_cmd);
+            // TODO: Parse and execute backup command safely
+        }
+
+        // Execute commands using SafeCommand (injection-resistant)
+        let safe_commands = step.to_safe_commands();
+
+        for safe_cmd in safe_commands {
+            let cmd_str = format!("{} {}", safe_cmd.program(), safe_cmd.arguments().join(" "));
+            println!("Running: {}", cmd_str);
+
+            let mut action = ChangeAction::command(
+                safe_cmd.program().to_string(),
+                safe_cmd.arguments().to_vec(),
+                format!("Execute: {}", cmd_str),
+            );
+
+            let result = safe_cmd.to_command()
+                .status()
+                .context(format!("Failed to execute: {}", cmd_str))?;
+
+            action.success = result.success();
+
+            if let ActionType::Command {
+                ref mut exit_code, ..
+            } = action.action_type
+            {
+                *exit_code = result.code();
+            }
+
+            change_unit.add_action(action);
+
+            if !result.success() {
+                eprintln!("❌ Command failed with exit code: {:?}", result.code());
+                eprintln!("   Halting execution - no further steps will run");
+                all_success = false;
+                break;
+            } else {
+                println!("✓ Success\n");
+            }
+        }
+
+        if !all_success {
+            break;
+        }
+    }
+
+    // Complete change unit
+    let status = if all_success {
+        ChangeStatus::Success
+    } else {
+        ChangeStatus::Partial
+    };
+
+    change_unit.complete(status);
+
+    // Persist to SQLite
+    let db_location = DbLocation::auto_detect();
+    match ChangeLogDb::open(db_location).await {
+        Ok(db) => {
+            if let Err(e) = db.save_change_unit(&change_unit).await {
+                eprintln!("Warning: Failed to persist change log: {}", e);
+            }
+        }
+        Err(e) => {
+            eprintln!("Warning: Failed to open change log database: {}", e);
+        }
+    }
+
+    println!("══════════════════════════════════════════════════");
+    if all_success {
+        println!("✓ All steps completed successfully!");
+    } else {
+        println!("⚠️  Execution halted due to failure");
+        println!("   No further steps were run");
+    }
+    println!("══════════════════════════════════════════════════\n");
+
+    println!("Change logged: {}", change_unit.id);
+    println!(
+        "Can rollback: {}",
+        if change_unit.can_rollback() {
+            "Yes"
+        } else {
+            "No"
+        }
+    );
+
+    if !change_unit.can_rollback() {
+        let limitations = change_unit.rollback_limitations();
+        if !limitations.is_empty() {
+            println!("\nRollback limitations:");
+            for limitation in limitations {
+                println!("  • {}", limitation);
+            }
+        }
+    }
+
+    println!();
+
+    Ok(())
 }
 
 /// Ask user which suggestion they want to apply

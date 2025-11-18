@@ -3,6 +3,7 @@
 //! This crate contains data models and utilities shared between
 //! the daemon (annad) and CLI client (annactl).
 
+pub mod action_plan; // Beta.66: Secure ACTION_PLAN execution with validation
 pub mod advice_cache;
 pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
 pub mod backup_detection; // Backup tool detection (timeshift, snapper, borg, restic)

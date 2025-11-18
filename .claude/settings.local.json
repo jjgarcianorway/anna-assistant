@@ -58,7 +58,11 @@
       "Bash(/home/lhoqvso/.cargo/bin/cargo fix --lib -p annactl --allow-dirty --allow-staged)",
       "Bash(/home/lhoqvso/.cargo/bin/cargo clippy --workspace --all-targets -- -D warnings)",
       "Bash(/home/lhoqvso/.cargo/bin/cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged)",
-      "Bash(/home/lhoqvso/.cargo/bin/cargo clippy:*)"
+      "Bash(/home/lhoqvso/.cargo/bin/cargo clippy:*)",
+      "Bash(gh release:*)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo build --lib -p anna_common)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo test -p anna_common action_plan)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo build:*)"
     ],
     "deny": [],
     "ask": []
