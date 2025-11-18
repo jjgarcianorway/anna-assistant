@@ -477,7 +477,7 @@ fn display_structured_llm_output(response: &str) {
 
     // Display [ANNA_SUMMARY] if present
     if let Some(summary) = sections.get("ANNA_SUMMARY") {
-        ui.info(&format!("📋 {}", summary.trim()));
+        ui.info(summary.trim());
         println!();
     }
 
@@ -561,18 +561,10 @@ fn display_tui_header(header_content: &str) {
             let key = key.trim();
             let value = value.trim();
 
+            // NOTE: Don't print TUI header metadata (status, model_hint, etc.)
+            // These are internal fields for future TUI implementation
+            // Printing them confuses users and clutters output
             match key {
-                "status" => {
-                    match value {
-                        "OK" => ui.info(&format!("Status: {}", fmt::success("OK"))),
-                        "WARN" => ui.info(&format!("Status: {}", fmt::warning("WARN"))),
-                        "CRIT" => ui.info(&format!("Status: {}", fmt::error("CRIT"))),
-                        _ => ui.info(&format!("Status: {}", value)),
-                    }
-                }
-                "model_hint" if value != "current ok" && !value.is_empty() => {
-                    ui.info(&format!("💡 Model suggestion: {}", value));
-                }
                 _ => {}
             }
         }

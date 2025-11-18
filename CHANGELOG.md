@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.61] - 2025-11-18
+
+### Fixed - REPL Output Cleanup
+
+**Problem:**
+REPL was showing debug metadata that confused users:
+- `ℹ Status: OK | WARN | CRIT` - Internal TUI header field leaking to output
+- `ℹ 💡 Model suggestion: ...` - Internal model hint leaking to output
+- `ℹ 📋 {summary}` - Redundant emoji in summary (ui.info already adds ℹ)
+
+**Solution:**
+1. Removed printing of TUI header metadata (status, model_hint, focus, mode)
+   - These are internal fields for future TUI implementation
+   - Now silently ignored instead of printed
+2. Removed redundant 📋 emoji from ANNA_SUMMARY display
+   - Summary now prints as `ℹ {text}` instead of `ℹ 📋 {text}`
+
+**Impact:**
+- Cleaner REPL output without confusing internal metadata
+- Users only see relevant information
+- TUI header fields preserved for future TUI implementation
+
+**Files changed:**
+- `crates/annactl/src/repl.rs`: Lines 564-577 (removed status/model_hint printing), Line 480 (removed 📋 emoji)
+
 ## [5.7.0-beta.60] - 2025-11-18
 
 ### Fixed - LLM Quality Regression for Small Models
