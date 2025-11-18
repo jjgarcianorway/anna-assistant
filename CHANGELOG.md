@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Installer daemon restart**: Installer now restarts daemon on error/cancel (doesn't leave daemon down)
+
 ## [5.7.0-beta.58] - 2025-11-18
 
 ### Fixed - Critical UX Bugs
@@ -17,9 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 3. **Doubled symbols**: Fixed `✓ ✓` becoming just `✓` (ui methods already add icons)
 
 **Still Broken:**
-- Installer cancels and leaves daemon down (if Ollama registry is down)
-- No TUI interface (planned for beta.59)
-- LLM responses still hallucinating (need better model - llama3.1:8b)
+- Installer cancels and leaves daemon down (if Ollama registry is down) - **FIXED in beta.59**
+- No TUI interface (planned for beta.59+)
+- LLM response quality regression since beta.55 two-round dialogue (planning round may be too complex for small models)
 
 **To restart daemon after failed install:**
 ```bash

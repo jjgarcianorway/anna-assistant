@@ -24,8 +24,21 @@ else
     CHECK="[OK]"; CROSS="[X]"; ARROW="->"
 fi
 
+DAEMON_WAS_STOPPED=0
+
 error_exit() {
     echo -e "${RED}${CROSS} $1${RESET}" >&2
+
+    # If we stopped the daemon during install, try to restart it before exiting
+    if [ "$DAEMON_WAS_STOPPED" -eq 1 ]; then
+        echo -e "${YELLOW}⚠${RESET}  Attempting to restart daemon..."
+        if sudo systemctl start annad 2>/dev/null; then
+            echo -e "${GREEN}${CHECK}${RESET} Daemon restarted"
+        else
+            echo -e "${YELLOW}⚠${RESET}  Could not restart daemon. Run: ${CYAN}sudo systemctl start annad${RESET}"
+        fi
+    fi
+
     exit 1
 }
 
@@ -171,6 +184,7 @@ echo -e "${GREEN}${CHECK}${RESET} Downloaded successfully"
 # Stop running instances and clean up old daemon binaries (rc.13.1 compatibility fix)
 echo -e "${CYAN}${ARROW}${RESET} Stopping running instances..."
 sudo systemctl stop annad 2>/dev/null || true
+DAEMON_WAS_STOPPED=1
 sudo pkill -x annad 2>/dev/null || true
 sudo pkill -x annactl 2>/dev/null || true
 sudo rm -f /usr/local/bin/annad-old /usr/local/bin/annactl-old 2>/dev/null || true
