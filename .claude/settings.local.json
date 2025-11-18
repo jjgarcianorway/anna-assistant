@@ -62,7 +62,8 @@
       "Bash(gh release:*)",
       "Bash(/home/lhoqvso/.cargo/bin/cargo build --lib -p anna_common)",
       "Bash(/home/lhoqvso/.cargo/bin/cargo test -p anna_common action_plan)",
-      "Bash(/home/lhoqvso/.cargo/bin/cargo build:*)"
+      "Bash(/home/lhoqvso/.cargo/bin/cargo build:*)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo test -p anna_common qa_scenarios)"
     ],
     "deny": [],
     "ask": []

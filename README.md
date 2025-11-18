@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.55 (Telemetry-First Internal Dialogue & Personality System)
+**Version:** 5.7.0-beta.66 (Fort Knox Security + Injection-Resistant Execution)
 
 ---
 
@@ -22,7 +22,7 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.55)
+## Current Status (v5.7.0-beta.66)
 
 ### ✅ What Works Now
 
@@ -32,38 +32,60 @@ Anna is **not**:
 - ✅ Historian database stores 30-day trends
 - ✅ System facts collection (hardware, OS, packages, services)
 - ✅ Auto-update system (checks GitHub, verifies checksums, atomic swaps)
+- ✅ **Installer optimization:** Skips re-downloading same version (beta.65)
 
-**LLM Integration (NEW in beta.55):**
+**Security (NEW in beta.66 - CRITICAL UPDATE):**
+- 🔐 **ACTION_PLAN validation layer** - Prevents command injection
+- 🔐 **SafeCommand builder** - Injection-resistant execution
+- 🔐 **ANNA_BACKUP enforcement** - All backups follow naming convention
+- 🔐 **Risk-based confirmation** - High/medium risk requires approval
+- 🔐 **Execution halt on failure** - Prevents cascading damage
+- 🔐 **6 comprehensive security tests** - All passing
+
+**LLM Integration (beta.55-62):**
 - ✅ Local LLM setup via Ollama (automatic detection and installation)
+- ✅ Hardware-aware model selection (detects RAM, CPU, GPU)
 - ✅ Internal dialogue system (planning + answer rounds)
 - ✅ Telemetry-first approach (LLM checks data before answering)
-- ✅ Natural language queries work in REPL
+- ✅ Anti-hallucination rules for small models (beta.62)
+- ✅ Smart context filtering (only relevant info sent to LLM)
 - ✅ 16-personalities trait system (8 adjustable traits)
 
-**User Interface:**
+**User Interface (beta.63 UX polish):**
 - ✅ Interactive REPL (`annactl`)
 - ✅ One-shot queries (`annactl "question"`)
 - ✅ Status command (`annactl status`)
-- ✅ Startup health summary with 30-day trends
+- ✅ Clean welcome message (no debug output)
+- ✅ Silent error handling (no noisy warnings on startup)
 - ✅ Terminal adaptation (color, unicode, emoji fallback)
+
+**Code Quality (beta.64):**
+- ✅ Zero clippy errors (89 → 0 fixed)
+- ✅ Clean, idiomatic Rust code
+- ✅ Ready for security audit
 
 ### 🚧 Partially Implemented / Needs Testing
 
 **Features that exist in code but may not be fully wired or tested:**
-- 🚧 Report generation (code exists, needs end-to-end testing)
+- 🚧 ACTION_PLAN execution from LLM (validation done, needs LLM integration)
 - 🚧 Change rollback system (logging infrastructure exists, rollback untested)
 - 🚧 Multi-language support (6 languages configured, translations incomplete)
 - 🚧 Suggestion engine with Arch Wiki integration (framework exists)
 - 🚧 Doctor/repair system (self-healing code exists, needs validation)
 
-### 📋 Planned / Not Yet Implemented
+### 📋 Next: Beta.67-68 Roadmap
 
-**Roadmap features:**
-- 📋 Automated system fixes (currently: Anna suggests, you execute)
-- 📋 Proactive monitoring with notifications
-- 📋 Full change rollback with preview
-- 📋 Professional report generation (manager-friendly)
-- 📋 Complete multi-language translations
+**Beta.67 - Real-World QA Scenarios (In Progress):**
+- 📋 Vim syntax highlighting scenario (backup, no duplicates, restore)
+- 📋 Hardware detection scenario (no hallucinations, exact values)
+- 📋 LLM model upgrade scenario (safe config changes)
+- 📋 Regression test suite (capture bugs from beta.56-65)
+
+**Beta.68 - LLM Quality & UX Polish:**
+- 📋 LLM benchmarking harness (`annactl debug llm-benchmark`)
+- 📋 Extended model catalog (memory/VRAM requirements, quality tiers)
+- 📋 First-run wizard improvements (model selection, personality)
+- 📋 REPL UX smoothing (history command, minimal boilerplate)
 
 **See [ROADMAP.md](./ROADMAP.md) and [CHANGELOG.md](./CHANGELOG.md) for details.**
 

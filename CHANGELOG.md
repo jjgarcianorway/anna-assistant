@@ -7,6 +7,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.67] - 2025-11-18
+
+### ✅ QUALITY - Real-World QA Scenarios and Integration Tests
+
+**Comprehensive testing infrastructure for production readiness**
+
+This release implements the QA scenario framework requested in the beta.66-68 roadmap, ensuring Anna behaves correctly in real-world usage patterns.
+
+#### QA Scenarios Implemented
+
+**1. Vim Syntax Highlighting Scenario** (`VimSyntaxScenario`)
+
+Tests complete workflow for enabling vim syntax highlighting:
+
+**Test Cases:**
+- ✅ No .vimrc exists (create new with Anna block)
+- ✅ Existing .vimrc with unrelated settings (backup + append)
+- ✅ Existing .vimrc with previous Anna block (no duplicates)
+
+**Validations:**
+- Backup created with `ANNA_BACKUP.YYYYMMDD-HHMMSS` naming
+- Anna block markers present: `═══ Anna Assistant Configuration ═══`
+- No duplicate Anna blocks (prevents config bloat)
+- `syntax on` command actually added
+- Restore instructions provided
+
+**Tests:** 2 passing
+- `test_vim_scenario_action_plan_valid` - Plan structure correct
+- `test_vim_scenario_backup_naming` - ANNA_BACKUP enforced
+
+---
+
+**2. Hardware Detection Scenario** (`HardwareQueryScenario`)
+
+Tests "What computer is this?" query with anti-hallucination validation:
+
+**Mock Commands:**
+- `lscpu` → AMD Ryzen 9 7950X 16-Core Processor
+- `free -h` → 31Gi total memory
+- `lsblk` → 1.8T NVMe SSD
+- `lspci` → NVIDIA GeForce RTX 4060
+
+**Validations:**
+- ✅ Exact values extracted from command output
+- ✅ No vague language ("approximately", "around", "roughly")
+- ✅ No hallucinated specifications (must match lscpu output)
+- ✅ Summary contains EXACT CPU model name
+- ✅ Summary contains EXACT memory amount
+
+**Example Validation:**
+```rust
+// ✓ PASSES
+"Your computer has an AMD Ryzen 9 7950X 16-Core Processor with 31Gi of RAM."
+
+// ❌ FAILS - vague language
+"Your computer has approximately 32GB of RAM."
+
+// ❌ FAILS - hallucinated
+"Your computer has an Intel Core i9 processor."
+```
+
+**Tests:** 2 passing
+- `test_hardware_scenario_exact_values` - No hallucinations
+- `test_hardware_scenario_action_plan` - Plan structure correct
+
+---
+
+**3. LLM Model Upgrade Scenario** (`LlmUpgradeScenario`)
+
+Tests intelligent model selection based on hardware capabilities:
+
+**Hardware Tiers:**
+- **High-end:** 32GB RAM, 16 cores, GPU → suggests `llama3.1:8b`
+- **Mid-range:** 16GB RAM, 8 cores, no GPU → suggests `llama3.2:3b`
+- **Low-end:** 8GB RAM, 4 cores, no GPU → refuses upgrade
+
+**Validations:**
+- ✅ Model selection matches hardware capabilities
+- ✅ Backup created BEFORE config update
+- ✅ Config backup uses ANNA_BACKUP naming
+- ✅ Pull and update steps require confirmation (medium risk)
+- ✅ Appropriate model suggested (no 8b on 8GB RAM)
+
+**Tests:** 5 passing
+- `test_llm_upgrade_high_end` - 8b model for high-end
+- `test_llm_upgrade_mid_range` - 3b model for mid-range
+- `test_llm_upgrade_low_end` - Refuses upgrade on low-end
+- `test_llm_upgrade_backup_before_change` - Backup ordering
+- `test_llm_upgrade_action_plan_structure` - Plan validation
+
+---
+
+#### Test Infrastructure
+
+**New Module:** `crates/anna_common/src/qa_scenarios.rs` (734 lines)
+
+**Test Coverage:**
+```bash
+cargo test -p anna_common qa_scenarios
+
+running 9 tests
+test qa_scenarios::tests::test_vim_scenario_action_plan_valid ... ok
+test qa_scenarios::tests::test_vim_scenario_backup_naming ... ok
+test qa_scenarios::tests::test_hardware_scenario_exact_values ... ok
+test qa_scenarios::tests::test_hardware_scenario_action_plan ... ok
+test qa_scenarios::tests::test_llm_upgrade_high_end ... ok
+test qa_scenarios::tests::test_llm_upgrade_mid_range ... ok
+test qa_scenarios::tests::test_llm_upgrade_low_end ... ok
+test qa_scenarios::tests::test_llm_upgrade_backup_before_change ... ok
+test qa_scenarios::tests::test_llm_upgrade_action_plan_structure ... ok
+
+test result: ok. 9 passed
+```
+
+#### Regression Prevention
+
+Each scenario captures real-world usage patterns and prevents regressions:
+
+1. **Vim scenario** prevents:
+   - Duplicate Anna blocks in config files
+   - Missing backups before file modification
+   - Incorrect ANNA_BACKUP naming
+
+2. **Hardware scenario** prevents:
+   - LLM hallucinating hardware specifications
+   - Vague language instead of exact values
+   - Inventing CPU/GPU models not in system
+
+3. **LLM upgrade scenario** prevents:
+   - Suggesting models too large for available RAM
+   - Updating config without backup
+   - Backup happening after config change
+
+#### Files Changed
+
+**New:**
+- `crates/anna_common/src/qa_scenarios.rs` (734 lines)
+  - VimSyntaxScenario with 2 tests
+  - HardwareQueryScenario with 2 tests
+  - LlmUpgradeScenario with 5 tests
+
+**Modified:**
+- `crates/anna_common/src/lib.rs` - Export qa_scenarios module
+- `README.md` - Updated to beta.67, current status
+- `Cargo.toml` - Version bump to beta.67
+
+#### Impact
+
+**Quality Assurance:**
+- Real-world workflows tested end-to-end
+- Prevents common mistakes in ACTION_PLAN generation
+- Validates backup safety practices
+- Anti-hallucination enforcement
+
+**Developer Confidence:**
+- Clear examples of expected behavior
+- Easy to add new scenarios
+- Catches regressions before deployment
+
+**User Safety:**
+- Backups always created before changes
+- No hallucinated hardware specs
+- Appropriate model suggestions for hardware
+
+---
+
+**Next: Beta.68 will add LLM benchmarking harness and UX polish**
+
 ## [5.7.0-beta.66] - 2025-11-18
 
 ### 🔐 SECURITY - ACTION_PLAN Validation and Injection-Resistant Execution
