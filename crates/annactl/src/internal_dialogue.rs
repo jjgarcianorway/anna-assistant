@@ -234,7 +234,16 @@ impl InternalTrace {
     }
 }
 
+/// Detect if model is "small" (1b or 3b parameters)
+/// Small models struggle with two-round dialogue due to limited context
+fn is_small_model(model_name: &str) -> bool {
+    let model_lower = model_name.to_lowercase();
+    model_lower.contains(":1b") || model_lower.contains(":3b")
+}
+
 /// Run internal dialogue with telemetry-first approach
+/// Uses simplified single-round for small models (1b, 3b)
+/// Uses two-round planning+answer for larger models (8b+)
 pub async fn run_internal_dialogue(
     user_message: &str,
     payload: &TelemetryPayload,
@@ -244,30 +253,93 @@ pub async fn run_internal_dialogue(
 ) -> Result<InternalDialogueResult> {
     let trace_enabled = std::env::var("ANNA_INTERNAL_TRACE").is_ok();
 
-    // Step 1: Planning round
-    let planner_prompt = build_planner_prompt(user_message, payload, personality, current_model);
-    let planner_response = query_llm(llm_config, &planner_prompt).await?;
+    // Detect model size and choose appropriate strategy
+    let use_simple_mode = is_small_model(current_model);
 
-    // Step 2: Answer round
-    let answer_prompt = build_answer_prompt(user_message, payload, personality, current_model, &planner_response);
-    let answer = query_llm(llm_config, &answer_prompt).await?;
+    if use_simple_mode {
+        // Simple mode: Single-round direct answer for small models
+        let simple_prompt = build_simple_prompt(user_message, payload, personality, current_model);
+        let answer = query_llm(llm_config, &simple_prompt).await?;
 
-    // Build trace if enabled
-    let trace = if trace_enabled {
-        Some(InternalTrace {
-            internal_summary: "Two-round dialogue: planning + answer".to_string(),
-            planner_prompt_excerpt: planner_prompt.chars().take(500).collect(),
-            planner_response_excerpt: planner_response.chars().take(500).collect(),
-            answer_prompt_excerpt: answer_prompt.chars().take(500).collect(),
-        })
+        let trace = if trace_enabled {
+            Some(InternalTrace {
+                internal_summary: "Simple mode: single-round (small model)".to_string(),
+                planner_prompt_excerpt: "".to_string(),
+                planner_response_excerpt: "".to_string(),
+                answer_prompt_excerpt: simple_prompt.chars().take(500).collect(),
+            })
+        } else {
+            None
+        };
+
+        Ok(InternalDialogueResult { answer, trace })
     } else {
-        None
-    };
+        // Advanced mode: Two-round dialogue for larger models
+        // Step 1: Planning round
+        let planner_prompt = build_planner_prompt(user_message, payload, personality, current_model);
+        let planner_response = query_llm(llm_config, &planner_prompt).await?;
 
-    Ok(InternalDialogueResult { answer, trace })
+        // Step 2: Answer round
+        let answer_prompt = build_answer_prompt(user_message, payload, personality, current_model, &planner_response);
+        let answer = query_llm(llm_config, &answer_prompt).await?;
+
+        // Build trace if enabled
+        let trace = if trace_enabled {
+            Some(InternalTrace {
+                internal_summary: "Two-round dialogue: planning + answer".to_string(),
+                planner_prompt_excerpt: planner_prompt.chars().take(500).collect(),
+                planner_response_excerpt: planner_response.chars().take(500).collect(),
+                answer_prompt_excerpt: answer_prompt.chars().take(500).collect(),
+            })
+        } else {
+            None
+        };
+
+        Ok(InternalDialogueResult { answer, trace })
+    }
 }
 
-/// Build planner prompt (Step 1)
+/// Build simple prompt for small models (1b, 3b)
+/// Simplified single-round with minimal context
+fn build_simple_prompt(
+    user_message: &str,
+    payload: &TelemetryPayload,
+    personality: &PersonalityConfig,
+    current_model: &str,
+) -> String {
+    let mut prompt = String::new();
+
+    prompt.push_str("You are Anna, an Arch Linux system administrator.\n\n");
+
+    // Minimal telemetry - just the essentials
+    prompt.push_str("SYSTEM INFO:\n");
+    prompt.push_str(&format!("CPU: {} ({} cores)\n", payload.hardware.cpu_model, payload.hardware.cpu_cores));
+    prompt.push_str(&format!("RAM: {:.1} GB\n", payload.hardware.total_ram_gb));
+    if let Some(ref gpu) = payload.hardware.gpu_model {
+        prompt.push_str(&format!("GPU: {}\n", gpu));
+    }
+    prompt.push_str(&format!("Kernel: {}\n", payload.os.kernel));
+    prompt.push_str("\n");
+
+    // User question
+    prompt.push_str("QUESTION:\n");
+    prompt.push_str(user_message);
+    prompt.push_str("\n\n");
+
+    // Simplified instructions
+    prompt.push_str("INSTRUCTIONS:\n");
+    prompt.push_str("- Answer directly and concisely\n");
+    prompt.push_str("- Use information from SYSTEM INFO above\n");
+    prompt.push_str("- Include Arch Wiki links when relevant\n");
+    prompt.push_str("- If suggesting commands, show backup steps first\n");
+    prompt.push_str("- Keep answer under 200 words\n\n");
+
+    prompt.push_str("ANSWER:\n");
+
+    prompt
+}
+
+/// Build planner prompt (Step 1) - for larger models only
 fn build_planner_prompt(
     user_message: &str,
     payload: &TelemetryPayload,

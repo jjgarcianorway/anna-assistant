@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.60] - 2025-11-18
+
+### Fixed - LLM Quality Regression for Small Models
+
+**Problem:**
+Since beta.55's two-round dialogue (planning + answer), small models (1b, 3b) were giving poor quality responses - hallucinations, nonsensical answers, and confusion. The user reported "before it was working much better with the current llama version".
+
+**Root Cause:**
+Two-round dialogue was overwhelming for small models:
+- **Round 1 (Planning):** Telemetry + Personality + Question + Complex planning task
+- **Round 2 (Answer):** Planner response + Telemetry (again!) + Personality (again!) + Question (again!) + Answer instructions
+- Total context: ~1000+ lines for a 3B parameter model with limited attention span
+
+**Solution:**
+Added intelligent model detection and simplified prompts:
+1. **Model size detection:** `is_small_model()` checks if model name contains `:1b` or `:3b`
+2. **Simple mode for small models:**
+   - Single-round prompt (no planning phase)
+   - Minimal telemetry (just CPU, RAM, GPU, kernel)
+   - Direct instructions (under 200 words)
+   - ~150 lines total context vs ~1000+ before
+3. **Two-round dialogue preserved for larger models (8b+):**
+   - llama3.1:8b and llama3.1:70b still use advanced planning+answer
+
+**Impact:**
+- Small models (llama3.2:1b, llama3.2:3b) now get focused, concise prompts
+- Large models (llama3.1:8b+) keep sophisticated two-round dialogue
+- Quality should match pre-beta.55 levels for small models
+
+**Files changed:**
+- `crates/annactl/src/internal_dialogue.rs`: Added `is_small_model()`, `build_simple_prompt()`, modified `run_internal_dialogue()`
+
 ## [5.7.0-beta.59] - 2025-11-18
 
 ### Fixed - Installer Daemon Restart + Doubled Symbols
