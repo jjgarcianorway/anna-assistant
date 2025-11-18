@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.62] - 2025-11-18
+
+### Fixed - Anti-Hallucination and Focused Prompts
+
+**Problem:**
+Based on user feedback, LLM was:
+1. **Hallucinating commands** - Suggested `freetouch` (doesn't exist), `glxgears` (wrong context)
+2. **Dumping irrelevant info** - When asked "how is my vim setup?", dumped full system specs (CPU/RAM/GPU)
+3. **Giving unfocused answers** - Not staying on topic
+
+**Root Cause:**
+Prompts lacked:
+- Anti-hallucination rules (no explicit "only suggest real commands")
+- Context filtering (always included full system info)
+- Focus enforcement (no "answer ONLY what was asked" rule)
+
+**Solution:**
+
+**1. Smart context filtering for small models:**
+   - Only include hardware info if question mentions: computer, system, hardware, specs, cpu, ram, gpu
+   - "how is my vim setup?" → No hardware info included (just question + rules)
+   - "how is my computer?" → Full hardware info included
+
+**2. Anti-hallucination rules for small models:**
+   ```
+   1. Answer ONLY what was asked - don't add extra information
+   2. If you don't know something, say "I don't have that information"
+   3. ONLY suggest real Arch Linux commands (pacman, systemctl, vim, etc.)
+   4. NEVER invent commands or tools that don't exist
+   5. If suggesting config files, check they actually exist on Arch
+   6. Keep answer under 150 words
+   7. Link to Arch Wiki ONLY if directly relevant
+   ```
+
+**3. Anti-hallucination rules for large models:**
+   - Added: "ONLY suggest real Arch Linux commands - NEVER invent tools"
+   - Added: "Answer ONLY what was asked - don't dump irrelevant information"
+
+**Impact:**
+- Small models: Focused answers, no hallucinated commands, relevant context only
+- Large models: Better command suggestions, more focused responses
+- Both: Should dramatically reduce hallucinations like `freetouch`
+
+**Files changed:**
+- `crates/annactl/src/internal_dialogue.rs`: Modified `build_simple_prompt()` and `build_answer_instructions()`
+
 ## [5.7.0-beta.61] - 2025-11-18
 
 ### Fixed - REPL Output Cleanup

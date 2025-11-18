@@ -300,7 +300,7 @@ pub async fn run_internal_dialogue(
 }
 
 /// Build simple prompt for small models (1b, 3b)
-/// Simplified single-round with minimal context
+/// Simplified single-round with minimal context and anti-hallucination rules
 fn build_simple_prompt(
     user_message: &str,
     payload: &TelemetryPayload,
@@ -311,28 +311,41 @@ fn build_simple_prompt(
 
     prompt.push_str("You are Anna, an Arch Linux system administrator.\n\n");
 
-    // Minimal telemetry - just the essentials
-    prompt.push_str("SYSTEM INFO:\n");
-    prompt.push_str(&format!("CPU: {} ({} cores)\n", payload.hardware.cpu_model, payload.hardware.cpu_cores));
-    prompt.push_str(&format!("RAM: {:.1} GB\n", payload.hardware.total_ram_gb));
-    if let Some(ref gpu) = payload.hardware.gpu_model {
-        prompt.push_str(&format!("GPU: {}\n", gpu));
+    // Only include system info if question seems hardware-related
+    let question_lower = user_message.to_lowercase();
+    let needs_hardware = question_lower.contains("computer")
+        || question_lower.contains("system")
+        || question_lower.contains("hardware")
+        || question_lower.contains("specs")
+        || question_lower.contains("cpu")
+        || question_lower.contains("ram")
+        || question_lower.contains("gpu");
+
+    if needs_hardware {
+        prompt.push_str("SYSTEM INFO:\n");
+        prompt.push_str(&format!("CPU: {} ({} cores)\n", payload.hardware.cpu_model, payload.hardware.cpu_cores));
+        prompt.push_str(&format!("RAM: {:.1} GB\n", payload.hardware.total_ram_gb));
+        if let Some(ref gpu) = payload.hardware.gpu_model {
+            prompt.push_str(&format!("GPU: {}\n", gpu));
+        }
+        prompt.push_str(&format!("Kernel: {}\n", payload.os.kernel));
+        prompt.push_str("\n");
     }
-    prompt.push_str(&format!("Kernel: {}\n", payload.os.kernel));
-    prompt.push_str("\n");
 
     // User question
     prompt.push_str("QUESTION:\n");
     prompt.push_str(user_message);
     prompt.push_str("\n\n");
 
-    // Simplified instructions
-    prompt.push_str("INSTRUCTIONS:\n");
-    prompt.push_str("- Answer directly and concisely\n");
-    prompt.push_str("- Use information from SYSTEM INFO above\n");
-    prompt.push_str("- Include Arch Wiki links when relevant\n");
-    prompt.push_str("- If suggesting commands, show backup steps first\n");
-    prompt.push_str("- Keep answer under 200 words\n\n");
+    // Anti-hallucination instructions
+    prompt.push_str("CRITICAL RULES:\n");
+    prompt.push_str("1. Answer ONLY what was asked - don't add extra information\n");
+    prompt.push_str("2. If you don't know something, say \"I don't have that information\"\n");
+    prompt.push_str("3. ONLY suggest real Arch Linux commands (pacman, systemctl, vim, etc.)\n");
+    prompt.push_str("4. NEVER invent commands or tools that don't exist\n");
+    prompt.push_str("5. If suggesting config files, check they actually exist on Arch\n");
+    prompt.push_str("6. Keep answer under 150 words\n");
+    prompt.push_str("7. Link to Arch Wiki ONLY if directly relevant\n\n");
 
     prompt.push_str("ANSWER:\n");
 
@@ -455,9 +468,11 @@ fn build_answer_instructions(current_model: &str) -> String {
     instr.push_str("- Phase 1 mode: ANSWERS ONLY. NO EXECUTION.\n");
     instr.push_str("- Always check telemetry FIRST before answering\n");
     instr.push_str("- NEVER guess hardware, service names, or file paths\n");
+    instr.push_str("- ONLY suggest real Arch Linux commands - NEVER invent tools\n");
     instr.push_str("- If data is missing, say so and propose commands to get it\n");
     instr.push_str("- Every file modification needs backup + restore commands\n");
     instr.push_str("- Always include Arch Wiki references when relevant\n");
+    instr.push_str("- Answer ONLY what was asked - don't dump irrelevant information\n");
     instr.push_str("- Respect personality traits in tone and verbosity\n");
     instr.push_str("[/ANSWER_TASK]\n");
 
