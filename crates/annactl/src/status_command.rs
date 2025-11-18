@@ -61,7 +61,7 @@ pub async fn execute_anna_status_command(
     if health.daemon.installed && health.daemon.enabled && health.daemon.running {
         println!(
             "  {} Daemon: service installed, enabled, running",
-            fmt::success("✓")
+            fmt::success("")
         );
     } else {
         let status = if !health.daemon.installed {
@@ -71,44 +71,44 @@ pub async fn execute_anna_status_command(
         } else {
             "not running"
         };
-        println!("  {} Daemon: {}", fmt::error("✗"), status);
+        println!("  {} Daemon: {}", fmt::error(""), status);
     }
 
     // LLM Backend
     if health.llm.reachable && health.llm.model_available {
         println!(
             "  {} LLM backend: {} reachable, model {} available",
-            fmt::success("✓"),
+            fmt::success(""),
             health.llm.backend,
             health.llm.model.as_deref().unwrap_or("unknown")
         );
     } else if !health.llm.backend_running {
         println!(
             "  {} LLM backend: {} not running",
-            fmt::error("✗"),
+            fmt::error(""),
             health.llm.backend
         );
     } else if !health.llm.reachable {
         println!(
             "  {} LLM backend: {} not reachable",
-            fmt::error("✗"),
+            fmt::error(""),
             health.llm.backend
         );
     } else {
         println!(
             "  {} LLM backend: model {} not available",
-            fmt::error("✗"),
+            fmt::error(""),
             health.llm.model.as_deref().unwrap_or("unknown")
         );
     }
 
     // Permissions
     if health.permissions.data_dirs_ok && health.permissions.user_in_groups {
-        println!("  {} Data directories: permissions OK", fmt::success("✓"));
-        println!("  {} User groups: membership OK", fmt::success("✓"));
+        println!("  {} Data directories: permissions OK", fmt::success(""));
+        println!("  {} User groups: membership OK", fmt::success(""));
     } else {
         for issue in &health.permissions.issues {
-            println!("  {} {}", fmt::warning("⚠"), issue);
+            println!("  {} {}", fmt::warning(""), issue);
         }
     }
 
@@ -128,9 +128,9 @@ pub async fn execute_anna_status_command(
             repair.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
         );
         if repair.success {
-            println!("  {} Successful", fmt::success("✓"));
+            println!("  {} Successful", fmt::success(""));
         } else {
-            println!("  {} Incomplete", fmt::warning("⚠"));
+            println!("  {} Incomplete", fmt::warning(""));
         }
         for action in &repair.actions {
             println!("    • {}", action);
