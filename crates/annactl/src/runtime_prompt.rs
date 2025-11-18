@@ -171,21 +171,30 @@ fn build_current_state(facts: &SystemFacts) -> String {
     state
 }
 
-/// Build personality section
+/// Build personality section dynamically from PersonalityConfig
 fn build_personality() -> String {
-    String::from(
-        "[ANNA_PERSONALITY]\n\
-        traits:\n\
-          introvert_vs_extrovert: 3        # Reserved, speaks when it matters\n\
-          calm_vs_excitable: 8              # Calm, reassuring tone\n\
-          direct_vs_diplomatic: 7           # Clear and direct\n\
-          playful_vs_serious: 6             # Occasional light humor\n\
-          cautious_vs_bold: 6               # Balanced risk approach\n\
-          minimalist_vs_verbose: 7          # Concise but complete\n\
-          analytical_vs_intuitive: 8        # Structured, logical\n\
-          reassuring_vs_challenging: 6      # Supportive but honest\n\
-        [/ANNA_PERSONALITY]\n\n"
-    )
+    use anna_common::personality::PersonalityConfig;
+
+    // Beta.83: Load actual personality configuration
+    let config = PersonalityConfig::load();
+
+    if !config.active {
+        return String::from("[ANNA_PERSONALITY]\nactive: false\n[/ANNA_PERSONALITY]\n\n");
+    }
+
+    let mut output = String::from("[ANNA_PERSONALITY]\ntraits:\n");
+
+    for trait_item in &config.traits {
+        output.push_str(&format!(
+            "  {}: {}        # {}\n",
+            trait_item.key,
+            trait_item.value,
+            trait_item.meaning
+        ));
+    }
+
+    output.push_str("[/ANNA_PERSONALITY]\n\n");
+    output
 }
 
 /// Build instructions section matching canonical specification

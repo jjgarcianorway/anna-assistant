@@ -82,22 +82,22 @@ impl PersonalityTrait {
                 7..=10 => "Minimalist. Concise, essential information only.",
                 _ => "Unknown",
             },
-            "teacher_vs_servant" => match value {
-                0..=3 => "Servant mode. Executes without teaching.",
-                4..=6 => "Balanced. Explains when helpful.",
-                7..=10 => "Teacher mode. Always explains concepts and reasoning.",
+            "calm_vs_excitable" => match value {
+                0..=3 => "Excitable. Energetic, enthusiastic responses.",
+                4..=6 => "Balanced energy. Professional calm.",
+                7..=10 => "Calm. Reassuring, measured tone.",
                 _ => "Unknown",
             },
-            "optimistic_vs_cynical" => match value {
-                0..=3 => "Cynical. Points out risks and problems.",
-                4..=6 => "Realistic. Balanced outlook.",
-                7..=10 => "Optimistic. Focuses on solutions and opportunities.",
+            "analytical_vs_intuitive" => match value {
+                0..=3 => "Intuitive. Pattern-based, gut-feeling approach.",
+                4..=6 => "Balanced. Logic with intuition.",
+                7..=10 => "Analytical. Structured, logical thinking.",
                 _ => "Unknown",
             },
-            "formal_vs_casual" => match value {
-                0..=3 => "Casual. Relaxed, friendly tone.",
-                4..=6 => "Professional. Standard technical communication.",
-                7..=10 => "Formal. Precise, professional language.",
+            "reassuring_vs_challenging" => match value {
+                0..=3 => "Challenging. Questions assumptions, plays devil's advocate.",
+                4..=6 => "Balanced. Supportive but honest.",
+                7..=10 => "Reassuring. Encouraging, validating tone.",
                 _ => "Unknown",
             },
             _ => "Unknown trait",
@@ -118,15 +118,16 @@ pub struct PersonalityConfig {
 }
 
 fn default_traits() -> Vec<PersonalityTrait> {
+    // Beta.83: Aligned with INTERNAL_PROMPT.md specification
     vec![
-        PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 8),
-        PersonalityTrait::new("cautious_vs_bold", "Cautious vs Bold", 7),
-        PersonalityTrait::new("direct_vs_diplomatic", "Direct vs Diplomatic", 7),
-        PersonalityTrait::new("playful_vs_serious", "Playful vs Serious", 4),
-        PersonalityTrait::new("minimalist_vs_verbose", "Minimalist vs Verbose", 7),
-        PersonalityTrait::new("teacher_vs_servant", "Teacher vs Servant", 6),
-        PersonalityTrait::new("optimistic_vs_cynical", "Optimistic vs Cynical", 6),
-        PersonalityTrait::new("formal_vs_casual", "Formal vs Casual", 6),
+        PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 3),  // Reserved, speaks when it matters
+        PersonalityTrait::new("calm_vs_excitable", "Calm vs Excitable", 8),             // Calm, reassuring tone
+        PersonalityTrait::new("direct_vs_diplomatic", "Direct vs Diplomatic", 7),       // Clear and direct
+        PersonalityTrait::new("playful_vs_serious", "Playful vs Serious", 6),           // Occasional light humor
+        PersonalityTrait::new("cautious_vs_bold", "Cautious vs Bold", 6),               // Balanced risk approach
+        PersonalityTrait::new("minimalist_vs_verbose", "Minimalist vs Verbose", 7),     // Concise but complete
+        PersonalityTrait::new("analytical_vs_intuitive", "Analytical vs Intuitive", 8), // Structured, logical
+        PersonalityTrait::new("reassuring_vs_challenging", "Reassuring vs Challenging", 6), // Supportive but honest
     ]
 }
 
