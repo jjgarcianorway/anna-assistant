@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.69] - 2025-11-18
+
+### 🎯 WIZARD INTEGRATION - Model Selection with Performance Tiers
+
+**Enhanced model setup wizard with benchmark integration**
+
+Migrated model setup wizard from legacy `model_catalog` to the new `model_profiles` system, providing users with performance expectations and tier-based recommendations.
+
+#### What Changed
+
+**Model Catalog Integration:**
+- Wizard now uses expanded 10-model catalog (was 4 models)
+- Shows quality tier information (Tiny/Small/Medium/Large)
+- Displays performance expectations (tokens/sec, quality%)
+- Hardware-aware recommendations with same-tier fallbacks
+
+**Enhanced Recommendations:**
+```
+Recommended: llama3.1:8b (High quality, detailed responses)
+  • Quality Tier: Medium
+  • Size: 4.7 GB download
+  • RAM required: ≥16 GB
+  • CPU cores: ≥6
+
+Performance Expectations:
+  • Speed: ≥10 tokens/sec
+  • Quality: ≥85% accuracy
+  • High quality responses, slower
+```
+
+**Intelligent Upgrade Detection:**
+- Recommends upgrade if using 1b/1.5b model on 8GB+ system
+- Recommends upgrade if using 3b model on 16GB+ system
+- Tier-aware: suggests Medium tier models on capable hardware
+
+**User Benefits:**
+- Clear performance expectations upfront
+- Understanding of speed vs quality tradeoffs
+- More model choices (Llama, Qwen, Mistral, Phi)
+- Data-driven recommendations based on actual hardware
+
+#### Files Changed
+
+**Modified:**
+- `crates/annactl/src/model_setup_wizard.rs`
+  - Migrated to model_profiles system
+  - Added tier and performance display
+  - Enhanced upgrade detection logic
+  - +112 lines, -35 lines
+
+#### Impact
+
+**Addresses User Feedback:**
+- Users now see why a model is recommended
+- Clear information about hardware requirements
+- Performance expectations prevent surprises
+
+**Future:**
+- Integrate actual benchmark results when available
+- Add model switching command
+- Auto-upgrade prompts based on performance data
+
+---
+
 ## [5.7.0-beta.68] - 2025-11-18
 
 ### 📊 PERFORMANCE - LLM Benchmarking Harness
