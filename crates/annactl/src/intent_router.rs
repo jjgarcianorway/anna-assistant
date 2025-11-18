@@ -156,11 +156,9 @@ pub fn route_intent(input: &str) -> Intent {
 
     // Improvement suggestions
     if lower.contains("what should i improve")
-        || lower.contains("improve")
+        || (lower.contains("improve") && !lower.contains("suggest"))
         || lower.contains("mejorar")
-        || lower.contains("suggestions")
         || lower.contains("what should i do")
-        || lower.contains("recommendations")
     {
         return Intent::Improve;
     }
@@ -563,8 +561,8 @@ mod tests {
 
     #[test]
     fn test_suggest_intent() {
-        assert_eq!(route_intent("What should I improve?"), Intent::Suggest);
         assert_eq!(route_intent("Any suggestions?"), Intent::Suggest);
+        assert_eq!(route_intent("What do you suggest?"), Intent::Suggest);
         assert_eq!(route_intent("My system feels slow"), Intent::Suggest);
         assert_eq!(route_intent("Something is wrong"), Intent::Suggest);
     }
