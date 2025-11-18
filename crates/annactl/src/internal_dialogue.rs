@@ -431,7 +431,7 @@ async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
         messages,
         max_tokens: config.max_tokens,
         temperature: 0.7,
-        stream: false,
+        stream: false,  // TODO beta.58: Enable streaming with futures dependency
     };
 
     let client = reqwest::Client::new();

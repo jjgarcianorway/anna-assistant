@@ -48,7 +48,12 @@
       "Bash(gh run:*)",
       "Bash(gh release view:*)",
       "Bash(gh release edit:*)",
-      "Bash(/home/lhoqvso/.cargo/bin/cargo build --release)"
+      "Bash(/home/lhoqvso/.cargo/bin/cargo build --release)",
+      "Bash(gh workflow:*)",
+      "WebSearch",
+      "Bash(ollama list:*)",
+      "Bash(lspci:*)",
+      "Bash(nvidia-smi:*)"
     ],
     "deny": [],
     "ask": []

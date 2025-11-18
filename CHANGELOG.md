@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.57] - 2025-11-18
+
+### Fixed - Installer Only Release
+
+**What's Fixed:**
+1. **Clean release notes**: Installer now fetches from CHANGELOG.md instead of showing ugly GitHub template
+2. **Smart GPU/VRAM model selection**:
+   - Detects NVIDIA GPU and VRAM via nvidia-smi
+   - 4-tier system: llama3.2:1b/3b, llama3.1:8b/70b
+   - Shows: "GPU: GeForce RTX 4060 Laptop GPU (8GB VRAM)"
+   - Your hardware (32 cores, 31GB RAM, RTX 4060 8GB) → llama3.1:8b ✓
+
+**Still Broken (Deferred):**
+- Debug output leaking (`anna:x:964:lhoqvso,root`)
+- REPL UX (status bar too wide, doubled symbols)
+- LLM streaming (needs futures dependency)
+- Persistent tmux-style status bar
+- Connection errors between annactl/annad
+
+**Next:** Beta.58+ will tackle Phase 2 execution model per new spec.
+
 ## [5.7.0-beta.56] - 2025-11-18
 
 ### Fixed - Critical Production Issues

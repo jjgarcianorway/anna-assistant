@@ -119,13 +119,14 @@ else
     echo -e "  Version: ${GREEN}${TAG}${RESET}"
 fi
 
-# Show release notes
-RELEASE_NOTES=$(echo "$RELEASE_JSON" | jq -r '.body // empty' | head -20)
+# Show clean release notes from CHANGELOG
+CHANGELOG_URL="https://raw.githubusercontent.com/${REPO}/main/CHANGELOG.md"
+RELEASE_NOTES=$(curl -s "$CHANGELOG_URL" | awk "/## \[${NEW_VERSION}\]/,/## \[/" | head -n -1 | tail -n +3 | head -20)
 if [ -n "$RELEASE_NOTES" ]; then
     echo
     echo -e "${BOLD}${CYAN}What's New in ${TAG}:${RESET}"
     echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
-    echo "$RELEASE_NOTES" | head -15
+    echo "$RELEASE_NOTES"
     echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
 fi
 
@@ -226,31 +227,68 @@ echo -e "${CYAN}${ARROW}${RESET} Detecting hardware..."
 CPU_CORES=$(nproc 2>/dev/null || echo "4")
 TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
 TOTAL_RAM_GB=$((TOTAL_RAM_KB / 1024 / 1024))
+
+# Detect GPU and VRAM
 HAS_GPU=0
+GPU_VRAM_MB=0
+GPU_NAME="None"
 if lspci 2>/dev/null | grep -iE "(VGA|3D|Display).*NVIDIA" >/dev/null; then
     HAS_GPU=1
+    GPU_NAME=$(lspci | grep -iE "VGA.*NVIDIA" | sed 's/.*: //' | cut -d'(' -f1 | xargs)
+    # Try to get VRAM from nvidia-smi
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        GPU_VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
+    fi
 fi
 
 echo -e "${GREEN}${CHECK}${RESET} CPU: ${CPU_CORES} cores"
 echo -e "${GREEN}${CHECK}${RESET} RAM: ${TOTAL_RAM_GB} GB"
 if [ "$HAS_GPU" -eq 1 ]; then
-    echo -e "${GREEN}${CHECK}${RESET} GPU: NVIDIA detected"
+    if [ "$GPU_VRAM_MB" -gt 0 ]; then
+        GPU_VRAM_GB=$((GPU_VRAM_MB / 1024))
+        echo -e "${GREEN}${CHECK}${RESET} GPU: ${GPU_NAME} (${GPU_VRAM_GB}GB VRAM)"
+    else
+        echo -e "${GREEN}${CHECK}${RESET} GPU: ${GPU_NAME}"
+    fi
 else
     echo -e "${GRAY}  No GPU detected (CPU-only mode)${RESET}"
 fi
 echo
 
-# Select appropriate model based on hardware
-if [ "$TOTAL_RAM_GB" -ge 16 ] && [ "$HAS_GPU" -eq 1 ] && [ "$CPU_CORES" -ge 8 ]; then
+# Smart model selection matrix based on hardware
+# Tier 4 (Powerful): 64GB+ RAM, 16GB+ VRAM, 16+ cores → llama3.1:70b (40GB)
+# Tier 3 (Good): 16GB+ RAM, 8GB+ VRAM OR 32+ cores → llama3.1:8b (4.7GB)
+# Tier 2 (Medium): 8GB+ RAM → llama3.2:3b (2.0GB)
+# Tier 1 (Light): 4GB+ RAM → llama3.2:1b (1.3GB)
+
+if [ "$TOTAL_RAM_GB" -ge 64 ] && [ "$GPU_VRAM_MB" -ge 16000 ] && [ "$CPU_CORES" -ge 16 ]; then
+    MODEL="llama3.1:70b"
+    MODEL_SIZE="40GB"
+    MODEL_DESC="Tier 4: Powerful - 70B parameters"
+    echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(${MODEL_DESC})${RESET}"
+    echo -e "${GRAY}  Perfect match: ${TOTAL_RAM_GB}GB RAM | ${GPU_VRAM_GB}GB VRAM | ${CPU_CORES} cores${RESET}"
+elif [ "$TOTAL_RAM_GB" -ge 16 ] && { [ "$GPU_VRAM_MB" -ge 8000 ] || [ "$CPU_CORES" -ge 32 ]; }; then
     MODEL="llama3.1:8b"
-    echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(8B parameter model - powerful)${RESET}"
-    echo -e "${GRAY}  RAM: ${TOTAL_RAM_GB}GB | GPU: NVIDIA | Cores: ${CPU_CORES}${RESET}"
+    MODEL_SIZE="4.7GB"
+    MODEL_DESC="Tier 3: Good - 8B parameters, excellent performance"
+    echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(${MODEL_DESC})${RESET}"
+    if [ "$GPU_VRAM_MB" -ge 8000 ]; then
+        echo -e "${GRAY}  Optimal: ${TOTAL_RAM_GB}GB RAM | ${GPU_VRAM_GB}GB VRAM | ${CPU_CORES} cores${RESET}"
+    else
+        echo -e "${GRAY}  CPU-optimized: ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
+    fi
 elif [ "$TOTAL_RAM_GB" -ge 8 ]; then
     MODEL="llama3.2:3b"
-    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (3B parameter model)"
+    MODEL_SIZE="2.0GB"
+    MODEL_DESC="Tier 2: Medium - 3B parameters"
+    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (${MODEL_DESC})"
+    echo -e "${GRAY}  ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
 else
     MODEL="llama3.2:1b"
-    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (lightweight 1B model)"
+    MODEL_SIZE="1.3GB"
+    MODEL_DESC="Tier 1: Light - 1B parameters"
+    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (${MODEL_DESC})"
+    echo -e "${GRAY}  ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
 fi
 echo
 
