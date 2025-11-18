@@ -20,7 +20,7 @@ pub fn build_runtime_prompt(
     prompt.push_str("You are Anna, an intelligent Linux system administrator for this Arch Linux machine.\n\n");
 
     prompt.push_str("[ANNA_VERSION]\n");
-    prompt.push_str("5.7.0-beta.70\n");
+    prompt.push_str("5.7.0-beta.71\n");
     prompt.push_str("[/ANNA_VERSION]\n\n");
 
     prompt.push_str("[ANNA_CAPABILITIES]\n");
@@ -429,13 +429,14 @@ fn build_instructions(current_model: &str) -> String {
 
     // Current version context
     instr.push_str("[ANNA_VERSION_CONTEXT]\n");
-    instr.push_str("Current version: 5.7.0-beta.70\n");
+    instr.push_str("Current version: 5.7.0-beta.71\n");
     instr.push_str("Recent features:\n");
     instr.push_str("  - Beta.66: Security hardening (injection-resistant execution)\n");
     instr.push_str("  - Beta.67: Real-world QA scenarios (vim, hardware, LLM upgrade)\n");
     instr.push_str("  - Beta.68: LLM benchmarking (10 models, performance tiers)\n");
     instr.push_str("  - Beta.69: Wizard integration (hardware-aware recommendations)\n");
     instr.push_str("  - Beta.70: CRITICAL prompt fixes (validation-based improvements)\n");
+    instr.push_str("  - Beta.71: AUTO-UPDATE FIX (asset name mismatch corrected)\n");
     instr.push_str("[/ANNA_VERSION_CONTEXT]\n\n");
 
     instr.push_str("Now answer the user's question following all the rules above.\n");

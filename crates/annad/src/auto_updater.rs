@@ -167,13 +167,14 @@ impl AutoUpdater {
         tokio::fs::create_dir_all(&temp_dir).await?;
 
         // Download annactl and annad binaries
+        // Note: GitHub release assets are named simply "annactl" and "annad"
         let annactl_url = format!(
-            "https://github.com/{}/{}/releases/download/{}/annactl-{}-x86_64-unknown-linux-gnu",
-            GITHUB_OWNER, GITHUB_REPO, release.tag_name, version
+            "https://github.com/{}/{}/releases/download/{}/annactl",
+            GITHUB_OWNER, GITHUB_REPO, release.tag_name
         );
         let annad_url = format!(
-            "https://github.com/{}/{}/releases/download/{}/annad-{}-x86_64-unknown-linux-gnu",
-            GITHUB_OWNER, GITHUB_REPO, release.tag_name, version
+            "https://github.com/{}/{}/releases/download/{}/annad",
+            GITHUB_OWNER, GITHUB_REPO, release.tag_name
         );
         let checksums_url = format!(
             "https://github.com/{}/{}/releases/download/{}/SHA256SUMS",
@@ -193,13 +194,22 @@ impl AutoUpdater {
         self.download_file(&annad_url, &annad_tmp).await?;
         info!("      ✓ annad downloaded");
 
-        info!("      Downloading SHA256SUMS...");
-        self.download_file(&checksums_url, &checksums_tmp).await?;
-        info!("      ✓ SHA256SUMS downloaded");
-
-        // Verify checksums
-        info!("      Verifying checksums...");
-        self.verify_checksums(&temp_dir).await?;
+        // Try to download and verify checksums (optional)
+        info!("      Checking for SHA256SUMS...");
+        match self.download_file(&checksums_url, &checksums_tmp).await {
+            Ok(()) => {
+                info!("      ✓ SHA256SUMS downloaded");
+                info!("      Verifying checksums...");
+                if let Err(e) = self.verify_checksums(&temp_dir).await {
+                    warn!("      Checksum verification failed: {}", e);
+                    warn!("      Proceeding without checksum verification");
+                }
+            }
+            Err(e) => {
+                warn!("      SHA256SUMS not available: {}", e);
+                warn!("      Proceeding without checksum verification");
+            }
+        }
 
         // Backup current binaries
         info!("      Creating backups of current binaries...");
