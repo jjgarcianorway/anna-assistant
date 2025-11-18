@@ -125,10 +125,7 @@ impl TrustLedger {
         let ethical = score.ethical_alignment;
         self.scores.insert(peer_id.clone(), score);
 
-        debug!(
-            "Ethical alignment updated for {}: {:.2}",
-            peer_id, ethical
-        );
+        debug!("Ethical alignment updated for {}: {:.2}", peer_id, ethical);
     }
 
     /// Calculate overall trust score from components

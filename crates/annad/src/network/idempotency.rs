@@ -3,8 +3,8 @@
 use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
 /// Idempotency key entry
 #[derive(Debug, Clone)]

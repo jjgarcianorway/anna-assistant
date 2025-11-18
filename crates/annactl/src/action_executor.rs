@@ -6,7 +6,7 @@ use anna_common::change_log::*;
 use anna_common::change_log_db::ChangeLogDb;
 use anna_common::context::db::DbLocation;
 use anna_common::suggestions::Suggestion;
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::process::Command;
 
@@ -31,7 +31,11 @@ pub async fn execute_suggestion(suggestion: &Suggestion) -> Result<()> {
     }
     println!();
 
-    if suggestion.fix_commands.iter().any(|cmd| cmd.starts_with("sudo")) {
+    if suggestion
+        .fix_commands
+        .iter()
+        .any(|cmd| cmd.starts_with("sudo"))
+    {
         println!("⚠️  Some commands require sudo (root privileges)");
         println!();
     }
@@ -68,11 +72,8 @@ pub async fn execute_suggestion(suggestion: &Suggestion) -> Result<()> {
 
         let (program, args) = parse_command(cmd);
 
-        let mut action = ChangeAction::command(
-            program.clone(),
-            args.clone(),
-            format!("Execute: {}", cmd),
-        );
+        let mut action =
+            ChangeAction::command(program.clone(), args.clone(), format!("Execute: {}", cmd));
 
         let result = Command::new(&program)
             .args(&args)
@@ -81,7 +82,10 @@ pub async fn execute_suggestion(suggestion: &Suggestion) -> Result<()> {
 
         action.success = result.success();
 
-        if let ActionType::Command { ref mut exit_code, .. } = action.action_type {
+        if let ActionType::Command {
+            ref mut exit_code, ..
+        } = action.action_type
+        {
             *exit_code = result.code();
         }
 
@@ -97,7 +101,8 @@ pub async fn execute_suggestion(suggestion: &Suggestion) -> Result<()> {
             });
         } else if cmd.starts_with("sudo pacman -S") {
             // Package install can be rolled back
-            let packages: Vec<String> = args.iter()
+            let packages: Vec<String> = args
+                .iter()
                 .skip_while(|a| a.starts_with("-"))
                 .map(|s| s.to_string())
                 .collect();
@@ -155,7 +160,14 @@ pub async fn execute_suggestion(suggestion: &Suggestion) -> Result<()> {
     println!("══════════════════════════════════════════════════\n");
 
     println!("Change logged: {}", change_unit.id);
-    println!("Can rollback: {}", if change_unit.can_rollback() { "Yes" } else { "No" });
+    println!(
+        "Can rollback: {}",
+        if change_unit.can_rollback() {
+            "Yes"
+        } else {
+            "No"
+        }
+    );
 
     if !change_unit.can_rollback() {
         let limitations = change_unit.rollback_limitations();

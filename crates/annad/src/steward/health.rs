@@ -3,7 +3,7 @@
 //! Phase 0.9: Health checks for services, packages, and logs
 //! Citation: [archwiki:System_maintenance]
 
-use super::types::{HealthReport, HealthStatus, ServiceStatus, PackageStatus, LogIssue};
+use super::types::{HealthReport, HealthStatus, LogIssue, PackageStatus, ServiceStatus};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use std::process::Command;
@@ -24,7 +24,10 @@ pub async fn check_health() -> Result<HealthReport> {
 
     // Determine overall status
     let failed_services = services.iter().filter(|s| s.state == "failed").count();
-    let critical_logs = log_issues.iter().filter(|l| l.severity == "critical").count();
+    let critical_logs = log_issues
+        .iter()
+        .filter(|l| l.severity == "critical")
+        .count();
 
     let overall_status = if failed_services > 0 || critical_logs > 0 {
         HealthStatus::Critical
@@ -37,13 +40,19 @@ pub async fn check_health() -> Result<HealthReport> {
     // Generate recommendations
     let mut recommendations = Vec::new();
     if failed_services > 0 {
-        recommendations.push(format!("{} failed services detected - run 'annactl repair services-failed'", failed_services));
+        recommendations.push(format!(
+            "{} failed services detected - run 'annactl repair services-failed'",
+            failed_services
+        ));
     }
     if packages.iter().any(|p| p.update_available) {
         recommendations.push("Updates available - run 'annactl update'".to_string());
     }
     if !log_issues.is_empty() {
-        recommendations.push(format!("{} log issues detected - review with 'journalctl -p err'", log_issues.len()));
+        recommendations.push(format!(
+            "{} log issues detected - review with 'journalctl -p err'",
+            log_issues.len()
+        ));
     }
 
     // Generate summary message
@@ -56,8 +65,7 @@ pub async fn check_health() -> Result<HealthReport> {
         ),
         HealthStatus::Critical => format!(
             "System critical: {} failed services, {} critical logs",
-            failed_services,
-            critical_logs
+            failed_services, critical_logs
         ),
     };
 
@@ -78,7 +86,14 @@ async fn check_services() -> Result<Vec<ServiceStatus>> {
     info!("Checking systemd services");
 
     let output = Command::new("systemctl")
-        .args(&["list-units", "--type=service", "--all", "--no-pager", "--no-legend", "--plain"])
+        .args(&[
+            "list-units",
+            "--type=service",
+            "--all",
+            "--no-pager",
+            "--no-legend",
+            "--plain",
+        ])
         .output()
         .context("Failed to run systemctl")?;
 
@@ -134,8 +149,7 @@ async fn check_packages() -> Result<Vec<PackageStatus>> {
     info!("Checking package updates");
 
     // Get list of updates available
-    let output = Command::new("checkupdates")
-        .output();
+    let output = Command::new("checkupdates").output();
 
     let mut packages = Vec::new();
 
@@ -164,7 +178,15 @@ async fn analyze_logs() -> Result<Vec<LogIssue>> {
     info!("Analyzing system logs");
 
     let output = Command::new("journalctl")
-        .args(&["-p", "err", "--since", "24 hours ago", "--no-pager", "-o", "json"])
+        .args(&[
+            "-p",
+            "err",
+            "--since",
+            "24 hours ago",
+            "--no-pager",
+            "-o",
+            "json",
+        ])
         .output()
         .context("Failed to run journalctl")?;
 
@@ -174,7 +196,8 @@ async fn analyze_logs() -> Result<Vec<LogIssue>> {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         // Simple parsing - count unique error messages
-        let mut error_counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+        let mut error_counts: std::collections::HashMap<String, u32> =
+            std::collections::HashMap::new();
 
         for line in stdout.lines() {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {

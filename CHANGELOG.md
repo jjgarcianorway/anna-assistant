@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.53] - 2025-11-18
+
+### Added - UX Revolution: Historian Visibility & Canonical Specification
+
+**From "Eyes Open" to "Eyes and Mouth":**
+Beta.48-52 built the Historian infrastructure and connected real telemetry. Beta.53 makes this data visible to users, adds intelligent LLM model selection, and implements the canonical specification for professional system administration.
+
+**New Modules:**
+
+1. **Model Catalog (`crates/annactl/src/model_catalog.rs` - 200 lines)**:
+   - Hardware-aware model selection (llama3.2:3b → llama3.1:8b → qwen2.5:14b)
+   - Quality tiers: Basic, Standard, Advanced, Premium
+   - Automatic fallback based on RAM availability
+
+2. **Model Setup Wizard (`crates/annactl/src/model_setup_wizard.rs` - 180 lines)**:
+   - First-run LLM installation with hardware detection
+   - Recommends best model for available RAM
+   - Prompts to upgrade if using basic model on capable hardware
+
+3. **Runtime Prompt Builder (`crates/annactl/src/runtime_prompt.rs` - 340 lines)**:
+   - **Canonical LLM prompt matching official specification**
+   - Comprehensive system prompt with Historian data
+   - Includes 30-day trends (boot time, CPU, errors)
+   - **Phase 1 enforcement**: Answers only, no execution
+   - **Backup/restore rules**: Mandatory ANNA_BACKUP suffixes
+   - **Arch Wiki authority**: Citations required for non-trivial advice
+   - **Structured output format**: [ANNA_TUI_HEADER], [ANNA_SUMMARY], [ANNA_ACTION_PLAN], [ANNA_HUMAN_OUTPUT]
+   - **Zero hallucination policy**: Admit when data is missing
+   - **Telemetry-first approach**: Use existing data before proposing commands
+   - **Personality coherence**: Respect trait values (minimalist, direct, calm, etc.)
+
+4. **Startup Summary (`crates/annactl/src/startup_summary.rs` - 160 lines)**:
+   - Shows system health + 30-day Historian trends on startup
+   - Boot time trends (↓ improving / → stable / ↑ degrading)
+   - CPU utilization patterns, health scores, error trends
+
+5. **LLM Integration (`crates/annactl/src/llm_integration.rs` - 180 lines)**:
+   - Query LLM with full system context (facts + Historian summary)
+   - OpenAI-compatible API support (Ollama, remote APIs)
+   - Streaming support (foundation for future)
+
+**New IPC Methods:**
+- `GetHistorianSummary` - Fetch 30-day system trends via daemon
+- `ResponseData::HistorianSummary` - Return SystemSummary to clients
+
+**Enhanced REPL:**
+- Startup now shows comprehensive health summary with Historian data
+- 30-day boot time average and trend direction
+- CPU utilization trends, error counts, recent repairs
+- Model recommendation if hardware can support better LLM
+
+**New Documentation:**
+- `INTERNAL_PROMPT.md` - Complete LLM prompt structure documentation
+- `ARCHITECTURE.md` - System architecture, data flows, safety mechanisms
+- Both documents align with canonical specification
+
+### Changed
+- **Runtime prompt completely rewritten** to match canonical specification
+- LLM now operates in explicit Phase 1 mode (answers only, no execution)
+- All file modifications must include backup commands with ANNA_BACKUP timestamps
+- Anna must cite Arch Wiki pages for non-trivial advice
+- Structured output format now required ([ANNA_TUI_HEADER], [ANNA_SUMMARY], etc.)
+- Telemetry-first approach enforced: never guess system state
+- Professional sysadmin identity: "certified Arch Linux expert"
+- REPL startup summary now uses Historian data instead of simple issue list
+- Version bumped to 5.7.0-beta.53
+
+### Fixed
+- All 26 compilation errors from Beta.52 resolved
+- Type mismatches (f32/f64, Result/Option) corrected
+- Database variable scoping issues fixed
+- Async/lifetime errors in Historian integration resolved
+
 ## [5.7.0-beta.52] - 2025-11-15
 
 ### Added - Milestone 1.4: Real Telemetry Collection with sysinfo
@@ -13708,4 +13781,3 @@ This provides the foundation for truly intelligent, sysadmin-level system analys
 - Consistent spacing throughout
 
 This makes long advice lists MUCH easier to scan and understand!
-

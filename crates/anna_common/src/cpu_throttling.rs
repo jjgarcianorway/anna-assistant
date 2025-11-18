@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::process::Command;
-use chrono::{DateTime, Utc};
 
 /// CPU throttling and power state detection
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,12 +78,15 @@ fn detect_throttling_events() -> ThrottlingEvents {
     for cpu_id in 0..cpu_count {
         let throttle_path = format!("/sys/devices/system/cpu/cpu{}/thermal_throttle", cpu_id);
 
-        if let Ok(core_throttle) = fs::read_to_string(format!("{}/core_throttle_count", throttle_path)) {
+        if let Ok(core_throttle) =
+            fs::read_to_string(format!("{}/core_throttle_count", throttle_path))
+        {
             let core_count = core_throttle.trim().parse::<u64>().unwrap_or(0);
-            let package_count = fs::read_to_string(format!("{}/package_throttle_count", throttle_path))
-                .ok()
-                .and_then(|s| s.trim().parse::<u64>().ok())
-                .unwrap_or(0);
+            let package_count =
+                fs::read_to_string(format!("{}/package_throttle_count", throttle_path))
+                    .ok()
+                    .and_then(|s| s.trim().parse::<u64>().ok())
+                    .unwrap_or(0);
 
             total_core_throttles += core_count;
             total_package_throttles += package_count;
@@ -112,7 +115,8 @@ fn detect_throttling_events() -> ThrottlingEvents {
 
         if total_core_throttles > 1000 {
             recommendations.push(
-                "High throttling count detected - check CPU cooling and reduce workload".to_string()
+                "High throttling count detected - check CPU cooling and reduce workload"
+                    .to_string(),
             );
         }
 
@@ -123,7 +127,8 @@ fn detect_throttling_events() -> ThrottlingEvents {
             ));
         }
     } else {
-        recommendations.push("No CPU throttling detected - thermal performance is good".to_string());
+        recommendations
+            .push("No CPU throttling detected - thermal performance is good".to_string());
     }
 
     ThrottlingEvents {
@@ -142,7 +147,8 @@ fn detect_thermal_events() -> Vec<ThermalEvent> {
     // Query journalctl for thermal events in the last 24 hours
     let output = Command::new("journalctl")
         .args(&[
-            "--since", "24 hours ago",
+            "--since",
+            "24 hours ago",
             "--grep=thermal|temperature|throttle",
             "--no-pager",
             "--output=json",
@@ -161,7 +167,9 @@ fn detect_thermal_events() -> Vec<ThermalEvent> {
                 // Parse JSON log entry
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
                     // Extract timestamp
-                    let timestamp = if let Some(timestamp_str) = json.get("__REALTIME_TIMESTAMP").and_then(|v| v.as_str()) {
+                    let timestamp = if let Some(timestamp_str) =
+                        json.get("__REALTIME_TIMESTAMP").and_then(|v| v.as_str())
+                    {
                         // Timestamp is in microseconds since epoch
                         if let Ok(micros) = timestamp_str.parse::<i64>() {
                             let secs = micros / 1_000_000;
@@ -175,7 +183,8 @@ fn detect_thermal_events() -> Vec<ThermalEvent> {
                     };
 
                     // Extract message
-                    let message = json.get("MESSAGE")
+                    let message = json
+                        .get("MESSAGE")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
@@ -258,12 +267,15 @@ fn detect_power_states() -> PowerStates {
                             all_c_states.insert(state_name.clone());
 
                             // Track deepest C-state (highest number)
-                            if deepest_c_state.is_none() || state_name > deepest_c_state.clone().unwrap() {
+                            if deepest_c_state.is_none()
+                                || state_name > deepest_c_state.clone().unwrap()
+                            {
                                 deepest_c_state = Some(state_name.clone());
                             }
 
                             // Read latency
-                            if let Ok(latency_str) = fs::read_to_string(state_path.join("latency")) {
+                            if let Ok(latency_str) = fs::read_to_string(state_path.join("latency"))
+                            {
                                 if let Ok(latency) = latency_str.trim().parse::<u64>() {
                                     state_latencies.push((state_name, latency));
                                 }
@@ -312,7 +324,8 @@ fn detect_power_states() -> PowerStates {
         }
     } else {
         recommendations.push(
-            "CPU power management not detected - C-states may not be available on this system".to_string()
+            "CPU power management not detected - C-states may not be available on this system"
+                .to_string(),
         );
     }
 

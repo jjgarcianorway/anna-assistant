@@ -25,8 +25,8 @@ pub struct BackupTool {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BackupToolType {
-    Snapshot,     // timeshift, snapper
-    Incremental,  // rsnapshot, duplicity
+    Snapshot,      // timeshift, snapper
+    Incremental,   // rsnapshot, duplicity
     Deduplication, // borg, restic
 }
 
@@ -57,10 +57,10 @@ pub struct MissingSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BackupStatus {
-    Healthy,          // Backups exist and are recent
-    Warning,          // Backups exist but are old
-    Critical,         // No backups or severe errors
-    NoBackupTool,     // No backup tools installed
+    Healthy,      // Backups exist and are recent
+    Warning,      // Backups exist but are old
+    Critical,     // No backups or severe errors
+    NoBackupTool, // No backup tools installed
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -77,8 +77,10 @@ impl BackupDetection {
         let integrity_errors = check_backup_integrity(&installed_tools);
         let missing_snapshots = detect_missing_snapshots(&installed_tools, &last_backups);
 
-        let overall_status = calculate_backup_status(&installed_tools, &last_backups, &integrity_errors);
-        let recommendations = generate_recommendations(&overall_status, &installed_tools, &last_backups);
+        let overall_status =
+            calculate_backup_status(&installed_tools, &last_backups, &integrity_errors);
+        let recommendations =
+            generate_recommendations(&overall_status, &installed_tools, &last_backups);
 
         BackupDetection {
             installed_tools,
@@ -96,7 +98,10 @@ impl BackupDetection {
 
     pub fn has_recent_backup(&self, max_age_hours: u64) -> bool {
         self.last_backups.values().any(|backup| {
-            backup.age_hours.map(|age| age <= max_age_hours).unwrap_or(false)
+            backup
+                .age_hours
+                .map(|age| age <= max_age_hours)
+                .unwrap_or(false)
         })
     }
 
@@ -112,41 +117,53 @@ impl BackupDetection {
 
 fn detect_backup_tools() -> Vec<BackupTool> {
     let tools = vec![
-        ("timeshift", BackupToolType::Snapshot, "/etc/timeshift/timeshift.json"),
+        (
+            "timeshift",
+            BackupToolType::Snapshot,
+            "/etc/timeshift/timeshift.json",
+        ),
         ("snapper", BackupToolType::Snapshot, "/etc/snapper/configs"),
-        ("rsnapshot", BackupToolType::Incremental, "/etc/rsnapshot.conf"),
+        (
+            "rsnapshot",
+            BackupToolType::Incremental,
+            "/etc/rsnapshot.conf",
+        ),
         ("borg", BackupToolType::Deduplication, ""),
         ("restic", BackupToolType::Deduplication, ""),
         ("duplicity", BackupToolType::Incremental, ""),
     ];
 
-    tools.iter().map(|(name, tool_type, config)| {
-        let installed = is_command_available(name);
-        let version = if installed {
-            get_tool_version(name)
-        } else {
-            None
-        };
+    tools
+        .iter()
+        .map(|(name, tool_type, config)| {
+            let installed = is_command_available(name);
+            let version = if installed {
+                get_tool_version(name)
+            } else {
+                None
+            };
 
-        let config_path = if !config.is_empty() {
-            Some(config.to_string())
-        } else {
-            None
-        };
+            let config_path = if !config.is_empty() {
+                Some(config.to_string())
+            } else {
+                None
+            };
 
-        let config_exists = config_path.as_ref()
-            .map(|p| Path::new(p).exists())
-            .unwrap_or(false);
+            let config_exists = config_path
+                .as_ref()
+                .map(|p| Path::new(p).exists())
+                .unwrap_or(false);
 
-        BackupTool {
-            name: name.to_string(),
-            tool_type: tool_type.clone(),
-            installed,
-            version,
-            config_path,
-            config_exists,
-        }
-    }).collect()
+            BackupTool {
+                name: name.to_string(),
+                tool_type: tool_type.clone(),
+                installed,
+                version,
+                config_path,
+                config_exists,
+            }
+        })
+        .collect()
 }
 
 fn is_command_available(cmd: &str) -> bool {
@@ -211,7 +228,8 @@ fn detect_timeshift_last_backup() -> Option<LastBackup> {
 
     let list = String::from_utf8(output.stdout).ok()?;
     // Parse timeshift list output for most recent snapshot
-    let first_line = list.lines()
+    let first_line = list
+        .lines()
         .filter(|line| !line.is_empty() && !line.starts_with("Name"))
         .next()?;
 
@@ -225,17 +243,15 @@ fn detect_timeshift_last_backup() -> Option<LastBackup> {
 }
 
 fn detect_snapper_last_backup() -> Option<LastBackup> {
-    let output = Command::new("snapper")
-        .arg("list")
-        .output()
-        .ok()?;
+    let output = Command::new("snapper").arg("list").output().ok()?;
 
     if !output.status.success() {
         return None;
     }
 
     let list = String::from_utf8(output.stdout).ok()?;
-    let last_snapshot = list.lines()
+    let last_snapshot = list
+        .lines()
         .filter(|line| !line.is_empty() && !line.starts_with("#") && !line.contains("Type"))
         .last()?;
 
@@ -265,8 +281,10 @@ fn detect_rsnapshot_last_backup() -> Option<LastBackup> {
                 if most_recent.is_none() {
                     most_recent = Some(entry);
                 } else if let Some(ref current) = most_recent {
-                    if let (Ok(entry_time), Ok(current_time)) =
-                        (metadata.modified(), current.metadata().and_then(|m| m.modified())) {
+                    if let (Ok(entry_time), Ok(current_time)) = (
+                        metadata.modified(),
+                        current.metadata().and_then(|m| m.modified()),
+                    ) {
                         if entry_time > current_time {
                             most_recent = Some(entry);
                         }
@@ -307,13 +325,13 @@ fn check_backup_integrity(tools: &[BackupTool]) -> Vec<BackupIntegrityError> {
                 if let Some(timeshift_errors) = check_timeshift_integrity() {
                     errors.extend(timeshift_errors);
                 }
-            },
+            }
             "snapper" => {
                 // Check snapper configs
                 if let Some(snapper_errors) = check_snapper_integrity() {
                     errors.extend(snapper_errors);
                 }
-            },
+            }
             _ => {}
         }
     }
@@ -359,8 +377,8 @@ fn detect_missing_snapshots(
             missing.push(MissingSnapshot {
                 tool: tool.name.clone(),
                 expected_interval_hours: match tool.tool_type {
-                    BackupToolType::Snapshot => 24,      // Daily snapshots
-                    BackupToolType::Incremental => 168,  // Weekly incrementals
+                    BackupToolType::Snapshot => 24,       // Daily snapshots
+                    BackupToolType::Incremental => 168,   // Weekly incrementals
                     BackupToolType::Deduplication => 168, // Weekly deduplicated
                 },
                 last_seen_hours: None,
@@ -393,9 +411,9 @@ fn calculate_backup_status(
     }
 
     // Check if any backup is recent (within 7 days)
-    let has_recent = last_backups.values().any(|backup| {
-        backup.age_hours.map(|age| age <= 168).unwrap_or(false)
-    });
+    let has_recent = last_backups
+        .values()
+        .any(|backup| backup.age_hours.map(|age| age <= 168).unwrap_or(false));
 
     if has_recent {
         BackupStatus::Healthy
@@ -414,28 +432,36 @@ fn generate_recommendations(
     match status {
         BackupStatus::NoBackupTool => {
             recommendations.push("No backup tools installed. Consider installing timeshift or snapper for system snapshots".to_string());
-        },
+        }
         BackupStatus::Critical => {
             if tools.iter().any(|t| t.installed) {
                 recommendations.push("Backup tools are installed but no backups found. Create an initial backup immediately".to_string());
             } else {
-                recommendations.push("Critical: No backup system configured. Your data is at risk".to_string());
+                recommendations.push(
+                    "Critical: No backup system configured. Your data is at risk".to_string(),
+                );
             }
-        },
+        }
         BackupStatus::Warning => {
-            recommendations.push("Backups exist but may be outdated. Consider running a fresh backup".to_string());
-        },
+            recommendations.push(
+                "Backups exist but may be outdated. Consider running a fresh backup".to_string(),
+            );
+        }
         BackupStatus::Healthy => {
             if last_backups.len() == 1 {
-                recommendations.push("Consider setting up a secondary backup tool for redundancy".to_string());
+                recommendations
+                    .push("Consider setting up a secondary backup tool for redundancy".to_string());
             }
-        },
+        }
     }
 
     // Check for tools with configs but not running
     for tool in tools.iter().filter(|t| t.installed && t.config_exists) {
         if !last_backups.contains_key(&tool.name) {
-            recommendations.push(format!("{} is configured but not creating backups", tool.name));
+            recommendations.push(format!(
+                "{} is configured but not creating backups",
+                tool.name
+            ));
         }
     }
 

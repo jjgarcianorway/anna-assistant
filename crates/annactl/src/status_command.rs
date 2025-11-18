@@ -18,8 +18,8 @@
 //! - Journal excerpts
 //! - Clear status: Healthy / Degraded / Broken
 
-use anyhow::Result;
 use anna_common::terminal_format as fmt;
+use anyhow::Result;
 use std::process::Command;
 use std::time::Instant;
 
@@ -44,7 +44,8 @@ pub async fn execute_anna_status_command(
 
     // Display banner (version + LLM mode)
     let version = env!("CARGO_PKG_VERSION");
-    println!("{} {}",
+    println!(
+        "{} {}",
         fmt::bold("Anna Assistant"),
         fmt::bold(&format!("v{}", version))
     );
@@ -58,7 +59,10 @@ pub async fn execute_anna_status_command(
 
     // Daemon
     if health.daemon.installed && health.daemon.enabled && health.daemon.running {
-        println!("  {} Daemon: service installed, enabled, running", fmt::success("✓"));
+        println!(
+            "  {} Daemon: service installed, enabled, running",
+            fmt::success("✓")
+        );
     } else {
         let status = if !health.daemon.installed {
             "not installed"
@@ -72,17 +76,27 @@ pub async fn execute_anna_status_command(
 
     // LLM Backend
     if health.llm.reachable && health.llm.model_available {
-        println!("  {} LLM backend: {} reachable, model {} available",
+        println!(
+            "  {} LLM backend: {} reachable, model {} available",
             fmt::success("✓"),
             health.llm.backend,
             health.llm.model.as_deref().unwrap_or("unknown")
         );
     } else if !health.llm.backend_running {
-        println!("  {} LLM backend: {} not running", fmt::error("✗"), health.llm.backend);
+        println!(
+            "  {} LLM backend: {} not running",
+            fmt::error("✗"),
+            health.llm.backend
+        );
     } else if !health.llm.reachable {
-        println!("  {} LLM backend: {} not reachable", fmt::error("✗"), health.llm.backend);
+        println!(
+            "  {} LLM backend: {} not reachable",
+            fmt::error("✗"),
+            health.llm.backend
+        );
     } else {
-        println!("  {} LLM backend: model {} not available",
+        println!(
+            "  {} LLM backend: model {} not available",
             fmt::error("✗"),
             health.llm.model.as_deref().unwrap_or("unknown")
         );
@@ -108,7 +122,11 @@ pub async fn execute_anna_status_command(
     // Last repair (if any)
     if let Some(repair) = &health.last_repair {
         println!("{}", fmt::bold("Last Self-Repair:"));
-        println!("  {} {}", fmt::dimmed("When:"), repair.timestamp.format("%Y-%m-%d %H:%M:%S UTC"));
+        println!(
+            "  {} {}",
+            fmt::dimmed("When:"),
+            repair.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+        );
         if repair.success {
             println!("  {} Successful", fmt::success("✓"));
         } else {
@@ -135,7 +153,10 @@ pub async fn execute_anna_status_command(
                 println!("  {}. {}", i + 1, suggestion.title);
             }
             println!();
-            println!("  {} Ask Anna: \"what should I improve?\" for details", fmt::dimmed("→"));
+            println!(
+                "  {} Ask Anna: \"what should I improve?\" for details",
+                fmt::dimmed("→")
+            );
             println!();
         }
     }
@@ -186,8 +207,10 @@ async fn get_llm_mode_string() -> String {
 fn display_recent_logs() {
     let output = Command::new("journalctl")
         .args([
-            "-u", "annad",
-            "-n", "10",
+            "-u",
+            "annad",
+            "-n",
+            "10",
             "--no-pager",
             "--output=short-iso",
         ])
@@ -210,9 +233,15 @@ fn display_recent_logs() {
                 }
             }
         } else {
-            println!("  {}", fmt::dimmed("Unable to fetch logs (journalctl failed)"));
+            println!(
+                "  {}",
+                fmt::dimmed("Unable to fetch logs (journalctl failed)")
+            );
         }
     } else {
-        println!("  {}", fmt::dimmed("Unable to fetch logs (journalctl not available)"));
+        println!(
+            "  {}",
+            fmt::dimmed("Unable to fetch logs (journalctl not available)")
+        );
     }
 }

@@ -272,7 +272,10 @@ fn test_adaptive_help_user_context() {
     assert!(stdout.contains("Anna Assistant"), "Should show Anna header");
 
     // Should show context
-    assert!(stdout.contains("Mode:") || stdout.contains("Context:"), "Should show context");
+    assert!(
+        stdout.contains("Mode:") || stdout.contains("Context:"),
+        "Should show context"
+    );
 
     // Should show safe commands by default (help is always visible)
     assert!(stdout.contains("help"), "Should show help command");
@@ -293,7 +296,10 @@ fn test_adaptive_help_all_flag() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Should show more commands with --all
-    assert!(stdout.contains("Safe Commands") || stdout.contains("help"), "Should show safe commands");
+    assert!(
+        stdout.contains("Safe Commands") || stdout.contains("help"),
+        "Should show safe commands"
+    );
 
     // Should show advanced or administrative sections
     let has_advanced = stdout.contains("Advanced")
@@ -301,8 +307,14 @@ fn test_adaptive_help_all_flag() {
         || stdout.contains("update")
         || stdout.contains("install");
 
-    assert!(has_advanced, "Should show advanced commands with --all flag");
-    assert!(output.status.success(), "Help --all should exit successfully");
+    assert!(
+        has_advanced,
+        "Should show advanced commands with --all flag"
+    );
+    assert!(
+        output.status.success(),
+        "Help --all should exit successfully"
+    );
 }
 
 /// Test JSON help output format
@@ -335,14 +347,26 @@ fn test_json_help_output() {
             // Each command should have required fields
             if let Some(first_cmd) = commands.first() {
                 assert!(first_cmd.get("name").is_some(), "Command should have name");
-                assert!(first_cmd.get("category").is_some(), "Command should have category");
-                assert!(first_cmd.get("description").is_some(), "Command should have description");
-                assert!(first_cmd.get("risk").is_some(), "Command should have risk level");
+                assert!(
+                    first_cmd.get("category").is_some(),
+                    "Command should have category"
+                );
+                assert!(
+                    first_cmd.get("description").is_some(),
+                    "Command should have description"
+                );
+                assert!(
+                    first_cmd.get("risk").is_some(),
+                    "Command should have risk level"
+                );
             }
         }
     }
 
-    assert!(output.status.success(), "JSON help should exit successfully");
+    assert!(
+        output.status.success(),
+        "JSON help should exit successfully"
+    );
 }
 
 /// Test command classification metadata exists
@@ -361,7 +385,11 @@ fn test_command_classification() {
     assert!(help_cmd.is_some(), "Should have help command");
 
     if let Some(help) = help_cmd {
-        assert_eq!(help.category, CommandCategory::UserSafe, "Help should be UserSafe");
+        assert_eq!(
+            help.category,
+            CommandCategory::UserSafe,
+            "Help should be UserSafe"
+        );
         assert_eq!(help.risk_level, RiskLevel::None, "Help should have no risk");
         assert!(!help.requires_root, "Help should not require root");
         assert!(!help.requires_daemon, "Help should not require daemon");
@@ -374,7 +402,10 @@ fn test_command_classification() {
             matches!(update.category, CommandCategory::Advanced),
             "Update should be Advanced category"
         );
-        assert!(update.risk_level >= RiskLevel::Medium, "Update should have Medium+ risk");
+        assert!(
+            update.risk_level >= RiskLevel::Medium,
+            "Update should have Medium+ risk"
+        );
     }
 }
 
@@ -424,7 +455,10 @@ fn test_no_color_env() {
 
     // With NO_COLOR, should not contain ANSI codes (simplified check)
     // ANSI codes typically start with \x1b[
-    assert!(!stdout.contains("\x1b["), "Should not contain ANSI codes with NO_COLOR set");
+    assert!(
+        !stdout.contains("\x1b["),
+        "Should not contain ANSI codes with NO_COLOR set"
+    );
     assert!(output.status.success(), "Help should exit successfully");
 }
 
@@ -568,7 +602,10 @@ fn test_phase391_report_dir_fallback() {
 
     // Create a temporary directory for testing
     let temp_dir = std::env::temp_dir();
-    assert!(temp_dir.exists(), "Temp directory should exist for fallback");
+    assert!(
+        temp_dir.exists(),
+        "Temp directory should exist for fallback"
+    );
 
     // Test 2: XDG_STATE_HOME should be respected if set
     // (This is tested implicitly by the fallback logic)
@@ -616,7 +653,10 @@ fn test_phase391_graceful_permission_handling() {
 fn test_phase39_acceptance_suite_complete() {
     // Meta-test: Verify all Phase 3.9, 3.9.1, and 3.10 tests are present
     // This test always passes, serves as documentation
-    assert!(true, "Phase 3.9/3.9.1/3.10 acceptance test suite is complete");
+    assert!(
+        true,
+        "Phase 3.9/3.9.1/3.10 acceptance test suite is complete"
+    );
 }
 
 /// Phase 3.10: Test version comparison logic
@@ -779,8 +819,9 @@ fn test_phase47_noise_control_visibility_hints() {
         IssueSeverity::Info,
         "Test Issue",
         "Test explanation",
-        "Test action"
-    ).with_visibility(IssueVisibility::Deemphasized);
+        "Test action",
+    )
+    .with_visibility(IssueVisibility::Deemphasized);
 
     assert_eq!(issue.visibility, IssueVisibility::Deemphasized);
 
@@ -801,8 +842,9 @@ fn test_phase47_stable_issue_keys() {
         IssueSeverity::Info,
         "Time Sync Disabled",
         "NTP is not enabled",
-        "Enable systemd-timesyncd"
-    ).with_repair_action("time-sync-enable");
+        "Enable systemd-timesyncd",
+    )
+    .with_repair_action("time-sync-enable");
 
     assert_eq!(issue_with_action.issue_key(), "time-sync-enable");
 
@@ -811,7 +853,7 @@ fn test_phase47_stable_issue_keys() {
         IssueSeverity::Info,
         "Time Sync Disabled",
         "NTP is not enabled",
-        "Enable systemd-timesyncd"
+        "Enable systemd-timesyncd",
     );
 
     let key = issue_without_action.issue_key();
@@ -836,10 +878,10 @@ fn test_phase47_profile_in_command_output() {
 
     // Profile should be one of the known types
     match profile {
-        MachineProfile::Laptop => {},
-        MachineProfile::Desktop => {},
-        MachineProfile::ServerLike => {},
-        MachineProfile::Unknown => {},
+        MachineProfile::Laptop => {}
+        MachineProfile::Desktop => {}
+        MachineProfile::ServerLike => {}
+        MachineProfile::Unknown => {}
     }
 }
 
@@ -926,7 +968,10 @@ fn test_task6_simple_help_minimal() {
         stdout
     );
 
-    assert!(output.status.success(), "Simple help should exit successfully");
+    assert!(
+        output.status.success(),
+        "Simple help should exit successfully"
+    );
 }
 
 /// Task 6: Test that error messages use UI abstraction
@@ -944,14 +989,19 @@ fn test_task6_error_messages_use_ui() {
     let combined = format!("{}{}", stdout, stderr);
 
     assert!(
-        combined.contains("Try") || combined.contains("help") || combined.contains("natural language"),
+        combined.contains("Try")
+            || combined.contains("help")
+            || combined.contains("natural language"),
         "Error output should provide helpful guidance. stdout: {}, stderr: {}",
         stdout,
         stderr
     );
 
     // Should exit with error code
-    assert!(!output.status.success(), "Invalid flag should exit with error");
+    assert!(
+        !output.status.success(),
+        "Invalid flag should exit with error"
+    );
 }
 
 /// Task 6: Test status command shows Anna's health (replaces old repair command)
@@ -982,7 +1032,9 @@ fn test_task6_repair_self_health_no_crash() {
 
                     // Should show Anna status check output
                     assert!(
-                        stdout.contains("Anna Status Check") || stdout.contains("Version") || stdout.contains("Daemon"),
+                        stdout.contains("Anna Status Check")
+                            || stdout.contains("Version")
+                            || stdout.contains("Daemon"),
                         "Status should show Anna health output. stdout: {}, stderr: {}",
                         stdout,
                         stderr

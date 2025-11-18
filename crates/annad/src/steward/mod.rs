@@ -3,15 +3,13 @@
 //! Phase 0.9: System Steward - monitor, heal, and evolve Arch systems post-installation
 //! Citation: [archwiki:System_maintenance]
 
-mod types;
-mod health;
-mod update;
 mod audit;
+mod health;
 pub mod logging;
+mod types;
+mod update;
 
-pub use types::{
-    HealthReport, UpdateReport, AuditReport, HealthStatus,
-};
+pub use types::{AuditReport, HealthReport, HealthStatus, UpdateReport};
 
 use anyhow::Result;
 use tracing::info;

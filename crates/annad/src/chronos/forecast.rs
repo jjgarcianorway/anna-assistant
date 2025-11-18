@@ -136,13 +136,12 @@ impl ForecastEngine {
             let hours_ahead = (step as f64) / (self.config.steps_per_hour as f64);
 
             // Apply trend with noise
-            current_metrics.health_score = (current_metrics.health_score
-                + trend.health_velocity + noise_factor * 0.02)
-                .clamp(0.0, 1.0);
-            current_metrics.empathy_index = (current_metrics.empathy_index
-                + trend.empathy_velocity
-                + noise_factor * 0.01)
-                .clamp(0.0, 1.0);
+            current_metrics.health_score =
+                (current_metrics.health_score + trend.health_velocity + noise_factor * 0.02)
+                    .clamp(0.0, 1.0);
+            current_metrics.empathy_index =
+                (current_metrics.empathy_index + trend.empathy_velocity + noise_factor * 0.01)
+                    .clamp(0.0, 1.0);
             current_metrics.strain_index = (current_metrics.strain_index + trend.strain_velocity
                 - noise_factor * 0.01)
                 .clamp(0.0, 1.0);

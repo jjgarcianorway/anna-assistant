@@ -157,7 +157,10 @@ fn check_iommu_enabled() -> bool {
     if let Ok(output) = Command::new("dmesg").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            if stdout.contains("IOMMU enabled") || stdout.contains("DMAR: Intel-IOMMU") || stdout.contains("AMD-Vi") {
+            if stdout.contains("IOMMU enabled")
+                || stdout.contains("DMAR: Intel-IOMMU")
+                || stdout.contains("AMD-Vi")
+            {
                 return true;
             }
         }
@@ -240,11 +243,7 @@ fn is_command_available(command: &str) -> bool {
 
 /// Count running Docker containers
 fn count_docker_containers() -> Option<usize> {
-    if let Ok(output) = Command::new("docker")
-        .arg("ps")
-        .arg("-q")
-        .output()
-    {
+    if let Ok(output) = Command::new("docker").arg("ps").arg("-q").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let count = stdout.lines().filter(|line| !line.is_empty()).count();
@@ -256,18 +255,16 @@ fn count_docker_containers() -> Option<usize> {
 
 /// Count libvirt VMs
 fn count_libvirt_vms() -> Option<usize> {
-    if let Ok(output) = Command::new("virsh")
-        .arg("list")
-        .arg("--all")
-        .output()
-    {
+    if let Ok(output) = Command::new("virsh").arg("list").arg("--all").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             // Count non-header lines
             let count = stdout
                 .lines()
                 .skip(2) // Skip header lines
-                .filter(|line| !line.trim().is_empty() && line.contains("running") || line.contains("shut off"))
+                .filter(|line| {
+                    !line.trim().is_empty() && line.contains("running") || line.contains("shut off")
+                })
                 .count();
             return Some(count);
         }

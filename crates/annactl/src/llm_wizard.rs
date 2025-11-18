@@ -105,7 +105,10 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
     ui.info("I will:");
     ui.bullet_list(&[
         "Install or enable Ollama if needed",
-        &format!("Download model: {} (~{:.1} GB)", profile.model_name, profile.size_gb),
+        &format!(
+            "Download model: {} (~{:.1} GB)",
+            profile.model_name, profile.size_gb
+        ),
         "Start the service and test it",
     ]);
 
@@ -278,7 +281,8 @@ async fn store_initial_capability(db: &ContextDb, capability: LlmCapability) -> 
     };
 
     // Store in database using generic preference storage
-    db.save_preference("llm_initial_capability", tier_str).await?;
+    db.save_preference("llm_initial_capability", tier_str)
+        .await?;
 
     Ok(())
 }

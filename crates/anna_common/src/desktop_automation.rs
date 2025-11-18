@@ -5,13 +5,13 @@
 //!
 //! All operations create backups before making changes.
 
+use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use anyhow::{Context, Result, bail};
 
-use crate::desktop::{DesktopEnvironment, DesktopInfo};
 use crate::config_file::{DesktopConfig, WallpaperConfig};
+use crate::desktop::{DesktopEnvironment, DesktopInfo};
 use crate::file_backup::FileBackup;
 
 /// Wallpaper change result
@@ -49,7 +49,10 @@ pub fn list_wallpapers<P: AsRef<Path>>(directory: P) -> Result<Vec<PathBuf>> {
             // Check if it's an image file
             if let Some(ext) = path.extension() {
                 let ext = ext.to_string_lossy().to_lowercase();
-                if matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp") {
+                if matches!(
+                    ext.as_str(),
+                    "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp"
+                ) {
                     wallpapers.push(path);
                 }
             }
@@ -71,7 +74,8 @@ pub fn pick_random_wallpaper<P: AsRef<Path>>(directory: P) -> Result<PathBuf> {
     let index = (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .as_secs() as usize) % wallpapers.len();
+        .as_secs() as usize)
+        % wallpapers.len();
 
     Ok(wallpapers[index].clone())
 }
@@ -85,8 +89,7 @@ pub fn change_wallpaper<P: AsRef<Path>>(new_wallpaper: P) -> Result<WallpaperCha
         bail!("Wallpaper file does not exist: {}", new_wallpaper.display());
     }
 
-    let config = DesktopConfig::parse()
-        .context("Could not parse desktop configuration")?;
+    let config = DesktopConfig::parse().context("Could not parse desktop configuration")?;
 
     match desktop_info.environment {
         DesktopEnvironment::Hyprland => change_wallpaper_hyprland(new_wallpaper, &config),
@@ -102,7 +105,9 @@ fn change_wallpaper_hyprland(
     new_wallpaper: &Path,
     config: &DesktopConfig,
 ) -> Result<WallpaperChangeResult> {
-    let wallpaper_config = config.wallpaper.as_ref()
+    let wallpaper_config = config
+        .wallpaper
+        .as_ref()
         .context("No wallpaper configuration found")?;
 
     let previous_wallpaper = wallpaper_config.paths.first().cloned();
@@ -117,18 +122,19 @@ fn change_wallpaper_hyprland(
 
     // Backup current config
     use crate::file_backup::FileOperation;
-    let change_set_id = format!("wallpaper-change-{}",
+    let change_set_id = format!(
+        "wallpaper-change-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs());
+            .as_secs()
+    );
 
     let backup = FileBackup::create_backup(&config_file, change_set_id, FileOperation::Modified)
         .context("Failed to backup hyprpaper config")?;
 
     // Read current config
-    let content = fs::read_to_string(&config_file)
-        .context("Failed to read hyprpaper config")?;
+    let content = fs::read_to_string(&config_file).context("Failed to read hyprpaper config")?;
 
     // Update wallpaper paths in config
     let mut new_content = String::new();
@@ -146,7 +152,10 @@ fn change_wallpaper_hyprland(
                         // Keep monitor, replace path
                         if let Some(comma_pos) = parts[1].find(',') {
                             let monitor = &parts[1][..comma_pos];
-                            new_content.push_str(&format!("{} = {},{}\n", key, monitor, new_wallpaper_str));
+                            new_content.push_str(&format!(
+                                "{} = {},{}\n",
+                                key, monitor, new_wallpaper_str
+                            ));
                         } else {
                             new_content.push_str(&format!("{} = {}\n", key, new_wallpaper_str));
                         }
@@ -163,8 +172,7 @@ fn change_wallpaper_hyprland(
     }
 
     // Write updated config
-    fs::write(&config_file, &new_content)
-        .context("Failed to write updated hyprpaper config")?;
+    fs::write(&config_file, &new_content).context("Failed to write updated hyprpaper config")?;
 
     // Reload hyprpaper
     let mut commands_executed = Vec::new();
@@ -194,7 +202,9 @@ fn change_wallpaper_i3_sway(
     config: &DesktopConfig,
     env: &DesktopEnvironment,
 ) -> Result<WallpaperChangeResult> {
-    let wallpaper_config = config.wallpaper.as_ref()
+    let wallpaper_config = config
+        .wallpaper
+        .as_ref()
         .context("No wallpaper configuration found")?;
 
     let previous_wallpaper = wallpaper_config.paths.first().cloned();
@@ -233,7 +243,10 @@ fn change_wallpaper_i3_sway(
                 .arg(new_wallpaper)
                 .status()
                 .context("Failed to execute nitrogen")?;
-            commands_executed.push(format!("nitrogen --set-zoom-fill {}", new_wallpaper.display()));
+            commands_executed.push(format!(
+                "nitrogen --set-zoom-fill {}",
+                new_wallpaper.display()
+            ));
         }
         _ => bail!("Unsupported wallpaper setter: {}", wallpaper_config.setter),
     }

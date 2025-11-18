@@ -170,10 +170,7 @@ pub enum ChangeActionKind {
 
     /// Run a read-only command for verification (ls, grep, pacman -Qi)
     /// IMPORTANT: No mutating commands allowed here
-    RunReadOnlyCommand {
-        command: String,
-        args: Vec<String>,
-    },
+    RunReadOnlyCommand { command: String, args: Vec<String> },
 }
 
 impl ChangeActionKind {
@@ -188,7 +185,8 @@ impl ChangeActionKind {
     pub fn category(&self) -> ChangeCategory {
         match self {
             ChangeActionKind::SetWallpaper { .. } => ChangeCategory::CosmeticUser,
-            ChangeActionKind::EditFile { path, .. } | ChangeActionKind::AppendToFile { path, .. } => {
+            ChangeActionKind::EditFile { path, .. }
+            | ChangeActionKind::AppendToFile { path, .. } => {
                 // Check path to determine category
                 if path.starts_with("/etc") {
                     ChangeCategory::SystemService
@@ -217,7 +215,8 @@ impl ChangeActionKind {
 
         // Override risk based on specific patterns
         match self {
-            ChangeActionKind::EditFile { path, .. } | ChangeActionKind::AppendToFile { path, .. } => {
+            ChangeActionKind::EditFile { path, .. }
+            | ChangeActionKind::AppendToFile { path, .. } => {
                 // Boot and storage paths are ALWAYS forbidden
                 if path.to_string_lossy().contains("/boot")
                     || path.to_string_lossy().contains("fstab")
@@ -255,11 +254,13 @@ impl ChangeActionKind {
     /// Check if this action needs sudo
     pub fn needs_sudo(&self) -> bool {
         match self {
-            ChangeActionKind::EditFile { path, .. } | ChangeActionKind::AppendToFile { path, .. } => {
+            ChangeActionKind::EditFile { path, .. }
+            | ChangeActionKind::AppendToFile { path, .. } => {
                 path.starts_with("/etc") || path.starts_with("/usr")
             }
-            ChangeActionKind::InstallPackages { .. }
-            | ChangeActionKind::RemovePackages { .. } => true,
+            ChangeActionKind::InstallPackages { .. } | ChangeActionKind::RemovePackages { .. } => {
+                true
+            }
             ChangeActionKind::EnableService { user_service, .. }
             | ChangeActionKind::DisableService { user_service, .. } => !user_service,
             _ => false,
@@ -329,7 +330,8 @@ impl ChangeAction {
         if self.risk == ChangeRisk::Forbidden {
             // Include path in error message for file operations
             let detail = match &self.kind {
-                ChangeActionKind::EditFile { path, .. } | ChangeActionKind::AppendToFile { path, .. } => {
+                ChangeActionKind::EditFile { path, .. }
+                | ChangeActionKind::AppendToFile { path, .. } => {
                     format!(" (Path: {})", path.display())
                 }
                 _ => String::new(),
@@ -429,9 +431,9 @@ impl ChangeRecipe {
     pub fn validate(&self) -> Result<()> {
         // Validate each action (this will catch forbidden actions with detailed error messages)
         for action in &self.actions {
-            action.validate().with_context(|| {
-                format!("In recipe '{}'", self.title)
-            })?;
+            action
+                .validate()
+                .with_context(|| format!("In recipe '{}'", self.title))?;
         }
 
         // Check that we have at least one action

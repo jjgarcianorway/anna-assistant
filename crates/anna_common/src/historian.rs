@@ -543,10 +543,10 @@ pub struct Baseline {
 /// Synthesized health scores
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthScore {
-    pub date: String, // YYYY-MM-DD
-    pub stability_score: u8, // 0-100
+    pub date: String,          // YYYY-MM-DD
+    pub stability_score: u8,   // 0-100
     pub performance_score: u8, // 0-100
-    pub noise_score: u8, // 0-100
+    pub noise_score: u8,       // 0-100
     pub stability_trend: Trend,
     pub performance_trend: Trend,
     pub noise_trend: Trend,
@@ -591,8 +591,7 @@ pub struct Historian {
 impl Historian {
     /// Create a new Historian instance and initialize the database
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let conn = Connection::open(path.as_ref())
-            .context("Failed to open historian database")?;
+        let conn = Connection::open(path.as_ref()).context("Failed to open historian database")?;
 
         let mut historian = Self { conn };
         historian.init_schema()?;
@@ -602,11 +601,13 @@ impl Historian {
     /// Initialize database schema
     fn init_schema(&mut self) -> Result<()> {
         // Execute the schema SQL
-        self.conn.execute_batch(SCHEMA_SQL)
+        self.conn
+            .execute_batch(SCHEMA_SQL)
             .context("Failed to create database schema")?;
 
         // Check if we need to insert the schema version
-        let version_exists: bool = self.conn
+        let version_exists: bool = self
+            .conn
             .query_row(
                 "SELECT COUNT(*) > 0 FROM schema_version WHERE version = ?1",
                 [SCHEMA_VERSION],
@@ -655,9 +656,21 @@ impl Historian {
     pub fn record_repair(&self, repair: &RepairRecord) -> Result<i64> {
         let trigger_type = serde_json::to_string(&repair.trigger_type)?;
         let actions_taken = serde_json::to_string(&repair.actions_taken)?;
-        let metrics_before = repair.metrics_before.as_ref().map(|m| serde_json::to_string(m)).transpose()?;
-        let metrics_after = repair.metrics_after.as_ref().map(|m| serde_json::to_string(m)).transpose()?;
-        let user_feedback = repair.user_feedback.as_ref().map(|f| serde_json::to_string(f)).transpose()?;
+        let metrics_before = repair
+            .metrics_before
+            .as_ref()
+            .map(|m| serde_json::to_string(m))
+            .transpose()?;
+        let metrics_after = repair
+            .metrics_after
+            .as_ref()
+            .map(|m| serde_json::to_string(m))
+            .transpose()?;
+        let user_feedback = repair
+            .user_feedback
+            .as_ref()
+            .map(|f| serde_json::to_string(f))
+            .transpose()?;
 
         let id = self.conn.execute(
             "INSERT INTO repair_history (timestamp, trigger_type, action_type, actions_taken, metrics_before, metrics_after, success, regressed, user_feedback, notes)
@@ -695,7 +708,9 @@ impl Historian {
 
             Ok(TimelineEvent {
                 event_type: serde_json::from_str(&event_type_str).unwrap(),
-                timestamp: DateTime::parse_from_rfc3339(&timestamp_str).unwrap().with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&timestamp_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
                 version_from: row.get(2)?,
                 version_to: row.get(3)?,
                 kernel_from: row.get(4)?,
@@ -710,11 +725,9 @@ impl Historian {
 
     /// Get repair effectiveness statistics
     pub fn get_repair_effectiveness(&self) -> Result<RepairEffectiveness> {
-        let total: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM repair_history",
-            [],
-            |row| row.get(0),
-        )?;
+        let total: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM repair_history", [], |row| row.get(0))?;
 
         let successful: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM repair_history WHERE success = 1",
@@ -815,7 +828,7 @@ impl Historian {
             "SELECT date, avg_boot_duration_ms, avg_health_score
              FROM boot_aggregates
              WHERE date >= DATE(?1)
-             ORDER BY date ASC"
+             ORDER BY date ASC",
         )?;
 
         let mut boot_times = Vec::new();
@@ -854,7 +867,7 @@ impl Historian {
     /// Get slowest boot units (recurring offenders)
     pub fn get_slowest_units(&self) -> Result<Vec<SlowUnitStats>> {
         let mut stmt = self.conn.prepare(
-            "SELECT slowest_units FROM boot_events ORDER BY boot_timestamp DESC LIMIT 30"
+            "SELECT slowest_units FROM boot_events ORDER BY boot_timestamp DESC LIMIT 30",
         )?;
 
         let mut unit_stats: HashMap<String, (i64, i64)> = HashMap::new(); // (total_time, count)
@@ -986,7 +999,7 @@ impl Historian {
         let mut stmt = self.conn.prepare(
             "SELECT avg_utilization_percent FROM cpu_aggregates
              WHERE date >= DATE(?1)
-             ORDER BY date ASC"
+             ORDER BY date ASC",
         )?;
 
         let mut utilizations = Vec::new();
@@ -1022,7 +1035,7 @@ impl Historian {
         let mut stmt = self.conn.prepare(
             "SELECT avg_ram_used_mb, peak_ram_used_mb FROM memory_aggregates
              WHERE date >= DATE(?1)
-             ORDER BY date ASC"
+             ORDER BY date ASC",
         )?;
 
         let mut ram_usage = Vec::new();
@@ -1054,9 +1067,9 @@ impl Historian {
 
     /// Identify resource hogs (processes that consistently use too much)
     pub fn identify_resource_hogs(&self) -> Result<Vec<ResourceHog>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT top_processes FROM cpu_samples ORDER BY timestamp DESC LIMIT 50"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT top_processes FROM cpu_samples ORDER BY timestamp DESC LIMIT 50")?;
 
         let mut process_stats: HashMap<String, (f64, usize)> = HashMap::new(); // (total_cpu, count)
 
@@ -1069,7 +1082,9 @@ impl Historian {
             let top_processes_str = row?;
             if let Ok(processes) = serde_json::from_str::<Vec<ProcessCpuInfo>>(&top_processes_str) {
                 for process in processes {
-                    let entry = process_stats.entry(process.name.clone()).or_insert((0.0, 0));
+                    let entry = process_stats
+                        .entry(process.name.clone())
+                        .or_insert((0.0, 0));
                     entry.0 += process.cpu_percent;
                     entry.1 += 1;
                 }
@@ -1097,7 +1112,13 @@ impl Historian {
     // ========================================================================
 
     /// Record a disk space snapshot
-    pub fn record_disk_snapshot(&self, filesystem: &str, total_gb: f64, used_gb: f64, inode_used_percent: Option<f64>) -> Result<i64> {
+    pub fn record_disk_snapshot(
+        &self,
+        filesystem: &str,
+        total_gb: f64,
+        used_gb: f64,
+        inode_used_percent: Option<f64>,
+    ) -> Result<i64> {
         let free_gb = total_gb - used_gb;
         let used_percent = (used_gb / total_gb) * 100.0;
 
@@ -1140,7 +1161,11 @@ impl Historian {
     }
 
     /// Record a network quality sample
-    pub fn record_network_sample(&self, interface: &str, quality_data: &NetworkQuality) -> Result<i64> {
+    pub fn record_network_sample(
+        &self,
+        interface: &str,
+        quality_data: &NetworkQuality,
+    ) -> Result<i64> {
         let id = self.conn.execute(
             "INSERT INTO network_samples (timestamp, window_start, window_end, interface, target, avg_latency_ms, packet_loss_percent, disconnect_count, dhcp_renew_failures, dns_failures)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -1168,18 +1193,15 @@ impl Historian {
         let mut stmt = self.conn.prepare(
             "SELECT timestamp, used_gb FROM disk_space_samples
              WHERE filesystem = ?1 AND timestamp >= ?2
-             ORDER BY timestamp ASC"
+             ORDER BY timestamp ASC",
         )?;
 
         let mut samples: Vec<(DateTime<Utc>, f64)> = Vec::new();
-        let rows = stmt.query_map(
-            rusqlite::params![filesystem, cutoff.to_rfc3339()],
-            |row| {
-                let timestamp_str: String = row.get(0)?;
-                let used_gb: f64 = row.get(1)?;
-                Ok((timestamp_str, used_gb))
-            },
-        )?;
+        let rows = stmt.query_map(rusqlite::params![filesystem, cutoff.to_rfc3339()], |row| {
+            let timestamp_str: String = row.get(0)?;
+            let used_gb: f64 = row.get(1)?;
+            Ok((timestamp_str, used_gb))
+        })?;
 
         for row in rows {
             let (timestamp_str, used_gb) = row?;
@@ -1230,26 +1252,27 @@ impl Historian {
     }
 
     /// Get network quality trends for an interface over the last N days
-    pub fn get_network_quality_trends(&self, interface: &str, days: u32) -> Result<NetworkQualityTrends> {
+    pub fn get_network_quality_trends(
+        &self,
+        interface: &str,
+        days: u32,
+    ) -> Result<NetworkQualityTrends> {
         let cutoff = Utc::now() - chrono::Duration::days(days as i64);
 
         let mut stmt = self.conn.prepare(
             "SELECT avg_latency_ms, packet_loss_percent FROM network_samples
              WHERE interface = ?1 AND timestamp >= ?2
-             ORDER BY timestamp ASC"
+             ORDER BY timestamp ASC",
         )?;
 
         let mut latencies = Vec::new();
         let mut packet_losses = Vec::new();
 
-        let rows = stmt.query_map(
-            rusqlite::params![interface, cutoff.to_rfc3339()],
-            |row| {
-                let latency: Option<f64> = row.get(0)?;
-                let loss: Option<f64> = row.get(1)?;
-                Ok((latency, loss))
-            },
-        )?;
+        let rows = stmt.query_map(rusqlite::params![interface, cutoff.to_rfc3339()], |row| {
+            let latency: Option<f64> = row.get(0)?;
+            let loss: Option<f64> = row.get(1)?;
+            Ok((latency, loss))
+        })?;
 
         for row in rows {
             let (latency, loss) = row?;
@@ -1286,7 +1309,12 @@ impl Historian {
     // ========================================================================
 
     /// Record a service event
-    pub fn record_service_event(&self, service_name: &str, event_type: &str, metadata: Option<&serde_json::Value>) -> Result<i64> {
+    pub fn record_service_event(
+        &self,
+        service_name: &str,
+        event_type: &str,
+        metadata: Option<&serde_json::Value>,
+    ) -> Result<i64> {
         let metadata_str = metadata.map(|m| serde_json::to_string(m)).transpose()?;
 
         let id = self.conn.execute(
@@ -1358,22 +1386,19 @@ impl Historian {
         let mut stmt = self.conn.prepare(
             "SELECT timestamp, exit_code, signal FROM service_reliability
              WHERE service_name = ?1 AND event_type = 'crash' AND timestamp >= ?2
-             ORDER BY timestamp DESC"
+             ORDER BY timestamp DESC",
         )?;
 
-        let crashes = stmt.query_map(
-            rusqlite::params![service, cutoff.to_rfc3339()],
-            |row| {
-                let timestamp_str: String = row.get(0)?;
-                Ok(ServiceCrashPattern {
-                    timestamp: DateTime::parse_from_rfc3339(&timestamp_str)
-                        .unwrap()
-                        .with_timezone(&Utc),
-                    exit_code: row.get(1)?,
-                    signal: row.get(2)?,
-                })
-            },
-        )?;
+        let crashes = stmt.query_map(rusqlite::params![service, cutoff.to_rfc3339()], |row| {
+            let timestamp_str: String = row.get(0)?;
+            Ok(ServiceCrashPattern {
+                timestamp: DateTime::parse_from_rfc3339(&timestamp_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                exit_code: row.get(1)?,
+                signal: row.get(2)?,
+            })
+        })?;
 
         crashes.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
@@ -1408,7 +1433,13 @@ impl Historian {
     }
 
     /// Record error rate sample
-    pub fn record_error_rate_sample(&self, error_count: i32, warning_count: i32, critical_count: i32, new_signature_count: i32) -> Result<i64> {
+    pub fn record_error_rate_sample(
+        &self,
+        error_count: i32,
+        warning_count: i32,
+        critical_count: i32,
+        new_signature_count: i32,
+    ) -> Result<i64> {
         let now = Utc::now();
         let window_start = now - chrono::Duration::hours(1);
 
@@ -1438,16 +1469,14 @@ impl Historian {
              WHERE timestamp >= ?1"
         )?;
 
-        let (total_errors, total_warnings, total_criticals) = stmt.query_row(
-            [cutoff.to_rfc3339()],
-            |row| {
+        let (total_errors, total_warnings, total_criticals) =
+            stmt.query_row([cutoff.to_rfc3339()], |row| {
                 Ok((
                     row.get::<_, Option<i64>>(0)?.unwrap_or(0),
                     row.get::<_, Option<i64>>(1)?.unwrap_or(0),
                     row.get::<_, Option<i64>>(2)?.unwrap_or(0),
                 ))
-            },
-        )?;
+            })?;
 
         Ok(ErrorTrends {
             total_errors: total_errors as usize,
@@ -1475,8 +1504,12 @@ impl Historian {
                 source: row.get(1)?,
                 severity: row.get(2)?,
                 message_template: row.get(3)?,
-                first_occurrence: DateTime::parse_from_rfc3339(&first_str).unwrap().with_timezone(&Utc),
-                last_occurrence: DateTime::parse_from_rfc3339(&last_str).unwrap().with_timezone(&Utc),
+                first_occurrence: DateTime::parse_from_rfc3339(&first_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                last_occurrence: DateTime::parse_from_rfc3339(&last_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
                 total_count: row.get::<_, i64>(6)? as usize,
             })
         })?;
@@ -1485,7 +1518,11 @@ impl Historian {
     }
 
     /// Check if an error disappeared after a change
-    pub fn check_error_disappeared(&self, signature_hash: &str, after_change_id: i64) -> Result<bool> {
+    pub fn check_error_disappeared(
+        &self,
+        signature_hash: &str,
+        after_change_id: i64,
+    ) -> Result<bool> {
         // Get the change timestamp
         let change_timestamp: String = self.conn.query_row(
             "SELECT timestamp FROM repair_history WHERE id = ?1",
@@ -1528,7 +1565,9 @@ impl Historian {
         )?;
 
         let metrics = serde_json::to_string(&baseline.metrics)?;
-        let hardware_config = baseline.hardware_config.as_ref()
+        let hardware_config = baseline
+            .hardware_config
+            .as_ref()
             .map(|h| serde_json::to_string(h))
             .transpose()?;
 
@@ -1555,7 +1594,7 @@ impl Historian {
              FROM baselines
              WHERE baseline_type = ?1 AND is_active = 1
              ORDER BY timestamp DESC
-             LIMIT 1"
+             LIMIT 1",
         )?;
 
         let result = stmt.query_row([baseline_type], |row| {
@@ -1565,7 +1604,9 @@ impl Historian {
 
             Ok(Baseline {
                 baseline_type: row.get(0)?,
-                timestamp: DateTime::parse_from_rfc3339(&timestamp_str).unwrap().with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&timestamp_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
                 metrics: serde_json::from_str(&metrics_str).unwrap(),
                 hardware_config: hardware_str.and_then(|s| serde_json::from_str(&s).ok()),
                 notes: row.get(4)?,
@@ -1581,7 +1622,14 @@ impl Historian {
     }
 
     /// Record a performance delta (before/after a change)
-    pub fn record_performance_delta(&self, change_type: &str, change_id: Option<&str>, metric_name: &str, value_before: f64, value_after: f64) -> Result<i64> {
+    pub fn record_performance_delta(
+        &self,
+        change_type: &str,
+        change_id: Option<&str>,
+        metric_name: &str,
+        value_before: f64,
+        value_after: f64,
+    ) -> Result<i64> {
         let delta_percent = ((value_after - value_before) / value_before) * 100.0;
         let impact = if delta_percent.abs() < 5.0 {
             "minimal"
@@ -1614,7 +1662,11 @@ impl Historian {
     }
 
     /// Compare current metrics to baseline
-    pub fn compare_to_baseline(&self, baseline_type: &str, current_metrics: &serde_json::Value) -> Result<Option<BaselineComparison>> {
+    pub fn compare_to_baseline(
+        &self,
+        baseline_type: &str,
+        current_metrics: &serde_json::Value,
+    ) -> Result<Option<BaselineComparison>> {
         let baseline = match self.get_active_baseline(baseline_type)? {
             Some(b) => b,
             None => return Ok(None),
@@ -1657,7 +1709,11 @@ impl Historian {
     }
 
     /// Record LLM performance sample
-    pub fn record_llm_sample(&self, model: &str, performance_data: &LlmPerformanceData) -> Result<i64> {
+    pub fn record_llm_sample(
+        &self,
+        model: &str,
+        performance_data: &LlmPerformanceData,
+    ) -> Result<i64> {
         let id = self.conn.execute(
             "INSERT INTO llm_samples (timestamp, window_start, window_end, model_name, avg_latency_ms, total_requests, failed_requests, avg_memory_mb, avg_gpu_utilization_percent, avg_cpu_utilization_percent, avg_temperature_c, max_temperature_c)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
@@ -1681,7 +1737,12 @@ impl Historian {
     }
 
     /// Record model change
-    pub fn record_model_change(&self, from: Option<&str>, to: &str, reason: Option<&str>) -> Result<i64> {
+    pub fn record_model_change(
+        &self,
+        from: Option<&str>,
+        to: &str,
+        reason: Option<&str>,
+    ) -> Result<i64> {
         let id = self.conn.execute(
             "INSERT INTO llm_model_history (timestamp, event_type, model_from, model_to, reason)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -1703,19 +1764,25 @@ impl Historian {
         let mut anomalies = Vec::new();
 
         // Check for unusual heavy load hours
-        let recent_heavy_hours: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM usage_patterns
+        let recent_heavy_hours: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM usage_patterns
              WHERE date >= DATE('now', '-7 days')
              AND LENGTH(heavy_load_hours) > 10",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0);
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         if recent_heavy_hours > 5 {
             anomalies.push(UsageAnomaly {
                 timestamp: Utc::now(),
                 anomaly_type: "unexpected_heavy_load".to_string(),
-                description: format!("Heavy system load detected on {} of the last 7 days", recent_heavy_hours),
+                description: format!(
+                    "Heavy system load detected on {} of the last 7 days",
+                    recent_heavy_hours
+                ),
                 severity: "warning".to_string(),
             });
         }
@@ -1730,23 +1797,33 @@ impl Historian {
     /// Compute daily health scores
     pub fn compute_daily_health_scores(&self, date: &str) -> Result<()> {
         // Get various metrics for the day
-        let boot_health: Option<f64> = self.conn.query_row(
-            "SELECT avg_health_score FROM boot_aggregates WHERE date = ?1",
-            [date],
-            |row| row.get(0),
-        ).ok().flatten();
+        let boot_health: Option<f64> = self
+            .conn
+            .query_row(
+                "SELECT avg_health_score FROM boot_aggregates WHERE date = ?1",
+                [date],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
 
-        let error_count: i64 = self.conn.query_row(
-            "SELECT SUM(error_count) FROM error_rate_samples WHERE DATE(timestamp) = ?1",
-            [date],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let error_count: i64 = self
+            .conn
+            .query_row(
+                "SELECT SUM(error_count) FROM error_rate_samples WHERE DATE(timestamp) = ?1",
+                [date],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let service_crashes: i64 = self.conn.query_row(
-            "SELECT SUM(crash_count) FROM service_aggregates WHERE date = ?1",
-            [date],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let service_crashes: i64 = self
+            .conn
+            .query_row(
+                "SELECT SUM(crash_count) FROM service_aggregates WHERE date = ?1",
+                [date],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         // Calculate scores (0-100)
         let stability_score = calculate_stability_score(boot_health, service_crashes);
@@ -1779,7 +1856,7 @@ impl Historian {
     pub fn compute_trends(&self) -> Result<HealthTrendSummary> {
         let mut stmt = self.conn.prepare(
             "SELECT date, stability_score, performance_score, noise_score FROM health_scores
-             ORDER BY date DESC LIMIT 30"
+             ORDER BY date DESC LIMIT 30",
         )?;
 
         let mut stability_scores = Vec::new();
@@ -1815,13 +1892,11 @@ impl Historian {
         // Get the last 30 days of health scores
         let mut stmt = self.conn.prepare(
             "SELECT date, stability_score, performance_score FROM health_scores
-             ORDER BY date DESC LIMIT 30"
+             ORDER BY date DESC LIMIT 30",
         )?;
 
         let mut scores: Vec<(String, i64, i64)> = Vec::new();
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        })?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
 
         for row in rows {
             scores.push(row?);
@@ -1879,16 +1954,13 @@ impl Historian {
              WHERE date >= ?1"
         )?;
 
-        let (avg_stability, avg_performance, avg_noise) = stmt.query_row(
-            [cutoff_date],
-            |row| {
-                Ok((
-                    row.get::<_, Option<f64>>(0)?.unwrap_or(0.0),
-                    row.get::<_, Option<f64>>(1)?.unwrap_or(0.0),
-                    row.get::<_, Option<f64>>(2)?.unwrap_or(0.0),
-                ))
-            },
-        )?;
+        let (avg_stability, avg_performance, avg_noise) = stmt.query_row([cutoff_date], |row| {
+            Ok((
+                row.get::<_, Option<f64>>(0)?.unwrap_or(0.0),
+                row.get::<_, Option<f64>>(1)?.unwrap_or(0.0),
+                row.get::<_, Option<f64>>(2)?.unwrap_or(0.0),
+            ))
+        })?;
 
         Ok(HealthSummary {
             avg_stability_score: avg_stability as u8,
@@ -1919,7 +1991,10 @@ impl Historian {
     }
 
     /// Answer "when did this problem start?"
-    pub fn answer_when_did_this_start(&self, problem_description: &str) -> Result<Option<DateTime<Utc>>> {
+    pub fn answer_when_did_this_start(
+        &self,
+        problem_description: &str,
+    ) -> Result<Option<DateTime<Utc>>> {
         // This is a simplified implementation - real version would use NLP to match problem description
         // For now, check for new errors in the last 90 days
         let cutoff = Utc::now() - chrono::Duration::days(90);
@@ -1942,7 +2017,7 @@ impl Historian {
         let mut stmt = self.conn.prepare(
             "SELECT timestamp, action_type, actions_taken FROM repair_history
              WHERE timestamp BETWEEN ?1 AND ?2
-             ORDER BY timestamp DESC"
+             ORDER BY timestamp DESC",
         )?;
 
         let rows = stmt.query_map(
@@ -1970,7 +2045,7 @@ impl Historian {
         let mut stmt2 = self.conn.prepare(
             "SELECT timestamp, event_type, notes FROM system_timeline
              WHERE timestamp BETWEEN ?1 AND ?2
-             ORDER BY timestamp DESC"
+             ORDER BY timestamp DESC",
         )?;
 
         let rows2 = stmt2.query_map(
@@ -2013,7 +2088,9 @@ impl Historian {
 
             Ok(RepairImpact {
                 repair_id,
-                timestamp: DateTime::parse_from_rfc3339(&ts_str).unwrap().with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&ts_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
                 action_type: row.get(1)?,
                 metrics_before: before_str.and_then(|s| serde_json::from_str(&s).ok()),
                 metrics_after: after_str.and_then(|s| serde_json::from_str(&s).ok()),
@@ -2045,14 +2122,16 @@ impl Historian {
     fn get_recent_repairs(&self, limit: usize) -> Result<Vec<RepairSummary>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, timestamp, action_type, success FROM repair_history
-             ORDER BY timestamp DESC LIMIT ?1"
+             ORDER BY timestamp DESC LIMIT ?1",
         )?;
 
         let repairs = stmt.query_map([limit], |row| {
             let ts_str: String = row.get(1)?;
             Ok(RepairSummary {
                 id: row.get(0)?,
-                timestamp: DateTime::parse_from_rfc3339(&ts_str).unwrap().with_timezone(&Utc),
+                timestamp: DateTime::parse_from_rfc3339(&ts_str)
+                    .unwrap()
+                    .with_timezone(&Utc),
                 action_type: row.get(2)?,
                 success: row.get(3)?,
             })
@@ -2339,7 +2418,7 @@ fn calculate_trend(values: &[f64]) -> Trend {
 
 /// Create a signature hash from an error message
 fn create_signature_hash(message: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
 
     // Normalize the message (remove numbers, timestamps, etc.)
     let normalized = message
@@ -2385,7 +2464,10 @@ fn calculate_noise_score(error_count: i64) -> u8 {
 }
 
 /// Calculate metric deviations between baseline and current
-fn calculate_metric_deviations(baseline: &serde_json::Value, current: &serde_json::Value) -> Vec<MetricDeviation> {
+fn calculate_metric_deviations(
+    baseline: &serde_json::Value,
+    current: &serde_json::Value,
+) -> Vec<MetricDeviation> {
     let mut deviations = Vec::new();
 
     // This is a simplified implementation - real version would recursively compare JSON structures

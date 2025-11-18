@@ -88,32 +88,26 @@ impl ReflectionGenerator {
     ) -> Vec<EthicalDecisionRecord> {
         // Placeholder: In full implementation, would query conscience layer
         // For now, return sample data
-        vec![
-            EthicalDecisionRecord {
-                id: Uuid::new_v4().to_string(),
-                timestamp: Utc::now(),
-                action: "SystemUpdate".to_string(),
-                outcome: "Approved".to_string(),
-                ethical_score: 0.85,
-                reasoning: "Low risk, high benefit for system security".to_string(),
-                stakeholder_impacts: [
-                    ("user".to_string(), 0.1),
-                    ("system".to_string(), 0.9),
-                    ("environment".to_string(), 0.0),
-                ]
-                .iter()
-                .cloned()
-                .collect(),
-            },
-        ]
+        vec![EthicalDecisionRecord {
+            id: Uuid::new_v4().to_string(),
+            timestamp: Utc::now(),
+            action: "SystemUpdate".to_string(),
+            outcome: "Approved".to_string(),
+            ethical_score: 0.85,
+            reasoning: "Low risk, high benefit for system security".to_string(),
+            stakeholder_impacts: [
+                ("user".to_string(), 0.1),
+                ("system".to_string(), 0.9),
+                ("environment".to_string(), 0.0),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+        }]
     }
 
     /// Summarize empathy state over period
-    fn summarize_empathy_state(
-        &self,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-    ) -> EmpathySummary {
+    fn summarize_empathy_state(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> EmpathySummary {
         // Placeholder: In full implementation, would query empathy kernel
         EmpathySummary {
             avg_empathy_index: 0.75,
@@ -158,11 +152,8 @@ impl ReflectionGenerator {
         // 1. Consistency of ethical scores
         let scores: Vec<f64> = decisions.iter().map(|d| d.ethical_score).collect();
         let avg_score = scores.iter().sum::<f64>() / scores.len() as f64;
-        let variance = scores
-            .iter()
-            .map(|s| (s - avg_score).powi(2))
-            .sum::<f64>()
-            / scores.len() as f64;
+        let variance =
+            scores.iter().map(|s| (s - avg_score).powi(2)).sum::<f64>() / scores.len() as f64;
         let consistency = 1.0 - variance.min(1.0);
 
         // 2. Alignment with empathy state
@@ -185,10 +176,7 @@ impl ReflectionGenerator {
         }
 
         // Check for confirmation bias (always approving similar actions)
-        let approval_rate = decisions
-            .iter()
-            .filter(|d| d.outcome == "Approved")
-            .count() as f64
+        let approval_rate = decisions.iter().filter(|d| d.outcome == "Approved").count() as f64
             / decisions.len() as f64;
 
         if approval_rate > 0.9 {
@@ -212,7 +200,10 @@ impl ReflectionGenerator {
     }
 
     /// Trigger reflection on ethical divergence event
-    pub fn trigger_divergence_reflection(&self, divergence_description: String) -> ReflectionReport {
+    pub fn trigger_divergence_reflection(
+        &self,
+        divergence_description: String,
+    ) -> ReflectionReport {
         info!(
             "Triggering divergence reflection for: {}",
             divergence_description
@@ -220,10 +211,9 @@ impl ReflectionGenerator {
 
         // Generate immediate reflection for last hour
         let mut reflection = self.generate_reflection(1);
-        reflection.self_identified_biases.push(format!(
-            "Divergence event: {}",
-            divergence_description
-        ));
+        reflection
+            .self_identified_biases
+            .push(format!("Divergence event: {}", divergence_description));
 
         reflection
     }

@@ -353,7 +353,10 @@ fn main() {
     }
 
     if !report.byzantine_nodes.is_empty() {
-        println!("Byzantine Nodes:      {}", report.byzantine_nodes.join(", "));
+        println!(
+            "Byzantine Nodes:      {}",
+            report.byzantine_nodes.join(", ")
+        );
     }
 
     println!("\nNotes: {}", report.notes);

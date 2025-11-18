@@ -3,16 +3,15 @@
 //! Phase 0.8: System Installer - state-aware installation with structured dialogue
 //! Citation: [archwiki:Installation_guide]
 
-mod types;
-mod disk;
-mod packages;
 mod bootloader;
-mod users;
+mod disk;
 mod logging;
+mod packages;
+mod types;
+mod users;
 
 pub use types::{
-    InstallConfig, InstallResult, InstallStep, DiskSetupMode, BootloaderType,
-    InstallationState,
+    BootloaderType, DiskSetupMode, InstallConfig, InstallResult, InstallStep, InstallationState,
 };
 
 use anyhow::Result;
@@ -40,10 +39,7 @@ use tracing::{info, warn};
 /// - Only executes in iso_live state
 /// - Uses arch-chroot and pacstrap (no shell injection)
 /// - All operations logged to /var/log/anna/install.jsonl
-pub async fn perform_installation(
-    config: &InstallConfig,
-    dry_run: bool,
-) -> Result<InstallResult> {
+pub async fn perform_installation(config: &InstallConfig, dry_run: bool) -> Result<InstallResult> {
     info!("Starting installation: dry_run={}", dry_run);
 
     // Validate environment
@@ -167,7 +163,10 @@ pub async fn perform_installation(
     let user_success = user_result.is_ok();
     steps.push(InstallStep {
         name: "user_creation".to_string(),
-        description: format!("Create user '{}' and configure permissions", config.username),
+        description: format!(
+            "Create user '{}' and configure permissions",
+            config.username
+        ),
         success: user_success,
         details: match &user_result {
             Ok(details) => details.clone(),

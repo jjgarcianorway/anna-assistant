@@ -121,7 +121,8 @@ impl SecurityFeatures {
         let polkit = detect_polkit();
         let sudoers = detect_sudoers();
         let kernel_lockdown = detect_kernel_lockdown();
-        let security_issues = analyze_security_issues(&selinux, &apparmor, &polkit, &sudoers, &kernel_lockdown);
+        let security_issues =
+            analyze_security_issues(&selinux, &apparmor, &polkit, &sudoers, &kernel_lockdown);
 
         Self {
             selinux,
@@ -136,8 +137,8 @@ impl SecurityFeatures {
 
 fn detect_selinux() -> SeLinuxStatus {
     // Check if SELinux is installed
-    let installed = Path::new("/etc/selinux/config").exists()
-        || Command::new("sestatus").output().is_ok();
+    let installed =
+        Path::new("/etc/selinux/config").exists() || Command::new("sestatus").output().is_ok();
 
     if !installed {
         return SeLinuxStatus {
@@ -269,7 +270,13 @@ fn detect_apparmor() -> AppArmorStatus {
                 .and_then(|n| n.parse::<u32>().ok())
                 .unwrap_or(0);
 
-            (loaded, profiles_loaded, profiles_enforcing, profiles_complaining, profiles_unconfined)
+            (
+                loaded,
+                profiles_loaded,
+                profiles_enforcing,
+                profiles_complaining,
+                profiles_unconfined,
+            )
         } else {
             (false, 0, 0, 0, 0)
         };
@@ -434,8 +441,14 @@ fn detect_sudoers() -> SudoersConfig {
 
     // Parse main sudoers file
     if let Ok(content) = fs::read_to_string("/etc/sudoers") {
-        let entries_count = content.lines().filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#')).count() as u32;
-        let includes_count = content.lines().filter(|l| l.trim().starts_with("@include") || l.trim().starts_with("#include")).count() as u32;
+        let entries_count = content
+            .lines()
+            .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+            .count() as u32;
+        let includes_count = content
+            .lines()
+            .filter(|l| l.trim().starts_with("@include") || l.trim().starts_with("#include"))
+            .count() as u32;
 
         config_files.push(SudoersFile {
             path: "/etc/sudoers".to_string(),
@@ -491,7 +504,10 @@ fn detect_sudoers() -> SudoersConfig {
     if let Ok(entries) = fs::read_dir("/etc/sudoers.d") {
         for entry in entries.flatten() {
             if let Ok(content) = fs::read_to_string(entry.path()) {
-                let entries_count = content.lines().filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#')).count() as u32;
+                let entries_count = content
+                    .lines()
+                    .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'))
+                    .count() as u32;
 
                 config_files.push(SudoersFile {
                     path: entry.path().to_string_lossy().to_string(),
@@ -542,11 +558,17 @@ fn detect_sudoers() -> SudoersConfig {
     }
 
     if !passwordless_users.is_empty() {
-        issues.push(format!("{} user(s) have passwordless sudo access", passwordless_users.len()));
+        issues.push(format!(
+            "{} user(s) have passwordless sudo access",
+            passwordless_users.len()
+        ));
     }
 
     if !passwordless_groups.is_empty() {
-        issues.push(format!("{} group(s) have passwordless sudo access", passwordless_groups.len()));
+        issues.push(format!(
+            "{} group(s) have passwordless sudo access",
+            passwordless_groups.len()
+        ));
     }
 
     if !use_pty {
@@ -585,8 +607,7 @@ fn detect_kernel_lockdown() -> KernelLockdown {
     }
 
     // Read lockdown mode
-    let mode_str = fs::read_to_string(lockdown_path)
-        .unwrap_or_default();
+    let mode_str = fs::read_to_string(lockdown_path).unwrap_or_default();
 
     let mode = if mode_str.contains("[none]") {
         Some(LockdownMode::None)
@@ -598,7 +619,10 @@ fn detect_kernel_lockdown() -> KernelLockdown {
         None
     };
 
-    let integrity_protected = matches!(mode, Some(LockdownMode::Integrity) | Some(LockdownMode::Confidentiality));
+    let integrity_protected = matches!(
+        mode,
+        Some(LockdownMode::Integrity) | Some(LockdownMode::Confidentiality)
+    );
     let confidentiality_protected = matches!(mode, Some(LockdownMode::Confidentiality));
 
     KernelLockdown {
@@ -624,7 +648,9 @@ fn analyze_security_issues(
             severity: SecuritySeverity::Medium,
             category: "Mandatory Access Control".to_string(),
             description: "Neither SELinux nor AppArmor is enabled".to_string(),
-            recommendation: "Consider enabling AppArmor for additional security (pacman -S apparmor)".to_string(),
+            recommendation:
+                "Consider enabling AppArmor for additional security (pacman -S apparmor)"
+                    .to_string(),
         });
     }
 
@@ -643,8 +669,12 @@ fn analyze_security_issues(
             issues.push(SecurityIssue {
                 severity: SecuritySeverity::Medium,
                 category: "SELinux".to_string(),
-                description: format!("{} SELinux denials found in audit log", selinux.denials_count),
-                recommendation: "Review audit log with 'ausearch -m avc' to identify policy issues".to_string(),
+                description: format!(
+                    "{} SELinux denials found in audit log",
+                    selinux.denials_count
+                ),
+                recommendation: "Review audit log with 'ausearch -m avc' to identify policy issues"
+                    .to_string(),
             });
         }
     }
@@ -654,7 +684,10 @@ fn analyze_security_issues(
         issues.push(SecurityIssue {
             severity: SecuritySeverity::Low,
             category: "AppArmor".to_string(),
-            description: format!("{} AppArmor profiles in complain mode", apparmor.profiles_complaining),
+            description: format!(
+                "{} AppArmor profiles in complain mode",
+                apparmor.profiles_complaining
+            ),
             recommendation: "Consider setting profiles to enforce mode after testing".to_string(),
         });
     }
@@ -665,7 +698,8 @@ fn analyze_security_issues(
             severity: SecuritySeverity::Medium,
             category: "Polkit".to_string(),
             description: issue.clone(),
-            recommendation: "Ensure polkit service is running for proper privilege management".to_string(),
+            recommendation: "Ensure polkit service is running for proper privilege management"
+                .to_string(),
         });
     }
 
@@ -674,8 +708,12 @@ fn analyze_security_issues(
         issues.push(SecurityIssue {
             severity: SecuritySeverity::High,
             category: "Sudo".to_string(),
-            description: format!("Users with passwordless sudo: {}", sudoers.passwordless_users.join(", ")),
-            recommendation: "Remove NOPASSWD from sudoers to require password authentication".to_string(),
+            description: format!(
+                "Users with passwordless sudo: {}",
+                sudoers.passwordless_users.join(", ")
+            ),
+            recommendation: "Remove NOPASSWD from sudoers to require password authentication"
+                .to_string(),
         });
     }
 
@@ -684,7 +722,8 @@ fn analyze_security_issues(
             severity: SecuritySeverity::Low,
             category: "Sudo".to_string(),
             description: "use_pty is not enabled in sudoers".to_string(),
-            recommendation: "Add 'Defaults use_pty' to /etc/sudoers for better security".to_string(),
+            recommendation: "Add 'Defaults use_pty' to /etc/sudoers for better security"
+                .to_string(),
         });
     }
 

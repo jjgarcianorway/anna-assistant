@@ -98,7 +98,8 @@ impl MirrorAuditStateV2 {
                 self.consensus_rounds.len(),
                 keep
             );
-            self.consensus_rounds.drain(0..self.consensus_rounds.len() - keep);
+            self.consensus_rounds
+                .drain(0..self.consensus_rounds.len() - keep);
         }
     }
 }
@@ -122,7 +123,10 @@ pub async fn migrate_v1_to_v2(path: &str) -> Result<()> {
         .unwrap_or(1);
 
     if schema_version >= 2 {
-        info!("State already at schema v{}, no migration needed", schema_version);
+        info!(
+            "State already at schema v{}, no migration needed",
+            schema_version
+        );
         return Ok(());
     }
 

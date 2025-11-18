@@ -168,8 +168,7 @@ pub fn get_recent_actions(conn: &Connection, limit: usize) -> Result<Vec<ActionH
                 serde_json::from_str(&affected_items_json).unwrap_or_default();
 
             let resource_json: Option<String> = row.get(11)?;
-            let resource_snapshot = resource_json
-                .and_then(|json| serde_json::from_str(&json).ok());
+            let resource_snapshot = resource_json.and_then(|json| serde_json::from_str(&json).ok());
 
             let timestamp_str: String = row.get(1)?;
             let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
@@ -223,8 +222,7 @@ pub fn get_actions_by_type(
                 serde_json::from_str(&affected_items_json).unwrap_or_default();
 
             let resource_json: Option<String> = row.get(11)?;
-            let resource_snapshot = resource_json
-                .and_then(|json| serde_json::from_str(&json).ok());
+            let resource_snapshot = resource_json.and_then(|json| serde_json::from_str(&json).ok());
 
             let timestamp_str: String = row.get(1)?;
             let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
@@ -276,11 +274,7 @@ pub fn get_success_rate(conn: &Connection, action_type: &str) -> Result<f64> {
 
 /// Get total action count
 pub fn get_action_count(conn: &Connection) -> Result<i64> {
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM action_history",
-        [],
-        |row| row.get(0),
-    )?;
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM action_history", [], |row| row.get(0))?;
     Ok(count)
 }
 

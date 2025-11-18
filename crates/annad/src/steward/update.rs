@@ -3,7 +3,7 @@
 //! Phase 0.9: Pacman updates with snapshots and verification
 //! Citation: [archwiki:System_maintenance#Upgrading_the_system]
 
-use super::types::{UpdateReport, PackageUpdate};
+use super::types::{PackageUpdate, UpdateReport};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use std::process::Command;
@@ -98,8 +98,7 @@ pub async fn perform_update(dry_run: bool) -> Result<UpdateReport> {
 async fn check_available_updates() -> Result<Vec<PackageUpdate>> {
     info!("Checking for available updates");
 
-    let output = Command::new("checkupdates")
-        .output();
+    let output = Command::new("checkupdates").output();
 
     let mut updates = Vec::new();
 
@@ -127,7 +126,13 @@ async fn check_available_updates() -> Result<Vec<PackageUpdate>> {
 async fn check_services_needing_restart() -> Result<Vec<String>> {
     // Check for services that are using outdated libraries
     let output = Command::new("systemctl")
-        .args(&["list-units", "--state=running", "--no-pager", "--no-legend", "--plain"])
+        .args(&[
+            "list-units",
+            "--state=running",
+            "--no-pager",
+            "--no-legend",
+            "--plain",
+        ])
         .output();
 
     let mut services = Vec::new();

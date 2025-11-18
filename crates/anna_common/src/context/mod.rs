@@ -12,13 +12,13 @@ pub mod noise_control;
 // Re-export commonly used types
 pub use actions::{ActionHistory, ActionOutcome, ResourceSnapshot};
 pub use db::{ContextDb, DbLocation};
-pub use noise_control::{
-    apply_issue_decisions, apply_visibility_hints, clear_issue_decision, filter_issues_by_noise_control,
-    get_issue_decision, get_issue_state, mark_issue_ignored, mark_issue_repaired, mark_issue_shown,
-    set_issue_acknowledged, set_issue_snoozed, update_issue_state, DecisionType, IssueDecision,
-    IssueState, NoiseControlConfig,
-};
 pub use historian::*;
+pub use noise_control::{
+    apply_issue_decisions, apply_visibility_hints, clear_issue_decision,
+    filter_issues_by_noise_control, get_issue_decision, get_issue_state, mark_issue_ignored,
+    mark_issue_repaired, mark_issue_shown, set_issue_acknowledged, set_issue_snoozed,
+    update_issue_state, DecisionType, IssueDecision, IssueState, NoiseControlConfig,
+};
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -79,9 +79,7 @@ pub async fn record_action(
         action = action.with_affected_items(affected_items);
     }
 
-    let id = db
-        .execute(move |conn| action.insert(conn))
-        .await?;
+    let id = db.execute(move |conn| action.insert(conn)).await?;
 
     debug!("Recorded action with ID: {}", id);
     Ok(id)
@@ -124,9 +122,7 @@ pub async fn get_success_rate(action_type: String) -> Result<f64> {
 pub async fn get_action_count() -> Result<i64> {
     let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
 
-    let count = db
-        .execute(actions::get_action_count)
-        .await?;
+    let count = db.execute(actions::get_action_count).await?;
 
     Ok(count)
 }
@@ -273,10 +269,7 @@ pub async fn record_observation(
 }
 
 /// Get observations for an issue within a time window
-pub async fn get_observations(
-    issue_key: &str,
-    days_back: i64,
-) -> Result<Vec<Observation>> {
+pub async fn get_observations(issue_key: &str, days_back: i64) -> Result<Vec<Observation>> {
     let db = db().ok_or_else(|| anyhow::anyhow!("Context database not initialized"))?;
 
     let issue_key = issue_key.to_string();
@@ -374,10 +367,7 @@ mod tests {
             .with_duration(45000)
             .with_affected_items(vec!["linux".to_string(), "systemd".to_string()]);
 
-        let id = db
-            .execute(move |conn| action.insert(conn))
-            .await
-            .unwrap();
+        let id = db.execute(move |conn| action.insert(conn)).await.unwrap();
 
         assert!(id > 0);
 
@@ -402,8 +392,7 @@ mod tests {
 
         // Record 3 successful actions and 1 failure
         for _ in 0..3 {
-            let action =
-                ActionHistory::new("update", "annactl update", ActionOutcome::Success);
+            let action = ActionHistory::new("update", "annactl update", ActionOutcome::Success);
             db.execute(move |conn| action.insert(conn)).await.unwrap();
         }
 

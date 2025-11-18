@@ -3,8 +3,8 @@
 //! Phase 5.1: Conversational UX
 //! Display suggestions with proper formatting and Arch Wiki links
 
-use anna_common::suggestions::*;
 use anna_common::display::UI;
+use anna_common::suggestions::*;
 
 /// Display suggestions in a user-friendly format
 pub fn display_suggestions(suggestions: &[&Suggestion]) {
@@ -20,11 +20,19 @@ pub fn display_suggestions(suggestions: &[&Suggestion]) {
 
     println!();
     ui.section_header("💡", "Top Suggestions for Your System");
-    ui.info(&format!("I've identified {} priority items for your attention:", suggestions.len()));
+    ui.info(&format!(
+        "I've identified {} priority items for your attention:",
+        suggestions.len()
+    ));
     println!();
 
     for (i, suggestion) in suggestions.iter().enumerate() {
-        println!("{}. {} {}", i + 1, priority_emoji(suggestion.priority), suggestion.title);
+        println!(
+            "{}. {} {}",
+            i + 1,
+            priority_emoji(suggestion.priority),
+            suggestion.title
+        );
         println!();
 
         // Explanation
@@ -130,8 +138,8 @@ fn priority_emoji(priority: SuggestionPriority) -> &'static str {
 /// Generate suggestions from real system telemetry (Task 8: Deep Caretaker v0.1)
 /// Uses local telemetry collection and rule-based suggestion engine
 pub fn generate_suggestions_from_telemetry() -> Vec<Suggestion> {
-    use anna_common::telemetry::SystemTelemetry;
     use anna_common::suggestion_engine;
+    use anna_common::telemetry::SystemTelemetry;
 
     // Collect telemetry snapshot (Task 8: fast, local, read-only)
     let snapshot = SystemTelemetry::collect();

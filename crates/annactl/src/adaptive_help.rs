@@ -3,9 +3,11 @@
 //
 // Context-aware command display for progressive disclosure
 
-use anna_common::command_meta::{CommandCategory, CommandMetadata, CommandRegistry, DisplayContext};
+use crate::context_detection::{should_use_color, ExecutionContext};
+use anna_common::command_meta::{
+    CommandCategory, CommandMetadata, CommandRegistry, DisplayContext,
+};
 use anna_common::display::UI;
-use crate::context_detection::{ExecutionContext, should_use_color};
 use owo_colors::OwoColorize;
 
 /// Display adaptive root help based on execution context
@@ -39,9 +41,18 @@ fn display_simple_help() {
 
     ui.section_header("📋", "Commands");
     println!();
-    println!("  {}  - Start interactive conversation (REPL)", fmt::bold("annactl"));
-    println!("  {}  - Show comprehensive health report", fmt::bold("annactl status"));
-    println!("  {}    - Show this help message", fmt::bold("annactl help"));
+    println!(
+        "  {}  - Start interactive conversation (REPL)",
+        fmt::bold("annactl")
+    );
+    println!(
+        "  {}  - Show comprehensive health report",
+        fmt::bold("annactl status")
+    );
+    println!(
+        "  {}    - Show this help message",
+        fmt::bold("annactl help")
+    );
     println!();
 
     ui.section_header("💬", "Natural Language Examples");
@@ -107,7 +118,12 @@ fn display_terminal_help(context: &ExecutionContext, show_all: bool) {
 
     // Header
     if use_color {
-        println!("\n{}", "Anna Assistant - Adaptive Arch Linux Administration".bold().cyan());
+        println!(
+            "\n{}",
+            "Anna Assistant - Adaptive Arch Linux Administration"
+                .bold()
+                .cyan()
+        );
     } else {
         println!("\nAnna Assistant - Adaptive Arch Linux Administration");
     }
@@ -152,7 +168,13 @@ fn display_terminal_help(context: &ExecutionContext, show_all: bool) {
 
     // Display Advanced commands (if visible)
     if !advanced.is_empty() {
-        print_category_header("Administrative Commands", "🟡", "yellow", advanced.len(), use_color);
+        print_category_header(
+            "Administrative Commands",
+            "🟡",
+            "yellow",
+            advanced.len(),
+            use_color,
+        );
         print_command_list(&advanced, use_color);
         println!();
     }
@@ -249,8 +271,14 @@ fn print_usage_footer(context: &ExecutionContext, show_all: bool, use_color: boo
             println!("  Run with sudo to access administrative commands:");
             println!("  sudo annactl update");
             println!();
-            println!("  Showing {} only - use 'annactl --help --all' to see more",
-                if use_color { "safe commands".green().to_string() } else { "safe commands".to_string() });
+            println!(
+                "  Showing {} only - use 'annactl --help --all' to see more",
+                if use_color {
+                    "safe commands".green().to_string()
+                } else {
+                    "safe commands".to_string()
+                }
+            );
         }
         ExecutionContext::Root => {
             if use_color {
@@ -298,11 +326,17 @@ mod tests {
     fn test_display_context_building() {
         let user_ctx = ExecutionContext::User;
         let display_ctx = build_display_context(&user_ctx);
-        assert_eq!(display_ctx.user_level, anna_common::command_meta::UserLevel::Beginner);
+        assert_eq!(
+            display_ctx.user_level,
+            anna_common::command_meta::UserLevel::Beginner
+        );
 
         let root_ctx = ExecutionContext::Root;
         let display_ctx = build_display_context(&root_ctx);
-        assert_eq!(display_ctx.user_level, anna_common::command_meta::UserLevel::Intermediate);
+        assert_eq!(
+            display_ctx.user_level,
+            anna_common::command_meta::UserLevel::Intermediate
+        );
     }
 
     #[test]

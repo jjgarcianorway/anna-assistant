@@ -647,6 +647,13 @@ pub async fn record_health_score(
 ) -> Result<i64> {
     let db = get_db()?;
     let ts = ts.to_string();
+    let trend_stability = trend_stability.map(|s| s.to_string());
+    let trend_performance = trend_performance.map(|s| s.to_string());
+    let trend_noise = trend_noise.map(|s| s.to_string());
+    let last_regression = last_regression.map(|s| s.to_string());
+    let last_regression_cause = last_regression_cause.map(|s| s.to_string());
+    let last_improvement = last_improvement.map(|s| s.to_string());
+    let last_improvement_cause = last_improvement_cause.map(|s| s.to_string());
 
     db.execute(move |conn| {
         conn.execute(
@@ -660,13 +667,13 @@ pub async fn record_health_score(
                 stability_score,
                 performance_score,
                 noise_score,
-                trend_stability.map(|s| s.to_string()),
-                trend_performance.map(|s| s.to_string()),
-                trend_noise.map(|s| s.to_string()),
-                last_regression.map(|s| s.to_string()),
-                last_regression_cause.map(|s| s.to_string()),
-                last_improvement.map(|s| s.to_string()),
-                last_improvement_cause.map(|s| s.to_string())
+                trend_stability,
+                trend_performance,
+                trend_noise,
+                last_regression,
+                last_regression_cause,
+                last_improvement,
+                last_improvement_cause
             ],
         )?;
         Ok(conn.last_insert_rowid())

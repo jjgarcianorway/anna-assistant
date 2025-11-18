@@ -2,9 +2,9 @@
 // Phase 4.6: Profiles, Noise Control, and Stable Feel
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
 #[cfg(test)]
 use chrono::Duration;
+use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use tracing::{debug, info};
 
@@ -110,11 +110,7 @@ pub fn mark_issue_ignored(conn: &Connection, issue_key: &str) -> Result<()> {
 }
 
 /// Mark issue as repaired
-pub fn mark_issue_repaired(
-    conn: &Connection,
-    issue_key: &str,
-    success: bool,
-) -> Result<()> {
+pub fn mark_issue_repaired(conn: &Connection, issue_key: &str, success: bool) -> Result<()> {
     let now = Utc::now();
 
     conn.execute(
@@ -147,14 +143,10 @@ pub fn get_issue_state(conn: &Connection, issue_key: &str) -> Result<Option<Issu
             issue_key: row.get(0)?,
             first_seen: parse_datetime(&row.get::<_, String>(1)?),
             last_seen: parse_datetime(&row.get::<_, String>(2)?),
-            last_shown: row
-                .get::<_, Option<String>>(3)?
-                .map(|s| parse_datetime(&s)),
+            last_shown: row.get::<_, Option<String>>(3)?.map(|s| parse_datetime(&s)),
             times_shown: row.get(4)?,
             times_ignored: row.get(5)?,
-            last_repair_attempt: row
-                .get::<_, Option<String>>(6)?
-                .map(|s| parse_datetime(&s)),
+            last_repair_attempt: row.get::<_, Option<String>>(6)?.map(|s| parse_datetime(&s)),
             repair_success: row.get(7)?,
             severity: string_to_severity(&row.get::<_, String>(8)?),
         })
@@ -168,10 +160,7 @@ pub fn get_issue_state(conn: &Connection, issue_key: &str) -> Result<Option<Issu
 }
 
 /// Check if issue should be de-emphasized based on noise control rules
-pub fn should_deemphasize(
-    state: &IssueState,
-    config: &NoiseControlConfig,
-) -> bool {
+pub fn should_deemphasize(state: &IssueState, config: &NoiseControlConfig) -> bool {
     let now = Utc::now();
 
     // Never de-emphasize Critical issues
@@ -602,7 +591,7 @@ mod tests {
             IssueSeverity::Warning,
             "Disk Space Low",
             "Your disk is 95% full",
-            "Clean up disk space"
+            "Clean up disk space",
         );
 
         update_issue_state(&conn, &issue).unwrap();
@@ -623,7 +612,7 @@ mod tests {
             IssueSeverity::Info,
             "Backup Reminder",
             "No backup tools detected",
-            "Install timeshift"
+            "Install timeshift",
         );
 
         update_issue_state(&conn, &issue).unwrap();
@@ -642,16 +631,15 @@ mod tests {
             IssueSeverity::Warning,
             "Time Sync Disabled",
             "NTP is not enabled",
-            "Enable systemd-timesyncd"
-        ).with_repair_action("time-sync-enable");
+            "Enable systemd-timesyncd",
+        )
+        .with_repair_action("time-sync-enable");
 
         let issue_key = issue.issue_key();
         update_issue_state(&conn, &issue).unwrap();
         mark_issue_repaired(&conn, &issue_key, true).unwrap();
 
-        let state = get_issue_state(&conn, &issue_key)
-            .unwrap()
-            .unwrap();
+        let state = get_issue_state(&conn, &issue_key).unwrap().unwrap();
         assert_eq!(state.repair_success, Some(true));
         assert!(state.last_repair_attempt.is_some());
     }

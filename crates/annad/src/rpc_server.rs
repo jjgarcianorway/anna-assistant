@@ -156,12 +156,12 @@ impl DaemonState {
             action_history,
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
             current_state: RwLock::new(current_state),
-            sentinel: None, // Will be set later in main.rs
-            collective: None, // Will be set later in main.rs
-            mirror: None, // Will be set later in main.rs
-            chronos: None, // Will be set later in main.rs
+            sentinel: None,     // Will be set later in main.rs
+            collective: None,   // Will be set later in main.rs
+            mirror: None,       // Will be set later in main.rs
+            chronos: None,      // Will be set later in main.rs
             mirror_audit: None, // Will be set later in main.rs
-            historian: None, // Will be set later in main.rs
+            historian: None,    // Will be set later in main.rs
         })
     }
 }
@@ -1464,28 +1464,29 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
             // Phase 3.0: Add system profile for adaptive intelligence
             let mut profiler = crate::profile::SystemProfiler::new();
-            let (monitoring_mode, monitoring_rationale, is_constrained) =
-                match profiler.collect_profile() {
-                    Ok(profile) => {
-                        let mode = match profile.recommended_monitoring_mode {
-                            crate::profile::MonitoringMode::Full => "full",
-                            crate::profile::MonitoringMode::Light => "light",
-                            crate::profile::MonitoringMode::Minimal => "minimal",
-                        }
-                        .to_string();
-                        let rationale = profile.monitoring_rationale();
-                        let constrained = profile.is_constrained();
-                        (mode, rationale, constrained)
+            let (monitoring_mode, monitoring_rationale, is_constrained) = match profiler
+                .collect_profile()
+            {
+                Ok(profile) => {
+                    let mode = match profile.recommended_monitoring_mode {
+                        crate::profile::MonitoringMode::Full => "full",
+                        crate::profile::MonitoringMode::Light => "light",
+                        crate::profile::MonitoringMode::Minimal => "minimal",
                     }
-                    Err(e) => {
-                        warn!("Failed to collect system profile: {}", e);
-                        (
-                            "light".to_string(),
-                            "Unable to detect system profile, using light mode as default".to_string(),
-                            false,
-                        )
-                    }
-                };
+                    .to_string();
+                    let rationale = profile.monitoring_rationale();
+                    let constrained = profile.is_constrained();
+                    (mode, rationale, constrained)
+                }
+                Err(e) => {
+                    warn!("Failed to collect system profile: {}", e);
+                    (
+                        "light".to_string(),
+                        "Unable to detect system profile, using light mode as default".to_string(),
+                        false,
+                    )
+                }
+            };
 
             let data = anna_common::ipc::CapabilitiesData {
                 commands,
@@ -1567,6 +1568,35 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                     error!("Failed to collect system profile: {}", e);
                     Err(format!("Failed to collect system profile: {}", e))
                 }
+            }
+        }
+
+        Method::GetHistorianSummary => {
+            info!("GetHistorianSummary method called");
+
+            // Beta.53: Return 30-day Historian summary
+            if let Some(historian_mutex) = &state.historian {
+                match historian_mutex.try_lock() {
+                    Ok(historian) => {
+                        match historian.get_system_summary() {
+                            Ok(summary) => {
+                                info!("Generated Historian summary: {} days analyzed", summary.health_summary.days_analyzed);
+                                Ok(ResponseData::HistorianSummary(summary))
+                            }
+                            Err(e) => {
+                                error!("Failed to generate Historian summary: {}", e);
+                                Err(format!("Failed to generate Historian summary: {}", e))
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        warn!("Historian is currently locked, cannot generate summary");
+                        Err("Historian is busy, try again later".to_string())
+                    }
+                }
+            } else {
+                warn!("Historian not initialized");
+                Err("Historian not available".to_string())
             }
         }
 
@@ -1768,23 +1798,19 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             // Execute repair
-            let repairs = match crate::repair::repair_probe(
-                &probe,
-                dry_run,
-                health_results.as_deref(),
-            )
-            .await
-            {
-                Ok(r) => r,
-                Err(e) => {
-                    error!("Repair failed: {}", e);
-                    return Response {
-                        id,
-                        result: Err(format!("Repair failed: {}", e)),
-                        version: state.version.clone(),
-                    };
-                }
-            };
+            let repairs =
+                match crate::repair::repair_probe(&probe, dry_run, health_results.as_deref()).await
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        error!("Repair failed: {}", e);
+                        return Response {
+                            id,
+                            result: Err(format!("Repair failed: {}", e)),
+                            version: state.version.clone(),
+                        };
+                    }
+                };
 
             // Log to audit trail
             for repair in &repairs {
@@ -2018,7 +2044,11 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 "update".to_string(),
                 report.success,
                 report.message.clone(),
-                report.packages_updated.iter().map(|p| p.name.clone()).collect(),
+                report
+                    .packages_updated
+                    .iter()
+                    .map(|p| p.name.clone())
+                    .collect(),
                 report.citation.clone(),
             );
             let _ = log_entry.write().await;
@@ -2304,28 +2334,32 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             match conscience {
-                Some(c) => {
-                    match c.get_decision(&decision_id).await {
-                        Some(decision) => {
-                            let data = anna_common::ipc::ConscienceDecisionData {
-                                id: decision.id.clone(),
-                                timestamp: decision.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                action: format!("{:?}", decision.action),
-                                outcome: format!("{:?}", decision.outcome),
-                                ethical_score: decision.ethical_score.overall(),
-                                safety: decision.ethical_score.safety,
-                                privacy: decision.ethical_score.privacy,
-                                integrity: decision.ethical_score.integrity,
-                                autonomy: decision.ethical_score.autonomy,
-                                confidence: decision.confidence,
-                                reasoning: crate::conscience::format_reasoning_tree(&decision.reasoning, 0),
-                                has_rollback_plan: decision.rollback_plan.is_some(),
-                            };
-                            Ok(ResponseData::ConscienceDecision(data))
-                        }
-                        None => Err(format!("Decision not found: {}", decision_id)),
+                Some(c) => match c.get_decision(&decision_id).await {
+                    Some(decision) => {
+                        let data = anna_common::ipc::ConscienceDecisionData {
+                            id: decision.id.clone(),
+                            timestamp: decision
+                                .timestamp
+                                .format("%Y-%m-%d %H:%M:%S UTC")
+                                .to_string(),
+                            action: format!("{:?}", decision.action),
+                            outcome: format!("{:?}", decision.outcome),
+                            ethical_score: decision.ethical_score.overall(),
+                            safety: decision.ethical_score.safety,
+                            privacy: decision.ethical_score.privacy,
+                            integrity: decision.ethical_score.integrity,
+                            autonomy: decision.ethical_score.autonomy,
+                            confidence: decision.confidence,
+                            reasoning: crate::conscience::format_reasoning_tree(
+                                &decision.reasoning,
+                                0,
+                            ),
+                            has_rollback_plan: decision.rollback_plan.is_some(),
+                        };
+                        Ok(ResponseData::ConscienceDecision(data))
                     }
-                }
+                    None => Err(format!("Decision not found: {}", decision_id)),
+                },
                 None => Err("Conscience layer not initialized".to_string()),
             }
         }
@@ -2339,14 +2373,13 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             match conscience {
-                Some(c) => {
-                    match c.approve_action(&decision_id).await {
-                        Ok(_) => Ok(ResponseData::ConscienceActionResult(
-                            format!("Action {} approved", decision_id)
-                        )),
-                        Err(e) => Err(format!("Failed to approve action: {}", e)),
-                    }
-                }
+                Some(c) => match c.approve_action(&decision_id).await {
+                    Ok(_) => Ok(ResponseData::ConscienceActionResult(format!(
+                        "Action {} approved",
+                        decision_id
+                    ))),
+                    Err(e) => Err(format!("Failed to approve action: {}", e)),
+                },
                 None => Err("Conscience layer not initialized".to_string()),
             }
         }
@@ -2360,14 +2393,13 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             match conscience {
-                Some(c) => {
-                    match c.reject_action(&decision_id).await {
-                        Ok(_) => Ok(ResponseData::ConscienceActionResult(
-                            format!("Action {} rejected", decision_id)
-                        )),
-                        Err(e) => Err(format!("Failed to reject action: {}", e)),
-                    }
-                }
+                Some(c) => match c.reject_action(&decision_id).await {
+                    Ok(_) => Ok(ResponseData::ConscienceActionResult(format!(
+                        "Action {} rejected",
+                        decision_id
+                    ))),
+                    Err(e) => Err(format!("Failed to reject action: {}", e)),
+                },
                 None => Err("Conscience layer not initialized".to_string()),
             }
         }
@@ -2381,30 +2413,28 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             match conscience {
-                Some(c) => {
-                    match c.introspect().await {
-                        Ok(report) => {
-                            let data = anna_common::ipc::ConscienceIntrospectionData {
-                                timestamp: report.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                period: format!(
-                                    "{} to {}",
-                                    report.period_start.format("%H:%M:%S"),
-                                    report.period_end.format("%H:%M:%S")
-                                ),
-                                decisions_reviewed: report.decisions_reviewed,
-                                approved_count: report.approved_count,
-                                rejected_count: report.rejected_count,
-                                flagged_count: report.flagged_count,
-                                avg_ethical_score: report.avg_ethical_score,
-                                avg_confidence: report.avg_confidence,
-                                violations_count: report.violations.len() as u64,
-                                recommendations: report.recommendations,
-                            };
-                            Ok(ResponseData::ConscienceIntrospection(data))
-                        }
-                        Err(e) => Err(format!("Introspection failed: {}", e)),
+                Some(c) => match c.introspect().await {
+                    Ok(report) => {
+                        let data = anna_common::ipc::ConscienceIntrospectionData {
+                            timestamp: report.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            period: format!(
+                                "{} to {}",
+                                report.period_start.format("%H:%M:%S"),
+                                report.period_end.format("%H:%M:%S")
+                            ),
+                            decisions_reviewed: report.decisions_reviewed,
+                            approved_count: report.approved_count,
+                            rejected_count: report.rejected_count,
+                            flagged_count: report.flagged_count,
+                            avg_ethical_score: report.avg_ethical_score,
+                            avg_confidence: report.avg_confidence,
+                            violations_count: report.violations.len() as u64,
+                            recommendations: report.recommendations,
+                        };
+                        Ok(ResponseData::ConscienceIntrospection(data))
                     }
-                }
+                    Err(e) => Err(format!("Introspection failed: {}", e)),
+                },
                 None => Err("Conscience layer not initialized".to_string()),
             }
         }
@@ -2431,18 +2461,26 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                             user_resonance: pulse.resonance_map.user_resonance,
                             system_resonance: pulse.resonance_map.system_resonance,
                             environment_resonance: pulse.resonance_map.environment_resonance,
-                            recent_adjustments: pulse.resonance_map.recent_adjustments.iter().map(|adj| {
-                                anna_common::ipc::ResonanceAdjustmentData {
-                                    timestamp: adj.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            recent_adjustments: pulse
+                                .resonance_map
+                                .recent_adjustments
+                                .iter()
+                                .map(|adj| anna_common::ipc::ResonanceAdjustmentData {
+                                    timestamp: adj
+                                        .timestamp
+                                        .format("%Y-%m-%d %H:%M:%S UTC")
+                                        .to_string(),
                                     stakeholder: adj.stakeholder.clone(),
                                     delta: adj.delta,
                                     reason: adj.reason.clone(),
-                                }
-                            }).collect(),
+                                })
+                                .collect(),
                         },
                         context_summary: pulse.context_summary,
-                        recent_perceptions: pulse.recent_perceptions.iter().map(|p| {
-                            anna_common::ipc::PerceptionRecordData {
+                        recent_perceptions: pulse
+                            .recent_perceptions
+                            .iter()
+                            .map(|p| anna_common::ipc::PerceptionRecordData {
                                 timestamp: p.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
                                 action: format!("{:?}", p.action),
                                 stakeholder_impacts: anna_common::ipc::StakeholderImpactsData {
@@ -2453,19 +2491,31 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                     },
                                     system: anna_common::ipc::StakeholderImpactData {
                                         score: p.stakeholder_impacts.system.score,
-                                        impact_type: p.stakeholder_impacts.system.impact_type.clone(),
+                                        impact_type: p
+                                            .stakeholder_impacts
+                                            .system
+                                            .impact_type
+                                            .clone(),
                                         reasoning: p.stakeholder_impacts.system.reasoning.clone(),
                                     },
                                     environment: anna_common::ipc::StakeholderImpactData {
                                         score: p.stakeholder_impacts.environment.score,
-                                        impact_type: p.stakeholder_impacts.environment.impact_type.clone(),
-                                        reasoning: p.stakeholder_impacts.environment.reasoning.clone(),
+                                        impact_type: p
+                                            .stakeholder_impacts
+                                            .environment
+                                            .impact_type
+                                            .clone(),
+                                        reasoning: p
+                                            .stakeholder_impacts
+                                            .environment
+                                            .reasoning
+                                            .clone(),
                                     },
                                 },
                                 context_factors: p.context_factors.clone(),
                                 adaptation: p.adaptation.clone(),
-                            }
-                        }).collect(),
+                            })
+                            .collect(),
                     };
 
                     Ok(ResponseData::EmpathyPulse(data))
@@ -2487,9 +2537,11 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 Some(e) => {
                     // Parse action string to SentinelAction
                     let parsed_action = match action.as_str() {
-                        "SystemUpdate" => crate::sentinel::SentinelAction::SystemUpdate { dry_run: false },
+                        "SystemUpdate" => {
+                            crate::sentinel::SentinelAction::SystemUpdate { dry_run: false }
+                        }
                         "RestartService" => crate::sentinel::SentinelAction::RestartService {
-                            service: "example-service".to_string()
+                            service: "example-service".to_string(),
                         },
                         "SyncDatabases" => crate::sentinel::SentinelAction::SyncDatabases,
                         _ => crate::sentinel::SentinelAction::None,
@@ -2504,19 +2556,55 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                     deferral_reason: simulation.evaluation.deferral_reason,
                                     stakeholder_impacts: anna_common::ipc::StakeholderImpactsData {
                                         user: anna_common::ipc::StakeholderImpactData {
-                                            score: simulation.evaluation.stakeholder_impacts.user.score,
-                                            impact_type: simulation.evaluation.stakeholder_impacts.user.impact_type,
-                                            reasoning: simulation.evaluation.stakeholder_impacts.user.reasoning,
+                                            score: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .user
+                                                .score,
+                                            impact_type: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .user
+                                                .impact_type,
+                                            reasoning: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .user
+                                                .reasoning,
                                         },
                                         system: anna_common::ipc::StakeholderImpactData {
-                                            score: simulation.evaluation.stakeholder_impacts.system.score,
-                                            impact_type: simulation.evaluation.stakeholder_impacts.system.impact_type,
-                                            reasoning: simulation.evaluation.stakeholder_impacts.system.reasoning,
+                                            score: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .system
+                                                .score,
+                                            impact_type: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .system
+                                                .impact_type,
+                                            reasoning: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .system
+                                                .reasoning,
                                         },
                                         environment: anna_common::ipc::StakeholderImpactData {
-                                            score: simulation.evaluation.stakeholder_impacts.environment.score,
-                                            impact_type: simulation.evaluation.stakeholder_impacts.environment.impact_type,
-                                            reasoning: simulation.evaluation.stakeholder_impacts.environment.reasoning,
+                                            score: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .environment
+                                                .score,
+                                            impact_type: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .environment
+                                                .impact_type,
+                                            reasoning: simulation
+                                                .evaluation
+                                                .stakeholder_impacts
+                                                .environment
+                                                .reasoning,
                                         },
                                     },
                                     context_factors: simulation.evaluation.context_factors,
@@ -2578,34 +2666,38 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             info!("CollectiveTrust method called for peer: {}", peer_id);
 
             match &state.collective {
-                Some(collective) => {
-                    match collective.get_peer_trust(&peer_id).await {
-                        Some(trust_details) => {
-                            let data = anna_common::ipc::CollectiveTrustData {
-                                peer_id: trust_details.peer_info.id.clone(),
-                                peer_name: trust_details.peer_info.name.clone(),
-                                peer_address: trust_details.peer_info.address.to_string(),
-                                overall_trust: trust_details.trust_score.overall,
-                                honesty: trust_details.trust_score.honesty,
-                                reliability: trust_details.trust_score.reliability,
-                                ethical_alignment: trust_details.trust_score.ethical_alignment,
-                                messages_received: trust_details.recent_messages,
-                                messages_validated: trust_details.trust_score.messages_validated,
-                                last_interaction: trust_details.last_interaction.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                connected: trust_details.peer_info.connected,
-                            };
+                Some(collective) => match collective.get_peer_trust(&peer_id).await {
+                    Some(trust_details) => {
+                        let data = anna_common::ipc::CollectiveTrustData {
+                            peer_id: trust_details.peer_info.id.clone(),
+                            peer_name: trust_details.peer_info.name.clone(),
+                            peer_address: trust_details.peer_info.address.to_string(),
+                            overall_trust: trust_details.trust_score.overall,
+                            honesty: trust_details.trust_score.honesty,
+                            reliability: trust_details.trust_score.reliability,
+                            ethical_alignment: trust_details.trust_score.ethical_alignment,
+                            messages_received: trust_details.recent_messages,
+                            messages_validated: trust_details.trust_score.messages_validated,
+                            last_interaction: trust_details
+                                .last_interaction
+                                .format("%Y-%m-%d %H:%M:%S UTC")
+                                .to_string(),
+                            connected: trust_details.peer_info.connected,
+                        };
 
-                            Ok(ResponseData::CollectiveTrust(data))
-                        }
-                        None => Err(format!("Peer {} not found in network", peer_id)),
+                        Ok(ResponseData::CollectiveTrust(data))
                     }
-                }
+                    None => Err(format!("Peer {} not found in network", peer_id)),
+                },
                 None => Err("Collective mind not initialized".to_string()),
             }
         }
 
         Method::CollectiveExplain { consensus_id } => {
-            info!("CollectiveExplain method called for consensus: {}", consensus_id);
+            info!(
+                "CollectiveExplain method called for consensus: {}",
+                consensus_id
+            );
 
             match &state.collective {
                 Some(collective) => {
@@ -2631,7 +2723,11 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                 consensus_id: explanation.record.id.clone(),
                                 action: explanation.record.action.clone(),
                                 decision: format!("{:?}", explanation.record.decision),
-                                timestamp: explanation.record.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                timestamp: explanation
+                                    .record
+                                    .timestamp
+                                    .format("%Y-%m-%d %H:%M:%S UTC")
+                                    .to_string(),
                                 votes: votes_data,
                                 total_participants: explanation.record.votes.len(),
                                 approval_percentage: explanation.approval_percentage,
@@ -2653,29 +2749,36 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             info!("MirrorReflect method called");
 
             match &state.mirror {
-                Some(mirror) => {
-                    match mirror.generate_reflection().await {
-                        Ok(reflection) => {
-                            let data = anna_common::ipc::MirrorReflectionData {
-                                reflection_id: reflection.id,
-                                timestamp: reflection.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                period_start: reflection.period_start.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                period_end: reflection.period_end.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                self_coherence: reflection.self_coherence,
-                                ethical_decisions_count: reflection.ethical_decisions.len(),
-                                conscience_actions_count: reflection.conscience_actions.len(),
-                                avg_empathy_index: reflection.empathy_summary.avg_empathy_index,
-                                avg_strain_index: reflection.empathy_summary.avg_strain_index,
-                                empathy_trend: reflection.empathy_summary.empathy_trend,
-                                adaptations_count: reflection.empathy_summary.adaptations_count,
-                                self_identified_biases: reflection.self_identified_biases,
-                            };
+                Some(mirror) => match mirror.generate_reflection().await {
+                    Ok(reflection) => {
+                        let data = anna_common::ipc::MirrorReflectionData {
+                            reflection_id: reflection.id,
+                            timestamp: reflection
+                                .timestamp
+                                .format("%Y-%m-%d %H:%M:%S UTC")
+                                .to_string(),
+                            period_start: reflection
+                                .period_start
+                                .format("%Y-%m-%d %H:%M:%S UTC")
+                                .to_string(),
+                            period_end: reflection
+                                .period_end
+                                .format("%Y-%m-%d %H:%M:%S UTC")
+                                .to_string(),
+                            self_coherence: reflection.self_coherence,
+                            ethical_decisions_count: reflection.ethical_decisions.len(),
+                            conscience_actions_count: reflection.conscience_actions.len(),
+                            avg_empathy_index: reflection.empathy_summary.avg_empathy_index,
+                            avg_strain_index: reflection.empathy_summary.avg_strain_index,
+                            empathy_trend: reflection.empathy_summary.empathy_trend,
+                            adaptations_count: reflection.empathy_summary.adaptations_count,
+                            self_identified_biases: reflection.self_identified_biases,
+                        };
 
-                            Ok(ResponseData::MirrorReflection(data))
-                        }
-                        Err(e) => Err(format!("Reflection generation failed: {}", e)),
+                        Ok(ResponseData::MirrorReflection(data))
                     }
-                }
+                    Err(e) => Err(format!("Reflection generation failed: {}", e)),
+                },
                 None => Err("Mirror protocol not initialized".to_string()),
             }
         }
@@ -2684,34 +2787,38 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             info!("MirrorAudit method called");
 
             match &state.mirror {
-                Some(mirror) => {
-                    match mirror.get_audit_summary().await {
-                        Ok(audit) => {
-                            let data = anna_common::ipc::MirrorAuditData {
-                                enabled: audit.enabled,
-                                current_coherence: audit.current_coherence,
-                                last_reflection: audit.last_reflection.map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
-                                last_consensus: audit.last_consensus.map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
-                                recent_reflections_count: audit.recent_reflections_count,
-                                received_critiques_count: audit.received_critiques_count,
-                                active_remediations_count: audit.active_remediations_count,
-                                network_coherence: audit.network_coherence,
-                                recent_critiques: audit.recent_critiques.into_iter().map(|c| {
-                                    anna_common::ipc::CritiqueSummary {
-                                        critic_id: c.critic_id,
-                                        coherence_assessment: c.coherence_assessment,
-                                        inconsistencies_count: c.inconsistencies_count,
-                                        biases_count: c.biases_count,
-                                        recommendations: c.recommendations,
-                                    }
-                                }).collect(),
-                            };
+                Some(mirror) => match mirror.get_audit_summary().await {
+                    Ok(audit) => {
+                        let data = anna_common::ipc::MirrorAuditData {
+                            enabled: audit.enabled,
+                            current_coherence: audit.current_coherence,
+                            last_reflection: audit
+                                .last_reflection
+                                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
+                            last_consensus: audit
+                                .last_consensus
+                                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
+                            recent_reflections_count: audit.recent_reflections_count,
+                            received_critiques_count: audit.received_critiques_count,
+                            active_remediations_count: audit.active_remediations_count,
+                            network_coherence: audit.network_coherence,
+                            recent_critiques: audit
+                                .recent_critiques
+                                .into_iter()
+                                .map(|c| anna_common::ipc::CritiqueSummary {
+                                    critic_id: c.critic_id,
+                                    coherence_assessment: c.coherence_assessment,
+                                    inconsistencies_count: c.inconsistencies_count,
+                                    biases_count: c.biases_count,
+                                    recommendations: c.recommendations,
+                                })
+                                .collect(),
+                        };
 
-                            Ok(ResponseData::MirrorAudit(data))
-                        }
-                        Err(e) => Err(format!("Audit generation failed: {}", e)),
+                        Ok(ResponseData::MirrorAudit(data))
                     }
-                }
+                    Err(e) => Err(format!("Audit generation failed: {}", e)),
+                },
                 None => Err("Mirror protocol not initialized".to_string()),
             }
         }
@@ -2720,16 +2827,18 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             info!("MirrorRepair method called");
 
             match &state.mirror {
-                Some(mirror) => {
-                    match mirror.apply_pending_remediations().await {
-                        Ok(report) => {
-                            let data = anna_common::ipc::MirrorRepairData {
-                                timestamp: report.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                                total_remediations: report.total_remediations,
-                                successful_remediations: report.successful_remediations,
-                                failed_remediations: report.failed_remediations,
-                                summary: report.summary.clone(),
-                                applied_remediations: report.details.into_iter().filter_map(|r| {
+                Some(mirror) => match mirror.apply_pending_remediations().await {
+                    Ok(report) => {
+                        let data = anna_common::ipc::MirrorRepairData {
+                            timestamp: report.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            total_remediations: report.total_remediations,
+                            successful_remediations: report.successful_remediations,
+                            failed_remediations: report.failed_remediations,
+                            summary: report.summary.clone(),
+                            applied_remediations: report
+                                .details
+                                .into_iter()
+                                .filter_map(|r| {
                                     if r.applied {
                                         Some(anna_common::ipc::RemediationSummary {
                                             description: format!("Action {} applied", r.action_id),
@@ -2740,14 +2849,14 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                                     } else {
                                         None
                                     }
-                                }).collect(),
-                            };
+                                })
+                                .collect(),
+                        };
 
-                            Ok(ResponseData::MirrorRepair(data))
-                        }
-                        Err(e) => Err(format!("Remediation failed: {}", e)),
+                        Ok(ResponseData::MirrorRepair(data))
                     }
-                }
+                    Err(e) => Err(format!("Remediation failed: {}", e)),
+                },
                 None => Err("Mirror protocol not initialized".to_string()),
             }
         }
@@ -2793,7 +2902,10 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
                             let data = anna_common::ipc::ChronosForecastData {
                                 forecast_id: forecast.forecast_id.clone(),
-                                generated_at: forecast.generated_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                                generated_at: forecast
+                                    .generated_at
+                                    .format("%Y-%m-%d %H:%M:%S UTC")
+                                    .to_string(),
                                 horizon_hours: forecast.horizon_hours,
                                 confidence: forecast.confidence,
                                 final_health,
@@ -2830,7 +2942,10 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         .iter()
                         .map(|f| anna_common::ipc::ForecastSummary {
                             forecast_id: f.forecast_id.clone(),
-                            generated_at: f.generated_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+                            generated_at: f
+                                .generated_at
+                                .format("%Y-%m-%d %H:%M:%S UTC")
+                                .to_string(),
                             horizon_hours: f.horizon_hours,
                             confidence: f.confidence,
                             warnings_count: f.warnings_count,
@@ -2853,20 +2968,18 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             info!("ChronosAlign method called");
 
             match &state.chronos {
-                Some(chronos) => {
-                    match chronos.align_parameters().await {
-                        Ok(()) => {
-                            let data = anna_common::ipc::ChronosAlignData {
-                                status: "Parameters aligned successfully".to_string(),
-                                parameters_aligned: 0,
-                                parameter_changes: std::collections::HashMap::new(),
-                            };
+                Some(chronos) => match chronos.align_parameters().await {
+                    Ok(()) => {
+                        let data = anna_common::ipc::ChronosAlignData {
+                            status: "Parameters aligned successfully".to_string(),
+                            parameters_aligned: 0,
+                            parameter_changes: std::collections::HashMap::new(),
+                        };
 
-                            Ok(ResponseData::ChronosAlign(data))
-                        }
-                        Err(e) => Err(format!("Parameter alignment failed: {}", e)),
+                        Ok(ResponseData::ChronosAlign(data))
                     }
-                }
+                    Err(e) => Err(format!("Parameter alignment failed: {}", e)),
+                },
                 None => Err("Chronos loop not initialized".to_string()),
             }
         }

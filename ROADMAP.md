@@ -1,6 +1,6 @@
 # Anna Assistant - Roadmap
 
-**Current Version:** 5.7.0-beta.52
+**Current Version:** 5.7.0-beta.53
 
 Anna is a local system caretaker for your Arch Linux machine. This roadmap outlines the key milestones in making Anna a capable, trustworthy assistant.
 

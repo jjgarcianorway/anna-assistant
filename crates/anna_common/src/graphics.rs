@@ -91,7 +91,13 @@ fn detect_session_type() -> SessionType {
     }
 
     // Check loginctl for session type
-    if let Ok(output) = Command::new("loginctl").arg("show-session").arg("self").arg("-p").arg("Type").output() {
+    if let Ok(output) = Command::new("loginctl")
+        .arg("show-session")
+        .arg("self")
+        .arg("-p")
+        .arg("Type")
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if stdout.contains("Type=wayland") {
@@ -153,7 +159,11 @@ fn detect_vulkan() -> (bool, Vec<String>, Option<String>) {
 
     // Fallback: check if vulkan packages are installed
     if !available {
-        if let Ok(output) = Command::new("pacman").arg("-Q").arg("vulkan-icd-loader").output() {
+        if let Ok(output) = Command::new("pacman")
+            .arg("-Q")
+            .arg("vulkan-icd-loader")
+            .output()
+        {
             if output.status.success() {
                 available = true;
             }

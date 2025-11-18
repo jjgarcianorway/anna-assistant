@@ -3,9 +3,9 @@
 //! Phase 5.1: Conversational UX
 //! Allows users to adjust Anna's personality through natural language
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use anyhow::Result;
 
 /// Verbosity level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

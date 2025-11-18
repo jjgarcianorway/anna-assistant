@@ -27,9 +27,9 @@ pub struct TrendDetection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TrendSeverity {
-    Info,      // Informational trend observation
-    Warning,   // Concerning trend that needs attention
-    Critical,  // Critical trend requiring immediate action
+    Info,     // Informational trend observation
+    Warning,  // Concerning trend that needs attention
+    Critical, // Critical trend requiring immediate action
 }
 
 impl TrendDetection {
@@ -103,7 +103,10 @@ pub fn detect_memory_leak(historian: &Historian) -> Result<Option<TrendDetection
 
         let data = vec![
             format!("Average RAM usage: {:.1} GB", avg_gb),
-            format!("Trend: Increasing over {} days", memory_trends.days_analyzed),
+            format!(
+                "Trend: Increasing over {} days",
+                memory_trends.days_analyzed
+            ),
         ];
 
         return Ok(Some(
@@ -222,9 +225,9 @@ pub fn detect_service_issues(historian: &Historian) -> Result<Vec<TrendDetection
                         "Check service logs with 'journalctl -u {}' to diagnose the issue. \
                          Consider reviewing the service configuration or dependencies.",
                         service.service_name
-                    )
+                    ),
                 )
-                .with_data(data)
+                .with_data(data),
             );
         }
     }
@@ -264,7 +267,8 @@ pub fn detect_performance_degradation(historian: &Historian) -> Result<Option<Tr
 
     if !issues.is_empty() {
         let severity = if health_summary.avg_stability_score < 50
-            || health_summary.avg_performance_score < 50 {
+            || health_summary.avg_performance_score < 50
+        {
             TrendSeverity::Critical
         } else {
             TrendSeverity::Warning
@@ -306,7 +310,10 @@ pub fn detect_cpu_patterns(historian: &Historian) -> Result<Option<TrendDetectio
     // If CPU usage is consistently high and trending up
     if cpu_trends.avg_utilization_percent > 70.0 && matches!(cpu_trends.trend, Trend::Up) {
         let data = vec![
-            format!("Average CPU usage: {:.1}%", cpu_trends.avg_utilization_percent),
+            format!(
+                "Average CPU usage: {:.1}%",
+                cpu_trends.avg_utilization_percent
+            ),
             format!("Trend: Increasing over {} days", cpu_trends.days_analyzed),
         ];
 

@@ -83,7 +83,10 @@ fn detect_cpu_governor() -> GovernorInfo {
     // Read governor from each CPU
     let mut cpu_num = 0;
     loop {
-        let governor_path = format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor", cpu_num);
+        let governor_path = format!(
+            "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor",
+            cpu_num
+        );
         if let Ok(governor) = fs::read_to_string(&governor_path) {
             governors.push(governor.trim().to_string());
             cpu_num += 1;
@@ -117,7 +120,10 @@ fn detect_cpu_governor() -> GovernorInfo {
         for gov in &governors {
             *counts.entry(gov.clone()).or_insert(0) += 1;
         }
-        let most_common = counts.iter().max_by_key(|(_, count)| *count).map(|(gov, _)| gov.clone())
+        let most_common = counts
+            .iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(gov, _)| gov.clone())
             .unwrap_or_else(|| "mixed".to_string());
 
         GovernorInfo {
@@ -134,11 +140,7 @@ fn detect_microcode() -> (Option<String>, Option<String>) {
     let mut version = None;
 
     // Check which microcode package is installed
-    if let Ok(output) = Command::new("pacman")
-        .arg("-Q")
-        .arg("intel-ucode")
-        .output()
-    {
+    if let Ok(output) = Command::new("pacman").arg("-Q").arg("intel-ucode").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let parts: Vec<&str> = stdout.split_whitespace().collect();
@@ -150,11 +152,7 @@ fn detect_microcode() -> (Option<String>, Option<String>) {
     }
 
     if package.is_none() {
-        if let Ok(output) = Command::new("pacman")
-            .arg("-Q")
-            .arg("amd-ucode")
-            .output()
-        {
+        if let Ok(output) = Command::new("pacman").arg("-Q").arg("amd-ucode").output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 let parts: Vec<&str> = stdout.split_whitespace().collect();

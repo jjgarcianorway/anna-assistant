@@ -50,8 +50,7 @@ impl KeyPair {
             .await
             .context("Failed to read keypair file")?;
 
-        let keypair: Self = serde_json::from_str(&json)
-            .context("Failed to parse keypair JSON")?;
+        let keypair: Self = serde_json::from_str(&json).context("Failed to parse keypair JSON")?;
 
         Ok(keypair)
     }
@@ -63,8 +62,7 @@ impl KeyPair {
             fs::create_dir_all(parent).await?;
         }
 
-        let json = serde_json::to_string_pretty(self)
-            .context("Failed to serialize keypair")?;
+        let json = serde_json::to_string_pretty(self).context("Failed to serialize keypair")?;
 
         fs::write(path, json)
             .await

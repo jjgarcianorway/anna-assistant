@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::process::Command;
 use std::fs;
+use std::process::Command;
 
 /// Comprehensive network monitoring information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -309,10 +309,7 @@ fn get_ip_addresses(if_name: &str) -> (Vec<String>, Vec<String>) {
     let mut ipv6_addrs = Vec::new();
 
     // Use `ip addr show` to get addresses
-    if let Ok(output) = Command::new("ip")
-        .args(&["addr", "show", if_name])
-        .output()
-    {
+    if let Ok(output) = Command::new("ip").args(&["addr", "show", if_name]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             let trimmed = line.trim();
@@ -350,10 +347,21 @@ fn get_link_speed(if_name: &str) -> Option<u32> {
 }
 
 /// Detect address configuration method (DHCP vs static)
-fn detect_address_config(if_name: &str, ipv4_addrs: &[String], ipv6_addrs: &[String]) -> AddressConfig {
+fn detect_address_config(
+    if_name: &str,
+    ipv4_addrs: &[String],
+    ipv6_addrs: &[String],
+) -> AddressConfig {
     // Check if NetworkManager is managing this interface
     if let Ok(output) = Command::new("nmcli")
-        .args(&["-t", "-f", "DEVICE,TYPE,METHOD", "connection", "show", "--active"])
+        .args(&[
+            "-t",
+            "-f",
+            "DEVICE,TYPE,METHOD",
+            "connection",
+            "show",
+            "--active",
+        ])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -380,7 +388,9 @@ fn detect_address_config(if_name: &str, ipv4_addrs: &[String], ipv6_addrs: &[Str
     if !ipv4_addrs.is_empty() || !ipv6_addrs.is_empty() {
         // Check if addresses are link-local only
         let all_link_local = ipv4_addrs.iter().all(|a| a.starts_with("169.254."))
-            && ipv6_addrs.iter().all(|a| a.to_lowercase().starts_with("fe80:"));
+            && ipv6_addrs
+                .iter()
+                .all(|a| a.to_lowercase().starts_with("fe80:"));
 
         if all_link_local {
             return AddressConfig::LinkLocal;
@@ -420,7 +430,10 @@ fn detect_ipv4_status(interfaces: &[NetworkInterface]) -> IpVersionStatus {
     let enabled = std::path::Path::new("/proc/sys/net/ipv4").exists();
     let address_count = interfaces.iter().map(|i| i.ipv4_addresses.len()).sum();
     let has_connectivity = interfaces.iter().any(|i| {
-        i.is_up && i.ipv4_addresses.iter().any(|a| !a.starts_with("169.254.") && !a.starts_with("127."))
+        i.is_up
+            && i.ipv4_addresses
+                .iter()
+                .any(|a| !a.starts_with("169.254.") && !a.starts_with("127."))
     });
 
     let default_gateway = get_default_gateway_v4();
@@ -438,10 +451,11 @@ fn detect_ipv6_status(interfaces: &[NetworkInterface]) -> IpVersionStatus {
     let enabled = std::path::Path::new("/proc/sys/net/ipv6").exists();
     let address_count = interfaces.iter().map(|i| i.ipv6_addresses.len()).sum();
     let has_connectivity = interfaces.iter().any(|i| {
-        i.is_up && i.ipv6_addresses.iter().any(|a| {
-            let lower = a.to_lowercase();
-            !lower.starts_with("fe80:") && !lower.starts_with("::1")
-        })
+        i.is_up
+            && i.ipv6_addresses.iter().any(|a| {
+                let lower = a.to_lowercase();
+                !lower.starts_with("fe80:") && !lower.starts_with("::1")
+            })
     });
 
     let default_gateway = get_default_gateway_v6();
@@ -456,7 +470,10 @@ fn detect_ipv6_status(interfaces: &[NetworkInterface]) -> IpVersionStatus {
 
 /// Get default gateway for IPv4
 fn get_default_gateway_v4() -> Option<String> {
-    if let Ok(output) = Command::new("ip").args(&["-4", "route", "show", "default"]).output() {
+    if let Ok(output) = Command::new("ip")
+        .args(&["-4", "route", "show", "default"])
+        .output()
+    {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             if let Some(gw) = line.split_whitespace().nth(2) {
@@ -469,7 +486,10 @@ fn get_default_gateway_v4() -> Option<String> {
 
 /// Get default gateway for IPv6
 fn get_default_gateway_v6() -> Option<String> {
-    if let Ok(output) = Command::new("ip").args(&["-6", "route", "show", "default"]).output() {
+    if let Ok(output) = Command::new("ip")
+        .args(&["-6", "route", "show", "default"])
+        .output()
+    {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             if let Some(gw) = line.split_whitespace().nth(2) {
@@ -511,7 +531,12 @@ fn detect_dnssec_status() -> DnssecStatus {
     }
 
     // Check for unbound
-    if Command::new("which").arg("unbound").output().map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("which")
+        .arg("unbound")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         // Could parse unbound config here
         return DnssecStatus {
             enabled: false, // Would need to parse config
@@ -529,7 +554,9 @@ fn detect_dnssec_status() -> DnssecStatus {
 
 /// Measure network latency to various targets
 fn measure_latency(ipv4_status: &IpVersionStatus, ipv6_status: &IpVersionStatus) -> LatencyMetrics {
-    let gateway_latency_ms = ipv4_status.default_gateway.as_ref()
+    let gateway_latency_ms = ipv4_status
+        .default_gateway
+        .as_ref()
         .and_then(|gw| ping_host(gw, 3));
 
     let dns_latency_ms = None; // Would need to get DNS server and ping it
@@ -547,8 +574,13 @@ fn measure_latency(ipv4_status: &IpVersionStatus, ipv6_status: &IpVersionStatus)
 }
 
 /// Measure packet loss to various targets
-fn measure_packet_loss(ipv4_status: &IpVersionStatus, ipv6_status: &IpVersionStatus) -> PacketLossStats {
-    let gateway_loss_percent = ipv4_status.default_gateway.as_ref()
+fn measure_packet_loss(
+    ipv4_status: &IpVersionStatus,
+    ipv6_status: &IpVersionStatus,
+) -> PacketLossStats {
+    let gateway_loss_percent = ipv4_status
+        .default_gateway
+        .as_ref()
         .and_then(|gw| ping_loss(gw, 10));
 
     let dns_loss_percent = None; // Would need DNS server
@@ -698,7 +730,14 @@ fn get_firewall_rules() -> FirewallRules {
     if let Ok(output) = Command::new("nft").args(&["list", "ruleset"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let rule_count = stdout.lines().filter(|l| l.trim().starts_with("ip ") || l.trim().starts_with("tcp ") || l.trim().starts_with("udp ")).count() as u32;
+            let rule_count = stdout
+                .lines()
+                .filter(|l| {
+                    l.trim().starts_with("ip ")
+                        || l.trim().starts_with("tcp ")
+                        || l.trim().starts_with("udp ")
+                })
+                .count() as u32;
 
             return FirewallRules {
                 firewall_type: Some("nftables".to_string()),
@@ -716,7 +755,12 @@ fn get_firewall_rules() -> FirewallRules {
     if let Ok(output) = Command::new("iptables").args(&["-L", "-n"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let rule_count = stdout.lines().filter(|l| l.starts_with("ACCEPT") || l.starts_with("DROP") || l.starts_with("REJECT")).count() as u32;
+            let rule_count = stdout
+                .lines()
+                .filter(|l| {
+                    l.starts_with("ACCEPT") || l.starts_with("DROP") || l.starts_with("REJECT")
+                })
+                .count() as u32;
 
             // Parse default policies
             let mut default_input = None;
@@ -726,17 +770,20 @@ fn get_firewall_rules() -> FirewallRules {
             for line in stdout.lines() {
                 if line.starts_with("Chain INPUT") {
                     if let Some(policy) = line.split("policy").nth(1) {
-                        default_input = Some(policy.split_whitespace().next().unwrap_or("").to_string());
+                        default_input =
+                            Some(policy.split_whitespace().next().unwrap_or("").to_string());
                     }
                 }
                 if line.starts_with("Chain OUTPUT") {
                     if let Some(policy) = line.split("policy").nth(1) {
-                        default_output = Some(policy.split_whitespace().next().unwrap_or("").to_string());
+                        default_output =
+                            Some(policy.split_whitespace().next().unwrap_or("").to_string());
                     }
                 }
                 if line.starts_with("Chain FORWARD") {
                     if let Some(policy) = line.split("policy").nth(1) {
-                        default_forward = Some(policy.split_whitespace().next().unwrap_or("").to_string());
+                        default_forward =
+                            Some(policy.split_whitespace().next().unwrap_or("").to_string());
                     }
                 }
             }

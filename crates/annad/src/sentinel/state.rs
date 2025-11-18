@@ -3,7 +3,7 @@
 //! Phase 1.0: State management with /var/lib/anna/state.json
 //! Citation: [archwiki:System_maintenance]
 
-use super::types::{SentinelState, SentinelConfig};
+use super::types::{SentinelConfig, SentinelState};
 use anyhow::{Context, Result};
 use std::path::Path;
 use tokio::fs::{create_dir_all, OpenOptions};
@@ -32,8 +32,8 @@ pub async fn load_state() -> Result<SentinelState> {
         .await
         .context("Failed to read state file")?;
 
-    let state: SentinelState = serde_json::from_str(&contents)
-        .context("Failed to parse state JSON")?;
+    let state: SentinelState =
+        serde_json::from_str(&contents).context("Failed to parse state JSON")?;
 
     info!("Loaded sentinel state version {}", state.version);
     Ok(state)
@@ -47,8 +47,7 @@ pub async fn save_state(state: &SentinelState) -> Result<()> {
         .context("Failed to create state directory")?;
 
     let state_path = state_dir.join(STATE_FILE);
-    let state_json = serde_json::to_string_pretty(state)
-        .context("Failed to serialize state")?;
+    let state_json = serde_json::to_string_pretty(state).context("Failed to serialize state")?;
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -62,9 +61,7 @@ pub async fn save_state(state: &SentinelState) -> Result<()> {
         .await
         .context("Failed to write state file")?;
 
-    file.sync_all()
-        .await
-        .context("Failed to sync state file")?;
+    file.sync_all().await.context("Failed to sync state file")?;
 
     info!("Saved sentinel state version {}", state.version);
     Ok(())
@@ -90,10 +87,13 @@ pub async fn load_config() -> Result<SentinelConfig> {
         .await
         .context("Failed to read config file")?;
 
-    let config: SentinelConfig = serde_json::from_str(&contents)
-        .context("Failed to parse config JSON")?;
+    let config: SentinelConfig =
+        serde_json::from_str(&contents).context("Failed to parse config JSON")?;
 
-    info!("Loaded sentinel configuration (autonomous_mode={})", config.autonomous_mode);
+    info!(
+        "Loaded sentinel configuration (autonomous_mode={})",
+        config.autonomous_mode
+    );
     Ok(config)
 }
 
@@ -105,8 +105,7 @@ pub async fn save_config(config: &SentinelConfig) -> Result<()> {
         .context("Failed to create state directory")?;
 
     let config_path = state_dir.join(CONFIG_FILE);
-    let config_json = serde_json::to_string_pretty(config)
-        .context("Failed to serialize config")?;
+    let config_json = serde_json::to_string_pretty(config).context("Failed to serialize config")?;
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -134,8 +133,10 @@ pub fn calculate_diff(old: &SentinelState, new: &SentinelState) -> StateDiff {
         version_delta: new.version.saturating_sub(old.version),
         system_state_changed: old.system_state != new.system_state,
         health_status_changed: old.last_health.status != new.last_health.status,
-        failed_services_delta: new.last_health.failed_services as i32 - old.last_health.failed_services as i32,
-        available_updates_delta: new.last_health.available_updates as i32 - old.last_health.available_updates as i32,
+        failed_services_delta: new.last_health.failed_services as i32
+            - old.last_health.failed_services as i32,
+        available_updates_delta: new.last_health.available_updates as i32
+            - old.last_health.available_updates as i32,
         log_issues_delta: new.last_health.log_issues as i32 - old.last_health.log_issues as i32,
         error_rate_delta: new.error_rate - old.error_rate,
         drift_index_delta: new.drift_index - old.drift_index,

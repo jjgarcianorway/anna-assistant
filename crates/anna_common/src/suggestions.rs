@@ -284,7 +284,8 @@ impl SuggestionEngine {
 
     /// Get top N prioritized suggestions (respecting user preferences)
     pub fn get_top_suggestions(&self, max_count: usize) -> Vec<&Suggestion> {
-        let mut suggestions: Vec<_> = self.suggestions
+        let mut suggestions: Vec<_> = self
+            .suggestions
             .iter()
             .filter(|s| {
                 // Filter out discarded suggestions
@@ -305,12 +306,14 @@ impl SuggestionEngine {
 
     /// Mark a suggestion as discarded
     pub fn discard_suggestion(&mut self, key: &str) {
-        self.user_preferences.insert(key.to_string(), UserPreference::Discarded);
+        self.user_preferences
+            .insert(key.to_string(), UserPreference::Discarded);
     }
 
     /// Mark a suggestion as acknowledged
     pub fn acknowledge_suggestion(&mut self, key: &str) {
-        self.user_preferences.insert(key.to_string(), UserPreference::Acknowledged);
+        self.user_preferences
+            .insert(key.to_string(), UserPreference::Acknowledged);
     }
 }
 
@@ -338,18 +341,16 @@ pub mod common_suggestions {
         ))
         .why_it_matters(
             "This can cause your disk to fill up and make package updates fail. \
-             A full disk can prevent your system from booting or cause crashes."
+             A full disk can prevent your system from booting or cause crashes.",
         )
         .impact(format!(
             "Cleaning the cache will free up approximately {:.1} GB of disk space.",
             cache_size_mb / 1024.0
         ))
-        .add_knowledge_source(
-            KnowledgeSource::arch_wiki(
-                "Pacman#Cleaning_the_package_cache",
-                "Pacman cache management"
-            )
-        )
+        .add_knowledge_source(KnowledgeSource::arch_wiki(
+            "Pacman#Cleaning_the_package_cache",
+            "Pacman cache management",
+        ))
         .auto_fixable(
             "Remove all cached packages except the most recent 2 versions using paccache",
             vec!["paccache -rk2".to_string()],
@@ -358,7 +359,10 @@ pub mod common_suggestions {
             space_saved_mb: Some(cache_size_mb * 0.8), // Estimate 80% can be cleaned
             memory_freed_mb: None,
             boot_time_saved_secs: None,
-            descriptions: vec![format!("Free up ~{:.1} GB of disk space", cache_size_mb * 0.8 / 1024.0)],
+            descriptions: vec![format!(
+                "Free up ~{:.1} GB of disk space",
+                cache_size_mb * 0.8 / 1024.0
+            )],
         })
     }
 
@@ -377,17 +381,18 @@ pub mod common_suggestions {
         ))
         .why_it_matters(
             "Orphaned packages waste disk space and increase the time needed for system updates. \
-             Removing them keeps your system lean and reduces maintenance overhead."
+             Removing them keeps your system lean and reduces maintenance overhead.",
         )
         .impact("Frees up disk space and reduces package update overhead.")
-        .add_knowledge_source(
-            KnowledgeSource::arch_wiki(
-                "Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)",
-                "Removing orphaned packages"
-            )
-        )
+        .add_knowledge_source(KnowledgeSource::arch_wiki(
+            "Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)",
+            "Removing orphaned packages",
+        ))
         .auto_fixable(
-            format!("List and review {} orphaned packages, then remove them if safe", count),
+            format!(
+                "List and review {} orphaned packages, then remove them if safe",
+                count
+            ),
             vec!["pacman -Qtdq | pacman -Rns -".to_string()],
         )
     }
@@ -428,15 +433,24 @@ mod tests {
     fn test_suggestion_priority_ordering() {
         let mut engine = SuggestionEngine::new();
 
-        engine.add_suggestion(
-            Suggestion::new("low", "Low priority", SuggestionPriority::Low, SuggestionCategory::Configuration)
-        );
-        engine.add_suggestion(
-            Suggestion::new("critical", "Critical", SuggestionPriority::Critical, SuggestionCategory::Security)
-        );
-        engine.add_suggestion(
-            Suggestion::new("medium", "Medium", SuggestionPriority::Medium, SuggestionCategory::Performance)
-        );
+        engine.add_suggestion(Suggestion::new(
+            "low",
+            "Low priority",
+            SuggestionPriority::Low,
+            SuggestionCategory::Configuration,
+        ));
+        engine.add_suggestion(Suggestion::new(
+            "critical",
+            "Critical",
+            SuggestionPriority::Critical,
+            SuggestionCategory::Security,
+        ));
+        engine.add_suggestion(Suggestion::new(
+            "medium",
+            "Medium",
+            SuggestionPriority::Medium,
+            SuggestionCategory::Performance,
+        ));
 
         let top = engine.get_top_suggestions(3);
         assert_eq!(top.len(), 3);
@@ -449,9 +463,12 @@ mod tests {
     fn test_discard_suggestion() {
         let mut engine = SuggestionEngine::new();
 
-        engine.add_suggestion(
-            Suggestion::new("test", "Test", SuggestionPriority::High, SuggestionCategory::Configuration)
-        );
+        engine.add_suggestion(Suggestion::new(
+            "test",
+            "Test",
+            SuggestionPriority::High,
+            SuggestionCategory::Configuration,
+        ));
 
         let top = engine.get_top_suggestions(5);
         assert_eq!(top.len(), 1);
@@ -467,14 +484,12 @@ mod tests {
         let mut engine = SuggestionEngine::new();
 
         for i in 0..10 {
-            engine.add_suggestion(
-                Suggestion::new(
-                    format!("test-{}", i),
-                    format!("Test {}", i),
-                    SuggestionPriority::Medium,
-                    SuggestionCategory::Configuration
-                )
-            );
+            engine.add_suggestion(Suggestion::new(
+                format!("test-{}", i),
+                format!("Test {}", i),
+                SuggestionPriority::Medium,
+                SuggestionCategory::Configuration,
+            ));
         }
 
         let top = engine.get_top_suggestions(10);
@@ -505,7 +520,10 @@ mod tests {
 
         assert_eq!(suggestion.knowledge_sources.len(), 1);
         assert_eq!(suggestion.knowledge_sources[0].label, "Arch Wiki: Test");
-        assert_eq!(suggestion.knowledge_sources[0].url, "https://wiki.archlinux.org/title/Test");
+        assert_eq!(
+            suggestion.knowledge_sources[0].url,
+            "https://wiki.archlinux.org/title/Test"
+        );
     }
 
     #[test]
@@ -541,7 +559,10 @@ mod tests {
 
         // Should link to Arch Wiki
         assert!(
-            pacman_suggestion.knowledge_sources.iter().any(|s| s.url.contains("wiki.archlinux.org")),
+            pacman_suggestion
+                .knowledge_sources
+                .iter()
+                .any(|s| s.url.contains("wiki.archlinux.org")),
             "Should have Arch Wiki source"
         );
     }
@@ -552,7 +573,9 @@ mod tests {
 
         assert!(!orphan_suggestion.knowledge_sources.is_empty());
         assert!(!orphan_suggestion.why_it_matters.trim().is_empty());
-        assert!(orphan_suggestion.knowledge_sources[0].url.contains("Pacman"));
+        assert!(orphan_suggestion.knowledge_sources[0]
+            .url
+            .contains("Pacman"));
     }
 
     #[test]
@@ -562,6 +585,8 @@ mod tests {
 
         assert!(!service_suggestion.knowledge_sources.is_empty());
         assert!(!service_suggestion.why_it_matters.trim().is_empty());
-        assert!(service_suggestion.knowledge_sources[0].url.contains("Systemd"));
+        assert!(service_suggestion.knowledge_sources[0]
+            .url
+            .contains("Systemd"));
     }
 }

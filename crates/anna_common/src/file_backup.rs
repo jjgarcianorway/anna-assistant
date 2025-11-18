@@ -84,8 +84,7 @@ impl FileBackup {
         };
 
         // Ensure backup directory exists
-        fs::create_dir_all(&backup_dir)
-            .context("Failed to create backup directory")?;
+        fs::create_dir_all(&backup_dir).context("Failed to create backup directory")?;
 
         // Generate backup filename
         let backup_filename = Self::generate_backup_filename(original_path, &change_set_id);
@@ -110,8 +109,9 @@ impl FileBackup {
                 let size_bytes = content.len() as u64;
                 let sha256 = Self::compute_sha256(&content);
 
-                fs::write(&backup_path, &content)
-                    .with_context(|| format!("Failed to write backup: {}", backup_path.display()))?;
+                fs::write(&backup_path, &content).with_context(|| {
+                    format!("Failed to write backup: {}", backup_path.display())
+                })?;
 
                 info!(
                     "Backed up {} ({} bytes, sha256: {})",
@@ -132,10 +132,14 @@ impl FileBackup {
             }
             FileOperation::Created => {
                 // File is about to be created - create empty marker
-                fs::write(&backup_path, b"")
-                    .with_context(|| format!("Failed to write backup marker: {}", backup_path.display()))?;
+                fs::write(&backup_path, b"").with_context(|| {
+                    format!("Failed to write backup marker: {}", backup_path.display())
+                })?;
 
-                debug!("Created backup marker for new file: {}", original_path.display());
+                debug!(
+                    "Created backup marker for new file: {}",
+                    original_path.display()
+                );
 
                 Ok(Self {
                     original_path: original_path.to_path_buf(),
@@ -202,17 +206,18 @@ impl FileBackup {
         match self.operation {
             FileOperation::Modified | FileOperation::Deleted => {
                 // Restore the original content
-                let content = fs::read(&self.backup_path)
-                    .with_context(|| format!("Failed to read backup: {}", self.backup_path.display()))?;
+                let content = fs::read(&self.backup_path).with_context(|| {
+                    format!("Failed to read backup: {}", self.backup_path.display())
+                })?;
 
                 // Ensure parent directory exists
                 if let Some(parent) = self.original_path.parent() {
-                    fs::create_dir_all(parent)
-                        .context("Failed to create parent directory")?;
+                    fs::create_dir_all(parent).context("Failed to create parent directory")?;
                 }
 
-                fs::write(&self.original_path, &content)
-                    .with_context(|| format!("Failed to restore file: {}", self.original_path.display()))?;
+                fs::write(&self.original_path, &content).with_context(|| {
+                    format!("Failed to restore file: {}", self.original_path.display())
+                })?;
 
                 info!(
                     "Restored {} from backup ({} bytes)",
@@ -225,8 +230,12 @@ impl FileBackup {
             FileOperation::Created => {
                 // File was created by Anna - delete it
                 if self.original_path.exists() {
-                    fs::remove_file(&self.original_path)
-                        .with_context(|| format!("Failed to delete created file: {}", self.original_path.display()))?;
+                    fs::remove_file(&self.original_path).with_context(|| {
+                        format!(
+                            "Failed to delete created file: {}",
+                            self.original_path.display()
+                        )
+                    })?;
 
                     info!("Deleted created file: {}", self.original_path.display());
                 }
@@ -239,8 +248,9 @@ impl FileBackup {
     /// Delete this backup file
     pub fn delete_backup(&self) -> Result<()> {
         if self.backup_path.exists() {
-            fs::remove_file(&self.backup_path)
-                .with_context(|| format!("Failed to delete backup: {}", self.backup_path.display()))?;
+            fs::remove_file(&self.backup_path).with_context(|| {
+                format!("Failed to delete backup: {}", self.backup_path.display())
+            })?;
 
             debug!("Deleted backup: {}", self.backup_path.display());
         }
@@ -382,7 +392,7 @@ impl BackupManager {
 mod tests {
     use super::*;
     use std::io::Write;
-    use tempfile::{NamedTempFile, tempdir};
+    use tempfile::{tempdir, NamedTempFile};
 
     #[test]
     fn test_file_backup_and_restore() {
@@ -393,12 +403,9 @@ mod tests {
         fs::write(&original_path, b"Hello, World!").unwrap();
 
         // Create backup
-        let backup = FileBackup::create_backup(
-            &original_path,
-            "test-change-123",
-            FileOperation::Modified,
-        )
-        .unwrap();
+        let backup =
+            FileBackup::create_backup(&original_path, "test-change-123", FileOperation::Modified)
+                .unwrap();
 
         // Verify integrity
         assert!(backup.verify_integrity().unwrap());
@@ -430,12 +437,9 @@ mod tests {
         let new_file_path = temp_dir.path().join("new_file.txt");
 
         // Create backup marker for a file about to be created
-        let backup = FileBackup::create_backup(
-            &new_file_path,
-            "test-change-456",
-            FileOperation::Created,
-        )
-        .unwrap();
+        let backup =
+            FileBackup::create_backup(&new_file_path, "test-change-456", FileOperation::Created)
+                .unwrap();
 
         // Simulate file creation
         fs::write(&new_file_path, b"New file content").unwrap();
@@ -456,7 +460,11 @@ mod tests {
         let size_human = manager.total_backup_size_human().unwrap();
 
         // Should return a human-readable size
-        assert!(size_human.contains("B") || size_human.contains("KB") ||
-                size_human.contains("MB") || size_human.contains("GB"));
+        assert!(
+            size_human.contains("B")
+                || size_human.contains("KB")
+                || size_human.contains("MB")
+                || size_human.contains("GB")
+        );
     }
 }

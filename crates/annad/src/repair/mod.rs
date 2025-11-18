@@ -7,11 +7,10 @@ mod actions;
 
 pub use actions::{
     bluetooth_service_repair, broken_autostart_repair, core_dump_cleanup_repair,
-    disk_smart_guidance, disk_space_repair, filesystem_errors_guidance,
-    firmware_microcode_repair, heavy_user_cache_repair, journal_cleanup_repair,
-    missing_firmware_repair, network_health_repair, orphaned_packages_repair,
-    pacman_db_repair, services_failed_repair, time_sync_enable_repair,
-    tlp_config_repair, user_services_failed_repair,
+    disk_smart_guidance, disk_space_repair, filesystem_errors_guidance, firmware_microcode_repair,
+    heavy_user_cache_repair, journal_cleanup_repair, missing_firmware_repair,
+    network_health_repair, orphaned_packages_repair, pacman_db_repair, services_failed_repair,
+    time_sync_enable_repair, tlp_config_repair, user_services_failed_repair,
 };
 
 use anna_common::ipc::RepairAction;
@@ -31,10 +30,7 @@ pub async fn repair_probe(
     dry_run: bool,
     health_results: Option<&[ProbeResult]>,
 ) -> Result<Vec<RepairAction>> {
-    info!(
-        "Repair requested: probe={}, dry_run={}",
-        probe, dry_run
-    );
+    info!("Repair requested: probe={}, dry_run={}", probe, dry_run);
 
     if probe == "all" {
         // Repair all failed probes

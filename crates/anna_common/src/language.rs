@@ -371,9 +371,9 @@ pub struct TerminalCapabilities {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColorSupport {
     None,
-    Basic16,      // 16 colors
-    Extended256,  // 256 colors
-    TrueColor,    // 24-bit RGB
+    Basic16,     // 16 colors
+    Extended256, // 256 colors
+    TrueColor,   // 24-bit RGB
 }
 
 impl Default for TerminalCapabilities {
@@ -556,7 +556,10 @@ mod tests {
 
         // Default should be system or English
         let default_lang = config.effective_language();
-        assert!(matches!(default_lang, Language::English | Language::Spanish | Language::Norwegian));
+        assert!(matches!(
+            default_lang,
+            Language::English | Language::Spanish | Language::Norwegian
+        ));
 
         // User preference overrides system
         config.set_user_language(Language::Spanish);
@@ -565,7 +568,10 @@ mod tests {
         // Clearing user preference reverts to system/English
         config.clear_user_language();
         let reverted = config.effective_language();
-        assert!(matches!(reverted, Language::English | Language::Spanish | Language::Norwegian));
+        assert!(matches!(
+            reverted,
+            Language::English | Language::Spanish | Language::Norwegian
+        ));
     }
 
     #[test]
@@ -582,8 +588,12 @@ mod tests {
     fn test_terminal_detection() {
         let caps = TerminalCapabilities::detect();
         // Just ensure it doesn't panic
-        assert!(matches!(caps.color_support,
-            ColorSupport::None | ColorSupport::Basic16 | ColorSupport::Extended256 | ColorSupport::TrueColor
+        assert!(matches!(
+            caps.color_support,
+            ColorSupport::None
+                | ColorSupport::Basic16
+                | ColorSupport::Extended256
+                | ColorSupport::TrueColor
         ));
     }
 

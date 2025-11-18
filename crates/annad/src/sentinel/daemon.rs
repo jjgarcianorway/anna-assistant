@@ -7,8 +7,7 @@
 use super::events::{create_default_playbooks, EventBus};
 use super::state::{load_config, load_state, save_state};
 use super::types::{
-    SentinelAction, SentinelConfig, SentinelEvent, SentinelLogEntry,
-    SentinelMetrics, SentinelState,
+    SentinelAction, SentinelConfig, SentinelEvent, SentinelLogEntry, SentinelMetrics, SentinelState,
 };
 use crate::conscience::ConscienceDaemon;
 use anyhow::{Context, Result};
@@ -296,27 +295,15 @@ impl SentinelDaemon {
             uptime_seconds: self.start_time.elapsed().as_secs(),
             total_events,
             events_by_type: state.event_counters.clone(),
-            automated_actions: state
-                .event_counters
-                .get("AutoRepair")
-                .copied()
-                .unwrap_or(0)
-                + state
-                    .event_counters
-                    .get("AutoUpdate")
-                    .copied()
-                    .unwrap_or(0),
+            automated_actions: state.event_counters.get("AutoRepair").copied().unwrap_or(0)
+                + state.event_counters.get("AutoUpdate").copied().unwrap_or(0),
             manual_commands,
             health_checks: state
                 .event_counters
                 .get("HealthCheck")
                 .copied()
                 .unwrap_or(0),
-            update_scans: state
-                .event_counters
-                .get("UpdateScan")
-                .copied()
-                .unwrap_or(0),
+            update_scans: state.event_counters.get("UpdateScan").copied().unwrap_or(0),
             audits: state.event_counters.get("Audit").copied().unwrap_or(0),
             current_health: state.last_health.status.clone(),
             error_rate: state.error_rate,
@@ -359,7 +346,11 @@ impl SentinelDaemon {
 /// Handle a sentinel event
 fn handle_event(event: SentinelEvent, state: Arc<RwLock<SentinelState>>) -> Vec<SentinelAction> {
     // Increment event counter
-    let event_name = format!("{:?}", &event).split('{').next().unwrap_or("Unknown").to_string();
+    let event_name = format!("{:?}", &event)
+        .split('{')
+        .next()
+        .unwrap_or("Unknown")
+        .to_string();
     tokio::spawn(async move {
         let mut state = state.write().await;
         *state.event_counters.entry(event_name).or_insert(0) += 1;

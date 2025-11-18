@@ -30,9 +30,7 @@ pub async fn setup_disks(config: &InstallConfig, dry_run: bool) -> StepResult {
             target_disk,
             create_swap,
             swap_size_gb,
-        } => {
-            setup_auto_btrfs(target_disk, *create_swap, *swap_size_gb, dry_run).await
-        }
+        } => setup_auto_btrfs(target_disk, *create_swap, *swap_size_gb, dry_run).await,
     }
 }
 
@@ -48,10 +46,16 @@ async fn setup_manual_partitions(
     // Validate partitions exist
     if !dry_run {
         if !std::path::Path::new(&format!("/dev/{}", root_partition)).exists() {
-            return Err(anyhow::anyhow!("Root partition not found: {}", root_partition));
+            return Err(anyhow::anyhow!(
+                "Root partition not found: {}",
+                root_partition
+            ));
         }
         if !std::path::Path::new(&format!("/dev/{}", boot_partition)).exists() {
-            return Err(anyhow::anyhow!("Boot partition not found: {}", boot_partition));
+            return Err(anyhow::anyhow!(
+                "Boot partition not found: {}",
+                boot_partition
+            ));
         }
     }
 

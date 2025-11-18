@@ -152,15 +152,19 @@ pub fn compare_versions(current: &str, latest: &str) -> std::cmp::Ordering {
     let (l_major, l_minor, l_patch, l_pre) = parse_version(latest);
 
     // Compare major.minor.patch first
-    match (c_major.cmp(&l_major), c_minor.cmp(&l_minor), c_patch.cmp(&l_patch)) {
+    match (
+        c_major.cmp(&l_major),
+        c_minor.cmp(&l_minor),
+        c_patch.cmp(&l_patch),
+    ) {
         (Ordering::Equal, Ordering::Equal, Ordering::Equal) => {
             // Same base version, compare prerelease
             // Stable (None) > Prerelease (Some)
             match (&c_pre, &l_pre) {
                 (None, None) => Ordering::Equal,
-                (Some(_), None) => Ordering::Less,    // current is prerelease, latest is stable
+                (Some(_), None) => Ordering::Less, // current is prerelease, latest is stable
                 (None, Some(_)) => Ordering::Greater, // current is stable, latest is prerelease
-                (Some(c), Some(l)) => c.cmp(l),       // both prerelease, compare lexicographically
+                (Some(c), Some(l)) => c.cmp(l),    // both prerelease, compare lexicographically
             }
         }
         (Ordering::Equal, Ordering::Equal, patch_cmp) => patch_cmp,
@@ -222,9 +226,6 @@ mod tests {
 
     #[test]
     fn test_strip_v_prefix() {
-        assert_eq!(
-            "3.9.1",
-            "v3.9.1".strip_prefix('v').unwrap()
-        );
+        assert_eq!("3.9.1", "v3.9.1".strip_prefix('v').unwrap());
     }
 }

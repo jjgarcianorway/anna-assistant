@@ -47,7 +47,10 @@ impl ReloadableConfig {
     ///
     /// Returns Ok(true) if reload succeeded, Ok(false) if config unchanged, Err on failure.
     pub async fn reload(&self) -> Result<bool> {
-        info!("Hot reload triggered: loading configuration from {}", self.config_path.display());
+        info!(
+            "Hot reload triggered: loading configuration from {}",
+            self.config_path.display()
+        );
 
         // Load new peer list from disk
         let new_peer_list = PeerList::load_from_file(&self.config_path)
@@ -67,13 +70,19 @@ impl ReloadableConfig {
         // Validate new configuration
         if let Some(ref tls_config) = new_peer_list.tls {
             info!("Validating new TLS configuration...");
-            tls_config.validate().await
+            tls_config
+                .validate()
+                .await
                 .with_context(|| "New TLS configuration validation failed")?;
 
             // Pre-load TLS configs to ensure they're valid
-            let _ = tls_config.load_server_config().await
+            let _ = tls_config
+                .load_server_config()
+                .await
                 .with_context(|| "Failed to load new server TLS config")?;
-            let _ = tls_config.load_client_config().await
+            let _ = tls_config
+                .load_client_config()
+                .await
                 .with_context(|| "Failed to load new client TLS config")?;
 
             info!("✓ New TLS configuration validated successfully");
@@ -87,7 +96,14 @@ impl ReloadableConfig {
 
         info!("✓ Configuration reloaded successfully");
         info!("  Peers: {} nodes", new_peer_list.peers.len());
-        info!("  TLS: {}", if new_peer_list.tls_enabled() { "enabled" } else { "disabled" });
+        info!(
+            "  TLS: {}",
+            if new_peer_list.tls_enabled() {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        );
 
         self.metrics.record_peer_reload("success");
         Ok(true)

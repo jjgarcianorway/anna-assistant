@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "5.7.0-beta.51"
+version = "5.7.0-beta.53"
 dependencies = [
  "anyhow",
  "atty",
@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "5.7.0-beta.51"
+version = "5.7.0-beta.53"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -81,6 +81,7 @@ dependencies = [
  "owo-colors",
  "ratatui",
  "reqwest",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",
@@ -91,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "5.7.0-beta.51"
+version = "5.7.0-beta.53"
 dependencies = [
  "anna_common",
  "anyhow",

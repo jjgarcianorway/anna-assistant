@@ -21,11 +21,11 @@ pub struct DiskUsage {
 /// Categories of disk consumers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DiskCategory {
-    Containers,    // Docker, Podman
-    Builds,        // Build artifacts, cargo target/, etc
-    PackageCache,  // Pacman cache
-    Logs,          // System logs
-    Downloads,     // ~/Downloads
+    Containers,      // Docker, Podman
+    Builds,          // Build artifacts, cargo target/, etc
+    PackageCache,    // Pacman cache
+    Logs,            // System logs
+    Downloads,       // ~/Downloads
     VirtualMachines, // VMs, ISOs
     Other,
 }
@@ -181,13 +181,17 @@ impl DiskAnalysis {
         // Group consumers by category
         let mut by_category: HashMap<DiskCategory, Vec<&DiskUsage>> = HashMap::new();
         for consumer in &self.top_consumers {
-            by_category.entry(consumer.category).or_default().push(consumer);
+            by_category
+                .entry(consumer.category)
+                .or_default()
+                .push(consumer);
         }
 
         // Containers
         if let Some(containers) = by_category.get(&DiskCategory::Containers) {
             let total_size: u64 = containers.iter().map(|c| c.size_bytes).sum();
-            if total_size > 10 * 1024 * 1024 * 1024 { // > 10GB
+            if total_size > 10 * 1024 * 1024 * 1024 {
+                // > 10GB
                 recommendations.push(DiskRecommendation::clean_containers(total_size));
             }
         }
@@ -195,7 +199,8 @@ impl DiskAnalysis {
         // Package cache
         if let Some(packages) = by_category.get(&DiskCategory::PackageCache) {
             let total_size: u64 = packages.iter().map(|c| c.size_bytes).sum();
-            if total_size > 5 * 1024 * 1024 * 1024 { // > 5GB
+            if total_size > 5 * 1024 * 1024 * 1024 {
+                // > 5GB
                 recommendations.push(DiskRecommendation::clean_package_cache(total_size));
             }
         }
@@ -203,7 +208,8 @@ impl DiskAnalysis {
         // Logs
         if let Some(logs) = by_category.get(&DiskCategory::Logs) {
             let total_size: u64 = logs.iter().map(|c| c.size_bytes).sum();
-            if total_size > 1024 * 1024 * 1024 { // > 1GB
+            if total_size > 1024 * 1024 * 1024 {
+                // > 1GB
                 recommendations.push(DiskRecommendation::clean_logs(total_size));
             }
         }
@@ -211,7 +217,8 @@ impl DiskAnalysis {
         // Builds
         if let Some(builds) = by_category.get(&DiskCategory::Builds) {
             let total_size: u64 = builds.iter().map(|c| c.size_bytes).sum();
-            if total_size > 5 * 1024 * 1024 * 1024 { // > 5GB
+            if total_size > 5 * 1024 * 1024 * 1024 {
+                // > 5GB
                 recommendations.push(DiskRecommendation::review_builds(total_size, builds));
             }
         }
@@ -236,10 +243,10 @@ pub struct DiskRecommendation {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecommendationRisk {
-    Safe,      // Can't break anything
-    Low,       // Unlikely to cause issues
-    Medium,    // Requires understanding what you're doing
-    High,      // Could break things
+    Safe,   // Can't break anything
+    Low,    // Unlikely to cause issues
+    Medium, // Requires understanding what you're doing
+    High,   // Could break things
 }
 
 impl DiskRecommendation {
@@ -286,7 +293,8 @@ impl DiskRecommendation {
     }
 
     fn review_builds(estimated_savings: u64, paths: &[&DiskUsage]) -> Self {
-        let path_list = paths.iter()
+        let path_list = paths
+            .iter()
             .map(|p| p.path.display().to_string())
             .collect::<Vec<_>>()
             .join(", ");
@@ -331,7 +339,9 @@ fn get_filesystem_stats(mount_point: &Path) -> Result<(u64, u64, u64)> {
 
     let total = parts[1].parse::<u64>().context("Failed to parse total")?;
     let used = parts[2].parse::<u64>().context("Failed to parse used")?;
-    let available = parts[3].parse::<u64>().context("Failed to parse available")?;
+    let available = parts[3]
+        .parse::<u64>()
+        .context("Failed to parse available")?;
 
     Ok((total, used, available))
 }
@@ -353,7 +363,9 @@ fn get_dir_size(path: &str) -> Result<u64> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let size_str = stdout.split_whitespace().next()
+    let size_str = stdout
+        .split_whitespace()
+        .next()
         .context("Could not parse du output")?;
 
     size_str.parse::<u64>().context("Failed to parse size")

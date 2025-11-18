@@ -89,7 +89,8 @@ impl EthicsEngine {
                             "Package updates may introduce regressions".to_string(),
                             "Kernel updates require reboot".to_string(),
                             "Pre-transaction hooks mitigate risk".to_string(),
-                            "Citation: [archwiki:System_maintenance#Upgrading_the_system]".to_string(),
+                            "Citation: [archwiki:System_maintenance#Upgrading_the_system]"
+                                .to_string(),
                         ],
                     )
                 }
@@ -154,7 +155,11 @@ impl EthicsEngine {
                         vec!["Manual review recommended for privacy".to_string()],
                     )
                 } else {
-                    (1.0, "Log message contains no sensitive data".to_string(), vec![])
+                    (
+                        1.0,
+                        "Log message contains no sensitive data".to_string(),
+                        vec![],
+                    )
                 }
             }
 
@@ -172,7 +177,11 @@ impl EthicsEngine {
                         vec!["Contains potentially private paths or keywords".to_string()],
                     )
                 } else {
-                    (1.0, "Notification contains public information only".to_string(), vec![])
+                    (
+                        1.0,
+                        "Notification contains public information only".to_string(),
+                        vec![],
+                    )
                 }
             }
         }
@@ -226,9 +235,11 @@ impl EthicsEngine {
                 ],
             ),
 
-            SentinelAction::LogWarning { .. } | SentinelAction::SendNotification { .. } => {
-                (1.0, "Informational actions are inherently transparent".to_string(), vec![])
-            }
+            SentinelAction::LogWarning { .. } | SentinelAction::SendNotification { .. } => (
+                1.0,
+                "Informational actions are inherently transparent".to_string(),
+                vec![],
+            ),
         }
     }
 
@@ -257,7 +268,11 @@ impl EthicsEngine {
 
             SentinelAction::SystemUpdate { dry_run } => {
                 if *dry_run {
-                    (1.0, "Dry-run preserves full user control".to_string(), vec![])
+                    (
+                        1.0,
+                        "Dry-run preserves full user control".to_string(),
+                        vec![],
+                    )
                 } else {
                     (
                         0.5,
@@ -345,10 +360,7 @@ impl EthicsEngine {
                 Ok(config)
             }
             Err(_) => {
-                warn!(
-                    "Ethics config not found at {}, using defaults",
-                    config_path
-                );
+                warn!("Ethics config not found at {}, using defaults", config_path);
                 Ok(EthicsConfig::default())
             }
         }

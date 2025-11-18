@@ -6,8 +6,8 @@
 
 use anna_common::telemetry::*;
 use anyhow::Result;
-use std::process::Command;
 use std::path::Path;
+use std::process::Command;
 
 /// Query current system telemetry
 pub fn query_system_telemetry() -> Result<SystemTelemetry> {
@@ -54,7 +54,8 @@ fn query_hardware() -> Result<HardwareInfo> {
     let cpu_model = std::fs::read_to_string("/proc/cpuinfo")
         .ok()
         .and_then(|content| {
-            content.lines()
+            content
+                .lines()
                 .find(|line| line.starts_with("model name"))
                 .and_then(|line| line.split(':').nth(1))
                 .map(|s| s.trim().to_string())
@@ -65,7 +66,8 @@ fn query_hardware() -> Result<HardwareInfo> {
     let total_ram_mb = std::fs::read_to_string("/proc/meminfo")
         .ok()
         .and_then(|content| {
-            content.lines()
+            content
+                .lines()
                 .find(|line| line.starts_with("MemTotal:"))
                 .and_then(|line| {
                     line.split_whitespace()
@@ -90,7 +92,8 @@ fn query_hardware() -> Result<HardwareInfo> {
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .and_then(|output| {
-                output.lines()
+                output
+                    .lines()
                     .find(|line| line.contains("VGA") || line.contains("3D"))
                     .map(|line| line.to_string())
             })
@@ -127,9 +130,12 @@ fn query_disks() -> Result<Vec<DiskInfo>> {
             let fs_type = parts[4].to_string();
 
             // Only include real filesystems
-            if mount_point.starts_with('/') && !mount_point.starts_with("/sys")
-                && !mount_point.starts_with("/proc") && !mount_point.starts_with("/dev")
-                && !mount_point.starts_with("/run") {
+            if mount_point.starts_with('/')
+                && !mount_point.starts_with("/sys")
+                && !mount_point.starts_with("/proc")
+                && !mount_point.starts_with("/dev")
+                && !mount_point.starts_with("/run")
+            {
                 disks.push(DiskInfo {
                     mount_point,
                     total_mb,
@@ -200,11 +206,13 @@ fn query_cpu() -> Result<CpuInfo> {
     let loadavg = std::fs::read_to_string("/proc/loadavg")?;
     let parts: Vec<&str> = loadavg.split_whitespace().collect();
 
-    let load_avg_1min = parts.first()
+    let load_avg_1min = parts
+        .first()
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
-    let load_avg_5min = parts.get(1)
+    let load_avg_5min = parts
+        .get(1)
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
@@ -260,11 +268,13 @@ fn query_packages() -> Result<PackageInfo> {
     let last_update = std::fs::read_to_string("/var/log/pacman.log")
         .ok()
         .and_then(|content| {
-            content.lines()
+            content
+                .lines()
                 .rev()
                 .find(|line| line.contains("starting full system upgrade"))
                 .and_then(|line| {
-                    line.split('[').nth(1)
+                    line.split('[')
+                        .nth(1)
                         .and_then(|s| s.split(']').next())
                         .and_then(|timestamp| {
                             chrono::DateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S%z")
@@ -357,7 +367,12 @@ fn query_network() -> Result<NetworkInfo> {
             .unwrap_or(false);
 
     let firewall_type = if firewall_active {
-        if Command::new("which").arg("ufw").output().map(|o| o.status.success()).unwrap_or(false) {
+        if Command::new("which")
+            .arg("ufw")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
             Some("ufw".to_string())
         } else {
             Some("iptables".to_string())
@@ -377,7 +392,14 @@ fn query_network() -> Result<NetworkInfo> {
 fn query_security() -> Result<SecurityInfo> {
     // Count failed SSH attempts from journal
     let failed_ssh_attempts = Command::new("journalctl")
-        .args(["-u", "sshd", "--since", "1 week ago", "-g", "Failed password"])
+        .args([
+            "-u",
+            "sshd",
+            "--since",
+            "1 week ago",
+            "-g",
+            "Failed password",
+        ])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
@@ -385,12 +407,13 @@ fn query_security() -> Result<SecurityInfo> {
         .unwrap_or(0);
 
     // Check for auto-updates
-    let auto_updates_enabled = Path::new("/etc/systemd/system/timers.target.wants/pacman-auto-update.timer").exists()
-        || Command::new("systemctl")
-            .args(["is-enabled", "pacman-auto-update.timer"])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+    let auto_updates_enabled =
+        Path::new("/etc/systemd/system/timers.target.wants/pacman-auto-update.timer").exists()
+            || Command::new("systemctl")
+                .args(["is-enabled", "pacman-auto-update.timer"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
 
     Ok(SecurityInfo {
         failed_ssh_attempts,
@@ -404,7 +427,8 @@ fn query_desktop() -> Result<DesktopInfo> {
     let session_type = std::env::var("XDG_SESSION_TYPE").ok();
 
     // Try to get window manager
-    let wm_name = std::env::var("WINDOW_MANAGER").ok()
+    let wm_name = std::env::var("WINDOW_MANAGER")
+        .ok()
         .or_else(|| std::env::var("DESKTOP_SESSION").ok());
 
     // Count monitors
@@ -425,8 +449,7 @@ fn query_desktop() -> Result<DesktopInfo> {
 
 fn query_boot() -> Result<BootInfo> {
     // Get last boot time using systemd-analyze
-    let output = Command::new("systemd-analyze")
-        .output()?;
+    let output = Command::new("systemd-analyze").output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 

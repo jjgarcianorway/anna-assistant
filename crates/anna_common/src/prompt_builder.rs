@@ -129,8 +129,7 @@ impl PromptBuilder {
         context.push_str(&"- OS: Arch Linux\n".to_string());
         context.push_str(&format!(
             "- CPU: {} ({} cores)\n",
-            telemetry.hardware.cpu_model,
-            telemetry.cpu.cores
+            telemetry.hardware.cpu_model, telemetry.cpu.cores
         ));
         context.push_str(&format!(
             "- RAM: {} MB total, {} MB available\n",
@@ -148,12 +147,21 @@ impl PromptBuilder {
 
         // Packages
         context.push_str(&"## Package Status\n".to_string());
-        context.push_str(&format!("- Total installed: {}\n", telemetry.packages.total_installed));
+        context.push_str(&format!(
+            "- Total installed: {}\n",
+            telemetry.packages.total_installed
+        ));
         if telemetry.packages.updates_available > 0 {
-            context.push_str(&format!("- Updates available: {}\n", telemetry.packages.updates_available));
+            context.push_str(&format!(
+                "- Updates available: {}\n",
+                telemetry.packages.updates_available
+            ));
         }
         if telemetry.packages.orphaned > 0 {
-            context.push_str(&format!("- Orphaned packages: {}\n", telemetry.packages.orphaned));
+            context.push_str(&format!(
+                "- Orphaned packages: {}\n",
+                telemetry.packages.orphaned
+            ));
         }
         context.push('\n');
 
@@ -174,9 +182,15 @@ impl PromptBuilder {
 
         // Services
         context.push_str(&"## System Services\n".to_string());
-        context.push_str(&format!("- Total units: {}\n", telemetry.services.total_units));
+        context.push_str(&format!(
+            "- Total units: {}\n",
+            telemetry.services.total_units
+        ));
         if !telemetry.services.failed_units.is_empty() {
-            context.push_str(&format!("- Failed units: {}\n", telemetry.services.failed_units.len()));
+            context.push_str(&format!(
+                "- Failed units: {}\n",
+                telemetry.services.failed_units.len()
+            ));
         }
         context.push('\n');
 
@@ -402,16 +416,14 @@ mod tests {
                 has_gpu: true,
                 gpu_info: Some("Intel UHD Graphics 620".to_string()),
             },
-            disks: vec![
-                DiskInfo {
-                    mount_point: "/".to_string(),
-                    total_mb: 512000,
-                    used_mb: 256000,
-                    usage_percent: 50.0,
-                    fs_type: "ext4".to_string(),
-                    smart_status: Some(SmartStatus::Healthy),
-                }
-            ],
+            disks: vec![DiskInfo {
+                mount_point: "/".to_string(),
+                total_mb: 512000,
+                used_mb: 256000,
+                usage_percent: 50.0,
+                fs_type: "ext4".to_string(),
+                smart_status: Some(SmartStatus::Healthy),
+            }],
             memory: MemoryInfo {
                 total_mb: 16384,
                 available_mb: 8192,

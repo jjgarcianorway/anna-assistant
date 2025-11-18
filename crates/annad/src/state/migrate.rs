@@ -101,25 +101,26 @@ impl StateMigrator {
         // Step 1: Create backup of v1 state
         info!("Creating backup of v1 state");
         let backup_path = self.backup_path();
-        fs::copy(&state_path, &backup_path).await
+        fs::copy(&state_path, &backup_path)
+            .await
             .map_err(|e| anyhow!("Failed to create backup: {}", e))?;
 
         // Step 2: Compute and save checksum
         info!("Computing checksum of backup");
         let checksum = self.compute_checksum(&backup_path).await?;
         let checksum_path = self.checksum_path();
-        fs::write(&checksum_path, &checksum).await
+        fs::write(&checksum_path, &checksum)
+            .await
             .map_err(|e| anyhow!("Failed to write checksum: {}", e))?;
 
         info!("Backup checksum: {}", checksum);
 
         // Step 3: Load v1 state
         info!("Loading v1 state");
-        let v1_state = StateV1::load(&state_path).await
-            .map_err(|e| {
-                error!("Failed to load v1 state: {}", e);
-                e
-            })?;
+        let v1_state = StateV1::load(&state_path).await.map_err(|e| {
+            error!("Failed to load v1 state: {}", e);
+            e
+        })?;
 
         // Step 4: Convert to v2
         info!("Converting v1 state to v2");
@@ -128,11 +129,10 @@ impl StateMigrator {
         // Step 5: Save v2 state (temp file first)
         info!("Saving v2 state");
         let v2_path = self.v2_path();
-        v2_state.save(&v2_path).await
-            .map_err(|e| {
-                error!("Failed to save v2 state: {}", e);
-                e
-            })?;
+        v2_state.save(&v2_path).await.map_err(|e| {
+            error!("Failed to save v2 state: {}", e);
+            e
+        })?;
 
         // Step 6: Verify backup checksum
         info!("Verifying backup checksum");
@@ -142,17 +142,16 @@ impl StateMigrator {
             error!("Backup checksum verification failed!");
             self.rollback().await?;
             return Ok(MigrationResult::RolledBack(
-                "Checksum verification failed".to_string()
+                "Checksum verification failed".to_string(),
             ));
         }
 
         // Step 7: Replace state.json with v2 state
         info!("Replacing state.json with v2 state");
-        fs::rename(&v2_path, &state_path).await
-            .map_err(|e| {
-                error!("Failed to rename v2 state: {}", e);
-                e
-            })?;
+        fs::rename(&v2_path, &state_path).await.map_err(|e| {
+            error!("Failed to rename v2 state: {}", e);
+            e
+        })?;
 
         // Step 8: Append migration entry to audit log
         self.log_migration_event(&checksum).await?;
@@ -176,7 +175,9 @@ impl StateMigrator {
         // Verify backup checksum before restore
         if checksum_path.exists() {
             let expected_checksum = fs::read_to_string(&checksum_path).await?;
-            let checksum_valid = self.verify_checksum(&backup_path, &expected_checksum).await?;
+            let checksum_valid = self
+                .verify_checksum(&backup_path, &expected_checksum)
+                .await?;
 
             if !checksum_valid {
                 error!("CRITICAL: Backup checksum invalid, cannot safely rollback!");
@@ -185,7 +186,8 @@ impl StateMigrator {
         }
 
         // Restore backup
-        fs::copy(&backup_path, &state_path).await
+        fs::copy(&backup_path, &state_path)
+            .await
             .map_err(|e| anyhow!("Failed to restore backup: {}", e))?;
 
         warn!("State rolled back to v1 from backup");
@@ -281,12 +283,18 @@ mod tests {
         let checksum = migrator.compute_checksum(&test_path).await.unwrap();
 
         // Verify same content
-        let valid = migrator.verify_checksum(&test_path, &checksum).await.unwrap();
+        let valid = migrator
+            .verify_checksum(&test_path, &checksum)
+            .await
+            .unwrap();
         assert!(valid);
 
         // Verify different content
         fs::write(&test_path, "different content").await.unwrap();
-        let valid = migrator.verify_checksum(&test_path, &checksum).await.unwrap();
+        let valid = migrator
+            .verify_checksum(&test_path, &checksum)
+            .await
+            .unwrap();
         assert!(!valid);
     }
 }

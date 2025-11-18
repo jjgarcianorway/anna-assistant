@@ -289,7 +289,10 @@ impl OllamaInstaller {
             .context("Failed to send test query to Ollama")?;
 
         if !response.status().is_success() {
-            warn!("Ollama test query failed with status: {}", response.status());
+            warn!(
+                "Ollama test query failed with status: {}",
+                response.status()
+            );
             return Ok(false);
         }
 

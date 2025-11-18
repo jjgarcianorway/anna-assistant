@@ -7,8 +7,8 @@
 //!
 //! NOT exposed as a public CLI command.
 
-use anyhow::Result;
 use anna_common::terminal_format as fmt;
+use anyhow::Result;
 
 use crate::systemd;
 
@@ -177,7 +177,10 @@ pub fn display_repair_report(report: &RepairReport) {
     if report.all_healthy {
         println!("{}", fmt::success("All fixed! I'm healthy now."));
     } else {
-        println!("{}", fmt::warning("Some issues remain. You may need to check manually."));
+        println!(
+            "{}",
+            fmt::warning("Some issues remain. You may need to check manually.")
+        );
     }
     println!();
 }

@@ -176,16 +176,14 @@ fn detect_battery_info(supplies: &[PowerSupply]) -> Option<BatteryInfo> {
 fn parse_battery_info(name: &str, path: &str) -> Option<BatteryInfo> {
     let read_value = |filename: &str| -> Option<String> {
         let file_path = format!("{}/{}", path, filename);
-        fs::read_to_string(&file_path).ok().map(|s| s.trim().to_string())
+        fs::read_to_string(&file_path)
+            .ok()
+            .map(|s| s.trim().to_string())
     };
 
-    let read_f32 = |filename: &str| -> Option<f32> {
-        read_value(filename)?.parse::<f32>().ok()
-    };
+    let read_f32 = |filename: &str| -> Option<f32> { read_value(filename)?.parse::<f32>().ok() };
 
-    let read_u32 = |filename: &str| -> Option<u32> {
-        read_value(filename)?.parse::<u32>().ok()
-    };
+    let read_u32 = |filename: &str| -> Option<u32> { read_value(filename)?.parse::<u32>().ok() };
 
     // Read status
     let status = read_value("status").unwrap_or_else(|| "Unknown".to_string());

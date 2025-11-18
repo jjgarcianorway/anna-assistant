@@ -32,3 +32,4 @@ owo-colors = "4.1"
 libc = "0.2" # For TTY detection (Phase 3.8)
 dirs = "5.0" # For XDG/home directory detection (Phase 3.9.1)
 sha2 = { workspace = true } # For checksum verification (Phase 3.10)
+rusqlite = { workspace = true }

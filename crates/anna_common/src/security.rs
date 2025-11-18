@@ -111,13 +111,16 @@ fn detect_firewall() -> (FirewallType, FirewallStatus, Option<usize>) {
             };
 
             // Count rules
-            let rule_count = stdout.lines().filter(|line| {
-                !line.is_empty()
-                    && !line.starts_with("Status:")
-                    && !line.starts_with("To")
-                    && !line.starts_with("--")
-                    && !line.starts_with("Logging:")
-            }).count();
+            let rule_count = stdout
+                .lines()
+                .filter(|line| {
+                    !line.is_empty()
+                        && !line.starts_with("Status:")
+                        && !line.starts_with("To")
+                        && !line.starts_with("--")
+                        && !line.starts_with("Logging:")
+                })
+                .count();
 
             return (FirewallType::Ufw, status, Some(rule_count));
         }
@@ -134,7 +137,10 @@ fn detect_firewall() -> (FirewallType, FirewallStatus, Option<usize>) {
                 FirewallStatus::Inactive
             };
 
-            let rule_count = stdout.lines().filter(|line| line.trim().starts_with("rule")).count();
+            let rule_count = stdout
+                .lines()
+                .filter(|line| line.trim().starts_with("rule"))
+                .count();
 
             return (FirewallType::Nftables, status, Some(rule_count));
         }
@@ -158,12 +164,15 @@ fn detect_firewall() -> (FirewallType, FirewallStatus, Option<usize>) {
     if let Ok(output) = Command::new("iptables").arg("-L").arg("-n").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let rule_count = stdout.lines().filter(|line| {
-                !line.is_empty()
-                    && !line.starts_with("Chain")
-                    && !line.starts_with("target")
-                    && line.trim() != ""
-            }).count();
+            let rule_count = stdout
+                .lines()
+                .filter(|line| {
+                    !line.is_empty()
+                        && !line.starts_with("Chain")
+                        && !line.starts_with("target")
+                        && line.trim() != ""
+                })
+                .count();
 
             let status = if rule_count > 3 {
                 FirewallStatus::Active
@@ -197,8 +206,7 @@ fn is_ssh_running() -> bool {
             .arg(service)
             .output()
         {
-            if output.status.success()
-                && String::from_utf8_lossy(&output.stdout).trim() == "active"
+            if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "active"
             {
                 return true;
             }

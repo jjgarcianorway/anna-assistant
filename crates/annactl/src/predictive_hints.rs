@@ -4,10 +4,10 @@
 // Displays High/Critical predictions after status/health commands
 // with smart throttling and TTY detection.
 
-use anyhow::Result;
 use anna_common::context::{actions, db::ContextDb, DbLocation};
 use anna_common::learning::{ActionSummary, LearningEngine};
 use anna_common::prediction::{PredictionEngine, Priority};
+use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -73,8 +73,7 @@ fn aggregate_actions(action_history: &[actions::ActionHistory]) -> Vec<ActionSum
         if let Some(duration) = action.duration_ms {
             if let Some(entry) = summaries.get_mut(&action.action_type) {
                 // Simple running average
-                entry.avg_duration_ms =
-                    (entry.avg_duration_ms + duration) / 2;
+                entry.avg_duration_ms = (entry.avg_duration_ms + duration) / 2;
             }
         }
     }
@@ -245,7 +244,12 @@ pub async fn display_full_predictions(json: bool) -> Result<()> {
         }
 
         // Group by priority
-        for priority in [Priority::Critical, Priority::High, Priority::Medium, Priority::Low] {
+        for priority in [
+            Priority::Critical,
+            Priority::High,
+            Priority::Medium,
+            Priority::Low,
+        ] {
             let filtered: Vec<_> = predictions
                 .iter()
                 .filter(|p| p.priority == priority)
@@ -255,7 +259,12 @@ pub async fn display_full_predictions(json: bool) -> Result<()> {
                 continue;
             }
 
-            println!("{} {:?} Priority ({} predictions)", priority.emoji(), priority, filtered.len());
+            println!(
+                "{} {:?} Priority ({} predictions)",
+                priority.emoji(),
+                priority,
+                filtered.len()
+            );
             println!("───────────────────────────────────────────────────────");
 
             for pred in filtered {

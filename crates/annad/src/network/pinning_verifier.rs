@@ -86,7 +86,7 @@ impl PinningVerifier {
         if fp.len() < 20 {
             return fp.to_string();
         }
-        format!("{}...{}", &fp[..15], &fp[fp.len()-8..])
+        format!("{}...{}", &fp[..15], &fp[fp.len() - 8..])
     }
 }
 
@@ -142,9 +142,10 @@ impl ServerCertVerifier for PinningVerifier {
                 }
 
                 if self.config.enforce {
-                    return Err(TlsError::General(
-                        format!("Certificate pinning violation: peer {}", hostname)
-                    ));
+                    return Err(TlsError::General(format!(
+                        "Certificate pinning violation: peer {}",
+                        hostname
+                    )));
                 } else {
                     warn!(
                         peer = hostname,
@@ -169,7 +170,8 @@ impl ServerCertVerifier for PinningVerifier {
         cert: &CertificateDer<'_>,
         dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, TlsError> {
-        self.fallback_verifier.verify_tls12_signature(message, cert, dss)
+        self.fallback_verifier
+            .verify_tls12_signature(message, cert, dss)
     }
 
     fn verify_tls13_signature(
@@ -178,7 +180,8 @@ impl ServerCertVerifier for PinningVerifier {
         cert: &CertificateDer<'_>,
         dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, TlsError> {
-        self.fallback_verifier.verify_tls13_signature(message, cert, dss)
+        self.fallback_verifier
+            .verify_tls13_signature(message, cert, dss)
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
@@ -216,10 +219,7 @@ mod tests {
     #[test]
     fn test_pinning_config() {
         let mut config = PinningConfig::new(true);
-        config.add_pin(
-            "node1.example.com".to_string(),
-            "sha256:abc123".to_string(),
-        );
+        config.add_pin("node1.example.com".to_string(), "sha256:abc123".to_string());
 
         assert_eq!(
             config.get_pin("node1.example.com"),

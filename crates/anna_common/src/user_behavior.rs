@@ -158,7 +158,8 @@ impl UserBehaviorPatterns {
             &security_patterns,
         );
 
-        let recommendations = generate_recommendations(&user_profile, &command_patterns, &security_patterns);
+        let recommendations =
+            generate_recommendations(&user_profile, &command_patterns, &security_patterns);
 
         UserBehaviorPatterns {
             command_patterns,
@@ -251,7 +252,9 @@ fn detect_disk_patterns() -> Option<DiskPatterns> {
                 total_files += 1;
                 if let Some(ext) = Path::new(file).extension() {
                     if let Some(ext_str) = ext.to_str() {
-                        *file_type_distribution.entry(ext_str.to_string()).or_insert(0) += 1;
+                        *file_type_distribution
+                            .entry(ext_str.to_string())
+                            .or_insert(0) += 1;
                     }
                 }
             }
@@ -294,10 +297,7 @@ fn detect_network_patterns() -> Option<NetworkPatterns> {
     let mut frequently_accessed_hosts = Vec::new();
 
     // Get active connections
-    if let Ok(output) = Command::new("ss")
-        .args(["-tunaH"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ss").args(["-tunaH"]).output() {
         if let Ok(ss_output) = String::from_utf8(output.stdout) {
             connection_count = ss_output.lines().count() as u32;
         }
@@ -387,9 +387,13 @@ fn detect_application_patterns() -> Option<ApplicationPatterns> {
 fn categorize_application(app: &str) -> String {
     let app_lower = app.to_lowercase();
 
-    if app_lower.contains("firefox") || app_lower.contains("chrome") || app_lower.contains("browser") {
+    if app_lower.contains("firefox")
+        || app_lower.contains("chrome")
+        || app_lower.contains("browser")
+    {
         "Browser".to_string()
-    } else if app_lower.contains("code") || app_lower.contains("vim") || app_lower.contains("emacs") {
+    } else if app_lower.contains("code") || app_lower.contains("vim") || app_lower.contains("emacs")
+    {
         "Editor".to_string()
     } else if app_lower.contains("docker") || app_lower.contains("podman") {
         "Container".to_string()
@@ -440,7 +444,9 @@ fn detect_gaming_patterns() -> Option<GamingPatterns> {
 
 fn is_gaming_process(proc: &str) -> bool {
     let gaming_keywords = vec!["steam", "wine", "proton", "gamemode", "lutris"];
-    gaming_keywords.iter().any(|kw| proc.to_lowercase().contains(kw))
+    gaming_keywords
+        .iter()
+        .any(|kw| proc.to_lowercase().contains(kw))
 }
 
 fn detect_development_patterns() -> Option<DevelopmentPatterns> {
@@ -528,12 +534,10 @@ fn detect_security_patterns() -> Option<SecurityPatterns> {
     }
 
     // Count SSH connections
-    if let Ok(output) = Command::new("ss")
-        .args(["-tnaH"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ss").args(["-tnaH"]).output() {
         if let Ok(ss_output) = String::from_utf8(output.stdout) {
-            ssh_connection_count = ss_output.lines()
+            ssh_connection_count = ss_output
+                .lines()
                 .filter(|line| line.contains(":22"))
                 .count() as u32;
         }
@@ -600,7 +604,8 @@ fn infer_user_profile(
     use_cases.sort_by(|a, b| b.1.cmp(&a.1));
 
     let primary_use_case = use_cases[0].0.clone();
-    let secondary_use_cases: Vec<UseCase> = use_cases.iter().skip(1).map(|(uc, _)| uc.clone()).collect();
+    let secondary_use_cases: Vec<UseCase> =
+        use_cases.iter().skip(1).map(|(uc, _)| uc.clone()).collect();
 
     let experience_level = if let Some(cmd) = command_patterns {
         if cmd.unique_commands > 200 {
@@ -645,20 +650,29 @@ fn generate_recommendations(
 
     match profile.primary_use_case {
         UseCase::Development => {
-            recommendations.push("Development-focused system detected - consider git hooks for automation".to_string());
-        },
+            recommendations.push(
+                "Development-focused system detected - consider git hooks for automation"
+                    .to_string(),
+            );
+        }
         UseCase::Gaming => {
-            recommendations.push("Gaming system detected - ensure gamemode and CPU governor are optimized".to_string());
-        },
+            recommendations.push(
+                "Gaming system detected - ensure gamemode and CPU governor are optimized"
+                    .to_string(),
+            );
+        }
         UseCase::ServerAdmin => {
-            recommendations.push("Server admin activity detected - consider fail2ban for SSH protection".to_string());
-        },
+            recommendations.push(
+                "Server admin activity detected - consider fail2ban for SSH protection".to_string(),
+            );
+        }
         _ => {}
     }
 
     if let Some(sec) = security_patterns {
         if sec.failed_login_attempts > 10 {
-            recommendations.push("Multiple failed login attempts detected - enable fail2ban".to_string());
+            recommendations
+                .push("Multiple failed login attempts detected - enable fail2ban".to_string());
         }
     }
 
@@ -680,6 +694,14 @@ mod tests {
     #[test]
     fn test_behavior_detection() {
         let patterns = UserBehaviorPatterns::detect();
-        assert!(matches!(patterns.user_profile.primary_use_case, UseCase::Gaming | UseCase::Development | UseCase::ServerAdmin | UseCase::Workstation | UseCase::MediaProduction | UseCase::GeneralUse));
+        assert!(matches!(
+            patterns.user_profile.primary_use_case,
+            UseCase::Gaming
+                | UseCase::Development
+                | UseCase::ServerAdmin
+                | UseCase::Workstation
+                | UseCase::MediaProduction
+                | UseCase::GeneralUse
+        ));
     }
 }

@@ -445,20 +445,26 @@ pub async fn execute_repair_command(
     if disk_analysis.usage_percent > 80.0 && probe == "all" {
         // Show disk space issue and recommendations FIRST
         println!("{}", "═".repeat(60));
-        println!("{}", if use_color {
-            "💾 DISK SPACE ISSUE DETECTED".bold().yellow().to_string()
-        } else {
-            "DISK SPACE ISSUE DETECTED".to_string()
-        });
+        println!(
+            "{}",
+            if use_color {
+                "💾 DISK SPACE ISSUE DETECTED".bold().yellow().to_string()
+            } else {
+                "DISK SPACE ISSUE DETECTED".to_string()
+            }
+        );
         println!("{}", "═".repeat(60));
         println!();
-        println!("Your disk is {:.1}% full ({} available).",
+        println!(
+            "Your disk is {:.1}% full ({} available).",
             disk_analysis.usage_percent,
-            format_bytes(disk_analysis.available_bytes));
+            format_bytes(disk_analysis.available_bytes)
+        );
         println!();
         println!("Top space consumers:");
         for consumer in disk_analysis.top_consumers.iter().take(5) {
-            println!("  {} {:<20} {:>10}  {}",
+            println!(
+                "  {} {:<20} {:>10}  {}",
                 consumer.category.icon(),
                 consumer.category.name(),
                 consumer.size_human,
@@ -662,10 +668,7 @@ pub async fn execute_repair_command(
 }
 
 /// Execute self-health repair command (Task 6: Anna's own health check)
-pub async fn execute_self_health_repair(
-    req_id: &str,
-    start_time: Instant,
-) -> Result<()> {
+pub async fn execute_self_health_repair(req_id: &str, start_time: Instant) -> Result<()> {
     let ui = UI::auto();
 
     println!();
@@ -748,7 +751,12 @@ pub async fn execute_self_health_repair(
             IssueSeverity::Low => "🟢",
         };
 
-        ui.info(&format!("{}. {} {}", i + 1, severity_icon, issue.description));
+        ui.info(&format!(
+            "{}. {} {}",
+            i + 1,
+            severity_icon,
+            issue.description
+        ));
         ui.info(&format!("   Fix: {}", issue.fix_description));
 
         if let Some(cmd) = &issue.fix_command {
@@ -763,12 +771,20 @@ pub async fn execute_self_health_repair(
     if fixable_count == 0 {
         ui.warning("No automatic fixes available. Please review and fix manually.");
         println!();
-        log_self_health_result(req_id, start_time, 1, Some("Manual intervention required".to_string()));
+        log_self_health_result(
+            req_id,
+            start_time,
+            1,
+            Some("Manual intervention required".to_string()),
+        );
         std::process::exit(1);
     }
 
     ui.section_header("🔨", "Proposed Fixes");
-    ui.info(&format!("{} issue(s) can be fixed automatically.", fixable_count));
+    ui.info(&format!(
+        "{} issue(s) can be fixed automatically.",
+        fixable_count
+    ));
     println!();
 
     let fixable_issues: Vec<_> = issues.iter().filter(|i| i.auto_fixable).collect();
@@ -787,7 +803,12 @@ pub async fn execute_self_health_repair(
     if !ui.prompt_yes_no("Proceed with automatic fixes?") {
         ui.info("Repair cancelled. No changes made.");
         println!();
-        log_self_health_result(req_id, start_time, EXIT_SUCCESS, Some("User cancelled".to_string()));
+        log_self_health_result(
+            req_id,
+            start_time,
+            EXIT_SUCCESS,
+            Some("User cancelled".to_string()),
+        );
         std::process::exit(EXIT_SUCCESS);
     }
 
@@ -838,14 +859,22 @@ pub async fn execute_self_health_repair(
 
     // Summary
     ui.section_header("📊", "Summary");
-    ui.info(&format!("Fixes applied: {} succeeded, {} failed", success_count, fail_count));
+    ui.info(&format!(
+        "Fixes applied: {} succeeded, {} failed",
+        success_count, fail_count
+    ));
     println!();
 
     if fail_count > 0 {
         ui.warning("Some fixes failed. Please review errors above.");
         ui.info("You may need to run some commands manually with sudo.");
         println!();
-        log_self_health_result(req_id, start_time, 1, Some(format!("{} fixes failed", fail_count)));
+        log_self_health_result(
+            req_id,
+            start_time,
+            1,
+            Some(format!("{} fixes failed", fail_count)),
+        );
         std::process::exit(1);
     } else {
         ui.success("All fixes applied successfully!");
@@ -914,7 +943,11 @@ fn check_context_database() -> Vec<SelfHealthIssue> {
 
     if let Some(db) = db_path {
         // Check if readable
-        if !db.metadata().map(|m| m.permissions().readonly()).unwrap_or(true) {
+        if !db
+            .metadata()
+            .map(|m| m.permissions().readonly())
+            .unwrap_or(true)
+        {
             // Database exists and is writable
         } else {
             issues.push(SelfHealthIssue {
@@ -956,8 +989,10 @@ fn check_key_directories() -> Vec<SelfHealthIssue> {
                 severity: IssueSeverity::Medium,
                 description: format!("{} missing: {}", description, dir_path),
                 fix_description: format!("Create {} directory", description.to_lowercase()),
-                fix_command: Some(format!("sudo mkdir -p {} && sudo chown root:anna {} && sudo chmod 770 {}",
-                    dir_path, dir_path, dir_path)),
+                fix_command: Some(format!(
+                    "sudo mkdir -p {} && sudo chown root:anna {} && sudo chmod 770 {}",
+                    dir_path, dir_path, dir_path
+                )),
                 auto_fixable: false, // Requires sudo
             });
         }
@@ -998,7 +1033,12 @@ async fn apply_fix(command: &str) -> Result<()> {
     }
 }
 
-fn log_self_health_result(req_id: &str, start_time: Instant, exit_code: i32, error_msg: Option<String>) {
+fn log_self_health_result(
+    req_id: &str,
+    start_time: Instant,
+    exit_code: i32,
+    error_msg: Option<String>,
+) {
     let duration_ms = start_time.elapsed().as_millis() as u64;
     let log_entry = LogEntry {
         ts: LogEntry::now(),
@@ -1056,7 +1096,9 @@ fn check_installation_source() -> InstallationCheck {
             return InstallationCheck {
                 source: "Manual Installation (/usr/local)".to_string(),
                 status: "ok".to_string(),
-                recommendation: Some("Consider using AUR for easier updates: yay -S anna-assistant-bin".to_string()),
+                recommendation: Some(
+                    "Consider using AUR for easier updates: yay -S anna-assistant-bin".to_string(),
+                ),
             };
         }
     }
@@ -1065,7 +1107,10 @@ fn check_installation_source() -> InstallationCheck {
     InstallationCheck {
         source: "Unknown".to_string(),
         status: "warn".to_string(),
-        recommendation: Some("Unable to determine installation method. Reinstall via AUR or GitHub releases.".to_string()),
+        recommendation: Some(
+            "Unable to determine installation method. Reinstall via AUR or GitHub releases."
+                .to_string(),
+        ),
     }
 }
 

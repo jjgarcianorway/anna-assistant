@@ -1843,9 +1843,7 @@ impl ApplicationHistory {
             *category_counts.entry(entry.category.clone()).or_insert(0) += 1;
         }
 
-        let top_category = category_counts
-            .into_iter()
-            .max_by_key(|(_, count)| *count);
+        let top_category = category_counts.into_iter().max_by_key(|(_, count)| *count);
 
         PeriodStats {
             total_applications: total,

@@ -58,7 +58,8 @@ impl TlsConfig {
     async fn check_key_permissions(&self, path: &Path, name: &str) -> Result<()> {
         use std::os::unix::fs::PermissionsExt;
 
-        let metadata = fs::metadata(path).await
+        let metadata = fs::metadata(path)
+            .await
             .with_context(|| format!("Failed to stat {}", name))?;
 
         let mode = metadata.permissions().mode() & 0o777;
@@ -87,7 +88,8 @@ impl TlsConfig {
         use std::io::BufReader;
 
         // Load CA cert
-        let ca_cert_pem = fs::read(&self.ca_cert).await
+        let ca_cert_pem = fs::read(&self.ca_cert)
+            .await
             .with_context(|| format!("Failed to read CA cert: {}", self.ca_cert.display()))?;
         let mut ca_reader = BufReader::new(&ca_cert_pem[..]);
         let ca_certs = certs(&mut ca_reader)
@@ -101,13 +103,15 @@ impl TlsConfig {
         // Create root store
         let mut root_store = rustls::RootCertStore::empty();
         for cert in ca_certs {
-            root_store.add(cert)
+            root_store
+                .add(cert)
                 .with_context(|| "Failed to add CA cert to root store")?;
         }
 
         // Load server cert chain
-        let server_cert_pem = fs::read(&self.server_cert).await
-            .with_context(|| format!("Failed to read server cert: {}", self.server_cert.display()))?;
+        let server_cert_pem = fs::read(&self.server_cert).await.with_context(|| {
+            format!("Failed to read server cert: {}", self.server_cert.display())
+        })?;
         let mut server_cert_reader = BufReader::new(&server_cert_pem[..]);
         let server_certs = certs(&mut server_cert_reader)
             .collect::<Result<Vec<_>, _>>()
@@ -118,7 +122,8 @@ impl TlsConfig {
         }
 
         // Load server private key
-        let server_key_pem = fs::read(&self.server_key).await
+        let server_key_pem = fs::read(&self.server_key)
+            .await
             .with_context(|| format!("Failed to read server key: {}", self.server_key.display()))?;
         let mut server_key_reader = BufReader::new(&server_key_pem[..]);
         let mut keys = pkcs8_private_keys(&mut server_key_reader)
@@ -152,7 +157,8 @@ impl TlsConfig {
         use std::io::BufReader;
 
         // Load CA cert
-        let ca_cert_pem = fs::read(&self.ca_cert).await
+        let ca_cert_pem = fs::read(&self.ca_cert)
+            .await
             .with_context(|| format!("Failed to read CA cert: {}", self.ca_cert.display()))?;
         let mut ca_reader = BufReader::new(&ca_cert_pem[..]);
         let ca_certs = certs(&mut ca_reader)
@@ -166,13 +172,15 @@ impl TlsConfig {
         // Create root store
         let mut root_store = rustls::RootCertStore::empty();
         for cert in ca_certs {
-            root_store.add(cert)
+            root_store
+                .add(cert)
                 .with_context(|| "Failed to add CA cert to root store")?;
         }
 
         // Load client cert chain
-        let client_cert_pem = fs::read(&self.client_cert).await
-            .with_context(|| format!("Failed to read client cert: {}", self.client_cert.display()))?;
+        let client_cert_pem = fs::read(&self.client_cert).await.with_context(|| {
+            format!("Failed to read client cert: {}", self.client_cert.display())
+        })?;
         let mut client_cert_reader = BufReader::new(&client_cert_pem[..]);
         let client_certs = certs(&mut client_cert_reader)
             .collect::<Result<Vec<_>, _>>()
@@ -183,7 +191,8 @@ impl TlsConfig {
         }
 
         // Load client private key
-        let client_key_pem = fs::read(&self.client_key).await
+        let client_key_pem = fs::read(&self.client_key)
+            .await
             .with_context(|| format!("Failed to read client key: {}", self.client_key.display()))?;
         let mut client_key_reader = BufReader::new(&client_key_pem[..]);
         let mut keys = pkcs8_private_keys(&mut client_key_reader)
@@ -239,7 +248,8 @@ impl PeerList {
     pub async fn load_from_file(path: &Path) -> Result<Self> {
         info!("Loading peer list from: {}", path.display());
 
-        let content = fs::read_to_string(path).await
+        let content = fs::read_to_string(path)
+            .await
             .with_context(|| format!("Failed to read peers file: {}", path.display()))?;
 
         let peer_list: PeerList = serde_yaml::from_str(&content)
@@ -256,7 +266,9 @@ impl PeerList {
 
             // Validate TLS files and permissions
             if let Some(ref tls_config) = peer_list.tls {
-                tls_config.validate().await
+                tls_config
+                    .validate()
+                    .await
                     .with_context(|| "TLS configuration validation failed")?;
             }
         } else {
@@ -266,12 +278,17 @@ impl PeerList {
 
         // Deduplicate peers by node_id
         let mut seen = std::collections::HashSet::new();
-        let unique_peers: Vec<_> = peer_list.peers.into_iter()
+        let unique_peers: Vec<_> = peer_list
+            .peers
+            .into_iter()
             .filter(|p| seen.insert(p.node_id.clone()))
             .collect();
 
         if unique_peers.len() != seen.len() {
-            warn!("Deduplicated {} duplicate peer entries", seen.len() - unique_peers.len());
+            warn!(
+                "Deduplicated {} duplicate peer entries",
+                seen.len() - unique_peers.len()
+            );
         }
 
         info!("Loaded {} unique peers", unique_peers.len());
@@ -293,7 +310,8 @@ impl PeerList {
 
     /// Get all peers except self
     pub fn get_other_peers(&self, self_node_id: &str) -> Vec<&PeerConfig> {
-        self.peers.iter()
+        self.peers
+            .iter()
             .filter(|p| p.node_id != self_node_id)
             .collect()
     }
@@ -332,7 +350,8 @@ impl BackoffConfig {
         use rand::Rng;
 
         // Calculate base backoff: base * factor^attempt
-        let base_backoff = (self.base_ms as f64 * self.factor.powi(attempt as i32)).min(self.max_ms as f64);
+        let base_backoff =
+            (self.base_ms as f64 * self.factor.powi(attempt as i32)).min(self.max_ms as f64);
 
         // Add jitter: ±jitter_percent
         let mut rng = rand::thread_rng();
@@ -398,18 +417,30 @@ impl PeerClient {
     }
 
     /// Create peer client with TLS
-    pub async fn new_with_tls(tls_config: &TlsConfig, metrics: Option<Arc<super::metrics::ConsensusMetrics>>) -> Result<Self> {
+    pub async fn new_with_tls(
+        tls_config: &TlsConfig,
+        metrics: Option<Arc<super::metrics::ConsensusMetrics>>,
+    ) -> Result<Self> {
         // Load CA certificate for server verification
-        let ca_pem = fs::read(&tls_config.ca_cert).await
+        let ca_pem = fs::read(&tls_config.ca_cert)
+            .await
             .with_context(|| format!("Failed to read CA cert: {}", tls_config.ca_cert.display()))?;
         let ca_cert = reqwest::Certificate::from_pem(&ca_pem)
             .with_context(|| "Failed to parse CA certificate")?;
 
         // Load client certificate and key for mTLS
-        let client_cert_pem = fs::read(&tls_config.client_cert).await
-            .with_context(|| format!("Failed to read client cert: {}", tls_config.client_cert.display()))?;
-        let client_key_pem = fs::read(&tls_config.client_key).await
-            .with_context(|| format!("Failed to read client key: {}", tls_config.client_key.display()))?;
+        let client_cert_pem = fs::read(&tls_config.client_cert).await.with_context(|| {
+            format!(
+                "Failed to read client cert: {}",
+                tls_config.client_cert.display()
+            )
+        })?;
+        let client_key_pem = fs::read(&tls_config.client_key).await.with_context(|| {
+            format!(
+                "Failed to read client key: {}",
+                tls_config.client_key.display()
+            )
+        })?;
 
         // Combine cert and key for reqwest identity
         let mut identity_pem = client_cert_pem.clone();
@@ -468,13 +499,21 @@ impl PeerClient {
         let url = format!("{}/rpc/submit", peer.url(self.tls_enabled));
 
         for attempt in 0..self.backoff.max_attempts {
-            debug!("Submitting observation to peer: {} (attempt {}/{})", peer.node_id, attempt + 1, self.backoff.max_attempts);
+            debug!(
+                "Submitting observation to peer: {} (attempt {}/{})",
+                peer.node_id,
+                attempt + 1,
+                self.backoff.max_attempts
+            );
 
             match self.client.post(&url).json(observation).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         if let Some(ref metrics) = self.metrics {
-                            metrics.record_peer_request(&peer.node_id, RequestStatus::Success.as_str());
+                            metrics.record_peer_request(
+                                &peer.node_id,
+                                RequestStatus::Success.as_str(),
+                            );
                         }
                         return Ok(());
                     } else {
@@ -489,10 +528,18 @@ impl PeerClient {
                         }
 
                         if !status.is_retryable() {
-                            return Err(anyhow!("Peer {} returned non-retryable error: {}", peer.node_id, response.status()));
+                            return Err(anyhow!(
+                                "Peer {} returned non-retryable error: {}",
+                                peer.node_id,
+                                response.status()
+                            ));
                         }
 
-                        warn!("Peer {} returned {}, retrying...", peer.node_id, response.status());
+                        warn!(
+                            "Peer {} returned {}, retrying...",
+                            peer.node_id,
+                            response.status()
+                        );
                     }
                 }
                 Err(e) => {
@@ -503,7 +550,11 @@ impl PeerClient {
                     }
 
                     if !status.is_retryable() {
-                        return Err(anyhow!("Non-retryable error for peer {}: {}", peer.node_id, e));
+                        return Err(anyhow!(
+                            "Non-retryable error for peer {}: {}",
+                            peer.node_id,
+                            e
+                        ));
                     }
 
                     warn!("Error contacting peer {}: {}, retrying...", peer.node_id, e);
@@ -523,7 +574,11 @@ impl PeerClient {
             }
         }
 
-        Err(anyhow!("Failed to contact peer {} after {} attempts", peer.node_id, self.backoff.max_attempts))
+        Err(anyhow!(
+            "Failed to contact peer {} after {} attempts",
+            peer.node_id,
+            self.backoff.max_attempts
+        ))
     }
 
     /// Get consensus status from peer
@@ -539,7 +594,8 @@ impl PeerClient {
 
         debug!("Getting status from peer: {}", peer.node_id);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
@@ -553,7 +609,9 @@ impl PeerClient {
             ));
         }
 
-        let status: serde_json::Value = response.json().await
+        let status: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| anyhow!("Failed to parse status from {}: {}", peer.node_id, e))?;
 
         Ok(status)

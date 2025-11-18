@@ -180,7 +180,12 @@ fn get_pulse_devices() -> (Option<String>, Option<String>, usize, usize) {
     }
 
     // Count sinks
-    if let Ok(output) = Command::new("pactl").arg("list").arg("short").arg("sinks").output() {
+    if let Ok(output) = Command::new("pactl")
+        .arg("list")
+        .arg("short")
+        .arg("sinks")
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             sink_count = stdout.lines().count();
@@ -188,10 +193,18 @@ fn get_pulse_devices() -> (Option<String>, Option<String>, usize, usize) {
     }
 
     // Count sources
-    if let Ok(output) = Command::new("pactl").arg("list").arg("short").arg("sources").output() {
+    if let Ok(output) = Command::new("pactl")
+        .arg("list")
+        .arg("short")
+        .arg("sources")
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            source_count = stdout.lines().filter(|line| !line.contains(".monitor")).count();
+            source_count = stdout
+                .lines()
+                .filter(|line| !line.contains(".monitor"))
+                .count();
         }
     }
 

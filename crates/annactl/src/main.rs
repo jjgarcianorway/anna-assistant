@@ -22,13 +22,18 @@ mod discard_command; // Handle discard intent
 mod first_run;
 mod health; // Central health model and auto-repair
 mod health_commands; // Contains repair logic - will be refactored
-mod historian_cli;
 mod help_commands;
+mod historian_cli;
 mod init_command;
 mod install_command;
 mod json_types;
 pub mod logging;
+mod llm_integration; // Beta.53: LLM query with streaming support
+mod model_catalog; // Beta.53: Intelligent model selection
+mod model_setup_wizard; // Beta.53: First-run model setup
 mod monitor_setup;
+mod runtime_prompt; // Beta.53: Prompt builder with Historian data
+mod startup_summary; // Beta.53: Startup health display
 pub mod output;
 mod repair; // Internal repair engine (not a CLI command)
 mod report_command; // Handle report intent
@@ -367,7 +372,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
             println!();
         }
 
-        Intent::AnnaStatus => {
+        Intent::AnnaStatus | Intent::SystemStatus => {
             let ui = UI::auto();
             ui.thinking();
             ui.success("I'm running and ready to help!");
@@ -384,10 +389,10 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
         Intent::Report => {
             let ui = UI::auto();
             ui.thinking();
-            report_display::generate_professional_report();
+            report_display::generate_professional_report().await;
         }
 
-        Intent::Suggest => {
+        Intent::Suggest | Intent::Improve => {
             let ui = UI::auto();
             ui.thinking();
             // Use Anna's internal suggestion engine (checks Anna's health, system basics)
@@ -650,6 +655,13 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
             ]);
             println!();
             ui.info("Or just run 'annactl' to start a conversation.");
+            println!();
+        }
+
+        Intent::HistorianSummary => {
+            let ui = UI::auto();
+            ui.info("Historian summary feature coming soon!");
+            ui.info("This will show 30-day trend analysis once fully integrated.");
             println!();
         }
 

@@ -193,9 +193,7 @@ impl SystemProfile {
 
     /// Check if system is resource-constrained
     pub fn is_constrained(&self) -> bool {
-        self.total_memory_mb < 4096 ||
-        self.cpu_cores < 2 ||
-        self.available_disk_gb < 10
+        self.total_memory_mb < 4096 || self.cpu_cores < 2 || self.available_disk_gb < 10
     }
 }
 

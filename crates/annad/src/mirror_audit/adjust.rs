@@ -119,7 +119,8 @@ fn adjust_for_confirmation_bias(bias: &BiasFinding) -> Vec<ParameterAdjustment> 
             parameter: "noise_factor".to_string(),
             current_value: Some(0.15),
             recommended_value: 0.20,
-            reason: "Increase stochastic variation to capture more pessimistic scenarios".to_string(),
+            reason: "Increase stochastic variation to capture more pessimistic scenarios"
+                .to_string(),
         },
     ]
 }

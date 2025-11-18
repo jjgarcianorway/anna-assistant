@@ -34,7 +34,7 @@ impl Default for SentinelConfig {
             autonomous_mode: false,
             health_check_interval: 300, // 5 minutes
             update_scan_interval: 3600, // 1 hour
-            audit_interval: 86400, // 24 hours
+            audit_interval: 86400,      // 24 hours
             auto_repair_services: false,
             auto_update: false,
             auto_update_threshold: 5,

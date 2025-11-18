@@ -87,7 +87,6 @@ pub fn get_available_profiles() -> Vec<ModelProfile> {
             description: "Llama 3.2 1B - Very fast, suitable for basic queries".to_string(),
             size_gb: 1.3,
         },
-
         // Small tier - good default for most systems
         ModelProfile {
             id: "ollama-llama3.2-3b".to_string(),
@@ -99,7 +98,6 @@ pub fn get_available_profiles() -> Vec<ModelProfile> {
             description: "Llama 3.2 3B - Good balance of speed and understanding".to_string(),
             size_gb: 2.0,
         },
-
         // Medium tier - for powerful systems
         ModelProfile {
             id: "ollama-llama3.1-8b".to_string(),
@@ -141,15 +139,15 @@ pub fn find_upgrade_profile(
     let profiles = get_available_profiles();
 
     // Find current profile
-    let current = profiles.iter().find(|p| p.id == current_profile_id)?.clone();
+    let current = profiles
+        .iter()
+        .find(|p| p.id == current_profile_id)?
+        .clone();
 
     // Find better profiles that are now suitable
     profiles
         .into_iter()
-        .filter(|p| {
-            p.is_suitable_for(new_ram_gb, new_cores)
-                && p.is_better_than(&current)
-        })
+        .filter(|p| p.is_suitable_for(new_ram_gb, new_cores) && p.is_better_than(&current))
         .max_by_key(|p| p.quality_tier)
 }
 

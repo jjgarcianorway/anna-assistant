@@ -47,7 +47,10 @@ pub async fn install_base_system(config: &InstallConfig, dry_run: bool) -> StepR
         return Err(anyhow::anyhow!("pacstrap failed: {}", stderr));
     }
 
-    Ok(format!("installed {} packages successfully", packages.len()))
+    Ok(format!(
+        "installed {} packages successfully",
+        packages.len()
+    ))
 }
 
 /// Configure system (fstab, locale, timezone, hostname)
@@ -119,12 +122,11 @@ pub async fn configure_system(config: &InstallConfig, dry_run: bool) -> StepResu
         actions.push(format!("[dry-run] set locale to {}", config.locale));
     } else {
         // Uncomment locale in locale.gen
-        let locale_gen = std::fs::read_to_string("/mnt/etc/locale.gen")
-            .unwrap_or_else(|_| String::new());
+        let locale_gen =
+            std::fs::read_to_string("/mnt/etc/locale.gen").unwrap_or_else(|_| String::new());
         let locale_line = format!("{} UTF-8", config.locale);
         let updated = locale_gen.replace(&format!("#{}", locale_line), &locale_line);
-        std::fs::write("/mnt/etc/locale.gen", updated)
-            .context("Failed to update locale.gen")?;
+        std::fs::write("/mnt/etc/locale.gen", updated).context("Failed to update locale.gen")?;
 
         // Generate locale
         let _ = Command::new("arch-chroot")

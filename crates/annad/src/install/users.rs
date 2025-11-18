@@ -49,17 +49,12 @@ pub async fn create_user(config: &InstallConfig, dry_run: bool) -> StepResult {
     } else {
         // Read sudoers file
         let sudoers_path = "/mnt/etc/sudoers";
-        let sudoers = std::fs::read_to_string(sudoers_path)
-            .unwrap_or_else(|_| String::new());
+        let sudoers = std::fs::read_to_string(sudoers_path).unwrap_or_else(|_| String::new());
 
         // Uncomment wheel group line
-        let updated = sudoers.replace(
-            "# %wheel ALL=(ALL:ALL) ALL",
-            "%wheel ALL=(ALL:ALL) ALL",
-        );
+        let updated = sudoers.replace("# %wheel ALL=(ALL:ALL) ALL", "%wheel ALL=(ALL:ALL) ALL");
 
-        std::fs::write(sudoers_path, updated)
-            .context("Failed to update sudoers")?;
+        std::fs::write(sudoers_path, updated).context("Failed to update sudoers")?;
         actions.push("enabled wheel group in sudoers".to_string());
     }
 
@@ -76,10 +71,7 @@ pub async fn create_user(config: &InstallConfig, dry_run: bool) -> StepResult {
 
     // Set user password (prompt in real implementation)
     if dry_run {
-        actions.push(format!(
-            "[dry-run] set password for {}",
-            config.username
-        ));
+        actions.push(format!("[dry-run] set password for {}", config.username));
     } else {
         info!(
             "Setting password for {} to 'user' (CHANGE THIS!)",

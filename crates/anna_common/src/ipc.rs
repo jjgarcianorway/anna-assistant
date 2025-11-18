@@ -270,6 +270,9 @@ pub enum Method {
     /// Get system profile for adaptive intelligence (Phase 3.0)
     /// Citation: [linux:proc][systemd:detect-virt][xdg:session]
     GetProfile,
+
+    /// Get Historian 30-day system summary (Beta.53)
+    GetHistorianSummary,
 }
 
 /// Response data variants
@@ -281,6 +284,9 @@ pub enum ResponseData {
 
     /// System facts
     Facts(SystemFacts),
+
+    /// Historian 30-day summary (Beta.53)
+    HistorianSummary(crate::historian::SystemSummary),
 
     /// List of advice
     Advice(Vec<Advice>),

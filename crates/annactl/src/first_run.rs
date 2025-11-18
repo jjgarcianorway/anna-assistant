@@ -56,7 +56,10 @@ pub fn mark_first_run_complete() -> Result<()> {
 
     // Create marker file with timestamp
     let timestamp = chrono::Utc::now().to_rfc3339();
-    std::fs::write(&marker_path, format!("First run completed at: {}\n", timestamp))?;
+    std::fs::write(
+        &marker_path,
+        format!("First run completed at: {}\n", timestamp),
+    )?;
 
     Ok(())
 }

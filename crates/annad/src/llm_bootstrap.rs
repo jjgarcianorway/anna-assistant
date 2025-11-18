@@ -3,9 +3,9 @@
 //! When Anna starts and finds no LLM config, but Ollama is running with a model,
 //! automatically detect and save the configuration.
 
-use anyhow::{Context, Result};
 use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::llm::{LlmConfig, LlmMode};
+use anyhow::{Context, Result};
 use std::process::Command;
 use tracing::{info, warn};
 
@@ -41,7 +41,13 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
 
     // Check if Ollama API is reachable
     let api_check = Command::new("curl")
-        .args(&["-s", "-f", "http://localhost:11434/api/version", "--max-time", "2"])
+        .args(&[
+            "-s",
+            "-f",
+            "http://localhost:11434/api/version",
+            "--max-time",
+            "2",
+        ])
         .output();
 
     if !api_check.map(|o| o.status.success()).unwrap_or(false) {
@@ -86,7 +92,8 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     // Create and save LLM config
     let config = LlmConfig::local("http://127.0.0.1:11434/v1", model);
 
-    db.save_llm_config(&config).await
+    db.save_llm_config(&config)
+        .await
         .context("Failed to save LLM config")?;
 
     info!("✓ LLM auto-configured: Ollama with {}", model);

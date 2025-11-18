@@ -23,11 +23,15 @@ impl PinningConfig {
     /// Load pinning configuration from file
     pub async fn load_from_file(path: &Path) -> Result<Self> {
         if !path.exists() {
-            info!("Pinning config not found at {}, using defaults", path.display());
+            info!(
+                "Pinning config not found at {}, using defaults",
+                path.display()
+            );
             return Ok(Self::default());
         }
 
-        let content = fs::read_to_string(path).await
+        let content = fs::read_to_string(path)
+            .await
             .with_context(|| format!("Failed to read pinning config: {}", path.display()))?;
 
         let config: PinningConfig = serde_json::from_str(&content)
@@ -57,9 +61,7 @@ impl PinningConfig {
                 } else {
                     warn!(
                         "Certificate fingerprint mismatch for {}: expected {}, got {}",
-                        node_id,
-                        expected,
-                        fingerprint
+                        node_id, expected, fingerprint
                     );
                     false
                 }
@@ -94,7 +96,8 @@ impl PinningConfig {
         let content = serde_json::to_string_pretty(self)
             .with_context(|| "Failed to serialize pinning config")?;
 
-        fs::write(path, content).await
+        fs::write(path, content)
+            .await
             .with_context(|| format!("Failed to write pinning config: {}", path.display()))?;
 
         Ok(())

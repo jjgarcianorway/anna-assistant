@@ -41,7 +41,11 @@ pub async fn execute_report_command(
         state: state.to_string(),
         command: "report".to_string(),
         allowed: Some(true),
-        args: if json { vec!["--json".to_string()] } else { vec![] },
+        args: if json {
+            vec!["--json".to_string()]
+        } else {
+            vec![]
+        },
         exit_code: EXIT_SUCCESS,
         citation: "[archwiki:System_maintenance]".to_string(),
         duration_ms,

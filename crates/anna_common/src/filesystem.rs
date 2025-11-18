@@ -150,9 +150,9 @@ fn has_continuous_discard() -> bool {
     if let Ok(output) = Command::new("findmnt").arg("-rno").arg("OPTIONS").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            return stdout.lines().any(|line| {
-                line.contains("discard") && !line.contains("nodiscard")
-            });
+            return stdout
+                .lines()
+                .any(|line| line.contains("discard") && !line.contains("nodiscard"));
         }
     }
     false
@@ -163,11 +163,7 @@ fn detect_luks_encryption() -> (bool, Vec<String>) {
     let mut encrypted_devices = Vec::new();
 
     // Method 1: Check lsblk for crypto_LUKS
-    if let Ok(output) = Command::new("lsblk")
-        .arg("-no")
-        .arg("NAME,FSTYPE")
-        .output()
-    {
+    if let Ok(output) = Command::new("lsblk").arg("-no").arg("NAME,FSTYPE").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {

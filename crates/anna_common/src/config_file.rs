@@ -6,10 +6,10 @@
 //! This enables Anna to understand user preferences and make intelligent
 //! suggestions for config modifications.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 
 use crate::desktop::{DesktopEnvironment, DesktopInfo};
 
@@ -143,11 +143,10 @@ impl DesktopConfig {
 
     /// Parse hyprpaper config
     fn parse_hyprpaper() -> Option<WallpaperConfig> {
-        let config_home = std::env::var("XDG_CONFIG_HOME")
-            .unwrap_or_else(|_| {
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-                format!("{}/.config", home)
-            });
+        let config_home = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+            format!("{}/.config", home)
+        });
 
         let hyprpaper_conf = PathBuf::from(config_home)
             .join("hypr")
@@ -190,11 +189,7 @@ impl DesktopConfig {
     }
 
     /// Parse i3/Sway config
-    fn parse_i3_sway(
-        content: &str,
-        config_file: &Path,
-        env: &DesktopEnvironment,
-    ) -> Option<Self> {
+    fn parse_i3_sway(content: &str, config_file: &Path, env: &DesktopEnvironment) -> Option<Self> {
         let mut wallpaper = None;
         let mut theme = None;
         let mut startup_apps = Vec::new();

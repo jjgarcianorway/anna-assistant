@@ -67,9 +67,9 @@ pub fn should_use_user_mode() -> bool {
             .write(true)
             .open("/run/anna")
             .is_ok()
-        {
-            return false;
-        }
+    {
+        return false;
+    }
 
     // Otherwise, use user mode
     true

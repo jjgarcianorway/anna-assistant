@@ -1,18 +1,14 @@
 //! Learning and Prediction Commands
 //! Phase 3.9: CLI completeness for predictive intelligence
 
-use anyhow::Result;
 use anna_common::context::{actions, db::ContextDb, DbLocation};
 use anna_common::learning::{ActionSummary, Confidence, LearningEngine};
 use anna_common::prediction::{PredictionEngine, Priority};
+use anyhow::Result;
 use std::collections::HashMap;
 
 /// Execute 'learn' command - analyze action history for patterns
-pub async fn execute_learn_command(
-    json: bool,
-    min_confidence: &str,
-    days: i64,
-) -> Result<()> {
+pub async fn execute_learn_command(json: bool, min_confidence: &str, days: i64) -> Result<()> {
     // Open context database
     let db = ContextDb::open(DbLocation::auto_detect()).await?;
 
@@ -187,7 +183,10 @@ fn parse_confidence(s: &str) -> Result<Confidence> {
         "medium" => Ok(Confidence::Medium),
         "high" => Ok(Confidence::High),
         "very-high" | "veryhigh" => Ok(Confidence::VeryHigh),
-        _ => anyhow::bail!("Invalid confidence level: {}. Use: low, medium, high, very-high", s),
+        _ => anyhow::bail!(
+            "Invalid confidence level: {}. Use: low, medium, high, very-high",
+            s
+        ),
     }
 }
 
@@ -202,13 +201,20 @@ fn print_learning_report(
     println!("═══════════════════════════════════════");
     println!();
     println!("Analysis Window: {} days", days);
-    println!("Minimum Confidence: {:?} ({}%)", min_conf, min_conf.as_percentage());
+    println!(
+        "Minimum Confidence: {:?} ({}%)",
+        min_conf,
+        min_conf.as_percentage()
+    );
     println!("Actions Analyzed: {}", summaries.len());
     println!("Patterns Detected: {}", patterns.len());
     println!();
 
     if patterns.is_empty() {
-        println!("No patterns detected with {:?} confidence or higher.", min_conf);
+        println!(
+            "No patterns detected with {:?} confidence or higher.",
+            min_conf
+        );
         println!();
         println!("Try:");
         println!("  • Lower confidence: annactl learn --min-confidence low");
@@ -269,10 +275,7 @@ fn print_learning_report(
 }
 
 /// Print human-readable prediction report
-fn print_prediction_report(
-    predictions: &[anna_common::prediction::Prediction],
-    show_all: bool,
-) {
+fn print_prediction_report(predictions: &[anna_common::prediction::Prediction], show_all: bool) {
     println!("🔮 Predictive Intelligence");
     println!("═══════════════════════════════════════");
     println!();
@@ -307,7 +310,12 @@ fn print_prediction_report(
     println!();
 
     // Group by priority
-    for priority in [Priority::Critical, Priority::High, Priority::Medium, Priority::Low] {
+    for priority in [
+        Priority::Critical,
+        Priority::High,
+        Priority::Medium,
+        Priority::Low,
+    ] {
         let filtered: Vec<_> = predictions
             .iter()
             .filter(|p| p.priority == priority)

@@ -117,16 +117,18 @@ impl MirrorAudit {
 
         // Generate adjustment plan if biases detected
         let adjustment_plan = if !bias_findings.is_empty() {
-            let recent_scores: Vec<TemporalIntegrityScore> =
-                self.state.recent_scores.iter().map(|&overall| {
-                    TemporalIntegrityScore {
-                        overall,
-                        prediction_accuracy: overall,
-                        ethical_alignment: overall,
-                        coherence_stability: overall,
-                        confidence: 0.8,
-                    }
-                }).collect();
+            let recent_scores: Vec<TemporalIntegrityScore> = self
+                .state
+                .recent_scores
+                .iter()
+                .map(|&overall| TemporalIntegrityScore {
+                    overall,
+                    prediction_accuracy: overall,
+                    ethical_alignment: overall,
+                    coherence_stability: overall,
+                    confidence: 0.8,
+                })
+                .collect();
 
             generate_adjustment_plan(&bias_findings, &recent_scores).unwrap_or(None)
         } else {
@@ -194,7 +196,8 @@ impl MirrorAudit {
             None
         } else {
             Some(
-                self.state.recent_scores.iter().sum::<f64>() / self.state.recent_scores.len() as f64,
+                self.state.recent_scores.iter().sum::<f64>()
+                    / self.state.recent_scores.len() as f64,
             )
         };
 

@@ -148,7 +148,12 @@ fn check_docker_containers() -> Option<Vec<BrokenContainer>> {
     }
 
     let output = Command::new("docker")
-        .args(["ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}|{{.CreatedAt}}"])
+        .args([
+            "ps",
+            "-a",
+            "--format",
+            "{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}|{{.CreatedAt}}",
+        ])
         .output()
         .ok()?;
 
@@ -197,7 +202,12 @@ fn check_podman_containers() -> Option<Vec<BrokenContainer>> {
     }
 
     let output = Command::new("podman")
-        .args(["ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}|{{.CreatedAt}}"])
+        .args([
+            "ps",
+            "-a",
+            "--format",
+            "{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}|{{.CreatedAt}}",
+        ])
         .output()
         .ok()?;
 
@@ -260,7 +270,12 @@ fn check_docker_stats() -> Option<Vec<HighCpuContainer>> {
 
     // Get stats for running containers (no-stream for single snapshot)
     let output = Command::new("docker")
-        .args(["stats", "--no-stream", "--format", "{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}"])
+        .args([
+            "stats",
+            "--no-stream",
+            "--format",
+            "{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}",
+        ])
         .output()
         .ok()?;
 
@@ -302,7 +317,12 @@ fn check_podman_stats() -> Option<Vec<HighCpuContainer>> {
     }
 
     let output = Command::new("podman")
-        .args(["stats", "--no-stream", "--format", "{{.ID}}|{{.Name}}|{{.CPU}}|{{.MemUsage}}"])
+        .args([
+            "stats",
+            "--no-stream",
+            "--format",
+            "{{.ID}}|{{.Name}}|{{.CPU}}|{{.MemUsage}}",
+        ])
         .output()
         .ok()?;
 
@@ -395,7 +415,12 @@ fn check_docker_limits() -> Option<Vec<MissingResourceLimit>> {
 
 fn inspect_docker_container_limits(container_id: &str) -> Option<Vec<ResourceLimit>> {
     let output = Command::new("docker")
-        .args(["inspect", container_id, "--format", "{{.HostConfig.Memory}}|{{.HostConfig.NanoCpus}}|{{.HostConfig.PidsLimit}}"])
+        .args([
+            "inspect",
+            container_id,
+            "--format",
+            "{{.HostConfig.Memory}}|{{.HostConfig.NanoCpus}}|{{.HostConfig.PidsLimit}}",
+        ])
         .output()
         .ok()?;
 
@@ -610,7 +635,13 @@ fn generate_recommendations(
         recommendations.push(format!(
             "Remove or restart {} broken container(s): {}",
             broken.len(),
-            broken.iter().take(3).map(|c| &c.name).cloned().collect::<Vec<_>>().join(", ")
+            broken
+                .iter()
+                .take(3)
+                .map(|c| &c.name)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 
@@ -630,7 +661,8 @@ fn generate_recommendations(
 
     if let Some(n) = nested {
         if n.kvm_available && !n.nested_enabled {
-            recommendations.push("Enable nested virtualization for better VM-in-VM performance".to_string());
+            recommendations
+                .push("Enable nested virtualization for better VM-in-VM performance".to_string());
         }
     }
 

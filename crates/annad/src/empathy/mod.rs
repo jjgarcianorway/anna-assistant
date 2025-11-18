@@ -125,12 +125,8 @@ impl EmpathyKernel {
         }
 
         // Determine if action should be deferred
-        let should_defer = self.should_defer_action(
-            action,
-            &context,
-            &stakeholder_impacts,
-            strain_index,
-        );
+        let should_defer =
+            self.should_defer_action(action, &context, &stakeholder_impacts, strain_index);
 
         let deferral_reason = if should_defer {
             Some(self.explain_deferral(&context, &stakeholder_impacts, strain_index))
@@ -225,9 +221,7 @@ impl EmpathyKernel {
         }
 
         // Defer resource-intensive actions under system stress
-        if impacts.system.score > 0.7
-            && (context.cpu_load > 0.8 || context.memory_pressure > 0.8)
-        {
+        if impacts.system.score > 0.7 && (context.cpu_load > 0.8 || context.memory_pressure > 0.8) {
             return true;
         }
 
@@ -268,9 +262,7 @@ impl EmpathyKernel {
             ));
         }
 
-        if impacts.system.score > 0.7
-            && (context.cpu_load > 0.8 || context.memory_pressure > 0.8)
-        {
+        if impacts.system.score > 0.7 && (context.cpu_load > 0.8 || context.memory_pressure > 0.8) {
             reasons.push(format!(
                 "System under stress (CPU: {:.0}%, Mem: {:.0}%)",
                 context.cpu_load * 100.0,
@@ -289,13 +281,16 @@ impl EmpathyKernel {
     fn suggest_tone_adaptation(&self, empathy_index: f64, sentiment: &SentimentAnalysis) -> String {
         if sentiment.sentiment_score < -0.3 {
             // Negative sentiment - be more supportive
-            "Use reassuring, supportive tone. Acknowledge difficulties and offer concrete help.".to_string()
+            "Use reassuring, supportive tone. Acknowledge difficulties and offer concrete help."
+                .to_string()
         } else if empathy_index < 0.4 {
             // Low empathy - be more careful
-            "Use cautious, considerate tone. Minimize technical jargon and explain impacts clearly.".to_string()
+            "Use cautious, considerate tone. Minimize technical jargon and explain impacts clearly."
+                .to_string()
         } else if sentiment.patterns.iter().any(|p| p.contains("Strain")) {
             // System strain - be gentle
-            "Use gentle, patient tone. Avoid adding cognitive load with complex explanations.".to_string()
+            "Use gentle, patient tone. Avoid adding cognitive load with complex explanations."
+                .to_string()
         } else {
             "Use clear, professional tone with empathetic framing.".to_string()
         }
@@ -399,13 +394,13 @@ impl EmpathyKernel {
         let state = self.state.read().await;
 
         let state_path = Path::new("/var/lib/anna/empathy");
-        fs::create_dir_all(state_path).await.context(
-            "Failed to create empathy state directory (check permissions)",
-        )?;
+        fs::create_dir_all(state_path)
+            .await
+            .context("Failed to create empathy state directory (check permissions)")?;
 
         let state_file = state_path.join("state.json");
-        let json = serde_json::to_string_pretty(&*state)
-            .context("Failed to serialize empathy state")?;
+        let json =
+            serde_json::to_string_pretty(&*state).context("Failed to serialize empathy state")?;
 
         fs::write(&state_file, json)
             .await

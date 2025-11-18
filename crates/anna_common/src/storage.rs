@@ -297,7 +297,13 @@ fn get_smart_data(device_path: &str) -> Option<SmartStatus> {
 fn parse_smart_json(json: &serde_json::Value) -> Option<SmartStatus> {
     let health_status = json["smart_status"]["passed"]
         .as_bool()
-        .map(|passed| if passed { "PASSED".to_string() } else { "FAILED".to_string() })
+        .map(|passed| {
+            if passed {
+                "PASSED".to_string()
+            } else {
+                "FAILED".to_string()
+            }
+        })
         .or_else(|| {
             json["smart_status"]["nvme"]["value"]
                 .as_str()
@@ -397,14 +403,16 @@ fn get_io_error_counts(device_name: &str) -> IoErrorCounts {
 fn get_performance_metrics(device_name: &str) -> Option<PerformanceMetrics> {
     // Get I/O scheduler
     let scheduler_path = format!("/sys/block/{}/queue/scheduler", device_name);
-    let scheduler = fs::read_to_string(&scheduler_path).ok().and_then(|content| {
-        // Format: "mq-deadline [none] kyber"
-        // Extract the one in brackets
-        content
-            .split_whitespace()
-            .find(|s| s.starts_with('[') && s.ends_with(']'))
-            .map(|s| s.trim_matches(|c| c == '[' || c == ']').to_string())
-    });
+    let scheduler = fs::read_to_string(&scheduler_path)
+        .ok()
+        .and_then(|content| {
+            // Format: "mq-deadline [none] kyber"
+            // Extract the one in brackets
+            content
+                .split_whitespace()
+                .find(|s| s.starts_with('[') && s.ends_with(']'))
+                .map(|s| s.trim_matches(|c| c == '[' || c == ']').to_string())
+        });
 
     // Get queue depth
     let nr_requests_path = format!("/sys/block/{}/queue/nr_requests", device_name);
@@ -445,7 +453,10 @@ fn get_partition_info(device_name: &str) -> Vec<PartitionInfo> {
                 .and_then(|content| content.trim().parse::<u64>().ok());
 
             // Get alignment offset
-            let alignment_offset_path = format!("/sys/block/{}/{}/alignment_offset", device_name, partition_name);
+            let alignment_offset_path = format!(
+                "/sys/block/{}/{}/alignment_offset",
+                device_name, partition_name
+            );
             let alignment_offset = fs::read_to_string(&alignment_offset_path)
                 .ok()
                 .and_then(|content| content.trim().parse::<u64>().ok());

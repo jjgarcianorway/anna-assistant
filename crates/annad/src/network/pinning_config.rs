@@ -111,11 +111,13 @@ impl PinningConfigFile {
             peers: HashMap::from([
                 (
                     "node1.example.com".to_string(),
-                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
+                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_string(),
                 ),
                 (
                     "node2.example.com".to_string(),
-                    "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210".to_string(),
+                    "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+                        .to_string(),
                 ),
             ]),
         };
@@ -179,7 +181,10 @@ mod tests {
 
         let result = PinningConfigFile::load_from_file(temp_file.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must start with 'sha256:'"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must start with 'sha256:'"));
     }
 
     #[test]
@@ -197,7 +202,10 @@ mod tests {
 
         let result = PinningConfigFile::load_from_file(temp_file.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("expected 64 hex chars"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("expected 64 hex chars"));
     }
 
     #[test]
@@ -215,7 +223,10 @@ mod tests {
 
         let result = PinningConfigFile::load_from_file(temp_file.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("non-hex characters"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("non-hex characters"));
     }
 
     #[test]
@@ -234,7 +245,8 @@ mod tests {
             enforce: true,
             peers: HashMap::from([(
                 "node1.example.com".to_string(),
-                "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
+                "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_string(),
             )]),
         };
 
@@ -243,7 +255,10 @@ mod tests {
         assert!(pinning_config.enforce);
         assert_eq!(
             pinning_config.get_pin("node1.example.com"),
-            Some(&"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string())
+            Some(
+                &"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_string()
+            )
         );
     }
 }

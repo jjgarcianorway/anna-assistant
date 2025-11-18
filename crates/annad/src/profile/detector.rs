@@ -85,21 +85,22 @@ impl SystemProfiler {
     fn get_uptime() -> u64 {
         std::fs::read_to_string("/proc/uptime")
             .ok()
-            .and_then(|s| s.split_whitespace().next().and_then(|n| n.parse::<f64>().ok()))
+            .and_then(|s| {
+                s.split_whitespace()
+                    .next()
+                    .and_then(|n| n.parse::<f64>().ok())
+            })
             .map(|f| f as u64)
             .unwrap_or(0)
     }
 
     /// Detect virtualization using systemd-detect-virt
     fn detect_virtualization() -> VirtualizationInfo {
-        let output = Command::new("systemd-detect-virt")
-            .output();
+        let output = Command::new("systemd-detect-virt").output();
 
         match output {
             Ok(output) if output.status.success() => {
-                let virt_type = String::from_utf8_lossy(&output.stdout)
-                    .trim()
-                    .to_string();
+                let virt_type = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
                 match virt_type.as_str() {
                     "none" => VirtualizationInfo::None,
@@ -124,10 +125,7 @@ impl SystemProfiler {
     fn detect_session_type() -> SessionType {
         // Check SSH first
         if let Ok(ssh_conn) = std::env::var("SSH_CONNECTION") {
-            let client_ip = ssh_conn
-                .split_whitespace()
-                .next()
-                .map(|s| s.to_string());
+            let client_ip = ssh_conn.split_whitespace().next().map(|s| s.to_string());
 
             let display_forwarding = std::env::var("DISPLAY").is_ok();
 
@@ -170,8 +168,7 @@ impl SystemProfiler {
 
     /// Detect GPU using lspci
     fn detect_gpu() -> GpuInfo {
-        let output = Command::new("lspci")
-            .output();
+        let output = Command::new("lspci").output();
 
         match output {
             Ok(output) if output.status.success() => {

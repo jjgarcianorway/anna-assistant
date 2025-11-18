@@ -121,7 +121,10 @@ fn deploy_prometheus_config(mode: &str, dry_run: bool) -> Result<()> {
     };
 
     if dry_run {
-        println!("[DRY RUN] Would deploy Prometheus config from {}", config_src);
+        println!(
+            "[DRY RUN] Would deploy Prometheus config from {}",
+            config_src
+        );
         return Ok(());
     }
 
@@ -139,14 +142,12 @@ fn deploy_prometheus_config(mode: &str, dry_run: bool) -> Result<()> {
     // Backup existing config
     if Path::new(config_dest).exists() {
         let backup = format!("{}.backup", config_dest);
-        fs::copy(config_dest, &backup)
-            .context("Failed to backup existing Prometheus config")?;
+        fs::copy(config_dest, &backup).context("Failed to backup existing Prometheus config")?;
         println!("✓ Backed up existing config to {}", backup);
     }
 
     // Copy new config
-    fs::copy(config_src, config_dest)
-        .context("Failed to deploy Prometheus config")?;
+    fs::copy(config_src, config_dest).context("Failed to deploy Prometheus config")?;
 
     println!("✓ Deployed Prometheus configuration");
 
@@ -170,21 +171,25 @@ fn deploy_grafana_dashboards(dry_run: bool) -> Result<()> {
     let dashboard_dir = "/var/lib/grafana/dashboards";
 
     // Create dashboard directory
-    fs::create_dir_all(dashboard_dir)
-        .context("Failed to create Grafana dashboard directory")?;
+    fs::create_dir_all(dashboard_dir).context("Failed to create Grafana dashboard directory")?;
 
     // Copy dashboard files if they exist
     let dashboards = [
-        ("monitoring/dashboards/anna-overview.json", "anna-overview.json"),
-        ("monitoring/dashboards/anna-resources.json", "anna-resources.json"),
+        (
+            "monitoring/dashboards/anna-overview.json",
+            "anna-overview.json",
+        ),
+        (
+            "monitoring/dashboards/anna-resources.json",
+            "anna-resources.json",
+        ),
     ];
 
     let mut deployed = 0;
     for (src, dest) in &dashboards {
         if Path::new(src).exists() {
             let dest_path = format!("{}/{}", dashboard_dir, dest);
-            fs::copy(src, &dest_path)
-                .context(format!("Failed to copy dashboard: {}", src))?;
+            fs::copy(src, &dest_path).context(format!("Failed to copy dashboard: {}", src))?;
             deployed += 1;
         }
     }
@@ -208,8 +213,22 @@ pub fn install_full_mode(dry_run: bool) -> Result<()> {
     let grafana_installed = is_package_installed("grafana")?;
 
     println!("\nCurrent status:");
-    println!("  Prometheus: {}", if prometheus_installed { "✓ Installed" } else { "✗ Not installed" });
-    println!("  Grafana:    {}", if grafana_installed { "✓ Installed" } else { "✗ Not installed" });
+    println!(
+        "  Prometheus: {}",
+        if prometheus_installed {
+            "✓ Installed"
+        } else {
+            "✗ Not installed"
+        }
+    );
+    println!(
+        "  Grafana:    {}",
+        if grafana_installed {
+            "✓ Installed"
+        } else {
+            "✗ Not installed"
+        }
+    );
     println!();
 
     // Install Prometheus first (required for Grafana to be useful)
@@ -266,14 +285,18 @@ pub fn install_full_mode(dry_run: bool) -> Result<()> {
                 println!("🌐 Remote Access (SSH session detected):");
                 println!();
                 println!("  To access Grafana from your local machine, create an SSH tunnel:");
-                println!("  [33mssh -L 3000:localhost:3000 {}@<host>[39m",
-                    std::env::var("USER").unwrap_or_else(|_| "user".to_string()));
+                println!(
+                    "  [33mssh -L 3000:localhost:3000 {}@<host>[39m",
+                    std::env::var("USER").unwrap_or_else(|_| "user".to_string())
+                );
                 println!();
                 println!("  Then browse to: http://localhost:3000");
                 println!();
                 println!("  For Prometheus:");
-                println!("  [33mssh -L 9090:localhost:9090 {}@<host>[39m",
-                    std::env::var("USER").unwrap_or_else(|_| "user".to_string()));
+                println!(
+                    "  [33mssh -L 9090:localhost:9090 {}@<host>[39m",
+                    std::env::var("USER").unwrap_or_else(|_| "user".to_string())
+                );
                 println!();
             }
         }
@@ -297,7 +320,14 @@ pub fn install_light_mode(dry_run: bool) -> Result<()> {
     let prometheus_installed = is_package_installed("prometheus")?;
 
     println!("\nCurrent status:");
-    println!("  Prometheus: {}", if prometheus_installed { "✓ Installed" } else { "✗ Not installed" });
+    println!(
+        "  Prometheus: {}",
+        if prometheus_installed {
+            "✓ Installed"
+        } else {
+            "✗ Not installed"
+        }
+    );
     println!();
 
     // Install Prometheus if needed
@@ -326,8 +356,10 @@ pub fn install_light_mode(dry_run: bool) -> Result<()> {
                 println!("🌐 Remote Access (SSH session detected):");
                 println!();
                 println!("  To access Prometheus from your local machine, create an SSH tunnel:");
-                println!("  [33mssh -L 9090:localhost:9090 {}@<host>[39m",
-                    std::env::var("USER").unwrap_or_else(|_| "user".to_string()));
+                println!(
+                    "  [33mssh -L 9090:localhost:9090 {}@<host>[39m",
+                    std::env::var("USER").unwrap_or_else(|_| "user".to_string())
+                );
                 println!();
                 println!("  Then browse to: http://localhost:9090");
                 println!();
@@ -369,7 +401,11 @@ mod tests {
     #[cfg_attr(not(target_os = "linux"), ignore)]
     fn test_is_package_installed() {
         // Skip in CI if pacman is not available
-        if std::process::Command::new("pacman").arg("--version").output().is_err() {
+        if std::process::Command::new("pacman")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("Skipping test: pacman not available (not on Arch Linux)");
             return;
         }
@@ -383,7 +419,11 @@ mod tests {
     #[cfg_attr(not(target_os = "linux"), ignore)]
     fn test_check_service_status() {
         // Skip in CI if systemctl is not available
-        if std::process::Command::new("systemctl").arg("--version").output().is_err() {
+        if std::process::Command::new("systemctl")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("Skipping test: systemctl not available");
             return;
         }

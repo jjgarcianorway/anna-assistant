@@ -66,8 +66,7 @@ impl MirrorProtocol {
             config.min_consensus_nodes,
             config.coherence_threshold,
         );
-        let remediation_engine =
-            RemediationEngine::new(node_id.clone(), config.auto_remediation);
+        let remediation_engine = RemediationEngine::new(node_id.clone(), config.auto_remediation);
 
         info!(
             "Mirror Protocol initialized - Node ID: {}, Coherence: {:.2}",
@@ -303,9 +302,9 @@ impl MirrorProtocol {
 
         // Store applied remediations
         let mut state = self.state.write().await;
-        state.applied_remediations.extend(
-            session.approved_remediations.clone()
-        );
+        state
+            .applied_remediations
+            .extend(session.approved_remediations.clone());
 
         // Keep only last 20 remediations
         if state.applied_remediations.len() > 20 {

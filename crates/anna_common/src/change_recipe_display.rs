@@ -17,7 +17,10 @@ pub fn display_recipe_for_approval(ui: &UI, recipe: &ChangeRecipe) {
     println!();
 
     // Title with icon
-    println!("{}", fmt::section_title("📋", &format!(" Proposed Change: {}", recipe.title)));
+    println!(
+        "{}",
+        fmt::section_title("📋", &format!(" Proposed Change: {}", recipe.title))
+    );
     println!();
 
     // Summary in a subtle box
@@ -88,13 +91,22 @@ fn display_risk_assessment_beautiful(_ui: &UI, recipe: &ChangeRecipe) {
     println!();
 
     // Worst case scenario
-    println!("{}", fmt::key_value("  Worst case:", recipe.overall_risk.worst_case()));
+    println!(
+        "{}",
+        fmt::key_value("  Worst case:", recipe.overall_risk.worst_case())
+    );
     println!();
 
     // Special handling for Forbidden
     if recipe.overall_risk == ChangeRisk::Forbidden {
-        println!("{}", fmt::error("This change is TOO DANGEROUS to automate."));
-        println!("{}", fmt::error("Do it manually with proper backups and expertise."));
+        println!(
+            "{}",
+            fmt::error("This change is TOO DANGEROUS to automate.")
+        );
+        println!(
+            "{}",
+            fmt::error("Do it manually with proper backups and expertise.")
+        );
         println!();
     }
 }
@@ -133,7 +145,10 @@ fn display_action_beautiful(action: &ChangeAction, number: usize) {
     );
 
     // Impact on indented line
-    println!("     {}", fmt::dimmed(&format!("Impact: {}", action.estimated_impact)));
+    println!(
+        "     {}",
+        fmt::dimmed(&format!("Impact: {}", action.estimated_impact))
+    );
 
     // Action-specific details
     display_action_details_beautiful(&action.kind);
@@ -143,7 +158,10 @@ fn display_action_beautiful(action: &ChangeAction, number: usize) {
 fn display_action_details_beautiful(kind: &ChangeActionKind) {
     match kind {
         ChangeActionKind::EditFile { path, strategy } => {
-            println!("     {}", fmt::key_value("File:", &path.display().to_string()));
+            println!(
+                "     {}",
+                fmt::key_value("File:", &path.display().to_string())
+            );
             match strategy {
                 EditStrategy::AppendIfMissing { lines } => {
                     println!(
@@ -176,23 +194,20 @@ fn display_action_details_beautiful(kind: &ChangeActionKind) {
             }
         }
         ChangeActionKind::AppendToFile { path, content } => {
-            println!("     {}", fmt::key_value("File:", &path.display().to_string()));
+            println!(
+                "     {}",
+                fmt::key_value("File:", &path.display().to_string())
+            );
             println!(
                 "     {}",
                 fmt::key_value("Content:", &format!("{} bytes", content.len()))
             );
         }
         ChangeActionKind::InstallPackages { packages } => {
-            println!(
-                "     {}",
-                fmt::key_value("Packages:", &packages.join(", "))
-            );
+            println!("     {}", fmt::key_value("Packages:", &packages.join(", ")));
         }
         ChangeActionKind::RemovePackages { packages } => {
-            println!(
-                "     {}",
-                fmt::key_value("Packages:", &packages.join(", "))
-            );
+            println!("     {}", fmt::key_value("Packages:", &packages.join(", ")));
         }
         ChangeActionKind::EnableService {
             service_name,

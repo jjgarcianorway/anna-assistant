@@ -2,43 +2,43 @@
 //!
 //! Gathers hardware, software, and system state information.
 
+use anna_common::audio::AudioInfo;
+use anna_common::backup_detection::BackupDetection;
+use anna_common::boot::BootInfo;
+use anna_common::config_file::DesktopConfig;
+use anna_common::container_virt_perf::ContainerVirtPerformance;
+use anna_common::cpu_performance::CpuPerformance;
+use anna_common::cpu_throttling::CpuThrottling;
+use anna_common::desktop::{DesktopEnvironment, DesktopInfo, SessionType};
+use anna_common::display_issues::DisplayIssues;
+use anna_common::filesystem::FilesystemInfo;
+use anna_common::filesystem_health::FilesystemHealth;
+use anna_common::gpu_compute::GpuComputeCapabilities;
+use anna_common::gpu_throttling::GpuThrottling;
+use anna_common::graphics::GraphicsInfo;
+use anna_common::initramfs::InitramfsInfo;
+use anna_common::kernel_modules::KernelModules;
+use anna_common::llm_context::LlmContext;
+use anna_common::memory_usage::MemoryUsageInfo;
+use anna_common::network_config::NetworkConfig;
+use anna_common::network_monitoring::NetworkMonitoring;
+use anna_common::orphaned_packages::OrphanedPackages;
+use anna_common::package_health::PackageHealth;
+use anna_common::package_mgmt::PackageManagementInfo;
+use anna_common::power::PowerInfo;
+use anna_common::security::SecurityInfo;
+use anna_common::security_features::SecurityFeatures;
+use anna_common::sensors::SensorsInfo;
+use anna_common::storage::StorageInfo;
+use anna_common::system_health::SystemHealth;
+use anna_common::systemd_health::SystemdHealth;
+use anna_common::user_behavior::UserBehaviorPatterns;
+use anna_common::virtualization::VirtualizationInfo;
+use anna_common::voltage_monitoring::VoltageMonitoring;
 use anna_common::{
     BatteryInfo, BluetoothStatus, CommandUsage, LocaleInfo, MediaUsageProfile, MicrocodeStatus,
     SSDInfo, StorageDevice, SwapConfiguration, SystemFacts, SystemdService,
 };
-use anna_common::desktop::{DesktopInfo, DesktopEnvironment, SessionType};
-use anna_common::config_file::DesktopConfig;
-use anna_common::boot::BootInfo;
-use anna_common::audio::AudioInfo;
-use anna_common::filesystem::FilesystemInfo;
-use anna_common::systemd_health::SystemdHealth;
-use anna_common::network_config::NetworkConfig;
-use anna_common::cpu_performance::CpuPerformance;
-use anna_common::graphics::GraphicsInfo;
-use anna_common::security::SecurityInfo;
-use anna_common::virtualization::VirtualizationInfo;
-use anna_common::package_mgmt::PackageManagementInfo;
-use anna_common::sensors::SensorsInfo;
-use anna_common::power::PowerInfo;
-use anna_common::memory_usage::MemoryUsageInfo;
-use anna_common::storage::StorageInfo;
-use anna_common::network_monitoring::NetworkMonitoring;
-use anna_common::kernel_modules::KernelModules;
-use anna_common::package_health::PackageHealth;
-use anna_common::initramfs::InitramfsInfo;
-use anna_common::security_features::SecurityFeatures;
-use anna_common::system_health::SystemHealth;
-use anna_common::orphaned_packages::OrphanedPackages;
-use anna_common::cpu_throttling::CpuThrottling;
-use anna_common::gpu_throttling::GpuThrottling;
-use anna_common::gpu_compute::GpuComputeCapabilities;
-use anna_common::voltage_monitoring::VoltageMonitoring;
-use anna_common::filesystem_health::FilesystemHealth;
-use anna_common::backup_detection::BackupDetection;
-use anna_common::container_virt_perf::ContainerVirtPerformance;
-use anna_common::display_issues::DisplayIssues;
-use anna_common::user_behavior::UserBehaviorPatterns;
-use anna_common::llm_context::LlmContext;
 use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;

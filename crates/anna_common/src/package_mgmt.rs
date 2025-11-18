@@ -159,25 +159,15 @@ fn analyze_mirrorlist() -> (Option<u64>, usize, bool) {
 /// Detect AUR helper
 fn detect_aur_helper() -> Option<String> {
     let aur_helpers = vec![
-        "yay",
-        "paru",
-        "pikaur",
-        "aurman",
-        "trizen",
-        "pacaur",
-        "aura",
+        "yay", "paru", "pikaur", "aurman", "trizen", "pacaur", "aura",
     ];
 
     for helper in aur_helpers {
-        if let Ok(output) = std::process::Command::new("which")
-            .arg(helper)
-            .output()
-        {
+        if let Ok(output) = std::process::Command::new("which").arg(helper).output() {
             if output.status.success() {
                 // Try to get version
-                if let Ok(version_output) = std::process::Command::new(helper)
-                    .arg("--version")
-                    .output()
+                if let Ok(version_output) =
+                    std::process::Command::new(helper).arg("--version").output()
                 {
                     if version_output.status.success() {
                         let version_str = String::from_utf8_lossy(&version_output.stdout);

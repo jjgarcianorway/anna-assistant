@@ -67,7 +67,10 @@ impl CollectiveMind {
         state.node_id = keypair.peer_id();
 
         // Initialize components
-        let gossip = GossipEngine::new(state.node_id.clone(), keypair.private_key.clone().unwrap_or_default());
+        let gossip = GossipEngine::new(
+            state.node_id.clone(),
+            keypair.private_key.clone().unwrap_or_default(),
+        );
         let trust = TrustLedger::from_scores(state.trust_ledger.clone());
         let consensus = ConsensusEngine::from_records(state.consensus_history.clone());
         let sync = SyncManager::from_states(state.network_empathy.clone());
@@ -101,9 +104,10 @@ impl CollectiveMind {
         info!("Starting Collective Mind daemon");
 
         // Start gossip engine
-        let listen_addr: SocketAddr = format!("{}:{}", self.config.listen_addr, self.config.listen_port)
-            .parse()
-            .context("Invalid listen address")?;
+        let listen_addr: SocketAddr =
+            format!("{}:{}", self.config.listen_addr, self.config.listen_port)
+                .parse()
+                .context("Invalid listen address")?;
 
         {
             let mut gossip = self.gossip.write().await;
@@ -114,7 +118,9 @@ impl CollectiveMind {
             gossip.announce_self(peer_info).await?;
 
             // Start heartbeat task
-            gossip.spawn_heartbeat_task(self.config.heartbeat_interval_secs).await;
+            gossip
+                .spawn_heartbeat_task(self.config.heartbeat_interval_secs)
+                .await;
         }
 
         // Spawn periodic tasks
@@ -257,12 +263,18 @@ impl CollectiveMind {
     }
 
     /// Get explanation for a consensus decision
-    pub async fn get_consensus_explanation(&self, consensus_id: &str) -> Option<ConsensusExplanation> {
+    pub async fn get_consensus_explanation(
+        &self,
+        consensus_id: &str,
+    ) -> Option<ConsensusExplanation> {
         let state = self.state.read().await;
         let consensus = self.consensus.read().await;
 
         // Check completed records
-        let record = consensus.get_completed().iter().find(|r| r.id == consensus_id)?;
+        let record = consensus
+            .get_completed()
+            .iter()
+            .find(|r| r.id == consensus_id)?;
 
         // Calculate approval metrics
         let total_votes = record.votes.len();
@@ -270,7 +282,11 @@ impl CollectiveMind {
             return None;
         }
 
-        let approve_count = record.votes.values().filter(|v| v.vote == VoteType::Approve).count();
+        let approve_count = record
+            .votes
+            .values()
+            .filter(|v| v.vote == VoteType::Approve)
+            .count();
         let approval_percentage = (approve_count as f64 / total_votes as f64) * 100.0;
 
         // Calculate weighted approval
@@ -409,7 +425,10 @@ mod tests {
         let result = CollectiveMind::new().await;
         // If creation fails (e.g., missing dependencies in CI), skip gracefully
         if result.is_err() {
-            eprintln!("Skipping test_collective_mind_creation: CollectiveMind creation failed - {:?}", result.err());
+            eprintln!(
+                "Skipping test_collective_mind_creation: CollectiveMind creation failed - {:?}",
+                result.err()
+            );
             return;
         }
         assert!(result.is_ok());

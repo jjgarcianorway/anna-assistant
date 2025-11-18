@@ -64,10 +64,7 @@ pub fn get_top_memory_processes(limit: usize) -> Vec<ProcessMemoryInfo> {
     process_mem
         .into_iter()
         .take(limit)
-        .map(|(name, mem, _occ)| ProcessMemoryInfo {
-            name,
-            rss_mb: mem,
-        })
+        .map(|(name, mem, _occ)| ProcessMemoryInfo { name, rss_mb: mem })
         .collect()
 }
 
@@ -87,7 +84,10 @@ pub fn get_cpu_utilization() -> (f64, f64) {
 
     let total: f64 = cpus.iter().map(|cpu| cpu.cpu_usage() as f64).sum();
     let avg = total / cpus.len() as f64;
-    let peak = cpus.iter().map(|cpu| cpu.cpu_usage() as f64).fold(0.0, f64::max);
+    let peak = cpus
+        .iter()
+        .map(|cpu| cpu.cpu_usage() as f64)
+        .fold(0.0, f64::max);
 
     (avg, peak)
 }
@@ -170,8 +170,5 @@ pub fn detect_cpu_spikes(current_cpu: f64, history: &[f64], threshold_multiplier
     let avg: f64 = history.iter().sum::<f64>() / history.len() as f64;
     let spike_threshold = avg * threshold_multiplier;
 
-    history
-        .iter()
-        .filter(|&&cpu| cpu > spike_threshold)
-        .count()
+    history.iter().filter(|&&cpu| cpu > spike_threshold).count()
 }

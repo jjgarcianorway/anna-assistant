@@ -59,7 +59,10 @@ impl EthicsProjector {
 
     /// Project ethical outcomes for forecast
     pub fn project(&self, forecast: &ForecastResult) -> EthicsProjection {
-        info!("Projecting ethical outcomes for forecast {}", forecast.forecast_id);
+        info!(
+            "Projecting ethical outcomes for forecast {}",
+            forecast.forecast_id
+        );
 
         let consensus = match &forecast.consensus_scenario {
             Some(s) => s,
@@ -133,8 +136,7 @@ impl EthicsProjector {
     ) -> HashMap<String, StakeholderImpact> {
         let mut impacts = HashMap::new();
 
-        if let (Some(first), Some(last)) = (scenario.snapshots.first(), scenario.snapshots.last())
-        {
+        if let (Some(first), Some(last)) = (scenario.snapshots.first(), scenario.snapshots.last()) {
             // User impact (based on empathy and strain)
             impacts.insert(
                 "user".to_string(),
@@ -162,8 +164,7 @@ impl EthicsProjector {
                 "network".to_string(),
                 StakeholderImpact {
                     stakeholder: "network".to_string(),
-                    impact_score: last.metrics.network_coherence
-                        - first.metrics.network_coherence,
+                    impact_score: last.metrics.network_coherence - first.metrics.network_coherence,
                     emotional_cost: 0.0,
                     description: "Impact on network-wide ethical alignment".to_string(),
                 },
@@ -245,21 +246,21 @@ impl EthicsProjector {
         if let Some(last) = scenario.snapshots.last() {
             match trajectory {
                 EthicalTrajectory::DangerousDegradation => {
-                    recommendations
-                        .push("URGENT: Immediate intervention required".to_string());
+                    recommendations.push("URGENT: Immediate intervention required".to_string());
 
                     if last.metrics.health_score < self.thresholds.min_health {
-                        recommendations.push(
-                            "Critical: Health score below minimum threshold".to_string(),
-                        );
                         recommendations
-                            .push("Action: Run system diagnostics and address failures".to_string());
+                            .push("Critical: Health score below minimum threshold".to_string());
+                        recommendations.push(
+                            "Action: Run system diagnostics and address failures".to_string(),
+                        );
                     }
 
                     if last.metrics.strain_index > self.thresholds.max_strain {
                         recommendations.push("Critical: Excessive strain detected".to_string());
-                        recommendations
-                            .push("Action: Reduce workload and defer non-critical tasks".to_string());
+                        recommendations.push(
+                            "Action: Reduce workload and defer non-critical tasks".to_string(),
+                        );
                     }
                 }
                 EthicalTrajectory::MinorDegradation => {
@@ -269,9 +270,11 @@ impl EthicsProjector {
                 }
                 EthicalTrajectory::Stable => {
                     recommendations.push("System trajectory stable".to_string());
-                    recommendations.push("Action: Maintain current operational parameters".to_string());
+                    recommendations
+                        .push("Action: Maintain current operational parameters".to_string());
                 }
-                EthicalTrajectory::ModerateImprovement | EthicalTrajectory::SignificantImprovement => {
+                EthicalTrajectory::ModerateImprovement
+                | EthicalTrajectory::SignificantImprovement => {
                     recommendations.push("Positive trajectory detected".to_string());
                     recommendations.push("Action: Continue current approach".to_string());
                 }
@@ -282,8 +285,9 @@ impl EthicsProjector {
 
             // Specific metric warnings
             if last.metrics.network_coherence < self.thresholds.min_coherence {
-                recommendations
-                    .push("Network coherence below threshold - initiate mirror consensus".to_string());
+                recommendations.push(
+                    "Network coherence below threshold - initiate mirror consensus".to_string(),
+                );
             }
 
             if last.metrics.empathy_index < self.thresholds.min_empathy {

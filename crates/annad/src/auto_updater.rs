@@ -3,7 +3,7 @@
 //
 // 10-minute check interval with automatic binary replacement for manual installations
 
-use anna_common::github_releases::{GitHubClient, is_update_available};
+use anna_common::github_releases::{is_update_available, GitHubClient};
 use anna_common::installation_source::{detect_current_installation, InstallationSource};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -98,7 +98,10 @@ impl AutoUpdater {
             return;
         }
 
-        info!("   🎯 Update available: v{} → v{}", current_version, latest_version);
+        info!(
+            "   🎯 Update available: v{} → v{}",
+            current_version, latest_version
+        );
 
         // Step 4: Perform automatic update
         info!("   Starting automatic update process...");
@@ -107,7 +110,10 @@ impl AutoUpdater {
                 info!("   ✓ Update successfully installed: v{}", latest_version);
 
                 // Write update record and pending notice
-                if let Err(e) = self.write_update_records(current_version, latest_version).await {
+                if let Err(e) = self
+                    .write_update_records(current_version, latest_version)
+                    .await
+                {
                     warn!("   Failed to write update records: {}", e);
                 }
 
@@ -126,7 +132,11 @@ impl AutoUpdater {
     }
 
     /// Perform the actual update
-    async fn perform_update(&self, release: &anna_common::github_releases::GitHubRelease, version: &str) -> anyhow::Result<()> {
+    async fn perform_update(
+        &self,
+        release: &anna_common::github_releases::GitHubRelease,
+        version: &str,
+    ) -> anyhow::Result<()> {
         use anna_common::file_backup::{FileBackup, FileOperation};
         use std::path::PathBuf;
 
@@ -224,7 +234,7 @@ impl AutoUpdater {
 
     /// Verify SHA256 checksums
     async fn verify_checksums(&self, dir: &PathBuf) -> anyhow::Result<()> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let checksums_file = dir.join("SHA256SUMS");
         let checksums_content = tokio::fs::read_to_string(&checksums_file).await?;
@@ -257,7 +267,9 @@ impl AutoUpdater {
             if actual_hash != expected_hash {
                 anyhow::bail!(
                     "Checksum mismatch for {}: expected {}, got {}",
-                    filename, expected_hash, actual_hash
+                    filename,
+                    expected_hash,
+                    actual_hash
                 );
             }
 
@@ -268,7 +280,11 @@ impl AutoUpdater {
     }
 
     /// Write update records for notification
-    async fn write_update_records(&self, from_version: &str, to_version: &str) -> Result<(), std::io::Error> {
+    async fn write_update_records(
+        &self,
+        from_version: &str,
+        to_version: &str,
+    ) -> Result<(), std::io::Error> {
         let record = format!("{}|{}", from_version, to_version);
         tokio::fs::write(UPDATE_RECORD_FILE, &record).await?;
         tokio::fs::write(PENDING_NOTICE_FILE, &record).await?;

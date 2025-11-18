@@ -23,8 +23,14 @@ pub async fn execute_mirror_reflect_command() -> Result<()> {
             println!("  Conscience Actions:  {}", data.conscience_actions_count);
 
             println!("\nEmpathy Summary:");
-            println!("  Avg Empathy Index:   {:.1}%", data.avg_empathy_index * 100.0);
-            println!("  Avg Strain Index:    {:.1}%", data.avg_strain_index * 100.0);
+            println!(
+                "  Avg Empathy Index:   {:.1}%",
+                data.avg_empathy_index * 100.0
+            );
+            println!(
+                "  Avg Strain Index:    {:.1}%",
+                data.avg_strain_index * 100.0
+            );
             println!("  Empathy Trend:       {}", data.empathy_trend);
             println!("  Adaptations Made:    {}", data.adaptations_count);
 
@@ -61,9 +67,20 @@ pub async fn execute_mirror_audit_command() -> Result<()> {
             }
 
             println!("\nCurrent Status:");
-            println!("  Network Coherence:   {:.1}%", data.current_coherence * 100.0);
-            println!("  Last Reflection:     {}", data.last_reflection.as_ref().unwrap_or(&"Never".to_string()));
-            println!("  Last Consensus:      {}", data.last_consensus.as_ref().unwrap_or(&"Never".to_string()));
+            println!(
+                "  Network Coherence:   {:.1}%",
+                data.current_coherence * 100.0
+            );
+            println!(
+                "  Last Reflection:     {}",
+                data.last_reflection
+                    .as_ref()
+                    .unwrap_or(&"Never".to_string())
+            );
+            println!(
+                "  Last Consensus:      {}",
+                data.last_consensus.as_ref().unwrap_or(&"Never".to_string())
+            );
 
             println!("\nRecent Activity:");
             println!("  Reflections:         {}", data.recent_reflections_count);
@@ -79,7 +96,10 @@ pub async fn execute_mirror_audit_command() -> Result<()> {
                 println!("\nRecent Peer Critiques:");
                 for (i, critique) in data.recent_critiques.iter().enumerate().take(5) {
                     println!("\n  {}. From: {}", i + 1, critique.critic_id);
-                    println!("     Coherence Assessment: {:.1}%", critique.coherence_assessment * 100.0);
+                    println!(
+                        "     Coherence Assessment: {:.1}%",
+                        critique.coherence_assessment * 100.0
+                    );
                     println!("     Inconsistencies: {}", critique.inconsistencies_count);
                     println!("     Biases Detected: {}", critique.biases_count);
                     if !critique.recommendations.is_empty() {
@@ -162,10 +182,7 @@ pub async fn execute_mirror_audit_forecast_command(window_hours: u64, json: bool
             }
 
             if let Some(avg_integrity) = data.average_temporal_integrity {
-                println!(
-                    "Average Temporal Integrity: {:.1}%",
-                    avg_integrity * 100.0
-                );
+                println!("Average Temporal Integrity: {:.1}%", avg_integrity * 100.0);
             }
 
             if !data.active_biases.is_empty() {
@@ -230,10 +247,7 @@ pub async fn execute_mirror_audit_forecast_command(window_hours: u64, json: bool
 }
 
 /// Execute `annactl mirror reflect-temporal` command (Phase 1.6)
-pub async fn execute_mirror_reflect_temporal_command(
-    window_hours: u64,
-    json: bool,
-) -> Result<()> {
+pub async fn execute_mirror_reflect_temporal_command(window_hours: u64, json: bool) -> Result<()> {
     let mut client = RpcClient::connect().await?;
 
     match client

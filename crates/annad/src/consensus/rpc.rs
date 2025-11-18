@@ -122,10 +122,7 @@ impl ConsensusRpcHandler {
     }
 
     /// Handle reconciliation request
-    pub async fn handle_reconcile(
-        &self,
-        req: ReconcileRequest,
-    ) -> Result<ReconcileResponse> {
+    pub async fn handle_reconcile(&self, req: ReconcileRequest) -> Result<ReconcileResponse> {
         debug!("Handle reconcile (window_hours: {})", req.window_hours);
 
         // TODO Phase 1.8: Implement actual reconciliation

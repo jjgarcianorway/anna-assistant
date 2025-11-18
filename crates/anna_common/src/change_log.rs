@@ -100,9 +100,7 @@ pub enum ActionType {
     },
 
     /// File creation
-    FileCreate {
-        path: PathBuf,
-    },
+    FileCreate { path: PathBuf },
 
     /// File deletion
     FileDelete {
@@ -117,9 +115,7 @@ pub enum ActionType {
     },
 
     /// Package removal
-    PackageRemove {
-        packages: Vec<String>,
-    },
+    PackageRemove { packages: Vec<String> },
 
     /// Service state change
     ServiceChange {
@@ -219,7 +215,8 @@ impl ChangeUnit {
         }
 
         self.actions.iter().all(|action| {
-            action.rollback_info
+            action
+                .rollback_info
                 .as_ref()
                 .map(|info| info.can_rollback)
                 .unwrap_or(false)
@@ -349,7 +346,8 @@ impl MetricsSnapshot {
             }
         }
 
-        if let (Some(current), Some(previous)) = (self.disk_usage_percent, other.disk_usage_percent) {
+        if let (Some(current), Some(previous)) = (self.disk_usage_percent, other.disk_usage_percent)
+        {
             let diff = current - previous;
             if diff > 5.0 {
                 degradations.push(format!("Disk usage increased by {:.1}%", diff));
@@ -378,7 +376,8 @@ mod tests {
         let mut unit = ChangeUnit::new("test", "request");
 
         // Add action that can be rolled back
-        let mut action = ChangeAction::package_install(vec!["test-pkg".to_string()], "Install test");
+        let mut action =
+            ChangeAction::package_install(vec!["test-pkg".to_string()], "Install test");
         action.success = true;
         unit.add_action(action);
 

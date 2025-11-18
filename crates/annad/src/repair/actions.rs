@@ -80,9 +80,7 @@ pub async fn disk_space_repair(dry_run: bool) -> Result<RepairAction> {
 
         // Now run paccache (either it was already available or we just installed it)
         info!("Executing: {}", paccache_cmd);
-        let output = Command::new("paccache")
-            .args(&["-rk1"])
-            .output();
+        let output = Command::new("paccache").args(&["-rk1"]).output();
 
         match output {
             Ok(output) => {
@@ -184,10 +182,7 @@ pub async fn services_failed_repair(dry_run: bool) -> Result<RepairAction> {
         .filter(|line| !line.trim().is_empty())
         .map(|line| {
             // Extract unit name (first column)
-            line.split_whitespace()
-                .next()
-                .unwrap_or("")
-                .to_string()
+            line.split_whitespace().next().unwrap_or("").to_string()
         })
         .filter(|unit| !unit.is_empty())
         .collect();
@@ -235,10 +230,7 @@ pub async fn services_failed_repair(dry_run: bool) -> Result<RepairAction> {
     Ok(RepairAction {
         probe: "services-failed".to_string(),
         action: "restart_failed_units".to_string(),
-        command: Some(format!(
-            "systemctl restart {}",
-            failed_units.join(" ")
-        )),
+        command: Some(format!("systemctl restart {}", failed_units.join(" "))),
         exit_code: if dry_run { None } else { Some(last_exit_code) },
         success: dry_run || all_success,
         details: actions_taken.join("; "),
@@ -257,8 +249,8 @@ pub async fn firmware_microcode_repair(dry_run: bool) -> Result<RepairAction> {
     info!("firmware-microcode repair: dry_run={}", dry_run);
 
     // Detect CPU vendor
-    let cpuinfo = std::fs::read_to_string("/proc/cpuinfo")
-        .context("Failed to read /proc/cpuinfo")?;
+    let cpuinfo =
+        std::fs::read_to_string("/proc/cpuinfo").context("Failed to read /proc/cpuinfo")?;
 
     let vendor = if cpuinfo.contains("GenuineIntel") {
         "intel"
@@ -417,7 +409,8 @@ pub async fn missing_firmware_repair(dry_run: bool) -> Result<RepairAction> {
     let details = "Missing firmware detected. Check dmesg for specific firmware files needed. \
                    Common solutions: install linux-firmware, mkinitcpio-firmware (AUR), or \
                    suppress warnings by adding MODULE.blacklist=1 to kernel parameters if \
-                   firmware is not needed for your hardware.".to_string();
+                   firmware is not needed for your hardware."
+        .to_string();
 
     Ok(RepairAction {
         probe: "missing-firmware".to_string(),
@@ -500,7 +493,8 @@ pub async fn orphaned_packages_repair(dry_run: bool) -> Result<RepairAction> {
             exit_code: Some(0),
             success: true,
             details: "No orphaned packages found".to_string(),
-            citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]".to_string(),
+            citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]"
+                .to_string(),
         });
     }
 
@@ -516,7 +510,8 @@ pub async fn orphaned_packages_repair(dry_run: bool) -> Result<RepairAction> {
             exit_code: Some(0),
             success: true,
             details: "No orphaned packages found".to_string(),
-            citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]".to_string(),
+            citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]"
+                .to_string(),
         });
     }
 
@@ -528,7 +523,11 @@ pub async fn orphaned_packages_repair(dry_run: bool) -> Result<RepairAction> {
     let cmd = format!("pacman -Rns --noconfirm {}", orphan_list.join(" "));
     if dry_run {
         info!("[DRY-RUN] Would remove {} orphaned packages", count);
-        actions_taken.push(format!("[dry-run] Would remove {} packages: {}", count, orphan_list.join(", ")));
+        actions_taken.push(format!(
+            "[dry-run] Would remove {} packages: {}",
+            count,
+            orphan_list.join(", ")
+        ));
     } else {
         info!("Removing {} orphaned packages", count);
         let output = Command::new("pacman")
@@ -556,7 +555,8 @@ pub async fn orphaned_packages_repair(dry_run: bool) -> Result<RepairAction> {
         exit_code: if dry_run { None } else { Some(last_exit_code) },
         success: all_success,
         details: actions_taken.join("; "),
-        citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]".to_string(),
+        citation: "[archwiki:Pacman/Tips_and_tricks#Removing_unused_packages_(orphans)]"
+            .to_string(),
     })
 }
 
@@ -698,9 +698,7 @@ pub async fn time_sync_enable_repair(dry_run: bool) -> Result<RepairAction> {
             std::thread::sleep(std::time::Duration::from_millis(500));
 
             // Check status
-            let status_output = Command::new("timedatectl")
-                .arg("show")
-                .output();
+            let status_output = Command::new("timedatectl").arg("show").output();
 
             if let Ok(status) = status_output {
                 let status_str = String::from_utf8_lossy(&status.stdout);
@@ -761,7 +759,8 @@ pub async fn user_services_failed_repair(dry_run: bool) -> Result<RepairAction> 
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let failed_units: Vec<&str> = stdout.lines()
+        let failed_units: Vec<&str> = stdout
+            .lines()
             .filter(|line| !line.trim().is_empty())
             .filter_map(|line| line.split_whitespace().next())
             .collect();
@@ -779,7 +778,11 @@ pub async fn user_services_failed_repair(dry_run: bool) -> Result<RepairAction> 
         }
 
         // Safe services we can auto-restart: pipewire, wireplumber
-        let safe_services = ["pipewire.service", "wireplumber.service", "pipewire-pulse.service"];
+        let safe_services = [
+            "pipewire.service",
+            "wireplumber.service",
+            "pipewire-pulse.service",
+        ];
         let mut restarted = Vec::new();
         let mut guidance_only = Vec::new();
 
@@ -975,7 +978,9 @@ pub async fn broken_autostart_repair(dry_run: bool) -> Result<RepairAction> {
     Ok(RepairAction {
         probe: "broken-autostart".to_string(),
         action: "disable_broken_autostart".to_string(),
-        command: Some("mv ~/.config/autostart/<broken>.desktop ~/.config/autostart/disabled/".to_string()),
+        command: Some(
+            "mv ~/.config/autostart/<broken>.desktop ~/.config/autostart/disabled/".to_string(),
+        ),
         exit_code: if dry_run { None } else { Some(last_exit_code) },
         success: all_success,
         details,
@@ -1021,21 +1026,32 @@ pub async fn heavy_user_cache_repair(dry_run: bool) -> Result<RepairAction> {
     if cache_path.exists() {
         let before_size = dir_size(&cache_path);
         if dry_run {
-            info!("[DRY-RUN] Would clean ~/.cache ({}MB)", before_size / (1024 * 1024));
-            actions_taken.push(format!("[dry-run] clean cache (~{}MB)", before_size / (1024 * 1024)));
+            info!(
+                "[DRY-RUN] Would clean ~/.cache ({}MB)",
+                before_size / (1024 * 1024)
+            );
+            actions_taken.push(format!(
+                "[dry-run] clean cache (~{}MB)",
+                before_size / (1024 * 1024)
+            ));
             total_freed += before_size;
         } else {
             info!("Cleaning ~/.cache");
             if let Ok(entries) = std::fs::read_dir(&cache_path) {
                 for entry in entries.flatten() {
-                    if let Err(e) = std::fs::remove_dir_all(entry.path()).or_else(|_| std::fs::remove_file(entry.path())) {
+                    if let Err(e) = std::fs::remove_dir_all(entry.path())
+                        .or_else(|_| std::fs::remove_file(entry.path()))
+                    {
                         warn!("Failed to remove {:?}: {}", entry.path(), e);
                     }
                 }
                 let after_size = dir_size(&cache_path);
                 let freed = before_size.saturating_sub(after_size);
                 total_freed += freed;
-                actions_taken.push(format!("Cleaned cache (~{}MB freed)", freed / (1024 * 1024)));
+                actions_taken.push(format!(
+                    "Cleaned cache (~{}MB freed)",
+                    freed / (1024 * 1024)
+                ));
             } else {
                 all_success = false;
                 actions_taken.push("Failed to read cache directory".to_string());
@@ -1047,21 +1063,32 @@ pub async fn heavy_user_cache_repair(dry_run: bool) -> Result<RepairAction> {
     if trash_path.exists() {
         let before_size = dir_size(&trash_path);
         if dry_run {
-            info!("[DRY-RUN] Would clean ~/.local/share/Trash ({}MB)", before_size / (1024 * 1024));
-            actions_taken.push(format!("[dry-run] clean trash (~{}MB)", before_size / (1024 * 1024)));
+            info!(
+                "[DRY-RUN] Would clean ~/.local/share/Trash ({}MB)",
+                before_size / (1024 * 1024)
+            );
+            actions_taken.push(format!(
+                "[dry-run] clean trash (~{}MB)",
+                before_size / (1024 * 1024)
+            ));
             total_freed += before_size;
         } else {
             info!("Cleaning ~/.local/share/Trash");
             if let Ok(entries) = std::fs::read_dir(&trash_path) {
                 for entry in entries.flatten() {
-                    if let Err(e) = std::fs::remove_dir_all(entry.path()).or_else(|_| std::fs::remove_file(entry.path())) {
+                    if let Err(e) = std::fs::remove_dir_all(entry.path())
+                        .or_else(|_| std::fs::remove_file(entry.path()))
+                    {
                         warn!("Failed to remove {:?}: {}", entry.path(), e);
                     }
                 }
                 let after_size = dir_size(&trash_path);
                 let freed = before_size.saturating_sub(after_size);
                 total_freed += freed;
-                actions_taken.push(format!("Cleaned trash (~{}MB freed)", freed / (1024 * 1024)));
+                actions_taken.push(format!(
+                    "Cleaned trash (~{}MB freed)",
+                    freed / (1024 * 1024)
+                ));
             } else {
                 all_success = false;
                 actions_taken.push("Failed to read trash directory".to_string());
@@ -1072,7 +1099,11 @@ pub async fn heavy_user_cache_repair(dry_run: bool) -> Result<RepairAction> {
     let details = if actions_taken.is_empty() {
         "No cache or trash directories found".to_string()
     } else {
-        format!("{}. Total freed: ~{}MB", actions_taken.join("; "), total_freed / (1024 * 1024))
+        format!(
+            "{}. Total freed: ~{}MB",
+            actions_taken.join("; "),
+            total_freed / (1024 * 1024)
+        )
     };
 
     Ok(RepairAction {
@@ -1239,8 +1270,13 @@ pub async fn network_health_repair(dry_run: bool) -> Result<RepairAction> {
         }
     } else {
         // No recognized network manager
-        actions_taken.push("No recognized network manager (NetworkManager/systemd-networkd) active".to_string());
-        actions_taken.push("Guidance: Check network configuration manually with 'ip addr' and 'ip route'".to_string());
+        actions_taken.push(
+            "No recognized network manager (NetworkManager/systemd-networkd) active".to_string(),
+        );
+        actions_taken.push(
+            "Guidance: Check network configuration manually with 'ip addr' and 'ip route'"
+                .to_string(),
+        );
         all_success = false;
     }
 
@@ -1250,7 +1286,11 @@ pub async fn network_health_repair(dry_run: bool) -> Result<RepairAction> {
         probe: "network-health-repair".to_string(),
         action: "restart_network_services".to_string(),
         command: Some("sudo systemctl restart NetworkManager".to_string()),
-        exit_code: if dry_run { None } else { Some(if all_success { 0 } else { 1 }) },
+        exit_code: if dry_run {
+            None
+        } else {
+            Some(if all_success { 0 } else { 1 })
+        },
         success: all_success,
         details,
         citation: "[archwiki:Network_configuration]".to_string(),

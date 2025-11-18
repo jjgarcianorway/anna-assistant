@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use chrono::{DateTime, Utc};
 
 /// GPU throttling and performance degradation detection
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,38 +74,59 @@ impl GpuThrottling {
         let amd_throttling = detect_amd_throttling();
         let intel_throttling = detect_intel_throttling();
 
-        let has_throttling = nvidia_throttling.as_ref().map(|n| n.thermal_throttling_detected || n.power_throttling_detected).unwrap_or(false)
-            || amd_throttling.as_ref().map(|a| a.thermal_throttling_detected).unwrap_or(false)
-            || intel_throttling.as_ref().map(|i| i.thermal_throttling_detected).unwrap_or(false);
+        let has_throttling = nvidia_throttling
+            .as_ref()
+            .map(|n| n.thermal_throttling_detected || n.power_throttling_detected)
+            .unwrap_or(false)
+            || amd_throttling
+                .as_ref()
+                .map(|a| a.thermal_throttling_detected)
+                .unwrap_or(false)
+            || intel_throttling
+                .as_ref()
+                .map(|i| i.thermal_throttling_detected)
+                .unwrap_or(false);
 
         let mut recommendations = Vec::new();
 
         if let Some(ref nvidia) = nvidia_throttling {
             if nvidia.thermal_throttling_detected {
-                recommendations.push("NVIDIA GPU thermal throttling detected - check GPU cooling and case airflow".to_string());
+                recommendations.push(
+                    "NVIDIA GPU thermal throttling detected - check GPU cooling and case airflow"
+                        .to_string(),
+                );
             }
             if nvidia.power_throttling_detected {
-                recommendations.push("NVIDIA GPU power throttling detected - GPU hitting power limit".to_string());
+                recommendations.push(
+                    "NVIDIA GPU power throttling detected - GPU hitting power limit".to_string(),
+                );
             }
             if nvidia.hw_slowdown_detected {
-                recommendations.push("NVIDIA GPU hardware slowdown detected - thermal or power emergency".to_string());
+                recommendations.push(
+                    "NVIDIA GPU hardware slowdown detected - thermal or power emergency"
+                        .to_string(),
+                );
             }
         }
 
         if let Some(ref amd) = amd_throttling {
             if amd.thermal_throttling_detected {
-                recommendations.push("AMD GPU thermal throttling detected - improve GPU cooling".to_string());
+                recommendations
+                    .push("AMD GPU thermal throttling detected - improve GPU cooling".to_string());
             }
         }
 
         if let Some(ref intel) = intel_throttling {
             if intel.thermal_throttling_detected {
-                recommendations.push("Intel GPU thermal throttling detected - check system cooling".to_string());
+                recommendations.push(
+                    "Intel GPU thermal throttling detected - check system cooling".to_string(),
+                );
             }
         }
 
         if !has_throttling {
-            recommendations.push("No GPU throttling detected - GPU thermal performance is good".to_string());
+            recommendations
+                .push("No GPU throttling detected - GPU thermal performance is good".to_string());
         }
 
         Self {
@@ -183,7 +204,9 @@ fn detect_nvidia_throttling() -> Option<NvidiaThrottling> {
             thermal_throttling_detected = true;
             hw_slowdown_detected = true;
         }
-        if throttle_reasons_str.contains("SW Power Cap") || throttle_reasons_str.contains("HW Power Brake") {
+        if throttle_reasons_str.contains("SW Power Cap")
+            || throttle_reasons_str.contains("HW Power Brake")
+        {
             throttle_reasons.push("Power Limit".to_string());
             power_throttling_detected = true;
         }
@@ -300,7 +323,8 @@ fn detect_amd_throttling() -> Option<AmdThrottling> {
                     }
 
                     // Extract card number from name_str (e.g., "card0" -> 0)
-                    let gpu_id = name_str.trim_start_matches("card")
+                    let gpu_id = name_str
+                        .trim_start_matches("card")
                         .parse::<usize>()
                         .unwrap_or(per_gpu_throttling.len());
 
@@ -397,7 +421,8 @@ fn detect_intel_throttling() -> Option<IntelThrottling> {
                             }
 
                             // Extract card number from name_str (e.g., "card0" -> 0)
-                            let gpu_id = name_str.trim_start_matches("card")
+                            let gpu_id = name_str
+                                .trim_start_matches("card")
                                 .parse::<usize>()
                                 .unwrap_or(per_gpu_throttling.len());
 

@@ -65,11 +65,7 @@ pub async fn execute_install_command(
     print_install_results(&data);
 
     // Determine exit code
-    let exit_code = if data.success {
-        EXIT_SUCCESS
-    } else {
-        1
-    };
+    let exit_code = if data.success { EXIT_SUCCESS } else { 1 };
 
     // Log to ctl.jsonl
     let duration_ms = start_time.elapsed().as_millis() as u64;

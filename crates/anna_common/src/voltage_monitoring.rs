@@ -25,11 +25,11 @@ pub struct VoltageRail {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum VoltageStatus {
     Normal,
-    LowWarning,    // <5% below nominal
-    HighWarning,   // >5% above nominal
-    LowCritical,   // <10% below nominal
-    HighCritical,  // >10% above nominal
-    Unstable,      // Rapid fluctuations
+    LowWarning,   // <5% below nominal
+    HighWarning,  // >5% above nominal
+    LowCritical,  // <10% below nominal
+    HighCritical, // >10% above nominal
+    Unstable,     // Rapid fluctuations
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +177,8 @@ fn detect_voltage_rails() -> Vec<VoltageRail> {
                         };
 
                         // Estimate nominal voltage based on label or typical values
-                        let nominal_voltage_mv = estimate_nominal_voltage(&label, current_voltage_mv);
+                        let nominal_voltage_mv =
+                            estimate_nominal_voltage(&label, current_voltage_mv);
 
                         // Calculate deviation
                         let deviation_percent = if let (Some(current), Some(nominal)) =

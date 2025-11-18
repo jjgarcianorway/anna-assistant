@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::process::Command;
-use chrono::{DateTime, Utc};
 
 /// System health monitoring (load averages, daemon crashes)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,10 +28,10 @@ pub struct LoadAverages {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LoadStatus {
-    Low,        // < 0.7 per core
-    Moderate,   // 0.7-1.0 per core
-    High,       // 1.0-2.0 per core
-    Critical,   // > 2.0 per core
+    Low,      // < 0.7 per core
+    Moderate, // 0.7-1.0 per core
+    High,     // 1.0-2.0 per core
+    Critical, // > 2.0 per core
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,7 +170,8 @@ fn detect_daemon_crashes() -> DaemonCrashes {
     // Look for systemd service failures
     let output_7d = Command::new("journalctl")
         .args(&[
-            "--since", "7 days ago",
+            "--since",
+            "7 days ago",
             "--unit=*.service",
             "--grep=Failed with result",
             "--no-pager",
@@ -180,7 +181,8 @@ fn detect_daemon_crashes() -> DaemonCrashes {
 
     let output_24h = Command::new("journalctl")
         .args(&[
-            "--since", "24 hours ago",
+            "--since",
+            "24 hours ago",
             "--unit=*.service",
             "--grep=Failed with result",
             "--no-pager",
@@ -196,7 +198,8 @@ fn detect_daemon_crashes() -> DaemonCrashes {
     let total_crashes_24h = crashes_24h.len() as u32;
 
     // Group by service name
-    let mut service_crashes: std::collections::HashMap<String, Vec<CrashEvent>> = std::collections::HashMap::new();
+    let mut service_crashes: std::collections::HashMap<String, Vec<CrashEvent>> =
+        std::collections::HashMap::new();
 
     for crash in &crashes_7d {
         service_crashes
@@ -260,7 +263,9 @@ fn parse_crash_events(output: &Result<std::process::Output, std::io::Error>) -> 
                 // Parse JSON log entry
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
                     // Extract timestamp
-                    let timestamp = if let Some(timestamp_str) = json.get("__REALTIME_TIMESTAMP").and_then(|v| v.as_str()) {
+                    let timestamp = if let Some(timestamp_str) =
+                        json.get("__REALTIME_TIMESTAMP").and_then(|v| v.as_str())
+                    {
                         // Timestamp is in microseconds since epoch
                         if let Ok(micros) = timestamp_str.parse::<i64>() {
                             let secs = micros / 1_000_000;
@@ -274,7 +279,8 @@ fn parse_crash_events(output: &Result<std::process::Output, std::io::Error>) -> 
                     };
 
                     // Extract service name
-                    let service_name = json.get("UNIT")
+                    let service_name = json
+                        .get("UNIT")
                         .or_else(|| json.get("_SYSTEMD_UNIT"))
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown")
@@ -282,7 +288,8 @@ fn parse_crash_events(output: &Result<std::process::Output, std::io::Error>) -> 
                         .to_string();
 
                     // Extract message
-                    let message = json.get("MESSAGE")
+                    let message = json
+                        .get("MESSAGE")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();

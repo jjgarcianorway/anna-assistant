@@ -84,8 +84,7 @@ fn check_service_exists() -> Result<bool> {
         .context("Failed to run systemctl list-unit-files")?;
 
     // If the service is listed, it exists
-    Ok(output.status.success()
-        && String::from_utf8_lossy(&output.stdout).contains(SERVICE_NAME))
+    Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).contains(SERVICE_NAME))
 }
 
 /// Check if service is enabled (will start on boot)
@@ -281,8 +280,7 @@ pub fn repair_service() -> Result<String> {
     // Step 1: Install/reinstall service file if missing
     if !status.exists {
         report.push("Installing annad.service to /etc/systemd/system/...".to_string());
-        install_service_file()
-            .context("Failed to install service file")?;
+        install_service_file().context("Failed to install service file")?;
         report.push("✓ Service file installed".to_string());
     } else {
         report.push("✓ Service file already exists".to_string());
@@ -291,8 +289,7 @@ pub fn repair_service() -> Result<String> {
     // Step 2: Enable service if not enabled
     if !status.enabled {
         report.push("Enabling annad.service (will start on boot)...".to_string());
-        enable_service()
-            .context("Failed to enable service")?;
+        enable_service().context("Failed to enable service")?;
         report.push("✓ Service enabled".to_string());
     } else {
         report.push("✓ Service already enabled".to_string());
@@ -309,13 +306,11 @@ pub fn repair_service() -> Result<String> {
             }
         }
 
-        restart_service()
-            .context("Failed to restart service")?;
+        restart_service().context("Failed to restart service")?;
         report.push("✓ Service restarted".to_string());
     } else if !status.active {
         report.push("Starting annad.service...".to_string());
-        start_service()
-            .context("Failed to start service")?;
+        start_service().context("Failed to start service")?;
         report.push("✓ Service started".to_string());
     } else {
         report.push("✓ Service already running".to_string());
@@ -326,7 +321,9 @@ pub fn repair_service() -> Result<String> {
     if final_status.active && final_status.enabled {
         report.push("\n✓ Anna daemon is now healthy and will start on boot".to_string());
     } else {
-        report.push("\n⚠ Service may need manual attention. Check: sudo systemctl status annad".to_string());
+        report.push(
+            "\n⚠ Service may need manual attention. Check: sudo systemctl status annad".to_string(),
+        );
     }
 
     Ok(report.join("\n"))

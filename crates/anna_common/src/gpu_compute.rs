@@ -59,10 +59,22 @@ impl GpuComputeCapabilities {
         let rocm_support = detect_rocm_support();
         let oneapi_support = detect_oneapi_support();
 
-        let has_compute_capability = cuda_support.as_ref().map(|c| c.cuda_available).unwrap_or(false)
-            || opencl_support.as_ref().map(|o| o.opencl_available).unwrap_or(false)
-            || rocm_support.as_ref().map(|r| r.rocm_available).unwrap_or(false)
-            || oneapi_support.as_ref().map(|o| o.oneapi_available).unwrap_or(false);
+        let has_compute_capability = cuda_support
+            .as_ref()
+            .map(|c| c.cuda_available)
+            .unwrap_or(false)
+            || opencl_support
+                .as_ref()
+                .map(|o| o.opencl_available)
+                .unwrap_or(false)
+            || rocm_support
+                .as_ref()
+                .map(|r| r.rocm_available)
+                .unwrap_or(false)
+            || oneapi_support
+                .as_ref()
+                .map(|o| o.oneapi_available)
+                .unwrap_or(false);
 
         let mut recommendations = Vec::new();
 
@@ -216,7 +228,8 @@ fn detect_opencl_support() -> Option<OpenClSupport> {
 
         if trimmed.starts_with("Platform Name") {
             // Save previous platform if exists
-            if let (Some(name), Some(version)) = (current_platform.clone(), current_version.clone()) {
+            if let (Some(name), Some(version)) = (current_platform.clone(), current_version.clone())
+            {
                 platforms.push(OpenClPlatform {
                     platform_name: name,
                     platform_version: version,
@@ -286,10 +299,7 @@ fn detect_rocm_support() -> Option<RocmSupport> {
     }
 
     // Count GPUs
-    let list_output = Command::new("rocm-smi")
-        .arg("--showid")
-        .output()
-        .ok()?;
+    let list_output = Command::new("rocm-smi").arg("--showid").output().ok()?;
 
     let gpu_count = if list_output.status.success() {
         String::from_utf8_lossy(&list_output.stdout)
@@ -310,9 +320,7 @@ fn detect_rocm_support() -> Option<RocmSupport> {
                 String::from_utf8_lossy(&o.stdout)
                     .lines()
                     .find(|line| line.contains("rocm-libs"))
-                    .and_then(|line| {
-                        line.split_whitespace().nth(2).map(|s| s.to_string())
-                    })
+                    .and_then(|line| line.split_whitespace().nth(2).map(|s| s.to_string()))
             } else {
                 None
             }
@@ -350,10 +358,7 @@ fn detect_oneapi_support() -> Option<OneApiSupport> {
     }
 
     // Get oneAPI version
-    let version_output = Command::new("dpcpp")
-        .arg("--version")
-        .output()
-        .ok()?;
+    let version_output = Command::new("dpcpp").arg("--version").output().ok()?;
 
     let oneapi_version = if version_output.status.success() {
         String::from_utf8_lossy(&version_output.stdout)

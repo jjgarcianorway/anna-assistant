@@ -239,10 +239,7 @@ fn check_database_health() -> Vec<DatabaseIssue> {
     }
 
     // Check for corrupt package databases
-    if let Ok(output) = Command::new("pacman")
-        .args(["-Qk"])
-        .output()
-    {
+    if let Ok(output) = Command::new("pacman").args(["-Qk"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
@@ -301,24 +298,17 @@ fn find_unowned_files() -> Vec<String> {
     let mut unowned = Vec::new();
 
     // Check common system directories for unowned files
-    let check_dirs = vec![
-        "/usr/bin",
-        "/usr/lib",
-        "/usr/share",
-        "/etc",
-    ];
+    let check_dirs = vec!["/usr/bin", "/usr/lib", "/usr/share", "/etc"];
 
     for dir in check_dirs {
         if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten().take(100) { // Limit to prevent excessive checking
+            for entry in entries.flatten().take(100) {
+                // Limit to prevent excessive checking
                 if let Ok(path) = entry.path().canonicalize() {
                     let path_str = path.to_string_lossy();
 
                     // Check if file is owned by any package
-                    if let Ok(output) = Command::new("pacman")
-                        .args(["-Qo", &path_str])
-                        .output()
-                    {
+                    if let Ok(output) = Command::new("pacman").args(["-Qo", &path_str]).output() {
                         let stdout = String::from_utf8_lossy(&output.stdout);
                         if stdout.contains("error: No package owns") {
                             unowned.push(path_str.to_string());
@@ -341,18 +331,17 @@ fn find_conflicting_files() -> Vec<FileConflict> {
     if let Ok(output) = Command::new("pacman").args(["-Q"]).output() {
         let packages = String::from_utf8_lossy(&output.stdout);
 
-        for line in packages.lines().take(50) { // Limit packages checked to prevent slowness
+        for line in packages.lines().take(50) {
+            // Limit packages checked to prevent slowness
             if let Some(package) = line.split_whitespace().next() {
                 // Get files owned by this package
-                if let Ok(output) = Command::new("pacman")
-                    .args(["-Ql", package])
-                    .output()
-                {
+                if let Ok(output) = Command::new("pacman").args(["-Ql", package]).output() {
                     let files = String::from_utf8_lossy(&output.stdout);
                     for file_line in files.lines() {
                         if let Some((_pkg, file)) = file_line.split_once(' ') {
                             let file = file.trim();
-                            if !file.ends_with('/') { // Skip directories
+                            if !file.ends_with('/') {
+                                // Skip directories
                                 file_owners
                                     .entry(file.to_string())
                                     .or_insert_with(Vec::new)
@@ -388,10 +377,7 @@ fn check_partial_upgrades() -> Vec<String> {
         let update_count = updates.lines().count();
 
         if update_count > 0 {
-            warnings.push(format!(
-                "{} packages have available updates",
-                update_count
-            ));
+            warnings.push(format!("{} packages have available updates", update_count));
         }
 
         // Check for core system package updates
@@ -416,19 +402,16 @@ fn find_held_back_packages() -> Vec<HeldPackage> {
                 if let Some(packages) = line.split('=').nth(1) {
                     for pkg in packages.split_whitespace() {
                         // Get current version
-                        if let Ok(output) = Command::new("pacman")
-                            .args(["-Q", pkg])
-                            .output()
-                        {
+                        if let Ok(output) = Command::new("pacman").args(["-Q", pkg]).output() {
                             if output.status.success() {
                                 let info = String::from_utf8_lossy(&output.stdout);
                                 if let Some((name, version)) = info.trim().split_once(' ') {
                                     // Try to get available version
-                                    if let Ok(sync_output) = Command::new("pacman")
-                                        .args(["-Si", pkg])
-                                        .output()
+                                    if let Ok(sync_output) =
+                                        Command::new("pacman").args(["-Si", pkg]).output()
                                     {
-                                        let sync_info = String::from_utf8_lossy(&sync_output.stdout);
+                                        let sync_info =
+                                            String::from_utf8_lossy(&sync_output.stdout);
                                         let available_version = sync_info
                                             .lines()
                                             .find(|l| l.trim_start().starts_with("Version"))
@@ -460,10 +443,7 @@ fn find_broken_dependencies() -> Vec<BrokenDependency> {
     let mut broken = Vec::new();
 
     // Run pacman -Dk to check for dependency issues
-    if let Ok(output) = Command::new("pacman")
-        .args(["-Dk"])
-        .output()
-    {
+    if let Ok(output) = Command::new("pacman").args(["-Dk"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
@@ -513,7 +493,7 @@ fn find_modified_files() -> Vec<ModifiedFile> {
     if let Ok(output) = Command::new("sh")
         .args([
             "-c",
-            "pacman -Q | head -20 | awk '{print $1}' | xargs pacman -Qk 2>&1"
+            "pacman -Q | head -20 | awk '{print $1}' | xargs pacman -Qk 2>&1",
         ])
         .output()
     {

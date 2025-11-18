@@ -62,8 +62,8 @@ pub use ethics::EthicsEngine;
 pub use explain::format_reasoning_tree;
 pub use introspect::Introspector;
 pub use types::{
-    ConscienceDecision, ConscienceState, DecisionOutcome, EthicsConfig,
-    IntrospectionReport, JournalEntry, PendingAction, RollbackPlan,
+    ConscienceDecision, ConscienceState, DecisionOutcome, EthicsConfig, IntrospectionReport,
+    JournalEntry, PendingAction, RollbackPlan,
 };
 
 use crate::sentinel::SentinelAction;
@@ -100,10 +100,7 @@ impl ConscienceDaemon {
 
         // Create engines
         let ethics = EthicsEngine::new(config.clone());
-        let introspector = Introspector::new(
-            config.ethical_threshold,
-            config.confidence_threshold,
-        );
+        let introspector = Introspector::new(config.ethical_threshold, config.confidence_threshold);
 
         Ok(Self {
             state: Arc::new(RwLock::new(state)),
@@ -241,7 +238,11 @@ impl ConscienceDaemon {
     pub async fn update_outcome(&self, decision_id: &str, result: String) -> Result<()> {
         let mut state = self.state.write().await;
 
-        if let Some(decision) = state.decision_history.iter_mut().find(|d| d.id == decision_id) {
+        if let Some(decision) = state
+            .decision_history
+            .iter_mut()
+            .find(|d| d.id == decision_id)
+        {
             decision.outcome = DecisionOutcome::Approved {
                 execution_result: result,
             };
@@ -266,7 +267,11 @@ impl ConscienceDaemon {
             info!("Manually approved flagged action: {}", action_id);
 
             // Update decision in history
-            if let Some(decision) = state.decision_history.iter_mut().find(|d| d.id == action_id) {
+            if let Some(decision) = state
+                .decision_history
+                .iter_mut()
+                .find(|d| d.id == action_id)
+            {
                 decision.outcome = DecisionOutcome::Approved {
                     execution_result: "Manually approved".to_string(),
                 };
@@ -293,7 +298,11 @@ impl ConscienceDaemon {
             info!("Manually rejected flagged action: {}", action_id);
 
             // Update decision in history
-            if let Some(decision) = state.decision_history.iter_mut().find(|d| d.id == action_id) {
+            if let Some(decision) = state
+                .decision_history
+                .iter_mut()
+                .find(|d| d.id == action_id)
+            {
                 decision.outcome = DecisionOutcome::Rejected {
                     reason: "Manually rejected by operator".to_string(),
                 };
@@ -347,8 +356,8 @@ pub async fn load_state() -> Result<ConscienceState> {
 
     match tokio::fs::read_to_string(state_path).await {
         Ok(content) => {
-            let state: ConscienceState = serde_json::from_str(&content)
-                .context("Failed to parse conscience state")?;
+            let state: ConscienceState =
+                serde_json::from_str(&content).context("Failed to parse conscience state")?;
             debug!("Loaded conscience state from {}", state_path);
             Ok(state)
         }
@@ -454,11 +463,7 @@ async fn create_rollback_plan(action: &SentinelAction) -> Result<RollbackPlan> {
             30,
         ),
 
-        _ => (
-            "No rollback needed".to_string(),
-            vec![],
-            0,
-        ),
+        _ => ("No rollback needed".to_string(), vec![], 0),
     };
 
     Ok(RollbackPlan {

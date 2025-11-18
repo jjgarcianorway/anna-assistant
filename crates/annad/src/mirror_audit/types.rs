@@ -199,7 +199,8 @@ impl TemporalIntegrityScore {
         coherence_stability: f64,
     ) -> Self {
         // Weighted average: 50% accuracy, 30% ethics, 20% coherence
-        let overall = prediction_accuracy * 0.5 + ethical_alignment * 0.3 + coherence_stability * 0.2;
+        let overall =
+            prediction_accuracy * 0.5 + ethical_alignment * 0.3 + coherence_stability * 0.2;
 
         // Confidence based on variance
         let variance = ((prediction_accuracy - overall).powi(2)

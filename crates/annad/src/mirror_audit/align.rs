@@ -87,7 +87,10 @@ pub fn calculate_rolling_accuracy(recent_errors: &[ErrorMetrics]) -> f64 {
         return 0.5; // Unknown, neutral
     }
 
-    let avg_mae: f64 = recent_errors.iter().map(|e| e.mean_absolute_error).sum::<f64>()
+    let avg_mae: f64 = recent_errors
+        .iter()
+        .map(|e| e.mean_absolute_error)
+        .sum::<f64>()
         / recent_errors.len() as f64;
 
     (1.0 - avg_mae).clamp(0.0, 1.0)
@@ -122,9 +125,13 @@ pub fn detect_directional_bias(
     if avg_health_bias > 0.15 {
         Ok(DirectionalBias::HealthOverestimation(avg_health_bias))
     } else if avg_strain_bias < -0.15 {
-        Ok(DirectionalBias::StrainUnderestimation(avg_strain_bias.abs()))
+        Ok(DirectionalBias::StrainUnderestimation(
+            avg_strain_bias.abs(),
+        ))
     } else if avg_empathy_bias.abs() > 0.15 {
-        Ok(DirectionalBias::EmpathyInconsistency(avg_empathy_bias.abs()))
+        Ok(DirectionalBias::EmpathyInconsistency(
+            avg_empathy_bias.abs(),
+        ))
     } else {
         Ok(DirectionalBias::None)
     }

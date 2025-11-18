@@ -111,8 +111,7 @@ pub struct MemoryPressure {
 impl MemoryUsageInfo {
     /// Detect memory usage and configuration
     pub fn detect() -> Self {
-        let (total_ram_gb, available_ram_gb, used_ram_gb, buffers_gb, cached_gb) =
-            parse_meminfo();
+        let (total_ram_gb, available_ram_gb, used_ram_gb, buffers_gb, cached_gb) = parse_meminfo();
 
         let ram_usage_percent = if total_ram_gb > 0.0 {
             (used_ram_gb / total_ram_gb * 100.0).min(100.0)
@@ -268,7 +267,10 @@ fn detect_oom_events() -> Vec<OOMEvent> {
     let mut events = Vec::new();
 
     for line in output.lines() {
-        if line.contains("Out of memory") || line.contains("oom-kill") || line.contains("Killed process") {
+        if line.contains("Out of memory")
+            || line.contains("oom-kill")
+            || line.contains("Killed process")
+        {
             // Try to parse OOM event
             if let Some(event) = parse_oom_line(line) {
                 events.push(event);

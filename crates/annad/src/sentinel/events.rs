@@ -4,7 +4,7 @@
 //! Phase 1.1: Conscience-integrated action execution
 //! Citation: [archwiki:System_maintenance]
 
-use super::types::{SentinelEvent, SentinelAction, ResponsePlaybook};
+use super::types::{ResponsePlaybook, SentinelAction, SentinelEvent};
 use crate::conscience::ConscienceDaemon;
 use anyhow::Result;
 use std::sync::Arc;
@@ -253,12 +253,10 @@ pub fn create_default_playbooks() -> Vec<ResponsePlaybook> {
                 severity: "critical".to_string(),
                 message: String::new(),
             }],
-            actions: vec![
-                SentinelAction::SendNotification {
-                    title: "Critical Log Anomaly".to_string(),
-                    body: "Anna detected critical system errors".to_string(),
-                },
-            ],
+            actions: vec![SentinelAction::SendNotification {
+                title: "Critical Log Anomaly".to_string(),
+                body: "Anna detected critical system errors".to_string(),
+            }],
             requires_confirmation: false,
         },
     ]

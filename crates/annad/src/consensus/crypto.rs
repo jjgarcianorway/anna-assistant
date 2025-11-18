@@ -55,8 +55,7 @@ impl PublicKey {
 
     /// Convert to ed25519-dalek VerifyingKey
     pub fn to_verifying_key(&self) -> Result<VerifyingKey> {
-        VerifyingKey::from_bytes(&self.bytes)
-            .map_err(|e| anyhow!("Invalid public key: {}", e))
+        VerifyingKey::from_bytes(&self.bytes).map_err(|e| anyhow!("Invalid public key: {}", e))
     }
 }
 
@@ -130,7 +129,10 @@ impl Signature {
 
     /// Convert to ed25519-dalek Signature
     pub fn to_dalek_signature(&self) -> Result<DalekSignature> {
-        let arr: [u8; 64] = self.bytes.as_slice().try_into()
+        let arr: [u8; 64] = self
+            .bytes
+            .as_slice()
+            .try_into()
             .map_err(|_| anyhow!("Invalid signature length"))?;
         Ok(DalekSignature::from_bytes(&arr))
     }
@@ -168,7 +170,10 @@ pub fn generate_keypair() -> Result<Keypair> {
     let secret = SecretKey::from_bytes(signing_key.to_bytes());
     let public = PublicKey::from_bytes(verifying_key.to_bytes());
 
-    debug!("Generated keypair with fingerprint: {}", public.fingerprint());
+    debug!(
+        "Generated keypair with fingerprint: {}",
+        public.fingerprint()
+    );
 
     Ok(Keypair { public, secret })
 }
@@ -247,7 +252,9 @@ pub async fn load_keypair(base_path: &Path) -> Result<Keypair> {
     // Verify keypair consistency
     let expected_public = Keypair::from_secret(secret.clone()).public;
     if expected_public.as_bytes() != public.as_bytes() {
-        return Err(anyhow!("Keypair mismatch: public key doesn't match secret key"));
+        return Err(anyhow!(
+            "Keypair mismatch: public key doesn't match secret key"
+        ));
     }
 
     info!("Loaded keypair: {}", public.fingerprint());

@@ -75,12 +75,7 @@ impl ContextAnalyzer {
     async fn parse_journal_errors(&self) -> Result<u32> {
         // Use journalctl to count errors in last hour
         let output = tokio::process::Command::new("journalctl")
-            .args(&[
-                "--priority=err",
-                "--since=1 hour ago",
-                "--no-pager",
-                "-q",
-            ])
+            .args(&["--priority=err", "--since=1 hour ago", "--no-pager", "-q"])
             .output()
             .await?;
 
@@ -175,7 +170,9 @@ impl ContextAnalyzer {
             .values()
             .filter(|p| {
                 // Check if process belongs to non-root user
-                p.user_id().map(|uid| uid.to_string() != "0").unwrap_or(false)
+                p.user_id()
+                    .map(|uid| uid.to_string() != "0")
+                    .unwrap_or(false)
             })
             .count();
 
@@ -221,7 +218,10 @@ impl ContextAnalyzer {
         // High memory pressure suggests system strain
         let memory_pressure = self.calculate_memory_pressure();
         if memory_pressure > 0.8 {
-            indicators.push(format!("High memory pressure: {:.0}%", memory_pressure * 100.0));
+            indicators.push(format!(
+                "High memory pressure: {:.0}%",
+                memory_pressure * 100.0
+            ));
         }
 
         // High CPU load suggests system strain
@@ -241,7 +241,11 @@ impl ContextAnalyzer {
     }
 
     /// Calculate overall strain index from context metrics
-    pub fn calculate_strain_index(&self, metrics: &ContextMetrics, weights: &super::types::ContextWeights) -> f64 {
+    pub fn calculate_strain_index(
+        &self,
+        metrics: &ContextMetrics,
+        weights: &super::types::ContextWeights,
+    ) -> f64 {
         let mut strain = 0.0;
 
         // Weighted contribution from each metric

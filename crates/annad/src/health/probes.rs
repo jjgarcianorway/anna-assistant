@@ -244,8 +244,10 @@ impl HealthProbe for TlpConfigProbe {
         };
 
         let message = match status {
-            ProbeStatus::Warn => "TLP installed but tlp.service not enabled - power saving won't apply on boot",
-            _ => "TLP configuration OK"
+            ProbeStatus::Warn => {
+                "TLP installed but tlp.service not enabled - power saving won't apply on boot"
+            }
+            _ => "TLP configuration OK",
         };
 
         Ok(ProbeResult {
@@ -292,9 +294,9 @@ impl HealthProbe for MissingFirmwareProbe {
         let firmware_errors: Vec<&str> = stdout
             .lines()
             .filter(|line| {
-                line.contains("firmware: failed to load") ||
-                line.contains("Direct firmware load") ||
-                line.contains("Possible missing firmware")
+                line.contains("firmware: failed to load")
+                    || line.contains("Direct firmware load")
+                    || line.contains("Possible missing firmware")
             })
             .take(5) // Limit to first 5
             .collect();
@@ -384,7 +386,7 @@ impl HealthProbe for BluetoothServiceProbe {
         let message = match status {
             ProbeStatus::Fail => "Bluetooth service enabled but not running",
             ProbeStatus::Warn => "Bluetooth installed but service not enabled",
-            _ => "Bluetooth configuration OK"
+            _ => "Bluetooth configuration OK",
         };
 
         Ok(ProbeResult {

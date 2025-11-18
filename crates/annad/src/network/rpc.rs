@@ -16,8 +16,8 @@ use tokio::sync::RwLock;
 use tower_http::timeout::TimeoutLayer;
 use tracing::{debug, error, info};
 
-use crate::consensus::{AuditObservation, ConsensusEngine};
 use super::metrics::ConsensusMetrics;
+use crate::consensus::{AuditObservation, ConsensusEngine};
 
 /// Shared consensus state
 pub type SharedConsensus = Arc<RwLock<ConsensusEngine>>;
@@ -56,7 +56,8 @@ pub struct ConsensusRpcServer {
 
 impl ConsensusRpcServer {
     pub fn new(consensus: SharedConsensus, metrics: ConsensusMetrics) -> Self {
-        let rate_limiter = super::middleware::RateLimiter::new_with_metrics(Arc::new(metrics.clone()));
+        let rate_limiter =
+            super::middleware::RateLimiter::new_with_metrics(Arc::new(metrics.clone()));
 
         Self {
             state: RpcState {
@@ -69,8 +70,8 @@ impl ConsensusRpcServer {
 
     /// Build the router with all endpoints and middleware (Phase 1.14)
     pub fn router(&self) -> Router {
-        use axum::middleware;
         use super::middleware::{body_size_limit, rate_limit_middleware};
+        use axum::middleware;
 
         Router::new()
             .route("/rpc/submit", post(submit_observation))
@@ -109,8 +110,8 @@ impl ConsensusRpcServer {
         port: u16,
         tls_config: &super::peers::TlsConfig,
     ) -> anyhow::Result<()> {
-        use tokio_rustls::TlsAcceptor;
         use std::net::SocketAddr;
+        use tokio_rustls::TlsAcceptor;
         use tower::ServiceExt;
 
         let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
@@ -121,7 +122,10 @@ impl ConsensusRpcServer {
         let server_config = tls_config.load_server_config().await?;
         let acceptor = TlsAcceptor::from(server_config);
 
-        info!("Starting consensus RPC server on {} (HTTPS, mTLS enabled)", addr);
+        info!(
+            "Starting consensus RPC server on {} (HTTPS, mTLS enabled)",
+            addr
+        );
 
         // Convert router to make service for per-connection usage
         let make_service = self.router().into_make_service();
@@ -197,9 +201,10 @@ async fn submit_observation(
         Ok(accepted) => {
             if accepted {
                 // Update metrics
-                state.metrics.byzantine_nodes_total.set(
-                    consensus.get_byzantine_nodes().len() as i64
-                );
+                state
+                    .metrics
+                    .byzantine_nodes_total
+                    .set(consensus.get_byzantine_nodes().len() as i64);
 
                 Ok(Json(SubmitResponse {
                     success: true,
@@ -212,9 +217,10 @@ async fn submit_observation(
                 }))
             }
         }
-        Err(e) => {
-            Err(AppError::Internal(format!("Failed to process observation: {}", e)))
-        }
+        Err(e) => Err(AppError::Internal(format!(
+            "Failed to process observation: {}",
+            e
+        ))),
     }
 }
 
@@ -230,22 +236,22 @@ async fn get_status(
     if let Some(round_id) = query.round_id {
         // Get specific round
         match consensus.get_consensus_result(&round_id) {
-            Some(result) => {
-                Ok(Json(serde_json::to_value(result).unwrap()))
-            }
-            None => {
-                Err(AppError::NotFound(format!("Round not found: {}", round_id)))
-            }
+            Some(result) => Ok(Json(serde_json::to_value(result).unwrap())),
+            None => Err(AppError::NotFound(format!("Round not found: {}", round_id))),
         }
     } else {
         // Get all rounds summary
-        let rounds: Vec<_> = consensus.get_rounds().iter()
-            .map(|r| serde_json::json!({
-                "round_id": r.round_id,
-                "status": format!("{:?}", r.status),
-                "observations": r.observations.len(),
-                "consensus_tis": r.consensus_tis,
-            }))
+        let rounds: Vec<_> = consensus
+            .get_rounds()
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "round_id": r.round_id,
+                    "status": format!("{:?}", r.status),
+                    "observations": r.observations.len(),
+                    "consensus_tis": r.consensus_tis,
+                })
+            })
             .collect();
 
         Ok(Json(serde_json::json!({
@@ -256,9 +262,7 @@ async fn get_status(
 }
 
 /// POST /rpc/reconcile - Force consensus computation
-async fn reconcile(
-    State(state): State<RpcState>,
-) -> Result<Json<serde_json::Value>, AppError> {
+async fn reconcile(State(state): State<RpcState>) -> Result<Json<serde_json::Value>, AppError> {
     debug!("Reconcile requested");
 
     let consensus = state.consensus.write().await;
@@ -283,9 +287,7 @@ async fn reconcile(
 }
 
 /// GET /metrics - Prometheus metrics endpoint
-async fn get_metrics(
-    State(state): State<RpcState>,
-) -> impl IntoResponse {
+async fn get_metrics(State(state): State<RpcState>) -> impl IntoResponse {
     let metrics_text = state.metrics.export();
     (
         StatusCode::OK,
@@ -296,7 +298,10 @@ async fn get_metrics(
 
 /// GET /health - Health check endpoint
 async fn health_check() -> impl IntoResponse {
-    (StatusCode::OK, Json(serde_json::json!({"status": "healthy"})))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({"status": "healthy"})),
+    )
 }
 
 /// Application error type
@@ -313,8 +318,12 @@ impl IntoResponse for AppError {
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
         };
 
-        (status, Json(serde_json::json!({
-            "error": message
-        }))).into_response()
+        (
+            status,
+            Json(serde_json::json!({
+                "error": message
+            })),
+        )
+            .into_response()
     }
 }

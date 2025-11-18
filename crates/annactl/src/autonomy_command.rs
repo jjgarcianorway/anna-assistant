@@ -27,7 +27,9 @@ impl AutonomyLevel {
             "manual" => Ok(AutonomyLevel::Manual),
             "assisted" => Ok(AutonomyLevel::Assisted),
             "proactive" => Ok(AutonomyLevel::Proactive),
-            _ => Err(anyhow::anyhow!("Invalid autonomy level. Valid levels: manual, assisted, proactive")),
+            _ => Err(anyhow::anyhow!(
+                "Invalid autonomy level. Valid levels: manual, assisted, proactive"
+            )),
         }
     }
 
@@ -41,9 +43,15 @@ impl AutonomyLevel {
 
     pub fn description(&self) -> &'static str {
         match self {
-            AutonomyLevel::Manual => "No automatic changes. All repairs require explicit confirmation.",
-            AutonomyLevel::Assisted => "Safe automatic fixes only (cache cleanup, log rotation, service restarts).",
-            AutonomyLevel::Proactive => "Autonomous actions allowed, but never anything that risks data loss.",
+            AutonomyLevel::Manual => {
+                "No automatic changes. All repairs require explicit confirmation."
+            }
+            AutonomyLevel::Assisted => {
+                "Safe automatic fixes only (cache cleanup, log rotation, service restarts)."
+            }
+            AutonomyLevel::Proactive => {
+                "Autonomous actions allowed, but never anything that risks data loss."
+            }
         }
     }
 }

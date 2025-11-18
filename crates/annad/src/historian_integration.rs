@@ -16,7 +16,6 @@ use anna_common::historian::{
 };
 use anna_common::SystemFacts;
 use chrono::Utc;
-use rusqlite::params;
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -102,25 +101,23 @@ pub struct HistorianIntegration {
     circuit_breaker: Arc<HistorianCircuitBreaker>,
 }
 
-fn get_last_fs_used_gb(mountpoint: &str) -> Option<f64> {
+async fn get_last_fs_used_gb(mountpoint: &str) -> Option<f64> {
     if let Some(db) = context::db() {
         let mount = mountpoint.to_string();
         if let Ok(val) = db.execute(move |conn| {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT total_gb, free_gb FROM fs_capacity_daily WHERE mountpoint = ?1 ORDER BY ts DESC LIMIT 1",
-                )
-                .ok()?;
-            let mut rows = stmt.query(params![mount]).ok()?;
-            if let Some(row) = rows.next().transpose().ok()? {
-                let total: Option<f64> = row.get(0).ok();
-                let free: Option<f64> = row.get(1).ok();
-                if let (Some(t), Some(f)) = (total, free) {
-                    return Some((t - f).max(0.0));
+            let mut stmt = conn.prepare(
+                "SELECT total_gb, free_gb FROM fs_capacity_daily WHERE mountpoint = ?1 ORDER BY ts DESC LIMIT 1",
+            )?;
+            let mut rows = stmt.query(&[&mount])?;
+            match rows.next()? {
+                Some(row) => {
+                    let total: f64 = row.get(0)?;
+                    let free: f64 = row.get(1)?;
+                    Ok(Some((total - free).max(0.0)))
                 }
+                None => Ok(None),
             }
-            None
-        }) {
+        }).await {
             return val;
         }
     }
@@ -262,38 +259,41 @@ impl HistorianIntegration {
                         }
 
                         // Also persist to context historian tables (best-effort)
+                        // Clone all values needed for the spawned task
+                        let boot_id_owned = boot_id.clone();
                         let ts_start = boot_event.boot_timestamp.to_rfc3339();
+                        let ts_shutdown = boot_event.shutdown_timestamp.map(|ts| ts.to_rfc3339());
+                        let target_reached = boot_event.target_reached.clone();
                         let degraded = !boot_event.failed_units.is_empty();
                         let fsck_ran = boot_event.fsck_triggered;
                         let kernel_error_count = boot_event.kernel_errors.len() as i64;
                         let boot_health_score = Some(boot_event.boot_health_score as i64);
-
                         let boot_units = boot_event.slowest_units.clone();
-                        let record_session = context::record_boot_session(
-                            &boot_id,
-                            &ts_start,
-                            boot_event
-                                .shutdown_timestamp
-                                .map(|ts| ts.to_rfc3339())
-                                .as_deref(),
-                            Some(&boot_event.target_reached),
-                            boot_event.boot_duration_ms,
-                            Some(degraded),
-                            Some(fsck_ran),
-                            boot_event.fsck_duration_ms,
-                            boot_event.shutdown_duration_ms,
-                            Some(kernel_error_count),
-                            boot_health_score,
-                        );
+                        let boot_duration_ms = boot_event.boot_duration_ms;
+                        let fsck_duration_ms = boot_event.fsck_duration_ms;
+                        let shutdown_duration_ms = boot_event.shutdown_duration_ms;
 
                         tokio::spawn(async move {
-                            if let Err(e) = record_session.await {
+                            // Record boot session
+                            if let Err(e) = context::record_boot_session(
+                                &boot_id_owned,
+                                &ts_start,
+                                ts_shutdown.as_deref(),
+                                Some(&target_reached),
+                                boot_duration_ms,
+                                Some(degraded),
+                                Some(fsck_ran),
+                                fsck_duration_ms,
+                                shutdown_duration_ms,
+                                Some(kernel_error_count),
+                                boot_health_score,
+                            ).await {
                                 warn!("Failed to record boot_session into context DB: {}", e);
                             }
 
                             for unit in boot_units {
                                 if let Err(e) = context::record_boot_unit(
-                                    &boot_id,
+                                    &boot_id_owned,
                                     &unit.unit,
                                     Some(unit.duration_ms),
                                     None,
@@ -308,7 +308,7 @@ impl HistorianIntegration {
                             }
 
                             // Baseline/delta for boot time (one-time baseline, then deltas)
-                            if let Some(duration) = boot_event.boot_duration_ms {
+                            if let Some(duration) = boot_duration_ms {
                                 let label = "boot_auto";
                                 let duration_json =
                                     serde_json::json!({ "boot_ms": duration }).to_string();
@@ -318,20 +318,18 @@ impl HistorianIntegration {
                                     let ts_clone = ts_start.clone();
                                     tokio::spawn(async move {
                                         let existing: Option<(i64, String)> = db
-                                            .execute(move |conn| {
-                                                let mut stmt = conn
-                                                    .prepare("SELECT id, metrics FROM baselines WHERE label = ?1 ORDER BY created_at DESC LIMIT 1")
-                                                    .ok()?;
-                                                let mut rows = stmt.query(params![label_owned]).ok()?;
-                                                if let Some(row) = rows.next().transpose().ok()? {
-                                                    let id: i64 = row.get(0).ok()?;
-                                                    let metrics: String = row.get(1).ok()?;
-                                                    return Some((id, metrics));
-                                                }
-                                                None
-                                            })
-                                            .await
-                                            .unwrap_or(None);
+                                    .execute(move |conn| {
+                                        let mut stmt = conn.prepare("SELECT id, metrics FROM baselines WHERE label = ?1 ORDER BY created_at DESC LIMIT 1")?;
+                                        let mut rows = stmt.query(&[&label_owned])?;
+                                        if let Some(row) = rows.next()? {
+                                            let id: i64 = row.get(0)?;
+                                            let metrics: String = row.get(1)?;
+                                            return Ok(Some((id, metrics)));
+                                        }
+                                        Ok(None)
+                                    })
+                                    .await
+                                    .unwrap_or(None);
 
                                         if let Some((baseline_id, metrics)) = existing {
                                             if let Ok(parsed) =
@@ -630,7 +628,7 @@ impl HistorianIntegration {
                     }
 
                     // Disk growth window (delta vs last snapshot)
-                    if let Some(previous_used) = get_last_fs_used_gb(&device.mount_point) {
+                    if let Some(previous_used) = get_last_fs_used_gb(&device.mount_point).await {
                         let delta = used_gb - previous_used;
                         let window_ts = ts_now.clone();
                         if let Err(e) = context::record_fs_growth(
@@ -831,18 +829,26 @@ impl HistorianIntegration {
             for crash in &health.daemon_crashes.recent_crashes {
                 let ts = crash.timestamp.to_rfc3339();
                 let svc = crash.service_name.clone();
-                tokio::spawn(async move {
-                        if let Err(e) = context::record_service_restart(&ts, &svc, Some("crash")).await
-                        {
-                            warn!("Failed to record service_restart for {}: {}", svc, e);
-                        }
-                    });
-
-                if let Ok(db) = context::db().ok_or(()).map_err(|_| ()) {
+                tokio::spawn({
+                    let ts_clone = ts.clone();
                     let svc_clone = svc.clone();
-                    let now_clone = now.clone();
-                    tokio::spawn(async move {
-                        let start_ms = get_unit_start_times().get(&format!("{}.service", svc_clone)).copied();
+                    async move {
+                        if let Err(e) =
+                            context::record_service_restart(&ts_clone, &svc_clone, Some("crash"))
+                                .await
+                        {
+                            warn!("Failed to record service_restart for {}: {}", svc_clone, e);
+                        }
+                    }
+                });
+
+                let now_clone = now.clone();
+                tokio::spawn({
+                    let svc_clone = svc.clone();
+                    async move {
+                        let start_ms = get_unit_start_times()
+                            .get(&format!("{}.service", svc_clone))
+                            .copied();
                         if let Some(ms) = start_ms {
                             if let Err(e) = context::record_service_health(
                                 &now_clone,
@@ -854,11 +860,14 @@ impl HistorianIntegration {
                             )
                             .await
                             {
-                                warn!("Failed to record service start time for {}: {}", svc_clone, e);
+                                warn!(
+                                    "Failed to record service start time for {}: {}",
+                                    svc_clone, e
+                                );
                             }
                         }
-                    });
-                }
+                    }
+                });
             }
         }
     }

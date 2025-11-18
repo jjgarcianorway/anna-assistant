@@ -5,27 +5,26 @@
 //! Provides consistent, professional formatting for Anna's terminal output.
 //! Colors are subtle and WCAG-friendly. No hardcoded ANSI strings scattered everywhere.
 
-
 /// ANSI color codes - WCAG-friendly palette
 pub mod colors {
     // Success and safe states
-    pub const GREEN: &str = "\x1b[38;5;120m";     // Soft green
+    pub const GREEN: &str = "\x1b[38;5;120m"; // Soft green
     pub const GREEN_BOLD: &str = "\x1b[1;38;5;120m";
 
     // Warnings and caution
-    pub const YELLOW: &str = "\x1b[38;5;228m";    // Soft yellow
+    pub const YELLOW: &str = "\x1b[38;5;228m"; // Soft yellow
     pub const YELLOW_BOLD: &str = "\x1b[1;38;5;228m";
-    pub const ORANGE: &str = "\x1b[38;5;215m";    // Soft orange
+    pub const ORANGE: &str = "\x1b[38;5;215m"; // Soft orange
 
     // Errors and danger
-    pub const RED: &str = "\x1b[38;5;210m";       // Soft red
+    pub const RED: &str = "\x1b[38;5;210m"; // Soft red
     pub const RED_BOLD: &str = "\x1b[1;38;5;210m";
 
     // Info and neutral
-    pub const BLUE: &str = "\x1b[38;5;117m";      // Soft blue
-    pub const CYAN: &str = "\x1b[38;5;159m";      // Soft cyan
-    pub const GRAY: &str = "\x1b[38;5;250m";      // Medium gray
-    pub const DIM: &str = "\x1b[2m";              // Dimmed text
+    pub const BLUE: &str = "\x1b[38;5;117m"; // Soft blue
+    pub const CYAN: &str = "\x1b[38;5;159m"; // Soft cyan
+    pub const GRAY: &str = "\x1b[38;5;250m"; // Medium gray
+    pub const DIM: &str = "\x1b[2m"; // Dimmed text
 
     // Reset and modifiers
     pub const RESET: &str = "\x1b[0m";
@@ -305,24 +304,12 @@ pub fn table_row(cells: &[(&str, usize)]) -> String {
 
 /// Format a key-value pair
 pub fn key_value(key: &str, value: &str) -> String {
-    format!(
-        "{}{:<20}{} {}",
-        colors::GRAY,
-        key,
-        colors::RESET,
-        value
-    )
+    format!("{}{:<20}{} {}", colors::GRAY, key, colors::RESET, value)
 }
 
 /// Format a numbered item
 pub fn numbered(number: usize, text: &str) -> String {
-    format!(
-        "{}{}. {}{}",
-        colors::CYAN,
-        number,
-        colors::RESET,
-        text
-    )
+    format!("{}{}. {}{}", colors::CYAN, number, colors::RESET, text)
 }
 
 /// Format a dimmed/secondary text

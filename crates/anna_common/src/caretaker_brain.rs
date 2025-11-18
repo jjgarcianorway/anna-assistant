@@ -13,11 +13,11 @@
 //! - Performance baselines and degradation detection
 //! - Repair effectiveness measurement
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-use crate::profile::MachineProfile;
 use crate::historian::{Historian, Trend};
+use crate::profile::MachineProfile;
 
 /// Severity of an issue or recommendation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -31,8 +31,7 @@ pub enum IssueSeverity {
 }
 
 /// Visibility hint for noise control (Phase 4.7)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum IssueVisibility {
     /// Normal visibility - show in daily and status
     #[default]
@@ -42,7 +41,6 @@ pub enum IssueVisibility {
     /// De-emphasized - grouped/suppressed in daily, full detail in status
     Deemphasized,
 }
-
 
 /// A concrete issue or improvement opportunity detected on this machine
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -190,8 +188,14 @@ impl CaretakerAnalysis {
         let summary = if issues.is_empty() {
             "All systems healthy".to_string()
         } else {
-            let critical_count = issues.iter().filter(|i| i.severity == IssueSeverity::Critical).count();
-            let warning_count = issues.iter().filter(|i| i.severity == IssueSeverity::Warning).count();
+            let critical_count = issues
+                .iter()
+                .filter(|i| i.severity == IssueSeverity::Critical)
+                .count();
+            let warning_count = issues
+                .iter()
+                .filter(|i| i.severity == IssueSeverity::Warning)
+                .count();
 
             let mut parts = Vec::new();
             if critical_count > 0 {
@@ -365,7 +369,8 @@ impl CaretakerBrain {
                 );
             } else if disk.usage_percent > 90.0 {
                 let recommendations = disk.get_recommendations();
-                let total_savings: u64 = recommendations.iter()
+                let total_savings: u64 = recommendations
+                    .iter()
                     .map(|r| r.estimated_savings_bytes)
                     .sum();
 
@@ -386,11 +391,14 @@ impl CaretakerBrain {
                 issues.push(
                     CaretakerIssue::new(
                         IssueSeverity::Warning,
-                        format!("Disk {}% full - cleanup recommended", disk.usage_percent as u32),
+                        format!(
+                            "Disk {}% full - cleanup recommended",
+                            disk.usage_percent as u32
+                        ),
                         "Your disk is getting full. Consider cleaning package cache and logs.",
-                        "Run 'annactl daily' to see cleanup recommendations"
+                        "Run 'annactl daily' to see cleanup recommendations",
                     )
-                    .with_repair_action("disk-space")
+                    .with_repair_action("disk-space"),
                 );
             }
         }
@@ -595,7 +603,8 @@ impl CaretakerBrain {
         if let Ok(output) = output {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                let error_count = stdout.lines()
+                let error_count = stdout
+                    .lines()
                     .filter(|line| !line.trim().is_empty())
                     .count();
 
@@ -641,12 +650,15 @@ impl CaretakerBrain {
                         let status_path = entry.path().join("status");
                         if let Ok(status_content) = std::fs::read_to_string(status_path) {
                             // Check for "State: Z (zombie)"
-                            if status_content.lines().any(|line| {
-                                line.starts_with("State:") && line.contains("Z")
-                            }) {
+                            if status_content
+                                .lines()
+                                .any(|line| line.starts_with("State:") && line.contains("Z"))
+                            {
                                 zombie_count += 1;
                                 // Try to get process name
-                                if let Some(name_line) = status_content.lines().find(|l| l.starts_with("Name:")) {
+                                if let Some(name_line) =
+                                    status_content.lines().find(|l| l.starts_with("Name:"))
+                                {
                                     if let Some(name) = name_line.split(':').nth(1) {
                                         zombie_names.push(name.trim().to_string());
                                     }
@@ -678,11 +690,16 @@ impl CaretakerBrain {
             issues.push(
                 CaretakerIssue::new(
                     IssueSeverity::Info,
-                    format!("{} zombie process(es) detected{}", zombie_count, process_list),
+                    format!(
+                        "{} zombie process(es) detected{}",
+                        zombie_count, process_list
+                    ),
                     "Zombie processes are harmless but may indicate improper process management.",
-                    "Use 'ps aux | grep Z' to identify zombies and check their parent processes"
+                    "Use 'ps aux | grep Z' to identify zombies and check their parent processes",
                 )
-                .with_reference("https://wiki.archlinux.org/title/Core_utilities#Process_management")
+                .with_reference(
+                    "https://wiki.archlinux.org/title/Core_utilities#Process_management",
+                ),
             );
         }
     }
@@ -697,7 +714,8 @@ impl CaretakerBrain {
         if let Ok(output) = output {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                let orphans: Vec<&str> = stdout.lines()
+                let orphans: Vec<&str> = stdout
+                    .lines()
                     .filter(|line| !line.trim().is_empty())
                     .collect();
 
@@ -883,9 +901,9 @@ impl CaretakerBrain {
             .map(|o| {
                 let output = String::from_utf8_lossy(&o.stdout);
                 // Look for interfaces that are not "lo" (loopback)
-                output.lines().any(|line| {
-                    line.contains("state UP") && !line.contains(": lo:")
-                })
+                output
+                    .lines()
+                    .any(|line| line.contains("state UP") && !line.contains(": lo:"))
             })
             .unwrap_or(false);
 
@@ -1098,7 +1116,8 @@ impl CaretakerBrain {
         if let Ok(output) = output {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                let failed_units: Vec<&str> = stdout.lines()
+                let failed_units: Vec<&str> = stdout
+                    .lines()
                     .filter(|line| !line.trim().is_empty())
                     .filter_map(|line| line.split_whitespace().next())
                     .collect();
@@ -1122,7 +1141,8 @@ impl CaretakerBrain {
                 };
 
                 // Show up to 5 failed units
-                let unit_list = failed_units.iter()
+                let unit_list = failed_units
+                    .iter()
                     .take(5)
                     .map(|s| s.to_string())
                     .collect::<Vec<_>>()
@@ -1180,7 +1200,8 @@ impl CaretakerBrain {
         };
 
         // Show up to 3 broken entries
-        let entry_list = broken_entries.iter()
+        let entry_list = broken_entries
+            .iter()
             .take(3)
             .map(|(name, exec)| format!("{} ({})", name, exec))
             .collect::<Vec<_>>()
@@ -1225,7 +1246,8 @@ impl CaretakerBrain {
                                         .unwrap_or(false);
 
                                     if !exists {
-                                        let name = path.file_name()
+                                        let name = path
+                                            .file_name()
                                             .and_then(|n| n.to_str())
                                             .unwrap_or("unknown")
                                             .to_string();
@@ -1274,19 +1296,39 @@ impl CaretakerBrain {
                 );
             } else if cache_mb > 2048 || trash_mb > 2048 {
                 // Info: single directory > 2GB
-                let which = if cache_mb > trash_mb { "cache" } else { "trash" };
-                let size_gb = if cache_mb > trash_mb { cache_mb / 1024 } else { trash_mb / 1024 };
+                let which = if cache_mb > trash_mb {
+                    "cache"
+                } else {
+                    "trash"
+                };
+                let size_gb = if cache_mb > trash_mb {
+                    cache_mb / 1024
+                } else {
+                    trash_mb / 1024
+                };
 
                 issues.push(
                     CaretakerIssue::new(
                         IssueSeverity::Info,
                         format!("Large user {} ({} GB)", which, size_gb),
-                        format!("User {} directory is {} GB. Cleaning it can free disk space safely.", which, size_gb),
-                        format!("Clean with 'rm -rf ~/.{}/*' or use 'annactl repair'", if which == "cache" { "cache" } else { "local/share/Trash" })
+                        format!(
+                            "User {} directory is {} GB. Cleaning it can free disk space safely.",
+                            which, size_gb
+                        ),
+                        format!(
+                            "Clean with 'rm -rf ~/.{}/*' or use 'annactl repair'",
+                            if which == "cache" {
+                                "cache"
+                            } else {
+                                "local/share/Trash"
+                            }
+                        ),
                     )
                     .with_repair_action("heavy-user-cache")
                     .with_impact(format!("Frees ~{} GB", size_gb))
-                    .with_reference("https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem")
+                    .with_reference(
+                        "https://wiki.archlinux.org/title/System_maintenance#Clean_the_filesystem",
+                    ),
                 );
             }
         }
@@ -1295,9 +1337,7 @@ impl CaretakerBrain {
     /// Phase 5.0: Check disk SMART health for early warning of disk failure
     fn check_disk_smart_health(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Check if smartctl is available
-        let smartctl_check = std::process::Command::new("which")
-            .arg("smartctl")
-            .output();
+        let smartctl_check = std::process::Command::new("which").arg("smartctl").output();
 
         if smartctl_check.is_err() || !smartctl_check.unwrap().status.success() {
             // smartctl not installed - give Info suggestion on systems with disks
@@ -1310,7 +1350,10 @@ impl CaretakerBrain {
             {
                 if let Ok(stdout) = String::from_utf8(output.stdout) {
                     // Check if there are any disk or nvme devices
-                    if stdout.lines().any(|line| line.contains("disk") || line.contains("nvme")) {
+                    if stdout
+                        .lines()
+                        .any(|line| line.contains("disk") || line.contains("nvme"))
+                    {
                         issues.push(
                             CaretakerIssue::new(
                                 IssueSeverity::Info,
@@ -1351,7 +1394,9 @@ impl CaretakerBrain {
                         if let Ok(smart_result) = smart_output {
                             if let Ok(smart_stdout) = String::from_utf8(smart_result.stdout) {
                                 // Check for FAILED status
-                                if smart_stdout.contains("FAILED") || smart_stdout.contains("FAILING_NOW") {
+                                if smart_stdout.contains("FAILED")
+                                    || smart_stdout.contains("FAILING_NOW")
+                                {
                                     issues.push(
                                         CaretakerIssue::new(
                                             IssueSeverity::Critical,
@@ -1363,7 +1408,9 @@ impl CaretakerBrain {
                                         .with_impact("Risk of data loss; immediate backup recommended")
                                         .with_reference("https://wiki.archlinux.org/title/S.M.A.R.T.")
                                     );
-                                } else if smart_stdout.contains("PREFAIL") || smart_stdout.contains("WARNING") {
+                                } else if smart_stdout.contains("PREFAIL")
+                                    || smart_stdout.contains("WARNING")
+                                {
                                     issues.push(
                                         CaretakerIssue::new(
                                             IssueSeverity::Warning,
@@ -1388,8 +1435,8 @@ impl CaretakerBrain {
     fn check_filesystem_errors(issues: &mut Vec<CaretakerIssue>, _profile: MachineProfile) {
         // Scan kernel journal for filesystem errors
         let journal_output = std::process::Command::new("journalctl")
-            .arg("-k")  // kernel messages
-            .arg("-b")  // this boot only
+            .arg("-k") // kernel messages
+            .arg("-b") // this boot only
             .arg("--no-pager")
             .output();
 
@@ -1401,10 +1448,11 @@ impl CaretakerBrain {
 
                 for line in stdout.lines() {
                     let lower = line.to_lowercase();
-                    if lower.contains("ext4-fs error") ||
-                       lower.contains("btrfs error") ||
-                       lower.contains("xfs error") ||
-                       (lower.contains("i/o error") && (lower.contains("/dev/sd") || lower.contains("/dev/nvme")))
+                    if lower.contains("ext4-fs error")
+                        || lower.contains("btrfs error")
+                        || lower.contains("xfs error")
+                        || (lower.contains("i/o error")
+                            && (lower.contains("/dev/sd") || lower.contains("/dev/nvme")))
                     {
                         error_count += 1;
                         if error_samples.len() < 3 {
@@ -1473,7 +1521,10 @@ impl CaretakerBrain {
             if let Ok(stdout) = String::from_utf8(output.stdout) {
                 // Look for inet addresses (excluding loopback)
                 for line in stdout.lines() {
-                    if line.contains("inet ") && !line.contains("127.0.0.1") && !line.contains("::1") {
+                    if line.contains("inet ")
+                        && !line.contains("127.0.0.1")
+                        && !line.contains("::1")
+                    {
                         has_ip = true;
                         break;
                     }
@@ -1510,7 +1561,7 @@ impl CaretakerBrain {
             let ip_ping = std::process::Command::new("ping")
                 .arg("-c1")
                 .arg("-W2")
-                .arg("1.1.1.1")  // Cloudflare DNS
+                .arg("1.1.1.1") // Cloudflare DNS
                 .output();
 
             let ip_connectivity = ip_ping.is_ok() && ip_ping.unwrap().status.success();
@@ -1580,7 +1631,8 @@ impl CaretakerBrain {
             avg_boot_time_ms: boot_trends.avg_boot_time_ms,
             trend: Self::trend_to_string(&boot_trends.trend, true), // true = inverted (up=slower)
             percent_change: Self::calculate_percent_change_from_trend(&boot_trends.trend),
-            slowest_units: slowest_units.into_iter()
+            slowest_units: slowest_units
+                .into_iter()
                 .take(5)
                 .map(|u| format!("{} ({}ms)", u.unit, u.avg_duration_ms))
                 .collect(),
@@ -1594,7 +1646,8 @@ impl CaretakerBrain {
             avg_ram_mb: memory_trends.avg_ram_used_mb,
             trend: Self::trend_to_string(&memory_trends.trend, false),
             percent_change: Self::calculate_percent_change_from_trend(&memory_trends.trend),
-            top_hogs: memory_hogs.into_iter()
+            top_hogs: memory_hogs
+                .into_iter()
                 .take(5)
                 .map(|h| format!("{} ({:.1}% CPU)", h.process_name, h.avg_cpu_percent))
                 .collect(),
@@ -1612,14 +1665,19 @@ impl CaretakerBrain {
         // Get recent timeline events (last 30 days)
         let cutoff = Utc::now() - chrono::Duration::days(30);
         let timeline_events = historian.get_timeline_since(cutoff)?;
-        let recent_events = timeline_events.into_iter()
+        let recent_events = timeline_events
+            .into_iter()
             .take(10)
             .map(|e| TimelineEventSummary {
                 timestamp: e.timestamp,
                 event_type: format!("{:?}", e.event_type),
                 description: e.notes.unwrap_or_else(|| {
                     if let Some(ref from) = e.version_from {
-                        format!("Upgraded from {} to {}", from, e.version_to.as_ref().unwrap_or(&"unknown".to_string()))
+                        format!(
+                            "Upgraded from {} to {}",
+                            from,
+                            e.version_to.as_ref().unwrap_or(&"unknown".to_string())
+                        )
                     } else {
                         "System event".to_string()
                     }
@@ -1642,7 +1700,8 @@ impl CaretakerBrain {
         let _repair_effectiveness = historian.get_repair_effectiveness()?;
         let recent_repairs_data = historian.get_system_summary()?.recent_repairs;
 
-        let recent_repairs = recent_repairs_data.into_iter()
+        let recent_repairs = recent_repairs_data
+            .into_iter()
             .map(|r| RepairEffectiveness {
                 timestamp: r.timestamp,
                 action_type: r.action_type,
@@ -1677,8 +1736,8 @@ impl CaretakerBrain {
     /// This is a rough estimate based on trend slope
     fn calculate_percent_change_from_trend(trend: &Trend) -> f64 {
         match trend {
-            Trend::Up => 15.0,      // Assume ~15% increase for upward trend
-            Trend::Down => -15.0,   // Assume ~15% decrease for downward trend
+            Trend::Up => 15.0,    // Assume ~15% increase for upward trend
+            Trend::Down => -15.0, // Assume ~15% decrease for downward trend
             Trend::Flat => 0.0,
         }
     }
@@ -1812,14 +1871,19 @@ impl CaretakerBrain {
     /// Interpret a probe result into human-readable terms
     fn interpret_probe_result(result: &crate::ipc::HealthProbeResult) -> (String, String, String) {
         // Extract message from probe details if available
-        let message = result.details.get("message")
+        let message = result
+            .details
+            .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("Issue detected");
 
         match result.probe.as_str() {
             "tlp-config" => (
                 "TLP not properly configured".to_string(),
-                format!("{} This affects battery life and power management.", message),
+                format!(
+                    "{} This affects battery life and power management.",
+                    message
+                ),
                 "Run 'sudo annactl repair tlp-config' to enable TLP service".to_string(),
             ),
             "bluetooth-service" => (
@@ -1828,7 +1892,9 @@ impl CaretakerBrain {
                 "Run 'sudo annactl repair bluetooth-service' to fix".to_string(),
             ),
             "missing-firmware" => {
-                let count = result.details.get("count")
+                let count = result
+                    .details
+                    .get("count")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0);
                 (
@@ -1836,7 +1902,7 @@ impl CaretakerBrain {
                     "Your hardware may not function optimally due to missing firmware.".to_string(),
                     "Run 'annactl repair missing-firmware' for guidance".to_string(),
                 )
-            },
+            }
             "systemd-units" => (
                 "Failed systemd services detected".to_string(),
                 "Some system services are not running properly.".to_string(),
@@ -1881,15 +1947,21 @@ mod tests {
 
     #[test]
     fn test_overall_status() {
-        let critical = vec![
-            CaretakerIssue::new(IssueSeverity::Critical, "Test", "Test", "Fix"),
-        ];
+        let critical = vec![CaretakerIssue::new(
+            IssueSeverity::Critical,
+            "Test",
+            "Test",
+            "Fix",
+        )];
         let analysis = CaretakerAnalysis::from_issues(critical);
         assert_eq!(analysis.overall_status, "critical");
 
-        let warning = vec![
-            CaretakerIssue::new(IssueSeverity::Warning, "Test", "Test", "Fix"),
-        ];
+        let warning = vec![CaretakerIssue::new(
+            IssueSeverity::Warning,
+            "Test",
+            "Test",
+            "Fix",
+        )];
         let analysis = CaretakerAnalysis::from_issues(warning);
         assert_eq!(analysis.overall_status, "needs-attention");
 
@@ -1906,9 +1978,9 @@ mod tests {
 
         // Should always return an analysis, even if empty
         assert!(
-            analysis.overall_status == "healthy" ||
-            analysis.overall_status == "needs-attention" ||
-            analysis.overall_status == "critical"
+            analysis.overall_status == "healthy"
+                || analysis.overall_status == "needs-attention"
+                || analysis.overall_status == "critical"
         );
     }
 
@@ -1973,8 +2045,9 @@ mod tests {
             IssueSeverity::Warning,
             "Test Issue",
             "Test explanation",
-            "Test action"
-        ).with_repair_action("test-repair");
+            "Test action",
+        )
+        .with_repair_action("test-repair");
 
         assert_eq!(issue.repair_action_id, Some("test-repair".to_string()));
     }
@@ -1985,8 +2058,9 @@ mod tests {
             IssueSeverity::Info,
             "Test Issue",
             "Test explanation",
-            "Test action"
-        ).with_impact("Frees 10GB");
+            "Test action",
+        )
+        .with_impact("Frees 10GB");
 
         assert_eq!(issue.estimated_impact, Some("Frees 10GB".to_string()));
     }
@@ -1997,24 +2071,23 @@ mod tests {
             IssueSeverity::Critical,
             "Test Issue",
             "Test explanation",
-            "Test action"
-        ).with_reference("https://wiki.archlinux.org/title/Test");
+            "Test action",
+        )
+        .with_reference("https://wiki.archlinux.org/title/Test");
 
-        assert_eq!(issue.reference, Some("https://wiki.archlinux.org/title/Test".to_string()));
+        assert_eq!(
+            issue.reference,
+            Some("https://wiki.archlinux.org/title/Test".to_string())
+        );
     }
 
     #[test]
     fn test_caretaker_issue_chaining() {
         // Test that method chaining works correctly
-        let issue = CaretakerIssue::new(
-            IssueSeverity::Warning,
-            "Test",
-            "Test",
-            "Test"
-        )
-        .with_repair_action("test-repair")
-        .with_impact("Frees 5GB")
-        .with_reference("https://test.com");
+        let issue = CaretakerIssue::new(IssueSeverity::Warning, "Test", "Test", "Test")
+            .with_repair_action("test-repair")
+            .with_impact("Frees 5GB")
+            .with_reference("https://test.com");
 
         assert_eq!(issue.repair_action_id, Some("test-repair".to_string()));
         assert_eq!(issue.estimated_impact, Some("Frees 5GB".to_string()));
@@ -2069,9 +2142,9 @@ mod tests {
 
         // Should always return an analysis
         assert!(
-            analysis.overall_status == "healthy" ||
-            analysis.overall_status == "needs-attention" ||
-            analysis.overall_status == "critical"
+            analysis.overall_status == "healthy"
+                || analysis.overall_status == "needs-attention"
+                || analysis.overall_status == "critical"
         );
 
         // Analysis should be valid regardless of system state
@@ -2085,8 +2158,9 @@ mod tests {
             IssueSeverity::Warning,
             "No network time synchronization active",
             "Test",
-            "Test"
-        ).with_repair_action("time-sync-enable");
+            "Test",
+        )
+        .with_repair_action("time-sync-enable");
 
         assert_eq!(issue.repair_action_id, Some("time-sync-enable".to_string()));
     }
@@ -2098,7 +2172,7 @@ mod tests {
             IssueSeverity::Warning,
             "No active firewall detected",
             "Test",
-            "Install ufw"
+            "Install ufw",
         );
         // Firewall detection produces issues without repair_action_id
         assert_eq!(issue.repair_action_id, None);
@@ -2111,7 +2185,7 @@ mod tests {
             IssueSeverity::Info,
             "No backup or snapshot tools detected",
             "Test",
-            "Test"
+            "Test",
         );
         assert_eq!(issue.severity, IssueSeverity::Info);
     }
@@ -2120,7 +2194,7 @@ mod tests {
     fn test_detector_graceful_failure_with_phase_4_5() {
         // Test that all detectors (including new ones) fail gracefully
         let mut issues = Vec::new();
-        let profile = MachineProfile::Unknown;  // Phase 4.6: profile parameter
+        let profile = MachineProfile::Unknown; // Phase 4.6: profile parameter
 
         // Original detectors
         CaretakerBrain::check_pacman_lock(&mut issues, profile);

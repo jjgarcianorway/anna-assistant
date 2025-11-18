@@ -78,7 +78,14 @@ pub async fn execute_init_command() -> Result<()> {
     println!("System Detection:");
     println!("  Memory:         {} MB", system_info.total_memory_mb);
     println!("  Virtualization: {}", system_info.virtualization);
-    println!("  Constrained:    {}", if system_info.is_tiny { "Yes (tiny system)" } else { "No" });
+    println!(
+        "  Constrained:    {}",
+        if system_info.is_tiny {
+            "Yes (tiny system)"
+        } else {
+            "No"
+        }
+    );
     println!();
 
     // Show recommended mode
@@ -90,7 +97,10 @@ pub async fn execute_init_command() -> Result<()> {
         "full"
     };
 
-    println!("Recommended monitoring mode: {}", recommended_mode.to_uppercase());
+    println!(
+        "Recommended monitoring mode: {}",
+        recommended_mode.to_uppercase()
+    );
     println!();
 
     if system_info.is_tiny {

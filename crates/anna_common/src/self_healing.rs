@@ -142,11 +142,7 @@ pub struct RecoveryAttempt {
 
 impl RecoveryAttempt {
     /// Create new recovery attempt
-    pub fn new(
-        service: impl Into<String>,
-        action: RecoveryAction,
-        attempt_number: u32,
-    ) -> Self {
+    pub fn new(service: impl Into<String>, action: RecoveryAction, attempt_number: u32) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             service: service.into(),
@@ -339,8 +335,8 @@ mod tests {
 
     #[test]
     fn test_recovery_attempt() {
-        let attempt = RecoveryAttempt::new("test-service", RecoveryAction::Restart, 1)
-            .with_duration(1500);
+        let attempt =
+            RecoveryAttempt::new("test-service", RecoveryAction::Restart, 1).with_duration(1500);
 
         assert_eq!(attempt.service, "test-service");
         assert_eq!(attempt.action, RecoveryAction::Restart);

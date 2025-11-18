@@ -29,8 +29,18 @@ pub async fn execute_sentinel_status_command(
             println!("┌─────────────────────────────────────────────────────────");
             println!("│ SENTINEL STATUS");
             println!("├─────────────────────────────────────────────────────────");
-            println!("│ Enabled:        {}", if status.enabled { "✓ Yes" } else { "✗ No" });
-            println!("│ Autonomous:     {}", if status.autonomous_mode { "✓ Active" } else { "✗ Inactive" });
+            println!(
+                "│ Enabled:        {}",
+                if status.enabled { "✓ Yes" } else { "✗ No" }
+            );
+            println!(
+                "│ Autonomous:     {}",
+                if status.autonomous_mode {
+                    "✓ Active"
+                } else {
+                    "✗ Inactive"
+                }
+            );
             println!("│ Uptime:         {} seconds", status.uptime_seconds);
             println!("│ System State:   {}", status.system_state);
             println!("├─────────────────────────────────────────────────────────");
@@ -150,12 +160,24 @@ pub async fn execute_config_get_command(
             println!("│ SENTINEL CONFIGURATION");
             println!("├─────────────────────────────────────────────────────────");
             println!("│ autonomous_mode:         {}", config.autonomous_mode);
-            println!("│ health_check_interval:   {} seconds", config.health_check_interval);
-            println!("│ update_scan_interval:    {} seconds", config.update_scan_interval);
-            println!("│ audit_interval:          {} seconds", config.audit_interval);
+            println!(
+                "│ health_check_interval:   {} seconds",
+                config.health_check_interval
+            );
+            println!(
+                "│ update_scan_interval:    {} seconds",
+                config.update_scan_interval
+            );
+            println!(
+                "│ audit_interval:          {} seconds",
+                config.audit_interval
+            );
             println!("│ auto_repair_services:    {}", config.auto_repair_services);
             println!("│ auto_update:             {}", config.auto_update);
-            println!("│ auto_update_threshold:   {} packages", config.auto_update_threshold);
+            println!(
+                "│ auto_update_threshold:   {} packages",
+                config.auto_update_threshold
+            );
             println!("│ adaptive_scheduling:     {}", config.adaptive_scheduling);
             println!("└─────────────────────────────────────────────────────────");
 

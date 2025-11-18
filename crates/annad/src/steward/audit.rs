@@ -3,7 +3,7 @@
 //! Phase 0.9: Integrity verification and security audit
 //! Citation: [archwiki:Security]
 
-use super::types::{AuditReport, IntegrityStatus, SecurityFinding, ConfigIssue};
+use super::types::{AuditReport, ConfigIssue, IntegrityStatus, SecurityFinding};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use std::process::Command;
@@ -122,7 +122,10 @@ async fn check_file_permissions() -> Result<Vec<IntegrityStatus>> {
                     details: if passed {
                         format!("Correct permissions: {:o}", mode)
                     } else {
-                        format!("Incorrect permissions: {:o} (expected {:o})", mode, expected_mode)
+                        format!(
+                            "Incorrect permissions: {:o} (expected {:o})",
+                            mode, expected_mode
+                        )
                     },
                 });
             }
@@ -156,7 +159,9 @@ async fn check_security_baseline() -> Result<Vec<SecurityFinding>> {
 
     // Check if SSH is hardened
     if let Ok(sshd_config) = std::fs::read_to_string("/etc/ssh/sshd_config") {
-        if !sshd_config.contains("PermitRootLogin no") && !sshd_config.contains("PermitRootLogin prohibit-password") {
+        if !sshd_config.contains("PermitRootLogin no")
+            && !sshd_config.contains("PermitRootLogin prohibit-password")
+        {
             findings.push(SecurityFinding {
                 severity: "high".to_string(),
                 description: "SSH allows root login".to_string(),

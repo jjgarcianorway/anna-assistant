@@ -52,12 +52,8 @@ impl InstallationSource {
                     format!("sudo pacman -S {}", package_name)
                 }
             }
-            InstallationSource::Manual { .. } => {
-                "annactl upgrade".to_string()
-            }
-            InstallationSource::Unknown => {
-                "Unknown - check installation method".to_string()
-            }
+            InstallationSource::Manual { .. } => "annactl upgrade".to_string(),
+            InstallationSource::Unknown => "Unknown - check installation method".to_string(),
         }
     }
 }
@@ -75,10 +71,7 @@ pub fn detect_installation_source(binary_path: &str) -> InstallationSource {
     // AUR packages typically install to /usr/bin
     if path.starts_with("/usr/bin") {
         // Double-check with pacman
-        if let Ok(output) = Command::new("pacman")
-            .args(["-Qo", binary_path])
-            .output()
-        {
+        if let Ok(output) = Command::new("pacman").args(["-Qo", binary_path]).output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 if let Some(pkg) = extract_package_name(&stdout) {

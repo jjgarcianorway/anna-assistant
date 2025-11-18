@@ -102,9 +102,15 @@ fn detect_recency_bias(audits: &[AuditEntry]) -> Result<Option<BiasFinding>> {
     let older = &audits[..split_point];
     let recent = &audits[split_point..];
 
-    let older_avg_error: f64 = older.iter().map(|a| a.errors.mean_absolute_error).sum::<f64>()
+    let older_avg_error: f64 = older
+        .iter()
+        .map(|a| a.errors.mean_absolute_error)
+        .sum::<f64>()
         / older.len() as f64;
-    let recent_avg_error: f64 = recent.iter().map(|a| a.errors.mean_absolute_error).sum::<f64>()
+    let recent_avg_error: f64 = recent
+        .iter()
+        .map(|a| a.errors.mean_absolute_error)
+        .sum::<f64>()
         / recent.len() as f64;
 
     let error_delta = (recent_avg_error - older_avg_error).abs();
@@ -214,10 +220,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    fn create_test_audit(
-        predicted: SystemMetrics,
-        actual: SystemMetrics,
-    ) -> AuditEntry {
+    fn create_test_audit(predicted: SystemMetrics, actual: SystemMetrics) -> AuditEntry {
         let errors = super::super::align::compute_errors(&predicted, &actual);
 
         AuditEntry {
@@ -250,9 +253,9 @@ mod tests {
             };
 
             let actual = SystemMetrics {
-                health_score: 0.7, // Lower than predicted
+                health_score: 0.7,  // Lower than predicted
                 empathy_index: 0.7, // Lower than predicted
-                strain_index: 0.4, // Higher than predicted
+                strain_index: 0.4,  // Higher than predicted
                 network_coherence: 0.8,
                 avg_trust_score: 0.8,
             };
@@ -285,6 +288,10 @@ mod tests {
         }
 
         let findings = scan_for_biases(&audits).unwrap();
-        assert_eq!(findings.len(), 0, "Should detect no biases with perfect predictions");
+        assert_eq!(
+            findings.len(),
+            0,
+            "Should detect no biases with perfect predictions"
+        );
     }
 }

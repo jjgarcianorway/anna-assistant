@@ -192,10 +192,7 @@ impl ChronosLoop {
                 }
 
                 if projection.moral_cost > 0.5 {
-                    warn!(
-                        "High moral cost projected: {:.2}",
-                        projection.moral_cost
-                    );
+                    warn!("High moral cost projected: {:.2}", projection.moral_cost);
                 }
             }
         });

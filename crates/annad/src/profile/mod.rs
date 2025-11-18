@@ -5,6 +5,4 @@ pub mod detector;
 pub mod types;
 
 pub use detector::SystemProfiler;
-pub use types::{
-    MonitoringMode, SessionType, SystemProfile, VirtualizationInfo,
-};
+pub use types::{MonitoringMode, SessionType, SystemProfile, VirtualizationInfo};

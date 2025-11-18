@@ -10,8 +10,7 @@ use std::path::{Path, PathBuf};
 use crate::types::{AutonomyTier, Priority, RiskLevel};
 
 /// Main configuration structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// General settings
     #[serde(default)]
@@ -41,7 +40,6 @@ pub struct Config {
     #[serde(default)]
     pub profiles: Vec<UserProfile>,
 }
-
 
 impl Config {
     /// Get the default config file path: ~/.config/anna/config.toml
@@ -285,8 +283,7 @@ impl Default for LearningConfig {
 }
 
 /// Category-specific configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CategoryConfig {
     /// Enabled categories (empty = all enabled)
     pub enabled: Vec<String>,
@@ -297,7 +294,6 @@ pub struct CategoryConfig {
     /// Category-specific priority overrides
     pub priority_overrides: std::collections::HashMap<String, Priority>,
 }
-
 
 /// User profile for multi-user systems
 #[derive(Debug, Clone, Serialize, Deserialize)]

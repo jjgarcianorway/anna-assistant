@@ -84,7 +84,8 @@ impl StateV2 {
     pub async fn load(path: &Path) -> Result<Self> {
         info!("Loading state v2 from: {}", path.display());
 
-        let content = fs::read_to_string(path).await
+        let content = fs::read_to_string(path)
+            .await
             .map_err(|e| anyhow!("Failed to read state file: {}", e))?;
 
         let state: StateV2 = serde_json::from_str(&content)
@@ -116,10 +117,12 @@ impl StateV2 {
 
         // Atomic write: temp file + rename
         let temp_path = path.with_extension("tmp");
-        fs::write(&temp_path, &content).await
+        fs::write(&temp_path, &content)
+            .await
             .map_err(|e| anyhow!("Failed to write temp state: {}", e))?;
 
-        fs::rename(&temp_path, path).await
+        fs::rename(&temp_path, path)
+            .await
             .map_err(|e| anyhow!("Failed to rename state file: {}", e))?;
 
         info!("State v2 saved successfully");
@@ -164,7 +167,8 @@ impl StateV1 {
     pub async fn load(path: &Path) -> Result<Self> {
         info!("Loading state v1 from: {}", path.display());
 
-        let content = fs::read_to_string(path).await
+        let content = fs::read_to_string(path)
+            .await
             .map_err(|e| anyhow!("Failed to read state file: {}", e))?;
 
         let state: StateV1 = serde_json::from_str(&content)
@@ -242,11 +246,7 @@ mod tests {
     fn test_update_consensus() {
         let mut state = StateV2::new("node_test".to_string());
 
-        state.update_consensus(
-            "round_001".to_string(),
-            3,
-            vec![],
-        );
+        state.update_consensus("round_001".to_string(), 3, vec![]);
 
         assert_eq!(state.consensus.rounds_completed, 1);
         assert_eq!(state.consensus.last_round_id, Some("round_001".to_string()));

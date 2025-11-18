@@ -272,11 +272,16 @@ impl ConsensusEngine {
 
     /// Compute consensus for round by ID
     fn compute_consensus_for_round(&mut self, round_id: &str) -> Result<()> {
-        let round_idx = self.rounds.iter().position(|r| r.round_id == round_id)
+        let round_idx = self
+            .rounds
+            .iter()
+            .position(|r| r.round_id == round_id)
             .ok_or_else(|| anyhow!("Round not found: {}", round_id))?;
 
         // Collect Byzantine nodes for filtering
-        let byzantine_nodes: Vec<NodeId> = self.byzantine_nodes.iter()
+        let byzantine_nodes: Vec<NodeId> = self
+            .byzantine_nodes
+            .iter()
             .map(|b| b.node_id.clone())
             .collect();
 
@@ -285,7 +290,10 @@ impl ConsensusEngine {
     }
 
     /// Compute consensus for round (static helper to avoid borrow conflicts)
-    fn compute_consensus_impl(round: &mut ConsensusRound, byzantine_nodes: &[NodeId]) -> Result<()> {
+    fn compute_consensus_impl(
+        round: &mut ConsensusRound,
+        byzantine_nodes: &[NodeId],
+    ) -> Result<()> {
         debug!("Computing consensus for round {}", round.round_id);
 
         // Filter out Byzantine nodes
@@ -313,7 +321,8 @@ impl ConsensusEngine {
         round.consensus_tis = Some(tis_sum / weight_sum);
 
         // Aggregate biases (union with max confidence)
-        let mut bias_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut bias_map: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         for obs in &valid_obs {
             for bias in &obs.bias_flags {
                 let key = format!("{:?}", bias);
@@ -484,19 +493,13 @@ mod tests {
 
         // Submit 3 observations
         engine
-            .submit_observation(create_test_observation(
-                "node1", round_id, 0.80, &keypair1,
-            ))
+            .submit_observation(create_test_observation("node1", round_id, 0.80, &keypair1))
             .unwrap();
         engine
-            .submit_observation(create_test_observation(
-                "node2", round_id, 0.85, &keypair2,
-            ))
+            .submit_observation(create_test_observation("node2", round_id, 0.85, &keypair2))
             .unwrap();
         engine
-            .submit_observation(create_test_observation(
-                "node3", round_id, 0.90, &keypair3,
-            ))
+            .submit_observation(create_test_observation("node3", round_id, 0.90, &keypair3))
             .unwrap();
 
         // Check consensus
@@ -518,15 +521,12 @@ mod tests {
 
         // First submission - ok
         engine
-            .submit_observation(create_test_observation(
-                "node1", round_id, 0.80, &keypair1,
-            ))
+            .submit_observation(create_test_observation("node1", round_id, 0.80, &keypair1))
             .unwrap();
 
         // Second submission from same node - Byzantine
-        let result = engine.submit_observation(create_test_observation(
-            "node1", round_id, 0.90, &keypair1,
-        ));
+        let result =
+            engine.submit_observation(create_test_observation("node1", round_id, 0.90, &keypair1));
 
         assert_eq!(result.unwrap(), false);
         assert_eq!(engine.get_byzantine_nodes().len(), 1);

@@ -157,7 +157,11 @@ impl UI {
                 empty_char.repeat(empty).bright_black()
             )
         } else {
-            format!("[{}{}]", filled_char.repeat(filled), empty_char.repeat(empty))
+            format!(
+                "[{}{}]",
+                filled_char.repeat(filled),
+                empty_char.repeat(empty)
+            )
         };
 
         let formatted_percent = if self.caps.use_colors() {
@@ -180,9 +184,9 @@ impl UI {
     pub fn prompt_yes_no(&self, question: &str) -> bool {
         println!();
         println!("{}", question);
-        print!("[{}/{}]: ",
-            self.profile.translations.yes,
-            self.profile.translations.no
+        print!(
+            "[{}/{}]: ",
+            self.profile.translations.yes, self.profile.translations.no
         );
         io::stdout().flush().ok();
 
@@ -271,7 +275,9 @@ impl UI {
     pub fn thinking(&self) {
         let icon = self.render_emoji("💭");
         let text = if self.caps.use_colors() {
-            format!("{} {}...", icon, self.profile.translations.working).dimmed().to_string()
+            format!("{} {}...", icon, self.profile.translations.working)
+                .dimmed()
+                .to_string()
         } else {
             format!("{} {}...", icon, self.profile.translations.working)
         };
@@ -315,7 +321,9 @@ impl UI {
     pub fn wiki_link(&self, title: &str, url: &str) {
         let icon = self.render_emoji("🏛️");
         let formatted = if self.caps.use_colors() {
-            format!("  {} Arch Wiki: {} - {}", icon, title, url).blue().to_string()
+            format!("  {} Arch Wiki: {} - {}", icon, title, url)
+                .blue()
+                .to_string()
         } else {
             format!("  {} Arch Wiki: {} - {}", icon, title, url)
         };
@@ -420,8 +428,14 @@ impl UI {
 
         let bullet = self.render_icon("•", "*");
         println!("  {} I watch your system locally.", bullet);
-        println!("  {} I compare what I see with best practices from the Arch Wiki.", bullet);
-        println!("  {} I suggest improvements, explain them in plain language,", bullet);
+        println!(
+            "  {} I compare what I see with best practices from the Arch Wiki.",
+            bullet
+        );
+        println!(
+            "  {} I suggest improvements, explain them in plain language,",
+            bullet
+        );
         println!("     and only change things after you approve them.");
         println!();
     }
@@ -432,8 +446,14 @@ impl UI {
 
         let bullet = self.render_icon("•", "*");
         println!("  {} I do not send your data anywhere.", bullet);
-        println!("  {} I keep telemetry and notes on this machine only.", bullet);
-        println!("  {} I read the Arch Wiki and official documentation when needed.", bullet);
+        println!(
+            "  {} I keep telemetry and notes on this machine only.",
+            bullet
+        );
+        println!(
+            "  {} I read the Arch Wiki and official documentation when needed.",
+            bullet
+        );
         println!("  {} I never run commands behind your back.", bullet);
         println!();
     }
@@ -445,9 +465,18 @@ impl UI {
 
         let bullet = self.render_icon("•", "*");
         println!("  {} \"How are you, any problems with my system\"", bullet);
-        println!("  {} \"It feels slower than usual, did you see anything\"", bullet);
-        println!("  {} \"I am not happy with vim, what CLI editors do you suggest\"", bullet);
-        println!("  {} \"Prepare a report for my boss about this machine\"\n", bullet);
+        println!(
+            "  {} \"It feels slower than usual, did you see anything\"",
+            bullet
+        );
+        println!(
+            "  {} \"I am not happy with vim, what CLI editors do you suggest\"",
+            bullet
+        );
+        println!(
+            "  {} \"Prepare a report for my boss about this machine\"\n",
+            bullet
+        );
 
         // Show status bar with helpful keyboard shortcuts
         self.repl_status_bar();
@@ -467,7 +496,8 @@ impl UI {
         };
         println!("{}", formatted);
 
-        let help_text = "Shortcuts: 'help' for examples  •  'exit' to quit  •  'status' for system health";
+        let help_text =
+            "Shortcuts: 'help' for examples  •  'exit' to quit  •  'status' for system health";
 
         let centered = if self.caps.use_colors() {
             format!("{}", help_text.dimmed())

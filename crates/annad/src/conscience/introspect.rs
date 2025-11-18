@@ -241,8 +241,7 @@ impl Introspector {
 
             if flagged as f64 / total as f64 > 0.3 {
                 recommendations.push(
-                    "High flagging rate (>30%). Consider tuning uncertainty threshold."
-                        .to_string(),
+                    "High flagging rate (>30%). Consider tuning uncertainty threshold.".to_string(),
                 );
             }
         }
@@ -265,12 +264,13 @@ impl Introspector {
 
         // Recommendations based on violations
         if !violations.is_empty() {
-            let violation_count_by_dim = violations
-                .iter()
-                .fold(std::collections::HashMap::new(), |mut acc, v| {
-                    *acc.entry(v.dimension.clone()).or_insert(0) += 1;
-                    acc
-                });
+            let violation_count_by_dim =
+                violations
+                    .iter()
+                    .fold(std::collections::HashMap::new(), |mut acc, v| {
+                        *acc.entry(v.dimension.clone()).or_insert(0) += 1;
+                        acc
+                    });
 
             for (dimension, count) in violation_count_by_dim {
                 if count > 2 {
@@ -284,7 +284,8 @@ impl Introspector {
 
         // Default recommendation if everything looks good
         if recommendations.is_empty() && total > 0 {
-            recommendations.push("Conscience system operating within normal parameters.".to_string());
+            recommendations
+                .push("Conscience system operating within normal parameters.".to_string());
         }
 
         recommendations
@@ -341,10 +342,7 @@ impl Introspector {
                 ));
             }
             if report.violations.len() > 5 {
-                output.push_str(&format!(
-                    "  ... and {} more\n",
-                    report.violations.len() - 5
-                ));
+                output.push_str(&format!("  ... and {} more\n", report.violations.len() - 5));
             }
             output.push('\n');
         }

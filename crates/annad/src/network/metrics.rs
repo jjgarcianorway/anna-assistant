@@ -3,8 +3,8 @@
 use prometheus::{
     register_counter_vec_with_registry, register_gauge_with_registry,
     register_histogram_vec_with_registry, register_int_counter_with_registry,
-    register_int_gauge_with_registry, CounterVec, Gauge, HistogramVec,
-    IntCounter, IntGauge, Registry, TextEncoder, Encoder,
+    register_int_gauge_with_registry, CounterVec, Encoder, Gauge, HistogramVec, IntCounter,
+    IntGauge, Registry, TextEncoder,
 };
 use std::sync::Arc;
 
@@ -41,8 +41,8 @@ pub struct ConsensusMetrics {
     pub system_disk_total_gb: IntGauge,
     pub system_disk_available_gb: IntGauge,
     pub system_uptime_seconds: IntGauge,
-    pub profile_mode: IntGauge,  // 0=minimal, 1=light, 2=full
-    pub profile_constrained: IntGauge,  // 0=no, 1=yes
+    pub profile_mode: IntGauge,        // 0=minimal, 1=light, 2=full
+    pub profile_constrained: IntGauge, // 0=no, 1=yes
 
     registry: Arc<Registry>,
 }
@@ -56,47 +56,54 @@ impl ConsensusMetrics {
             "anna_consensus_rounds_total",
             "Total number of consensus rounds completed",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let byzantine_nodes_total = register_int_gauge_with_registry!(
             "anna_byzantine_nodes_total",
             "Current number of detected Byzantine nodes",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let quorum_size = register_int_gauge_with_registry!(
             "anna_quorum_size",
             "Required quorum size for consensus",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         // Phase 1.10 metrics
         let average_tis = register_gauge_with_registry!(
             "anna_average_tis",
             "Average temporal integrity score across recent rounds",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let peer_request_total = register_counter_vec_with_registry!(
             "anna_peer_request_total",
             "Total number of peer requests by peer and status",
             &["peer", "status"],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let peer_reload_total = register_counter_vec_with_registry!(
             "anna_peer_reload_total",
             "Total number of peer configuration reloads by result",
             &["result"],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let migration_events_total = register_counter_vec_with_registry!(
             "anna_migration_events_total",
             "Total number of state migration events by result",
             &["result"],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         // Phase 1.11 metrics
         let peer_backoff_seconds = register_histogram_vec_with_registry!(
@@ -105,7 +112,8 @@ impl ConsensusMetrics {
             &["peer"],
             vec![0.1, 0.2, 0.5, 1.0, 2.0, 5.0],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         // Phase 1.13 metrics
         let tls_handshakes_total = register_counter_vec_with_registry!(
@@ -113,7 +121,8 @@ impl ConsensusMetrics {
             "Total number of TLS handshakes by status",
             &["status"],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         // Phase 1.15 metrics
         let rate_limit_violations_total = register_counter_vec_with_registry!(
@@ -121,7 +130,8 @@ impl ConsensusMetrics {
             "Total number of rate limit violations by scope (peer or token)",
             &["scope"],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         // Phase 2 metrics
         let pinning_violations_total = register_counter_vec_with_registry!(
@@ -129,56 +139,65 @@ impl ConsensusMetrics {
             "Total number of certificate pinning violations by peer",
             &["peer"],
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         // Phase 3 metrics (adaptive intelligence)
         let system_memory_total_mb = register_int_gauge_with_registry!(
             "anna_system_memory_total_mb",
             "Total system memory in MB",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let system_memory_available_mb = register_int_gauge_with_registry!(
             "anna_system_memory_available_mb",
             "Available system memory in MB",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let system_cpu_cores = register_int_gauge_with_registry!(
             "anna_system_cpu_cores",
             "Number of CPU cores",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let system_disk_total_gb = register_int_gauge_with_registry!(
             "anna_system_disk_total_gb",
             "Total disk space in GB",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let system_disk_available_gb = register_int_gauge_with_registry!(
             "anna_system_disk_available_gb",
             "Available disk space in GB",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let system_uptime_seconds = register_int_gauge_with_registry!(
             "anna_system_uptime_seconds",
             "System uptime in seconds",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let profile_mode = register_int_gauge_with_registry!(
             "anna_profile_mode",
             "Monitoring mode: 0=minimal, 1=light, 2=full",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         let profile_constrained = register_int_gauge_with_registry!(
             "anna_profile_constrained",
             "Resource-constrained status: 0=no, 1=yes",
             registry
-        ).unwrap();
+        )
+        .unwrap();
 
         Self {
             rounds_total,
@@ -213,9 +232,7 @@ impl ConsensusMetrics {
 
     /// Record peer reload
     pub fn record_peer_reload(&self, result: &str) {
-        self.peer_reload_total
-            .with_label_values(&[result])
-            .inc();
+        self.peer_reload_total.with_label_values(&[result]).inc();
     }
 
     /// Record migration event
@@ -239,9 +256,7 @@ impl ConsensusMetrics {
 
     /// Record TLS handshake (Phase 1.13)
     pub fn record_tls_handshake(&self, status: &str) {
-        self.tls_handshakes_total
-            .with_label_values(&[status])
-            .inc();
+        self.tls_handshakes_total.with_label_values(&[status]).inc();
     }
 
     /// Record rate limit violation (Phase 1.15)
@@ -260,12 +275,16 @@ impl ConsensusMetrics {
 
     /// Update system profile metrics (Phase 3)
     pub fn update_profile(&self, profile: &crate::profile::SystemProfile) {
-        self.system_memory_total_mb.set(profile.total_memory_mb as i64);
-        self.system_memory_available_mb.set(profile.available_memory_mb as i64);
+        self.system_memory_total_mb
+            .set(profile.total_memory_mb as i64);
+        self.system_memory_available_mb
+            .set(profile.available_memory_mb as i64);
         self.system_cpu_cores.set(profile.cpu_cores as i64);
         self.system_disk_total_gb.set(profile.total_disk_gb as i64);
-        self.system_disk_available_gb.set(profile.available_disk_gb as i64);
-        self.system_uptime_seconds.set(profile.uptime_seconds as i64);
+        self.system_disk_available_gb
+            .set(profile.available_disk_gb as i64);
+        self.system_uptime_seconds
+            .set(profile.uptime_seconds as i64);
 
         // Convert monitoring mode to numeric value
         let mode_value = match profile.recommended_monitoring_mode {

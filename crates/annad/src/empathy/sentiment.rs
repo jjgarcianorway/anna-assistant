@@ -66,9 +66,7 @@ impl SentimentAnalyzer {
                 // Parse JSONL and extract summaries
                 let entries: Vec<String> = content
                     .lines()
-                    .filter_map(|line| {
-                        serde_json::from_str::<serde_json::Value>(line).ok()
-                    })
+                    .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
                     .filter_map(|v| v.get("summary").and_then(|s| s.as_str().map(String::from)))
                     .collect();
                 Ok(entries)
@@ -110,13 +108,28 @@ impl SentimentAnalyzer {
 
         // Simple keyword-based sentiment analysis
         let positive_keywords = [
-            "success", "approved", "completed", "healthy", "normal", "good",
-            "stable", "optimal", "recovered",
+            "success",
+            "approved",
+            "completed",
+            "healthy",
+            "normal",
+            "good",
+            "stable",
+            "optimal",
+            "recovered",
         ];
 
         let negative_keywords = [
-            "error", "failed", "rejected", "critical", "warning", "degraded",
-            "unsafe", "violation", "blocked", "strain",
+            "error",
+            "failed",
+            "rejected",
+            "critical",
+            "warning",
+            "degraded",
+            "unsafe",
+            "violation",
+            "blocked",
+            "strain",
         ];
 
         let mut score = 0.0;
@@ -226,37 +239,65 @@ impl SentimentAnalyzer {
         let mut patterns = Vec::new();
 
         // Detect repeated errors
-        let error_count = entries.iter().filter(|e| e.to_lowercase().contains("error")).count();
+        let error_count = entries
+            .iter()
+            .filter(|e| e.to_lowercase().contains("error"))
+            .count();
         if error_count > entries.len() / 4 {
-            patterns.push(format!("High error frequency: {}/{} entries", error_count, entries.len()));
+            patterns.push(format!(
+                "High error frequency: {}/{} entries",
+                error_count,
+                entries.len()
+            ));
         }
 
         // Detect degradation trend
-        let degraded_count = entries.iter().filter(|e| e.to_lowercase().contains("degraded") || e.to_lowercase().contains("failed")).count();
+        let degraded_count = entries
+            .iter()
+            .filter(|e| {
+                e.to_lowercase().contains("degraded") || e.to_lowercase().contains("failed")
+            })
+            .count();
         if degraded_count > 5 {
             patterns.push("System degradation trend detected".to_string());
         }
 
         // Detect strain indicators
         let strain_keywords = ["strain", "pressure", "overload", "throttle"];
-        let strain_count = entries.iter().filter(|e| {
-            let entry_lower = e.to_lowercase();
-            strain_keywords.iter().any(|&keyword| entry_lower.contains(keyword))
-        }).count();
+        let strain_count = entries
+            .iter()
+            .filter(|e| {
+                let entry_lower = e.to_lowercase();
+                strain_keywords
+                    .iter()
+                    .any(|&keyword| entry_lower.contains(keyword))
+            })
+            .count();
 
         if strain_count > 0 {
-            patterns.push(format!("Strain indicators detected ({} occurrences)", strain_count));
+            patterns.push(format!(
+                "Strain indicators detected ({} occurrences)",
+                strain_count
+            ));
         }
 
         // Detect recovery patterns
         let recovery_keywords = ["recovered", "restored", "resolved", "fixed"];
-        let recovery_count = entries.iter().filter(|e| {
-            let entry_lower = e.to_lowercase();
-            recovery_keywords.iter().any(|&keyword| entry_lower.contains(keyword))
-        }).count();
+        let recovery_count = entries
+            .iter()
+            .filter(|e| {
+                let entry_lower = e.to_lowercase();
+                recovery_keywords
+                    .iter()
+                    .any(|&keyword| entry_lower.contains(keyword))
+            })
+            .count();
 
         if recovery_count > 0 {
-            patterns.push(format!("Recovery activity detected ({} occurrences)", recovery_count));
+            patterns.push(format!(
+                "Recovery activity detected ({} occurrences)",
+                recovery_count
+            ));
         }
 
         patterns
@@ -269,7 +310,9 @@ impl SentimentAnalyzer {
 
         // Keep only last 1000 samples
         if self.recent_samples.len() > 1000 {
-            self.recent_samples = self.recent_samples.split_off(self.recent_samples.len() - 1000);
+            self.recent_samples = self
+                .recent_samples
+                .split_off(self.recent_samples.len() - 1000);
         }
 
         // Recalculate baseline frequencies

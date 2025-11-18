@@ -303,11 +303,23 @@ fn detect_initramfs_tool() -> InitramfsTool {
     }
 
     // Check which command is available
-    if Command::new("which").arg("mkinitcpio").output().ok().map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("which")
+        .arg("mkinitcpio")
+        .output()
+        .ok()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         return InitramfsTool::Mkinitcpio;
     }
 
-    if Command::new("which").arg("dracut").output().ok().map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("which")
+        .arg("dracut")
+        .output()
+        .ok()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         return InitramfsTool::Dracut;
     }
 
@@ -317,34 +329,36 @@ fn detect_initramfs_tool() -> InitramfsTool {
 /// Get tool version
 fn get_tool_version(tool: &InitramfsTool) -> Option<String> {
     match tool {
-        InitramfsTool::Mkinitcpio => {
-            Command::new("mkinitcpio")
-                .arg("--version")
-                .output()
-                .ok()
-                .filter(|o| o.status.success())
-                .and_then(|o| {
-                    let output = String::from_utf8_lossy(&o.stdout);
-                    output.lines().next().map(|s| s.to_string())
-                })
-        }
-        InitramfsTool::Dracut => {
-            Command::new("dracut")
-                .arg("--version")
-                .output()
-                .ok()
-                .filter(|o| o.status.success())
-                .and_then(|o| {
-                    let output = String::from_utf8_lossy(&o.stdout);
-                    output.lines().next().map(|s| s.to_string())
-                })
-        }
+        InitramfsTool::Mkinitcpio => Command::new("mkinitcpio")
+            .arg("--version")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                output.lines().next().map(|s| s.to_string())
+            }),
+        InitramfsTool::Dracut => Command::new("dracut")
+            .arg("--version")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                output.lines().next().map(|s| s.to_string())
+            }),
         InitramfsTool::Unknown => None,
     }
 }
 
 /// Parse mkinitcpio configuration
-fn parse_mkinitcpio_config() -> (String, Vec<String>, Vec<String>, CompressionInfo, Vec<ConfigIssue>) {
+fn parse_mkinitcpio_config() -> (
+    String,
+    Vec<String>,
+    Vec<String>,
+    CompressionInfo,
+    Vec<ConfigIssue>,
+) {
     let config_path = "/etc/mkinitcpio.conf".to_string();
     let mut hooks = Vec::new();
     let mut modules = Vec::new();
@@ -402,7 +416,13 @@ fn parse_mkinitcpio_config() -> (String, Vec<String>, Vec<String>, CompressionIn
 }
 
 /// Parse dracut configuration
-fn parse_dracut_config() -> (String, Vec<String>, Vec<String>, CompressionInfo, Vec<ConfigIssue>) {
+fn parse_dracut_config() -> (
+    String,
+    Vec<String>,
+    Vec<String>,
+    CompressionInfo,
+    Vec<ConfigIssue>,
+) {
     let config_path = "/etc/dracut.conf".to_string();
     let hooks = Vec::new(); // dracut uses modules instead of hooks
     let mut modules = Vec::new();
@@ -421,11 +441,7 @@ fn parse_dracut_config() -> (String, Vec<String>, Vec<String>, CompressionInfo, 
             if line.starts_with("add_drivers+=") {
                 if let Some(drivers_str) = line.strip_prefix("add_drivers+=") {
                     let drivers_str = drivers_str.trim_matches('"');
-                    modules.extend(
-                        drivers_str
-                            .split_whitespace()
-                            .map(|s| s.to_string())
-                    );
+                    modules.extend(drivers_str.split_whitespace().map(|s| s.to_string()));
                 }
             }
 

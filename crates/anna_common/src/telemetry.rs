@@ -3,8 +3,8 @@
 //! Defines the data structures that annad collects and annactl queries
 //! All data stays local, no network exfiltration
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
 /// Complete system telemetry snapshot
@@ -272,10 +272,7 @@ pub enum TelemetryQuery {
     HistoricalSnapshot { timestamp: DateTime<Utc> },
 
     /// Get metric history
-    MetricHistory {
-        metric: MetricType,
-        days_back: u32,
-    },
+    MetricHistory { metric: MetricType, days_back: u32 },
 
     /// Get change summary since timestamp
     ChangesSince { since: DateTime<Utc> },
@@ -391,8 +388,6 @@ impl SystemTelemetry {
     /// Collect a live system snapshot (Task 8: Deep Caretaker v0.1)
     /// Fast, read-only telemetry collection (completes in <1 second)
     pub fn collect() -> Self {
-        
-
         Self {
             timestamp: Utc::now(),
             hardware: collect_hardware_info(),
@@ -404,7 +399,7 @@ impl SystemTelemetry {
             network: collect_network_info(),
             security: collect_security_info(),
             desktop: collect_desktop_info(),
-            boot: None, // Boot info collection is expensive, skip for now
+            boot: None,                  // Boot info collection is expensive, skip for now
             audio: collect_audio_info(), // Task 9: audio stack awareness
         }
     }
@@ -413,8 +408,8 @@ impl SystemTelemetry {
 // Task 8: Telemetry collection functions (read-only, fast, safe)
 
 fn collect_hardware_info() -> HardwareInfo {
-    use std::process::Command;
     use crate::profile::MachineProfile;
+    use std::process::Command;
 
     let profile = MachineProfile::detect();
     let machine_type = match profile {
@@ -437,8 +432,7 @@ fn collect_hardware_info() -> HardwareInfo {
         .unwrap_or_else(|| "Unknown CPU".to_string());
 
     // Get total RAM
-    let total_ram_mb = System::new_all()
-        .total_memory() / 1024 / 1024;
+    let total_ram_mb = System::new_all().total_memory() / 1024 / 1024;
 
     // Check for battery
     let has_battery = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
@@ -525,7 +519,12 @@ fn collect_disk_info() -> Vec<DiskInfo> {
 
 fn parse_size_to_mb(size_str: &str) -> u64 {
     let size_str = size_str.trim();
-    if let Ok(num_str) = size_str.chars().take_while(|c| c.is_numeric() || *c == '.').collect::<String>().parse::<f64>() {
+    if let Ok(num_str) = size_str
+        .chars()
+        .take_while(|c| c.is_numeric() || *c == '.')
+        .collect::<String>()
+        .parse::<f64>()
+    {
         if size_str.ends_with('G') {
             return (num_str * 1024.0) as u64;
         } else if size_str.ends_with('M') {
@@ -739,7 +738,7 @@ fn collect_network_info() -> NetworkInfo {
 
 fn collect_security_info() -> SecurityInfo {
     SecurityInfo {
-        failed_ssh_attempts: 0, // Would need journalctl parsing
+        failed_ssh_attempts: 0,      // Would need journalctl parsing
         auto_updates_enabled: false, // Would need to check specific services
         audit_warnings: Vec::new(),
     }

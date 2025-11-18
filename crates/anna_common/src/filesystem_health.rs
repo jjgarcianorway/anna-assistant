@@ -102,10 +102,9 @@ impl FilesystemHealth {
                 });
             }
             if !ext4.needs_fsck.is_empty() {
-                health.recommendations.push(format!(
-                    "Run fsck on: {}",
-                    ext4.needs_fsck.join(", ")
-                ));
+                health
+                    .recommendations
+                    .push(format!("Run fsck on: {}", ext4.needs_fsck.join(", ")));
             }
             health.ext4_status = Some(ext4);
         }
@@ -129,7 +128,9 @@ impl FilesystemHealth {
                     message: format!("XFS corruption detected on: {}", xfs.corruptions.join(", ")),
                     timestamp: None,
                 });
-                health.recommendations.push("Run xfs_repair on corrupted filesystems immediately".to_string());
+                health
+                    .recommendations
+                    .push("Run xfs_repair on corrupted filesystems immediately".to_string());
             }
             health.xfs_status = Some(xfs);
         }
@@ -144,13 +145,14 @@ impl FilesystemHealth {
                     message: format!("Degraded ZFS pools: {}", zfs.degraded_pools.join(", ")),
                     timestamp: None,
                 });
-                health.recommendations.push("Check degraded ZFS pools immediately and replace failed drives".to_string());
+                health.recommendations.push(
+                    "Check degraded ZFS pools immediately and replace failed drives".to_string(),
+                );
             }
             if !zfs.scrub_needed.is_empty() {
-                health.recommendations.push(format!(
-                    "Run ZFS scrub on: {}",
-                    zfs.scrub_needed.join(", ")
-                ));
+                health
+                    .recommendations
+                    .push(format!("Run ZFS scrub on: {}", zfs.scrub_needed.join(", ")));
             }
             health.zfs_status = Some(zfs);
         }
@@ -175,7 +177,10 @@ impl FilesystemHealth {
                         for pattern in &patterns {
                             if line.to_lowercase().contains(&pattern.to_lowercase()) {
                                 // Try to extract timestamp from dmesg -T output
-                                let timestamp = line.split(']').next().and_then(|s| s.strip_prefix('['))
+                                let timestamp = line
+                                    .split(']')
+                                    .next()
+                                    .and_then(|s| s.strip_prefix('['))
                                     .map(|s| s.to_string());
 
                                 self.detected_errors.push(FilesystemError {
@@ -199,7 +204,9 @@ impl FilesystemHealth {
     }
 
     pub fn has_critical_errors(&self) -> bool {
-        self.detected_errors.iter().any(|e| matches!(e.severity, ErrorSeverity::Critical))
+        self.detected_errors
+            .iter()
+            .any(|e| matches!(e.severity, ErrorSeverity::Critical))
     }
 
     pub fn health_score(&self) -> u8 {
@@ -298,11 +305,25 @@ fn check_ext4_filesystem(device: &str) -> Option<Ext4Filesystem> {
         let line = line.trim();
 
         if line.starts_with("Last checked:") {
-            fs.last_checked = Some(line.strip_prefix("Last checked:").unwrap_or("").trim().to_string());
+            fs.last_checked = Some(
+                line.strip_prefix("Last checked:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
+            );
         } else if line.starts_with("Check interval:") {
-            fs.check_interval = Some(line.strip_prefix("Check interval:").unwrap_or("").trim().to_string());
+            fs.check_interval = Some(
+                line.strip_prefix("Check interval:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
+            );
         } else if line.starts_with("Filesystem state:") {
-            fs.state = line.strip_prefix("Filesystem state:").unwrap_or("unknown").trim().to_string();
+            fs.state = line
+                .strip_prefix("Filesystem state:")
+                .unwrap_or("unknown")
+                .trim()
+                .to_string();
         } else if line.starts_with("Filesystem errors:") || line.starts_with("FS Error count:") {
             if let Some(count_str) = line.split(':').nth(1) {
                 fs.error_count = count_str.trim().parse().unwrap_or(0);
@@ -361,10 +382,7 @@ fn check_xfs_filesystem(device: &str) -> Option<XfsFilesystem> {
     // Use xfs_info to get filesystem information
     let mount_point = get_mount_point(device)?;
 
-    let output = Command::new("xfs_info")
-        .arg(&mount_point)
-        .output()
-        .ok()?;
+    let output = Command::new("xfs_info").arg(&mount_point).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -405,15 +423,17 @@ fn check_xfs_filesystem(device: &str) -> Option<XfsFilesystem> {
 
 fn detect_zfs_health() -> Option<ZfsStatus> {
     // Check if zpool command exists
-    if !Command::new("which").arg("zpool").output().ok()?.status.success() {
+    if !Command::new("which")
+        .arg("zpool")
+        .output()
+        .ok()?
+        .status
+        .success()
+    {
         return None;
     }
 
-    let output = Command::new("zpool")
-        .arg("list")
-        .arg("-H")
-        .output()
-        .ok()?;
+    let output = Command::new("zpool").arg("list").arg("-H").output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -430,12 +450,16 @@ fn detect_zfs_health() -> Option<ZfsStatus> {
             if let Some(pool_info) = check_zfs_pool(pool_name) {
                 if pool_info.state.to_lowercase().contains("degrad")
                     || pool_info.state.to_lowercase().contains("unavail")
-                    || pool_info.state.to_lowercase().contains("faulted") {
+                    || pool_info.state.to_lowercase().contains("faulted")
+                {
                     degraded_pools.push(pool_name.to_string());
                 }
 
-                if pool_info.last_scrub.is_none() || pool_info.errors_read > 0
-                    || pool_info.errors_write > 0 || pool_info.errors_cksum > 0 {
+                if pool_info.last_scrub.is_none()
+                    || pool_info.errors_read > 0
+                    || pool_info.errors_write > 0
+                    || pool_info.errors_cksum > 0
+                {
                     scrub_needed.push(pool_name.to_string());
                 }
 
@@ -484,9 +508,17 @@ fn check_zfs_pool(pool_name: &str) -> Option<ZfsPool> {
         let trimmed = line.trim();
 
         if trimmed.starts_with("state:") {
-            pool.state = trimmed.strip_prefix("state:").unwrap_or("").trim().to_string();
+            pool.state = trimmed
+                .strip_prefix("state:")
+                .unwrap_or("")
+                .trim()
+                .to_string();
         } else if trimmed.starts_with("status:") {
-            pool.status = trimmed.strip_prefix("status:").unwrap_or("").trim().to_string();
+            pool.status = trimmed
+                .strip_prefix("status:")
+                .unwrap_or("")
+                .trim()
+                .to_string();
         } else if trimmed.starts_with("errors:") {
             let error_info = trimmed.strip_prefix("errors:").unwrap_or("").trim();
             // Parse error counts if in "No known data errors" format or actual counts
@@ -546,15 +578,13 @@ mod tests {
             ext4_status: None,
             xfs_status: None,
             zfs_status: None,
-            detected_errors: vec![
-                FilesystemError {
-                    severity: ErrorSeverity::Warning,
-                    filesystem_type: "ext4".to_string(),
-                    device: "/dev/sda1".to_string(),
-                    message: "Test error".to_string(),
-                    timestamp: None,
-                },
-            ],
+            detected_errors: vec![FilesystemError {
+                severity: ErrorSeverity::Warning,
+                filesystem_type: "ext4".to_string(),
+                device: "/dev/sda1".to_string(),
+                message: "Test error".to_string(),
+                timestamp: None,
+            }],
             recommendations: Vec::new(),
         };
 

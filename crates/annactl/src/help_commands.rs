@@ -7,10 +7,10 @@
 // - Daemon availability
 // - Resource constraints
 
-use anyhow::Result;
 use anna_common::command_meta::{
     CommandCategory, CommandMetadata, CommandRegistry, DisplayContext, UserLevel,
 };
+use anyhow::Result;
 use owo_colors::OwoColorize;
 
 /// Display adaptive help based on context
@@ -96,7 +96,12 @@ fn display_general_help(
     show_all: bool,
 ) -> Result<()> {
     println!();
-    println!("{}", "Anna Assistant - Arch Linux System Administration".bold().cyan());
+    println!(
+        "{}",
+        "Anna Assistant - Arch Linux System Administration"
+            .bold()
+            .cyan()
+    );
     println!("{}", "=".repeat(60));
     println!();
 
@@ -149,7 +154,10 @@ fn display_general_help(
 
     if !advanced.is_empty() {
         println!("{}", "🟡 Advanced Commands".bold().yellow());
-        println!("  {}", "System administration - requires knowledge".dimmed());
+        println!(
+            "  {}",
+            "System administration - requires knowledge".dimmed()
+        );
         println!();
         display_command_list(&advanced, &context)?;
         println!();
@@ -179,10 +187,16 @@ fn display_context_info(context: &DisplayContext) -> Result<()> {
         println!("  Daemon:       {}", "available".green());
     } else {
         println!("  Daemon:       {}", "unavailable".red());
-        println!("  {}", "  (Some commands require daemon to be running)".dimmed());
+        println!(
+            "  {}",
+            "  (Some commands require daemon to be running)".dimmed()
+        );
     }
 
-    println!("  System State: {}", format_system_state(&context.system_state));
+    println!(
+        "  System State: {}",
+        format_system_state(&context.system_state)
+    );
 
     if context.is_constrained {
         println!("  Resources:    {}", "constrained".yellow());
@@ -204,7 +218,11 @@ fn display_command_list(commands: &[&&CommandMetadata], context: &DisplayContext
 
         // Highlight if relevant to current state
         if cmd.is_highlighted(context) {
-            println!("{} {}", format!("{} ⭐", name).bold().yellow(), cmd.description_short);
+            println!(
+                "{} {}",
+                format!("{} ⭐", name).bold().yellow(),
+                cmd.description_short
+            );
         } else {
             println!("{} {}", name, cmd.description_short);
         }
@@ -323,9 +341,7 @@ pub async fn detect_system_state(socket_path: Option<&str>) -> String {
 
     // Query status
     match client.sentinel_status().await {
-        Ok(anna_common::ipc::ResponseData::SentinelStatus(status)) => {
-            status.system_state
-        }
+        Ok(anna_common::ipc::ResponseData::SentinelStatus(status)) => status.system_state,
         _ => "unknown".to_string(),
     }
 }

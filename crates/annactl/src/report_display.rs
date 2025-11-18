@@ -3,17 +3,17 @@
 //! Phase 5.1: Conversational UX
 //! Create reports suitable for managers or documentation
 
+use crate::rpc_client::RpcClient;
 use anna_common::display::UI;
 use anna_common::ipc::{Method, ResponseData};
 use chrono::Local;
-use crate::rpc_client::RpcClient;
 
 /// Generate a professional system report using actual system data
-pub fn generate_professional_report() {
+pub async fn generate_professional_report() {
     let ui = UI::auto();
 
     // Fetch real system facts from daemon
-    let facts = match fetch_system_facts() {
+    let facts = match fetch_system_facts().await {
         Some(f) => f,
         None => {
             ui.error("Unable to fetch system data from daemon");
@@ -23,7 +23,10 @@ pub fn generate_professional_report() {
 
     println!();
     ui.section_header("📋", "System Report");
-    ui.info(&format!("Generated: {}", Local::now().format("%Y-%m-%d %H:%M:%S")));
+    ui.info(&format!(
+        "Generated: {}",
+        Local::now().format("%Y-%m-%d %H:%M:%S")
+    ));
     ui.info(&format!("Machine: {}", facts.hostname));
     println!();
 
@@ -36,7 +39,8 @@ pub fn generate_professional_report() {
         "functioning well"
     };
 
-    ui.info(&format!("This {} workstation ({}) is {}.",
+    ui.info(&format!(
+        "This {} workstation ({}) is {}.",
         if facts.desktop_environment.is_some() || facts.window_manager.is_some() {
             "desktop"
         } else {
@@ -86,8 +90,11 @@ pub fn generate_professional_report() {
 
     if !facts.storage_devices.is_empty() {
         let total_storage: f64 = facts.storage_devices.iter().map(|d| d.size_gb).sum();
-        hw_info.push(format!("Storage: {:.0} GB total across {} device(s)",
-            total_storage, facts.storage_devices.len()));
+        hw_info.push(format!(
+            "Storage: {:.0} GB total across {} device(s)",
+            total_storage,
+            facts.storage_devices.len()
+        ));
     }
 
     ui.bullet_list(&hw_info.iter().map(|s| s.as_str()).collect::<Vec<_>>());
@@ -112,8 +119,10 @@ pub fn generate_professional_report() {
     if facts.failed_services.is_empty() {
         ui.success("Overall Status: Healthy - No failed services");
     } else {
-        ui.warning(&format!("Overall Status: {} failed service(s) detected",
-            facts.failed_services.len()));
+        ui.warning(&format!(
+            "Overall Status: {} failed service(s) detected",
+            facts.failed_services.len()
+        ));
 
         ui.info("Failed Services:");
         for service in &facts.failed_services {
@@ -128,25 +137,37 @@ pub fn generate_professional_report() {
     // Disk space
     for disk in &facts.storage_devices {
         let usage_pct = (disk.used_gb / disk.size_gb) * 100.0;
-        let status = if usage_pct > 90.0 { "⚠️  CRITICAL" }
-                    else if usage_pct > 80.0 { "⚠️  Warning" }
-                    else { "✓ Good" };
-        resources.push(format!("{}: {:.1}/{:.1} GB ({:.0}%) - {}",
-            disk.mount_point, disk.used_gb, disk.size_gb, usage_pct, status));
+        let status = if usage_pct > 90.0 {
+            "⚠️  CRITICAL"
+        } else if usage_pct > 80.0 {
+            "⚠️  Warning"
+        } else {
+            "✓ Good"
+        };
+        resources.push(format!(
+            "{}: {:.1}/{:.1} GB ({:.0}%) - {}",
+            disk.mount_point, disk.used_gb, disk.size_gb, usage_pct, status
+        ));
     }
 
     // Boot time
     if let Some(boot_time) = facts.boot_time_seconds {
-        let status = if boot_time > 60.0 { "⚠️  Slow" }
-                    else if boot_time > 30.0 { "Moderate" }
-                    else { "✓ Fast" };
+        let status = if boot_time > 60.0 {
+            "⚠️  Slow"
+        } else if boot_time > 30.0 {
+            "Moderate"
+        } else {
+            "✓ Fast"
+        };
         resources.push(format!("Boot Time: {:.1}s - {}", boot_time, status));
     }
 
     // Package cache
     if facts.package_cache_size_gb > 5.0 {
-        resources.push(format!("Package Cache: {:.1} GB - Consider cleanup",
-            facts.package_cache_size_gb));
+        resources.push(format!(
+            "Package Cache: {:.1} GB - Consider cleanup",
+            facts.package_cache_size_gb
+        ));
     }
 
     ui.bullet_list(&resources.iter().map(|s| s.as_str()).collect::<Vec<_>>());
@@ -155,7 +176,13 @@ pub fn generate_professional_report() {
     // Dev Tools
     if !facts.dev_tools_detected.is_empty() {
         ui.info("Development Tools Detected:");
-        ui.bullet_list(&facts.dev_tools_detected.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        ui.bullet_list(
+            &facts
+                .dev_tools_detected
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>(),
+        );
         println!();
     }
 
@@ -171,8 +198,10 @@ pub fn generate_professional_report() {
     for disk in &facts.storage_devices {
         let usage_pct = (disk.used_gb / disk.size_gb) * 100.0;
         if usage_pct > 80.0 {
-            recommendations.push(format!("Free up space on {} ({:.0}% full)",
-                disk.mount_point, usage_pct));
+            recommendations.push(format!(
+                "Free up space on {} ({:.0}% full)",
+                disk.mount_point, usage_pct
+            ));
         }
     }
 
@@ -181,8 +210,10 @@ pub fn generate_professional_report() {
     }
 
     if !facts.orphan_packages.is_empty() {
-        recommendations.push(format!("Review {} orphaned packages",
-            facts.orphan_packages.len()));
+        recommendations.push(format!(
+            "Review {} orphaned packages",
+            facts.orphan_packages.len()
+        ));
     }
 
     if !facts.slow_services.is_empty() {
@@ -210,12 +241,10 @@ pub fn generate_professional_report() {
 }
 
 /// Fetch system facts from daemon
-fn fetch_system_facts() -> Option<anna_common::types::SystemFacts> {
-    tokio::runtime::Runtime::new().ok()?.block_on(async {
-        let mut rpc = RpcClient::connect().await.ok()?;
-        match rpc.call(Method::GetFacts).await {
-            Ok(ResponseData::Facts(facts)) => Some(facts),
-            _ => None,
-        }
-    })
+async fn fetch_system_facts() -> Option<anna_common::types::SystemFacts> {
+    let mut rpc = RpcClient::connect().await.ok()?;
+    match rpc.call(Method::GetFacts).await {
+        Ok(ResponseData::Facts(facts)) => Some(facts),
+        _ => None,
+    }
 }

@@ -4,8 +4,8 @@
 //! Citation: [archwiki:System_maintenance]
 
 use super::types::{
-    ContextMetrics, ResonanceAdjustment, ResonanceMap, SentimentAnalysis,
-    StakeholderImpact, StakeholderImpacts,
+    ContextMetrics, ResonanceAdjustment, ResonanceMap, SentimentAnalysis, StakeholderImpact,
+    StakeholderImpacts,
 };
 use crate::sentinel::SentinelAction;
 use chrono::Utc;
@@ -56,7 +56,8 @@ impl ResonanceMapper {
             },
 
             SentinelAction::RestartService { service } => {
-                let disruption_score = if service.contains("display") || service.contains("desktop") {
+                let disruption_score = if service.contains("display") || service.contains("desktop")
+                {
                     0.7 // High disruption for display services
                 } else if service.contains("network") {
                     0.5 // Moderate disruption for network
@@ -251,7 +252,10 @@ impl ResonanceMapper {
                 timestamp: Utc::now(),
                 stakeholder: "user".to_string(),
                 delta: user_delta,
-                reason: format!("Impact: {:.2}, Sentiment: {:.2}", impacts.user.score, sentiment.sentiment_score),
+                reason: format!(
+                    "Impact: {:.2}, Sentiment: {:.2}",
+                    impacts.user.score, sentiment.sentiment_score
+                ),
             });
         }
 
@@ -263,7 +267,8 @@ impl ResonanceMapper {
         );
 
         if system_delta.abs() > 0.01 {
-            self.map.system_resonance = (self.map.system_resonance + system_delta).max(0.0).min(1.0);
+            self.map.system_resonance =
+                (self.map.system_resonance + system_delta).max(0.0).min(1.0);
             self.map.recent_adjustments.push(ResonanceAdjustment {
                 timestamp: Utc::now(),
                 stakeholder: "system".to_string(),
@@ -280,7 +285,9 @@ impl ResonanceMapper {
         );
 
         if env_delta.abs() > 0.01 {
-            self.map.environment_resonance = (self.map.environment_resonance + env_delta).max(0.0).min(1.0);
+            self.map.environment_resonance = (self.map.environment_resonance + env_delta)
+                .max(0.0)
+                .min(1.0);
             self.map.recent_adjustments.push(ResonanceAdjustment {
                 timestamp: Utc::now(),
                 stakeholder: "environment".to_string(),
@@ -291,9 +298,10 @@ impl ResonanceMapper {
 
         // Keep only recent adjustments (last 100)
         if self.map.recent_adjustments.len() > 100 {
-            self.map.recent_adjustments = self.map.recent_adjustments.split_off(
-                self.map.recent_adjustments.len() - 100
-            );
+            self.map.recent_adjustments = self
+                .map
+                .recent_adjustments
+                .split_off(self.map.recent_adjustments.len() - 100);
         }
     }
 

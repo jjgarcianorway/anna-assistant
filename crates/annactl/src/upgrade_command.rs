@@ -3,7 +3,7 @@
 //
 // Handles checking for updates, downloading, verifying, and installing new versions
 
-use anna_common::github_releases::{GitHubClient, is_update_available};
+use anna_common::github_releases::{is_update_available, GitHubClient};
 use anna_common::installation_source::{detect_current_installation, InstallationSource};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -57,7 +57,10 @@ pub async fn execute_upgrade_command(auto_yes: bool, check_only: bool) -> Result
         return Ok(());
     }
 
-    println!("🆕 Update available: v{} → v{}", current_version, latest_version);
+    println!(
+        "🆕 Update available: v{} → v{}",
+        current_version, latest_version
+    );
     println!();
 
     if check_only {
@@ -102,9 +105,15 @@ pub async fn execute_upgrade_command(auto_yes: bool, check_only: bool) -> Result
     let annad_path = temp_dir.join("annad");
     let checksum_path = temp_dir.join("SHA256SUMS");
 
-    client.download_asset(annactl_asset, &annactl_path.to_string_lossy()).await?;
-    client.download_asset(annad_asset, &annad_path.to_string_lossy()).await?;
-    client.download_asset(checksum_asset, &checksum_path.to_string_lossy()).await?;
+    client
+        .download_asset(annactl_asset, &annactl_path.to_string_lossy())
+        .await?;
+    client
+        .download_asset(annad_asset, &annad_path.to_string_lossy())
+        .await?;
+    client
+        .download_asset(checksum_asset, &checksum_path.to_string_lossy())
+        .await?;
 
     println!("✅ Downloaded binaries");
 
@@ -280,9 +289,7 @@ fn install_binaries(annactl_src: &Path, annad_src: &Path) -> Result<()> {
 
 /// Stop daemon before upgrade
 fn stop_daemon() -> Result<()> {
-    let output = Command::new("systemctl")
-        .args(["stop", "annad"])
-        .output()?;
+    let output = Command::new("systemctl").args(["stop", "annad"]).output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

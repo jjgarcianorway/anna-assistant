@@ -61,13 +61,9 @@ impl RemediationEngine {
 
         // Apply based on type
         match &action.remediation_type {
-            RemediationType::ParameterReweight => {
-                self.apply_parameter_reweight(action).await
-            }
+            RemediationType::ParameterReweight => self.apply_parameter_reweight(action).await,
             RemediationType::TrustReset => self.apply_trust_reset(action).await,
-            RemediationType::ConscienceAdjustment => {
-                self.apply_conscience_adjustment(action).await
-            }
+            RemediationType::ConscienceAdjustment => self.apply_conscience_adjustment(action).await,
             RemediationType::PatternRetrain => self.apply_pattern_retrain(action).await,
             RemediationType::ManualReview => Ok(RemediationResult {
                 action_id: action.id.clone(),
@@ -331,10 +327,7 @@ mod tests {
             target_node: "all".to_string(),
             remediation_type: RemediationType::ParameterReweight,
             description: "Test".to_string(),
-            parameter_adjustments: [("test_param".to_string(), 0.5)]
-                .iter()
-                .cloned()
-                .collect(),
+            parameter_adjustments: [("test_param".to_string(), 0.5)].iter().cloned().collect(),
             expected_impact: "Test".to_string(),
         };
 
@@ -346,10 +339,7 @@ mod tests {
             target_node: "all".to_string(),
             remediation_type: RemediationType::ParameterReweight,
             description: "Test".to_string(),
-            parameter_adjustments: [("test_param".to_string(), 1.5)]
-                .iter()
-                .cloned()
-                .collect(),
+            parameter_adjustments: [("test_param".to_string(), 1.5)].iter().cloned().collect(),
             expected_impact: "Test".to_string(),
         };
 

@@ -34,9 +34,7 @@ impl LlmCapability {
             LlmCapability::Medium => {
                 "Your machine can run a local language model, though it may be slower"
             }
-            LlmCapability::Low => {
-                "Your machine has limited resources - a local model may struggle"
-            }
+            LlmCapability::Low => "Your machine has limited resources - a local model may struggle",
         }
     }
 

@@ -66,11 +66,7 @@ impl SyncManager {
             return 0.0;
         }
 
-        let sum: f64 = self
-            .empathy_states
-            .values()
-            .map(|s| s.empathy_index)
-            .sum();
+        let sum: f64 = self.empathy_states.values().map(|s| s.empathy_index).sum();
 
         sum / self.empathy_states.len() as f64
     }
@@ -81,11 +77,7 @@ impl SyncManager {
             return 0.0;
         }
 
-        let sum: f64 = self
-            .empathy_states
-            .values()
-            .map(|s| s.strain_index)
-            .sum();
+        let sum: f64 = self.empathy_states.values().map(|s| s.strain_index).sum();
 
         sum / self.empathy_states.len() as f64
     }
@@ -222,8 +214,8 @@ impl Default for SyncManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
     use approx::assert_relative_eq;
+    use chrono::Utc;
 
     #[test]
     fn test_sync_manager_creation() {
@@ -277,7 +269,11 @@ mod tests {
 
         assert_relative_eq!(manager.calculate_network_empathy(), 0.7, epsilon = 1e-10);
         assert_relative_eq!(manager.calculate_network_strain(), 0.3, epsilon = 1e-10);
-        assert_relative_eq!(manager.calculate_network_resonance("user"), 0.8, epsilon = 1e-10);
+        assert_relative_eq!(
+            manager.calculate_network_resonance("user"),
+            0.8,
+            epsilon = 1e-10
+        );
     }
 
     #[test]

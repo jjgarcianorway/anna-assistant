@@ -173,9 +173,7 @@ impl GossipEngine {
                 verify_signature(&payload, signature, &peer_info.public_key)
             }
             GossipMessage::Heartbeat {
-                peer_id,
-                signature,
-                ..
+                peer_id, signature, ..
             } => {
                 let payload = format!("{}", peer_id);
                 verify_signature(&payload, signature, "placeholder_key")

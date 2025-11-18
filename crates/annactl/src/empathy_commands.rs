@@ -49,7 +49,12 @@ pub async fn execute_empathy_pulse_command() -> Result<()> {
                     data.recent_perceptions.len()
                 );
                 for (i, perception) in data.recent_perceptions.iter().enumerate() {
-                    println!("\n  {}. {} - {}", i + 1, perception.timestamp, perception.action);
+                    println!(
+                        "\n  {}. {} - {}",
+                        i + 1,
+                        perception.timestamp,
+                        perception.action
+                    );
 
                     println!("     Impacts:");
                     println!(

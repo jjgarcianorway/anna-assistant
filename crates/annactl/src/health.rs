@@ -6,8 +6,8 @@
 //! - annactl status (diagnostic report)
 //! - annad periodic checks (self-healing)
 
-use anyhow::{Context, Result};
 use anna_common::terminal_format as fmt;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use std::process::Command;
 
@@ -119,7 +119,8 @@ impl HealthReport {
                 let updated_llm = check_llm_health().await?;
                 let updated_permissions = check_permissions_health()?;
 
-                report.status = determine_status(&updated_daemon, &updated_llm, &updated_permissions);
+                report.status =
+                    determine_status(&updated_daemon, &updated_llm, &updated_permissions);
                 report.daemon = updated_daemon;
                 report.llm = updated_llm;
                 report.permissions = updated_permissions;
@@ -154,7 +155,11 @@ impl HealthReport {
 }
 
 /// Determine overall health status based on components
-fn determine_status(daemon: &DaemonHealth, llm: &LlmHealth, permissions: &PermissionsHealth) -> HealthStatus {
+fn determine_status(
+    daemon: &DaemonHealth,
+    llm: &LlmHealth,
+    permissions: &PermissionsHealth,
+) -> HealthStatus {
     if !daemon.running || !llm.reachable {
         HealthStatus::Broken
     } else if !daemon.enabled || !llm.model_available || !permissions.user_in_groups {
@@ -204,12 +209,24 @@ async fn check_llm_health() -> Result<LlmHealth> {
                 false
             };
 
-            ("Ollama".to_string(), ollama_running, reachable, model, model_available)
+            (
+                "Ollama".to_string(),
+                ollama_running,
+                reachable,
+                model,
+                model_available,
+            )
         }
         LlmMode::Remote => {
             // Check remote API
             let reachable = config.base_url.is_some();
-            ("Remote API".to_string(), true, reachable, config.model.clone(), reachable)
+            (
+                "Remote API".to_string(),
+                true,
+                reachable,
+                config.model.clone(),
+                reachable,
+            )
         }
         LlmMode::NotConfigured | LlmMode::Disabled => {
             ("None".to_string(), false, false, None, false)
@@ -321,9 +338,7 @@ async fn check_ollama_reachable() -> bool {
 
 /// Check if a specific model is available in Ollama
 async fn check_ollama_model_available(model: &str) -> bool {
-    let output = Command::new("ollama")
-        .args(["list"])
-        .output();
+    let output = Command::new("ollama").args(["list"]).output();
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -345,7 +360,9 @@ async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
         .unwrap_or(false);
 
     if !network_ok {
-        return Err(anyhow::anyhow!("Network unavailable - cannot download LLM components"));
+        return Err(anyhow::anyhow!(
+            "Network unavailable - cannot download LLM components"
+        ));
     }
 
     if llm.backend == "Ollama" || llm.backend == "None" {
@@ -389,13 +406,15 @@ async fn repair_llm_backend(llm: &LlmHealth) -> Result<String> {
 
             // Detect hardware to select appropriate model
             let ram_gb = get_system_ram_gb();
-            let model = if ram_gb >= 8 { "llama3.2:3b" } else { "llama3.2:1b" };
+            let model = if ram_gb >= 8 {
+                "llama3.2:3b"
+            } else {
+                "llama3.2:1b"
+            };
 
             actions.push(format!("Downloading {}...", model));
 
-            let pull_result = Command::new("ollama")
-                .args(["pull", model])
-                .status();
+            let pull_result = Command::new("ollama").args(["pull", model]).status();
 
             if !pull_result.map(|s| s.success()).unwrap_or(false) {
                 return Err(anyhow::anyhow!("Failed to download model {}", model));
@@ -456,9 +475,7 @@ fn check_group_exists(group: &str) -> bool {
 
 /// Check if user is in a group
 fn check_user_in_group(user: &str, group: &str) -> bool {
-    let output = Command::new("id")
-        .args(["-nG", user])
-        .output();
+    let output = Command::new("id").args(["-nG", user]).output();
 
     if let Ok(output) = output {
         let groups = String::from_utf8_lossy(&output.stdout);
@@ -487,9 +504,12 @@ fn check_data_dir_permissions() -> bool {
 fn get_recent_journal_errors() -> Result<Vec<String>> {
     let output = Command::new("journalctl")
         .args([
-            "-u", "annad",
-            "-p", "warning..alert",
-            "-n", "5",
+            "-u",
+            "annad",
+            "-p",
+            "warning..alert",
+            "-n",
+            "5",
             "--no-pager",
             "--output=cat",
         ])

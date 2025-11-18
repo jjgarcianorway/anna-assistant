@@ -3,9 +3,9 @@
 //! Detects the current desktop environment and session type to enable
 //! context-aware automation (wallpapers, configs, etc.)
 
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 
 /// Desktop environment type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,9 +88,9 @@ impl DesktopEnvironment {
             Self::Hyprland => Some("hyprland.conf"),
             Self::I3 => Some("config"),
             Self::Sway => Some("config"),
-            Self::Kde => None, // KDE uses many config files
+            Self::Kde => None,   // KDE uses many config files
             Self::Gnome => None, // GNOME uses dconf/gsettings
-            Self::Xfce => None, // Xfce uses many XML files
+            Self::Xfce => None,  // Xfce uses many XML files
             _ => None,
         }
     }

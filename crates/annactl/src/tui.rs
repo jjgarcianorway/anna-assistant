@@ -82,7 +82,8 @@ impl TuiApp {
     fn handle_key(&mut self, key: KeyCode, modifiers: KeyModifiers) {
         match (key, modifiers) {
             // Quit
-            (KeyCode::Char('c'), KeyModifiers::CONTROL) | (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('c'), KeyModifiers::CONTROL)
+            | (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
                 self.should_quit = true;
             }
 
@@ -96,7 +97,10 @@ impl TuiApp {
 
                     // TODO: Send to LLM and get response
                     // For now, just echo back
-                    self.add_message(MessageRole::Assistant, "TUI REPL is under construction. Full implementation coming soon!");
+                    self.add_message(
+                        MessageRole::Assistant,
+                        "TUI REPL is under construction. Full implementation coming soon!",
+                    );
                 }
             }
 
@@ -192,7 +196,7 @@ pub fn run() -> Result<()> {
          - Message streaming\n\
          - Syntax highlighting\n\
          - Command history\n\
-         - And more!"
+         - And more!",
     );
 
     // Run app
@@ -234,9 +238,9 @@ fn ui(f: &mut Frame, app: &TuiApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1),      // Messages area
-            Constraint::Length(3),   // Input area
-            Constraint::Length(1),   // Status bar
+            Constraint::Min(1),    // Messages area
+            Constraint::Length(3), // Input area
+            Constraint::Length(1), // Status bar
         ])
         .split(f.size());
 
@@ -269,13 +273,12 @@ fn render_messages(f: &mut Frame, app: &TuiApp, area: Rect) {
         })
         .collect();
 
-    let messages_list = List::new(messages)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Conversation")
-                .style(Style::default()),
-        );
+    let messages_list = List::new(messages).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Conversation")
+            .style(Style::default()),
+    );
 
     f.render_widget(messages_list, area);
 }
@@ -297,7 +300,7 @@ fn render_input(f: &mut Frame, app: &TuiApp, area: Rect) {
     // Show cursor
     f.set_cursor(
         area.x + app.cursor_pos as u16 + 1, // +1 for border
-        area.y + 1, // +1 for border
+        area.y + 1,                         // +1 for border
     );
 }
 

@@ -57,13 +57,22 @@ fn confidence_indicator(confidence: f64) -> &'static str {
 pub fn explain_decision(decision: &ConscienceDecision) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!("╔═══════════════════════════════════════════════════════════╗\n"));
-    output.push_str(&format!("║ CONSCIENCE DECISION REPORT                                ║\n"));
-    output.push_str(&format!("╚═══════════════════════════════════════════════════════════╝\n\n"));
+    output.push_str(&format!(
+        "╔═══════════════════════════════════════════════════════════╗\n"
+    ));
+    output.push_str(&format!(
+        "║ CONSCIENCE DECISION REPORT                                ║\n"
+    ));
+    output.push_str(&format!(
+        "╚═══════════════════════════════════════════════════════════╝\n\n"
+    ));
 
     // Decision metadata
     output.push_str(&format!("Decision ID: {}\n", decision.id));
-    output.push_str(&format!("Timestamp:   {}\n", format_timestamp(&decision.timestamp)));
+    output.push_str(&format!(
+        "Timestamp:   {}\n",
+        format_timestamp(&decision.timestamp)
+    ));
     output.push_str(&format!("Action:      {:?}\n\n", decision.action));
 
     // Outcome
@@ -89,16 +98,37 @@ pub fn explain_decision(decision: &ConscienceDecision) -> String {
 
     // Ethical evaluation
     output.push_str(&format!("ETHICAL EVALUATION:\n"));
-    output.push_str(&format!("  Overall Score: {:.1}%\n", decision.ethical_score.overall() * 100.0));
-    output.push_str(&format!("  Safety:        {:.1}%\n", decision.ethical_score.safety * 100.0));
-    output.push_str(&format!("  Privacy:       {:.1}%\n", decision.ethical_score.privacy * 100.0));
-    output.push_str(&format!("  Integrity:     {:.1}%\n", decision.ethical_score.integrity * 100.0));
-    output.push_str(&format!("  Autonomy:      {:.1}%\n\n", decision.ethical_score.autonomy * 100.0));
+    output.push_str(&format!(
+        "  Overall Score: {:.1}%\n",
+        decision.ethical_score.overall() * 100.0
+    ));
+    output.push_str(&format!(
+        "  Safety:        {:.1}%\n",
+        decision.ethical_score.safety * 100.0
+    ));
+    output.push_str(&format!(
+        "  Privacy:       {:.1}%\n",
+        decision.ethical_score.privacy * 100.0
+    ));
+    output.push_str(&format!(
+        "  Integrity:     {:.1}%\n",
+        decision.ethical_score.integrity * 100.0
+    ));
+    output.push_str(&format!(
+        "  Autonomy:      {:.1}%\n\n",
+        decision.ethical_score.autonomy * 100.0
+    ));
 
     // Confidence
     output.push_str(&format!("CONFIDENCE:\n"));
-    output.push_str(&format!("  Decision Confidence: {:.1}%\n", decision.confidence * 100.0));
-    output.push_str(&format!("  Uncertainty:         {:.1}%\n\n", (1.0 - decision.confidence) * 100.0));
+    output.push_str(&format!(
+        "  Decision Confidence: {:.1}%\n",
+        decision.confidence * 100.0
+    ));
+    output.push_str(&format!(
+        "  Uncertainty:         {:.1}%\n\n",
+        (1.0 - decision.confidence) * 100.0
+    ));
 
     // Reasoning tree
     output.push_str(&format!("REASONING:\n"));
@@ -111,11 +141,19 @@ pub fn explain_decision(decision: &ConscienceDecision) -> String {
         output.push_str(&format!("  Plan ID:     {}\n", plan.id));
         output.push_str(&format!("  Description: {}\n", plan.description));
         output.push_str(&format!("  Est. Time:   {}s\n", plan.estimated_time));
-        output.push_str(&format!("  Backups:     {} paths\n", plan.backup_paths.len()));
-        output.push_str(&format!("  Checksums:   {} files\n\n", plan.checksums.len()));
+        output.push_str(&format!(
+            "  Backups:     {} paths\n",
+            plan.backup_paths.len()
+        ));
+        output.push_str(&format!(
+            "  Checksums:   {} files\n\n",
+            plan.checksums.len()
+        ));
     }
 
-    output.push_str(&format!("───────────────────────────────────────────────────────────\n"));
+    output.push_str(&format!(
+        "───────────────────────────────────────────────────────────\n"
+    ));
 
     output
 }
@@ -169,7 +207,11 @@ fn visualize_node(node: &ReasoningNode, prefix: &str, is_last: bool) -> String {
 
     for (i, evidence) in node.evidence.iter().enumerate() {
         let is_last_evidence = i == node.evidence.len() - 1 && node.children.is_empty();
-        let ev_connector = if is_last_evidence { "└─ " } else { "├─ " };
+        let ev_connector = if is_last_evidence {
+            "└─ "
+        } else {
+            "├─ "
+        };
         output.push_str(&format!("{}{}• {}\n", new_prefix, ev_connector, evidence));
     }
 
@@ -187,11 +229,7 @@ fn confidence_bar(confidence: f64) -> String {
     let filled = (confidence * 10.0) as usize;
     let empty = 10 - filled;
 
-    format!(
-        "{}{}",
-        "█".repeat(filled),
-        "░".repeat(empty)
-    )
+    format!("{}{}", "█".repeat(filled), "░".repeat(empty))
 }
 
 /// Format list of pending actions
@@ -202,26 +240,48 @@ pub fn format_pending_actions(actions: &[super::types::PendingAction]) -> String
 
     let mut output = String::new();
 
-    output.push_str(&format!("╔═══════════════════════════════════════════════════════════╗\n"));
-    output.push_str(&format!("║ PENDING ACTIONS REQUIRING REVIEW                          ║\n"));
-    output.push_str(&format!("╚═══════════════════════════════════════════════════════════╝\n\n"));
+    output.push_str(&format!(
+        "╔═══════════════════════════════════════════════════════════╗\n"
+    ));
+    output.push_str(&format!(
+        "║ PENDING ACTIONS REQUIRING REVIEW                          ║\n"
+    ));
+    output.push_str(&format!(
+        "╚═══════════════════════════════════════════════════════════╝\n\n"
+    ));
 
     for (i, action) in actions.iter().enumerate() {
         output.push_str(&format!("{}. ID: {}\n", i + 1, action.id));
-        output.push_str(&format!("   Time:        {}\n", format_timestamp(&action.timestamp)));
+        output.push_str(&format!(
+            "   Time:        {}\n",
+            format_timestamp(&action.timestamp)
+        ));
         output.push_str(&format!("   Action:      {:?}\n", action.action));
-        output.push_str(&format!("   Uncertainty: {:.1}%\n", action.uncertainty * 100.0));
-        output.push_str(&format!("   Ethical:     {:.1}%\n", action.ethical_score.overall() * 100.0));
+        output.push_str(&format!(
+            "   Uncertainty: {:.1}%\n",
+            action.uncertainty * 100.0
+        ));
+        output.push_str(&format!(
+            "   Ethical:     {:.1}%\n",
+            action.ethical_score.overall() * 100.0
+        ));
         output.push_str(&format!("   Reason:      {}\n", action.flag_reason));
-        output.push_str(&format!("   Weakest Dim: {} ({:.1}%)\n\n",
+        output.push_str(&format!(
+            "   Weakest Dim: {} ({:.1}%)\n\n",
             action.ethical_score.weakest_dimension(),
             action.ethical_score.min_score() * 100.0
         ));
     }
 
-    output.push_str(&format!("Use 'annactl conscience explain <id>' for detailed reasoning.\n"));
-    output.push_str(&format!("Use 'annactl conscience approve <id>' to approve an action.\n"));
-    output.push_str(&format!("Use 'annactl conscience reject <id>' to reject an action.\n"));
+    output.push_str(&format!(
+        "Use 'annactl conscience explain <id>' for detailed reasoning.\n"
+    ));
+    output.push_str(&format!(
+        "Use 'annactl conscience approve <id>' to approve an action.\n"
+    ));
+    output.push_str(&format!(
+        "Use 'annactl conscience reject <id>' to reject an action.\n"
+    ));
 
     output
 }

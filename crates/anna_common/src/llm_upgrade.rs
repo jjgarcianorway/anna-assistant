@@ -83,11 +83,7 @@ pub async fn get_and_clear_pending_upgrade(
         let parts: Vec<&str> = suggestion.split('|').collect();
         if parts.len() == 3 {
             if let Ok(size_gb) = parts[2].parse::<f64>() {
-                return Ok(Some((
-                    parts[0].to_string(),
-                    parts[1].to_string(),
-                    size_gb,
-                )));
+                return Ok(Some((parts[0].to_string(), parts[1].to_string(), size_gb)));
             }
         }
     }

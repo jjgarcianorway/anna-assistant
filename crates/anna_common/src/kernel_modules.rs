@@ -410,19 +410,16 @@ fn detect_installed_kernels(current_kernel: &str) -> Vec<InstalledKernel> {
     }
 
     // Method 2: Check pacman for installed kernel packages
-    if let Ok(output) = Command::new("pacman")
-        .args(["-Q"])
-        .output()
-    {
+    if let Ok(output) = Command::new("pacman").args(["-Q"]).output() {
         if output.status.success() {
             let packages = String::from_utf8_lossy(&output.stdout);
             for line in packages.lines() {
                 if let Some((pkg_name, version)) = line.split_once(' ') {
                     if is_kernel_package(pkg_name) {
                         // Try to find matching kernel in existing list
-                        let found = kernels.iter_mut().find(|k| {
-                            k.version.contains(&extract_version_from_package(version))
-                        });
+                        let found = kernels
+                            .iter_mut()
+                            .find(|k| k.version.contains(&extract_version_from_package(version)));
 
                         if let Some(kernel) = found {
                             kernel.package_name = Some(pkg_name.to_string());
@@ -736,7 +733,9 @@ fn detect_systemd_boot_entries() -> Vec<BootEntry> {
             if let Some(ext) = entry.path().extension() {
                 if ext == "conf" {
                     if let Ok(content) = fs::read_to_string(entry.path()) {
-                        if let Some(boot_entry) = parse_systemd_boot_entry(&content, &entry.file_name().to_string_lossy()) {
+                        if let Some(boot_entry) =
+                            parse_systemd_boot_entry(&content, &entry.file_name().to_string_lossy())
+                        {
                             entries.push(boot_entry);
                         }
                     }

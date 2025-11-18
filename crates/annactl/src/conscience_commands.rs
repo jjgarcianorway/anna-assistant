@@ -39,7 +39,11 @@ pub async fn execute_conscience_review_command(
                     println!("   Uncertainty: {:.1}%", action.uncertainty * 100.0);
                     println!("   Ethical:     {:.1}%", action.ethical_score * 100.0);
                     println!("   Reason:      {}", action.flag_reason);
-                    println!("   Weakest Dim: {} ({:.1}%)", action.weakest_dimension, action.ethical_score * 100.0);
+                    println!(
+                        "   Weakest Dim: {} ({:.1}%)",
+                        action.weakest_dimension,
+                        action.ethical_score * 100.0
+                    );
                     println!();
                 }
 
@@ -90,7 +94,10 @@ pub async fn execute_conscience_explain_command(
 
             println!("CONFIDENCE:");
             println!("  Decision Confidence: {:.1}%", data.confidence * 100.0);
-            println!("  Uncertainty:         {:.1}%", (1.0 - data.confidence) * 100.0);
+            println!(
+                "  Uncertainty:         {:.1}%",
+                (1.0 - data.confidence) * 100.0
+            );
             println!();
 
             println!("REASONING:");
@@ -181,7 +188,10 @@ pub async fn execute_conscience_introspect_command(
             println!();
 
             println!("QUALITY METRICS:");
-            println!("  Avg Ethical Score: {:.1}%", data.avg_ethical_score * 100.0);
+            println!(
+                "  Avg Ethical Score: {:.1}%",
+                data.avg_ethical_score * 100.0
+            );
             println!("  Avg Confidence:    {:.1}%", data.avg_confidence * 100.0);
             println!();
 

@@ -61,18 +61,23 @@ impl RateLimiter {
         let mut requests = self.peer_requests.write().await;
 
         // Get or create entry for this peer
-        let peer_reqs = requests.entry(peer_addr.to_string()).or_insert_with(Vec::new);
+        let peer_reqs = requests
+            .entry(peer_addr.to_string())
+            .or_insert_with(Vec::new);
 
         let now = Instant::now();
 
         // Check burst limit (short window)
-        let burst_count = peer_reqs.iter()
+        let burst_count = peer_reqs
+            .iter()
             .filter(|&&timestamp| now.duration_since(timestamp) < RATE_LIMIT_BURST_WINDOW)
             .count();
 
         if burst_count >= RATE_LIMIT_BURST_REQUESTS {
-            warn!("Peer burst rate limit exceeded for: {} ({}/{})",
-                  peer_addr, burst_count, RATE_LIMIT_BURST_REQUESTS);
+            warn!(
+                "Peer burst rate limit exceeded for: {} ({}/{})",
+                peer_addr, burst_count, RATE_LIMIT_BURST_REQUESTS
+            );
             if let Some(ref metrics) = self.metrics {
                 metrics.record_rate_limit_violation("peer_burst");
             }
@@ -80,13 +85,16 @@ impl RateLimiter {
         }
 
         // Check sustained limit (long window)
-        let sustained_count = peer_reqs.iter()
+        let sustained_count = peer_reqs
+            .iter()
             .filter(|&&timestamp| now.duration_since(timestamp) < RATE_LIMIT_SUSTAINED_WINDOW)
             .count();
 
         if sustained_count >= RATE_LIMIT_SUSTAINED_REQUESTS {
-            warn!("Peer sustained rate limit exceeded for: {} ({}/{})",
-                  peer_addr, sustained_count, RATE_LIMIT_SUSTAINED_REQUESTS);
+            warn!(
+                "Peer sustained rate limit exceeded for: {} ({}/{})",
+                peer_addr, sustained_count, RATE_LIMIT_SUSTAINED_REQUESTS
+            );
             if let Some(ref metrics) = self.metrics {
                 metrics.record_rate_limit_violation("peer_sustained");
             }
@@ -115,13 +123,18 @@ impl RateLimiter {
         let now = Instant::now();
 
         // Check burst limit (short window)
-        let burst_count = token_reqs.iter()
+        let burst_count = token_reqs
+            .iter()
             .filter(|&&timestamp| now.duration_since(timestamp) < RATE_LIMIT_BURST_WINDOW)
             .count();
 
         if burst_count >= RATE_LIMIT_BURST_REQUESTS {
-            warn!("Token burst rate limit exceeded for: {} ({}/{})",
-                  Self::mask_token(token), burst_count, RATE_LIMIT_BURST_REQUESTS);
+            warn!(
+                "Token burst rate limit exceeded for: {} ({}/{})",
+                Self::mask_token(token),
+                burst_count,
+                RATE_LIMIT_BURST_REQUESTS
+            );
             if let Some(ref metrics) = self.metrics {
                 metrics.record_rate_limit_violation("token_burst");
             }
@@ -129,13 +142,18 @@ impl RateLimiter {
         }
 
         // Check sustained limit (long window)
-        let sustained_count = token_reqs.iter()
+        let sustained_count = token_reqs
+            .iter()
             .filter(|&&timestamp| now.duration_since(timestamp) < RATE_LIMIT_SUSTAINED_WINDOW)
             .count();
 
         if sustained_count >= RATE_LIMIT_SUSTAINED_REQUESTS {
-            warn!("Token sustained rate limit exceeded for: {} ({}/{})",
-                  Self::mask_token(token), sustained_count, RATE_LIMIT_SUSTAINED_REQUESTS);
+            warn!(
+                "Token sustained rate limit exceeded for: {} ({}/{})",
+                Self::mask_token(token),
+                sustained_count,
+                RATE_LIMIT_SUSTAINED_REQUESTS
+            );
             if let Some(ref metrics) = self.metrics {
                 metrics.record_rate_limit_violation("token_sustained");
             }
@@ -316,7 +334,8 @@ mod tests {
         for i in 1..=RATE_LIMIT_BURST_REQUESTS {
             assert!(
                 limiter.check_peer_rate_limit("127.0.0.1").await,
-                "Request {} should succeed within burst limit", i
+                "Request {} should succeed within burst limit",
+                i
             );
         }
 
@@ -335,7 +354,8 @@ mod tests {
         for i in 1..=RATE_LIMIT_BURST_REQUESTS {
             assert!(
                 limiter.check_token_rate_limit("test-token-123").await,
-                "Token request {} should succeed within burst limit", i
+                "Token request {} should succeed within burst limit",
+                i
             );
         }
 
@@ -372,7 +392,9 @@ mod tests {
 
         // Add requests for multiple peers
         for i in 0..5 {
-            limiter.check_peer_rate_limit(&format!("127.0.0.{}", i)).await;
+            limiter
+                .check_peer_rate_limit(&format!("127.0.0.{}", i))
+                .await;
         }
 
         // Cleanup should keep all (they're recent)
@@ -397,7 +419,8 @@ mod tests {
         for i in 1..=RATE_LIMIT_BURST_REQUESTS {
             assert!(
                 limiter.check_peer_rate_limit("127.0.0.1").await,
-                "Request {} should succeed within burst limit", i
+                "Request {} should succeed within burst limit",
+                i
             );
         }
 
@@ -438,7 +461,8 @@ mod tests {
         for i in 1..=RATE_LIMIT_BURST_REQUESTS {
             assert!(
                 limiter.check_token_rate_limit("test-token-burst").await,
-                "Token request {} should succeed within burst limit", i
+                "Token request {} should succeed within burst limit",
+                i
             );
         }
 

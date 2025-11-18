@@ -2,15 +2,13 @@
 ///
 /// Anna detects what kind of machine she's running on and adjusts
 /// her behavior accordingly to be more helpful and less noisy.
-
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use tracing::debug;
 
 /// Machine profile types that Anna recognizes
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MachineProfile {
     /// Laptop - has battery, often shorter uptimes, Wi-Fi
     Laptop,
@@ -212,7 +210,6 @@ impl MachineProfile {
         }
     }
 }
-
 
 impl std::fmt::Display for MachineProfile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -241,8 +241,14 @@ fn parse_size_to_mb(size_str: &str) -> Option<u64> {
     }
 
     // Extract numeric part and unit
-    let numeric_part: String = size_str.chars().take_while(|c| c.is_numeric() || *c == '.').collect();
-    let unit = size_str.chars().skip(numeric_part.len()).collect::<String>();
+    let numeric_part: String = size_str
+        .chars()
+        .take_while(|c| c.is_numeric() || *c == '.')
+        .collect();
+    let unit = size_str
+        .chars()
+        .skip(numeric_part.len())
+        .collect::<String>();
 
     if let Ok(value) = numeric_part.parse::<f64>() {
         let mb = match unit.to_uppercase().as_str() {

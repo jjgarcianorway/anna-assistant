@@ -14,8 +14,7 @@ use chrono::{DateTime, Utc};
 
 /// Get consensus state directory
 fn get_consensus_dir() -> Result<PathBuf> {
-    let home = std::env::var("HOME")
-        .map_err(|_| anyhow!("HOME environment variable not set"))?;
+    let home = std::env::var("HOME").map_err(|_| anyhow!("HOME environment variable not set"))?;
 
     let consensus_dir = PathBuf::from(home).join(".local/share/anna/consensus");
 
@@ -28,8 +27,7 @@ fn get_consensus_dir() -> Result<PathBuf> {
 
 /// Get keypair directory
 fn get_keypair_dir() -> Result<PathBuf> {
-    let home = std::env::var("HOME")
-        .map_err(|_| anyhow!("HOME environment variable not set"))?;
+    let home = std::env::var("HOME").map_err(|_| anyhow!("HOME environment variable not set"))?;
 
     let keypair_dir = PathBuf::from(home).join(".local/share/anna/keys");
 
@@ -181,7 +179,9 @@ pub async fn execute_consensus_submit_command(observation_path: &str) -> Result<
     };
 
     // Find or create round
-    let round = state.rounds.iter_mut()
+    let round = state
+        .rounds
+        .iter_mut()
         .find(|r| r.round_id == observation.round_id);
 
     let round = match round {
@@ -201,10 +201,15 @@ pub async fn execute_consensus_submit_command(observation_path: &str) -> Result<
     };
 
     // Check for double-submit (Byzantine detection)
-    if round.observations.iter()
+    if round
+        .observations
+        .iter()
         .any(|o| o.node_id == observation.node_id && o.audit_id != observation.audit_id)
     {
-        println!("\n✗ Byzantine behavior detected: double-submit from {}", observation.node_id);
+        println!(
+            "\n✗ Byzantine behavior detected: double-submit from {}",
+            observation.node_id
+        );
 
         if !state.byzantine_nodes.contains(&observation.node_id) {
             state.byzantine_nodes.push(observation.node_id.clone());
@@ -234,8 +239,11 @@ pub async fn execute_consensus_submit_command(observation_path: &str) -> Result<
         println!("  Consensus TIS: {:.3}", round.consensus_tis.unwrap());
         println!("  Status:        {}", round.status);
     } else {
-        println!("\n⏳ Waiting for quorum ({}/{} observations)",
-            round.observations.len(), quorum_threshold);
+        println!(
+            "\n⏳ Waiting for quorum ({}/{} observations)",
+            round.observations.len(),
+            quorum_threshold
+        );
     }
 
     // Save state
@@ -262,7 +270,8 @@ fn compute_consensus(round: &mut ConsensusRound) -> Result<()> {
     round.consensus_tis = Some(tis_avg);
 
     // Aggregate biases (majority rule)
-    let mut bias_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut bias_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for obs in valid_obs {
         for bias in &obs.bias_flags {
             *bias_counts.entry(bias.clone()).or_insert(0) += 1;
@@ -282,10 +291,7 @@ fn compute_consensus(round: &mut ConsensusRound) -> Result<()> {
 }
 
 /// Execute `annactl consensus status` command
-pub async fn execute_consensus_status_command(
-    round_id: Option<String>,
-    json: bool,
-) -> Result<()> {
+pub async fn execute_consensus_status_command(round_id: Option<String>, json: bool) -> Result<()> {
     let consensus_dir = get_consensus_dir()?;
     let state_path = consensus_dir.join("state.json");
 
@@ -368,7 +374,8 @@ fn print_round_details(round: &ConsensusRound) {
 
     println!("Observations: {}", round.observations.len());
     for (i, obs) in round.observations.iter().enumerate() {
-        println!("  {}. Node: {} | TIS: {:.3} | Biases: {}",
+        println!(
+            "  {}. Node: {} | TIS: {:.3} | Biases: {}",
             i + 1,
             &obs.node_id[0..16.min(obs.node_id.len())],
             obs.tis_overall,
@@ -391,10 +398,7 @@ fn print_round_details(round: &ConsensusRound) {
 }
 
 /// Execute `annactl consensus reconcile` command
-pub async fn execute_consensus_reconcile_command(
-    window: u64,
-    json: bool,
-) -> Result<()> {
+pub async fn execute_consensus_reconcile_command(window: u64, json: bool) -> Result<()> {
     let consensus_dir = get_consensus_dir()?;
     let state_path = consensus_dir.join("state.json");
 

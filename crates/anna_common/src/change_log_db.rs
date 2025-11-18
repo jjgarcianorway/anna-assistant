@@ -34,8 +34,7 @@ impl ChangeLogDb {
 
         // Open connection in blocking context
         let conn = tokio::task::spawn_blocking(move || -> Result<Connection> {
-            let conn = Connection::open(&db_path)
-                .context("Failed to open change log database")?;
+            let conn = Connection::open(&db_path).context("Failed to open change log database")?;
 
             // Enable WAL mode for better concurrency
             conn.pragma_update(None, "journal_mode", "WAL")
@@ -235,7 +234,7 @@ impl ChangeLogDb {
             let mut stmt = conn.prepare(
                 "SELECT id, label, user_request, start_time, end_time, status, notes,
                         metrics_before, metrics_after
-                 FROM change_units WHERE id = ?1"
+                 FROM change_units WHERE id = ?1",
             )?;
 
             let unit_result = stmt.query_row(params![id], |row| {
@@ -271,26 +270,43 @@ impl ChangeLogDb {
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
 
-                let metrics_before = metrics_before_str
-                    .and_then(|s| serde_json::from_str(&s).ok());
+                let metrics_before = metrics_before_str.and_then(|s| serde_json::from_str(&s).ok());
 
-                let metrics_after = metrics_after_str
-                    .and_then(|s| serde_json::from_str(&s).ok());
+                let metrics_after = metrics_after_str.and_then(|s| serde_json::from_str(&s).ok());
 
-                Ok((id, label, user_request, start_time, end_time, status, notes, metrics_before, metrics_after))
+                Ok((
+                    id,
+                    label,
+                    user_request,
+                    start_time,
+                    end_time,
+                    status,
+                    notes,
+                    metrics_before,
+                    metrics_after,
+                ))
             });
 
-            let (id, label, user_request, start_time, end_time, status, notes, metrics_before, metrics_after) =
-                match unit_result {
-                    Ok(data) => data,
-                    Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
-                    Err(e) => return Err(e.into()),
-                };
+            let (
+                id,
+                label,
+                user_request,
+                start_time,
+                end_time,
+                status,
+                notes,
+                metrics_before,
+                metrics_after,
+            ) = match unit_result {
+                Ok(data) => data,
+                Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+                Err(e) => return Err(e.into()),
+            };
 
             // Load actions
             let mut stmt = conn.prepare(
                 "SELECT action_json, timestamp, success, description
-                 FROM change_actions WHERE change_unit_id = ?1 ORDER BY id"
+                 FROM change_actions WHERE change_unit_id = ?1 ORDER BY id",
             )?;
 
             let actions_result: Result<Vec<ChangeAction>, _> = stmt
@@ -347,7 +363,7 @@ impl ChangeLogDb {
 
             let mut stmt = conn.prepare(
                 "SELECT id FROM change_units
-                 ORDER BY start_time DESC LIMIT ?1"
+                 ORDER BY start_time DESC LIMIT ?1",
             )?;
 
             let ids: Vec<String> = stmt
@@ -417,10 +433,7 @@ mod tests {
 
         // Create multiple change units
         for i in 0..5 {
-            let mut unit = ChangeUnit::new(
-                &format!("change-{}", i),
-                &format!("Change {}", i),
-            );
+            let mut unit = ChangeUnit::new(&format!("change-{}", i), &format!("Change {}", i));
             unit.complete(ChangeStatus::Success);
             db.save_change_unit(&unit).await.unwrap();
         }

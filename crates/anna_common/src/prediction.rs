@@ -266,13 +266,18 @@ impl PredictionEngine {
 
         // Clean up old throttle entries (older than 7 days)
         let cutoff = Utc::now() - Duration::days(7);
-        self.prediction_history
-            .retain(|_, &mut time| time > cutoff);
+        self.prediction_history.retain(|_, &mut time| time > cutoff);
     }
 
     /// Predict service failure based on recurring failure pattern
     fn predict_failure(&mut self, pattern: &DetectedPattern) {
-        let key = format!("failure:{}", pattern.metadata.get("action_type").unwrap_or(&"unknown".to_string()));
+        let key = format!(
+            "failure:{}",
+            pattern
+                .metadata
+                .get("action_type")
+                .unwrap_or(&"unknown".to_string())
+        );
 
         if !self.should_generate(&key) {
             return;
@@ -284,7 +289,10 @@ impl PredictionEngine {
         }
 
         let default_action = "unknown".to_string();
-        let action_type = pattern.metadata.get("action_type").unwrap_or(&default_action);
+        let action_type = pattern
+            .metadata
+            .get("action_type")
+            .unwrap_or(&default_action);
         let failure_rate = pattern
             .metadata
             .get("failure_rate")
@@ -409,10 +417,7 @@ impl PredictionEngine {
 
     /// Get urgent predictions only
     pub fn get_urgent_predictions(&self) -> Vec<&Prediction> {
-        self.predictions
-            .iter()
-            .filter(|p| p.is_urgent())
-            .collect()
+        self.predictions.iter().filter(|p| p.is_urgent()).collect()
     }
 
     /// Get predictions by priority
@@ -516,13 +521,11 @@ mod tests {
     fn test_prediction_engine() {
         let mut engine = PredictionEngine::new().with_min_confidence(40);
 
-        let mut pattern = DetectedPattern::new(
-            PatternType::RecurringFailure,
-            "Test failure pattern",
-        )
-        .actionable()
-        .with_metadata("action_type", "test_service")
-        .with_metadata("failure_rate", "80.0");
+        let mut pattern =
+            DetectedPattern::new(PatternType::RecurringFailure, "Test failure pattern")
+                .actionable()
+                .with_metadata("action_type", "test_service")
+                .with_metadata("failure_rate", "80.0");
 
         // Set confidence high enough for prediction
         pattern.occurrence_count = 5;
@@ -543,12 +546,9 @@ mod tests {
             .with_throttle_hours(1)
             .with_min_confidence(40);
 
-        let mut pattern = DetectedPattern::new(
-            PatternType::RecurringFailure,
-            "Test",
-        )
-        .with_metadata("action_type", "test")
-        .with_metadata("failure_rate", "90.0");
+        let mut pattern = DetectedPattern::new(PatternType::RecurringFailure, "Test")
+            .with_metadata("action_type", "test")
+            .with_metadata("failure_rate", "90.0");
 
         pattern.occurrence_count = 5;
         pattern.confidence = crate::learning::Confidence::Medium;

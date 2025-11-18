@@ -59,10 +59,7 @@ fn is_root() -> bool {
     #[cfg(unix)]
     {
         // Check effective UID
-        let output = Command::new("id")
-            .arg("-u")
-            .output()
-            .ok();
+        let output = Command::new("id").arg("-u").output().ok();
 
         if let Some(output) = output {
             if let Ok(uid_str) = String::from_utf8(output.stdout) {
@@ -154,10 +151,7 @@ mod tests {
 
     #[test]
     fn test_user_level_conversion() {
-        assert_eq!(
-            ExecutionContext::User.to_user_level(),
-            UserLevel::Beginner
-        );
+        assert_eq!(ExecutionContext::User.to_user_level(), UserLevel::Beginner);
         assert_eq!(
             ExecutionContext::Root.to_user_level(),
             UserLevel::Intermediate

@@ -85,8 +85,10 @@ impl CritiqueEvaluator {
         let mut coherence_factors = Vec::new();
 
         // Factor 1: Self-coherence vs actual decision consistency
-        let decision_consistency = self.calculate_decision_consistency(&reflection.ethical_decisions);
-        let self_awareness_accuracy = 1.0 - (reflection.self_coherence - decision_consistency).abs();
+        let decision_consistency =
+            self.calculate_decision_consistency(&reflection.ethical_decisions);
+        let self_awareness_accuracy =
+            1.0 - (reflection.self_coherence - decision_consistency).abs();
         coherence_factors.push(self_awareness_accuracy);
 
         // Factor 2: Empathy-ethics alignment
@@ -136,8 +138,8 @@ impl CritiqueEvaluator {
         }
 
         // High empathy should correlate with cautious decisions
-        let avg_ethical_score = decisions.iter().map(|d| d.ethical_score).sum::<f64>()
-            / decisions.len() as f64;
+        let avg_ethical_score =
+            decisions.iter().map(|d| d.ethical_score).sum::<f64>() / decisions.len() as f64;
 
         // Expect high empathy (>0.7) -> high ethical scores (>0.75)
         if empathy.avg_empathy_index > 0.7 {
@@ -181,7 +183,10 @@ impl CritiqueEvaluator {
                     .to_string(),
                 severity: 0.6,
                 evidence: vec![
-                    format!("Empathy: {:.2}", reflection.empathy_summary.avg_empathy_index),
+                    format!(
+                        "Empathy: {:.2}",
+                        reflection.empathy_summary.avg_empathy_index
+                    ),
                     format!("Strain: {:.2}", reflection.empathy_summary.avg_strain_index),
                 ],
             });
@@ -191,11 +196,15 @@ impl CritiqueEvaluator {
         if reflection.self_coherence > 0.9 && !reflection.self_identified_biases.is_empty() {
             inconsistencies.push(Inconsistency {
                 inconsistency_type: "CoherenceBiasMismatch".to_string(),
-                description: "Claims high coherence but identifies biases - contradiction".to_string(),
+                description: "Claims high coherence but identifies biases - contradiction"
+                    .to_string(),
                 severity: 0.5,
                 evidence: vec![
                     format!("Self-coherence: {:.2}", reflection.self_coherence),
-                    format!("Biases identified: {}", reflection.self_identified_biases.len()),
+                    format!(
+                        "Biases identified: {}",
+                        reflection.self_identified_biases.len()
+                    ),
                 ],
             });
         }
@@ -224,7 +233,8 @@ impl CritiqueEvaluator {
                 description: "Excessive empathy adaptations suggest over-reactivity".to_string(),
                 confidence: 0.7,
                 affected_decisions: vec!["empathy_adaptations".to_string()],
-                correction: "Reduce adaptation frequency, increase adaptation threshold".to_string(),
+                correction: "Reduce adaptation frequency, increase adaptation threshold"
+                    .to_string(),
             });
         }
 
@@ -240,10 +250,7 @@ impl CritiqueEvaluator {
             return None;
         }
 
-        let approval_rate = decisions
-            .iter()
-            .filter(|d| d.outcome == "Approved")
-            .count() as f64
+        let approval_rate = decisions.iter().filter(|d| d.outcome == "Approved").count() as f64
             / decisions.len() as f64;
 
         if approval_rate > 0.95 || approval_rate < 0.05 {
@@ -292,7 +299,8 @@ impl CritiqueEvaluator {
                 ),
                 confidence: 0.75,
                 affected_decisions: recent.iter().map(|d| d.id.clone()).collect(),
-                correction: "Ensure temporal consistency in ethical evaluation criteria".to_string(),
+                correction: "Ensure temporal consistency in ethical evaluation criteria"
+                    .to_string(),
             })
         } else {
             None
@@ -311,13 +319,10 @@ impl CritiqueEvaluator {
         if coherence > 0.8 {
             reasoning.push("High coherence observed - ethical decisions align well with empathy state and stated values.".to_string());
         } else if coherence > 0.6 {
-            reasoning.push(
-                "Moderate coherence - some alignment issues detected.".to_string(),
-            );
+            reasoning.push("Moderate coherence - some alignment issues detected.".to_string());
         } else {
-            reasoning.push(
-                "Low coherence - significant ethical inconsistencies detected.".to_string(),
-            );
+            reasoning
+                .push("Low coherence - significant ethical inconsistencies detected.".to_string());
         }
 
         if !inconsistencies.is_empty() {
@@ -335,7 +340,9 @@ impl CritiqueEvaluator {
         }
 
         if inconsistencies.is_empty() && biases.is_empty() && coherence > 0.8 {
-            reasoning.push("Overall assessment: Ethical behavior is coherent and well-calibrated.".to_string());
+            reasoning.push(
+                "Overall assessment: Ethical behavior is coherent and well-calibrated.".to_string(),
+            );
         }
 
         reasoning.join(" ")
@@ -408,8 +415,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_reflection() {
-        let evaluator =
-            CritiqueEvaluator::new("critic".to_string(), "key".to_string(), 0.9);
+        let evaluator = CritiqueEvaluator::new("critic".to_string(), "key".to_string(), 0.9);
         let reflection = create_test_reflection();
 
         let critique = evaluator.evaluate_reflection(&reflection);
@@ -421,8 +427,7 @@ mod tests {
 
     #[test]
     fn test_detect_confirmation_bias() {
-        let evaluator =
-            CritiqueEvaluator::new("critic".to_string(), "key".to_string(), 0.9);
+        let evaluator = CritiqueEvaluator::new("critic".to_string(), "key".to_string(), 0.9);
 
         // Create decisions with 100% approval
         let decisions: Vec<EthicalDecisionRecord> = (0..10)

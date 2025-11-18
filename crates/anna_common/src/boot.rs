@@ -124,7 +124,8 @@ fn detect_secure_boot(firmware_type: &FirmwareType) -> SecureBootStatus {
     }
 
     // Method 1: Check EFI variable
-    let secure_boot_var = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
+    let secure_boot_var =
+        "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
     if Path::new(secure_boot_var).exists() {
         if let Ok(data) = fs::read(secure_boot_var) {
             // EFI variables have a 4-byte header, actual data starts at byte 4
@@ -155,9 +156,13 @@ fn detect_secure_boot(firmware_type: &FirmwareType) -> SecureBootStatus {
     if let Ok(output) = Command::new("dmesg").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            if stdout.contains("Secure boot enabled") || stdout.contains("secureboot: Secure boot enabled") {
+            if stdout.contains("Secure boot enabled")
+                || stdout.contains("secureboot: Secure boot enabled")
+            {
                 return SecureBootStatus::Enabled;
-            } else if stdout.contains("Secure boot disabled") || stdout.contains("secureboot: Secure boot disabled") {
+            } else if stdout.contains("Secure boot disabled")
+                || stdout.contains("secureboot: Secure boot disabled")
+            {
                 return SecureBootStatus::Disabled;
             }
         }
@@ -171,20 +176,22 @@ fn detect_boot_loader(firmware_type: &FirmwareType) -> BootLoader {
     // Check for systemd-boot
     if Path::new("/boot/loader/loader.conf").exists()
         || Path::new("/efi/loader/loader.conf").exists()
-        || Path::new("/boot/efi/loader/loader.conf").exists() {
+        || Path::new("/boot/efi/loader/loader.conf").exists()
+    {
         return BootLoader::SystemdBoot;
     }
 
     // Check for GRUB
     if Path::new("/boot/grub/grub.cfg").exists()
         || Path::new("/boot/grub2/grub.cfg").exists()
-        || Path::new("/etc/default/grub").exists() {
+        || Path::new("/etc/default/grub").exists()
+    {
         return BootLoader::Grub;
     }
 
     // Check for rEFInd
-    if Path::new("/boot/refind_linux.conf").exists()
-        || Path::new("/efi/refind_linux.conf").exists() {
+    if Path::new("/boot/refind_linux.conf").exists() || Path::new("/efi/refind_linux.conf").exists()
+    {
         return BootLoader::Refind;
     }
 
@@ -232,7 +239,9 @@ fn detect_esp_mount() -> Option<String> {
                 let fs_type = parts[2];
 
                 // ESP is usually vfat
-                if fs_type == "vfat" && (mount_point.contains("boot") || mount_point.contains("efi")) {
+                if fs_type == "vfat"
+                    && (mount_point.contains("boot") || mount_point.contains("efi"))
+                {
                     return Some(mount_point.to_string());
                 }
             }
@@ -255,7 +264,13 @@ fn is_esp_mounted(path: &str) -> bool {
     }
 
     // Try to find mount info
-    if let Ok(output) = Command::new("findmnt").arg("-n").arg("-o").arg("FSTYPE").arg(path).output() {
+    if let Ok(output) = Command::new("findmnt")
+        .arg("-n")
+        .arg("-o")
+        .arg("FSTYPE")
+        .arg(path)
+        .output()
+    {
         if output.status.success() {
             let fstype = String::from_utf8_lossy(&output.stdout).trim().to_string();
             // ESP is typically vfat

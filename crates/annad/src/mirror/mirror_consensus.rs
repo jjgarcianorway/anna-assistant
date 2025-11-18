@@ -430,8 +430,7 @@ mod tests {
 
     #[test]
     fn test_initiate_session() {
-        let coordinator =
-            MirrorConsensusCoordinator::new("coordinator".to_string(), 3, 0.7);
+        let coordinator = MirrorConsensusCoordinator::new("coordinator".to_string(), 3, 0.7);
 
         let reflections = vec![
             create_test_reflection("node1", 0.8),
@@ -448,8 +447,7 @@ mod tests {
 
     #[test]
     fn test_detect_critical_divergence() {
-        let coordinator =
-            MirrorConsensusCoordinator::new("coordinator".to_string(), 3, 0.7);
+        let coordinator = MirrorConsensusCoordinator::new("coordinator".to_string(), 3, 0.7);
 
         let reflections = vec![
             create_test_reflection("node1", 0.3),

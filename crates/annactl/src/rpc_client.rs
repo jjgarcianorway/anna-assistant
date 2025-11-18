@@ -46,12 +46,7 @@ impl RpcClient {
 
         let path = Self::discover_socket_path(socket_path);
 
-        match tokio::time::timeout(
-            Duration::from_millis(200),
-            UnixStream::connect(&path),
-        )
-        .await
-        {
+        match tokio::time::timeout(Duration::from_millis(200), UnixStream::connect(&path)).await {
             Ok(Ok(stream)) => {
                 let (reader, writer) = stream.into_split();
                 let reader = BufReader::new(reader);
@@ -75,11 +70,7 @@ impl RpcClient {
         let mut last_error: Option<std::io::Error> = None;
 
         for attempt in 0..max_retries {
-            match tokio::time::timeout(
-                Duration::from_millis(500),
-                UnixStream::connect(&path),
-            )
-            .await
+            match tokio::time::timeout(Duration::from_millis(500), UnixStream::connect(&path)).await
             {
                 Ok(Ok(stream)) => {
                     let (reader, writer) = stream.into_split();
@@ -132,7 +123,8 @@ impl RpcClient {
             }
             ErrorKind::PermissionDenied => {
                 // Phase 3.8: Enhanced permission error with current user
-                let current_user = std::env::var("USER").unwrap_or_else(|_| "YOUR_USERNAME".to_string());
+                let current_user =
+                    std::env::var("USER").unwrap_or_else(|_| "YOUR_USERNAME".to_string());
                 format!(
                     "❌ Permission denied accessing Anna daemon socket.\n\
                      \n\

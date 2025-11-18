@@ -100,7 +100,9 @@ fn check_disk_space(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion
 
     // Large pacman cache
     if snapshot.packages.cache_size_mb > 3000.0 {
-        suggestions.push(common_suggestions::pacman_cache_cleanup(snapshot.packages.cache_size_mb));
+        suggestions.push(common_suggestions::pacman_cache_cleanup(
+            snapshot.packages.cache_size_mb,
+        ));
     }
 }
 
@@ -108,7 +110,9 @@ fn check_disk_space(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion
 fn check_packages(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion>) {
     // Orphaned packages
     if snapshot.packages.orphaned > 10 {
-        suggestions.push(common_suggestions::orphaned_packages(snapshot.packages.orphaned as usize));
+        suggestions.push(common_suggestions::orphaned_packages(
+            snapshot.packages.orphaned as usize,
+        ));
     }
 
     // Check if paccache is available for cache cleanup
@@ -158,7 +162,9 @@ fn check_packages(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion>)
 /// Check systemd services
 fn check_services(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestion>) {
     if !snapshot.services.failed_units.is_empty() {
-        let service_names: Vec<String> = snapshot.services.failed_units
+        let service_names: Vec<String> = snapshot
+            .services
+            .failed_units
             .iter()
             .map(|unit| unit.name.clone())
             .collect();
@@ -237,8 +243,8 @@ fn check_audio_stack(snapshot: &SystemTelemetry, suggestions: &mut Vec<Suggestio
     if snapshot.audio.has_sound_hardware
         && (!snapshot.audio.pipewire_running
             || !snapshot.audio.wireplumber_running
-            || !snapshot.audio.pipewire_pulse_running) {
-
+            || !snapshot.audio.pipewire_pulse_running)
+    {
         let mut missing_services = Vec::new();
         if !snapshot.audio.pipewire_running {
             missing_services.push("pipewire");
@@ -316,9 +322,11 @@ fn filter_by_dependencies(suggestions: Vec<Suggestion>) -> Vec<Suggestion> {
         .into_iter()
         .filter(|suggestion| {
             // Check if all dependencies are in the current suggestion set
-            suggestion.depends_on.iter().all(|dep_key| {
-                suggestion_keys.contains(dep_key)
-            }) || suggestion.depends_on.is_empty()
+            suggestion
+                .depends_on
+                .iter()
+                .all(|dep_key| suggestion_keys.contains(dep_key))
+                || suggestion.depends_on.is_empty()
         })
         .collect();
 
@@ -359,7 +367,9 @@ mod tests {
 
         // Should have at least one suggestion about disk space
         assert!(
-            suggestions.iter().any(|s| s.category == SuggestionCategory::Disk),
+            suggestions
+                .iter()
+                .any(|s| s.category == SuggestionCategory::Disk),
             "Should generate disk space suggestion"
         );
     }
@@ -392,7 +402,9 @@ mod tests {
 
         // Should suggest investigating failed services
         assert!(
-            suggestions.iter().any(|s| s.category == SuggestionCategory::Services),
+            suggestions
+                .iter()
+                .any(|s| s.category == SuggestionCategory::Services),
             "Should generate service health suggestion"
         );
     }
@@ -566,7 +578,11 @@ mod tests {
         let filtered = filter_by_dependencies(suggestions);
 
         // Only A should remain (C has unmet dependency)
-        assert_eq!(filtered.len(), 1, "Only suggestion without missing dependency should remain");
+        assert_eq!(
+            filtered.len(),
+            1,
+            "Only suggestion without missing dependency should remain"
+        );
         assert_eq!(filtered[0].key, "suggestion-a");
     }
 
@@ -596,7 +612,11 @@ mod tests {
         )
         .add_dependency("suggestion-b");
 
-        let suggestions = vec![suggestion_c.clone(), suggestion_a.clone(), suggestion_b.clone()];
+        let suggestions = vec![
+            suggestion_c.clone(),
+            suggestion_a.clone(),
+            suggestion_b.clone(),
+        ];
         let filtered = filter_by_dependencies(suggestions);
 
         // All should be included
@@ -608,8 +628,14 @@ mod tests {
         // B and C both have 1 dependency, so either order is acceptable
         // Just verify they're both present after A
         let keys_after_a: Vec<&str> = filtered[1..].iter().map(|s| s.key.as_str()).collect();
-        assert!(keys_after_a.contains(&"suggestion-b"), "suggestion-b should be present");
-        assert!(keys_after_a.contains(&"suggestion-c"), "suggestion-c should be present");
+        assert!(
+            keys_after_a.contains(&"suggestion-b"),
+            "suggestion-b should be present"
+        );
+        assert!(
+            keys_after_a.contains(&"suggestion-c"),
+            "suggestion-c should be present"
+        );
     }
 
     // Task 10: Arch Wiki backing tests
@@ -629,7 +655,10 @@ mod tests {
         let suggestions = generate_suggestions(&snapshot);
 
         // Find the disk space suggestion
-        let disk_suggestion = suggestions.iter().find(|s| s.key.contains("disk-space")).unwrap();
+        let disk_suggestion = suggestions
+            .iter()
+            .find(|s| s.key.contains("disk-space"))
+            .unwrap();
 
         // Must have knowledge sources
         assert!(
@@ -645,7 +674,10 @@ mod tests {
 
         // Should link to Arch Wiki System_maintenance
         assert!(
-            disk_suggestion.knowledge_sources.iter().any(|s| s.url.contains("System_maintenance")),
+            disk_suggestion
+                .knowledge_sources
+                .iter()
+                .any(|s| s.url.contains("System_maintenance")),
             "Should have Arch Wiki System_maintenance source"
         );
     }
@@ -659,7 +691,10 @@ mod tests {
         let suggestions = generate_suggestions(&snapshot);
 
         // Find audio suggestion
-        let audio_suggestion = suggestions.iter().find(|s| s.key == "audio-stack-config").unwrap();
+        let audio_suggestion = suggestions
+            .iter()
+            .find(|s| s.key == "audio-stack-config")
+            .unwrap();
 
         // Must have at least one knowledge source
         assert!(
@@ -675,7 +710,10 @@ mod tests {
 
         // Should link to Arch Wiki PipeWire page
         assert!(
-            audio_suggestion.knowledge_sources.iter().any(|s| s.url.contains("PipeWire")),
+            audio_suggestion
+                .knowledge_sources
+                .iter()
+                .any(|s| s.url.contains("PipeWire")),
             "Should have Arch Wiki PipeWire source"
         );
     }

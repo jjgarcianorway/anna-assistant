@@ -23,12 +23,21 @@ pub async fn execute_collective_status_command() -> Result<()> {
 
             println!("\nNode ID: {}", data.node_id);
             println!("\nNetwork:");
-            println!("  Connected Peers:  {}/{}", data.connected_peers, data.total_peers);
+            println!(
+                "  Connected Peers:  {}/{}",
+                data.connected_peers, data.total_peers
+            );
             println!("  Network Health:   {:.1}%", data.network_health * 100.0);
 
             println!("\nEmpathy Metrics:");
-            println!("  Avg Network Empathy: {:.1}%", data.avg_network_empathy * 100.0);
-            println!("  Avg Network Strain:  {:.1}%", data.avg_network_strain * 100.0);
+            println!(
+                "  Avg Network Empathy: {:.1}%",
+                data.avg_network_empathy * 100.0
+            );
+            println!(
+                "  Avg Network Strain:  {:.1}%",
+                data.avg_network_strain * 100.0
+            );
 
             println!("\nConsensus:");
             println!("  Recent Decisions: {}", data.recent_decisions);
@@ -57,14 +66,21 @@ pub async fn execute_collective_trust_command(peer_id: &str) -> Result<()> {
             println!("Address: {}", data.peer_address);
             println!(
                 "Status: {}",
-                if data.connected { "Connected" } else { "Disconnected" }
+                if data.connected {
+                    "Connected"
+                } else {
+                    "Disconnected"
+                }
             );
 
             println!("\nTrust Scores:");
             println!("  Overall:            {:.1}%", data.overall_trust * 100.0);
             println!("  Honesty:            {:.1}%", data.honesty * 100.0);
             println!("  Reliability:        {:.1}%", data.reliability * 100.0);
-            println!("  Ethical Alignment:  {:.1}%", data.ethical_alignment * 100.0);
+            println!(
+                "  Ethical Alignment:  {:.1}%",
+                data.ethical_alignment * 100.0
+            );
 
             println!("\nInteraction History:");
             println!("  Messages Received:  {}", data.messages_received);

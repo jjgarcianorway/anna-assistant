@@ -41,12 +41,7 @@ pub fn is_chroot_candidate(path: &Path) -> Result<ChrootEnvironment> {
     let has_usr = path.join("usr").is_dir();
     let has_bin = path.join("bin").exists() || path.join("usr/bin").exists();
 
-    let ready = proc_mounted
-        && sys_mounted
-        && dev_mounted
-        && has_etc
-        && has_usr
-        && has_bin;
+    let ready = proc_mounted && sys_mounted && dev_mounted && has_etc && has_usr && has_bin;
 
     Ok(ChrootEnvironment {
         root_path: path.to_path_buf(),

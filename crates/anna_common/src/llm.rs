@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 
 /// LLM operational mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LlmMode {
     /// LLM is not configured yet
     #[default]
@@ -31,10 +30,8 @@ pub enum LlmMode {
     Disabled,
 }
 
-
 /// LLM backend type
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LlmBackendKind {
     /// No LLM backend (default)
     #[default]
@@ -46,7 +43,6 @@ pub enum LlmBackendKind {
     /// Remote OpenAI-compatible API
     RemoteOpenAiCompatible,
 }
-
 
 /// LLM configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,11 +111,9 @@ impl LlmConfig {
             base_url: Some(base_url.into()),
             api_key_env: None,
             model: Some(model.into()),
-            max_tokens: Some(2000), // Local can handle more
+            max_tokens: Some(2000),   // Local can handle more
             cost_per_1k_tokens: None, // Local is free
-            safety_notes: vec![
-                "Using local LLM - your data stays on this machine".to_string(),
-            ],
+            safety_notes: vec!["Using local LLM - your data stays on this machine".to_string()],
             description: "Local LLM (privacy-first)".to_string(),
             model_profile_id: None, // Can be set separately
         }
@@ -135,10 +129,12 @@ impl LlmConfig {
             model: Some(profile.model_name.clone()),
             max_tokens: Some(2000),
             cost_per_1k_tokens: None,
-            safety_notes: vec![
-                "Using local LLM - your data stays on this machine".to_string(),
-            ],
-            description: format!("Local {} ({})", profile.model_name, profile.quality_tier.description()),
+            safety_notes: vec!["Using local LLM - your data stays on this machine".to_string()],
+            description: format!(
+                "Local {} ({})",
+                profile.model_name,
+                profile.quality_tier.description()
+            ),
             model_profile_id: Some(profile.id.clone()),
         }
     }
@@ -185,16 +181,15 @@ impl LlmConfig {
 
     /// Get estimated cost for a conversation (tokens)
     pub fn estimated_cost(&self, tokens: u32) -> Option<f64> {
-        self.cost_per_1k_tokens.map(|cost_per_1k| {
-            (tokens as f64 / 1000.0) * cost_per_1k
-        })
+        self.cost_per_1k_tokens
+            .map(|cost_per_1k| (tokens as f64 / 1000.0) * cost_per_1k)
     }
 }
 
 /// A single message in a conversation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
-    pub role: String,  // "system", "user", "assistant"
+    pub role: String, // "system", "user", "assistant"
     pub content: String,
 }
 
@@ -243,7 +238,11 @@ pub trait LlmBackend: Send + Sync {
 
     /// Send a chat request and stream the response word-by-word
     /// Calls the callback with each chunk of text as it arrives
-    fn chat_stream(&self, prompt: &LlmPrompt, callback: &mut dyn FnMut(&str)) -> Result<(), LlmError>;
+    fn chat_stream(
+        &self,
+        prompt: &LlmPrompt,
+        callback: &mut dyn FnMut(&str),
+    ) -> Result<(), LlmError>;
 }
 
 /// Dummy backend (always returns disabled error)
@@ -254,7 +253,11 @@ impl LlmBackend for DummyBackend {
         Err(LlmError::Disabled)
     }
 
-    fn chat_stream(&self, _prompt: &LlmPrompt, _callback: &mut dyn FnMut(&str)) -> Result<(), LlmError> {
+    fn chat_stream(
+        &self,
+        _prompt: &LlmPrompt,
+        _callback: &mut dyn FnMut(&str),
+    ) -> Result<(), LlmError> {
         Err(LlmError::Disabled)
     }
 }
@@ -271,11 +274,13 @@ pub struct HttpOpenAiBackend {
 impl HttpOpenAiBackend {
     /// Create a new HTTP backend from config
     pub fn new(config: &LlmConfig) -> Result<Self, LlmError> {
-        let base_url = config.base_url.clone()
-            .ok_or_else(|| LlmError::ConfigError("base_url is required for HTTP backend".to_string()))?;
+        let base_url = config.base_url.clone().ok_or_else(|| {
+            LlmError::ConfigError("base_url is required for HTTP backend".to_string())
+        })?;
 
-        let model = config.model.clone()
-            .ok_or_else(|| LlmError::ConfigError("model is required for HTTP backend".to_string()))?;
+        let model = config.model.clone().ok_or_else(|| {
+            LlmError::ConfigError("model is required for HTTP backend".to_string())
+        })?;
 
         let is_local = config.mode == LlmMode::Local;
 
@@ -288,7 +293,10 @@ impl HttpOpenAiBackend {
                         // Local servers don't need API keys
                         None
                     } else {
-                        return Err(LlmError::ConfigError(format!("API key env var {} is empty", env_var)));
+                        return Err(LlmError::ConfigError(format!(
+                            "API key env var {} is empty",
+                            env_var
+                        )));
                     }
                 }
                 Err(_) => {
@@ -296,13 +304,18 @@ impl HttpOpenAiBackend {
                         // API key not required for local servers
                         None
                     } else {
-                        return Err(LlmError::ConfigError(format!("API key env var {} not found", env_var)));
+                        return Err(LlmError::ConfigError(format!(
+                            "API key env var {} not found",
+                            env_var
+                        )));
                     }
                 }
             }
         } else {
             if !is_local {
-                return Err(LlmError::ConfigError("API key env var required for remote backend".to_string()));
+                return Err(LlmError::ConfigError(
+                    "API key env var required for remote backend".to_string(),
+                ));
             }
             None
         };
@@ -327,12 +340,15 @@ impl LlmBackend for HttpOpenAiBackend {
         // Build messages array - use conversation_history if provided, otherwise fallback to system + user
         let messages = if let Some(ref history) = prompt.conversation_history {
             // Use the conversation history directly
-            history.iter().map(|msg| {
-                serde_json::json!({
-                    "role": msg.role,
-                    "content": msg.content
+            history
+                .iter()
+                .map(|msg| {
+                    serde_json::json!({
+                        "role": msg.role,
+                        "content": msg.content
+                    })
                 })
-            }).collect::<Vec<_>>()
+                .collect::<Vec<_>>()
         } else {
             // Fallback to simple system + user (backwards compatible)
             vec![
@@ -343,7 +359,7 @@ impl LlmBackend for HttpOpenAiBackend {
                 serde_json::json!({
                     "role": "user",
                     "content": prompt.user
-                })
+                }),
             ]
         };
 
@@ -356,8 +372,7 @@ impl LlmBackend for HttpOpenAiBackend {
 
         // Use blocking reqwest for simplicity (Task 12 is plumbing, not production-ready)
         let client = reqwest::blocking::Client::new();
-        let mut req = client.post(&url)
-            .header("Content-Type", "application/json");
+        let mut req = client.post(&url).header("Content-Type", "application/json");
 
         // Add Authorization header if API key is present
         if let Some(ref key) = self.api_key {
@@ -376,7 +391,8 @@ impl LlmBackend for HttpOpenAiBackend {
         }
 
         // Parse response
-        let response_json: serde_json::Value = response.json()
+        let response_json: serde_json::Value = response
+            .json()
             .map_err(|e| LlmError::HttpError(format!("Failed to parse response: {}", e)))?;
 
         // Extract text from first choice
@@ -388,7 +404,11 @@ impl LlmBackend for HttpOpenAiBackend {
         Ok(LlmResponse { text })
     }
 
-    fn chat_stream(&self, prompt: &LlmPrompt, callback: &mut dyn FnMut(&str)) -> Result<(), LlmError> {
+    fn chat_stream(
+        &self,
+        prompt: &LlmPrompt,
+        callback: &mut dyn FnMut(&str),
+    ) -> Result<(), LlmError> {
         use std::io::{BufRead, BufReader};
 
         // Build the request with streaming enabled
@@ -397,12 +417,15 @@ impl LlmBackend for HttpOpenAiBackend {
         // Build messages array - use conversation_history if provided, otherwise fallback to system + user
         let messages = if let Some(ref history) = prompt.conversation_history {
             // Use the conversation history directly
-            history.iter().map(|msg| {
-                serde_json::json!({
-                    "role": msg.role,
-                    "content": msg.content
+            history
+                .iter()
+                .map(|msg| {
+                    serde_json::json!({
+                        "role": msg.role,
+                        "content": msg.content
+                    })
                 })
-            }).collect::<Vec<_>>()
+                .collect::<Vec<_>>()
         } else {
             // Fallback to simple system + user (backwards compatible)
             vec![
@@ -413,7 +436,7 @@ impl LlmBackend for HttpOpenAiBackend {
                 serde_json::json!({
                     "role": "user",
                     "content": prompt.user
-                })
+                }),
             ]
         };
 
@@ -426,8 +449,7 @@ impl LlmBackend for HttpOpenAiBackend {
         });
 
         let client = reqwest::blocking::Client::new();
-        let mut req = client.post(&url)
-            .header("Content-Type", "application/json");
+        let mut req = client.post(&url).header("Content-Type", "application/json");
 
         // Add Authorization header if API key is present
         if let Some(ref key) = self.api_key {
@@ -448,7 +470,8 @@ impl LlmBackend for HttpOpenAiBackend {
         // Read the streaming response line by line (Server-Sent Events format)
         let reader = BufReader::new(response);
         for line in reader.lines() {
-            let line = line.map_err(|e| LlmError::HttpError(format!("Failed to read stream: {}", e)))?;
+            let line =
+                line.map_err(|e| LlmError::HttpError(format!("Failed to read stream: {}", e)))?;
 
             // Skip empty lines
             if line.trim().is_empty() {
@@ -511,7 +534,11 @@ impl LlmClient {
 
     /// Send a chat request and stream the response word-by-word
     /// Calls the callback with each chunk of text as it arrives
-    pub fn chat_stream(&self, prompt: &LlmPrompt, callback: &mut dyn FnMut(&str)) -> Result<(), LlmError> {
+    pub fn chat_stream(
+        &self,
+        prompt: &LlmPrompt,
+        callback: &mut dyn FnMut(&str),
+    ) -> Result<(), LlmError> {
         self.backend.chat_stream(prompt, callback)
     }
 
@@ -537,7 +564,8 @@ impl LlmClient {
          Style:\n\
          - Friendly but professional\n\
          - Use plain English, avoid unnecessary jargon\n\
-         - No emojis unless the user uses them first".to_string()
+         - No emojis unless the user uses them first"
+            .to_string()
     }
 }
 
@@ -597,7 +625,10 @@ mod tests {
 
         assert_eq!(config.mode, LlmMode::Local);
         assert_eq!(config.backend, LlmBackendKind::LocalHttp);
-        assert_eq!(config.base_url, Some("http://localhost:11434/v1".to_string()));
+        assert_eq!(
+            config.base_url,
+            Some("http://localhost:11434/v1".to_string())
+        );
         assert_eq!(config.model, Some("llama3".to_string()));
         assert!(config.cost_per_1k_tokens.is_none()); // Local is free
         assert!(config.is_usable());

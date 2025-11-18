@@ -222,10 +222,7 @@ fn detect_escalations(observations: &[Observation]) -> Result<Vec<BehaviorInsigh
                 metadata: InsightMetadata {
                     occurrence_count: obs_list.len(),
                     days_observed: calculate_days_span(&obs_list),
-                    details: format!(
-                        "Severity increased by {} levels",
-                        severity_increase
-                    ),
+                    details: format!("Severity increased by {} levels", severity_increase),
                 },
             });
         }
@@ -272,7 +269,8 @@ fn detect_longterm_unaddressed(observations: &[Observation]) -> Result<Vec<Behav
                     days_observed: days_span,
                     details: format!(
                         "Visible for {} days across {} observations",
-                        days_span, obs_list.len()
+                        days_span,
+                        obs_list.len()
                     ),
                 },
             });
@@ -319,10 +317,7 @@ fn detect_profile_transitions(observations: &[Observation]) -> Result<Vec<Behavi
                 metadata: InsightMetadata {
                     occurrence_count: obs_list.len(),
                     days_observed: calculate_days_span(&obs_list),
-                    details: format!(
-                        "Profile transition: {} → {}",
-                        first_profile, last_profile
-                    ),
+                    details: format!("Profile transition: {} → {}", first_profile, last_profile),
                 },
             });
         }
@@ -372,16 +367,8 @@ fn calculate_days_span(observations: &[&Observation]) -> i64 {
         return 0;
     }
 
-    let first = observations
-        .iter()
-        .map(|o| &o.timestamp)
-        .min()
-        .unwrap();
-    let last = observations
-        .iter()
-        .map(|o| &o.timestamp)
-        .max()
-        .unwrap();
+    let first = observations.iter().map(|o| &o.timestamp).min().unwrap();
+    let last = observations.iter().map(|o| &o.timestamp).max().unwrap();
 
     if let (Ok(first_dt), Ok(last_dt)) = (
         chrono::DateTime::parse_from_rfc3339(first),

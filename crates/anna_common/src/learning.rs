@@ -90,10 +90,7 @@ pub struct DetectedPattern {
 
 impl DetectedPattern {
     /// Create new pattern
-    pub fn new(
-        pattern_type: PatternType,
-        description: impl Into<String>,
-    ) -> Self {
+    pub fn new(pattern_type: PatternType, description: impl Into<String>) -> Self {
         let now = Utc::now();
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -295,10 +292,7 @@ impl LearningEngine {
     ///
     /// Identifies frequently used commands (user habits)
     pub fn detect_usage_patterns(&mut self, actions: &[ActionSummary]) {
-        let high_usage: Vec<_> = actions
-            .iter()
-            .filter(|a| a.total_count >= 5)
-            .collect();
+        let high_usage: Vec<_> = actions.iter().filter(|a| a.total_count >= 5).collect();
 
         for action in high_usage {
             let pattern = DetectedPattern::new(
@@ -350,10 +344,7 @@ impl LearningEngine {
 
     /// Get actionable patterns only
     pub fn get_actionable_patterns(&self) -> Vec<&DetectedPattern> {
-        self.patterns
-            .iter()
-            .filter(|p| p.is_actionable())
-            .collect()
+        self.patterns.iter().filter(|p| p.is_actionable()).collect()
     }
 
     /// Get patterns by type
@@ -398,12 +389,9 @@ mod tests {
 
     #[test]
     fn test_detected_pattern() {
-        let mut pattern = DetectedPattern::new(
-            PatternType::RecurringFailure,
-            "Test pattern",
-        )
-        .actionable()
-        .with_metadata("key", "value");
+        let mut pattern = DetectedPattern::new(PatternType::RecurringFailure, "Test pattern")
+            .actionable()
+            .with_metadata("key", "value");
 
         assert_eq!(pattern.occurrence_count, 1);
         assert_eq!(pattern.confidence, Confidence::Low);

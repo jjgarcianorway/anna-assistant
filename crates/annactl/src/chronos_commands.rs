@@ -22,7 +22,10 @@ pub async fn execute_chronos_forecast_command(window_hours: u64) -> Result<()> {
             println!("Horizon: {} hours", data.horizon_hours);
             println!("Confidence: {:.1}%", data.confidence * 100.0);
 
-            println!("\n=== Projected Final State ({}h ahead) ===", data.horizon_hours);
+            println!(
+                "\n=== Projected Final State ({}h ahead) ===",
+                data.horizon_hours
+            );
             println!("Health Score:      {:.1}%", data.final_health * 100.0);
             println!("Empathy Index:     {:.1}%", data.final_empathy * 100.0);
             println!("Strain Index:      {:.1}%", data.final_strain * 100.0);

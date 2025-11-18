@@ -111,13 +111,10 @@ pub struct ActionJson {
 /// 3. If success, convert RecipeJson to ChangeRecipe
 /// 4. Validate recipe against safety context
 /// 5. Return validated ChangeRecipe or error
-pub fn validate_llm_response(
-    json: &str,
-    context: &SafetyContext,
-) -> Result<ChangeRecipe> {
+pub fn validate_llm_response(json: &str, context: &SafetyContext) -> Result<ChangeRecipe> {
     // Step 1: Parse JSON
-    let response: LlmResponse = serde_json::from_str(json)
-        .map_err(|e| anyhow!("Invalid JSON response from LLM: {}", e))?;
+    let response: LlmResponse =
+        serde_json::from_str(json).map_err(|e| anyhow!("Invalid JSON response from LLM: {}", e))?;
 
     // Step 2: Handle error responses
     match response {
@@ -174,87 +171,86 @@ fn convert_recipe_json(json: RecipeJson) -> Result<ChangeRecipe> {
 
 /// Convert ActionJson to ChangeAction
 fn convert_action_json(json: ActionJson) -> Result<ChangeAction> {
-    let kind = match json.kind.as_str() {
-        "edit_file" => {
-            let path = PathBuf::from(
-                json.path
-                    .as_ref()
-                    .ok_or_else(|| anyhow!("edit_file action missing 'path' field"))?
-                    .clone(),
-            );
-            let strategy = parse_edit_strategy(&json)?;
-            ChangeActionKind::EditFile { path, strategy }
-        }
-        "append_to_file" => {
-            let path = PathBuf::from(
-                json.path
-                    .as_ref()
-                    .ok_or_else(|| anyhow!("append_to_file action missing 'path' field"))?
-                    .clone(),
-            );
-            let content = json
-                .content
-                .clone()
-                .ok_or_else(|| anyhow!("append_to_file action missing 'content' field"))?;
-            ChangeActionKind::AppendToFile { path, content }
-        }
-        "install_packages" => {
-            let packages = json
-                .packages
-                .clone()
-                .ok_or_else(|| anyhow!("install_packages action missing 'packages' field"))?;
-            ChangeActionKind::InstallPackages { packages }
-        }
-        "remove_packages" => {
-            let packages = json
-                .packages
-                .clone()
-                .ok_or_else(|| anyhow!("remove_packages action missing 'packages' field"))?;
-            ChangeActionKind::RemovePackages { packages }
-        }
-        "enable_service" => {
-            let service_name = json
-                .service_name
-                .clone()
-                .ok_or_else(|| anyhow!("enable_service action missing 'service_name' field"))?;
-            let user_service = json.user_service.unwrap_or(false);
-            ChangeActionKind::EnableService {
-                service_name,
-                user_service,
+    let kind =
+        match json.kind.as_str() {
+            "edit_file" => {
+                let path = PathBuf::from(
+                    json.path
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("edit_file action missing 'path' field"))?
+                        .clone(),
+                );
+                let strategy = parse_edit_strategy(&json)?;
+                ChangeActionKind::EditFile { path, strategy }
             }
-        }
-        "disable_service" => {
-            let service_name = json
-                .service_name
-                .clone()
-                .ok_or_else(|| anyhow!("disable_service action missing 'service_name' field"))?;
-            let user_service = json.user_service.unwrap_or(false);
-            ChangeActionKind::DisableService {
-                service_name,
-                user_service,
+            "append_to_file" => {
+                let path = PathBuf::from(
+                    json.path
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("append_to_file action missing 'path' field"))?
+                        .clone(),
+                );
+                let content = json
+                    .content
+                    .clone()
+                    .ok_or_else(|| anyhow!("append_to_file action missing 'content' field"))?;
+                ChangeActionKind::AppendToFile { path, content }
             }
-        }
-        "set_wallpaper" => {
-            let image_path = PathBuf::from(
-                json.image_path
-                    .as_ref()
-                    .ok_or_else(|| anyhow!("set_wallpaper action missing 'image_path' field"))?
-                    .clone(),
-            );
-            ChangeActionKind::SetWallpaper { image_path }
-        }
-        "run_readonly_command" => {
-            let command = json
-                .command
-                .clone()
-                .ok_or_else(|| anyhow!("run_readonly_command action missing 'command' field"))?;
-            let args = json.args.clone().unwrap_or_default();
-            ChangeActionKind::RunReadOnlyCommand { command, args }
-        }
-        unknown => {
-            return Err(anyhow!("Unknown action kind: {}", unknown));
-        }
-    };
+            "install_packages" => {
+                let packages = json
+                    .packages
+                    .clone()
+                    .ok_or_else(|| anyhow!("install_packages action missing 'packages' field"))?;
+                ChangeActionKind::InstallPackages { packages }
+            }
+            "remove_packages" => {
+                let packages = json
+                    .packages
+                    .clone()
+                    .ok_or_else(|| anyhow!("remove_packages action missing 'packages' field"))?;
+                ChangeActionKind::RemovePackages { packages }
+            }
+            "enable_service" => {
+                let service_name = json
+                    .service_name
+                    .clone()
+                    .ok_or_else(|| anyhow!("enable_service action missing 'service_name' field"))?;
+                let user_service = json.user_service.unwrap_or(false);
+                ChangeActionKind::EnableService {
+                    service_name,
+                    user_service,
+                }
+            }
+            "disable_service" => {
+                let service_name = json.service_name.clone().ok_or_else(|| {
+                    anyhow!("disable_service action missing 'service_name' field")
+                })?;
+                let user_service = json.user_service.unwrap_or(false);
+                ChangeActionKind::DisableService {
+                    service_name,
+                    user_service,
+                }
+            }
+            "set_wallpaper" => {
+                let image_path = PathBuf::from(
+                    json.image_path
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("set_wallpaper action missing 'image_path' field"))?
+                        .clone(),
+                );
+                ChangeActionKind::SetWallpaper { image_path }
+            }
+            "run_readonly_command" => {
+                let command = json.command.clone().ok_or_else(|| {
+                    anyhow!("run_readonly_command action missing 'command' field")
+                })?;
+                let args = json.args.clone().unwrap_or_default();
+                ChangeActionKind::RunReadOnlyCommand { command, args }
+            }
+            unknown => {
+                return Err(anyhow!("Unknown action kind: {}", unknown));
+            }
+        };
 
     let action = ChangeAction::new(kind, json.description, json.estimated_impact);
     Ok(action)

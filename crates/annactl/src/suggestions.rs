@@ -6,8 +6,8 @@
 //!
 //! NOT exposed as a public CLI command.
 
-use anyhow::Result;
 use anna_common::terminal_format as fmt;
+use anyhow::Result;
 
 use crate::systemd;
 
@@ -78,7 +78,8 @@ pub fn display_suggestions(suggestions: &[Suggestion]) {
         return;
     }
 
-    println!("I found {} thing{} you might want to address:",
+    println!(
+        "I found {} thing{} you might want to address:",
         suggestions.len(),
         if suggestions.len() == 1 { "" } else { "s" }
     );
@@ -88,21 +89,24 @@ pub fn display_suggestions(suggestions: &[Suggestion]) {
         let priority_icon = match suggestion.priority {
             1 => "🔴", // Critical
             2 => "🟡", // Warning
-            _ => "ℹ️",  // Info
+            _ => "ℹ️", // Info
         };
 
-        println!("{} {}",
+        println!(
+            "{} {}",
             fmt::bold(&format!("{}. {}", i + 1, priority_icon)),
             fmt::bold(&suggestion.title)
         );
         println!();
         println!("   {}", suggestion.explanation);
         println!();
-        println!("   {} {}",
+        println!(
+            "   {} {}",
             fmt::bold("What I can do:"),
             suggestion.recommended_fix
         );
-        println!("   {} {}",
+        println!(
+            "   {} {}",
             fmt::dimmed("Reference:"),
             fmt::dimmed(&suggestion.reference)
         );
@@ -136,8 +140,10 @@ pub fn get_status_summary() -> Result<Option<String>> {
         summary.push_str(&format!("  ... and {} more\n", critical.len() - 3));
     }
 
-    summary.push_str(&format!("\n  {} Ask me: \"what should I improve?\"\n",
-        fmt::dimmed("To see details:")));
+    summary.push_str(&format!(
+        "\n  {} Ask me: \"what should I improve?\"\n",
+        fmt::dimmed("To see details:")
+    ));
 
     Ok(Some(summary))
 }

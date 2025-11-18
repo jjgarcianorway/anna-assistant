@@ -146,7 +146,10 @@ impl PredictionActionMapper {
                         let action = PredictionAction::new(
                             format!("{}-{}", prediction.id, idx),
                             format!("Maintenance: {}", action_text),
-                            format!("Predicted maintenance action with {}% confidence", prediction.confidence),
+                            format!(
+                                "Predicted maintenance action with {}% confidence",
+                                prediction.confidence
+                            ),
                             risk,
                         )
                         .with_outcome("System maintenance completed");
@@ -239,7 +242,8 @@ impl PredictionActionMapper {
         if lower.contains("delete")
             || lower.contains("remove")
             || lower.contains("format")
-            || lower.contains("destroy") {
+            || lower.contains("destroy")
+        {
             return ActionRisk::Critical;
         }
 
@@ -247,7 +251,8 @@ impl PredictionActionMapper {
         if lower.contains("modify config")
             || lower.contains("edit")
             || lower.contains("system-wide")
-            || lower.contains("kernel") {
+            || lower.contains("kernel")
+        {
             return ActionRisk::High;
         }
 
@@ -255,7 +260,8 @@ impl PredictionActionMapper {
         if lower.contains("update")
             || lower.contains("upgrade")
             || lower.contains("install")
-            || lower.contains("restart critical") {
+            || lower.contains("restart critical")
+        {
             return ActionRisk::Medium;
         }
 
@@ -264,7 +270,8 @@ impl PredictionActionMapper {
             || (lower.contains("clear") && lower.contains("cache"))
             || lower.contains("restart")
             || lower.contains("reload")
-            || lower.contains("clean") {
+            || lower.contains("clean")
+        {
             return ActionRisk::Low;
         }
 
@@ -320,12 +327,13 @@ impl ActionExecutionPolicy {
             let lower = command.to_lowercase();
 
             if (lower.contains("restart") || lower.contains("systemctl"))
-                && !self.allow_service_restart {
+                && !self.allow_service_restart
+            {
                 return false;
             }
 
-            if (lower.contains("pacman") || lower.contains("yay"))
-                && !self.allow_package_operations {
+            if (lower.contains("pacman") || lower.contains("yay")) && !self.allow_package_operations
+            {
                 return false;
             }
         }
@@ -349,7 +357,9 @@ impl ActionExecutionPolicy {
         if self.can_execute(action) {
             ActionDecision::AutoExecute
         } else {
-            ActionDecision::RequiresApproval("Policy restrictions prevent auto-execution".to_string())
+            ActionDecision::RequiresApproval(
+                "Policy restrictions prevent auto-execution".to_string(),
+            )
         }
     }
 }
@@ -400,12 +410,7 @@ mod tests {
         let policy = ActionExecutionPolicy::default();
         assert!(!policy.self_healing_enabled);
 
-        let action = PredictionAction::new(
-            "test-1",
-            "Test Action",
-            "Test",
-            ActionRisk::Low,
-        );
+        let action = PredictionAction::new("test-1", "Test Action", "Test", ActionRisk::Low);
 
         assert!(!policy.can_execute(&action));
     }

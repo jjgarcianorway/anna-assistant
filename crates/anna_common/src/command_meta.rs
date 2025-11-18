@@ -123,7 +123,8 @@ impl CommandMetadata {
         let state_visible = if self.available_states.is_empty() {
             true
         } else {
-            self.available_states.contains(&context.system_state.as_str())
+            self.available_states
+                .contains(&context.system_state.as_str())
         };
 
         category_visible && daemon_visible && state_visible
@@ -587,9 +588,15 @@ mod tests {
         };
 
         let visible = registry.visible(&context);
-        let has_user_safe = visible.iter().any(|cmd| cmd.category == CommandCategory::UserSafe);
-        let has_advanced = visible.iter().any(|cmd| cmd.category == CommandCategory::Advanced);
-        let has_internal = visible.iter().any(|cmd| cmd.category == CommandCategory::Internal);
+        let has_user_safe = visible
+            .iter()
+            .any(|cmd| cmd.category == CommandCategory::UserSafe);
+        let has_advanced = visible
+            .iter()
+            .any(|cmd| cmd.category == CommandCategory::Advanced);
+        let has_internal = visible
+            .iter()
+            .any(|cmd| cmd.category == CommandCategory::Internal);
 
         assert!(has_user_safe);
         assert!(has_advanced);
@@ -608,9 +615,15 @@ mod tests {
         };
 
         let visible = registry.visible(&context);
-        let has_user_safe = visible.iter().any(|cmd| cmd.category == CommandCategory::UserSafe);
-        let has_advanced = visible.iter().any(|cmd| cmd.category == CommandCategory::Advanced);
-        let has_internal = visible.iter().any(|cmd| cmd.category == CommandCategory::Internal);
+        let has_user_safe = visible
+            .iter()
+            .any(|cmd| cmd.category == CommandCategory::UserSafe);
+        let has_advanced = visible
+            .iter()
+            .any(|cmd| cmd.category == CommandCategory::Advanced);
+        let has_internal = visible
+            .iter()
+            .any(|cmd| cmd.category == CommandCategory::Internal);
 
         assert!(has_user_safe);
         assert!(has_advanced);
@@ -674,8 +687,12 @@ mod tests {
 
         // Doctor should have higher priority (lower number) than non-highlighted advanced commands
         // when in degraded state (both are Advanced, but doctor is highlighted)
-        assert!(doctor.display_priority(&degraded_context) < update.display_priority(&degraded_context));
-        assert!(repair.display_priority(&degraded_context) < update.display_priority(&degraded_context));
+        assert!(
+            doctor.display_priority(&degraded_context) < update.display_priority(&degraded_context)
+        );
+        assert!(
+            repair.display_priority(&degraded_context) < update.display_priority(&degraded_context)
+        );
     }
 
     #[test]

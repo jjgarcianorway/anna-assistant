@@ -1,6 +1,6 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use chrono::{DateTime, Utc, NaiveDateTime};
 
 /// Orphaned packages detection and analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,9 +25,9 @@ pub struct OrphanPackage {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum InstallReason {
-    Explicit,      // Explicitly installed
-    Dependency,    // Installed as dependency
-    Orphan,        // Was dependency, no longer required
+    Explicit,   // Explicitly installed
+    Dependency, // Installed as dependency
+    Orphan,     // Was dependency, no longer required
 }
 
 impl OrphanedPackages {
@@ -54,11 +54,12 @@ impl OrphanedPackages {
 
             if removal_safe {
                 removal_recommendations.push(
-                    "Run 'sudo pacman -Rns $(pacman -Qtdq)' to remove orphaned packages".to_string()
+                    "Run 'sudo pacman -Rns $(pacman -Qtdq)' to remove orphaned packages"
+                        .to_string(),
                 );
             } else {
                 removal_recommendations.push(
-                    "Some orphaned packages may be critical - review before removal".to_string()
+                    "Some orphaned packages may be critical - review before removal".to_string(),
                 );
             }
 
@@ -75,7 +76,8 @@ impl OrphanedPackages {
                 ));
             }
         } else {
-            removal_recommendations.push("No orphaned packages found - system is clean".to_string());
+            removal_recommendations
+                .push("No orphaned packages found - system is clean".to_string());
         }
 
         Self {
@@ -92,9 +94,7 @@ fn detect_orphaned_packages() -> Vec<OrphanPackage> {
     let mut packages = Vec::new();
 
     // Run pacman -Qtd to get orphaned packages (dependencies no longer required)
-    let output = Command::new("pacman")
-        .args(&["-Qtd"])
-        .output();
+    let output = Command::new("pacman").args(&["-Qtd"]).output();
 
     if let Ok(output) = output {
         if output.status.success() {
@@ -140,10 +140,7 @@ fn detect_orphaned_packages() -> Vec<OrphanPackage> {
     }
 
     // Sort by size (largest first)
-    packages.sort_by(|a, b| {
-        b.install_size_kb
-            .cmp(&a.install_size_kb)
-    });
+    packages.sort_by(|a, b| b.install_size_kb.cmp(&a.install_size_kb));
 
     packages
 }
@@ -197,9 +194,13 @@ fn get_package_info(package_name: &str) -> Option<PackageInfo> {
 
                 // Try to parse with multiple date formats
                 // pacman uses format like "Tue 15 Oct 2024 10:30:45 AM PDT"
-                if let Ok(naive_dt) = NaiveDateTime::parse_from_str(date_str, "%a %d %b %Y %I:%M:%S %p %Z") {
+                if let Ok(naive_dt) =
+                    NaiveDateTime::parse_from_str(date_str, "%a %d %b %Y %I:%M:%S %p %Z")
+                {
                     install_date = Some(DateTime::from_naive_utc_and_offset(naive_dt, Utc));
-                } else if let Ok(naive_dt) = NaiveDateTime::parse_from_str(date_str, "%a %d %b %Y %H:%M:%S %Z") {
+                } else if let Ok(naive_dt) =
+                    NaiveDateTime::parse_from_str(date_str, "%a %d %b %Y %H:%M:%S %Z")
+                {
                     install_date = Some(DateTime::from_naive_utc_and_offset(naive_dt, Utc));
                 }
             }
@@ -231,5 +232,7 @@ fn is_critical_package(package_name: &str) -> bool {
         "base",
     ];
 
-    critical_patterns.iter().any(|pattern| package_name.contains(pattern))
+    critical_patterns
+        .iter()
+        .any(|pattern| package_name.contains(pattern))
 }

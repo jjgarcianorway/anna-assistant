@@ -88,9 +88,7 @@ impl Chronicle {
 
     /// Retrieve archived forecast
     pub fn get_forecast(&self, forecast_id: &str) -> Option<&ArchivedForecast> {
-        self.forecasts
-            .iter()
-            .find(|f| f.forecast_id == forecast_id)
+        self.forecasts.iter().find(|f| f.forecast_id == forecast_id)
     }
 
     /// Get recent forecasts
@@ -128,13 +126,7 @@ impl Chronicle {
 
     /// Create timeline snapshot for archive
     fn snapshot_timeline(&self, timeline: &Timeline) -> TimelineSnapshot {
-        let recent_snapshots = timeline
-            .snapshots
-            .iter()
-            .rev()
-            .take(10)
-            .cloned()
-            .collect();
+        let recent_snapshots = timeline.snapshots.iter().rev().take(10).cloned().collect();
 
         TimelineSnapshot {
             snapshot_count: timeline.snapshots.len(),
@@ -196,9 +188,9 @@ impl Chronicle {
             (projected_final.metrics.empathy_index - actual_final.metrics.empathy_index).abs();
         let strain_error =
             (projected_final.metrics.strain_index - actual_final.metrics.strain_index).abs();
-        let coherence_error =
-            (projected_final.metrics.network_coherence - actual_final.metrics.network_coherence)
-                .abs();
+        let coherence_error = (projected_final.metrics.network_coherence
+            - actual_final.metrics.network_coherence)
+            .abs();
 
         let avg_error = (health_error + empathy_error + strain_error + coherence_error) / 4.0;
         let accuracy_score = (1.0 - avg_error).clamp(0.0, 1.0);
@@ -260,10 +252,12 @@ impl Chronicle {
             );
             recommendations.push("Review forecast parameters and trend calculations".to_string());
         } else if accuracy_score < 0.8 {
-            recommendations
-                .push("Moderate forecast accuracy - minor parameter tuning recommended".to_string());
+            recommendations.push(
+                "Moderate forecast accuracy - minor parameter tuning recommended".to_string(),
+            );
         } else {
-            recommendations.push("High forecast accuracy - maintain current parameters".to_string());
+            recommendations
+                .push("High forecast accuracy - maintain current parameters".to_string());
         }
 
         recommendations

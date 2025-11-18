@@ -178,7 +178,11 @@ impl ConsensusEngine {
     }
 
     /// Generate reasoning explanation
-    fn generate_reasoning(&self, request: &ConsensusRequest, decision: ConsensusDecision) -> String {
+    fn generate_reasoning(
+        &self,
+        request: &ConsensusRequest,
+        decision: ConsensusDecision,
+    ) -> String {
         let approve_count = request
             .votes
             .values()
@@ -267,11 +271,8 @@ mod tests {
     fn test_consensus_creation() {
         let mut engine = ConsensusEngine::new();
 
-        let id = engine.request_consensus(
-            "test_action".to_string(),
-            "requester_peer".to_string(),
-            60,
-        );
+        let id =
+            engine.request_consensus("test_action".to_string(), "requester_peer".to_string(), 60);
 
         assert!(engine.get_pending().contains(&id));
     }
@@ -280,11 +281,8 @@ mod tests {
     fn test_vote_submission() {
         let mut engine = ConsensusEngine::new();
 
-        let id = engine.request_consensus(
-            "test_action".to_string(),
-            "requester_peer".to_string(),
-            60,
-        );
+        let id =
+            engine.request_consensus("test_action".to_string(), "requester_peer".to_string(), 60);
 
         let vote = ConsensusVote {
             peer_id: "voter1".to_string(),
@@ -322,11 +320,8 @@ mod tests {
             },
         );
 
-        let id = engine.request_consensus(
-            "test_action".to_string(),
-            "requester_peer".to_string(),
-            60,
-        );
+        let id =
+            engine.request_consensus("test_action".to_string(), "requester_peer".to_string(), 60);
 
         // Two approval votes
         engine.submit_vote(

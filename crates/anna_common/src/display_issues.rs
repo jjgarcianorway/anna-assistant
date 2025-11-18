@@ -89,7 +89,8 @@ impl DisplayIssues {
         let multi_monitor_issues = detect_multi_monitor_issues(&display_config);
 
         let overall_status = calculate_status(&driver_issues, &multi_monitor_issues);
-        let recommendations = generate_recommendations(&driver_issues, &display_config, &multi_monitor_issues);
+        let recommendations =
+            generate_recommendations(&driver_issues, &display_config, &multi_monitor_issues);
 
         DisplayIssues {
             driver_issues,
@@ -105,7 +106,10 @@ impl DisplayIssues {
     }
 
     pub fn display_count(&self) -> usize {
-        self.display_config.as_ref().map(|dc| dc.total_screens).unwrap_or(0)
+        self.display_config
+            .as_ref()
+            .map(|dc| dc.total_screens)
+            .unwrap_or(0)
     }
 }
 
@@ -142,7 +146,9 @@ fn check_xorg_log() -> Option<Vec<DriverIssue>> {
                     // Extract GPU vendor if present
                     let vendor = if line.to_lowercase().contains("nvidia") {
                         "NVIDIA"
-                    } else if line.to_lowercase().contains("amd") || line.to_lowercase().contains("radeon") {
+                    } else if line.to_lowercase().contains("amd")
+                        || line.to_lowercase().contains("radeon")
+                    {
                         "AMD"
                     } else if line.to_lowercase().contains("intel") {
                         "Intel"
@@ -177,10 +183,7 @@ fn check_xorg_log() -> Option<Vec<DriverIssue>> {
 }
 
 fn check_dmesg_gpu_errors() -> Option<Vec<DriverIssue>> {
-    let output = Command::new("dmesg")
-        .arg("-T")
-        .output()
-        .ok()?;
+    let output = Command::new("dmesg").arg("-T").output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -190,7 +193,11 @@ fn check_dmesg_gpu_errors() -> Option<Vec<DriverIssue>> {
     let mut issues = Vec::new();
 
     let error_patterns = vec![
-        ("nvidia", "NVIDIA", vec!["NVRM", "nvidia: probe", "GPU has fallen off"]),
+        (
+            "nvidia",
+            "NVIDIA",
+            vec!["NVRM", "nvidia: probe", "GPU has fallen off"],
+        ),
         ("amdgpu", "AMD", vec!["amdgpu", "GPU fault", "ring timeout"]),
         ("i915", "Intel", vec!["i915", "GPU hang", "reset failed"]),
         ("drm", "Generic", vec!["DRM", "error", "failed"]),
@@ -202,11 +209,16 @@ fn check_dmesg_gpu_errors() -> Option<Vec<DriverIssue>> {
         for (driver, vendor, patterns) in &error_patterns {
             if line_lower.contains(driver) {
                 for pattern in patterns {
-                    if line_lower.contains(&pattern.to_lowercase()) &&
-                       (line_lower.contains("error") || line_lower.contains("failed") ||
-                        line_lower.contains("fault") || line_lower.contains("timeout")) {
-
-                        let timestamp = line.split(']').next().and_then(|s| s.strip_prefix('['))
+                    if line_lower.contains(&pattern.to_lowercase())
+                        && (line_lower.contains("error")
+                            || line_lower.contains("failed")
+                            || line_lower.contains("fault")
+                            || line_lower.contains("timeout"))
+                    {
+                        let timestamp = line
+                            .split(']')
+                            .next()
+                            .and_then(|s| s.strip_prefix('['))
                             .map(|s| s.to_string());
 
                         issues.push(DriverIssue {
@@ -266,10 +278,7 @@ fn detect_session_type() -> SessionType {
 }
 
 fn detect_xrandr_config() -> Option<DisplayConfiguration> {
-    let output = Command::new("xrandr")
-        .arg("--query")
-        .output()
-        .ok()?;
+    let output = Command::new("xrandr").arg("--query").output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -363,7 +372,9 @@ fn detect_sway_outputs() -> Option<DisplayConfiguration> {
             };
 
             let refresh_rate = if active {
-                output_obj["current_mode"]["refresh"].as_f64().map(|r| r / 1000.0)
+                output_obj["current_mode"]["refresh"]
+                    .as_f64()
+                    .map(|r| r / 1000.0)
             } else {
                 None
             };
@@ -412,36 +423,56 @@ fn detect_multi_monitor_issues(config: &Option<DisplayConfiguration>) -> Vec<Mul
                 issues.push(MultiMonitorIssue {
                     issue_type: MultiMonitorIssueType::MissingPrimary,
                     description: "No primary display configured in multi-monitor setup".to_string(),
-                    affected_displays: dc.displays.iter().filter(|d| d.connected).map(|d| d.name.clone()).collect(),
+                    affected_displays: dc
+                        .displays
+                        .iter()
+                        .filter(|d| d.connected)
+                        .map(|d| d.name.clone())
+                        .collect(),
                 });
             }
 
             // Check for resolution mismatches
-            let resolutions: Vec<_> = dc.displays.iter()
+            let resolutions: Vec<_> = dc
+                .displays
+                .iter()
                 .filter(|d| d.connected && d.resolution.is_some())
                 .map(|d| d.resolution.as_ref().unwrap())
                 .collect();
 
             if resolutions.len() > 1 {
                 let first_res = resolutions[0];
-                let all_same = resolutions.iter().all(|r| r.width == first_res.width && r.height == first_res.height);
+                let all_same = resolutions
+                    .iter()
+                    .all(|r| r.width == first_res.width && r.height == first_res.height);
 
                 if !all_same {
                     issues.push(MultiMonitorIssue {
                         issue_type: MultiMonitorIssueType::ResolutionMismatch,
-                        description: "Displays have different resolutions - may cause scaling issues".to_string(),
-                        affected_displays: dc.displays.iter()
+                        description:
+                            "Displays have different resolutions - may cause scaling issues"
+                                .to_string(),
+                        affected_displays: dc
+                            .displays
+                            .iter()
                             .filter(|d| d.connected)
-                            .map(|d| format!("{} ({}x{})", d.name,
-                                d.resolution.as_ref().map(|r| r.width).unwrap_or(0),
-                                d.resolution.as_ref().map(|r| r.height).unwrap_or(0)))
+                            .map(|d| {
+                                format!(
+                                    "{} ({}x{})",
+                                    d.name,
+                                    d.resolution.as_ref().map(|r| r.width).unwrap_or(0),
+                                    d.resolution.as_ref().map(|r| r.height).unwrap_or(0)
+                                )
+                            })
                             .collect(),
                     });
                 }
             }
 
             // Check for refresh rate mismatches
-            let refresh_rates: Vec<_> = dc.displays.iter()
+            let refresh_rates: Vec<_> = dc
+                .displays
+                .iter()
                 .filter(|d| d.connected && d.refresh_rate.is_some())
                 .map(|d| d.refresh_rate.unwrap())
                 .collect();
@@ -453,11 +484,19 @@ fn detect_multi_monitor_issues(config: &Option<DisplayConfiguration>) -> Vec<Mul
                 if !all_same {
                     issues.push(MultiMonitorIssue {
                         issue_type: MultiMonitorIssueType::RefreshRateMismatch,
-                        description: "Displays have different refresh rates - may cause tearing".to_string(),
-                        affected_displays: dc.displays.iter()
+                        description: "Displays have different refresh rates - may cause tearing"
+                            .to_string(),
+                        affected_displays: dc
+                            .displays
+                            .iter()
                             .filter(|d| d.connected)
-                            .map(|d| format!("{} ({}Hz)", d.name,
-                                d.refresh_rate.map(|r| r as u32).unwrap_or(0)))
+                            .map(|d| {
+                                format!(
+                                    "{} ({}Hz)",
+                                    d.name,
+                                    d.refresh_rate.map(|r| r as u32).unwrap_or(0)
+                                )
+                            })
                             .collect(),
                     });
                 }
@@ -465,7 +504,9 @@ fn detect_multi_monitor_issues(config: &Option<DisplayConfiguration>) -> Vec<Mul
         }
 
         // Check for disconnected displays in config
-        let disconnected: Vec<_> = dc.displays.iter()
+        let disconnected: Vec<_> = dc
+            .displays
+            .iter()
             .filter(|d| !d.connected)
             .map(|d| d.name.clone())
             .collect();
@@ -482,8 +523,13 @@ fn detect_multi_monitor_issues(config: &Option<DisplayConfiguration>) -> Vec<Mul
     issues
 }
 
-fn calculate_status(driver_issues: &[DriverIssue], multi_monitor_issues: &[MultiMonitorIssue]) -> DisplayStatus {
-    let has_critical_driver = driver_issues.iter().any(|i| matches!(i.severity, IssueSeverity::Critical));
+fn calculate_status(
+    driver_issues: &[DriverIssue],
+    multi_monitor_issues: &[MultiMonitorIssue],
+) -> DisplayStatus {
+    let has_critical_driver = driver_issues
+        .iter()
+        .any(|i| matches!(i.severity, IssueSeverity::Critical));
 
     if has_critical_driver {
         return DisplayStatus::Critical;
@@ -514,28 +560,37 @@ fn generate_recommendations(
         let amd_issues = driver_issues.iter().any(|i| i.gpu_vendor == "AMD");
 
         if nvidia_issues {
-            recommendations.push("NVIDIA issues detected - consider updating drivers or kernel parameters".to_string());
+            recommendations.push(
+                "NVIDIA issues detected - consider updating drivers or kernel parameters"
+                    .to_string(),
+            );
         }
         if amd_issues {
-            recommendations.push("AMD issues detected - check amdgpu/radeon driver configuration".to_string());
+            recommendations
+                .push("AMD issues detected - check amdgpu/radeon driver configuration".to_string());
         }
     }
 
     for issue in multi_monitor_issues {
         match issue.issue_type {
             MultiMonitorIssueType::MissingPrimary => {
-                recommendations.push("Set a primary display for better multi-monitor experience".to_string());
-            },
+                recommendations
+                    .push("Set a primary display for better multi-monitor experience".to_string());
+            }
             MultiMonitorIssueType::ResolutionMismatch => {
-                recommendations.push("Consider matching display resolutions or adjusting scaling settings".to_string());
-            },
+                recommendations.push(
+                    "Consider matching display resolutions or adjusting scaling settings"
+                        .to_string(),
+                );
+            }
             MultiMonitorIssueType::RefreshRateMismatch => {
-                recommendations.push("Match refresh rates across displays to prevent tearing".to_string());
-            },
+                recommendations
+                    .push("Match refresh rates across displays to prevent tearing".to_string());
+            }
             MultiMonitorIssueType::DisconnectedDisplay => {
                 recommendations.push("Remove disconnected displays from configuration".to_string());
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
@@ -557,6 +612,9 @@ mod tests {
     #[test]
     fn test_display_detection() {
         let issues = DisplayIssues::detect();
-        assert!(matches!(issues.overall_status, DisplayStatus::Healthy | DisplayStatus::Warning | DisplayStatus::Critical));
+        assert!(matches!(
+            issues.overall_status,
+            DisplayStatus::Healthy | DisplayStatus::Warning | DisplayStatus::Critical
+        ));
     }
 }
