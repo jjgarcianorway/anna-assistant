@@ -550,7 +550,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                     ui.warning(&format!("Note: Couldn't save settings: {}", e));
                     println!();
                 } else {
-                    ui.success("✓ Settings saved");
+                    ui.success("Settings saved");
                     println!();
                 }
             }
@@ -594,7 +594,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                     let new_ui = UI::new(&config);
                     let profile = config.profile();
                     println!();
-                    new_ui.success(&format!("{} ✓", profile.translations.language_changed));
+                    new_ui.success(&profile.translations.language_changed);
                     new_ui.info(&format!(
                         "{} {}",
                         profile.translations.now_speaking,

@@ -12,7 +12,7 @@ pub fn display_suggestions(suggestions: &[&Suggestion]) {
 
     if suggestions.is_empty() {
         println!();
-        ui.success("✓ Great! Your system is in good shape.");
+        ui.success("Great! Your system is in good shape.");
         ui.info("I don't have any immediate suggestions.");
         println!();
         return;

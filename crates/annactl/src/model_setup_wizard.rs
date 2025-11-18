@@ -51,7 +51,7 @@ pub async fn run_model_setup_wizard_if_needed(
             // Install the model
             match model_catalog::install_model(&recommended.id) {
                 Ok(_) => {
-                    ui.success(&format!("✓ Installed {}", recommended.id));
+                    ui.success(&format!("Installed {}", recommended.id));
                     ui.info("Please restart annactl to use the new model.");
                     println!();
                     return Ok(true);

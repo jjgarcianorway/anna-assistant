@@ -845,11 +845,11 @@ pub async fn execute_self_health_repair(req_id: &str, start_time: Instant) -> Re
 
             match result {
                 Ok(_) => {
-                    ui.success("  ✓ Fixed");
+                    ui.success("  Fixed");
                     success_count += 1;
                 }
                 Err(e) => {
-                    ui.error(&format!("  ✗ Failed: {}", e));
+                    ui.error(&format!("  Failed: {}", e));
                     fail_count += 1;
                 }
             }

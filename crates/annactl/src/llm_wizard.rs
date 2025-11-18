@@ -139,7 +139,7 @@ async fn setup_local_model(ui: &UI, db: &ContextDb, hw: &HardwareAssessment) -> 
             // Store initial capability tier for upgrade detection
             store_initial_capability(db, hw.llm_capability).await?;
 
-            ui.success("✓ My local brain is ready!");
+            ui.success("My local brain is ready!");
             ui.info("I can now understand questions much better while keeping");
             ui.info("your data completely private on this machine.");
             println!();
@@ -191,7 +191,7 @@ async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
     println!();
     ui.section_header("☁️", "Remote API Setup");
 
-    ui.warning("⚠️ Important Privacy Notice");
+    ui.warning("Important Privacy Notice");
     ui.info("Using a remote API means:");
     ui.bullet_list(&[
         "Your system information may be sent to the provider",
@@ -244,7 +244,7 @@ async fn setup_remote_api(ui: &UI, db: &ContextDb) -> Result<()> {
     let config = LlmConfig::remote(base_url, model, api_key_env, 0.00015);
     db.save_llm_config(&config).await?;
 
-    ui.success("✓ Remote API configured");
+    ui.success("Remote API configured");
     ui.info("I will now use the remote API to answer questions.");
     println!();
 

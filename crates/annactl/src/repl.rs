@@ -134,7 +134,7 @@ pub async fn start_repl() -> Result<()> {
     // If health is still broken after repair, refuse to start REPL
     if health.status == crate::health::HealthStatus::Broken {
         print_status_bar(&ctx);
-        ui.error("✗ Anna cannot start: critical health issues remain");
+        ui.error("Anna cannot start: critical health issues remain");
         println!("Please run 'annactl status' for details");
         std::process::exit(health.exit_code());
     }
