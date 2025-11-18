@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.54 (Critical Bugfixes - Auto-Updater & LLM Integration)
+**Version:** 5.7.0-beta.55 (Telemetry-First Internal Dialogue & Personality System)
 
 ---
 
@@ -483,7 +483,9 @@ Current focus:
 
 ## License
 
-MIT License - See [LICENSE](./LICENSE) for details.
+GNU General Public License v3 (GPLv3) - See [LICENSE](./LICENSE) for details.
+
+Anna is free and open source software. You can redistribute and modify it under the terms of GPLv3.
 
 ---
 
