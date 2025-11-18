@@ -843,8 +843,9 @@ async fn main() -> Result<()> {
     };
 
     // Handle no command -> start interactive REPL
+    // Beta.82: Default to TUI instead of line-based REPL (claude-cli style)
     if cli.command.is_none() {
-        return repl::start_repl().await;
+        return annactl::tui::run().map_err(|e| anyhow::anyhow!("TUI error: {}", e));
     }
 
     // Unwrap command (we know it's Some at this point)

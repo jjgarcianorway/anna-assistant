@@ -20,12 +20,14 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     // Check if LLM is already configured
     let existing_config = db.load_llm_config().await?;
 
-    if existing_config.mode != LlmMode::NotConfigured {
-        info!("LLM already configured: {}", existing_config.description);
-        return Ok(());
-    }
+    let is_configured = existing_config.mode != LlmMode::NotConfigured;
 
-    info!("LLM not configured, checking for Ollama installation...");
+    if is_configured {
+        info!("LLM already configured: {}", existing_config.description);
+        // Still check if a better model is available for upgrade
+    } else {
+        info!("LLM not configured, checking for Ollama installation...");
+    }
 
     // Check if Ollama service is running
     let ollama_running = Command::new("systemctl")
@@ -144,6 +146,48 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
         available_models[0].clone()
     };
 
+    // Check if we should upgrade the existing model
+    if is_configured {
+        // Extract current model name from existing config
+        let current_model = existing_config
+            .model
+            .as_deref()
+            .unwrap_or("unknown");
+
+        if current_model == model {
+            info!(
+                "✓ Already using optimal model: {} (no upgrade needed)",
+                current_model
+            );
+            return Ok(());
+        }
+
+        // Check if new model is significantly better
+        let current_profile = get_available_profiles()
+            .into_iter()
+            .find(|p| p.model_name == current_model);
+        let new_profile = get_available_profiles()
+            .into_iter()
+            .find(|p| p.model_name == model);
+
+        if let (Some(current), Some(new)) = (current_profile, new_profile) {
+            if new.quality_tier > current.quality_tier {
+                info!(
+                    "⚡ Upgrading LLM: {} ({:?}) → {} ({:?})",
+                    current.model_name, current.quality_tier, new.model_name, new.quality_tier
+                );
+            } else {
+                info!(
+                    "✓ Current model {} is adequate ({:?} vs {:?})",
+                    current.model_name, current.quality_tier, new.quality_tier
+                );
+                return Ok(());
+            }
+        } else {
+            info!("⚡ Switching to better model: {} → {}", current_model, model);
+        }
+    }
+
     // Create and save LLM config
     let config = LlmConfig::local("http://127.0.0.1:11434/v1", &model);
 
@@ -151,7 +195,11 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
         .await
         .context("Failed to save LLM config")?;
 
-    info!("✓ LLM auto-configured: Ollama with {}", model);
+    if is_configured {
+        info!("✓ LLM upgraded to: Ollama with {}", model);
+    } else {
+        info!("✓ LLM auto-configured: Ollama with {}", model);
+    }
 
     Ok(())
 }
