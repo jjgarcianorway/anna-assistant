@@ -164,6 +164,106 @@ test result: ok. 6 passed
 - Integration with model selection wizard
 - Benchmark history tracking
 
+### 📈 Model Catalog Expansion with Performance Tiers
+
+**Extended model catalog with 10 models and benchmark integration**
+
+Expands model_profiles.rs to integrate with the benchmarking system, providing performance expectations and a wider model selection.
+
+#### Enhanced QualityTier
+
+**Performance Expectations:**
+```rust
+QualityTier::Tiny   -> 30+ tok/s, 60%+ quality (very fast, basic)
+QualityTier::Small  -> 20+ tok/s, 75%+ quality (balanced)
+QualityTier::Medium -> 10+ tok/s, 85%+ quality (high quality)
+QualityTier::Large  -> 5+ tok/s,  90%+ quality (best quality)
+```
+
+#### Expanded Model Catalog
+
+**Tiny Tier (4GB RAM, 2 cores):**
+- llama3.2:1b (1.3 GB) - Fast, basic queries
+- qwen2.5:1.5b (1.0 GB) - Fast, coding-focused
+
+**Small Tier (8GB RAM, 4 cores):**
+- llama3.2:3b (2.0 GB) - Balanced speed/quality
+- phi3:mini (2.3 GB) - Microsoft's efficient model
+- qwen2.5:3b (2.0 GB) - Strong coding abilities
+
+**Medium Tier (16GB RAM, 6 cores):**
+- llama3.1:8b (4.7 GB) - High quality responses
+- mistral:7b (4.1 GB) - Excellent reasoning
+- qwen2.5:7b (4.7 GB) - Advanced coding
+
+**Large Tier (32GB RAM, 8 cores):**
+- llama3.1:13b (7.4 GB) - Exceptional quality
+- qwen2.5:14b (9.0 GB) - Top-tier abilities
+
+#### New ModelProfile Methods
+
+**Benchmark Validation:**
+```rust
+// Check if model meets tier performance expectations
+profile.meets_tier_expectations(tokens_per_sec, quality_score)
+
+// Get actionable feedback
+profile.performance_feedback(tokens_per_sec, quality_score)
+// → "✓ Performing as expected for small tier"
+// → "⚠ Performance below expected (5.0 tok/s, expected ≥20.0 tok/s)"
+```
+
+#### New Helper Functions
+
+```rust
+// Get all models in a specific tier
+get_profiles_by_tier(QualityTier::Small)
+
+// Get best model + fallback options for hardware
+get_recommended_with_fallbacks(ram_gb: 16.0, cores: 8)
+// → (best: llama3.1:8b, fallbacks: [mistral:7b, qwen2.5:7b])
+```
+
+#### Testing
+
+**13 tests passing** (up from 7):
+```bash
+cargo test -p anna_common model_profiles
+
+✅ test_quality_tier_performance_expectations
+✅ test_benchmark_validation
+✅ test_performance_feedback
+✅ test_get_profiles_by_tier
+✅ test_recommended_with_fallbacks
+✅ test_model_catalog_expansion
+... (7 existing tests)
+
+test result: ok. 13 passed
+```
+
+#### Files Changed
+
+**Modified:**
+- `crates/anna_common/src/model_profiles.rs`
+  - Added performance expectations to QualityTier
+  - Expanded from 3 to 10 model profiles
+  - Added benchmark validation methods
+  - Added tier/fallback helper functions
+  - +200 lines, 13 tests (was 7)
+
+#### Impact
+
+**User Benefits:**
+- More model choices for different hardware
+- Performance expectations upfront
+- Validation feedback for benchmark results
+- Fallback recommendations
+
+**Developer Benefits:**
+- Easy to add new models (data-driven)
+- Clear quality/performance tiers
+- Integration with benchmarking system
+
 ---
 
 **Summary: Beta.66-68 Complete!**
