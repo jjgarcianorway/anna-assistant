@@ -222,23 +222,51 @@ impl AutoUpdater {
         FileBackup::create_backup(&annad_path, &change_set_id, FileOperation::Modified)?;
         info!("      ✓ Backups created");
 
-        // Copy new binaries to /usr/local/bin (can't use rename across filesystems)
+        // Install new binaries to /usr/local/bin using install command
+        // This handles permissions and atomic replacement properly
         info!("      Installing new binaries to /usr/local/bin...");
-        tokio::fs::copy(&annactl_tmp, &annactl_path).await?;
-        tokio::fs::copy(&annad_tmp, &annad_path).await?;
+
+        // Use install command for atomic replacement with proper permissions
+        // -m 755: set executable permissions
+        use tokio::process::Command;
+
+        let install_annactl = Command::new("install")
+            .arg("-m")
+            .arg("755")
+            .arg(&annactl_tmp)
+            .arg(&annactl_path)
+            .output()
+            .await?;
+
+        if !install_annactl.status.success() {
+            let stderr = String::from_utf8_lossy(&install_annactl.stderr);
+            return Err(anyhow::anyhow!(
+                "Failed to install annactl: {}. This may be due to filesystem permissions. Try running: sudo systemctl restart annad",
+                stderr
+            ));
+        }
+
+        let install_annad = Command::new("install")
+            .arg("-m")
+            .arg("755")
+            .arg(&annad_tmp)
+            .arg(&annad_path)
+            .output()
+            .await?;
+
+        if !install_annad.status.success() {
+            let stderr = String::from_utf8_lossy(&install_annad.stderr);
+            return Err(anyhow::anyhow!(
+                "Failed to install annad: {}. This may be due to filesystem permissions.",
+                stderr
+            ));
+        }
 
         // Clean up temporary files
         let _ = tokio::fs::remove_file(&annactl_tmp).await;
         let _ = tokio::fs::remove_file(&annad_tmp).await;
 
-        // Set executable permissions
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let perms = std::fs::Permissions::from_mode(0o755);
-            std::fs::set_permissions(&annactl_path, perms.clone())?;
-            std::fs::set_permissions(&annad_path, perms)?;
-        }
+        // Permissions already set by install command (755)
 
         // Cleanup temp dir
         let _ = tokio::fs::remove_dir_all(&temp_dir).await;
