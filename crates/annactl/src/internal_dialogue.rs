@@ -93,11 +93,14 @@ impl TelemetryPayload {
             ))
             .unwrap_or((0.0, 0.0, 0.0));
 
-        // RAM usage - simplified for now
-        let ram_used_percent = 0.0; // TODO: Get from memory_usage_info
+        // Beta.77: Get actual RAM usage from memory_usage_info
+        let ram_used_percent = facts.memory_usage_info
+            .as_ref()
+            .map(|m| m.ram_usage_percent as f64)
+            .unwrap_or(0.0);
 
-        // Disk usage - simplified for now
-        let disk_usage: Vec<DiskUsage> = vec![]; // TODO: Get from storage_info
+        // Beta.77: Get disk usage from df command for major mount points
+        let disk_usage: Vec<DiskUsage> = Self::get_disk_usage();
 
         let resources = ResourceSummary {
             load_avg,
@@ -125,6 +128,60 @@ impl TelemetryPayload {
             recent_errors,
             trends,
         }
+    }
+
+    /// Get disk usage for major mount points
+    fn get_disk_usage() -> Vec<DiskUsage> {
+        use std::process::Command;
+
+        let output = match Command::new("df")
+            .arg("-h")
+            .arg("--output=target,pcent,avail")
+            .output()
+        {
+            Ok(o) => o,
+            Err(_) => return vec![],
+        };
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut disk_usage = Vec::new();
+
+        // Parse df output, skip header line
+        for line in stdout.lines().skip(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let mount = parts[0];
+                let used_str = parts[1].trim_end_matches('%');
+                let avail_str = parts[2];
+
+                // Only include major mount points (/, /home, /boot, etc.)
+                if mount.starts_with('/') && (
+                    mount == "/" ||
+                    mount == "/home" ||
+                    mount == "/boot" ||
+                    mount.starts_with("/mnt") ||
+                    mount.starts_with("/media")
+                ) {
+                    if let Ok(used_percent) = used_str.parse::<f64>() {
+                        // Parse available GB (remove 'G' suffix if present)
+                        let available_gb = avail_str
+                            .trim_end_matches('G')
+                            .trim_end_matches('M')
+                            .trim_end_matches('K')
+                            .parse::<f64>()
+                            .unwrap_or(0.0);
+
+                        disk_usage.push(DiskUsage {
+                            mount: mount.to_string(),
+                            used_percent,
+                            available_gb,
+                        });
+                    }
+                }
+            }
+        }
+
+        disk_usage
     }
 
     /// Render as concise text for LLM context

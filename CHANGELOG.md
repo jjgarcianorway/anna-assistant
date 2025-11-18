@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.77] - 2025-11-18
+
+### LLM CONTEXT FIX - Accurate RAM & Disk Usage + Installer UX
+
+**FIXED:** LLM now sees actual system resource usage instead of placeholder zeros!
+
+#### The Problems
+
+1. **LLM Context Missing RAM Data:** Internal dialogue showed RAM usage as 0.0% (hardcoded) instead of actual usage
+2. **LLM Context Missing Disk Data:** Disk usage was empty array instead of showing actual mount point usage
+3. **Installer Line Break:** Prompt formatting caused user input to appear on new line (OCD-triggering for some users!)
+
+#### The Solutions
+
+**1. RAM Usage Fix** (`crates/annactl/src/internal_dialogue.rs:96-100`)
+```rust
+// BEFORE: Always 0.0%
+let ram_used_percent = 0.0; // TODO: Get from memory_usage_info
+
+// AFTER: Actual RAM usage
+let ram_used_percent = facts.memory_usage_info
+    .as_ref()
+    .map(|m| m.ram_usage_percent as f64)
+    .unwrap_or(0.0);
+```
+
+**2. Disk Usage Fix** (`crates/annactl/src/internal_dialogue.rs:102-185`)
+```rust
+// BEFORE: Always empty
+let disk_usage: Vec<DiskUsage> = vec![]; // TODO: Get from storage_info
+
+// AFTER: Actual disk usage from df command
+let disk_usage: Vec<DiskUsage> = Self::get_disk_usage();
+```
+
+Added `get_disk_usage()` helper that:
+- Runs `df -h --output=target,pcent,avail`
+- Parses major mount points (/, /home, /boot, /mnt/*, /media/*)
+- Returns usage percentage and available space in GB
+
+**3. Installer Prompt Fix** (`scripts/install.sh:155` and `scripts/uninstall.sh:92`)
+```bash
+# BEFORE: Newline after prompt
+echo -e "${BOLD}Do you want me to continue with the installation and setup? [y/N]:${RESET} "
+# User input appeared on next line
+
+# AFTER: Input on same line
+echo -en "${BOLD}Do you want me to continue with the installation and setup? [y/N]:${RESET} "
+# User types on same line as prompt
+```
+
+Changed `echo -e` to `echo -en` (added `-n` flag to suppress trailing newline).
+
+#### Impact
+
+**Before Beta.77:**
+- LLM made decisions without knowing real RAM usage (always saw 0.0%)
+- LLM couldn't see disk space (always empty array)
+- Installer prompts looked janky with misaligned input
+
+**After Beta.77:**
+- LLM sees actual RAM usage (e.g., "63.2% RAM used")
+- LLM sees disk usage for all major mount points
+- Installer prompts cleanly formatted: `Do you want to continue? [y/N]: y`
+
+#### Files Changed
+- `crates/annactl/src/internal_dialogue.rs` - RAM/disk usage implementation
+- `scripts/install.sh` - Prompt formatting fix
+- `scripts/uninstall.sh` - Prompt formatting fix
+
+#### Testing
+Build succeeded with no errors (warnings only about unused code).
+
+---
+
 ## [5.7.0-beta.76] - 2025-11-18
 
 ### TUI FIX - Show Actual Model Name Instead of "Loading..."

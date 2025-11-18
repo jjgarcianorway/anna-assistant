@@ -152,7 +152,7 @@ echo -e "  ${ARROW} Installing shell completions"
 echo
 
 # Warm confirmation prompt
-echo -e "${BOLD}Do you want me to continue with the installation and setup? [y/N]:${RESET} "
+echo -en "${BOLD}Do you want me to continue with the installation and setup? [y/N]:${RESET} "
 read -r REPLY < /dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then

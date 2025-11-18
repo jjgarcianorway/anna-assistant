@@ -89,7 +89,7 @@ if [ -d "$LOG_DIR" ]; then
 fi
 echo
 
-echo -e "${BOLD}Do you want to delete Anna's data? [y/N]:${RESET} "
+echo -en "${BOLD}Do you want to delete Anna's data? [y/N]:${RESET} "
 read -r DELETE_DATA < /dev/tty
 echo
 
