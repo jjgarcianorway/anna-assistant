@@ -10,7 +10,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::config_file::{DesktopConfig, WallpaperConfig};
+use crate::config_file::DesktopConfig;
 use crate::desktop::{DesktopEnvironment, DesktopInfo};
 use crate::file_backup::FileBackup;
 

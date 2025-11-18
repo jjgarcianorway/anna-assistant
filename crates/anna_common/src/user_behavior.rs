@@ -294,7 +294,7 @@ fn get_largest_directories(base_path: &str) -> Vec<(String, u64)> {
 
 fn detect_network_patterns() -> Option<NetworkPatterns> {
     let mut connection_count = 0u32;
-    let mut frequently_accessed_hosts = Vec::new();
+    let frequently_accessed_hosts = Vec::new();
 
     // Get active connections
     if let Ok(output) = Command::new("ss").args(["-tunaH"]).output() {

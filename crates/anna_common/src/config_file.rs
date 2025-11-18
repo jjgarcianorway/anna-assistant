@@ -80,7 +80,7 @@ impl DesktopConfig {
     /// Parse Hyprland config
     fn parse_hyprland(content: &str, config_file: &Path) -> Option<Self> {
         let mut wallpaper = None;
-        let mut theme = None;
+        let theme = None;
         let mut startup_apps = Vec::new();
         let mut settings = HashMap::new();
 
@@ -191,7 +191,7 @@ impl DesktopConfig {
     /// Parse i3/Sway config
     fn parse_i3_sway(content: &str, config_file: &Path, env: &DesktopEnvironment) -> Option<Self> {
         let mut wallpaper = None;
-        let mut theme = None;
+        let theme = None;
         let mut startup_apps = Vec::new();
         let mut settings = HashMap::new();
 

@@ -53,7 +53,9 @@
       "WebSearch",
       "Bash(ollama list:*)",
       "Bash(lspci:*)",
-      "Bash(nvidia-smi:*)"
+      "Bash(nvidia-smi:*)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo fix --lib -p anna_common --allow-dirty --allow-staged)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo fix --lib -p annactl --allow-dirty --allow-staged)"
     ],
     "deny": [],
     "ask": []
