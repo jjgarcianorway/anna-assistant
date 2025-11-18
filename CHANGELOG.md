@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.73] - 2025-11-18
+
+### VERSION COMPARISON FIX (CRITICAL) - Auto-Updater No Longer Tries to Downgrade
+
+**THE BUG:** Auto-updater thought beta.68 was newer than beta.72 - would have caused DOWNGRADES!
+
+#### The Crisis
+
+**What Would Have Happened:**
+```
+Auto-update check:
+  Current: v5.7.0-beta.71
+  GitHub: v5.7.0-beta.68  ← WRONG!
+  Action: Attempting downgrade... ← DISASTER!
+```
+
+Users would have been automatically downgraded to beta.68, losing all fixes from beta.69-72!
+
+#### Root Cause
+
+GitHub's `/releases/latest` API endpoint:
+- Returns the latest **NON-PRERELEASE** (stable) release ONLY
+- Beta.68 was accidentally marked as stable release
+- All newer versions (69-72) were marked as pre-releases
+- Result: API returned beta.68 as "latest" despite 72 being newest
+
+**Why this happened:**
+- Early beta releases weren't marked as pre-releases
+- Beta.68 happened to be the last one without the flag
+- All subsequent releases correctly marked as pre-releases
+- Auto-updater blindly trusted GitHub's "latest" endpoint
+
+#### The Solution
+
+**Two-part fix:**
+
+**Part 1: Immediate Fix** (retroactive)
+- Marked beta.68 as pre-release on GitHub
+- Prevents downgrade attempts until permanent fix deploys
+
+**Part 2: Permanent Fix** (beta.73)
+Added `get_highest_version_release()` method:
+- Fetches ALL releases from GitHub (not just "latest")
+- Filters out drafts
+- Sorts by version number using proper comparison
+- Returns highest version regardless of pre-release flags
+
+**Code Changes:**
+
+`crates/anna_common/src/github_releases.rs`:
+```rust
+/// Get release with highest version number (including prereleases)
+/// Beta.73: Fixed version comparison bug
+pub async fn get_highest_version_release(&self) -> Result<GitHubRelease> {
+    let releases = self.get_releases().await?;
+    let mut published: Vec<_> = releases.into_iter()
+        .filter(|r| !r.name.to_lowercase().contains("draft"))
+        .collect();
+
+    // Sort by version (highest first) using our comparison function
+    published.sort_by(|a, b| compare_versions(b.version(), a.version()));
+
+    Ok(published[0].clone())
+}
+```
+
+`crates/annad/src/auto_updater.rs`:
+```rust
+// BEFORE (broken):
+let latest = client.get_latest_release().await?;
+                   ^^^^^^^^^^^^^^^^^^^ Uses /releases/latest (WRONG!)
+
+// AFTER (fixed):
+let latest = client.get_highest_version_release().await?;
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^ Finds truly highest version
+```
+
+#### Why This Matters
+
+**Before Beta.73 (DANGEROUS):**
+- Auto-updater trusted GitHub's "latest" flag
+- Would downgrade users to beta.68
+- Would lose all improvements from 69-72
+- Could break systems with old bugs
+
+**After Beta.73 (SAFE):**
+- Auto-updater finds truly newest version
+- Works with pre-release and stable releases
+- Proper numeric comparison (beta.72 > beta.68)
+- Safe upgrades only, never downgrades
+
+#### Testing
+
+Verify the fix works:
+```bash
+# Watch auto-update logs
+journalctl -u annad -f | grep "Auto-update"
+
+# Should see (after daemon restarts):
+# "Latest version on GitHub: v5.7.0-beta.73"  ← Correct!
+# NOT: "v5.7.0-beta.68"  ← Wrong (would have been disaster)
+```
+
+---
+
 ## [5.7.0-beta.72] - 2025-11-18
 
 ### 🔧 MODEL SWITCHING FIX - Downloaded Models Now Actually Used

@@ -73,11 +73,13 @@ impl AutoUpdater {
 
         let current_version = env!("CARGO_PKG_VERSION");
 
-        // Fetch latest release
+        // Fetch highest version release (including prereleases)
+        // Beta.73: Fixed to use get_highest_version_release() instead of get_latest_release()
+        // This fixes the bug where beta.68 was treated as newer than beta.72!
         info!("   Fetching latest release from GitHub...");
         let client = GitHubClient::new(GITHUB_OWNER, GITHUB_REPO);
 
-        let latest_release = match client.get_latest_release().await {
+        let latest_release = match client.get_highest_version_release().await {
             Ok(release) => {
                 info!("   ✓ Successfully fetched release info");
                 release

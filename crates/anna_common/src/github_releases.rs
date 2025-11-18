@@ -54,6 +54,8 @@ impl GitHubClient {
     }
 
     /// Get latest release (excluding prereleases)
+    /// NOTE: This uses GitHub's /releases/latest endpoint which only works for stable releases.
+    /// For beta software, use get_highest_version_release() instead!
     pub async fn get_latest_release(&self) -> Result<GitHubRelease> {
         let url = format!(
             "https://api.github.com/repos/{}/{}/releases/latest",
@@ -80,6 +82,34 @@ impl GitHubClient {
             .context("Failed to parse GitHub release JSON")?;
 
         Ok(release)
+    }
+
+    /// Get release with highest version number (including prereleases)
+    /// This is the correct method for beta software!
+    /// Beta.73: Fixed version comparison bug - now fetches ALL releases and finds highest version
+    pub async fn get_highest_version_release(&self) -> Result<GitHubRelease> {
+        let releases = self.get_releases().await?;
+
+        // Filter out drafts
+        let mut published: Vec<_> = releases
+            .into_iter()
+            .filter(|r| !r.name.to_lowercase().contains("draft"))
+            .collect();
+
+        if published.is_empty() {
+            anyhow::bail!("No published releases found");
+        }
+
+        // Sort by version (highest first)
+        published.sort_by(|a, b| {
+            let a_version = a.version();
+            let b_version = b.version();
+            // Reverse comparison to get highest first
+            compare_versions(b_version, a_version)
+        });
+
+        // Return highest version
+        Ok(published[0].clone())
     }
 
     /// Get all releases (including prereleases)
