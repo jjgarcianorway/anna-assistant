@@ -184,19 +184,28 @@ sudo cp "$TEMP_DIR/annactl" "$INSTALL_DIR/annactl"
 sudo chmod 755 "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
 echo -e "${GREEN}${CHECK}${RESET} Binaries installed"
 
-# Shell completions (silent)
-echo -e "${CYAN}${ARROW}${RESET} Installing shell completions..."
-COMP_COUNT=0
-if [ -d "/usr/share/bash-completion/completions" ]; then
-    "$INSTALL_DIR/annactl" completions bash 2>/dev/null | sudo tee /usr/share/bash-completion/completions/annactl > /dev/null 2>&1 && COMP_COUNT=$((COMP_COUNT + 1))
+# Shell completions (check if already installed)
+COMP_EXISTS=0
+COMP_INSTALLED=0
+[ -f "/usr/share/bash-completion/completions/annactl" ] && COMP_EXISTS=$((COMP_EXISTS + 1))
+[ -f "/usr/share/zsh/site-functions/_annactl" ] && COMP_EXISTS=$((COMP_EXISTS + 1))
+[ -f "/usr/share/fish/vendor_completions.d/annactl.fish" ] && COMP_EXISTS=$((COMP_EXISTS + 1))
+
+if [ "$COMP_EXISTS" -gt 0 ]; then
+    echo -e "${GREEN}${CHECK}${RESET} Shell completions already installed (${COMP_EXISTS} shells)"
+else
+    echo -e "${CYAN}${ARROW}${RESET} Installing shell completions..."
+    if [ -d "/usr/share/bash-completion/completions" ]; then
+        "$INSTALL_DIR/annactl" completions bash 2>/dev/null | sudo tee /usr/share/bash-completion/completions/annactl > /dev/null 2>&1 && COMP_INSTALLED=$((COMP_INSTALLED + 1))
+    fi
+    if [ -d "/usr/share/zsh/site-functions" ]; then
+        "$INSTALL_DIR/annactl" completions zsh 2>/dev/null | sudo tee /usr/share/zsh/site-functions/_annactl > /dev/null 2>&1 && COMP_INSTALLED=$((COMP_INSTALLED + 1))
+    fi
+    if [ -d "/usr/share/fish/vendor_completions.d" ]; then
+        "$INSTALL_DIR/annactl" completions fish 2>/dev/null | sudo tee /usr/share/fish/vendor_completions.d/annactl.fish > /dev/null 2>&1 && COMP_INSTALLED=$((COMP_INSTALLED + 1))
+    fi
+    echo -e "${GREEN}${CHECK}${RESET} Completions installed (${COMP_INSTALLED} shells)"
 fi
-if [ -d "/usr/share/zsh/site-functions" ]; then
-    "$INSTALL_DIR/annactl" completions zsh 2>/dev/null | sudo tee /usr/share/zsh/site-functions/_annactl > /dev/null 2>&1 && COMP_COUNT=$((COMP_COUNT + 1))
-fi
-if [ -d "/usr/share/fish/vendor_completions.d" ]; then
-    "$INSTALL_DIR/annactl" completions fish 2>/dev/null | sudo tee /usr/share/fish/vendor_completions.d/annactl.fish > /dev/null 2>&1 && COMP_COUNT=$((COMP_COUNT + 1))
-fi
-echo -e "${GREEN}${CHECK}${RESET} Completions installed (${COMP_COUNT} shells)"
 
 # Phase 0.4: Security setup - create anna group and secure directories
 echo -e "${CYAN}${ARROW}${RESET} Setting up security configuration..."
@@ -232,9 +241,10 @@ fi
 echo
 
 # Select appropriate model based on hardware
-if [ "$TOTAL_RAM_GB" -ge 16 ] && [ "$HAS_GPU" -eq 1 ]; then
-    MODEL="llama3.2:3b"
-    echo -e "${CYAN}Selected model:${RESET} ${MODEL} (recommended for your hardware)"
+if [ "$TOTAL_RAM_GB" -ge 16 ] && [ "$HAS_GPU" -eq 1 ] && [ "$CPU_CORES" -ge 8 ]; then
+    MODEL="llama3.1:8b"
+    echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(8B parameter model - powerful)${RESET}"
+    echo -e "${GRAY}  RAM: ${TOTAL_RAM_GB}GB | GPU: NVIDIA | Cores: ${CPU_CORES}${RESET}"
 elif [ "$TOTAL_RAM_GB" -ge 8 ]; then
     MODEL="llama3.2:3b"
     echo -e "${CYAN}Selected model:${RESET} ${MODEL} (3B parameter model)"
@@ -272,11 +282,27 @@ echo
 echo -e "${CYAN}${ARROW}${RESET} Downloading LLM model: ${MODEL}"
 echo -e "${GRAY}This may take a few minutes depending on your connection...${RESET}"
 
-if ollama pull "$MODEL" 2>&1 | tee /tmp/ollama-pull.log; then
+ollama pull "$MODEL" 2>&1 | tee /tmp/ollama-pull.log
+PULL_EXIT_CODE=${PIPESTATUS[0]}
+
+if [ $PULL_EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}${CHECK}${RESET} Model downloaded successfully"
 else
     echo
-    error_exit "Failed to download LLM model. Anna requires an LLM to function."
+    echo -e "${RED}${CROSS}${RESET} Failed to download LLM model (exit code: $PULL_EXIT_CODE)"
+    if grep -qi "cloudflare\|500\|error" /tmp/ollama-pull.log 2>/dev/null; then
+        echo -e "${YELLOW}⚠${RESET}  Detected network/server error. You can:"
+        echo "  1. Try again later: ollama pull $MODEL"
+        echo "  2. Continue without LLM (limited functionality)"
+        echo
+        read -p "Continue without LLM? [y/N]: " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            error_exit "Installation cancelled"
+        fi
+    else
+        error_exit "Failed to download LLM model. Anna requires an LLM to function."
+    fi
 fi
 
 # Verify model is available

@@ -42,25 +42,38 @@ fn current_host() -> String {
 fn status_bar(ctx: &ReplUiContext) -> String {
     let time = Local::now().format("%Y-%m-%d %H:%M").to_string();
     let health_tag = match ctx.health.status {
-        crate::health::HealthStatus::Healthy => fmt::success("[OK]"),
-        crate::health::HealthStatus::Degraded => fmt::warning("[DEGRADED]"),
-        crate::health::HealthStatus::Broken => fmt::error("[BROKEN]"),
+        crate::health::HealthStatus::Healthy => fmt::success("✓ OK"),
+        crate::health::HealthStatus::Degraded => fmt::warning("⚠ DEGRADED"),
+        crate::health::HealthStatus::Broken => fmt::error("✗ BROKEN"),
     };
-    format!(
-        "{} {} | {} | {} | User: {}@{} | Context: {} | Time: {}",
-        ctx.bar_prefix,
-        fmt::bold(&health_tag),
-        fmt::dimmed(&format!("LLM: {}", ctx.llm_mode)),
-        fmt::dimmed(&format!("Mode: {}", ctx.auto_update)),
-        ctx.user,
+
+    // Create a visually distinct status bar with box characters
+    let sep = fmt::dimmed("│");
+    let bar_content = format!(
+        " {} {} {} LLM: {} {} {} {} User: {}@{} {} {}",
+        fmt::bold(&ctx.bar_prefix),
+        health_tag,
+        sep,
+        fmt::dimmed(&ctx.llm_mode),
+        sep,
+        fmt::dimmed(&ctx.auto_update),
+        sep,
+        fmt::bold(&format!("{}", ctx.user)),
         ctx.host,
-        fmt::dimmed("local"),
-        time
-    )
+        sep,
+        fmt::dimmed(&time)
+    );
+
+    // Add top border
+    let width = 100; // Fixed width for now
+    let top_border = fmt::dimmed(&format!("┌{}┐", "─".repeat(width)));
+    let bottom_border = fmt::dimmed(&format!("└{}┘", "─".repeat(width)));
+
+    format!("\n{}\n{}\n{}\n", top_border, bar_content, bottom_border)
 }
 
 fn print_status_bar(ctx: &ReplUiContext) {
-    println!("{}", status_bar(ctx));
+    print!("{}", status_bar(ctx));
 }
 
 /// Start the conversational REPL
@@ -483,14 +496,23 @@ fn display_structured_llm_output(response: &str) {
         println!();
     }
 
-    // Display [ANNA_HUMAN_OUTPUT] (main answer)
+    // Display [ANNA_HUMAN_OUTPUT] (main answer) in a nice box
     if let Some(human_output) = sections.get("ANNA_HUMAN_OUTPUT") {
-        // Display markdown content (basic rendering for now)
-        println!("{}", human_output.trim());
+        println!();
+        println!("{}", fmt::dimmed("┌─── Anna's Response ───────────────────────────────────────────────────────────────┐"));
+        for line in human_output.trim().lines() {
+            println!("{} {}", fmt::dimmed("│"), line);
+        }
+        println!("{}", fmt::dimmed("└───────────────────────────────────────────────────────────────────────────────────┘"));
         println!();
     } else if sections.is_empty() {
-        // Fallback: show raw response if no structure found
-        println!("{}", response.trim());
+        // Fallback: show raw response if no structure found in a box
+        println!();
+        println!("{}", fmt::dimmed("┌─── Anna's Response ───────────────────────────────────────────────────────────────┐"));
+        for line in response.trim().lines() {
+            println!("{} {}", fmt::dimmed("│"), line);
+        }
+        println!("{}", fmt::dimmed("└───────────────────────────────────────────────────────────────────────────────────┘"));
         println!();
     }
 
@@ -505,17 +527,35 @@ fn display_structured_llm_output(response: &str) {
 /// Parse Anna structured output sections
 fn parse_anna_sections(response: &str) -> HashMap<String, String> {
     use std::collections::HashMap;
-    use regex::Regex;
 
     let mut sections = HashMap::new();
+    let lines: Vec<&str> = response.lines().collect();
+    let mut i = 0;
 
-    // Match [ANNA_SECTION_NAME]...[/ANNA_SECTION_NAME] or until next section
-    let re = Regex::new(r"\[ANNA_(\w+)\](.*?)(?=\[ANNA_|\[/ANNA_|\z)").unwrap();
+    while i < lines.len() {
+        let line = lines[i].trim();
 
-    for cap in re.captures_iter(response) {
-        let section_name = cap.get(1).unwrap().as_str();
-        let section_content = cap.get(2).unwrap().as_str().trim();
-        sections.insert(format!("ANNA_{}", section_name), section_content.to_string());
+        // Check if this line is a section header [ANNA_NAME]
+        if line.starts_with("[ANNA_") && line.ends_with(']') {
+            let section_name = line[1..line.len()-1].to_string(); // Remove [ and ]
+            let mut content_lines = Vec::new();
+            i += 1;
+
+            // Collect lines until we hit another [ANNA_ or [/ANNA_ or end
+            while i < lines.len() {
+                let next_line = lines[i].trim();
+                if next_line.starts_with("[ANNA_") || next_line.starts_with("[/ANNA_") {
+                    break;
+                }
+                content_lines.push(lines[i]);
+                i += 1;
+            }
+
+            let content = content_lines.join("\n").trim().to_string();
+            sections.insert(section_name, content);
+        } else {
+            i += 1;
+        }
     }
 
     sections

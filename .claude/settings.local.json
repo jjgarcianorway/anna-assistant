@@ -33,7 +33,22 @@
       "Bash(release-v5.7.0-beta.1/annactl-5.7.0-beta.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v5.7.0-beta.1/annad-5.7.0-beta.1-x86_64-unknown-linux-gnu )",
       "Bash(release-v5.7.0-beta.1/SHA256SUMS)",
-      "Bash(./annactl-5.7.0-beta.1-x86_64-unknown-linux-gnu:*)"
+      "Bash(./annactl-5.7.0-beta.1-x86_64-unknown-linux-gnu:*)",
+      "Bash(/usr/local/bin/annactl:*)",
+      "Bash(rustc:*)",
+      "Bash(curl:*)",
+      "Bash(sh:*)",
+      "Bash(source \"$HOME/.cargo/env\")",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(~/anna-assistant/target/release/annactl:*)",
+      "Bash(~/anna-assistant/target/release/annad:*)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo clean -p annactl)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo build --release --bin annactl)",
+      "Bash(git reset:*)",
+      "Bash(gh run:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh release edit:*)",
+      "Bash(/home/lhoqvso/.cargo/bin/cargo build --release)"
     ],
     "deny": [],
     "ask": []

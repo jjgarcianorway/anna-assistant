@@ -516,7 +516,8 @@ impl UI {
 
     /// Print prompt
     pub fn prompt(&self) {
-        print!("\n> ");
+        use crate::terminal_format as fmt;
+        print!("\n{} ", fmt::bold("❯"));
         io::stdout().flush().ok();
     }
 

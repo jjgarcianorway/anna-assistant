@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.56] - 2025-11-18
+
+### Fixed - Critical Production Issues
+
+**Critical Fixes:**
+1. **Regex crash in REPL** (`repl.rs:513`): Removed unsupported lookahead pattern `(?=...)` that caused immediate crash
+   - Replaced with manual line-by-line parser for `[ANNA_*]` sections
+   - No more `look-around, including look-ahead and look-behind, is not supported` panics
+2. **Wrong LLM model selection**: Fixed installer logic for powerful hardware
+   - Old: 32 cores + 31GB RAM + GPU → got llama3.2:3b (weak!)
+   - New: 16GB+ RAM + GPU + 8+ cores → llama3.1:8b (4.7GB, powerful)
+   - Properly utilizes available hardware capabilities
+3. **Installer false success on Ollama download failure**: Fixed exit code checking
+   - Now uses `${PIPESTATUS[0]}` to capture `ollama pull` exit code (not `tee`)
+   - Detects Cloudflare 500 errors and offers graceful fallback
+   - No more "✓ Model downloaded successfully" when it actually failed
+4. **Shell completions reinstalled every time**: Added existence check
+   - Only installs if not already present
+   - Shows "✓ Shell completions already installed (N shells)" on subsequent runs
+
+**UX/UI Improvements:**
+5. **Better REPL interface formatting**:
+   - Status bar now uses box drawing characters (┌─┐ └─┘) with visual separators
+   - Anna's responses displayed in bordered boxes with "┌─── Anna's Response ───┐"
+   - Prompt changed from `>` to bold `❯` for better visibility
+   - Clearer visual hierarchy and separation
+6. **Installer improvements**:
+   - Better model selection messaging with hardware details
+   - Improved error detection and user feedback
+   - Cleaner completion handling
+
+### Changed
+- Version bump to 5.7.0-beta.56
+- Improved visual formatting throughout REPL
+- Smarter hardware-based model selection
+
 ## [5.7.0-beta.55] - 2025-11-18
 
 ### Added - Telemetry-First Internal Dialogue & Personality System

@@ -1,0 +1,38 @@
+===== Anna Assistant Runtime Validation v0.9.6-alpha.3 =====
+Started: Thu Oct 30 06:47:24 PM CET 2025
+Host: rocinante
+Kernel: 6.17.5-arch1-1
+
+[2025-10-30 18:47:24] START: install - Running installation script
+
+[38;5;87mв•­вввввввввввввввввввввввввввввввввввввввввввввв•®[0m
+[38;5;87mв”‚[0m Hi! I'm Anna. I'll take care of your setup. [38;5;87mв”‚[0m
+[38;5;87mв”‚[0m   I'll explain each step as we go. Ready?   [38;5;87mв”‚[0m
+[38;5;87mв•°вввввввввввввввввввввввввввввввввввввввввввввв•Ї[0m
+
+[38;5;245m[Oct 30 2025 06:47 PM][0m [38;5;111mвљ™пёЏ [0m [38;5;111mVersion: 0.9.6-alpha.3[0m
+[38;5;245m[Oct 30 2025 06:47 PM][0m [38;5;111mвљ™пёЏ [0m [38;5;111mUser: root[0m
+[38;5;245m[Oct 30 2025 06:47 PM][0m [38;5;111mвљ™пёЏ [0m [38;5;111mAutonomy: Low (I can repair myself if needed)[0m
+
+[38;5;245m[Oct 30 2025 06:47 PM][0m [38;5;87mрџ¤–[0m [1mAnna:[0m [38;5;87mLet's begin...[0m
+
+
+[38;5;111mв”Њв”Ђ [1mDetection Phase[0m
+[38;5;111mв”‚[0m
+[38;5;111mв”‚[0m  Checking installation...
+[38;5;111mв”‚[0m  [38;5;245mв„№[0m Fresh installation
+
+[38;5;111mв”‚[0m  Checking dependencies...
+[38;5;111mв”‚[0m  [38;5;120mвњ“[0m Found: systemd
+polkit
+sqlite3
+jq
+[38;5;111mв”‚[0m
+[38;5;111mв””в”Ђ[0m [38;5;120mвњ“ Ready to fresh[0m
+
+[38;5;111mв”Њв”Ђ [1mPreparation Phase[0m
+[38;5;111mв”‚[0m
+[38;5;111mв”‚[0m  Building binaries...
+[38;5;111mв”‚[0m  [38;5;210mвњ—[0m Build failed
+[38;5;111mв”‚[0m  [38;5;210mвњ—[0m Check Cargo.toml and source files
+[2025-10-30 18:47:24] FAIL: Test 1 - Installation script failed
