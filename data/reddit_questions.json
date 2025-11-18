@@ -1,0 +1,802 @@
+[
+  {
+    "id": "1opsv4k",
+    "title": "Arch Linux Mirror served 1PB+ Traffic",
+    "body": "Hello, \n\nMy name is Niranjan and I manage https://niranjan.co Arch Linux Mirrors. Recently my mirror in Germany crossed 1PB+ traffic served! This feels like an achievement somehow so wanted to share this with the community😅, \n\nI've attached the vnstat outputs for those interested, \n\n```\nroot@Debian12:~# vnstat\n Database updated: 2025-11-06 12:30:00\n \n    eth0 since 2024-07-19\n \n           rx:  20.25 TiB      tx:  1.03 PiB      total:  1.05 PiB\n \n    monthly\n                      rx      |     tx      |    total    |   avg. rate\n      ------------------------+-------------+-------------+---------------\n        2025-10      2.37 TiB |  135.90 TiB |  138.27 TiB |  454.09 Mbit/s\n        2025-11    406.36 GiB |   24.09 TiB |   24.48 TiB |  451.48 Mbit/s\n      ------------------------+-------------+-------------+---------------\n      estimated      2.16 TiB |  130.88 TiB |  133.04 TiB |\n \n    daily\n                      rx      |     tx      |    total    |   avg. rate\n      ------------------------+-------------+-------------+---------------\n      yesterday     70.25 GiB |    4.91 TiB |    4.98 TiB |  507.33 Mbit/s\n          today     30.21 GiB |    2.25 TiB |    2.28 TiB |  446.36 Mbit/s\n      ------------------------+-------------+-------------+---------------\n      estimated     58.01 GiB |    4.33 TiB |    4.38 TiB |\n```\n```\nroot@Debian12:~# vnstat -m\n \n  eth0  /  monthly\n \n         month        rx      |     tx      |    total    |   avg. rate\n      ------------------------+-------------+-------------+---------------\n        2024-12    842.39 GiB |   39.24 TiB |   40.06 TiB |  131.56 Mbit/s\n        2025-01    986.33 GiB |   49.90 TiB |   50.86 TiB |  167.04 Mbit/s\n        2025-02    961.31 GiB |   47.97 TiB |   48.91 TiB |  177.85 Mbit/s\n        2025-03      1.08 TiB |   53.12 TiB |   54.20 TiB |  177.99 Mbit/s\n        2025-04      1.18 TiB |   61.36 TiB |   62.55 TiB |  212.26 Mbit/s\n        2025-05      1.74 TiB |   91.43 TiB |   93.17 TiB |  305.97 Mbit/s\n        2025-06      1.69 TiB |   89.71 TiB |   91.41 TiB |  310.20 Mbit/s\n        2025-07      1.77 TiB |   94.76 TiB |   96.52 TiB |  316.99 Mbit/s\n        2025-08      2.16 TiB |  124.55 TiB |  126.71 TiB |  416.14 Mbit/s\n        2025-09      2.02 TiB |  113.11 TiB |  115.12 TiB |  390.67 Mbit/s\n        2025-10      2.37 TiB |  135.90 TiB |  138.27 TiB |  454.09 Mbit/s\n        2025-11    406.36 GiB |   24.09 TiB |   24.48 TiB |  451.48 Mbit/s\n      ------------------------+-------------+-------------+---------------\n      estimated      2.16 TiB |  130.88 TiB |  133.04 TiB |\nroot@Debian12:~# \n```\n\nI'm interested in knowing how many redditors use my mirrors and if they have faced any issues with any of mirrors.  \n\nAlso not sure if 'Noteworthy' is the correct flair for this post, mods please feel free to change if that's not the case. \n\nThank you for your time!\n\nEdit: \n\nafter posting realised that the code block looks very bad 😅, you can check the live traffic by making a GET request to https://de.arch.niranjan.co/stats , the stats are updated every 5 minutes. \n\nTo make a GET request simply open your terminal and copy paste the following command, \n\ncurl https://de.arch.niranjan.co/stats \n\nAnd hit enter, ",
+    "score": 617,
+    "num_comments": 73,
+    "url": "https://www.reddit.com/r/archlinux/comments/1opsv4k/arch_linux_mirror_served_1pb_traffic/"
+  },
+  {
+    "id": "1ovhw41",
+    "title": "New Valve Steam Frame runs steamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?",
+    "body": "New Valve Steam Frame runs SteamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?\n\nThere has been dicussions about this for a while and one of the problems was creating reproducable and signed packages iirc, does this mean that that work has been finished?\n\nhttps://store.steampowered.com/sale/steamframe",
+    "score": 588,
+    "num_comments": 62,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ovhw41/new_valve_steam_frame_runs_steamos_3_ie_arch_on/"
+  },
+  {
+    "id": "1olm2hc",
+    "title": "Pacman-7.1.0 released",
+    "body": "",
+    "score": 429,
+    "num_comments": 50,
+    "url": "https://gitlab.archlinux.org/pacman/pacman/-/releases/v7.1.0"
+  },
+  {
+    "id": "1ofjb50",
+    "title": "I dumped Omarchy and went back to a fresh un-opinionated Arch",
+    "body": "I gave it about 63 days before I gave up on it. 60 days ago I thought it was awesome. The past 2 weeks it was just annoying. When it became a bootable iso image I was pretty sure they were going to lose me. I didn't want a new distro. I wanted Arch with a a preconfigured Hyprland and development environment.\n\nI think it is kind of funny/sad how the mindset is is break free from your Mac and then they give you a version of Arch that is becoming more and more Mac like in the sense that you need to use Alacritty if you want these tui's to work right, and their modified chromium if you want these web apps to work right. And, oh I see you changed your keybinds, we're going to just change those back even though you did it the way we suggested. DHH has come up with some newer ones and you'll probably like them better than yours.  What? It changes your whole workflow? Funny you should mention that because we're also going to replace your neovim settings too. You might as well just do things our way.\n\nYeah I know it is an opinionated install, I didn't realize it was going to be opinionated updates as well. Just not for me. I did get some benefit from using it. I discovered lazygit and a few other terminal based applications.\n\nSo now that I am back to a fresh Arch install I figured I would give Cosmic a go. I must say I am pretty impressed with it. I like being able to set tiling or floating per work space.\n\n\\*edit\\*\n\nI had a 2nd PC with Omarchy installed, a little HP Mini. I ended up removing Omarchy tonight and keeping my Arch install by doing the following steps.\n\nDisable the Omarchy seamless login service and renable tty1\n\n    sudo systemctl stop omarchy-seamless-login.service\n    sudo systemctl daemon-reload \n    sudo systemctl start getty@tty1.service\n\nIt is easier if you log in on tty2 (ctrl-alt f2) to do this, When you stop the seamless login service it might kick you to a black screen. Once you get rid of the auto login you can also remove the omarchy decryption graphic and replace it with something prettier. You only need to do this if you are using an encrypted disk. If you aren't using LUKS just skip to the .config folder part.\n\n\"plymouth-set-default-theme -l\" will show a list of the themes. I went with bgrt which is basically the spinner theme with your bios or PC manufacturer's boot logo. You need to make sure you specify the -R flag so it will rebuild the initramfs.\n\n    sudo plymouth-set-default-theme -R bgrt\n\nAt this stage I decided to just move my .config folder and start with a fresh one. You don't have to do this part. If you decide to keep your .config folder and keep hyprland, there is a pretty good chance it will get updated back to omarchy again.\n\n    cd \n    mv .config/ .config.bak \n    mkdir .config\n\nThen I just copied over folders I wanted to preserve and omitted things I didn't mind rebuilding from scratch. Below are just some examples. One thing of note. Omarchy symlinks the themes to a lot of their stuff so if you copy nvim or any of your terminal customizations you might want to consider copying the omarchy folder. At the time of writing this, it only has a themes folder and a current theme folder.\n\n    cd .config\n    cp -r ../.config.bak/chromium .\n    cp -r ../.config.bak/retroarch .\n    cp -r ../.config.bak/nvim .\n\nYou can reboot here. You should get a new plymouth screen with the Arch logo at the bottom and whatever theme you picked\n\nFinally you need to get rid of the omarchy mirror and update your mirror list.\n\n    sudo nvim /etc/pacman.conf\n\nscroll down and comment out or remove these lines.\n\n    [omarchy] \n    SigLevel = Optional TrustAll \n    Server = https://pkgs.omarchy.org/$arch\n\nSave it and then run this to rebuild your mirror list\n\n    sudo pacman -Syyu\n\nAt this point you just need to do one more thing, remove omarchy-chromium\n\n    sudo pacman -R omarchy-chromium\n\nYou can re-install the real Chromium if you want it. Having the omarchy fork there will be problematic if you ever want to update Chromium.\n\nNow you are free to install whatever desktop and window manager you would like to use. If you install SDDM you can set that to auto login and go right into whatever you install.\n\nOmarchy is still going to exist in .local/share/omarchy as a git repo. I am keeping it there so I can cannibalize their themes. :)\n\nI hope this proves useful to some people and gets you back to just using Arch btw.",
+    "score": 384,
+    "num_comments": 254,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ofjb50/i_dumped_omarchy_and_went_back_to_a_fresh/"
+  },
+  {
+    "id": "1otef1h",
+    "title": "I can't believe how rock solid Arch Linux is",
+    "body": "Two years ago, I installed Arch Linux KDE on my parents pc. Browser, VLC, Only Office, standard set for home use. It worked like that for 2 years without updates and was used maybe 5-6 times a year. Today I decided to clean up PC from dust and update it, but I was afraid that I would have to reinstall everything because of tales that Arch Linux breaks if you don't update it for a long time.   \n  \nThe update consisted of 1100+ packages with a total download size of 2.5 GB and an installation size of 7 GB. Several packages did not install due to old keys, but after updating archlinux-keyring and mirrorlist, Arch updated and worked without any problems. I have never seen such a smooth update, even in Linux Mint.\n\nI have always tried to avoid Arch Linux because of such rumors, but apparently when my Fedora installation breaks, I will use Arch Linux.",
+    "score": 349,
+    "num_comments": 74,
+    "url": "https://www.reddit.com/r/archlinux/comments/1otef1h/i_cant_believe_how_rock_solid_arch_linux_is/"
+  },
+  {
+    "id": "1oo4gj0",
+    "title": "Arch has to be the most stable Linux distro I have used",
+    "body": "I am a Debian user for years, and every 6 - 12 months had to reinstall and things got unstable, constant crashes, over usage of RAM etc, it was fine and workable but, annoying. For context my computer is on 24/7 and reboot is normally required every 7 days or so. The issue though this was all Debian distros, Ubuntu, Kali, PoPOS etc.\n\nI have avoided arch as was always told it's more unstable, more likely to crash, and requires a lot more setup and maintaince.\n\nThat was until I switched to CatchyOS after reading a blog post and even on day 1, it's a lot more snappy and fast, never crashes and over OOM issues are isolated to a specific.\n\nIt's been 12 months now and with updates etc not a single crash or destabilisation.\n\nI can see why Arch has such a loyal fan base, I am sold :D",
+    "score": 298,
+    "num_comments": 115,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oo4gj0/arch_has_to_be_the_most_stable_linux_distro_i/"
+  },
+  {
+    "id": "1ogqdrz",
+    "title": "Who's attacking the Arch infrastructure?",
+    "body": "This is a second wave of attacks in the last months as indicated on this pager: [https://status.archlinux.org/](https://status.archlinux.org/)\n\nThe official [news release](https://archlinux.org/news/recent-services-outages/) states:\n\n&gt;We are keeping technical details about the attack, its origin and our mitigation tactics internal while the attack is still ongoing.\n\nIs it the same wave then? Is there any information on the nature of the attack?\n\nThere were also news about the Fedora infrastructure being targeted a month ago as well  AFAIR.\n\nI find it extremely curious why would anyone keep on pressuring the Arch infrastructure.",
+    "score": 272,
+    "num_comments": 109,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ogqdrz/whos_attacking_the_arch_infrastructure/"
+  },
+  {
+    "id": "1orwmog",
+    "title": "Arch has left me speechless",
+    "body": "Built a new rig, moved my SSDs over\n\nAMD 7800X3D AND Radeon 9070 XT\n\nTurned on the PC and it booted directly into my Arch + Hyprland set up 0 problems!!\n\nAll that’s left is removing NVIDIA drivers from my 1660ti\n\nAmazing!! ",
+    "score": 228,
+    "num_comments": 54,
+    "url": "https://www.reddit.com/r/archlinux/comments/1orwmog/arch_has_left_me_speechless/"
+  },
+  {
+    "id": "1okgcds",
+    "title": "Adobe software now has graphics acceleration via Wine!",
+    "body": "A convenient way to install Adobe After Effects on Linux using Wine. Please stars this! This project right now on OBT, if u can check some errors on flatpak package, pls write on \"issues on github\"  \nGithub: [https://github.com/relativemodder/aegnux](https://github.com/relativemodder/aegnux)\n\nYou can install the program using Flatpak so you don't have to search Adobe AE yourself: https://github.com/relativemodder/com.relative.Aegnux/releases\n\n",
+    "score": 228,
+    "num_comments": 26,
+    "url": "https://www.reddit.com/r/archlinux/comments/1okgcds/adobe_software_now_has_graphics_acceleration_via/"
+  },
+  {
+    "id": "1ow8xv4",
+    "title": "Just became an Arch sponsor",
+    "body": "Hey everyone, just wanted to share that I finally became an Arch linux sponsor.  \nIt’s not a big donation or anything (my local currency gets destroyed by USD :/), but I really wanted to give something back to the project I use every single day. \n\nIf you use Arch and love it, consider tossing in a small donation too (i used GitHub Sponsors, made it way easier)\n\nAnyway, just happy to support the distro I rely on.\n\n(I use Arch, btw 💙)",
+    "score": 186,
+    "num_comments": 10,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ow8xv4/just_became_an_arch_sponsor/"
+  },
+  {
+    "id": "1osbmxb",
+    "title": "Best decision ever",
+    "body": "So I'm a 19 y/o CSE student, and I have been using Acer Aspire A315-58 for 2 years now, which comes with Windows pre-installed. I used to run Ubuntu WSL because I was initially a little curious about Linux and I wanted to do some low-level systems programming, which was really complicated with Windows.\n\nFurthermore, my laptop heats up very quickly when I just boot up Windows (task manager giving me ridiculous usage percentages), and I think on 5 different occasions, my screen just melted and glitched so I'd have to restart it or wait some time before I can use it.\n\nHowever, after gradually migrating most of my things to Arch Linux in May 2025, I can say that this is probably the greatest decision I ever made. Before Arch, I never imagined this would be possible:\n\n- Updating everything in my system with just a simple \"yay -Syu\"\n- Have a simple quick package manager that gets me all my essentials\n- Almost no stress on my CPU, GPU and RAM on boot\n- Everything I'll ever need is in less than 100 GB\n- No registry editor hell\n- No \"app is not on my laptop but it's still in my program list\" bs\n- Really high performance\n- I'm more aware about whats really happening to my laptop under the hood\n- Laptop doesn't heat up and send my fan to the damn ER\n- Custom keybinds that make me less reliant on my mouse\n\n...and the list just goes on, man.\n\nToday marks 6 months of me using Arch Linux (+ Hyprland), and I am very, very happy that I moved out of Windows. To be honest I only still kept Windows as a fallback, or when I can't use something on Arch, but 99% of my usage is on Arch.\n\nI really want to thank a lot of YouTube channels and the Arch and the overall Linux community for making this happen for me man, this is just awesome.",
+    "score": 179,
+    "num_comments": 32,
+    "url": "https://www.reddit.com/r/archlinux/comments/1osbmxb/best_decision_ever/"
+  },
+  {
+    "id": "1op1dd5",
+    "title": "Waydroid is now in Pacman.",
+    "body": "I hadn't installed WayDroid in a long time. I knew you could download it with AUR before, but I still decided to check if it was available on Pacman. And what did I see? WayDroid is now on Pacman. I thought it had been there for a long time, but my first attempt didn't find the package. It came after the update. That's why I realized it was new, wanted to spread the word, and contribute here.\n\nNo need for AUR anymore. \"https://archlinux.org/packages/?name=waydroid\"\n\n    sudo pacman -S waydroid",
+    "score": 167,
+    "num_comments": 44,
+    "url": "https://www.reddit.com/r/archlinux/comments/1op1dd5/waydroid_is_now_in_pacman/"
+  },
+  {
+    "id": "1oesqbc",
+    "title": "Plasma 6.5 has just dropped in the official repo",
+    "body": "just noticed within last few mins it's become available FYI\n\nTime for a sudo pacman -Syu and make sure you reboot after\n\nReally liking the new plasma features.",
+    "score": 151,
+    "num_comments": 75,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oesqbc/plasma_65_has_just_dropped_in_the_official_repo/"
+  },
+  {
+    "id": "1obquc2",
+    "title": "New CDN based mirror now available: fastly.mirror.pkgbuild.com - Arch-dev-public",
+    "body": "",
+    "score": 144,
+    "num_comments": 9,
+    "url": "https://lists.archlinux.org/archives/list/arch-dev-public@lists.archlinux.org/thread/QRTTKZYECWFHKI5OFG6MVVLHKDPGQS5S/"
+  },
+  {
+    "id": "1olohiv",
+    "title": "Nvidia broke after update (pacman -Syu)",
+    "body": "Nvidia just broke after doing pacman -Syu. Usually it goes without issues but now nvidia just wont load. It outputs llvmpipe on glxinfo but still outputting normally on nvidia-smi. Tried to switch to hybrid mode just for the DE and picom to work normally (running intel hd 620 + nvidia mx110), and some app crashed because of BadMatch. I tried reinstalling the nvidia driver and it does nothing. Currently running XFCE4 (X11) and LightDM as the display manager.\n\nEdit: Solved by downgrading xorg-server and xorg-server-common to 21.1.18-2. Thanks u/dixkix for solving this!",
+    "score": 132,
+    "num_comments": 25,
+    "url": "https://www.reddit.com/r/archlinux/comments/1olohiv/nvidia_broke_after_update_pacman_syu/"
+  },
+  {
+    "id": "1oio7hh",
+    "title": "Used windows my entire life .. now after using arch can't go back",
+    "body": "Hi.. like most people I used windows my entire life. I liked windows because it was easy and you could basically do anything, i install whatever you want. My first OS was windows xp, then 7, then windows 8(hated that by the way), used windows 10 and 11.... I have used linux distros too in between like ubuntu and kali Linux in my school days. Didn't really liked ubuntu. I liked kali but went back to windows because games and other things weren't supported properly on Linux. I just found windows better overall. Now, after windows dropped their windows 11 i noticed my laptop got slower and it felt like windows was just trying to monetize everything by showing me ads and useless info. Taskbar was filled with bunch of crap i never used. I saw PewDiePie video of him switching to Linux and thought maybe i should try it too for real and not just dual boot it and then come back to windows and i installed arch on my laptop and used hyprland. It was Fun trying to figure it out. It was kind of silly using terminal to change my brightness, breaking it and reinstalling it again🤣 soon after some time i got some hand of it. Experimented a little with dotfiles then found a project on GitHub called Hyde desktop environment, tried it, liked it, and then just used that till now. It's been more than 5 months now and recently i tried using windows on my friend's laptop and mannnn....it just felt soo slow...like...using mouse to move my cursor and then clicking on apps to open them...yuckkkkkk 🤣🤣 sounds kinda funny but i didn't expect that using arch for some months would make me hate windows soo much...i couldn't believe I used to use that shit for soo long... In uni while all struggle to set up virtual environments for their python project i do it in seconds in my terminal. Everything still doesn't work perfectly out of box on Linux but still the fact that you can just fix it is soo amazing.. and now with all the tools like chatgpt, if you have any problem just copy all the errors from terminal and it'll guide you step by step how to fix it. Using arch has completely changed my perspective on how you should use a computer and how OS should be meant to serve you....now I can't even imagine going back to windows or use any other os like mac os",
+    "score": 126,
+    "num_comments": 40,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oio7hh/used_windows_my_entire_life_now_after_using_arch/"
+  },
+  {
+    "id": "1offw7c",
+    "title": "If not Arch, what?",
+    "body": "What's your second favorite OS, and why?\n\nImmutable Fedora, for me. I like the way it works and toolboxes to separate everything.\n\nYou?",
+    "score": 123,
+    "num_comments": 293,
+    "url": "https://www.reddit.com/r/archlinux/comments/1offw7c/if_not_arch_what/"
+  },
+  {
+    "id": "1oom462",
+    "title": "mkinitcpio v40 released and now in core-testing",
+    "body": "",
+    "score": 120,
+    "num_comments": 32,
+    "url": "https://lists.archlinux.org/archives/list/arch-dev-public@lists.archlinux.org/thread/S2G5NU4YD7OL7TIGLN4GCV2T6F4RUPBJ/"
+  },
+  {
+    "id": "1oygi2l",
+    "title": "I switched to arch and I’m never going back",
+    "body": "So most of my life I’ve been an avid Windows user and I’ve only installed a few distros on old laptops and stuff. I knew that there was something to Linux but I was pretty content with windows. And then Windows 11 came along and I started to get frustrated, there was clutter and bloat everywhere, constant updates, errors and bugs, and not to mention the constant Microsoft spying. And so I tried to find alternatives, I found arch. I was a pretty big power user at the time and arch Linux looked perfect, I like my games and Linux gaming through proton has gotten increasingly better. I was about to upgrade my PC anyway so why not experiment? In a call with my friends I said that I’m done with the Microsoft crap and I left the call and immediately went to install arch. And post install it was just as good as I thought it would be, I started with KDE, downloaded all my stuff, transferred files and it all worked perfectly. Then for like a month I dug through the rabbit hole and tried hyprland, then went back to kde, tried dual booting. And yes sometimes the troubleshooting can be annoying but once I got to know my way around the terminal it all worked out perfectly. I can now proudly call myself an arch user! But I’ll probably turn gay in a few months or something 😂",
+    "score": 103,
+    "num_comments": 41,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oygi2l/i_switched_to_arch_and_im_never_going_back/"
+  },
+  {
+    "id": "1oiifgf",
+    "title": "steam-native-runtime dropped from multilib",
+    "body": "[steam-native-runtime](https://archlinux.org/packages/multilib/x86_64/steam-native-runtime/) and all (or most) of it's dependencies apparently got dropped from multilib and are now orphan [on AUR](https://aur.archlinux.org/packages/steam-native-runtime).\n\nI do wonder why.\n\nAffected packages:\n```\nglew1.10\ngtk2\nlib32-glew1.10\nlib32-gtk2\nlib32-libgcrypt15\nlib32-libidn11\nlib32-libindicator-gtk2\nlib32-libpng12\nlib32-librtmp0\nlib32-libtiff4\nlib32-libudev0-shim\nlib32-libvpx1.3\nlibgcrypt15\nlibidn11\nlibpng12\nlibtiff4\nlibudev0-shim\nlibvpx1.3\nsteam-native-runtime\n```\n\n(hopefully didn't miss any)",
+    "score": 103,
+    "num_comments": 43,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oiifgf/steamnativeruntime_dropped_from_multilib/"
+  },
+  {
+    "id": "1or8nee",
+    "title": "Arch Linux on WSL has been a refreshing change",
+    "body": "I work in academia, and my college laptop is a Windows machine. I’ve been using Ubuntu on WSL for several years now to access tools I use for my teaching and research that are a pain to get running on Windows, but lately I’ve been running into more and more issues which I chalked up to outdated packages, but is more likely than not due to my own haphazard setup.\n\nOn a whim, I decided to give Arch Linux a shot. After some amusing misunderstandings (where’s `vi`? …where’s `nano`? …where’s `man`?!) I finally have it up and running with current versions of my research tools. It feels so much smoother than trying to run things through Ubuntu so far, and I’m considering having my students with Windows laptops make use of it for my courses too (Octave and Sage for everyone!).\n\nAnd many thanks to all the folks who have contributed to the Arch Wiki. Pretty much all of my beginner questions had easy to find answers on the wiki, and the level of detail was perfect for someone who knows how to use basic terminal commands but not much else. \n\nNow I want to get a laptop to put Arch Linux on. Someday…",
+    "score": 89,
+    "num_comments": 31,
+    "url": "https://www.reddit.com/r/archlinux/comments/1or8nee/arch_linux_on_wsl_has_been_a_refreshing_change/"
+  },
+  {
+    "id": "1ogbm0h",
+    "title": "Why did y'all land on Arch?",
+    "body": "What made you guys switch to Arch Linux, why Arch over anything else? Just looking for experiences planning to jump to Arch.",
+    "score": 83,
+    "num_comments": 269,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ogbm0h/why_did_yall_land_on_arch/"
+  },
+  {
+    "id": "1obxt31",
+    "title": "I installed Arch. What now?",
+    "body": "With Windows 10 dying, I switch my main pc to Arch. hat do I do now? What do y'all do anytime you install Arch? IDK I'm just looking for suggestions. I mainly play videogames on my main PC and I use KDE Plasma as the DE. I just don't really know what to do now.",
+    "score": 77,
+    "num_comments": 161,
+    "url": "https://www.reddit.com/r/archlinux/comments/1obxt31/i_installed_arch_what_now/"
+  },
+  {
+    "id": "1ouh9r2",
+    "title": "My first (official) contrib to Archlinux",
+    "body": "Have submitted to archinstall a [PR](https://github.com/archlinux/archinstall/pull/3913/files)\n\nThere is one thing I'm unsure about is how different boot-loaders handle characters that fall outside of alphanumeric range (if using FDE especially). \n\n  \nStarted by fixing one of my own issues with boot-hangs when performing host-to-target installs, then added some bonuses... Anyways hope you enjoy ! ",
+    "score": 70,
+    "num_comments": 33,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ouh9r2/my_first_official_contrib_to_archlinux/"
+  },
+  {
+    "id": "1onzphx",
+    "title": "[SOLVED] My Arch Btrfs freezes are gone — swap file was the issue",
+    "body": "Sharing my update from the original post — system’s finally stable now.\nThe problem was a swap file on a compressed Btrfs partition, which caused random freezes.\nMoved swap to a dedicated partition and it’s been solid since.\n\nThanks to everyone who helped and replied — really appreciate it.\n\n(Full details in the linked post above.)",
+    "score": 67,
+    "num_comments": 42,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oncbvx/help_my_arch_btrfs_install_is_still_freezing/nn0jgk1/"
+  },
+  {
+    "id": "1ogfpnp",
+    "title": "AUR is down again (2025/10/26), what's next for external packages?",
+    "body": "I noticed AUR have been under DDOS attacks quite often lately, and today is no different. Commemorating less than month of me distro hopping to arch, AUR went down mid-routine update.\n\nThis brings the question about package managers in arch. I'm under the impression that pacman is usually stable and, even when bugs are introduced, reading the news page is sufficient to determine needed interventions.\n\nIt seems AUR doesn't really receive this reputation among this community. On the contrary, my impression towards AUR is mostly about its (less than pacman) instability and potential security breaches. What are the best practice, in your opinion, for downloading packages outside of the arch repository (i.e. update frequency)? What risks does using AUR helpers carry?\n\n(Edit) Just to clarify, I'm not looking for solutions for the current AUR outage. Only a few of my packages are installed/maintained through AUR helpers now, and I would like to learn/discuss the best practices concerning external packages going forward.",
+    "score": 64,
+    "num_comments": 60,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ogfpnp/aur_is_down_again_20251026_whats_next_for/"
+  },
+  {
+    "id": "1od74rc",
+    "title": "KDE Plasma 6.5",
+    "body": "I installed 6.5 off the testing repo this morning, and man I have to say it feels really good. Love all the rounded corners. It just feels like a more cohesive experience.",
+    "score": 61,
+    "num_comments": 24,
+    "url": "https://www.reddit.com/r/archlinux/comments/1od74rc/kde_plasma_65/"
+  },
+  {
+    "id": "1om6du6",
+    "title": "After much procrastination ...",
+    "body": "I installed Arch on my desktop.  I had intended to use archinstall because I'm a lazy bastard, but in keeping with how lazy I am, a \"manual\" install was actually significantly easier than archinstall would have been.\n\nI've done all manner of things I've been told not to with other distros -- replaced grub with systemd-boot, run KDE Plasma on Mint, hell, I even once compiled a new driver for my CPU to try and shoehorn Linux compatibility into an Intel NPU (didn't work, anyone know if there's any headway on this?).  Every time I've felt ambitious, whether eventually successful or not, the first try always failed somehow.\n\nBut Arch just booted right up.  It's the first time Linux has \"just worked.\" And it's exactly the system I want because I made it exactly how it is.\n\nFinally.  Some shit that doesn't suck. Thanks, Arch.",
+    "score": 58,
+    "num_comments": 25,
+    "url": "https://www.reddit.com/r/archlinux/comments/1om6du6/after_much_procrastination/"
+  },
+  {
+    "id": "1otilom",
+    "title": "What's the silliest thing you've ever broken all by yourself in Arch?",
+    "body": "What's the silliest headache you've ever created for your own damn self, by trying to be smarter than your own Arch Linux setup?\n\nOn my Thinkpad X230 that I've been running in Arch since Spring, I definitely had tried to configure the NetworkManager-&gt;IWD handshake for wifi backend as mentioned in the wiki, messed up the config process, and somehow doing that basically made X11 brick itself every time I put the laptop to sleep over the previous few months. A simple \"pacman -Rns iwd iwgtk\" and trimming the config files for NetworkManager back to their defaults fixed everything almost instantly and made NetworkManager much happier (including connecting to wifi going to like ten seconds rather than several minutes), but it took me like a week of trying to test everything else in X11 before realizing it was as simple as that wifi dependency conflict causing a crash!",
+    "score": 61,
+    "num_comments": 98,
+    "url": "https://www.reddit.com/r/archlinux/comments/1otilom/whats_the_silliest_thing_youve_ever_broken_all_by/"
+  },
+  {
+    "id": "1ogygnb",
+    "title": "AUR and Wiki Status",
+    "body": "We've had a lot of posts coming in about trouble with the AUR and Wiki going down again. I've removed those posts to prevent clutter, but to get an answer out, yes, there has been a bump in issues today.\n\nBe sure to check out [status.archlinux.org](http://status.archlinux.org) if and when you experience issues. Whenever necessary, there will be a message there describing the issue, and anything you may be able to do, such as this message that was provided today:\n\n&gt;Pushing to the AUR currently not possible\n\n&gt;Due to yet another DDoS attack we have enabled DDoS protection for [aur.archlinux.org](http://aur.archlinux.org), which does not yet properly handle incoming connections on port 22. We are working with our provider to resolve this issue but wanted to ensure service reachability for everyone in the meantime.\n\n&gt;October 26, 2025 at 09:40 GMT+00:00\n\nIf problems persist, we may re-pin the DDOS megathread.\n\nTo users, thank you for your patience and understanding!\n\nTo devs, thank you for your persistence and dedication! Our appreciation for you is immense, and cannot be overstated!",
+    "score": 58,
+    "num_comments": 24,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ogygnb/aur_and_wiki_status/"
+  },
+  {
+    "id": "1oxm1kv",
+    "title": "I Made my First Shell Script!! :D",
+    "body": "I hate long commands with lots of hard to remember arguments, so I made a shell script to automate compiling my c++ code. It just takes an input and output name and compiles it with my g++ args i like and even has a --help and option to pass in args for g++ through my command:\n\n    #!/bin/bash\n    DEFAULT_FLAGS=\"-std=c++20 -Wall -Wextra -pedantic\"\n    DEFAULT_COMPILER=\"g++\"\n    show_help() {\n    cat &lt;&lt;EOF\n    Usage:\n    easy-cpp-compile &lt;source.cpp&gt; &lt;output&gt;\n    Compile using built-in defaults.\n    easy-cpp-compile -s &lt;flags...&gt; &lt;source.cpp&gt; &lt;output&gt;\n    Use your supplied flags instead of the defaults.\n    Examples:\n    easy-cpp-compile main.cpp cpp-output\n    =&gt; g++ -std=c++20 -Wall -Wextra -pedantic main.cpp -o cpp-output\n    easy-cpp-compile -s -std=c++23 -O2 -g main.cpp cpp-output\n    =&gt; g++ -std=c++23 -O2 -g main.cpp -o cpp-output\n    Common flags:\n    -std=c++20 -std=c++23\n    -O0 -O1 -O2 -O3\n    -Wall -Wextra -Werror\n    -g\n    -march=native\n    -I&lt;dir&gt; -L&lt;dir&gt; -l&lt;lib&gt;\n    EOF\n    }\n    if [ \"$1\" = \"--help\" ]; then\n    show_help\n    exit 0\n    fi\n    if [ \"$1\" = \"-s\" ]; then\n    shift\n    if [ \"$#\" -lt 3 ]; then\n    exit 1\n    fi\n    # last two are source and output\n    SRC=\"${@: -2:1}\"\n    OUT=\"${@: -1}\"\n    FLAGS=(\"${@:1:$(($#-2))}\")\n    exec \"$DEFAULT_COMPILER\" \"${FLAGS[@]}\" \"$SRC\" -o \"$OUT\"\n    fi\n    if [ \"$#\" -ne 2 ]; then\n    exit 1\n    fi\n    SRC=\"$1\"\n    OUT=\"$2\"\n    exec \"$DEFAULT_COMPILER\" $DEFAULT_FLAGS \"$SRC\" -o \"$OUT\"\n\nNothing special but i felt proud making my own custom tailored command.\n\nEdit: thanks for pointing out the formatting was bad, I accidentally used \"Code\" instead of \"Code Block\" so now its fixed.",
+    "score": 59,
+    "num_comments": 21,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oxm1kv/i_made_my_first_shell_script_d/"
+  },
+  {
+    "id": "1oy8ezg",
+    "title": "Archstrap: Modular Arch Linux Installation System",
+    "body": "I made yet another Arch Linux installer that (along with my dotfiles) reproduces my complete Arch setup as much as possible across machines. I wanted to share it since it might be useful for others who are tired of manually reconfiguring everything.\n\n[https://imgur.com/a/RNOS5ds](https://imgur.com/a/RNOS5ds)\n\nWhat it does:\n\n\\- Full automation: Boot Arch ISO → \\`git clone\\` → \\`./install.sh\\` → working desktop  \n\\- LUKS encryption with dual drive support + automated key management for secondary storage (the secondary disk is unlocked automatically after the primary is unlocked)  \n\\- Filesystem flexibility: Choose between ext4+LVM or btrfs with subvolumes  \n\\- rEFInd bootloader +[ refind-btrfs-snapshots](https://github.com/jmylchreest/refind-btrfs-snapshots) for boot menu snapshot integration  \n\\- Snapper integration for automated btrfs snapshots with cleanup policies  \n\\- Installs all my packages from official repos + AUR  \n\\- Modular package selection via [CSV file](https://github.com/ih8d8/archstrap/blob/main/packages/programs.csv) for easy customization  \n\\- If present, automatically deploys my dotfiles repository along with other personal configs using custom initialization scripts in my private dotfiles repositor**y**  \n**-** [DNSCrypt-Proxy](https://github.com/DNSCrypt/dnscrypt-proxy) to encrypt all DNS traffic, using the relay feature so queries pass through three different servers (similar to Tor). I also enabled its built-in ad-blocking capabilities. I set a cronjob to regularly download [this block list](https://github.com/StevenBlack/hosts) that is used in my DNSCrypt-Proxy config.  \n\\- UFW and UFW-Docker as my firewall setup, with inbound connections restricted to only what’s needed for kdeconnect.  \n\\- Brave Browse**r** as my primary browser (with separate personal and work profiles), and Mullvad Browser as a secondary, privacy-focused option.  \n**-** [Yazi](https://github.com/sxyazi/yazi) as my main file manager; I rarely use PCManFM anymore.  \n\\- SDDM login manager with [simple sddm theme](https://github.com/JaKooLit/simple-sddm).\n\nGoes from bare metal to my complete working environment in \\~20 minutes. Every machine gets nearly identical configuration, and I can version control my entire setup. Everything \"just works\" the same way.\n\nThe modular design makes it easy to debug issues and customize for different needs.\n\nRepository: [https://github.com/ih8d8/archstrap](https://github.com/ih8d8/archstrap)\n\nP.S. In my private dotfiles I have two scripts that automate system initialization/personalization for me (e.g. setting up my SSH/GPG keys, modifying fstab to automount my NFS share, connecting to my NAS and downloading the files I use on my laptop, etc). After that, I only need to do these things manually:\n\n1. Sync Brave browser (personal and work profiles) and probably restore my extensions' settings (not sure!)\n2. Login to Spotify and set storage limits\n3. Login to Google/Microsoft/Yahoo accounts in Brave browser (work profile)\n4. Connect to phone/tablet via KDEConnect\n5. Connect headphones via Bluetooth\n6. Login to my Headscale server\n7. Login to Telegram\n8. Save LUKS2 (secondary disk) keyfile to Vaultwarden/KeePassXC\n9. Install Omega Proxy extension on Mullvad Browser\n10. Login to some websites in Brave broswer (personal profile)\n11. Login to my accounts in VSCode.\n\nIn the near future, I will publish my dotfiles (after pruning my personal stuff).",
+    "score": 53,
+    "num_comments": 13,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oy8ezg/archstrap_modular_arch_linux_installation_system/"
+  },
+  {
+    "id": "1oxvq2c",
+    "title": "2 years in and I finally feel somewhat knowledgable",
+    "body": "So I had to nuke some harddrives (dealing with someone who got access to my google accounts, and potentially my computer(s), so had to go scorched earth on my setup.  Was painfully necessary unfortunately) and I had gotten more than a little lazy when it comes to security.  So when I started rebuilding my setup I installed Arch onto an encrypted thumbdrive and used BTRFS (BTRFS isn't the fastest solution for an operating system on a USB thumbdrive by the way) with separate subvolumes for the logs, var, home, and root folders.  This made for a great setup for snapshots, but I really wasn't considering the implications for when I eventually migrated from a thumbdrive to an SSD.\n\n  \nCut to a few days ago, I finally decide to buy a new NVME SSD for my laptop (I wasn't the only person hacked, and the authorities have been involved, so I'm fairly sure that this person won't be making any further moves moving forward, if I had to guess) and legitimize my Arch install.  I also wanted to get more space and speed things up--even with a barebones Arch install using Hyprland, the speed for random reads and writes is pretty abysmal, and I am usually doing development on my PC's these days.\n\n  \nSo I go to migrate my install and realize...this is a bit more complicated than a simple 'rsync -aHAXS /mnt/source /mnt/target'.  Having to recreate the filesystem, setup the encryption, copy all of the subvolumes, ensure that everything interacts with everything else correctly is a bit, well, intense, all things considered.\n\nHowever, after a day or so of transferring (good god usb thumbdrive's are slow.  Less than 1 million files and 220GB took literally 24 hours to fully copy) and a couple hours of setup, I unplugged my thumbdrive on reboot, sure I'd absolutely fucked up SOMETHING along the way but...\n\n  \nShe boots.  No problems, no missing anything, no hitches, everything in place.  Even my browser history and tmux settings are in tact.  Literally everything is there and everything works.  For the first time since I switched to Linux 2 years ago, I've successfully completed a somewhat complicated operation, with zero problems, zero issues, and zero caveats.\n\nI know in the grand scheme of things, this is somewhat minor.  But I just feel like I finally achieved some base level of competency in Linux that I'd spent decades at in Windows.  I did my first data migration when I was 12 years old in Windows, and while it's a bit simpler in an unencrypted Windows 98 installation than it is in pretty much any Arch Linux installation, still.  Just feels good.\n\n  \nAnyways, that's all I got.  Silly?  Sure.  But my foray into learning Linux started with Ubuntu (ugh) and, even though Arch is better, it's MUCH more intricate for doing things that matter.  I've only recently started using regex regularly, I picked up neovim finally a few months ago, and it took me almost a year to even try tmux.  Normally it wouldn't take this long, but the whole reason I began learning Linux was because I was getting into machine learning and trying to figure out how to utilize, make, and dissect LLMs and see what makes them tick--so it was buy a used Mac or install Linux.  Linux is/was the 'free' option, so that became my go-to.  I dual booted for a year, and only recently decided to go Arch only.  I finally feel comfortable editing config service files, and the only time I refer to documentation is when trying out new software.  I've learned how to use cmake/ninja/bazel/git (although I'm still somewhat novice with these, I can use them functionally), and I even branched out from Python to relearn some C++ and mess around with Zig.\n\n  \nI'm far from a guru, but I do like being competent, at the very least.  I need to learn more about the base programs/services that (most) Linux distributions ship with (like sed, grep, and others--I still just use grep for 'grep -r \"\\[search query\\] .\" and the like, ,or 'ps aux | grep' or 'lsmod | grep' etc etc; basic stuff), but I at least have a grasp on all of the different things that CAN be done.  From there it's just a quick --help or google search to figure out how to do what I want to do.\n\n  \nI dunno, it's just nice to have done all this myself, put the onus on myself to learn everything I have (I have had no job, school, or other outside influence on me to pick any of this up--in fact, I spent 90% of my free time playing competitive video games before all of this, so learning to program and to use Linux was more than a bit of a left turn all things considered), and it's beginning to pay off in some really rewarding ways.\n\n  \nP.S. setting up a tmux/bash script to display CPU/GPU/RAM/VRAM/DISK utilization in my status bar has been probably my favorite part of it all.  Customizing tmux is super fun, and keeping my eye on all of that hardware information keeps me from having to have htop/btop open in an adjacent pane while running various programs.\n\n  \nThanks for reading my blog /s",
+    "score": 57,
+    "num_comments": 9,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oxvq2c/2_years_in_and_i_finally_feel_somewhat/"
+  },
+  {
+    "id": "1otb17y",
+    "title": "Packages removed from repositories (gtk2, libpng12, qt5-websockets, qt5-webengine, qt5-webchannel)",
+    "body": "I noticed this weekend that `gtk2` and `libpng12` were removed from the regular repositories. These are dependencies for `davinci-resolve`. I switched to the AUR versions, fine. But this morning I also note that `qt5-websockets`, `qt5-webengine`, `qt5-webchannel` are removed. \n\nI guess that's also fine (although particularly the latter are a bitch because of how `qt5-websockets` et al use chromium, the compile times are insane).\n\nWhat I was wondering: why are these things not announced? Or am I not looking in the right places for such an announcement (forums, news page)?",
+    "score": 54,
+    "num_comments": 17,
+    "url": "https://www.reddit.com/r/archlinux/comments/1otb17y/packages_removed_from_repositories_gtk2_libpng12/"
+  },
+  {
+    "id": "1odwyxa",
+    "title": "Windows wiped my ESP partition (Why?)",
+    "body": "Hello everyone,\n\nI just want to share what happened to me just now. Today I went to boot my computer and to my surprise, it didn't boot into the rEFInd bootloader screen as per usual.\n\nThen I went to check the boot options on my UEFI (BIOS) and the rEFInd entry was no longer there. I already had my suspicions that Windows had been naughty again...\n\nBooted the arch live iso, mounted the partitions and then I saw in `/boot/EFI` the following files:\n\n\\- `WPSettings.dat`  \n\\- `IndexerVolumeGuid`\n\nAnd that's it. Gone was my rEFInd folder which contained the whole bootloader and its configurations.\n\nI then re-ran the refind-install script and reconfigured everything.\n\nThe system booted fine again on Arch.\n\nThe question is: why did this happened? What's the root cause? How to prevent this issue? Bear in mind these three facts:\n\n\\- Windows is unfortunately installed on the same drive as Linux (I have no option);  \n\\- This ESP partition is different from the Windows's ESP partition. I specifically created this partition to not conflict in any shape or form with Windows;  \n\\- I used Windows the night before. Did nothing that would trigger this behavior. It didn't appear to have updated either.\n\nSo yeah, that's it. Any insights are appreciated. Thanks.",
+    "score": 51,
+    "num_comments": 51,
+    "url": "https://www.reddit.com/r/archlinux/comments/1odwyxa/windows_wiped_my_esp_partition_why/"
+  },
+  {
+    "id": "1odgbwm",
+    "title": "Made a simple script/tool that clones and creates a bootable iso from an existing Arch installation",
+    "body": "I made a simple script that clones and creates a bootable iso from an existing Arch installation based on the Debian-based refractasnapshot script/tool but completely reworked for use with Arch's archiso and Arch installations, etc.\n\n[https://github.com/2kpr/arch-clone](https://github.com/2kpr/arch-clone)\n\nThe created iso is setup to have two main options:  \n \\- \"*(boot from RAM, can remove USB after boot)*\"  \n \\- \"*(boot from USB, can't remove USB after boot)*\"\n\nI'm just posting it here in the off chance that someone finds it useful, just paying it forward as it were.\n\nPersonally I just like to be able to clone a 'master' Arch installation and be able to run it on many PCs 'in ram' *(meaning they don't even need hard drives in them)*, etc.\n\nBasically doing similar to what this post wanted but automated of course: [https://www.reddit.com/r/archlinux/comments/y1f9g2/how\\_to\\_create\\_an\\_archiso\\_out\\_of\\_my\\_existing/](https://www.reddit.com/r/archlinux/comments/y1f9g2/how_to_create_an_archiso_out_of_my_existing/)",
+    "score": 52,
+    "num_comments": 14,
+    "url": "https://www.reddit.com/r/archlinux/comments/1odgbwm/made_a_simple_scripttool_that_clones_and_creates/"
+  },
+  {
+    "id": "1orixls",
+    "title": "Is AUR down? or just me",
+    "body": "Getting this on [https://aur.archlinux.org/](https://aur.archlinux.org/)\n\n# Secure Connection Failed\n\nAn error occurred during a connection to aur.archlinux.org. PR\\_END\\_OF\\_FILE\\_ERROR\n\nError code: PR\\_END\\_OF\\_FILE\\_ERROR\n\n* The page you are trying to view cannot be shown because the authenticity of the received data could not be verified.\n* Please contact the website owners to inform them of this problem.",
+    "score": 48,
+    "num_comments": 69,
+    "url": "https://www.reddit.com/r/archlinux/comments/1orixls/is_aur_down_or_just_me/"
+  },
+  {
+    "id": "1odhe33",
+    "title": "Arch Linux ARM: No package updates since mid September",
+    "body": "Hello everyone,\nI just noticed that my Raspberry Pi 4 is no longer receiving package updates.\n\nI took a look at the mirrors and found that the last repository updates were in mid-September. Here a [link](http://de.mirror.archlinuxarm.org/aarch64/) to one of them.\n\nAre there any changes or announcements regarding the project that I am unaware of that would explain why there are no more updates?\n\n  Volker\n\n                      ",
+    "score": 46,
+    "num_comments": 32,
+    "url": "https://www.reddit.com/r/archlinux/comments/1odhe33/arch_linux_arm_no_package_updates_since_mid/"
+  },
+  {
+    "id": "1og3sui",
+    "title": "Why do you use arch?",
+    "body": "What do you like about Arch that other distros dont have or that Arch does better? Ive been using Linux (Mint) for some time now and im still amazed by the popularity of Arch and also the \"bad\" reputation it has for how unstable it is or how easy it is to break to stuff, etc. But im not sure how true this is seeing how many people actually use it. IIRC, Arch has been the most used Linux Distro on Steam besides SteamOS ofc this year.",
+    "score": 50,
+    "num_comments": 194,
+    "url": "https://www.reddit.com/r/archlinux/comments/1og3sui/why_do_you_use_arch/"
+  },
+  {
+    "id": "1ol8v7b",
+    "title": "dovecot &gt;= 2.4 requires manual intervention",
+    "body": "The dovecot 2.4 release branch has made breaking changes which result\nin it being incompatible with any &amp;lt;= 2.3 configuration file.\n\nThus, the dovecot service will no longer be able to start until the\nconfiguration file was migrated, requiring manual intervention.\n\nFor guidance on the 2.3-to-2.4 migration, please refer to the\nfollowing upstream documentation:\n[Upgrading Dovecot CE from 2.3 to 2.4](https://doc.dovecot.org/latest/installation/upgrade/2.3-to-2.4.html)\n\nFurthermore, the dovecot 2.4 branch no longer supports their\nreplication feature, it was removed.\n\nFor users relying on the replication feature or who are unable to\nperform the 2.4 migration right now, we provide alternative packages\navailable in [extra]:\n\n- dovecot23\n- pigeonhole23\n- dovecot23-fts-elastic\n- dovecot23-fts-xapian\n\nThe dovecot 2.3 release branch is going to [receive critical security\nfixes](https://dovecot.org/mailman3/archives/list/dovecot@dovecot.org/thread/3P45L76DOC3NKUNSSPIXQNKINGOCYH5K/)\nfrom upstream until stated otherwise.",
+    "score": 44,
+    "num_comments": 0,
+    "url": "https://archlinux.org/news/dovecot-24-requires-manual-intervention/"
+  },
+  {
+    "id": "1oksl4c",
+    "title": "Is archinstall script good enough?",
+    "body": "I have been using dual booted arch with windows for a while. I kept windows just in case I ever needed it but right now I don't think I need windows 11 anymore as I can't even remember the last time i booted into windows. So i am considering doing a full wipe and fresh arch installation. I have gone through manual installation but for convenience I am thinking of giving archinstall a try. What i need in my fresh installation are:\n\n1. encryption ( i never did disk encryption, i always sticked to arch installation wiki but I think encryption would be good moving forward ).\n\n2. Switch to systemd-boot from grub as i am moving away from dual boot. \n\n3. I used to use zram so there was no swap partition but later switched to zswap as I found out it was already enabled in Arch and used swapfile with btrfs recommended method. I plan to create a swap partition now and use zswap with it.\n\n4. I just want the minimal installation option, I will setup niri with my configs later as post installation.\n\nI used snapper with btrfs previously but it has been 4 years since my last arch installation. So, is archinstall good enough or should i invest a little time to know what's standard best practices are right now and go with manual installation for better results?\n\n\nEdit: \n\nI just went with archinstall script. Turns out, the script is pretty flexible and lets you skip part that you don't want it to do. I just let it handle the tedious part and did some manual work to make the installation customized to my interest. \n\nBut i do agree that it is not for new users. In my opinion, Arch should be installed in an opinionated way. If you are just going to install whatever recommended without much thought, using Arch will be same as using any other linux distribution. Linux comes with a lot of options and unlike other distribution, Arch lets you cherry pick each and every part of it. Take advantage of it when you can, use the wiki. \n\nArchinstall script is pretty good when you know what you are doing. ",
+    "score": 40,
+    "num_comments": 109,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oksl4c/is_archinstall_script_good_enough/"
+  },
+  {
+    "id": "1okgtcx",
+    "title": "Turbo: Just another AUR helper.",
+    "body": "Hi guys, I'm starting to get back into coding and I thought I'd share my current project [https://github.com/splizer101/turbo](https://github.com/splizer101/turbo) it's an AUR helper written in Rust, it takes inspiration from some great aur helpers like paru and trizen. I made this tool to make things more convenient for me when installing and updating aur packages, where it would only prompt a user once if they want to edit/review source files and then it would use the modified PKGBUILDs for dependency resolution. Turbo also lets you use the github aur mirror in case there is a problem with the main aur. Let me know what you guys think!",
+    "score": 42,
+    "num_comments": 18,
+    "url": "https://github.com/splizer101/turbo"
+  },
+  {
+    "id": "1ozz1sb",
+    "title": "How To Handle Hostile Maintainer w/out Dup AUR Packages",
+    "body": "I was wondering how to deal with a hostile maintainer who is squatting on a set of packages, but refuses to update them in a timely manner or to make improvements / fixes to the packages.\n\nThe packages in question are wlcs, mir, and miracle-wm. I have been the one to update the packages this year, after a previous conflict where the current maintainer added me as a co-maintainer. They only did so when I opened an orphaned request after weeks of not updating the package, with zero communication.\n\nThis person doesn't communicate, doesn't make sense when they are forced to, and acts down right hostile. I don't think they even use the packages, rather is interested in collecting AUR packages like they are pokemon, as they currently post on github \"maintainer of 450+ AUR packages\". They actually swooped in to claim the mir package after I sent in an orphan request so I could adopt it.",
+    "score": 34,
+    "num_comments": 16,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ozz1sb/how_to_handle_hostile_maintainer_wout_dup_aur/"
+  },
+  {
+    "id": "1ooncfr",
+    "title": "Paruse just got a pretty cool update",
+    "body": "[Paruse](https://github.com/soulhotel/paruse) just got a pretty useful update. You can now use flags.... to skip the main menu and jump right into action(s). would love to get some opinions and comparisons from those that actually use tui wrappers like this, pacseek, and etc.",
+    "score": 34,
+    "num_comments": 14,
+    "url": "https://www.youtube.com/watch?v=SSfr7g7o324"
+  },
+  {
+    "id": "1os9blc",
+    "title": "BTRFS restore - deleted girlfriends pictures",
+    "body": "Due to a series of events that can only be described as negligence I ended up with all the pictures and videos off my girlfriends cell phone for the last three years stored on my computer with no backup (the files are already a recovery from a RAID from my NAS) I accidentally rm -rf the whole folder while doing some cleaning up of files done during the restore from RAID process (I moved the folder from ~/blk to /blk and did rm -rf /blk rather than rm -fr ~/blk. Lesson learned, name folders better. \n\nNeedless to say I'm in deep trouble. \n\nWhat I'm working with:\n/dev/nvme1n1p2 contains my root / and /blk where the files were stored. \n/dev/nvme0n1p1 contains my home folder and is a separate ssd.\n\nI have booted into my live USB and I am trying to use btrfs restore.\n\nI have mounted /dev/nvme0n1p1 to /mnt to use btrfs recovery.\n\nI am trying to work out the regex for /blk and all files within. There are no sub folders in /blk so the regex should be simple. However, btrfs recovery uses some pretty ugly syntax that I am honestly unsure of. Below is my attempt but it's not working. Its not returning any errors but nothing happens.\n\n# btrfs restore -v -D /dev/nvme1n1p2 /mnt/&lt;name&gt;/recover --path-regex='^/(|blk(|.*))$'\n\nI could really use some help. She just got home and I'm trying to act calm like nothing is happening but I'm freaking out here. She is going to murder me.",
+    "score": 34,
+    "num_comments": 29,
+    "url": "https://www.reddit.com/r/archlinux/comments/1os9blc/btrfs_restore_deleted_girlfriends_pictures/"
+  },
+  {
+    "id": "1oiv54v",
+    "title": "I am an idiot",
+    "body": "So one of my past posts I talked about how an arch update screwed up my system and I did a couple things to fix it. The laptop won't boot, so I reinstalled grub and linux and used efibootmgr to point to my new grub efi file. But one of the concerns was that the folder structure looked ugly and somebody mentioned that they would have just wiped the /boot directory and installed it clean. \n\nSo today I was like alright, I guess I'll do that. So I chrooted once more and instead of running rm -rf /boot/*, I don't even remember what I typed but my root directory got wiped. and that knocked me out of chroot I could no longer chroot because the system was complaining about there not being a bin or bash or something\n\nMy home directory is inside my / directory, so I assume that got wiped too? I'm honestly not sure I'll figure out more but I think I'm rage quitting and going to bed today. I'm just sorta glad I kept all my imprtant stuff for school on my secondary old laptop.\n\nThat was my fault, I 100% aknowledge that, just wanted to share what happened today. Be careful guys when you have too much power, one careless mistake can completely screw you over.",
+    "score": 33,
+    "num_comments": 53,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oiv54v/i_am_an_idiot/"
+  },
+  {
+    "id": "1oprame",
+    "title": "Heads up: initramfs generation may fail in some configurations since 11-dm-initramfs.rules has been removed",
+    "body": "```/usr/lib/initcpio/udev/11-dm-initramfs.rules``` has been removed as of ```lvm2 2.03.36-2```. You may need to downgrade ```device-mapper``` and ```lvm2```, if you encounter an error during ```mkinitcpio```.\n\nI believe it has been included in ```10-dm.rules``` as per [this](https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/merge_requests/416) merge request. So if you have a hook that requires it but cannot find it, ```mkinitcpio``` will throw an error.",
+    "score": 32,
+    "num_comments": 8,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oprame/heads_up_initramfs_generation_may_fail_in_some/"
+  },
+  {
+    "id": "1olhs08",
+    "title": "Boot loader options, what do you use and why?",
+    "body": "Hello, i was about to make a clean arch linux install on my desktop after a couple of years using it and learning along the way. \n\n  \nJust wonder what  you guys use as a [Boot loader](https://wiki.archlinux.org/title/Arch_boot_process#Boot_loader) and why? \n\n  \nI plan to use [systemd-boot](https://wiki.archlinux.org/title/Systemd-boot) as it came by default and i modifed to get a fast boot, not because care about speed, its a desktop and it will most of the time running, but because i want it. \n\nAlso i dont care my self about encryption and security in the boot process because its a desktop-pc. \n\nSo any recommendations? ",
+    "score": 27,
+    "num_comments": 87,
+    "url": "https://www.reddit.com/r/archlinux/comments/1olhs08/boot_loader_options_what_do_you_use_and_why/"
+  },
+  {
+    "id": "1oh7yyl",
+    "title": "What KDE Plasma applications do you have installed on your system?",
+    "body": "KDE Plasma on Arch Linux is weird. The `plasma` group has everything needed to make Plasma run, but it doesn't have a lot of critical apps like Dolphin, Konsole, Okular, and so forth. However on the flip side, the `kde-applications` group has everything from Kdenlive to Mahjongg to Solitaire to a 100 other apps I probably won't ever use. But there could be some useful ones in between that I'm missing at a glance.\n\nThose of you who run Plasma, how did you go about installing it? Did you install the additional apps you needed manually, or did you install the whole `kde-applications` group? Did you install individual meta packages? Just looking for some ideas here!",
+    "score": 29,
+    "num_comments": 41,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oh7yyl/what_kde_plasma_applications_do_you_have/"
+  },
+  {
+    "id": "1oyb6al",
+    "title": "Windows is somehow modifying my EFI boot settings on every boot so that my computer won’t boot into GRUB",
+    "body": "I know this is technically not really a question about arch linux but I know at least people in this sub will have experience with dual booting.\n\nI just built a new PC with an ASUS motherboard to replace my laptop with an MSI motherboard. I moved over my arch linux drive intact and reinstalled windows since I didn’t trust it to continue functioning properly on a new machine with totally different hardware.\n\nFor some reason, windows decided to install its boot loader into my linux EFI partition. This would have been fine except for the fact that it made it so that on every windows boot, it would completely delete GRUB from\nmy NVRAM. Every single time. I ended up moving all of the linux boot files to another EFI partition so it would stop doing that.\n\nOnly issue is that now instead of deleting GRUB from my boot options on every boot, it just makes itself the first boot option, meaning that every time I boot into windows any subsequent boot will also boot into windows instead of grub. This is actual malware-type behavior, and I have no idea how to make it stop doing this. Anybody else have this happen?\n\nEDIT: I fixed it by moving the EFI partition off of my linux drive, which was on a SATA SSD, to the end of my storage drive, which is an nvme SSD. The moment I did that and reinstalled grub to make sure it booted right windows stopped messing with my boot order. I do not know why windows specifically doesn’t like that it’s lower in boot priority to a sata drive but i guess it’s fine now.",
+    "score": 27,
+    "num_comments": 55,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oyb6al/windows_is_somehow_modifying_my_efi_boot_settings/"
+  },
+  {
+    "id": "1orhzhi",
+    "title": "Why don't any AUR helpers support the GitHub mirror?",
+    "body": "Like let's say I want to upgrade my system or install a package with yay and the AUR is down. Why can't it just pull from the PKGBUILD mirror on the Arch AUR GitHub? I know, yadda yadda security and stuff (the GitHub repo is apparently easier to compromise than the website) but couldn't it just be made to run only if you specify a flag? I just feel like it's a pain in the ass (when the AUR is down) to clone the mirror off GitHub, choose the branch for your software and run makepkg.\n\nRant over :)",
+    "score": 27,
+    "num_comments": 14,
+    "url": "https://www.reddit.com/r/archlinux/comments/1orhzhi/why_dont_any_aur_helpers_support_the_github_mirror/"
+  },
+  {
+    "id": "1oj3tlp",
+    "title": "[Fix] Nvidia Sleep Race, Immediate Sleep After Wake",
+    "body": "This is for **Nvidia** users. I ran into an issue recently where my system would go back to sleep after waking. Really frustrating, but after traversing the journal and doing some poking, I found the solution and I figured I would share it for posterity.\n\nMaybe this is just super obvious for everyone, but (as a somewhat novice Arch user) it wasn't for me.\n\nSystem specs:\n\nKernel: **Linux 6.17.5-arch1-1**\n\nDE: **Gnome 49.1**\n\nWM: **Mutter (Wayland)**\n\nGPU: **Nvidia**\n\nDriver: **nvidia-dkms**\n\n\nVery simple fix. I found an older update to how systemd sleep worked, and it reads as such:\n\n&gt;The behavior of systemd-sleep and systemd-homed has been updated to freeze user sessions when entering the various sleep modes or when locking a homed-managed home area. This is known to cause issues with the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary drivers may want to add drop-in configuration files that set SYSTEMD\\_SLEEP\\_FREEZE\\_USER\\_SESSIONS=false for systemd-suspend.service and related services, and SYSTEMD\\_HOME\\_LOCK\\_FREEZE\\_SESSION=false for systemd-homed.service.\n\nSo.. I just set this to `TRUE` to prevent the race condition of some component settling or stray power event to retrigger the suspend again.\n\nI just edited the services `sudo systemctl edit` to prevent this against future updates:\n\n* systemd-suspend.service\n* systemd-hibernate.service\n* systemd-suspend-then-hibernate.service\n* systemd-hybrid-sleep.service\n\nI set what the template showed in those files, pasting in the appropriate area:\n\n    [Service]\n    Environment=SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=1\n\nAnd now my system operates normally not going back to sleep after waking. Hopefully this helps somebody with the same issue. Maybe there is a better way to go about this, and maybe this wont work for everyone - I am definitely open to adjusting my logic here and seeing what I could do differently.\n\n**Edit:** So this works persistently. But, I found an edge case where even with this fix, I still have the system going back to sleep quickly after a wake. I think I’ve narrowed it down to application noise (in my specific case, I think it’s something to do with Spotify).\n\nAs soon as I zero in on the issue - as I am not sure if it’s specific to Nvidia, Wayland, gnome or something else, I’m going to do a write up on the fix and link the post here.\n\nIf you’re coming across this post, and your issue is _a blank screen on wake_, then this post is not covering a fix for that. Solutions for that are found on the [Arch Wiki - Nvidia](https://wiki.archlinux.org/title/NVIDIA) page.",
+    "score": 28,
+    "num_comments": 10,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oj3tlp/fix_nvidia_sleep_race_immediate_sleep_after_wake/"
+  },
+  {
+    "id": "1oy6odp",
+    "title": "How can we support package maintainers on AUR?",
+    "body": "for example I really appreciate this guy \"Muflone\" on AUR maintaining DaVinci Resolve and I couldn't find any way to contact him. Not that I can donate anything right now but currently I make a couple of bucks working with DR and it would be nice if we could support the people that keep things alive. They do this for FREE... and they compete with multi billion dollars corporations.\n\nIs there a discord server for arch linux community?\n\nI think archlinux needs some community funding or something (maybe like Fedora), I think too much of the future lol and I fear that one day arch will be gone. (my lazy ass dooesnt wanna switch distros for the 8th time xd)\n\nAlso if you can afford it, [https://archlinux.org/donate/](https://archlinux.org/donate/)\n\nFunds are used for hosting costs, server hardware upgrades, and more.",
+    "score": 25,
+    "num_comments": 15,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oy6odp/how_can_we_support_package_maintainers_on_aur/"
+  },
+  {
+    "id": "1or9425",
+    "title": "Any why Arch refuses to accept my password randomly?",
+    "body": "&gt;EDIT: Looks like I am not the only one with this issue\n\n\n\nSo, I have installed xfce first, used a normal easy password, then installed Cinnamon, uninstalled xfce\n\nRandomly I saw in terminal/konsole it just started saying password is incorrect\n\nFound this command on Arch subreddit: `faillock --reset`\n\nTried it, it worked, I could then use my old password\n\nA bit later, after couple of restarts password doesn't work again, I once again use `faillock --reset`\n\nThen I can enter old password again, but it keep randomly saying password is incorrect resulting in me using `faillock --reset`  too many times\n\nAny clues why this is happening?",
+    "score": 24,
+    "num_comments": 34,
+    "url": "https://www.reddit.com/r/archlinux/comments/1or9425/any_why_arch_refuses_to_accept_my_password/"
+  },
+  {
+    "id": "1oowuc8",
+    "title": "How long is your Arch vanilla running since its last installation?",
+    "body": "How long is your Arch vanilla running since its last installation? \n\nFirst of all: I don't need this data for a study or something else. It's just out of curiosity I ask this question and maybe to clean up with the myth, that the system breaks every now and then, just out of the blue and so that it NOT can be fixed.\n\nPS: My laptop runs smoothly on Arch Linux for about a week.",
+    "score": 22,
+    "num_comments": 87,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oowuc8/how_long_is_your_arch_vanilla_running_since_its/"
+  },
+  {
+    "id": "1ojvphm",
+    "title": "9070 XT Driver Status",
+    "body": "Since its nearly been a year since the launch, i am planning on getting one. Does anyone know how the driver status for it now, and how does it compare to windows? Have they fixed RT performance issues? ",
+    "score": 25,
+    "num_comments": 29,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ojvphm/9070_xt_driver_status/"
+  },
+  {
+    "id": "1ogb3b0",
+    "title": "[TOOL] Waybar GUI Configurator",
+    "body": "So I made this little tool to easily customize the waybar. hope you find it useful!\n\nI was having a hard time to get my waybar just the way i like it without losing a lot of time, and i know that the point of this is having the knowledge to edit it from the css and the json, i didn't have the time to do it and wanted a way to actually edit from a gui for saving time.\n\nI admit it isn't great, it has some flaws, but it gets the job done, i hope you like it and i promise to get the bugs fixed for the next version!\n\nhere's the github.  \n[https://github.com/veitorman/Waybar-Configurator-GUI](https://github.com/veitorman/Waybar-Configurator-GUI)",
+    "score": 25,
+    "num_comments": 8,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ogb3b0/tool_waybar_gui_configurator/"
+  },
+  {
+    "id": "1oncbvx",
+    "title": "[Help] My Arch Btrfs install is still freezing after I tried LITERALLY everything. I'm fucking exhausted. (RAM test PASSED)",
+    "body": "Hey r/archlinux,\n\n​I need some serious help or at least a discussion. I'm a beginner and I'm at my wit's end. I'm about to have a mental breakdown over this.\n\n​I've been trying to get a stable Arch install on my laptop for months. I've reinstalled this thing 10-12 times. Whenever I use ext4, it's pretty stable. But I wanted to do things the \"right\" way with Btrfs and Snapper for snapshots.\n\n​Every. Fucking. Time. I use Btrfs, I get random hard system freezes. The screen just locks, audio stops, and I have to hard reboot. The logs (journalctl -b -1) show nothing. They just stop at the time of the freeze.\n\n​I've been working day and night trying to fix this. I feel like I'm losing my mind. The time and stress I've put into this is uncountable.\n\n​Here is my hardware:\n​Laptop: ASUS ROG STRIX G513RC\n\n​CPU: AMD Ryzen 7 6800H with Radeon Graphics\n\n​GPU: NVIDIA RTX 3050 Mobile\n\n​RAM: 16GB DDR5\n\n​Disk: Micron NVMe SSD\n\n​Here is EVERYTHING I have done to try and fix this.\n\n​Suspected the Kernel: Thought the standard linux kernel was the problem.\n\n​Action: Switched to linux-lts and nvidia-lts.\n​Result: Still froze.\n\n​Suspected Drivers/Config:\n​Action: Fixed my GRUB config to actually boot the LTS kernel (it wasn't). Set it as the default (GRUB_DEFAULT=0).\n\n​Action: Updated /etc/mkinitcpio.conf to load all graphics drivers (amdgpu, nvidia, nvidia_drm) in the initramfs for early KMS.\n​Result: It looked cleaner, but it still fucking froze.\n\n​Suspected the Btrfs Swap File: This seemed like the \"smoking gun.\"\n​Action: I checked /etc/fstab and my Btrfs swap subvolume was missing nodatacow. I added it, turned swap off, remounted, and turned it back on. I verified with mount | grep /swap that nodatacow was active.\n\n​Result: I was so happy. I thought it was solved. IT STILL FUCKING FROZE.\n\n​Suspected the Hardware (Disk):\n​Action: Installed smartmontools and ran sudo smartctl -a on my NVMe.\n\n​Result: PASSED. The drive is 100% healthy. 0 errors, 100% available spare.\n\n​Suspected the BIOS/Firmware: I saw some ACPI BIOS Error (bug) messages on boot.\n​Action: Went to the ASUS support site for my G513RC.\n\n​Result: My BIOS is already on the latest version.\n\n​Suspected the Hardware (RAM): This was the final boss. I was told Btrfs is heavy on RAM and could be hitting a bad cell that ext4 never touched. I was sure this was it.\n\n​Action: Made a bootable Memtest86+ USB. I let it run.\n\n​Result: Pass: 1, Errors: 0. My RAM is perfectly, 100% fine.\n\n​So now what?\n\n​I'm just tired, dude. I've proven it's not the kernel. It's not the drivers. It's not the swap file config. It's not the disk. It's not the BIOS. And it's not the RAM.\n\n​The only goddamn variable left is Btrfs itself.\n​I'm a beginner, but I did all the \"professional\" steps. I'm just trying to have a stable system with snapshots. Is that too much to ask?\n​Is Btrfs just cursed on some hardware? Is this a known issue with my ASUS laptop or this Ryzen CPU? Am I missing anything?\n\n​I'm 100% ready to just say \"fuck Btrfs\" and go back to my stable ext4 install. Please, any suggestions from you pros? I'm desperate.\n\n​Arch on Btrfs hard-freezes. Already fixed nodatacow swap, on LTS kernel, smartctl passed, BIOS is updated, and Memtest86+ passed with 0 errors. I'm out of ideas. Is ext4 my only hope?\n\nEDIT / SOLVED:\n\nSystem is finally stable now — no more random freezes or shutdowns.\n\nThe issue was caused by having a swap file on the same Btrfs partition that used compression (compress=zstd:3).\nWhen RAM filled up, the kernel tried to compress swap data, which caused instant system freezes with no logs or errors.\n\nFix:\n\nBooted into GParted\n\nShrunk main Btrfs partition\n\nCreated a new 16 GB dedicated Linux-swap partition\n\nAdded its UUID to /etc/fstab\n\n\nAlso switched to the LTS kernel and replaced discard=async with fstrim.timer.\n\nTip for others:\nIf you face random freezes on Btrfs, don’t use a swap file on a compressed partition.\nCreate a proper swap partition instead — it fixes the problem completely.",
+    "score": 24,
+    "num_comments": 101,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oncbvx/help_my_arch_btrfs_install_is_still_freezing/"
+  },
+  {
+    "id": "1ovmrkl",
+    "title": "Switching to Arch from Mint",
+    "body": "What can I realistically expect? I've been running mint as my main OS for roughly a year. I feel comfortable with the terminal and honestly prefer it. I want to understand Linux more and also arch just looks cool lol. Please tell me what I can expect and also if you have any tips let me know! ",
+    "score": 22,
+    "num_comments": 34,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ovmrkl/switching_to_arch_from_mint/"
+  },
+  {
+    "id": "1onyh02",
+    "title": "Why are a lot of Japanese mirror out of sync?",
+    "body": "I noticed that under my university network (Tokyo area), all the fastest mirrors are flagged as out of sync. It is not a temporary problem. they stay out of sync even for more than a week.\n\nIs it considered normal/acceptable in this area?\n\nEdit: thanks for suggesting `reflector`, I was using `rankmirrors` up to now.",
+    "score": 23,
+    "num_comments": 14,
+    "url": "https://www.reddit.com/r/archlinux/comments/1onyh02/why_are_a_lot_of_japanese_mirror_out_of_sync/"
+  },
+  {
+    "id": "1omut9o",
+    "title": "Latest proton-vpn-gtk-app update broke itself",
+    "body": "It updates some of its dependencies as well, now get the following error in the journal when attempting to open:\n\n```\nNov 02 17:20:50 systemd\\[2712\\]: Started Proton VPN.\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]: Traceback (most recent call last):\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:   File \"/usr/bin/protonvpn-app\", line 5, in &lt;module&gt;\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:     from proton.vpn.app.gtk.\\_\\_main\\_\\_ import main\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:   File \"/usr/lib/python3.13/site-packages/proton/vpn/app/\n\ngtk/\\_\\_main\\_\\_.py\", line 25, in &lt;module&gt;\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:     from [proton.vpn.app.gtk.app](http://proton.vpn.app.gtk.app) import App\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:   File \"/usr/lib/python3.13/site-packages/proton/vpn/app/\n\ngtk/app.py\", line 28, in &lt;module&gt;\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:     from proton.vpn.app.gtk.controller import Controller\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:   File \"/usr/lib/python3.13/site-packages/proton/vpn/app/\n\ngtk/controller.py\", line 28, in &lt;module&gt;\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:     from proton.vpn.session import ServerList\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:   File \"/usr/lib/python3.13/site-packages/proton/vpn/sess\n\nion/\\_\\_init\\_\\_.py\", line 19, in &lt;module&gt;\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:     from proton.vpn.session.session import VPNSession\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:   File \"/usr/lib/python3.13/site-packages/proton/vpn/sess\n\nion/session.py\", line 25, in &lt;module&gt;\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]:     from proton.session.api import Fido2Assertion, Fido2A\n\nssertionParameters\n\nNov 02 17:20:50 protonvpn-app\\[55450\\]: ImportError: cannot import name 'Fido2Assertion' from 'pr\n\noton.session.api' (/usr/lib/python3.13/site-packages/proton/session/api.py)\n\nNov 02 17:20:50 systemd\\[2712\\]: app-protonvpn@bbfb8992656540b28e6dd34682629911.service: Main pro\n\ncess exited, code=exited, status=1/FAILURE\n\nNov 02 17:20:50 systemd\\[2712\\]: app-protonvpn@bbfb8992656540b28e6dd34682629911.service: Failed w\nith result 'exit-code'.\n\n```",
+    "score": 21,
+    "num_comments": 10,
+    "url": "https://www.reddit.com/r/archlinux/comments/1omut9o/latest_protonvpngtkapp_update_broke_itself/"
+  },
+  {
+    "id": "1om6v3p",
+    "title": "timeshift-autosnap AUR package updated after 6 years hiatus",
+    "body": "The ownership of the package seems to have been transferred. The source in the PKGBUILD has changed from `gitlab/gobonja/timeshift-autosnap` to `codeberg/racehd/timeshift-autosnap`. I am afraid of it being the second `xz` and hiding some nasty stuff, so I'm excluding the upgrade when I run `yay -Syu`.\n\nHas someone already audited the new version, especially checking for the trick played by the xz bad actor, to make sure the new version of `timeshift-autosnap` is safe to install?",
+    "score": 21,
+    "num_comments": 2,
+    "url": "https://www.reddit.com/r/archlinux/comments/1om6v3p/timeshiftautosnap_aur_package_updated_after_6/"
+  },
+  {
+    "id": "1oj9yns",
+    "title": "Is a GitHub sponsorships a good way to support Arch directly?",
+    "body": "I've donated to Arch in the past through [SPI](https://www.spi-inc.org/projects/archlinux/) and would now like to set up a recurring sponsorship and was thinking of doing this through a [monthly GitHub sponsorship](https://github.com/sponsors/archlinux). However, I don't see any mention of this on their [Donate page](https://archlinux.org/donate/) and wanted to be sure this is a legitimate way of supporting Arch.\n\nCan anyone confirm that if I set up a monthly GitHub sponsorship to the [Arch Linux org](https://github.com/archlinux/) that the money will go to the right place?",
+    "score": 23,
+    "num_comments": 3,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oj9yns/is_a_github_sponsorships_a_good_way_to_support/"
+  },
+  {
+    "id": "1ok07ol",
+    "title": "DE for arch Linux ?",
+    "body": "Dual booted  arch Linux , i5 8th gen thinkpad L490, need the lightest possible DE(desktop environment ) for working on building softwares and apps . Any suggestions ? ",
+    "score": 18,
+    "num_comments": 78,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ok07ol/de_for_arch_linux/"
+  },
+  {
+    "id": "1oqdxap",
+    "title": "What happens when NVIDA drops support for an architecture?",
+    "body": "I had difficulty finding if this has been answered before. NVIDIA plans to drop support for Maxwell, Pascal and Volta after the current 580 driver series. If someone has one of those cards and has installed the proprietary Nvidia driver, what happens when the new driver is released and a person updates their system through pacman? I can’t see any way that pacman would know not to update the driver. I do see that drivers for older architectures are included in AUR. Can a package be “frozen” so it doesn’t update and then allow for an admin to switch to the AUR package before a system update causes a system breakage?",
+    "score": 21,
+    "num_comments": 27,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oqdxap/what_happens_when_nvida_drops_support_for_an/"
+  },
+  {
+    "id": "1omz7kq",
+    "title": "For the Arch+Hyprland fanatics looking for a Wayland native GUI for NetworkManager",
+    "body": "",
+    "score": 20,
+    "num_comments": 7,
+    "url": "/r/hyprland/comments/1omz4nb/for_the_hyprland_fanatics_looking_for_a_wayland/"
+  },
+  {
+    "id": "1ofbsvb",
+    "title": "Some games on using Wine have stopped working after package updates on October 20th",
+    "body": "Hi guys, I'm having an issue with some games (particularly older ones and the [battle.net](http://battle.net) launcher). I've narrowed it down to a pacman update that happened on october 20th, 2025 as downgrading all packages back to october 19th makes the issue go away. In that vain, I've found that once these packages are updated, the issue returns - they are:  \nalsa-lib-1.2.14-2  graphviz-14.0.2-1  lib32-alsa-lib-1.2.14-2  lib32-libdrm-2.4.127-1  lib32-librsvg-2:2.61.2-1  libgphoto2-2.5.33-1  libjxl-0.11.1-5  libsndfile-1.2.2-4  pcsclite-2.4.0-2  python-pytorch-opt-rocm-2.9.0-1\n\n... but I have no idea which one it could be or what's causing it to completely break wine in some games (steam games and ones installed with lutris)\n\nWhen I run \"lutris -d\" I get this readout when trying to run one of the offending games (In this case the [battle.net](http://battle.net) launcher):\n\nlutris-wrapper: [Battle.net](http://Battle.net)  \nStarted initial process 99517 from /home/nick/.local/share/lutris/runtime/umu/umu-run /home/nick/Games/battlenet/drive\\_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe  \nStart monitoring process.  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: SHELL=/bin/bash  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: SESSION\\_MANAGER=local/nick-arch:@/tmp/.ICE-unix/1466,unix/nick-arch:/tmp/.ICE-unix/1466  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINDOWID=94753704611632  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: COLORTERM=truecolor  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_CONFIG\\_DIRS=/home/nick/.config/kdedefaults:/etc/xdg  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SESSION\\_PATH=/org/freedesktop/DisplayManager/Session1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_MENU\\_PREFIX=plasma-  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: ICEAUTHORITY=/run/user/1000/iceauth\\_pnrEjq  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: LANGUAGE=  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: SHELL\\_SESSION\\_ID=e2ab0468d9a04c68895073a39f22e2dd  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MEMORY\\_PRESSURE\\_WRITE=c29tZSAyMDAwMDAgMjAwMDAwMAA=  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DESKTOP\\_SESSION=plasma  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: GTK\\_RC\\_FILES=/etc/gtk/gtkrc:/home/nick/.gtkrc:/home/nick/.config/gtkrc  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SEAT=seat0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PWD=/home/nick  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SESSION\\_DESKTOP=KDE  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: LOGNAME=nick  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SESSION\\_TYPE=wayland  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: SYSTEMD\\_EXEC\\_PID=1518  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XAUTHORITY=/run/user/1000/xauth\\_CWYAVu  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MOTD\\_SHOWN=pam  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: GTK2\\_RC\\_FILES=/etc/gtk-2.0/gtkrc:/home/nick/.gtkrc-2.0:/home/nick/.config/gtkrc-2.0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: HOME=/home/nick  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: LANG=en\\_US.UTF-8  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_CURRENT\\_DESKTOP=KDE  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KONSOLE\\_DBUS\\_SERVICE=:1.149  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: AMD\\_VULKAN\\_ICD=RADV  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MEMORY\\_PRESSURE\\_WATCH=/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/session.slice/plasma-plasmashell.service/memory.pressure  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WAYLAND\\_DISPLAY=wayland-0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KONSOLE\\_DBUS\\_SESSION=/Sessions/4  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PROFILEHOME=  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SEAT\\_PATH=/org/freedesktop/DisplayManager/Seat0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: INVOCATION\\_ID=bfe52d4b6d0f41e88e52532bd222b491  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KONSOLE\\_VERSION=250802  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MANAGERPID=1120  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KDE\\_SESSION\\_UID=1000  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MESA\\_SHADER\\_CACHE\\_MAX\\_SIZE=16G  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SESSION\\_CLASS=user  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: TERM=xterm-256color  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: USER=nick  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: COLORFGBG=15;0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: QT\\_WAYLAND\\_RECONNECT=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KDE\\_SESSION\\_VERSION=6  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PAM\\_KWALLET5\\_LOGIN=/run/user/1000/kwallet5.socket  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DISPLAY=:0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: SHLVL=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_VTNR=2  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_SESSION\\_ID=2  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MANAGERPIDFDID=1121  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: ROCM\\_PATH=/opt/rocm  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_RUNTIME\\_DIR=/run/user/1000  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MKLROOT=/opt/intel/oneapi/mkl/latest  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DEBUGINFOD\\_URLS=[https://debuginfod.archlinux.org](https://debuginfod.archlinux.org)    \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: JOURNAL\\_STREAM=9:24664  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: XDG\\_DATA\\_DIRS=/home/nick/.local/share/flatpak/exports/share:/var/lib/flatpak/exports/share:/usr/local/share:/usr/share:/var/lib/snapd/desktop  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KDE\\_FULL\\_SESSION=true  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/var/lib/flatpak/exports/bin:/usr/lib/jvm/default/bin:/usr/bin/site\\_perl:/usr/bin/vendor\\_perl:/usr/bin/core\\_perl:/opt/rocm/bin:/var/lib/snapd/snap/bin  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DBUS\\_SESSION\\_BUS\\_ADDRESS=unix:path=/run/user/1000/bus  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KDE\\_APPLICATIONS\\_AS\\_SCOPE=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: MAIL=/var/spool/mail/nick  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: KONSOLE\\_DBUS\\_WINDOW=/Windows/1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: \\_=/usr/bin/lutris  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WEBKIT\\_DISABLE\\_DMABUF\\_RENDERER=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: \\_\\_GL\\_SHADER\\_DISK\\_CACHE=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: \\_\\_GL\\_SHADER\\_DISK\\_CACHE\\_PATH=/home/nick/Games/battlenet  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: LD\\_LIBRARY\\_PATH=/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15/files/lib:/usr/lib:/usr/lib32:/opt/rocm/lib:/opt/intel/oneapi/mkl/latest/lib/intel64:/opt/intel/oneapi/compiler/2025.0/lib:/usr/lib/libfakeroot:/us  \nr/lib64:/home/nick/.local/share/lutris/runtime/Ubuntu-18.04-i686:/home/nick/.local/share/lutris/runtime/steam/i386/lib/i386-linux-gnu:/home/nick/.local/share/lutris/runtime/steam/i386/lib:/home/nick/.local/share/lutris/runtime/steam/i386/usr/lib/i386-lin  \nux-gnu:/home/nick/.local/share/lutris/runtime/steam/i386/usr/lib:/home/nick/.local/share/lutris/runtime/Ubuntu-18.04-x86\\_64:/home/nick/.local/share/lutris/runtime/steam/amd64/lib/x86\\_64-linux-gnu:/home/nick/.local/share/lutris/runtime/steam/amd64/lib:/ho  \nme/nick/.local/share/lutris/runtime/steam/amd64/usr/lib/x86\\_64-linux-gnu:/home/nick/.local/share/lutris/runtime/steam/amd64/usr/lib  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DXVK\\_HUD=compiler  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DXVK\\_STATE\\_CACHE\\_PATH=/home/nick/Games/battlenet  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: STAGING\\_SHARED\\_MEMORY=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: \\_\\_GL\\_SHADER\\_DISK\\_CACHE\\_SKIP\\_CLEANUP=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINEDEBUG=-all  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DXVK\\_LOG\\_LEVEL=error  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: UMU\\_LOG=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINEARCH=win64  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINE=/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15/files/bin/wine  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINE\\_MONO\\_CACHE\\_DIR=/home/nick/.local/share/lutris/runners/proton/GE-Proton10-15/files/mono  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINE\\_GECKO\\_CACHE\\_DIR=/home/nick/.local/share/lutris/runners/proton/GE-Proton10-15/files/gecko  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINEPREFIX=/home/nick/Games/battlenet  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINEESYNC=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINEFSYNC=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DXVK\\_NVAPIHACK=0  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: DXVK\\_ENABLE\\_NVAPI=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PROTON\\_DXVK\\_D3D8=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINEDLLOVERRIDES=locationapi=d;winemenubuilder=  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: WINE\\_LARGE\\_ADDRESS\\_AWARE=1  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: STORE=none  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: GAME\\_NAME=Battle.net  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: GAME\\_DIRECTORY=/home/nick/Games/battlenet  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PROTONPATH=/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: GAMEID=umu-default  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: PROTON\\_VERB=waitforexitandrun  \n\\[umu.\\_\\_main\\_\\_:78\\] DEBUG: LUTRIS\\_GAME\\_UUID=c89cc2d8-245e-46cf-b496-16856d1bca6e  \n\\[umu.umu\\_run:777\\] INFO: umu-launcher version 1.2.9 (3.13.7 (main, Aug 15 2025, 12:34:02) \\[GCC 15.2.1 20250813\\])  \n\\[umu.umu\\_run:783\\] DEBUG: Connecting to '1.1.1.1'...  \n\\[umu.umu\\_run:699\\] DEBUG: PROTONPATH set, resolving its required runtime  \n\\[umu.umu\\_runtime:272\\] DEBUG: Local: /home/nick/.local/share/umu/steamrt3  \n\\[umu.umu\\_runtime:317\\] DEBUG: Existing install detected  \n\\[umu.umu\\_runtime:318\\] DEBUG: Using container runtime 'steamrt3' aka 'sniper'  \n\\[umu.umu\\_runtime:319\\] DEBUG: Checking updates for 'steamrt3'...  \n\\[umu.umu\\_runtime:363\\] DEBUG: Sending request to 'repo.steampowered.com/steamrt-images-sniper/snapshots/latest-container-runtime-public-beta/VERSION.txt?version=G-9vrFnuCAdAqawaJbIWKA' for 'VERSION.txt'...  \n\\[umu.umu\\_run:865\\] DEBUG: WINEPREFIX=/home/nick/Games/battlenet  \n\\[umu.umu\\_run:865\\] DEBUG: GAMEID=umu-default  \n\\[umu.umu\\_run:865\\] DEBUG: PROTON\\_CRASH\\_REPORT\\_DIR=/tmp/umu\\_crashreports  \n\\[umu.umu\\_run:865\\] DEBUG: PROTONPATH=/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_APP\\_ID=default  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_TOOL\\_PATHS=/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15:/home/nick/.local/share/umu/steamrt3  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_LIBRARY\\_PATHS=/home  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_MOUNTS=/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15:/home/nick/.local/share/umu/steamrt3  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_INSTALL\\_PATH=/home/nick/Games/battlenet/drive\\_c/Program Files (x86)/Battle.net  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_CLIENT\\_INSTALL\\_PATH=  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_DATA\\_PATH=/home/nick/Games/battlenet  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_COMPAT\\_SHADER\\_PATH=/home/nick/Games/battlenet/shadercache  \n\\[umu.umu\\_run:865\\] DEBUG: FONTCONFIG\\_PATH=  \n\\[umu.umu\\_run:865\\] DEBUG: EXE=/home/nick/Games/battlenet/drive\\_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe  \n\\[umu.umu\\_run:865\\] DEBUG: SteamAppId=default  \n\\[umu.umu\\_run:865\\] DEBUG: SteamGameId=default  \n\\[umu.umu\\_run:865\\] DEBUG: STEAM\\_RUNTIME\\_LIBRARY\\_PATH=/home/nick/.local/share/lutris/runtime/steam/amd64/usr/lib/x86\\_64-linux-gnu:/opt/intel/oneapi/compiler/2025.0/lib:/usr/lib32:/home/nick/.local/share/lutris/runtime/steam/amd64/lib/x86\\_64-linux-gnu:/home  \n/nick/.local/share/lutris/runtime/steam/i386/usr/lib:/home/nick/.local/share/lutris/runtime/steam/i386/lib:/home/nick/.local/share/lutris/runtime/steam/i386/lib/i386-linux-gnu:/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15/files/lib:/u  \nsr/lib:/home/nick/.local/share/lutris/runtime/Ubuntu-18.04-i686:/opt/intel/oneapi/mkl/2025.0/lib:/home/nick/.local/share/lutris/runtime/Ubuntu-18.04-x86\\_64:/opt/intel/oneapi/mkl/latest/lib/intel64:/opt/rocm/lib:/home/nick/.local/share/lutris/runtime/stea  \nm/amd64/usr/lib:/home/nick/Games/battlenet/drive\\_c/Program Files (x86)/Battle.net:/home/nick/.local/share/lutris/runtime/steam/amd64/lib:/home/nick/.local/share/lutris/runtime/steam/i386/usr/lib/i386-linux-gnu:/usr/lib/libfakeroot:/usr/lib64  \n\\[umu.umu\\_run:865\\] DEBUG: STORE=none  \n\\[umu.umu\\_run:865\\] DEBUG: PROTON\\_VERB=waitforexitandrun  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_ID=umu-default  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_ZENITY=  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_NO\\_RUNTIME=  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_RUNTIME\\_UPDATE=  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_NO\\_PROTON=  \n\\[umu.umu\\_run:865\\] DEBUG: RUNTIMEPATH=/home/nick/.local/share/umu/steamrt3  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_STEAM\\_GAME\\_ID=  \n\\[umu.umu\\_run:865\\] DEBUG: UMU\\_INVOCATION\\_ID=7030632944153f5478660d2bdca2de93  \n\\[umu.umu\\_runtime:474\\] DEBUG: Acquiring file lock '/home/nick/.local/share/umu/umu.lock'...  \n\\[umu.umu\\_runtime:476\\] DEBUG: Acquired file lock '/home/nick/.local/share/umu/umu.lock'  \n\\[umu.umu\\_runtime:481\\] DEBUG: Released file lock '/home/nick/.local/share/umu/umu.lock'  \n\\[umu.umu\\_runtime:376\\] INFO: steamrt3 is up to date  \n\\[umu.umu\\_run:887\\] DEBUG: (PosixPath('/home/nick/.local/share/umu/steamrt3/umu'), '--verb', 'waitforexitandrun', '--', PosixPath('/home/nick/.local/share/umu/steamrt3/umu-shim'), PosixPath('/home/nick/.local/share/Steam/compatibilitytools.d/GE-Proton10-15  \n/proton'), 'waitforexitandrun', '/home/nick/Games/battlenet/drive\\_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe')  \n\\[umu.umu\\_run:664\\] DEBUG: prctl exited with status: 0  \nProtonFixes\\[101086\\] INFO: Running protonfixes on \"GE-Proton10-15\", build at 2025-08-27 20:08:46+00:00.  \nProtonFixes\\[101086\\] INFO: Running checks  \nProtonFixes\\[101086\\] INFO: All checks successful  \nProtonFixes\\[101086\\] WARN: Game title not found in CSV  \nProtonFixes\\[101086\\] INFO: Non-steam game UNKNOWN (umu-default)  \nProtonFixes\\[101086\\] INFO: No store specified, using UMU database  \nProtonFixes\\[101086\\] INFO: Using global defaults for UNKNOWN (umu-default)  \nProtonFixes\\[101086\\] INFO: Non-steam game UNKNOWN (umu-default)  \nProtonFixes\\[101086\\] INFO: No store specified, using UMU database  \nProtonFixes\\[101086\\] INFO: No global protonfix found for UNKNOWN (umu-default)  \nProton: /home/nick/Games/battlenet/drive\\_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe  \nProton: Executable a unix path, launching with /unix option.  \nwineserver: NTSync up and running!  \nWARNING: radv is not a conformant Vulkan implementation, testing use only.  \n\\*\\*\\* stack smashing detected \\*\\*\\*: terminated  \n\\*\\*\\* stack smashing detected \\*\\*\\*: terminated  \n\\*\\*\\* stack smashing detected \\*\\*\\*: terminated  \n\\*\\*\\* stack smashing detected \\*\\*\\*: terminated  \n\\[umu.umu\\_run:668\\] DEBUG: Child 99759 exited with wait status: 0  \nMonitored process exited.  \nInitial process has exited (return code: 0)  \nAll processes have quit  \nExit with return code 0  \nDEBUG    2025-10-24 18:45:54,216 \\[monitored\\_command.on\\_stop:232\\]:Process 99460 has terminated with code 0  \nDEBUG    2025-10-24 18:45:54,314 \\[game.beat:910\\]:Game thread stopped  \nWARNING  2025-10-24 18:45:54,315 \\[game.on\\_game\\_quit:948\\]:Game still running (state: running)  \nINFO     2025-10-24 18:45:54,315 \\[game.stop:921\\]:Stopping [Battle.net](http://Battle.net) (wine)  \nDEBUG    2025-10-24 18:45:54,315 \\[game.stop\\_game:877\\]:Battle.net (wine) has run for 8 seconds  \nDEBUG    2025-10-24 18:45:54,315 \\[game.stop\\_game:889\\]:Playtime: 9 minutes  \nDEBUG    2025-10-24 18:45:54,315 \\[game.on\\_game\\_quit:966\\]:Battle.net stopped at Fri, 24 Oct 2025 18:45:54  \nDEBUG    2025-10-24 18:45:54,321 \\[application.on\\_game\\_stopped:791\\]:Removing 9 from running IDs  \nDEBUG    2025-10-24 18:45:54,350 \\[path\\_cache.add\\_to\\_path\\_cache:47\\]:Adding [Battle.net](http://Battle.net) (wine) to path cache\n\nI'm at a loss here an any assistance would be greatly appreciated. Thanks in advance.\n\nEDIT: I've upgraded the packages again (present-day, not the 20th) but this time ignoring lib32-libdrm and things are working so that package is definitely the culprit here.\n\nEDIT 2: It appears that this issue is happening to others as well, here's the same issue ohn r/linux_gaming: [https://www.reddit.com/r/linux\\_gaming/comments/1obmk9a/arch\\_linux\\_proton\\_old\\_games\\_crashing\\_after/](https://www.reddit.com/r/linux_gaming/comments/1obmk9a/arch_linux_proton_old_games_crashing_after/)\n\nCurrent fix is to downgrade lib32-libdrm which can be done with:  \n`sudo pacman -U` [`https://archive.archlinux.org/packages/l/lib32-libdrm/lib32-libdrm-2.4.125-1-x86_64.pkg.tar.zst`](https://archive.archlinux.org/packages/l/lib32-libdrm/lib32-libdrm-2.4.125-1-x86_64.pkg.tar.zst)\n\nYou can also add \"--ignore lib32-libdrm\" at the end of your pacman update so that this package doesn't get updated, at least until this problem is fixed.",
+    "score": 20,
+    "num_comments": 39,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ofbsvb/some_games_on_using_wine_have_stopped_working/"
+  },
+  {
+    "id": "1ote4ms",
+    "title": "Anyone here using a company Windows machine remotely from their own Linux setup?",
+    "body": "Hey everyone,\n\nI’m wondering if anyone here has managed to work on a company-managed Windows machine from their personal Linux setup — maybe using RDP, VDI, or something similar.\n\nDue to company policy and security controls, I can’t install corporate apps like Teams or Outlook on my personal laptop. That means I’m kind of stuck using the company-issued Windows laptop for everything.\n\nFor context: I work as a cybersecurity engineer, and I’ve been a Linux user for about 10 years. Unfortunately, I had to switch to Windows for work — and after about five or six years of it, I’ve had enough. I really miss my Arch + Hyprland setup and would love to go back.\n\nSo, has anyone figured out a good workflow for this? Ideally something that lets me keep using Linux as my main OS while still connecting securely to the corporate Windows environment when needed.\n\nAny tips, tools, or setups you could share would be super appreciated.\n\nThanks!\n",
+    "score": 19,
+    "num_comments": 34,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ote4ms/anyone_here_using_a_company_windows_machine/"
+  },
+  {
+    "id": "1oqhx6l",
+    "title": "Testing an updated approach to package splitting in makepkg",
+    "body": "",
+    "score": 19,
+    "num_comments": 5,
+    "url": "https://lists.archlinux.org/archives/list/pacman-dev@lists.archlinux.org/thread/KNT2ZCIA75DD7VDH44WUEX52TJKSET66/"
+  },
+  {
+    "id": "1oyl9in",
+    "title": "I made some command aliases. What do you think? Should i change anything?",
+    "body": "I made some command aliases for my system, Just to streamline things. I think i'm happy with it. I was just wanting someone to look at it and see what they think. Just in case i need to change something, or If something can be improved or added. Thanks.  \nI'll paste what i have below.\n\nalias freemem=\"sudo swapoff -a &amp;&amp; sync; echo 3 | sudo tee /proc/sys/vm/drop\\_caches &amp;&amp; sudo swapon -a\"\n\nalias trim=\"sudo fstrim -av\"\n\n\\## PACMAN\n\nalias update=\"sudo pacman -Syu &amp;&amp; yay -Syua &amp;&amp; sudo paccache -r &amp;&amp; sudo snap refresh &amp;&amp; flatpak update\"\n\nalias install=\"sudo pacman -S\"\n\nalias remove=\"sudo pacman -Rs\"\n\nalias find=\"yay\"\n\nalias build=\"yay -S\"\n\nalias clean=\"sudo pacman -Qqtd &amp;&amp; sudo pacman -Qtdq | sudo pacman -Rns - &amp;&amp; yay -Yc\"\n\nalias orphans=\"pacman -Qdtq\"\n\nalias rank=\"sudo reflector --verbose --sort rate --latest 30 --save /etc/pacman.d/mirrorlist\"\n\n\\_\\_\\_\\_\\_\n\nHere's a breakdown of what i got.\n\nFreemem: dumps memory cache and anything sitting in swap. This is useful after a large file copy. Disk write cache and swap both stay full and the system actually slows down. i don't know why Linux doesn't automatically release this memory after a large file copy is complete. But it doesn't for whatever reason. This set of commands dumps the cache and reclaims that memory. It gives the computer a bit of a boost. It's quite noticeable on lower end hardware.\n\nTrim: trims all volumes.\n\nupdate: updates repo packages and aur packages, the default behavior for paccache is to keep the last three packages in cache and clear the rest. I do this to save disk space. I can always roll back beyond that with the downgrade tool if need be. Updates snap and flatpaks. I don't' have any snaps installed. But i have that in the command just in case i ever do.\n\nInstall / remove: pretty obvious what those do.\n\nfind: searches the repo and aur for packages.\n\nbuild: tells it to build an AUR package\n\nClean: displays orphaned packages from both pacman and yay and prompts you to remove them.\n\nOrphans: only list the orphans, does not remove them.\n\nRank: uses reflector to search for and rank mirrors. \n\nAnyways. that's what i got.  What do you think?",
+    "score": 17,
+    "num_comments": 30,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oyl9in/i_made_some_command_aliases_what_do_you_think/"
+  },
+  {
+    "id": "1onfnpy",
+    "title": "Advice for moving the kids' gaming desktop to Linux.",
+    "body": "I have been using some version of Linux as my daily driver for more than two years now. For just over a year, it's been Garuda Linux. I left Windows mostly because I really am over the privacy issues with Windows 11 and I also detest being treated like a recurring revenue stream on an operating system I paid full price for. \n\nI gave my old gaming desktop to my kids to play games on the TV with and it still runs Windows 11. The kids mostly play games on Steam family accounts.\n\nI'm pretty sure at this point they won't care what operating system the gaming desktop uses. They care that they can play their games. So I'm down to two issues preventing the swap to Linux for the kids.\n\nIssue #1: We have a Quest 3 that the kids and I use infrequently. Getting it to work at all in Linux proved to be an exceptionally painful experience. I had varying levels of success with different online tutorials and it took several hours to get through that. When I did finally get the Quest 3 to work, it was still an inferior experience to Steam VR and Windows Mixed Reality, requiring sometimes significant tweaks to be able to interact with the game at all. For the moment, this is one isn't the end of the world. A lot of the stuff we play with Steam VR can be played natively on the headset though this does have the disadvantage of severely decreasing the headset's battery life.\n\n  \nIssue #2: Game controller support appears to be spotty. It could be the controllers. I purchased relatively cheap controllers from Gamesir. That way, if\\\\when the kids busted one, either through just not knowing how to take care of a game controller or via sudden rage induced mechanical failure, it wouldn't be that big of a deal. The problem we've run into is that getting more than two controllers working at the same time appears to be some combination of chanting the correct incantation and only using them during specific planetary alignments of Jupiter and Mars. Essentially, we can usually get two working reliably but a 3rd is asking a lot. It's not an issue we had with the same controllers on the same games in Windows 11. I'm open to the idea that the cheap controllers just won't work well in Linux and as my kids are a bit older now(13, 12, 9), I'd be willing to invest in some better quality controllers if I knew they'd work well with Linux.\n\nAny thoughts on the above? I'd love to ditch Windows entirely but I do understand that most manufacturers of hardware and software still develop primarily for Windows.  \n",
+    "score": 19,
+    "num_comments": 20,
+    "url": "https://www.reddit.com/r/archlinux/comments/1onfnpy/advice_for_moving_the_kids_gaming_desktop_to_linux/"
+  },
+  {
+    "id": "1of3l1r",
+    "title": "What books are good for a complete beginner wanting to be able to effectively use Arch?",
+    "body": "I use windows at the moment and have not really used Linux before except for when I have used my raspberry pi. I don't really know where to start when learning how to use Arch but I want to know how to use it because I like how it has what you need in an OS. Please could you recommend some good books for learning how to use Arch? I have only ever coded in Python 3 and a bit of HTML and JavaScript.",
+    "score": 18,
+    "num_comments": 38,
+    "url": "https://www.reddit.com/r/archlinux/comments/1of3l1r/what_books_are_good_for_a_complete_beginner/"
+  },
+  {
+    "id": "1ocymhh",
+    "title": "Time shift seems to have destroyed my system",
+    "body": "I updated my arch system with pacman. After next boot I noticed kde was missing the taskbar and other important features. I use btrfs and also have time shift, so I tried to restore but now my whole system is broke and when I try to restore to an even earlier time I get errors. I’ve tried to boot into a snapshot from grub, but it just brings me into a root login. The picture is the output I get when I try to restore. Is there any way to fix this?\n\nhttps://imgur.com/a/fcCDRF7\n",
+    "score": 18,
+    "num_comments": 37,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ocymhh/time_shift_seems_to_have_destroyed_my_system/"
+  },
+  {
+    "id": "1ox9qb5",
+    "title": "Making music on arch....?",
+    "body": "SOLVED\n\nBasically, the reason i couldn't use wine properly and open certain apps was because i was using the hardened linux kernel...\n\nSwitched to the normal one and now rocking winboat with a microWin windows 11 install. Used the CTT debloat tool to transform a bloated, telemetry collecting win11 iso to an incredibly minimal windows iso and installed it onto winboat + ran the ctt debloat tool AGAIN to kill all the shitty windows services no one asked for.... Installed fl studio and now need a way to access my sounds within the VM without giving windows access to the home folder :D\n\n\n\n\n\nI've decided to switch to arch linux. As a complete beginner I understand that this is a risky move, but I desire to learn and grow through this journey.\n\nI had to leave behind windows because i couldn't make a partition big enough for my linux endeavor, so I decided to just install arch on the whole drive: I used archinstall, encrypted the ssd and I'm using the hardened linux kernel bc I'd like to bring some privacy and digital security back into my life (i did install and activate a firewall too).\n\nNow, I bought and I've been using Fl Studio for quite some time and after looking at a couple of wine tutorials, specific for this topic, I thought I could get it working. I did get it to work somewhat, but got quite a few errors and unfortunately don't have an audio interface compatible with linux.\n\nMy 2 main questions are:\n\n1. Is it possible to get it working, perhaps using a solution like \"bottles\" and routing my audio properly using carla (or something a bit more intuitive) in a way that works?\n2. would it be a viable option to dualboot windows on the same encrypted ssd without having to start over from scratch (which I wouldn't mind too much)?\n\nI'll provide some extra information if needed and any help would be highly appreciated...\n\nSome extra info I feel might be useful for you to know: running kde plasma 6, i set up timeshift on this partition using RSYNC, BTRFC file structure...\n\nI set it all up today so I will take all recommendations into consideration and I'm willing to start fresh and vanilla arch is not a must as long as I'm able to customize everything and make music :)\n\nThank you so unbelievably much in advance and whether you help me or are just passing by, thank you for existing!",
+    "score": 15,
+    "num_comments": 24,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ox9qb5/making_music_on_arch/"
+  },
+  {
+    "id": "1ogg3um",
+    "title": "Today's update broke my arch install and I fixed it",
+    "body": "About an hour ago, I ran sudo pacman -Syu. And then during the process it knocked me out of my X session and every log in attempt my screen would blink for half a second and I would be back in my login screen. I shut my laptop down and turned it back on, and I got an error message about modules.devname not found in /lib/\"xxx\"/arch and I was left in a terminal with my name replaced with rootfs. None of the commands would work like nvim or pacman, and I honestly have no idea what that error was so please let me know if you guys know what that means. I'm just gonna talk about how I got back into arch and how I'm making this post.\n\nFirst, I wiped the dust off my usb stick and got back into the live environment. I mounted my partitions with the mount command, and entered my system through arch-chroot.\n\nThen, I reinstalled grub. Apparently that's how somebody else solved this issue back in 2018 so I thought I would give it a try. I ran grub-install pointing to my boot partition and efi directory, and remade my config with grub-mkconfig. All of this went with no errors. I rebooted the system and now my Arch Linux entry was gone.\n\nSo I chrooted back into my system and used efibootmgr to remove all the useless entries and made a new entry pointing to my new grubx64.efi. It was located in /boot/EFI/EFI/GRUB for some reason. If anybody knows whether it's fine to have two EFI folders or if I should be concerned for the future please let me know also.\n\nAnd I rebooted, and everything was working fine and normal again. So basically the solution was to reinstall grub, remake the config, use efibootmgr to make sure my system finds arch\n\nHopefully if anybody else runs into the same problem as me it helps a little bit.",
+    "score": 16,
+    "num_comments": 18,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ogg3um/todays_update_broke_my_arch_install_and_i_fixed_it/"
+  },
+  {
+    "id": "1ozqr7d",
+    "title": "EndeavourOS vs. Arch install script",
+    "body": "Putting aside the whole 'I use Arch btw' thing, EndeavourOS or the Arch install script - which one should someone who wants to start with Arch choose, and why?",
+    "score": 16,
+    "num_comments": 46,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ozqr7d/endeavouros_vs_arch_install_script/"
+  },
+  {
+    "id": "1owms53",
+    "title": "Does Secure Boot make sense with home-only encryption?",
+    "body": "I am currently using Secure Boot with full disk encryption, and my understanding is that it provides for a guarantee that nothing has been altered by an Evil Maid.\n\nBut if I am coupling it with something like systemd-homed style per-user-home encryption, then even though the UKI (unified kernel image) is secure, anyone could replace any of the other executable binaries that are housed in `/usr`, and therefore compromise the system.\n\nIs that correct?",
+    "score": 16,
+    "num_comments": 26,
+    "url": "https://www.reddit.com/r/archlinux/comments/1owms53/does_secure_boot_make_sense_with_homeonly/"
+  },
+  {
+    "id": "1ov541n",
+    "title": "How to skip Grub menu",
+    "body": "So I have finally today moved from windows to arch (Previously was on dual boot )after successfully using arch for 102days, It was hard as I kept windows for gaming but I felt I was spending a bit too much of time in Games so I cut it off and completely switched to arch\n\n  can somebody explain how can I skip the Grub menu as I only have one OS, it doesn’t make any sense to have Grub menu ",
+    "score": 16,
+    "num_comments": 17,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ov541n/how_to_skip_grub_menu/"
+  },
+  {
+    "id": "1ou0beq",
+    "title": "Arch linux package simple package check/lookup software.",
+    "body": "Hi guys,\n\nIt's not that i havent posted this before but i've updated recently and appreciate people checking it out.  \nThis is purely meant to be a package lookup tool for quick access.   \n[https://github.com/zeroz41/checkpac](https://github.com/zeroz41/checkpac)\n\nIf you have no interest in it, that is fine. \n\nits on AUR:  \n[https://aur.archlinux.org/packages/checkpac](https://aur.archlinux.org/packages/checkpac)  \n\n\nHope people try it out.\n\n",
+    "score": 15,
+    "num_comments": 4,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ou0beq/arch_linux_package_simple_package_checklookup/"
+  },
+  {
+    "id": "1ozgskt",
+    "title": "RDSEED32 broken, PC practically unusable",
+    "body": "Updated today, and apparently there’s an issue with this. I have a 9800x3d, but once the system boots everything is just unnecessarily too laggy and at some point it just stops responding at all. Workaround please? Perhaps reverting back? \n\nPlease help!\n\nEDIT: video https://youtu.be/bqlzyFFWYcs?si=eH-PKphppTavNcOs\n\n\n**UPDATE!!!**\n\nAfter doing everything I could, from updating BIOS to downgrading all packages. I tried everything. \nGuess what worked?\nFUCKING TURNING OFF THE COMPUTER, PRESSING THE POWER BUTTON TO CLEAR STATIC, AND THATS IT.\nI feel SO stupid, oh my god.\nThat made my hardware function normally. \n\nThank you all for your collaborative support. It is deeply appreciated! ",
+    "score": 13,
+    "num_comments": 26,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ozgskt/rdseed32_broken_pc_practically_unusable/"
+  },
+  {
+    "id": "1opv2i2",
+    "title": ".pacnew files",
+    "body": "hello guys, how do you deal with .pacnew files in /etc, should I check and replace old ones with new ones from time to time or just keep them.",
+    "score": 14,
+    "num_comments": 16,
+    "url": "https://www.reddit.com/r/archlinux/comments/1opv2i2/pacnew_files/"
+  },
+  {
+    "id": "1oms5zd",
+    "title": "Should I switch",
+    "body": "Ehy ppl, I am in a deep pit, I bought a new pc and I'd like to switch back to Linux (I've daily used it until January) but at the same time, minecraft is running so smoothly on this Windows machine and office is getting back into my bloodstream for university purposes, what should I do, why should I do it, and how?",
+    "score": 13,
+    "num_comments": 56,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oms5zd/should_i_switch/"
+  },
+  {
+    "id": "1og7dhw",
+    "title": "My friend who never tried Linux want to install arch",
+    "body": "My friend wants to install Arch Linux on his main computer and erase Windows completely. The fact is, he has never tried any Linux distro before besides Ubuntu on a VM. He says that he wants Arch because of Hyprland and doesn't want to use an Arch-based distro like EndeavourOS. Should I stop him, or just let him learn Linux painfully?",
+    "score": 11,
+    "num_comments": 134,
+    "url": "https://www.reddit.com/r/archlinux/comments/1og7dhw/my_friend_who_never_tried_linux_want_to_install/"
+  },
+  {
+    "id": "1oys6io",
+    "title": "Can I change after?",
+    "body": "Right now I am faced with the question of which profile (or desktop environment I think is also called) to choose. I am following a tutorial that chose GNOME, and to not break anything I might follow the tutorial, but if I don't like GNOME, can I change? I saw a lot of people saying that Hyperland and KDE Plasma are very good.",
+    "score": 10,
+    "num_comments": 42,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oys6io/can_i_change_after/"
+  },
+  {
+    "id": "1orl3o9",
+    "title": "is it safe to delete windows efi partition?",
+    "body": "So, i was dual booting arch and windows, and now want to get rid of windows, do i just, delete and format the windows partitions? I had different efi partitions for linux and windows, so i think i wont run into any problems, but just thought to ask. Let me know if you guys need any more information. Good day",
+    "score": 13,
+    "num_comments": 9,
+    "url": "https://www.reddit.com/r/archlinux/comments/1orl3o9/is_it_safe_to_delete_windows_efi_partition/"
+  },
+  {
+    "id": "1oq0z7o",
+    "title": "Good and simple pdf reader",
+    "body": "hey guys im a new arch user , still a worm in the linux world   \nIm asking for a pdf reader , simple but good enough , i need highlighting with different colors use paints and stuff like that no signing or merging , something like u/xodo in windows  , please anyone can help me",
+    "score": 12,
+    "num_comments": 24,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oq0z7o/good_and_simple_pdf_reader/"
+  },
+  {
+    "id": "1oogrga",
+    "title": "My Arch Journey ~ A Linux Newbie",
+    "body": "# Preface\n\nI have never ever tried Arch before, and I am dying to express my journey to *somebody.*  \nTurns out, people get bored incredibly quickly when I start talking about arch :)\n\nSo this might be a slightly long post, please bear with me. Hope this might in someway help someone.\n\n# Chapter 1 - First Install\n\nFrom what I have heard the one and only guide for installation you need is [\"The Wiki\"](https://wiki.archlinux.org/title/Installation_guide)\n\nI have read a lot of documentations, none of them as \"complete\" as this one. It has everything that one might ever need. It just needs to be searched thoroughly.\n\nI installed an extremely basic installation but I got lost on what packages to install. Getting confused with what a DE is what SDDM does and so on.\n\nI wanted to just get some sort of a setup started so I followed [this](https://gist.github.com/mjkstra/96ce7a5689d753e7a6bdd92cdc169bae)\n\nI have never worked with btrfs file system. But I thought I'll give it a shot. The author mentions that we need to create sub volumes of @ and @ home. (Which I completely ignored because I thought it wasn't important and went ahead with my 2 separate partitions for each)\n\nBIG MISTAKE\n\n# Chapter 2 - Timeshift\n\nSo now I got the hang of Arch,\n\n* Installed KDE, downloaded themes mix and matched stuff\n* Installed a theme for my GRUB\n   * (Also modified it using grub-customizer by removing unecessary entries and re-ordering other entries (Linux Mint &amp; Windows). Another mistake BTW.\n* Setup few other packages that I require and was quite happy with my setup.\n\nNow, I wanted to save it. The github author of the installation guide suggested timeshift worked amazing with btrfs. So I wanted to try timeshift!\n\nTurns out, you *require* @ and @ home directories since that is the setup timeshift expects (for reasons unknown)\n\nThe Fix:  \nI won't go into too many details but basically,\n\n1. Created a copy of my root partition in \"@\" via the btrfs snapshot feature.\n2. Created a new subvolume \"@ home\" and copied my home partition into it (Please note to use `cp -rp` . Don't ask how I know)\n3. Generated my fstab file again (Please note to remove previous entries in the file and not just use the `&gt;&gt;` as mentioned in the wiki. Again, don't ask.)\n4. Generate the grub.cfg file again (And as much as I liked grub-customizer earlier. I HATED it here. It does something to the files which kind of break the generation of grub.cfg, it does not go to the vanilla configuration. Please note, just manually modify the grub.cfg for your OCD instead of messing with grub-customizer IMO)\n5. Finally, system was booting and mounted correctly, I still had my complete setup. Now I just cleaned the rest of the stuff up by deleting the previous locations of the root and home directory (gparted is pretty cool too!)\n\nPhew,\n\n# Chapter 3 - Nvidia\n\nNow, the only problem that I was having with my setup (now that it was completely backed up), was that I could only run 60Hz on my monitor. From most inferences I see online, it seems that installing nvidia drivers seems to have resolved the problem.\n\nLet me just begin this by saying thank god I figured out timeshift earlier. So that I can make instant undos / redos here!\n\n# Chapter 3.1 - ???\n\nThat's a wiki reference for you all (the 3.1 get it?). Anyways so I started here: [https://wiki.archlinux.org/title/NVIDIA](https://wiki.archlinux.org/title/NVIDIA)\n\nNow I think I'll get some backlash for this, but to my untrained eye, this is THE most confusing of the Arch Wiki pages I have seen. (Totally didn't start reading Arch Wiki like a week back \\\\s)\n\nI got to the first step and installed nvidia-open and the later steps just confused the heck out of me. From what I could understand, I had to install the package nvidia-open and somehow set modeset=1 somewhere. I tried understanding the page for half an hour when I gaveup and just rebooted my system.\n\nTo my surprise, my monitor started working at 120 Hz right away! Big win right there.\n\n# Chapter 3.2 - The reboot\n\nI shutdown my system, came back a day later only to see that SDDM had not even loaded.  \n(BTW another note: ctrl + alt + f3 lets you login via TTY3)\n\nI saw the `journalctl -b` and saw some log saying \"nvidia-gpu i2c timeout error\". Still no idea what it means.\n\nI tried the following to fix:\n\n* upgraded all packages\n* Downgraded nvidia-open and nvidia-utils (Another note: You can use the downgrade package to downgrade stuff. Also note, you can specify multiple packages in a single downgrade command to simultaneously downgrade packagase that depend on each other)\n* Installed nvidia-exec (nvx). It did solve the problem by shutting down my nvidia gpu entirely so that the system runs on my integrated card. But that is hardly a solution (this time I couldn't even start the screen of my monitor with the integrated gpu)\n\nAnyway, nothing worked, until I stumbled upon this page:\n\n[https://forum.manjaro.org/t/how-to-add-nvidia-drm-modeset-1-kernel-parameter/152447](https://forum.manjaro.org/t/how-to-add-nvidia-drm-modeset-1-kernel-parameter/152447)\n\nWhere the user \"nikgnomic\" kindly \"spelled out\" how to set the modeset=1.\n\n# Chapter 3.3 - Sigh\n\nI thought it worked. However, just when I was opening my laptop to write this post, it happened again. Sometimes rebooting fixes the issue, still not sure about the cause of the problem though.\n\nPlease share any things I can try here.\n\n# Conclusion\n\nThis is the BEST experience of linux I have had ever. I am not sure why. Perhaps it is because I built it myself or maybe because of how much I got to learn along the way. I had tons of fun!\n\nI would highly recommend anyone who is somewhat familiar with Linux or has the time to learn and read to install Arch.\n\nLook forward to being part of the Arch community!\n\nLife update (5 Nov):\n\nI finally got Nvidia to work!! wohoo. Turns out, early loading of the nvidia modules is a must. Oh well, the more you know.",
+    "score": 12,
+    "num_comments": 34,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oogrga/my_arch_journey_a_linux_newbie/"
+  },
+  {
+    "id": "1onprb4",
+    "title": "Should your PC and laptop be fully live-synced?",
+    "body": "I've been thinking about having a system where both my laptop and PC would sync to my server, having a copy of their state down to what project I'm coding, what settings I've changed in the system, apps downloaded etc. However I see several issues, and I would like to know your opinion if its a foolish idea in the first place.   \n  \nFirst is the security aspect of it, authorizing an app that can edit, delete or add to my system is a security risk and a failure point, syncthing has fucked up not once for me so there's that, also security from the standpoint of wireless/external network syncing but I'm less worried about it. \n\nSecondly apps and files that are on my PC might not be necessary on my laptop, like GPU intensive apps and games, if games at all.\n\nI've also thought about just having one nvme drive that I would hotswap between the 2 but I quickly gave up on the idea just due to the inconvenience. :/ \n\nAnyway, any thoughts about whether its doable/plausible or a compromise?   \nI've thought about doing something like making snapshots of both systems as backups and to compare and having a tool notify me when there's a mismatch in configuration between the 2, and files and folders can be synced/directly worked with on my server so when I work on projects, with videos, etc I could do that.",
+    "score": 10,
+    "num_comments": 22,
+    "url": "https://www.reddit.com/r/archlinux/comments/1onprb4/should_your_pc_and_laptop_be_fully_livesynced/"
+  },
+  {
+    "id": "1oyk6a7",
+    "title": "man pacman",
+    "body": "Is it just me, or did pacman's man page get a lot clearer than it was before? Perhaps I've grown more learned than the naive archling that first consulted it scant years ago and the fog of mystery has cleared, but I rather suspect that some editing work has been done.\n\nIf so, then great job, and thank you.",
+    "score": 11,
+    "num_comments": 7,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oyk6a7/man_pacman/"
+  },
+  {
+    "id": "1omvfc7",
+    "title": "Arch Linux on external drive?",
+    "body": "Hello everyone!\nIs there a way to install Arch Linux on external drive?\n\nI just wanna to install Arch Linux on my external drive, and so I can plug it into my PC, and if I need it on laptop, so I could connect it to laptop and use Linux there, is it possible? (Basically something like Windows To Go)",
+    "score": 11,
+    "num_comments": 11,
+    "url": "https://www.reddit.com/r/archlinux/comments/1omvfc7/arch_linux_on_external_drive/"
+  },
+  {
+    "id": "1oi3bgj",
+    "title": "Slow internet compared to windows.",
+    "body": "SOLVED!!! [See this post.](https://www.reddit.com/r/archlinux/comments/1oi3bgj/comment/nlz8rfh/)\n\nTL-WN823N V3 EU USB Adapter, Realtek RTL8192EU chipset.\n\n6.17.4-arch2-1\n\nIn window10 I get close to 60Mb/s which is my fibre speed, in Arch I'm lucky if I get 35Mb/s. This was not always the case as it worked fine before and I cannot remember when it got bad, but it was a while back.\n\nAny ideas on how to fix this so it runs at full speed again?\n\n**#lsusb -v**\n\n`Bus 002 Device 003: ID 2357:0109 TP-Link TL-WN823N v2/v3 [Realtek RTL8192EU]`  \n`Negotiated speed: High Speed (480Mbps)`  \n`Device Descriptor:`  \n`bLength 18`  \n`bDescriptorType 1`  \n`bcdUSB 2.10`  \n`bDeviceClass 0 [unknown]`  \n`bDeviceSubClass 0 [unknown]`  \n`bDeviceProtocol 0`  \n`bMaxPacketSize0 64`  \n`idVendor 0x2357 TP-Link`  \n`idProduct 0x0109 TL-WN823N v2/v3 [Realtek RTL8192EU]`  \n`bcdDevice 2.00`  \n`iManufacturer 1 Realtek`  \n`iProduct 2 802.11n NIC`  \n`iSerial 3 00e04c000001`  \n`bNumConfigurations 1`  \n`Configuration Descriptor:`  \n`bLength 9`  \n`bDescriptorType 2`  \n`wTotalLength 0x0035`  \n`bNumInterfaces 1`  \n`bConfigurationValue 1`  \n`iConfiguration 0`  \n`bmAttributes 0xe0`  \n`Self Powered`  \n`Remote Wakeup`  \n`MaxPower 500mA`  \n`Interface Descriptor:`  \n`bLength 9`  \n`bDescriptorType 4`  \n`bInterfaceNumber 0`  \n`bAlternateSetting 0`  \n`bNumEndpoints 5`  \n`bInterfaceClass 255 Vendor Specific Class`  \n`bInterfaceSubClass 255 Vendor Specific Subclass`  \n`bInterfaceProtocol 255 Vendor Specific Protocol`  \n`iInterface 2 802.11n NIC`  \n`Endpoint Descriptor:`  \n`bLength 7`  \n`bDescriptorType 5`  \n`bEndpointAddress 0x84 EP 4 IN`  \n`bmAttributes 2`  \n`Transfer Type Bulk`  \n`Synch Type None`  \n`Usage Type Data`  \n`wMaxPacketSize 0x0200 1x 512 bytes`  \n`bInterval 0`  \n`Endpoint Descriptor:`  \n`bLength 7`  \n`bDescriptorType 5`  \n`bEndpointAddress 0x05 EP 5 OUT`  \n`bmAttributes 2`  \n`Transfer Type Bulk`  \n`Synch Type None`  \n`Usage Type Data`  \n`wMaxPacketSize 0x0200 1x 512 bytes`  \n`bInterval 0`  \n`Endpoint Descriptor:`  \n`bLength 7`  \n`bDescriptorType 5`  \n`bEndpointAddress 0x06 EP 6 OUT`  \n`bmAttributes 2`  \n`Transfer Type Bulk`  \n`Synch Type None`  \n`Usage Type Data`  \n`wMaxPacketSize 0x0200 1x 512 bytes`  \n`bInterval 0`  \n`Endpoint Descriptor:`  \n`bLength 7`  \n`bDescriptorType 5`  \n`bEndpointAddress 0x87 EP 7 IN`  \n`bmAttributes 3`  \n`Transfer Type Interrupt`  \n`Synch Type None`  \n`Usage Type Data`  \n`wMaxPacketSize 0x0040 1x 64 bytes`  \n`bInterval 3`  \n`Endpoint Descriptor:`  \n`bLength 7`  \n`bDescriptorType 5`  \n`bEndpointAddress 0x08 EP 8 OUT`  \n`bmAttributes 2`  \n`Transfer Type Bulk`  \n`Synch Type None`  \n`Usage Type Data`  \n`wMaxPacketSize 0x0200 1x 512 bytes`  \n`bInterval 0`  \n`Binary Object Store Descriptor:`  \n`bLength 5`  \n`bDescriptorType 15`  \n`wTotalLength 0x000c`  \n`bNumDeviceCaps 1`  \n`USB 2.0 Extension Device Capability:`  \n`bLength 7`  \n`bDescriptorType 16`  \n`bDevCapabilityType 2`  \n`bmAttributes 0x00000002`  \n`HIRD Link Power Management (LPM) Supported`  \n`Device Status: 0x0001`  \n`Self Powered`\n\n**#iw dev wlan0 station dump**\n\n`Station c2:25:2f:0c:1c:bc (on wlan0)`  \n`authorized:yes`  \n`authenticated:yes`  \n`associated:yes`  \n`preamble:long`  \n`WMM/WME:yes`  \n`MFP:no`  \n`TDLS peer:no`  \n`inactive time:3281 ms`  \n`rx bytes:14355616`  \n`rx packets:36516`  \n`tx bytes:3125519`  \n`tx packets:8825`  \n`tx retries:0`  \n`tx failed:0`  \n`beacon loss:0`  \n`beacon rx:12090`  \n`rx drop misc:0`  \n`signal: -48 dBm`  \n`signal avg:-47 dBm`  \n`beacon signal avg:-47 dBm`  \n`tx bitrate:144.4 MBit/s MCS 15 short GI`  \n`tx duration:0 us`  \n`rx bitrate:130.0 MBit/s MCS 15`  \n`rx duration:0 us`  \n`DTIM period:1`  \n`beacon interval:100`  \n`short slot time:yes`  \n`connected time:1249 seconds`  \n`associated at [boottime]:594.709s`  \n`associated at:1761634374019 ms`  \n`current time:1761635622793 ms`\n\n**#iwconfig wlan0**\n\n`wlan0 IEEE 802.11 ESSID:\"Valhalla2\"`\n\n`Mode:Managed Frequency:2.472 GHz Access Point: C2:25:2F:0C:1C:BC`\n\n`Bit Rate=144.4 Mb/s Tx-Power=20 dBm`\n\n`Retry short limit:7 RTS thr=2347 B Fragment thr:off`\n\n`Power Management:off`\n\n`Link Quality=62/70 Signal level=-48 dBm`\n\n`Rx invalid nwid:0 Rx invalid crypt:0 Rx invalid frag:0`\n\n`Tx excessive retries:0 Invalid misc:0 Missed beacon:0`\n\n**#dmesg | grep firmware**\n\n`[ 0.079354] Spectre V2 : Enabling Restricted Speculation for firmware calls`\n\n`[ 2.520547] systemd[1]: Clear Stale Hibernate Storage Info was skipped because of an unmet condition check (ConditionPathExists=/sys/firmware/efi/efivars/HibernateLocation-8cf2644b-4b0b-428f-9387-6d876050dc67).`\n\n`[ 3.596370] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2`\n\n`[ 3.837531] usb 2-2: rtl8xxxu: Loading firmware rtlwifi/rtl8192eu_nic.bin`",
+    "score": 12,
+    "num_comments": 28,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oi3bgj/slow_internet_compared_to_windows/"
+  },
+  {
+    "id": "1osj2u7",
+    "title": "I can't set my Display to the correct resolution anymore after update (NVIDIA)",
+    "body": "Hello, I have a fairly minimal GNOME + Arch setup and installed the Nvidia driver via Archinstall. It worked for a couple weeks but today after an update it reset my display settings and I can't pick 2560x1080 in there. It only goes up to 1920x1080, the name is displayed correctly though.\n\nnvidia-smi looks fine and I tried some GPU intensive games just to make sure the driver works and it all checks out. It's just the resolution that's wrong. I already read through the NVIDIA/Troubleshooting page in the wiki and did not find anything that helped.\n\nI would be super thankful for any help and I'll gladly give some extra info if that helps.\n\n  \nEdit: wanted to add the output of nvidia-smi and ddcutil detect but it won't let me comment for some reason\n\nEdit 2: Rolling back the kernel and Nvidia driver solved it.",
+    "score": 11,
+    "num_comments": 25,
+    "url": "https://www.reddit.com/r/archlinux/comments/1osj2u7/i_cant_set_my_display_to_the_correct_resolution/"
+  },
+  {
+    "id": "1omivgx",
+    "title": "Installing Arch Remotely. Story..",
+    "body": "Pls ahead of time, I want to share a story about last night, but pls excuse mistypes and spelling and format.. I just woke up and just felt like sharing this story.. will try to make it short..\n\nAm in South Florida, my friend is in Vermont..am the one that always messes with  Linux and all that. So am the tech, my friend in Vermont calls me last night frantic cause his PC Arch just got messed up and doesn't know how to even begin to reinstall.\n\nI start talking to chatgpt.. yes chatgpt.. and it gave me an idea for him to open a port on his router so I can ssh to him on the usb live Arch installation. He doesn't have access to the router.. so chatgpt tells me to do reverse ssh, let him connect to me and then I can connect to him..\n\nSo to conclude this story, I don't know what F***$&amp;$ry of magic I pulled out of my A*&amp;!! But I was able to install Linux on his machine, from South Florida to Vermont or Connecticut some where up north 3 hours from Boston... partition and all and got him up and running, In like 30mins, with setting up the reverse ssh..\n\nWe both were screaming on the phone and the wives were like what is up with you guys.. and we were like: OMG!!!!OMG!! OMG!!\n\nI love this OS and the roller coaster of learning experience I have learned in the past 2 years, Microsoft can't get me back even if they payed me.. even my son yesterday after what he saw wiped his windows is and install cachyos and got all his games up and running..\n\nThis for me as of yesterday had turned into the god tier OS... the more I learn, the better it gets.. everyone I have helped is grateful.. everything just works!! Linux is one truly awesome OS.. \n\nYear 1 was learning year, you will mess up, but instead of feeling defeated learn from that moment, it's growing pains.. MS has brain washed us to believe that the issues it has is normal.. OS tweaks and it's not... In Linux you will also learn, cause that is what we do learn in life.. And once it clicks.. OMG!!\n\nThat was my story from last night. Just wanted to share.. \n\nThanks for reading.\n\nPS: Faugus Launcher!! Awesome!!",
+    "score": 10,
+    "num_comments": 15,
+    "url": "https://www.reddit.com/r/archlinux/comments/1omivgx/installing_arch_remotely_story/"
+  },
+  {
+    "id": "1ol5wun",
+    "title": "What video editors do you like?",
+    "body": "I've heard Davinci resolve can be a huge pain to set up on Arch, but I am pretty comfortable with it so idk if that's a good option. Are there any free ones that are mostly simple to use and good for editing youtube videos? Just for trimming/moving clips, color correction, audio db changes, maybe even some basic transitions/effects with keyframes like premiere, simpler stuff like that. Any recommendations?\n\n  \nThanks!",
+    "score": 11,
+    "num_comments": 15,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ol5wun/what_video_editors_do_you_like/"
+  },
+  {
+    "id": "1oz6paq",
+    "title": "libicui18n.so.78 \"No such file or directory\"",
+    "body": "Honestly I don't really know what I did before this, but when turning on my laptop sddm doesn't open because libicui18n.so.78 doesn't exist. I also can't open KDE plasma because of the same error, and some other apps.\n\n",
+    "score": 7,
+    "num_comments": 25,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oz6paq/libicui18nso78_no_such_file_or_directory/"
+  },
+  {
+    "id": "1ox3n48",
+    "title": "Remote desktop solution? (plasma 6 + wayland)",
+    "body": "Hi. I wonder what do you use for remote desktop with plasma/wayland?\n\nI've tried Remote Desktop in systemsettings - it barely works (sometimes black screen, sometimes asks for permission on the PC itself - &lt;sarcasm&gt;very useful when you're connecting from another city&lt;/sarcasm&gt;. Also, Android RDP client won't work at all with plasma)\n\nI've tried good old tigervnc with separate session. Even barebones openbox session breaks plasma on host if I log in later. To the point when even keyboard won't work. At first I thought it hijacks dbus session that is running in tigervnc-created session, but now I don't know. Also some apps launched inside tigervnc-created session be like \"oh look, there's a wayland socket, I better show myself on wayland!\"\n\nI've tried RustDesk. I was somewhat ok with that until I realised that Android non-qwerty keyboard won't work properly.\n\nWayvnc? Nope, kwin is not wlroots-bassed.\n\nOn top of it, it seems that there's no way to put login/password in SDDM to start the session on the host remotely? (At least I can work around it by temporarly putting a config file with autologin to my account)",
+    "score": 10,
+    "num_comments": 10,
+    "url": "https://www.reddit.com/r/archlinux/comments/1ox3n48/remote_desktop_solution_plasma_6_wayland/"
+  },
+  {
+    "id": "1obww9n",
+    "title": "ESPionage now available in AUR !! drop a vote if you like it :D",
+    "body": "Espionage is an ESP8266 and EPS32 firmware binaries analysis toolkit with a beautiful TUI.   \nMe and my friend made an organization in order to make open source projects for linux based systems.   \nThe recent success of this lead to me to post this here... so i uploaded it in AUR as well :D  \nGitHub link: [https://github.com/serene-brew/ESPionage](https://github.com/serene-brew/ESPionage) ",
+    "score": 7,
+    "num_comments": 0,
+    "url": "https://aur.archlinux.org/packages/espionage"
+  },
+  {
+    "id": "1obmnwv",
+    "title": "Kernel install problems",
+    "body": "Im trying to install the linux kernel on my nvme partition 1 (efi: fat32, 512MB) and even though i just formatted it, i get errors for not enough space.\n\nA few seconds after running pacman -Syu --overwrite '*' linux linux-firmware:\nCreating zstd-compressed initcpio image: '/boot/initramfs-linux-fallback.img'\nCat: write error: no space left on device\nBsdtar: write error\nBsdtar: write error\nERROR: early uncompressed CPIO image generation FAILED: 'sort' reported an error\n\nI checked the space and it was empty before the install attempt, yes everything is mounted correctly i triple checked.\n\nIf 512MB is not enough (even though it should be), how do i resize the partition while making absolutely sure that i dont overwrite any data on the main partition since i already have basically everything installed and configured?",
+    "score": 8,
+    "num_comments": 9,
+    "url": "https://www.reddit.com/r/archlinux/comments/1obmnwv/kernel_install_problems/"
+  },
+  {
+    "id": "1oxvh3y",
+    "title": "A question about ext4's fast commit feature",
+    "body": "Should ext4's fast commit feature be enabled? Does it pose any risks?",
+    "score": 8,
+    "num_comments": 11,
+    "url": "https://www.reddit.com/r/archlinux/comments/1oxvh3y/a_question_about_ext4s_fast_commit_feature/"
+  },
+  {
+    "id": "1otdrcy",
+    "title": "How to downgrade nvidia drivers?",
+    "body": "I would advise not upgrading to 580.105.08 as there is a bug with resolutions and/or refresh rates being capped. There is a bug report on nvidia's open driver GitHub currently and many users on other forums are stating the same issues. The only fix right now is to downgrade to 580.95.05.\n\nI am still a fairly new user in the Arch world, and this is my first time downgrading nvidia drivers. The reason I am asking for help here, is because I know that certain nvidia drivers are tied directly to the kernel versions, and a mismatch can result in even bigger problems.\n\nHow can I accurately downgrade my nvidia module from 580.105.08 to 580.95.05?\n\nI am aware I can use the `downgrade` tool, but what modules specifically need to be targeted (lib-\\*, nvidia-\\*, etc)? Does it have to be every single one, or just a few specific modules? Would I also need to downgrade my kernel, or can it stay the same (as there were no ABI changes in the recent update)?\n\nI am assuming it is just `lib32-nvidia-utils` (580.105.08), `libva-nvidia-driver` (0.0.14 - irrelevant?), `linux-firmware-nvidia` (20251021-1 - irrelevant?), `nvidia-dkms` (580.105.08), `nvidia-settings` (580.105.08), `nvidia-utils` (580.105.08).\n\nThank you.",
+    "score": 8,
+    "num_comments": 21,
+    "url": "https://www.reddit.com/r/archlinux/comments/1otdrcy/how_to_downgrade_nvidia_drivers/"
+  }
+]

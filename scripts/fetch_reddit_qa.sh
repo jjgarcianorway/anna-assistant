@@ -13,8 +13,6 @@ echo "Target: $LIMIT questions"
 echo ""
 
 # Reddit JSON API endpoints (no auth required for public data)
-# We'll fetch from multiple time periods to get diverse questions
-
 fetch_batch() {
     local timeperiod="$1"
     local after="$2"
@@ -24,11 +22,11 @@ fetch_batch() {
         url="${url}&after=${after}"
     fi
 
-    echo "Fetching $timeperiod (after=$after)..."
+    echo "Fetching $timeperiod (after=$after)..." >&2
     curl -s -A "Anna Assistant QA Validator 1.0" "$url"
 }
 
-# Initialize output
+# Initialize output array
 echo "[]" > "$OUTPUT_FILE"
 
 collected=0
@@ -41,28 +39,34 @@ for period in month week; do
     while [ $collected -lt $total_target ]; do
         response=$(fetch_batch "$period" "$after")
 
-        # Extract posts
-        posts=$(echo "$response" | jq -r '.data.children[] | {
+        # Check if we got valid response
+        if ! echo "$response" | jq -e '.data.children' > /dev/null 2>&1; then
+            echo "Invalid response from Reddit API"
+            break
+        fi
+
+        # Extract and append posts
+        echo "$response" | jq '[.data.children[] | {
             id: .data.id,
             title: .data.title,
             body: .data.selftext,
             score: .data.score,
             num_comments: .data.num_comments,
             url: .data.url
-        }')
+        }]' | jq --argjson existing "$(cat "$OUTPUT_FILE")" '$existing + .' > "${OUTPUT_FILE}.tmp"
 
-        if [ -z "$posts" ] || [ "$posts" == "null" ]; then
-            echo "No more posts for $period"
-            break
-        fi
-
-        # Append to output
-        echo "$posts" | jq -s '.' | jq --argjson existing "$(cat $OUTPUT_FILE)" '$existing + .' > "${OUTPUT_FILE}.tmp"
         mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
 
         # Update collected count
         collected=$(jq 'length' "$OUTPUT_FILE")
         echo "Collected: $collected/$total_target"
+
+        # Check if we got any posts
+        post_count=$(echo "$response" | jq '.data.children | length')
+        if [ "$post_count" -eq 0 ]; then
+            echo "No more posts for $period"
+            break
+        fi
 
         # Get next page token
         after=$(echo "$response" | jq -r '.data.after // empty')
