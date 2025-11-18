@@ -28,6 +28,7 @@ mod init_command;
 mod install_command;
 mod json_types;
 pub mod logging;
+mod internal_dialogue; // Beta.55: Telemetry-first internal dialogue
 mod llm_integration; // Beta.53: LLM query with streaming support
 mod model_catalog; // Beta.53: Intelligent model selection
 mod model_setup_wizard; // Beta.53: First-run model setup
@@ -489,55 +490,57 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
         }
 
         Intent::Personality { adjustment } => {
-            use anna_common::personality::{PersonalityConfig, Verbosity};
+            use anna_common::personality::PersonalityConfig;
 
             let ui = UI::auto();
             let mut config = PersonalityConfig::load();
 
             match adjustment {
                 PersonalityAdjustment::IncreaseHumor => {
-                    config.adjust_humor(true);
+                    // Map to playful_vs_serious trait
+                    let _ = config.adjust_trait("playful_vs_serious", 2);
                     println!();
                     ui.success("Okay! I'll be a bit more playful 😊");
-                    ui.info(&format!(
-                        "Current humor level: {} - {}",
-                        config.humor_level,
-                        config.humor_description()
-                    ));
+                    if let Some(trait_ref) = config.get_trait("playful_vs_serious") {
+                        ui.info(&format!("Playfulness: {}/10 - {}", trait_ref.value, trait_ref.meaning));
+                    }
                     println!();
                 }
                 PersonalityAdjustment::DecreaseHumor => {
-                    config.adjust_humor(false);
+                    // Map to playful_vs_serious trait
+                    let _ = config.adjust_trait("playful_vs_serious", -2);
                     println!();
                     ui.success("Got it. I'll keep things more serious.");
-                    ui.info(&format!(
-                        "Current humor level: {} - {}",
-                        config.humor_level,
-                        config.humor_description()
-                    ));
+                    if let Some(trait_ref) = config.get_trait("playful_vs_serious") {
+                        ui.info(&format!("Playfulness: {}/10 - {}", trait_ref.value, trait_ref.meaning));
+                    }
                     println!();
                 }
                 PersonalityAdjustment::MoreBrief => {
-                    config.set_verbosity(Verbosity::Low);
+                    // Map to minimalist_vs_verbose trait
+                    let _ = config.adjust_trait("minimalist_vs_verbose", 2);
                     println!();
                     ui.success("Understood. I'll be more concise.");
                     println!();
                 }
                 PersonalityAdjustment::MoreDetailed => {
-                    config.set_verbosity(Verbosity::High);
+                    // Map to minimalist_vs_verbose trait
+                    let _ = config.adjust_trait("minimalist_vs_verbose", -2);
                     println!();
                     ui.success("Sure! I'll provide more detailed explanations.");
                     println!();
                 }
                 PersonalityAdjustment::Show => {
                     println!();
-                    ui.section_header("📊", "Current Personality Settings");
-                    ui.info(&format!(
-                        "Humor:     {} - {}",
-                        config.humor_level,
-                        config.humor_description()
-                    ));
-                    ui.info(&format!("Verbosity: {}", config.verbosity_description()));
+                    ui.section_header("📊", "Personality Traits (0-10 scale)");
+                    for trait_item in &config.traits {
+                        ui.info(&format!("{}: {} {}",
+                            trait_item.name,
+                            trait_item.bar(),
+                            trait_item.value
+                        ));
+                        ui.info(&format!("  → {}", trait_item.meaning));
+                    }
                     println!();
                 }
             }

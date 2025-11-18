@@ -7,6 +7,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.55] - 2025-11-18
+
+### Added - Telemetry-First Internal Dialogue & Personality System
+
+**From "Simple Query" to "Thoughtful Analysis":**
+Beta.54 fixed critical wiring bugs. Beta.55 implements a fundamental architectural upgrade: telemetry-first internal dialogue with planning and answer rounds, plus a 16-personalities style trait system.
+
+**New Modules:**
+
+1. **Internal Dialogue System (`crates/annactl/src/internal_dialogue.rs` - 550+ lines)**:
+   - Two-round LLM dialogue: Planning round + Answer round
+   - Planning round: Analyzes question, checks telemetry, identifies missing data, sketches answer structure
+   - Answer round: Generates final structured output with all sections
+   - Telemetry compression: Compact `TelemetryPayload` for LLM context
+   - `ANNA_INTERNAL_TRACE` debug mode: Shows planning/answer process when env var is set
+   - Hardware, OS, resources, trends summarized into ~200-300 lines instead of thousands
+   - **Impact**: LLM answers are now telemetry-aware and structured by design
+
+2. **16-Personalities Style Trait System (`crates/anna_common/src/personality.rs` - redesigned)**:
+   - 8 trait sliders (0-10 scale):
+     - `introvert_vs_extrovert`: Communication frequency and style
+     - `cautious_vs_bold`: Risk tolerance and backup emphasis
+     - `direct_vs_diplomatic`: Phrasing style
+     - `playful_vs_serious`: Humor level
+     - `minimalist_vs_verbose`: Answer length
+     - `teacher_vs_servant`: Explanation depth
+     - `optimistic_vs_cynical`: Tone and problem framing
+     - `formal_vs_casual`: Language formality
+   - Each trait has:
+     - Key, name, value (0-10)
+     - Computed meaning (auto-updates when value changes)
+     - Visual bar representation (█████░░░░░)
+   - Natural language adjustments: "be more direct", "less serious"
+   - Personality view rendering for LLM prompts (`[ANNA_PERSONALITY_VIEW]`)
+   - Persists to `~/.config/anna/personality.toml`
+   - **Impact**: Users can shape Anna's communication style like adjusting personality dimensions
+
+3. **Telemetry Payload Compression**:
+   - `TelemetryPayload` struct compresses `SystemFacts` + `SystemSummary` into compact format
+   - Hardware: CPU model, cores, RAM, GPU
+   - OS: Hostname, kernel, Arch status
+   - Resources: Load averages, RAM %, disk usage per mount
+   - Recent errors: Last 5 failed services
+   - Trends: Boot time, CPU %, stability, performance, days analyzed
+   - Renders to ~200 lines of concise text for LLM context
+   - **Impact**: Fits rich system context in LLM's working memory without bloat
+
+4. **ANNA_INTERNAL_TRACE Debug Mode**:
+   - Set `ANNA_INTERNAL_TRACE=1` to enable internal dialogue visibility
+   - Shows:
+     - Planner prompt excerpt (first 500 chars)
+     - Planner response excerpt
+     - Answer prompt excerpt
+     - Internal summary
+   - Renders as `[ANNA_INTERNAL_TRACE]` section in output
+   - **Impact**: Developers can inspect Anna's "thought process"
+
+### Changed
+
+- **LLM integration** (`crates/annactl/src/llm_integration.rs`):
+  - `query_llm_with_context()` now uses `run_internal_dialogue()` instead of single-round query
+  - Fetches telemetry, compresses it, loads personality, runs 2-round dialogue
+  - Appends internal trace when enabled
+
+- **Runtime prompt** (`crates/annactl/src/runtime_prompt.rs`):
+  - Personality section references new trait system
+  - Telemetry rules emphasize checking data first
+  - Backup rules mandate `ANNA_BACKUP.YYYYMMDD-HHMMSS` suffix
+  - Arch Wiki references section required in `[ANNA_HUMAN_OUTPUT]`
+
+- **Version bumped** to 5.7.0-beta.55 in `Cargo.toml`
+
+### Fixed
+
+- Personality system now uses coherent trait model instead of simple humor/verbosity enums
+- Answer structure enforces Arch Wiki references and backup/restore commands
+- Telemetry-first approach prevents hallucination of hardware specs or system state
+
+### Technical Details
+
+**New Files:**
+- `crates/annactl/src/internal_dialogue.rs` (550+ lines)
+- New personality.rs implementation (300+ lines)
+
+**Modified Files:**
+- `crates/anna_common/src/personality.rs` - Complete redesign with trait system
+- `crates/annactl/src/llm_integration.rs` - Integrated internal dialogue
+- `crates/annactl/src/main.rs` - Added internal_dialogue module
+- `Cargo.toml` - Version bump to 5.7.0-beta.55
+
+**Testing:**
+Comprehensive unit tests for:
+- Personality trait creation, value clamping, bar rendering
+- Trait getter/setter methods
+- Natural language adjustment parsing
+- Personality view rendering for LLM prompts
+
+**Telemetry Payload Structure:**
+```rust
+TelemetryPayload {
+    hardware: { cpu_model, cpu_cores, total_ram_gb, gpu_model },
+    os: { hostname, kernel, arch_status },
+    resources: { load_avg, ram_used_percent, disk_usage[] },
+    recent_errors: ["Failed service: X", ...],
+    trends: { avg_boot_time_s, avg_cpu_percent, stability_score, ... },
+}
+```
+
+**Internal Dialogue Flow:**
+```
+User Question → Planning Round → Answer Round → Structured Output
+                      ↓                ↓
+              (Telemetry check)  (Final sections)
+```
+
+**User Impact:**
+- ✅ Answers are now telemetry-aware (LLM checks data before responding)
+- ✅ Personality is adjustable with simple commands ("be more direct")
+- ✅ All technical answers include Arch Wiki references
+- ✅ All file modifications include backup/restore commands
+- ✅ Debug mode available for inspecting internal dialogue
+- ✅ Reduced hallucination (telemetry-first approach)
+
 ## [5.7.0-beta.54] - 2025-11-18
 
 ### Fixed - Critical Bugfixes: Auto-Updater & LLM Integration

@@ -1,14 +1,17 @@
-//! LLM Integration Module for Beta.53
+//! LLM Integration Module for Beta.55
 //!
-//! Provides query functionality with streaming support and Historian context
+//! Telemetry-first internal dialogue with planning and answer rounds
 
 use anna_common::context::db::ContextDb;
 use anna_common::historian::SystemSummary;
 use anna_common::llm::{ChatMessage, LlmConfig};
+use anna_common::personality::PersonalityConfig;
 use anna_common::types::SystemFacts;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+use crate::internal_dialogue::{run_internal_dialogue, TelemetryPayload};
 
 /// Request structure for OpenAI-compatible API
 #[derive(Debug, Serialize)]
@@ -31,7 +34,7 @@ struct ChatChoice {
     message: ChatMessage,
 }
 
-/// Query the LLM with a user message, including full system context
+/// Query the LLM with a user message, using telemetry-first internal dialogue
 pub async fn query_llm_with_context(
     user_message: &str,
     db: Option<&Arc<ContextDb>>,
@@ -53,16 +56,32 @@ pub async fn query_llm_with_context(
     // Fetch Historian summary (if available)
     let historian = fetch_historian_summary().await;
 
-    // Build runtime prompt with all context
-    let prompt = crate::runtime_prompt::build_runtime_prompt(
-        user_message,
-        &facts,
-        historian.as_ref(),
-        llm_config.model.as_deref().unwrap_or("unknown"),
-    );
+    // Compress telemetry into payload
+    let payload = TelemetryPayload::compress(&facts, historian.as_ref());
 
-    // Query LLM
-    query_llm(&llm_config, &prompt).await
+    // Load personality config
+    let personality = PersonalityConfig::load();
+
+    // Get current model name
+    let current_model = llm_config.model.as_deref().unwrap_or("unknown");
+
+    // Run internal dialogue (planning + answer rounds)
+    let result = run_internal_dialogue(
+        user_message,
+        &payload,
+        &personality,
+        current_model,
+        &llm_config,
+    ).await?;
+
+    // Include internal trace if enabled
+    let mut output = result.answer;
+    if let Some(trace) = result.trace {
+        output.push_str("\n\n");
+        output.push_str(&trace.render());
+    }
+
+    Ok(output)
 }
 
 /// Query the LLM with a prepared prompt

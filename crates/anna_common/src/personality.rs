@@ -1,65 +1,144 @@
-//! Personality Configuration - Anna's tone and verbosity settings
+//! Personality Configuration - Anna's 16-Personalities style trait system
 //!
-//! Phase 5.1: Conversational UX
-//! Allows users to adjust Anna's personality through natural language
+//! v5.7.0-beta.55: Telemetry and Internal Dialogue Upgrade
+//! Trait-based personality model with slider values (0-10)
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Verbosity level
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Verbosity {
-    Low,
-    Normal,
-    High,
+/// A single personality trait with slider value (0-10)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonalityTrait {
+    /// Trait key (e.g., "introvert_vs_extrovert")
+    pub key: String,
+
+    /// Display name (e.g., "Introvert vs Extrovert")
+    pub name: String,
+
+    /// Value from 0 (first pole) to 10 (second pole)
+    /// Example: 0 = very extrovert, 10 = very introvert
+    pub value: u8,
+
+    /// Description of what this value means
+    pub meaning: String,
 }
 
-impl Verbosity {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "low" | "brief" | "concise" => Some(Verbosity::Low),
-            "normal" | "medium" | "default" => Some(Verbosity::Normal),
-            "high" | "detailed" | "verbose" => Some(Verbosity::High),
-            _ => None,
+impl PersonalityTrait {
+    /// Create a new trait
+    pub fn new(key: &str, name: &str, value: u8) -> Self {
+        let meaning = Self::compute_meaning(key, value);
+        Self {
+            key: key.to_string(),
+            name: name.to_string(),
+            value: value.clamp(0, 10),
+            meaning,
         }
     }
 
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Verbosity::Low => "low",
-            Verbosity::Normal => "normal",
-            Verbosity::High => "high",
-        }
+    /// Update value and recompute meaning
+    pub fn set_value(&mut self, value: u8) {
+        self.value = value.clamp(0, 10);
+        self.meaning = Self::compute_meaning(&self.key, self.value);
+    }
+
+    /// Get visual bar representation (10 chars)
+    pub fn bar(&self) -> String {
+        let filled = (self.value as usize).min(10);
+        let empty = 10 - filled;
+        format!("{}{}", "█".repeat(filled), "░".repeat(empty))
+    }
+
+    /// Compute meaning based on trait key and value
+    fn compute_meaning(key: &str, value: u8) -> String {
+        match key {
+            "introvert_vs_extrovert" => match value {
+                0..=3 => "Extrovert style. Frequent, chatty communication.",
+                4..=6 => "Balanced. Communicates when needed.",
+                7..=10 => "Introvert style. Reserved, focused messages.",
+                _ => "Unknown",
+            },
+            "cautious_vs_bold" => match value {
+                0..=3 => "Bold. Takes calculated risks confidently.",
+                4..=6 => "Balanced risk approach.",
+                7..=10 => "Cautious. Always proposes backups and safety checks.",
+                _ => "Unknown",
+            },
+            "direct_vs_diplomatic" => match value {
+                0..=3 => "Diplomatic. Gentle, considerate phrasing.",
+                4..=6 => "Balanced communication style.",
+                7..=10 => "Direct. Clear, straightforward language.",
+                _ => "Unknown",
+            },
+            "playful_vs_serious" => match value {
+                0..=3 => "Serious. Professional, no humor.",
+                4..=6 => "Balanced. Occasional light humor.",
+                7..=10 => "Playful. Frequent wit and irony.",
+                _ => "Unknown",
+            },
+            "minimalist_vs_verbose" => match value {
+                0..=3 => "Verbose. Detailed explanations.",
+                4..=6 => "Balanced. Adequate detail.",
+                7..=10 => "Minimalist. Concise, essential information only.",
+                _ => "Unknown",
+            },
+            "teacher_vs_servant" => match value {
+                0..=3 => "Servant mode. Executes without teaching.",
+                4..=6 => "Balanced. Explains when helpful.",
+                7..=10 => "Teacher mode. Always explains concepts and reasoning.",
+                _ => "Unknown",
+            },
+            "optimistic_vs_cynical" => match value {
+                0..=3 => "Cynical. Points out risks and problems.",
+                4..=6 => "Realistic. Balanced outlook.",
+                7..=10 => "Optimistic. Focuses on solutions and opportunities.",
+                _ => "Unknown",
+            },
+            "formal_vs_casual" => match value {
+                0..=3 => "Casual. Relaxed, friendly tone.",
+                4..=6 => "Professional. Standard technical communication.",
+                7..=10 => "Formal. Precise, professional language.",
+                _ => "Unknown",
+            },
+            _ => "Unknown trait",
+        }.to_string()
     }
 }
 
-/// Personality configuration
+/// Personality configuration with 16-personalities style traits
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalityConfig {
-    /// Humor level: 0 = serious, 1 = moderate, 2 = playful
-    #[serde(default = "default_humor")]
-    pub humor_level: u8,
+    /// Trait sliders (0-10 scale)
+    #[serde(default = "default_traits")]
+    pub traits: Vec<PersonalityTrait>,
 
-    /// Verbosity level
-    #[serde(default = "default_verbosity")]
-    pub verbosity: Verbosity,
+    /// Whether personality system is active
+    #[serde(default = "default_active")]
+    pub active: bool,
 }
 
-fn default_humor() -> u8 {
-    1 // Moderate humor by default
+fn default_traits() -> Vec<PersonalityTrait> {
+    vec![
+        PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 8),
+        PersonalityTrait::new("cautious_vs_bold", "Cautious vs Bold", 7),
+        PersonalityTrait::new("direct_vs_diplomatic", "Direct vs Diplomatic", 7),
+        PersonalityTrait::new("playful_vs_serious", "Playful vs Serious", 4),
+        PersonalityTrait::new("minimalist_vs_verbose", "Minimalist vs Verbose", 7),
+        PersonalityTrait::new("teacher_vs_servant", "Teacher vs Servant", 6),
+        PersonalityTrait::new("optimistic_vs_cynical", "Optimistic vs Cynical", 6),
+        PersonalityTrait::new("formal_vs_casual", "Formal vs Casual", 6),
+    ]
 }
 
-fn default_verbosity() -> Verbosity {
-    Verbosity::Normal
+fn default_active() -> bool {
+    true
 }
 
 impl Default for PersonalityConfig {
     fn default() -> Self {
         Self {
-            humor_level: default_humor(),
-            verbosity: default_verbosity(),
+            traits: default_traits(),
+            active: default_active(),
         }
     }
 }
@@ -118,42 +197,96 @@ impl PersonalityConfig {
         Some(config_dir.join("anna").join("personality.toml"))
     }
 
-    /// Adjust humor level up or down
-    pub fn adjust_humor(&mut self, increase: bool) {
-        if increase {
-            self.humor_level = (self.humor_level + 1).min(2);
+    /// Get a trait by key
+    pub fn get_trait(&self, key: &str) -> Option<&PersonalityTrait> {
+        self.traits.iter().find(|t| t.key == key)
+    }
+
+    /// Get a mutable trait by key
+    pub fn get_trait_mut(&mut self, key: &str) -> Option<&mut PersonalityTrait> {
+        self.traits.iter_mut().find(|t| t.key == key)
+    }
+
+    /// Set a trait value
+    pub fn set_trait(&mut self, key: &str, value: u8) -> Result<()> {
+        if let Some(trait_ref) = self.get_trait_mut(key) {
+            trait_ref.set_value(value);
+            Ok(())
         } else {
-            self.humor_level = self.humor_level.saturating_sub(1);
+            anyhow::bail!("Unknown trait key: {}", key)
         }
     }
 
-    /// Set verbosity
-    pub fn set_verbosity(&mut self, verbosity: Verbosity) {
-        self.verbosity = verbosity;
-    }
-
-    /// Check if humor is enabled
-    pub fn has_humor(&self) -> bool {
-        self.humor_level > 0
-    }
-
-    /// Get humor description
-    pub fn humor_description(&self) -> &'static str {
-        match self.humor_level {
-            0 => "Serious (no jokes)",
-            1 => "Moderate (subtle humor)",
-            2 => "Playful (more ironic)",
-            _ => "Unknown",
+    /// Adjust a trait by delta (-10 to +10)
+    pub fn adjust_trait(&mut self, key: &str, delta: i8) -> Result<()> {
+        if let Some(trait_ref) = self.get_trait_mut(key) {
+            let new_value = (trait_ref.value as i8 + delta).clamp(0, 10) as u8;
+            trait_ref.set_value(new_value);
+            Ok(())
+        } else {
+            anyhow::bail!("Unknown trait key: {}", key)
         }
     }
 
-    /// Get verbosity description
-    pub fn verbosity_description(&self) -> &'static str {
-        match self.verbosity {
-            Verbosity::Low => "Brief (concise answers)",
-            Verbosity::Normal => "Normal (balanced)",
-            Verbosity::High => "Detailed (thorough explanations)",
+    /// Render personality view for LLM prompts
+    pub fn render_personality_view(&self) -> String {
+        if !self.active {
+            return "[ANNA_PERSONALITY_VIEW]\nactive: false\n[/ANNA_PERSONALITY_VIEW]\n".to_string();
         }
+
+        let mut view = String::from("[ANNA_PERSONALITY_VIEW]\n");
+        view.push_str("active: true\n");
+        view.push_str("traits:\n");
+
+        for trait_item in &self.traits {
+            view.push_str(&format!("  - name: \"{}\"\n", trait_item.name));
+            view.push_str(&format!("    key: \"{}\"\n", trait_item.key));
+            view.push_str(&format!("    value: {}\n", trait_item.value));
+            view.push_str(&format!("    bar: \"{}\"\n", trait_item.bar()));
+            view.push_str(&format!("    meaning: \"{}\"\n", trait_item.meaning));
+        }
+
+        view.push_str("\ncommentary: |\n");
+        view.push_str("  You can say things like \"be more direct\" or \"more minimalist\" and I will\n");
+        view.push_str("  adjust these traits and show you the new map.\n");
+        view.push_str("[/ANNA_PERSONALITY_VIEW]\n");
+
+        view
+    }
+
+    /// Parse natural language trait adjustment request
+    /// Examples: "be more direct", "less serious", "set minimalist to 8"
+    pub fn parse_adjustment(&self, request: &str) -> Option<(String, i8)> {
+        let request_lower = request.to_lowercase();
+
+        // Pattern: "more X" or "X more"
+        if request_lower.contains("more") {
+            for trait_item in &self.traits {
+                let trait_words: Vec<&str> = trait_item.key.split('_').collect();
+                for word in &trait_words {
+                    if request_lower.contains(word) {
+                        return Some((trait_item.key.clone(), 2));
+                    }
+                }
+            }
+        }
+
+        // Pattern: "less X" or "X less"
+        if request_lower.contains("less") {
+            for trait_item in &self.traits {
+                let trait_words: Vec<&str> = trait_item.key.split('_').collect();
+                for word in &trait_words {
+                    if request_lower.contains(word) {
+                        return Some((trait_item.key.clone(), -2));
+                    }
+                }
+            }
+        }
+
+        // Pattern: "set X to N"
+        // This would need more complex parsing, left for future enhancement
+
+        None
     }
 }
 
@@ -164,54 +297,101 @@ mod tests {
     #[test]
     fn test_default_personality() {
         let config = PersonalityConfig::default();
-        assert_eq!(config.humor_level, 1);
-        assert_eq!(config.verbosity, Verbosity::Normal);
+        assert!(config.active);
+        assert_eq!(config.traits.len(), 8);
     }
 
     #[test]
-    fn test_humor_adjustment() {
+    fn test_trait_creation() {
+        let trait_item = PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 8);
+        assert_eq!(trait_item.key, "introvert_vs_extrovert");
+        assert_eq!(trait_item.value, 8);
+        assert!(!trait_item.meaning.is_empty());
+    }
+
+    #[test]
+    fn test_trait_value_clamping() {
+        let mut trait_item = PersonalityTrait::new("test", "Test", 5);
+
+        // Test upper bound
+        trait_item.set_value(15);
+        assert_eq!(trait_item.value, 10);
+
+        // Test lower bound
+        trait_item.set_value(200); // Will overflow to 0
+        trait_item.set_value(0);
+        assert_eq!(trait_item.value, 0);
+    }
+
+    #[test]
+    fn test_trait_bar_rendering() {
+        let trait_item = PersonalityTrait::new("test", "Test", 7);
+        let bar = trait_item.bar();
+        assert_eq!(bar.chars().filter(|&c| c == '█').count(), 7);
+        assert_eq!(bar.chars().filter(|&c| c == '░').count(), 3);
+    }
+
+    #[test]
+    fn test_get_trait() {
+        let config = PersonalityConfig::default();
+        let trait_ref = config.get_trait("introvert_vs_extrovert");
+        assert!(trait_ref.is_some());
+        assert_eq!(trait_ref.unwrap().value, 8);
+    }
+
+    #[test]
+    fn test_set_trait() {
+        let mut config = PersonalityConfig::default();
+        let result = config.set_trait("direct_vs_diplomatic", 9);
+        assert!(result.is_ok());
+
+        let trait_ref = config.get_trait("direct_vs_diplomatic");
+        assert_eq!(trait_ref.unwrap().value, 9);
+    }
+
+    #[test]
+    fn test_adjust_trait() {
         let mut config = PersonalityConfig::default();
 
-        // Increase
-        config.adjust_humor(true);
-        assert_eq!(config.humor_level, 2);
+        // Get initial value
+        let initial = config.get_trait("playful_vs_serious").unwrap().value;
 
-        // Cap at 2
-        config.adjust_humor(true);
-        assert_eq!(config.humor_level, 2);
+        // Adjust up
+        config.adjust_trait("playful_vs_serious", 2).unwrap();
+        assert_eq!(config.get_trait("playful_vs_serious").unwrap().value, initial + 2);
 
-        // Decrease
-        config.adjust_humor(false);
-        assert_eq!(config.humor_level, 1);
-
-        config.adjust_humor(false);
-        assert_eq!(config.humor_level, 0);
-
-        // Floor at 0
-        config.adjust_humor(false);
-        assert_eq!(config.humor_level, 0);
+        // Adjust down
+        config.adjust_trait("playful_vs_serious", -1).unwrap();
+        assert_eq!(config.get_trait("playful_vs_serious").unwrap().value, initial + 1);
     }
 
     #[test]
-    fn test_verbosity_parsing() {
-        assert_eq!(Verbosity::from_str("low"), Some(Verbosity::Low));
-        assert_eq!(Verbosity::from_str("brief"), Some(Verbosity::Low));
-        assert_eq!(Verbosity::from_str("normal"), Some(Verbosity::Normal));
-        assert_eq!(Verbosity::from_str("high"), Some(Verbosity::High));
-        assert_eq!(Verbosity::from_str("verbose"), Some(Verbosity::High));
-        assert_eq!(Verbosity::from_str("invalid"), None);
+    fn test_render_personality_view() {
+        let config = PersonalityConfig::default();
+        let view = config.render_personality_view();
+
+        assert!(view.contains("[ANNA_PERSONALITY_VIEW]"));
+        assert!(view.contains("active: true"));
+        assert!(view.contains("introvert_vs_extrovert"));
+        assert!(view.contains("[/ANNA_PERSONALITY_VIEW]"));
     }
 
     #[test]
-    fn test_has_humor() {
-        let mut config = PersonalityConfig::default();
-        config.humor_level = 0;
-        assert!(!config.has_humor());
+    fn test_parse_adjustment() {
+        let config = PersonalityConfig::default();
 
-        config.humor_level = 1;
-        assert!(config.has_humor());
+        // Test "more X" pattern
+        let result = config.parse_adjustment("be more direct");
+        assert!(result.is_some());
+        let (key, delta) = result.unwrap();
+        assert_eq!(key, "direct_vs_diplomatic");
+        assert_eq!(delta, 2);
 
-        config.humor_level = 2;
-        assert!(config.has_humor());
+        // Test "less X" pattern
+        let result = config.parse_adjustment("less serious");
+        assert!(result.is_some());
+        let (key, delta) = result.unwrap();
+        assert_eq!(key, "playful_vs_serious");
+        assert_eq!(delta, -2);
     }
 }

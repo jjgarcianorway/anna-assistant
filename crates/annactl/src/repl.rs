@@ -7,6 +7,7 @@ use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::{print_privacy_explanation, print_prompt, UI};
 use anyhow::Result;
 use chrono::Local;
+use std::collections::HashMap;
 use std::env;
 use std::io::{self, BufRead};
 use std::sync::Arc;
