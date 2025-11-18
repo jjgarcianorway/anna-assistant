@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.76] - 2025-11-18
+
+### TUI FIX - Show Actual Model Name Instead of "Loading..."
+
+**FIXED:** TUI status bar now shows the actual LLM model name instead of "Loading..."!
+
+#### The Problem
+
+The TUI status bar always displayed "Loading..." for the model name, even after the TUI was fully initialized. This was confusing and didn't provide useful information about which model was being used.
+
+#### The Solution
+
+Added database query during TUI initialization to load the actual LLM configuration and display the real model name in the status bar.
+
+#### Changes Made
+
+**File: `crates/annactl/src/tui.rs`** (line 99-111)
+- Added `block_in_place` call to load LLM config during TUI initialization
+- Retrieves `config.description` from database
+- Falls back to "Unknown" if config load fails, or "No database" if database unavailable
+
+#### Before vs After
+
+**Before Beta.76:**
+```
+Anna TUI | CPU: 12.3% | RAM: 2.4/15.6 GB | Model: Loading... | Ctrl+C=Quit
+```
+
+**After Beta.76:**
+```
+Anna TUI | CPU: 12.3% | RAM: 2.4/15.6 GB | Model: qwen2.5-coder:7b | Ctrl+C=Quit
+```
+
+#### Testing
+
+- ✅ Model name loads correctly on TUI startup
+- ✅ Shows actual configured model
+- ✅ Falls back gracefully if database unavailable
+- ✅ No performance impact on TUI initialization
+
+---
+
+**Full Changelog:** https://github.com/jjgarcianorway/anna-assistant/blob/main/CHANGELOG.md#570-beta76---2025-11-18
+
 ## [5.7.0-beta.75] - 2025-11-18
 
 ### HISTORIAN FIX - 30-Day Summary Now Shows Data Immediately

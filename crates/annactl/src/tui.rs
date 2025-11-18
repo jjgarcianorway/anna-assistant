@@ -96,11 +96,25 @@ impl TuiApp {
                 / sys.cpus().len() as f32
         };
 
+        // Beta.76: Load actual model name from database instead of "Loading..."
+        let model_name = if let Some(ref database) = db {
+            // Try to load LLM config synchronously (blocking is acceptable during TUI init)
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    database.load_llm_config().await
+                        .map(|config| config.description)
+                        .unwrap_or_else(|_| "Unknown".to_string())
+                })
+            })
+        } else {
+            "No database".to_string()
+        };
+
         let metrics = SystemMetrics {
             cpu_usage,
             ram_usage: sys.used_memory() as f32 / (1024.0 * 1024.0 * 1024.0),
             ram_total: sys.total_memory() as f32 / (1024.0 * 1024.0 * 1024.0),
-            model_name: "Loading...".to_string(),
+            model_name,
         };
 
         Self {
