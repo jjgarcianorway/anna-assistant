@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.63] - 2025-11-18
+
+### Fixed - UX Polish and Warning Cleanup
+
+**What's Fixed:**
+
+1. **Cleaner REPL welcome message:**
+   ```
+   Before: "System health: Healthy" (debug output)
+   After: "All systems operational" (user-friendly)
+   ```
+   - Healthy → "All systems operational"
+   - Degraded → "Some issues detected"
+   - Broken → "Critical issues present"
+
+2. **Removed noisy startup warnings:**
+   - Removed: "Warning: Failed to open context database"
+   - Removed: "Warning: LLM setup check failed"
+   - Removed: "Warning: Brain upgrade check failed"
+   - These warnings are expected on first run and just clutter output
+   - Errors are silently handled and user will see real issues when using Anna
+
+3. **Compilation warnings cleanup:**
+   - Ran `cargo fix` to auto-fix obvious warnings
+   - Removed unused mut keywords
+   - Removed unused imports (HashMap, WallpaperConfig, DateTime, etc.)
+   - Cleaned up 14 files in anna_common and annactl
+
+**Impact:**
+- Cleaner, more professional startup experience
+- Less warning noise for users
+- Cleaner codebase with fewer warnings
+
+**Files changed:**
+- `crates/annactl/src/repl.rs`: Welcome message and warning cleanup
+- 14 files: Unused imports and mut cleanup via cargo fix
+
 ## [5.7.0-beta.62] - 2025-11-18
 
 ### Fixed - Anti-Hallucination and Focused Prompts

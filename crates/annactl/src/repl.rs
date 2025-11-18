@@ -72,10 +72,9 @@ pub async fn start_repl() -> Result<()> {
             let config = db.load_language_config().await.unwrap_or_default();
             (Some(Arc::new(db)), config)
         }
-        Err(e) => {
-            eprintln!("Warning: Failed to open context database: {}", e);
-            eprintln!("Continuing without database features...");
-            // Use default config (English) if database not available
+        Err(_e) => {
+            // Silently fall back to English if database unavailable
+            // This is expected on first run before installer completes
             let config = anna_common::language::LanguageConfig::new();
             (None, config)
         }
@@ -141,27 +140,31 @@ pub async fn start_repl() -> Result<()> {
 
     // Check if setup wizard needs to run
     if let Some(db) = db_arc.as_ref() {
-        if let Err(e) = crate::run_llm_setup_if_needed(&ui, db).await {
-            // Don't show SQL errors to user
-            if !e.to_string().contains("updated_at") {
-                eprintln!("Warning: LLM setup check failed: {}", e);
-            }
-        }
+        // Silently ignore setup errors - user will see issues when they try to use Anna
+        let _ = crate::run_llm_setup_if_needed(&ui, db).await;
     }
 
     // Check for brain upgrade notifications
     if let Some(db) = db_arc.as_ref() {
-        if let Err(e) = crate::check_brain_upgrade_notification(&ui, db).await {
-            eprintln!("Warning: Brain upgrade check failed: {}", e);
-        }
+        // Silently ignore upgrade check errors - not critical for REPL startup
+        let _ = crate::check_brain_upgrade_notification(&ui, db).await;
     }
 
-    // Show status bar and welcome message in user's language
+    // Show status bar and welcome message
     print_status_bar(&ctx);
+
+    // Format health status nicely (not debug output)
+    let health_msg = match health.status {
+        crate::health::HealthStatus::Healthy => "All systems operational",
+        crate::health::HealthStatus::Degraded => "Some issues detected",
+        crate::health::HealthStatus::Broken => "Critical issues present",
+    };
+
     println!(
-        "Hello {}, your Arch sysadmin is awake. LLM mode: {}. System health: {:?}.",
-        ctx.user, ctx.llm_mode, health.status
+        "Hello {}, your Arch sysadmin is awake. {}.",
+        ctx.user, health_msg
     );
+
     if health.last_repair.is_some() {
         println!("Repairs since last run:");
         if let Some(repair) = &health.last_repair {
