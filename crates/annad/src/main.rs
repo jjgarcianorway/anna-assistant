@@ -418,6 +418,50 @@ async fn main() -> Result<()> {
                     historian_integration::HistorianIntegration::new(Arc::clone(&historian_arc));
                 integration.record_all(&facts_clone);
                 info!("Initial telemetry data recorded to Historian");
+
+                // Beta.75: Compute initial aggregates on startup from existing data
+                // This ensures the 30-day summary shows data immediately instead of zeros
+                let historian_for_aggregation = Arc::clone(&historian_arc);
+                tokio::spawn(async move {
+                    // Wait a moment for initial telemetry to be written
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+                    if let Ok(historian) = historian_for_aggregation.try_lock() {
+                        info!("Computing initial Historian aggregates from existing data...");
+
+                        // Compute aggregates for the last 7 days (to populate trends)
+                        let now = chrono::Utc::now();
+                        for days_ago in 0..7 {
+                            let date = (now - chrono::Duration::days(days_ago))
+                                .format("%Y-%m-%d")
+                                .to_string();
+
+                            // Boot aggregates
+                            if let Err(e) = historian.compute_boot_aggregates(&date) {
+                                tracing::debug!("No boot data for {}: {}", date, e);
+                            }
+
+                            // Resource aggregates (CPU/memory)
+                            if let Err(e) = historian.compute_resource_aggregates(&date) {
+                                tracing::debug!("No resource data for {}: {}", date, e);
+                            }
+
+                            // Service aggregates
+                            if let Err(e) = historian.compute_service_aggregates(&date) {
+                                tracing::debug!("No service data for {}: {}", date, e);
+                            }
+
+                            // Health scores
+                            if let Err(e) = historian.compute_daily_health_scores(&date) {
+                                tracing::debug!("No health data for {}: {}", date, e);
+                            }
+                        }
+
+                        info!("Initial Historian aggregation complete - 30-day summary ready");
+                    } else {
+                        tracing::warn!("Could not acquire Historian lock for initial aggregation");
+                    }
+                });
             }
             Err(e) => {
                 tracing::warn!("Failed to initialize Historian: {}", e);

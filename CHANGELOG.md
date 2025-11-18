@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.75] - 2025-11-18
+
+### HISTORIAN FIX - 30-Day Summary Now Shows Data Immediately
+
+**FIXED:** The 30-day summary no longer shows zeros on fresh installs or daemon restarts!
+
+#### The Problem
+
+Users were seeing all zeros in the 30-day summary because aggregates were only computed daily at 00:05 UTC. If the daemon hadn't run for 24+ hours, no aggregates existed, resulting in zeros in `annactl status`.
+
+#### The Solution
+
+Added initial aggregation on daemon startup that computes aggregates for the last 7 days from existing raw telemetry data. This ensures the 30-day summary shows data immediately instead of waiting until midnight.
+
+#### Changes Made
+
+**File: `crates/annad/src/main.rs`** (line 422-464)
+- Added async task to compute initial aggregates 2 seconds after daemon startup
+- Processes last 7 days of boot, CPU, memory, service, and health data
+- Non-blocking - doesn't delay daemon initialization
+
+#### Before vs After
+
+**Before Beta.75:**
+- Fresh install: All zeros until next midnight
+- Daemon restart: Zeros until 00:05 UTC
+- Required 24-48 hours for trends
+
+**After Beta.75:**
+- Fresh install: Shows data within 2 seconds
+- Daemon restart: Immediate aggregation
+- Trends ready on first `annactl status`
+
+#### Testing
+
+- ✅ Initial aggregation runs on startup
+- ✅ 30-day summary shows data immediately
+- ✅ Existing data aggregated correctly
+- ✅ Daily 00:05 UTC aggregation still works
+
+---
+
+**Full Changelog:** https://github.com/jjgarcianorway/anna-assistant/blob/main/CHANGELOG.md#570-beta75---2025-11-18
+
 ## [5.7.0-beta.74] - 2025-11-18
 
 ### TUI LLM INTEGRATION - Full Conversational Interface with Live System Metrics
