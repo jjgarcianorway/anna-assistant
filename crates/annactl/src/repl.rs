@@ -359,10 +359,9 @@ async fn run_repl_loop(ctx: ReplUiContext, db: Option<std::sync::Arc<ContextDb>>
                     role: "user".to_string(),
                     content: original.clone(),
                 });
-                // TODO: Implement LLM response with Beta.53 integration
-                let ui = UI::auto();
-                ui.info("I don't understand that yet. Try asking about system status, reports, or suggestions.");
-                println!();
+
+                // Beta.53: LLM integration for natural language queries
+                handle_llm_query(&original, db.as_ref()).await;
             }
         }
     }
@@ -441,5 +440,116 @@ async fn handle_historian_summary(_db: Option<&Arc<ContextDb>>) {
     println!("  • Recent repair actions");
     println!();
     ui.info("This feature requires Historian IPC implementation in annad.");
+    println!();
+}
+
+/// Handle LLM query for natural language understanding (Beta.53)
+async fn handle_llm_query(user_message: &str, db: Option<&Arc<ContextDb>>) {
+    let ui = UI::auto();
+    ui.info("🤔 Thinking...");
+
+    match crate::llm_integration::query_llm_with_context(user_message, db).await {
+        Ok(llm_response) => {
+            // Parse and display structured output
+            display_structured_llm_output(&llm_response);
+        }
+        Err(e) => {
+            ui.error(&format!("❌ LLM query failed: {}", e));
+            ui.info("💡 Try: 'annactl repair' to check LLM setup");
+            println!();
+        }
+    }
+}
+
+/// Display structured LLM output sections
+fn display_structured_llm_output(response: &str) {
+    use std::collections::HashMap;
+    use regex::Regex;
+
+    let ui = UI::auto();
+
+    // Extract structured sections from response
+    let sections = parse_anna_sections(response);
+
+    // Display [ANNA_TUI_HEADER] if present
+    if let Some(header) = sections.get("ANNA_TUI_HEADER") {
+        display_tui_header(header);
+    }
+
+    // Display [ANNA_SUMMARY] if present
+    if let Some(summary) = sections.get("ANNA_SUMMARY") {
+        ui.info(&format!("📋 {}", summary.trim()));
+        println!();
+    }
+
+    // Display [ANNA_HUMAN_OUTPUT] (main answer)
+    if let Some(human_output) = sections.get("ANNA_HUMAN_OUTPUT") {
+        // Display markdown content (basic rendering for now)
+        println!("{}", human_output.trim());
+        println!();
+    } else if sections.is_empty() {
+        // Fallback: show raw response if no structure found
+        println!("{}", response.trim());
+        println!();
+    }
+
+    // Display [ANNA_ACTION_PLAN] if present
+    if let Some(action_plan) = sections.get("ANNA_ACTION_PLAN") {
+        ui.section_header("📋", "Proposed Actions");
+        println!("{}", action_plan.trim());
+        println!();
+    }
+}
+
+/// Parse Anna structured output sections
+fn parse_anna_sections(response: &str) -> HashMap<String, String> {
+    use std::collections::HashMap;
+    use regex::Regex;
+
+    let mut sections = HashMap::new();
+
+    // Match [ANNA_SECTION_NAME]...[/ANNA_SECTION_NAME] or until next section
+    let re = Regex::new(r"\[ANNA_(\w+)\](.*?)(?=\[ANNA_|\[/ANNA_|\z)").unwrap();
+
+    for cap in re.captures_iter(response) {
+        let section_name = cap.get(1).unwrap().as_str();
+        let section_content = cap.get(2).unwrap().as_str().trim();
+        sections.insert(format!("ANNA_{}", section_name), section_content.to_string());
+    }
+
+    sections
+}
+
+/// Display TUI header info
+fn display_tui_header(header_content: &str) {
+    let ui = UI::auto();
+
+    // Parse header fields (simple key: value format)
+    for line in header_content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim();
+
+            match key {
+                "status" => {
+                    match value {
+                        "OK" => ui.info(&format!("Status: {}", fmt::success("OK"))),
+                        "WARN" => ui.info(&format!("Status: {}", fmt::warning("WARN"))),
+                        "CRIT" => ui.info(&format!("Status: {}", fmt::error("CRIT"))),
+                        _ => ui.info(&format!("Status: {}", value)),
+                    }
+                }
+                "model_hint" if value != "current ok" && !value.is_empty() => {
+                    ui.info(&format!("💡 Model suggestion: {}", value));
+                }
+                _ => {}
+            }
+        }
+    }
     println!();
 }

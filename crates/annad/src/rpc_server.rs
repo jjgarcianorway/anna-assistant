@@ -383,22 +383,67 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
             .context("Failed to set socket permissions to 0660")?;
 
         // Phase 0.4: Change socket group to 'anna' so users in that group can connect
-        // This is critical for access control - fail if chown fails
+        // Check current ownership first - systemd may have already set it correctly
+        use std::os::unix::fs::MetadataExt;
         use std::process::Command;
-        let chown_result = Command::new("chown")
-            .args(&["root:anna", SOCKET_PATH])
-            .output()
-            .context("Failed to execute chown command")?;
 
-        if !chown_result.status.success() {
-            warn!(
-                "Failed to set socket group to 'anna': {}",
-                String::from_utf8_lossy(&chown_result.stderr)
-            );
-            warn!("Socket will be owned by current user/group");
-            warn!("Run: sudo groupadd --system anna");
+        let metadata = std::fs::metadata(SOCKET_PATH)
+            .context("Failed to read socket metadata")?;
+        let current_gid = metadata.gid();
+
+        // Get 'anna' group GID if it exists
+        let anna_gid_result = Command::new("getent")
+            .args(&["group", "anna"])
+            .output();
+
+        let needs_chown = if let Ok(output) = anna_gid_result {
+            if output.status.success() {
+                let getent_output = String::from_utf8_lossy(&output.stdout);
+                // Format: anna:x:964:users
+                if let Some(gid_str) = getent_output.split(':').nth(2) {
+                    if let Ok(anna_gid) = gid_str.trim().parse::<u32>() {
+                        current_gid != anna_gid
+                    } else {
+                        true // Can't parse, try chown anyway
+                    }
+                } else {
+                    true // Can't parse, try chown anyway
+                }
+            } else {
+                false // Group doesn't exist, skip chown
+            }
         } else {
-            info!("Socket permissions set to root:anna 0660");
+            false // getent not available, skip chown
+        };
+
+        if needs_chown {
+            let chown_result = Command::new("chown")
+                .args(&["root:anna", SOCKET_PATH])
+                .output()
+                .context("Failed to execute chown command")?;
+
+            if !chown_result.status.success() {
+                // Check if error is just "Operation not permitted" (systemd might manage it)
+                let stderr = String::from_utf8_lossy(&chown_result.stderr);
+                if stderr.contains("Operation not permitted") {
+                    tracing::debug!(
+                        "Socket chown skipped (systemd manages permissions): {}",
+                        stderr
+                    );
+                    info!("Socket permissions managed by systemd (this is fine)");
+                } else {
+                    warn!(
+                        "Failed to set socket group to 'anna': {}",
+                        stderr
+                    );
+                    warn!("Socket will be owned by current user/group");
+                    warn!("Run: sudo groupadd --system anna");
+                }
+            } else {
+                info!("Socket permissions set to root:anna 0660");
+            }
+        } else {
+            info!("Socket already has correct group ownership");
         }
     }
 

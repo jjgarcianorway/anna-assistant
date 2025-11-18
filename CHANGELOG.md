@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.54] - 2025-11-18
+
+### Fixed - Critical Bugfixes: Auto-Updater & LLM Integration
+
+**From "Implemented but Not Wired" to "Actually Working":**
+Beta.53 implemented all the LLM integration modules and canonical specification, but had critical bugs that prevented the system from functioning in production:
+
+1. **CRITICAL: Auto-updater was attempting downgrades** (beta.53 → beta.9)
+   - Version comparison used lexicographic (string) comparison instead of numeric
+   - "beta.9" > "beta.53" alphabetically ("9" > "5" as strings)
+   - Added `compare_prerelease()` function to handle "beta.N" versions numerically
+   - Now correctly compares: beta.9 < beta.10 < beta.53
+   - Added comprehensive unit tests for version comparison
+   - **Impact**: Prevented automatic system corruption via downgrades
+
+2. **CRITICAL: LLM integration not wired into REPL**
+   - All LLM modules existed (`llm_integration.rs`, `runtime_prompt.rs`, `model_catalog.rs`)
+   - Ollama configured and model downloaded
+   - But Intent::Unclear handler still showed "I don't understand that yet"
+   - **Fixed**: `handle_llm_query()` now invokes `query_llm_with_context()`
+   - **Fixed**: `display_structured_llm_output()` parses and renders [ANNA_*] sections
+   - **Fixed**: `parse_anna_sections()` extracts structured output with regex
+   - **Impact**: Natural language queries now work as specified
+
+3. **Historian startup showing zeros** (cosmetic but confusing)
+   - Fresh installations have no historical data yet
+   - Displayed "Boot time: 0.0s average, CPU: 0.0%, Health: 0/100"
+   - **Fixed**: Check for meaningful data before displaying
+   - Now shows: "📊 Historian: Collecting initial telemetry (24-48 hours for trends)"
+   - **Impact**: Better UX for new installations
+
+4. **Noisy socket permission warnings**
+   - Logs showed repeated warnings even though socket was functional
+   - "Failed to set socket group to 'anna': Operation not permitted"
+   - Caused by systemd already setting correct permissions
+   - **Fixed**: Check current socket ownership before attempting chown
+   - **Fixed**: Reduce to debug level if systemd manages permissions
+   - **Impact**: Cleaner daemon logs
+
+### Added
+- `compare_prerelease()` function in `crates/anna_common/src/github_releases.rs`
+- Unit tests for beta version comparison (beta.9 vs beta.53, etc.)
+- `handle_llm_query()` function in `crates/annactl/src/repl.rs`
+- `display_structured_llm_output()` - Parse and render Anna structured output
+- `parse_anna_sections()` - Regex-based section extraction
+- `display_tui_header()` - Render [ANNA_TUI_HEADER] with color formatting
+- Dependency: `regex = "1.10"` in `crates/annactl/Cargo.toml`
+
+### Changed
+- Auto-updater version comparison: string → numeric for prerelease versions
+- Auto-updater now logs "Running development version" when current > GitHub latest
+- Intent::Unclear handler: "I don't understand" → LLM query invocation
+- Historian startup display: Shows "Collecting telemetry" instead of zeros
+- Socket permission handling: Check ownership before chown, reduce warning noise
+- Version bumped to 5.7.0-beta.54
+
+### Technical Details
+
+**Files Modified:**
+- `crates/anna_common/src/github_releases.rs` - Version comparison fix
+- `crates/annad/src/auto_updater.rs` - Better version comparison logic
+- `crates/annactl/src/repl.rs` - LLM integration wiring
+- `crates/annactl/src/startup_summary.rs` - Historian zero handling
+- `crates/annad/src/rpc_server.rs` - Socket permission noise reduction
+- `crates/annactl/Cargo.toml` - Added regex dependency
+
+**Testing:**
+All version comparison tests pass:
+```rust
+assert!(is_update_available("5.7.0-beta.9", "5.7.0-beta.53"));  // true
+assert!(!is_update_available("5.7.0-beta.53", "5.7.0-beta.9")); // false
+```
+
+**User Impact:**
+- ✅ Auto-updater safe (no more downgrades)
+- ✅ Natural language queries work ("what can you tell me about my computer?")
+- ✅ Cleaner startup experience (no zero spam)
+- ✅ Cleaner daemon logs (no permission warnings)
+
 ## [5.7.0-beta.53] - 2025-11-18
 
 ### Added - UX Revolution: Historian Visibility & Canonical Specification

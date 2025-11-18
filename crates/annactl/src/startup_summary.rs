@@ -28,9 +28,19 @@ pub fn display_startup_summary(
 
     // 30-Day Summary section
     if let Some(hist) = historian {
-        display_historian_summary(hist);
+        // Check if we have meaningful data (not all zeros)
+        let has_data = hist.boot_trends.avg_boot_time_ms > 0
+            || hist.cpu_trends.avg_utilization_percent > 0.0
+            || hist.health_summary.days_analyzed > 0;
+
+        if has_data {
+            display_historian_summary(hist);
+        } else {
+            ui.info("📊 Historian: Collecting initial telemetry (24-48 hours for trends)");
+            println!();
+        }
     } else {
-        ui.info("(Historian data not yet available - collecting...)");
+        ui.info("📊 Historian: Not available yet (daemon starting up)");
         println!();
     }
 

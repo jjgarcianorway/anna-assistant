@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.53 (UX Revolution - Historian Visibility + Canonical Specification)
+**Version:** 5.7.0-beta.54 (Critical Bugfixes - Auto-Updater & LLM Integration)
 
 ---
 

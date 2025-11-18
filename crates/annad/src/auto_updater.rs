@@ -93,15 +93,31 @@ impl AutoUpdater {
         info!("   Latest version on GitHub: v{}", latest_version);
 
         // Check if update is available
-        if !is_update_available(current_version, latest_version) {
-            info!("   ✓ Already running latest version");
-            return;
-        }
+        use anna_common::github_releases::compare_versions;
+        use std::cmp::Ordering;
 
-        info!(
-            "   🎯 Update available: v{} → v{}",
-            current_version, latest_version
-        );
+        match compare_versions(current_version, latest_version) {
+            Ordering::Less => {
+                // Update available
+                info!(
+                    "   🎯 Update available: v{} → v{}",
+                    current_version, latest_version
+                );
+            }
+            Ordering::Equal => {
+                info!("   ✓ Already running latest version: v{}", current_version);
+                return;
+            }
+            Ordering::Greater => {
+                // Running development version newer than GitHub
+                info!(
+                    "   📌 Running development version v{} (GitHub latest: v{})",
+                    current_version, latest_version
+                );
+                info!("   No update needed - current version is newer");
+                return;
+            }
+        }
 
         // Step 4: Perform automatic update
         info!("   Starting automatic update process...");

@@ -164,12 +164,44 @@ pub fn compare_versions(current: &str, latest: &str) -> std::cmp::Ordering {
                 (None, None) => Ordering::Equal,
                 (Some(_), None) => Ordering::Less, // current is prerelease, latest is stable
                 (None, Some(_)) => Ordering::Greater, // current is stable, latest is prerelease
-                (Some(c), Some(l)) => c.cmp(l),    // both prerelease, compare lexicographically
+                (Some(c), Some(l)) => compare_prerelease(c, l),    // both prerelease, compare properly
             }
         }
         (Ordering::Equal, Ordering::Equal, patch_cmp) => patch_cmp,
         (Ordering::Equal, minor_cmp, _) => minor_cmp,
         (major_cmp, _, _) => major_cmp,
+    }
+}
+
+/// Compare prerelease versions properly (handles beta.9 vs beta.53 correctly)
+fn compare_prerelease(current: &str, latest: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    // Extract prerelease type and number (e.g., "beta.53" -> ("beta", 53))
+    fn parse_pre(s: &str) -> (String, Option<u32>) {
+        if let Some((pre_type, num_str)) = s.split_once('.') {
+            let num = num_str.parse::<u32>().ok();
+            (pre_type.to_string(), num)
+        } else {
+            (s.to_string(), None)
+        }
+    }
+
+    let (c_type, c_num) = parse_pre(current);
+    let (l_type, l_num) = parse_pre(latest);
+
+    // Compare prerelease type first (alpha < beta < rc)
+    match c_type.cmp(&l_type) {
+        Ordering::Equal => {
+            // Same prerelease type, compare numbers
+            match (c_num, l_num) {
+                (Some(c), Some(l)) => c.cmp(&l),  // Both have numbers, compare numerically
+                (Some(_), None) => Ordering::Greater,  // Numbered > unnumbered
+                (None, Some(_)) => Ordering::Less,  // Unnumbered < numbered
+                (None, None) => Ordering::Equal,  // Both unnumbered
+            }
+        }
+        other => other,
     }
 }
 
@@ -208,6 +240,21 @@ mod tests {
         assert!(is_update_available("3.9.0-alpha.1", "3.9.0"));
         assert!(!is_update_available("3.10.0", "3.9.1"));
         assert!(!is_update_available("3.10.0", "3.10.0"));
+    }
+
+    #[test]
+    fn test_beta_version_comparison() {
+        // CRITICAL: Test the bug that was causing downgrades
+        assert!(is_update_available("5.7.0-beta.9", "5.7.0-beta.53"));
+        assert!(!is_update_available("5.7.0-beta.53", "5.7.0-beta.9"));
+
+        // Additional beta version tests
+        assert!(is_update_available("5.7.0-beta.1", "5.7.0-beta.2"));
+        assert!(is_update_available("5.7.0-beta.10", "5.7.0-beta.11"));
+        assert!(is_update_available("5.7.0-beta.99", "5.7.0-beta.100"));
+
+        // Test equal versions
+        assert!(!is_update_available("5.7.0-beta.53", "5.7.0-beta.53"));
     }
 
     #[test]
