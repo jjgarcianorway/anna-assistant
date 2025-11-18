@@ -834,6 +834,28 @@ impl ContextDb {
                 [],
             )?;
 
+            // Beta.86: Personality system (16 traits stored in database)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS personality (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trait_key TEXT NOT NULL UNIQUE,
+                    trait_name TEXT NOT NULL,
+                    value INTEGER NOT NULL CHECK (value >= 0 AND value <= 10),
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_personality_key
+                 ON personality(trait_key)",
+                [],
+            )?;
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_personality_updated
+                 ON personality(updated_at DESC)",
+                [],
+            )?;
+
             debug!("Database schema initialized successfully");
             Ok(())
         })

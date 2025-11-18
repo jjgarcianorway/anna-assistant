@@ -1,6 +1,6 @@
 //! Personality Configuration - Anna's 16-Personalities style trait system
 //!
-//! v5.7.0-beta.55: Telemetry and Internal Dialogue Upgrade
+//! v5.7.0-beta.86: Database-backed 16-trait system
 //! Trait-based personality model with slider values (0-10)
 
 use anyhow::Result;
@@ -100,6 +100,54 @@ impl PersonalityTrait {
                 7..=10 => "Reassuring. Encouraging, validating tone.",
                 _ => "Unknown",
             },
+            "patient_vs_urgent" => match value {
+                0..=3 => "Urgent. Quick responses, gets to the point fast.",
+                4..=6 => "Balanced pace. Thorough but efficient.",
+                7..=10 => "Patient. Takes time to explain thoroughly step-by-step.",
+                _ => "Unknown",
+            },
+            "humble_vs_confident" => match value {
+                0..=3 => "Confident. Assertive recommendations.",
+                4..=6 => "Balanced self-assurance.",
+                7..=10 => "Humble. Acknowledges uncertainty, suggests rather than demands.",
+                _ => "Unknown",
+            },
+            "formal_vs_casual" => match value {
+                0..=3 => "Casual. Friendly, relaxed communication.",
+                4..=6 => "Professional but approachable.",
+                7..=10 => "Formal. Maintains professional boundaries.",
+                _ => "Unknown",
+            },
+            "empathetic_vs_logical" => match value {
+                0..=3 => "Logical. Facts and data drive decisions.",
+                4..=6 => "Balanced. Logic with understanding of impact.",
+                7..=10 => "Empathetic. Considers user feelings and concerns first.",
+                _ => "Unknown",
+            },
+            "protective_vs_empowering" => match value {
+                0..=3 => "Empowering. Trusts user to make decisions.",
+                4..=6 => "Balanced safety and autonomy.",
+                7..=10 => "Protective. Emphasizes safety, provides strong warnings.",
+                _ => "Unknown",
+            },
+            "traditional_vs_innovative" => match value {
+                0..=3 => "Innovative. Suggests modern tools and approaches.",
+                4..=6 => "Balanced. Arch Way with modern tools.",
+                7..=10 => "Traditional. Prefers established, proven methods.",
+                _ => "Unknown",
+            },
+            "collaborative_vs_independent" => match value {
+                0..=3 => "Independent. Encourages self-sufficiency.",
+                4..=6 => "Balanced. Guides but respects user choices.",
+                7..=10 => "Collaborative. Works closely with user on decisions.",
+                _ => "Unknown",
+            },
+            "perfectionist_vs_pragmatic" => match value {
+                0..=3 => "Pragmatic. Quick solutions that work.",
+                4..=6 => "Balanced. Thorough but practical.",
+                7..=10 => "Perfectionist. Comprehensive, detailed solutions.",
+                _ => "Unknown",
+            },
             _ => "Unknown trait",
         }.to_string()
     }
@@ -118,8 +166,9 @@ pub struct PersonalityConfig {
 }
 
 fn default_traits() -> Vec<PersonalityTrait> {
-    // Beta.83: Aligned with INTERNAL_PROMPT.md specification
+    // Beta.86: Full 16-trait personality system
     vec![
+        // Original 8 traits from beta.83
         PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 3),  // Reserved, speaks when it matters
         PersonalityTrait::new("calm_vs_excitable", "Calm vs Excitable", 8),             // Calm, reassuring tone
         PersonalityTrait::new("direct_vs_diplomatic", "Direct vs Diplomatic", 7),       // Clear and direct
@@ -128,6 +177,16 @@ fn default_traits() -> Vec<PersonalityTrait> {
         PersonalityTrait::new("minimalist_vs_verbose", "Minimalist vs Verbose", 7),     // Concise but complete
         PersonalityTrait::new("analytical_vs_intuitive", "Analytical vs Intuitive", 8), // Structured, logical
         PersonalityTrait::new("reassuring_vs_challenging", "Reassuring vs Challenging", 6), // Supportive but honest
+
+        // New 8 traits for beta.86
+        PersonalityTrait::new("patient_vs_urgent", "Patient vs Urgent", 7),             // Takes time to explain thoroughly
+        PersonalityTrait::new("humble_vs_confident", "Humble vs Confident", 6),         // Balanced self-assurance
+        PersonalityTrait::new("formal_vs_casual", "Formal vs Casual", 5),               // Professional but approachable
+        PersonalityTrait::new("empathetic_vs_logical", "Empathetic vs Logical", 7),     // Logic-driven with understanding
+        PersonalityTrait::new("protective_vs_empowering", "Protective vs Empowering", 6), // Balanced safety and autonomy
+        PersonalityTrait::new("traditional_vs_innovative", "Traditional vs Innovative", 5), // Arch Way with modern tools
+        PersonalityTrait::new("collaborative_vs_independent", "Collaborative vs Independent", 6), // Guides but respects choices
+        PersonalityTrait::new("perfectionist_vs_pragmatic", "Perfectionist vs Pragmatic", 6), // Thorough but practical
     ]
 }
 
@@ -289,6 +348,86 @@ impl PersonalityConfig {
 
         None
     }
+
+    /// Validate trait interactions to prevent conflicting personality states
+    /// Returns Ok(()) if all interactions are valid, Err with list of conflicts otherwise
+    pub fn validate_interactions(&self) -> Result<(), Vec<String>> {
+        let mut conflicts = Vec::new();
+
+        // Helper to get trait value safely
+        let get_val = |key: &str| -> Option<u8> {
+            self.get_trait(key).map(|t| t.value)
+        };
+
+        // Conflict 1: Can't be both very introverted and very bold
+        if let (Some(intro), Some(bold)) = (
+            get_val("introvert_vs_extrovert"),
+            get_val("cautious_vs_bold"),
+        ) {
+            if intro >= 8 && bold <= 2 {
+                conflicts.push("Conflicting: Very introverted (reserved) but very bold (risk-taking)".to_string());
+            }
+        }
+
+        // Conflict 2: Can't be both very calm and very excitable
+        if let (Some(calm), Some(excit)) = (
+            get_val("calm_vs_excitable"),
+            get_val("calm_vs_excitable"),  // Note: excitable is inverse of calm
+        ) {
+            // This is actually the same trait, so no conflict possible
+            // Leaving as example of how to check related traits
+        }
+
+        // Conflict 3: Can't be both very minimalist and very verbose
+        if let (Some(minimal), Some(_verbose)) = (
+            get_val("minimalist_vs_verbose"),
+            get_val("minimalist_vs_verbose"),  // Same trait, opposite poles
+        ) {
+            // These are opposite poles of the same trait, so no conflict check needed
+            // Minimalist=10 means not verbose, minimalist=0 means very verbose
+        }
+
+        // Conflict 4: Can't be both very analytical and very intuitive
+        // (These are opposite poles of the same trait, so no separate check needed)
+
+        // Conflict 5: Can't be both very protective and very empowering
+        // (These are opposite poles of the same trait)
+
+        // Conflict 6: Can't be both perfectionist and very urgent
+        if let (Some(perfect), Some(urgent)) = (
+            get_val("perfectionist_vs_pragmatic"),
+            get_val("patient_vs_urgent"),
+        ) {
+            if perfect >= 8 && urgent <= 2 {
+                conflicts.push("Conflicting: Perfectionist (thorough) but very urgent (rushes)".to_string());
+            }
+        }
+
+        // Conflict 7: Can't be both very humble and very confident
+        // (These are opposite poles of the same trait)
+
+        // Conflict 8: Can't be both very formal and very playful
+        if let (Some(formal), Some(playful)) = (
+            get_val("formal_vs_casual"),
+            get_val("playful_vs_serious"),
+        ) {
+            if formal >= 8 && playful >= 8 {
+                conflicts.push("Conflicting: Very formal but very playful (humor)".to_string());
+            }
+        }
+
+        // Conflict 9: Can't be both very logical and very empathetic
+        // (These are opposite poles of the same trait)
+
+        // Conflict 10: Can't be both very challenging and very reassuring
+        // (These are opposite poles of the same trait)
+
+        if conflicts.is_empty() {
+            Ok(())
+        } else {
+            Err(conflicts)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -299,7 +438,7 @@ mod tests {
     fn test_default_personality() {
         let config = PersonalityConfig::default();
         assert!(config.active);
-        assert_eq!(config.traits.len(), 8);
+        assert_eq!(config.traits.len(), 16);  // Beta.86: Upgraded from 8 to 16 traits
     }
 
     #[test]
