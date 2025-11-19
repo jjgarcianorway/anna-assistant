@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.104] - 2025-11-19
+
+### Template Expansion: CPU & Performance Profiling (+8 Templates)
+
+**Continuing the path to 100% success rate** on the 700-question test suite. Beta.104 focuses on CPU performance diagnostics and profiling - addressing ~40 questions from the test suite.
+
+#### What Changed in Beta.104
+
+**Added 8 New CPU & Performance Templates:**
+
+1. **check_cpu_frequency** - Show current CPU frequency and available scaling frequencies
+2. **check_cpu_governor** - Show active CPU frequency scaling governor for all cores
+3. **analyze_cpu_usage** - Show per-core CPU utilization with detailed breakdown
+4. **check_cpu_temperature** - Show CPU temperature from sensors or thermal zones
+5. **detect_cpu_throttling** - Detect thermal throttling events from system journal
+6. **show_top_cpu_processes** - Show top CPU-consuming processes sorted by usage
+7. **check_load_average** - Show system load average with core count context
+8. **analyze_context_switches** - Show context switch rate and performance metrics
+
+**Template Count Progress:**
+- Beta.103: 71 templates
+- Beta.104: 79 templates (+11% increase)
+
+#### Templates Address Common Performance Problems
+
+From the 700-question test suite, CPU/performance-related questions include:
+- "Why is my CPU running hot?" → `check_cpu_temperature`, `detect_cpu_throttling`
+- "What's using all my CPU?" → `show_top_cpu_processes`, `analyze_cpu_usage`
+- "Is my CPU throttling?" → `detect_cpu_throttling`
+- "What CPU governor am I using?" → `check_cpu_governor`
+- "Why is my system slow?" → `check_load_average`, `analyze_context_switches`
+- "Check CPU frequency" → `check_cpu_frequency`
+
+These templates provide immediate, actionable diagnostics for CPU/performance issues.
+
+#### Files Modified
+
+- **crates/anna_common/src/template_library.rs** - Added 8 CPU & performance profiling templates
+- **Cargo.toml** - Version 5.7.0-beta.103 → 5.7.0-beta.104
+- **CHANGELOG.md** - Documented template additions
+
+#### Coverage Progress
+
+**From 700-Question Test Suite:**
+- ✅ Pacman management (~30 questions) - Beta.102
+- ✅ Systemd boot/journal (~25 questions) - Beta.103
+- ✅ CPU & performance (~40 questions) - Beta.104
+- 📋 Memory & swap (~15 questions) - Beta.105 (planned)
+- 📋 GPU diagnostics (~20 questions) - Beta.106 (planned)
+- 📋 Desktop environment (~25 questions) - Beta.107 (planned)
+- 📋 VM/containers (~30 questions) - Beta.108 (planned)
+- 📋 Storage/filesystems (~25 questions) - Beta.109 (planned)
+
+**Progress:** ~95/700 questions covered with specific templates (13.6%)
+**Path Forward:** Continue systematic expansion to reach 80%+ coverage
+
+---
+
 ## [5.7.0-beta.103] - 2025-11-19
 
 ### Template Expansion: Systemd Boot Analysis (+8 Templates)

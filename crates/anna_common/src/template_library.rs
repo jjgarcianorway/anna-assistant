@@ -223,6 +223,16 @@ impl TemplateLibrary {
         library.register(Self::check_systemd_version());
         library.register(Self::show_recent_journal_errors());
 
+        // Beta.104: CPU & Performance Profiling templates (700 questions - performance diagnostics)
+        library.register(Self::check_cpu_frequency());
+        library.register(Self::check_cpu_governor());
+        library.register(Self::analyze_cpu_usage());
+        library.register(Self::check_cpu_temperature());
+        library.register(Self::detect_cpu_throttling());
+        library.register(Self::show_top_cpu_processes());
+        library.register(Self::check_load_average());
+        library.register(Self::analyze_context_switches());
+
         library
     }
 
@@ -1774,6 +1784,170 @@ impl TemplateLibrary {
                 validation_description: "Recent errors displayed".to_string(),
             }),
             example: "journalctl -p err --since today".to_string(),
+        }
+    }
+
+    // ============================================================================
+    // Beta.104: CPU & Performance Profiling Templates (700-question test suite)
+    // ============================================================================
+
+    fn check_cpu_frequency() -> Template {
+        Template {
+            id: "check_cpu_frequency".to_string(),
+            name: "Check CPU Frequency".to_string(),
+            description: "Show current CPU frequency and available scaling frequencies".to_string(),
+            parameters: vec![],
+            command_pattern: "cat /proc/cpuinfo | grep MHz | head -20 && echo && ls /sys/devices/system/cpu/cpu0/cpufreq/ 2>/dev/null | head -10".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/CPU_frequency_scaling".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("MHz".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "CPU frequency displayed".to_string(),
+            }),
+            example: "grep MHz /proc/cpuinfo".to_string(),
+        }
+    }
+
+    fn check_cpu_governor() -> Template {
+        Template {
+            id: "check_cpu_governor".to_string(),
+            name: "Check CPU Governor".to_string(),
+            description: "Show active CPU frequency scaling governor for all cores".to_string(),
+            parameters: vec![],
+            command_pattern: "for cpu in /sys/devices/system/cpu/cpu[0-9]*; do echo \"$cpu: $(cat $cpu/cpufreq/scaling_governor 2>/dev/null || echo 'N/A')\"; done | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/CPU_frequency_scaling#Scaling_governors".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("cpu".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "CPU governors displayed".to_string(),
+            }),
+            example: "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor".to_string(),
+        }
+    }
+
+    fn analyze_cpu_usage() -> Template {
+        Template {
+            id: "analyze_cpu_usage".to_string(),
+            name: "Analyze CPU Usage".to_string(),
+            description: "Show per-core CPU utilization breakdown".to_string(),
+            parameters: vec![],
+            command_pattern: "mpstat -P ALL 1 1 2>/dev/null || top -bn1 | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Core_utilities".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("CPU".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "CPU usage displayed".to_string(),
+            }),
+            example: "mpstat -P ALL".to_string(),
+        }
+    }
+
+    fn check_cpu_temperature() -> Template {
+        Template {
+            id: "check_cpu_temperature".to_string(),
+            name: "Check CPU Temperature".to_string(),
+            description: "Display CPU temperature from sensors".to_string(),
+            parameters: vec![],
+            command_pattern: "sensors 2>/dev/null | grep -E '(Core|Package|Tctl|Tdie|CPU)' | head -20 || cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | head -10".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Lm_sensors".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "CPU temperature displayed".to_string(),
+            }),
+            example: "sensors | grep Core".to_string(),
+        }
+    }
+
+    fn detect_cpu_throttling() -> Template {
+        Template {
+            id: "detect_cpu_throttling".to_string(),
+            name: "Detect CPU Throttling".to_string(),
+            description: "Check for thermal throttling events in system journal".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl -b --no-pager | grep -iE '(throttl|thermal|overheat|temperature)' | tail -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/CPU_frequency_scaling".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Throttling events displayed".to_string(),
+            }),
+            example: "journalctl | grep throttl".to_string(),
+        }
+    }
+
+    fn show_top_cpu_processes() -> Template {
+        Template {
+            id: "show_top_cpu_processes".to_string(),
+            name: "Show Top CPU Processes".to_string(),
+            description: "Display processes consuming the most CPU".to_string(),
+            parameters: vec![],
+            command_pattern: "ps aux --sort=-%cpu | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Core_utilities".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("CPU".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Top CPU processes displayed".to_string(),
+            }),
+            example: "ps aux --sort=-%cpu | head -10".to_string(),
+        }
+    }
+
+    fn check_load_average() -> Template {
+        Template {
+            id: "check_load_average".to_string(),
+            name: "Check Load Average".to_string(),
+            description: "Show system load average and interpretation".to_string(),
+            parameters: vec![],
+            command_pattern: "uptime && echo && cat /proc/loadavg && echo && nproc".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Core_utilities".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("load average".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Load average displayed".to_string(),
+            }),
+            example: "uptime".to_string(),
+        }
+    }
+
+    fn analyze_context_switches() -> Template {
+        Template {
+            id: "analyze_context_switches".to_string(),
+            name: "Analyze Context Switches".to_string(),
+            description: "Show context switch rate as performance indicator".to_string(),
+            parameters: vec![],
+            command_pattern: "vmstat 1 5 | tail -6".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Core_utilities".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("cs".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Context switches displayed".to_string(),
+            }),
+            example: "vmstat 1 5".to_string(),
         }
     }
 }
