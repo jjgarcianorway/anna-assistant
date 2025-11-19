@@ -53,14 +53,12 @@ echo
 # Get username for personalized greeting
 USERNAME=${SUDO_USER:-${USER}}
 
-# Warm greeting (Phase 5.1: Conversational UX)
-echo -e "${BOLD}Hello ${GREEN}${USERNAME}${RESET}${BOLD},${RESET}"
+# Installation message (Beta.89: Professional tone)
+echo -e "${BOLD}Installing for user: ${GREEN}${USERNAME}${RESET}"
 echo
-echo "Thank you for giving me the chance to live on your computer 😉"
-echo
-echo "My name is Anna and my main goal is to be a bridge between"
-echo "the technical documentation and you, only for this machine:"
-echo "your hardware, software and how you actually use it."
+echo "Anna Assistant is a local system administrator that bridges"
+echo "technical documentation with your specific hardware and software"
+echo "configuration."
 echo
 
 echo -e "${BOLD}${BLUE}How do I work?${RESET}"

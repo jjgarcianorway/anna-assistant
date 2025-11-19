@@ -12,7 +12,7 @@
 //! - Keyboard shortcuts
 //! - Efficient rendering
 
-use crate::llm_integration::query_llm_with_context;
+use crate::llm_integration::{query_llm_with_context, query_llm_with_context_streaming};
 use anna_common::context::db::{ContextDb, DbLocation};
 use anyhow::Result;
 use crossterm::{
@@ -170,39 +170,45 @@ impl TuiApp {
         self.scroll_offset = 0;
     }
 
-    /// Check for and process LLM responses
+    /// Check for and process LLM streaming responses (Beta.89: word-by-word accumulation)
     fn check_llm_response(&mut self) {
         if let Some(rx) = &mut self.response_rx {
-            // Try to receive response (non-blocking)
-            match rx.try_recv() {
-                Ok(response) => {
-                    // Remove "Thinking..." message
-                    if let Some(last_msg) = self.messages.last() {
-                        if last_msg.role == MessageRole::Assistant && last_msg.content == "Thinking..." {
-                            self.messages.pop();
-                        }
-                    }
+            // Process all available chunks (drain the channel)
+            let mut received_any = false;
+            loop {
+                match rx.try_recv() {
+                    Ok(chunk) => {
+                        received_any = true;
 
-                    // Add actual response
-                    self.add_message(MessageRole::Assistant, response);
-                    self.is_processing = false;
-                    self.response_rx = None; // Clear the channel
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
-                    // No response yet, still processing
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
-                    // Remove "Thinking..." message
-                    if let Some(last_msg) = self.messages.last() {
-                        if last_msg.role == MessageRole::Assistant && last_msg.content == "Thinking..." {
-                            self.messages.pop();
+                        // Append chunk to last assistant message
+                        if let Some(last_msg) = self.messages.last_mut() {
+                            if last_msg.role == MessageRole::Assistant {
+                                last_msg.content.push_str(&chunk);
+                            }
                         }
-                    }
 
-                    // Channel closed, error occurred
-                    self.add_message(MessageRole::Assistant, "Error: LLM request failed");
-                    self.is_processing = false;
-                    self.response_rx = None;
+                        // Keep scrolled to bottom as content arrives
+                        self.scroll_offset = 0;
+                    }
+                    Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                        // No more chunks available right now
+                        break;
+                    }
+                    Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                        // Stream ended
+                        self.is_processing = false;
+                        self.response_rx = None;
+
+                        // If we never received anything, show error
+                        if !received_any {
+                            if let Some(last_msg) = self.messages.last_mut() {
+                                if last_msg.role == MessageRole::Assistant && last_msg.content.is_empty() {
+                                    last_msg.content = "Error: LLM request failed".to_string();
+                                }
+                            }
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -225,24 +231,24 @@ impl TuiApp {
                     self.input.clear();
                     self.cursor_pos = 0;
 
-                    // Show thinking indicator
-                    self.add_message(MessageRole::Assistant, "Thinking...");
+                    // Start with empty assistant message (Beta.89: streaming will fill it)
+                    self.add_message(MessageRole::Assistant, "");
                     self.is_processing = true;
 
-                    // Create channel for response
+                    // Create channel for streaming response
                     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
                     self.response_rx = Some(rx);
 
                     // Clone db for async task
                     let db = self.db.clone();
 
-                    // Spawn async task to query LLM
+                    // Spawn async task to query LLM with streaming
+                    // Beta.89: Use streaming function to send word-by-word
                     tokio::spawn(async move {
-                        let response = match query_llm_with_context(&input, db.as_ref()).await {
-                            Ok(r) => r,
-                            Err(e) => format!("Error: {}", e),
-                        };
-                        let _ = tx.send(response);
+                        if let Err(e) = query_llm_with_context_streaming(&input, db.as_ref(), tx).await {
+                            // Error handling - send error message through channel
+                            eprintln!("LLM streaming error: {}", e);
+                        }
                     });
                 }
             }

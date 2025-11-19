@@ -80,11 +80,11 @@ async fn check_and_show_update_notice(current_version: &str) -> Result<bool> {
     // If version changed, show notice
     if let Some(last) = last_version {
         if last != current_version {
-            // Show auto-update notice
+            // Show auto-update notice (Beta.89: removed non-existent 'annactl changelog' reference)
             println!(
                 "{}",
                 fmt::success(&format!(
-                    "Anna auto-updated from v{} to v{} (see 'annactl changelog' for details)",
+                    "Anna auto-updated from v{} to v{}",
                     last, current_version
                 ))
             );

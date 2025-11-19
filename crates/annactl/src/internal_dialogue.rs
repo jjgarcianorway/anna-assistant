@@ -394,15 +394,16 @@ fn build_simple_prompt(
     prompt.push_str(user_message);
     prompt.push_str("\n\n");
 
-    // Anti-hallucination instructions
+    // Anti-hallucination instructions (Beta.89: Added telemetry-first rule)
     prompt.push_str("CRITICAL RULES:\n");
-    prompt.push_str("1. Answer ONLY what was asked - don't add extra information\n");
-    prompt.push_str("2. If you don't know something, say \"I don't have that information\"\n");
-    prompt.push_str("3. ONLY suggest real Arch Linux commands (pacman, systemctl, vim, etc.)\n");
-    prompt.push_str("4. NEVER invent commands or tools that don't exist\n");
-    prompt.push_str("5. If suggesting config files, check they actually exist on Arch\n");
-    prompt.push_str("6. Keep answer under 150 words\n");
-    prompt.push_str("7. Link to Arch Wiki ONLY if directly relevant\n\n");
+    prompt.push_str("1. CHECK SYSTEM INFO ABOVE - use it to answer, don't guess\n");
+    prompt.push_str("2. Answer ONLY what was asked - don't add extra information\n");
+    prompt.push_str("3. If you don't know something, say \"I don't have that information\"\n");
+    prompt.push_str("4. ONLY suggest real Arch Linux commands (pacman, systemctl, vim, etc.)\n");
+    prompt.push_str("5. NEVER invent commands or tools that don't exist\n");
+    prompt.push_str("6. If suggesting config files, check they actually exist on Arch\n");
+    prompt.push_str("7. Keep answer under 150 words\n");
+    prompt.push_str("8. Link to Arch Wiki ONLY if directly relevant\n\n");
 
     prompt.push_str("ANSWER:\n");
 

@@ -178,7 +178,18 @@ pub async fn start_repl() -> Result<()> {
     // Proactive startup summary - inform user of any issues
     display_startup_summary(&ui).await;
 
-    run_repl_loop(ctx, db_arc).await
+    // Beta.89: Launch full-screen TUI interface with streaming support
+    // The TUI replaces the old line-by-line REPL
+    println!();
+    println!("Launching full-screen interface...");
+    println!("Press Ctrl+C or Ctrl+Q to exit");
+    println!();
+
+    // Give user a moment to read the message
+    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+    // Launch TUI (this blocks until user exits)
+    annactl::tui::run()
 }
 
 /// Display proactive startup summary with Historian data (Beta.53)
@@ -392,12 +403,12 @@ async fn handle_improve_intent(_db: Option<&Arc<ContextDb>>) {
     let ui = UI::auto();
     ui.section_header("🛠", "What you can improve");
 
-    // TODO Beta.53: Implement intelligent suggestions based on Historian trends
-    ui.info("Improvement suggestions will be based on 30-day Historian data once IPC is implemented.");
+    // Beta.89: Only suggest actually existing commands
+    ui.info("Improvement suggestions will be based on 30-day Historian data once fully implemented.");
     println!();
     ui.info("For now, try:");
     println!("  • Run 'annactl status' for current system health");
-    println!("  • Run 'annactl report' for detailed analysis");
+    println!("  • Ask me specific questions about your system");
     println!();
 }
 

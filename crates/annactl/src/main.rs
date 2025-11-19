@@ -87,7 +87,7 @@ struct Cli {
     command: Option<Commands>,
 }
 
-/// Minimal command set - only public: status, help
+/// Beta.89: Only status command allowed, everything else is natural language
 #[derive(Subcommand)]
 enum Commands {
     /// Show system status and daemon health
@@ -97,73 +97,29 @@ enum Commands {
         json: bool,
     },
 
-    /// Show available commands
-    Help,
-
-    /// Historian sanity inspection (developer)
+    /// Historian sanity inspection (developer-only, hidden)
     #[command(hide = true)]
     Historian {
         #[command(subcommand)]
         action: HistorianCommands,
     },
 
-    /// Show version (hidden - prefer banner)
+    /// Show version (hidden - use --version flag instead)
     #[command(hide = true)]
     Version,
 
-    /// Ping daemon (hidden - for health checks)
+    /// Ping daemon (hidden - for health checks only)
     #[command(hide = true)]
     Ping,
 
-    /// Launch TUI REPL (experimental)
+    /// Launch TUI REPL (hidden - experimental)
     #[command(hide = true)]
     Tui,
-
-    /// Manage Anna's personality traits (Beta.88)
-    Personality {
-        #[command(subcommand)]
-        action: PersonalityCommands,
-    },
 }
 
 #[derive(Subcommand)]
 enum HistorianCommands {
     Inspect,
-}
-
-#[derive(Subcommand)]
-enum PersonalityCommands {
-    /// Show all personality traits
-    Show,
-
-    /// Set a specific trait value (0-10)
-    Set {
-        /// Trait key (e.g., "introvert_vs_extrovert")
-        trait_key: String,
-        /// Value from 0 to 10
-        value: u8,
-    },
-
-    /// Adjust a trait by delta (e.g., +2 or -3)
-    Adjust {
-        /// Trait key
-        trait_key: String,
-        /// Delta value (e.g., +2 or -1)
-        delta: i8,
-    },
-
-    /// Reset all traits to defaults
-    Reset,
-
-    /// Validate personality configuration
-    Validate,
-
-    /// Export personality to TOML file
-    Export {
-        /// Output file path (default: ~/anna_personality.toml)
-        #[arg(short, long)]
-        path: Option<String>,
-    },
 }
 
 // All legacy subcommands removed - REPL is the primary interface
@@ -537,7 +493,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
             let ui = UI::auto();
             let mut config = PersonalityConfig::load();
 
-            match adjustment {
+            match &adjustment {
                 PersonalityAdjustment::IncreaseHumor => {
                     // Map to playful_vs_serious trait
                     let _ = config.adjust_trait("playful_vs_serious", 2);
@@ -584,6 +540,57 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                         ui.info(&format!("  → {}", trait_item.meaning));
                     }
                     println!();
+                }
+                PersonalityAdjustment::SetTrait { trait_key, value } => {
+                    // Beta.89: Set specific trait to value
+                    match config.set_trait(trait_key, *value) {
+                        Ok(_) => {
+                            println!();
+                            ui.success(&format!("✓ Set {} to {}/10", trait_key, value));
+                            if let Some(trait_ref) = config.get_trait(&trait_key) {
+                                ui.info(&format!("  {}", trait_ref.meaning));
+                            }
+                            println!();
+                        }
+                        Err(e) => {
+                            println!();
+                            ui.error(&format!("Failed to set trait: {}", e));
+                            println!();
+                        }
+                    }
+                }
+                PersonalityAdjustment::AdjustByDescriptor { descriptor } => {
+                    // Beta.89: Adjust personality by natural language descriptor
+                    println!();
+                    ui.info(&format!("Adjusting personality: '{}'", descriptor));
+                    ui.warning("Note: Descriptor-based adjustments not fully implemented yet");
+                    println!();
+                }
+                PersonalityAdjustment::Reset => {
+                    // Beta.89: Reset all traits to defaults
+                    config = PersonalityConfig::default();
+                    println!();
+                    ui.success("✓ Reset all personality traits to defaults");
+                    println!();
+                }
+                PersonalityAdjustment::Validate => {
+                    // Beta.89: Validate personality configuration
+                    match config.validate_interactions() {
+                        Ok(_) => {
+                            println!();
+                            ui.success("✓ Personality configuration is valid");
+                            ui.info("No conflicting trait combinations detected");
+                            println!();
+                        }
+                        Err(issues) => {
+                            println!();
+                            ui.warning("⚠ Personality validation warnings:");
+                            for issue in issues {
+                                ui.warning(&format!("  • {}", issue));
+                            }
+                            println!();
+                        }
+                    }
                 }
             }
 
@@ -741,38 +748,9 @@ async fn main() -> Result<()> {
     if args.len() >= 2 {
         let first_arg = &args[1];
 
-        // Known subcommands that should NOT be treated as natural language
-        // Public commands: status, version, help
-        // Hidden/internal commands kept for backwards compatibility
-        let known_subcommands = [
-            "init",
-            "status",
-            "help",
-            "version",
-            "doctor",
-            "upgrade",
-            "ping",
-            "health",
-            "daily",
-            "triage",
-            "rollback",
-            "backup",
-            "install",
-            "rescue",
-            "collect-logs",
-            "sentinel",
-            "config",
-            "conscience",
-            "empathy",
-            "collective",
-            "consensus",
-            "chronos",
-            "mirror",
-            "learning",
-            "learn",
-            "predict",
-            "issues",
-        ];
+        // Beta.89: Only "status" is a valid subcommand
+        // Everything else is natural language
+        let known_subcommands = ["status"];
 
         // Check if it's a flag (starts with - or --)
         let is_flag = first_arg.starts_with("--") || first_arg.starts_with("-");
@@ -905,15 +883,9 @@ async fn main() -> Result<()> {
     }
 
     // Phase 1.8: Handle consensus commands early (standalone PoC, no daemon)
-    // Handle self-update command (doesn't need daemon)
-    // Handle profile command (Phase 3.0 - needs daemon)
-    // Handle monitor command (Phase 3.0 - needs daemon)
-    // Handle metrics command (Phase 3.3 - needs daemon)
-    // Phase 3.1: Handle help command early (doesn't need daemon)
-    if matches!(command, Commands::Help) {
-        let socket_path = cli.socket.as_deref();
-        return execute_help_command_standalone(command, socket_path, &req_id, start_time).await;
-    }
+    // Beta.89: All legacy commands removed
+    // Only status, version, ping, tui, and historian remain
+    // Everything else handled via natural language
 
     // Historian inspection (developer-only, no daemon required)
     if let Commands::Historian { action } = command {
@@ -925,35 +897,8 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Personality management (Beta.88 - no daemon required)
-    if let Commands::Personality { action } = command {
-        match action {
-            PersonalityCommands::Show => {
-                personality_commands::handle_personality_show().await?;
-                return Ok(());
-            }
-            PersonalityCommands::Set { trait_key, value } => {
-                personality_commands::handle_personality_set(trait_key.clone(), *value).await?;
-                return Ok(());
-            }
-            PersonalityCommands::Adjust { trait_key, delta } => {
-                personality_commands::handle_personality_adjust(trait_key.clone(), *delta).await?;
-                return Ok(());
-            }
-            PersonalityCommands::Reset => {
-                personality_commands::handle_personality_reset().await?;
-                return Ok(());
-            }
-            PersonalityCommands::Validate => {
-                personality_commands::handle_personality_validate().await?;
-                return Ok(());
-            }
-            PersonalityCommands::Export { path } => {
-                personality_commands::handle_personality_export(path.clone()).await?;
-                return Ok(());
-            }
-        }
-    }
+    // Beta.89: Personality management removed from CLI
+    // Now handled via natural language in the REPL
 
     // Phase 3.9: Handle init command early (doesn't need daemon)
     // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
@@ -964,17 +909,14 @@ async fn main() -> Result<()> {
     // - autonomy
     // - status (Anna self-health)
 
-    // Phase 3.10: Handle upgrade command early (doesn't need daemon, requires root)
-    // Phase 0.3c: State-aware dispatch
+    // Beta.89: State-aware dispatch with minimal commands
     // Get command name first
     let command_name = match command {
         Commands::Status { .. } => "status",
-        Commands::Help => "help",
         Commands::Historian { .. } => "historian",
         Commands::Version => "version",
         Commands::Ping => "ping",
         Commands::Tui => "tui",
-        Commands::Personality { .. } => "personality",
     };
 
     // Try to connect to daemon and get state
@@ -1834,17 +1776,16 @@ async fn get_state_and_capabilities(
 }
 
 /// Execute help command standalone (Phase 3.1 - doesn't require daemon)
+// Beta.89: This function is deprecated - help is now natural language only
+#[allow(dead_code)]
 async fn execute_help_command_standalone(
-    command: &Commands,
+    _command: &Commands,
     _socket_path: Option<&str>,
-    req_id: &str,
-    start_time: Instant,
+    _req_id: &str,
+    _start_time: Instant,
 ) -> Result<()> {
-    // Simplified Help - just display minimal help
-    match command {
-        Commands::Help => {}
-        _ => unreachable!(),
-    };
+    // Beta.89: Help command removed
+    // Users should use natural language: annactl "how do I use this?"
 
     // Display minimal modern help
     println!("\nAnna Assistant - Arch Linux System Administration\n");
@@ -1864,11 +1805,13 @@ async fn execute_help_command_standalone(
     println!("  > Tell me about my computer");
     println!("  > What's using all my disk space?\n");
 
-    // Log the help command
-    let duration_ms = start_time.elapsed().as_millis() as u64;
+    // Beta.89: Logging disabled for deprecated function
+    // TODO: Remove this entire function in Beta.90
+    /*
+    let duration_ms = _start_time.elapsed().as_millis() as u64;
     let log_entry = LogEntry {
         ts: LogEntry::now(),
-        req_id: req_id.to_string(),
+        req_id: _req_id.to_string(),
         state: "unknown".to_string(),
         command: "help".to_string(),
         allowed: Some(true),
@@ -1880,8 +1823,9 @@ async fn execute_help_command_standalone(
         error: None,
     };
     let _ = log_entry.write();
+    */
 
-    std::process::exit(EXIT_SUCCESS);
+    Ok(())
 }
 
 // LEGACY: /// Execute help command (Phase 0.3d - Legacy, requires daemon)

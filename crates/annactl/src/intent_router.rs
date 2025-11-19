@@ -46,14 +46,24 @@ pub enum Intent {
     Unclear(String),
 }
 
-/// Personality adjustment types
+/// Personality adjustment types (Beta.89: Full 16-trait control)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersonalityAdjustment {
+    /// Show all 16 personality traits
+    Show,
+    /// Set a specific trait to a value (0-10)
+    SetTrait { trait_key: String, value: u8 },
+    /// Adjust by descriptor ("be more concise", "be warmer", etc.)
+    AdjustByDescriptor { descriptor: String },
+    /// Reset all traits to defaults
+    Reset,
+    /// Validate configuration for conflicts
+    Validate,
+    // Legacy adjustments (kept for backwards compatibility)
     IncreaseHumor,
     DecreaseHumor,
     MoreBrief,
     MoreDetailed,
-    Show, // Show current settings
 }
 
 /// Route natural language input to intent
@@ -362,17 +372,69 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::Language { language: lang };
     }
 
-    // Personality adjustments
-    // Check for "show personality" first
+    // Beta.89: Enhanced personality adjustments
+
+    // "reset your personality" | "reset personality"
+    if contains_any(&words, &["reset"])
+        && contains_any(&words, &["personality", "traits", "settings"])
+    {
+        return Intent::Personality {
+            adjustment: PersonalityAdjustment::Reset,
+        };
+    }
+
+    // "validate your personality" | "check personality"
+    if contains_any(&words, &["validate", "check", "verify"])
+        && contains_any(&words, &["personality", "traits", "settings", "conflicts"])
+    {
+        return Intent::Personality {
+            adjustment: PersonalityAdjustment::Validate,
+        };
+    }
+
+    // "set warm_vs_cold to 8" | "set your warm_vs_cold to 8"
+    // Pattern: "set <trait_name> to <number>"
+    if contains_any(&words, &["set"]) && lower.contains(" to ") {
+        // Try to extract trait and value
+        if let Some((trait_key, value)) = extract_trait_set(&lower) {
+            return Intent::Personality {
+                adjustment: PersonalityAdjustment::SetTrait { trait_key, value },
+            };
+        }
+    }
+
+    // "be more concise" | "be warmer" | "be less formal"
+    // Pattern: "be [more|less] <descriptor>"
+    if contains_any(&words, &["be"])
+        && (contains_any(&words, &["more", "less", "warmer", "colder", "formal", "casual",
+                                     "concise", "verbose", "friendly", "professional"]))
+    {
+        // Extract the full descriptor
+        let descriptor = lower
+            .trim_start_matches("be ")
+            .trim_start_matches("be more ")
+            .trim_start_matches("be less ")
+            .trim();
+
+        if !descriptor.is_empty() {
+            return Intent::Personality {
+                adjustment: PersonalityAdjustment::AdjustByDescriptor {
+                    descriptor: descriptor.to_string()
+                },
+            };
+        }
+    }
+
+    // Check for "show personality"
     if contains_any(&words, &["show", "display", "current", "what"])
-        && contains_any(&words, &["personality", "settings", "preferences"])
+        && contains_any(&words, &["personality", "settings", "preferences", "traits"])
     {
         return Intent::Personality {
             adjustment: PersonalityAdjustment::Show,
         };
     }
 
-    // Personality humor (but not "tell me a joke" which is off-topic)
+    // Legacy personality humor (backwards compatibility)
     if contains_any(&words, &["humor", "humour", "ironic", "playful", "serious"])
         || (contains_any(&words, &["joke", "funny"])
             && contains_any(
@@ -394,6 +456,7 @@ pub fn route_intent(input: &str) -> Intent {
         }
     }
 
+    // Legacy brief/detailed (backwards compatibility)
     if contains_any(&words, &["brief", "concise", "short", "shorter"])
         && (contains_any(&words, &["answer", "response", "talk", "be"])
             || (contains_any(&words, &["more", "be"]) && lower.contains("brief")))
@@ -495,6 +558,32 @@ fn extract_language(words: &[&str], lower: &str) -> Option<String> {
     for (keyword, lang) in &language_keywords {
         if words.contains(keyword) || lower.contains(keyword) {
             return Some(lang.to_string());
+        }
+    }
+
+    None
+}
+
+/// Extract trait name and value from "set <trait> to <value>" pattern
+/// Beta.89: Supports patterns like "set warm_vs_cold to 8" or "set your introvert_vs_extrovert to 5"
+fn extract_trait_set(input: &str) -> Option<(String, u8)> {
+    // Remove common prefixes like "set", "set your", "set my"
+    let cleaned = input
+        .trim_start_matches("set ")
+        .trim_start_matches("your ")
+        .trim_start_matches("my ")
+        .trim();
+
+    // Split by " to " to get trait and value
+    if let Some(to_pos) = cleaned.find(" to ") {
+        let trait_part = &cleaned[..to_pos].trim();
+        let value_part = &cleaned[to_pos + 4..].trim();
+
+        // Parse the value (should be 0-10)
+        if let Ok(value) = value_part.parse::<u8>() {
+            if value <= 10 {
+                return Some((trait_part.to_string(), value));
+            }
         }
     }
 

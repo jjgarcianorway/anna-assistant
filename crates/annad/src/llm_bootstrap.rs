@@ -112,6 +112,40 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     // First priority: recommended model if available
     if let Some(rec) = recommended {
         if available_models.contains(&rec.model_name) {
+            // Beta.89 FIX: Don't override user's explicit model choice
+            // Only auto-configure if NOT already configured
+            if is_configured {
+                let current_model = existing_config.model.as_deref().unwrap_or("unknown");
+
+                // If user already has this model, we're good
+                if current_model == rec.model_name {
+                    info!("✓ Already using recommended model: {}", current_model);
+                    return Ok(());
+                }
+
+                // Check if recommended model is actually better
+                let current_profile = get_available_profiles()
+                    .into_iter()
+                    .find(|p| p.model_name == current_model);
+
+                if let Some(current) = current_profile {
+                    if rec.quality_tier <= current.quality_tier {
+                        info!(
+                            "✓ Current model {} ({:?}) is adequate, not downgrading to {} ({:?})",
+                            current.model_name, current.quality_tier, rec.model_name, rec.quality_tier
+                        );
+                        return Ok(());
+                    } else {
+                        info!(
+                            "⚡ Upgrading to recommended model: {} ({:?}) → {} ({:?})",
+                            current.model_name, current.quality_tier, rec.model_name, rec.quality_tier
+                        );
+                    }
+                } else {
+                    info!("⚡ Switching to recommended model: {} → {}", current_model, rec.model_name);
+                }
+            }
+
             info!(
                 "✓ Using recommended model for hardware: {} ({})",
                 rec.model_name, rec.description

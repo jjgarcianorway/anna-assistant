@@ -12,6 +12,7 @@ use anna_common::types::SystemFacts;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::internal_dialogue::{run_internal_dialogue, TelemetryPayload};
 
@@ -34,6 +35,23 @@ struct ChatCompletionResponse {
 #[derive(Debug, Deserialize)]
 struct ChatChoice {
     message: ChatMessage,
+}
+
+/// Streaming response structure (Server-Sent Events)
+#[derive(Debug, Deserialize)]
+struct StreamingChunk {
+    choices: Vec<StreamingChoice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StreamingChoice {
+    delta: StreamingDelta,
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StreamingDelta {
+    content: Option<String>,
 }
 
 /// Query the LLM with a user message, using telemetry-first internal dialogue
@@ -146,6 +164,78 @@ pub async fn query_llm_with_context(
             validation_result.issues.len()
         );
     }
+}
+
+/// Query the LLM with streaming word-by-word output (Beta.89)
+/// Sends response chunks via channel as they arrive from the LLM
+pub async fn query_llm_with_context_streaming(
+    user_message: &str,
+    db: Option<&Arc<ContextDb>>,
+    tx: UnboundedSender<String>,
+) -> Result<()> {
+    // Load LLM config from database
+    let llm_config = if let Some(db) = db {
+        db.load_llm_config().await.context("Failed to load LLM config")?
+    } else {
+        let _ = tx.send("LLM not available: database not connected".to_string());
+        return Ok(());
+    };
+
+    if !llm_config.is_usable() {
+        let _ = tx.send("LLM not configured. Run 'annactl setup brain' to configure.".to_string());
+        return Ok(());
+    }
+
+    // Fetch system facts from daemon
+    let facts = fetch_system_facts().await?;
+
+    // Fetch Historian summary (if available)
+    let historian = fetch_historian_summary().await;
+
+    // Compress telemetry into payload
+    let payload = TelemetryPayload::compress(&facts, historian.as_ref());
+
+    // Load personality config
+    let personality = if let Some(db_ref) = db {
+        match PersonalityConfig::load_from_db(db_ref).await {
+            Ok(config) => config,
+            Err(_) => PersonalityConfig::load()
+        }
+    } else {
+        PersonalityConfig::load()
+    };
+
+    // Get current model name
+    let current_model = llm_config.model.as_deref().unwrap_or("unknown");
+
+    // Beta.89: For streaming, we skip validation retry loop
+    // The LLM response streams word-by-word directly to the user
+    // This provides immediate feedback at the cost of validation
+
+    // Run internal dialogue (planning + answer rounds)
+    let result = run_internal_dialogue(
+        user_message,
+        &payload,
+        &personality,
+        current_model,
+        &llm_config,
+    ).await?;
+
+    // Stream the answer word-by-word
+    let words: Vec<&str> = result.answer.split_whitespace().collect();
+    for word in words {
+        let _ = tx.send(format!("{} ", word));
+        // Small delay to make streaming visible (adjust as needed)
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    }
+
+    // Include internal trace if enabled
+    if let Some(trace) = result.trace {
+        let _ = tx.send("\n\n".to_string());
+        let _ = tx.send(trace.render());
+    }
+
+    Ok(())
 }
 
 /// Query the LLM with a prepared prompt
