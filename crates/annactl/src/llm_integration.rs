@@ -102,7 +102,7 @@ pub async fn query_llm_with_context(
     let validator = AnswerValidator::new(false);
 
     // Create validation context
-    let mut context = ValidationContext::new(user_message.to_string());
+    let context = ValidationContext::new(user_message.to_string());
     // TODO: Add known files and packages from system facts
     // context.known_files = extract_known_files(&facts);
     // context.known_packages = extract_known_packages(&facts);

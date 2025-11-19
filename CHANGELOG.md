@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.119] - 2025-11-19
+
+### 🧹 CODE QUALITY: Compiler Warning Cleanup
+
+**What Changed:** Fixed unused imports and variables using `cargo fix`.
+
+#### The Problem
+
+README claimed "zero clippy errors" but build showed **300+ compiler warnings**:
+- Unused imports
+- Unused variables
+- Unused functions
+- Dead code
+
+This contradicted the "clean, idiomatic Rust code" claim.
+
+#### What Was Done
+
+Ran `cargo fix` on annactl and anna_common to automatically remove:
+- Unused import statements
+- Unused variable prefixes
+- Safe, mechanical fixes
+
+#### Impact
+
+**Before Beta.119:**
+- 300+ warnings (claimed "zero")
+- Contradictory documentation
+
+**After Beta.119:**
+- Reduced warning count (still some remaining, but honest about it)
+- Mechanical fixes applied where safe
+
+#### Files Modified
+
+- `crates/annactl/src/tui_v2.rs` - Removed unused imports
+- `crates/anna_common/src/*.rs` - Various unused import removals
+- `Cargo.toml` - Version 5.7.0-beta.119
+
+#### Note
+
+Some warnings remain (unused functions, dead code structures). These require manual review to determine if they should be removed or are genuinely needed. Beta.119 only applied safe, automatic fixes.
+
+---
+
 ## [5.7.0-beta.118] - 2025-11-19
 
 ### 📋 DOCUMENTATION: RecipePlanner TUI Gap Documented

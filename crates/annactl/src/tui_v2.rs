@@ -18,8 +18,8 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::io;
@@ -838,10 +838,10 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
 
 /// Beta.115: Generate reply with streaming support
 async fn generate_reply_streaming(input: &str, state: &AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> String {
-    use anna_common::command_recipe::Recipe;
+    
     use anna_common::template_library::TemplateLibrary;
-    use crate::recipe_formatter::format_recipe_answer;
-    use std::collections::HashMap;
+    
+    
 
     let library = TemplateLibrary::default();
     let input_lower = input.to_lowercase();
