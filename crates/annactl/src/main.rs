@@ -56,6 +56,7 @@ mod consensus_commands;
 mod empathy_commands;
 mod learning_commands;
 mod mirror_commands;
+mod personality_commands; // Beta.87: CLI personality management
 mod predictive_hints;
 mod sentinel_cli;
 
