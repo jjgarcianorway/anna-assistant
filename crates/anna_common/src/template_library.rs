@@ -253,6 +253,16 @@ impl TemplateLibrary {
         library.register(Self::check_gpu_errors());
         library.register(Self::analyze_graphics_performance());
 
+        // Beta.107: Desktop Environment diagnostics (700 questions - desktop/DE issues)
+        library.register(Self::check_display_server());
+        library.register(Self::check_desktop_environment());
+        library.register(Self::check_display_manager());
+        library.register(Self::analyze_xorg_errors());
+        library.register(Self::check_wayland_compositor());
+        library.register(Self::check_desktop_session());
+        library.register(Self::analyze_desktop_performance());
+        library.register(Self::check_window_manager());
+
         library
     }
 
@@ -2294,6 +2304,170 @@ impl TemplateLibrary {
                 validation_description: "Graphics stack info displayed".to_string(),
             }),
             example: "glxinfo | grep 'OpenGL renderer'".to_string(),
+        }
+    }
+
+    // ============================================================================
+    // Beta.107: Desktop Environment Diagnostics (700 questions - DE/desktop issues)
+    // ============================================================================
+
+    fn check_display_server() -> Template {
+        Template {
+            id: "check_display_server".to_string(),
+            name: "Check Display Server".to_string(),
+            description: "Detect display server type (Wayland or X11) and session information".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Display Server Type ===' && echo \"Session Type: $XDG_SESSION_TYPE\" && echo \"Display: $DISPLAY\" && echo \"Wayland Display: $WAYLAND_DISPLAY\" && echo && echo '=== Running Display Server ===' && ps aux | grep -E 'Xorg|X |wayland|weston|sway' | grep -v grep | head -10 && echo && echo '=== loginctl Session ===' && loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') 2>/dev/null | grep -E 'Type=|Class=|State=' || echo 'No loginctl session found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Wayland".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Display server info displayed".to_string(),
+            }),
+            example: "echo $XDG_SESSION_TYPE".to_string(),
+        }
+    }
+
+    fn check_desktop_environment() -> Template {
+        Template {
+            id: "check_desktop_environment".to_string(),
+            name: "Check Desktop Environment".to_string(),
+            description: "Identify desktop environment or window manager (KDE, GNOME, Xfce, i3, etc.)".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Desktop Environment ===' && echo \"Desktop: $XDG_CURRENT_DESKTOP\" && echo \"Session Desktop: $XDG_SESSION_DESKTOP\" && echo \"Desktop Session: $DESKTOP_SESSION\" && echo && echo '=== Running DE/WM Processes ===' && ps aux | grep -E 'plasma|plasmashell|kwin|gnome-shell|gnome-session|xfce4-session|mate-session|cinnamon|lxqt-session|i3|sway|bspwm|awesome|openbox|fluxbox' | grep -v grep | awk '{print $11}' | sort -u && echo && echo '=== Desktop Files ===' && ls -la ~/.config/autostart/*.desktop 2>/dev/null | head -5 || echo 'No autostart files found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Desktop_environment".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Desktop environment info displayed".to_string(),
+            }),
+            example: "echo $XDG_CURRENT_DESKTOP".to_string(),
+        }
+    }
+
+    fn check_display_manager() -> Template {
+        Template {
+            id: "check_display_manager".to_string(),
+            name: "Check Display Manager".to_string(),
+            description: "Identify display manager (SDDM, GDM, LightDM, etc.) and status".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Display Manager Processes ===' && ps aux | grep -E 'sddm|gdm|lightdm|kdm|xdm|lxdm|slim|entrance' | grep -v grep && echo && echo '=== Display Manager Services ===' && systemctl list-units --type=service --state=running | grep -E 'sddm|gdm|lightdm|kdm|xdm|lxdm' && echo && echo '=== Display Manager Configs ===' && ls -la /etc/sddm.conf /etc/gdm/custom.conf /etc/lightdm/lightdm.conf 2>/dev/null | head -10 || echo 'No display manager configs found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Display_manager".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Display manager info displayed".to_string(),
+            }),
+            example: "ps aux | grep sddm".to_string(),
+        }
+    }
+
+    fn analyze_xorg_errors() -> Template {
+        Template {
+            id: "analyze_xorg_errors".to_string(),
+            name: "Analyze Xorg Errors".to_string(),
+            description: "Check for X11/Xorg errors and crashes from logs".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Recent Xorg Errors (Xorg log) ===' && if [ -f ~/.local/share/xorg/Xorg.0.log ]; then grep -iE 'error|fail|fatal|warning' ~/.local/share/xorg/Xorg.0.log | tail -30; elif [ -f /var/log/Xorg.0.log ]; then grep -iE 'error|fail|fatal|warning' /var/log/Xorg.0.log | tail -30; else echo 'No Xorg log found'; fi && echo && echo '=== Xorg Crashes (journal - last 7 days) ===' && journalctl -b --since '7 days ago' | grep -iE 'xorg.*error|xorg.*crash|xorg.*segfault|x server.*error' | tail -20 || echo 'No Xorg crashes found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Xorg".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Xorg errors displayed".to_string(),
+            }),
+            example: "grep -i error ~/.local/share/xorg/Xorg.0.log".to_string(),
+        }
+    }
+
+    fn check_wayland_compositor() -> Template {
+        Template {
+            id: "check_wayland_compositor".to_string(),
+            name: "Check Wayland Compositor".to_string(),
+            description: "Show Wayland compositor status and configuration".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Wayland Compositor ===' && if [ -n \"$WAYLAND_DISPLAY\" ]; then echo \"Wayland Display: $WAYLAND_DISPLAY\"; ps aux | grep -E 'weston|sway|kwin_wayland|gnome-shell.*wayland|mutter.*wayland' | grep -v grep | head -5; else echo 'Not running Wayland'; fi && echo && echo '=== Wayland Errors (journal - last 7 days) ===' && journalctl -b --since '7 days ago' | grep -iE 'wayland.*error|wayland.*crash|compositor.*error' | tail -20 || echo 'No Wayland errors found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Wayland".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Wayland compositor status displayed".to_string(),
+            }),
+            example: "echo $WAYLAND_DISPLAY".to_string(),
+        }
+    }
+
+    fn check_desktop_session() -> Template {
+        Template {
+            id: "check_desktop_session".to_string(),
+            name: "Check Desktop Session".to_string(),
+            description: "Show current desktop session information and environment variables".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Desktop Session Variables ===' && env | grep -E 'XDG_|DESKTOP|DISPLAY|WAYLAND' | sort && echo && echo '=== Session Processes ===' && ps aux | grep -E 'session|dbus-daemon' | grep $(whoami) | grep -v grep | head -10 && echo && echo '=== Active Sessions ===' && loginctl list-sessions && echo && echo '=== Current Session Details ===' && loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') 2>/dev/null | head -20 || echo 'No session details available'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Desktop_environment".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Desktop session info displayed".to_string(),
+            }),
+            example: "env | grep XDG".to_string(),
+        }
+    }
+
+    fn analyze_desktop_performance() -> Template {
+        Template {
+            id: "analyze_desktop_performance".to_string(),
+            name: "Analyze Desktop Performance".to_string(),
+            description: "Check desktop performance issues (compositing, vsync, tearing)".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Compositor Status ===' && ps aux | grep -E 'picom|compton|xcompmgr|kwin|mutter|muffin' | grep -v grep | head -5 && echo && echo '=== Compositor Config ===' && ls -la ~/.config/picom.conf ~/.config/compton.conf 2>/dev/null | head -5 || echo 'No compositor config found' && echo && echo '=== Desktop CPU Usage ===' && ps aux | grep -E 'kwin|plasmashell|gnome-shell|xfwm4|mutter' | grep -v grep | awk '{print $3, $11}' | sort -rn | head -5 && echo && echo '=== Vsync/Tearing Info ===' && glxinfo 2>/dev/null | grep -i 'sync\\|tear\\|vblank' | head -5 || echo 'glxinfo not available'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Picom".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Desktop performance info displayed".to_string(),
+            }),
+            example: "ps aux | grep compositor".to_string(),
+        }
+    }
+
+    fn check_window_manager() -> Template {
+        Template {
+            id: "check_window_manager".to_string(),
+            name: "Check Window Manager".to_string(),
+            description: "Identify window manager and show configuration files".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Running Window Manager ===' && ps aux | grep -E 'i3|sway|bspwm|awesome|openbox|fluxbox|dwm|xmonad|herbstluftwm|kwin|mutter|xfwm4|muffin|marco' | grep -v grep | head -10 && echo && echo '=== Window Manager Configs ===' && ls -la ~/.config/i3/config ~/.config/sway/config ~/.config/bspwm/bspwmrc ~/.config/awesome/rc.lua ~/.config/openbox/rc.xml ~/.xmonad/xmonad.hs 2>/dev/null | head -10 || echo 'No WM configs found' && echo && echo '=== WM Errors (journal - last 24h) ===' && journalctl --user -b --since '24 hours ago' | grep -iE 'window manager|wm.*error|i3.*error|sway.*error' | tail -10 || echo 'No WM errors found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Window_manager".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Window manager info displayed".to_string(),
+            }),
+            example: "ps aux | grep i3".to_string(),
         }
     }
 }

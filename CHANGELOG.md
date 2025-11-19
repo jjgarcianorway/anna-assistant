@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.107] - 2025-11-19
+
+### Template Expansion: Desktop Environment Diagnostics (+8 Templates)
+
+**Continuing the path to 100% success rate** on the 700-question test suite. Beta.107 focuses on desktop environment diagnostics - addressing ~25 questions from the test suite.
+
+#### What Changed in Beta.107
+
+**Added 8 New Desktop Environment Diagnostic Templates:**
+
+1. **check_display_server** - Detect display server type (Wayland or X11) and session information
+2. **check_desktop_environment** - Identify desktop environment or window manager (KDE, GNOME, Xfce, i3, etc.)
+3. **check_display_manager** - Detect and show status of display manager (SDDM, GDM, LightDM, etc.)
+4. **analyze_xorg_errors** - Check for X11/Xorg errors and crashes from logs
+5. **check_wayland_compositor** - Check Wayland compositor status and detect compositors
+6. **check_desktop_session** - Show detailed desktop session information and environment variables
+7. **analyze_desktop_performance** - Analyze desktop performance issues (compositor, vsync, rendering)
+8. **check_window_manager** - Detect window manager and show configuration files
+
+**Template Count Progress:**
+- Beta.106: 95 templates
+- Beta.107: 103 templates (+8.4% increase)
+
+#### Templates Address Common Desktop Environment Problems
+
+From the 700-question test suite, desktop environment questions include:
+- "Am I using Wayland or X11?" → `check_display_server`
+- "What desktop environment am I running?" → `check_desktop_environment`
+- "Which display manager is running?" → `check_display_manager`
+- "Xorg errors in logs?" → `analyze_xorg_errors`
+- "Is my Wayland compositor working?" → `check_wayland_compositor`
+- "What are my desktop session details?" → `check_desktop_session`
+- "Desktop performance issues" → `analyze_desktop_performance`
+- "Which window manager am I using?" → `check_window_manager`
+
+These templates provide comprehensive diagnostics for all major desktop environments and display servers.
+
+#### Multi-Desktop Support
+
+**Display Servers:**
+- Wayland compositor detection (weston, sway, kwin_wayland, etc.)
+- X11/Xorg detection and error analysis
+- Session type detection via XDG environment variables
+
+**Desktop Environments:**
+- KDE Plasma (plasma, plasmashell, kwin)
+- GNOME (gnome-shell, gnome-session)
+- Xfce (xfce4-session)
+- MATE, Cinnamon, LXQt
+- Window managers (i3, sway, bspwm, awesome, openbox, fluxbox)
+
+**Display Managers:**
+- SDDM (KDE default)
+- GDM (GNOME default)
+- LightDM (lightweight)
+- LXDM, XDM
+
+#### Files Modified
+
+- **crates/anna_common/src/template_library.rs** - Added 8 desktop environment diagnostic templates (registrations at lines 256-264, implementations at lines 2310-2472)
+- **Cargo.toml** - Version 5.7.0-beta.106 → 5.7.0-beta.107
+- **CHANGELOG.md** - Documented template additions
+
+#### Coverage Progress
+
+**From 700-Question Test Suite:**
+- ✅ Pacman management (~30 questions) - Beta.102
+- ✅ Systemd boot/journal (~25 questions) - Beta.103
+- ✅ CPU & performance (~40 questions) - Beta.104
+- ✅ Memory & swap (~15 questions) - Beta.105
+- ✅ GPU diagnostics (~20 questions) - Beta.106
+- ✅ Desktop environment (~25 questions) - Beta.107
+- 📋 VM/containers (~30 questions) - Beta.108 (planned)
+- 📋 Storage/filesystems (~25 questions) - Beta.109 (planned)
+
+**Progress:** ~155/700 questions covered with specific templates (22.1%)
+**Path Forward:** Continue systematic expansion to reach 80%+ coverage
+
+---
+
 ## [5.7.0-beta.106] - 2025-11-19
 
 ### Template Expansion: GPU Diagnostics (+8 Templates)
