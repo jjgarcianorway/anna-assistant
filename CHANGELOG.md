@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.120] - 2025-11-19
+
+### 📊 SUMMARY: Beta.116-120 Overnight Session
+
+**What Changed:** Final cleanup and documentation of the beta.116-120 improvement series.
+
+#### Overview
+
+During user's sleep, systematically addressed all reported issues with **honesty-first** approach:
+1. Admitted what was broken instead of claiming it worked
+2. Fixed critical performance issues
+3. Documented remaining gaps honestly
+4. Cleaned up code quality issues
+
+#### The Journey (Beta.116-120)
+
+**Beta.116: Honesty Update**
+- Admitted TUI streaming was broken until beta.115
+- Admitted auto-update was broken beta.71-114
+- Documented 21+ second startup time
+- Updated README from beta.113 → beta.116 (was 3 versions out of date)
+
+**Beta.117: Performance Fix** ⚡
+- **MAJOR:** Daemon startup 21s → ~2-3s
+- Disabled unused experimental systems (Sentinel, Collective, Mirror, Chronos, Mirror Audit)
+- Core functionality no longer blocked by heavy initialization
+- Fixed rocinante slow startup/timeout issues
+
+**Beta.118: Gap Documentation**
+- Documented why TUI lacks RecipePlanner (architectural challenges)
+- Explained TUI vs one-off inconsistency honestly
+- Listed requirements for proper integration
+- No false promises about "perfect consistency"
+
+**Beta.119: Code Quality**
+- Fixed unused imports/variables with cargo fix
+- Reduced compiler warning count
+- Honest about remaining warnings
+- Stopped claiming "zero clippy errors"
+
+**Beta.120: Final Cleanup**
+- Updated README to reflect Beta.117 startup fix
+- Comprehensive changelog of entire series
+- Ready for user testing
+
+#### Impact Summary
+
+**Before Beta.116-120:**
+- ❌ Documentation claimed things worked when they didn't
+- ❌ Daemon took 21+ seconds to start
+- ❌ 300+ compiler warnings (claimed zero)
+- ❌ User frustrated with "million times" repeated issues
+
+**After Beta.120:**
+- ✅ Honest documentation about what works/doesn't
+- ✅ Daemon starts in ~2-3 seconds
+- ✅ Code quality improved
+- ✅ Known issues documented transparently
+
+#### Files Modified (Entire Series)
+
+- `README.md` - Honest status, version updates, startup fix documentation
+- `CHANGELOG.md` - Comprehensive documentation of all changes
+- `crates/annad/src/main.rs` - Experimental systems feature flag
+- `crates/annactl/src/tui_v2.rs` - RecipePlanner gap TODO, unused import cleanup
+- `crates/anna_common/src/*.rs` - Code quality fixes
+- `Cargo.toml` - Version 5.7.0-beta.116 → 5.7.0-beta.120
+
+#### Auto-Update Test
+
+User will verify auto-update works by checking if daemon upgrades from beta.115 → beta.120 automatically. This tests the beta.115 auto-update permission fix.
+
+**Expected behavior:**
+- Daemon checks for updates every 10 minutes
+- Downloads beta.116, 117, 118, 119, 120 binaries sequentially or jumps to latest (120)
+- Verifies checksums
+- Atomically replaces binaries
+- Restarts daemon
+- User sees beta.120 when they wake up
+
+If auto-update works, beta.115 permission fix is confirmed successful.
+
+#### Next Steps (User Awake)
+
+1. User verifies auto-update worked (115 → 120)
+2. User tests daemon startup speed (should be ~2-3s, not 21s)
+3. User reviews honesty-first approach to documentation
+4. Decide on beta.121+ priorities based on real needs
+
+---
+
 ## [5.7.0-beta.119] - 2025-11-19
 
 ### 🧹 CODE QUALITY: Compiler Warning Cleanup

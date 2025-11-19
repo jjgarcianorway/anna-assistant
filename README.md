@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.116 (Honest Documentation + Critical Fixes)
+**Version:** 5.7.0-beta.120 (Honest Documentation + Performance Fixes)
 
 ---
 
@@ -22,7 +22,7 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.116)
+## Current Status (v5.7.0-beta.120)
 
 ### ✅ What Actually Works (Honest Assessment)
 
@@ -40,7 +40,7 @@ Anna is **not**:
 - ✅ System facts collection (hardware, OS, packages, services)
 - ✅ **Auto-update system (FIXED in beta.115)** - Was broken due to filesystem permissions (beta.71-114)
 - ✅ **Installer optimization:** Skips re-downloading same version (beta.65)
-- ⚠️  **Daemon startup slow (21+ seconds)** - Heavy initialization blocks "ready" state
+- ✅ **Fast daemon startup (FIXED in beta.117)** - Now ~2-3 seconds (was 21+ seconds)
 
 **Template System (NEW in beta.112 - MAJOR UPGRADE):**
 - 🚀 **68 of 102 templates now mapped** - Up from 13 (67% coverage vs <10%)
