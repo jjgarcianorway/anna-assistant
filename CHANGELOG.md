@@ -7,6 +7,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.96] - 2025-11-19
+
+### TEMPLATE EXPLOSION - Phase 1 Roadmap to 80%
+
+**Focus:** Massive template expansion to eliminate hallucinations and improve success rate from 54.4% to 80%
+
+#### The Problem (Reported by User)
+
+User reported critical hallucination:
+- Asked: "Tell me the weak points of my system"
+- Anna hallucinated: "Storage free space is 0%" (FALSE - storage was fine)
+- Different answers in TUI vs one-shot mode
+- Vague, unhelpful advice about CPU and RAM
+- This destroys user trust
+
+**Root Cause:** Only 14 templates, forcing LLM to improvise for most questions
+
+#### Phase 1 Solution: Template Explosion
+
+**Goal:** Expand from 14 templates to 33+ templates (on track to 50+)
+
+**Beta.96 Additions: 19 New Templates**
+
+1. **System Weak Points Diagnostic** (CRITICAL fix for hallucination)
+   - Comprehensive multi-check template with real data
+   - Checks: Storage, Memory, CPU Load, Failed Services, Recent Errors
+   - No hallucination - runs actual commands, returns real results
+   - Template: `system_weak_points_diagnostic`
+
+2. **Package Management Templates (10)**
+   - List orphaned packages: `pacman -Qdt`
+   - Check package file integrity: `pacman -Qk {package}`
+   - Clean package cache: `pacman -Scc`
+   - List package files: `pacman -Ql {package}`
+   - Find file owner: `pacman -Qo {filepath}`
+   - List explicit packages: `pacman -Qe`
+   - Check for updates: `checkupdates`
+   - List AUR packages: `pacman -Qm`
+   - Show dependencies: `pactree {package}`
+   - Show reverse dependencies: `pactree -r {package}`
+
+3. **Network Diagnostics Templates (8)**
+   - DNS resolution: `nslookup {domain}`
+   - Network interfaces: `ip -br addr`
+   - Routing table: `ip route`
+   - Firewall rules: `iptables -L -n -v`
+   - Port connectivity: `nc -zv {host} {port}`
+   - WiFi signal: `iwconfig | grep Quality`
+   - Network latency: `ping -c 4 {host}`
+   - Listening ports: `ss -tulpn`
+
+#### Impact
+
+**Before Beta.96:**
+- 14 templates total
+- 54.4% success rate (921 questions tested)
+- Frequent hallucinations like the "0% storage" issue
+- LLM forced to improvise for most scenarios
+
+**After Beta.96:**
+- 33 templates total (+136% increase)
+- Templates cover most common user scenarios
+- Real data, no hallucination
+- Foundation for reaching 80%+ success rate
+
+#### Files Modified
+
+- `crates/anna_common/src/template_library.rs:482-930` (Added 19 new templates)
+- `crates/anna_common/src/template_library.rs:152-175` (Registered new templates)
+- `docs/roadmap_to_80_percent.md` (User's hallucination documented as critical fix)
+- `scripts/fetch_multi_subreddit_qa.sh:22-24` (Added r/unixporn, r/linuxmasterrace, r/linuxmint for QA)
+
+#### Roadmap Progress
+
+**Phase 1: Template Explosion (Beta.96)** - In Progress
+- Target: 50+ templates
+- Current: 33 templates
+- Next: Service Management, Configuration, System Diagnostics, Desktop Environment
+
+**Phase 2: Multi-Step Action Plans (Beta.97)** - Planned
+- Handle complex problems requiring multiple steps
+- Automatic rollback on failure
+
+**Phase 3: Context Detection (Beta.98)** - Planned
+- System state detection
+- Context-aware answers
+
+**Phase 4: Continuous Learning (Beta.99)** - Planned
+- Success tracking
+- Automatic template generation
+
+**Goal:** 80%+ success rate by Beta.99 (8 weeks from now)
+
+### Next Steps
+
+**For Beta.97:**
+- Add Service Management templates (6)
+- Add Configuration Management templates (8)
+- Add System Diagnostics templates (8)
+- Add Desktop Environment templates (5)
+- Reach 50+ total templates
+- Begin multi-step action plan framework
+
 ## [5.7.0-beta.95] - 2025-11-19
 
 ### CRITICAL FIXES - Stop the Spam!

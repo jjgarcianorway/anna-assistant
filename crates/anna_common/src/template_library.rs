@@ -149,6 +149,31 @@ impl TemplateLibrary {
         library.register(Self::check_failed_services());
         library.register(Self::check_journal_errors());
 
+        // Beta.96: Critical fix for hallucination issue
+        library.register(Self::system_weak_points_diagnostic());
+
+        // Beta.96: Package Management templates
+        library.register(Self::list_orphaned_packages());
+        library.register(Self::check_package_integrity());
+        library.register(Self::clean_package_cache());
+        library.register(Self::list_package_files());
+        library.register(Self::find_file_owner());
+        library.register(Self::list_explicit_packages());
+        library.register(Self::check_package_updates());
+        library.register(Self::list_aur_packages());
+        library.register(Self::package_depends());
+        library.register(Self::package_reverse_depends());
+
+        // Beta.96: Network Diagnostics templates
+        library.register(Self::check_dns_resolution());
+        library.register(Self::check_network_interfaces());
+        library.register(Self::check_routing_table());
+        library.register(Self::check_firewall_rules());
+        library.register(Self::test_port_connectivity());
+        library.register(Self::check_wifi_signal());
+        library.register(Self::check_network_latency());
+        library.register(Self::check_listening_ports());
+
         library
     }
 
@@ -476,6 +501,440 @@ impl TemplateLibrary {
                 validation_description: "Journal errors are displayed if any exist".to_string(),
             }),
             example: "journalctl -p 3 -xb".to_string(),
+        }
+    }
+
+    // Beta.96: Critical template to fix hallucination issue reported 2025-11-19
+    // User reported: "Asked about weak points and it hallucinated '0% storage free space'"
+    fn system_weak_points_diagnostic() -> Template {
+        Template {
+            id: "system_weak_points_diagnostic".to_string(),
+            name: "System Weak Points Diagnostic".to_string(),
+            description: "Comprehensive system diagnostic to identify actual weak points and issues - no hallucination, real data only".to_string(),
+            parameters: vec![],
+            command_pattern: r#"printf "=== STORAGE ===\n" && df -h / && printf "\n=== MEMORY ===\n" && free -h && printf "\n=== CPU LOAD ===\n" && uptime && printf "\n=== FAILED SERVICES ===\n" && systemctl --failed --no-pager && printf "\n=== RECENT ERRORS (last 20) ===\n" && journalctl -p err -b --no-pager -n 20"#.to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("STORAGE".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Diagnostic output includes all system health checks".to_string(),
+            }),
+            example: r#"printf "=== STORAGE ===\n" && df -h / && printf "\n=== MEMORY ===\n" && free -h && ..."#.to_string(),
+        }
+    }
+
+    // ===== BETA.96: PACKAGE MANAGEMENT TEMPLATES =====
+
+    fn list_orphaned_packages() -> Template {
+        Template {
+            id: "list_orphaned_packages".to_string(),
+            name: "List Orphaned Packages".to_string(),
+            description: "List packages that were installed as dependencies but are no longer required".to_string(),
+            parameters: vec![],
+            command_pattern: "pacman -Qdt".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Removing_packages".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None, // Empty output is valid (no orphans)
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Lists orphaned packages or shows empty if none".to_string(),
+            }),
+            example: "pacman -Qdt".to_string(),
+        }
+    }
+
+    fn check_package_integrity() -> Template {
+        Template {
+            id: "check_package_integrity".to_string(),
+            name: "Check Package File Integrity".to_string(),
+            description: "Verify integrity of installed package files".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "package".to_string(),
+                description: "Package name to verify".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._+-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "pacman -Qk {{package}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("{{package}}".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Package integrity check results displayed".to_string(),
+            }),
+            example: "pacman -Qk linux".to_string(),
+        }
+    }
+
+    fn clean_package_cache() -> Template {
+        Template {
+            id: "clean_package_cache".to_string(),
+            name: "Clean Package Cache".to_string(),
+            description: "Remove all cached package files to free disk space".to_string(),
+            parameters: vec![],
+            command_pattern: "sudo pacman -Scc --noconfirm".to_string(),
+            category: CommandCategory::SystemWrite,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Cleaning_the_package_cache".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: Some("error".to_string()),
+                stderr_must_match: None,
+                validation_description: "Cache cleaned successfully".to_string(),
+            }),
+            example: "sudo pacman -Scc --noconfirm".to_string(),
+        }
+    }
+
+    fn list_package_files() -> Template {
+        Template {
+            id: "list_package_files".to_string(),
+            name: "List Package Files".to_string(),
+            description: "List all files installed by a package".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "package".to_string(),
+                description: "Package name to list files for".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._+-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "pacman -Ql {{package}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("{{package}}".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "List of files displayed".to_string(),
+            }),
+            example: "pacman -Ql vim".to_string(),
+        }
+    }
+
+    fn find_file_owner() -> Template {
+        Template {
+            id: "find_file_owner".to_string(),
+            name: "Find File Owner Package".to_string(),
+            description: "Find which package owns a specific file".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "filepath".to_string(),
+                description: "Full path to the file".to_string(),
+                validation_regex: Some(r"^/.*".to_string()),
+                required: true,
+            }],
+            command_pattern: "pacman -Qo {{filepath}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("owned by".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Shows which package owns the file".to_string(),
+            }),
+            example: "pacman -Qo /usr/bin/vim".to_string(),
+        }
+    }
+
+    fn list_explicit_packages() -> Template {
+        Template {
+            id: "list_explicit_packages".to_string(),
+            name: "List Explicitly Installed Packages".to_string(),
+            description: "List packages that were explicitly installed by the user".to_string(),
+            parameters: vec![],
+            command_pattern: "pacman -Qe".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "List of explicitly installed packages".to_string(),
+            }),
+            example: "pacman -Qe".to_string(),
+        }
+    }
+
+    fn check_package_updates() -> Template {
+        Template {
+            id: "check_package_updates".to_string(),
+            name: "Check for Package Updates".to_string(),
+            description: "List packages with available updates".to_string(),
+            parameters: vec![],
+            command_pattern: "checkupdates".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance#Check_for_updates".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None, // Empty output is valid (no updates)
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Lists available updates or shows empty if system is up to date".to_string(),
+            }),
+            example: "checkupdates".to_string(),
+        }
+    }
+
+    fn list_aur_packages() -> Template {
+        Template {
+            id: "list_aur_packages".to_string(),
+            name: "List AUR Packages".to_string(),
+            description: "List packages installed from AUR (foreign packages)".to_string(),
+            parameters: vec![],
+            command_pattern: "pacman -Qm".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Arch_User_Repository".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None, // Empty output is valid (no AUR packages)
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Lists foreign/AUR packages".to_string(),
+            }),
+            example: "pacman -Qm".to_string(),
+        }
+    }
+
+    fn package_depends() -> Template {
+        Template {
+            id: "package_depends".to_string(),
+            name: "Show Package Dependencies".to_string(),
+            description: "Show all dependencies of a package".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "package".to_string(),
+                description: "Package name to check dependencies for".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._+-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "pactree {{package}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("{{package}}".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Dependency tree displayed".to_string(),
+            }),
+            example: "pactree vim".to_string(),
+        }
+    }
+
+    fn package_reverse_depends() -> Template {
+        Template {
+            id: "package_reverse_depends".to_string(),
+            name: "Show Packages Depending On This".to_string(),
+            description: "Show which packages depend on this package".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "package".to_string(),
+                description: "Package name to check reverse dependencies for".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._+-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "pactree -r {{package}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("{{package}}".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Reverse dependency tree displayed".to_string(),
+            }),
+            example: "pactree -r glibc".to_string(),
+        }
+    }
+
+    // ===== BETA.96: NETWORK DIAGNOSTICS TEMPLATES =====
+
+    fn check_dns_resolution() -> Template {
+        Template {
+            id: "check_dns_resolution".to_string(),
+            name: "Check DNS Resolution".to_string(),
+            description: "Test DNS resolution for a domain".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "domain".to_string(),
+                description: "Domain name to resolve (e.g., archlinux.org)".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$".to_string()),
+                required: true,
+            }],
+            command_pattern: "nslookup {{domain}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_Debugging".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Address".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "DNS resolution successful".to_string(),
+            }),
+            example: "nslookup archlinux.org".to_string(),
+        }
+    }
+
+    fn check_network_interfaces() -> Template {
+        Template {
+            id: "check_network_interfaces".to_string(),
+            name: "Check Network Interfaces".to_string(),
+            description: "List all network interfaces and their status".to_string(),
+            parameters: vec![],
+            command_pattern: "ip -br addr".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_configuration".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Network interfaces listed with IP addresses".to_string(),
+            }),
+            example: "ip -br addr".to_string(),
+        }
+    }
+
+    fn check_routing_table() -> Template {
+        Template {
+            id: "check_routing_table".to_string(),
+            name: "Check Routing Table".to_string(),
+            description: "Display the kernel routing table".to_string(),
+            parameters: vec![],
+            command_pattern: "ip route".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_configuration#Routing_table".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Routing table displayed".to_string(),
+            }),
+            example: "ip route".to_string(),
+        }
+    }
+
+    fn check_firewall_rules() -> Template {
+        Template {
+            id: "check_firewall_rules".to_string(),
+            name: "Check Firewall Rules".to_string(),
+            description: "List current firewall rules (iptables)".to_string(),
+            parameters: vec![],
+            command_pattern: "sudo iptables -L -n -v".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Iptables".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Chain".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Firewall rules listed".to_string(),
+            }),
+            example: "sudo iptables -L -n -v".to_string(),
+        }
+    }
+
+    fn test_port_connectivity() -> Template {
+        Template {
+            id: "test_port_connectivity".to_string(),
+            name: "Test Port Connectivity".to_string(),
+            description: "Test if a remote port is accessible".to_string(),
+            parameters: vec![
+                TemplateParameter {
+                    name: "host".to_string(),
+                    description: "Hostname or IP address".to_string(),
+                    validation_regex: Some(r"^[a-zA-Z0-9.-]+$".to_string()),
+                    required: true,
+                },
+                TemplateParameter {
+                    name: "port".to_string(),
+                    description: "Port number (e.g., 80, 443, 22)".to_string(),
+                    validation_regex: Some(r"^\d{1,5}$".to_string()),
+                    required: true,
+                },
+            ],
+            command_pattern: "nc -zv {{host}} {{port}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_Debugging".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: Some("succeeded".to_string()),
+                validation_description: "Port is open and accessible".to_string(),
+            }),
+            example: "nc -zv archlinux.org 443".to_string(),
+        }
+    }
+
+    fn check_wifi_signal() -> Template {
+        Template {
+            id: "check_wifi_signal".to_string(),
+            name: "Check WiFi Signal Strength".to_string(),
+            description: "Show WiFi signal strength and quality".to_string(),
+            parameters: vec![],
+            command_pattern: "iwconfig 2>/dev/null | grep -E 'Quality|Signal'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Wireless#Get_the_name_of_the_interface".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None, // Empty if no WiFi
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "WiFi signal information or empty if no WiFi".to_string(),
+            }),
+            example: "iwconfig 2>/dev/null | grep -E 'Quality|Signal'".to_string(),
+        }
+    }
+
+    fn check_network_latency() -> Template {
+        Template {
+            id: "check_network_latency".to_string(),
+            name: "Check Network Latency".to_string(),
+            description: "Test network latency with ping".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "host".to_string(),
+                description: "Host to ping (e.g., 8.8.8.8, archlinux.org)".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9.-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "ping -c 4 {{host}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_Debugging".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("packets transmitted".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Ping statistics displayed".to_string(),
+            }),
+            example: "ping -c 4 8.8.8.8".to_string(),
+        }
+    }
+
+    fn check_listening_ports() -> Template {
+        Template {
+            id: "check_listening_ports".to_string(),
+            name: "Check Listening Ports".to_string(),
+            description: "List all ports that services are listening on".to_string(),
+            parameters: vec![],
+            command_pattern: "ss -tulpn".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_Debugging".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("State".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Listening ports and services displayed".to_string(),
+            }),
+            example: "ss -tulpn".to_string(),
         }
     }
 }
