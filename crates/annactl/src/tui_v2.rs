@@ -65,15 +65,20 @@ async fn run_event_loop(
     _tx: mpsc::Sender<TuiMessage>,
     _rx: &mut mpsc::Receiver<TuiMessage>,
 ) -> Result<()> {
-    // Beta.91: Initialize telemetry with real data
+    // Beta.94: Initialize telemetry with real data
     update_telemetry(state);
+
+    // Beta.94: Show welcome message on first launch
+    if state.conversation.is_empty() {
+        show_welcome_message(state);
+    }
 
     // Track last telemetry update
     let mut last_telemetry_update = std::time::Instant::now();
-    let telemetry_interval = std::time::Duration::from_secs(2);
+    let telemetry_interval = std::time::Duration::from_secs(5);
 
     loop {
-        // Beta.91: Update telemetry every 2 seconds
+        // Beta.94: Update telemetry every 5 seconds
         if last_telemetry_update.elapsed() >= telemetry_interval {
             update_telemetry(state);
             last_telemetry_update = std::time::Instant::now();
@@ -212,13 +217,13 @@ fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 }
 
 /// Draw professional status bar (bottom)
-/// Format: 15:42 Nov 19 | Health: ✓ | Model: llama3.2:3b | CPU: 8% | RAM: 4.2GB
-/// With thinking indicator: 15:42 Nov 19 | ⣾ Thinking... | Model: llama3.2:3b | CPU: 8% | RAM: 4.2GB
+/// Format: 15:42:08 Nov 19 | Health: ✓ | CPU: 8% | RAM: 4.2GB
+/// With thinking indicator: 15:42:08 Nov 19 | ⣾ Thinking... | CPU: 8% | RAM: 4.2GB
 fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use chrono::Local;
 
     let now = Local::now();
-    let time_str = now.format("%H:%M %b %d").to_string();
+    let time_str = now.format("%H:%M:%S %b %d").to_string();
 
     // Beta.91: Thinking indicator with animation
     let thinking_spinner = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
@@ -255,9 +260,6 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     }
 
     spans.extend_from_slice(&[
-        Span::raw("Model: "),
-        Span::styled(&state.llm_panel.model_name, Style::default().fg(Color::Yellow)),
-        Span::raw(" | "),
         Span::raw(format!("CPU: {:.0}%", state.system_panel.cpu_load_1min)),
         Span::raw(" | "),
         Span::raw(format!("RAM: {:.1}GB", state.system_panel.ram_used_gb)),
@@ -594,6 +596,71 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
         }
         None => format!("## Error\n\nTemplate '{}' not found", template_id),
     }
+}
+
+/// Beta.94: Show proactive welcome message with system info
+fn show_welcome_message(state: &mut AnnaTuiState) {
+    use std::env;
+
+    let username = env::var("USER").unwrap_or_else(|_| "friend".to_string());
+
+    // Gather system highlights
+    let cpu_status = if state.system_panel.cpu_load_1min < 50.0 {
+        "✅ running smoothly"
+    } else if state.system_panel.cpu_load_1min < 80.0 {
+        "⚠️ moderate load"
+    } else {
+        "🔥 high load"
+    };
+
+    let ram_status = if state.system_panel.ram_used_gb < state.system_panel.ram_total_gb * 0.7 {
+        "✅ plenty available"
+    } else if state.system_panel.ram_used_gb < state.system_panel.ram_total_gb * 0.9 {
+        "⚠️ getting full"
+    } else {
+        "🔴 critically low"
+    };
+
+    let llm_status = if state.llm_panel.available {
+        format!("✅ {} ready", state.llm_panel.model_name)
+    } else {
+        "⚠️ LLM not available (install Ollama)".to_string()
+    };
+
+    // Build beautiful welcome message
+    let welcome = format!(
+        "👋 **Hello {}!** Welcome to Anna v{}\n\n\
+         Here's what I can tell you right now:\n\n\
+         🖥️  **System Status:**\n\
+         • CPU: {} ({:.0}% load)\n\
+         • RAM: {:.1}GB / {:.1}GB used ({})\n\
+         • Disk: {:.1}GB free\n\
+         {}\n\n\
+         🤖 **AI Assistant:**\n\
+         • {}\n\n\
+         💡 **Quick Actions:**\n\
+         • Ask about system health: \"how is my system?\"\n\
+         • Check resources: \"how much RAM do I have?\"\n\
+         • Monitor services: \"show failed services\"\n\
+         • Get help: Press F1\n\n\
+         **What would you like to know or do?**",
+        username,
+        state.system_panel.anna_version,
+        state.system_panel.cpu_model,
+        state.system_panel.cpu_load_1min,
+        state.system_panel.ram_used_gb,
+        state.system_panel.ram_total_gb,
+        ram_status,
+        if state.system_panel.gpu_name.is_some() {
+            format!("• GPU: {}\n", state.system_panel.gpu_name.as_ref().unwrap())
+        } else {
+            String::new()
+        },
+        llm_status,
+        cpu_status
+    );
+
+    state.add_anna_reply(welcome);
 }
 
 /// Update telemetry data in state

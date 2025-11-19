@@ -7,6 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.94] - 2025-11-19
+
+### TUI UX IMPROVEMENTS - Beautiful, Proactive Interface
+
+**Focus:** Enhanced user experience with proactive welcome, beautiful formatting, and improved telemetry
+
+#### 1. Proactive Welcome Message
+
+**Welcome on First Launch:**
+- Personalized greeting: "👋 **Hello {username}!** Welcome to Anna v{version}"
+- Real-time system status with emoji indicators
+- System health overview (CPU, RAM, disk, GPU if available)
+- LLM availability status
+- Quick action suggestions
+- Beautiful formatting with sections and emoji
+
+**Status Indicators:**
+- ✅ Healthy system metrics
+- ⚠️ Warning for moderate load/usage
+- 🔥 Critical alerts for high load
+- 🔴 Critical low resources
+
+#### 2. Beautiful Formatted Replies
+
+**Template Responses Now Include Emojis:**
+- 📝 **Summary** - Quick overview of what will be done
+- ⚡ **Commands to Run** - Executable commands in code blocks
+- 💡 **What This Does** - Clear explanations
+- ↩️ **Restore Steps** - Rollback instructions (when applicable)
+- 💾 **Backup Info** - Backup file naming convention
+- 📚 **Arch Wiki References** - Source documentation
+
+**Before vs After:**
+```
+Before:  ## Summary
+After:   📝 **Summary**
+
+Before:  ## Commands to Run
+After:   ⚡ **Commands to Run**
+
+Before:  ## Interpretation
+After:   💡 **What This Does**
+```
+
+#### 3. Status Bar Improvements
+
+**Time Display:**
+- Changed from `%H:%M %b %d` to `%H:%M:%S %b %d`
+- Seconds now visible for precise time tracking
+- Format: "15:42:08 Nov 19"
+
+**Telemetry Updates:**
+- Increased from 2s to 5s interval
+- Reduces CPU overhead while keeping UI responsive
+- System metrics (CPU, RAM) update every 5 seconds
+
+**Duplicate Removal:**
+- Model name previously appeared in both header and footer
+- Now only shown in header: "Anna v5.7.0 | llama3.1:8b | user@hostname | ● LIVE"
+- Footer shows: "15:42:08 Nov 19 | Health: ✓ | CPU: 8% | RAM: 4.2GB"
+- Cleaner, less redundant interface
+
+#### 4. Code Changes
+
+**Files Modified:**
+- `Cargo.toml` - Version bump to 5.7.0-beta.94
+- `crates/annactl/src/tui_v2.rs`:
+  - Added `show_welcome_message()` function with beautiful formatting
+  - Updated time format to include seconds (line 226)
+  - Changed telemetry interval to 5 seconds (line 78)
+  - Removed duplicate model name from status bar (lines 262-266)
+  - Call welcome message on first launch (lines 71-74)
+- `crates/annactl/src/recipe_formatter.rs`:
+  - Added emojis to all section headers
+  - Changed "Interpretation" to "💡 **What This Does**"
+  - Updated tests to match new emoji-enhanced format
+
+#### 5. User Experience Improvements
+
+**Proactive Assistance:**
+- No longer silent on launch
+- Immediately provides useful system information
+- Suggests relevant actions based on current state
+- Sets friendly, helpful tone from the start
+
+**Visual Appeal:**
+- Consistent emoji usage throughout
+- Bold section headers for better scanning
+- Bullet points (•) instead of hyphens (-)
+- Professional yet friendly appearance
+
+**Information Density:**
+- Welcome message shows 5-7 key system metrics
+- Quick actions list shows common queries
+- Status bar reduced to essential info only
+- No redundant data display
+
+#### 6. Testing
+
+**Verified:**
+- ✅ Welcome message displays on first launch
+- ✅ System metrics accurate in welcome message
+- ✅ Time includes seconds in status bar
+- ✅ Telemetry updates every 5 seconds
+- ✅ Model name only appears once (in header)
+- ✅ Emoji formatting renders correctly
+- ✅ All template responses beautifully formatted
+- ✅ Build succeeds with no errors
+
+#### 7. Next Steps (Beta.95+)
+
+**Word-by-Word Streaming:**
+- Implement streaming LLM responses in TUI
+- Show replies appearing word-by-word instead of all-at-once
+- Add typing indicator animation
+
+**Additional Formatting:**
+- Color coding for different message types
+- Syntax highlighting in code blocks
+- Better markdown rendering
+
+**UX Polish:**
+- Add scroll position indicator
+- Show conversation length / memory usage
+- Add keyboard shortcut overlay
+
 ## [5.7.0-beta.93] - 2025-11-19
 
 ### TEMPLATE LIBRARY EXPANSION + TUI IMPROVEMENTS

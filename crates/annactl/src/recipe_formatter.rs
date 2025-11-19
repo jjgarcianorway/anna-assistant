@@ -11,18 +11,18 @@
 
 use anna_common::command_recipe::Recipe;
 
-/// Format a recipe into a user-friendly answer
+/// Format a recipe into a user-friendly answer (Beta.94: with emojis)
 pub fn format_recipe_answer(recipe: &Recipe, question: &str) -> String {
     let mut answer = String::new();
 
     // Section 1: Summary
-    answer.push_str("## Summary\n\n");
+    answer.push_str("📝 **Summary**\n\n");
     answer.push_str(&recipe.summary);
     answer.push_str("\n\n");
 
     // Section 2: Commands to run
     if !recipe.steps.is_empty() {
-        answer.push_str("## Commands to Run\n\n");
+        answer.push_str("⚡ **Commands to Run**\n\n");
         answer.push_str("```bash\n");
         for step in &recipe.steps {
             answer.push_str(&step.command);
@@ -32,10 +32,10 @@ pub fn format_recipe_answer(recipe: &Recipe, question: &str) -> String {
     }
 
     // Section 3: Interpretation
-    answer.push_str("## Interpretation\n\n");
+    answer.push_str("💡 **What This Does**\n\n");
     for step in &recipe.steps {
         if !step.explanation.is_empty() {
-            answer.push_str("- **");
+            answer.push_str("• **");
             answer.push_str(&step.command.split_whitespace().next().unwrap_or("cmd"));
             answer.push_str("**: ");
             answer.push_str(&step.explanation);
@@ -47,7 +47,7 @@ pub fn format_recipe_answer(recipe: &Recipe, question: &str) -> String {
     // Section 4: Restore steps (if any write operations)
     let has_writes = recipe.steps.iter().any(|s| s.rollback_command.is_some());
     if has_writes {
-        answer.push_str("## Restore Steps\n\n");
+        answer.push_str("↩️ **Restore Steps**\n\n");
         answer.push_str("If you make changes and want to revert:\n\n");
         for step in &recipe.steps {
             if let Some(rollback) = &step.rollback_command {
@@ -57,15 +57,15 @@ pub fn format_recipe_answer(recipe: &Recipe, question: &str) -> String {
             }
         }
         answer.push_str(
-            "Backups are created with `.ANNA_BACKUP.YYYYMMDD-HHMMSS` suffix.\n\n",
+            "💾 Backups are created with `.ANNA_BACKUP.YYYYMMDD-HHMMSS` suffix.\n\n",
         );
     }
 
     // Section 5: Arch Wiki references
     if !recipe.wiki_sources.is_empty() {
-        answer.push_str("## Arch Wiki References\n\n");
+        answer.push_str("📚 **Arch Wiki References**\n\n");
         for source in &recipe.wiki_sources {
-            answer.push_str("- ");
+            answer.push_str("• ");
             answer.push_str(source);
             answer.push('\n');
         }
@@ -163,10 +163,10 @@ mod tests {
 
         let formatted = format_recipe_answer(&recipe, "Do I have swap?");
 
-        assert!(formatted.contains("## Summary"));
-        assert!(formatted.contains("## Commands to Run"));
+        assert!(formatted.contains("📝 **Summary**"));
+        assert!(formatted.contains("⚡ **Commands to Run**"));
         assert!(formatted.contains("swapon --show"));
-        assert!(formatted.contains("## Arch Wiki References"));
+        assert!(formatted.contains("📚 **Arch Wiki References**"));
         assert!(formatted.contains("wiki.archlinux.org"));
     }
 
