@@ -13,12 +13,16 @@ echo "Target: $TARGET questions"
 echo ""
 
 # Subreddits to fetch from (in priority order)
+# Beta.96: Added unixporn, linuxmasterrace, linuxmint for broader coverage
 SUBREDDITS=(
-    "archlinux"
-    "linux"
-    "linuxquestions"
-    "linuxadmin"
-    "linux4noobs"
+    "archlinux"        # Primary: Arch-specific questions
+    "linux"            # General Linux questions
+    "linuxquestions"   # Troubleshooting and help
+    "linux4noobs"      # Beginner questions
+    "unixporn"         # Desktop customization, theming, configs
+    "linuxadmin"       # System administration
+    "linuxmasterrace"  # General troubleshooting
+    "linuxmint"        # Package management (similar to Arch)
 )
 
 # Initialize output array
