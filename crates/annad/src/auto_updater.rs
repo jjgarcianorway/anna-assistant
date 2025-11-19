@@ -63,36 +63,24 @@ impl AutoUpdater {
 
     /// Check for updates and install if available
     async fn check_and_update(&self) {
-        info!("🔄 Auto-update check starting...");
-        info!("   Current version: v{}", env!("CARGO_PKG_VERSION"));
-
-        // Record check time
-        if let Err(e) = self.record_check_time().await {
-            warn!("Failed to record check time: {}", e);
-        }
+        // Beta.108: Reduced log verbosity - only log important events
+        // Record check time silently
+        let _ = self.record_check_time().await;
 
         let current_version = env!("CARGO_PKG_VERSION");
 
         // Fetch highest version release (including prereleases)
-        // Beta.73: Fixed to use get_highest_version_release() instead of get_latest_release()
-        // This fixes the bug where beta.68 was treated as newer than beta.72!
-        info!("   Fetching latest release from GitHub...");
         let client = GitHubClient::new(GITHUB_OWNER, GITHUB_REPO);
 
         let latest_release = match client.get_highest_version_release().await {
-            Ok(release) => {
-                info!("   ✓ Successfully fetched release info");
-                release
-            }
+            Ok(release) => release,
             Err(e) => {
-                error!("   ✗ Failed to fetch latest release from GitHub: {}", e);
-                error!("   Check network connectivity and GitHub API status");
+                error!("Auto-update failed: couldn't reach GitHub: {}", e);
                 return;
             }
         };
 
         let latest_version = latest_release.version();
-        info!("   Latest version on GitHub: v{}", latest_version);
 
         // Check if update is available
         use anna_common::github_releases::compare_versions;
@@ -100,38 +88,17 @@ impl AutoUpdater {
 
         match compare_versions(current_version, latest_version) {
             Ordering::Less => {
-                // Update available
-                info!(
-                    "   🎯 Update available: v{} → v{}",
-                    current_version, latest_version
-                );
+                info!("🎯 Update available: v{} → v{}", current_version, latest_version);
             }
-            Ordering::Equal => {
-                info!("   ✓ Already running latest version: v{}", current_version);
-                return;
-            }
-            Ordering::Greater => {
-                // Running development version newer than GitHub
-                info!(
-                    "   📌 Running development version v{} (GitHub latest: v{})",
-                    current_version, latest_version
-                );
-                info!("   No update needed - current version is newer");
+            Ordering::Equal | Ordering::Greater => {
+                // Already up-to-date, return silently
                 return;
             }
         }
 
-        // Beta.97: Check filesystem writability BEFORE downloading
-        // This prevents annoying ERROR logs every 10 minutes on read-only systems
-        info!("   Checking filesystem writability...");
-        let annactl_path = PathBuf::from("/usr/local/bin/annactl");
-        if !self.is_filesystem_writable(&annactl_path).await {
-            // Log a single informative message, not ERROR
-            info!("   ℹ️  Update skipped: /usr/local/bin is on a read-only filesystem");
-            info!("   To enable auto-updates, remount as read-write: sudo mount -o remount,rw /usr");
-            return;
-        }
-        info!("   ✓ Filesystem is writable");
+        // Beta.108: Removed overly-strict filesystem check
+        // The daemon runs as root and should have write permissions
+        // If there's a permission issue, it will be caught during actual installation
 
         // Beta.100: Check if annactl is currently running (safety check)
         // CRITICAL: Don't replace binaries while annactl is in use - could cause crashes

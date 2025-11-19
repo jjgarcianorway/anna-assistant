@@ -62,8 +62,8 @@ pub async fn run() -> Result<()> {
 async fn run_event_loop(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     state: &mut AnnaTuiState,
-    _tx: mpsc::Sender<TuiMessage>,
-    _rx: &mut mpsc::Receiver<TuiMessage>,
+    tx: mpsc::Sender<TuiMessage>,
+    rx: &mut mpsc::Receiver<TuiMessage>,
 ) -> Result<()> {
     // Beta.94: Initialize telemetry with real data
     update_telemetry(state);
@@ -87,6 +87,22 @@ async fn run_event_loop(
         // Beta.91: Advance thinking animation frame
         if state.is_thinking {
             state.thinking_frame = (state.thinking_frame + 1) % 8;
+        }
+
+        // Beta.108: Check for async messages (LLM replies, etc.)
+        while let Ok(msg) = rx.try_recv() {
+            match msg {
+                TuiMessage::AnnaReply(reply) => {
+                    state.is_thinking = false;
+                    state.add_anna_reply(reply);
+                }
+                TuiMessage::UserInput(_) => {
+                    // Not used in current implementation
+                }
+                TuiMessage::TelemetryUpdate => {
+                    update_telemetry(state);
+                }
+            }
         }
 
         // Draw UI
@@ -116,7 +132,8 @@ async fn run_event_loop(
                     // Enter - submit input
                     (KeyCode::Enter, _) => {
                         if !state.input.trim().is_empty() {
-                            if handle_user_input(state).await {
+                            // Beta.108: Non-blocking input handling
+                            if handle_user_input(state, tx.clone()) {
                                 break;  // Exit requested
                             }
                         }
@@ -447,9 +464,9 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
-/// Handle user input
+/// Beta.108: Handle user input (non-blocking)
 /// Returns true if should exit, false otherwise
-async fn handle_user_input(state: &mut AnnaTuiState) -> bool {
+fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> bool {
     let input = state.input.clone();
     let input_lower = input.trim().to_lowercase();
 
@@ -459,6 +476,7 @@ async fn handle_user_input(state: &mut AnnaTuiState) -> bool {
         return true;
     }
 
+    // Beta.108: Add user message immediately (visible in UI)
     state.add_user_message(input.clone());
     state.input.clear();
     state.cursor_pos = 0;
@@ -466,17 +484,34 @@ async fn handle_user_input(state: &mut AnnaTuiState) -> bool {
     // Detect language change
     detect_language_change(&input, state);
 
-    // Beta.91: Set thinking state before LLM processing
+    // Beta.108: Set thinking state before LLM processing
     state.is_thinking = true;
     state.thinking_frame = 0;
 
-    // Generate reply (placeholder - will connect to recipe system)
-    let reply = generate_reply(&input, state).await;
+    // Beta.108: Spawn LLM query in background (non-blocking)
+    // Clone state data needed for LLM query
+    let state_clone = AnnaTuiState {
+        system_panel: state.system_panel.clone(),
+        llm_panel: state.llm_panel.clone(),
+        language: state.language.clone(),
+        conversation: Vec::new(), // Don't need full history for this query
+        input: String::new(),
+        cursor_pos: 0,
+        input_history: Vec::new(),
+        history_index: None,
+        show_help: false,
+        is_thinking: false,
+        thinking_frame: 0,
+        scroll_offset: 0,
+        telemetry_ok: state.telemetry_ok,
+        last_llm_reply: None,
+    };
 
-    // Beta.91: Clear thinking state after reply completes
-    state.is_thinking = false;
-
-    state.add_anna_reply(reply);
+    tokio::spawn(async move {
+        let reply = generate_reply(&input, &state_clone).await;
+        // Send reply back through channel
+        let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+    });
 
     false
 }

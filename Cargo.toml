@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "5.7.0-beta.107"
+version = "5.7.0-beta.108"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -50,6 +50,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 # Terminal formatting
 owo-colors = "4.0"
 console = "0.15"
+indicatif = "0.17"  # Beta.108: Professional thinking animations
 
 # TUI (Phase 5.7)
 ratatui = "0.26"

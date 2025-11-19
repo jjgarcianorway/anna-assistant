@@ -269,10 +269,28 @@ async fn handle_llm_query(user_text: &str) {
     use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
     use anna_common::template_library::TemplateLibrary;
     use std::collections::HashMap;
+    use owo_colors::OwoColorize;
+    use std::io::{self, Write};
 
     let ui = UI::auto();
+
+    // Beta.108: Show user's question first with beautiful formatting
     println!();
-    ui.thinking();
+    if ui.capabilities().use_colors() {
+        println!("{} {}", "you:".bright_cyan().bold(), user_text.white());
+    } else {
+        println!("you: {}", user_text);
+    }
+    println!();
+
+    // Beta.108: Show thinking indicator
+    if ui.capabilities().use_colors() {
+        print!("{} ", "anna (thinking):".bright_magenta().dimmed());
+        io::stdout().flush().unwrap();
+    } else {
+        print!("anna (thinking): ");
+        io::stdout().flush().unwrap();
+    }
 
     // Beta.91: Try template matching first (prevents hallucinations)
     let library = TemplateLibrary::default();
@@ -422,18 +440,38 @@ async fn handle_llm_query(user_text: &str) {
         conversation_history: None,
     };
 
-    // Query LLM (blocking)
-    match client.chat(&prompt) {
-        Ok(response) => {
-            println!();
-            ui.section_header("💬", "Anna");
-            println!();
-            for line in response.text.lines() {
-                ui.info(line);
+    // Beta.108: Query LLM with streaming (word-by-word display)
+    let mut response_started = false;
+    let mut callback = |chunk: &str| {
+        if !response_started {
+            // Clear the "thinking" indicator and start response
+            println!("\r{}", " ".repeat(50)); // Clear line
+            if ui.capabilities().use_colors() {
+                print!("{} ", "anna:".bright_magenta().bold());
+            } else {
+                print!("anna: ");
             }
-            println!();
+            response_started = true;
+        }
+
+        // Print each word/chunk as it arrives
+        if ui.capabilities().use_colors() {
+            print!("{}", chunk.white());
+        } else {
+            print!("{}", chunk);
+        }
+        io::stdout().flush().unwrap();
+    };
+
+    match client.chat_stream(&prompt, &mut callback) {
+        Ok(_) => {
+            // Response complete
+            println!("\n");
         }
         Err(_) => {
+            if !response_started {
+                println!("\r{}", " ".repeat(50)); // Clear thinking line
+            }
             println!();
             ui.info("⚠ LLM request failed");
             ui.info("Try template-based questions:");

@@ -501,14 +501,24 @@ async fn handle_llm_query(user_message: &str, db: Option<&Arc<ContextDb>>) {
         }
     }
 
-    ui.info("🤔 Thinking...");
+    // Beta.108: Beautiful output with colors
+    use owo_colors::OwoColorize;
+    use std::io::{self, Write};
 
+    // Show thinking indicator
+    print!("{} ", "anna (thinking):".bright_magenta().dimmed());
+    io::stdout().flush().unwrap();
+
+    // Query LLM (blocking for now, streaming to be added in future update)
     match crate::llm_integration::query_llm_with_context(user_message, db).await {
-        Ok(llm_response) => {
-            // Parse and display structured output
-            display_structured_llm_output(&llm_response);
+        Ok(response) => {
+            // Clear thinking line and show response
+            print!("\r{}", " ".repeat(50));  // Clear line
+            println!("\r{} {}", "anna:".bright_magenta().bold(), response.white());
         }
         Err(e) => {
+            print!("\r{}", " ".repeat(50));  // Clear thinking line
+            println!();
             ui.error(&format!("❌ LLM query failed: {}", e));
             ui.info("💡 Try: 'annactl repair' to check LLM setup");
             println!();
