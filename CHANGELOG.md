@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.106] - 2025-11-19
+
+### Template Expansion: GPU Diagnostics (+8 Templates)
+
+**Continuing the path to 100% success rate** on the 700-question test suite. Beta.106 focuses on GPU diagnostics and graphics performance - addressing ~20 questions from the test suite.
+
+#### What Changed in Beta.106
+
+**Added 8 New GPU Diagnostic Templates:**
+
+1. **check_gpu_info** - Show GPU hardware information (vendor, model, PCI ID)
+2. **check_gpu_drivers** - Show loaded GPU driver modules (nvidia, amdgpu, i915, nouveau, radeon)
+3. **check_nvidia_status** - Show NVIDIA GPU status (memory, utilization, temperature) via nvidia-smi
+4. **check_amd_gpu** - Show AMD GPU status (sensors, DRM info from sysfs)
+5. **check_gpu_processes** - Show processes using GPU (via nvidia-smi or ps filtering graphics processes)
+6. **check_gpu_temperature** - Show GPU temperature from sensors and vendor-specific tools
+7. **check_gpu_errors** - Check for GPU errors in dmesg and system journal
+8. **analyze_graphics_performance** - Show graphics stack information (Wayland/X11, compositor, OpenGL/Vulkan)
+
+**Template Count Progress:**
+- Beta.105: 87 templates
+- Beta.106: 95 templates (+9% increase)
+
+#### Templates Address Common GPU Problems
+
+From the 700-question test suite, GPU-related questions include:
+- "What GPU do I have?" → `check_gpu_info`
+- "Is my GPU driver loaded?" → `check_gpu_drivers`
+- "Why is my GPU hot?" → `check_gpu_temperature`
+- "What's using my GPU?" → `check_gpu_processes`
+- "Check NVIDIA GPU status" → `check_nvidia_status`
+- "AMD GPU information" → `check_amd_gpu`
+- "GPU errors in logs?" → `check_gpu_errors`
+- "Graphics performance issues" → `analyze_graphics_performance`
+
+These templates provide comprehensive GPU diagnostics for NVIDIA, AMD, and Intel graphics cards.
+
+#### Multi-Vendor GPU Support
+
+**NVIDIA:**
+- nvidia-smi integration for full GPU monitoring
+- Temperature, memory, utilization, power draw
+- Process monitoring with GPU usage details
+
+**AMD:**
+- amdgpu driver detection and sysfs monitoring
+- DRM (Direct Rendering Manager) info
+- Power management and clock speed info
+
+**Intel:**
+- i915 driver detection
+- Integrated graphics monitoring
+- OpenGL/Vulkan renderer info
+
+**Generic:**
+- lspci-based GPU detection
+- Wayland/X11 display server detection
+- Compositor identification
+- Graphics driver module listing
+
+#### Files Modified
+
+- **crates/anna_common/src/template_library.rs** - Added 8 GPU diagnostic templates (registrations at lines 246-254, implementations at lines 2136-2298)
+- **Cargo.toml** - Version 5.7.0-beta.105 → 5.7.0-beta.106
+- **CHANGELOG.md** - Documented template additions
+
+#### Coverage Progress
+
+**From 700-Question Test Suite:**
+- ✅ Pacman management (~30 questions) - Beta.102
+- ✅ Systemd boot/journal (~25 questions) - Beta.103
+- ✅ CPU & performance (~40 questions) - Beta.104
+- ✅ Memory & swap (~15 questions) - Beta.105
+- ✅ GPU diagnostics (~20 questions) - Beta.106
+- 📋 Desktop environment (~25 questions) - Beta.107 (planned)
+- 📋 VM/containers (~30 questions) - Beta.108 (planned)
+- 📋 Storage/filesystems (~25 questions) - Beta.109 (planned)
+
+**Progress:** ~130/700 questions covered with specific templates (18.6%)
+**Path Forward:** Continue systematic expansion to reach 80%+ coverage
+
+---
+
 ## [5.7.0-beta.105] - 2025-11-19
 
 ### Template Expansion: Memory & Swap Diagnostics (+8 Templates)

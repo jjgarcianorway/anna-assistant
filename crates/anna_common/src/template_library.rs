@@ -243,6 +243,16 @@ impl TemplateLibrary {
         library.register(Self::check_huge_pages());
         library.register(Self::show_memory_info());
 
+        // Beta.106: GPU diagnostics (700 questions - GPU issues)
+        library.register(Self::check_gpu_info());
+        library.register(Self::check_gpu_drivers());
+        library.register(Self::check_nvidia_status());
+        library.register(Self::check_amd_gpu());
+        library.register(Self::check_gpu_processes());
+        library.register(Self::check_gpu_temperature());
+        library.register(Self::check_gpu_errors());
+        library.register(Self::analyze_graphics_performance());
+
         library
     }
 
@@ -2120,6 +2130,170 @@ impl TemplateLibrary {
                 validation_description: "Memory hardware info displayed".to_string(),
             }),
             example: "sudo dmidecode -t memory".to_string(),
+        }
+    }
+
+    // ============================================================================
+    // Beta.106: GPU Diagnostics (700 questions - GPU issues)
+    // ============================================================================
+
+    fn check_gpu_info() -> Template {
+        Template {
+            id: "check_gpu_info".to_string(),
+            name: "Check GPU Info".to_string(),
+            description: "Show GPU hardware information (vendor, model, PCI ID)".to_string(),
+            parameters: vec![],
+            command_pattern: "lspci -nn | grep -i 'VGA\\|3D\\|Display' && echo && lspci -v -s $(lspci | grep -i 'VGA\\|3D\\|Display' | cut -d' ' -f1) 2>/dev/null | head -20 || echo 'No GPU detected'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/GPU".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "GPU info displayed".to_string(),
+            }),
+            example: "lspci | grep -i vga".to_string(),
+        }
+    }
+
+    fn check_gpu_drivers() -> Template {
+        Template {
+            id: "check_gpu_drivers".to_string(),
+            name: "Check GPU Drivers".to_string(),
+            description: "Show loaded GPU driver modules (nvidia, amdgpu, i915, nouveau, radeon)".to_string(),
+            parameters: vec![],
+            command_pattern: "lsmod | grep -i 'nvidia\\|amdgpu\\|i915\\|nouveau\\|radeon' && echo && for mod in nvidia amdgpu i915 nouveau radeon; do if lsmod | grep -q \"^$mod \"; then echo \"=== $mod driver info ===\"  && modinfo $mod 2>/dev/null | grep -E '^(version|description|author|license|firmware):' | head -10; fi; done".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Kernel_module".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "GPU drivers displayed".to_string(),
+            }),
+            example: "lsmod | grep nvidia".to_string(),
+        }
+    }
+
+    fn check_nvidia_status() -> Template {
+        Template {
+            id: "check_nvidia_status".to_string(),
+            name: "Check NVIDIA GPU Status".to_string(),
+            description: "Show NVIDIA GPU status (memory, utilization, temperature) via nvidia-smi".to_string(),
+            parameters: vec![],
+            command_pattern: "if command -v nvidia-smi >/dev/null 2>&1; then nvidia-smi && echo && nvidia-smi --query-gpu=gpu_name,driver_version,memory.total,memory.used,memory.free,temperature.gpu,utilization.gpu,power.draw --format=csv; else echo 'nvidia-smi not found. Install nvidia-utils package or not using NVIDIA GPU'; fi".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/NVIDIA".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "NVIDIA GPU status displayed".to_string(),
+            }),
+            example: "nvidia-smi".to_string(),
+        }
+    }
+
+    fn check_amd_gpu() -> Template {
+        Template {
+            id: "check_amd_gpu".to_string(),
+            name: "Check AMD GPU Status".to_string(),
+            description: "Show AMD GPU status (sensors, DRM info from sysfs)".to_string(),
+            parameters: vec![],
+            command_pattern: "if lsmod | grep -q amdgpu; then echo '=== AMD GPU Detected ===' && cat /sys/class/drm/card*/device/pp_dpm_* 2>/dev/null | head -50 && echo && sensors 2>/dev/null | grep -A 5 'amdgpu\\|radeon' && echo && find /sys/class/drm/card* -name 'mem_info_*' -o -name 'gpu_busy_percent' 2>/dev/null | xargs -I {} sh -c 'echo {} && cat {} 2>/dev/null' | head -30; else echo 'AMD GPU not detected or amdgpu driver not loaded'; fi".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/AMDGPU".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "AMD GPU status displayed".to_string(),
+            }),
+            example: "cat /sys/class/drm/card0/device/gpu_busy_percent".to_string(),
+        }
+    }
+
+    fn check_gpu_processes() -> Template {
+        Template {
+            id: "check_gpu_processes".to_string(),
+            name: "Check GPU Processes".to_string(),
+            description: "Show processes using GPU (via nvidia-smi or ps filtering graphics processes)".to_string(),
+            parameters: vec![],
+            command_pattern: "if command -v nvidia-smi >/dev/null 2>&1; then echo '=== NVIDIA GPU Processes ===' && nvidia-smi pmon -c 1 2>/dev/null || nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv 2>/dev/null; fi && echo && echo '=== Graphics-Related Processes ===' && ps aux | grep -E 'Xorg|wayland|gnome-shell|kwin|plasmashell|chrome|firefox' | grep -v grep | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/GPU".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "GPU processes displayed".to_string(),
+            }),
+            example: "nvidia-smi pmon".to_string(),
+        }
+    }
+
+    fn check_gpu_temperature() -> Template {
+        Template {
+            id: "check_gpu_temperature".to_string(),
+            name: "Check GPU Temperature".to_string(),
+            description: "Show GPU temperature from sensors and vendor-specific tools".to_string(),
+            parameters: vec![],
+            command_pattern: "if command -v sensors >/dev/null 2>&1; then echo '=== GPU Temperature (sensors) ===' && sensors 2>/dev/null | grep -i 'nvidia\\|amdgpu\\|radeon' -A 5; fi && if command -v nvidia-smi >/dev/null 2>&1; then echo && echo '=== NVIDIA GPU Temperature ===' && nvidia-smi --query-gpu=temperature.gpu,temperature.memory,fan.speed --format=csv,noheader,nounits 2>/dev/null; fi && echo && echo '=== GPU Thermal Zones ===' && find /sys/class/hwmon -name 'temp*_label' 2>/dev/null | while read label; do echo \"$(cat \"$label\" 2>/dev/null): $(cat \"${label%_*}_input\" 2>/dev/null | awk '{print $1/1000}')°C\"; done | grep -i 'gpu\\|vga'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Lm_sensors".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "GPU temperature displayed".to_string(),
+            }),
+            example: "sensors | grep -i gpu".to_string(),
+        }
+    }
+
+    fn check_gpu_errors() -> Template {
+        Template {
+            id: "check_gpu_errors".to_string(),
+            name: "Check GPU Errors".to_string(),
+            description: "Check for GPU errors in dmesg and system journal".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Recent GPU Errors (dmesg) ===' && dmesg -T | grep -i 'nvidia\\|amdgpu\\|radeon\\|i915\\|nouveau\\|gpu' | grep -iE 'error|fail|warn|timeout|hang|reset' | tail -30 && echo && echo '=== GPU Errors (journal - last 7 days) ===' && journalctl -k -p err -g 'nvidia|amdgpu|radeon|i915|nouveau|gpu' --since '7 days ago' | tail -30 || echo 'No GPU errors found'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/GPU".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "GPU errors displayed".to_string(),
+            }),
+            example: "dmesg | grep -i nvidia | grep -i error".to_string(),
+        }
+    }
+
+    fn analyze_graphics_performance() -> Template {
+        Template {
+            id: "analyze_graphics_performance".to_string(),
+            name: "Analyze Graphics Performance".to_string(),
+            description: "Show graphics stack information (Wayland/X11, compositor, OpenGL/Vulkan)".to_string(),
+            parameters: vec![],
+            command_pattern: "echo '=== Display Server ===' && echo \"$XDG_SESSION_TYPE\" && ps aux | grep -E 'Xorg|wayland' | grep -v grep | head -5 && echo && echo '=== OpenGL Renderer ===' && glxinfo 2>/dev/null | grep -E 'OpenGL renderer|OpenGL version|Direct rendering' | head -5 || echo 'glxinfo not found (install mesa-utils)' && echo && echo '=== Vulkan ===' && vulkaninfo --summary 2>/dev/null | head -20 || echo 'vulkaninfo not found (install vulkan-tools)' && echo && echo '=== Compositor ===' && ps aux | grep -E 'picom|compton|kwin|gnome-shell|mutter' | grep -v grep | head -5".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Xorg".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Graphics stack info displayed".to_string(),
+            }),
+            example: "glxinfo | grep 'OpenGL renderer'".to_string(),
         }
     }
 }
