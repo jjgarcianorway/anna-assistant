@@ -268,6 +268,8 @@ async fn handle_llm_query(user_text: &str) {
     use anna_common::display::UI;
     use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
     use anna_common::template_library::TemplateLibrary;
+    use anna_common::recipe_planner::{RecipePlanner, PlanningResult};
+    use anna_common::command_recipe::{Recipe, SafetyLevel};
     use std::collections::HashMap;
     use owo_colors::OwoColorize;
     use std::io::{self, Write};
@@ -498,10 +500,10 @@ async fn handle_llm_query(user_text: &str) {
         }
     }
 
-    // No template match - use LLM (with Ollama detection)
-    // Beta.91: Use Ollama local LLM instead of database config
+    // No template match - try RecipePlanner before generic LLM fallback
+    // Beta.114: RecipePlanner integration (3-tier architecture)
 
-    // Detect model from ollama list
+    // Detect model from ollama list (needed for both RecipePlanner and generic LLM)
     let model_name = match Command::new("ollama").arg("list").output() {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -517,6 +519,63 @@ async fn handle_llm_query(user_text: &str) {
     };
 
     let config = LlmConfig::local("http://127.0.0.1:11434/v1", &model_name);
+
+    // TIER 2: RecipePlanner - Smart, validated command recipes
+    // Try to generate a command recipe using planner/critic loop
+    let planner = RecipePlanner::new(config.clone());
+
+    // Get system telemetry summary for recipe planning
+    let telemetry_summary = "Arch Linux system".to_string();
+
+    // Try to plan a recipe
+    match planner.plan_recipe(user_text, &telemetry_summary).await {
+        Ok(PlanningResult::Success(recipe)) => {
+            // Recipe approved by critic - display and execute
+            println!();
+            display_recipe(&recipe, &ui);
+
+            // Check if user confirmation needed
+            let needs_confirmation = matches!(recipe.overall_safety, SafetyLevel::NeedsConfirmation);
+
+            if needs_confirmation {
+                // Ask user for confirmation
+                if !confirm_recipe_execution(&ui) {
+                    println!();
+                    ui.info("Recipe execution cancelled by user.");
+                    println!();
+                    return;
+                }
+            }
+
+            // Execute recipe steps sequentially
+            println!();
+            ui.info("Executing recipe...");
+            println!();
+
+            if let Err(e) = execute_recipe(&recipe, &ui).await {
+                ui.error(&format!("Recipe execution failed: {}", e));
+            }
+
+            println!();
+            return;
+        }
+        Ok(PlanningResult::Failed { reason, explanation }) => {
+            // Planning failed after max iterations - show explanation and fall through
+            println!();
+            ui.warning(&format!("Could not generate safe recipe: {}", reason));
+            println!();
+            ui.info(&explanation);
+            println!();
+            ui.info("Falling back to conversational LLM...");
+            println!();
+        }
+        Err(e) => {
+            // Error during planning - fall through to generic LLM
+            eprintln!("Warning: Recipe planning error: {}", e);
+        }
+    }
+
+    // TIER 3: Generic LLM fallback - Conversational response
 
     // Create LLM client
     let client = match LlmClient::from_config(&config) {
@@ -2105,6 +2164,146 @@ async fn execute_help_command_standalone(
     };
     let _ = log_entry.write();
     */
+
+    Ok(())
+}
+
+// Beta.114: RecipePlanner helper functions
+
+/// Display recipe with formatted UI (Beta.114)
+fn display_recipe(recipe: &anna_common::command_recipe::Recipe, ui: &UI) {
+    use owo_colors::OwoColorize;
+    use anna_common::command_recipe::SafetyLevel;
+
+    println!();
+    println!("{}", "📋 Command Recipe (validated by critic)".bold());
+    println!();
+
+    // Summary
+    println!("{}: {}", "Summary".bold(), recipe.summary);
+
+    // Safety level
+    print!("{}: ", "Safety".bold());
+    match recipe.overall_safety {
+        SafetyLevel::Safe => println!("{}", "safe (read-only)".green()),
+        SafetyLevel::NeedsConfirmation => println!("{}", "needs confirmation (modifies system)".yellow()),
+        SafetyLevel::Blocked => println!("{}", "blocked (unsafe)".red()),
+    }
+    println!();
+
+    // Steps
+    println!("{}:", "Steps".bold());
+    for (i, step) in recipe.steps.iter().enumerate() {
+        println!("  {}. {}", i + 1, step.explanation);
+    }
+    println!();
+
+    // Wiki sources
+    if !recipe.wiki_sources.is_empty() {
+        println!("{}:", "Wiki Sources".bold());
+        for source in &recipe.wiki_sources {
+            println!("  - {}", source);
+        }
+        println!();
+    }
+}
+
+/// Ask user for recipe execution confirmation (Beta.114)
+fn confirm_recipe_execution(_ui: &UI) -> bool {
+    use std::io::{self, Write};
+
+    print!("Execute recipe? [y/N]: ");
+    io::stdout().flush().unwrap();
+
+    let mut response = String::new();
+    if io::stdin().read_line(&mut response).is_err() {
+        return false;
+    }
+
+    let response = response.trim().to_lowercase();
+    response == "y" || response == "yes"
+}
+
+/// Execute recipe steps sequentially (Beta.114)
+async fn execute_recipe(recipe: &anna_common::command_recipe::Recipe, ui: &UI) -> Result<()> {
+    use std::process::Command;
+    use owo_colors::OwoColorize;
+    use anyhow::Context;
+
+    for (i, step) in recipe.steps.iter().enumerate() {
+        println!();
+        println!("{} Step {}/{}: {}",
+            "▶".bold(),
+            i + 1,
+            recipe.steps.len(),
+            step.explanation.bold()
+        );
+
+        // Execute command
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg(&step.command)
+            .output()
+            .with_context(|| format!("Failed to execute command: {}", step.command))?;
+
+        // Display output
+        if !output.stdout.is_empty() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        }
+
+        // Check for errors
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            ui.error(&format!("Command failed: {}", stderr));
+
+            // Check if rollback is available
+            if let Some(rollback) = &step.rollback_command {
+                println!();
+                ui.warning("Rollback available. Execute rollback? [y/N]: ");
+
+                if confirm_recipe_execution(ui) {
+                    println!();
+                    ui.info("Executing rollback...");
+
+                    let rollback_output = Command::new("sh")
+                        .arg("-c")
+                        .arg(rollback)
+                        .output();
+
+                    match rollback_output {
+                        Ok(out) if out.status.success() => {
+                            ui.success("Rollback successful");
+                        }
+                        _ => {
+                            ui.error("Rollback failed");
+                        }
+                    }
+                }
+            }
+
+            return Err(anyhow::anyhow!("Recipe execution failed at step {}", i + 1));
+        }
+
+        // Validate output if validation rules provided
+        if let Some(validation) = &step.expected_validation {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            // Check stdout_must_match pattern
+            if let Some(pattern) = &validation.stdout_must_match {
+                if !stdout.contains(pattern.as_str()) {
+                    ui.warning(&format!(
+                        "Output validation failed: expected pattern '{}' not found",
+                        pattern
+                    ));
+                }
+            }
+        }
+
+        println!("{} Step {} completed", "✓".green().bold(), i + 1);
+    }
+
+    println!();
+    ui.success("Recipe executed successfully!");
 
     Ok(())
 }
