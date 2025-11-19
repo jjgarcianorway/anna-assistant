@@ -390,39 +390,90 @@ fn detect_language_change(input: &str, state: &mut AnnaTuiState) {
     }
 }
 
-/// Generate reply (connects to recipe system)
+/// Generate reply using template library and recipe formatter
 async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
-    // Placeholder - will connect to actual LLM + recipe system
+    use anna_common::command_recipe::Recipe;
+    use anna_common::template_library::TemplateLibrary;
+    use crate::recipe_formatter::format_recipe_answer;
+    use std::collections::HashMap;
 
-    // Check for canonical test cases
-    if input.to_lowercase().contains("swap") {
-        format!(
-            "## Summary\n\nChecking swap status on your system.\n\n\
-             ## Commands to Run\n\n```bash\nswapon --show\ncat /proc/swaps\n```\n\n\
-             ## Interpretation\n\n\
-             - **swapon**: Shows active swap devices\n\
-             - **cat**: Displays swap configuration\n\n\
-             ## Arch Wiki References\n\n\
-             - https://wiki.archlinux.org/title/Swap\n"
-        )
-    } else if input.to_lowercase().contains("gpu") || input.to_lowercase().contains("vram") {
-        format!(
-            "## Summary\n\nChecking GPU memory.\n\n\
-             ## Commands to Run\n\n```bash\nnvidia-smi --query-gpu=memory.total --format=csv,noheader\n```\n\n\
-             ## Interpretation\n\n\
-             - **nvidia-smi**: Displays GPU memory in MiB\n\n\
-             ## Arch Wiki References\n\n\
-             - https://wiki.archlinux.org/title/NVIDIA\n"
-        )
+    let library = TemplateLibrary::default();
+    let input_lower = input.to_lowercase();
+
+    // Pattern matching for template selection
+    let (template_id, params) = if input_lower.contains("swap") {
+        ("check_swap_status", HashMap::new())
+    } else if input_lower.contains("gpu") || input_lower.contains("vram") {
+        ("check_gpu_memory", HashMap::new())
+    } else if input_lower.contains("kernel") {
+        ("check_kernel_version", HashMap::new())
+    } else if input_lower.contains("disk") || input_lower.contains("space") {
+        ("check_disk_space", HashMap::new())
     } else {
-        // Default response in appropriate language
-        match state.language {
-            LanguageCode::Spanish => format!("Entendido: '{}'. Todavía estoy aprendiendo esta función.", input),
-            LanguageCode::French => format!("Compris: '{}'. Je suis encore en train d'apprendre cette fonction.", input),
-            LanguageCode::German => format!("Verstanden: '{}'. Ich lerne diese Funktion noch.", input),
-            LanguageCode::Italian => format!("Capito: '{}'. Sto ancora imparando questa funzione.", input),
-            _ => format!("Understood: '{}'. I'm still learning this feature.\n\nFor now, try asking about:\n- swap\n- GPU/VRAM", input),
+        // No matching template - return helpful message
+        return match state.language {
+            LanguageCode::Spanish => format!(
+                "## Entiendo\n\n'{}'\n\n## Estado Actual\n\n\
+                 Estoy en modo de desarrollo. Por ahora, puedo ayudarte con:\n\n\
+                 - swap (estado de swap)\n\
+                 - GPU/VRAM (memoria de GPU)\n\
+                 - kernel (versión del kernel)\n\
+                 - disk/space (espacio en disco)\n\n\
+                 ## Próximamente\n\n\
+                 Planner/Critic LLM para generar recetas dinámicamente.",
+                input
+            ),
+            LanguageCode::French => format!(
+                "## Compris\n\n'{}'\n\n## État Actuel\n\n\
+                 Je suis en mode développement. Pour l'instant, je peux vous aider avec:\n\n\
+                 - swap (état du swap)\n\
+                 - GPU/VRAM (mémoire GPU)\n\
+                 - kernel (version du noyau)\n\
+                 - disk/space (espace disque)\n\n\
+                 ## Bientôt\n\n\
+                 Planner/Critic LLM pour générer des recettes dynamiquement.",
+                input
+            ),
+            _ => format!(
+                "## Understood\n\n'{}'\n\n## Current Status\n\n\
+                 I'm in development mode. For now, I can help with:\n\n\
+                 - **swap** - Check swap status\n\
+                 - **GPU/VRAM** - Check GPU memory\n\
+                 - **kernel** - Check kernel version\n\
+                 - **disk/space** - Check disk space\n\n\
+                 ## Coming Soon\n\n\
+                 Planner/Critic LLM loop to generate dynamic recipes from Arch Wiki.\n\n\
+                 ## Architecture\n\n\
+                 Templates → Planner LLM → Critic LLM → Validated Recipe → Execution",
+                input
+            ),
+        };
+    };
+
+    // Instantiate template
+    match library.get(template_id) {
+        Some(template) => {
+            match template.instantiate(&params) {
+                Ok(recipe_step) => {
+                    // Wrap in full recipe structure
+                    let recipe = Recipe {
+                        question: input.to_string(),
+                        steps: vec![recipe_step.clone()],
+                        overall_safety: recipe_step.safety_level,
+                        all_read_only: true,
+                        wiki_sources: recipe_step.doc_sources.clone(),
+                        summary: recipe_step.explanation.clone(),
+                        generated_by: Some("template_library".to_string()),
+                        critic_approval: None,
+                    };
+
+                    // Format with recipe formatter
+                    format_recipe_answer(&recipe, input)
+                }
+                Err(e) => format!("## Error\n\nFailed to instantiate template: {}", e),
+            }
         }
+        None => format!("## Error\n\nTemplate '{}' not found", template_id),
     }
 }
 
