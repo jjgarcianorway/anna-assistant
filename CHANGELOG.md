@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.100] - 2025-11-19
+
+### CRITICAL SAFETY FIX: Auto-Update While annactl In Use
+
+**User Feedback:** "auto-update should be cancelled if annactl is in use..."
+
+**THIS IS A CRITICAL SAFETY ISSUE.** If auto-updater replaces binaries while annactl is actively running, it could cause:
+- Crashes mid-operation
+- Data corruption
+- Inconsistent behavior
+- Binary mismatch between annactl and annad
+
+#### What Changed in Beta.100
+
+**1. Added Active Process Check**
+- Auto-updater now checks if annactl is running before updating
+- Uses `pgrep -c annactl` to detect active processes
+- Postpones update if annactl is in use
+- Retries on next check (10 minutes later)
+
+**2. Fail-Safe Behavior**
+- If process check fails → assumes annactl is running (safe default)
+- Logs informative message: "Update postponed: annactl is currently in use"
+- No errors or crashes - just waits for next opportunity
+
+**3. Update Flow (New)**
+```
+1. Check for update available
+2. Check filesystem writability
+3. Check if annactl is running ← NEW!
+4. If annactl busy → postpone, retry in 10 min
+5. If annactl idle → download & install update
+```
+
+#### Files Modified
+
+- `crates/annad/src/auto_updater.rs:136-144` - Added active process check before update
+- `crates/annad/src/auto_updater.rs:344-376` - Added `is_annactl_running()` function
+
+#### Before vs After
+
+**Before Beta.100:**
+- Auto-update runs even if annactl is active ❌
+- Could crash annactl mid-operation ❌
+- Risk of data corruption ❌
+- No safety checks ❌
+
+**After Beta.100:**
+- Auto-update checks if annactl is running ✅
+- Postpones if annactl is busy ✅
+- Safe, non-disruptive updates ✅
+- Fail-safe defaults ✅
+
+#### Testing
+
+To verify the fix works:
+```bash
+# Terminal 1: Keep annactl running
+annactl tui
+
+# Terminal 2: Check daemon logs
+journalctl -u annad -f | grep "Auto-update"
+
+# You should see:
+# "⏸️  Update postponed: annactl is currently in use"
+# "Update will be retried in 10 minutes when annactl is idle"
+```
+
 ## [5.7.0-beta.99] - 2025-11-19
 
 ### TUI UX FIXES - Scrolling & Input Wrapping

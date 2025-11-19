@@ -133,6 +133,16 @@ impl AutoUpdater {
         }
         info!("   ✓ Filesystem is writable");
 
+        // Beta.100: Check if annactl is currently running (safety check)
+        // CRITICAL: Don't replace binaries while annactl is in use - could cause crashes
+        info!("   Checking if annactl is in use...");
+        if self.is_annactl_running().await {
+            info!("   ⏸️  Update postponed: annactl is currently in use");
+            info!("   Update will be retried in 10 minutes when annactl is idle");
+            return;
+        }
+        info!("   ✓ annactl is idle");
+
         // Step 4: Perform automatic update
         info!("   Starting automatic update process...");
         match self.perform_update(&latest_release, latest_version).await {
@@ -328,6 +338,40 @@ impl AutoUpdater {
                     }
                 }
             }
+        }
+    }
+
+    /// Beta.100: Check if annactl is currently running
+    /// Returns true if any annactl processes are active
+    /// CRITICAL: Prevents binary replacement while annactl is in use
+    async fn is_annactl_running(&self) -> bool {
+        use tokio::process::Command;
+
+        // Use pgrep to check for annactl processes
+        // -c flag returns count of matching processes
+        let output = match Command::new("pgrep")
+            .args(&["-c", "annactl"])
+            .output()
+            .await
+        {
+            Ok(output) => output,
+            Err(e) => {
+                warn!("Failed to check if annactl is running: {}", e);
+                // Fail safe: if we can't check, assume it's running
+                return true;
+            }
+        };
+
+        // pgrep -c returns:
+        // - exit code 0 with count > 0: processes found
+        // - exit code 1: no processes found
+        if output.status.success() {
+            let count_str = String::from_utf8_lossy(&output.stdout);
+            let count: usize = count_str.trim().parse().unwrap_or(0);
+            count > 0
+        } else {
+            // Exit code 1 means no processes found
+            false
         }
     }
 
