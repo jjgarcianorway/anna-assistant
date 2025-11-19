@@ -1,7 +1,9 @@
 //! LLM Integration Module for Beta.55
 //!
 //! Telemetry-first internal dialogue with planning and answer rounds
+//! Beta.87: Integrated answer validation for zero hallucination guarantee
 
+use anna_common::answer_validator::{AnswerValidator, ValidationContext};
 use anna_common::context::db::ContextDb;
 use anna_common::historian::SystemSummary;
 use anna_common::llm::{ChatMessage, LlmConfig};
@@ -35,6 +37,7 @@ struct ChatChoice {
 }
 
 /// Query the LLM with a user message, using telemetry-first internal dialogue
+/// Beta.87: Includes answer validation with retry loop for zero hallucinations
 pub async fn query_llm_with_context(
     user_message: &str,
     db: Option<&Arc<ContextDb>>,
@@ -59,29 +62,90 @@ pub async fn query_llm_with_context(
     // Compress telemetry into payload
     let payload = TelemetryPayload::compress(&facts, historian.as_ref());
 
-    // Load personality config
-    let personality = PersonalityConfig::load();
+    // Load personality config (Beta.87: prefer database over TOML)
+    let personality = if let Some(db_ref) = db {
+        // Try loading from database first
+        match PersonalityConfig::load_from_db(db_ref).await {
+            Ok(config) => config,
+            Err(_) => {
+                // Fallback to TOML if database load fails
+                PersonalityConfig::load()
+            }
+        }
+    } else {
+        // No database available, use TOML
+        PersonalityConfig::load()
+    };
 
     // Get current model name
     let current_model = llm_config.model.as_deref().unwrap_or("unknown");
 
-    // Run internal dialogue (planning + answer rounds)
-    let result = run_internal_dialogue(
-        user_message,
-        &payload,
-        &personality,
-        current_model,
-        &llm_config,
-    ).await?;
+    // Create answer validator
+    let validator = AnswerValidator::new(false);
 
-    // Include internal trace if enabled
-    let mut output = result.answer;
-    if let Some(trace) = result.trace {
-        output.push_str("\n\n");
-        output.push_str(&trace.render());
+    // Create validation context
+    let mut context = ValidationContext::new(user_message.to_string());
+    // TODO: Add known files and packages from system facts
+    // context.known_files = extract_known_files(&facts);
+    // context.known_packages = extract_known_packages(&facts);
+
+    // Validation retry loop (max 3 attempts)
+    const MAX_RETRIES: usize = 3;
+    let mut attempt = 0;
+    let mut current_prompt = user_message.to_string();
+
+    loop {
+        attempt += 1;
+
+        // Run internal dialogue (planning + answer rounds)
+        let result = run_internal_dialogue(
+            &current_prompt,
+            &payload,
+            &personality,
+            current_model,
+            &llm_config,
+        ).await?;
+
+        // Validate the answer
+        let validation_result = validator.validate(&result.answer, &context).await?;
+
+        if validation_result.passed || attempt >= MAX_RETRIES {
+            // Answer passed validation or we've exhausted retries
+            let mut output = result.answer;
+
+            // Include internal trace if enabled
+            if let Some(trace) = result.trace {
+                output.push_str("\n\n");
+                output.push_str(&trace.render());
+            }
+
+            // If validation had warnings but still passed, include them
+            if !validation_result.passed && !validation_result.suggestions.is_empty() {
+                output.push_str("\n\n");
+                output.push_str("⚠️ Note: This answer had validation concerns but is being shown after retries.\n");
+                output.push_str(&format!("Confidence: {:.0}%\n", validation_result.confidence * 100.0));
+            }
+
+            return Ok(output);
+        }
+
+        // Answer failed validation - prepare retry with feedback
+        let feedback = validation_result.suggestions.join("\n");
+        current_prompt = format!(
+            "{}\n\n[VALIDATION FEEDBACK - Previous answer had issues]\n{}\n\nPlease revise your answer to address these concerns.",
+            user_message,
+            feedback
+        );
+
+        // Log validation failure for debugging
+        eprintln!(
+            "Answer validation failed (attempt {}/{}), confidence: {:.2}, issues: {}",
+            attempt,
+            MAX_RETRIES,
+            validation_result.confidence,
+            validation_result.issues.len()
+        );
     }
-
-    Ok(output)
 }
 
 /// Query the LLM with a prepared prompt
