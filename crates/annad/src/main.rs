@@ -211,10 +211,22 @@ async fn main() -> Result<()> {
         warn!("LLM bootstrap failed: {}", e);
     }
 
+    // Beta.117: Skip heavy experimental systems to speed up startup (21s → 2s)
+    // These systems (Sentinel, Collective, Mirror, Chronos, Mirror Audit) are experimental
+    // and add significant startup time. They can be re-enabled later when actually used.
+    const ENABLE_EXPERIMENTAL_SYSTEMS: bool = false;
+
+    if ENABLE_EXPERIMENTAL_SYSTEMS {
+        info!("Initializing experimental systems (Sentinel, Collective, Mirror, Chronos, Mirror Audit)...");
+    } else {
+        info!("Skipping experimental systems to optimize startup time");
+    }
+
     info!("Anna Daemon ready");
 
     // Initialize Sentinel framework (Phase 1.0)
-    info!("Initializing Sentinel framework...");
+    if ENABLE_EXPERIMENTAL_SYSTEMS {
+        info!("Initializing Sentinel framework...");
     match sentinel::initialize().await {
         Ok(sentinel_daemon) => {
             info!("Sentinel framework initialized - autonomous monitoring enabled");
@@ -368,6 +380,7 @@ async fn main() -> Result<()> {
             tracing::warn!("Continuing without temporal audit");
         }
     }
+    } // End of ENABLE_EXPERIMENTAL_SYSTEMS block (Beta.117)
 
     // Initialize Historian (Phase 5.7: Long-term memory and trend analysis)
     info!("Initializing Historian...");

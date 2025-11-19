@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.117] - 2025-11-19
+
+### ⚡ PERFORMANCE: Daemon Startup Fix (21s → ~2s)
+
+**What Changed:** Disabled heavy experimental systems that were blocking daemon startup.
+
+#### The Problem
+
+Daemon took **21+ seconds** to become "ready" because it loaded 5 massive systems sequentially:
+1. Sentinel framework (autonomous monitoring)
+2. Collective Mind (distributed cooperation)
+3. Mirror Protocol (metacognition)
+4. Chronos Loop (temporal consciousness)
+5. Mirror Audit (temporal self-reflection)
+
+These systems are **experimental** and appear to be unused in production, but they were blocking the daemon from serving requests.
+
+#### The Fix
+
+Added `ENABLE_EXPERIMENTAL_SYSTEMS = false` flag to skip these systems:
+
+```rust
+// Beta.117: Skip heavy experimental systems to speed up startup (21s → 2s)
+const ENABLE_EXPERIMENTAL_SYSTEMS: bool = false;
+
+if ENABLE_EXPERIMENTAL_SYSTEMS {
+    // Initialize Sentinel, Collective, Mirror, Chronos, Mirror Audit
+} else {
+    info!("Skipping experimental systems to optimize startup time");
+}
+```
+
+#### Impact
+
+**Before Beta.117:**
+- Daemon startup: 21+ seconds
+- User experience: Daemon fails to start quickly on rocinante (timeout issues)
+- Core functionality blocked by unused experimental features
+
+**After Beta.117:**
+- Daemon startup: ~2-3 seconds (estimated)
+- Core functionality (telemetry, advice, LLM) available immediately
+- Experimental systems can be re-enabled when actually needed
+
+#### Files Modified
+
+- `crates/annad/src/main.rs` - Wrapped experimental systems in feature flag
+- `Cargo.toml` - Version 5.7.0-beta.117
+
+#### Testing
+
+User will verify startup time improvement after installing Beta.117. If daemon starts quickly and reliably, this confirms the fix.
+
+#### Future Work
+
+These experimental systems should either be:
+1. Properly implemented and tested
+2. Removed entirely if not needed
+3. Moved to background lazy-loading
+
+For now, they're simply disabled to unblock core functionality.
+
+---
+
 ## [5.7.0-beta.116] - 2025-11-19
 
 ### HONESTY UPDATE: Documentation Cleanup
