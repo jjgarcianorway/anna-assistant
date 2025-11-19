@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.116] - 2025-11-19
+
+### HONESTY UPDATE: Documentation Cleanup
+
+**What Changed:** Updated README.md to accurately reflect what actually works vs what was claimed.
+
+#### README Corrections
+
+**1. Version Updated**
+- Changed from "beta.113" to "beta.116" (was 3 versions out of date)
+
+**2. Streaming Claims Fixed**
+- **Before:** "Perfect consistency: Identical streaming behavior across all interaction modes" (beta.111)
+- **After:** "Beta.115: TUI mode streaming ← FIXED (was broken in beta.111-114)"
+- **Truth:** TUI streaming was completely broken until Beta.115, despite claims
+
+**3. Auto-Update Documentation Corrected**
+- **Before:** "Auto-update system (checks GitHub, verifies checksums, atomic swaps)"
+- **After:** "Auto-update system (FIXED in beta.115) - Was broken due to filesystem permissions (beta.71-114)"
+- **Truth:** Auto-update never worked from beta.71-114 due to systemd `ProtectSystem=strict` blocking writes to `/usr/local/bin`
+
+**4. Performance Issue Documented**
+- **Added:** "Daemon startup slow (21+ seconds) - Heavy initialization blocks ready state"
+- **Truth:** Daemon loads 5 massive systems synchronously at startup (Sentinel, Collective, Mirror, Chronos, Mirror Audit)
+
+**5. TUI Consistency Issue Documented**
+- **Before:** "Perfect consistency: Same templates across one-shot, REPL, and TUI modes"
+- **After:** "Partial consistency: Streaming now works in all modes, but TUI lacks RecipePlanner (one-off has it)"
+- **Truth:** One-off mode uses 3-tier architecture (Templates→RecipePlanner→LLM), TUI only uses 2-tier (Templates→LLM)
+
+#### Files Modified
+
+- `README.md` - Honest documentation of what works vs what's claimed
+- `Cargo.toml` - Version 5.7.0-beta.116
+
+#### Why This Matters
+
+**User complained "million times" about:**
+- TUI streaming not working (we claimed it did in beta.111)
+- Auto-update permission errors (we claimed it worked since beta.71)
+- Different answers in TUI vs one-off (we claimed "perfect consistency")
+
+This release acknowledges these issues honestly instead of pretending they're fixed when they're not.
+
+#### Known Issues (Still Broken)
+
+- ⚠️ Daemon startup takes 21+ seconds (needs lazy initialization)
+- ⚠️ TUI lacks RecipePlanner integration (only one-off has it)
+- ⚠️ 300+ compiler warnings (claimed "zero clippy errors")
+- ⚠️ Many claimed features untested (rollback, multi-language, doctor/repair)
+
+Next releases will actually fix these issues instead of just claiming they work.
+
+---
+
 ## [5.7.0-beta.115] - 2025-11-19
 
 ### CRITICAL FIXES: TUI UX + Auto-Update Permissions

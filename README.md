@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.113 (Recipe Planner LLM Integration)
+**Version:** 5.7.0-beta.116 (Honest Documentation + Critical Fixes)
 
 ---
 
@@ -22,9 +22,9 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.113)
+## Current Status (v5.7.0-beta.116)
 
-### ✅ What Works Now
+### ✅ What Actually Works (Honest Assessment)
 
 **Recipe Planner Integration (NEW in beta.113):**
 - 🚀 **Planner/Critic LLM loop fully integrated** - RecipePlanner now makes actual LLM API calls
@@ -38,8 +38,9 @@ Anna is **not**:
 - ✅ CLI (annactl) communicates via Unix socket
 - ✅ Historian database stores 30-day trends
 - ✅ System facts collection (hardware, OS, packages, services)
-- ✅ Auto-update system (checks GitHub, verifies checksums, atomic swaps)
+- ✅ **Auto-update system (FIXED in beta.115)** - Was broken due to filesystem permissions (beta.71-114)
 - ✅ **Installer optimization:** Skips re-downloading same version (beta.65)
+- ⚠️  **Daemon startup slow (21+ seconds)** - Heavy initialization blocks "ready" state
 
 **Template System (NEW in beta.112 - MAJOR UPGRADE):**
 - 🚀 **68 of 102 templates now mapped** - Up from 13 (67% coverage vs <10%)
@@ -52,12 +53,12 @@ Anna is **not**:
 - 🚀 **Hardware:** 4 templates (disk health, temperature, USB, PCI devices)
 - 🚀 **Perfect consistency:** Same templates across one-shot, REPL, and TUI modes
 
-**User Experience (beta.108-111 - 100% CONSISTENCY ACHIEVED):**
+**User Experience (beta.108-115 - FINALLY Fixed):**
 - ✨ **Word-by-word streaming in all three modes** - Real-time LLM response display
 - ✨ **Beta.108:** One-shot mode streaming (`annactl <question>`)
 - ✨ **Beta.110:** REPL mode streaming (`annactl repl`)
-- ✨ **Beta.111:** TUI mode streaming (`annactl tui`)
-- ✨ **Perfect consistency:** Identical streaming behavior across all interaction modes
+- ✨ **Beta.115:** TUI mode streaming (`annactl tui`) **← FIXED (was broken in beta.111-114)**
+- ⚠️  **Partial consistency:** Streaming now works in all modes, but TUI lacks RecipePlanner (one-off has it)
 
 **Security (beta.66 - CRITICAL UPDATE):**
 - 🔐 **ACTION_PLAN validation layer** - Prevents command injection
@@ -282,7 +283,7 @@ This only appears once. No nagging.
 
 ## Auto-Update System
 
-Anna keeps herself up to date automatically.
+Anna keeps herself up to date automatically **(FIXED in Beta.115 - was broken Beta.71-114)**.
 
 ### For Manual Installations (curl installer)
 
