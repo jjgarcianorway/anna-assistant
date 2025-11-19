@@ -197,6 +197,11 @@ impl TemplateLibrary {
         library.register(Self::list_loaded_modules());
         library.register(Self::check_hostname());
 
+        // Beta.98: WiFi Troubleshooting templates (User reported WiFi issue ignored)
+        library.register(Self::wifi_diagnostics());
+        library.register(Self::check_networkmanager_status());
+        library.register(Self::check_recent_kernel_updates());
+
         library
     }
 
@@ -1339,6 +1344,67 @@ impl TemplateLibrary {
                 validation_description: "Hostname information displayed".to_string(),
             }),
             example: "hostnamectl".to_string(),
+        }
+    }
+
+    // Beta.98: WiFi Troubleshooting Templates (Critical - User reported WiFi slowness ignored)
+    fn wifi_diagnostics() -> Template {
+        Template {
+            id: "wifi_diagnostics".to_string(),
+            name: "WiFi Performance Diagnostics".to_string(),
+            description: "Comprehensive WiFi diagnostics: signal strength, link speed, errors, driver info".to_string(),
+            parameters: vec![],
+            command_pattern: r#"printf "=== WIFI DIAGNOSTICS ===\n\n" && printf "Signal & Speed:\n" && iwconfig 2>/dev/null | grep -A 10 "IEEE 802.11" && printf "\n\nNetwork Interfaces:\n" && ip addr show | grep -A 5 "wl" && printf "\n\nRecent WiFi Errors (last 20):\n" && journalctl -u NetworkManager --no-pager -n 20 | grep -i "wifi\|wlan" && printf "\n\nDriver Info:\n" && lspci -k | grep -A 3 -i "network\|wireless""#.to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_configuration/Wireless".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("WIFI DIAGNOSTICS".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "WiFi diagnostics completed".to_string(),
+            }),
+            example: "wifi_diagnostics".to_string(),
+        }
+    }
+
+    fn check_networkmanager_status() -> Template {
+        Template {
+            id: "check_networkmanager_status".to_string(),
+            name: "Check NetworkManager Status".to_string(),
+            description: "Check NetworkManager service status and recent logs for network issues".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl status NetworkManager --no-pager -l && printf '\n\n=== Recent Errors ===\n' && journalctl -u NetworkManager -p err --no-pager -n 10".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/NetworkManager".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("NetworkManager".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "NetworkManager status checked".to_string(),
+            }),
+            example: "systemctl status NetworkManager".to_string(),
+        }
+    }
+
+    fn check_recent_kernel_updates() -> Template {
+        Template {
+            id: "check_recent_kernel_updates".to_string(),
+            name: "Check Recent Kernel/Driver Updates".to_string(),
+            description: "Check for recent kernel or driver updates that might affect WiFi performance".to_string(),
+            parameters: vec![],
+            command_pattern: r"pacman -Qi linux | grep -E 'Name|Version|Install Date' && printf '\n' && pacman -Ql linux | grep -i 'wireless\|wifi' | head -5".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Kernel".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("linux".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Kernel update info displayed".to_string(),
+            }),
+            example: "pacman -Qi linux".to_string(),
         }
     }
 }

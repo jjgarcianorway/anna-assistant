@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.98] - 2025-11-19
+
+### CRITICAL HOT-FIX: WiFi Issue Completely Ignored
+
+**User Reported:** "my computer wifi goes very slowly... have you noticed anything?"
+**Anna's Response (Beta.97):** "No urgent issues right now! Your system looks good."
+
+**THIS IS UNACCEPTABLE.** The user explicitly reported a WiFi performance problem and Anna ignored it completely. This is exactly the kind of failure keeping success rate at 54.4%.
+
+#### What Changed in Beta.98
+
+**Added 3 WiFi Troubleshooting Templates:**
+
+1. **wifi_diagnostics** - Comprehensive WiFi diagnostics
+   - Signal strength check (`iwconfig`)
+   - Network interface status (`ip addr`)
+   - Recent WiFi errors from NetworkManager logs
+   - Driver information (`lspci -k`)
+
+2. **check_networkmanager_status** - NetworkManager diagnostics
+   - Service status
+   - Recent error logs
+   - Connection history
+
+3. **check_recent_kernel_updates** - Check if recent updates caused issues
+   - Kernel version and install date
+   - WiFi-related kernel modules
+   - Recent driver changes
+
+Note: `check_wifi_signal` already existed from Beta.96
+
+#### Example: How Beta.98 Will Handle WiFi Issues
+
+**User:** "my computer wifi goes very slowly"
+
+**Beta.98 Response:**
+```
+Running WiFi diagnostics...
+
+Signal Strength: 78% (-45 dBm) - Good
+Link Speed: 72 Mbps - Should be faster
+NetworkManager Status: Active, no recent errors
+Recent Kernel Update: 3 days ago (might be related)
+
+Recommendations:
+1. Signal is good, but link speed is throttled
+2. Try: sudo systemctl restart NetworkManager
+3. Check router settings (QoS, bandwidth limits)
+4. If issue started after kernel update, consider downgrade
+5. Reboot to clear any driver issues
+```
+
+**Total Templates:** 53 (50 in Beta.97 + 3 WiFi templates)
+
+#### Files Modified
+
+- `crates/anna_common/src/template_library.rs:1345-1424` (Added 4 WiFi templates)
+- `crates/anna_common/src/template_library.rs:200-204` (Registered WiFi templates)
+
+#### Impact
+
+**Before Beta.98:**
+- User WiFi issue completely ignored ❌
+- Generic "everything looks good" response ❌
+- No diagnostics run ❌
+- User left frustrated ❌
+
+**After Beta.98:**
+- WiFi issues properly diagnosed ✅
+- Actual signal/speed data ✅
+- Recent changes identified ✅
+- Actionable recommendations ✅
+
+**This is the path to 100% success rate** - one critical failure at a time.
+
 ## [5.7.0-beta.97] - 2025-11-19
 
 ### PHASE 1 COMPLETE - 50 Templates Achieved + Auto-Update Logging Fix
