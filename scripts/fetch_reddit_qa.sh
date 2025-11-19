@@ -53,9 +53,12 @@ for period in month week; do
             score: .data.score,
             num_comments: .data.num_comments,
             url: .data.url
-        }]' | jq --argjson existing "$(cat "$OUTPUT_FILE")" '$existing + .' > "${OUTPUT_FILE}.tmp"
+        }]' > "${OUTPUT_FILE}.new"
 
+        # Merge using file-based jq slurp (avoids argument list too long)
+        jq -s '.[0] + .[1]' "$OUTPUT_FILE" "${OUTPUT_FILE}.new" > "${OUTPUT_FILE}.tmp"
         mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+        rm -f "${OUTPUT_FILE}.new"
 
         # Update collected count
         collected=$(jq 'length' "$OUTPUT_FILE")
