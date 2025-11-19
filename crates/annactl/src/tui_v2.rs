@@ -431,6 +431,88 @@ fn detect_language_change(input: &str, state: &mut AnnaTuiState) {
     }
 }
 
+/// Generate reply using LLM for questions without template match
+async fn generate_llm_reply(input: &str, state: &AnnaTuiState) -> String {
+    use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
+
+    // Build system context from telemetry
+    let system_context = format!(
+        "System Information:\n\
+         - CPU: {}\n\
+         - CPU Load: {:.2}, {:.2}, {:.2} (1/5/15 min)\n\
+         - RAM: {:.1} GB used / {:.1} GB total\n\
+         - GPU: {}\n\
+         - Disk: {:.1} GB free\n\
+         - OS: Arch Linux\n\
+         - Anna Version: {}",
+        state.system_panel.cpu_model,
+        state.system_panel.cpu_load_1min,
+        state.system_panel.cpu_load_5min,
+        state.system_panel.cpu_load_15min,
+        state.system_panel.ram_used_gb,
+        state.system_panel.ram_total_gb,
+        state.system_panel.gpu_name.as_ref().map(|s| s.as_str()).unwrap_or("None"),
+        state.system_panel.disk_free_gb,
+        state.system_panel.anna_version,
+    );
+
+    // Use detected model from state, fallback to llama3.1:8b if none detected
+    let model_name = if state.llm_panel.model_name == "None" || state.llm_panel.model_name == "Unknown" || state.llm_panel.model_name == "Ollama N/A" {
+        "llama3.1:8b"
+    } else {
+        &state.llm_panel.model_name
+    };
+
+    let llm_config = LlmConfig::local("http://127.0.0.1:11434/v1", model_name);
+
+    let llm_client = match LlmClient::from_config(&llm_config) {
+        Ok(client) => client,
+        Err(_) => {
+            // LLM not available - return helpful fallback
+            return format!(
+                "## ⚠ LLM Unavailable\n\n\
+                 I couldn't connect to the local LLM server (Ollama).\n\n\
+                 **Your question:** {}\n\n\
+                 **What I can help with (using templates):**\n\
+                 - swap - Check swap status\n\
+                 - GPU/VRAM - Check GPU memory\n\
+                 - kernel - Check kernel version\n\
+                 - disk/space - Check disk space\n\
+                 - RAM/memory - Check system memory\n\n\
+                 **To enable full LLM responses:**\n\
+                 1. Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`\n\
+                 2. Pull a model: `ollama pull llama3.1:8b`\n\
+                 3. Ensure Ollama is running: `ollama list`",
+                input
+            );
+        }
+    };
+
+    // Build prompt with system context
+    let system_prompt = format!(
+        "{}\n\n{}",
+        LlmClient::anna_system_prompt(),
+        system_context
+    );
+
+    let prompt = LlmPrompt {
+        system: system_prompt,
+        user: input.to_string(),
+        conversation_history: None,
+    };
+
+    // Call LLM (blocking call in spawn_blocking for async context)
+    let llm_response = tokio::task::spawn_blocking(move || {
+        llm_client.chat(&prompt)
+    }).await;
+
+    match llm_response {
+        Ok(Ok(response)) => response.text,
+        Ok(Err(e)) => format!("## LLM Error\n\nFailed to get response: {:?}", e),
+        Err(e) => format!("## Internal Error\n\nTask failed: {:?}", e),
+    }
+}
+
 /// Generate reply using template library and recipe formatter
 async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
     use anna_common::command_recipe::Recipe;
@@ -453,47 +535,8 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
     } else if input_lower.contains("ram") || input_lower.contains("memory") || input_lower.contains("mem") {
         ("check_memory", HashMap::new())
     } else {
-        // No matching template - return helpful message
-        return match state.language {
-            LanguageCode::Spanish => format!(
-                "## Entiendo\n\n'{}'\n\n## Estado Actual\n\n\
-                 Estoy en modo de desarrollo. Por ahora, puedo ayudarte con:\n\n\
-                 - swap (estado de swap)\n\
-                 - GPU/VRAM (memoria de GPU)\n\
-                 - kernel (versión del kernel)\n\
-                 - disk/space (espacio en disco)\n\
-                 - RAM/memory (memoria del sistema)\n\n\
-                 ## Próximamente\n\n\
-                 Planner/Critic LLM para generar recetas dinámicamente.",
-                input
-            ),
-            LanguageCode::French => format!(
-                "## Compris\n\n'{}'\n\n## État Actuel\n\n\
-                 Je suis en mode développement. Pour l'instant, je peux vous aider avec:\n\n\
-                 - swap (état du swap)\n\
-                 - GPU/VRAM (mémoire GPU)\n\
-                 - kernel (version du noyau)\n\
-                 - disk/space (espace disque)\n\
-                 - RAM/memory (mémoire système)\n\n\
-                 ## Bientôt\n\n\
-                 Planner/Critic LLM pour générer des recettes dynamiquement.",
-                input
-            ),
-            _ => format!(
-                "## Understood\n\n'{}'\n\n## Current Status\n\n\
-                 I'm in development mode. For now, I can help with:\n\n\
-                 - **swap** - Check swap status\n\
-                 - **GPU/VRAM** - Check GPU memory\n\
-                 - **kernel** - Check kernel version\n\
-                 - **disk/space** - Check disk space\n\
-                 - **RAM/memory** - Check system memory\n\n\
-                 ## Coming Soon\n\n\
-                 Planner/Critic LLM loop to generate dynamic recipes from Arch Wiki.\n\n\
-                 ## Architecture\n\n\
-                 Templates → Planner LLM → Critic LLM → Validated Recipe → Execution",
-                input
-            ),
-        };
+        // No matching template - use LLM to generate response
+        return generate_llm_reply(input, state).await;
     };
 
     // Instantiate template
@@ -547,16 +590,48 @@ fn update_telemetry(state: &mut AnnaTuiState) {
         state.telemetry_ok = false;
     }
 
-    // Update LLM panel - check if Ollama is available
-    // For now, hardcode to llama3.2:3b (will fix model detection in next task)
-    state.llm_panel.model_name = "llama3.2:3b".to_string();
-    state.llm_panel.model_size = "3B".to_string();
+    // Update LLM panel - detect actual Ollama model
     state.llm_panel.mode = "Local".to_string();
-    state.llm_panel.available = std::process::Command::new("ollama")
-        .arg("list")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+
+    // Run `ollama list` and parse output to detect installed models
+    match std::process::Command::new("ollama").arg("list").output() {
+        Ok(output) if output.status.success() => {
+            state.llm_panel.available = true;
+
+            // Parse ollama list output (format: NAME ID SIZE MODIFIED)
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            // Get first non-header line (most recently used model)
+            if let Some(first_line) = stdout.lines().skip(1).next() {
+                let parts: Vec<&str> = first_line.split_whitespace().collect();
+                if let Some(model_name) = parts.first() {
+                    state.llm_panel.model_name = model_name.to_string();
+
+                    // Extract size from model name (e.g., "llama3.1:8b" -> "8B")
+                    if let Some(size_part) = model_name.split(':').nth(1) {
+                        state.llm_panel.model_size = size_part.to_uppercase();
+                    } else {
+                        state.llm_panel.model_size = "Unknown".to_string();
+                    }
+                } else {
+                    // Fallback if parsing fails
+                    state.llm_panel.model_name = "Unknown".to_string();
+                    state.llm_panel.model_size = "?".to_string();
+                }
+            } else {
+                // No models installed
+                state.llm_panel.model_name = "None".to_string();
+                state.llm_panel.model_size = "-".to_string();
+                state.llm_panel.available = false;
+            }
+        }
+        _ => {
+            // Ollama not available or command failed
+            state.llm_panel.available = false;
+            state.llm_panel.model_name = "Ollama N/A".to_string();
+            state.llm_panel.model_size = "-".to_string();
+        }
+    }
 }
 
 /// TUI message types
