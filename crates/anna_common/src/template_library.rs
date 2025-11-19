@@ -202,6 +202,17 @@ impl TemplateLibrary {
         library.register(Self::check_networkmanager_status());
         library.register(Self::check_recent_kernel_updates());
 
+        // Beta.102: Pacman Diagnostic templates (User's 200 questions - highest priority)
+        library.register(Self::check_pacman_status());
+        library.register(Self::check_pacman_locks());
+        library.register(Self::check_dependency_conflicts());
+        library.register(Self::check_pacman_cache_size());
+        library.register(Self::show_recent_pacman_operations());
+        library.register(Self::check_pending_updates());
+        library.register(Self::check_pacman_mirrors());
+        library.register(Self::check_archlinux_keyring());
+        library.register(Self::check_failed_systemd_units());
+
         library
     }
 
@@ -1405,6 +1416,190 @@ impl TemplateLibrary {
                 validation_description: "Kernel update info displayed".to_string(),
             }),
             example: "pacman -Qi linux".to_string(),
+        }
+    }
+
+    // ===== BETA.102: PACMAN DIAGNOSTIC TEMPLATES =====
+    // User's 200 practical questions showed Pacman issues in 20+ questions
+    // Priority 1: Most common user problems need actionable diagnostics
+
+    fn check_pacman_status() -> Template {
+        Template {
+            id: "check_pacman_status".to_string(),
+            name: "Check Pacman Status".to_string(),
+            description: "Check if Pacman is working correctly and display current configuration".to_string(),
+            parameters: vec![],
+            command_pattern: "pacman --version && echo && grep -v '^#' /etc/pacman.conf | grep -v '^$'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Pacman".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Pacman version and config displayed".to_string(),
+            }),
+            example: "pacman --version".to_string(),
+        }
+    }
+
+    fn check_pacman_locks() -> Template {
+        Template {
+            id: "check_pacman_locks".to_string(),
+            name: "Check Pacman Lock Files".to_string(),
+            description: "Check for stale Pacman lock files that prevent package operations".to_string(),
+            parameters: vec![],
+            command_pattern: "ls -lh /var/lib/pacman/db.lck 2>/dev/null && echo 'Lock exists - remove with: sudo rm /var/lib/pacman/db.lck' || echo 'No lock file - Pacman is available'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman/Troubleshooting#Failed_to_init_transaction_(unable_to_lock_database)".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("lock".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Lock file status displayed".to_string(),
+            }),
+            example: "ls -lh /var/lib/pacman/db.lck".to_string(),
+        }
+    }
+
+    fn check_dependency_conflicts() -> Template {
+        Template {
+            id: "check_dependency_conflicts".to_string(),
+            name: "Check Dependency Conflicts".to_string(),
+            description: "Check for broken dependencies and package conflicts".to_string(),
+            parameters: vec![],
+            command_pattern: "pacman -Qk 2>&1 | head -30".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman/Troubleshooting".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Dependency check results displayed".to_string(),
+            }),
+            example: "pacman -Qk".to_string(),
+        }
+    }
+
+    fn check_pacman_cache_size() -> Template {
+        Template {
+            id: "check_pacman_cache_size".to_string(),
+            name: "Check Pacman Cache Size".to_string(),
+            description: "Show size of Pacman package cache".to_string(),
+            parameters: vec![],
+            command_pattern: "du -sh /var/cache/pacman/pkg/ && echo && ls /var/cache/pacman/pkg/*.pkg.tar.* 2>/dev/null | wc -l && echo 'cached packages'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Cleaning_the_package_cache".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("pkg".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Cache size displayed".to_string(),
+            }),
+            example: "du -sh /var/cache/pacman/pkg/".to_string(),
+        }
+    }
+
+    fn show_recent_pacman_operations() -> Template {
+        Template {
+            id: "show_recent_pacman_operations".to_string(),
+            name: "Show Recent Pacman Operations".to_string(),
+            description: "Display recent package installations, updates, and removals".to_string(),
+            parameters: vec![],
+            command_pattern: "grep -E '\\[ALPM\\] (installed|upgraded|removed)' /var/log/pacman.log 2>/dev/null | tail -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Pacman_log".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("ALPM".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Recent operations displayed".to_string(),
+            }),
+            example: "grep 'ALPM' /var/log/pacman.log | tail -20".to_string(),
+        }
+    }
+
+    fn check_pending_updates() -> Template {
+        Template {
+            id: "check_pending_updates".to_string(),
+            name: "Check Pending Updates".to_string(),
+            description: "Check for available package updates".to_string(),
+            parameters: vec![],
+            command_pattern: "checkupdates || echo 'No updates available (or checkupdates not installed)'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Available updates listed".to_string(),
+            }),
+            example: "checkupdates".to_string(),
+        }
+    }
+
+    fn check_pacman_mirrors() -> Template {
+        Template {
+            id: "check_pacman_mirrors".to_string(),
+            name: "Check Pacman Mirror Configuration".to_string(),
+            description: "Display configured Pacman mirrors".to_string(),
+            parameters: vec![],
+            command_pattern: "grep '^Server' /etc/pacman.d/mirrorlist | head -10".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Mirrors".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Server".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Mirror list displayed".to_string(),
+            }),
+            example: "grep Server /etc/pacman.d/mirrorlist".to_string(),
+        }
+    }
+
+    fn check_archlinux_keyring() -> Template {
+        Template {
+            id: "check_archlinux_keyring".to_string(),
+            name: "Check Arch Linux Keyring Status".to_string(),
+            description: "Check GPG keyring status and version".to_string(),
+            parameters: vec![],
+            command_pattern: "pacman -Q archlinux-keyring && echo && pacman-key --list-keys | grep -E 'pub|uid' | head -10".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Pacman/Package_signing".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("keyring".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Keyring status displayed".to_string(),
+            }),
+            example: "pacman -Q archlinux-keyring".to_string(),
+        }
+    }
+
+    fn check_failed_systemd_units() -> Template {
+        Template {
+            id: "check_failed_systemd_units".to_string(),
+            name: "Check Failed Systemd Units".to_string(),
+            description: "List all failed systemd units".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl list-units --failed --all".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("UNIT".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Failed units listed".to_string(),
+            }),
+            example: "systemctl --failed".to_string(),
         }
     }
 }

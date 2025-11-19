@@ -1,0 +1,408 @@
+=== Reddit QA Validation ===
+Questions file: data/linux_questions_extended.json
+Sample size: 200
+Output: reddit_validation_results.md
+
+Using model: llama3.1:8b
+
+[1/200] Testing: [MEGATHREAD] AUR AND ARCHLINUX.ORG ARE DOWN. THIS IS THE RESULT OF A DDOS ATTACK.
+   Response: 208 words, 9234ms - ⚠️  PARTIAL
+[2/200] Testing: PewDiePie BTW I use Arch moment
+   Response: 329 words, 10949ms - ⚠️  PARTIAL
+[3/200] Testing: Install Arch. Only Arch. And no archinstall. Ever. Or you'll die.
+   Response: 331 words, 10607ms - ⚠️  PARTIAL
+[4/200] Testing: Whoever mentioned that the logo looks like a fat guy in front of his computer
+   Response: 219 words, 6966ms - ⚠️  PARTIAL
+[5/200] Testing: Why does pacman always have a huge cache?
+   Response: 384 words, 12985ms - ⚠️  PARTIAL
+[6/200] Testing: Is this another AUR infect package?
+   Response: 355 words, 11745ms - ⚠️  PARTIAL
+[7/200] Testing: The Arch Wiki has implemented anti-AI crawler bot software Anubis.
+   Response: 238 words, 7695ms - ⚠️  PARTIAL
+[8/200] Testing: Careful using the AUR
+   Response: 344 words, 11478ms - ⚠️  PARTIAL
+[9/200] Testing: Alarming trend of people using AI for learning Linux
+   Response: 373 words, 12294ms - ⚠️  PARTIAL
+[10/200] Testing: Friendly reminder: AUR helpers are for convenience, not safety.
+   Response: 312 words, 11035ms - ⚠️  PARTIAL
+[11/200] Testing: Nobody’s forcing you to use AUR
+   Response: 297 words, 10146ms - ⚠️  PARTIAL
+[12/200] Testing: DuckStation author now actively blocking Arch Linux builds
+   Response: 184 words, 5992ms - ⚠️  PARTIAL
+[13/200] Testing: In school we were making posters in photoshop, so I made one about Arch Linux (I am not so good with photoshop and I am getting more knowledgeable about Arch Linux, if you have any criticism, just type it in the comments)
+   Response: 159 words, 4992ms - ⚠️  PARTIAL
+[14/200] Testing: Arch Linux Mirror served 1PB+ Traffic
+   Response: 413 words, 15687ms - ⚠️  PARTIAL
+[15/200] Testing: New Valve Steam Frame runs steamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?
+   Response: 298 words, 9888ms - ⚠️  PARTIAL
+[16/200] Testing: This is what happens when my PC wakes from sleep...
+   Response: 240 words, 9442ms - ⚠️  PARTIAL
+[17/200] Testing: Help! My friend can't stop reinstalling Arch Linux
+   Response: 400 words, 13954ms - ⚠️  PARTIAL
+[18/200] Testing: [aur-general] - [SECURITY] firefox-patch-bin, librewolf-fix-bin and zen-browser-patched-bin AUR packages contain malware
+   Response: 245 words, 9878ms - ⚠️  PARTIAL
+[19/200] Testing: Just did a system update and nothing happened
+   Response: 338 words, 11504ms - ⚠️  PARTIAL
+[20/200] Testing: DO NOT UPDATE to 6.16.8.arch2-1 if you have an AMD GPU.
+   Response: 146 words, 5636ms - ⚠️  PARTIAL
+[21/200] Testing: oh my god I get it now: I'm in control
+   Response: 250 words, 9070ms - ⚠️  PARTIAL
+[22/200] Testing: Shoutout to the Arch/AUR maintainers/sysops
+   Response: 175 words, 5269ms - ⚠️  PARTIAL
+[23/200] Testing: Got hit by malware today
+   Response: 369 words, 12092ms - ⚠️  PARTIAL
+[24/200] Testing: Behold, the Fall of Windows: The Era of Arch Is Upon Us
+   Response: 447 words, 16575ms - ⚠️  PARTIAL
+[25/200] Testing: [arch-announce] Recent services outages
+   Response: 234 words, 7887ms - ⚠️  PARTIAL
+[26/200] Testing: Ricing your setup is 90% wallpaper. So I made an open-source wallpaper index
+   Response: 280 words, 10332ms - ⚠️  PARTIAL
+[27/200] Testing: linux-firmware &gt;= 20250613.12fe085f-5 upgrade requires manual intervention
+   Response: 253 words, 8760ms - ⚠️  PARTIAL
+[28/200] Testing: I can't stop telling people I use arch
+   Response: 420 words, 13118ms - ⚠️  PARTIAL
+[29/200] Testing: Pacman-7.1.0 released
+   Response: 135 words, 5652ms - ⚠️  PARTIAL
+[30/200] Testing: Switching to Arch Linux as a gamer was a scary yet good decision
+   Response: 380 words, 12912ms - ⚠️  PARTIAL
+[31/200] Testing: I dumped Omarchy and went back to a fresh un-opinionated Arch
+   Response: 259 words, 11340ms - ⚠️  PARTIAL
+[32/200] Testing: Must-have packages on Arch
+   Response: 317 words, 11084ms - ⚠️  PARTIAL
+[33/200] Testing: My drastic shift in opinions regarding Linux, Arch and Windows.
+   Response: 333 words, 12264ms - ⚠️  PARTIAL
+[34/200] Testing: PSA: Arch has "time machine" built-in (and I don't talk about btrfs)
+   Response: 302 words, 11767ms - ⚠️  PARTIAL
+[35/200] Testing: I genuinely don't want to use Windows ever again
+   Response: 348 words, 12048ms - ⚠️  PARTIAL
+[36/200] Testing: I made my mom use arch Linux
+   Response: 325 words, 10586ms - ⚠️  PARTIAL
+[37/200] Testing: Stop gatekeeping Arch
+   Response: 411 words, 13131ms - ⚠️  PARTIAL
+[38/200] Testing: Today I got very annoyed with Linux in general
+   Response: 359 words, 12898ms - ⚠️  PARTIAL
+[39/200] Testing: I can't believe how rock solid Arch Linux is
+   Response: 346 words, 11530ms - ⚠️  PARTIAL
+[40/200] Testing: We don't appreciate package maintainers enough.
+   Response: 328 words, 11783ms - ⚠️  PARTIAL
+[41/200] Testing: Updated - Recent Service Outage
+   Response: 171 words, 6973ms - ⚠️  PARTIAL
+[42/200] Testing: Installed arch on my dad's laptop
+   Response: 373 words, 12344ms - ⚠️  PARTIAL
+[43/200] Testing: Official Arch Linux image added to WSL2
+   Response: 274 words, 9030ms - ⚠️  PARTIAL
+[44/200] Testing: Drop your bootloader TODAY
+   Response: 436 words, 17472ms - ⚠️  PARTIAL
+[45/200] Testing: This program blew me away ...
+   Response: 211 words, 7297ms - ⚠️  PARTIAL
+[46/200] Testing: Things you probably should do
+   Response: 440 words, 17730ms - ⚠️  PARTIAL
+[47/200] Testing: Mission accomplished
+   Response: 309 words, 10110ms - ⚠️  PARTIAL
+[48/200] Testing: I have a whole other level of respect for you guys
+   Response: 293 words, 9732ms - ⚠️  PARTIAL
+[49/200] Testing: Some love for archinstall
+   Response: 242 words, 8145ms - ⚠️  PARTIAL
+[50/200] Testing: I chose to build an Operating System from scratch and I'm crying.
+   Response: 514 words, 17423ms - ⚠️  PARTIAL
+[51/200] Testing: This rhetoric that Arch is not for beginners has to stop because it's not true.
+   Response: 330 words, 10124ms - ⚠️  PARTIAL
+[52/200] Testing: How is this boot so fast?
+   Response: 356 words, 12892ms - ⚠️  PARTIAL
+[53/200] Testing: How many of yall play games on Arch?
+   Response: 301 words, 10969ms - ⚠️  PARTIAL
+[54/200] Testing: Distros don't matter.
+   Response: 312 words, 10128ms - ⚠️  PARTIAL
+[55/200] Testing: Anybody else use Arch long enough to be amused by the hardcore elitist Arch users complaining about archinstall scripts funny?
+   Response: 263 words, 9423ms - ⚠️  PARTIAL
+[56/200] Testing: Linux feels more stable than windows
+   Response: 398 words, 12429ms - ⚠️  PARTIAL
+[57/200] Testing: Arch has to be the most stable Linux distro I have used
+   Response: 355 words, 12373ms - ⚠️  PARTIAL
+[58/200] Testing: First time using linux
+   Response: 469 words, 16154ms - ⚠️  PARTIAL
+[59/200] Testing: Hi, I'm a Package maintainer, ask me anything! (Q&amp;A Session starting 20:00 CEST)
+   Response: 116 words, 4337ms - ⚠️  PARTIAL
+[60/200] Testing: In today's time "Arch Linux is hard to install is a lie"
+   Response: 244 words, 7715ms - ⚠️  PARTIAL
+[61/200] Testing: Whoever mentioned that the logo looks like a fat guy in front of his computer
+   Response: 135 words, 4058ms - ⚠️  PARTIAL
+[62/200] Testing: Arch Linux Wiki will teach you about Linux (literally)
+   Response: 415 words, 13818ms - ⚠️  PARTIAL
+[63/200] Testing: Reminder to run pacman -Sc
+   Response: 187 words, 7430ms - ⚠️  PARTIAL
+[64/200] Testing: The archwiki is awesome
+   Response: 354 words, 12301ms - ⚠️  PARTIAL
+[65/200] Testing: I unplugged my Linux disk but Windows still found a way to screw me
+   Response: 360 words, 12797ms - ⚠️  PARTIAL
+[66/200] Testing: Who's attacking the Arch infrastructure?
+   Response: 178 words, 6129ms - ⚠️  PARTIAL
+[67/200] Testing: 'Just Use Ubuntu' - from Mocking Arch Users to Becoming One
+   Response: 248 words, 8124ms - ⚠️  PARTIAL
+[68/200] Testing: Switching to Arch Linux was the best decision ever.
+   Response: 387 words, 12120ms - ⚠️  PARTIAL
+[69/200] Testing: It's 2am where I live, my girlfriend is asleep, the night is quiet and I'm thinking about how much I love arch linux
+   Response: 305 words, 12093ms - ⚠️  PARTIAL
+[70/200] Testing: Reasons why Arch is a lifesaver for a graduate student in CS
+   Response: 363 words, 12044ms - ⚠️  PARTIAL
+[71/200] Testing: I think it's official now. I could never have a main distro other than Arch.
+   Response: 307 words, 10269ms - ⚠️  PARTIAL
+[72/200] Testing: Arch is so sick.
+   Response: 224 words, 8523ms - ⚠️  PARTIAL
+[73/200] Testing: I'm very impressed
+   Response: 260 words, 8366ms - ⚠️  PARTIAL
+[74/200] Testing: Do not update today, it breaks pipewire.
+   Response: 181 words, 6631ms - ⚠️  PARTIAL
+[75/200] Testing: AUR is down
+   Response: 248 words, 9295ms - ⚠️  PARTIAL
+[76/200] Testing: Seems to me that Arch is more stable than the "stable" distros
+   Response: 531 words, 16974ms - ⚠️  PARTIAL
+[77/200] Testing: Arch Linux Community Survey!
+   Response: 175 words, 5812ms - ⚠️  PARTIAL
+[78/200] Testing: Pacman should notify the user for manual intervention
+   Response: 296 words, 9650ms - ⚠️  PARTIAL
+[79/200] Testing: NVIDIA works out of box (??)
+   Response: 251 words, 9082ms - ⚠️  PARTIAL
+[80/200] Testing: Someone is downvoting every single post here
+   Response: 297 words, 9842ms - ⚠️  PARTIAL
+[81/200] Testing: why do some people hate systemd so much?
+   Response: 391 words, 13538ms - ⚠️  PARTIAL
+[82/200] Testing: If you're new here and have an old shitty laptop, go nuts.
+   Response: 278 words, 9478ms - ⚠️  PARTIAL
+[83/200] Testing: Arch not breaking itself...
+   Response: 328 words, 10541ms - ⚠️  PARTIAL
+[84/200] Testing: www.archlinux.org down as well ...
+   Response: 234 words, 8178ms - ⚠️  PARTIAL
+[85/200] Testing: The linux dream
+   Response: 342 words, 10970ms - ⚠️  PARTIAL
+[86/200] Testing: Why doesn't pacman just install archlinux-keyring first automatically?
+   Response: 379 words, 12430ms - ⚠️  PARTIAL
+[87/200] Testing: What apps you consider must haves?
+   Response: 241 words, 9256ms - ⚠️  PARTIAL
+[88/200] Testing: The bot protection on the wiki is stupid.
+   Response: 308 words, 10328ms - ⚠️  PARTIAL
+[89/200] Testing: Arch has left me speechless
+   Response: 225 words, 8642ms - ⚠️  PARTIAL
+[90/200] Testing: Adobe software now has graphics acceleration via Wine!
+   Response: 281 words, 9985ms - ⚠️  PARTIAL
+[91/200] Testing: Systemd v258 has been released and is now in core-testing
+   Response: 252 words, 9985ms - ⚠️  PARTIAL
+[92/200] Testing: Am i the only one who has experienced arch to be more stable than any other distro?
+   Response: 449 words, 14310ms - ⚠️  PARTIAL
+[93/200] Testing: Tips you wish you knew as a beginner
+   Response: 446 words, 14808ms - ⚠️  PARTIAL
+[94/200] Testing: Aur - A simple  helper that uses the git mirror.
+   Response: 272 words, 9331ms - ⚠️  PARTIAL
+[95/200] Testing: I decided to install Arch hoping to struggle because I was bored, but it just.. worked. I fell for the memes.
+   Response: 251 words, 9585ms - ⚠️  PARTIAL
+[96/200] Testing: If it exists, there's an AUR package for it.
+   Response: 329 words, 10769ms - ⚠️  PARTIAL
+[97/200] Testing: PSA: pacman fails with "conflicting files" error due to recent changes in linux-firmware
+   Response: 154 words, 6341ms - ⚠️  PARTIAL
+[98/200] Testing: Arch News before Update.
+   Response: 229 words, 7523ms - ⚠️  PARTIAL
+[99/200] Testing: The most complex Archlinux setup I’ve done
+   Response: 365 words, 13899ms - ⚠️  PARTIAL
+[100/200] Testing: How will this law effect Linux?
+   Response: 360 words, 11262ms - ⚠️  PARTIAL
+[101/200] Testing: Arch linux survey
+   Response: 147 words, 4597ms - ⚠️  PARTIAL
+[102/200] Testing: I'm a graphic designer and I use arch Linux
+   Response: 280 words, 9547ms - ⚠️  PARTIAL
+[103/200] Testing: Arch with no GUI
+   Response: 200 words, 6424ms - ⚠️  PARTIAL
+[104/200] Testing: My GF started using Arch, wish her luck!
+   Response: 281 words, 9662ms - ⚠️  PARTIAL
+[105/200] Testing: Half a year of Seeding
+   Response: 196 words, 6323ms - ⚠️  PARTIAL
+[106/200] Testing: Sudden rise of sub members
+   Response: 233 words, 8149ms - ⚠️  PARTIAL
+[107/200] Testing: Plasma 6.4.0 will need manual intervention if you are on X11
+   Response: 208 words, 8051ms - ⚠️  PARTIAL
+[108/200] Testing: Just became an Arch sponsor
+   Response: 205 words, 7699ms - ⚠️  PARTIAL
+[109/200] Testing: Arch isn't hard
+   Response: 345 words, 11336ms - ⚠️  PARTIAL
+[110/200] Testing: I created a bash script that converts EndeavourOS to pure Arch Linux
+   Response: 287 words, 9980ms - ⚠️  PARTIAL
+[111/200] Testing: Sucessfully upgraded a 10-year-stale Arch installation
+   Response: 253 words, 8882ms - ⚠️  PARTIAL
+[112/200] Testing: What made you choose Arch over other distros? Genuinely curious about your personal reasons besides "I use Arch btw".
+   Response: 301 words, 9562ms - ⚠️  PARTIAL
+[113/200] Testing: ZRAM fixed ALL of my memory and performance problems
+   Response: 384 words, 13366ms - ⚠️  PARTIAL
+[114/200] Testing: Best decision ever
+   Response: 286 words, 11167ms - ⚠️  PARTIAL
+[115/200] Testing: What is your favorite terminal and why?
+   Response: 292 words, 9606ms - ⚠️  PARTIAL
+[116/200] Testing: I am a complete Idiot, but I want to use Arch
+   Response: 516 words, 17286ms - ⚠️  PARTIAL
+[117/200] Testing: Well 90% of what I have read about Arch is " Bollocks ". Unless I am doing something wrong.
+   Response: 371 words, 12662ms - ⚠️  PARTIAL
+[118/200] Testing: Would anyone be interested in watching me install Arch Linux blindfolded?
+   Response: 370 words, 12468ms - ⚠️  PARTIAL
+[119/200] Testing: It finally happened to me, my system would not boot
+   Response: 264 words, 9587ms - ⚠️  PARTIAL
+[120/200] Testing: I finally switched.
+   Response: 396 words, 13877ms - ⚠️  PARTIAL
+[121/200] Testing: What "unusual" uses do you give to pacman?
+   Response: 324 words, 11806ms - ⚠️  PARTIAL
+[122/200] Testing: [GNOME] Gnome 48 is out on Arch!
+   Response: 233 words, 8636ms - ⚠️  PARTIAL
+[123/200] Testing: Now that the linux-firmware debacle is over...
+   Response: 296 words, 11820ms - ⚠️  PARTIAL
+[124/200] Testing: Which terminal do you use and which one do you recommend?
+   Response: 205 words, 6976ms - ⚠️  PARTIAL
+[125/200] Testing: Waydroid is now in Pacman.
+   Response: 126 words, 4756ms - ⚠️  PARTIAL
+[126/200] Testing: My Arch broke for the first time and I've been using it for at least 7 years
+   Response: 192 words, 7008ms - ⚠️  PARTIAL
+[127/200] Testing: Arch Wiki is the best
+   Response: 298 words, 11291ms - ⚠️  PARTIAL
+[128/200] Testing: linux-firmware-nvidia issue with upgrade packages in arch today
+   Response: 243 words, 9397ms - ⚠️  PARTIAL
+[129/200] Testing: FREE collection of minimalist Arch wallpapers, up to 8K
+   Response: 184 words, 6942ms - ⚠️  PARTIAL
+[130/200] Testing: Thank you all, especially Arch Wiki contributors
+   Response: 146 words, 4377ms - ⚠️  PARTIAL
+[131/200] Testing: latest linux-firmware update messed up
+   Response: 270 words, 11314ms - ⚠️  PARTIAL
+[132/200] Testing: why people hate "archinstall"?
+   Response: 343 words, 12000ms - ⚠️  PARTIAL
+[133/200] Testing: Message to Arch Vets &amp; Newbies
+   Response: 363 words, 11508ms - ⚠️  PARTIAL
+[134/200] Testing: Negative update size trend
+   Response: 271 words, 8732ms - ⚠️  PARTIAL
+[135/200] Testing: the AUR is down again
+   Response: 252 words, 10107ms - ⚠️  PARTIAL
+[136/200] Testing: What font is missing? How do you diagnose and fix missing fonts like this.
+   Response: 354 words, 12703ms - ⚠️  PARTIAL
+[137/200] Testing: What Browser are you using?
+   Response: 247 words, 9248ms - ⚠️  PARTIAL
+[138/200] Testing: Plasma 6.5 has just dropped in the official repo
+   Response: 100 words, 3341ms - ⚠️  PARTIAL
+[139/200] Testing: How is Almost everything available in the AUR?
+   Response: 300 words, 10746ms - ⚠️  PARTIAL
+[140/200] Testing: r/archlinux Community Survey Results!
+   Response: 398 words, 16755ms - ⚠️  PARTIAL
+[141/200] Testing: I moved from windows to arch linux. I will never regret.
+   Response: 366 words, 12675ms - ⚠️  PARTIAL
+[142/200] Testing: What made you switch to arch?
+   Response: 230 words, 7542ms - ⚠️  PARTIAL
+[143/200] Testing: I host an Arch mirror - AMA
+   Response: 306 words, 9882ms - ⚠️  PARTIAL
+[144/200] Testing: I thought Arch Linux was a nightmare… Until I tried it!
+   Response: 230 words, 7769ms - ⚠️  PARTIAL
+[145/200] Testing: When did you switch to Arch?
+   Response: 377 words, 11857ms - ⚠️  PARTIAL
+[146/200] Testing: New CDN based mirror now available: fastly.mirror.pkgbuild.com - Arch-dev-public
+   Response: 130 words, 5494ms - ⚠️  PARTIAL
+[147/200] Testing: Is X11 still worth it?
+   Response: 382 words, 14488ms - ⚠️  PARTIAL
+[148/200] Testing: What's the time you screwed up your Arch Linux machine.
+   Response: 275 words, 9761ms - ⚠️  PARTIAL
+[149/200] Testing: What browser do you use?
+   Response: 237 words, 7807ms - ⚠️  PARTIAL
+[150/200] Testing: Is Arch bad for servers?
+   Response: 336 words, 11171ms - ⚠️  PARTIAL
+[151/200] Testing: archlinux.org is down (Well this is a first for me)
+   Response: 230 words, 8701ms - ⚠️  PARTIAL
+[152/200] Testing: Released my first AUR project: turn pacman declarative (or any package manager)!
+   Response: 483 words, 16424ms - ⚠️  PARTIAL
+[153/200] Testing: How many of you chose Arch as the first distro?
+   Response: 377 words, 12078ms - ⚠️  PARTIAL
+[154/200] Testing: What's something in/about Arch that should be dead-simple but isnt?
+   Response: 307 words, 10061ms - ⚠️  PARTIAL
+[155/200] Testing: How old is your Ach Linux installation?
+   Response: 163 words, 5292ms - ⚠️  PARTIAL
+[156/200] Testing: [arch-announce] Glibc 2.41 corrupting Discord installation
+   Response: 297 words, 12151ms - ⚠️  PARTIAL
+[157/200] Testing: Happy 4th birthday to my Arch installation
+   Response: 150 words, 4755ms - ⚠️  PARTIAL
+[158/200] Testing: What desktop environment do you use on arch linux?
+   Response: 333 words, 11626ms - ⚠️  PARTIAL
+[159/200] Testing: After 4 days of mistakes I finally installed Arch as my first Linux Distro
+   Response: 591 words, 22912ms - ⚠️  PARTIAL
+[160/200] Testing: Do you encrypt you drive?
+   Response: 251 words, 9793ms - ⚠️  PARTIAL
+[161/200] Testing: Arch Wiki admins are giving a talk tomorrow at DebConf
+   Response: 175 words, 5789ms - ⚠️  PARTIAL
+[162/200] Testing: What are the reasons people dislike the archinstall script?
+   Response: 394 words, 13139ms - ⚠️  PARTIAL
+[163/200] Testing: About a year into my Linux journey and arch has caused me the least amount of issues
+   Response: 396 words, 13238ms - ⚠️  PARTIAL
+[164/200] Testing: Farewell to ArcoLinux University
+   Response: 230 words, 7305ms - ⚠️  PARTIAL
+[165/200] Testing: This is why I love Arch
+   Response: 261 words, 8845ms - ⚠️  PARTIAL
+[166/200] Testing: Why are full DEs like Gnome and Kde so much more power efficient than a WM like Hyprland?
+   Response: 509 words, 19123ms - ⚠️  PARTIAL
+[167/200] Testing: Some AUR packages may be broken after today's update of icu
+   Response: 201 words, 7402ms - ⚠️  PARTIAL
+[168/200] Testing: Every road goes straight to Arch Linux
+   Response: 434 words, 14010ms - ⚠️  PARTIAL
+[169/200] Testing: Transition to the new WoW64 wine and wine-staging
+   Response: 330 words, 12255ms - ⚠️  PARTIAL
+[170/200] Testing: Wine 10.9-1 package drops lib32 dependencies
+   Response: 177 words, 6525ms - ⚠️  PARTIAL
+[171/200] Testing: I've finally switched to Linux COMPLETELY!
+   Response: 288 words, 9936ms - ⚠️  PARTIAL
+[172/200] Testing: Understanding Arch's expenses
+   Response: 374 words, 12090ms - ⚠️  PARTIAL
+[173/200] Testing: Nvidia broke after update (pacman -Syu)
+   Response: 270 words, 11110ms - ⚠️  PARTIAL
+[174/200] Testing: Redis is getting deprecated, manual intervention might be needed
+   Response: 332 words, 11990ms - ⚠️  PARTIAL
+[175/200] Testing: No, kernel builds are not broken
+   Response: 234 words, 8694ms - ⚠️  PARTIAL
+[176/200] Testing: I have been using Arch for over 10 years
+   Response: 316 words, 12071ms - ⚠️  PARTIAL
+[177/200] Testing: How can I effectively learn Arch? (linux noob)
+   Response: 438 words, 16731ms - ⚠️  PARTIAL
+[178/200] Testing: How is Arch Linux so reliable?
+   Response: 372 words, 12072ms - ⚠️  PARTIAL
+[179/200] Testing: I Use Arch with KDE and Love It, But It's Becoming a Distraction—What Should I Do?
+   Response: 411 words, 13585ms - ⚠️  PARTIAL
+[180/200] Testing: Bringing Arch Linux back to ARM
+   Response: 332 words, 10276ms - ⚠️  PARTIAL
+[181/200] Testing: Bash, zsh or fish?
+   Response: 430 words, 13976ms - ⚠️  PARTIAL
+[182/200] Testing: If you have an RX9070{,XT} beware of linux-firmware-amdgpu 20250613.12fe085f-6
+   Response: 243 words, 11124ms - ⚠️  PARTIAL
+[183/200] Testing: Am I Stupid ?
+   Response: 372 words, 13961ms - ⚠️  PARTIAL
+[184/200] Testing: Used windows my entire life .. now after using arch can't go back
+   Response: 507 words, 16508ms - ⚠️  PARTIAL
+[185/200] Testing: 8 Year Old Install Still Going Strong!
+   Response: 352 words, 10846ms - ⚠️  PARTIAL
+[186/200] Testing: Why does people hate systemd boot-loader?
+   Response: 315 words, 10460ms - ⚠️  PARTIAL
+[187/200] Testing: If not Arch, what?
+   Response: 243 words, 8158ms - ⚠️  PARTIAL
+[188/200] Testing: System maintenance, how do you do it?
+   Response: 350 words, 13928ms - ⚠️  PARTIAL
+[189/200] Testing: [arch-announce] Cleaning up old repositories
+   Response: 236 words, 8360ms - ⚠️  PARTIAL
+[190/200] Testing: PSA - If you are installing with Archinstall update it BEFORE you run the command
+   Response: 155 words, 6235ms - ⚠️  PARTIAL
+[191/200] Testing: What pacman.conf options do you use?
+   Response: 174 words, 6271ms - ⚠️  PARTIAL
+[192/200] Testing: Any reliable way to get Netflix and Amazon Prime Video in 1080p on Linux?
+   Response: 502 words, 17559ms - ⚠️  PARTIAL
+[193/200] Testing: Arch my beloved
+   Response: 361 words, 11429ms - ⚠️  PARTIAL
+[194/200] Testing: I manually installed arch, I made it
+   Response: 312 words, 11688ms - ⚠️  PARTIAL
+[195/200] Testing: Are there people whose first distro was Arch Linux? (Like already begin linux in hard mode)
+   Response: 308 words, 11934ms - ⚠️  PARTIAL
+[196/200] Testing: Thought about arch based distros
+   Response: 275 words, 8992ms - ⚠️  PARTIAL
+[197/200] Testing: How do you guys keep track of packages
+   Response: 429 words, 14453ms - ⚠️  PARTIAL
+[198/200] Testing: ran into my first issue &amp; fixed it on my own
+   Response: 276 words, 10111ms - ⚠️  PARTIAL
+[199/200] Testing: I made some minimal Arch Linux wallpapers
+   Response: 218 words, 6806ms - ⚠️  PARTIAL
+[200/200] Testing: mkinitcpio v40 released and now in core-testing
+   Response: 242 words, 8912ms - ⚠️  PARTIAL
+./scripts/validate_reddit_qa.sh: line 140: bc: command not found
