@@ -603,15 +603,16 @@ async fn generate_llm_reply(input: &str, state: &AnnaTuiState) -> String {
         conversation_history: None,
     };
 
-    // Call LLM (blocking call in spawn_blocking for async context)
-    let llm_response = tokio::task::spawn_blocking(move || {
-        llm_client.chat(&prompt)
-    }).await;
+    // Beta.111: Word-by-word streaming for consistency with one-shot and REPL modes
+    // TUI accumulates chunks into a string buffer (can't print to stdout like REPL)
+    let mut full_response = String::new();
+    let mut callback = |chunk: &str| {
+        full_response.push_str(chunk);
+    };
 
-    match llm_response {
-        Ok(Ok(response)) => response.text,
-        Ok(Err(e)) => format!("## LLM Error\n\nFailed to get response: {:?}", e),
-        Err(e) => format!("## Internal Error\n\nTask failed: {:?}", e),
+    match llm_client.chat_stream(&prompt, &mut callback) {
+        Ok(_) => full_response,
+        Err(e) => format!("## LLM Error\n\nFailed to get response: {:?}", e),
     }
 }
 
