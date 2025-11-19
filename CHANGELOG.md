@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.97] - 2025-11-19
+
+### PHASE 1 COMPLETE - 50 Templates Achieved + Auto-Update Logging Fix
+
+**Milestone:** Successfully completed Phase 1 of the roadmap to 80% success rate
+
+#### Critical Fix: Auto-Update ERROR Spam
+
+**Problem:** Users with read-only /usr/local/bin saw ERROR messages every 10 minutes:
+```
+ERROR annad::auto_updater: ✗ Failed to perform update: Read-only filesystem: /usr/local/bin
+ERROR annad::auto_updater: Auto-update will retry in 10 minutes
+```
+
+**Solution:**
+- Check filesystem writability BEFORE downloading binaries
+- Log single INFO message instead of ERROR spam
+- Return early without triggering error handlers
+- Cleaner logs, less annoying for read-only systems
+
+**Files Modified:**
+- `crates/annad/src/auto_updater.rs:124-134` (Early filesystem check)
+- `crates/annad/src/auto_updater.rs:228-231` (Removed verbose warnings)
+
+#### Beta.97 Additions: 17 New Templates
+
+**Total Templates:** 50 (14 original + 19 in Beta.96 + 17 in Beta.97)
+
+1. **Service Management Templates (6)**
+   - Restart service: `systemctl restart {service}`
+   - Enable service: `systemctl enable {service}`
+   - Disable service: `systemctl disable {service}`
+   - Check service logs: `journalctl -u {service} -n 50`
+   - List enabled services: `systemctl list-unit-files --state=enabled`
+   - List running services: `systemctl list-units --type=service --state=running`
+
+2. **System Diagnostics Templates (6)**
+   - Check boot time: `systemd-analyze`
+   - Check kernel errors: `dmesg --level=err,warn`
+   - Check disk health: `smartctl -H {device}`
+   - Check temperature: `sensors`
+   - List USB devices: `lsusb`
+   - List PCI devices: `lspci`
+
+3. **Configuration Management Templates (5)**
+   - Backup config file: `cp {filepath} {filepath}.backup`
+   - Show config file: `cat {filepath}`
+   - Check config syntax: `bash -n {filepath}` (for shell scripts)
+   - List loaded modules: `lsmod`
+   - Check hostname: `hostnamectl`
+
+#### Phase 1 Roadmap Progress
+
+**Target:** 50+ templates to eliminate hallucinations
+**Achieved:** 50 templates (100% of Phase 1 goal)
+
+**Coverage by Category:**
+- System diagnostics: 13 templates
+- Package management: 10 templates
+- Network diagnostics: 8 templates
+- Service management: 6 templates
+- Configuration management: 5 templates
+- Core telemetry: 8 templates
+
+#### Impact
+
+**Before Phase 1 (Beta.95):**
+- 14 templates
+- 54.4% success rate
+- Frequent hallucinations
+
+**After Phase 1 (Beta.97):**
+- 50 templates (+257% increase)
+- Expected: 64.4% success rate (+10% improvement)
+- Comprehensive coverage of common Linux admin tasks
+- Foundation for Phase 2 (Multi-step action plans)
+
+#### Files Modified
+
+- `crates/anna_common/src/template_library.rs:941-1321` (Added 17 template functions)
+- `crates/anna_common/src/template_library.rs:177-198` (Registered 17 templates)
+
+#### Next Steps: Phase 2 (Beta.98)
+
+Multi-step action plan framework for complex problems requiring 3+ steps
+
 ## [5.7.0-beta.96] - 2025-11-19
 
 ### TEMPLATE EXPLOSION - Phase 1 Roadmap to 80%

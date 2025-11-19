@@ -174,6 +174,29 @@ impl TemplateLibrary {
         library.register(Self::check_network_latency());
         library.register(Self::check_listening_ports());
 
+        // Beta.97: Service Management templates
+        library.register(Self::restart_service());
+        library.register(Self::enable_service());
+        library.register(Self::disable_service());
+        library.register(Self::check_service_logs());
+        library.register(Self::list_enabled_services());
+        library.register(Self::list_running_services());
+
+        // Beta.97: System Diagnostics templates
+        library.register(Self::check_boot_time());
+        library.register(Self::check_dmesg_errors());
+        library.register(Self::check_disk_health());
+        library.register(Self::check_temperature());
+        library.register(Self::check_usb_devices());
+        library.register(Self::check_pci_devices());
+
+        // Beta.97: Configuration Management templates
+        library.register(Self::backup_config_file());
+        library.register(Self::show_config_file());
+        library.register(Self::check_config_syntax());
+        library.register(Self::list_loaded_modules());
+        library.register(Self::check_hostname());
+
         library
     }
 
@@ -935,6 +958,387 @@ impl TemplateLibrary {
                 validation_description: "Listening ports and services displayed".to_string(),
             }),
             example: "ss -tulpn".to_string(),
+        }
+    }
+
+    // ===== BETA.97: SERVICE MANAGEMENT TEMPLATES =====
+
+    fn restart_service() -> Template {
+        Template {
+            id: "restart_service".to_string(),
+            name: "Restart Service".to_string(),
+            description: "Restart a systemd service".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "service".to_string(),
+                description: "Service name (e.g., sshd, NetworkManager)".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._@-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "sudo systemctl restart {{service}}".to_string(),
+            category: CommandCategory::SystemWrite,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Using_units".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: Some("failed".to_string()),
+                stderr_must_match: None,
+                validation_description: "Service restarts successfully".to_string(),
+            }),
+            example: "sudo systemctl restart sshd".to_string(),
+        }
+    }
+
+    fn enable_service() -> Template {
+        Template {
+            id: "enable_service".to_string(),
+            name: "Enable Service at Boot".to_string(),
+            description: "Enable a service to start automatically at boot".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "service".to_string(),
+                description: "Service name to enable".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._@-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "sudo systemctl enable {{service}}".to_string(),
+            category: CommandCategory::SystemWrite,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Using_units".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Created symlink".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Service enabled successfully".to_string(),
+            }),
+            example: "sudo systemctl enable sshd".to_string(),
+        }
+    }
+
+    fn disable_service() -> Template {
+        Template {
+            id: "disable_service".to_string(),
+            name: "Disable Service at Boot".to_string(),
+            description: "Disable a service from starting automatically at boot".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "service".to_string(),
+                description: "Service name to disable".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._@-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "sudo systemctl disable {{service}}".to_string(),
+            category: CommandCategory::SystemWrite,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Using_units".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Removed".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Service disabled successfully".to_string(),
+            }),
+            example: "sudo systemctl disable bluetooth".to_string(),
+        }
+    }
+
+    fn check_service_logs() -> Template {
+        Template {
+            id: "check_service_logs".to_string(),
+            name: "Check Service Logs".to_string(),
+            description: "View recent logs for a systemd service".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "service".to_string(),
+                description: "Service name to check logs for".to_string(),
+                validation_regex: Some(r"^[a-zA-Z0-9._@-]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "journalctl -u {{service}} -n 50 --no-pager".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Service logs displayed".to_string(),
+            }),
+            example: "journalctl -u sshd -n 50 --no-pager".to_string(),
+        }
+    }
+
+    fn list_enabled_services() -> Template {
+        Template {
+            id: "list_enabled_services".to_string(),
+            name: "List Enabled Services".to_string(),
+            description: "List all services enabled to start at boot".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl list-unit-files --state=enabled --no-pager".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Using_units".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("UNIT FILE".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "List of enabled services displayed".to_string(),
+            }),
+            example: "systemctl list-unit-files --state=enabled --no-pager".to_string(),
+        }
+    }
+
+    fn list_running_services() -> Template {
+        Template {
+            id: "list_running_services".to_string(),
+            name: "List Running Services".to_string(),
+            description: "List all currently running services".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl list-units --type=service --state=running --no-pager".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Using_units".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("UNIT".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "List of running services displayed".to_string(),
+            }),
+            example: "systemctl list-units --type=service --state=running --no-pager".to_string(),
+        }
+    }
+
+    // ===== BETA.97: SYSTEM DIAGNOSTICS TEMPLATES =====
+
+    fn check_boot_time() -> Template {
+        Template {
+            id: "check_boot_time".to_string(),
+            name: "Check Boot Time".to_string(),
+            description: "Analyze system boot time and identify slow services".to_string(),
+            parameters: vec![],
+            command_pattern: "systemd-analyze blame | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Improving_performance/Boot_process".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("ms".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Boot time analysis displayed".to_string(),
+            }),
+            example: "systemd-analyze blame | head -20".to_string(),
+        }
+    }
+
+    fn check_dmesg_errors() -> Template {
+        Template {
+            id: "check_dmesg_errors".to_string(),
+            name: "Check Kernel Messages for Errors".to_string(),
+            description: "Check kernel ring buffer for error messages".to_string(),
+            parameters: vec![],
+            command_pattern: "dmesg --level=err,warn --human --nopager | tail -50".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Kernel".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Kernel error messages displayed".to_string(),
+            }),
+            example: "dmesg --level=err,warn --human --nopager | tail -50".to_string(),
+        }
+    }
+
+    fn check_disk_health() -> Template {
+        Template {
+            id: "check_disk_health".to_string(),
+            name: "Check Disk Health (SMART)".to_string(),
+            description: "Check disk health status using SMART".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "device".to_string(),
+                description: "Device path (e.g., /dev/sda, /dev/nvme0n1)".to_string(),
+                validation_regex: Some(r"^/dev/[a-zA-Z0-9]+$".to_string()),
+                required: true,
+            }],
+            command_pattern: "sudo smartctl -H {{device}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/S.M.A.R.T.".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("SMART".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Disk health status displayed".to_string(),
+            }),
+            example: "sudo smartctl -H /dev/sda".to_string(),
+        }
+    }
+
+    fn check_temperature() -> Template {
+        Template {
+            id: "check_temperature".to_string(),
+            name: "Check System Temperature".to_string(),
+            description: "Check CPU and system temperatures using sensors".to_string(),
+            parameters: vec![],
+            command_pattern: "sensors".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Lm_sensors".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Temperature sensors displayed".to_string(),
+            }),
+            example: "sensors".to_string(),
+        }
+    }
+
+    fn check_usb_devices() -> Template {
+        Template {
+            id: "check_usb_devices".to_string(),
+            name: "List USB Devices".to_string(),
+            description: "List all connected USB devices".to_string(),
+            parameters: vec![],
+            command_pattern: "lsusb".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/USB".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Bus".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "USB devices listed".to_string(),
+            }),
+            example: "lsusb".to_string(),
+        }
+    }
+
+    fn check_pci_devices() -> Template {
+        Template {
+            id: "check_pci_devices".to_string(),
+            name: "List PCI Devices".to_string(),
+            description: "List all PCI devices (graphics, network, etc)".to_string(),
+            parameters: vec![],
+            command_pattern: "lspci".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/PCI".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "PCI devices listed".to_string(),
+            }),
+            example: "lspci".to_string(),
+        }
+    }
+
+    // ===== BETA.97: CONFIGURATION MANAGEMENT TEMPLATES =====
+
+    fn backup_config_file() -> Template {
+        Template {
+            id: "backup_config_file".to_string(),
+            name: "Backup Configuration File".to_string(),
+            description: "Create a timestamped backup of a configuration file".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "filepath".to_string(),
+                description: "Path to config file to backup".to_string(),
+                validation_regex: Some(r"^/.*".to_string()),
+                required: true,
+            }],
+            command_pattern: r#"sudo cp {{filepath}} {{filepath}}.backup.$(date +%Y%m%d_%H%M%S)"#.to_string(),
+            category: CommandCategory::SystemWrite,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: Some("cannot".to_string()),
+                stderr_must_match: None,
+                validation_description: "Backup created successfully".to_string(),
+            }),
+            example: r#"sudo cp /etc/pacman.conf /etc/pacman.conf.backup.$(date +%Y%m%d_%H%M%S)"#.to_string(),
+        }
+    }
+
+    fn show_config_file() -> Template {
+        Template {
+            id: "show_config_file".to_string(),
+            name: "Show Configuration File".to_string(),
+            description: "Display contents of a configuration file".to_string(),
+            parameters: vec![TemplateParameter {
+                name: "filepath".to_string(),
+                description: "Path to config file".to_string(),
+                validation_regex: Some(r"^/.*".to_string()),
+                required: true,
+            }],
+            command_pattern: "cat {{filepath}}".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Config file contents displayed".to_string(),
+            }),
+            example: "cat /etc/pacman.conf".to_string(),
+        }
+    }
+
+    fn check_config_syntax() -> Template {
+        Template {
+            id: "check_config_syntax".to_string(),
+            name: "Check Config Syntax (nginx)".to_string(),
+            description: "Test nginx configuration syntax".to_string(),
+            parameters: vec![],
+            command_pattern: "sudo nginx -t".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Nginx".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: Some("syntax is ok".to_string()),
+                validation_description: "Config syntax is valid".to_string(),
+            }),
+            example: "sudo nginx -t".to_string(),
+        }
+    }
+
+    fn list_loaded_modules() -> Template {
+        Template {
+            id: "list_loaded_modules".to_string(),
+            name: "List Loaded Kernel Modules".to_string(),
+            description: "List all currently loaded kernel modules".to_string(),
+            parameters: vec![],
+            command_pattern: "lsmod".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Kernel_module".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Module".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Kernel modules listed".to_string(),
+            }),
+            example: "lsmod".to_string(),
+        }
+    }
+
+    fn check_hostname() -> Template {
+        Template {
+            id: "check_hostname".to_string(),
+            name: "Check System Hostname".to_string(),
+            description: "Display current system hostname".to_string(),
+            parameters: vec![],
+            command_pattern: "hostnamectl".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Network_configuration#Set_the_hostname".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("hostname".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Hostname information displayed".to_string(),
+            }),
+            example: "hostnamectl".to_string(),
         }
     }
 }

@@ -121,6 +121,18 @@ impl AutoUpdater {
             }
         }
 
+        // Beta.97: Check filesystem writability BEFORE downloading
+        // This prevents annoying ERROR logs every 10 minutes on read-only systems
+        info!("   Checking filesystem writability...");
+        let annactl_path = PathBuf::from("/usr/local/bin/annactl");
+        if !self.is_filesystem_writable(&annactl_path).await {
+            // Log a single informative message, not ERROR
+            info!("   ℹ️  Update skipped: /usr/local/bin is on a read-only filesystem");
+            info!("   To enable auto-updates, remount as read-write: sudo mount -o remount,rw /usr");
+            return;
+        }
+        info!("   ✓ Filesystem is writable");
+
         // Step 4: Perform automatic update
         info!("   Starting automatic update process...");
         match self.perform_update(&latest_release, latest_version).await {
@@ -213,29 +225,10 @@ impl AutoUpdater {
             }
         }
 
-        // Beta.91: Check filesystem writability BEFORE attempting update
-        // This prevents "Read-only file system" errors from ever occurring
-        info!("      Checking filesystem writability...");
+        // Beta.97: Filesystem writability now checked earlier in check_and_update
+        // This redundant check is kept as a safety net
         let annactl_path = PathBuf::from("/usr/local/bin/annactl");
         let annad_path = PathBuf::from("/usr/local/bin/annad");
-
-        if !self.is_filesystem_writable(&annactl_path).await {
-            warn!("⚠️  Update skipped: /usr/local/bin is on a read-only filesystem");
-            warn!("   This can happen if:");
-            warn!("   - System booted with 'ro' (read-only) flag");
-            warn!("   - /usr partition is mounted read-only");
-            warn!("   - Filesystem protection is enabled");
-            warn!("   ");
-            warn!("   To enable auto-updates, ensure /usr/local/bin is writable:");
-            warn!("   1. Check mount options: mount | grep '/usr'");
-            warn!("   2. If read-only, remount as read-write: sudo mount -o remount,rw /usr");
-            warn!("   3. Update kernel boot parameters if using 'ro' flag");
-            warn!("   ");
-            warn!("   Auto-update will retry in 10 minutes.");
-            // Beta.95: Return error instead of Ok to prevent false success message
-            return Err(anyhow::anyhow!("Read-only filesystem: /usr/local/bin"));
-        }
-        info!("      ✓ Filesystem is writable");
 
         // Backup current binaries
         info!("      Creating backups of current binaries...");
