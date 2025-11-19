@@ -66,7 +66,8 @@ NoNewPrivileges=true
 # Filesystem protection
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/log/anna /var/lib/anna /run/anna
+# Beta.115: Allow writing to /usr/local/bin for auto-updates
+ReadWritePaths=/var/log/anna /var/lib/anna /run/anna /usr/local/bin
 
 # Use private /tmp directory
 PrivateTmp=true

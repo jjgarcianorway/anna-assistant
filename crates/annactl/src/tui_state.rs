@@ -131,12 +131,36 @@ impl AnnaTuiState {
         }
 
         self.history_index = None;
+
+        // Auto-scroll to bottom
+        self.scroll_to_bottom();
     }
 
     /// Add Anna's reply to conversation
     pub fn add_anna_reply(&mut self, reply: String) {
         self.conversation.push(ChatItem::Anna(reply.clone()));
         self.last_llm_reply = Some(reply);
+
+        // Auto-scroll to bottom
+        self.scroll_to_bottom();
+    }
+
+    /// Scroll to bottom of conversation
+    pub fn scroll_to_bottom(&mut self) {
+        // Set scroll offset to a large number - rendering will clamp it
+        self.scroll_offset = usize::MAX;
+    }
+
+    /// Beta.115: Append chunk to last Anna message (for streaming)
+    pub fn append_to_last_anna_reply(&mut self, chunk: String) {
+        if let Some(ChatItem::Anna(last_reply)) = self.conversation.last_mut() {
+            last_reply.push_str(&chunk);
+        } else {
+            // No Anna reply exists yet, create one
+            self.conversation.push(ChatItem::Anna(chunk));
+        }
+        // Auto-scroll as chunks arrive
+        self.scroll_to_bottom();
     }
 
     /// Add system message to conversation

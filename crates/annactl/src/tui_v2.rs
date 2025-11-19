@@ -96,6 +96,14 @@ async fn run_event_loop(
                     state.is_thinking = false;
                     state.add_anna_reply(reply);
                 }
+                TuiMessage::AnnaReplyChunk(chunk) => {
+                    // Beta.115: Streaming chunk arrives
+                    state.append_to_last_anna_reply(chunk);
+                }
+                TuiMessage::AnnaReplyComplete => {
+                    // Beta.115: Streaming complete
+                    state.is_thinking = false;
+                }
                 TuiMessage::UserInput(_) => {
                     // Not used in current implementation
                 }
@@ -337,11 +345,20 @@ fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         }
     }
 
-    // Beta.99: Calculate scroll indicator
+    // Beta.99: Calculate scroll indicator and clamp scroll_offset
     let total_lines = lines.len();
     let visible_lines = area.height.saturating_sub(2) as usize; // Subtract 2 for borders
+    let max_scroll = total_lines.saturating_sub(visible_lines);
+
+    // Beta.115: Auto-scroll to bottom if scroll_offset is at max
+    let actual_scroll = if state.scroll_offset == usize::MAX || state.scroll_offset >= max_scroll {
+        max_scroll
+    } else {
+        state.scroll_offset
+    };
+
     let scroll_indicator = if total_lines > visible_lines {
-        format!(" [↑↓ {}/{}]", state.scroll_offset.min(total_lines.saturating_sub(visible_lines)), total_lines.saturating_sub(visible_lines))
+        format!(" [↑↓ {}/{}]", actual_scroll, max_scroll)
     } else {
         String::new()
     };
@@ -352,7 +369,7 @@ fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)))
         .wrap(Wrap { trim: true })  // Enable text wrapping!
-        .scroll((state.scroll_offset as u16, 0));  // Beta.99: Enable scrolling!
+        .scroll((actual_scroll as u16, 0));  // Beta.99: Enable scrolling!
 
     f.render_widget(paragraph, area);
 }
@@ -508,9 +525,11 @@ fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> 
     };
 
     tokio::spawn(async move {
-        let reply = generate_reply(&input, &state_clone).await;
-        // Send reply back through channel
-        let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+        let reply = generate_reply_streaming(&input, &state_clone, tx.clone()).await;
+        // If template-based (non-streaming), send as complete reply
+        if !reply.is_empty() {
+            let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+        }
     });
 
     false
@@ -817,6 +836,155 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
     }
 }
 
+/// Beta.115: Generate reply with streaming support
+async fn generate_reply_streaming(input: &str, state: &AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> String {
+    use anna_common::command_recipe::Recipe;
+    use anna_common::template_library::TemplateLibrary;
+    use crate::recipe_formatter::format_recipe_answer;
+    use std::collections::HashMap;
+
+    let library = TemplateLibrary::default();
+    let input_lower = input.to_lowercase();
+
+    // Helper function for word-boundary keyword matching
+    let contains_word = |text: &str, keyword: &str| {
+        text.split(|c: char| !c.is_alphanumeric())
+            .any(|word| word == keyword)
+    };
+
+    // Check if input matches a template (same logic as generate_reply)
+    // If it does, return template response immediately (non-streaming)
+    // If not, use streaming LLM
+    let has_template = contains_word(&input_lower, "swap") ||
+                      contains_word(&input_lower, "gpu") ||
+                      contains_word(&input_lower, "vram") ||
+                      input_lower.contains("wifi") ||
+                      input_lower.contains("wireless") ||
+                      input_lower.contains("kernel") ||
+                      input_lower.contains("disk") ||
+                      contains_word(&input_lower, "memory") ||
+                      contains_word(&input_lower, "ram") ||
+                      contains_word(&input_lower, "uptime") ||
+                      contains_word(&input_lower, "cpu") ||
+                      contains_word(&input_lower, "distro") ||
+                      input_lower.contains("failed") ||
+                      input_lower.contains("service") ||
+                      input_lower.contains("journal") ||
+                      input_lower.contains("error") ||
+                      input_lower.contains("orphan") ||
+                      input_lower.contains("package") ||
+                      input_lower.contains("aur") ||
+                      input_lower.contains("pacman") ||
+                      input_lower.contains("mirror") ||
+                      input_lower.contains("update") ||
+                      input_lower.contains("upgrade") ||
+                      input_lower.contains("boot") ||
+                      input_lower.contains("systemd") ||
+                      input_lower.contains("load") ||
+                      input_lower.contains("temperature") ||
+                      input_lower.contains("throttl") ||
+                      input_lower.contains("network") ||
+                      input_lower.contains("dns") ||
+                      input_lower.contains("firewall") ||
+                      input_lower.contains("port") ||
+                      input_lower.contains("storage") ||
+                      input_lower.contains("battery") ||
+                      input_lower.contains("bluetooth") ||
+                      input_lower.contains("audio") ||
+                      input_lower.contains("usb") ||
+                      input_lower.contains("pci") ||
+                      input_lower.contains("hostname");
+
+    if has_template {
+        // Use non-streaming template-based reply
+        return generate_reply(input, state).await;
+    }
+
+    // No template match - use streaming LLM
+    generate_llm_reply_streaming(input, state, tx).await;
+    String::new() // Return empty - streaming handled via channel
+}
+
+/// Beta.115: Generate LLM reply with streaming chunks sent via channel
+async fn generate_llm_reply_streaming(input: &str, state: &AnnaTuiState, tx: mpsc::Sender<TuiMessage>) {
+    use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
+
+    // Build system context (same as generate_llm_reply)
+    let system_context = format!(
+        "System Information:\n\
+         - CPU: {}\n\
+         - CPU Load: {:.2}, {:.2}, {:.2} (1/5/15 min)\n\
+         - RAM: {:.1} GB used / {:.1} GB total\n\
+         - GPU: {}\n\
+         - Disk: {:.1} GB free\n\
+         - OS: Arch Linux\n\
+         - Anna Version: {}",
+        state.system_panel.cpu_model,
+        state.system_panel.cpu_load_1min,
+        state.system_panel.cpu_load_5min,
+        state.system_panel.cpu_load_15min,
+        state.system_panel.ram_used_gb,
+        state.system_panel.ram_total_gb,
+        state.system_panel.gpu_name.as_ref().unwrap_or(&"None".to_string()),
+        state.system_panel.disk_free_gb,
+        state.system_panel.anna_version
+    );
+
+    // Detect model
+    let model_name = if state.llm_panel.model_name == "None" || state.llm_panel.model_name == "Unknown" || state.llm_panel.model_name == "Ollama N/A" {
+        "llama3.1:8b"
+    } else {
+        &state.llm_panel.model_name
+    };
+
+    let llm_config = LlmConfig::local("http://127.0.0.1:11434/v1", model_name);
+
+    let llm_client = match LlmClient::from_config(&llm_config) {
+        Ok(client) => client,
+        Err(_) => {
+            // LLM not available
+            let _ = tx.send(TuiMessage::AnnaReply(
+                "## ⚠ LLM Unavailable\n\nI couldn't connect to the local LLM server (Ollama).".to_string()
+            )).await;
+            return;
+        }
+    };
+
+    // Build prompt
+    let system_prompt = format!(
+        "{}\n\n{}",
+        LlmClient::anna_system_prompt(),
+        system_context
+    );
+
+    let prompt = LlmPrompt {
+        system: system_prompt,
+        user: input.to_string(),
+        conversation_history: None,
+    };
+
+    // Beta.115: Streaming callback - send each chunk via channel
+    let tx_clone = tx.clone();
+    let mut callback = move |chunk: &str| {
+        let chunk_string = chunk.to_string();
+        let tx_inner = tx_clone.clone();
+        // Send chunk asynchronously
+        tokio::spawn(async move {
+            let _ = tx_inner.send(TuiMessage::AnnaReplyChunk(chunk_string)).await;
+        });
+    };
+
+    match llm_client.chat_stream(&prompt, &mut callback) {
+        Ok(_) => {
+            // Streaming complete
+            let _ = tx.send(TuiMessage::AnnaReplyComplete).await;
+        }
+        Err(_) => {
+            let _ = tx.send(TuiMessage::AnnaReply("## LLM Error\n\nFailed to get response.".to_string())).await;
+        }
+    }
+}
+
 /// Beta.94: Show proactive welcome message with system info
 fn show_welcome_message(state: &mut AnnaTuiState) {
     use std::env;
@@ -955,5 +1123,7 @@ fn update_telemetry(state: &mut AnnaTuiState) {
 pub enum TuiMessage {
     UserInput(String),
     AnnaReply(String),
+    AnnaReplyChunk(String),  // Beta.115: Streaming chunk
+    AnnaReplyComplete,       // Beta.115: Streaming complete
     TelemetryUpdate,
 }
