@@ -136,6 +136,16 @@ async fn run_event_loop(
                     (KeyCode::Down, _) => {
                         state.history_down();
                     }
+                    // PageUp - scroll conversation up
+                    (KeyCode::PageUp, _) => {
+                        if state.scroll_offset > 0 {
+                            state.scroll_offset = state.scroll_offset.saturating_sub(10);
+                        }
+                    }
+                    // PageDown - scroll conversation down
+                    (KeyCode::PageDown, _) => {
+                        state.scroll_offset = state.scroll_offset.saturating_add(10);
+                    }
                     // Character input
                     (KeyCode::Char(c), KeyModifiers::NONE) | (KeyCode::Char(c), KeyModifiers::SHIFT) => {
                         state.input.insert(state.cursor_pos, c);
@@ -154,14 +164,17 @@ async fn run_event_loop(
 fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
     let size = f.size();
 
+    // Beta.99: Calculate dynamic input bar height (3 to 10 lines max)
+    let input_height = calculate_input_height(&state.input, size.width.saturating_sub(8));
+
     // Create main layout: [Header | Content | Status Bar | Input Bar]
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),   // Top header
-            Constraint::Min(3),      // Main content
-            Constraint::Length(1),   // Bottom status bar
-            Constraint::Length(3),   // Input bar
+            Constraint::Length(1),       // Top header
+            Constraint::Min(3),          // Main content
+            Constraint::Length(1),       // Bottom status bar
+            Constraint::Length(input_height),  // Beta.99: Dynamic input bar
         ])
         .split(size);
 
@@ -273,6 +286,7 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 }
 
 /// Draw conversation panel (middle)
+/// Beta.99: Added scrolling support with PageUp/PageDown
 fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     // Beta.93: Use wrapped text for conversation history (no more cut-off messages)
     let mut lines: Vec<Line> = Vec::new();
@@ -306,35 +320,64 @@ fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         }
     }
 
+    // Beta.99: Calculate scroll indicator
+    let total_lines = lines.len();
+    let visible_lines = area.height.saturating_sub(2) as usize; // Subtract 2 for borders
+    let scroll_indicator = if total_lines > visible_lines {
+        format!(" [↑↓ {}/{}]", state.scroll_offset.min(total_lines.saturating_sub(visible_lines)), total_lines.saturating_sub(visible_lines))
+    } else {
+        String::new()
+    };
+
     let paragraph = Paragraph::new(lines)
         .block(Block::default()
-            .title("Conversation")
+            .title(format!("Conversation{}", scroll_indicator))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)))
-        .wrap(Wrap { trim: true });  // Enable text wrapping!
+        .wrap(Wrap { trim: true })  // Enable text wrapping!
+        .scroll((state.scroll_offset as u16, 0));  // Beta.99: Enable scrolling!
 
     f.render_widget(paragraph, area);
 }
 
 /// Draw input bar (bottom)
+/// Beta.99: Added text wrapping for multi-line input
 fn draw_input_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     let lang_indicator = format!("[{}]", state.language.as_str().to_uppercase());
+    let prompt = format!("{} > ", lang_indicator);
 
-    let input_text = Text::from(vec![
-        Line::from(vec![
-            Span::styled(lang_indicator, Style::default().fg(Color::Magenta)),
-            Span::raw(" > "),
-            Span::raw(&state.input),
-            Span::styled("_", Style::default().add_modifier(Modifier::SLOW_BLINK)),
-        ]),
-    ]);
+    // Beta.99: Build wrapped text with proper formatting
+    let input_text = format!("{}{}_", prompt, &state.input);
 
-    let input_block = Paragraph::new(input_text)
+    let paragraph = Paragraph::new(input_text)
         .block(Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Green)));
+            .border_style(Style::default().fg(Color::Green)))
+        .style(Style::default().fg(Color::White))
+        .wrap(Wrap { trim: false });  // Beta.99: Enable wrapping!
 
-    f.render_widget(input_block, area);
+    f.render_widget(paragraph, area);
+}
+
+/// Beta.99: Calculate dynamic input bar height
+/// Returns height in range [3, 10] based on input content
+fn calculate_input_height(input: &str, available_width: u16) -> u16 {
+    if input.is_empty() {
+        return 3;  // Minimum height for empty input
+    }
+
+    // Account for prompt "[EN] > " (approximately 7 chars) + cursor "_"
+    let prompt_width = 8;
+    let usable_width = available_width.saturating_sub(prompt_width).max(20) as usize;
+
+    // Calculate how many lines the input will wrap to
+    let input_len = input.len();
+    let wrapped_lines = (input_len + usable_width - 1) / usable_width;
+
+    // Add 2 for borders, then cap between 3 and 10
+    let total_height = (wrapped_lines + 2).max(3).min(10) as u16;
+
+    total_height
 }
 
 /// Draw help overlay
@@ -361,6 +404,10 @@ fn draw_help_overlay(f: &mut Frame, area: Rect) {
         Line::from(vec![
             Span::styled("↑/↓", Style::default().fg(Color::Cyan)),
             Span::raw(" - Navigate history"),
+        ]),
+        Line::from(vec![
+            Span::styled("PgUp/PgDn", Style::default().fg(Color::Cyan)),
+            Span::raw(" - Scroll conversation"),
         ]),
         Line::from(""),
         Line::from(Span::styled("Press F1 to close", Style::default().fg(Color::Gray))),

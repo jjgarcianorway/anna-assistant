@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.99] - 2025-11-19
+
+### TUI UX FIXES - Scrolling & Input Wrapping
+
+**User Feedback:** "Interface of TUI needs to be checked... wrapping messages on the input area... expanding the area if needed (to certain extent only!), And anna output must be scrollable... I cannot read the whole solution she offered"
+
+**THIS IS CRITICAL FOR RELIABILITY.** Users cannot read Anna's full responses in TUI mode, making it unusable for long outputs. This destroys the user experience.
+
+#### What Changed in Beta.99
+
+**1. Added Conversation Scrolling (FIXED!)**
+- PageUp/PageDown now scroll through conversation history
+- Scroll indicator shows position: `[↑↓ 15/50]`
+- Finally using the `scroll_offset` state variable that existed but was never used!
+- Users can now read Anna's full responses
+
+**2. Added Input Area Wrapping & Dynamic Expansion (FIXED!)**
+- Input bar now expands from 3 to 10 lines based on content
+- Text wraps properly instead of cutting off
+- Honors user request: "to certain extent only" (max 10 lines)
+- Multi-line input finally works correctly
+
+**3. Updated Help Overlay**
+- Added `PgUp/PgDn - Scroll conversation` to help text
+- Press F1 to see all keyboard shortcuts
+
+#### Files Modified
+
+- `crates/annactl/src/tui_v2.rs:140-148` - Added PageUp/PageDown key handling
+- `crates/annactl/src/tui_v2.rs:285-338` - Added scrolling to conversation panel with indicator
+- `crates/annactl/src/tui_v2.rs:164-179` - Made input bar height dynamic
+- `crates/annactl/src/tui_v2.rs:343-381` - Added input wrapping and `calculate_input_height()` helper
+- `crates/annactl/src/tui_v2.rs:386-389` - Updated help overlay
+
+#### Before vs After
+
+**Before Beta.99:**
+- Conversation: No scrolling, can't read long responses ❌
+- Input: Fixed 3 lines, text cut off ❌
+- Long Anna replies: Completely unreadable ❌
+- Multi-line input: Broken ❌
+
+**After Beta.99:**
+- Conversation: Full scrolling with PageUp/PageDown ✅
+- Input: Dynamic 3-10 lines with wrapping ✅
+- Long Anna replies: Fully scrollable ✅
+- Multi-line input: Works perfectly ✅
+
+#### KNOWN ISSUE - Consistency (To Fix in Beta.100)
+
+**User Feedback:** "and ensure that the replies from annactl, TUI or one-off are consistent!!!! System must be reliable!!!!!"
+
+**ROOT CAUSE IDENTIFIED:** There are **THREE different code paths** for handling queries:
+
+1. **One-shot mode** (`main.rs:267`) - `handle_llm_query` with template matching
+2. **REPL mode** (`repl.rs:460`) - Different `handle_llm_query` calling `query_llm_with_context`
+3. **TUI mode** (`tui_v2.rs:537`) - `generate_reply` with duplicate template logic
+
+All three have duplicate template matching and different LLM fallback paths. **This is why they give different answers!**
+
+**Beta.100 Fix Plan:**
+- Create a SINGLE shared query handler function
+- Use it in all three modes (one-shot, REPL, TUI)
+- Eliminate duplicate template matching logic
+- Ensure identical responses regardless of mode
+
+**This consistency issue is CRITICAL for system reliability.** It will be the top priority for Beta.100.
+
 ## [5.7.0-beta.98] - 2025-11-19
 
 ### CRITICAL HOT-FIX: WiFi Issue Completely Ignored
