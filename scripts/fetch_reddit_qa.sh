@@ -33,7 +33,7 @@ collected=0
 total_target=$LIMIT
 
 # Fetch from different time periods
-for period in month week; do
+for period in month week year all; do
     after=""
 
     while [ $collected -lt $total_target ]; do
