@@ -625,16 +625,23 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
     let library = TemplateLibrary::default();
     let input_lower = input.to_lowercase();
 
+    // Beta.108: Helper function for word-boundary keyword matching
+    // Prevents false positives like "programming" matching "ram"
+    let contains_word = |text: &str, keyword: &str| {
+        text.split(|c: char| !c.is_alphanumeric())
+            .any(|word| word == keyword)
+    };
+
     // Pattern matching for template selection (Beta.93: expanded library)
-    let (template_id, params) = if input_lower.contains("swap") {
+    let (template_id, params) = if contains_word(&input_lower, "swap") {
         ("check_swap_status", HashMap::new())
-    } else if input_lower.contains("gpu") || input_lower.contains("vram") {
+    } else if contains_word(&input_lower, "gpu") || contains_word(&input_lower, "vram") {
         ("check_gpu_memory", HashMap::new())
-    } else if input_lower.contains("kernel") {
+    } else if contains_word(&input_lower, "kernel") {
         ("check_kernel_version", HashMap::new())
-    } else if input_lower.contains("disk") || input_lower.contains("space") {
+    } else if contains_word(&input_lower, "disk") || input_lower.contains("space") {
         ("check_disk_space", HashMap::new())
-    } else if input_lower.contains("ram") || input_lower.contains("memory") || input_lower.contains("mem") {
+    } else if contains_word(&input_lower, "ram") || contains_word(&input_lower, "memory") || contains_word(&input_lower, "mem") {
         ("check_memory", HashMap::new())
     } else if input_lower.contains("uptime") {
         ("check_uptime", HashMap::new())

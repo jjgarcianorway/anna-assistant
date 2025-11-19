@@ -143,13 +143,76 @@ indicatif = "0.17"  # Beta.108: Professional thinking animations
 
 This dependency enables smooth color-transitioning animations like Claude CLI/Codex (to be implemented in future update).
 
+**6. Critical Template Keyword Matching Bug Fix**
+
+**Bug Found in QA Testing:** Template keyword matching used substring matching (`.contains()`), causing false positives.
+
+**Example Failure:**
+```bash
+$ annactl check my programming skills
+=== MEMORY DIAGNOSTIC ===
+Total RAM: 15Gi
+Used: 8.2Gi (54%)
+Available: 7.1Gi
+```
+- User asked about **programming** skills
+- System matched "prog**ram**ming" substring
+- Incorrectly triggered RAM template
+- Completely wrong response!
+
+**Root Cause:**
+```rust
+// BEFORE Beta.108 (broken):
+if input_lower.contains("ram") {  // Matches "programming"!
+    Some(("check_memory", HashMap::new()))
+}
+```
+
+**The Fix - Word-Boundary Matching:**
+
+Added helper function for exact word matching:
+```rust
+// Beta.108 fix:
+let contains_word = |text: &str, keyword: &str| {
+    text.split(|c: char| !c.is_alphanumeric())
+        .any(|word| word == keyword)
+};
+
+// Applied to all single-word keywords:
+if contains_word(&input_lower, "ram") {  // Only matches exact "ram"
+    Some(("check_memory", HashMap::new()))
+}
+```
+
+**Keywords Fixed:**
+- `ram` - no longer matches "programming", "agram", "parameter"
+- `gpu` - no longer matches "gpupdate", "debugpu"
+- `swap` - no longer matches "swapped", "swapon"
+- `kernel` - no longer matches "kernels", "kerneling"
+- `disk` - no longer matches "diskussion", "disks"
+- `memory` - no longer matches "memoryal"
+- `mem` - no longer matches "member", "remember"
+- `vram` - no longer matches "vramfs"
+
+**Code Changes:**
+- `crates/annactl/src/main.rs` lines 299-316: Added word-boundary helper + applied to keywords
+- `crates/annactl/src/tui_v2.rs` lines 628-645: Same fix for TUI consistency
+
+**Verification:**
+```bash
+$ annactl check my programming skills
+anna: Let me help you assess your programming skills...
+[Contextual LLM response about programming]
+```
+✅ Now correctly routes to LLM instead of RAM template
+
 #### Files Modified
 
 - **Cargo.toml** - Version 5.7.0-beta.107 → 5.7.0-beta.108, added `indicatif` dependency
 - **crates/annactl/Cargo.toml** - Added `indicatif` workspace dependency
-- **crates/annactl/src/main.rs** - Beautiful streaming interface (2 edits)
+- **crates/annactl/src/main.rs** - Beautiful streaming interface (lines 266-293), word-boundary keyword matching (lines 299-316)
 - **crates/annactl/src/repl.rs** - Colored output (1 edit)
-- **crates/annactl/src/tui_v2.rs** - Non-blocking architecture (2 edits)
+- **crates/annactl/src/tui_v2.rs** - Non-blocking architecture (lines 61-177), word-boundary keyword matching (lines 628-645)
 - **crates/annad/src/auto_updater.rs** - Fixed filesystem check + reduced logs (3 edits)
 - **Cargo.lock** - Version updates
 - **CHANGELOG.md** - Documented Beta.108 changes
