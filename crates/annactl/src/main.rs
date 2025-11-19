@@ -118,11 +118,52 @@ enum Commands {
     /// Launch TUI REPL (experimental)
     #[command(hide = true)]
     Tui,
+
+    /// Manage Anna's personality traits (Beta.88)
+    Personality {
+        #[command(subcommand)]
+        action: PersonalityCommands,
+    },
 }
 
 #[derive(Subcommand)]
 enum HistorianCommands {
     Inspect,
+}
+
+#[derive(Subcommand)]
+enum PersonalityCommands {
+    /// Show all personality traits
+    Show,
+
+    /// Set a specific trait value (0-10)
+    Set {
+        /// Trait key (e.g., "introvert_vs_extrovert")
+        trait_key: String,
+        /// Value from 0 to 10
+        value: u8,
+    },
+
+    /// Adjust a trait by delta (e.g., +2 or -3)
+    Adjust {
+        /// Trait key
+        trait_key: String,
+        /// Delta value (e.g., +2 or -1)
+        delta: i8,
+    },
+
+    /// Reset all traits to defaults
+    Reset,
+
+    /// Validate personality configuration
+    Validate,
+
+    /// Export personality to TOML file
+    Export {
+        /// Output file path (default: ~/anna_personality.toml)
+        #[arg(short, long)]
+        path: Option<String>,
+    },
 }
 
 // All legacy subcommands removed - REPL is the primary interface
@@ -884,6 +925,36 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Personality management (Beta.88 - no daemon required)
+    if let Commands::Personality { action } = command {
+        match action {
+            PersonalityCommands::Show => {
+                personality_commands::handle_personality_show().await?;
+                return Ok(());
+            }
+            PersonalityCommands::Set { trait_key, value } => {
+                personality_commands::handle_personality_set(trait_key.clone(), *value).await?;
+                return Ok(());
+            }
+            PersonalityCommands::Adjust { trait_key, delta } => {
+                personality_commands::handle_personality_adjust(trait_key.clone(), *delta).await?;
+                return Ok(());
+            }
+            PersonalityCommands::Reset => {
+                personality_commands::handle_personality_reset().await?;
+                return Ok(());
+            }
+            PersonalityCommands::Validate => {
+                personality_commands::handle_personality_validate().await?;
+                return Ok(());
+            }
+            PersonalityCommands::Export { path } => {
+                personality_commands::handle_personality_export(path.clone()).await?;
+                return Ok(());
+            }
+        }
+    }
+
     // Phase 3.9: Handle init command early (doesn't need daemon)
     // Phase 3.9: Handle learning commands early (don't need daemon, use context DB directly)
     // TODO: Wire new real Anna commands here
@@ -903,6 +974,7 @@ async fn main() -> Result<()> {
         Commands::Version => "version",
         Commands::Ping => "ping",
         Commands::Tui => "tui",
+        Commands::Personality { .. } => "personality",
     };
 
     // Try to connect to daemon and get state
