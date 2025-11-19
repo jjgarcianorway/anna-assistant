@@ -9,5 +9,8 @@ pub mod internal_dialogue; // Beta.55: LLM internal dialogue
 pub mod llm_integration; // Beta.55: LLM integration
 pub mod logging;
 pub mod output;
+pub mod recipe_formatter; // Beta.90: Recipe answer formatting
 pub mod rpc_client; // RPC client for daemon communication
-pub mod tui; // Phase 5.7: TUI REPL with ratatui
+pub mod tui; // Phase 5.7: TUI REPL with ratatui (old)
+pub mod tui_state; // Beta.90: TUI state management
+pub mod tui_v2; // Beta.90: Real TUI implementation
