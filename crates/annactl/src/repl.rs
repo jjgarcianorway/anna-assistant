@@ -5,6 +5,7 @@
 
 use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::{print_privacy_explanation, print_prompt, UI};
+use anna_common::llm::ChatMessage;  // Beta.110: For conversation history
 use anyhow::Result;
 use chrono::Local;
 use std::collections::HashMap;
@@ -368,13 +369,10 @@ async fn run_repl_loop(ctx: ReplUiContext, db: Option<std::sync::Arc<ContextDb>>
                 println!();
             }
             Intent::Unclear(original) => {
-                conversation_history.push(ChatMessage {
-                    role: "user".to_string(),
-                    content: original.clone(),
-                });
-
                 // Beta.53: LLM integration for natural language queries
-                handle_llm_query(&original, db.as_ref()).await;
+                // Beta.110: Pass conversation_history for multi-turn streaming
+                // Conversation history is now updated inside handle_llm_query
+                handle_llm_query(&original, db.as_ref(), &mut conversation_history).await;
             }
         }
     }
@@ -456,8 +454,12 @@ async fn handle_historian_summary(_db: Option<&Arc<ContextDb>>) {
     println!();
 }
 
-/// Handle LLM query for natural language understanding (Beta.53)
-async fn handle_llm_query(user_message: &str, db: Option<&Arc<ContextDb>>) {
+/// Handle LLM query for natural language understanding (Beta.53, Beta.110: streaming)
+async fn handle_llm_query(
+    user_message: &str,
+    db: Option<&Arc<ContextDb>>,
+    conversation_history: &mut Vec<ChatMessage>,
+) {
     use anna_common::template_library::TemplateLibrary;
     use std::collections::HashMap;
 
@@ -501,25 +503,122 @@ async fn handle_llm_query(user_message: &str, db: Option<&Arc<ContextDb>>) {
         }
     }
 
-    // Beta.108: Beautiful output with colors
+    // Beta.110: Word-by-word streaming like one-shot mode
     use owo_colors::OwoColorize;
     use std::io::{self, Write};
+    use anna_common::llm::{ChatMessage, LlmClient, LlmConfig, LlmPrompt};
 
     // Show thinking indicator
     print!("{} ", "anna (thinking):".bright_magenta().dimmed());
     io::stdout().flush().unwrap();
 
-    // Query LLM (blocking for now, streaming to be added in future update)
-    match crate::llm_integration::query_llm_with_context(user_message, db).await {
-        Ok(response) => {
-            // Clear thinking line and show response
-            print!("\r{}", " ".repeat(50));  // Clear line
-            println!("\r{} {}", "anna:".bright_magenta().bold(), response.white());
+    // Load LLM config from database
+    let llm_config = if let Some(db) = db {
+        match db.load_llm_config().await {
+            Ok(config) => config,
+            Err(e) => {
+                print!("\r{}", " ".repeat(50));  // Clear thinking line
+                println!();
+                ui.error(&format!("❌ Failed to load LLM config: {}", e));
+                ui.info("💡 Try: 'annactl repair' to check LLM setup");
+                println!();
+                return;
+            }
         }
+    } else {
+        LlmConfig::default()
+    };
+
+    // Create LLM client
+    let mut client = match LlmClient::from_config(&llm_config) {
+        Ok(client) => client,
         Err(e) => {
             print!("\r{}", " ".repeat(50));  // Clear thinking line
             println!();
-            ui.error(&format!("❌ LLM query failed: {}", e));
+            ui.error(&format!("❌ Failed to create LLM client: {}", e));
+            ui.info("💡 Try: 'annactl repair' to check LLM setup");
+            println!();
+            return;
+        }
+    };
+
+    // Build system context (similar to one-shot mode)
+    use crate::system_query::query_system_telemetry;
+    let system_context = if let Ok(telemetry) = query_system_telemetry() {
+        format!(
+            "System Information:\n\
+             - CPU: {}\n\
+             - RAM: {:.1} GB used / {:.1} GB total\n\
+             - GPU: {}\n\
+             - OS: Arch Linux",
+            telemetry.hardware.cpu_model,
+            telemetry.memory.used_mb as f64 / 1024.0,
+            telemetry.memory.total_mb as f64 / 1024.0,
+            telemetry.hardware.gpu_info.as_ref().map(|s| s.as_str()).unwrap_or("None"),
+        )
+    } else {
+        "OS: Arch Linux".to_string()
+    };
+
+    // Create prompt with system context and conversation history
+    let system_prompt = format!(
+        "{}\n\n{}",
+        LlmClient::anna_system_prompt(),
+        system_context
+    );
+
+    // Build conversation history into the prompt format
+    // Convert our Vec<ChatMessage> to Option<Vec<ChatMessage>> for the prompt
+    let history_for_prompt = if !conversation_history.is_empty() {
+        Some(conversation_history.clone())
+    } else {
+        None
+    };
+
+    let prompt = LlmPrompt {
+        system: system_prompt,
+        user: user_message.to_string(),
+        conversation_history: history_for_prompt,
+    };
+
+    // Beta.110: Stream response word-by-word
+    let mut response_started = false;
+    let mut full_response = String::new();
+    let mut callback = |chunk: &str| {
+        if !response_started {
+            // Clear the "thinking" indicator and start response
+            print!("\r{}", " ".repeat(50)); // Clear line
+            print!("{} ", "anna:".bright_magenta().bold());
+            response_started = true;
+        }
+
+        // Print each word/chunk as it arrives
+        print!("{}", chunk.white());
+        io::stdout().flush().unwrap();
+        full_response.push_str(chunk);
+    };
+
+    match client.chat_stream(&prompt, &mut callback) {
+        Ok(_) => {
+            // Response complete
+            println!("\n");
+
+            // Add to conversation history
+            conversation_history.push(ChatMessage {
+                role: "user".to_string(),
+                content: user_message.to_string(),
+            });
+            conversation_history.push(ChatMessage {
+                role: "assistant".to_string(),
+                content: full_response,
+            });
+        }
+        Err(e) => {
+            if !response_started {
+                print!("\r{}", " ".repeat(50)); // Clear thinking line
+            }
+            println!();
+            ui.error(&format!("❌ LLM streaming failed: {}", e));
             ui.info("💡 Try: 'annactl repair' to check LLM setup");
             println!();
         }
