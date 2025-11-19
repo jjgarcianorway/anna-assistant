@@ -19,6 +19,10 @@ pub mod change_log_db; // Phase 5.1: SQLite persistence for change logs
 pub mod change_recipe; // Phase 7: Safe change recipes with strict guardrails
 pub mod change_recipe_display; // Phase 7: UI display for change recipes
 pub mod command_meta;
+pub mod command_recipe; // Beta.90: Command recipe system - executable knowledge
+pub mod template_library; // Beta.90: Pre-built templates for common operations
+pub mod recipe_planner; // Beta.90: Planner/Critic LLM loop
+pub mod recipe_executor; // Beta.90: Safe command execution with validation
 pub mod config;
 pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)
 pub mod config_parser;

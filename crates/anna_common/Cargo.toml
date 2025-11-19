@@ -24,6 +24,7 @@ num_cpus = { workspace = true } # For system health load average per-core calcul
 sha2 = "0.10" # For file backup SHA256 verification
 nix = { version = "0.27", features = ["user"] } # For UID detection in backup manager
 walkdir = { workspace = true } # Beta.84: Directory traversal for file indexing
+regex = "1.10" # Beta.90: Template parameter validation
 
 # Database for persistent context (Phase 3.6)
 rusqlite = { workspace = true }
