@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.118] - 2025-11-19
+
+### 📋 DOCUMENTATION: RecipePlanner TUI Gap Documented
+
+**What Changed:** Added comprehensive TODO explaining why TUI lacks RecipePlanner integration.
+
+#### The Issue
+
+**User complaint:** "TUI and one-off give different answers to same question"
+
+**Root cause:**
+- One-off mode: Templates → RecipePlanner → LLM (3 tiers)
+- TUI mode: Templates → LLM (2 tiers) **← Missing RecipePlanner**
+
+Same question gets different quality answers because one-off uses validated command recipes while TUI uses generic LLM responses.
+
+#### What Was Done
+
+Added detailed TODO comment in `tui_v2.rs` explaining:
+1. Current architecture (2 tiers)
+2. Needed architecture (3 tiers)
+3. Why it's hard (interactive confirmation, step-by-step execution, channel-based messaging)
+4. Why this causes inconsistency
+
+#### Why Not Fixed Yet
+
+RecipePlanner integration requires:
+1. **Interactive confirmation UI** - RecipePlanner recipes need user approval for dangerous operations
+2. **Step-by-step execution display** - TUI needs to show recipe steps as they execute
+3. **Channel-based recipe messaging** - Current TUI uses streaming text, recipes are structured data
+4. **Error handling and rollback UI** - Failed steps need visual feedback and rollback prompts
+
+This is a **major TUI redesign** that requires careful implementation and testing.
+
+#### Future Work (Beta.121+)
+
+1. Design TUI recipe display widget
+2. Add interactive confirmation dialog
+3. Implement step-by-step execution view
+4. Integrate RecipePlanner with TUI messaging
+5. Test recipe execution in TUI
+6. Verify consistency with one-off mode
+
+For now, the inconsistency is **documented honestly** instead of ignored.
+
+#### Files Modified
+
+- `crates/annactl/src/tui_v2.rs` - Comprehensive TODO comment
+- `Cargo.toml` - Version 5.7.0-beta.118
+- `CHANGELOG.md` - Detailed explanation
+
+---
+
 ## [5.7.0-beta.117] - 2025-11-19
 
 ### ⚡ PERFORMANCE: Daemon Startup Fix (21s → ~2s)

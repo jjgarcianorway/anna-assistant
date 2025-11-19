@@ -900,6 +900,18 @@ async fn generate_reply_streaming(input: &str, state: &AnnaTuiState, tx: mpsc::S
         return generate_reply(input, state).await;
     }
 
+    // TODO Beta.118: Add RecipePlanner tier here (like one-off mode has)
+    // Current: Templates → LLM (2 tiers)
+    // Needed:  Templates → RecipePlanner → LLM (3 tiers, consistent with one-off)
+    //
+    // Challenges:
+    // 1. RecipePlanner needs interactive confirmation (can't do in streaming TUI)
+    // 2. Recipe execution needs step-by-step display (requires TUI redesign)
+    // 3. Need to integrate with channel-based messaging
+    //
+    // For now, TUI only uses generic LLM (inconsistent with one-off mode)
+    // This is why same question gets different answers in TUI vs one-off
+
     // No template match - use streaming LLM
     generate_llm_reply_streaming(input, state, tx).await;
     String::new() // Return empty - streaming handled via channel
