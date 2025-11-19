@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use tokio::fs::{create_dir_all, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tracing::info;
+use tracing::{debug, info};
 
 const STATE_DIR: &str = "/var/lib/anna";
 const STATE_FILE: &str = "state.json";
@@ -63,7 +63,8 @@ pub async fn save_state(state: &SentinelState) -> Result<()> {
 
     file.sync_all().await.context("Failed to sync state file")?;
 
-    info!("Saved sentinel state version {}", state.version);
+    // Beta.95: Changed to debug! to reduce log spam (saves happen every minute)
+    debug!("Saved sentinel state version {}", state.version);
     Ok(())
 }
 

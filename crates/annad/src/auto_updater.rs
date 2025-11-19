@@ -232,7 +232,8 @@ impl AutoUpdater {
             warn!("   3. Update kernel boot parameters if using 'ro' flag");
             warn!("   ");
             warn!("   Auto-update will retry in 10 minutes.");
-            return Ok(()); // Exit gracefully, don't spam error logs
+            // Beta.95: Return error instead of Ok to prevent false success message
+            return Err(anyhow::anyhow!("Read-only filesystem: /usr/local/bin"));
         }
         info!("      ✓ Filesystem is writable");
 
