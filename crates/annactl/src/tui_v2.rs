@@ -130,36 +130,32 @@ async fn run_event_loop(
     Ok(())
 }
 
-/// Draw the UI
+/// Draw the UI - Claude CLI style with header and status bar
 fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
     let size = f.size();
 
-    // Create main layout: [Left panel | Middle panel]
-    // Then bottom input bar
+    // Create main layout: [Header | Content | Status Bar | Input Bar]
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(1),   // Top header
             Constraint::Min(3),      // Main content
+            Constraint::Length(1),   // Bottom status bar
             Constraint::Length(3),   // Input bar
         ])
         .split(size);
 
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(25),  // Left panel
-            Constraint::Min(40),     // Middle panel
-        ])
-        .split(main_chunks[0]);
+    // Draw top header
+    draw_header(f, main_chunks[0], state);
 
-    // Draw left system panel
-    draw_system_panel(f, content_chunks[0], state);
+    // Draw conversation panel (full width now)
+    draw_conversation_panel(f, main_chunks[1], state);
 
-    // Draw middle conversation panel
-    draw_conversation_panel(f, content_chunks[1], state);
+    // Draw bottom status bar
+    draw_status_bar(f, main_chunks[2], state);
 
-    // Draw bottom input bar
-    draw_input_bar(f, main_chunks[1], state);
+    // Draw input bar
+    draw_input_bar(f, main_chunks[3], state);
 
     // Draw help overlay if active
     if state.show_help {
@@ -167,72 +163,73 @@ fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
     }
 }
 
-/// Draw system panel (left)
-fn draw_system_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(10),  // System info
-            Constraint::Min(5),      // LLM status
-        ])
-        .split(area);
+/// Draw professional header (Claude CLI style)
+/// Format: Anna v5.7.0 | llama3.2:3b | user@hostname | ● LIVE
+fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
+    use std::env;
 
-    // System info block
-    let system_text = vec![
-        Line::from(vec![
-            Span::styled("Health: ", Style::default().fg(Color::Gray)),
-            Span::styled("✓", Style::default().fg(Color::Green)),
-        ]),
-        Line::from(vec![
-            Span::styled("CPU: ", Style::default().fg(Color::Gray)),
-            Span::raw(format!("{:.0}%", state.system_panel.cpu_load_1min)),
-        ]),
-        Line::from(vec![
-            Span::styled("RAM: ", Style::default().fg(Color::Gray)),
-            Span::raw(format!("{:.1}GB", state.system_panel.ram_used_gb)),
-        ]),
-        Line::from(vec![
-            Span::styled("GPU: ", Style::default().fg(Color::Gray)),
-            Span::raw(state.system_panel.gpu_name.as_deref().unwrap_or("None")),
-        ]),
-        Line::from(vec![
-            Span::styled("DE: ", Style::default().fg(Color::Gray)),
-            Span::raw(state.system_panel.desktop_env.as_deref().unwrap_or("Unknown")),
-        ]),
-    ];
+    let hostname = env::var("HOSTNAME")
+        .or_else(|_| env::var("NAME"))
+        .unwrap_or_else(|_| "localhost".to_string());
+    let username = env::var("USER").unwrap_or_else(|_| "user".to_string());
 
-    let system_block = Paragraph::new(system_text)
-        .block(Block::default()
-            .title("System")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)))
-        .wrap(Wrap { trim: true });
+    let header_text = Line::from(vec![
+        Span::styled("Anna ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("v{}", state.system_panel.anna_version),
+            Style::default().fg(Color::Gray)
+        ),
+        Span::raw(" | "),
+        Span::styled(&state.llm_panel.model_name, Style::default().fg(Color::Yellow)),
+        Span::raw(" | "),
+        Span::styled(format!("{}@{}", username, hostname), Style::default().fg(Color::Blue)),
+        Span::raw(" | "),
+        Span::styled(
+            if state.llm_panel.available { "● LIVE" } else { "○ OFFLINE" },
+            Style::default().fg(if state.llm_panel.available { Color::Green } else { Color::Red })
+        ),
+    ]);
 
-    f.render_widget(system_block, chunks[0]);
+    let header = Paragraph::new(header_text)
+        .style(Style::default().bg(Color::Black));
 
-    // LLM status block
-    let llm_text = vec![
-        Line::from(vec![
-            Span::styled("Model: ", Style::default().fg(Color::Gray)),
-            Span::raw(&state.llm_panel.model_name),
-        ]),
-        Line::from(vec![
-            Span::styled("Status: ", Style::default().fg(Color::Gray)),
-            Span::styled(
-                if state.llm_panel.available { "Ready" } else { "Offline" },
-                Style::default().fg(if state.llm_panel.available { Color::Green } else { Color::Red })
-            ),
-        ]),
-    ];
+    f.render_widget(header, area);
+}
 
-    let llm_block = Paragraph::new(llm_text)
-        .block(Block::default()
-            .title("LLM")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)))
-        .wrap(Wrap { trim: true });
+/// Draw professional status bar (bottom)
+/// Format: 15:42 Nov 19 | Health: ✓ | Model: llama3.2:3b | CPU: 8% | RAM: 4.2GB
+fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
+    use chrono::Local;
 
-    f.render_widget(llm_block, chunks[1]);
+    let now = Local::now();
+    let time_str = now.format("%H:%M %b %d").to_string();
+
+    let health_icon = if state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0 {
+        ("✓", Color::Green)
+    } else if state.system_panel.cpu_load_1min < 95.0 {
+        ("⚠", Color::Yellow)
+    } else {
+        ("✗", Color::Red)
+    };
+
+    let status_text = Line::from(vec![
+        Span::styled(time_str, Style::default().fg(Color::Gray)),
+        Span::raw(" | "),
+        Span::raw("Health: "),
+        Span::styled(health_icon.0, Style::default().fg(health_icon.1)),
+        Span::raw(" | "),
+        Span::raw("Model: "),
+        Span::styled(&state.llm_panel.model_name, Style::default().fg(Color::Yellow)),
+        Span::raw(" | "),
+        Span::raw(format!("CPU: {:.0}%", state.system_panel.cpu_load_1min)),
+        Span::raw(" | "),
+        Span::raw(format!("RAM: {:.1}GB", state.system_panel.ram_used_gb)),
+    ]);
+
+    let status_bar = Paragraph::new(status_text)
+        .style(Style::default().bg(Color::Black));
+
+    f.render_widget(status_bar, area);
 }
 
 /// Draw conversation panel (middle)

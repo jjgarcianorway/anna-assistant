@@ -213,11 +213,31 @@ impl AutoUpdater {
             }
         }
 
-        // Backup current binaries
-        info!("      Creating backups of current binaries...");
+        // Beta.91: Check filesystem writability BEFORE attempting update
+        // This prevents "Read-only file system" errors from ever occurring
+        info!("      Checking filesystem writability...");
         let annactl_path = PathBuf::from("/usr/local/bin/annactl");
         let annad_path = PathBuf::from("/usr/local/bin/annad");
 
+        if !self.is_filesystem_writable(&annactl_path).await {
+            warn!("⚠️  Update skipped: /usr/local/bin is on a read-only filesystem");
+            warn!("   This can happen if:");
+            warn!("   - System booted with 'ro' (read-only) flag");
+            warn!("   - /usr partition is mounted read-only");
+            warn!("   - Filesystem protection is enabled");
+            warn!("   ");
+            warn!("   To enable auto-updates, ensure /usr/local/bin is writable:");
+            warn!("   1. Check mount options: mount | grep '/usr'");
+            warn!("   2. If read-only, remount as read-write: sudo mount -o remount,rw /usr");
+            warn!("   3. Update kernel boot parameters if using 'ro' flag");
+            warn!("   ");
+            warn!("   Auto-update will retry in 10 minutes.");
+            return Ok(()); // Exit gracefully, don't spam error logs
+        }
+        info!("      ✓ Filesystem is writable");
+
+        // Backup current binaries
+        info!("      Creating backups of current binaries...");
         FileBackup::create_backup(&annactl_path, &change_set_id, FileOperation::Modified)?;
         FileBackup::create_backup(&annad_path, &change_set_id, FileOperation::Modified)?;
         info!("      ✓ Backups created");
@@ -273,6 +293,48 @@ impl AutoUpdater {
 
         info!("Binaries successfully updated");
         Ok(())
+    }
+
+    /// Check if filesystem containing target path is writable
+    /// Returns true if we can write, false if read-only
+    async fn is_filesystem_writable(&self, target: &PathBuf) -> bool {
+        // Get the parent directory (e.g., /usr/local/bin)
+        let dir = match target.parent() {
+            Some(d) => d,
+            None => return false,
+        };
+
+        // Try to create a temporary test file to verify write access
+        let test_file = dir.join(".anna_write_test");
+
+        match tokio::fs::write(&test_file, b"test").await {
+            Ok(()) => {
+                // Successfully wrote, clean up and return true
+                let _ = tokio::fs::remove_file(&test_file).await;
+                true
+            }
+            Err(e) => {
+                // Write failed - check if it's a read-only filesystem
+                use std::io::ErrorKind;
+                match e.kind() {
+                    ErrorKind::PermissionDenied => {
+                        // Could be read-only or insufficient permissions
+                        // Check if the directory itself exists and is readable
+                        if dir.exists() && dir.is_dir() {
+                            // Directory exists but we can't write - likely read-only
+                            false
+                        } else {
+                            // Directory doesn't exist or isn't readable - different issue
+                            false
+                        }
+                    }
+                    _ => {
+                        // Other error (e.g., ReadOnly filesystem, NotFound, etc.)
+                        false
+                    }
+                }
+            }
+        }
     }
 
     /// Download a file from URL
