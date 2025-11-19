@@ -278,7 +278,7 @@ async fn handle_llm_query(user_text: &str) {
     let library = TemplateLibrary::default();
     let input_lower = user_text.to_lowercase();
 
-    // Pattern matching for template selection (same as TUI)
+    // Pattern matching for template selection (Beta.93: expanded library)
     let template_match = if input_lower.contains("swap") {
         Some(("check_swap_status", HashMap::new()))
     } else if input_lower.contains("gpu") || input_lower.contains("vram") {
@@ -289,6 +289,18 @@ async fn handle_llm_query(user_text: &str) {
         Some(("check_disk_space", HashMap::new()))
     } else if input_lower.contains("ram") || input_lower.contains("memory") || input_lower.contains("mem") {
         Some(("check_memory", HashMap::new()))
+    } else if input_lower.contains("uptime") {
+        Some(("check_uptime", HashMap::new()))
+    } else if input_lower.contains("cpu model") || input_lower.contains("processor") {
+        Some(("check_cpu_model", HashMap::new()))
+    } else if input_lower.contains("cpu load") || input_lower.contains("cpu usage") || input_lower.contains("load average") {
+        Some(("check_cpu_load", HashMap::new()))
+    } else if input_lower.contains("distro") || input_lower.contains("distribution") || input_lower.contains("os-release") {
+        Some(("check_distro", HashMap::new()))
+    } else if input_lower.contains("failed services") || (input_lower.contains("systemctl") && input_lower.contains("failed")) {
+        Some(("check_failed_services", HashMap::new()))
+    } else if input_lower.contains("journal") || (input_lower.contains("system") && input_lower.contains("errors")) {
+        Some(("check_journal_errors", HashMap::new()))
     } else {
         None
     };

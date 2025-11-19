@@ -139,6 +139,11 @@ impl AnnaTuiState {
         self.last_llm_reply = Some(reply);
     }
 
+    /// Add system message to conversation
+    pub fn add_system_message(&mut self, message: String) {
+        self.conversation.push(ChatItem::System(message));
+    }
+
     /// Clear conversation history
     pub fn clear_conversation(&mut self) {
         self.conversation.clear();

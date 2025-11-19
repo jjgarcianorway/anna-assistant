@@ -111,7 +111,9 @@ async fn run_event_loop(
                     // Enter - submit input
                     (KeyCode::Enter, _) => {
                         if !state.input.trim().is_empty() {
-                            handle_user_input(state).await;
+                            if handle_user_input(state).await {
+                                break;  // Exit requested
+                            }
                         }
                     }
                     // Backspace
@@ -270,41 +272,46 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 
 /// Draw conversation panel (middle)
 fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
-    let items: Vec<ListItem> = state
-        .conversation
-        .iter()
-        .map(|item| {
-            let content = match item {
-                ChatItem::User(msg) => {
-                    Line::from(vec![
-                        Span::styled("You: ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
-                        Span::raw(msg),
-                    ])
-                }
-                ChatItem::Anna(msg) => {
-                    Line::from(vec![
-                        Span::styled("Anna: ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                        Span::raw(msg),
-                    ])
-                }
-                ChatItem::System(msg) => {
-                    Line::from(vec![
-                        Span::styled("System: ", Style::default().fg(Color::Yellow)),
-                        Span::raw(msg),
-                    ])
-                }
-            };
-            ListItem::new(content)
-        })
-        .collect();
+    // Beta.93: Use wrapped text for conversation history (no more cut-off messages)
+    let mut lines: Vec<Line> = Vec::new();
 
-    let list = List::new(items)
+    for item in &state.conversation {
+        match item {
+            ChatItem::User(msg) => {
+                lines.push(Line::from(vec![
+                    Span::styled("You: ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                    Span::raw(msg.clone()),
+                ]));
+                lines.push(Line::from("")); // Add spacing between messages
+            }
+            ChatItem::Anna(msg) => {
+                lines.push(Line::from(vec![
+                    Span::styled("Anna: ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                ]));
+                // Split long Anna replies into separate lines for better readability
+                for line in msg.lines() {
+                    lines.push(Line::from(Span::raw(line.to_string())));
+                }
+                lines.push(Line::from("")); // Add spacing between messages
+            }
+            ChatItem::System(msg) => {
+                lines.push(Line::from(vec![
+                    Span::styled("System: ", Style::default().fg(Color::Yellow)),
+                    Span::raw(msg.clone()),
+                ]));
+                lines.push(Line::from("")); // Add spacing between messages
+            }
+        }
+    }
+
+    let paragraph = Paragraph::new(lines)
         .block(Block::default()
             .title("Conversation")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)));
+            .border_style(Style::default().fg(Color::Cyan)))
+        .wrap(Wrap { trim: true });  // Enable text wrapping!
 
-    f.render_widget(list, area);
+    f.render_widget(paragraph, area);
 }
 
 /// Draw input bar (bottom)
@@ -392,8 +399,17 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 }
 
 /// Handle user input
-async fn handle_user_input(state: &mut AnnaTuiState) {
+/// Returns true if should exit, false otherwise
+async fn handle_user_input(state: &mut AnnaTuiState) -> bool {
     let input = state.input.clone();
+    let input_lower = input.trim().to_lowercase();
+
+    // Check for exit commands
+    if input_lower == "bye" || input_lower == "exit" || input_lower == "quit" {
+        state.add_system_message("Goodbye!".to_string());
+        return true;
+    }
+
     state.add_user_message(input.clone());
     state.input.clear();
     state.cursor_pos = 0;
@@ -412,6 +428,8 @@ async fn handle_user_input(state: &mut AnnaTuiState) {
     state.is_thinking = false;
 
     state.add_anna_reply(reply);
+
+    false
 }
 
 /// Detect language change from natural language
@@ -523,7 +541,7 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
     let library = TemplateLibrary::default();
     let input_lower = input.to_lowercase();
 
-    // Pattern matching for template selection
+    // Pattern matching for template selection (Beta.93: expanded library)
     let (template_id, params) = if input_lower.contains("swap") {
         ("check_swap_status", HashMap::new())
     } else if input_lower.contains("gpu") || input_lower.contains("vram") {
@@ -534,6 +552,18 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
         ("check_disk_space", HashMap::new())
     } else if input_lower.contains("ram") || input_lower.contains("memory") || input_lower.contains("mem") {
         ("check_memory", HashMap::new())
+    } else if input_lower.contains("uptime") {
+        ("check_uptime", HashMap::new())
+    } else if input_lower.contains("cpu model") || input_lower.contains("processor") {
+        ("check_cpu_model", HashMap::new())
+    } else if input_lower.contains("cpu load") || input_lower.contains("cpu usage") || input_lower.contains("load average") {
+        ("check_cpu_load", HashMap::new())
+    } else if input_lower.contains("distro") || input_lower.contains("distribution") || input_lower.contains("os-release") {
+        ("check_distro", HashMap::new())
+    } else if input_lower.contains("failed services") || (input_lower.contains("systemctl") && input_lower.contains("failed")) {
+        ("check_failed_services", HashMap::new())
+    } else if input_lower.contains("journal") || (input_lower.contains("system") && input_lower.contains("errors")) {
+        ("check_journal_errors", HashMap::new())
     } else {
         // No matching template - use LLM to generate response
         return generate_llm_reply(input, state).await;

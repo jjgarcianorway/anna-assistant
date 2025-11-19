@@ -141,6 +141,14 @@ impl TemplateLibrary {
         library.register(Self::check_disk_space());
         library.register(Self::check_memory());
 
+        // Beta.93: Additional telemetry templates
+        library.register(Self::check_uptime());
+        library.register(Self::check_cpu_model());
+        library.register(Self::check_cpu_load());
+        library.register(Self::check_distro());
+        library.register(Self::check_failed_services());
+        library.register(Self::check_journal_errors());
+
         library
     }
 
@@ -346,6 +354,128 @@ impl TemplateLibrary {
                 validation_description: "Memory information is displayed".to_string(),
             }),
             example: "free -h".to_string(),
+        }
+    }
+
+    // Beta.93: Additional telemetry templates
+
+    fn check_uptime() -> Template {
+        Template {
+            id: "check_uptime".to_string(),
+            name: "Check System Uptime".to_string(),
+            description: "Check how long the system has been running".to_string(),
+            parameters: vec![],
+            command_pattern: "uptime".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("up".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Uptime displayed with load averages".to_string(),
+            }),
+            example: "uptime".to_string(),
+        }
+    }
+
+    fn check_cpu_model() -> Template {
+        Template {
+            id: "check_cpu_model".to_string(),
+            name: "Check CPU Model".to_string(),
+            description: "Get CPU model name from /proc/cpuinfo".to_string(),
+            parameters: vec![],
+            command_pattern: "grep 'model name' /proc/cpuinfo | head -n 1".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/CPU".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("model name".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "CPU model name is displayed".to_string(),
+            }),
+            example: "grep 'model name' /proc/cpuinfo | head -n 1".to_string(),
+        }
+    }
+
+    fn check_cpu_load() -> Template {
+        Template {
+            id: "check_cpu_load".to_string(),
+            name: "Check CPU Load".to_string(),
+            description: "Check current CPU load averages from /proc/loadavg".to_string(),
+            parameters: vec![],
+            command_pattern: "cat /proc/loadavg".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some(r"\d+\.\d+".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Load averages are displayed".to_string(),
+            }),
+            example: "cat /proc/loadavg".to_string(),
+        }
+    }
+
+    fn check_distro() -> Template {
+        Template {
+            id: "check_distro".to_string(),
+            name: "Check Distribution Info".to_string(),
+            description: "Get Linux distribution information from /etc/os-release".to_string(),
+            parameters: vec![],
+            command_pattern: "cat /etc/os-release".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Arch_Linux".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("NAME=".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Distribution info is displayed".to_string(),
+            }),
+            example: "cat /etc/os-release".to_string(),
+        }
+    }
+
+    fn check_failed_services() -> Template {
+        Template {
+            id: "check_failed_services".to_string(),
+            name: "Check Failed Services".to_string(),
+            description: "List failed systemd services".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl --failed".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None, // Empty output is valid (no failures)
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Failed services are listed, or none if all OK".to_string(),
+            }),
+            example: "systemctl --failed".to_string(),
+        }
+    }
+
+    fn check_journal_errors() -> Template {
+        Template {
+            id: "check_journal_errors".to_string(),
+            name: "Check Journal Errors".to_string(),
+            description: "Show recent error-level messages from system journal".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl -p 3 -xb".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None, // Empty output is valid (no errors)
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Journal errors are displayed if any exist".to_string(),
+            }),
+            example: "journalctl -p 3 -xb".to_string(),
         }
     }
 }
