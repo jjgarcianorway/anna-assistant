@@ -43,6 +43,12 @@ pub struct AnnaTuiState {
 
     /// Whether help overlay is shown
     pub show_help: bool,
+
+    /// Beta.91: Whether Anna is currently thinking (processing with LLM)
+    pub is_thinking: bool,
+
+    /// Beta.91: Animation frame for thinking indicator (0-3 for spinner)
+    pub thinking_frame: usize,
 }
 
 impl Default for AnnaTuiState {
@@ -60,6 +66,8 @@ impl Default for AnnaTuiState {
             input_history: Vec::new(),
             history_index: None,
             show_help: false,
+            is_thinking: false,
+            thinking_frame: 0,
         }
     }
 }

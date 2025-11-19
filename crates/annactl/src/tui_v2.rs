@@ -71,6 +71,11 @@ async fn run_event_loop(
     state.llm_panel.available = true;
 
     loop {
+        // Beta.91: Advance thinking animation frame
+        if state.is_thinking {
+            state.thinking_frame = (state.thinking_frame + 1) % 8;
+        }
+
         // Draw UI
         terminal.draw(|f| draw_ui(f, state))?;
 
@@ -198,11 +203,21 @@ fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 
 /// Draw professional status bar (bottom)
 /// Format: 15:42 Nov 19 | Health: ✓ | Model: llama3.2:3b | CPU: 8% | RAM: 4.2GB
+/// With thinking indicator: 15:42 Nov 19 | ⣾ Thinking... | Model: llama3.2:3b | CPU: 8% | RAM: 4.2GB
 fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use chrono::Local;
 
     let now = Local::now();
     let time_str = now.format("%H:%M %b %d").to_string();
+
+    // Beta.91: Thinking indicator with animation
+    let thinking_spinner = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+    let thinking_indicator = if state.is_thinking {
+        let frame = thinking_spinner[state.thinking_frame % thinking_spinner.len()];
+        Some((frame, "Thinking..."))
+    } else {
+        None
+    };
 
     let health_icon = if state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0 {
         ("✓", Color::Green)
@@ -212,12 +227,24 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         ("✗", Color::Red)
     };
 
-    let status_text = Line::from(vec![
+    let mut spans = vec![
         Span::styled(time_str, Style::default().fg(Color::Gray)),
         Span::raw(" | "),
-        Span::raw("Health: "),
-        Span::styled(health_icon.0, Style::default().fg(health_icon.1)),
-        Span::raw(" | "),
+    ];
+
+    // Add thinking indicator if active, otherwise show health
+    if let Some((spinner, text)) = thinking_indicator {
+        spans.push(Span::styled(spinner, Style::default().fg(Color::Cyan)));
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(text, Style::default().fg(Color::Cyan)));
+        spans.push(Span::raw(" | "));
+    } else {
+        spans.push(Span::raw("Health: "));
+        spans.push(Span::styled(health_icon.0, Style::default().fg(health_icon.1)));
+        spans.push(Span::raw(" | "));
+    }
+
+    spans.extend_from_slice(&[
         Span::raw("Model: "),
         Span::styled(&state.llm_panel.model_name, Style::default().fg(Color::Yellow)),
         Span::raw(" | "),
@@ -226,6 +253,7 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         Span::raw(format!("RAM: {:.1}GB", state.system_panel.ram_used_gb)),
     ]);
 
+    let status_text = Line::from(spans);
     let status_bar = Paragraph::new(status_text)
         .style(Style::default().bg(Color::Black));
 
@@ -365,8 +393,16 @@ async fn handle_user_input(state: &mut AnnaTuiState) {
     // Detect language change
     detect_language_change(&input, state);
 
+    // Beta.91: Set thinking state before LLM processing
+    state.is_thinking = true;
+    state.thinking_frame = 0;
+
     // Generate reply (placeholder - will connect to recipe system)
     let reply = generate_reply(&input, state).await;
+
+    // Beta.91: Clear thinking state after reply completes
+    state.is_thinking = false;
+
     state.add_anna_reply(reply);
 }
 
@@ -406,6 +442,8 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
         ("check_kernel_version", HashMap::new())
     } else if input_lower.contains("disk") || input_lower.contains("space") {
         ("check_disk_space", HashMap::new())
+    } else if input_lower.contains("ram") || input_lower.contains("memory") || input_lower.contains("mem") {
+        ("check_memory", HashMap::new())
     } else {
         // No matching template - return helpful message
         return match state.language {
@@ -415,7 +453,8 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
                  - swap (estado de swap)\n\
                  - GPU/VRAM (memoria de GPU)\n\
                  - kernel (versión del kernel)\n\
-                 - disk/space (espacio en disco)\n\n\
+                 - disk/space (espacio en disco)\n\
+                 - RAM/memory (memoria del sistema)\n\n\
                  ## Próximamente\n\n\
                  Planner/Critic LLM para generar recetas dinámicamente.",
                 input
@@ -426,7 +465,8 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
                  - swap (état du swap)\n\
                  - GPU/VRAM (mémoire GPU)\n\
                  - kernel (version du noyau)\n\
-                 - disk/space (espace disque)\n\n\
+                 - disk/space (espace disque)\n\
+                 - RAM/memory (mémoire système)\n\n\
                  ## Bientôt\n\n\
                  Planner/Critic LLM pour générer des recettes dynamiquement.",
                 input
@@ -437,7 +477,8 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
                  - **swap** - Check swap status\n\
                  - **GPU/VRAM** - Check GPU memory\n\
                  - **kernel** - Check kernel version\n\
-                 - **disk/space** - Check disk space\n\n\
+                 - **disk/space** - Check disk space\n\
+                 - **RAM/memory** - Check system memory\n\n\
                  ## Coming Soon\n\n\
                  Planner/Critic LLM loop to generate dynamic recipes from Arch Wiki.\n\n\
                  ## Architecture\n\n\

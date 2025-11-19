@@ -139,6 +139,7 @@ impl TemplateLibrary {
         library.register(Self::enable_vim_syntax());
         library.register(Self::check_kernel_version());
         library.register(Self::check_disk_space());
+        library.register(Self::check_memory());
 
         library
     }
@@ -325,6 +326,26 @@ impl TemplateLibrary {
                 validation_description: "Disk space table is displayed".to_string(),
             }),
             example: "df -h /".to_string(),
+        }
+    }
+
+    fn check_memory() -> Template {
+        Template {
+            id: "check_memory".to_string(),
+            name: "Check System Memory".to_string(),
+            description: "Check total and available system RAM".to_string(),
+            parameters: vec![],
+            command_pattern: "free -h".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Mem:".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Memory information is displayed".to_string(),
+            }),
+            example: "free -h".to_string(),
         }
     }
 }
