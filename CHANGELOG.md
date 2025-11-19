@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.105] - 2025-11-19
+
+### Template Expansion: Memory & Swap Diagnostics (+8 Templates)
+
+**Continuing the path to 100% success rate** on the 700-question test suite. Beta.105 focuses on memory and swap diagnostics - addressing ~15 questions from the test suite.
+
+#### What Changed in Beta.105
+
+**Added 8 New Memory & Swap Templates:**
+
+1. **check_memory_usage** - Show current memory usage overview (total, used, free, available, cached)
+2. **check_swap_usage** - Show swap usage and configuration
+3. **analyze_memory_pressure** - Detect memory pressure and OOM (Out-Of-Memory) events
+4. **show_top_memory_processes** - Show top memory-consuming processes sorted by usage
+5. **check_oom_killer** - Check for OOM killer events from system journal
+6. **analyze_swap_activity** - Show swap in/out activity via vmstat
+7. **check_huge_pages** - Show huge pages configuration and usage
+8. **show_memory_info** - Show detailed memory hardware information from DMI/SMBIOS
+
+**Template Count Progress:**
+- Beta.104: 79 templates
+- Beta.105: 87 templates (+10% increase)
+
+#### Templates Address Common Memory Problems
+
+From the 700-question test suite, memory/swap-related questions include:
+- "Why is my system using so much memory?" → `check_memory_usage`, `show_top_memory_processes`
+- "Is my system swapping?" → `check_swap_usage`, `analyze_swap_activity`
+- "Did the OOM killer run?" → `check_oom_killer`, `analyze_memory_pressure`
+- "Show memory hardware specs" → `show_memory_info`
+- "Check huge pages" → `check_huge_pages`
+
+These templates provide immediate, actionable diagnostics for memory/swap issues.
+
+#### Files Modified
+
+- **crates/anna_common/src/template_library.rs** - Added 8 memory & swap diagnostic templates
+- **Cargo.toml** - Version 5.7.0-beta.104 → 5.7.0-beta.105
+- **CHANGELOG.md** - Documented template additions
+
+#### Coverage Progress
+
+**From 700-Question Test Suite:**
+- ✅ Pacman management (~30 questions) - Beta.102
+- ✅ Systemd boot/journal (~25 questions) - Beta.103
+- ✅ CPU & performance (~40 questions) - Beta.104
+- ✅ Memory & swap (~15 questions) - Beta.105
+- 📋 GPU diagnostics (~20 questions) - Beta.106 (planned)
+- 📋 Desktop environment (~25 questions) - Beta.107 (planned)
+- 📋 VM/containers (~30 questions) - Beta.108 (planned)
+- 📋 Storage/filesystems (~25 questions) - Beta.109 (planned)
+
+**Progress:** ~110/700 questions covered with specific templates (15.7%)
+**Path Forward:** Continue systematic expansion to reach 80%+ coverage
+
+---
+
 ## [5.7.0-beta.104] - 2025-11-19
 
 ### Template Expansion: CPU & Performance Profiling (+8 Templates)

@@ -233,6 +233,16 @@ impl TemplateLibrary {
         library.register(Self::check_load_average());
         library.register(Self::analyze_context_switches());
 
+        // Beta.105: Memory & Swap diagnostics (700 questions - memory issues)
+        library.register(Self::check_memory_usage());
+        library.register(Self::check_swap_usage());
+        library.register(Self::analyze_memory_pressure());
+        library.register(Self::show_top_memory_processes());
+        library.register(Self::check_oom_killer());
+        library.register(Self::analyze_swap_activity());
+        library.register(Self::check_huge_pages());
+        library.register(Self::show_memory_info());
+
         library
     }
 
@@ -1948,6 +1958,168 @@ impl TemplateLibrary {
                 validation_description: "Context switches displayed".to_string(),
             }),
             example: "vmstat 1 5".to_string(),
+        }
+    }
+
+    // ===== Beta.105: Memory & Swap Diagnostics (700-question test suite) =====
+
+    fn check_memory_usage() -> Template {
+        Template {
+            id: "check_memory_usage".to_string(),
+            name: "Check Memory Usage".to_string(),
+            description: "Show current memory usage overview (total, used, free, available, cached)".to_string(),
+            parameters: vec![],
+            command_pattern: "free -h && echo && cat /proc/meminfo | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Memory".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Mem:".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Memory usage displayed".to_string(),
+            }),
+            example: "free -h".to_string(),
+        }
+    }
+
+    fn check_swap_usage() -> Template {
+        Template {
+            id: "check_swap_usage".to_string(),
+            name: "Check Swap Usage".to_string(),
+            description: "Show swap usage and configuration".to_string(),
+            parameters: vec![],
+            command_pattern: "free -h | grep -i swap && echo && swapon --show && echo && cat /proc/swaps".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Swap".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Swap".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Swap usage displayed".to_string(),
+            }),
+            example: "swapon --show".to_string(),
+        }
+    }
+
+    fn analyze_memory_pressure() -> Template {
+        Template {
+            id: "analyze_memory_pressure".to_string(),
+            name: "Analyze Memory Pressure".to_string(),
+            description: "Detect memory pressure and OOM (Out-Of-Memory) events".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl -p warning -g 'Out of memory|OOM|memory pressure' --since '1 hour ago' | head -30 || echo 'No memory pressure detected in last hour'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Memory".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("memory".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Memory pressure analysis displayed".to_string(),
+            }),
+            example: "journalctl -p warning -g OOM".to_string(),
+        }
+    }
+
+    fn show_top_memory_processes() -> Template {
+        Template {
+            id: "show_top_memory_processes".to_string(),
+            name: "Show Top Memory Processes".to_string(),
+            description: "Show top memory-consuming processes sorted by memory usage".to_string(),
+            parameters: vec![],
+            command_pattern: "ps aux --sort=-%mem | head -15".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Core_utilities".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("%MEM".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Top memory processes displayed".to_string(),
+            }),
+            example: "ps aux --sort=-%mem | head".to_string(),
+        }
+    }
+
+    fn check_oom_killer() -> Template {
+        Template {
+            id: "check_oom_killer".to_string(),
+            name: "Check OOM Killer".to_string(),
+            description: "Check for OOM (Out-Of-Memory) killer events from system journal".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl -k -g 'Out of memory|oom_reaper|Kill process' --since '7 days ago' | tail -50 || echo 'No OOM killer events in last 7 days'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Out_of_memory".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "OOM killer events displayed".to_string(),
+            }),
+            example: "journalctl -k -g 'Out of memory'".to_string(),
+        }
+    }
+
+    fn analyze_swap_activity() -> Template {
+        Template {
+            id: "analyze_swap_activity".to_string(),
+            name: "Analyze Swap Activity".to_string(),
+            description: "Show swap in/out activity via vmstat".to_string(),
+            parameters: vec![],
+            command_pattern: "vmstat -s | grep -i swap && echo && vmstat 1 5 | tail -6".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Swap".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("swap".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Swap activity displayed".to_string(),
+            }),
+            example: "vmstat -s | grep swap".to_string(),
+        }
+    }
+
+    fn check_huge_pages() -> Template {
+        Template {
+            id: "check_huge_pages".to_string(),
+            name: "Check Huge Pages".to_string(),
+            description: "Show huge pages configuration and usage".to_string(),
+            parameters: vec![],
+            command_pattern: "grep -i huge /proc/meminfo && echo && cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo 'Transparent huge pages info not available'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Memory".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Huge".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Huge pages info displayed".to_string(),
+            }),
+            example: "grep Huge /proc/meminfo".to_string(),
+        }
+    }
+
+    fn show_memory_info() -> Template {
+        Template {
+            id: "show_memory_info".to_string(),
+            name: "Show Memory Hardware Info".to_string(),
+            description: "Show detailed memory hardware information from DMI/SMBIOS".to_string(),
+            parameters: vec![],
+            command_pattern: "sudo dmidecode -t memory 2>/dev/null | head -100 || lshw -short -C memory 2>/dev/null | head -20 || echo 'Memory hardware info requires root access (sudo dmidecode -t memory)'".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Memory".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("memory".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Memory hardware info displayed".to_string(),
+            }),
+            example: "sudo dmidecode -t memory".to_string(),
         }
     }
 }
