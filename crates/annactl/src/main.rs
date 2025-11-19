@@ -67,6 +67,7 @@ use clap::{Parser, Subcommand};
 use errors::*;
 use logging::{ErrorDetails, LogEntry};
 use output::CommandOutput;
+use std::process::Command;
 use std::time::Instant;
 
 // Version is embedded at build time
@@ -264,70 +265,164 @@ async fn extract_version_changelog(version: &str) -> anyhow::Result<Vec<String>>
 
 /// Handle LLM query (Task 12)
 async fn handle_llm_query(user_text: &str) {
-    use anna_common::context::db::{ContextDb, DbLocation};
     use anna_common::display::UI;
     use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
+    use anna_common::template_library::TemplateLibrary;
+    use std::collections::HashMap;
 
     let ui = UI::auto();
+    println!();
+    ui.thinking();
 
-    // Load LLM config from database
-    let db_location = DbLocation::auto_detect();
-    let config = if let Ok(db) = ContextDb::open(db_location).await {
-        db.load_llm_config().await.unwrap_or_default()
+    // Beta.91: Try template matching first (prevents hallucinations)
+    let library = TemplateLibrary::default();
+    let input_lower = user_text.to_lowercase();
+
+    // Pattern matching for template selection (same as TUI)
+    let template_match = if input_lower.contains("swap") {
+        Some(("check_swap_status", HashMap::new()))
+    } else if input_lower.contains("gpu") || input_lower.contains("vram") {
+        Some(("check_gpu_memory", HashMap::new()))
+    } else if input_lower.contains("kernel") {
+        Some(("check_kernel_version", HashMap::new()))
+    } else if input_lower.contains("disk") || input_lower.contains("space") {
+        Some(("check_disk_space", HashMap::new()))
+    } else if input_lower.contains("ram") || input_lower.contains("memory") || input_lower.contains("mem") {
+        Some(("check_memory", HashMap::new()))
     } else {
-        LlmConfig::default()
+        None
     };
+
+    // If template matches, use it (instant, accurate, no hallucination)
+    if let Some((template_id, params)) = template_match {
+        if let Some(template) = library.get(template_id) {
+            match template.instantiate(&params) {
+                Ok(recipe) => {
+                    println!();
+                    ui.section_header("💬", "Anna");
+                    println!();
+
+                    // Execute command and show output
+                    ui.info(&format!("Running: {}", recipe.command));
+                    println!();
+
+                    match std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(&recipe.command)
+                        .output()
+                    {
+                        Ok(output) => {
+                            let stdout = String::from_utf8_lossy(&output.stdout);
+                            for line in stdout.lines() {
+                                ui.info(line);
+                            }
+                        }
+                        Err(e) => {
+                            ui.info(&format!("⚠ Command failed: {}", e));
+                        }
+                    }
+                    println!();
+                    return;
+                }
+                Err(e) => {
+                    // Template instantiation failed, fall through to LLM
+                    eprintln!("Warning: Template instantiation failed: {}", e);
+                }
+            }
+        }
+    }
+
+    // No template match - use LLM (with Ollama detection)
+    // Beta.91: Use Ollama local LLM instead of database config
+
+    // Detect model from ollama list
+    let model_name = match Command::new("ollama").arg("list").output() {
+        Ok(output) if output.status.success() => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            // Get first non-header line (most recently used model)
+            stdout.lines()
+                .skip(1)
+                .next()
+                .and_then(|line| line.split_whitespace().next())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "llama3.1:8b".to_string())
+        }
+        _ => "llama3.1:8b".to_string(), // Fallback
+    };
+
+    let config = LlmConfig::local("http://127.0.0.1:11434/v1", &model_name);
 
     // Create LLM client
     let client = match LlmClient::from_config(&config) {
         Ok(client) => client,
-        Err(e) => {
+        Err(_) => {
             println!();
-            ui.info("LLM assistance is not configured yet.");
+            ui.info("⚠ LLM not available (Ollama not running)");
             ui.info("I can still help with:");
             ui.bullet_list(&[
-                "System status: \"how are you?\"",
-                "Suggestions: \"what should I improve?\"",
-                "Reports: \"generate a report\"",
-                "Privacy: \"what do you store?\"",
+                "swap - Check swap status",
+                "GPU/VRAM - Check GPU memory",
+                "kernel - Check kernel version",
+                "disk/space - Check disk space",
+                "RAM/memory - Check system memory",
             ]);
             println!();
-            ui.info("To enable LLM assistance, configure an OpenAI-compatible endpoint.");
+            ui.info("To enable LLM for other questions:");
+            ui.info("  1. Install Ollama: curl -fsSL https://ollama.com/install.sh | sh");
+            ui.info("  2. Pull a model: ollama pull llama3.1:8b");
             println!();
             return;
         }
     };
 
-    // Create prompt
-    let prompt = LlmPrompt {
-        system: LlmClient::anna_system_prompt(),
-        user: user_text.to_string(),
-        conversation_history: None, // No conversation memory for one-shot commands
+    // Build system context
+    use crate::system_query::query_system_telemetry;
+    let system_context = if let Ok(telemetry) = query_system_telemetry() {
+        format!(
+            "System Information:\n\
+             - CPU: {}\n\
+             - RAM: {:.1} GB used / {:.1} GB total\n\
+             - GPU: {}\n\
+             - OS: Arch Linux",
+            telemetry.hardware.cpu_model,
+            telemetry.memory.used_mb as f64 / 1024.0,
+            telemetry.memory.total_mb as f64 / 1024.0,
+            telemetry.hardware.gpu_info.as_ref().map(|s| s.as_str()).unwrap_or("None"),
+        )
+    } else {
+        "OS: Arch Linux".to_string()
     };
 
-    // Query LLM
-    println!();
-    ui.thinking();
+    // Create prompt with system context
+    let system_prompt = format!(
+        "{}\n\n{}",
+        LlmClient::anna_system_prompt(),
+        system_context
+    );
 
+    let prompt = LlmPrompt {
+        system: system_prompt,
+        user: user_text.to_string(),
+        conversation_history: None,
+    };
+
+    // Query LLM (blocking)
     match client.chat(&prompt) {
         Ok(response) => {
             println!();
             ui.section_header("💬", "Anna");
             println!();
-            // Display LLM response using UI abstraction
             for line in response.text.lines() {
                 ui.info(line);
             }
             println!();
         }
-        Err(e) => {
+        Err(_) => {
             println!();
-            ui.info("LLM assistance is not configured yet.");
-            ui.info("I can still help with specific commands:");
+            ui.info("⚠ LLM request failed");
+            ui.info("Try template-based questions:");
             ui.bullet_list(&[
-                "System status: \"how are you?\"",
-                "Suggestions: \"what should I improve?\"",
-                "Reports: \"generate a report\"",
+                "swap, gpu, kernel, disk, ram/memory",
             ]);
             println!();
         }
