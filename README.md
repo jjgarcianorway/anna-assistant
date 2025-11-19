@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.66 (Fort Knox Security + Injection-Resistant Execution)
+**Version:** 5.7.0-beta.111 (100% Streaming Consistency Across All Modes)
 
 ---
 
@@ -22,7 +22,7 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.66)
+## Current Status (v5.7.0-beta.111)
 
 ### ✅ What Works Now
 
@@ -34,7 +34,15 @@ Anna is **not**:
 - ✅ Auto-update system (checks GitHub, verifies checksums, atomic swaps)
 - ✅ **Installer optimization:** Skips re-downloading same version (beta.65)
 
-**Security (NEW in beta.66 - CRITICAL UPDATE):**
+**User Experience (NEW in beta.108-111 - 100% CONSISTENCY ACHIEVED):**
+- ✨ **Word-by-word streaming in all three modes** - Real-time LLM response display
+- ✨ **Beta.108:** One-shot mode streaming (`annactl <question>`)
+- ✨ **Beta.110:** REPL mode streaming (`annactl repl`)
+- ✨ **Beta.111:** TUI mode streaming (`annactl tui`)
+- ✨ **Perfect consistency:** Identical streaming behavior across all interaction modes
+- ✨ **User requirement met:** "ensure that the replies from annactl, TUI or one-off are consistent!!!!"
+
+**Security (beta.66 - CRITICAL UPDATE):**
 - 🔐 **ACTION_PLAN validation layer** - Prevents command injection
 - 🔐 **SafeCommand builder** - Injection-resistant execution
 - 🔐 **ANNA_BACKUP enforcement** - All backups follow naming convention
