@@ -1,0 +1,1855 @@
+=== Beta.90 Recipe System QA Test ===
+Questions file: data/reddit_questions.json
+Sample size: 921
+Output: beta90_recipe_test_results.md
+
+Anna version: annactl 5.7.0-beta.87
+
+[1/921] Testing: Arch Linux Mirror served 1PB+ Traffic
+   Category: unknown - ⚠️  PARTIAL
+[2/921] Testing: New Valve Steam Frame runs steamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?
+   Category: package - 🟢 GOOD
+[3/921] Testing: Pacman-7.1.0 released
+   Skipped: Non-technical question
+[4/921] Testing: I dumped Omarchy and went back to a fresh un-opinionated Arch
+   Category: unknown - ⚠️  PARTIAL
+[5/921] Testing: I can't believe how rock solid Arch Linux is
+   Category: package - 🟢 GOOD
+[6/921] Testing: Arch has to be the most stable Linux distro I have used
+   Category: package - 🟢 GOOD
+[7/921] Testing: Who's attacking the Arch infrastructure?
+   Category: service - 🟢 GOOD
+[8/921] Testing: Arch has left me speechless
+   Skipped: Non-technical question
+[9/921] Testing: Adobe software now has graphics acceleration via Wine!
+   Category: package - 🟢 GOOD
+[10/921] Testing: Just became an Arch sponsor
+   Skipped: Non-technical question
+[11/921] Testing: Best decision ever
+   Skipped: Non-technical question
+[12/921] Testing: Waydroid is now in Pacman.
+   Category: package - 🟢 GOOD
+[13/921] Testing: Plasma 6.5 has just dropped in the official repo
+   Skipped: Non-technical question
+[14/921] Testing: New CDN based mirror now available: fastly.mirror.pkgbuild.com - Arch-dev-public
+   Skipped: Non-technical question
+[15/921] Testing: Nvidia broke after update (pacman -Syu)
+   Category: gpu - ✅ EXCELLENT
+[16/921] Testing: Used windows my entire life .. now after using arch can't go back
+   Category: package - 🟢 GOOD
+[17/921] Testing: If not Arch, what?
+   Category: unknown - ⚠️  PARTIAL
+[18/921] Testing: mkinitcpio v40 released and now in core-testing
+   Skipped: Non-technical question
+[19/921] Testing: I switched to arch and I’m never going back
+   Category: package - 🟢 GOOD
+[20/921] Testing: steam-native-runtime dropped from multilib
+   Skipped: Non-technical question
+[21/921] Testing: Arch Linux on WSL has been a refreshing change
+   Category: package - 🟢 GOOD
+[22/921] Testing: Why did y'all land on Arch?
+   Category: unknown - ⚠️  PARTIAL
+[23/921] Testing: I installed Arch. What now?
+   Category: package - 🟢 GOOD
+[24/921] Testing: My first (official) contrib to Archlinux
+   Category: package - 🟢 GOOD
+[25/921] Testing: [SOLVED] My Arch Btrfs freezes are gone — swap file was the issue
+   Category: swap - ✅ EXCELLENT
+[26/921] Testing: AUR is down again (2025/10/26), what's next for external packages?
+   Category: package - 🟢 GOOD
+[27/921] Testing: KDE Plasma 6.5
+   Category: package - 🟢 GOOD
+[28/921] Testing: After much procrastination ...
+   Category: package - 🟢 GOOD
+[29/921] Testing: What's the silliest thing you've ever broken all by yourself in Arch?
+   Category: package - 🟢 GOOD
+[30/921] Testing: AUR and Wiki Status
+   Category: unknown - ⚠️  PARTIAL
+[31/921] Testing: I Made my First Shell Script!! :D
+   Category: unknown - ⚠️  PARTIAL
+[32/921] Testing: Archstrap: Modular Arch Linux Installation System
+   Category: package - 🟢 GOOD
+[33/921] Testing: 2 years in and I finally feel somewhat knowledgable
+   Category: package - 🟢 GOOD
+[34/921] Testing: Packages removed from repositories (gtk2, libpng12, qt5-websockets, qt5-webengine, qt5-webchannel)
+   Category: package - 🟢 GOOD
+[35/921] Testing: Windows wiped my ESP partition (Why?)
+   Category: unknown - ⚠️  PARTIAL
+[36/921] Testing: Made a simple script/tool that clones and creates a bootable iso from an existing Arch installation
+   Category: package - 🟢 GOOD
+[37/921] Testing: Is AUR down? or just me
+   Category: unknown - ⚠️  PARTIAL
+[38/921] Testing: Arch Linux ARM: No package updates since mid September
+   Category: package - 🟢 GOOD
+[39/921] Testing: Why do you use arch?
+   Category: unknown - ⚠️  PARTIAL
+[40/921] Testing: How To Handle Hostile Maintainer w/out Dup AUR Packages
+   Category: package - 🟢 GOOD
+[41/921] Testing: dovecot &gt;= 2.4 requires manual intervention
+   Category: package - 🟢 GOOD
+[42/921] Testing: Is archinstall script good enough?
+   Category: disk - ✅ EXCELLENT
+[43/921] Testing: Turbo: Just another AUR helper.
+   Category: package - 🟢 GOOD
+[44/921] Testing: Paruse just got a pretty cool update
+   Category: unknown - ⚠️  PARTIAL
+[45/921] Testing: BTRFS restore - deleted girlfriends pictures
+   Category: unknown - ⚠️  PARTIAL
+[46/921] Testing: I am an idiot
+   Category: package - 🟢 GOOD
+[47/921] Testing: Heads up: initramfs generation may fail in some configurations since 11-dm-initramfs.rules has been removed
+   Category: unknown - ⚠️  PARTIAL
+[48/921] Testing: Boot loader options, what do you use and why?
+   Category: package - 🟢 GOOD
+[49/921] Testing: What KDE Plasma applications do you have installed on your system?
+   Category: package - 🟢 GOOD
+[50/921] Testing: Windows is somehow modifying my EFI boot settings on every boot so that my computer won’t boot into GRUB
+   Category: package - 🟢 GOOD
+[51/921] Testing: Why don't any AUR helpers support the GitHub mirror?
+   Category: package - 🟢 GOOD
+[52/921] Testing: [Fix] Nvidia Sleep Race, Immediate Sleep After Wake
+   Category: gpu - ✅ EXCELLENT
+[53/921] Testing: How can we support package maintainers on AUR?
+   Category: package - 🟢 GOOD
+[54/921] Testing: Any why Arch refuses to accept my password randomly?
+   Category: package - 🟢 GOOD
+[55/921] Testing: How long is your Arch vanilla running since its last installation?
+   Category: package - 🟢 GOOD
+[56/921] Testing: 9070 XT Driver Status
+   Category: unknown - ⚠️  PARTIAL
+[57/921] Testing: [TOOL] Waybar GUI Configurator
+   Category: unknown - ⚠️  PARTIAL
+[58/921] Testing: [Help] My Arch Btrfs install is still freezing after I tried LITERALLY everything. I'm fucking exhausted. (RAM test PASSED)
+   Category: package - 🟢 GOOD
+[59/921] Testing: Switching to Arch from Mint
+   Category: unknown - ⚠️  PARTIAL
+[60/921] Testing: Why are a lot of Japanese mirror out of sync?
+   Category: unknown - ⚠️  PARTIAL
+[61/921] Testing: Latest proton-vpn-gtk-app update broke itself
+   Category: unknown - ⚠️  PARTIAL
+[62/921] Testing: timeshift-autosnap AUR package updated after 6 years hiatus
+   Category: package - 🟢 GOOD
+[63/921] Testing: Is a GitHub sponsorships a good way to support Arch directly?
+   Skipped: Non-technical question
+[64/921] Testing: DE for arch Linux ?
+   Category: unknown - ⚠️  PARTIAL
+[65/921] Testing: What happens when NVIDA drops support for an architecture?
+   Category: gpu - ✅ EXCELLENT
+[66/921] Testing: For the Arch+Hyprland fanatics looking for a Wayland native GUI for NetworkManager
+   Category: unknown - ⚠️  PARTIAL
+[67/921] Testing: Some games on using Wine have stopped working after package updates on October 20th
+   Category: package - 🟢 GOOD
+[68/921] Testing: I made some command aliases. What do you think? Should i change anything?
+   Category: swap - ✅ EXCELLENT
+[69/921] Testing: Anyone here using a company Windows machine remotely from their own Linux setup?
+   Category: package - 🟢 GOOD
+[70/921] Testing: Testing an updated approach to package splitting in makepkg
+   Category: package - 🟢 GOOD
+[71/921] Testing: systemd v259 pre-releases available for testing
+   Skipped: Non-technical question
+[72/921] Testing: EndeavourOS vs. Arch install script
+   Category: package - 🟢 GOOD
+[73/921] Testing: Advice for moving the kids' gaming desktop to Linux.
+   Category: unknown - ⚠️  PARTIAL
+[74/921] Testing: What books are good for a complete beginner wanting to be able to effectively use Arch?
+   Category: unknown - ⚠️  PARTIAL
+[75/921] Testing: Time shift seems to have destroyed my system
+   Category: package - 🟢 GOOD
+[76/921] Testing: Making music on arch....?
+   Category: kernel - ✅ EXCELLENT
+[77/921] Testing: Today's update broke my arch install and I fixed it
+   Category: package - 🟢 GOOD
+[78/921] Testing: Does Secure Boot make sense with home-only encryption?
+   Category: kernel - ✅ EXCELLENT
+[79/921] Testing: How to skip Grub menu
+   Category: unknown - ⚠️  PARTIAL
+[80/921] Testing: Arch linux package simple package check/lookup software.
+   Category: package - 🟢 GOOD
+[81/921] Testing: RDSEED32 broken, PC practically unusable
+   Category: package - 🟢 GOOD
+[82/921] Testing: .pacnew files
+   Category: unknown - ⚠️  PARTIAL
+[83/921] Testing: Should I switch
+   Category: unknown - ⚠️  PARTIAL
+[84/921] Testing: Can I change after?
+   Category: unknown - ⚠️  PARTIAL
+[85/921] Testing: My friend who never tried Linux want to install arch
+   Category: package - 🟢 GOOD
+[86/921] Testing: man pacman
+   Category: package - 🟢 GOOD
+[87/921] Testing: is it safe to delete windows efi partition?
+   Category: unknown - ⚠️  PARTIAL
+[88/921] Testing: Good and simple pdf reader
+   Category: disk - ✅ EXCELLENT
+[89/921] Testing: My Arch Journey ~ A Linux Newbie
+   Category: package - 🟢 GOOD
+[90/921] Testing: Should your PC and laptop be fully live-synced?
+   Category: unknown - ⚠️  PARTIAL
+[91/921] Testing: Arch Linux on external drive?
+   Category: package - 🟢 GOOD
+[92/921] Testing: Slow internet compared to windows.
+   Category: unknown - ⚠️  PARTIAL
+[93/921] Testing: libicui18n.so.78 "No such file or directory"
+   Category: unknown - ⚠️  PARTIAL
+[94/921] Testing: I can't set my Display to the correct resolution anymore after update (NVIDIA)
+   Category: gpu - ✅ EXCELLENT
+[95/921] Testing: Installing Arch Remotely. Story..
+   Category: package - 🟢 GOOD
+[96/921] Testing: What video editors do you like?
+   Category: unknown - ⚠️  PARTIAL
+[97/921] Testing: A question about ext4's fast commit feature
+   Category: unknown - ⚠️  PARTIAL
+[98/921] Testing: Remote desktop solution? (plasma 6 + wayland)
+   Category: unknown - ⚠️  PARTIAL
+[99/921] Testing: ESPionage now available in AUR !! drop a vote if you like it :D
+   Skipped: Non-technical question
+[100/921] Testing: Kernel install problems
+   Category: kernel - ✅ EXCELLENT
+[101/921] Testing: How to downgrade nvidia drivers?
+   Category: gpu - ✅ EXCELLENT
+[102/921] Testing: Been toggling between different DEs in Arch to see where gaming feels best
+   Category: package - 🟢 GOOD
+[103/921] Testing: "Loading initial ramdisk" freeze after applying the new mkinitcpio config
+   Category: kernel - ✅ EXCELLENT
+[104/921] Testing: Lenovo Laptop Keyboard RGB Controller for linux
+   Category: package - 🟢 GOOD
+[105/921] Testing: Why are some developers/package maintainers' keys not signed by any master keys?
+   Category: package - 🟢 GOOD
+[106/921] Testing: How to cleanly migrate from Unified Kernel Image (UKI) back to the classic boot method on Arch Linux (Secure Boot not enabled)?
+   Category: kernel - ✅ EXCELLENT
+[107/921] Testing: Installing Arch, need web browser for wifi
+   Category: package - 🟢 GOOD
+[108/921] Testing: Problems with multilib
+   Category: package - 🟢 GOOD
+[109/921] Testing: Pacman and paru scope
+   Category: package - 🟢 GOOD
+[110/921] Testing: Question about ArchInstall .iso "Additional packages"
+   Category: package - 🟢 GOOD
+[111/921] Testing: Petition for Logi Option+ on Linux
+   Category: unknown - ⚠️  PARTIAL
+[112/921] Testing: Learning Arch
+   Category: unknown - ⚠️  PARTIAL
+[113/921] Testing: Creating my First AUR package, any tips?
+   Category: package - 🟢 GOOD
+[114/921] Testing: Strange bootloader error?
+   Category: unknown - ⚠️  PARTIAL
+[115/921] Testing: Any Software to automatically change monitor's brightness based on sunrise/sunset of my location? (a.k.a. Solar Screen Brightness Alternatives)(Wayland)
+   Category: package - 🟢 GOOD
+[116/921] Testing: Idea how to mirror music playlist to directoy?
+   Category: unknown - ⚠️  PARTIAL
+[117/921] Testing: VM ware turns invisible as soon as I click on a running vm
+   Category: unknown - ⚠️  PARTIAL
+[118/921] Testing: archarchive - A utility to quickly rollback an arch linux system using ALA (a.k.a Arch Linux Archive)
+   Category: package - 🟢 GOOD
+[119/921] Testing: Question about publishing a tool that checks AUR maintainer trustworthiness
+   Category: package - 🟢 GOOD
+[120/921] Testing: How do I connect to wifi which requires both username and password using networkmanager
+   Category: package - 🟢 GOOD
+[121/921] Testing: Arch Linux – System goes back to sleep ~20s after login when waking with mouse (Logitech G305)
+   Category: unknown - ⚠️  PARTIAL
+[122/921] Testing: RDSEED32 error after update
+   Category: kernel - ✅ EXCELLENT
+[123/921] Testing: What’s a good ‘menu’ application?
+   Category: unknown - ⚠️  PARTIAL
+[124/921] Testing: Arch for noobs!?
+   Category: unknown - ⚠️  PARTIAL
+[125/921] Testing: Best Spotify Songs/Playlists Downloader?
+   Category: package - 🟢 GOOD
+[126/921] Testing: My Realtek RTL8125 PCIE card is driving me crazy, what am I missing?
+   Category: package - 🟢 GOOD
+[127/921] Testing: [Solved] GRUB can’t boot Windows 11 after dual boot install - fixed by changing Fast Boot to “All SATA Devices”
+   Category: package - 🟢 GOOD
+[128/921] Testing: Proton randomly stopped working on most of my steam games.
+   Category: package - 🟢 GOOD
+[129/921] Testing: Skipping root password for improved security?
+   Category: package - 🟢 GOOD
+[130/921] Testing: Can't use GPU decode/encode in Davinci Resolve
+   Category: gpu - ✅ EXCELLENT
+[131/921] Testing: Arch Keeps Suspending 3-4 Times After Resuming From Suspend
+   Category: gpu - ✅ EXCELLENT
+[132/921] Testing: Btrfs + Snapper + LVM + LUKS setup - Looking for feedback on my subvolume layout and fstab
+   Category: disk - ✅ EXCELLENT
+[133/921] Testing: Looking for a way to stream Android audio to PC
+   Category: unknown - ⚠️  PARTIAL
+[134/921] Testing: System turns off instantly under heavy load, how to troubleshoot the cause?
+   Category: gpu - ✅ EXCELLENT
+[135/921] Testing: is it just me? amdgpu crashing more lately
+   Category: gpu - ✅ EXCELLENT
+[136/921] Testing: Who do I contact to get my archlinux SSO/Gitlab Username Updated?
+   Category: unknown - ⚠️  PARTIAL
+[137/921] Testing: Strange shutdown behavior.
+   Category: service - 🟢 GOOD
+[138/921] Testing: Deleting bootloader entries
+   Category: package - 🟢 GOOD
+[139/921] Testing: Problem with building archiso
+   Category: unknown - ⚠️  PARTIAL
+[140/921] Testing: Not getting updates through pacman anymore?
+   Category: kernel - ✅ EXCELLENT
+[141/921] Testing: Can someone ELI5 what mount and chroot actually do when installing arch?
+   Category: swap - ✅ EXCELLENT
+[142/921] Testing: pipewire/wireplumber: virtual sink volume+state not persisting after restart
+   Category: service - 🟢 GOOD
+[143/921] Testing: CPU used instead of GPU for video playback
+   Category: gpu - ✅ EXCELLENT
+[144/921] Testing: I feel like I've learned more since my first install. Would reinstalling be a good idea for my situation?
+   Category: package - 🟢 GOOD
+[145/921] Testing: I wanna start with Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[146/921] Testing: Difference between fastfetch as normal user and fastfetch as root
+   Category: unknown - ⚠️  PARTIAL
+[147/921] Testing: Missing Broadcom BCM43602 firmware files on Arch (MacBookPro14,2) — brcmfmac keeps crashing, .clm_blob &amp; .txt not found anywhere
+   Category: kernel - ✅ EXCELLENT
+[148/921] Testing: Any Arch Linux users running MariaDB?
+   Category: unknown - ⚠️  PARTIAL
+[149/921] Testing: Is it possible to redo partitioning without losing all my data?
+   Category: swap - ✅ EXCELLENT
+[150/921] Testing: Silksong boots to a black screen
+   Category: gpu - ✅ EXCELLENT
+[151/921] Testing: Big space in logs when booting
+   Category: gpu - ✅ EXCELLENT
+[152/921] Testing: Linux using BT4.0 instead of 5.1?
+   Category: unknown - ⚠️  PARTIAL
+[153/921] Testing: Is it possible to create bootable media using the SD card?
+   Category: unknown - ⚠️  PARTIAL
+[154/921] Testing: No X/GDM/Gnome after update
+   Category: disk - ✅ EXCELLENT
+[155/921] Testing: Missing wireless device after upgrade
+   Category: kernel - ✅ EXCELLENT
+[156/921] Testing: WiFi issue with 2015 MacBook Pro
+   Category: package - 🟢 GOOD
+[157/921] Testing: LibreOffice Fresh Doesn’t Show Mathematical Equations Properly
+   Category: disk - ✅ EXCELLENT
+[158/921] Testing: Thinkpad ACPI Error
+   Category: kernel - ✅ EXCELLENT
+[159/921] Testing: Is a minuscule difference of refresh rate still considered a difference in a multi-monitor setup?
+   Category: unknown - ⚠️  PARTIAL
+[160/921] Testing: Battery ran out and now arch linux isn’t recognized in the boot menu
+   Category: unknown - ⚠️  PARTIAL
+[161/921] Testing: Why does vulkan-asahi exist in x86[_64] repos?
+   Category: gpu - ✅ EXCELLENT
+[162/921] Testing: Deep-Dive Linux Questions
+   Category: unknown - ⚠️  PARTIAL
+[163/921] Testing: I need help with my Pro Controller!
+   Category: kernel - ✅ EXCELLENT
+[164/921] Testing: Reformat esp
+   Category: unknown - ⚠️  PARTIAL
+[165/921] Testing: Installation - Error when mounting root partition
+   Category: disk - ✅ EXCELLENT
+[166/921] Testing: xorg-server 21.1.20 needs to be reverted - trouble loading nvidia_drm
+   Category: gpu - ✅ EXCELLENT
+[167/921] Testing: Grub fails randomly
+   Category: kernel - ✅ EXCELLENT
+[168/921] Testing: UPS, CyberPower Control Panel on Arch
+   Category: package - 🟢 GOOD
+[169/921] Testing: Script to delete residual configurations?
+   Category: unknown - ⚠️  PARTIAL
+[170/921] Testing: Dell WD22T4 Disconnects and reconnects frequently
+   Category: kernel - ✅ EXCELLENT
+[171/921] Testing: Unable to copy to VM from specific apps.
+   Category: unknown - ⚠️  PARTIAL
+[172/921] Testing: Kernel panic at bootloader.
+   Category: kernel - ✅ EXCELLENT
+[173/921] Testing: Ubisoft Connect Crashing upon launch
+   Category: package - 🟢 GOOD
+[174/921] Testing: HELP - Razer mouse
+   Category: swap - ✅ EXCELLENT
+[175/921] Testing: First time using arch linux
+   Category: unknown - ⚠️  PARTIAL
+[176/921] Testing: Switching on main PC. How can I check if my hardware will be compatible enough for linux gaming
+   Category: gpu - ✅ EXCELLENT
+[177/921] Testing: Are these usually slow?
+   Category: package - 🟢 GOOD
+[178/921] Testing: Can't turn my laptop back on after I close the lid.
+   Category: unknown - ⚠️  PARTIAL
+[179/921] Testing: [Help] NVIDIA GPU missing on Arch Linux when BIOS is in Hybrid Mode (HP Victus 16 + AMD Phoenix + RTX)
+   Category: gpu - ✅ EXCELLENT
+[180/921] Testing: After crash, /boot can no longer be mounted
+   Category: unknown - ⚠️  PARTIAL
+[181/921] Testing: MATE - Desktop Notifications for non-existent touchpad
+   Category: service - 🟢 GOOD
+[182/921] Testing: Keepass kdbx-file on GDrive:  using RClone on Arch-System (LXQt) how to set up this?
+   Category: package - 🟢 GOOD
+[183/921] Testing: single update messed up a stable setup (nvidia possibly)
+   Category: gpu - ✅ EXCELLENT
+[184/921] Testing: About the wrong resolution problems with NVIDIA 580.105.08-3, should I just wait for an update that fixes that? Or how I can downgrade the package?
+   Category: gpu - ✅ EXCELLENT
+[185/921] Testing: Triple booting on 500gb
+   Category: package - 🟢 GOOD
+[186/921] Testing: KDE Plasma Wayland loading on wrong VT after login
+   Category: unknown - ⚠️  PARTIAL
+[187/921] Testing: Steam / Arch - Power Surge
+   Category: unknown - ⚠️  PARTIAL
+[188/921] Testing: Caps Lock turns off when pressing Shift on ABNT2 keyboard (Hyprland + Arch). How do I fix this?
+   Category: unknown - ⚠️  PARTIAL
+[189/921] Testing: Issues Recompiling Rimsort to Arch
+   Category: unknown - ⚠️  PARTIAL
+[190/921] Testing: Switch audio output using keyboard keystrokes
+   Category: package - 🟢 GOOD
+[191/921] Testing: I need help with storage in arch linux 😔
+   Category: package - 🟢 GOOD
+[192/921] Testing: Nautilus-Konsole (Simple Nautilus Extension open a directory in Konsole)
+   Category: package - 🟢 GOOD
+[193/921] Testing: Guide to enable Mute Speaker and Mute Microphone LED for HP Envy Laptop
+   Category: unknown - ⚠️  PARTIAL
+[194/921] Testing: Wat should I be careful about?
+   Category: package - 🟢 GOOD
+[195/921] Testing: Switch from GRUB to EFI boot stub
+   Category: kernel - ✅ EXCELLENT
+[196/921] Testing: Low polling rate on TrackPoint
+   Category: unknown - ⚠️  PARTIAL
+[197/921] Testing: Problems with the archinstall installer
+   Category: package - 🟢 GOOD
+[198/921] Testing: Video stutter for sometime when connecting Bluetooth.
+   Category: unknown - ⚠️  PARTIAL
+[199/921] Testing: Need help with touchpad
+   Category: package - 🟢 GOOD
+[200/921] Testing: Need opinions on how to setup clamav on a server
+   Category: unknown - ⚠️  PARTIAL
+[201/921] Testing: How do you transfer audio from ios to arch?
+   Category: unknown - ⚠️  PARTIAL
+[202/921] Testing: Need some advise about EFI being wiped
+   Category: package - 🟢 GOOD
+[203/921] Testing: Totally lost with refind
+   Category: package - 🟢 GOOD
+[204/921] Testing: Music player closest to modern Winamp UI's realtime queue system
+   Category: unknown - ⚠️  PARTIAL
+[205/921] Testing: How to get a linear volume scale with pipewire
+   Category: unknown - ⚠️  PARTIAL
+[206/921] Testing: Wacom tablet not being recognized/detected issue
+   Category: package - 🟢 GOOD
+[207/921] Testing: installing mullvad from the AUR causes my laptops resources to max and the laptop to freeze
+   Category: swap - ✅ EXCELLENT
+[208/921] Testing: Issue with GRUB2 with LUKS2 Argon2 Encrypted Root /Boot
+   Category: package - 🟢 GOOD
+[209/921] Testing: KDE (Wayland) closing windows upon login
+   Category: unknown - ⚠️  PARTIAL
+[210/921] Testing: Sway help: How to assign workspaces to monitors?
+   Category: disk - ✅ EXCELLENT
+[211/921] Testing: mkinitcpio HOOKS=(base) + nvme module setup broke with recent linux kernel update (works on linux-lts)
+   Category: kernel - ✅ EXCELLENT
+[212/921] Testing: Steam Stardew Valley fails to render window after recent system update.
+   Category: gpu - ✅ EXCELLENT
+[213/921] Testing: Systemd-boot equivalent of GRUB's --removable flag?
+   Category: unknown - ⚠️  PARTIAL
+[214/921] Testing: Has someone figured out how to bind left_ctrl and left_alt to lvl 3
+   Category: unknown - ⚠️  PARTIAL
+[215/921] Testing: I have a problem with the (imv) tool every time I try to run it it's give me this outputs fish: Job 1, 'imv' terminated by signal SIGSEGV (Address boundary error)
+   Category: unknown - ⚠️  PARTIAL
+[216/921] Testing: My brightness keys working as mic mute/un-mute keys after swapping ssd to another laptop
+   Category: swap - ✅ EXCELLENT
+[217/921] Testing: Problems when adding windows to systemd boot
+   Category: disk - ✅ EXCELLENT
+[218/921] Testing: After installing multiple DEs issue with mouse
+   Category: package - 🟢 GOOD
+[219/921] Testing: Timeshift on boot timer
+   Category: package - 🟢 GOOD
+[220/921] Testing: KDE Plasma on Arch Linux breaks after every reboot - have to delete cache each time
+   Category: package - 🟢 GOOD
+[221/921] Testing: Hard system freeze some time after boot without nomodeset
+   Category: package - 🟢 GOOD
+[222/921] Testing: iwd shows no devices
+   Category: package - 🟢 GOOD
+[223/921] Testing: Single GPU Passthrough with QEMU/KVM (AMD 7000 series)
+   Category: gpu - ✅ EXCELLENT
+[224/921] Testing: Stop job is running for Software Speech Output
+   Category: unknown - ⚠️  PARTIAL
+[225/921] Testing: Bash history of root lost upon reboot command
+   Category: package - 🟢 GOOD
+[226/921] Testing: What is this font?
+   Category: disk - ✅ EXCELLENT
+[227/921] Testing: Connection not stable and DHCP problem
+   Category: service - 🟢 GOOD
+[228/921] Testing: Wi-Fi not detected on fresh Arch install (ASUS Zenbook 14 UM3406KA – MediaTek MT7921e)
+   Category: kernel - ✅ EXCELLENT
+[229/921] Testing: Pacman mirror download speeds at a crawl, why?
+   Category: package - 🟢 GOOD
+[230/921] Testing: Whats your browser workflow/System?
+   Category: unknown - ⚠️  PARTIAL
+[231/921] Testing: grub_memcpy not found after grub update and manual grub-install followed by grub-mkconfig
+   Category: package - 🟢 GOOD
+[232/921] Testing: running arch on apple silicon
+   Category: unknown - ⚠️  PARTIAL
+[233/921] Testing: Best practises &amp; examples for in-tree PKGBUILD?
+   Category: package - 🟢 GOOD
+[234/921] Testing: Anyone else have trouble with the discord package?
+   Category: package - 🟢 GOOD
+[235/921] Testing: Window close keystroke stays held on underlying app.
+   Category: unknown - ⚠️  PARTIAL
+[236/921] Testing: My keyboard keeps repeating keys
+   Category: package - 🟢 GOOD
+[237/921] Testing: Switching from fedora to arch linux, restoring files?
+   Category: unknown - ⚠️  PARTIAL
+[238/921] Testing: System goes to sleep and doesn't wake up
+   Category: swap - ✅ EXCELLENT
+[239/921] Testing: wayland + nvidia on arch !
+   Category: gpu - ✅ EXCELLENT
+[240/921] Testing: Systemd bootloader issue
+   Category: disk - ✅ EXCELLENT
+[241/921] Testing: I can't start pipewire
+   Category: service - 🟢 GOOD
+[242/921] Testing: Disabling nvidia gpu
+   Category: gpu - ✅ EXCELLENT
+[243/921] Testing: Question about bootloader compatibility
+   Category: package - 🟢 GOOD
+[244/921] Testing: How can i install nvidia drivers for 820m chip?
+   Category: gpu - ✅ EXCELLENT
+[245/921] Testing: Meteor Lake HP Omen Transcend 14, No Internal Audio on Linux, SOF not loading
+   Category: unknown - ⚠️  PARTIAL
+[246/921] Testing: New Valve Steam Frame runs steamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?
+   Category: package - 🟢 GOOD
+[247/921] Testing: Just became an Arch sponsor
+   Skipped: Non-technical question
+[248/921] Testing: I switched to arch and I’m never going back
+   Category: package - 🟢 GOOD
+[249/921] Testing: I Made my First Shell Script!! :D
+   Category: unknown - ⚠️  PARTIAL
+[250/921] Testing: Archstrap: Modular Arch Linux Installation System
+   Category: package - 🟢 GOOD
+[251/921] Testing: 2 years in and I finally feel somewhat knowledgable
+   Category: package - 🟢 GOOD
+[252/921] Testing: How To Handle Hostile Maintainer w/out Dup AUR Packages
+   Category: package - 🟢 GOOD
+[253/921] Testing: Windows is somehow modifying my EFI boot settings on every boot so that my computer won’t boot into GRUB
+   Category: package - 🟢 GOOD
+[254/921] Testing: How can we support package maintainers on AUR?
+   Category: package - 🟢 GOOD
+[255/921] Testing: Switching to Arch from Mint
+   Category: unknown - ⚠️  PARTIAL
+[256/921] Testing: I made some command aliases. What do you think? Should i change anything?
+   Category: swap - ✅ EXCELLENT
+[257/921] Testing: systemd v259 pre-releases available for testing
+   Skipped: Non-technical question
+[258/921] Testing: EndeavourOS vs. Arch install script
+   Category: package - 🟢 GOOD
+[259/921] Testing: Making music on arch....?
+   Category: kernel - ✅ EXCELLENT
+[260/921] Testing: Does Secure Boot make sense with home-only encryption?
+   Category: kernel - ✅ EXCELLENT
+[261/921] Testing: How to skip Grub menu
+   Category: unknown - ⚠️  PARTIAL
+[262/921] Testing: RDSEED32 broken, PC practically unusable
+   Category: package - 🟢 GOOD
+[263/921] Testing: Can I change after?
+   Category: unknown - ⚠️  PARTIAL
+[264/921] Testing: man pacman
+   Category: package - 🟢 GOOD
+[265/921] Testing: libicui18n.so.78 "No such file or directory"
+   Category: unknown - ⚠️  PARTIAL
+[266/921] Testing: A question about ext4's fast commit feature
+   Category: unknown - ⚠️  PARTIAL
+[267/921] Testing: Remote desktop solution? (plasma 6 + wayland)
+   Category: unknown - ⚠️  PARTIAL
+[268/921] Testing: Pacman and paru scope
+   Category: package - 🟢 GOOD
+[269/921] Testing: Strange bootloader error?
+   Category: unknown - ⚠️  PARTIAL
+[270/921] Testing: Arch Linux – System goes back to sleep ~20s after login when waking with mouse (Logitech G305)
+   Category: unknown - ⚠️  PARTIAL
+[271/921] Testing: RDSEED32 error after update
+   Category: kernel - ✅ EXCELLENT
+[272/921] Testing: Looking for a way to stream Android audio to PC
+   Category: unknown - ⚠️  PARTIAL
+[273/921] Testing: System turns off instantly under heavy load, how to troubleshoot the cause?
+   Category: gpu - ✅ EXCELLENT
+[274/921] Testing: is it just me? amdgpu crashing more lately
+   Category: gpu - ✅ EXCELLENT
+[275/921] Testing: Is it possible to redo partitioning without losing all my data?
+   Category: swap - ✅ EXCELLENT
+[276/921] Testing: Silksong boots to a black screen
+   Category: gpu - ✅ EXCELLENT
+[277/921] Testing: Big space in logs when booting
+   Category: gpu - ✅ EXCELLENT
+[278/921] Testing: Linux using BT4.0 instead of 5.1?
+   Category: unknown - ⚠️  PARTIAL
+[279/921] Testing: Is it possible to create bootable media using the SD card?
+   Category: unknown - ⚠️  PARTIAL
+[280/921] Testing: No X/GDM/Gnome after update
+   Category: disk - ✅ EXCELLENT
+[281/921] Testing: After crash, /boot can no longer be mounted
+   Category: unknown - ⚠️  PARTIAL
+[282/921] Testing: MATE - Desktop Notifications for non-existent touchpad
+   Category: service - 🟢 GOOD
+[283/921] Testing: Keepass kdbx-file on GDrive:  using RClone on Arch-System (LXQt) how to set up this?
+   Category: package - 🟢 GOOD
+[284/921] Testing: single update messed up a stable setup (nvidia possibly)
+   Category: gpu - ✅ EXCELLENT
+[285/921] Testing: About the wrong resolution problems with NVIDIA 580.105.08-3, should I just wait for an update that fixes that? Or how I can downgrade the package?
+   Category: gpu - ✅ EXCELLENT
+[286/921] Testing: Triple booting on 500gb
+   Category: package - 🟢 GOOD
+[287/921] Testing: KDE Plasma Wayland loading on wrong VT after login
+   Category: unknown - ⚠️  PARTIAL
+[288/921] Testing: Steam / Arch - Power Surge
+   Category: unknown - ⚠️  PARTIAL
+[289/921] Testing: Caps Lock turns off when pressing Shift on ABNT2 keyboard (Hyprland + Arch). How do I fix this?
+   Category: unknown - ⚠️  PARTIAL
+[290/921] Testing: Issues Recompiling Rimsort to Arch
+   Category: unknown - ⚠️  PARTIAL
+[291/921] Testing: Switch audio output using keyboard keystrokes
+   Category: package - 🟢 GOOD
+[292/921] Testing: Why is the Arch Linux Community discord server locked down?
+   Category: unknown - ⚠️  PARTIAL
+[293/921] Testing: Has someone figured out how to bind left_ctrl and left_alt to lvl 3
+   Category: unknown - ⚠️  PARTIAL
+[294/921] Testing: How can I force SKLauncher to use my igpu rather than dgpu?
+   Category: gpu - ✅ EXCELLENT
+[295/921] Testing: Keyboard Problem
+   Category: kernel - ✅ EXCELLENT
+[296/921] Testing: Hibernation kernel panic
+   Category: kernel - ✅ EXCELLENT
+[297/921] Testing: Anyone know a good automatic emoji and spell checker
+   Category: unknown - ⚠️  PARTIAL
+[298/921] Testing: I have a problem with the (imv) tool every time I try to run it it's give me this outputs fish: Job 1, 'imv' terminated by signal SIGSEGV (Address boundary error)
+   Category: unknown - ⚠️  PARTIAL
+[299/921] Testing: Keyboard layout issue on KDE Plasma: it's driving me crazy
+   Category: unknown - ⚠️  PARTIAL
+[300/921] Testing: My brightness keys working as mic mute/un-mute keys after swapping ssd to another laptop
+   Category: swap - ✅ EXCELLENT
+[301/921] Testing: Having a lots of trouble with customizing KDE Plasma.
+   Category: unknown - ⚠️  PARTIAL
+[302/921] Testing: Problems when adding windows to systemd boot
+   Category: disk - ✅ EXCELLENT
+[303/921] Testing: After installing multiple DEs issue with mouse
+   Category: package - 🟢 GOOD
+[304/921] Testing: I need help with the super key!
+   Category: package - 🟢 GOOD
+[305/921] Testing: Meteor Lake HP Omen Transcend 14, No Internal Audio on Linux, SOF not loading
+   Category: unknown - ⚠️  PARTIAL
+[306/921] Testing: UKI mkinitcpio errors
+   Category: kernel - ✅ EXCELLENT
+[307/921] Testing: Search for a valuable md to pdf plugin
+   Category: disk - ✅ EXCELLENT
+[308/921] Testing: Steam input not working
+   Category: unknown - ⚠️  PARTIAL
+[309/921] Testing: fprintd not working as intended
+   Category: package - 🟢 GOOD
+[310/921] Testing: Failed to mount boot/efi
+   Category: unknown - ⚠️  PARTIAL
+[311/921] Testing: Hyprland DPI
+   Category: disk - ✅ EXCELLENT
+[312/921] Testing: Installing Arduino IDE in Arch linux
+   Category: package - 🟢 GOOD
+[313/921] Testing: Personal project advice
+   Category: unknown - ⚠️  PARTIAL
+[314/921] Testing: limine-install Not Found After Pacman Install (Arch Chroot)
+   Category: package - 🟢 GOOD
+[315/921] Testing: Unable to update leafpad
+   Category: package - 🟢 GOOD
+[316/921] Testing: Strange permissions when installing packages that I can't makes sense of.
+   Category: package - 🟢 GOOD
+[317/921] Testing: Login Screen for hyprland
+   Category: package - 🟢 GOOD
+[318/921] Testing: Help with arch install usb flash
+   Category: package - 🟢 GOOD
+[319/921] Testing: Arch vanilla with Hyprland - stuck ~15s at "Loading initial ramdisk"
+   Category: gpu - ✅ EXCELLENT
+[320/921] Testing: Tap-to-click and two-finger right-click only work randomly after psmouse reload (ThinkPad T14 Gen 1, Synaptics TM3471-020)
+   Category: kernel - ✅ EXCELLENT
+[321/921] Testing: How to use Unity Version control on Arch ?
+   Category: unknown - ⚠️  PARTIAL
+[322/921] Testing: gpu errors after shutdown
+   Category: gpu - ✅ EXCELLENT
+[323/921] Testing: Let's talk nvidia and GNU/Linux.
+   Category: gpu - ✅ EXCELLENT
+[324/921] Testing: Laptop lags a lot when charging, when disconnected from charging the lagging stops
+   Category: package - 🟢 GOOD
+[325/921] Testing: Volume keeps resetting on KDE
+   Category: unknown - ⚠️  PARTIAL
+[326/921] Testing: Suddenly very long boot times; system hangs on initialization of Real Boot
+   Category: unknown - ⚠️  PARTIAL
+[327/921] Testing: Help setting a system-wide Gtk font in i3 (Arch Linux). Font isn't applying.
+   Category: package - 🟢 GOOD
+[328/921] Testing: Archlinux Kernel Panic, New Update
+   Category: kernel - ✅ EXCELLENT
+[329/921] Testing: Random keys not working since using arch.
+   Category: unknown - ⚠️  PARTIAL
+[330/921] Testing: G703 Mouse Lag on Arch
+   Category: unknown - ⚠️  PARTIAL
+[331/921] Testing: Systemd boot sequence: A stop job running for Rule-based Manager for Device Events and Files
+   Category: unknown - ⚠️  PARTIAL
+[332/921] Testing: timed out waiting for device /dev/disk/by-label/arch_os after update and reboot
+   Category: disk - ✅ EXCELLENT
+[333/921] Testing: Missing initramfs and Failed to read configuration '/etc/mkinitcpio.conf
+   Category: kernel - ✅ EXCELLENT
+[334/921] Testing: Stuck on "booting" screen after fresh download
+   Category: package - 🟢 GOOD
+[335/921] Testing: Arch Linux and USB WiFi adapter
+   Category: package - 🟢 GOOD
+[336/921] Testing: My fans speed up to max speed after doing... anything
+   Category: unknown - ⚠️  PARTIAL
+[337/921] Testing: Input remapper not starting, ModuleNotFound error
+   Category: package - 🟢 GOOD
+[338/921] Testing: Nvidia GPU (rtx 3050 mobile) detected, but not working.
+   Category: gpu - ✅ EXCELLENT
+[339/921] Testing: Fixing a graphics glitch?
+   Category: unknown - ⚠️  PARTIAL
+[340/921] Testing: Weird display wobbling on both x11 and wayland
+   Category: gpu - ✅ EXCELLENT
+[341/921] Testing: From Debian GNU/LInux —&gt; Arch Linux
+   Category: package - 🟢 GOOD
+[342/921] Testing: Webapp Manager behaviour
+   Category: package - 🟢 GOOD
+[343/921] Testing: Need help with file managers
+   Category: package - 🟢 GOOD
+[344/921] Testing: ausu b650m ayw WiFi and Bluetooth don't work
+   Category: unknown - ⚠️  PARTIAL
+[345/921] Testing: Unable to enroll keys for secure boot
+   Category: unknown - ⚠️  PARTIAL
+[346/921] Testing: MangoWC dual scroller and other layouts for various screen types and workflows
+   Category: unknown - ⚠️  PARTIAL
+[347/921] Testing: I accidentally git cloned Open CL amd(didn't install it properly), and now I can't use fully uninstall it to install it properly
+   Category: gpu - ✅ EXCELLENT
+[348/921] Testing: ArchGaming and Kernelbased AC
+   Category: kernel - ✅ EXCELLENT
+[349/921] Testing: Installing arch linux with secure boot in lenovo g50-70 laptop
+   Category: package - 🟢 GOOD
+[350/921] Testing: Help Needed: PKGBUILD for Dwarf Fortress on Rolling Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[351/921] Testing: Flashing cursor after changing lock screen.
+   Category: gpu - ✅ EXCELLENT
+[352/921] Testing: mkinitcpio
+   Category: package - 🟢 GOOD
+[353/921] Testing: VMware crashing
+   Category: package - 🟢 GOOD
+[354/921] Testing: Black Screen with cursor after login
+   Category: gpu - ✅ EXCELLENT
+[355/921] Testing: SDDM freezes on first boot with any theme except Breeze (Arch + Hyprland + NVIDIA + Lenovo LOQ)
+   Category: gpu - ✅ EXCELLENT
+[356/921] Testing: How to use a 4g modem with a SIM card?
+   Category: package - 🟢 GOOD
+[357/921] Testing: Change Keyboard Layout in Plasma 6
+   Category: unknown - ⚠️  PARTIAL
+[358/921] Testing: Packages with (or without) dependencies on specific versions.
+   Category: package - 🟢 GOOD
+[359/921] Testing: Using old themes with gdm
+   Category: unknown - ⚠️  PARTIAL
+[360/921] Testing: Issue with Discord Fonts
+   Category: package - 🟢 GOOD
+[361/921] Testing: Please help me setup grub (windows 11 &amp; arch dualboot)
+   Category: unknown - ⚠️  PARTIAL
+[362/921] Testing: Is Asus Vivobook 1504va ok with arch?
+   Category: unknown - ⚠️  PARTIAL
+[363/921] Testing: Arch inside a VM, first boot: Failed to start Switch Root + Cannot open access to console
+   Category: package - 🟢 GOOD
+[364/921] Testing: Unreal engine with bottles
+   Category: package - 🟢 GOOD
+[365/921] Testing: Arch won't detect correct video resolution
+   Category: gpu - ✅ EXCELLENT
+[366/921] Testing: [SOLUTION] Standby/Suspend Issues on Linux – Permanently Disable ACPI Wakeup
+   Category: unknown - ⚠️  PARTIAL
+[367/921] Testing: Kernel Zen - Cant find wifi adapter
+   Category: gpu - ✅ EXCELLENT
+[368/921] Testing: Can Arch Linux actually be installed directly onto a USB flash drive? Constant freezes + errors on multiple USB sticks
+   Category: disk - ✅ EXCELLENT
+[369/921] Testing: Things that tripped me up doing a fresh installation
+   Category: package - 🟢 GOOD
+[370/921] Testing: Any hope of adjusting the Alienware power light indicator? Or am I cooked.
+   Category: package - 🟢 GOOD
+[371/921] Testing: Fritz!WLAN USB Stick Nv2 under Arch Linux?
+   Category: unknown - ⚠️  PARTIAL
+[372/921] Testing: davinci resolve help
+   Category: unknown - ⚠️  PARTIAL
+[373/921] Testing: Time sync broken
+   Category: package - 🟢 GOOD
+[374/921] Testing: Kernal Panic after update and reboot
+   Category: unknown - ⚠️  PARTIAL
+[375/921] Testing: Boot splash
+   Category: disk - ✅ EXCELLENT
+[376/921] Testing: Docker not working
+   Category: package - 🟢 GOOD
+[377/921] Testing: [NOOB]Having issues finding app using the AUR.
+   Category: package - 🟢 GOOD
+[378/921] Testing: Post-installation of Arch Linux
+   Category: package - 🟢 GOOD
+[379/921] Testing: Arch linux on dell pro 14 premium
+   Category: unknown - ⚠️  PARTIAL
+[380/921] Testing: A modern terminal multiplexer with classic MS-DOS aesthetic, built with Rust.
+   Category: package - 🟢 GOOD
+[381/921] Testing: Got a lil aur problem
+   Category: package - 🟢 GOOD
+[382/921] Testing: Sound Issue
+   Category: package - 🟢 GOOD
+[383/921] Testing: Messed up bootloader
+   Category: package - 🟢 GOOD
+[384/921] Testing: At release of the steam frame
+   Category: package - 🟢 GOOD
+[385/921] Testing: Tell me I made the right move?!
+   Category: package - 🟢 GOOD
+[386/921] Testing: Package Loss
+   Category: package - 🟢 GOOD
+[387/921] Testing: Home assistant AUR package
+   Category: package - 🟢 GOOD
+[388/921] Testing: Newbies on Arch
+   Category: package - 🟢 GOOD
+[389/921] Testing: Dual booting Arch Linux with Linux Mint using Archinstall
+   Category: package - 🟢 GOOD
+[390/921] Testing: EasyEffects' switch to Qt brings 255MB of dependencies for a 7.8MB app
+   Category: package - 🟢 GOOD
+[391/921] Testing: Discover not finding some KDE apps
+   Category: unknown - ⚠️  PARTIAL
+[392/921] Testing: How to download antigravity (gemini ai editor) in arch linux?
+   Category: package - 🟢 GOOD
+[393/921] Testing: paru-debug package purpose ?
+   Category: package - 🟢 GOOD
+[394/921] Testing: I installed Arch Linux with hyprland and I installed a bunch of TUI applications
+   Category: package - 🟢 GOOD
+[395/921] Testing: Newbie
+   Category: package - 🟢 GOOD
+[396/921] Testing: Windows defector and QoL
+   Category: unknown - ⚠️  PARTIAL
+[397/921] Testing: What distro should i choose?
+   Category: unknown - ⚠️  PARTIAL
+[398/921] Testing: My Arch install script
+   Category: gpu - ✅ EXCELLENT
+[399/921] Testing: I built AI-CLI-Selector: A Smart Launcher for All Your AI Command-Line Tools
+   Category: unknown - ⚠️  PARTIAL
+[400/921] Testing: GitHub - arpansource/ashar: ArpanSource' Hyprland Arch Rice
+   Category: unknown - ⚠️  PARTIAL
+[401/921] Testing: Arch vs. Debian
+   Category: unknown - ⚠️  PARTIAL
+[402/921] Testing: KERNEL PANIC AFTER UPDATE AND REBOOT!
+   Category: kernel - ✅ EXCELLENT
+[403/921] Testing: Kernel vs Kernel LTS vs Kernel Hardened
+   Category: kernel - ✅ EXCELLENT
+[404/921] Testing: After a 4 days journey I completed my installation...
+   Category: package - 🟢 GOOD
+[405/921] Testing: How do I coustomize arch linux around this image?
+   Category: unknown - ⚠️  PARTIAL
+[406/921] Testing: Anyone know why this is happening
+   Category: package - 🟢 GOOD
+[407/921] Testing: Alguém ajuda por favor.
+   Category: package - 🟢 GOOD
+[408/921] Testing: Arch linux will not boot. NEED HELP!!!
+   Category: unknown - ⚠️  PARTIAL
+[409/921] Testing: I’m really stupid. Can somebody please help?
+   Category: package - 🟢 GOOD
+[410/921] Testing: can i boot archlinux from usb drive?
+   Category: unknown - ⚠️  PARTIAL
+[411/921] Testing: How to download Tlauncher?
+   Category: unknown - ⚠️  PARTIAL
+[412/921] Testing: pacman risk of breaking system
+   Category: package - 🟢 GOOD
+[413/921] Testing: Most beautiful screenshot on Linux
+   Category: unknown - ⚠️  PARTIAL
+[414/921] Testing: trying to boot into arch linux from windows 11, them delete my windows 11 disk
+   Category: disk - ✅ EXCELLENT
+[415/921] Testing: Help about my OS
+   Category: gpu - ✅ EXCELLENT
+[416/921] Testing: Google Antigravity for Arch-based distros
+   Category: package - 🟢 GOOD
+[417/921] Testing: Graded assignment
+   Category: service - 🟢 GOOD
+[418/921] Testing: Is linux performance in gaming worse than windows?
+   Category: unknown - ⚠️  PARTIAL
+[419/921] Testing: Помогите с настройкой/Help with setup
+   Category: unknown - ⚠️  PARTIAL
+[420/921] Testing: No!! My ARCH!!! 😭😭
+   Category: kernel - ✅ EXCELLENT
+[421/921] Testing: Arch Linux but... Better?
+   Category: unknown - ⚠️  PARTIAL
+[422/921] Testing: [MEGATHREAD] AUR AND ARCHLINUX.ORG ARE DOWN. THIS IS THE RESULT OF A DDOS ATTACK.
+   Category: package - 🟢 GOOD
+[423/921] Testing: PewDiePie BTW I use Arch moment
+   Category: unknown - ⚠️  PARTIAL
+[424/921] Testing: Install Arch. Only Arch. And no archinstall. Ever. Or you'll die.
+   Category: package - 🟢 GOOD
+[425/921] Testing: Whoever mentioned that the logo looks like a fat guy in front of his computer
+   Category: unknown - ⚠️  PARTIAL
+[426/921] Testing: Why does pacman always have a huge cache?
+   Category: package - 🟢 GOOD
+[427/921] Testing: Is this another AUR infect package?
+   Category: package - 🟢 GOOD
+[428/921] Testing: The Arch Wiki has implemented anti-AI crawler bot software Anubis.
+   Category: unknown - ⚠️  PARTIAL
+[429/921] Testing: Careful using the AUR
+   Category: unknown - ⚠️  PARTIAL
+[430/921] Testing: Alarming trend of people using AI for learning Linux
+   Category: unknown - ⚠️  PARTIAL
+[431/921] Testing: Friendly reminder: AUR helpers are for convenience, not safety.
+   Category: package - 🟢 GOOD
+[432/921] Testing: Nobody’s forcing you to use AUR
+   Category: package - 🟢 GOOD
+[433/921] Testing: DuckStation author now actively blocking Arch Linux builds
+   Category: disk - ✅ EXCELLENT
+[434/921] Testing: In school we were making posters in photoshop, so I made one about Arch Linux (I am not so good with photoshop and I am getting more knowledgeable about Arch Linux, if you have any criticism, just type it in the comments)
+   Category: unknown - ⚠️  PARTIAL
+[435/921] Testing: Arch Linux Mirror served 1PB+ Traffic
+   Category: unknown - ⚠️  PARTIAL
+[436/921] Testing: New Valve Steam Frame runs steamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?
+   Category: package - 🟢 GOOD
+[437/921] Testing: This is what happens when my PC wakes from sleep...
+   Category: gpu - ✅ EXCELLENT
+[438/921] Testing: Help! My friend can't stop reinstalling Arch Linux
+   Category: package - 🟢 GOOD
+[439/921] Testing: [aur-general] - [SECURITY] firefox-patch-bin, librewolf-fix-bin and zen-browser-patched-bin AUR packages contain malware
+   Category: package - 🟢 GOOD
+[440/921] Testing: Just did a system update and nothing happened
+   Category: gpu - ✅ EXCELLENT
+[441/921] Testing: DO NOT UPDATE to 6.16.8.arch2-1 if you have an AMD GPU.
+   Category: gpu - ✅ EXCELLENT
+[442/921] Testing: oh my god I get it now: I'm in control
+   Category: unknown - ⚠️  PARTIAL
+[443/921] Testing: Shoutout to the Arch/AUR maintainers/sysops
+   Category: unknown - ⚠️  PARTIAL
+[444/921] Testing: Got hit by malware today
+   Category: package - 🟢 GOOD
+[445/921] Testing: Behold, the Fall of Windows: The Era of Arch Is Upon Us
+   Category: package - 🟢 GOOD
+[446/921] Testing: [arch-announce] Recent services outages
+   Category: service - 🟢 GOOD
+[447/921] Testing: Ricing your setup is 90% wallpaper. So I made an open-source wallpaper index
+   Category: unknown - ⚠️  PARTIAL
+[448/921] Testing: linux-firmware &gt;= 20250613.12fe085f-5 upgrade requires manual intervention
+   Category: unknown - ⚠️  PARTIAL
+[449/921] Testing: I can't stop telling people I use arch
+   Category: unknown - ⚠️  PARTIAL
+[450/921] Testing: Pacman-7.1.0 released
+   Skipped: Non-technical question
+[451/921] Testing: Switching to Arch Linux as a gamer was a scary yet good decision
+   Skipped: Non-technical question
+[452/921] Testing: I dumped Omarchy and went back to a fresh un-opinionated Arch
+   Category: unknown - ⚠️  PARTIAL
+[453/921] Testing: Must-have packages on Arch
+   Category: package - 🟢 GOOD
+[454/921] Testing: My drastic shift in opinions regarding Linux, Arch and Windows.
+   Category: unknown - ⚠️  PARTIAL
+[455/921] Testing: PSA: Arch has "time machine" built-in (and I don't talk about btrfs)
+   Category: gpu - ✅ EXCELLENT
+[456/921] Testing: I genuinely don't want to use Windows ever again
+   Category: unknown - ⚠️  PARTIAL
+[457/921] Testing: I made my mom use arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[458/921] Testing: Stop gatekeeping Arch
+   Category: unknown - ⚠️  PARTIAL
+[459/921] Testing: Today I got very annoyed with Linux in general
+   Category: unknown - ⚠️  PARTIAL
+[460/921] Testing: I can't believe how rock solid Arch Linux is
+   Category: package - 🟢 GOOD
+[461/921] Testing: We don't appreciate package maintainers enough.
+   Category: package - 🟢 GOOD
+[462/921] Testing: Updated - Recent Service Outage
+   Category: service - 🟢 GOOD
+[463/921] Testing: Installed arch on my dad's laptop
+   Category: package - 🟢 GOOD
+[464/921] Testing: Official Arch Linux image added to WSL2
+   Category: unknown - ⚠️  PARTIAL
+[465/921] Testing: Drop your bootloader TODAY
+   Category: kernel - ✅ EXCELLENT
+[466/921] Testing: This program blew me away ...
+   Category: package - 🟢 GOOD
+[467/921] Testing: Things you probably should do
+   Category: package - 🟢 GOOD
+[468/921] Testing: Mission accomplished
+   Category: package - 🟢 GOOD
+[469/921] Testing: I have a whole other level of respect for you guys
+   Category: package - 🟢 GOOD
+[470/921] Testing: Some love for archinstall
+   Category: gpu - ✅ EXCELLENT
+[471/921] Testing: I chose to build an Operating System from scratch and I'm crying.
+   Category: unknown - ⚠️  PARTIAL
+[472/921] Testing: This rhetoric that Arch is not for beginners has to stop because it's not true.
+   Category: package - 🟢 GOOD
+[473/921] Testing: How is this boot so fast?
+   Category: package - 🟢 GOOD
+[474/921] Testing: How many of yall play games on Arch?
+   Category: unknown - ⚠️  PARTIAL
+[475/921] Testing: Distros don't matter.
+   Category: unknown - ⚠️  PARTIAL
+[476/921] Testing: Anybody else use Arch long enough to be amused by the hardcore elitist Arch users complaining about archinstall scripts funny?
+   Category: package - 🟢 GOOD
+[477/921] Testing: Linux feels more stable than windows
+   Category: gpu - ✅ EXCELLENT
+[478/921] Testing: Arch has to be the most stable Linux distro I have used
+   Category: package - 🟢 GOOD
+[479/921] Testing: First time using linux
+   Category: package - 🟢 GOOD
+[480/921] Testing: Hi, I'm a Package maintainer, ask me anything! (Q&amp;A Session starting 20:00 CEST)
+   Category: package - 🟢 GOOD
+[481/921] Testing: In today's time "Arch Linux is hard to install is a lie"
+   Category: package - 🟢 GOOD
+[482/921] Testing: Whoever mentioned that the logo looks like a fat guy in front of his computer
+   Category: unknown - ⚠️  PARTIAL
+[483/921] Testing: Arch Linux Wiki will teach you about Linux (literally)
+   Category: package - 🟢 GOOD
+[484/921] Testing: Reminder to run pacman -Sc
+   Category: disk - ✅ EXCELLENT
+[485/921] Testing: The archwiki is awesome
+   Category: unknown - ⚠️  PARTIAL
+[486/921] Testing: I unplugged my Linux disk but Windows still found a way to screw me
+   Category: disk - ✅ EXCELLENT
+[487/921] Testing: Who's attacking the Arch infrastructure?
+   Category: service - 🟢 GOOD
+[488/921] Testing: 'Just Use Ubuntu' - from Mocking Arch Users to Becoming One
+   Category: unknown - ⚠️  PARTIAL
+[489/921] Testing: Switching to Arch Linux was the best decision ever.
+   Skipped: Non-technical question
+[490/921] Testing: It's 2am where I live, my girlfriend is asleep, the night is quiet and I'm thinking about how much I love arch linux
+   Category: kernel - ✅ EXCELLENT
+[491/921] Testing: Reasons why Arch is a lifesaver for a graduate student in CS
+   Category: unknown - ⚠️  PARTIAL
+[492/921] Testing: I think it's official now. I could never have a main distro other than Arch.
+   Category: package - 🟢 GOOD
+[493/921] Testing: Arch is so sick.
+   Category: gpu - ✅ EXCELLENT
+[494/921] Testing: I'm very impressed
+   Category: unknown - ⚠️  PARTIAL
+[495/921] Testing: Do not update today, it breaks pipewire.
+   Category: unknown - ⚠️  PARTIAL
+[496/921] Testing: AUR is down
+   Category: unknown - ⚠️  PARTIAL
+[497/921] Testing: Seems to me that Arch is more stable than the "stable" distros
+   Category: unknown - ⚠️  PARTIAL
+[498/921] Testing: Arch Linux Community Survey!
+   Category: unknown - ⚠️  PARTIAL
+[499/921] Testing: Pacman should notify the user for manual intervention
+   Category: package - 🟢 GOOD
+[500/921] Testing: NVIDIA works out of box (??)
+   Category: gpu - ✅ EXCELLENT
+[501/921] Testing: Someone is downvoting every single post here
+   Category: unknown - ⚠️  PARTIAL
+[502/921] Testing: why do some people hate systemd so much?
+   Category: unknown - ⚠️  PARTIAL
+[503/921] Testing: If you're new here and have an old shitty laptop, go nuts.
+   Category: gpu - ✅ EXCELLENT
+[504/921] Testing: Arch not breaking itself...
+   Category: package - 🟢 GOOD
+[505/921] Testing: www.archlinux.org down as well ...
+   Category: unknown - ⚠️  PARTIAL
+[506/921] Testing: The linux dream
+   Category: package - 🟢 GOOD
+[507/921] Testing: Why doesn't pacman just install archlinux-keyring first automatically?
+   Category: package - 🟢 GOOD
+[508/921] Testing: What apps you consider must haves?
+   Category: unknown - ⚠️  PARTIAL
+[509/921] Testing: The bot protection on the wiki is stupid.
+   Category: unknown - ⚠️  PARTIAL
+[510/921] Testing: Arch has left me speechless
+   Skipped: Non-technical question
+[511/921] Testing: Adobe software now has graphics acceleration via Wine!
+   Category: package - 🟢 GOOD
+[512/921] Testing: Systemd v258 has been released and is now in core-testing
+   Skipped: Non-technical question
+[513/921] Testing: Am i the only one who has experienced arch to be more stable than any other distro?
+   Category: unknown - ⚠️  PARTIAL
+[514/921] Testing: Tips you wish you knew as a beginner
+   Category: kernel - ✅ EXCELLENT
+[515/921] Testing: Aur - A simple  helper that uses the git mirror.
+   Category: package - 🟢 GOOD
+[516/921] Testing: I decided to install Arch hoping to struggle because I was bored, but it just.. worked. I fell for the memes.
+   Category: package - 🟢 GOOD
+[517/921] Testing: If it exists, there's an AUR package for it.
+   Category: package - 🟢 GOOD
+[518/921] Testing: PSA: pacman fails with "conflicting files" error due to recent changes in linux-firmware
+   Category: gpu - ✅ EXCELLENT
+[519/921] Testing: Arch News before Update.
+   Category: package - 🟢 GOOD
+[520/921] Testing: The most complex Archlinux setup I’ve done
+   Category: swap - ✅ EXCELLENT
+[521/921] Testing: How will this law effect Linux?
+   Category: kernel - ✅ EXCELLENT
+[522/921] Testing: Arch linux survey
+   Category: unknown - ⚠️  PARTIAL
+[523/921] Testing: I'm a graphic designer and I use arch Linux
+   Category: disk - ✅ EXCELLENT
+[524/921] Testing: Arch with no GUI
+   Category: disk - ✅ EXCELLENT
+[525/921] Testing: My GF started using Arch, wish her luck!
+   Category: unknown - ⚠️  PARTIAL
+[526/921] Testing: Half a year of Seeding
+   Category: unknown - ⚠️  PARTIAL
+[527/921] Testing: Sudden rise of sub members
+   Category: unknown - ⚠️  PARTIAL
+[528/921] Testing: Plasma 6.4.0 will need manual intervention if you are on X11
+   Category: unknown - ⚠️  PARTIAL
+[529/921] Testing: Just became an Arch sponsor
+   Skipped: Non-technical question
+[530/921] Testing: Arch isn't hard
+   Category: unknown - ⚠️  PARTIAL
+[531/921] Testing: I created a bash script that converts EndeavourOS to pure Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[532/921] Testing: Sucessfully upgraded a 10-year-stale Arch installation
+   Category: package - 🟢 GOOD
+[533/921] Testing: What made you choose Arch over other distros? Genuinely curious about your personal reasons besides "I use Arch btw".
+   Category: unknown - ⚠️  PARTIAL
+[534/921] Testing: ZRAM fixed ALL of my memory and performance problems
+   Category: swap - ✅ EXCELLENT
+[535/921] Testing: Best decision ever
+   Skipped: Non-technical question
+[536/921] Testing: What is your favorite terminal and why?
+   Category: unknown - ⚠️  PARTIAL
+[537/921] Testing: I am a complete Idiot, but I want to use Arch
+   Category: unknown - ⚠️  PARTIAL
+[538/921] Testing: Well 90% of what I have read about Arch is " Bollocks ". Unless I am doing something wrong.
+   Category: disk - ✅ EXCELLENT
+[539/921] Testing: Would anyone be interested in watching me install Arch Linux blindfolded?
+   Category: disk - ✅ EXCELLENT
+[540/921] Testing: It finally happened to me, my system would not boot
+   Category: package - 🟢 GOOD
+[541/921] Testing: I finally switched.
+   Category: package - 🟢 GOOD
+[542/921] Testing: What "unusual" uses do you give to pacman?
+   Category: package - 🟢 GOOD
+[543/921] Testing: [GNOME] Gnome 48 is out on Arch!
+   Category: unknown - ⚠️  PARTIAL
+[544/921] Testing: Now that the linux-firmware debacle is over...
+   Category: gpu - ✅ EXCELLENT
+[545/921] Testing: Which terminal do you use and which one do you recommend?
+   Category: unknown - ⚠️  PARTIAL
+[546/921] Testing: Waydroid is now in Pacman.
+   Category: package - 🟢 GOOD
+[547/921] Testing: My Arch broke for the first time and I've been using it for at least 7 years
+   Category: package - 🟢 GOOD
+[548/921] Testing: Arch Wiki is the best
+   Category: disk - ✅ EXCELLENT
+[549/921] Testing: linux-firmware-nvidia issue with upgrade packages in arch today
+   Category: gpu - ✅ EXCELLENT
+[550/921] Testing: FREE collection of minimalist Arch wallpapers, up to 8K
+   Category: unknown - ⚠️  PARTIAL
+[551/921] Testing: Thank you all, especially Arch Wiki contributors
+   Skipped: Non-technical question
+[552/921] Testing: latest linux-firmware update messed up
+   Category: gpu - ✅ EXCELLENT
+[553/921] Testing: why people hate "archinstall"?
+   Category: package - 🟢 GOOD
+[554/921] Testing: Message to Arch Vets &amp; Newbies
+   Category: package - 🟢 GOOD
+[555/921] Testing: Negative update size trend
+   Category: package - 🟢 GOOD
+[556/921] Testing: the AUR is down again
+   Category: unknown - ⚠️  PARTIAL
+[557/921] Testing: What font is missing? How do you diagnose and fix missing fonts like this.
+   Category: unknown - ⚠️  PARTIAL
+[558/921] Testing: What Browser are you using?
+   Category: unknown - ⚠️  PARTIAL
+[559/921] Testing: Plasma 6.5 has just dropped in the official repo
+   Skipped: Non-technical question
+[560/921] Testing: How is Almost everything available in the AUR?
+   Skipped: Non-technical question
+[561/921] Testing: r/archlinux Community Survey Results!
+   Category: unknown - ⚠️  PARTIAL
+[562/921] Testing: I moved from windows to arch linux. I will never regret.
+   Category: disk - ✅ EXCELLENT
+[563/921] Testing: What made you switch to arch?
+   Category: package - 🟢 GOOD
+[564/921] Testing: I host an Arch mirror - AMA
+   Category: unknown - ⚠️  PARTIAL
+[565/921] Testing: I thought Arch Linux was a nightmare… Until I tried it!
+   Category: package - 🟢 GOOD
+[566/921] Testing: When did you switch to Arch?
+   Category: unknown - ⚠️  PARTIAL
+[567/921] Testing: New CDN based mirror now available: fastly.mirror.pkgbuild.com - Arch-dev-public
+   Skipped: Non-technical question
+[568/921] Testing: Is X11 still worth it?
+   Category: unknown - ⚠️  PARTIAL
+[569/921] Testing: What's the time you screwed up your Arch Linux machine.
+   Category: unknown - ⚠️  PARTIAL
+[570/921] Testing: What browser do you use?
+   Category: unknown - ⚠️  PARTIAL
+[571/921] Testing: Is Arch bad for servers?
+   Category: unknown - ⚠️  PARTIAL
+[572/921] Testing: archlinux.org is down (Well this is a first for me)
+   Category: unknown - ⚠️  PARTIAL
+[573/921] Testing: Released my first AUR project: turn pacman declarative (or any package manager)!
+   Skipped: Non-technical question
+[574/921] Testing: How many of you chose Arch as the first distro?
+   Category: unknown - ⚠️  PARTIAL
+[575/921] Testing: What's something in/about Arch that should be dead-simple but isnt?
+   Category: package - 🟢 GOOD
+[576/921] Testing: How old is your Ach Linux installation?
+   Category: package - 🟢 GOOD
+[577/921] Testing: [arch-announce] Glibc 2.41 corrupting Discord installation
+   Category: package - 🟢 GOOD
+[578/921] Testing: Happy 4th birthday to my Arch installation
+   Category: package - 🟢 GOOD
+[579/921] Testing: What desktop environment do you use on arch linux?
+   Category: unknown - ⚠️  PARTIAL
+[580/921] Testing: After 4 days of mistakes I finally installed Arch as my first Linux Distro
+   Category: package - 🟢 GOOD
+[581/921] Testing: Do you encrypt you drive?
+   Category: package - 🟢 GOOD
+[582/921] Testing: Arch Wiki admins are giving a talk tomorrow at DebConf
+   Category: unknown - ⚠️  PARTIAL
+[583/921] Testing: What are the reasons people dislike the archinstall script?
+   Category: package - 🟢 GOOD
+[584/921] Testing: About a year into my Linux journey and arch has caused me the least amount of issues
+   Category: kernel - ✅ EXCELLENT
+[585/921] Testing: Farewell to ArcoLinux University
+   Category: unknown - ⚠️  PARTIAL
+[586/921] Testing: This is why I love Arch
+   Category: unknown - ⚠️  PARTIAL
+[587/921] Testing: Why are full DEs like Gnome and Kde so much more power efficient than a WM like Hyprland?
+   Category: unknown - ⚠️  PARTIAL
+[588/921] Testing: Some AUR packages may be broken after today's update of icu
+   Category: package - 🟢 GOOD
+[589/921] Testing: Every road goes straight to Arch Linux
+   Category: package - 🟢 GOOD
+[590/921] Testing: Transition to the new WoW64 wine and wine-staging
+   Category: unknown - ⚠️  PARTIAL
+[591/921] Testing: Wine 10.9-1 package drops lib32 dependencies
+   Category: package - 🟢 GOOD
+[592/921] Testing: I've finally switched to Linux COMPLETELY!
+   Category: unknown - ⚠️  PARTIAL
+[593/921] Testing: Understanding Arch's expenses
+   Category: unknown - ⚠️  PARTIAL
+[594/921] Testing: Nvidia broke after update (pacman -Syu)
+   Category: gpu - ✅ EXCELLENT
+[595/921] Testing: Redis is getting deprecated, manual intervention might be needed
+   Category: unknown - ⚠️  PARTIAL
+[596/921] Testing: No, kernel builds are not broken
+   Category: kernel - ✅ EXCELLENT
+[597/921] Testing: I have been using Arch for over 10 years
+   Category: disk - ✅ EXCELLENT
+[598/921] Testing: How can I effectively learn Arch? (linux noob)
+   Category: package - 🟢 GOOD
+[599/921] Testing: How is Arch Linux so reliable?
+   Category: unknown - ⚠️  PARTIAL
+[600/921] Testing: I Use Arch with KDE and Love It, But It's Becoming a Distraction—What Should I Do?
+   Category: gpu - ✅ EXCELLENT
+[601/921] Testing: Bringing Arch Linux back to ARM
+   Category: unknown - ⚠️  PARTIAL
+[602/921] Testing: Bash, zsh or fish?
+   Category: unknown - ⚠️  PARTIAL
+[603/921] Testing: If you have an RX9070{,XT} beware of linux-firmware-amdgpu 20250613.12fe085f-6
+   Category: gpu - ✅ EXCELLENT
+[604/921] Testing: Am I Stupid ?
+   Category: package - 🟢 GOOD
+[605/921] Testing: Used windows my entire life .. now after using arch can't go back
+   Category: package - 🟢 GOOD
+[606/921] Testing: 8 Year Old Install Still Going Strong!
+   Category: package - 🟢 GOOD
+[607/921] Testing: Why does people hate systemd boot-loader?
+   Category: unknown - ⚠️  PARTIAL
+[608/921] Testing: If not Arch, what?
+   Category: unknown - ⚠️  PARTIAL
+[609/921] Testing: System maintenance, how do you do it?
+   Category: unknown - ⚠️  PARTIAL
+[610/921] Testing: [arch-announce] Cleaning up old repositories
+   Category: unknown - ⚠️  PARTIAL
+[611/921] Testing: PSA - If you are installing with Archinstall update it BEFORE you run the command
+   Category: package - 🟢 GOOD
+[612/921] Testing: What pacman.conf options do you use?
+   Category: package - 🟢 GOOD
+[613/921] Testing: Any reliable way to get Netflix and Amazon Prime Video in 1080p on Linux?
+   Category: package - 🟢 GOOD
+[614/921] Testing: Arch my beloved
+   Category: package - 🟢 GOOD
+[615/921] Testing: I manually installed arch, I made it
+   Category: gpu - ✅ EXCELLENT
+[616/921] Testing: Are there people whose first distro was Arch Linux? (Like already begin linux in hard mode)
+   Category: unknown - ⚠️  PARTIAL
+[617/921] Testing: Thought about arch based distros
+   Category: unknown - ⚠️  PARTIAL
+[618/921] Testing: How do you guys keep track of packages
+   Category: disk - ✅ EXCELLENT
+[619/921] Testing: ran into my first issue &amp; fixed it on my own
+   Category: package - 🟢 GOOD
+[620/921] Testing: I made some minimal Arch Linux wallpapers
+   Category: unknown - ⚠️  PARTIAL
+[621/921] Testing: mkinitcpio v40 released and now in core-testing
+   Skipped: Non-technical question
+[622/921] Testing: What did using Archlinux teach you?
+   Category: kernel - ✅ EXCELLENT
+[623/921] Testing: What happened if you update once every 2 months ?
+   Category: unknown - ⚠️  PARTIAL
+[624/921] Testing: Why can Arch and Debian distribute OpenH264 binaries directly while some other distros can't ?
+   Category: package - 🟢 GOOD
+[625/921] Testing: Why do you prefer Arch over Arch-based distro?
+   Category: package - 🟢 GOOD
+[626/921] Testing: Kernel 6.15
+   Category: kernel - ✅ EXCELLENT
+[627/921] Testing: New to linux, how do people know the commands?
+   Category: package - 🟢 GOOD
+[628/921] Testing: Should I use arch linux for a server?
+   Category: package - 🟢 GOOD
+[629/921] Testing: [new user] I must say that i am somewhat underwhelmed with Arch (in a good way)
+   Category: package - 🟢 GOOD
+[630/921] Testing: This recent JWST image looks like the Arch Linux logo
+   Category: unknown - ⚠️  PARTIAL
+[631/921] Testing: Did pacman -Syu break your system anytime?
+   Category: package - 🟢 GOOD
+[632/921] Testing: I switched to arch and I’m never going back
+   Category: package - 🟢 GOOD
+[633/921] Testing: That one time I bricked an entire motherboard with the power of being in control and customisability Arch has taught me
+   Category: unknown - ⚠️  PARTIAL
+[634/921] Testing: What’s something you only understood after doing a full manual Arch install?
+   Category: package - 🟢 GOOD
+[635/921] Testing: I think i made the best decision in my life for a pc
+   Skipped: Non-technical question
+[636/921] Testing: How do you guys backup?
+   Category: unknown - ⚠️  PARTIAL
+[637/921] Testing: How to identify malicious AUR packages
+   Category: package - 🟢 GOOD
+[638/921] Testing: New to Linux, installed Arch because people told me to
+   Category: package - 🟢 GOOD
+[639/921] Testing: Critical rsync security release 3.4.0
+   Category: unknown - ⚠️  PARTIAL
+[640/921] Testing: Trying archlinux was one of the best decisions I ever made
+   Skipped: Non-technical question
+[641/921] Testing: I migrated to Arch linux from Windows 10
+   Category: package - 🟢 GOOD
+[642/921] Testing: steam-native-runtime dropped from multilib
+   Skipped: Non-technical question
+[643/921] Testing: When was the last time an Arch update broke something for you?
+   Category: unknown - ⚠️  PARTIAL
+[644/921] Testing: What is the best terminal file manager?
+   Category: unknown - ⚠️  PARTIAL
+[645/921] Testing: Latest update break DNS for anyone else?
+   Category: unknown - ⚠️  PARTIAL
+[646/921] Testing: i need help
+   Category: unknown - ⚠️  PARTIAL
+[647/921] Testing: Thank you!
+   Skipped: Non-technical question
+[648/921] Testing: Did Ack get removed from the repos?
+   Category: package - 🟢 GOOD
+[649/921] Testing: Finally found my best Arch setup yet
+   Category: unknown - ⚠️  PARTIAL
+[650/921] Testing: Main website and AUR having issues again
+   Category: unknown - ⚠️  PARTIAL
+[651/921] Testing: restohack — A fully restored, buildable version of the original Hack (1984) is now on the AUR
+   Category: unknown - ⚠️  PARTIAL
+[652/921] Testing: You just finished installing, must-have packages?
+   Category: package - 🟢 GOOD
+[653/921] Testing: Fix for NVIDIA driver issue with kernel 6.15
+   Category: gpu - ✅ EXCELLENT
+[654/921] Testing: How many computers do you have and which distros do you have installed?
+   Category: swap - ✅ EXCELLENT
+[655/921] Testing: I feel like such an idiot
+   Category: package - 🟢 GOOD
+[656/921] Testing: rofi now has wayland support?
+   Category: package - 🟢 GOOD
+[657/921] Testing: Microsoft Office on Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[658/921] Testing: My journey from Windows to Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[659/921] Testing: What brought you to arch, specifically?
+   Category: unknown - ⚠️  PARTIAL
+[660/921] Testing: A lot of packages were updated just moments ago (300+ on my system) — Is this normal?
+   Category: package - 🟢 GOOD
+[661/921] Testing: Linux 6.16.0-arch2-1 now in core
+   Category: kernel - ✅ EXCELLENT
+[662/921] Testing: One command you learned never to run
+   Category: unknown - ⚠️  PARTIAL
+[663/921] Testing: Arch Linux is just too good at resource optimisation...more than I expected 
+   Category: package - 🟢 GOOD
+[664/921] Testing: I want to switch from windows to arch, is it worth it?
+   Category: package - 🟢 GOOD
+[665/921] Testing: New Arch Linux user!!! Me
+   Category: unknown - ⚠️  PARTIAL
+[666/921] Testing: PSA: If you are having trouble connecting to the Arch Wiki, you can install arch-wiki-docs to access it offline
+   Category: disk - ✅ EXCELLENT
+[667/921] Testing: zabbix &gt;= 7.4.1-2 may requires manual intervention
+   Category: unknown - ⚠️  PARTIAL
+[668/921] Testing: I used to think arch was complitcated, but it's the simplest means to get your perfectly tailored system that's compatible with anything. I found my ship and I'm not planning to leave.
+   Category: unknown - ⚠️  PARTIAL
+[669/921] Testing: Arch Linux use cases other than home computers
+   Category: unknown - ⚠️  PARTIAL
+[670/921] Testing: Reading documentation saved me
+   Category: package - 🟢 GOOD
+[671/921] Testing: I finally finished the Install Guide that I was writing.
+   Category: package - 🟢 GOOD
+[672/921] Testing: Almost no one on campus got it but I dressed up as Joan of Arch Linux for halloween this year
+   Category: unknown - ⚠️  PARTIAL
+[673/921] Testing: Much love to Felix Yan, an Arch maintainer from Wuhan diligently keeping countless packages updated in the midst of the epidemic. 谢谢, Felix!
+   Category: package - 🟢 GOOD
+[674/921] Testing: Arch ruined my Linux experience
+   Category: unknown - ⚠️  PARTIAL
+[675/921] Testing: My colleague filled out this form today and gave it to me. My nickname on the company IRC is devnull
+   Category: unknown - ⚠️  PARTIAL
+[676/921] Testing: You know you messed up bigtime when the system bails on you
+   Category: unknown - ⚠️  PARTIAL
+[677/921] Testing: Decided to install Arch on my typewriter
+   Category: package - 🟢 GOOD
+[678/921] Testing: Has anyone seen Arch?
+   Category: unknown - ⚠️  PARTIAL
+[679/921] Testing: When you are installing Arch for the first time
+   Category: package - 🟢 GOOD
+[680/921] Testing: PSA: Stop recommending Arch to people who don't know anything about Linux
+   Category: unknown - ⚠️  PARTIAL
+[681/921] Testing: Merry Christmas Y'all!! (Look what my wife got me)
+   Category: unknown - ⚠️  PARTIAL
+[682/921] Testing: 22 months with no update here we go
+   Category: unknown - ⚠️  PARTIAL
+[683/921] Testing: [MEGATHREAD] AUR AND ARCHLINUX.ORG ARE DOWN. THIS IS THE RESULT OF A DDOS ATTACK.
+   Category: package - 🟢 GOOD
+[684/921] Testing: The just-announced Steam Deck is apparently Arch-based
+   Category: unknown - ⚠️  PARTIAL
+[685/921] Testing: I made embroidery of the arch logo
+   Category: unknown - ⚠️  PARTIAL
+[686/921] Testing: On June 12th we will join in solidarity with the other subreddits and go private for 48 Hours.
+   Category: unknown - ⚠️  PARTIAL
+[687/921] Testing: Why are legit technical questions downvoted just because they might have been answered somewhere on the web but the 1000th 'I now use Arch and it's awesome' thread will definitely show up under 'top posts'?
+   Category: unknown - ⚠️  PARTIAL
+[688/921] Testing: 🥳🎉🎂 Happy 18th Birthday Archlinux! 🧁🎁🥳
+   Category: disk - ✅ EXCELLENT
+[689/921] Testing: Congratulations r/archlinux, new number one linux-distro subreddit 🎉️
+   Category: unknown - ⚠️  PARTIAL
+[690/921] Testing: PewDiePie BTW I use Arch moment
+   Category: unknown - ⚠️  PARTIAL
+[691/921] Testing: LPT: If you use duckduckgo, !aw before a search term will search the arch wiki for you
+   Category: package - 🟢 GOOD
+[692/921] Testing: I visualized the dependency graph of installed by pacman packages and put it on the wallpaper.
+   Category: package - 🟢 GOOD
+[693/921] Testing: First time installing arch ( had manjaro ) !! So excited
+   Category: package - 🟢 GOOD
+[694/921] Testing: Install Arch. Only Arch. And no archinstall. Ever. Or you'll die.
+   Category: package - 🟢 GOOD
+[695/921] Testing: I just had the most ridiculous bug in 15 years (not a help request, just sharing the laugh).
+   Category: unknown - ⚠️  PARTIAL
+[696/921] Testing: How do I stop the ping command?
+   Category: unknown - ⚠️  PARTIAL
+[697/921] Testing: Whoever mentioned that the logo looks like a fat guy in front of his computer
+   Category: unknown - ⚠️  PARTIAL
+[698/921] Testing: "Buys 32gigs of ram but makes sure the system is running under 200 mb" - Just a normal arch user. ( Correct me if I'm wrong)
+   Category: unknown - ⚠️  PARTIAL
+[699/921] Testing: got the job
+   Category: unknown - ⚠️  PARTIAL
+[700/921] Testing: ArchWiki &lt;3
+   Category: unknown - ⚠️  PARTIAL
+[701/921] Testing: Never installed Linux before and decided to try Arch. Took me three days to read through (and understand) the wiki and I made myself a 7 page installation guide, oh god i think im ready
+   Category: package - 🟢 GOOD
+[702/921] Testing: just made a trailer
+   Category: unknown - ⚠️  PARTIAL
+[703/921] Testing: Don't Let Reddit Kill 3rd Party Apps!
+   Category: unknown - ⚠️  PARTIAL
+[704/921] Testing: I use arch btw
+   Category: unknown - ⚠️  PARTIAL
+[705/921] Testing: NVIDIA Releases Open-Source GPU Kernel Modules
+   Category: gpu - ✅ EXCELLENT
+[706/921] Testing: ArchWiki needs a native dark mode
+   Category: unknown - ⚠️  PARTIAL
+[707/921] Testing: Did I just got hired thanks to Arch?
+   Skipped: Non-technical question
+[708/921] Testing: Arch Linux logo using unicode block characters. Perfect for neofetch or similar.
+   Category: unknown - ⚠️  PARTIAL
+[709/921] Testing: Meanwhile on the Debian Wiki...
+   Category: unknown - ⚠️  PARTIAL
+[710/921] Testing: We did it reddit!
+   Category: unknown - ⚠️  PARTIAL
+[711/921] Testing: Arch Linux helped get me out of a depressive bout
+   Category: package - 🟢 GOOD
+[712/921] Testing: 20 years of Arch Linux!
+   Category: unknown - ⚠️  PARTIAL
+[713/921] Testing: Unfortunate consequences of the /usr merge
+   Category: unknown - ⚠️  PARTIAL
+[714/921] Testing: Git migration completed
+   Category: unknown - ⚠️  PARTIAL
+[715/921] Testing: Why does pacman always have a huge cache?
+   Category: package - 🟢 GOOD
+[716/921] Testing: Spotify is paying some attention to the long-standing request for permission to redistribute binaries. If you use Spotify, vote for this issue to increase the chances that licensing will change to allow Spotify to move from the AUR to the repos.
+   Category: unknown - ⚠️  PARTIAL
+[717/921] Testing: Install Arch Infographic
+   Category: package - 🟢 GOOD
+[718/921] Testing: Got an easy question or new to Arch? Use this thread! 2nd Edition
+   Category: package - 🟢 GOOD
+[719/921] Testing: One can now check for updates by looking on wallpaper. Pacwall highlights outdated (yellow, 2 outlines) and orphaned (green, 1 outline) packages.
+   Category: package - 🟢 GOOD
+[720/921] Testing: You can try to leave arch but you cannot leave Arch Wiki ;)
+   Category: unknown - ⚠️  PARTIAL
+[721/921] Testing: Is this another AUR infect package?
+   Category: package - 🟢 GOOD
+[722/921] Testing: It's my birthday.
+   Category: unknown - ⚠️  PARTIAL
+[723/921] Testing: Congratulations r/archlinux for 🎉 200.000 members 🎉: (and more)
+   Category: unknown - ⚠️  PARTIAL
+[724/921] Testing: The Arch Wiki has implemented anti-AI crawler bot software Anubis.
+   Category: unknown - ⚠️  PARTIAL
+[725/921] Testing: PSA: Python 3.10 is in [core]. Rebuild your AUR packages.
+   Category: package - 🟢 GOOD
+[726/921] Testing: Searching over Arch Linux forums for a solution
+   Category: unknown - ⚠️  PARTIAL
+[727/921] Testing: Arch AND Windows on the SAME partition!
+   Category: unknown - ⚠️  PARTIAL
+[728/921] Testing: The void linux homepage has a new look
+   Category: unknown - ⚠️  PARTIAL
+[729/921] Testing: A quick thank you for the logo change!
+   Skipped: Non-technical question
+[730/921] Testing: man.archlinux.org now live
+   Category: unknown - ⚠️  PARTIAL
+[731/921] Testing: I misspelled it so many times i just decided to make an alias
+   Category: unknown - ⚠️  PARTIAL
+[732/921] Testing: Oldest son insists on using debian based distros
+   Category: unknown - ⚠️  PARTIAL
+[733/921] Testing: Arch Linux has a "single point of failure"?
+   Category: package - 🟢 GOOD
+[734/921] Testing: I’m dead, there’s a boot option now to enable TTS in the boot iso
+   Category: unknown - ⚠️  PARTIAL
+[735/921] Testing: Thank you Netgear, very cool!
+   Skipped: Non-technical question
+[736/921] Testing: E-waste up-cycling - 2Gb ram, 15Gb MMC, Celeron N3060 Chromebook from 2018 - Out of support and extremely bogged down with ChromeOS, now completely transformed into a snappy little coding laptop and netbook.
+   Category: unknown - ⚠️  PARTIAL
+[737/921] Testing: One year of unattended updates yielded 99.96% availability
+   Category: package - 🟢 GOOD
+[738/921] Testing: My Arch Linux install is 10 years old !
+   Category: package - 🟢 GOOD
+[739/921] Testing: Careful using the AUR
+   Category: unknown - ⚠️  PARTIAL
+[740/921] Testing: I don't want to be an asshole but we need changes on this sub.
+   Category: package - 🟢 GOOD
+[741/921] Testing: Alarming trend of people using AI for learning Linux
+   Category: unknown - ⚠️  PARTIAL
+[742/921] Testing: Friendly reminder: AUR helpers are for convenience, not safety.
+   Category: package - 🟢 GOOD
+[743/921] Testing: Congrats guys! Our logo on r/place made it to the end unscathed!
+   Category: unknown - ⚠️  PARTIAL
+[744/921] Testing: This is why Valve is switching from Debian to Arch for Steam Deck's Linux OS
+   Category: unknown - ⚠️  PARTIAL
+[745/921] Testing: zsh has tetris built in!
+   Category: unknown - ⚠️  PARTIAL
+[746/921] Testing: Thank you everyone who maintains the code and documentation
+   Skipped: Non-technical question
+[747/921] Testing: What if I don't obey?
+   Category: swap - ✅ EXCELLENT
+[748/921] Testing: After trouble installing a GUI, I was finally able to get it!
+   Category: package - 🟢 GOOD
+[749/921] Testing: Biden's executive order 14071, Russian kernel maintainers banned.
+   Category: kernel - ✅ EXCELLENT
+[750/921] Testing: My company made mugs for us with personal hashtags. I'm the only Arch user among 10+ developers, so I thought you'd find my choice interesting
+   Category: unknown - ⚠️  PARTIAL
+[751/921] Testing: Blackout Round 2? Not Happy about it, but Reddit hasn't listened.
+   Category: unknown - ⚠️  PARTIAL
+[752/921] Testing: New gcc, glibc and binutils now in core repo
+   Category: unknown - ⚠️  PARTIAL
+[753/921] Testing: Arch linux is the best distro, and its community is one of the nicest communities
+   Category: unknown - ⚠️  PARTIAL
+[754/921] Testing: Arch Linux on NTFS3!
+   Category: kernel - ✅ EXCELLENT
+[755/921] Testing: 15 years of Arch Linux
+   Category: package - 🟢 GOOD
+[756/921] Testing: Nobody’s forcing you to use AUR
+   Category: package - 🟢 GOOD
+[757/921] Testing: Note to Steam users on Arch Linux
+   Category: package - 🟢 GOOD
+[758/921] Testing: Arch Linux Laptop Optimization Guide For Practical Use
+   Category: kernel - ✅ EXCELLENT
+[759/921] Testing: Overly appreciative of the Heros who maintain the repos.
+   Category: package - 🟢 GOOD
+[760/921] Testing: PSA: Don't forget to enable systemd-timesyncd!
+   Category: package - 🟢 GOOD
+[761/921] Testing: Python 2 is being removed from the official repositories
+   Category: unknown - ⚠️  PARTIAL
+[762/921] Testing: DuckStation author now actively blocking Arch Linux builds
+   Category: disk - ✅ EXCELLENT
+[763/921] Testing: arch-dev-public: Arch Linux and Valve Collaboration
+   Category: unknown - ⚠️  PARTIAL
+[764/921] Testing: In school we were making posters in photoshop, so I made one about Arch Linux (I am not so good with photoshop and I am getting more knowledgeable about Arch Linux, if you have any criticism, just type it in the comments)
+   Category: unknown - ⚠️  PARTIAL
+[765/921] Testing: Happy birthday Arch Wiki!
+   Category: unknown - ⚠️  PARTIAL
+[766/921] Testing: Does Arch Linux exist?
+   Category: unknown - ⚠️  PARTIAL
+[767/921] Testing: I've made it 5 years of daily use on the same Arch Linux install
+   Category: package - 🟢 GOOD
+[768/921] Testing: Linux Kernel 5.8 "The Biggest Release of All Time" is Finally Available
+   Skipped: Non-technical question
+[769/921] Testing: Arch Linux Mirror served 1PB+ Traffic
+   Category: unknown - ⚠️  PARTIAL
+[770/921] Testing: Arch is more stable than a marriage
+   Category: unknown - ⚠️  PARTIAL
+[771/921] Testing: paru v1.0.0 and stepping away from yay
+   Category: package - 🟢 GOOD
+[772/921] Testing: Is that rm -rf /* supposed to be there?
+   Category: unknown - ⚠️  PARTIAL
+[773/921] Testing: i3-gaps has been merged with i3
+   Category: package - 🟢 GOOD
+[774/921] Testing: Oh did I mention I use Arch?
+   Category: unknown - ⚠️  PARTIAL
+[775/921] Testing: Arch Linux gives me hope to live
+   Category: unknown - ⚠️  PARTIAL
+[776/921] Testing: New hat Vs everyday wear hat.
+   Category: unknown - ⚠️  PARTIAL
+[777/921] Testing: Slowly Arch-ing the office
+   Category: gpu - ✅ EXCELLENT
+[778/921] Testing: Weird wallpaper I made with blender.
+   Category: unknown - ⚠️  PARTIAL
+[779/921] Testing: Our subreddit will soon hit 150K
+   Category: unknown - ⚠️  PARTIAL
+[780/921] Testing: Stepping down as subreddit moderator
+   Category: unknown - ⚠️  PARTIAL
+[781/921] Testing: After using Arch for years, TIL there are `man` pages for config files
+   Category: unknown - ⚠️  PARTIAL
+[782/921] Testing: Bernie Sanders permanently damaged my GNOME install
+   Category: package - 🟢 GOOD
+[783/921] Testing: Is it weird that I use Arch because it "just works"?
+   Category: package - 🟢 GOOD
+[784/921] Testing: How can I fix this while installing Arch?
+   Category: package - 🟢 GOOD
+[785/921] Testing: linux support engineer report
+   Category: unknown - ⚠️  PARTIAL
+[786/921] Testing: If you post a support question and it gets solved…
+   Category: unknown - ⚠️  PARTIAL
+[787/921] Testing: Nvidia drivers 470 on archlinux still don’t have the dlss libraries support. Please vote up.
+   Category: gpu - ✅ EXCELLENT
+[788/921] Testing: New Valve Steam Frame runs steamOS 3, ie arch. on Snapdragon processors. Does this mean that an official ARM port of Arch is close to release?
+   Category: package - 🟢 GOOD
+[789/921] Testing: This is what happens when my PC wakes from sleep...
+   Category: gpu - ✅ EXCELLENT
+[790/921] Testing: TIL that Arch has an official wallpaper pack.
+   Category: package - 🟢 GOOD
+[791/921] Testing: who ever made the -Syu with multiple installation and a progress bar, I Love You and Thank You
+   Skipped: Non-technical question
+[792/921] Testing: AUR did it again
+   Category: package - 🟢 GOOD
+[793/921] Testing: Arch and I just started seeing each other, I think its really cute the subtle ways he tries to keep me around all night 🤗
+   Category: unknown - ⚠️  PARTIAL
+[794/921] Testing: Help! My friend can't stop reinstalling Arch Linux
+   Category: package - 🟢 GOOD
+[795/921] Testing: Arch has been a dream, and I'm glad I dodged the Win11 bullet.
+   Category: unknown - ⚠️  PARTIAL
+[796/921] Testing: Twitch Installs Arch Linux
+   Category: package - 🟢 GOOD
+[797/921] Testing: [aur-general] - [SECURITY] firefox-patch-bin, librewolf-fix-bin and zen-browser-patched-bin AUR packages contain malware
+   Category: package - 🟢 GOOD
+[798/921] Testing: TIL over time your Arch system might start accumulating unused packages
+   Category: package - 🟢 GOOD
+[799/921] Testing: I made a tiny pacman wrapper that makes possible to attach labels to packages.
+   Category: package - 🟢 GOOD
+[800/921] Testing: Happy birthday Arch - 15 years ago today archlinux v0.1 was released!
+   Skipped: Non-technical question
+[801/921] Testing: Arch Linux - News: The xz package has been backdoored
+   Category: package - 🟢 GOOD
+[802/921] Testing: My custom phone case finally arrived
+   Category: unknown - ⚠️  PARTIAL
+[803/921] Testing: LPT: Set this as the lockscreen for your i3lock to avoid people fucking with your computer
+   Category: unknown - ⚠️  PARTIAL
+[804/921] Testing: Thank you so much for the latest pacman update!
+   Skipped: Non-technical question
+[805/921] Testing: The real problem with Arch Linux
+   Category: package - 🟢 GOOD
+[806/921] Testing: Successfully installed Arch on Teclast X98 Pro 👨🏻‍💻
+   Category: package - 🟢 GOOD
+[807/921] Testing: Just did a system update and nothing happened
+   Category: gpu - ✅ EXCELLENT
+[808/921] Testing: Skipped part of an interview today
+   Category: unknown - ⚠️  PARTIAL
+[809/921] Testing: Just saying... FreeType won
+   Category: unknown - ⚠️  PARTIAL
+[810/921] Testing: Who wants parallel pacman downloads? We are playing with this at https://github.com/anatol/pacman/tree/parallel-download and it looks promising so far.
+   Category: package - 🟢 GOOD
+[811/921] Testing: Yaourt has been removed from the AUR
+   Category: unknown - ⚠️  PARTIAL
+[812/921] Testing: FAQ - Read before posting
+   Category: unknown - ⚠️  PARTIAL
+[813/921] Testing: DO NOT UPDATE to 6.16.8.arch2-1 if you have an AMD GPU.
+   Category: gpu - ✅ EXCELLENT
+[814/921] Testing: An Arch Speedrun
+   Category: unknown - ⚠️  PARTIAL
+[815/921] Testing: This is what happens when you read the Arch wiki
+   Category: unknown - ⚠️  PARTIAL
+[816/921] Testing: I installed Arch linux for the first time! Took quite a bit of time but it was totally worth it!
+   Category: package - 🟢 GOOD
+[817/921] Testing: How did Arch wiki become so rich with content
+   Category: unknown - ⚠️  PARTIAL
+[818/921] Testing: You can make A4 your default paper size !
+   Category: unknown - ⚠️  PARTIAL
+[819/921] Testing: A little piece of history.
+   Category: unknown - ⚠️  PARTIAL
+[820/921] Testing: Mouse cursor disappears when my refrigerator turns off
+   Category: package - 🟢 GOOD
+[821/921] Testing: Went homeless, couldn't update Arch for 2 months
+   Category: unknown - ⚠️  PARTIAL
+[822/921] Testing: Some Arch wallpapers I made
+   Category: unknown - ⚠️  PARTIAL
+[823/921] Testing: oh my god I get it now: I'm in control
+   Category: unknown - ⚠️  PARTIAL
+[824/921] Testing: Why did ArchLinux embrace Systemd?
+   Category: package - 🟢 GOOD
+[825/921] Testing: Stopped Drinking in 2019 - Started Using Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[826/921] Testing: Lost my job because I refused to use Windows, who is at fault?
+   Category: unknown - ⚠️  PARTIAL
+[827/921] Testing: Shoutout to the Arch/AUR maintainers/sysops
+   Category: unknown - ⚠️  PARTIAL
+[828/921] Testing: Arch Linux - News: Installation medium with installer
+   Category: package - 🟢 GOOD
+[829/921] Testing: Wanna take a moment to shoutout the Gigachads who wrote the Arch Wiki :)
+   Category: gpu - ✅ EXCELLENT
+[830/921] Testing: Arch Linux's Install Media Adds "Archinstall" For Quick/Easy Installations
+   Category: package - 🟢 GOOD
+[831/921] Testing: I don't know who needs to hear this but install tldr-pages
+   Category: package - 🟢 GOOD
+[832/921] Testing: Holly shit, I can game on archlinux??
+   Category: package - 🟢 GOOD
+[833/921] Testing: Thank you for the wiki
+   Skipped: Non-technical question
+[834/921] Testing: 250 Days of Paru
+   Category: package - 🟢 GOOD
+[835/921] Testing: The Beginner's Guide has been removed from the Wiki
+   Category: package - 🟢 GOOD
+[836/921] Testing: I don’t run Arch
+   Category: unknown - ⚠️  PARTIAL
+[837/921] Testing: Is Arch Linux hitting the mainstream?
+   Category: unknown - ⚠️  PARTIAL
+[838/921] Testing: I love arch linux!
+   Category: unknown - ⚠️  PARTIAL
+[839/921] Testing: I just switched from Ubuntu to Arch linux. Can someone explain to me why my hair is on fire?
+   Category: package - 🟢 GOOD
+[840/921] Testing: Got hit by malware today
+   Category: package - 🟢 GOOD
+[841/921] Testing: Behold, the Fall of Windows: The Era of Arch Is Upon Us
+   Category: package - 🟢 GOOD
+[842/921] Testing: My whole family uses Arch now lol
+   Category: unknown - ⚠️  PARTIAL
+[843/921] Testing: Save the Net Neutrality!
+   Category: unknown - ⚠️  PARTIAL
+[844/921] Testing: Does anyone else find the forum answers unnecessarily rude?
+   Category: unknown - ⚠️  PARTIAL
+[845/921] Testing: Why does pacman come with an elephant printer?
+   Category: package - 🟢 GOOD
+[846/921] Testing: [arch-announce] Recent services outages
+   Category: service - 🟢 GOOD
+[847/921] Testing: I adopted 10 nodejs AUR packages that conflict with each other
+   Category: package - 🟢 GOOD
+[848/921] Testing: Pacman 6.0 is AWESOME
+   Category: package - 🟢 GOOD
+[849/921] Testing: It finally happened
+   Category: package - 🟢 GOOD
+[850/921] Testing: Keep it tight everyone! This is a day of sshd logs from a proxy server in China pinging my SSH server and trying every username imaginable. Does anyone have any tips to increase security?
+   Category: unknown - ⚠️  PARTIAL
+[851/921] Testing: Latest toolchain in staging!
+   Category: package - 🟢 GOOD
+[852/921] Testing: 7 days of Arch from a windows user
+   Category: package - 🟢 GOOD
+[853/921] Testing: You know you are f*cked when you see this...
+   Category: unknown - ⚠️  PARTIAL
+[854/921] Testing: Nothing is as satifying as a reduction in install size.
+   Category: package - 🟢 GOOD
+[855/921] Testing: Couldn't stand the windows key anymore so I had something better made
+   Category: unknown - ⚠️  PARTIAL
+[856/921] Testing: Ricing your setup is 90% wallpaper. So I made an open-source wallpaper index
+   Category: unknown - ⚠️  PARTIAL
+[857/921] Testing: my brother (probably) is the youngest arch user.
+   Category: package - 🟢 GOOD
+[858/921] Testing: alias pacmna=pacman
+   Category: package - 🟢 GOOD
+[859/921] Testing: Arch is easier to install than it gets credit for.
+   Category: package - 🟢 GOOD
+[860/921] Testing: Linux 5.10 Is The Next LTS Kernel
+   Category: kernel - ✅ EXCELLENT
+[861/921] Testing: So basically, I tried installing Arch
+   Category: package - 🟢 GOOD
+[862/921] Testing: Thanks for making a goddamn great distro
+   Skipped: Non-technical question
+[863/921] Testing: AUR Downtime
+   Category: unknown - ⚠️  PARTIAL
+[864/921] Testing: Always check your journalctl when weird problems start happening in your system.
+   Category: unknown - ⚠️  PARTIAL
+[865/921] Testing: No 3D printer needed.
+   Category: unknown - ⚠️  PARTIAL
+[866/921] Testing: I made a switch to Arch for the first time and here are the reasons I don't want to leave.
+   Category: package - 🟢 GOOD
+[867/921] Testing: Easiest GPU Passthrough [GPU Passthrough Manager]
+   Category: gpu - ✅ EXCELLENT
+[868/921] Testing: Kind reminder to remind you to clean your systems
+   Category: disk - ✅ EXCELLENT
+[869/921] Testing: Arch Linux - News: The Future of the Arch Linux Project Leader
+   Category: unknown - ⚠️  PARTIAL
+[870/921] Testing: Today I realized Arch is better at playing my old Windows games than Windows.
+   Category: unknown - ⚠️  PARTIAL
+[871/921] Testing: I just made my first contribution to the AUR!
+   Category: unknown - ⚠️  PARTIAL
+[872/921] Testing: Using Firefox on Wayland? Make sure you have MOZ_ENABLE_WAYLAND set to 1!
+   Category: unknown - ⚠️  PARTIAL
+[873/921] Testing: Unusual Arch logo on Japanese site
+   Category: unknown - ⚠️  PARTIAL
+[874/921] Testing: Antergos Linux Project Ends
+   Category: unknown - ⚠️  PARTIAL
+[875/921] Testing: kmon: Linux Kernel Manager and Activity Monitor 🐧💻
+   Category: kernel - ✅ EXCELLENT
+[876/921] Testing: A college sophomore just said the weirdest thing about Arch
+   Category: unknown - ⚠️  PARTIAL
+[877/921] Testing: The Arch developers are incredible and so humble!
+   Category: unknown - ⚠️  PARTIAL
+[878/921] Testing: Nord Theme 1080p Wallpaper
+   Category: unknown - ⚠️  PARTIAL
+[879/921] Testing: I made a little ping graphing cli you guys might like called pingg =]
+   Category: unknown - ⚠️  PARTIAL
+[880/921] Testing: Linux ad made by /u/idtownie in response to the recent Windows 10 ads.
+   Category: unknown - ⚠️  PARTIAL
+[881/921] Testing: Arch helped make my dream come true (seriously)
+   Category: unknown - ⚠️  PARTIAL
+[882/921] Testing: Replaced my Intel sticker
+   Category: unknown - ⚠️  PARTIAL
+[883/921] Testing: Pacwall has been rewritten in C. It's a live wallpaper that shows the dependency graph and status (outdated/orphan) of installed packages. It has got almost instant auto regeneration on package upgrade/removal/installation, as well as other improvements.
+   Category: package - 🟢 GOOD
+[884/921] Testing: Explaining the actual GRUB reboot issue in detail
+   Category: unknown - ⚠️  PARTIAL
+[885/921] Testing: Any good subs that discuss Arch news instead of "I love Arch" fluff?
+   Category: unknown - ⚠️  PARTIAL
+[886/921] Testing: Arch Linux and Valve team up to make Steam gaming even better
+   Category: unknown - ⚠️  PARTIAL
+[887/921] Testing: I can't believe I have become a package maintainer!
+   Category: package - 🟢 GOOD
+[888/921] Testing: Most won't understand, but with you I can geek out a bit.
+   Category: package - 🟢 GOOD
+[889/921] Testing: linux-firmware &gt;= 20250613.12fe085f-5 upgrade requires manual intervention
+   Category: unknown - ⚠️  PARTIAL
+[890/921] Testing: Bram Moolenaar, the creator of vim, has died! RIP
+   Category: unknown - ⚠️  PARTIAL
+[891/921] Testing: Finally made the jump
+   Category: unknown - ⚠️  PARTIAL
+[892/921] Testing: I get sad when I run pacman -Syu and find out that my packages are all up to date.
+   Category: package - 🟢 GOOD
+[893/921] Testing: Arch isn't that advanced
+   Category: package - 🟢 GOOD
+[894/921] Testing: Am I the only one that likes to post "yay" outputs as replies to people saying "yay" in some sort of chat?
+   Category: unknown - ⚠️  PARTIAL
+[895/921] Testing: Great grandmother now runs Arch
+   Category: unknown - ⚠️  PARTIAL
+[896/921] Testing: Arch 2022.01.01 ISO is available
+   Skipped: Non-technical question
+[897/921] Testing: Is the AUR down for everyone?
+   Category: unknown - ⚠️  PARTIAL
+[898/921] Testing: Just decided to ditch M$ Windows. I, as a linux noob, spent three days installing Arch Linux four times. Totally worth the time and effort.
+   Category: package - 🟢 GOOD
+[899/921] Testing: I can't stop telling people I use arch
+   Category: unknown - ⚠️  PARTIAL
+[900/921] Testing: My manual to install arch Linux, the minimal way. I don't have any credit, but i wanna thanks who did.
+   Skipped: Non-technical question
+[901/921] Testing: Pacman-7.1.0 released
+   Skipped: Non-technical question
+[902/921] Testing: When the laziness hits
+   Category: unknown - ⚠️  PARTIAL
+[903/921] Testing: SDDM is going to become part of KDE!
+   Category: unknown - ⚠️  PARTIAL
+[904/921] Testing: Linux 5.11 is in the stable repos now
+   Category: unknown - ⚠️  PARTIAL
+[905/921] Testing: Hacker group demonstrates Steam games running on PS4 via Arch Linux
+   Category: unknown - ⚠️  PARTIAL
+[906/921] Testing: Hyprland is now in community
+   Category: gpu - ✅ EXCELLENT
+[907/921] Testing: I wanna give a huge shoutout to this subreddit for all the support I've gotten. You guys are truly awesome.
+   Category: package - 🟢 GOOD
+[908/921] Testing: I shouldn't have doubted myself
+   Category: unknown - ⚠️  PARTIAL
+[909/921] Testing: Came back to arch and never knew installing arch was this easy.
+   Category: package - 🟢 GOOD
+[910/921] Testing: Once you learn it, Arch Linux is the fastest and easiest
+   Category: package - 🟢 GOOD
+[911/921] Testing: How can pacman be so much faster than apt?
+   Category: package - 🟢 GOOD
+[912/921] Testing: I installed arch on my MacBook Pro 2015.
+   Category: package - 🟢 GOOD
+[913/921] Testing: PSA: Please contribute to the Arch Wiki, it's easy and here are some tips
+   Category: unknown - ⚠️  PARTIAL
+[914/921] Testing: I'm still a noob using arch since 2 years. Anyone else like me?
+   Category: package - 🟢 GOOD
+[915/921] Testing: I made Arch Linux for PowerPC
+   Category: disk - ✅ EXCELLENT
+[916/921] Testing: [Dumb question, probably] Why is Arch Wiki plagued with "$" and "#" at the start of every command?
+   Category: unknown - ⚠️  PARTIAL
+[917/921] Testing: Letter to Arch users from a Windows fanboy
+   Category: unknown - ⚠️  PARTIAL
+[918/921] Testing: I Created this Post with Curl.
+   Category: unknown - ⚠️  PARTIAL
+[919/921] Testing: Arch Linux - News: Git migration announcement
+   Category: unknown - ⚠️  PARTIAL
+[920/921] Testing: After Arch, Windows is Pain...
+   Category: unknown - ⚠️  PARTIAL
+[921/921] Testing: SystemD appreciation post/thread
+   Category: unknown - ⚠️  PARTIAL
+
+✅ QA test complete!
+📊 Results: 501/921 actionable (0.0%)
+📊 Breakdown: 163 excellent, 338 good, 377 partial
+💾 Full report: beta90_recipe_test_results.md
+
