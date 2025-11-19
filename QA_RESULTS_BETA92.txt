@@ -1,0 +1,516 @@
+   Compiling anna_common v5.7.0-beta.92 (/home/lhoqvso/anna-assistant/crates/anna_common)
+warning: unused import: `Context`
+  --> crates/anna_common/src/action_plan.rs:10:22
+   |
+10 | use anyhow::{anyhow, Context, Result};
+   |                      ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::path::PathBuf`
+  --> crates/anna_common/src/action_plan.rs:12:5
+   |
+12 | use std::path::PathBuf;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Path`
+  --> crates/anna_common/src/qa_scenarios.rs:18:17
+   |
+18 | use std::path::{Path, PathBuf};
+   |                 ^^^^
+
+warning: unused import: `std::collections::HashMap`
+  --> crates/anna_common/src/reddit_qa_validator.rs:12:5
+   |
+12 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `CommandRecipe`
+  --> crates/anna_common/src/recipe_planner.rs:10:29
+   |
+10 | use crate::command_recipe::{CommandRecipe, CriticResult, Recipe, SafetyLevel, SafetyPolicy};
+   |                             ^^^^^^^^^^^^^
+
+warning: unused import: `Template`
+  --> crates/anna_common/src/recipe_planner.rs:11:31
+   |
+11 | use crate::template_library::{Template, TemplateLibrary};
+   |                               ^^^^^^^^
+
+warning: unused import: `Context`
+  --> crates/anna_common/src/recipe_planner.rs:12:14
+   |
+12 | use anyhow::{Context, Result};
+   |              ^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+  --> crates/anna_common/src/recipe_planner.rs:14:5
+   |
+14 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `aur-build`
+   --> crates/anna_common/src/installation_source.rs:140:11
+    |
+140 |     #[cfg(feature = "aur-build")]
+    |           ^^^^^^^^^^^^^^^^^^^^^ help: remove the condition
+    |
+    = note: no expected values for `feature`
+    = help: consider adding `aur-build` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unused import: `anyhow`
+  --> crates/anna_common/src/llm_benchmark.rs:11:14
+   |
+11 | use anyhow::{anyhow, Result};
+   |              ^^^^^^
+
+warning: unused import: `Instant`
+  --> crates/anna_common/src/llm_benchmark.rs:13:27
+   |
+13 | use std::time::{Duration, Instant};
+   |                           ^^^^^^^
+
+warning: unused variable: `limit`
+   --> crates/anna_common/src/reddit_qa_validator.rs:164:41
+    |
+164 |     pub async fn fetch_questions(&self, limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    |                                         ^^^^^
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+    |
+164 |     pub async fn fetch_questions(&self, _limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    |                                         +
+help: you might have meant to pattern match on the similarly named constant `MAX_PLANNING_ITERATIONS`
+    |
+164 -     pub async fn fetch_questions(&self, limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+164 +     pub async fn fetch_questions(&self, recipe_planner::MAX_PLANNING_ITERATIONS: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    |
+
+warning: unused variable: `std_cmd`
+   --> crates/anna_common/src/action_plan.rs:391:13
+    |
+391 |         let std_cmd = cmd.to_command();
+    |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_std_cmd`
+
+warning: unused variable: `env`
+   --> crates/anna_common/src/desktop_automation.rs:203:5
+    |
+203 |     env: &DesktopEnvironment,
+    |     ^^^ help: if this is intentional, prefix it with an underscore: `_env`
+
+warning: value assigned to `ui_caps` is never read
+  --> crates/anna_common/src/display.rs:26:17
+   |
+26 |         let mut ui_caps = config.terminal;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `tr`
+   --> crates/anna_common/src/display.rs:716:18
+    |
+716 |         let (tl, tr, bl, br, h, v) = ui.box_chars();
+    |                  ^^ help: if this is intentional, prefix it with an underscore: `_tr`
+
+warning: unused variable: `bl`
+   --> crates/anna_common/src/display.rs:716:22
+    |
+716 |         let (tl, tr, bl, br, h, v) = ui.box_chars();
+    |                      ^^ help: if this is intentional, prefix it with an underscore: `_bl`
+
+warning: unused variable: `br`
+   --> crates/anna_common/src/display.rs:716:26
+    |
+716 |         let (tl, tr, bl, br, h, v) = ui.box_chars();
+    |                          ^^ help: if this is intentional, prefix it with an underscore: `_br`
+
+warning: unused variable: `config`
+   --> crates/anna_common/src/display_issues.rs:546:5
+    |
+546 |     config: &Option<DisplayConfiguration>,
+    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_config`
+
+warning: unused variable: `problem_description`
+    --> crates/anna_common/src/historian.rs:1996:9
+     |
+1996 |         problem_description: &str,
+     |         ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_problem_description`
+
+warning: unused variable: `ipv6_status`
+   --> crates/anna_common/src/network_monitoring.rs:555:51
+    |
+555 | fn measure_latency(ipv4_status: &IpVersionStatus, ipv6_status: &IpVersionStatus) -> LatencyMetrics {
+    |                                                   ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ipv6_status`
+
+warning: unused variable: `ipv6_status`
+   --> crates/anna_common/src/network_monitoring.rs:578:5
+    |
+578 |     ipv6_status: &IpVersionStatus,
+    |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ipv6_status`
+
+warning: unused variable: `i`
+   --> crates/anna_common/src/network_monitoring.rs:641:18
+    |
+641 |             for (i, part) in parts.iter().enumerate() {
+    |                  ^
+    |
+help: if this is intentional, prefix it with an underscore
+    |
+641 |             for (_i, part) in parts.iter().enumerate() {
+    |                  +
+help: you might have meant to pattern match on the similarly named constant `MAX_PLANNING_ITERATIONS`
+    |
+641 -             for (i, part) in parts.iter().enumerate() {
+641 +             for (recipe_planner::MAX_PLANNING_ITERATIONS, part) in parts.iter().enumerate() {
+    |
+
+warning: unused variable: `check_cmd`
+   --> crates/anna_common/src/ollama_installer.rs:125:13
+    |
+125 |         let check_cmd = ["pacman", "-Si", "ollama"];
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_check_cmd`
+
+warning: unused variable: `calm`
+   --> crates/anna_common/src/personality.rs:376:22
+    |
+376 |         if let (Some(calm), Some(excit)) = (
+    |                      ^^^^ help: if this is intentional, prefix it with an underscore: `_calm`
+
+warning: unused variable: `excit`
+   --> crates/anna_common/src/personality.rs:376:34
+    |
+376 |         if let (Some(calm), Some(excit)) = (
+    |                                  ^^^^^ help: if this is intentional, prefix it with an underscore: `_excit`
+
+warning: unused variable: `minimal`
+   --> crates/anna_common/src/personality.rs:385:22
+    |
+385 |         if let (Some(minimal), Some(_verbose)) = (
+    |                      ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_minimal`
+
+warning: unused variable: `smart_data`
+   --> crates/anna_common/src/storage.rs:211:61
+    |
+211 |             let (model, serial, firmware) = if let Some(ref smart_data) = smart {
+    |                                                             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_smart_data`
+
+warning: unused variable: `stat_path`
+   --> crates/anna_common/src/storage.rs:372:9
+    |
+372 |     let stat_path = format!("/sys/block/{}/stat", device_name);
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_stat_path`
+
+warning: value assigned to `recent_crashes` is never read
+   --> crates/anna_common/src/system_health.rs:167:13
+    |
+167 |     let mut recent_crashes: Vec<CrashEvent> = Vec::new();
+    |             ^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: field `user_agent` is never read
+   --> crates/anna_common/src/reddit_qa_validator.rs:148:5
+    |
+146 | pub struct RedditClient {
+    |            ------------ field in this struct
+147 |     /// User agent for API requests
+148 |     user_agent: String,
+    |     ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `use_color` is never read
+   --> crates/anna_common/src/display.rs:598:5
+    |
+594 | pub struct Section {
+    |            ------- field in this struct
+...
+598 |     use_color: bool,
+    |     ^^^^^^^^^
+
+warning: field `is_local` is never read
+   --> crates/anna_common/src/llm.rs:271:5
+    |
+266 | pub struct HttpOpenAiBackend {
+    |            ----------------- field in this struct
+...
+271 |     is_local: bool,
+    |     ^^^^^^^^
+
+warning: `anna_common` (lib test) generated 33 warnings (run `cargo fix --lib -p anna_common --tests` to apply 12 suggestions)
+    Finished `release` profile [optimized] target(s) in 10.23s
+     Running unittests src/lib.rs (target/release/deps/anna_common-834c60d6c036b950)
+
+running 9 tests
+test qa_scenarios::tests::test_llm_upgrade_action_plan_structure ... ok
+test qa_scenarios::tests::test_hardware_scenario_exact_values ... ok
+test qa_scenarios::tests::test_llm_upgrade_low_end ... ok
+test qa_scenarios::tests::test_hardware_scenario_action_plan ... ok
+test qa_scenarios::tests::test_llm_upgrade_high_end ... ok
+test qa_scenarios::tests::test_llm_upgrade_backup_before_change ... ok
+test qa_scenarios::tests::test_llm_upgrade_mid_range ... ok
+test qa_scenarios::tests::test_vim_scenario_action_plan_valid ... ok
+test qa_scenarios::tests::test_vim_scenario_backup_naming ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 305 filtered out; finished in 0.00s
+
+warning: unused import: `Context`
+  --> crates/anna_common/src/action_plan.rs:10:22
+   |
+10 | use anyhow::{anyhow, Context, Result};
+   |                      ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::path::PathBuf`
+  --> crates/anna_common/src/action_plan.rs:12:5
+   |
+12 | use std::path::PathBuf;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Path`
+  --> crates/anna_common/src/qa_scenarios.rs:18:17
+   |
+18 | use std::path::{Path, PathBuf};
+   |                 ^^^^
+
+warning: unused import: `std::collections::HashMap`
+  --> crates/anna_common/src/reddit_qa_validator.rs:12:5
+   |
+12 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `CommandRecipe`
+  --> crates/anna_common/src/recipe_planner.rs:10:29
+   |
+10 | use crate::command_recipe::{CommandRecipe, CriticResult, Recipe, SafetyLevel, SafetyPolicy};
+   |                             ^^^^^^^^^^^^^
+
+warning: unused import: `Template`
+  --> crates/anna_common/src/recipe_planner.rs:11:31
+   |
+11 | use crate::template_library::{Template, TemplateLibrary};
+   |                               ^^^^^^^^
+
+warning: unused import: `Context`
+  --> crates/anna_common/src/recipe_planner.rs:12:14
+   |
+12 | use anyhow::{Context, Result};
+   |              ^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+  --> crates/anna_common/src/recipe_planner.rs:14:5
+   |
+14 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `aur-build`
+   --> crates/anna_common/src/installation_source.rs:140:11
+    |
+140 |     #[cfg(feature = "aur-build")]
+    |           ^^^^^^^^^^^^^^^^^^^^^ help: remove the condition
+    |
+    = note: no expected values for `feature`
+    = help: consider adding `aur-build` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unused import: `anyhow`
+  --> crates/anna_common/src/llm_benchmark.rs:11:14
+   |
+11 | use anyhow::{anyhow, Result};
+   |              ^^^^^^
+
+warning: unused import: `Instant`
+  --> crates/anna_common/src/llm_benchmark.rs:13:27
+   |
+13 | use std::time::{Duration, Instant};
+   |                           ^^^^^^^
+
+warning: unused variable: `limit`
+   --> crates/anna_common/src/reddit_qa_validator.rs:164:41
+    |
+164 |     pub async fn fetch_questions(&self, limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    |                                         ^^^^^
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+    |
+164 |     pub async fn fetch_questions(&self, _limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    |                                         +
+help: you might have meant to pattern match on the similarly named constant `MAX_PLANNING_ITERATIONS`
+    |
+164 -     pub async fn fetch_questions(&self, limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+164 +     pub async fn fetch_questions(&self, recipe_planner::MAX_PLANNING_ITERATIONS: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    |
+
+warning: unused variable: `std_cmd`
+   --> crates/anna_common/src/action_plan.rs:391:13
+    |
+391 |         let std_cmd = cmd.to_command();
+    |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_std_cmd`
+
+warning: unused variable: `env`
+   --> crates/anna_common/src/desktop_automation.rs:203:5
+    |
+203 |     env: &DesktopEnvironment,
+    |     ^^^ help: if this is intentional, prefix it with an underscore: `_env`
+
+warning: value assigned to `ui_caps` is never read
+  --> crates/anna_common/src/display.rs:26:17
+   |
+26 |         let mut ui_caps = config.terminal;
+   |                 ^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `tr`
+   --> crates/anna_common/src/display.rs:716:18
+    |
+716 |         let (tl, tr, bl, br, h, v) = ui.box_chars();
+    |                  ^^ help: if this is intentional, prefix it with an underscore: `_tr`
+
+warning: unused variable: `bl`
+   --> crates/anna_common/src/display.rs:716:22
+    |
+716 |         let (tl, tr, bl, br, h, v) = ui.box_chars();
+    |                      ^^ help: if this is intentional, prefix it with an underscore: `_bl`
+
+warning: unused variable: `br`
+   --> crates/anna_common/src/display.rs:716:26
+    |
+716 |         let (tl, tr, bl, br, h, v) = ui.box_chars();
+    |                          ^^ help: if this is intentional, prefix it with an underscore: `_br`
+
+warning: unused variable: `config`
+   --> crates/anna_common/src/display_issues.rs:546:5
+    |
+546 |     config: &Option<DisplayConfiguration>,
+    |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_config`
+
+warning: unused variable: `problem_description`
+    --> crates/anna_common/src/historian.rs:1996:9
+     |
+1996 |         problem_description: &str,
+     |         ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_problem_description`
+
+warning: unused variable: `ipv6_status`
+   --> crates/anna_common/src/network_monitoring.rs:555:51
+    |
+555 | fn measure_latency(ipv4_status: &IpVersionStatus, ipv6_status: &IpVersionStatus) -> LatencyMetrics {
+    |                                                   ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ipv6_status`
+
+warning: unused variable: `ipv6_status`
+   --> crates/anna_common/src/network_monitoring.rs:578:5
+    |
+578 |     ipv6_status: &IpVersionStatus,
+    |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ipv6_status`
+
+warning: unused variable: `i`
+   --> crates/anna_common/src/network_monitoring.rs:641:18
+    |
+641 |             for (i, part) in parts.iter().enumerate() {
+    |                  ^
+    |
+help: if this is intentional, prefix it with an underscore
+    |
+641 |             for (_i, part) in parts.iter().enumerate() {
+    |                  +
+help: you might have meant to pattern match on the similarly named constant `MAX_PLANNING_ITERATIONS`
+    |
+641 -             for (i, part) in parts.iter().enumerate() {
+641 +             for (recipe_planner::MAX_PLANNING_ITERATIONS, part) in parts.iter().enumerate() {
+    |
+
+warning: unused variable: `check_cmd`
+   --> crates/anna_common/src/ollama_installer.rs:125:13
+    |
+125 |         let check_cmd = ["pacman", "-Si", "ollama"];
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_check_cmd`
+
+warning: unused variable: `calm`
+   --> crates/anna_common/src/personality.rs:376:22
+    |
+376 |         if let (Some(calm), Some(excit)) = (
+    |                      ^^^^ help: if this is intentional, prefix it with an underscore: `_calm`
+
+warning: unused variable: `excit`
+   --> crates/anna_common/src/personality.rs:376:34
+    |
+376 |         if let (Some(calm), Some(excit)) = (
+    |                                  ^^^^^ help: if this is intentional, prefix it with an underscore: `_excit`
+
+warning: unused variable: `minimal`
+   --> crates/anna_common/src/personality.rs:385:22
+    |
+385 |         if let (Some(minimal), Some(_verbose)) = (
+    |                      ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_minimal`
+
+warning: unused variable: `smart_data`
+   --> crates/anna_common/src/storage.rs:211:61
+    |
+211 |             let (model, serial, firmware) = if let Some(ref smart_data) = smart {
+    |                                                             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_smart_data`
+
+warning: unused variable: `stat_path`
+   --> crates/anna_common/src/storage.rs:372:9
+    |
+372 |     let stat_path = format!("/sys/block/{}/stat", device_name);
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_stat_path`
+
+warning: value assigned to `recent_crashes` is never read
+   --> crates/anna_common/src/system_health.rs:167:13
+    |
+167 |     let mut recent_crashes: Vec<CrashEvent> = Vec::new();
+    |             ^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: field `user_agent` is never read
+   --> crates/anna_common/src/reddit_qa_validator.rs:148:5
+    |
+146 | pub struct RedditClient {
+    |            ------------ field in this struct
+147 |     /// User agent for API requests
+148 |     user_agent: String,
+    |     ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `use_color` is never read
+   --> crates/anna_common/src/display.rs:598:5
+    |
+594 | pub struct Section {
+    |            ------- field in this struct
+...
+598 |     use_color: bool,
+    |     ^^^^^^^^^
+
+warning: field `is_local` is never read
+   --> crates/anna_common/src/llm.rs:271:5
+    |
+266 | pub struct HttpOpenAiBackend {
+    |            ----------------- field in this struct
+...
+271 |     is_local: bool,
+    |     ^^^^^^^^
+
+warning: `anna_common` (lib test) generated 33 warnings (run `cargo fix --lib -p anna_common --tests` to apply 12 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.05s
+     Running unittests src/lib.rs (target/release/deps/anna_common-834c60d6c036b950)
+
+running 6 tests
+test llm_benchmark::tests::test_mock_benchmark_runner_fast_inaccurate ... ok
+test llm_benchmark::tests::test_benchmark_result_performance_classification ... ok
+test llm_benchmark::tests::test_benchmark_result_quality_classification ... ok
+test llm_benchmark::tests::test_mock_benchmark_runner_fast_accurate ... ok
+test llm_benchmark::tests::test_mock_benchmark_runner_slow_accurate ... ok
+test llm_benchmark::tests::test_benchmark_suite_summary ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 308 filtered out; finished in 0.00s
+
