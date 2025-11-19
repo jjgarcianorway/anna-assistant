@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.111 (100% Streaming Consistency Across All Modes)
+**Version:** 5.7.0-beta.112 (MASSIVE Template Expansion - 67% Coverage)
 
 ---
 
@@ -22,7 +22,7 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.111)
+## Current Status (v5.7.0-beta.112)
 
 ### ✅ What Works Now
 
@@ -34,13 +34,23 @@ Anna is **not**:
 - ✅ Auto-update system (checks GitHub, verifies checksums, atomic swaps)
 - ✅ **Installer optimization:** Skips re-downloading same version (beta.65)
 
-**User Experience (NEW in beta.108-111 - 100% CONSISTENCY ACHIEVED):**
+**Template System (NEW in beta.112 - MAJOR UPGRADE):**
+- 🚀 **68 of 102 templates now mapped** - Up from 13 (67% coverage vs <10%)
+- 🚀 **Package management:** 13 templates (orphans, AUR, cache, mirrors, keyring, updates)
+- 🚀 **Boot & systemd:** 8 templates (boot time, errors, logs, journal, timers)
+- 🚀 **CPU & performance:** 8 templates (frequency, governors, usage, temperature, throttling)
+- 🚀 **Memory:** 6 templates (usage, swap, pressure, OOM, huge pages)
+- 🚀 **Network:** 7 templates (DNS, interfaces, ports, latency, firewall)
+- 🚀 **GPU & display:** 9 templates (NVIDIA, AMD, Xorg, Wayland, desktop environment)
+- 🚀 **Hardware:** 4 templates (disk health, temperature, USB, PCI devices)
+- 🚀 **Perfect consistency:** Same templates across one-shot, REPL, and TUI modes
+
+**User Experience (beta.108-111 - 100% CONSISTENCY ACHIEVED):**
 - ✨ **Word-by-word streaming in all three modes** - Real-time LLM response display
 - ✨ **Beta.108:** One-shot mode streaming (`annactl <question>`)
 - ✨ **Beta.110:** REPL mode streaming (`annactl repl`)
 - ✨ **Beta.111:** TUI mode streaming (`annactl tui`)
 - ✨ **Perfect consistency:** Identical streaming behavior across all interaction modes
-- ✨ **User requirement met:** "ensure that the replies from annactl, TUI or one-off are consistent!!!!"
 
 **Security (beta.66 - CRITICAL UPDATE):**
 - 🔐 **ACTION_PLAN validation layer** - Prevents command injection
