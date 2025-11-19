@@ -734,12 +734,12 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Phase 5.1: Conversational UX - Start REPL if no arguments
+    // Beta.90: Real TUI - Start TUI if no arguments
     let args: Vec<String> = std::env::args().collect();
 
-    // If no arguments at all, start conversational REPL
+    // If no arguments at all, start real TUI
     if args.len() == 1 {
-        return repl::start_repl().await;
+        return annactl::tui_v2::run().await;
     }
 
     // Task 11: Natural language without quotes

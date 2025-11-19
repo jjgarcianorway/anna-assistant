@@ -9,6 +9,26 @@ use anyhow::{Context, Result};
 use std::process::Command;
 use tracing::{info, warn};
 
+/// Extract parameter size from model name (e.g., "llama3.2:3b" → Some(3.0))
+/// Handles formats like "3b", "8b", "7b", "1.5b", "13b", etc.
+fn extract_param_size(model_name: &str) -> Option<f64> {
+    // Look for pattern like ":3b", ":8b", ":1.5b", etc.
+    let parts: Vec<&str> = model_name.split(':').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+
+    let size_part = parts.last()?.trim().to_lowercase();
+
+    // Remove 'b' suffix
+    if !size_part.ends_with('b') {
+        return None;
+    }
+
+    let number_part = &size_part[..size_part.len() - 1];
+    number_part.parse::<f64>().ok()
+}
+
 /// Bootstrap LLM configuration if not already set up
 ///
 /// This runs on daemon startup to auto-detect Ollama installations
@@ -142,6 +162,20 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
                         );
                     }
                 } else {
+                    // Current model not in profiles - parse parameter size to prevent downgrade
+                    let current_params = extract_param_size(current_model);
+                    let rec_params = extract_param_size(&rec.model_name);
+
+                    if let (Some(current_size), Some(rec_size)) = (current_params, rec_params) {
+                        if rec_size < current_size {
+                            info!(
+                                "✓ Current model {} ({} params) is better than recommended {} ({} params), not downgrading",
+                                current_model, current_size, rec.model_name, rec_size
+                            );
+                            return Ok(());
+                        }
+                    }
+
                     info!("⚡ Switching to recommended model: {} → {}", current_model, rec.model_name);
                 }
             }
@@ -218,7 +252,26 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
                 return Ok(());
             }
         } else {
-            info!("⚡ Switching to better model: {} → {}", current_model, model);
+            // One or both models not in profiles - compare parameter sizes
+            let current_params = extract_param_size(current_model);
+            let new_params = extract_param_size(&model);
+
+            if let (Some(current_size), Some(new_size)) = (current_params, new_params) {
+                if new_size <= current_size {
+                    info!(
+                        "✓ Current model {} ({} params) is adequate, not downgrading to {} ({} params)",
+                        current_model, current_size, model, new_size
+                    );
+                    return Ok(());
+                } else {
+                    info!(
+                        "⚡ Upgrading to better model: {} ({} params) → {} ({} params)",
+                        current_model, current_size, model, new_size
+                    );
+                }
+            } else {
+                info!("⚡ Switching to better model: {} → {}", current_model, model);
+            }
         }
     }
 
