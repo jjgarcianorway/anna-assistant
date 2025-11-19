@@ -303,7 +303,7 @@ async fn handle_llm_query(user_text: &str) {
             .any(|word| word == keyword)
     };
 
-    // Pattern matching for template selection (Beta.93: expanded library)
+    // Pattern matching for template selection (Beta.112: MASSIVELY expanded - 40+ templates)
     let template_match = if contains_word(&input_lower, "swap") {
         Some(("check_swap_status", HashMap::new()))
     } else if contains_word(&input_lower, "gpu") || contains_word(&input_lower, "vram") {
@@ -330,6 +330,131 @@ async fn handle_llm_query(user_text: &str) {
               (input_lower.contains("network") && (input_lower.contains("slow") || input_lower.contains("issue") || input_lower.contains("problem"))) {
         // Beta.101: WiFi diagnostics - triggered by "wifi", "wireless", or "network slow/issue/problem"
         Some(("wifi_diagnostics", HashMap::new()))
+
+    // Beta.112: PACKAGE MANAGEMENT (13 new templates)
+    } else if input_lower.contains("orphan") || (input_lower.contains("unused") && input_lower.contains("package")) {
+        Some(("list_orphaned_packages", HashMap::new()))
+    } else if input_lower.contains("aur") {
+        Some(("list_aur_packages", HashMap::new()))
+    } else if input_lower.contains("pacman") && (input_lower.contains("cache") || input_lower.contains("size")) {
+        Some(("check_pacman_cache_size", HashMap::new()))
+    } else if (input_lower.contains("clean") || input_lower.contains("clear")) && input_lower.contains("cache") {
+        Some(("clean_package_cache", HashMap::new()))
+    } else if input_lower.contains("mirror") || (input_lower.contains("pacman") && input_lower.contains("server")) {
+        Some(("check_pacman_mirrors", HashMap::new()))
+    } else if input_lower.contains("update") || input_lower.contains("upgrade") || input_lower.contains("syu") {
+        Some(("check_pending_updates", HashMap::new()))
+    } else if input_lower.contains("pacman lock") || input_lower.contains("db.lck") {
+        Some(("check_pacman_locks", HashMap::new()))
+    } else if input_lower.contains("keyring") || input_lower.contains("pgp") || input_lower.contains("signature") {
+        Some(("check_archlinux_keyring", HashMap::new()))
+    } else if input_lower.contains("explicit") && input_lower.contains("package") {
+        Some(("list_explicit_packages", HashMap::new()))
+    } else if input_lower.contains("depends") || input_lower.contains("dependency") {
+        Some(("package_depends", HashMap::new()))
+    } else if input_lower.contains("required by") || input_lower.contains("reverse depend") {
+        Some(("package_reverse_depends", HashMap::new()))
+    } else if input_lower.contains("package integrity") || input_lower.contains("corrupt") {
+        Some(("check_package_integrity", HashMap::new()))
+    } else if input_lower.contains("recent") && (input_lower.contains("install") || input_lower.contains("pacman")) {
+        Some(("show_recent_pacman_operations", HashMap::new()))
+
+    // Beta.112: BOOT & SYSTEMD (8 new templates)
+    } else if input_lower.contains("boot") && (input_lower.contains("time") || input_lower.contains("slow")) {
+        Some(("analyze_boot_time", HashMap::new()))
+    } else if input_lower.contains("boot") && input_lower.contains("error") {
+        Some(("check_boot_errors", HashMap::new()))
+    } else if input_lower.contains("boot log") || input_lower.contains("dmesg") {
+        Some(("show_boot_log", HashMap::new()))
+    } else if input_lower.contains("critical chain") {
+        Some(("analyze_boot_critical_chain", HashMap::new()))
+    } else if input_lower.contains("timer") || (input_lower.contains("systemd") && input_lower.contains("scheduled")) {
+        Some(("check_systemd_timers", HashMap::new()))
+    } else if input_lower.contains("journal size") {
+        Some(("analyze_journal_size", HashMap::new()))
+    } else if input_lower.contains("systemd") && input_lower.contains("version") {
+        Some(("check_systemd_version", HashMap::new()))
+    } else if input_lower.contains("recent") && (input_lower.contains("error") || input_lower.contains("journal")) {
+        Some(("show_recent_journal_errors", HashMap::new()))
+
+    // Beta.112: CPU & PERFORMANCE (8 new templates)
+    } else if input_lower.contains("cpu") && (input_lower.contains("freq") || input_lower.contains("speed")) {
+        Some(("check_cpu_frequency", HashMap::new()))
+    } else if input_lower.contains("governor") || (input_lower.contains("cpu") && input_lower.contains("scaling")) {
+        Some(("check_cpu_governor", HashMap::new()))
+    } else if input_lower.contains("cpu usage") || input_lower.contains("cpu percent") {
+        Some(("analyze_cpu_usage", HashMap::new()))
+    } else if (input_lower.contains("cpu") || input_lower.contains("processor")) && (input_lower.contains("temp") || input_lower.contains("hot")) {
+        Some(("check_cpu_temperature", HashMap::new()))
+    } else if input_lower.contains("throttl") || (input_lower.contains("cpu") && input_lower.contains("slow")) {
+        Some(("detect_cpu_throttling", HashMap::new()))
+    } else if input_lower.contains("top") && input_lower.contains("cpu") {
+        Some(("show_top_cpu_processes", HashMap::new()))
+    } else if input_lower.contains("load") && input_lower.contains("average") {
+        Some(("check_load_average", HashMap::new()))
+    } else if input_lower.contains("context switch") {
+        Some(("analyze_context_switches", HashMap::new()))
+
+    // Beta.112: MEMORY (6 new templates)
+    } else if input_lower.contains("memory") && input_lower.contains("usage") {
+        Some(("check_memory_usage", HashMap::new()))
+    } else if input_lower.contains("swap") && input_lower.contains("usage") {
+        Some(("check_swap_usage", HashMap::new()))
+    } else if input_lower.contains("memory pressure") || input_lower.contains("oom") {
+        Some(("analyze_memory_pressure", HashMap::new()))
+    } else if input_lower.contains("top") && input_lower.contains("memory") {
+        Some(("show_top_memory_processes", HashMap::new()))
+    } else if input_lower.contains("oom killer") {
+        Some(("check_oom_killer", HashMap::new()))
+    } else if input_lower.contains("swap activity") {
+        Some(("analyze_swap_activity", HashMap::new()))
+
+    // Beta.112: NETWORK (7 new templates)
+    } else if input_lower.contains("dns") {
+        Some(("check_dns_resolution", HashMap::new()))
+    } else if input_lower.contains("network") && input_lower.contains("interface") {
+        Some(("check_network_interfaces", HashMap::new()))
+    } else if input_lower.contains("route") || input_lower.contains("routing") {
+        Some(("check_routing_table", HashMap::new()))
+    } else if input_lower.contains("firewall") || input_lower.contains("iptables") {
+        Some(("check_firewall_rules", HashMap::new()))
+    } else if input_lower.contains("port") && (input_lower.contains("open") || input_lower.contains("listen")) {
+        Some(("check_listening_ports", HashMap::new()))
+    } else if input_lower.contains("latency") || input_lower.contains("ping") {
+        Some(("check_network_latency", HashMap::new()))
+    } else if input_lower.contains("networkmanager") || input_lower.contains("nmcli") {
+        Some(("check_networkmanager_status", HashMap::new()))
+
+    // Beta.112: GPU & DISPLAY (9 new templates)
+    } else if input_lower.contains("nvidia") && !input_lower.contains("install") {
+        Some(("check_nvidia_status", HashMap::new()))
+    } else if input_lower.contains("amd") && (input_lower.contains("gpu") || input_lower.contains("graphics")) {
+        Some(("check_amd_gpu", HashMap::new()))
+    } else if input_lower.contains("gpu") && (input_lower.contains("info") || input_lower.contains("detect")) {
+        Some(("check_gpu_info", HashMap::new()))
+    } else if input_lower.contains("gpu") && input_lower.contains("driver") {
+        Some(("check_gpu_drivers", HashMap::new()))
+    } else if input_lower.contains("gpu") && (input_lower.contains("temp") || input_lower.contains("hot")) {
+        Some(("check_gpu_temperature", HashMap::new()))
+    } else if input_lower.contains("display server") || input_lower.contains("x11") || input_lower.contains("wayland") {
+        Some(("check_display_server", HashMap::new()))
+    } else if input_lower.contains("desktop environment") || input_lower.contains("kde") || input_lower.contains("gnome") {
+        Some(("check_desktop_environment", HashMap::new()))
+    } else if input_lower.contains("xorg") && input_lower.contains("error") {
+        Some(("analyze_xorg_errors", HashMap::new()))
+    } else if input_lower.contains("wayland") && input_lower.contains("compositor") {
+        Some(("check_wayland_compositor", HashMap::new()))
+
+    // Beta.112: HARDWARE (4 new templates)
+    } else if input_lower.contains("temperature") || input_lower.contains("temp") || input_lower.contains("heat") {
+        Some(("check_temperature", HashMap::new()))
+    } else if input_lower.contains("usb") {
+        Some(("check_usb_devices", HashMap::new()))
+    } else if input_lower.contains("pci") || input_lower.contains("lspci") {
+        Some(("check_pci_devices", HashMap::new()))
+    } else if input_lower.contains("hostname") {
+        Some(("check_hostname", HashMap::new()))
+
     } else {
         None
     };
