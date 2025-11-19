@@ -65,12 +65,20 @@ async fn run_event_loop(
     _tx: mpsc::Sender<TuiMessage>,
     _rx: &mut mpsc::Receiver<TuiMessage>,
 ) -> Result<()> {
-    // Initialize telemetry
-    state.system_panel.anna_version = env!("CARGO_PKG_VERSION").to_string();
-    state.llm_panel.model_name = "llama3.2:3b".to_string(); // Placeholder
-    state.llm_panel.available = true;
+    // Beta.91: Initialize telemetry with real data
+    update_telemetry(state);
+
+    // Track last telemetry update
+    let mut last_telemetry_update = std::time::Instant::now();
+    let telemetry_interval = std::time::Duration::from_secs(2);
 
     loop {
+        // Beta.91: Update telemetry every 2 seconds
+        if last_telemetry_update.elapsed() >= telemetry_interval {
+            update_telemetry(state);
+            last_telemetry_update = std::time::Instant::now();
+        }
+
         // Beta.91: Advance thinking animation frame
         if state.is_thinking {
             state.thinking_frame = (state.thinking_frame + 1) % 8;
@@ -513,6 +521,42 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
         }
         None => format!("## Error\n\nTemplate '{}' not found", template_id),
     }
+}
+
+/// Update telemetry data in state
+fn update_telemetry(state: &mut AnnaTuiState) {
+    use crate::system_query::query_system_telemetry;
+
+    // Beta.91: Collect real system telemetry
+    if let Ok(telemetry) = query_system_telemetry() {
+        // Update system panel
+        state.system_panel.cpu_model = telemetry.hardware.cpu_model.clone();
+        state.system_panel.cpu_load_1min = telemetry.cpu.load_avg_1min;
+        state.system_panel.cpu_load_5min = telemetry.cpu.load_avg_5min;
+        state.system_panel.cpu_load_15min = 0.0; // Not collected by query_cpu yet
+        state.system_panel.ram_total_gb = telemetry.memory.total_mb as f64 / 1024.0;
+        state.system_panel.ram_used_gb = telemetry.memory.used_mb as f64 / 1024.0;
+        state.system_panel.anna_version = env!("CARGO_PKG_VERSION").to_string();
+
+        // Update GPU info if available
+        state.system_panel.gpu_name = telemetry.hardware.gpu_info.clone();
+        // GPU VRAM would need nvidia-smi or similar
+
+        state.telemetry_ok = true;
+    } else {
+        state.telemetry_ok = false;
+    }
+
+    // Update LLM panel - check if Ollama is available
+    // For now, hardcode to llama3.2:3b (will fix model detection in next task)
+    state.llm_panel.model_name = "llama3.2:3b".to_string();
+    state.llm_panel.model_size = "3B".to_string();
+    state.llm_panel.mode = "Local".to_string();
+    state.llm_panel.available = std::process::Command::new("ollama")
+        .arg("list")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
 }
 
 /// TUI message types
