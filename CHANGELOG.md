@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.103] - 2025-11-19
+
+### Template Expansion: Systemd Boot Analysis (+8 Templates)
+
+**Continuing the path to 100% success rate** on the 700-question test suite. Beta.103 focuses on systemd boot diagnostics and journal management - addressing ~25 questions from the test suite.
+
+#### What Changed in Beta.103
+
+**Added 8 New Systemd Boot Analysis Templates:**
+
+1. **analyze_boot_time** - Show systemd boot time analysis with service breakdown
+2. **check_boot_errors** - Show boot-time errors and warnings from journal
+3. **show_boot_log** - Display detailed boot log with kernel messages
+4. **analyze_boot_critical_chain** - Show critical boot path and time-critical units
+5. **check_systemd_timers** - List all systemd timers and their next execution time
+6. **analyze_journal_size** - Show journal disk usage and configuration
+7. **check_systemd_version** - Show systemd version and compiled features
+8. **show_recent_journal_errors** - Display recent system errors from the last hour
+
+**Template Count Progress:**
+- Beta.102: 63 templates
+- Beta.103: 71 templates (+13% increase)
+
+#### Templates Address Common Boot Problems
+
+From the 700-question test suite, systemd-related questions include:
+- "Why is my boot time so slow?" → `analyze_boot_time`
+- "What service is delaying boot?" → `analyze_boot_critical_chain`
+- "Show me boot errors" → `check_boot_errors`
+- "Journal taking too much space" → `analyze_journal_size`
+- "What timers are running?" → `check_systemd_timers`
+- "Recent system errors" → `show_recent_journal_errors`
+
+These templates provide immediate, actionable diagnostics for systemd/boot issues.
+
+#### Files Modified
+
+- **crates/anna_common/src/template_library.rs** - Added 8 systemd boot analysis templates
+- **Cargo.toml** - Version 5.7.0-beta.102 → 5.7.0-beta.103
+- **CHANGELOG.md** - Documented template additions
+
+#### Coverage Progress
+
+**From 700-Question Test Suite:**
+- ✅ Pacman management (~30 questions) - Beta.102
+- ✅ Systemd boot/journal (~25 questions) - Beta.103
+- 📋 Performance profiling (~40 questions) - Beta.104 (planned)
+- 📋 GPU diagnostics (~20 questions) - Beta.105 (planned)
+- 📋 Desktop environment (~25 questions) - Beta.106 (planned)
+- 📋 VM/containers (~30 questions) - Beta.107 (planned)
+- 📋 Storage/filesystems (~25 questions) - Beta.108 (planned)
+
+**Progress:** ~55/700 questions covered with specific templates (7.9%)
+**Path Forward:** Continue systematic expansion to reach 80%+ coverage
+
+---
+
 ## [5.7.0-beta.102] - 2025-11-19
 
 ### Template Expansion: Pacman & System Diagnostics (+9 Templates)

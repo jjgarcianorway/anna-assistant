@@ -213,6 +213,16 @@ impl TemplateLibrary {
         library.register(Self::check_archlinux_keyring());
         library.register(Self::check_failed_systemd_units());
 
+        // Beta.103: Systemd Boot Analysis templates (700 questions - systemd diagnostics)
+        library.register(Self::analyze_boot_time());
+        library.register(Self::check_boot_errors());
+        library.register(Self::show_boot_log());
+        library.register(Self::analyze_boot_critical_chain());
+        library.register(Self::check_systemd_timers());
+        library.register(Self::analyze_journal_size());
+        library.register(Self::check_systemd_version());
+        library.register(Self::show_recent_journal_errors());
+
         library
     }
 
@@ -1600,6 +1610,170 @@ impl TemplateLibrary {
                 validation_description: "Failed units listed".to_string(),
             }),
             example: "systemctl --failed".to_string(),
+        }
+    }
+
+    // ============================================================================
+    // Beta.103: Systemd Boot Analysis Templates (700-question test suite)
+    // ============================================================================
+
+    fn analyze_boot_time() -> Template {
+        Template {
+            id: "analyze_boot_time".to_string(),
+            name: "Analyze Boot Time".to_string(),
+            description: "Show systemd boot time analysis with service breakdown".to_string(),
+            parameters: vec![],
+            command_pattern: "systemd-analyze && echo && systemd-analyze blame | head -20".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Analyzing_the_boot_process".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Startup finished".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Boot time analysis displayed".to_string(),
+            }),
+            example: "systemd-analyze blame".to_string(),
+        }
+    }
+
+    fn check_boot_errors() -> Template {
+        Template {
+            id: "check_boot_errors".to_string(),
+            name: "Check Boot Errors".to_string(),
+            description: "Show boot-time errors and warnings from journal".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl -b -p err..warning --no-pager | head -50".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Boot errors displayed".to_string(),
+            }),
+            example: "journalctl -b -p err".to_string(),
+        }
+    }
+
+    fn show_boot_log() -> Template {
+        Template {
+            id: "show_boot_log".to_string(),
+            name: "Show Boot Log".to_string(),
+            description: "Display detailed boot log with kernel messages".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl -b --no-pager | head -100".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("kernel".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Boot log displayed".to_string(),
+            }),
+            example: "journalctl -b".to_string(),
+        }
+    }
+
+    fn analyze_boot_critical_chain() -> Template {
+        Template {
+            id: "analyze_boot_critical_chain".to_string(),
+            name: "Analyze Boot Critical Chain".to_string(),
+            description: "Show critical boot path and time-critical units".to_string(),
+            parameters: vec![],
+            command_pattern: "systemd-analyze critical-chain".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Analyzing_the_boot_process".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("graphical.target".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Critical chain displayed".to_string(),
+            }),
+            example: "systemd-analyze critical-chain".to_string(),
+        }
+    }
+
+    fn check_systemd_timers() -> Template {
+        Template {
+            id: "check_systemd_timers".to_string(),
+            name: "Check Systemd Timers".to_string(),
+            description: "List all systemd timers and their next execution time".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl list-timers --all".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Timers".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("NEXT".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Timers listed".to_string(),
+            }),
+            example: "systemctl list-timers".to_string(),
+        }
+    }
+
+    fn analyze_journal_size() -> Template {
+        Template {
+            id: "analyze_journal_size".to_string(),
+            name: "Analyze Journal Size".to_string(),
+            description: "Show journal disk usage and configuration".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl --disk-usage && echo && du -sh /var/log/journal/*".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("Archived and active journals".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Journal size displayed".to_string(),
+            }),
+            example: "journalctl --disk-usage".to_string(),
+        }
+    }
+
+    fn check_systemd_version() -> Template {
+        Template {
+            id: "check_systemd_version".to_string(),
+            name: "Check Systemd Version".to_string(),
+            description: "Show systemd version and compiled features".to_string(),
+            parameters: vec![],
+            command_pattern: "systemctl --version".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: Some("systemd".to_string()),
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Systemd version displayed".to_string(),
+            }),
+            example: "systemctl --version".to_string(),
+        }
+    }
+
+    fn show_recent_journal_errors() -> Template {
+        Template {
+            id: "show_recent_journal_errors".to_string(),
+            name: "Show Recent Journal Errors".to_string(),
+            description: "Display recent system errors from the last hour".to_string(),
+            parameters: vec![],
+            command_pattern: "journalctl --since '1 hour ago' -p err --no-pager | tail -50".to_string(),
+            category: CommandCategory::ReadOnly,
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
+            validation_pattern: Some(OutputValidation {
+                exit_code: 0,
+                stdout_must_match: None,
+                stdout_must_not_match: None,
+                stderr_must_match: None,
+                validation_description: "Recent errors displayed".to_string(),
+            }),
+            example: "journalctl -p err --since today".to_string(),
         }
     }
 }
