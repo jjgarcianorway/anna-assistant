@@ -1,0 +1,99 @@
+=== Fetching Linux Questions from Multiple Subreddits ===
+Output: data/linux_questions_multi.json
+Target: 5000 questions
+
+
+=== Fetching from r/archlinux ===
+  Fetching r/archlinux (year, after=)...
+  Collected: 100/5000
+  Fetching r/archlinux (year, after=t3_1i299cd)...
+  Collected: 200/5000
+  Fetching r/archlinux (year, after=t3_1oom462)...
+  Collected: 250/5000
+  No more pages for year
+  Fetching r/archlinux (all, after=)...
+  Collected: 350/5000
+  Fetching r/archlinux (all, after=t3_jjn1c1)...
+  Collected: 450/5000
+  Fetching r/archlinux (all, after=t3_cytp1a)...
+  Collected: 500/5000
+  No more pages for all
+
+=== Fetching from r/linux ===
+  Fetching r/linux (year, after=)...
+  Collected: 600/5000
+  Fetching r/linux (year, after=t3_1hkcxj9)...
+  Collected: 700/5000
+  Fetching r/linux (year, after=t3_1ol5a1k)...
+  Collected: 750/5000
+  No more pages for year
+  Fetching r/linux (all, after=)...
+  Collected: 850/5000
+  Fetching r/linux (all, after=t3_1ghqrf0)...
+  Collected: 950/5000
+  Fetching r/linux (all, after=t3_11heasp)...
+  Collected: 1000/5000
+  No more pages for all
+
+=== Fetching from r/linuxquestions ===
+  Fetching r/linuxquestions (year, after=)...
+  Collected: 1100/5000
+  Fetching r/linuxquestions (year, after=t3_1jjs880)...
+  Collected: 1200/5000
+  Fetching r/linuxquestions (year, after=t3_1l703zr)...
+  Collected: 1250/5000
+  No more pages for year
+  Fetching r/linuxquestions (all, after=)...
+  Collected: 1350/5000
+  Fetching r/linuxquestions (all, after=t3_18hi3oz)...
+  Collected: 1450/5000
+  Fetching r/linuxquestions (all, after=t3_ipj84k)...
+  Collected: 1501/5000
+  No more pages for all
+
+=== Fetching from r/linuxadmin ===
+  Fetching r/linuxadmin (year, after=)...
+  Collected: 1601/5000
+  Fetching r/linuxadmin (year, after=t3_1iqy1ha)...
+  Collected: 1701/5000
+  Fetching r/linuxadmin (year, after=t3_1ht4qdw)...
+  Collected: 1751/5000
+  No more pages for year
+  Fetching r/linuxadmin (all, after=)...
+  Collected: 1851/5000
+  Fetching r/linuxadmin (all, after=t3_aj0qac)...
+  Collected: 1951/5000
+  Fetching r/linuxadmin (all, after=t3_lwwgyv)...
+  Collected: 2001/5000
+  No more pages for all
+
+=== Fetching from r/linux4noobs ===
+  Fetching r/linux4noobs (year, after=)...
+  Collected: 2101/5000
+  Fetching r/linux4noobs (year, after=t3_1mjhlxc)...
+  Collected: 2201/5000
+  Fetching r/linux4noobs (year, after=t3_1ljteoi)...
+  Collected: 2250/5000
+  No more pages for year
+  Fetching r/linux4noobs (all, after=)...
+  Collected: 2350/5000
+  Fetching r/linux4noobs (all, after=t3_1fqk719)...
+  Collected: 2450/5000
+  Fetching r/linux4noobs (all, after=t3_mygnry)...
+  Collected: 2499/5000
+  No more pages for all
+
+✅ Collected 2499 questions
+💾 Saved to: data/linux_questions_multi.json
+
+Subreddit breakdown:
+    500 archlinux: 500 questions
+    498 linux4noobs: 498 questions
+    500 linux: 500 questions
+    500 linuxadmin: 500 questions
+    501 linuxquestions: 501 questions
+
+Next steps:
+1. Review questions: jq '.[0:5]' data/linux_questions_multi.json
+2. Run validation: ./scripts/validate_reddit_qa.sh data/linux_questions_multi.json 100
+3. Merge with existing: jq -s '.[0] + .[1]' data/reddit_questions.json data/linux_questions_multi.json > data/all_questions.json

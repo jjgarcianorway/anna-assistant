@@ -90,6 +90,7 @@ dependencies = [
  "sysinfo",
  "textwrap",
  "tokio",
+ "toml",
  "uuid",
 ]
 

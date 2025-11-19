@@ -35,3 +35,4 @@ sha2 = { workspace = true } # For checksum verification (Phase 3.10)
 rusqlite = { workspace = true }
 regex = "1.10" # For structured LLM output parsing (Beta.54)
 sysinfo = { workspace = true } # For system metrics in TUI (Phase 5.7)
+toml = { workspace = true } # For personality export (Beta.87)

@@ -67,31 +67,27 @@ pub async fn handle_personality_set(trait_key: String, value: u8) -> Result<()> 
     // Load current personality
     let mut personality = PersonalityConfig::load_from_db(&db).await?;
 
-    // Find and update the trait
-    let trait_found = personality.traits.iter_mut().find(|t| t.key == trait_key);
+    // Find the trait index
+    if let Some(idx) = personality.traits.iter().position(|t| t.key == trait_key) {
+        let old_value = personality.traits[idx].value;
+        let trait_name = personality.traits[idx].name.clone();
+        personality.traits[idx].value = value;
 
-    match trait_found {
-        Some(trait_item) => {
-            let old_value = trait_item.value;
-            trait_item.value = value;
+        // Save to database (no active mutable borrow)
+        personality.save_to_db(&db).await?;
 
-            // Save to database
-            personality.save_to_db(&db).await?;
-
-            println!(
-                "{}",
-                fmt::success(&format!(
-                    "✓ Updated {}: {} → {}",
-                    trait_item.name, old_value, value
-                ))
-            );
-            println!();
-            println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
-            Ok(())
-        }
-        None => {
-            anyhow::bail!("Trait '{}' not found. Use 'annactl personality show' to see available traits", trait_key);
-        }
+        println!(
+            "{}",
+            fmt::success(&format!(
+                "✓ Updated {}: {} → {}",
+                trait_name, old_value, value
+            ))
+        );
+        println!();
+        println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
+        Ok(())
+    } else {
+        anyhow::bail!("Trait '{}' not found. Use 'annactl personality show' to see available traits", trait_key);
     }
 }
 
@@ -104,33 +100,29 @@ pub async fn handle_personality_adjust(trait_key: String, delta: i8) -> Result<(
     // Load current personality
     let mut personality = PersonalityConfig::load_from_db(&db).await?;
 
-    // Find and update the trait
-    let trait_found = personality.traits.iter_mut().find(|t| t.key == trait_key);
+    // Find the trait index
+    if let Some(idx) = personality.traits.iter().position(|t| t.key == trait_key) {
+        let old_value = personality.traits[idx].value;
+        let trait_name = personality.traits[idx].name.clone();
+        let new_value = (personality.traits[idx].value as i16 + delta as i16).clamp(0, 10) as u8;
+        personality.traits[idx].value = new_value;
 
-    match trait_found {
-        Some(trait_item) => {
-            let old_value = trait_item.value;
-            let new_value = (trait_item.value as i16 + delta as i16).clamp(0, 10) as u8;
-            trait_item.value = new_value;
+        // Save to database (no active mutable borrow)
+        personality.save_to_db(&db).await?;
 
-            // Save to database
-            personality.save_to_db(&db).await?;
-
-            let direction = if delta > 0 { "+" } else { "" };
-            println!(
-                "{}",
-                fmt::success(&format!(
-                    "✓ Adjusted {}: {} {}{} = {}",
-                    trait_item.name, old_value, direction, delta, new_value
-                ))
-            );
-            println!();
-            println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
-            Ok(())
-        }
-        None => {
-            anyhow::bail!("Trait '{}' not found. Use 'annactl personality show' to see available traits", trait_key);
-        }
+        let direction = if delta > 0 { "+" } else { "" };
+        println!(
+            "{}",
+            fmt::success(&format!(
+                "✓ Adjusted {}: {} {}{} = {}",
+                trait_name, old_value, direction, delta, new_value
+            ))
+        );
+        println!();
+        println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
+        Ok(())
+    } else {
+        anyhow::bail!("Trait '{}' not found. Use 'annactl personality show' to see available traits", trait_key);
     }
 }
 
@@ -170,11 +162,12 @@ pub async fn handle_personality_validate() -> Result<()> {
             println!("{}", fmt::dimmed("No conflicting trait combinations detected"));
             Ok(())
         }
-        Err(e) => {
-            println!("{}", fmt::error(&format!("✗ Validation failed: {}", e)));
+        Err(issues) => {
+            let error_msg = issues.join(", ");
+            println!("{}", fmt::error(&format!("✗ Validation failed: {}", error_msg)));
             println!();
             println!("{}", fmt::dimmed("Fix conflicts with 'annactl personality set'"));
-            Err(e)
+            anyhow::bail!("Validation failed: {}", error_msg)
         }
     }
 }

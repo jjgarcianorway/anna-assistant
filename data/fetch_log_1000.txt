@@ -1,0 +1,24 @@
+=== Fetching r/archlinux Questions ===
+Output: data/reddit_questions.json
+Target: 1000 questions
+
+Fetching month (after=)...
+Collected: 100/1000
+Fetching month (after=t3_1obmnwv)...
+Collected: 200/1000
+Fetching month (after=t3_1onpnux)...
+Collected: 245/1000
+No more pages for month
+Fetching week (after=)...
+Collected: 345/1000
+Fetching week (after=t3_1oyykxo)...
+Collected: 421/1000
+No more pages for week
+
+✅ Collected 421 questions
+💾 Saved to: data/reddit_questions.json
+
+Next steps:
+1. Review questions: jq '.[0:5]' data/reddit_questions.json
+2. Run validation: cargo test --test reddit_qa_integration
+3. Generate report: cargo run --bin reddit_qa_validator

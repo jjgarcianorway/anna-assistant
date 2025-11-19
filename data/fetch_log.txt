@@ -1,0 +1,8 @@
+=== Fetching r/archlinux Questions ===
+Output: data/reddit_questions.json
+Target: 1000 questions
+
+Fetching month (after=)...
+Collected: 100/1000
+Fetching month (after=t3_1obmnwv)...
+./scripts/fetch_reddit_qa.sh: line 56: /usr/bin/jq: Argument list too long
