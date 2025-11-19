@@ -20,7 +20,7 @@ pub fn build_runtime_prompt(
     prompt.push_str("You are Anna, an intelligent Linux system administrator for this Arch Linux machine.\n\n");
 
     prompt.push_str("[ANNA_VERSION]\n");
-    prompt.push_str("5.7.0-beta.85\n");
+    prompt.push_str("5.7.0-beta.87\n");
     prompt.push_str("[/ANNA_VERSION]\n\n");
 
     prompt.push_str("[ANNA_CAPABILITIES]\n");
