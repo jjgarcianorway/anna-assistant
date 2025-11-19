@@ -458,7 +458,49 @@ async fn handle_historian_summary(_db: Option<&Arc<ContextDb>>) {
 
 /// Handle LLM query for natural language understanding (Beta.53)
 async fn handle_llm_query(user_message: &str, db: Option<&Arc<ContextDb>>) {
+    use anna_common::template_library::TemplateLibrary;
+    use std::collections::HashMap;
+
     let ui = UI::auto();
+
+    // Beta.101: Try template matching first (WiFi fix)
+    let library = TemplateLibrary::default();
+    let input_lower = user_message.to_lowercase();
+
+    // Check for WiFi-related queries
+    if input_lower.contains("wifi") || input_lower.contains("wireless") ||
+       (input_lower.contains("network") && (input_lower.contains("slow") || input_lower.contains("issue") || input_lower.contains("problem"))) {
+        if let Some(template) = library.get("wifi_diagnostics") {
+            match template.instantiate(&HashMap::new()) {
+                Ok(recipe) => {
+                    ui.info("Running WiFi diagnostics...");
+                    println!();
+
+                    match std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(&recipe.command)
+                        .output()
+                    {
+                        Ok(output) => {
+                            let stdout = String::from_utf8_lossy(&output.stdout);
+                            for line in stdout.lines() {
+                                ui.info(line);
+                            }
+                            println!();
+                            return;
+                        }
+                        Err(e) => {
+                            ui.error(&format!("Command failed: {}", e));
+                        }
+                    }
+                }
+                Err(_) => {
+                    // Fall through to LLM
+                }
+            }
+        }
+    }
+
     ui.info("🤔 Thinking...");
 
     match crate::llm_integration::query_llm_with_context(user_message, db).await {

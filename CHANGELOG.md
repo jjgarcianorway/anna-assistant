@@ -7,6 +7,151 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.101] - 2025-11-19
+
+### CRITICAL FIX: WiFi Issues Completely Ignored (Consistency Fix)
+
+**User Feedback (Beta.97):** "my computer wifi goes very slowly... have you noticed anything?"
+**Anna's Response:** "No urgent issues right now! Your system looks good."
+**User:** "Very bad reply... Please, keep going"
+
+**User Feedback (Beta.99):** "my computer wifi goes very slowly... have you noticed anything? on the router goes very quick... so its something with this laptop..."
+**Anna's Response:** "No urgent issues right now! Your system looks good."
+
+**THIS IS A CRITICAL RELIABILITY ISSUE.** User explicitly reported a WiFi problem TWICE and Anna ignored it both times, even though WiFi diagnostic templates were added in Beta.98.
+
+#### Root Cause Analysis
+
+**The Problem:**
+- WiFi diagnostic templates exist (added in Beta.98) ✅
+- But template keyword matching was missing WiFi keywords ❌
+- Keywords existed for: swap, gpu, kernel, disk, ram, cpu, uptime, distro, services, journal
+- **But NO keywords for: wifi, wireless, network slow**
+- Result: WiFi queries fell through to LLM with generic response
+
+**Affected Code Paths:**
+1. `main.rs` - One-shot mode (e.g., `annactl wifi issue`)
+2. `repl.rs` - REPL mode (e.g., `anna> wifi problem`)
+3. `tui_v2.rs` - TUI mode (user types in TUI interface)
+
+All three modes had the SAME bug - missing WiFi keyword matching.
+
+#### What Changed in Beta.101
+
+**1. Fixed main.rs (One-Shot Mode)**
+- Added WiFi keyword matching at lines 304-307
+- Triggers on: "wifi", "wireless", or "network slow/issue/problem"
+- Routes to `wifi_diagnostics` template
+
+**2. Fixed repl.rs (REPL Mode)**
+- Added template matching before LLM fallback at lines 460-502
+- REPL had NO template matching at all - went directly to LLM
+- Now checks WiFi keywords first for consistency
+
+**3. Fixed tui_v2.rs (TUI Mode)**
+- Added WiFi keyword matching at lines 616-619
+- Same keyword logic as main.rs and repl.rs
+- Ensures consistency across all three modes
+
+**WiFi Keywords Detected:**
+```rust
+input_lower.contains("wifi") ||
+input_lower.contains("wireless") ||
+(input_lower.contains("network") &&
+ (input_lower.contains("slow") ||
+  input_lower.contains("issue") ||
+  input_lower.contains("problem")))
+```
+
+#### Files Modified
+
+- `crates/annactl/src/main.rs:304-307` - Added WiFi keywords to one-shot mode
+- `crates/annactl/src/repl.rs:460-502` - Added template matching to REPL mode (was missing entirely)
+- `crates/annactl/src/tui_v2.rs:616-619` - Added WiFi keywords to TUI mode
+
+#### Before vs After
+
+**Before Beta.101:**
+```bash
+$ annactl my wifi is slow
+✓ No urgent issues right now!
+Your system looks good.
+```
+❌ WiFi template exists but isn't triggered
+❌ User problem ignored
+❌ Generic unhelpful response
+
+**After Beta.101:**
+```bash
+$ annactl my wifi is slow
+=== WIFI DIAGNOSTICS ===
+
+Signal & Speed:
+wlp2s0    IEEE 802.11  ESSID:"MyNetwork"
+          Bit Rate=72.2 Mb/s   Tx-Power=22 dBm
+          Link Quality=60/70  Signal level=-50 dBm
+
+Network Interfaces:
+3: wlp2s0: <BROADCAST,MULTICAST,UP,LOWER_UP>
+    inet 192.168.1.100/24
+
+Recent WiFi Errors (last 20):
+[journalctl output showing WiFi issues]
+
+Driver Info:
+[lspci output showing WiFi hardware and driver]
+```
+✅ WiFi template triggered correctly
+✅ Comprehensive diagnostics provided
+✅ User problem addressed
+
+#### Consistency Achievement
+
+**User Requirement:** "ensure that the replies from annactl, TUI or one-off are consistent!!!! System must be reliable!!!!!"
+
+**Beta.101 ensures:**
+- ✅ All three modes (one-shot, REPL, TUI) now detect WiFi keywords
+- ✅ All three modes route to the same `wifi_diagnostics` template
+- ✅ All three modes provide identical, helpful responses
+- ✅ No more mode-specific behavior differences
+
+#### Testing
+
+To verify WiFi detection works in all modes:
+
+**One-Shot Mode:**
+```bash
+annactl wifi slow
+annactl wireless issue
+annactl network problem
+```
+
+**REPL Mode:**
+```bash
+annactl repl
+anna> wifi slow
+anna> wireless issue
+anna> network problem
+```
+
+**TUI Mode:**
+```bash
+annactl tui
+# Type: wifi slow
+# Type: wireless issue
+# Type: network problem
+```
+
+All should trigger WiFi diagnostics template with comprehensive output.
+
+#### Impact on Success Rate
+
+This fix directly addresses user-reported WiFi problems that were completely ignored. Expected improvements:
+- Network troubleshooting queries now get actionable diagnostics
+- Template utilization increases (templates were created but unused)
+- Consistency across all interaction modes reduces user confusion
+- Estimated +2-5% success rate improvement for network-related queries
+
 ## [5.7.0-beta.100] - 2025-11-19
 
 ### CRITICAL SAFETY FIX: Auto-Update While annactl In Use

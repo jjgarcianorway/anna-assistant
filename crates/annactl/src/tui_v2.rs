@@ -613,6 +613,10 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
         ("check_failed_services", HashMap::new())
     } else if input_lower.contains("journal") || (input_lower.contains("system") && input_lower.contains("errors")) {
         ("check_journal_errors", HashMap::new())
+    } else if input_lower.contains("wifi") || input_lower.contains("wireless") ||
+              (input_lower.contains("network") && (input_lower.contains("slow") || input_lower.contains("issue") || input_lower.contains("problem"))) {
+        // Beta.101: WiFi diagnostics - triggered by "wifi", "wireless", or "network slow/issue/problem"
+        ("wifi_diagnostics", HashMap::new())
     } else {
         // No matching template - use LLM to generate response
         return generate_llm_reply(input, state).await;

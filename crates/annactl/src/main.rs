@@ -301,6 +301,10 @@ async fn handle_llm_query(user_text: &str) {
         Some(("check_failed_services", HashMap::new()))
     } else if input_lower.contains("journal") || (input_lower.contains("system") && input_lower.contains("errors")) {
         Some(("check_journal_errors", HashMap::new()))
+    } else if input_lower.contains("wifi") || input_lower.contains("wireless") ||
+              (input_lower.contains("network") && (input_lower.contains("slow") || input_lower.contains("issue") || input_lower.contains("problem"))) {
+        // Beta.101: WiFi diagnostics - triggered by "wifi", "wireless", or "network slow/issue/problem"
+        Some(("wifi_diagnostics", HashMap::new()))
     } else {
         None
     };
