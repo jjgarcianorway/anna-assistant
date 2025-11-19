@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.112 (MASSIVE Template Expansion - 67% Coverage)
+**Version:** 5.7.0-beta.113 (Recipe Planner LLM Integration)
 
 ---
 
@@ -22,9 +22,16 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.112)
+## Current Status (v5.7.0-beta.113)
 
 ### ✅ What Works Now
+
+**Recipe Planner Integration (NEW in beta.113):**
+- 🚀 **Planner/Critic LLM loop fully integrated** - RecipePlanner now makes actual LLM API calls
+- 🚀 **JSON-structured responses** - Both planner and critic return validated command recipes
+- 🚀 **LlmConfig-based architecture** - Explicit configuration required for recipe planning
+- 🚀 **Iterative refinement** - Up to 3 planner/critic iterations with feedback loop
+- 🚀 **Safety-first validation** - Static checks before critic, comprehensive validation
 
 **Core Infrastructure:**
 - ✅ Daemon (annad) runs and collects system telemetry

@@ -7,11 +7,11 @@
 //! The loop runs with a hard limit (max 3 iterations) to prevent infinite spinning.
 //! If validation fails after limit, Anna provides manual explanation instead.
 
-use crate::command_recipe::{CommandRecipe, CriticResult, Recipe, SafetyLevel, SafetyPolicy};
-use crate::template_library::{Template, TemplateLibrary};
+use crate::command_recipe::{CriticResult, Recipe, SafetyPolicy};
+use crate::llm::{LlmClient, LlmConfig, LlmPrompt};
+use crate::template_library::TemplateLibrary;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Maximum planner/critic iterations before giving up
 const MAX_PLANNING_ITERATIONS: usize = 3;
@@ -26,14 +26,18 @@ pub struct RecipePlanner {
 
     /// Doc retrieval system (placeholder for future RAG)
     doc_retriever: DocRetriever,
+
+    /// LLM configuration for planner and critic
+    llm_config: LlmConfig,
 }
 
 impl RecipePlanner {
-    pub fn new() -> Self {
+    pub fn new(llm_config: LlmConfig) -> Self {
         Self {
             template_library: TemplateLibrary::new(),
             safety_policy: SafetyPolicy::default(),
             doc_retriever: DocRetriever::new(),
+            llm_config,
         }
     }
 
@@ -113,23 +117,29 @@ impl RecipePlanner {
     /// Call planner LLM to generate recipe
     async fn call_planner_llm(&self, context: &PlannerContext) -> Result<Recipe> {
         // Build planner prompt
-        let prompt = self.build_planner_prompt(context);
+        let prompt_text = self.build_planner_prompt(context);
 
-        // TODO: Call actual LLM via llm module
-        // For now, return placeholder
-        tracing::info!("Planner LLM prompt: {}", prompt);
+        // Create LLM client
+        let client = LlmClient::from_config(&self.llm_config)
+            .context("Failed to create LLM client for planner")?;
 
-        // Placeholder: In real implementation, this would call LLM
-        Ok(Recipe {
-            question: context.question.clone(),
-            steps: vec![],
-            overall_safety: SafetyLevel::Safe,
-            all_read_only: true,
-            wiki_sources: context.retrieved_docs.clone(),
-            summary: "Placeholder recipe".to_string(),
-            generated_by: Some("planner_llm".to_string()),
-            critic_approval: None,
-        })
+        // Create LLM prompt
+        let prompt = LlmPrompt {
+            system: "You are a command recipe planner for Arch Linux. Your role is to generate safe, validated command sequences based on documentation.".to_string(),
+            user: prompt_text,
+            conversation_history: None,
+        };
+
+        // Call LLM and get response
+        let response = client
+            .chat(&prompt)
+            .map_err(|e| anyhow::anyhow!("Planner LLM call failed: {}", e))?;
+
+        // Parse JSON response into Recipe
+        let recipe: Recipe = serde_json::from_str(&response.text)
+            .context("Failed to parse planner LLM response as Recipe JSON")?;
+
+        Ok(recipe)
     }
 
     /// Call critic LLM to validate recipe
@@ -139,18 +149,29 @@ impl RecipePlanner {
         context: &PlannerContext,
     ) -> Result<CriticResult> {
         // Build critic prompt
-        let prompt = self.build_critic_prompt(recipe, context);
+        let prompt_text = self.build_critic_prompt(recipe, context);
 
-        // TODO: Call actual LLM via llm module
-        tracing::info!("Critic LLM prompt: {}", prompt);
+        // Create LLM client
+        let client = LlmClient::from_config(&self.llm_config)
+            .context("Failed to create LLM client for critic")?;
 
-        // Placeholder: In real implementation, this would call LLM
-        Ok(CriticResult {
-            approved: true,
-            reasoning: "Placeholder approval".to_string(),
-            issues: vec![],
-            corrections: vec![],
-        })
+        // Create LLM prompt
+        let prompt = LlmPrompt {
+            system: "You are a safety critic for Arch Linux command recipes. Your role is to validate that proposed commands are safe, well-documented, and address the user's question correctly.".to_string(),
+            user: prompt_text,
+            conversation_history: None,
+        };
+
+        // Call LLM and get response
+        let response = client
+            .chat(&prompt)
+            .map_err(|e| anyhow::anyhow!("Critic LLM call failed: {}", e))?;
+
+        // Parse JSON response into CriticResult
+        let result: CriticResult = serde_json::from_str(&response.text)
+            .context("Failed to parse critic LLM response as CriticResult JSON")?;
+
+        Ok(result)
     }
 
     /// Build planner LLM prompt
@@ -194,6 +215,17 @@ impl RecipePlanner {
         prompt.push_str("3. For write operations, include rollback commands\n");
         prompt.push_str("4. Add validation patterns to check command output\n");
         prompt.push_str("5. Generate JSON conforming to Recipe schema\n\n");
+
+        prompt.push_str("## Output Format\n");
+        prompt.push_str("You MUST respond ONLY with valid JSON conforming to this Recipe schema:\n");
+        prompt.push_str("{\n");
+        prompt.push_str("  \"question\": \"<original question>\",\n");
+        prompt.push_str("  \"steps\": [],\n");
+        prompt.push_str("  \"overall_safety\": \"safe\" | \"needs_confirmation\" | \"blocked\",\n");
+        prompt.push_str("  \"all_read_only\": true | false,\n");
+        prompt.push_str("  \"wiki_sources\": [\"<url1>\", \"<url2>\"],\n");
+        prompt.push_str("  \"summary\": \"<what this recipe will do>\"\n");
+        prompt.push_str("}\n\n");
 
         if let Some(rejection) = &context.previous_rejection {
             prompt.push_str("## Previous Attempt Rejected\n");
@@ -243,7 +275,14 @@ impl RecipePlanner {
         prompt.push_str("4. Validation patterns are reasonable\n");
         prompt.push_str("5. Write operations have rollback paths\n\n");
 
-        prompt.push_str("Provide verdict: ACCEPT or REJECT with reasoning\n");
+        prompt.push_str("## Output Format\n");
+        prompt.push_str("You MUST respond ONLY with valid JSON conforming to this CriticResult schema:\n");
+        prompt.push_str("{\n");
+        prompt.push_str("  \"approved\": true | false,\n");
+        prompt.push_str("  \"reasoning\": \"<why you approved/rejected>\",\n");
+        prompt.push_str("  \"issues\": [\"<issue1>\", \"<issue2>\"],\n");
+        prompt.push_str("  \"corrections\": [\"<suggestion1>\", \"<suggestion2>\"]\n");
+        prompt.push_str("}\n\n");
         prompt
     }
 
@@ -259,11 +298,7 @@ impl RecipePlanner {
     }
 }
 
-impl Default for RecipePlanner {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// Removed Default impl - RecipePlanner requires LlmConfig to be specified
 
 /// Planner context - all information for planning
 #[derive(Debug, Clone)]
@@ -364,7 +399,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_planner_creation() {
-        let planner = RecipePlanner::new();
+        // Create dummy LLM config for testing
+        let llm_config = LlmConfig::local("http://localhost:11434/v1", "llama3.1:8b");
+        let planner = RecipePlanner::new(llm_config);
         assert!(!planner.template_library.list_templates().is_empty());
     }
 }
