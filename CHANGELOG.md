@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.137] - 2025-11-20
+
+### 🎯 LLM QUALITY: Simple Mode for Simple Questions
+
+**What Changed:** Fixed LLM quality issue where smaller models gave better answers than larger ones.
+
+#### Problem Identified
+
+User testing revealed:
+- **Rocinante** (small model): Gave better answer to "how is my system?"
+- **Razorback** (large model): Gave worse answer despite more parameters
+
+**Root Cause:**
+- Small models (1b/3b) use **simple single-round prompt** with strict anti-hallucination rules
+- Large models (8b+) use **complex two-round dialogue** (planning + answer)
+- For straightforward questions, complexity hurts more than it helps
+
+#### Fix
+
+Added `is_simple_question()` detector:
+- System status queries: "how is my system?", "system health", etc.
+- Simple hardware queries: "how much RAM?", "what CPU?", etc.
+- Very short questions (≤5 words)
+
+Now **ALL models** use simple mode for simple questions, regardless of size.
+
+**Impact:** Razorback and rocinante should now give equally good answers. The simpler prompt is more effective for straightforward queries.
+
+---
+
 ## [5.7.0-beta.136] - 2025-11-20
 
 ### 🔧 CRITICAL FIX: TUI Scroll and Reply Cutoff

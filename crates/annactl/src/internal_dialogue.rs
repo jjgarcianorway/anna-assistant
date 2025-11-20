@@ -298,9 +298,41 @@ fn is_small_model(model_name: &str) -> bool {
     model_lower.contains(":1b") || model_lower.contains(":3b")
 }
 
+/// Beta.137: Detect if question is simple/straightforward
+/// Simple questions don't benefit from complex two-round dialogue
+fn is_simple_question(question: &str) -> bool {
+    let q_lower = question.to_lowercase();
+
+    // System status queries
+    if q_lower.contains("how is my system")
+        || q_lower.contains("system status")
+        || q_lower.contains("system health")
+        || (q_lower.contains("how") && q_lower.contains("system"))
+    {
+        return true;
+    }
+
+    // Simple hardware queries
+    if (q_lower.contains("how much") || q_lower.contains("what"))
+        && (q_lower.contains("ram") || q_lower.contains("memory")
+            || q_lower.contains("cpu") || q_lower.contains("disk")
+            || q_lower.contains("gpu"))
+    {
+        return true;
+    }
+
+    // Very short questions (likely simple)
+    if question.split_whitespace().count() <= 5 {
+        return true;
+    }
+
+    false
+}
+
 /// Run internal dialogue with telemetry-first approach
 /// Uses simplified single-round for small models (1b, 3b)
 /// Uses two-round planning+answer for larger models (8b+)
+/// Beta.137: Also uses simple mode for simple questions (better results!)
 pub async fn run_internal_dialogue(
     user_message: &str,
     payload: &TelemetryPayload,
@@ -310,8 +342,9 @@ pub async fn run_internal_dialogue(
 ) -> Result<InternalDialogueResult> {
     let trace_enabled = std::env::var("ANNA_INTERNAL_TRACE").is_ok();
 
-    // Detect model size and choose appropriate strategy
-    let use_simple_mode = is_small_model(current_model);
+    // Beta.137: Use simple mode for small models OR simple questions
+    // Testing shows simple prompt gives better results for straightforward queries
+    let use_simple_mode = is_small_model(current_model) || is_simple_question(user_message);
 
     if use_simple_mode {
         // Simple mode: Single-round direct answer for small models
