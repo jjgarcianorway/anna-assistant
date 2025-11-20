@@ -145,6 +145,16 @@ impl AnnaTuiState {
         self.scroll_to_bottom();
     }
 
+    /// Beta.147: Add structured action plan to conversation
+    pub fn add_action_plan(&mut self, plan: anna_common::action_plan_v3::ActionPlan) {
+        self.conversation
+            .push(ChatItem::ActionPlan(Box::new(plan)));
+        self.is_thinking = false;
+
+        // Auto-scroll to bottom
+        self.scroll_to_bottom();
+    }
+
     /// Scroll to bottom of conversation
     pub fn scroll_to_bottom(&mut self) {
         // Set scroll offset to a large number - rendering will clamp it
@@ -261,6 +271,8 @@ pub enum ChatItem {
     User(String),
     Anna(String),
     System(String),
+    /// Beta.147: Structured action plan display
+    ActionPlan(Box<anna_common::action_plan_v3::ActionPlan>),
 }
 
 /// System summary for left panel

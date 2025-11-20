@@ -104,6 +104,10 @@ async fn run_event_loop(
                     // Beta.115: Streaming complete
                     state.is_thinking = false;
                 }
+                TuiMessage::ActionPlanReply(plan) => {
+                    // Beta.147: Structured action plan arrives
+                    state.add_action_plan(plan);
+                }
                 TuiMessage::UserInput(_) => {
                     // Not used in current implementation
                 }
@@ -316,7 +320,7 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     // Beta.136: Calculate available width for text (subtract borders and padding)
     let content_width = area.width.saturating_sub(4) as usize; // 2 for borders, 2 for padding
-    let mut lines: Vec<Line> = Vec::new();
+    let mut lines: Vec<Line<'static>> = Vec::new();
 
     for item in &state.conversation {
         match item {
@@ -365,6 +369,11 @@ fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
                     }
                 }
                 lines.push(Line::from("")); // Add spacing between messages
+            }
+            ChatItem::ActionPlan(plan) => {
+                // Beta.147: Render structured action plan
+                render_action_plan_lines(&mut lines, plan, content_width);
+                lines.push(Line::from("")); // Add spacing
             }
         }
     }
@@ -1189,6 +1198,177 @@ fn update_telemetry(state: &mut AnnaTuiState) {
     }
 }
 
+/// Beta.147: Render action plan as formatted lines
+fn render_action_plan_lines(
+    lines: &mut Vec<Line<'static>>,
+    plan: &anna_common::action_plan_v3::ActionPlan,
+    content_width: usize,
+) {
+    use anna_common::action_plan_v3::RiskLevel;
+
+    // Header
+    lines.push(Line::from(vec![
+        Span::styled(
+            "📋 Action Plan".to_string(),
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        ),
+    ]));
+    lines.push(Line::from(""));
+
+    // Analysis section
+    lines.push(Line::from(vec![
+        Span::styled("Analysis:".to_string(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+    ]));
+    let analysis_lines = wrap_text(&plan.analysis, content_width.saturating_sub(2));
+    for line in analysis_lines {
+        lines.push(Line::from(format!("  {}", line)));
+    }
+    lines.push(Line::from(""));
+
+    // Goals section
+    if !plan.goals.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled("Goals:".to_string(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]));
+        for (i, goal) in plan.goals.iter().enumerate() {
+            let goal_lines = wrap_text(goal, content_width.saturating_sub(5));
+            for (j, line) in goal_lines.iter().enumerate() {
+                if j == 0 {
+                    lines.push(Line::from(format!("  {}. {}", i + 1, line)));
+                } else {
+                    lines.push(Line::from(format!("     {}", line)));
+                }
+            }
+        }
+        lines.push(Line::from(""));
+    }
+
+    // Necessary checks section
+    if !plan.necessary_checks.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                "Necessary Checks:".to_string(),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        for check in &plan.necessary_checks {
+            let risk_color = match check.risk_level {
+                RiskLevel::Info => Color::Blue,
+                RiskLevel::Low => Color::Green,
+                RiskLevel::Medium => Color::Yellow,
+                RiskLevel::High => Color::Red,
+            };
+            let emoji = check.risk_level.emoji().to_string();
+            let desc = check.description.clone();
+
+            lines.push(Line::from(vec![
+                Span::raw("  ".to_string()),
+                Span::styled(emoji, Style::default().fg(risk_color)),
+                Span::raw(" ".to_string()),
+                Span::styled(desc, Style::default().fg(Color::White)),
+            ]));
+            lines.push(Line::from(format!("    $ {}", check.command)));
+        }
+        lines.push(Line::from(""));
+    }
+
+    // Command plan section
+    if !plan.command_plan.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                "Command Plan:".to_string(),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        for (i, step) in plan.command_plan.iter().enumerate() {
+            let risk_color = match step.risk_level {
+                RiskLevel::Info => Color::Blue,
+                RiskLevel::Low => Color::Green,
+                RiskLevel::Medium => Color::Yellow,
+                RiskLevel::High => Color::Red,
+            };
+            let emoji = step.risk_level.emoji().to_string();
+
+            // Description (use owned strings)
+            let desc_lines = wrap_text(&step.description, content_width.saturating_sub(10));
+            for (j, desc_line) in desc_lines.iter().enumerate() {
+                if j == 0 {
+                    lines.push(Line::from(vec![
+                        Span::raw(format!("  {}. ", i + 1)),
+                        Span::styled(emoji.clone(), Style::default().fg(risk_color)),
+                        Span::raw(" ".to_string()),
+                        Span::styled(desc_line.clone(), Style::default().fg(Color::White)),
+                    ]));
+                } else {
+                    lines.push(Line::from(format!("        {}", desc_line)));
+                }
+            }
+
+            lines.push(Line::from(format!("      $ {}", step.command)));
+
+            if let Some(rollback_id) = &step.rollback_id {
+                lines.push(Line::from(vec![
+                    Span::raw("      ".to_string()),
+                    Span::styled("↩ Rollback: ".to_string(), Style::default().fg(Color::Gray)),
+                    Span::styled(rollback_id.clone(), Style::default().fg(Color::DarkGray)),
+                ]));
+            }
+        }
+        lines.push(Line::from(""));
+    }
+
+    // Rollback plan section
+    if !plan.rollback_plan.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                "Rollback Plan:".to_string(),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        for rollback in &plan.rollback_plan {
+            lines.push(Line::from(vec![
+                Span::raw("  ↩ ".to_string()),
+                Span::styled(rollback.id.clone(), Style::default().fg(Color::Yellow)),
+                Span::raw(": ".to_string()),
+                Span::styled(rollback.description.clone(), Style::default().fg(Color::White)),
+            ]));
+            lines.push(Line::from(format!("    $ {}", rollback.command)));
+        }
+        lines.push(Line::from(""));
+    }
+
+    // Notes for user
+    if !plan.notes_for_user.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled("Notes:".to_string(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]));
+        let notes_lines = wrap_text(&plan.notes_for_user, content_width.saturating_sub(2));
+        for line in notes_lines {
+            lines.push(Line::from(format!("  {}", line)));
+        }
+        lines.push(Line::from(""));
+    }
+
+    // Max risk indicator
+    if let Some(max_risk) = plan.max_risk_level() {
+        let risk_color = match max_risk {
+            RiskLevel::Info => Color::Blue,
+            RiskLevel::Low => Color::Green,
+            RiskLevel::Medium => Color::Yellow,
+            RiskLevel::High => Color::Red,
+        };
+        lines.push(Line::from(vec![
+            Span::styled("Max Risk: ".to_string(), Style::default().fg(Color::Gray)),
+            Span::styled(
+                format!("{:?}", max_risk),
+                Style::default().fg(risk_color).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    }
+}
+
 /// TUI message types
 #[derive(Debug)]
 pub enum TuiMessage {
@@ -1196,5 +1376,6 @@ pub enum TuiMessage {
     AnnaReply(String),
     AnnaReplyChunk(String),  // Beta.115: Streaming chunk
     AnnaReplyComplete,       // Beta.115: Streaming complete
+    ActionPlanReply(anna_common::action_plan_v3::ActionPlan),  // Beta.147: Structured action plan
     TelemetryUpdate,
 }
