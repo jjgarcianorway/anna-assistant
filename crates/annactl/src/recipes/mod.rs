@@ -14,6 +14,7 @@
 //! Beta.162: Added security recipes (security, antivirus, vpn)
 //! Beta.163: Added virtualization recipes (virtualization, containers, virt_network)
 //! Beta.164: Added audio recipes (audio, music, recording)
+//! Beta.165: Added video and desktop recipes (video, desktop_env, display_manager)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -68,6 +69,11 @@ pub mod performance;
 pub mod audio;
 pub mod music;
 pub mod recording;
+
+// Beta.165 recipes
+pub mod video;
+pub mod desktop_env;
+pub mod display_manager;
 
 // Beta.163 recipes
 pub mod virtualization;
@@ -147,6 +153,19 @@ pub fn try_recipe_match(
 
     if recording::RecordingRecipe::matches_request(user_input) {
         return Some(recording::RecordingRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.165 recipes - Video & Desktop (specific)
+    if video::VideoRecipe::matches_request(user_input) {
+        return Some(video::VideoRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if desktop_env::DesktopEnvRecipe::matches_request(user_input) {
+        return Some(desktop_env::DesktopEnvRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if display_manager::DisplayManagerRecipe::matches_request(user_input) {
+        return Some(display_manager::DisplayManagerRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.163 recipes - Virtualization (specific)
@@ -396,6 +415,14 @@ mod tests {
         assert!(try_recipe_match("install pipewire", &telemetry).is_some());
         assert!(try_recipe_match("install spotify", &telemetry).is_some());
         assert!(try_recipe_match("setup jack", &telemetry).is_some());
+
+        // Beta.165 recipes
+        assert!(try_recipe_match("install kdenlive", &telemetry).is_some());
+        assert!(try_recipe_match("install blender", &telemetry).is_some());
+        assert!(try_recipe_match("install gnome", &telemetry).is_some());
+        assert!(try_recipe_match("install kde plasma", &telemetry).is_some());
+        assert!(try_recipe_match("install sddm", &telemetry).is_some());
+        assert!(try_recipe_match("switch to gdm", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());

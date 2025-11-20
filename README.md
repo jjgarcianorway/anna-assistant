@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.162
+**Version:** 5.7.0-beta.165
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.162)
+## Current Capabilities (Beta.165)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.162 - EXPANDED):
-- ✅ 38 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.165 - EXPANDED):
+- ✅ 47 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -165,15 +165,18 @@ annactl "give me a full system report"
 - ✅ Virtual networks (libvirt network management) (NEW)
 - ✅ Audio systems (PipeWire, PulseAudio, ALSA) (NEW)
 - ✅ Music players (Spotify, MPD, ncmpcpp) (NEW)
-- ✅ Audio recording (Audacity, Ardour, JACK) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (223 tests passing)
+- ✅ Audio recording (Audacity, Ardour, JACK)
+- ✅ Video editing and graphics (Kdenlive, OpenShot, Blender) (NEW)
+- ✅ Desktop environments (GNOME, KDE Plasma, XFCE, i3, Sway) (NEW)
+- ✅ Display managers (SDDM, GDM, LightDM) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (241 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
 
 **What exists but needs work:**
 - 🔧 LLM JSON output quality - Model doesn't consistently generate valid ActionPlan JSON for complex multi-step queries
-- 🔧 Recipe coverage - 38 recipes implemented (Beta.162), more needed for comprehensive coverage
+- 🔧 Recipe coverage - 47 recipes implemented (Beta.165), nearing comprehensive coverage
 - 🔧 Template matching - Works for simple queries, limited coverage
 - 🔧 Action execution - Infrastructure ready, execution depends on recipe or LLM JSON quality
 
