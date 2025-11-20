@@ -88,6 +88,11 @@ pub mod file_manager;
 pub mod archive_manager;
 pub mod pdf_reader;
 
+// Beta.169 recipes
+pub mod launcher;
+pub mod clipboard;
+pub mod notifications;
+
 // Beta.168 recipes
 pub mod screenshot;
 pub mod screencast;
@@ -210,6 +215,19 @@ pub fn try_recipe_match(
 
     if pdf_reader::PdfReaderRecipe::matches_request(user_input) {
         return Some(pdf_reader::PdfReaderRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.169 recipes - Desktop Utilities (specific)
+    if launcher::LauncherRecipe::matches_request(user_input) {
+        return Some(launcher::LauncherRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if clipboard::ClipboardRecipe::matches_request(user_input) {
+        return Some(clipboard::ClipboardRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if notifications::NotificationsRecipe::matches_request(user_input) {
+        return Some(notifications::NotificationsRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -505,6 +523,14 @@ mod tests {
         assert!(try_recipe_match("install screen recording", &telemetry).is_some());
         assert!(try_recipe_match("install remmina", &telemetry).is_some());
         assert!(try_recipe_match("install remote desktop", &telemetry).is_some());
+
+        // Beta.169 recipes
+        assert!(try_recipe_match("install rofi", &telemetry).is_some());
+        assert!(try_recipe_match("install launcher", &telemetry).is_some());
+        assert!(try_recipe_match("install clipman", &telemetry).is_some());
+        assert!(try_recipe_match("install clipboard manager", &telemetry).is_some());
+        assert!(try_recipe_match("install dunst", &telemetry).is_some());
+        assert!(try_recipe_match("install notification daemon", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
