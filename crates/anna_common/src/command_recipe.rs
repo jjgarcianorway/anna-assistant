@@ -242,7 +242,9 @@ impl CommandRecipe {
             CommandCategory::SystemWrite | CommandCategory::Dangerous
         ) {
             if !policy.allowed_system_commands.is_empty()
-                && !policy.allowed_system_commands.contains(&base_cmd.to_string())
+                && !policy
+                    .allowed_system_commands
+                    .contains(&base_cmd.to_string())
             {
                 return Err(format!(
                     "System write command '{}' not in allowlist",

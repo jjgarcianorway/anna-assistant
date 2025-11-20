@@ -144,7 +144,11 @@ mod tests {
         let upgrade = find_upgrade_profile("ollama-llama3.1-13b", 32.0, 16);
 
         // No better model available for this hardware
-        assert!(upgrade.is_none(), "Expected no upgrade from llama3.1-13b (Large tier), but got: {:?}", upgrade);
+        assert!(
+            upgrade.is_none(),
+            "Expected no upgrade from llama3.1-13b (Large tier), but got: {:?}",
+            upgrade
+        );
     }
 
     #[test]

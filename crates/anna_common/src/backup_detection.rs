@@ -116,7 +116,8 @@ impl BackupDetection {
 }
 
 fn detect_backup_tools() -> Vec<BackupTool> {
-    let tools = [(
+    let tools = [
+        (
             "timeshift",
             BackupToolType::Snapshot,
             "/etc/timeshift/timeshift.json",
@@ -129,7 +130,8 @@ fn detect_backup_tools() -> Vec<BackupTool> {
         ),
         ("borg", BackupToolType::Deduplication, ""),
         ("restic", BackupToolType::Deduplication, ""),
-        ("duplicity", BackupToolType::Incremental, "")];
+        ("duplicity", BackupToolType::Incremental, ""),
+    ];
 
     tools
         .iter()
@@ -227,7 +229,8 @@ fn detect_timeshift_last_backup() -> Option<LastBackup> {
     let list = String::from_utf8(output.stdout).ok()?;
     // Parse timeshift list output for most recent snapshot
     let first_line = list
-        .lines().find(|line| !line.is_empty() && !line.starts_with("Name"))?;
+        .lines()
+        .find(|line| !line.is_empty() && !line.starts_with("Name"))?;
 
     Some(LastBackup {
         tool: "timeshift".to_string(),

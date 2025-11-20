@@ -552,7 +552,10 @@ fn detect_dnssec_status() -> DnssecStatus {
 }
 
 /// Measure network latency to various targets
-fn measure_latency(ipv4_status: &IpVersionStatus, _ipv6_status: &IpVersionStatus) -> LatencyMetrics {
+fn measure_latency(
+    ipv4_status: &IpVersionStatus,
+    _ipv6_status: &IpVersionStatus,
+) -> LatencyMetrics {
     let gateway_latency_ms = ipv4_status
         .default_gateway
         .as_ref()

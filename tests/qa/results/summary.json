@@ -1,0 +1,142 @@
+{
+  "run_timestamp": "2025-11-20T15:16:51.446011",
+  "anna_version": "5.7.0-beta.149",
+  "total_questions": 5,
+  "pass": 0,
+  "partial": 0,
+  "fail": 5,
+  "skip": 0,
+  "results": [
+    {
+      "id": "arch-001",
+      "question": "How do I configure a static IP address on Arch Linux using systemd-networkd?",
+      "category": "networking",
+      "verdict": "FAIL",
+      "score": 0.5,
+      "issues": [
+        "Missing required command: systemctl enable systemd-networkd",
+        "Missing required command: ip link",
+        "Missing required file: /etc/systemd/network/*.network",
+        "Missing key concept: CIDR notation",
+        "Missing safety warnings (backup, risks, etc.)"
+      ],
+      "missing_commands": [
+        "systemctl enable systemd-networkd",
+        "ip link"
+      ],
+      "missing_concepts": [
+        "CIDR notation"
+      ],
+      "anna_output_file": "results/arch-001_anna.txt",
+      "golden_file": "golden/arch-001_golden.json"
+    },
+    {
+      "id": "arch-002",
+      "question": "How do I install a package from the AUR?",
+      "category": "package_management",
+      "verdict": "FAIL",
+      "score": 0.0,
+      "issues": [
+        "Missing required command: pacman -S base-devel git",
+        "Missing required command: git clone",
+        "Missing required command: makepkg -si",
+        "Missing required file: PKGBUILD",
+        "Missing key concept: AUR (Arch User Repository)",
+        "Missing key concept: PKGBUILD",
+        "Missing key concept: makepkg",
+        "Missing key concept: base-devel",
+        "Missing safety warnings (backup, risks, etc.)"
+      ],
+      "missing_commands": [
+        "pacman -S base-devel git",
+        "git clone",
+        "makepkg -si"
+      ],
+      "missing_concepts": [
+        "AUR (Arch User Repository)",
+        "PKGBUILD",
+        "makepkg",
+        "base-devel"
+      ],
+      "anna_output_file": "results/arch-002_anna.txt",
+      "golden_file": "golden/arch-002_golden.json"
+    },
+    {
+      "id": "arch-003",
+      "question": "How do I enable a systemd service to start automatically at boot?",
+      "category": "system_services",
+      "verdict": "FAIL",
+      "score": 0.44,
+      "issues": [
+        "Missing required command: systemctl start",
+        "Missing required command: systemctl status",
+        "Missing required command: systemctl is-enabled",
+        "Missing key concept: unit files",
+        "Missing key concept: boot targets"
+      ],
+      "missing_commands": [
+        "systemctl start",
+        "systemctl status",
+        "systemctl is-enabled"
+      ],
+      "missing_concepts": [
+        "unit files",
+        "boot targets"
+      ],
+      "anna_output_file": "results/arch-003_anna.txt",
+      "golden_file": "golden/arch-003_golden.json"
+    },
+    {
+      "id": "arch-004",
+      "question": "How do I regenerate the GRUB configuration after editing /etc/default/grub?",
+      "category": "boot",
+      "verdict": "FAIL",
+      "score": 0.14,
+      "issues": [
+        "Missing required command: grub-mkconfig -o /boot/grub/grub.cfg",
+        "Missing required file: /boot/grub/grub.cfg",
+        "Missing key concept: GRUB bootloader",
+        "Missing key concept: kernel parameters",
+        "Missing key concept: boot configuration",
+        "Missing safety warnings (backup, risks, etc.)"
+      ],
+      "missing_commands": [
+        "grub-mkconfig -o /boot/grub/grub.cfg"
+      ],
+      "missing_concepts": [
+        "GRUB bootloader",
+        "kernel parameters",
+        "boot configuration"
+      ],
+      "anna_output_file": "results/arch-004_anna.txt",
+      "golden_file": "golden/arch-004_golden.json"
+    },
+    {
+      "id": "arch-005",
+      "question": "How do I clean the pacman cache to free up disk space?",
+      "category": "package_management",
+      "verdict": "FAIL",
+      "score": 0.12,
+      "issues": [
+        "Missing required command: paccache -r",
+        "Missing required command: pacman -Sc",
+        "Missing required command: du -sh",
+        "Missing required file: /var/cache/pacman/pkg/",
+        "Missing key concept: package cache cleanup",
+        "Missing key concept: disk space management",
+        "Missing safety warnings (backup, risks, etc.)"
+      ],
+      "missing_commands": [
+        "paccache -r",
+        "pacman -Sc",
+        "du -sh"
+      ],
+      "missing_concepts": [
+        "package cache cleanup",
+        "disk space management"
+      ],
+      "anna_output_file": "results/arch-005_anna.txt",
+      "golden_file": "golden/arch-005_golden.json"
+    }
+  ]
+}

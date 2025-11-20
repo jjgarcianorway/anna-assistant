@@ -1,0 +1,42 @@
+{
+  "id": "arch-003",
+  "question": "How do I enable a systemd service to start automatically at boot?",
+  "golden_answer": {
+    "summary": "Use 'systemctl enable <service>' to create symlinks that start the service at boot, optionally start it immediately with 'systemctl start'.",
+    "steps": [
+      "Check if service exists: systemctl list-unit-files | grep <service-name>",
+      "Enable service for automatic start: sudo systemctl enable <service-name>",
+      "Start service immediately (optional): sudo systemctl start <service-name>",
+      "Verify service is enabled: systemctl is-enabled <service-name>",
+      "Check service status: systemctl status <service-name>",
+      "Verify it starts after reboot: sudo systemctl reboot (then check status)"
+    ],
+    "required_commands": [
+      "systemctl enable",
+      "systemctl start",
+      "systemctl status",
+      "systemctl is-enabled"
+    ],
+    "required_files": [],
+    "required_concepts": [
+      "systemd",
+      "systemctl",
+      "unit files",
+      "boot targets"
+    ],
+    "validation": [
+      "systemctl is-enabled <service-name>",
+      "systemctl status <service-name>",
+      "Check after reboot"
+    ],
+    "warnings": [
+      "Enabling a service doesn't start it immediately - use 'systemctl start' for that",
+      "Some services require configuration before enabling (check service documentation)",
+      "Use 'systemctl enable --now <service>' to both enable and start in one command"
+    ],
+    "references": [
+      "Arch Wiki: systemd",
+      "man systemctl"
+    ]
+  }
+}

@@ -530,8 +530,6 @@ fn detect_missing_hooks(hooks: &[String], tool: &InitramfsTool) -> Vec<MissingHo
 
 /// Detect missing required modules
 fn detect_missing_modules(_modules: &[String]) -> Vec<MissingModule> {
-    
-
     // Hardware-specific module detection would go here
     // This would require detecting actual hardware
 

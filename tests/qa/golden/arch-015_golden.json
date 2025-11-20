@@ -1,0 +1,46 @@
+{
+  "id": "arch-015",
+  "question": "How do I add a kernel parameter permanently?",
+  "golden_answer": {
+    "summary": "Edit /etc/default/grub, add parameter to GRUB_CMDLINE_LINUX_DEFAULT, then regenerate GRUB config with grub-mkconfig.",
+    "steps": [
+      "Edit GRUB config: sudo nano /etc/default/grub",
+      "Find line: GRUB_CMDLINE_LINUX_DEFAULT=\"...\"",
+      "Add your parameter inside quotes: GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash nomodeset\"",
+      "Save and exit editor",
+      "Regenerate GRUB config: sudo grub-mkconfig -o /boot/grub/grub.cfg",
+      "Reboot to test: sudo reboot",
+      "Verify parameter is active: cat /proc/cmdline"
+    ],
+    "required_commands": [
+      "grub-mkconfig -o /boot/grub/grub.cfg",
+      "cat /proc/cmdline"
+    ],
+    "required_files": [
+      "/etc/default/grub",
+      "/boot/grub/grub.cfg"
+    ],
+    "required_concepts": [
+      "kernel parameters",
+      "GRUB",
+      "boot options"
+    ],
+    "validation": [
+      "cat /proc/cmdline shows your parameter",
+      "System boots correctly with new parameter"
+    ],
+    "warnings": [
+      "CRITICAL: Backup /boot/grub/grub.cfg before changes",
+      "Wrong kernel parameters can make system unbootable",
+      "Have live USB ready for recovery",
+      "Common parameters: quiet, splash, nomodeset, acpi=off, intel_iommu=on",
+      "Test parameter temporarily first by editing GRUB menu at boot (press 'e')",
+      "Changes don't take effect until reboot"
+    ],
+    "references": [
+      "Arch Wiki: Kernel parameters",
+      "Arch Wiki: GRUB",
+      "Documentation/admin-guide/kernel-parameters.txt in kernel source"
+    ]
+  }
+}

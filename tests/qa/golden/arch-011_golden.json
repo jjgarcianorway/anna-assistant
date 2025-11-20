@@ -1,0 +1,51 @@
+{
+  "id": "arch-011",
+  "question": "My system won't boot after an update. How do I troubleshoot this?",
+  "golden_answer": {
+    "summary": "Boot from live USB, chroot into system, check logs with journalctl, downgrade problematic packages, rebuild initramfs if needed.",
+    "steps": [
+      "Boot from Arch live USB",
+      "Mount root partition: sudo mount /dev/sdXY /mnt",
+      "Mount boot partition: sudo mount /dev/sdXZ /mnt/boot (if separate)",
+      "Chroot into system: sudo arch-chroot /mnt",
+      "Check systemd journal: journalctl -xb -p err",
+      "Check what was updated: grep 'upgraded\\|installed' /var/log/pacman.log | tail -n 50",
+      "Downgrade problematic package: pacman -U /var/cache/pacman/pkg/<old-package>.pkg.tar.zst",
+      "Rebuild initramfs: mkinitcpio -P",
+      "Regenerate GRUB config: grub-mkconfig -o /boot/grub/grub.cfg",
+      "Exit chroot: exit",
+      "Unmount and reboot: umount -R /mnt && reboot"
+    ],
+    "required_commands": [
+      "arch-chroot",
+      "journalctl -xb",
+      "pacman -U",
+      "mkinitcpio -P"
+    ],
+    "required_files": [
+      "/var/log/pacman.log"
+    ],
+    "required_concepts": [
+      "chroot",
+      "live USB recovery",
+      "journalctl",
+      "package downgrade"
+    ],
+    "validation": [
+      "System boots successfully",
+      "No errors in boot logs"
+    ],
+    "warnings": [
+      "IMPORTANT: Have Arch live USB ready BEFORE updating critical systems",
+      "Common culprits: kernel, nvidia drivers, systemd, glibc",
+      "Check /var/log/pacman.log to see what was updated",
+      "If kernel was updated, check if initramfs was regenerated",
+      "Make note of your partition layout (lsblk) before chrooting"
+    ],
+    "references": [
+      "Arch Wiki: System maintenance",
+      "Arch Wiki: Chroot",
+      "Arch Wiki: Boot troubleshooting"
+    ]
+  }
+}

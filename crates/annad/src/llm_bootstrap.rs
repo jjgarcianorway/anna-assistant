@@ -152,13 +152,19 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
                     if rec.quality_tier <= current.quality_tier {
                         info!(
                             "✓ Current model {} ({:?}) is adequate, not downgrading to {} ({:?})",
-                            current.model_name, current.quality_tier, rec.model_name, rec.quality_tier
+                            current.model_name,
+                            current.quality_tier,
+                            rec.model_name,
+                            rec.quality_tier
                         );
                         return Ok(());
                     } else {
                         info!(
                             "⚡ Upgrading to recommended model: {} ({:?}) → {} ({:?})",
-                            current.model_name, current.quality_tier, rec.model_name, rec.quality_tier
+                            current.model_name,
+                            current.quality_tier,
+                            rec.model_name,
+                            rec.quality_tier
                         );
                     }
                 } else {
@@ -176,7 +182,10 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
                         }
                     }
 
-                    info!("⚡ Switching to recommended model: {} → {}", current_model, rec.model_name);
+                    info!(
+                        "⚡ Switching to recommended model: {} → {}",
+                        current_model, rec.model_name
+                    );
                 }
             }
 
@@ -194,9 +203,7 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     // Second priority: find best available model from profiles
     let best_available = all_profiles
         .into_iter()
-        .filter(|p| {
-            available_models.contains(&p.model_name) && p.is_suitable_for(ram_gb, cores)
-        })
+        .filter(|p| available_models.contains(&p.model_name) && p.is_suitable_for(ram_gb, cores))
         .max_by_key(|p| p.quality_tier);
 
     let model = if let Some(profile) = best_available {
@@ -217,10 +224,7 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     // Check if we should upgrade the existing model
     if is_configured {
         // Extract current model name from existing config
-        let current_model = existing_config
-            .model
-            .as_deref()
-            .unwrap_or("unknown");
+        let current_model = existing_config.model.as_deref().unwrap_or("unknown");
 
         if current_model == model {
             info!(
@@ -270,7 +274,10 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
                     );
                 }
             } else {
-                info!("⚡ Switching to better model: {} → {}", current_model, model);
+                info!(
+                    "⚡ Switching to better model: {} → {}",
+                    current_model, model
+                );
             }
         }
     }

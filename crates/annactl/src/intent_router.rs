@@ -52,9 +52,14 @@ pub enum PersonalityAdjustment {
     /// Show all 16 personality traits
     Show,
     /// Set a specific trait to a value (0-10)
-    SetTrait { trait_key: String, value: u8 },
+    SetTrait {
+        trait_key: String,
+        value: u8,
+    },
     /// Adjust by descriptor ("be more concise", "be warmer", etc.)
-    AdjustByDescriptor { descriptor: String },
+    AdjustByDescriptor {
+        descriptor: String,
+    },
     /// Reset all traits to defaults
     Reset,
     /// Validate configuration for conflicts
@@ -453,8 +458,21 @@ pub fn route_intent(input: &str) -> Intent {
     // Pattern: "be [more|less] <descriptor>"
     // Beta.126: Moved AFTER legacy checks to avoid catching "be more funny" etc.
     if contains_any(&words, &["be"])
-        && (contains_any(&words, &["more", "less", "warmer", "colder", "formal", "casual",
-                                     "concise", "verbose", "friendly", "professional"]))
+        && (contains_any(
+            &words,
+            &[
+                "more",
+                "less",
+                "warmer",
+                "colder",
+                "formal",
+                "casual",
+                "concise",
+                "verbose",
+                "friendly",
+                "professional",
+            ],
+        ))
     {
         // Extract the full descriptor
         let descriptor = lower
@@ -466,7 +484,7 @@ pub fn route_intent(input: &str) -> Intent {
         if !descriptor.is_empty() {
             return Intent::Personality {
                 adjustment: PersonalityAdjustment::AdjustByDescriptor {
-                    descriptor: descriptor.to_string()
+                    descriptor: descriptor.to_string(),
                 },
             };
         }
@@ -474,7 +492,10 @@ pub fn route_intent(input: &str) -> Intent {
 
     // Check for "show personality"
     if contains_any(&words, &["show", "display", "current", "what"])
-        && contains_any(&words, &["personality", "settings", "preferences", "traits"])
+        && contains_any(
+            &words,
+            &["personality", "settings", "preferences", "traits"],
+        )
     {
         return Intent::Personality {
             adjustment: PersonalityAdjustment::Show,

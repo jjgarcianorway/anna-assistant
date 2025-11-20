@@ -194,7 +194,7 @@ pub fn compare_versions(current: &str, latest: &str) -> std::cmp::Ordering {
                 (None, None) => Ordering::Equal,
                 (Some(_), None) => Ordering::Less, // current is prerelease, latest is stable
                 (None, Some(_)) => Ordering::Greater, // current is stable, latest is prerelease
-                (Some(c), Some(l)) => compare_prerelease(c, l),    // both prerelease, compare properly
+                (Some(c), Some(l)) => compare_prerelease(c, l), // both prerelease, compare properly
             }
         }
         (Ordering::Equal, Ordering::Equal, patch_cmp) => patch_cmp,
@@ -225,10 +225,10 @@ fn compare_prerelease(current: &str, latest: &str) -> std::cmp::Ordering {
         Ordering::Equal => {
             // Same prerelease type, compare numbers
             match (c_num, l_num) {
-                (Some(c), Some(l)) => c.cmp(&l),  // Both have numbers, compare numerically
-                (Some(_), None) => Ordering::Greater,  // Numbered > unnumbered
-                (None, Some(_)) => Ordering::Less,  // Unnumbered < numbered
-                (None, None) => Ordering::Equal,  // Both unnumbered
+                (Some(c), Some(l)) => c.cmp(&l), // Both have numbers, compare numerically
+                (Some(_), None) => Ordering::Greater, // Numbered > unnumbered
+                (None, Some(_)) => Ordering::Less, // Unnumbered < numbered
+                (None, None) => Ordering::Equal, // Both unnumbered
             }
         }
         other => other,

@@ -7,9 +7,7 @@
 //! - User confirmation for write operations
 //! - Automatic rollback on failure (where applicable)
 
-use crate::command_recipe::{
-    CommandCategory, CommandRecipe, Recipe, RecipeResult, StepResult,
-};
+use crate::command_recipe::{CommandCategory, CommandRecipe, Recipe, RecipeResult, StepResult};
 use anyhow::{Context, Result};
 use std::process::{Command, Stdio};
 use std::time::Instant;
@@ -29,11 +27,7 @@ impl RecipeExecutor {
     ///
     /// For read-only recipes: executes automatically
     /// For write recipes: requires user confirmation (passed via confirm_fn)
-    pub async fn execute_recipe<F>(
-        &self,
-        recipe: &Recipe,
-        confirm_fn: F,
-    ) -> Result<RecipeResult>
+    pub async fn execute_recipe<F>(&self, recipe: &Recipe, confirm_fn: F) -> Result<RecipeResult>
     where
         F: Fn(&str) -> bool,
     {
@@ -132,21 +126,20 @@ impl RecipeExecutor {
         let execution_time_ms = start_time.elapsed().as_millis() as u64;
 
         // Runtime validation
-        let (validation_passed, validation_failure) = if let Some(validation) =
-            &step.expected_validation
-        {
-            self.validate_output(validation, exit_code, &stdout, &stderr)
-        } else {
-            // No validation specified - just check exit code
-            (
-                exit_code == 0,
-                if exit_code != 0 {
-                    Some(format!("Command failed with exit code {}", exit_code))
-                } else {
-                    None
-                },
-            )
-        };
+        let (validation_passed, validation_failure) =
+            if let Some(validation) = &step.expected_validation {
+                self.validate_output(validation, exit_code, &stdout, &stderr)
+            } else {
+                // No validation specified - just check exit code
+                (
+                    exit_code == 0,
+                    if exit_code != 0 {
+                        Some(format!("Command failed with exit code {}", exit_code))
+                    } else {
+                        None
+                    },
+                )
+            };
 
         Ok(StepResult {
             step_id: step.id.clone(),

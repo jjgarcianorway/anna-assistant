@@ -84,17 +84,21 @@ impl TelemetryPayload {
             arch_status: "rolling".to_string(),
         };
 
-        let load_avg = facts.system_health
+        let load_avg = facts
+            .system_health
             .as_ref()
-            .map(|h| (
-                h.load_averages.one_minute,
-                h.load_averages.five_minutes,
-                h.load_averages.fifteen_minutes,
-            ))
+            .map(|h| {
+                (
+                    h.load_averages.one_minute,
+                    h.load_averages.five_minutes,
+                    h.load_averages.fifteen_minutes,
+                )
+            })
             .unwrap_or((0.0, 0.0, 0.0));
 
         // Beta.77: Get actual RAM usage from memory_usage_info
-        let ram_used_percent = facts.memory_usage_info
+        let ram_used_percent = facts
+            .memory_usage_info
             .as_ref()
             .map(|m| m.ram_usage_percent as f64)
             .unwrap_or(0.0);
@@ -108,7 +112,9 @@ impl TelemetryPayload {
             disk_usage,
         };
 
-        let recent_errors = facts.failed_services.iter()
+        let recent_errors = facts
+            .failed_services
+            .iter()
             .take(5)
             .map(|s| format!("Failed service: {}", s))
             .collect();
@@ -155,13 +161,13 @@ impl TelemetryPayload {
                 let avail_str = parts[2];
 
                 // Only include major mount points (/, /home, /boot, etc.)
-                if mount.starts_with('/') && (
-                    mount == "/" ||
-                    mount == "/home" ||
-                    mount == "/boot" ||
-                    mount.starts_with("/mnt") ||
-                    mount.starts_with("/media")
-                ) {
+                if mount.starts_with('/')
+                    && (mount == "/"
+                        || mount == "/home"
+                        || mount == "/boot"
+                        || mount.starts_with("/mnt")
+                        || mount.starts_with("/media"))
+                {
                     if let Ok(used_percent) = used_str.parse::<f64>() {
                         // Parse available GB (remove 'G' suffix if present)
                         let available_gb = avail_str
@@ -184,13 +190,82 @@ impl TelemetryPayload {
         disk_usage
     }
 
+    /// Convert to HashMap for recipe matching (Beta.151)
+    pub fn to_hashmap(&self) -> std::collections::HashMap<String, String> {
+        let mut map = std::collections::HashMap::new();
+
+        // Hardware
+        map.insert("cpu_model".to_string(), self.hardware.cpu_model.clone());
+        map.insert("cpu_cores".to_string(), self.hardware.cpu_cores.to_string());
+        map.insert(
+            "total_ram_gb".to_string(),
+            self.hardware.total_ram_gb.to_string(),
+        );
+        if let Some(ref gpu) = self.hardware.gpu_model {
+            map.insert("gpu_model".to_string(), gpu.clone());
+        }
+
+        // OS
+        map.insert("hostname".to_string(), self.os.hostname.clone());
+        map.insert("kernel".to_string(), self.os.kernel.clone());
+        map.insert(
+            "user".to_string(),
+            std::env::var("USER").unwrap_or_else(|_| "user".to_string()),
+        );
+        map.insert(
+            "home".to_string(),
+            std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
+        );
+
+        // Resources
+        map.insert(
+            "load_avg_1".to_string(),
+            self.resources.load_avg.0.to_string(),
+        );
+        map.insert(
+            "ram_used_percent".to_string(),
+            self.resources.ram_used_percent.to_string(),
+        );
+
+        // Disk space (use root mount point)
+        if let Some(root_disk) = self.resources.disk_usage.iter().find(|d| d.mount == "/") {
+            map.insert(
+                "disk_free_gb".to_string(),
+                root_disk.available_gb.to_string(),
+            );
+            map.insert(
+                "disk_used_percent".to_string(),
+                root_disk.used_percent.to_string(),
+            );
+        }
+
+        // Check internet connectivity (heuristic: assume true if not in airplane mode)
+        map.insert("internet_connected".to_string(), "true".to_string());
+
+        // Desktop environment detection (from env vars or process check)
+        if let Ok(de) = std::env::var("XDG_CURRENT_DESKTOP") {
+            map.insert("desktop_environment".to_string(), de.to_lowercase());
+        }
+        if let Ok(session) = std::env::var("XDG_SESSION_TYPE") {
+            map.insert("display_protocol".to_string(), session.to_lowercase());
+        }
+        if let Ok(wm) = std::env::var("DESKTOP_SESSION") {
+            map.insert("window_manager".to_string(), wm.to_lowercase());
+        }
+
+        map
+    }
+
     /// Render as concise text for LLM context
     pub fn render(&self) -> String {
         let mut text = String::from("[ANNA_TELEMETRY_PAYLOAD]\n");
 
         // Hardware
         text.push_str("Hardware:\n");
-        text.push_str(&format!("  CPU: {} ({} cores)\n", self.hardware.cpu_model, self.hardware.cpu_cores));
+        text.push_str(&format!(
+            "  CPU: {} ({} cores)\n",
+            self.hardware.cpu_model, self.hardware.cpu_cores
+        ));
         text.push_str(&format!("  RAM: {:.1} GB\n", self.hardware.total_ram_gb));
         if let Some(ref gpu) = self.hardware.gpu_model {
             text.push_str(&format!("  GPU: {}\n", gpu));
@@ -206,18 +281,19 @@ impl TelemetryPayload {
 
         // Resources
         text.push_str("Current Resources:\n");
-        text.push_str(&format!("  Load: {:.2}, {:.2}, {:.2}\n",
-            self.resources.load_avg.0,
-            self.resources.load_avg.1,
-            self.resources.load_avg.2,
+        text.push_str(&format!(
+            "  Load: {:.2}, {:.2}, {:.2}\n",
+            self.resources.load_avg.0, self.resources.load_avg.1, self.resources.load_avg.2,
         ));
-        text.push_str(&format!("  RAM usage: {:.1}%\n", self.resources.ram_used_percent));
+        text.push_str(&format!(
+            "  RAM usage: {:.1}%\n",
+            self.resources.ram_used_percent
+        ));
 
         for disk in &self.resources.disk_usage {
-            text.push_str(&format!("  Disk {}: {:.1}% ({:.1} GB free)\n",
-                disk.mount,
-                disk.used_percent,
-                disk.available_gb,
+            text.push_str(&format!(
+                "  Disk {}: {:.1}% ({:.1} GB free)\n",
+                disk.mount, disk.used_percent, disk.available_gb,
             ));
         }
         text.push('\n');
@@ -234,10 +310,19 @@ impl TelemetryPayload {
         // Trends
         if let Some(ref trends) = self.trends {
             text.push_str("30-Day Trends:\n");
-            text.push_str(&format!("  Boot time: {:.1}s avg\n", trends.avg_boot_time_s));
-            text.push_str(&format!("  CPU usage: {:.1}% avg\n", trends.avg_cpu_percent));
+            text.push_str(&format!(
+                "  Boot time: {:.1}s avg\n",
+                trends.avg_boot_time_s
+            ));
+            text.push_str(&format!(
+                "  CPU usage: {:.1}% avg\n",
+                trends.avg_cpu_percent
+            ));
             text.push_str(&format!("  Stability: {}/100\n", trends.stability_score));
-            text.push_str(&format!("  Performance: {}/100\n", trends.performance_score));
+            text.push_str(&format!(
+                "  Performance: {}/100\n",
+                trends.performance_score
+            ));
             text.push_str(&format!("  Days analyzed: {}\n", trends.days_analyzed));
             text.push('\n');
         }
@@ -314,8 +399,10 @@ fn is_simple_question(question: &str) -> bool {
 
     // Simple hardware queries
     if (q_lower.contains("how much") || q_lower.contains("what"))
-        && (q_lower.contains("ram") || q_lower.contains("memory")
-            || q_lower.contains("cpu") || q_lower.contains("disk")
+        && (q_lower.contains("ram")
+            || q_lower.contains("memory")
+            || q_lower.contains("cpu")
+            || q_lower.contains("disk")
             || q_lower.contains("gpu"))
     {
         return true;
@@ -374,11 +461,18 @@ pub async fn run_internal_dialogue(
     } else {
         // Advanced mode: Two-round dialogue for larger models
         // Step 1: Planning round
-        let planner_prompt = build_planner_prompt(user_message, payload, personality, current_model);
+        let planner_prompt =
+            build_planner_prompt(user_message, payload, personality, current_model);
         let planner_response = query_llm(llm_config, &planner_prompt).await?;
 
         // Step 2: Answer round
-        let answer_prompt = build_answer_prompt(user_message, payload, personality, current_model, &planner_response);
+        let answer_prompt = build_answer_prompt(
+            user_message,
+            payload,
+            personality,
+            current_model,
+            &planner_response,
+        );
         let answer = query_llm(llm_config, &answer_prompt).await?;
 
         // Build trace if enabled
@@ -420,7 +514,8 @@ pub async fn run_internal_dialogue_v2(
     let system_prompt = crate::system_prompt_v2::build_system_prompt();
 
     // Build user prompt with telemetry and question
-    let user_prompt = crate::system_prompt_v2::build_user_prompt(user_message, payload, personality);
+    let user_prompt =
+        crate::system_prompt_v2::build_user_prompt(user_message, payload, personality);
 
     // Single-round with strict system prompt
     let answer = query_llm_with_system(llm_config, &system_prompt, &user_prompt).await?;
@@ -430,8 +525,11 @@ pub async fn run_internal_dialogue_v2(
             internal_summary: "V2: Single-round with strict system prompt".to_string(),
             planner_prompt_excerpt: "".to_string(),
             planner_response_excerpt: "".to_string(),
-            answer_prompt_excerpt: format!("System: {} chars, User: {} chars",
-                system_prompt.len(), user_prompt.len()),
+            answer_prompt_excerpt: format!(
+                "System: {} chars, User: {} chars",
+                system_prompt.len(),
+                user_prompt.len()
+            ),
         })
     } else {
         None
@@ -464,7 +562,10 @@ fn build_simple_prompt(
 
     if needs_hardware {
         prompt.push_str("SYSTEM INFO:\n");
-        prompt.push_str(&format!("CPU: {} ({} cores)\n", payload.hardware.cpu_model, payload.hardware.cpu_cores));
+        prompt.push_str(&format!(
+            "CPU: {} ({} cores)\n",
+            payload.hardware.cpu_model, payload.hardware.cpu_cores
+        ));
         prompt.push_str(&format!("RAM: {:.1} GB\n", payload.hardware.total_ram_gb));
         if let Some(ref gpu) = payload.hardware.gpu_model {
             prompt.push_str(&format!("GPU: {}\n", gpu));
@@ -503,7 +604,8 @@ fn build_planner_prompt(
 ) -> String {
     let mut prompt = String::new();
 
-    prompt.push_str("You are Anna's planning system. Analyze the user's question and telemetry.\n\n");
+    prompt
+        .push_str("You are Anna's planning system. Analyze the user's question and telemetry.\n\n");
 
     // Telemetry
     prompt.push_str(&payload.render());
@@ -550,7 +652,8 @@ fn build_answer_prompt(
 ) -> String {
     let mut prompt = String::new();
 
-    prompt.push_str("You are Anna, Arch Linux system administrator. Generate the final answer.\n\n");
+    prompt
+        .push_str("You are Anna, Arch Linux system administrator. Generate the final answer.\n\n");
 
     // Include planner's analysis
     prompt.push_str("[PLANNER_ANALYSIS]\n");
@@ -627,11 +730,12 @@ async fn query_llm_with_system(
     system_prompt: &str,
     user_prompt: &str,
 ) -> Result<String> {
-    let base_url = config.base_url.as_ref()
+    let base_url = config
+        .base_url
+        .as_ref()
         .context("LLM base_url not configured")?;
 
-    let model = config.model.as_ref()
-        .context("LLM model not configured")?;
+    let model = config.model.as_ref().context("LLM model not configured")?;
 
     let endpoint = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
@@ -682,7 +786,10 @@ async fn query_llm_with_system(
         }
     }
 
-    let response = req_builder.send().await.context("Failed to send LLM request")?;
+    let response = req_builder
+        .send()
+        .await
+        .context("Failed to send LLM request")?;
 
     if !response.status().is_success() {
         let status = response.status();
@@ -690,7 +797,10 @@ async fn query_llm_with_system(
         anyhow::bail!("LLM API error {}: {}", status, error_text);
     }
 
-    let completion: ChatCompletionResponse = response.json().await.context("Failed to parse LLM response")?;
+    let completion: ChatCompletionResponse = response
+        .json()
+        .await
+        .context("Failed to parse LLM response")?;
 
     let answer = completion
         .choices
@@ -703,11 +813,12 @@ async fn query_llm_with_system(
 
 /// Query LLM with a prepared prompt (legacy, for compatibility)
 async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
-    let base_url = config.base_url.as_ref()
+    let base_url = config
+        .base_url
+        .as_ref()
         .context("LLM base_url not configured")?;
 
-    let model = config.model.as_ref()
-        .context("LLM model not configured")?;
+    let model = config.model.as_ref().context("LLM model not configured")?;
 
     let endpoint = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
@@ -740,7 +851,7 @@ async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
         messages,
         max_tokens: config.max_tokens,
         temperature: 0.7,
-        stream: false,  // TODO beta.58: Enable streaming with futures dependency
+        stream: false, // TODO beta.58: Enable streaming with futures dependency
     };
 
     let client = reqwest::Client::new();
@@ -752,7 +863,10 @@ async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
         }
     }
 
-    let response = req_builder.send().await.context("Failed to send LLM request")?;
+    let response = req_builder
+        .send()
+        .await
+        .context("Failed to send LLM request")?;
 
     if !response.status().is_success() {
         let status = response.status();
@@ -760,7 +874,10 @@ async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
         anyhow::bail!("LLM API error {}: {}", status, error_text);
     }
 
-    let completion: ChatCompletionResponse = response.json().await.context("Failed to parse LLM response")?;
+    let completion: ChatCompletionResponse = response
+        .json()
+        .await
+        .context("Failed to parse LLM response")?;
 
     let answer = completion
         .choices

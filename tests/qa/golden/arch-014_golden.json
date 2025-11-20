@@ -1,0 +1,39 @@
+{
+  "id": "arch-014",
+  "question": "How do I view logs for a specific systemd service?",
+  "golden_answer": {
+    "summary": "Use 'journalctl -u <service>' to view service logs, with options for filtering by boot, time, or priority.",
+    "steps": [
+      "View all logs for service: journalctl -u <service-name>",
+      "View logs from current boot only: journalctl -u <service-name> -b",
+      "View last 50 lines: journalctl -u <service-name> -n 50",
+      "Follow logs in real-time: journalctl -u <service-name> -f",
+      "Show logs since specific time: journalctl -u <service-name> --since '1 hour ago'",
+      "Show only errors: journalctl -u <service-name> -p err",
+      "Show with timestamps: journalctl -u <service-name> -o short-iso"
+    ],
+    "required_commands": [
+      "journalctl -u"
+    ],
+    "required_files": [],
+    "required_concepts": [
+      "journalctl",
+      "systemd journal",
+      "service logs"
+    ],
+    "validation": [
+      "Logs display relevant service information",
+      "Can identify errors or issues from log output"
+    ],
+    "warnings": [
+      "Journal can be large - use filters (boot, time, priority) to narrow results",
+      "Use -b to see only current boot (helpful after reboot)",
+      "Use -f for real-time monitoring (like tail -f)",
+      "Logs rotate automatically but can be cleaned with journalctl --vacuum-size=100M"
+    ],
+    "references": [
+      "Arch Wiki: systemd/Journal",
+      "man journalctl"
+    ]
+  }
+}

@@ -9,9 +9,7 @@ use crate::model_catalog::{self};
 use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::UI;
 use anna_common::llm::LlmConfig;
-use anna_common::model_profiles::{
-    get_recommended_with_fallbacks, ModelProfile, QualityTier,
-};
+use anna_common::model_profiles::{get_recommended_with_fallbacks, ModelProfile, QualityTier};
 use anna_common::types::SystemFacts;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -25,10 +23,8 @@ pub async fn run_model_setup_wizard_if_needed(
     let ui = UI::auto();
 
     // Get recommended model and fallbacks using new system
-    let (recommended_opt, fallbacks) = get_recommended_with_fallbacks(
-        facts.total_memory_gb,
-        facts.cpu_cores,
-    );
+    let (recommended_opt, fallbacks) =
+        get_recommended_with_fallbacks(facts.total_memory_gb, facts.cpu_cores);
 
     let recommended = match recommended_opt {
         Some(profile) => profile,
@@ -63,7 +59,10 @@ pub async fn run_model_setup_wizard_if_needed(
         println!();
 
         // Ask user if they want to upgrade now
-        print!("Would you like to install {} now? [Y/n]: ", recommended.model_name);
+        print!(
+            "Would you like to install {} now? [Y/n]: ",
+            recommended.model_name
+        );
         io::stdout().flush()?;
 
         let mut input = String::new();
@@ -113,10 +112,8 @@ pub fn show_model_selection_menu(facts: &SystemFacts) -> Result<Option<String>> 
     print_hardware_summary(facts);
     println!();
 
-    let (recommended_opt, fallbacks) = get_recommended_with_fallbacks(
-        facts.total_memory_gb,
-        facts.cpu_cores,
-    );
+    let (recommended_opt, fallbacks) =
+        get_recommended_with_fallbacks(facts.total_memory_gb, facts.cpu_cores);
 
     let recommended = match recommended_opt {
         Some(profile) => profile,
@@ -201,7 +198,9 @@ fn check_if_upgrade_recommended(
 ) -> bool {
     // Recommend upgrade if:
     // 1. Using tiny model (1b/1.5b) on 8GB+ system
-    if (current_model.contains("1b") || current_model.contains("1.5b")) && facts.total_memory_gb >= 8.0 {
+    if (current_model.contains("1b") || current_model.contains("1.5b"))
+        && facts.total_memory_gb >= 8.0
+    {
         return true;
     }
 
@@ -222,7 +221,10 @@ fn check_if_upgrade_recommended(
 
 /// Print detailed model recommendation with performance expectations
 fn print_model_recommendation(profile: &ModelProfile, ui: &UI) {
-    ui.info(&format!("Recommended: {} ({})", profile.model_name, profile.description));
+    ui.info(&format!(
+        "Recommended: {} ({})",
+        profile.model_name, profile.description
+    ));
     println!("  • Quality Tier: {:?}", profile.quality_tier);
     println!("  • Size: {:.1} GB download", profile.size_gb);
     println!("  • RAM required: ≥{} GB", profile.min_ram_gb);
@@ -230,17 +232,27 @@ fn print_model_recommendation(profile: &ModelProfile, ui: &UI) {
     println!();
 
     ui.info("Performance Expectations:");
-    println!("  • Speed: ≥{:.0} tokens/sec", profile.quality_tier.min_tokens_per_second());
-    println!("  • Quality: ≥{:.0}% accuracy", profile.quality_tier.min_quality_score() * 100.0);
+    println!(
+        "  • Speed: ≥{:.0} tokens/sec",
+        profile.quality_tier.min_tokens_per_second()
+    );
+    println!(
+        "  • Quality: ≥{:.0}% accuracy",
+        profile.quality_tier.min_quality_score() * 100.0
+    );
     println!("  • {}", profile.quality_tier.description());
 }
 
 /// Print model details with tier information
 fn print_model_details(profile: &ModelProfile, _ui: &UI) {
     println!("      • {}", profile.description);
-    println!("      • Tier: {:?} | Size: {:.1} GB | RAM: ≥{} GB",
-             profile.quality_tier, profile.size_gb, profile.min_ram_gb);
-    println!("      • Expected: ≥{:.0} tok/s, ≥{:.0}% quality",
-             profile.quality_tier.min_tokens_per_second(),
-             profile.quality_tier.min_quality_score() * 100.0);
+    println!(
+        "      • Tier: {:?} | Size: {:.1} GB | RAM: ≥{} GB",
+        profile.quality_tier, profile.size_gb, profile.min_ram_gb
+    );
+    println!(
+        "      • Expected: ≥{:.0} tok/s, ≥{:.0}% quality",
+        profile.quality_tier.min_tokens_per_second(),
+        profile.quality_tier.min_quality_score() * 100.0
+    );
 }

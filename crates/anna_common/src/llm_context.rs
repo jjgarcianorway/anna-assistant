@@ -779,7 +779,6 @@ impl LlmContext {
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn test_llm_context_summary() {

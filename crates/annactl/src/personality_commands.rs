@@ -47,7 +47,10 @@ pub async fn handle_personality_show() -> Result<()> {
         println!();
     }
 
-    println!("{}", fmt::dimmed("Use 'annactl personality set <trait> <value>' to customize"));
+    println!(
+        "{}",
+        fmt::dimmed("Use 'annactl personality set <trait> <value>' to customize")
+    );
     println!();
 
     Ok(())
@@ -87,7 +90,10 @@ pub async fn handle_personality_set(trait_key: String, value: u8) -> Result<()> 
         println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
         Ok(())
     } else {
-        anyhow::bail!("Trait '{}' not found. Use 'annactl personality show' to see available traits", trait_key);
+        anyhow::bail!(
+            "Trait '{}' not found. Use 'annactl personality show' to see available traits",
+            trait_key
+        );
     }
 }
 
@@ -122,7 +128,10 @@ pub async fn handle_personality_adjust(trait_key: String, delta: i8) -> Result<(
         println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
         Ok(())
     } else {
-        anyhow::bail!("Trait '{}' not found. Use 'annactl personality show' to see available traits", trait_key);
+        anyhow::bail!(
+            "Trait '{}' not found. Use 'annactl personality show' to see available traits",
+            trait_key
+        );
     }
 }
 
@@ -138,7 +147,10 @@ pub async fn handle_personality_reset() -> Result<()> {
     // Save to database
     default_personality.save_to_db(&db).await?;
 
-    println!("{}", fmt::success("✓ Reset all personality traits to defaults"));
+    println!(
+        "{}",
+        fmt::success("✓ Reset all personality traits to defaults")
+    );
     println!();
     println!("{}", fmt::dimmed("Restart Anna for changes to take effect"));
 
@@ -159,14 +171,23 @@ pub async fn handle_personality_validate() -> Result<()> {
         Ok(_) => {
             println!("{}", fmt::success("✓ Personality configuration is valid"));
             println!();
-            println!("{}", fmt::dimmed("No conflicting trait combinations detected"));
+            println!(
+                "{}",
+                fmt::dimmed("No conflicting trait combinations detected")
+            );
             Ok(())
         }
         Err(issues) => {
             let error_msg = issues.join(", ");
-            println!("{}", fmt::error(&format!("✗ Validation failed: {}", error_msg)));
+            println!(
+                "{}",
+                fmt::error(&format!("✗ Validation failed: {}", error_msg))
+            );
             println!();
-            println!("{}", fmt::dimmed("Fix conflicts with 'annactl personality set'"));
+            println!(
+                "{}",
+                fmt::dimmed("Fix conflicts with 'annactl personality set'")
+            );
             anyhow::bail!("Validation failed: {}", error_msg)
         }
     }
@@ -185,7 +206,8 @@ pub async fn handle_personality_export(path: Option<String>) -> Result<()> {
     let export_path = match path {
         Some(p) => std::path::PathBuf::from(p),
         None => {
-            let mut default_path = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))?;
+            let mut default_path = dirs::home_dir()
+                .ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))?;
             default_path.push("anna_personality_export.toml");
             default_path
         }
@@ -197,10 +219,16 @@ pub async fn handle_personality_export(path: Option<String>) -> Result<()> {
 
     println!(
         "{}",
-        fmt::success(&format!("✓ Exported personality to: {}", export_path.display()))
+        fmt::success(&format!(
+            "✓ Exported personality to: {}",
+            export_path.display()
+        ))
     );
     println!();
-    println!("{}", fmt::dimmed("You can edit this file and import it back"));
+    println!(
+        "{}",
+        fmt::dimmed("You can edit this file and import it back")
+    );
 
     Ok(())
 }

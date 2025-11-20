@@ -1,0 +1,54 @@
+# Question: How do I configure DNS servers on Arch Linux?
+# Question ID: arch-007
+# Timestamp: 2025-11-20T14:46:40.013407
+# Return code: 0
+
+--- STDOUT ---
+
+[1m[96myou:[39m[0m [37mHow do I configure DNS servers on Arch Linux?[39m
+
+[2m[95manna (thinking):[39m[0m 
+                                                                                
+[1m[95manna:[39m[0m
+
+[36mℹ[39m [2mTo configure the DNS servers on your Arch Linux system, run these commands:[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2m```bash[0m
+[36mℹ[39m [2msudo systemctl edit NetworkManager.service[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mReplace the contents with the following configuration:[0m
+[36mℹ[39m [2m```ini[0m
+[36mℹ[39m [2m[NetworkManager][0m
+[36mℹ[39m [2mDNS=8.8.8.8 8.8.4.4[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2mThis sets Google's public DNS servers, but you can replace them with your preferred DNS servers.[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mNext, run:[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2m```bash[0m
+[36mℹ[39m [2msudo systemctl restart NetworkManager[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mThese commands will update the Network Manager service to use the specified DNS servers and restart it for changes to take effect.[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mPlease note that this will overwrite any existing settings. If you need a more complex configuration or want to add additional DNS servers, consider using the `resolv.conf` file instead:[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2m```bash[0m
+[36mℹ[39m [2msudo nano /etc/resolv.conf[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mAdd the following lines:[0m
+[36mℹ[39m [2m```plain[0m
+[36mℹ[39m [2mnameserver 8.8.8.8[0m
+[36mℹ[39m [2mnameserver 8.8.4.4[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2mReplace them with your preferred DNS servers.[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mFor more information, you can refer to the Arch Wiki's [NetworkManager](https://wiki.archlinux.org/title/NetworkManager) and [Resolv.conf](https://wiki.archlinux.org/title/Resolv.conf) pages.[0m
+
+[2m🔍 Confidence: Medium | Sources: LLM[0m
+
+
+--- STDERR ---
+V3 dialogue temporarily disabled - falling back to streaming

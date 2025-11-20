@@ -32,33 +32,19 @@ pub struct ValidationResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ValidationIssue {
     /// Potential hallucination detected
-    Hallucination {
-        item: String,
-        reason: String,
-    },
+    Hallucination { item: String, reason: String },
 
     /// Invalid or dangerous command
-    UnsafeCommand {
-        command: String,
-        reason: String,
-    },
+    UnsafeCommand { command: String, reason: String },
 
     /// Missing information
-    Incomplete {
-        missing: String,
-    },
+    Incomplete { missing: String },
 
     /// Unclear or confusing explanation
-    Clarity {
-        section: String,
-        issue: String,
-    },
+    Clarity { section: String, issue: String },
 
     /// Factual error
-    FactualError {
-        claim: String,
-        correction: String,
-    },
+    FactualError { claim: String, correction: String },
 }
 
 /// Answer validator with multi-pass validation
@@ -93,7 +79,11 @@ impl AnswerValidator {
     }
 
     /// Validate an answer through multi-pass pipeline
-    pub async fn validate(&self, answer: &str, context: &ValidationContext) -> Result<ValidationResult> {
+    pub async fn validate(
+        &self,
+        answer: &str,
+        context: &ValidationContext,
+    ) -> Result<ValidationResult> {
         let mut issues = Vec::new();
         let mut suggestions = Vec::new();
 
@@ -179,7 +169,11 @@ impl AnswerValidator {
     }
 
     /// Validate that referenced files actually exist or are clearly hypothetical
-    fn validate_file_references(&self, answer: &str, context: &ValidationContext) -> Result<Vec<ValidationIssue>> {
+    fn validate_file_references(
+        &self,
+        answer: &str,
+        context: &ValidationContext,
+    ) -> Result<Vec<ValidationIssue>> {
         let mut issues = Vec::new();
 
         // Extract file paths from answer
@@ -187,7 +181,10 @@ impl AnswerValidator {
 
         for file_path in file_refs {
             // Skip common placeholders
-            if file_path.contains("example") || file_path.contains("<") || file_path.contains("your") {
+            if file_path.contains("example")
+                || file_path.contains("<")
+                || file_path.contains("your")
+            {
                 continue;
             }
 
@@ -195,11 +192,13 @@ impl AnswerValidator {
             if !context.known_files.iter().any(|f| f.contains(&file_path)) {
                 // Not necessarily a hallucination - could be a suggestion
                 // Only flag if presented as fact
-                if answer.contains(&format!("in {}", file_path)) ||
-                   answer.contains(&format!("at {}", file_path)) {
+                if answer.contains(&format!("in {}", file_path))
+                    || answer.contains(&format!("at {}", file_path))
+                {
                     issues.push(ValidationIssue::Hallucination {
                         item: file_path.clone(),
-                        reason: "File path mentioned as existing but not found in context".to_string(),
+                        reason: "File path mentioned as existing but not found in context"
+                            .to_string(),
                     });
                 }
             }
@@ -209,7 +208,11 @@ impl AnswerValidator {
     }
 
     /// Validate package name references
-    fn validate_package_references(&self, answer: &str, context: &ValidationContext) -> Result<Vec<ValidationIssue>> {
+    fn validate_package_references(
+        &self,
+        answer: &str,
+        context: &ValidationContext,
+    ) -> Result<Vec<ValidationIssue>> {
         let mut issues = Vec::new();
 
         // Extract package names from pacman/yay commands
@@ -223,8 +226,9 @@ impl AnswerValidator {
             }
 
             // Check against known packages in context
-            if !context.known_packages.is_empty() &&
-               !context.known_packages.iter().any(|p| p == &package) {
+            if !context.known_packages.is_empty()
+                && !context.known_packages.iter().any(|p| p == &package)
+            {
                 // This might be a hallucination
                 issues.push(ValidationIssue::Hallucination {
                     item: package.clone(),
@@ -237,7 +241,11 @@ impl AnswerValidator {
     }
 
     /// Validate that answer addresses the user's question
-    fn validate_completeness(&self, answer: &str, context: &ValidationContext) -> Result<Vec<ValidationIssue>> {
+    fn validate_completeness(
+        &self,
+        answer: &str,
+        context: &ValidationContext,
+    ) -> Result<Vec<ValidationIssue>> {
         let mut issues = Vec::new();
 
         // Check if answer is too short
@@ -251,15 +259,20 @@ impl AnswerValidator {
         let question = &context.user_question;
         let question_lower = question.to_lowercase();
 
-        if question_lower.contains("how") && !answer.to_lowercase().contains("step")
-            && !answer.contains("1.") && !answer.contains("First") {
+        if question_lower.contains("how")
+            && !answer.to_lowercase().contains("step")
+            && !answer.contains("1.")
+            && !answer.contains("First")
+        {
             issues.push(ValidationIssue::Incomplete {
                 missing: "Question asks 'how' but answer doesn't provide clear steps".to_string(),
             });
         }
 
-        if question_lower.contains("why") && !answer.to_lowercase().contains("because")
-            && !answer.to_lowercase().contains("reason") {
+        if question_lower.contains("why")
+            && !answer.to_lowercase().contains("because")
+            && !answer.to_lowercase().contains("reason")
+        {
             issues.push(ValidationIssue::Incomplete {
                 missing: "Question asks 'why' but answer doesn't provide reasoning".to_string(),
             });
@@ -324,7 +337,10 @@ impl AnswerValidator {
         for issue in issues {
             let suggestion = match issue {
                 ValidationIssue::Hallucination { item, .. } => {
-                    format!("Verify that '{}' actually exists before mentioning it", item)
+                    format!(
+                        "Verify that '{}' actually exists before mentioning it",
+                        item
+                    )
                 }
                 ValidationIssue::UnsafeCommand { command, .. } => {
                     format!("Replace unsafe command: {}", command)
@@ -368,15 +384,23 @@ impl AnswerValidator {
         let parts: Vec<&str> = text.split('`').collect();
         // Every odd-indexed part is inside backticks
         for (i, part) in parts.iter().enumerate() {
-            if i % 2 == 1 && !part.trim().is_empty() {  // Odd index = inside backticks
+            if i % 2 == 1 && !part.trim().is_empty() {
+                // Odd index = inside backticks
                 // Check if it looks like a command
                 let part_lower = part.to_lowercase();
                 let first_word = part.trim().split_whitespace().next().unwrap_or("");
 
-                if part_lower.contains("sudo") || part_lower.contains("pacman") ||
-                   part_lower.contains("systemctl") || part_lower.contains("rm") ||
-                   part_lower.contains("dd") || part_lower.contains("mkfs") ||
-                   ["ls", "cd", "cp", "mv", "cat", "chmod", "chown", "git", "curl", "wget"].contains(&first_word) {
+                if part_lower.contains("sudo")
+                    || part_lower.contains("pacman")
+                    || part_lower.contains("systemctl")
+                    || part_lower.contains("rm")
+                    || part_lower.contains("dd")
+                    || part_lower.contains("mkfs")
+                    || [
+                        "ls", "cd", "cp", "mv", "cat", "chmod", "chown", "git", "curl", "wget",
+                    ]
+                    .contains(&first_word)
+                {
                     commands.push(part.trim().to_string());
                 }
             }
@@ -391,8 +415,14 @@ impl AnswerValidator {
 
         // Simple extraction - look for path-like patterns
         for word in text.split_whitespace() {
-            if word.starts_with('/') || word.starts_with("~/") || word.contains(".conf") || word.contains(".service") {
-                let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '-' && c != '_');
+            if word.starts_with('/')
+                || word.starts_with("~/")
+                || word.contains(".conf")
+                || word.contains(".service")
+            {
+                let clean = word.trim_matches(|c: char| {
+                    !c.is_alphanumeric() && c != '/' && c != '.' && c != '-' && c != '_'
+                });
                 paths.push(clean.to_string());
             }
         }
@@ -426,12 +456,48 @@ impl AnswerValidator {
     /// Build list of known safe commands
     fn build_safe_command_list() -> HashSet<String> {
         vec![
-            "ls", "cd", "pwd", "cat", "echo", "grep", "find", "which", "man",
-            "sudo", "pacman", "yay", "systemctl", "journalctl", "ip", "ping",
-            "mkdir", "rm", "cp", "mv", "chmod", "chown", "ln", "touch",
-            "git", "cargo", "rustc", "python", "node", "npm", "make",
-            "ps", "top", "htop", "kill", "killall", "pkill",
-            "tar", "gzip", "unzip", "curl", "wget",
+            "ls",
+            "cd",
+            "pwd",
+            "cat",
+            "echo",
+            "grep",
+            "find",
+            "which",
+            "man",
+            "sudo",
+            "pacman",
+            "yay",
+            "systemctl",
+            "journalctl",
+            "ip",
+            "ping",
+            "mkdir",
+            "rm",
+            "cp",
+            "mv",
+            "chmod",
+            "chown",
+            "ln",
+            "touch",
+            "git",
+            "cargo",
+            "rustc",
+            "python",
+            "node",
+            "npm",
+            "make",
+            "ps",
+            "top",
+            "htop",
+            "kill",
+            "killall",
+            "pkill",
+            "tar",
+            "gzip",
+            "unzip",
+            "curl",
+            "wget",
         ]
         .into_iter()
         .map(String::from)
@@ -515,7 +581,11 @@ mod tests {
 
         let result = validator.validate(answer, &context).await.unwrap();
         // Should not flag 'ls' as it's in safe list
-        assert!(result.confidence >= 0.8, "Expected confidence >= 0.8, got {}", result.confidence);
+        assert!(
+            result.confidence >= 0.8,
+            "Expected confidence >= 0.8, got {}",
+            result.confidence
+        );
     }
 
     #[tokio::test]
@@ -526,7 +596,16 @@ mod tests {
 
         let result = validator.validate(answer, &context).await.unwrap();
         // Should detect dangerous command
-        assert!(!result.passed, "Expected validation to fail for 'rm -rf /', but it passed");
-        assert!(result.issues.iter().any(|i| matches!(i, ValidationIssue::UnsafeCommand { .. })), "Expected UnsafeCommand issue");
+        assert!(
+            !result.passed,
+            "Expected validation to fail for 'rm -rf /', but it passed"
+        );
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|i| matches!(i, ValidationIssue::UnsafeCommand { .. })),
+            "Expected UnsafeCommand issue"
+        );
     }
 }

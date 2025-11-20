@@ -1,0 +1,45 @@
+{
+  "id": "arch-002",
+  "question": "How do I install a package from the AUR?",
+  "golden_answer": {
+    "summary": "Clone the AUR package repository with git, review the PKGBUILD, then build and install using makepkg -si.",
+    "steps": [
+      "Install base development tools: sudo pacman -S --needed base-devel git",
+      "Navigate to build directory: cd ~/builds (or create one: mkdir -p ~/builds)",
+      "Clone the AUR package: git clone https://aur.archlinux.org/<package-name>.git",
+      "Enter package directory: cd <package-name>",
+      "CRITICAL: Review PKGBUILD for security: cat PKGBUILD or nano PKGBUILD",
+      "Build and install: makepkg -si",
+      "Verify installation: pacman -Qi <package-name>"
+    ],
+    "required_commands": [
+      "pacman -S base-devel git",
+      "git clone",
+      "makepkg -si"
+    ],
+    "required_files": [
+      "PKGBUILD"
+    ],
+    "required_concepts": [
+      "AUR (Arch User Repository)",
+      "PKGBUILD",
+      "makepkg",
+      "base-devel"
+    ],
+    "validation": [
+      "pacman -Qi <package-name>",
+      "which <binary-name>"
+    ],
+    "warnings": [
+      "ALWAYS review PKGBUILD before building - AUR packages are user-submitted and not officially verified",
+      "Check package comments on AUR website for known issues",
+      "Never run makepkg as root",
+      "Consider using an AUR helper like yay or paru for easier updates, but still review PKGBUILDs"
+    ],
+    "references": [
+      "Arch Wiki: Arch User Repository",
+      "Arch Wiki: makepkg",
+      "AUR website: https://aur.archlinux.org"
+    ]
+  }
+}

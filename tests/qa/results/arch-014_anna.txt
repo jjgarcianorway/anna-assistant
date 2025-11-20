@@ -1,0 +1,31 @@
+# Question: How do I view logs for a specific systemd service?
+# Question ID: arch-014
+# Timestamp: 2025-11-20T14:46:58.076756
+# Return code: 0
+
+--- STDOUT ---
+
+[1m[96myou:[39m[0m [37mHow do I view logs for a specific systemd service?[39m
+
+[2m[95manna (thinking):[39m[0m 
+                                                                                
+[1m[95manna:[39m[0m
+
+[36mℹ[39m [2mRun these commands:[0m
+[36mℹ[39m [2m```bash[0m
+[36mℹ[39m [2msystemctl status <service-name>[0m
+[36mℹ[39m [2mjournalctl -u <service-name> --since "1 hour ago"[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2mThis will show the current status of the specified service and its recent logs.[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mNote: Replace `<service-name>` with the actual name of the systemd service you're interested in (e.g., `NetworkManager`, `Apache`).[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mExplanation:[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2m* The first command, `systemctl status <service-name>`, shows the current status of the specified service.[0m
+[36mℹ[39m [2m* The second command, `journalctl -u <service-name> --since "1 hour ago"`, displays recent logs for the specified service, going back one hour. Adjust the time period as needed (e.g., use `"yesterday"` or `"today"`).[0m
+
+[2m🔍 Confidence: Medium | Sources: LLM[0m
+
+
+--- STDERR ---

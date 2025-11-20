@@ -9,7 +9,9 @@ use ratatui::{
 };
 use tokio::sync::mpsc;
 
-use super::action_plan::{generate_action_plan_from_llm, send_demo_action_plan, should_generate_action_plan};
+use super::action_plan::{
+    generate_action_plan_from_llm, send_demo_action_plan, should_generate_action_plan,
+};
 use super::event_loop::TuiMessage;
 use super::llm::generate_reply_streaming;
 

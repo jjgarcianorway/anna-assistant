@@ -1,0 +1,18 @@
+# Question: How do I rebuild the initramfs after a kernel update?
+# Question ID: arch-006
+# Timestamp: 2025-11-20T14:46:33.432945
+# Return code: 0
+
+--- STDOUT ---
+
+[1m[96myou:[39m[0m [37mHow do I rebuild the initramfs after a kernel update?[39m
+
+[2m[95manna (thinking):[39m[0m 
+                                                                                
+[1m[95manna:[39m[0m [37mRunning:[39m
+[36mℹ[39m [2m  $ uname -r[0m
+
+[36mℹ[39m [2m6.17.8-arch1-1[0m
+
+
+--- STDERR ---

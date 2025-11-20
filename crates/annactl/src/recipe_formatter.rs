@@ -56,9 +56,7 @@ pub fn format_recipe_answer(recipe: &Recipe, _question: &str) -> String {
                 answer.push_str("\n```\n\n");
             }
         }
-        answer.push_str(
-            "💾 Backups are created with `.ANNA_BACKUP.YYYYMMDD-HHMMSS` suffix.\n\n",
-        );
+        answer.push_str("💾 Backups are created with `.ANNA_BACKUP.YYYYMMDD-HHMMSS` suffix.\n\n");
     }
 
     // Section 5: Arch Wiki references

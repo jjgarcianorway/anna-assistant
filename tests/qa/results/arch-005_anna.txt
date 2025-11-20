@@ -1,0 +1,19 @@
+# Question: How do I clean the pacman cache to free up disk space?
+# Question ID: arch-005
+# Timestamp: 2025-11-20T15:17:33.319658
+# Return code: 0
+
+--- STDOUT ---
+
+[1m[96myou:[39m[0m [37mHow do I clean the pacman cache to free up disk space?[39m
+
+[2m[95manna (thinking):[39m[0m 
+                                                                                
+[1m[95manna:[39m[0m [37mRunning:[39m
+[36mℹ[39m [2m  $ df -h /[0m
+
+[36mℹ[39m [2mFilesystem      Size  Used Avail Use% Mounted on[0m
+[36mℹ[39m [2m/dev/nvme0n1p6  803G  519G  277G  66% /[0m
+
+
+--- STDERR ---

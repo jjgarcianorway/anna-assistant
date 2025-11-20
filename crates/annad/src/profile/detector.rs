@@ -246,7 +246,11 @@ mod tests {
         assert!(profile.total_memory_mb > 0);
         assert!(profile.cpu_cores > 0);
         // Uptime should be reasonable (< 1 year in seconds)
-        assert!(profile.uptime_seconds < 31536000, "Uptime seems unreasonable: {}s", profile.uptime_seconds);
+        assert!(
+            profile.uptime_seconds < 31536000,
+            "Uptime seems unreasonable: {}s",
+            profile.uptime_seconds
+        );
     }
 
     #[test]

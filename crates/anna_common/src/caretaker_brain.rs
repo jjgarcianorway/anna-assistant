@@ -2148,7 +2148,10 @@ mod tests {
         );
 
         // Analysis completed successfully (issues may or may not be found)
-        assert!(analysis.issues.len() < 1000, "Unreasonably many issues detected");
+        assert!(
+            analysis.issues.len() < 1000,
+            "Unreasonably many issues detected"
+        );
     }
 
     #[test]

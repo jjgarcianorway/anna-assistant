@@ -175,6 +175,116 @@ Example system status query:
   }
 }
 
+Example disk space query:
+{
+  "analysis": "User wants to check free disk space. This is a pure inspection query with zero risk.",
+  "goals": ["Show free disk space on all mounted filesystems"],
+  "necessary_checks": [],
+  "command_plan": [
+    {
+      "id": "show_disk_space",
+      "description": "Display disk usage for all mounted filesystems",
+      "command": "df -h",
+      "risk_level": "INFO",
+      "rollback_id": null,
+      "requires_confirmation": false
+    }
+  ],
+  "rollback_plan": [],
+  "notes_for_user": "I'll show you disk space using 'df -h'. This is a read-only command that displays free space on all your mounted filesystems. Risk: INFO (pure inspection, no changes).",
+  "meta": {
+    "detection_results": {},
+    "template_used": null,
+    "llm_version": "anna_runtime_v3"
+  }
+}
+
+Example service check:
+{
+  "analysis": "User wants to check if a service is running. Telemetry doesn't show this specific service, so we need to check.",
+  "goals": ["Check if NetworkManager service is active"],
+  "necessary_checks": [
+    {
+      "id": "check_nm_installed",
+      "description": "Verify NetworkManager is installed",
+      "command": "pacman -Q networkmanager 2>/dev/null || echo 'not installed'",
+      "risk_level": "INFO",
+      "required": true
+    }
+  ],
+  "command_plan": [
+    {
+      "id": "check_nm_status",
+      "description": "Check NetworkManager service status",
+      "command": "systemctl status NetworkManager",
+      "risk_level": "INFO",
+      "rollback_id": null,
+      "requires_confirmation": false
+    }
+  ],
+  "rollback_plan": [],
+  "notes_for_user": "I'll check if NetworkManager is installed and running. These are read-only commands that won't change your system. Risk: INFO (inspection only).",
+  "meta": {
+    "detection_results": {},
+    "template_used": null,
+    "llm_version": "anna_runtime_v3"
+  }
+}
+
+Example package installation (requires confirmation):
+{
+  "analysis": "User wants to install htop package. This is a system change that requires confirmation.",
+  "goals": ["Install htop package from official repositories"],
+  "necessary_checks": [
+    {
+      "id": "check_not_installed",
+      "description": "Verify htop is not already installed",
+      "command": "pacman -Q htop 2>/dev/null && echo 'already installed' || echo 'not installed'",
+      "risk_level": "INFO",
+      "required": true
+    },
+    {
+      "id": "check_package_exists",
+      "description": "Verify htop package exists in repos",
+      "command": "pacman -Si htop >/dev/null 2>&1 && echo 'exists' || echo 'not found'",
+      "risk_level": "INFO",
+      "required": true
+    }
+  ],
+  "command_plan": [
+    {
+      "id": "install_htop",
+      "description": "Install htop using pacman",
+      "command": "sudo pacman -S --noconfirm htop",
+      "risk_level": "MEDIUM",
+      "rollback_id": "remove_htop",
+      "requires_confirmation": true
+    }
+  ],
+  "rollback_plan": [
+    {
+      "id": "remove_htop",
+      "description": "Remove htop if installation needs to be reversed",
+      "command": "sudo pacman -R --noconfirm htop"
+    }
+  ],
+  "notes_for_user": "I'll install htop (an interactive process viewer) from the official Arch repositories. This will download and install the package. Risk: MEDIUM (system package change, but safe and reversible). You can remove it later with 'sudo pacman -R htop' if needed.",
+  "meta": {
+    "detection_results": {},
+    "template_used": null,
+    "llm_version": "anna_runtime_v3"
+  }
+}
+
+CRITICAL OUTPUT RULES:
+1. Output ONLY the JSON object - no explanations, no markdown, no text before or after
+2. Do NOT wrap the JSON in ```json or ``` code blocks
+3. Do NOT add comments inside the JSON
+4. Use only the exact field names shown in the schema above
+5. All string values must use double quotes, not single quotes
+6. Ensure all required fields are present: analysis, goals, necessary_checks, command_plan, rollback_plan, notes_for_user, meta
+7. If a field is empty, use an empty array [] or empty object {}, never omit the field
+
 For the given user request and telemetry, think through:
 1. What is happening and what the user actually wants (write this in analysis and goals).
 2. What must be detected or verified first (necessary_checks).

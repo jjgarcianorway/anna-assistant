@@ -288,7 +288,9 @@ impl HistorianIntegration {
                                 shutdown_duration_ms,
                                 Some(kernel_error_count),
                                 boot_health_score,
-                            ).await {
+                            )
+                            .await
+                            {
                                 warn!("Failed to record boot_session into context DB: {}", e);
                             }
 
@@ -1053,8 +1055,10 @@ impl HistorianIntegration {
                                 return;
                             }
 
-                            info!("File index: stored {} entries ({} inserted, {} updated)",
-                                  entry_count, inserted, updated);
+                            info!(
+                                "File index: stored {} entries ({} inserted, {} updated)",
+                                entry_count, inserted, updated
+                            );
                         });
                     }
                 }

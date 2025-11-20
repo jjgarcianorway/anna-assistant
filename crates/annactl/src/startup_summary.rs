@@ -50,7 +50,9 @@ pub fn display_startup_summary(
     // Model recommendation if needed
     if current_model == "llama3.2:3b" && facts.total_memory_gb >= 8.0 {
         println!();
-        ui.warning("💡 Tip: Your system can run better models. Try 'upgrade model' for smarter responses.");
+        ui.warning(
+            "💡 Tip: Your system can run better models. Try 'upgrade model' for smarter responses.",
+        );
     }
 
     println!("────────────────────────────────────────────────────────────────────");
@@ -70,8 +72,11 @@ fn display_historian_summary(sys_summary: &SystemSummary) {
         anna_common::historian::Trend::Flat => "→ stable",
         anna_common::historian::Trend::Up => "↑ degrading",
     };
-    println!("  • Boot time: {:.1}s average ({})",
-        boot.avg_boot_time_ms as f64 / 1000.0, trend_str);
+    println!(
+        "  • Boot time: {:.1}s average ({})",
+        boot.avg_boot_time_ms as f64 / 1000.0,
+        trend_str
+    );
 
     // CPU usage
     let cpu = &sys_summary.cpu_trends;
@@ -80,19 +85,25 @@ fn display_historian_summary(sys_summary: &SystemSummary) {
         anna_common::historian::Trend::Flat => "→ stable",
         anna_common::historian::Trend::Up => "↑ increasing",
     };
-    println!("  • CPU: {:.1}% average ({})",
-        cpu.avg_utilization_percent, cpu_trend);
+    println!(
+        "  • CPU: {:.1}% average ({})",
+        cpu.avg_utilization_percent, cpu_trend
+    );
 
     // Health scores
     let health = &sys_summary.health_summary;
-    println!("  • Health: stability {}/100, performance {}/100",
-        health.avg_stability_score, health.avg_performance_score);
+    println!(
+        "  • Health: stability {}/100, performance {}/100",
+        health.avg_stability_score, health.avg_performance_score
+    );
 
     // Error trends
     let errors = &sys_summary.error_trends;
     if errors.total_errors > 0 || errors.total_criticals > 0 {
-        println!("  • Errors: {} total, {} critical",
-            errors.total_errors, errors.total_criticals);
+        println!(
+            "  • Errors: {} total, {} critical",
+            errors.total_errors, errors.total_criticals
+        );
     }
 
     println!();
@@ -100,9 +111,10 @@ fn display_historian_summary(sys_summary: &SystemSummary) {
 
 /// Display current alerts and issues
 fn display_current_alerts(facts: &SystemFacts) {
-    if facts.failed_services.is_empty() &&
-       facts.package_cache_size_gb < 5.0 &&
-       facts.orphan_packages.is_empty() {
+    if facts.failed_services.is_empty()
+        && facts.package_cache_size_gb < 5.0
+        && facts.orphan_packages.is_empty()
+    {
         return; // No alerts to show
     }
 
@@ -121,12 +133,18 @@ fn display_current_alerts(facts: &SystemFacts) {
 
     // Package cache warning
     if facts.package_cache_size_gb > 5.0 {
-        println!("  ℹ️  Package cache: {:.1} GB (consider cleanup)", facts.package_cache_size_gb);
+        println!(
+            "  ℹ️  Package cache: {:.1} GB (consider cleanup)",
+            facts.package_cache_size_gb
+        );
     }
 
     // Orphan packages
     if !facts.orphan_packages.is_empty() {
-        println!("  ℹ️  Orphaned packages: {} (consider reviewing)", facts.orphan_packages.len());
+        println!(
+            "  ℹ️  Orphaned packages: {} (consider reviewing)",
+            facts.orphan_packages.len()
+        );
     }
 
     if facts.package_cache_size_gb > 5.0 || !facts.orphan_packages.is_empty() {
@@ -142,7 +160,8 @@ pub fn get_one_line_summary(facts: &SystemFacts, _historian: Option<&SystemSumma
         "✓"
     };
 
-    let uptime_hours = facts.system_health
+    let uptime_hours = facts
+        .system_health
         .as_ref()
         .map(|h| h.system_uptime.uptime_seconds as f64 / 3600.0)
         .unwrap_or(0.0);
@@ -162,10 +181,14 @@ pub fn get_one_line_summary(facts: &SystemFacts, _historian: Option<&SystemSumma
     let issues_count = facts.failed_services.len();
 
     if issues_count > 0 {
-        format!("{} System: {} uptime, {}% mem, {} issues",
-            health, uptime_str, mem_pct, issues_count)
+        format!(
+            "{} System: {} uptime, {}% mem, {} issues",
+            health, uptime_str, mem_pct, issues_count
+        )
     } else {
-        format!("{} System: {} uptime, {}% mem, healthy",
-            health, uptime_str, mem_pct)
+        format!(
+            "{} System: {} uptime, {}% mem, healthy",
+            health, uptime_str, mem_pct
+        )
     }
 }

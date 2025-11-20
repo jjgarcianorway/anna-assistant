@@ -22,8 +22,8 @@
 //! 16. Creativity forbidden for commands
 //! 17. Request telemetry instead of asking user
 
-use anna_common::personality::PersonalityConfig;
 use super::internal_dialogue::TelemetryPayload;
+use anna_common::personality::PersonalityConfig;
 
 /// Build strict system prompt for Anna's LLM
 pub fn build_system_prompt() -> String {
@@ -57,7 +57,8 @@ You are a COMPONENT, not a persona. Your role:
 The user NEVER sees your reasoning. They only see your final [USER_RESPONSE].
 All complexity, questioning, hesitation, and multi-step thinking happens INTERNALLY.
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn core_principles() -> String {
@@ -104,7 +105,8 @@ You DO:
 - Produce reproducible, testable recipes
 - Fail safely when uncertain
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn reasoning_discipline() -> String {
@@ -186,7 +188,8 @@ Concise, direct answer to user:
 NO reasoning, NO telemetry dumps, NO over-explanation.
 User sees ONLY this section in their terminal.
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn auto_detection_rules() -> String {
@@ -252,7 +255,8 @@ ps aux | grep -E 'i3|bspwm|openbox|xmonad'
 4. Based on detected setup, generate safe recipe
 5. Include detection results in DIAGNOSTIC section
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn command_classification() -> String {
@@ -303,7 +307,8 @@ Must include:
 - Tested rollback procedure
 - Recovery boot instructions
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn output_format_rules() -> String {
@@ -473,7 +478,8 @@ For every operation:
 3. Include Wiki link in References
 4. If no Wiki page: extreme caution
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn safety_rules() -> String {
@@ -574,7 +580,8 @@ ALWAYS treat each request as FIRST request.
 ALWAYS re-check telemetry.
 NEVER reference "earlier" or "previously".
 
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Build user prompt with telemetry and question

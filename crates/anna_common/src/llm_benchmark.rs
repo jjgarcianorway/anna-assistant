@@ -33,7 +33,11 @@ impl BenchmarkPrompt {
                 id: "simple_info".to_string(),
                 category: "sysadmin".to_string(),
                 prompt: "What does the 'systemctl status' command do?".to_string(),
-                expected_keywords: vec!["systemd".to_string(), "status".to_string(), "service".to_string()],
+                expected_keywords: vec![
+                    "systemd".to_string(),
+                    "status".to_string(),
+                    "service".to_string(),
+                ],
             },
             BenchmarkPrompt {
                 id: "arch_specific".to_string(),
@@ -107,7 +111,9 @@ impl BenchmarkResult {
 
         // Check quality by keyword presence
         let response_lower = response.to_lowercase();
-        let keywords_found = prompt.expected_keywords.iter()
+        let keywords_found = prompt
+            .expected_keywords
+            .iter()
             .filter(|kw| response_lower.contains(&kw.to_lowercase()))
             .count();
 
@@ -243,7 +249,10 @@ pub trait BenchmarkRunner {
             results.push(result);
         }
 
-        Ok(BenchmarkSuiteResult::new(self.model_name().to_string(), results))
+        Ok(BenchmarkSuiteResult::new(
+            self.model_name().to_string(),
+            results,
+        ))
     }
 
     /// Get model name being tested
@@ -293,7 +302,10 @@ impl BenchmarkRunner for MockBenchmarkRunner {
 
         // Simulate response quality
         let response = if self.quality_score >= 0.8 {
-            format!("The answer involves: {}", prompt.expected_keywords.join(", "))
+            format!(
+                "The answer involves: {}",
+                prompt.expected_keywords.join(", ")
+            )
         } else {
             "Vague answer that might not be very helpful.".to_string()
         };

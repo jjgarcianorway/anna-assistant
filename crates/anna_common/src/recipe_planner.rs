@@ -90,9 +90,7 @@ impl RecipePlanner {
             }
 
             // Step 2: Critic validates recipe
-            let critic_result = self
-                .call_critic_llm(&recipe, &planner_context)
-                .await?;
+            let critic_result = self.call_critic_llm(&recipe, &planner_context).await?;
 
             if critic_result.approved {
                 // Success! Return approved recipe
@@ -217,7 +215,8 @@ impl RecipePlanner {
         prompt.push_str("5. Generate JSON conforming to Recipe schema\n\n");
 
         prompt.push_str("## Output Format\n");
-        prompt.push_str("You MUST respond ONLY with valid JSON conforming to this Recipe schema:\n");
+        prompt
+            .push_str("You MUST respond ONLY with valid JSON conforming to this Recipe schema:\n");
         prompt.push_str("{\n");
         prompt.push_str("  \"question\": \"<original question>\",\n");
         prompt.push_str("  \"steps\": [],\n");
@@ -250,7 +249,9 @@ impl RecipePlanner {
         let mut prompt = String::new();
 
         prompt.push_str("# Role: Recipe Critic\n\n");
-        prompt.push_str("Validate the proposed command recipe against documentation and safety rules.\n\n");
+        prompt.push_str(
+            "Validate the proposed command recipe against documentation and safety rules.\n\n",
+        );
 
         prompt.push_str("## Original Question\n");
         prompt.push_str(&context.question);
@@ -276,7 +277,9 @@ impl RecipePlanner {
         prompt.push_str("5. Write operations have rollback paths\n\n");
 
         prompt.push_str("## Output Format\n");
-        prompt.push_str("You MUST respond ONLY with valid JSON conforming to this CriticResult schema:\n");
+        prompt.push_str(
+            "You MUST respond ONLY with valid JSON conforming to this CriticResult schema:\n",
+        );
         prompt.push_str("{\n");
         prompt.push_str("  \"approved\": true | false,\n");
         prompt.push_str("  \"reasoning\": \"<why you approved/rejected>\",\n");
@@ -326,10 +329,7 @@ pub enum PlanningResult {
     Success(Recipe),
 
     /// Planning failed after max iterations
-    Failed {
-        reason: String,
-        explanation: String,
-    },
+    Failed { reason: String, explanation: String },
 }
 
 /// Doc retrieval system - placeholder for future RAG
@@ -363,10 +363,7 @@ impl DocRetriever {
                     .to_string(),
             ]
         } else if question.contains("vim") && question.contains("syntax") {
-            vec![
-                "https://wiki.archlinux.org/title/Vim - Add 'syntax on' to ~/.vimrc"
-                    .to_string(),
-            ]
+            vec!["https://wiki.archlinux.org/title/Vim - Add 'syntax on' to ~/.vimrc".to_string()]
         } else {
             vec!["No specific documentation found. Use general Arch Linux commands.".to_string()]
         };
@@ -388,10 +385,7 @@ mod tests {
     #[tokio::test]
     async fn test_doc_retrieval() {
         let retriever = DocRetriever::new();
-        let docs = retriever
-            .retrieve_docs("Do I have swap?")
-            .await
-            .unwrap();
+        let docs = retriever.retrieve_docs("Do I have swap?").await.unwrap();
 
         assert!(!docs.is_empty());
         assert!(docs[0].contains("swap"));

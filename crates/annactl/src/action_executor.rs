@@ -252,9 +252,18 @@ pub async fn execute_action_plan(plan: &ActionPlan) -> Result<()> {
 
     // Ask for confirmation if required
     if plan.requires_confirmation() {
-        println!("⚠️  This plan contains {} or {} risk actions",
-            if plan.steps.iter().any(|s| s.risk == ActionRisk::Medium) { "medium" } else { "" },
-            if plan.steps.iter().any(|s| s.risk == ActionRisk::High) { "high" } else { "" }
+        println!(
+            "⚠️  This plan contains {} or {} risk actions",
+            if plan.steps.iter().any(|s| s.risk == ActionRisk::Medium) {
+                "medium"
+            } else {
+                ""
+            },
+            if plan.steps.iter().any(|s| s.risk == ActionRisk::High) {
+                "high"
+            } else {
+                ""
+            }
         );
         println!();
         print!("Do you want me to proceed? [y/N]: ");
@@ -303,7 +312,8 @@ pub async fn execute_action_plan(plan: &ActionPlan) -> Result<()> {
                 format!("Execute: {}", cmd_str),
             );
 
-            let result = safe_cmd.to_command()
+            let result = safe_cmd
+                .to_command()
                 .status()
                 .context(format!("Failed to execute: {}", cmd_str))?;
 

@@ -1,0 +1,18 @@
+# Question: My system won't boot after an update. How do I troubleshoot this?
+# Question ID: arch-011
+# Timestamp: 2025-11-20T14:46:52.188899
+# Return code: 0
+
+--- STDOUT ---
+
+[1m[96myou:[39m[0m [37mMy system won't boot after an update. How do I troubleshoot this?[39m
+
+[2m[95manna (thinking):[39m[0m 
+                                                                                
+[1m[95manna:[39m[0m [37mRunning:[39m
+[36mℹ[39m [2m  $ checkupdates || echo 'No updates available (or checkupdates not installed)'[0m
+
+[36mℹ[39m [2mNo updates available (or checkupdates not installed)[0m
+
+
+--- STDERR ---

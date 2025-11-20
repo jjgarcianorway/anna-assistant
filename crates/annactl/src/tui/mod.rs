@@ -9,11 +9,11 @@
 //! - state: State management utilities
 //! - utils: Helper functions and overlays
 
-mod event_loop;
-mod render;
-mod input;
 mod action_plan;
+mod event_loop;
+mod input;
 mod llm;
+mod render;
 mod state;
 mod utils;
 

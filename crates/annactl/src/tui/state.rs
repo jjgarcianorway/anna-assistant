@@ -1,14 +1,24 @@
 //! State management - System telemetry updates and welcome message
+//! Version 150: Integrated Context Engine for contextual greetings
 
+use crate::context_engine::ContextEngine;
+use crate::system_query::query_system_telemetry;
 use crate::tui_state::AnnaTuiState;
 
-/// Beta.94: Show proactive welcome message with system info
+/// Version 150: Context-aware welcome message with health monitoring
 pub fn show_welcome_message(state: &mut AnnaTuiState) {
-    use std::env;
+    // Load Context Engine and run health checks
+    let mut context = ContextEngine::load().unwrap_or_default();
 
-    let username = env::var("USER").unwrap_or_else(|_| "friend".to_string());
+    // Get telemetry for health checks
+    if let Ok(telemetry) = query_system_telemetry() {
+        context.run_health_checks(&telemetry);
+    }
 
-    // Gather system highlights
+    // Generate contextual greeting
+    let greeting = context.generate_greeting();
+
+    // Build system status summary
     let cpu_status = if state.system_panel.cpu_load_1min < 50.0 {
         "✅ running smoothly"
     } else if state.system_panel.cpu_load_1min < 80.0 {
@@ -17,9 +27,10 @@ pub fn show_welcome_message(state: &mut AnnaTuiState) {
         "🔥 high load"
     };
 
-    let ram_status = if state.system_panel.ram_used_gb < state.system_panel.ram_total_gb * 0.7 {
+    let ram_percent = (state.system_panel.ram_used_gb / state.system_panel.ram_total_gb) * 100.0;
+    let ram_status = if ram_percent < 70.0 {
         "✅ plenty available"
-    } else if state.system_panel.ram_used_gb < state.system_panel.ram_total_gb * 0.9 {
+    } else if ram_percent < 90.0 {
         "⚠️ getting full"
     } else {
         "🔴 critically low"
@@ -28,46 +39,45 @@ pub fn show_welcome_message(state: &mut AnnaTuiState) {
     let llm_status = if state.llm_panel.available {
         format!("✅ {} ready", state.llm_panel.model_name)
     } else {
-        "⚠️ LLM not available (install Ollama)".to_string()
+        "⚠️ LLM not available".to_string()
     };
 
-    // Build beautiful welcome message
+    // Combine greeting with system summary
     let welcome = format!(
-        "👋 **Hello {}!** Welcome to Anna v{}\n\n\
-         Here's what I can tell you right now:\n\n\
+        "{}\n\n\
          🖥️  **System Status:**\n\
-         • CPU: {} ({:.0}% load)\n\
-         • RAM: {:.1}GB / {:.1}GB used ({})\n\
+         • CPU: {} ({:.0}% load) - {}\n\
+         • RAM: {:.1}GB / {:.1}GB ({:.0}% used) - {}\n\
          • Disk: {:.1}GB free\n\
          {}\n\n\
-         🤖 **AI Assistant:**\n\
-         • {}\n\n\
+         🤖 **AI Assistant:** {}\n\n\
          💡 **Quick Actions:**\n\
-         • Ask about system health: \"how is my system?\"\n\
-         • Check resources: \"how much RAM do I have?\"\n\
-         • Monitor services: \"show failed services\"\n\
-         • Get help: Press F1\n\n\
+         • \"how is my system?\" - Health overview\n\
+         • \"what are my personality traits?\" - Usage profile\n\
+         • \"show failed services\" - System issues\n\
+         • F1 - Help\n\n\
          **What would you like to know or do?**",
-        username,
-        state.system_panel.anna_version,
+        greeting,
         state.system_panel.cpu_model,
         state.system_panel.cpu_load_1min,
+        cpu_status,
         state.system_panel.ram_used_gb,
         state.system_panel.ram_total_gb,
+        ram_percent,
         ram_status,
+        state.system_panel.disk_free_gb,
         if state.system_panel.gpu_name.is_some() {
-            format!(
-                "• GPU: {}\n",
-                state.system_panel.gpu_name.as_ref().unwrap()
-            )
+            format!("• GPU: {}\n", state.system_panel.gpu_name.as_ref().unwrap())
         } else {
             String::new()
         },
-        llm_status,
-        cpu_status
+        llm_status
     );
 
     state.add_anna_reply(welcome);
+
+    // Save context for next session
+    let _ = context.save();
 }
 
 /// Update telemetry data in state
@@ -84,6 +94,15 @@ pub fn update_telemetry(state: &mut AnnaTuiState) {
         state.system_panel.ram_total_gb = telemetry.memory.total_mb as f64 / 1024.0;
         state.system_panel.ram_used_gb = telemetry.memory.used_mb as f64 / 1024.0;
         state.system_panel.anna_version = env!("CARGO_PKG_VERSION").to_string();
+
+        // Version 150: Get real hostname from telemetry_truth (not env vars!)
+        use crate::telemetry_truth::VerifiedSystemReport;
+        let verified = VerifiedSystemReport::from_telemetry(&telemetry);
+        if let crate::telemetry_truth::SystemFact::Known { value, .. } = verified.hostname {
+            state.system_panel.hostname = value;
+        } else {
+            state.system_panel.hostname = "unknown".to_string();
+        }
 
         // Update GPU info if available
         state.system_panel.gpu_name = telemetry.hardware.gpu_info.clone();

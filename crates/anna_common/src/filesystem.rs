@@ -192,9 +192,10 @@ fn detect_luks_encryption() -> (bool, Vec<String>) {
                         if output.status.success() {
                             let stdout = String::from_utf8_lossy(&output.stdout);
                             if stdout.contains("crypt")
-                                && !encrypted_devices.contains(&device.to_string()) {
-                                    encrypted_devices.push(device.to_string());
-                                }
+                                && !encrypted_devices.contains(&device.to_string())
+                            {
+                                encrypted_devices.push(device.to_string());
+                            }
                         }
                     }
                 }

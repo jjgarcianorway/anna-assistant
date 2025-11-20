@@ -90,11 +90,7 @@ impl TuiApp {
         let cpu_usage = if sys.cpus().is_empty() {
             0.0
         } else {
-            sys.cpus()
-                .iter()
-                .map(|cpu| cpu.cpu_usage())
-                .sum::<f32>()
-                / sys.cpus().len() as f32
+            sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32
         };
 
         // Beta.76: Load actual model name from database instead of "Loading..."
@@ -102,7 +98,9 @@ impl TuiApp {
             // Try to load LLM config synchronously (blocking is acceptable during TUI init)
             tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
-                    database.load_llm_config().await
+                    database
+                        .load_llm_config()
+                        .await
                         .map(|config| config.description)
                         .unwrap_or_else(|_| "Unknown".to_string())
                 })
@@ -203,7 +201,9 @@ impl TuiApp {
                         // If we never received anything, show error
                         if !received_any {
                             if let Some(last_msg) = self.messages.last_mut() {
-                                if last_msg.role == MessageRole::Assistant && last_msg.content.is_empty() {
+                                if last_msg.role == MessageRole::Assistant
+                                    && last_msg.content.is_empty()
+                                {
                                     last_msg.content = "Error: LLM request failed".to_string();
                                 }
                             }
@@ -249,9 +249,15 @@ impl TuiApp {
                     // Tier 3: Generic LLM (conversational fallback)
                     tokio::spawn(async move {
                         // Tier 1: Try template matching first
-                        if let Some((template_id, params)) = query_handler::try_template_match(&input) {
+                        if let Some((template_id, params)) =
+                            query_handler::try_template_match(&input)
+                        {
                             match query_handler::execute_template(template_id, &params) {
-                                Ok(query_handler::QueryResult::Template { command, output, .. }) => {
+                                Ok(query_handler::QueryResult::Template {
+                                    command,
+                                    output,
+                                    ..
+                                }) => {
                                     // Send template result through channel
                                     let _ = tx.send(format!("📋 Running: {}\n\n", command));
                                     let _ = tx.send(output);
@@ -271,10 +277,13 @@ impl TuiApp {
                             Ok(Some(recipe)) => {
                                 // Recipe generated successfully
                                 let _ = tx.send(format!("🔧 Recipe: {}\n\n", recipe.summary));
-                                let _ = tx.send(format!("📋 Steps: {} steps\n", recipe.steps.len()));
+                                let _ =
+                                    tx.send(format!("📋 Steps: {} steps\n", recipe.steps.len()));
                                 let _ = tx.send(format!("Safety: {:?}\n\n", recipe.overall_safety));
                                 // TODO: Actually execute recipe steps
-                                let _ = tx.send("(Recipe execution in TUI not yet implemented)\n".to_string());
+                                let _ = tx.send(
+                                    "(Recipe execution in TUI not yet implemented)\n".to_string(),
+                                );
                                 return;
                             }
                             Ok(None) => {
@@ -286,7 +295,9 @@ impl TuiApp {
                         }
 
                         // Tier 3: Generic LLM fallback
-                        if let Err(e) = query_llm_with_context_streaming(&input, db.as_ref(), tx).await {
+                        if let Err(e) =
+                            query_llm_with_context_streaming(&input, db.as_ref(), tx).await
+                        {
                             eprintln!("LLM streaming error: {}", e);
                         }
                     });
@@ -525,14 +536,10 @@ fn render_input(f: &mut Frame, app: &TuiApp, area: Rect) {
 fn render_status(f: &mut Frame, app: &TuiApp, area: Rect) {
     let status_text = format!(
         "Anna TUI | CPU: {:.1}% | RAM: {:.1}/{:.1} GB | Model: {} | Ctrl+C=Quit",
-        app.metrics.cpu_usage,
-        app.metrics.ram_usage,
-        app.metrics.ram_total,
-        app.metrics.model_name
+        app.metrics.cpu_usage, app.metrics.ram_usage, app.metrics.ram_total, app.metrics.model_name
     );
 
-    let status = Paragraph::new(status_text)
-        .style(Style::default().fg(Color::DarkGray));
+    let status = Paragraph::new(status_text).style(Style::default().fg(Color::DarkGray));
 
     f.render_widget(status, area);
 }

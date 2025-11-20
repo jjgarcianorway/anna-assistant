@@ -114,7 +114,7 @@ impl Default for FileIndexConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            index_home: false,  // Privacy: opt-in only
+            index_home: false, // Privacy: opt-in only
             system_paths: vec![
                 PathBuf::from("/etc"),
                 PathBuf::from("/var"),
@@ -130,11 +130,11 @@ impl Default for FileIndexConfig {
                 PathBuf::from("/tmp"),
                 PathBuf::from("/var/tmp"),
                 PathBuf::from("/var/cache"),
-                PathBuf::from("/var/lib/docker"),  // Huge, changes frequently
+                PathBuf::from("/var/lib/docker"), // Huge, changes frequently
                 PathBuf::from("/var/lib/systemd"),
             ],
-            min_file_size: 0,          // Track all files by default
-            max_file_size: 10_000_000_000,  // 10GB max
+            min_file_size: 0,              // Track all files by default
+            max_file_size: 10_000_000_000, // 10GB max
         }
     }
 }
@@ -236,7 +236,7 @@ impl FileIndexer {
         info!("Scanning directory for file index: {}", path.display());
 
         for entry in WalkDir::new(path)
-            .follow_links(false)  // Don't follow symlinks to avoid loops
+            .follow_links(false) // Don't follow symlinks to avoid loops
             .into_iter()
             .filter_entry(|e| {
                 // Filter out excluded paths early
@@ -254,7 +254,7 @@ impl FileIndexer {
 
                     match self.index_file(path, now) {
                         Ok(Some(file_entry)) => entries.push(file_entry),
-                        Ok(None) => {}, // Skipped (e.g., too small/large)
+                        Ok(None) => {} // Skipped (e.g., too small/large)
                         Err(e) => {
                             debug!("Failed to index {}: {}", path.display(), e);
                         }
@@ -392,7 +392,7 @@ mod tests {
     fn test_default_config() {
         let config = FileIndexConfig::default();
         assert!(config.enabled);
-        assert!(!config.index_home);  // Privacy: off by default
+        assert!(!config.index_home); // Privacy: off by default
         assert!(!config.system_paths.is_empty());
         assert!(config.exclude_paths.contains(&PathBuf::from("/proc")));
     }

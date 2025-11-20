@@ -71,7 +71,9 @@ pub async fn query_llm_with_context(
 ) -> Result<String> {
     // Load LLM config from database
     let llm_config = if let Some(db) = db {
-        db.load_llm_config().await.context("Failed to load LLM config")?
+        db.load_llm_config()
+            .await
+            .context("Failed to load LLM config")?
     } else {
         return Ok("LLM not available: database not connected".to_string());
     };
@@ -131,7 +133,8 @@ pub async fn query_llm_with_context(
             &personality,
             current_model,
             &llm_config,
-        ).await?;
+        )
+        .await?;
 
         // Validate the answer
         let validation_result = validator.validate(&result.answer, &context).await?;
@@ -150,7 +153,10 @@ pub async fn query_llm_with_context(
             if !validation_result.passed && !validation_result.suggestions.is_empty() {
                 output.push_str("\n\n");
                 output.push_str("⚠️ Note: This answer had validation concerns but is being shown after retries.\n");
-                output.push_str(&format!("Confidence: {:.0}%\n", validation_result.confidence * 100.0));
+                output.push_str(&format!(
+                    "Confidence: {:.0}%\n",
+                    validation_result.confidence * 100.0
+                ));
             }
 
             return Ok(output);
@@ -184,7 +190,9 @@ pub async fn query_llm_with_context_streaming(
 ) -> Result<()> {
     // Load LLM config from database
     let llm_config = if let Some(db) = db {
-        db.load_llm_config().await.context("Failed to load LLM config")?
+        db.load_llm_config()
+            .await
+            .context("Failed to load LLM config")?
     } else {
         let _ = tx.send("LLM not available: database not connected".to_string());
         return Ok(());
@@ -208,7 +216,7 @@ pub async fn query_llm_with_context_streaming(
     let personality = if let Some(db_ref) = db {
         match PersonalityConfig::load_from_db(db_ref).await {
             Ok(config) => config,
-            Err(_) => PersonalityConfig::load()
+            Err(_) => PersonalityConfig::load(),
         }
     } else {
         PersonalityConfig::load()
@@ -228,7 +236,8 @@ pub async fn query_llm_with_context_streaming(
         &personality,
         current_model,
         &llm_config,
-    ).await?;
+    )
+    .await?;
 
     // Stream the answer word-by-word
     let words: Vec<&str> = result.answer.split_whitespace().collect();
@@ -251,11 +260,12 @@ pub async fn query_llm_with_context_streaming(
 /// NOTE: Legacy - use internal_dialogue::query_llm instead
 #[allow(dead_code)]
 async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
-    let base_url = config.base_url.as_ref()
+    let base_url = config
+        .base_url
+        .as_ref()
         .context("LLM base_url not configured")?;
 
-    let model = config.model.as_ref()
-        .context("LLM model not configured")?;
+    let model = config.model.as_ref().context("LLM model not configured")?;
 
     // Build API endpoint
     let endpoint = format!("{}/chat/completions", base_url.trim_end_matches('/'));
@@ -315,7 +325,8 @@ async fn fetch_system_facts() -> Result<SystemFacts> {
     use crate::rpc_client::RpcClient;
     use anna_common::ipc::Method;
 
-    let mut rpc = RpcClient::connect().await
+    let mut rpc = RpcClient::connect()
+        .await
         .context("Failed to connect to annad")?;
 
     match rpc.call(Method::GetFacts).await? {

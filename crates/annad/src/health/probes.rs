@@ -502,7 +502,11 @@ mod tests {
         if let Ok(result) = probe.run() {
             assert_eq!(result.probe, "systemd-units");
             // Duration should be reasonable (< 10 seconds)
-            assert!(result.duration_ms < 10000, "Probe took too long: {}ms", result.duration_ms);
+            assert!(
+                result.duration_ms < 10000,
+                "Probe took too long: {}ms",
+                result.duration_ms
+            );
         }
     }
 

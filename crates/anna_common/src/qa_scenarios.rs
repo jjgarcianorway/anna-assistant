@@ -101,9 +101,7 @@ set number
             risk: ActionRisk::Low,
             requires_confirmation: false,
             backup: None,
-            commands: vec![
-                vec!["which".to_string(), "vim".to_string()],
-            ],
+            commands: vec![vec!["which".to_string(), "vim".to_string()]],
             restore_hint: None,
         });
 
@@ -115,9 +113,11 @@ set number
                 risk: ActionRisk::Low,
                 requires_confirmation: false,
                 backup: Some(format!("cp {} {}", self.vimrc_path.display(), backup_path)),
-                commands: vec![
-                    vec!["cp".to_string(), self.vimrc_path.display().to_string(), backup_path.clone()],
-                ],
+                commands: vec![vec![
+                    "cp".to_string(),
+                    self.vimrc_path.display().to_string(),
+                    backup_path.clone(),
+                ]],
                 restore_hint: Some(format!("cp {} {}", backup_path, self.vimrc_path.display())),
             });
         }
@@ -174,14 +174,19 @@ set number
     pub fn verify_no_duplicate_blocks(&self) -> Result<()> {
         let content = fs::read_to_string(&self.vimrc_path)?;
 
-        let anna_block_count = content.matches("═══ Anna Assistant Configuration ═══").count();
+        let anna_block_count = content
+            .matches("═══ Anna Assistant Configuration ═══")
+            .count();
 
         if anna_block_count == 0 {
             return Err(anyhow!("No Anna block found"));
         }
 
         if anna_block_count > 1 {
-            return Err(anyhow!("Duplicate Anna blocks found ({})", anna_block_count));
+            return Err(anyhow!(
+                "Duplicate Anna blocks found ({})",
+                anna_block_count
+            ));
         }
 
         Ok(())
@@ -198,11 +203,16 @@ set number
 
             if filename.starts_with(".vimrc.ANNA_BACKUP.") {
                 // Verify timestamp format: YYYYMMDD-HHMMSS
-                let timestamp_part = filename.strip_prefix(".vimrc.ANNA_BACKUP.")
+                let timestamp_part = filename
+                    .strip_prefix(".vimrc.ANNA_BACKUP.")
                     .ok_or_else(|| anyhow!("Invalid backup filename"))?;
 
-                if timestamp_part.len() != 15 {  // YYYYMMDD-HHMMSS = 15 chars
-                    return Err(anyhow!("Backup timestamp has wrong format: {}", timestamp_part));
+                if timestamp_part.len() != 15 {
+                    // YYYYMMDD-HHMMSS = 15 chars
+                    return Err(anyhow!(
+                        "Backup timestamp has wrong format: {}",
+                        timestamp_part
+                    ));
                 }
 
                 if !timestamp_part.contains('-') {
@@ -213,7 +223,10 @@ set number
             }
         }
 
-        Err(anyhow!("No backup file found matching pattern: {}", backup_pattern))
+        Err(anyhow!(
+            "No backup file found matching pattern: {}",
+            backup_pattern
+        ))
     }
 }
 
@@ -278,9 +291,7 @@ Swap:           15Gi          0B        15Gi
                     risk: ActionRisk::Low,
                     requires_confirmation: false,
                     backup: None,
-                    commands: vec![
-                        vec!["lscpu".to_string()],
-                    ],
+                    commands: vec![vec!["lscpu".to_string()]],
                     restore_hint: None,
                 },
                 ActionStep {
@@ -289,9 +300,7 @@ Swap:           15Gi          0B        15Gi
                     risk: ActionRisk::Low,
                     requires_confirmation: false,
                     backup: None,
-                    commands: vec![
-                        vec!["free".to_string(), "-h".to_string()],
-                    ],
+                    commands: vec![vec!["free".to_string(), "-h".to_string()]],
                     restore_hint: None,
                 },
                 ActionStep {
@@ -300,9 +309,7 @@ Swap:           15Gi          0B        15Gi
                     risk: ActionRisk::Low,
                     requires_confirmation: false,
                     backup: None,
-                    commands: vec![
-                        vec!["lsblk".to_string()],
-                    ],
+                    commands: vec![vec!["lsblk".to_string()]],
                     restore_hint: None,
                 },
                 ActionStep {
@@ -311,9 +318,7 @@ Swap:           15Gi          0B        15Gi
                     risk: ActionRisk::Low,
                     requires_confirmation: false,
                     backup: None,
-                    commands: vec![
-                        vec!["lspci".to_string()],
-                    ],
+                    commands: vec![vec!["lspci".to_string()]],
                     restore_hint: None,
                 },
             ],
@@ -327,7 +332,9 @@ Swap:           15Gi          0B        15Gi
     pub fn extract_cpu_model(&self) -> Result<String> {
         for line in self.mock_lscpu.lines() {
             if line.trim().starts_with("Model name:") {
-                let model = line.split(':').nth(1)
+                let model = line
+                    .split(':')
+                    .nth(1)
                     .ok_or_else(|| anyhow!("No model name found"))?
                     .trim();
                 return Ok(model.to_string());
@@ -371,13 +378,7 @@ Swap:           15Gi          0B        15Gi
         }
 
         // Summary MUST NOT invent specifications
-        let forbidden_phrases = [
-            "approximately",
-            "around",
-            "roughly",
-            "about",
-            "similar to",
-        ];
+        let forbidden_phrases = ["approximately", "around", "roughly", "about", "similar to"];
 
         for phrase in &forbidden_phrases {
             if summary.to_lowercase().contains(phrase) {
@@ -477,9 +478,11 @@ impl LlmUpgradeScenario {
                     risk: ActionRisk::Low,
                     requires_confirmation: false,
                     backup: None,
-                    commands: vec![
-                        vec!["systemctl".to_string(), "is-active".to_string(), "ollama".to_string()],
-                    ],
+                    commands: vec![vec![
+                        "systemctl".to_string(),
+                        "is-active".to_string(),
+                        "ollama".to_string(),
+                    ]],
                     restore_hint: None,
                 },
                 ActionStep {
@@ -488,9 +491,11 @@ impl LlmUpgradeScenario {
                     risk: ActionRisk::Medium,
                     requires_confirmation: true,
                     backup: None,
-                    commands: vec![
-                        vec!["ollama".to_string(), "pull".to_string(), new_model.clone()],
-                    ],
+                    commands: vec![vec![
+                        "ollama".to_string(),
+                        "pull".to_string(),
+                        new_model.clone(),
+                    ]],
                     restore_hint: Some(format!("ollama rm {}", new_model)),
                 },
                 ActionStep {
@@ -499,10 +504,16 @@ impl LlmUpgradeScenario {
                     risk: ActionRisk::Low,
                     requires_confirmation: false,
                     backup: Some(format!("cp {} {}", self.config_path.display(), backup_path)),
-                    commands: vec![
-                        vec!["cp".to_string(), self.config_path.display().to_string(), backup_path.clone()],
-                    ],
-                    restore_hint: Some(format!("cp {} {}", backup_path, self.config_path.display())),
+                    commands: vec![vec![
+                        "cp".to_string(),
+                        self.config_path.display().to_string(),
+                        backup_path.clone(),
+                    ]],
+                    restore_hint: Some(format!(
+                        "cp {} {}",
+                        backup_path,
+                        self.config_path.display()
+                    )),
                 },
                 ActionStep {
                     id: "update_config".to_string(),
@@ -540,11 +551,15 @@ impl LlmUpgradeScenario {
 
     /// Verify backup was created before config change
     pub fn verify_backup_before_change(&self, plan: &ActionPlan) -> Result<()> {
-        let backup_step_idx = plan.steps.iter()
+        let backup_step_idx = plan
+            .steps
+            .iter()
             .position(|s| s.id == "backup_config")
             .ok_or_else(|| anyhow!("No backup step found"))?;
 
-        let update_step_idx = plan.steps.iter()
+        let update_step_idx = plan
+            .steps
+            .iter()
             .position(|s| s.id == "update_config")
             .ok_or_else(|| anyhow!("No update step found"))?;
 
@@ -581,7 +596,9 @@ mod tests {
         assert_eq!(plan.steps[0].risk, ActionRisk::Low);
 
         // Add syntax step should be medium risk (modifies config)
-        let add_syntax_step = plan.steps.iter()
+        let add_syntax_step = plan
+            .steps
+            .iter()
             .find(|s| s.id == "add_syntax_highlighting")
             .expect("add_syntax_highlighting step not found");
         assert_eq!(add_syntax_step.risk, ActionRisk::Medium);
@@ -601,14 +618,20 @@ mod tests {
         let plan = scenario.generate_action_plan().unwrap();
 
         // Find backup step
-        let backup_step = plan.steps.iter()
+        let backup_step = plan
+            .steps
+            .iter()
             .find(|s| s.id == "backup_vimrc")
             .expect("backup step not found");
 
         // Backup command must exist and contain ANNA_BACKUP
         assert!(backup_step.backup.is_some());
         let backup_cmd = backup_step.backup.as_ref().unwrap();
-        assert!(backup_cmd.contains("ANNA_BACKUP"), "Backup command does not contain ANNA_BACKUP: {}", backup_cmd);
+        assert!(
+            backup_cmd.contains("ANNA_BACKUP"),
+            "Backup command does not contain ANNA_BACKUP: {}",
+            backup_cmd
+        );
 
         fs::remove_dir_all(&temp_dir).ok();
     }
@@ -626,7 +649,8 @@ mod tests {
         assert_eq!(memory, "31Gi");
 
         // Verify that summary with exact values passes
-        let good_summary = "Your computer has an AMD Ryzen 9 7950X 16-Core Processor with 31Gi of RAM.";
+        let good_summary =
+            "Your computer has an AMD Ryzen 9 7950X 16-Core Processor with 31Gi of RAM.";
         assert!(scenario.verify_summary_accuracy(good_summary).is_ok());
 
         // Verify that vague summary fails
@@ -635,7 +659,9 @@ mod tests {
 
         // Verify that hallucinated summary fails
         let hallucinated_summary = "Your computer has an Intel Core i9 processor.";
-        assert!(scenario.verify_summary_accuracy(hallucinated_summary).is_err());
+        assert!(scenario
+            .verify_summary_accuracy(hallucinated_summary)
+            .is_err());
     }
 
     #[test]
@@ -668,7 +694,11 @@ mod tests {
 
         // High-end hardware should suggest 8b model
         let suggested = scenario.suggest_upgrade().unwrap();
-        assert!(suggested.contains("8b"), "High-end hardware should suggest 8b model, got: {}", suggested);
+        assert!(
+            suggested.contains("8b"),
+            "High-end hardware should suggest 8b model, got: {}",
+            suggested
+        );
 
         // Model should be appropriate for hardware
         assert!(scenario.verify_model_appropriate().is_ok());
@@ -680,7 +710,11 @@ mod tests {
 
         // Mid-range hardware should suggest 3b model
         let suggested = scenario.suggest_upgrade().unwrap();
-        assert!(suggested.contains("3b"), "Mid-range hardware should suggest 3b model, got: {}", suggested);
+        assert!(
+            suggested.contains("3b"),
+            "Mid-range hardware should suggest 3b model, got: {}",
+            suggested
+        );
 
         assert!(scenario.verify_model_appropriate().is_ok());
     }
@@ -690,7 +724,10 @@ mod tests {
         let scenario = LlmUpgradeScenario::low_end();
 
         // Low-end hardware should not suggest upgrade
-        assert!(scenario.suggest_upgrade().is_err(), "Low-end hardware should not upgrade");
+        assert!(
+            scenario.suggest_upgrade().is_err(),
+            "Low-end hardware should not upgrade"
+        );
     }
 
     #[test]

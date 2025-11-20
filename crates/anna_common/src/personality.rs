@@ -152,7 +152,8 @@ impl PersonalityTrait {
                 _ => "Unknown",
             },
             _ => "Unknown trait",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
@@ -172,24 +173,31 @@ fn default_traits() -> Vec<PersonalityTrait> {
     // Beta.86: Full 16-trait personality system
     vec![
         // Original 8 traits from beta.83
-        PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 3),  // Reserved, speaks when it matters
-        PersonalityTrait::new("calm_vs_excitable", "Calm vs Excitable", 8),             // Calm, reassuring tone
-        PersonalityTrait::new("direct_vs_diplomatic", "Direct vs Diplomatic", 7),       // Clear and direct
-        PersonalityTrait::new("playful_vs_serious", "Playful vs Serious", 6),           // Occasional light humor
-        PersonalityTrait::new("cautious_vs_bold", "Cautious vs Bold", 6),               // Balanced risk approach
-        PersonalityTrait::new("minimalist_vs_verbose", "Minimalist vs Verbose", 7),     // Concise but complete
+        PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 3), // Reserved, speaks when it matters
+        PersonalityTrait::new("calm_vs_excitable", "Calm vs Excitable", 8), // Calm, reassuring tone
+        PersonalityTrait::new("direct_vs_diplomatic", "Direct vs Diplomatic", 7), // Clear and direct
+        PersonalityTrait::new("playful_vs_serious", "Playful vs Serious", 6), // Occasional light humor
+        PersonalityTrait::new("cautious_vs_bold", "Cautious vs Bold", 6), // Balanced risk approach
+        PersonalityTrait::new("minimalist_vs_verbose", "Minimalist vs Verbose", 7), // Concise but complete
         PersonalityTrait::new("analytical_vs_intuitive", "Analytical vs Intuitive", 8), // Structured, logical
         PersonalityTrait::new("reassuring_vs_challenging", "Reassuring vs Challenging", 6), // Supportive but honest
-
         // New 8 traits for beta.86
-        PersonalityTrait::new("patient_vs_urgent", "Patient vs Urgent", 7),             // Takes time to explain thoroughly
-        PersonalityTrait::new("humble_vs_confident", "Humble vs Confident", 6),         // Balanced self-assurance
-        PersonalityTrait::new("formal_vs_casual", "Formal vs Casual", 5),               // Professional but approachable
-        PersonalityTrait::new("empathetic_vs_logical", "Empathetic vs Logical", 7),     // Logic-driven with understanding
+        PersonalityTrait::new("patient_vs_urgent", "Patient vs Urgent", 7), // Takes time to explain thoroughly
+        PersonalityTrait::new("humble_vs_confident", "Humble vs Confident", 6), // Balanced self-assurance
+        PersonalityTrait::new("formal_vs_casual", "Formal vs Casual", 5), // Professional but approachable
+        PersonalityTrait::new("empathetic_vs_logical", "Empathetic vs Logical", 7), // Logic-driven with understanding
         PersonalityTrait::new("protective_vs_empowering", "Protective vs Empowering", 6), // Balanced safety and autonomy
         PersonalityTrait::new("traditional_vs_innovative", "Traditional vs Innovative", 5), // Arch Way with modern tools
-        PersonalityTrait::new("collaborative_vs_independent", "Collaborative vs Independent", 6), // Guides but respects choices
-        PersonalityTrait::new("perfectionist_vs_pragmatic", "Perfectionist vs Pragmatic", 6), // Thorough but practical
+        PersonalityTrait::new(
+            "collaborative_vs_independent",
+            "Collaborative vs Independent",
+            6,
+        ), // Guides but respects choices
+        PersonalityTrait::new(
+            "perfectionist_vs_pragmatic",
+            "Perfectionist vs Pragmatic",
+            6,
+        ), // Thorough but practical
     ]
 }
 
@@ -294,7 +302,8 @@ impl PersonalityConfig {
     /// Render personality view for LLM prompts
     pub fn render_personality_view(&self) -> String {
         if !self.active {
-            return "[ANNA_PERSONALITY_VIEW]\nactive: false\n[/ANNA_PERSONALITY_VIEW]\n".to_string();
+            return "[ANNA_PERSONALITY_VIEW]\nactive: false\n[/ANNA_PERSONALITY_VIEW]\n"
+                .to_string();
         }
 
         let mut view = String::from("[ANNA_PERSONALITY_VIEW]\n");
@@ -310,7 +319,9 @@ impl PersonalityConfig {
         }
 
         view.push_str("\ncommentary: |\n");
-        view.push_str("  You can say things like \"be more direct\" or \"more minimalist\" and I will\n");
+        view.push_str(
+            "  You can say things like \"be more direct\" or \"more minimalist\" and I will\n",
+        );
         view.push_str("  adjust these traits and show you the new map.\n");
         view.push_str("[/ANNA_PERSONALITY_VIEW]\n");
 
@@ -358,9 +369,7 @@ impl PersonalityConfig {
         let mut conflicts = Vec::new();
 
         // Helper to get trait value safely
-        let get_val = |key: &str| -> Option<u8> {
-            self.get_trait(key).map(|t| t.value)
-        };
+        let get_val = |key: &str| -> Option<u8> { self.get_trait(key).map(|t| t.value) };
 
         // Conflict 1: Can't be both very introverted and very bold
         if let (Some(intro), Some(bold)) = (
@@ -368,14 +377,17 @@ impl PersonalityConfig {
             get_val("cautious_vs_bold"),
         ) {
             if intro >= 8 && bold <= 2 {
-                conflicts.push("Conflicting: Very introverted (reserved) but very bold (risk-taking)".to_string());
+                conflicts.push(
+                    "Conflicting: Very introverted (reserved) but very bold (risk-taking)"
+                        .to_string(),
+                );
             }
         }
 
         // Conflict 2: Can't be both very calm and very excitable
         if let (Some(_calm), Some(_excit)) = (
             get_val("calm_vs_excitable"),
-            get_val("calm_vs_excitable"),  // Note: excitable is inverse of calm
+            get_val("calm_vs_excitable"), // Note: excitable is inverse of calm
         ) {
             // This is actually the same trait, so no conflict possible
             // Leaving as example of how to check related traits
@@ -384,7 +396,7 @@ impl PersonalityConfig {
         // Conflict 3: Can't be both very minimalist and very verbose
         if let (Some(_minimal), Some(_verbose)) = (
             get_val("minimalist_vs_verbose"),
-            get_val("minimalist_vs_verbose"),  // Same trait, opposite poles
+            get_val("minimalist_vs_verbose"), // Same trait, opposite poles
         ) {
             // These are opposite poles of the same trait, so no conflict check needed
             // Minimalist=10 means not verbose, minimalist=0 means very verbose
@@ -402,7 +414,9 @@ impl PersonalityConfig {
             get_val("patient_vs_urgent"),
         ) {
             if perfect >= 8 && urgent <= 2 {
-                conflicts.push("Conflicting: Perfectionist (thorough) but very urgent (rushes)".to_string());
+                conflicts.push(
+                    "Conflicting: Perfectionist (thorough) but very urgent (rushes)".to_string(),
+                );
             }
         }
 
@@ -410,10 +424,9 @@ impl PersonalityConfig {
         // (These are opposite poles of the same trait)
 
         // Conflict 8: Can't be both very formal and very playful
-        if let (Some(formal), Some(playful)) = (
-            get_val("formal_vs_casual"),
-            get_val("playful_vs_serious"),
-        ) {
+        if let (Some(formal), Some(playful)) =
+            (get_val("formal_vs_casual"), get_val("playful_vs_serious"))
+        {
             if formal >= 8 && playful >= 8 {
                 conflicts.push("Conflicting: Very formal but very playful (humor)".to_string());
             }
@@ -438,9 +451,8 @@ impl PersonalityConfig {
         let conn = db.conn();
         let traits = tokio::task::spawn_blocking(move || -> Result<Vec<PersonalityTrait>> {
             let conn_guard = conn.blocking_lock();
-            let mut stmt = conn_guard.prepare(
-                "SELECT trait_key, trait_name, value FROM personality ORDER BY id"
-            )?;
+            let mut stmt = conn_guard
+                .prepare("SELECT trait_key, trait_name, value FROM personality ORDER BY id")?;
 
             let traits: Result<Vec<PersonalityTrait>, _> = stmt
                 .query_map([], |row| {
@@ -480,7 +492,11 @@ impl PersonalityConfig {
                 tx.execute(
                     "INSERT OR REPLACE INTO personality (trait_key, trait_name, value, updated_at)
                      VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
-                    [&trait_item.key, &trait_item.name, &trait_item.value.to_string()],
+                    [
+                        &trait_item.key,
+                        &trait_item.name,
+                        &trait_item.value.to_string(),
+                    ],
                 )?;
             }
 
@@ -528,12 +544,13 @@ mod tests {
     fn test_default_personality() {
         let config = PersonalityConfig::default();
         assert!(config.active);
-        assert_eq!(config.traits.len(), 16);  // Beta.86: Upgraded from 8 to 16 traits
+        assert_eq!(config.traits.len(), 16); // Beta.86: Upgraded from 8 to 16 traits
     }
 
     #[test]
     fn test_trait_creation() {
-        let trait_item = PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 8);
+        let trait_item =
+            PersonalityTrait::new("introvert_vs_extrovert", "Introvert vs Extrovert", 8);
         assert_eq!(trait_item.key, "introvert_vs_extrovert");
         assert_eq!(trait_item.value, 8);
         assert!(!trait_item.meaning.is_empty());
@@ -566,7 +583,7 @@ mod tests {
         let config = PersonalityConfig::default();
         let trait_ref = config.get_trait("introvert_vs_extrovert");
         assert!(trait_ref.is_some());
-        assert_eq!(trait_ref.unwrap().value, 3);  // Beta.83: Changed from 8 to 3 to match INTERNAL_PROMPT.md
+        assert_eq!(trait_ref.unwrap().value, 3); // Beta.83: Changed from 8 to 3 to match INTERNAL_PROMPT.md
     }
 
     #[test]
@@ -588,11 +605,17 @@ mod tests {
 
         // Adjust up
         config.adjust_trait("playful_vs_serious", 2).unwrap();
-        assert_eq!(config.get_trait("playful_vs_serious").unwrap().value, initial + 2);
+        assert_eq!(
+            config.get_trait("playful_vs_serious").unwrap().value,
+            initial + 2
+        );
 
         // Adjust down
         config.adjust_trait("playful_vs_serious", -1).unwrap();
-        assert_eq!(config.get_trait("playful_vs_serious").unwrap().value, initial + 1);
+        assert_eq!(
+            config.get_trait("playful_vs_serious").unwrap().value,
+            initial + 1
+        );
     }
 
     #[test]

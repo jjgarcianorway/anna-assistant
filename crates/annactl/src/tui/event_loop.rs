@@ -21,8 +21,8 @@ use super::state::{show_welcome_message, update_telemetry};
 pub enum TuiMessage {
     UserInput(String),
     AnnaReply(String),
-    AnnaReplyChunk(String),     // Beta.115: Streaming chunk
-    AnnaReplyComplete,           // Beta.115: Streaming complete
+    AnnaReplyChunk(String), // Beta.115: Streaming chunk
+    AnnaReplyComplete,      // Beta.115: Streaming complete
     ActionPlanReply(anna_common::action_plan_v3::ActionPlan), // Beta.147: Structured action plan
     TelemetryUpdate,
 }

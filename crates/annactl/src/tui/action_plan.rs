@@ -35,17 +35,13 @@ pub fn handle_action_plan_execution(state: &mut AnnaTuiState, tx: mpsc::Sender<T
                     }
 
                     if !result.checks_passed.is_empty() {
-                        summary.push_str(&format!(
-                            "Checks passed: {}\n",
-                            result.checks_passed.len()
-                        ));
+                        summary
+                            .push_str(&format!("Checks passed: {}\n", result.checks_passed.len()));
                     }
 
                     if !result.checks_failed.is_empty() {
-                        summary.push_str(&format!(
-                            "Checks failed: {}\n",
-                            result.checks_failed.len()
-                        ));
+                        summary
+                            .push_str(&format!("Checks failed: {}\n", result.checks_failed.len()));
                     }
 
                     summary.push_str(&format!(
@@ -267,47 +263,12 @@ pub async fn generate_action_plan_from_llm(
     state: &AnnaTuiState,
     tx: mpsc::Sender<TuiMessage>,
 ) -> Result<()> {
-    use anna_common::llm::LlmConfig;
     use crate::dialogue_v3_json;
-    use crate::internal_dialogue::{
-        DiskUsage, HardwareSummary, OsSummary, ResourceSummary, TelemetryPayload,
-    };
+    use crate::system_query::query_system_telemetry;
+    use anna_common::llm::LlmConfig;
 
-    // Build telemetry payload with nested structure
-    use sysinfo::System;
-
-    let mut sys = System::new_all();
-    sys.refresh_all();
-
-    let telemetry = TelemetryPayload {
-        hardware: HardwareSummary {
-            cpu_model: state.system_panel.cpu_model.clone(),
-            cpu_cores: sys.cpus().len() as u32,
-            total_ram_gb: state.system_panel.ram_total_gb,
-            gpu_model: state.system_panel.gpu_name.clone(),
-        },
-        os: OsSummary {
-            hostname: System::host_name().unwrap_or_else(|| "unknown".to_string()),
-            kernel: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
-            arch_status: "Arch Linux".to_string(),
-        },
-        resources: ResourceSummary {
-            load_avg: (
-                state.system_panel.cpu_load_1min,
-                state.system_panel.cpu_load_5min,
-                state.system_panel.cpu_load_15min,
-            ),
-            ram_used_percent: (state.system_panel.ram_used_gb / state.system_panel.ram_total_gb)
-                * 100.0,
-            disk_usage: vec![DiskUsage {
-                mount: "/".to_string(),
-                used_percent: 0.0, // Could calculate if needed
-                available_gb: state.system_panel.disk_free_gb,
-            }],
-        },
-        recent_errors: Vec::new(),    // Could fetch from journal if needed
-        trends: None,                  // Historian trends not available in TUI context
-    };
+    // Version 150: Use SystemTelemetry from unified query system
+    let telemetry = query_system_telemetry()?;
 
     // Use detected model from state
     let model_name = if state.llm_panel.model_name == "None"
@@ -507,9 +468,7 @@ pub fn render_action_plan_lines(
             Span::styled("Max Risk: ".to_string(), Style::default().fg(Color::Gray)),
             Span::styled(
                 format!("{:?}", max_risk),
-                Style::default()
-                    .fg(risk_color)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(risk_color).add_modifier(Modifier::BOLD),
             ),
         ]));
     }

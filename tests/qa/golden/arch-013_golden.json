@@ -1,0 +1,51 @@
+{
+  "id": "arch-013",
+  "question": "How do I update my system safely?",
+  "golden_answer": {
+    "summary": "Read Arch news first, update package database and system with 'pacman -Syu', reboot if kernel updated, check for failed services.",
+    "steps": [
+      "FIRST: Check Arch news for breaking changes: https://archlinux.org/news/",
+      "Update package database: sudo pacman -Sy",
+      "Review updates: sudo pacman -Qu (list available updates)",
+      "Perform full system upgrade: sudo pacman -Syu",
+      "Review pacnew/pacsave files: sudo find /etc -name '*.pacnew'",
+      "Merge config changes if needed: sudo pacdiff (requires pacman-contrib)",
+      "If kernel was updated: sudo reboot",
+      "After reboot, check failed services: systemctl --failed",
+      "Check logs for issues: journalctl -p err -b"
+    ],
+    "required_commands": [
+      "pacman -Syu",
+      "systemctl --failed"
+    ],
+    "required_files": [
+      "*.pacnew",
+      "*.pacsave"
+    ],
+    "required_concepts": [
+      "pacman",
+      "system update",
+      "pacnew files",
+      "rolling release"
+    ],
+    "validation": [
+      "pacman -Qu shows no updates available",
+      "No failed services after reboot",
+      "System functions normally"
+    ],
+    "warnings": [
+      "CRITICAL: Always check https://archlinux.org/news/ BEFORE updating",
+      "NEVER use 'pacman -Sy <package>' - always full upgrade with -Syu",
+      "Partial upgrades can break your system (unsupported)",
+      "Reboot after kernel, systemd, or glibc updates",
+      "Have live USB ready in case of boot issues",
+      "Don't skip updates for too long - harder to recover from issues",
+      "Handle .pacnew files - your custom configs may need updating"
+    ],
+    "references": [
+      "Arch Wiki: System maintenance",
+      "Arch Wiki: Pacman",
+      "Arch News: https://archlinux.org/news/"
+    ]
+  }
+}

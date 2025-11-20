@@ -104,20 +104,12 @@ impl ActionPlan {
 
         // Validate commands
         if step.commands.is_empty() {
-            return Err(anyhow!(
-                "Step {} ('{}') has no commands",
-                index,
-                step.id
-            ));
+            return Err(anyhow!("Step {} ('{}') has no commands", index, step.id));
         }
 
         for (cmd_idx, cmd) in step.commands.iter().enumerate() {
             if cmd.is_empty() {
-                return Err(anyhow!(
-                    "Step {} command {} is empty array",
-                    index,
-                    cmd_idx
-                ));
+                return Err(anyhow!("Step {} command {} is empty array", index, cmd_idx));
             }
 
             let program = &cmd[0];
@@ -294,9 +286,11 @@ mod tests {
                 risk: ActionRisk::Low,
                 requires_confirmation: false,
                 backup: Some("cp ~/.vimrc ~/.vimrc.ANNA_BACKUP.20250118-123456".to_string()),
-                commands: vec![
-                    vec!["cp".to_string(), "~/.vimrc".to_string(), "~/.vimrc.ANNA_BACKUP.20250118-123456".to_string()],
-                ],
+                commands: vec![vec![
+                    "cp".to_string(),
+                    "~/.vimrc".to_string(),
+                    "~/.vimrc.ANNA_BACKUP.20250118-123456".to_string(),
+                ]],
                 restore_hint: Some("cp ~/.vimrc.ANNA_BACKUP.* ~/.vimrc".to_string()),
             }],
         };
@@ -313,7 +307,7 @@ mod tests {
                 risk: ActionRisk::Low,
                 requires_confirmation: false,
                 backup: None,
-                commands: vec![],  // ❌ Empty
+                commands: vec![], // ❌ Empty
                 restore_hint: None,
             }],
         };
@@ -331,7 +325,7 @@ mod tests {
                 requires_confirmation: false,
                 backup: None,
                 commands: vec![
-                    vec!["echo test; rm -rf /".to_string()],  // ❌ Semicolon in program
+                    vec!["echo test; rm -rf /".to_string()], // ❌ Semicolon in program
                 ],
                 restore_hint: None,
             }],
@@ -348,8 +342,12 @@ mod tests {
                 description: "Backup with wrong naming".to_string(),
                 risk: ActionRisk::Low,
                 requires_confirmation: false,
-                backup: Some("cp file file.bak".to_string()),  // ❌ No ANNA_BACKUP
-                commands: vec![vec!["cp".to_string(), "file".to_string(), "file.bak".to_string()]],
+                backup: Some("cp file file.bak".to_string()), // ❌ No ANNA_BACKUP
+                commands: vec![vec![
+                    "cp".to_string(),
+                    "file".to_string(),
+                    "file.bak".to_string(),
+                ]],
                 restore_hint: None,
             }],
         };
@@ -364,9 +362,13 @@ mod tests {
                 id: "step_1".to_string(),
                 description: "High risk action".to_string(),
                 risk: ActionRisk::High,
-                requires_confirmation: false,  // ❌ High risk MUST require confirmation
+                requires_confirmation: false, // ❌ High risk MUST require confirmation
                 backup: None,
-                commands: vec![vec!["systemctl".to_string(), "restart".to_string(), "important-service".to_string()]],
+                commands: vec![vec![
+                    "systemctl".to_string(),
+                    "restart".to_string(),
+                    "important-service".to_string(),
+                ]],
                 restore_hint: None,
             }],
         };
@@ -381,10 +383,13 @@ mod tests {
             .arg("destination with spaces.txt");
 
         assert_eq!(cmd.program(), "cp");
-        assert_eq!(cmd.arguments(), &[
-            "file with spaces.txt".to_string(),
-            "destination with spaces.txt".to_string()
-        ]);
+        assert_eq!(
+            cmd.arguments(),
+            &[
+                "file with spaces.txt".to_string(),
+                "destination with spaces.txt".to_string()
+            ]
+        );
 
         // When converted to std::process::Command, spaces are handled safely
         let _std_cmd = cmd.to_command();

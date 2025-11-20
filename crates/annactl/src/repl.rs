@@ -5,7 +5,7 @@
 
 use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::{print_privacy_explanation, print_prompt, UI};
-use anna_common::llm::ChatMessage;  // Beta.110: For conversation history
+use anna_common::llm::ChatMessage; // Beta.110: For conversation history
 use anyhow::Result;
 use std::collections::HashMap;
 use std::env;
@@ -58,7 +58,7 @@ fn status_bar(ctx: &ReplUiContext) -> String {
 
 fn print_status_bar(ctx: &ReplUiContext) {
     println!("{}", status_bar(ctx));
-    println!();  // Blank line after status
+    println!(); // Blank line after status
 }
 
 /// Start the conversational REPL
@@ -120,9 +120,9 @@ pub async fn start_repl() -> Result<()> {
         println!();
         print_status_bar(&ctx);
         if repair.success {
-            ui.success("Auto-repair completed");  // ui.success() already adds ✓
+            ui.success("Auto-repair completed"); // ui.success() already adds ✓
         } else {
-            ui.warning("Auto-repair partially completed");  // ui.warning() already adds ⚠
+            ui.warning("Auto-repair partially completed"); // ui.warning() already adds ⚠
         }
         for action in &repair.actions {
             println!("  • {}", action);
@@ -226,7 +226,8 @@ async fn display_startup_summary(_ui: &UI) {
     // Get current LLM model from context DB
     let current_model = if let Some(db) = anna_common::context::db() {
         db.execute(|conn| {
-            let mut stmt = conn.prepare("SELECT model FROM llm_config ORDER BY updated_at DESC LIMIT 1")?;
+            let mut stmt =
+                conn.prepare("SELECT model FROM llm_config ORDER BY updated_at DESC LIMIT 1")?;
             let mut rows = stmt.query([])?;
             if let Some(row) = rows.next()? {
                 let model: String = row.get(0)?;
@@ -404,7 +405,9 @@ async fn handle_improve_intent(_db: Option<&Arc<ContextDb>>) {
     ui.section_header("🛠", "What you can improve");
 
     // Beta.89: Only suggest actually existing commands
-    ui.info("Improvement suggestions will be based on 30-day Historian data once fully implemented.");
+    ui.info(
+        "Improvement suggestions will be based on 30-day Historian data once fully implemented.",
+    );
     println!();
     ui.info("For now, try:");
     println!("  • Run 'annactl status' for current system health");
@@ -483,40 +486,67 @@ async fn handle_llm_query(
         Some(("check_swap_status", HashMap::new()))
     } else if contains_word(&input_lower, "gpu") || contains_word(&input_lower, "vram") {
         Some(("check_gpu_memory", HashMap::new()))
-    } else if input_lower.contains("wifi") || input_lower.contains("wireless") ||
-       (input_lower.contains("network") && (input_lower.contains("slow") || input_lower.contains("issue") || input_lower.contains("problem"))) {
+    } else if input_lower.contains("wifi")
+        || input_lower.contains("wireless")
+        || (input_lower.contains("network")
+            && (input_lower.contains("slow")
+                || input_lower.contains("issue")
+                || input_lower.contains("problem")))
+    {
         Some(("wifi_diagnostics", HashMap::new()))
-    } else if contains_word(&input_lower, "kernel") && (input_lower.contains("version") || input_lower.contains("what") || input_lower.contains("running")) {
+    } else if contains_word(&input_lower, "kernel")
+        && (input_lower.contains("version")
+            || input_lower.contains("what")
+            || input_lower.contains("running"))
+    {
         Some(("check_kernel_version", HashMap::new()))
     } else if input_lower.contains("disk") && input_lower.contains("space") {
         Some(("check_disk_space", HashMap::new()))
-    } else if (contains_word(&input_lower, "memory") || contains_word(&input_lower, "ram")) && !input_lower.contains("gpu") {
+    } else if (contains_word(&input_lower, "memory") || contains_word(&input_lower, "ram"))
+        && !input_lower.contains("gpu")
+    {
         Some(("check_memory", HashMap::new()))
     } else if contains_word(&input_lower, "uptime") {
         Some(("check_uptime", HashMap::new()))
-    } else if contains_word(&input_lower, "cpu") && (input_lower.contains("model") || input_lower.contains("what") || input_lower.contains("processor")) {
+    } else if contains_word(&input_lower, "cpu")
+        && (input_lower.contains("model")
+            || input_lower.contains("what")
+            || input_lower.contains("processor"))
+    {
         Some(("check_cpu_model", HashMap::new()))
-    } else if contains_word(&input_lower, "cpu") && (input_lower.contains("load") || input_lower.contains("usage")) {
+    } else if contains_word(&input_lower, "cpu")
+        && (input_lower.contains("load") || input_lower.contains("usage"))
+    {
         Some(("check_cpu_load", HashMap::new()))
-    } else if contains_word(&input_lower, "distro") || (input_lower.contains("arch") && input_lower.contains("version")) {
+    } else if contains_word(&input_lower, "distro")
+        || (input_lower.contains("arch") && input_lower.contains("version"))
+    {
         Some(("check_distro", HashMap::new()))
     } else if input_lower.contains("failed") && input_lower.contains("service") {
         Some(("check_failed_services", HashMap::new()))
     } else if input_lower.contains("journal") && input_lower.contains("error") {
         Some(("check_journal_errors", HashMap::new()))
-    } else if input_lower.contains("weak") || (input_lower.contains("diagnostic") && input_lower.contains("system")) {
+    } else if input_lower.contains("weak")
+        || (input_lower.contains("diagnostic") && input_lower.contains("system"))
+    {
         Some(("system_weak_points_diagnostic", HashMap::new()))
 
     // Beta.112: PACKAGE MANAGEMENT (13 new templates)
-    } else if input_lower.contains("orphan") || (input_lower.contains("unused") && input_lower.contains("package")) {
+    } else if input_lower.contains("orphan")
+        || (input_lower.contains("unused") && input_lower.contains("package"))
+    {
         Some(("list_orphaned_packages", HashMap::new()))
     } else if input_lower.contains("aur") {
         Some(("list_aur_packages", HashMap::new()))
-    } else if input_lower.contains("pacman") && (input_lower.contains("cache") || input_lower.contains("size")) {
+    } else if input_lower.contains("pacman")
+        && (input_lower.contains("cache") || input_lower.contains("size"))
+    {
         Some(("check_pacman_cache_size", HashMap::new()))
     } else if input_lower.contains("mirror") {
         Some(("check_pacman_mirrors", HashMap::new()))
-    } else if (input_lower.contains("update") || input_lower.contains("upgrade")) && !input_lower.contains("brain") {
+    } else if (input_lower.contains("update") || input_lower.contains("upgrade"))
+        && !input_lower.contains("brain")
+    {
         Some(("check_package_updates", HashMap::new()))
     } else if input_lower.contains("keyring") {
         Some(("check_archlinux_keyring", HashMap::new()))
@@ -526,7 +556,9 @@ async fn handle_llm_query(
         Some(("clean_package_cache", HashMap::new()))
     } else if input_lower.contains("explicit") && input_lower.contains("package") {
         Some(("list_explicit_packages", HashMap::new()))
-    } else if input_lower.contains("pacman") && (input_lower.contains("status") || input_lower.contains("lock")) {
+    } else if input_lower.contains("pacman")
+        && (input_lower.contains("status") || input_lower.contains("lock"))
+    {
         Some(("check_pacman_status", HashMap::new()))
     } else if input_lower.contains("dependency") && input_lower.contains("conflict") {
         Some(("check_dependency_conflicts", HashMap::new()))
@@ -536,7 +568,9 @@ async fn handle_llm_query(
         Some(("show_recent_pacman_operations", HashMap::new()))
 
     // Beta.112: BOOT & SYSTEMD (8 new templates)
-    } else if input_lower.contains("boot") && (input_lower.contains("time") || input_lower.contains("slow")) {
+    } else if input_lower.contains("boot")
+        && (input_lower.contains("time") || input_lower.contains("slow"))
+    {
         Some(("analyze_boot_time", HashMap::new()))
     } else if input_lower.contains("boot") && input_lower.contains("error") {
         Some(("check_boot_errors", HashMap::new()))
@@ -554,13 +588,17 @@ async fn handle_llm_query(
         Some(("check_systemd_version", HashMap::new()))
 
     // Beta.112: CPU & PERFORMANCE (8 new templates)
-    } else if input_lower.contains("cpu") && (input_lower.contains("freq") || input_lower.contains("speed")) {
+    } else if input_lower.contains("cpu")
+        && (input_lower.contains("freq") || input_lower.contains("speed"))
+    {
         Some(("check_cpu_frequency", HashMap::new()))
     } else if input_lower.contains("cpu") && input_lower.contains("governor") {
         Some(("check_cpu_governor", HashMap::new()))
     } else if input_lower.contains("cpu") && input_lower.contains("usage") {
         Some(("analyze_cpu_usage", HashMap::new()))
-    } else if (input_lower.contains("cpu") || input_lower.contains("temperature")) && input_lower.contains("temp") {
+    } else if (input_lower.contains("cpu") || input_lower.contains("temperature"))
+        && input_lower.contains("temp")
+    {
         Some(("check_cpu_temperature", HashMap::new()))
     } else if input_lower.contains("throttl") {
         Some(("detect_cpu_throttling", HashMap::new()))
@@ -604,7 +642,9 @@ async fn handle_llm_query(
     // Beta.112: GPU & DISPLAY (9 new templates)
     } else if input_lower.contains("nvidia") && !input_lower.contains("install") {
         Some(("check_nvidia_status", HashMap::new()))
-    } else if input_lower.contains("amd") && (input_lower.contains("gpu") || input_lower.contains("radeon")) {
+    } else if input_lower.contains("amd")
+        && (input_lower.contains("gpu") || input_lower.contains("radeon"))
+    {
         Some(("check_amd_gpu", HashMap::new()))
     } else if input_lower.contains("gpu") && input_lower.contains("driver") {
         Some(("check_gpu_drivers", HashMap::new()))
@@ -612,7 +652,10 @@ async fn handle_llm_query(
         Some(("check_gpu_processes", HashMap::new()))
     } else if input_lower.contains("gpu") && input_lower.contains("temp") {
         Some(("check_gpu_temperature", HashMap::new()))
-    } else if input_lower.contains("display") || input_lower.contains("xorg") || input_lower.contains("wayland") {
+    } else if input_lower.contains("display")
+        || input_lower.contains("xorg")
+        || input_lower.contains("wayland")
+    {
         Some(("check_display_server", HashMap::new()))
     } else if input_lower.contains("desktop") && input_lower.contains("environment") {
         Some(("check_desktop_environment", HashMap::new()))
@@ -622,7 +665,10 @@ async fn handle_llm_query(
         Some(("check_wayland_compositor", HashMap::new()))
 
     // Beta.112: HARDWARE (4 new templates)
-    } else if input_lower.contains("temperature") || input_lower.contains("temp") || input_lower.contains("heat") {
+    } else if input_lower.contains("temperature")
+        || input_lower.contains("temp")
+        || input_lower.contains("heat")
+    {
         Some(("check_temperature", HashMap::new()))
     } else if input_lower.contains("usb") {
         Some(("check_usb_devices", HashMap::new()))
@@ -669,9 +715,9 @@ async fn handle_llm_query(
     }
 
     // Beta.110: Word-by-word streaming like one-shot mode
+    use anna_common::llm::{ChatMessage, LlmClient, LlmConfig, LlmPrompt};
     use owo_colors::OwoColorize;
     use std::io::{self, Write};
-    use anna_common::llm::{ChatMessage, LlmClient, LlmConfig, LlmPrompt};
 
     // Show thinking indicator
     print!("{} ", "anna (thinking):".bright_magenta().dimmed());
@@ -682,7 +728,7 @@ async fn handle_llm_query(
         match db.load_llm_config().await {
             Ok(config) => config,
             Err(e) => {
-                print!("\r{}", " ".repeat(50));  // Clear thinking line
+                print!("\r{}", " ".repeat(50)); // Clear thinking line
                 println!();
                 ui.error(&format!("❌ Failed to load LLM config: {}", e));
                 ui.info("💡 Try: 'annactl repair' to check LLM setup");
@@ -698,7 +744,7 @@ async fn handle_llm_query(
     let client = match LlmClient::from_config(&llm_config) {
         Ok(client) => client,
         Err(e) => {
-            print!("\r{}", " ".repeat(50));  // Clear thinking line
+            print!("\r{}", " ".repeat(50)); // Clear thinking line
             println!();
             ui.error(&format!("❌ Failed to create LLM client: {}", e));
             ui.info("💡 Try: 'annactl repair' to check LLM setup");
@@ -726,11 +772,7 @@ async fn handle_llm_query(
     };
 
     // Create prompt with system context and conversation history
-    let system_prompt = format!(
-        "{}\n\n{}",
-        LlmClient::anna_system_prompt(),
-        system_context
-    );
+    let system_prompt = format!("{}\n\n{}", LlmClient::anna_system_prompt(), system_context);
 
     // Build conversation history into the prompt format
     // Convert our Vec<ChatMessage> to Option<Vec<ChatMessage>> for the prompt
@@ -792,9 +834,6 @@ async fn handle_llm_query(
 
 /// Display structured LLM output sections
 fn display_structured_llm_output(response: &str) {
-    
-    
-
     let ui = UI::auto();
 
     // Extract structured sections from response
@@ -852,7 +891,7 @@ fn parse_anna_sections(response: &str) -> HashMap<String, String> {
 
         // Check if this line is a section header [ANNA_NAME]
         if line.starts_with("[ANNA_") && line.ends_with(']') {
-            let section_name = line[1..line.len()-1].to_string(); // Remove [ and ]
+            let section_name = line[1..line.len() - 1].to_string(); // Remove [ and ]
             let mut content_lines = Vec::new();
             i += 1;
 

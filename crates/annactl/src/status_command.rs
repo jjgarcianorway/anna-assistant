@@ -55,15 +55,15 @@ pub async fn execute_anna_status_command(
     println!();
 
     // Beta.141: Enhanced core health display with emojis
-    println!("{}", fmt::section_title(&fmt::emojis::SERVICE, "Core Health"));
+    println!(
+        "{}",
+        fmt::section_title(&fmt::emojis::SERVICE, "Core Health")
+    );
     println!();
 
     // Daemon
     if health.daemon.installed && health.daemon.enabled && health.daemon.running {
-        println!(
-            "  {}",
-            fmt::component_status("Daemon (annad)", "running")
-        );
+        println!("  {}", fmt::component_status("Daemon (annad)", "running"));
         println!(
             "    {}",
             fmt::dimmed("service installed, enabled, and active")
@@ -83,10 +83,7 @@ pub async fn execute_anna_status_command(
     if health.llm.reachable && health.llm.model_available {
         println!(
             "  {}",
-            fmt::component_status(
-                &format!("LLM ({})", health.llm.backend),
-                "running"
-            )
+            fmt::component_status(&format!("LLM ({})", health.llm.backend), "running")
         );
         println!(
             "    {}",
@@ -122,16 +119,10 @@ pub async fn execute_anna_status_command(
 
     // Beta.141: Enhanced permissions display
     if health.permissions.data_dirs_ok && health.permissions.user_in_groups {
-        println!(
-            "  {}",
-            fmt::component_status("Permissions", "healthy")
-        );
+        println!("  {}", fmt::component_status("Permissions", "healthy"));
         println!("    {}", fmt::dimmed("data directories and user groups OK"));
     } else {
-        println!(
-            "  {}",
-            fmt::component_status("Permissions", "degraded")
-        );
+        println!("  {}", fmt::component_status("Permissions", "degraded"));
         for issue in &health.permissions.issues {
             println!("    {} {}", fmt::emojis::WARNING, fmt::dimmed(issue));
         }
@@ -189,12 +180,7 @@ pub async fn execute_anna_status_command(
             );
             println!();
             for (i, suggestion) in critical.iter().take(3).enumerate() {
-                println!(
-                    "  {}. {} {}",
-                    i + 1,
-                    fmt::emojis::ROCKET,
-                    suggestion.title
-                );
+                println!("  {}. {} {}", i + 1, fmt::emojis::ROCKET, suggestion.title);
             }
             println!();
             println!(

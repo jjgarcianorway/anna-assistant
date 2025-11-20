@@ -5,10 +5,8 @@
 
 pub mod action_plan; // Beta.66: Secure ACTION_PLAN execution with validation
 pub mod action_plan_v3; // Beta.143: JSON runtime contract for LLM
-pub mod answer_validator; // Beta.87: Multi-pass answer validation - zero hallucination guarantee
 pub mod advice_cache;
-pub mod qa_scenarios; // Beta.67: Real-world QA scenarios (vim, hardware, LLM upgrade)
-pub mod reddit_qa_validator; // Beta.78: Reddit-based validation (500-1000 real questions)
+pub mod answer_validator; // Beta.87: Multi-pass answer validation - zero hallucination guarantee
 pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
 pub mod backup_detection; // Backup tool detection (timeshift, snapper, borg, restic)
 pub mod beautiful;
@@ -21,9 +19,6 @@ pub mod change_recipe; // Phase 7: Safe change recipes with strict guardrails
 pub mod change_recipe_display; // Phase 7: UI display for change recipes
 pub mod command_meta;
 pub mod command_recipe; // Beta.90: Command recipe system - executable knowledge
-pub mod template_library; // Beta.90: Pre-built templates for common operations
-pub mod recipe_planner; // Beta.90: Planner/Critic LLM loop
-pub mod recipe_executor; // Beta.90: Safe command execution with validation
 pub mod config;
 pub mod config_file; // Desktop config file parsing (Hyprland, i3, Sway)
 pub mod config_parser;
@@ -73,7 +68,11 @@ pub mod prediction;
 pub mod prediction_actions;
 pub mod profile;
 pub mod prompt_builder; // Phase 9: LLM prompt construction with safety
+pub mod qa_scenarios; // Beta.67: Real-world QA scenarios (vim, hardware, LLM upgrade)
+pub mod recipe_executor; // Beta.90: Safe command execution with validation
+pub mod recipe_planner; // Beta.90: Planner/Critic LLM loop
 pub mod recipe_validator; // Phase 9: LLM response parsing and validation
+pub mod reddit_qa_validator; // Beta.78: Reddit-based validation (500-1000 real questions)
 pub mod rollback;
 pub mod security; // Security configuration (firewall, SSH config, umask)
 pub mod security_features; // Security features (SELinux, AppArmor, Polkit, sudo, kernel lockdown)
@@ -85,6 +84,7 @@ pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod system_health; // System health detection (load averages, daemon crashes, uptime)
 pub mod systemd_health; // Systemd health detection (failed units, timers, journal)
 pub mod telemetry; // Telemetry structures from annad
+pub mod template_library; // Beta.90: Pre-built templates for common operations
 pub mod terminal_format; // Phase 8: Beautiful terminal formatting
 pub mod trend_detectors; // Milestone 1.3: Trend-based detection and proactive warnings
 pub mod types;

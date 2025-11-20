@@ -3,7 +3,7 @@
 //! Beta.53: Intelligent model selection based on hardware capabilities
 //! Provides recommendations and auto-installation for optimal LLM models
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -32,8 +32,13 @@ pub fn get_model_catalog() -> Vec<ModelInfo> {
             ram_requirement_gb: 4.0,
             quality_score: 60,
             latency_ms: 200,
-            tags: vec!["fast".to_string(), "interactive".to_string(), "minimal".to_string()],
-            description: "Minimal model for quick chats - NOT recommended for system admin".to_string(),
+            tags: vec![
+                "fast".to_string(),
+                "interactive".to_string(),
+                "minimal".to_string(),
+            ],
+            description: "Minimal model for quick chats - NOT recommended for system admin"
+                .to_string(),
         },
         ModelInfo {
             id: "llama3.1:8b".to_string(),
@@ -44,7 +49,8 @@ pub fn get_model_catalog() -> Vec<ModelInfo> {
             quality_score: 80,
             latency_ms: 500,
             tags: vec!["balanced".to_string(), "recommended".to_string()],
-            description: "Recommended for most systems - good balance of speed and intelligence".to_string(),
+            description: "Recommended for most systems - good balance of speed and intelligence"
+                .to_string(),
         },
         ModelInfo {
             id: "qwen2.5:14b".to_string(),
@@ -54,7 +60,11 @@ pub fn get_model_catalog() -> Vec<ModelInfo> {
             ram_requirement_gb: 16.0,
             quality_score: 90,
             latency_ms: 1000,
-            tags: vec!["deep".to_string(), "code".to_string(), "analysis".to_string()],
+            tags: vec![
+                "deep".to_string(),
+                "code".to_string(),
+                "analysis".to_string(),
+            ],
             description: "Best for code analysis and complex reasoning".to_string(),
         },
         ModelInfo {
@@ -73,9 +83,7 @@ pub fn get_model_catalog() -> Vec<ModelInfo> {
 
 /// Get list of installed models from Ollama
 pub fn get_installed_models() -> Result<Vec<String>> {
-    let output = Command::new("ollama")
-        .arg("list")
-        .output()?;
+    let output = Command::new("ollama").arg("list").output()?;
 
     if !output.status.success() {
         bail!("Failed to list Ollama models");
@@ -120,8 +128,7 @@ pub fn get_alternatives(primary: &ModelInfo, host_ram_gb: f64) -> Vec<ModelInfo>
     catalog
         .into_iter()
         .filter(|m| {
-            m.id != primary.id
-            && m.ram_requirement_gb <= host_ram_gb * 0.8 // Leave 20% RAM free
+            m.id != primary.id && m.ram_requirement_gb <= host_ram_gb * 0.8 // Leave 20% RAM free
         })
         .collect()
 }
@@ -138,10 +145,7 @@ pub fn install_model(model_id: &str) -> Result<()> {
     println!("\n📥 Installing model: {}", model_id);
     println!("This may take a few minutes depending on your connection...\n");
 
-    let status = Command::new("ollama")
-        .arg("pull")
-        .arg(model_id)
-        .status()?;
+    let status = Command::new("ollama").arg("pull").arg(model_id).status()?;
 
     if !status.success() {
         bail!("Failed to install model {}", model_id);

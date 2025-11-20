@@ -1,10 +1,13 @@
 //! LLM Integration - Reply generation with template matching and streaming
+//! Beta.149: Now uses unified_query_handler for consistency with CLI
 
+use crate::recipe_formatter::format_recipe_answer;
+use crate::system_query::query_system_telemetry;
 use crate::tui_state::AnnaTuiState;
+use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, UnifiedQueryResult};
 use anna_common::command_recipe::Recipe;
 use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
 use anna_common::template_library::TemplateLibrary;
-use crate::recipe_formatter::format_recipe_answer;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 
@@ -28,11 +31,7 @@ pub async fn generate_llm_reply(input: &str, state: &AnnaTuiState) -> String {
         state.system_panel.cpu_load_15min,
         state.system_panel.ram_used_gb,
         state.system_panel.ram_total_gb,
-        state
-            .system_panel
-            .gpu_name
-            .as_deref()
-            .unwrap_or("None"),
+        state.system_panel.gpu_name.as_deref().unwrap_or("None"),
         state.system_panel.disk_free_gb,
         state.system_panel.anna_version,
     );
@@ -324,84 +323,133 @@ pub async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
     }
 }
 
-/// Beta.115: Generate reply with streaming support
+/// Beta.149: Generate reply using unified query handler
+/// This ensures TUI and CLI get IDENTICAL responses
 pub async fn generate_reply_streaming(
     input: &str,
     state: &AnnaTuiState,
     tx: mpsc::Sender<TuiMessage>,
 ) -> String {
-    let _library = TemplateLibrary::default();
-    let input_lower = input.to_lowercase();
-
-    // Helper function for word-boundary keyword matching
-    let contains_word = |text: &str, keyword: &str| {
-        text.split(|c: char| !c.is_alphanumeric())
-            .any(|word| word == keyword)
+    // Get telemetry
+    let telemetry = match query_system_telemetry() {
+        Ok(t) => t,
+        Err(e) => {
+            return format!("⚠ Error reading system telemetry: {}", e);
+        }
     };
 
-    // Check if input matches a template (same logic as generate_reply)
-    // If it does, return template response immediately (non-streaming)
-    // If not, use streaming LLM
-    let has_template = contains_word(&input_lower, "swap")
-        || contains_word(&input_lower, "gpu")
-        || contains_word(&input_lower, "vram")
-        || input_lower.contains("wifi")
-        || input_lower.contains("wireless")
-        || input_lower.contains("kernel")
-        || input_lower.contains("disk")
-        || contains_word(&input_lower, "memory")
-        || contains_word(&input_lower, "ram")
-        || contains_word(&input_lower, "uptime")
-        || contains_word(&input_lower, "cpu")
-        || contains_word(&input_lower, "distro")
-        || input_lower.contains("failed")
-        || input_lower.contains("service")
-        || input_lower.contains("journal")
-        || input_lower.contains("error")
-        || input_lower.contains("orphan")
-        || input_lower.contains("package")
-        || input_lower.contains("aur")
-        || input_lower.contains("pacman")
-        || input_lower.contains("mirror")
-        || input_lower.contains("update")
-        || input_lower.contains("upgrade")
-        || input_lower.contains("boot")
-        || input_lower.contains("systemd")
-        || input_lower.contains("load")
-        || input_lower.contains("temperature")
-        || input_lower.contains("throttl")
-        || input_lower.contains("network")
-        || input_lower.contains("dns")
-        || input_lower.contains("firewall")
-        || input_lower.contains("port")
-        || input_lower.contains("storage")
-        || input_lower.contains("battery")
-        || input_lower.contains("bluetooth")
-        || input_lower.contains("audio")
-        || input_lower.contains("usb")
-        || input_lower.contains("pci")
-        || input_lower.contains("hostname");
+    // Get LLM config from state
+    let model_name = if state.llm_panel.model_name == "None"
+        || state.llm_panel.model_name == "Unknown"
+        || state.llm_panel.model_name == "Ollama N/A"
+    {
+        "llama3.1:8b"
+    } else {
+        &state.llm_panel.model_name
+    };
+    let llm_config = LlmConfig::local("http://127.0.0.1:11434/v1", model_name);
 
-    if has_template {
-        // Use non-streaming template-based reply
-        return generate_reply(input, state).await;
+    // Use unified query handler
+    match handle_unified_query(input, &telemetry, &llm_config).await {
+        Ok(UnifiedQueryResult::DeterministicRecipe {
+            recipe_name,
+            action_plan,
+        }) => {
+            // Format recipe output for TUI
+            format!(
+                "**🎯 Using deterministic recipe: {}**\n\n\
+                 ## Analysis\n{}\n\n\
+                 ## Goals\n{}\n\n\
+                 ## Commands\n{}\n\n\
+                 ## Notes\n{}",
+                recipe_name,
+                action_plan.analysis,
+                action_plan
+                    .goals
+                    .iter()
+                    .enumerate()
+                    .map(|(i, g)| format!("{}. {}", i + 1, g))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                action_plan
+                    .command_plan
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cmd)| format!(
+                        "{}. {} [Risk: {:?}]\n   $ {}",
+                        i + 1,
+                        cmd.description,
+                        cmd.risk_level,
+                        cmd.command
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                action_plan.notes_for_user
+            )
+        }
+        Ok(UnifiedQueryResult::Template {
+            command, output, ..
+        }) => {
+            // Format template output for TUI
+            format!("**Running:** `{}`\n\n```\n{}\n```", command, output)
+        }
+        Ok(UnifiedQueryResult::ActionPlan {
+            action_plan,
+            raw_json: _,
+        }) => {
+            // Format action plan for TUI
+            format!(
+                "## Analysis\n{}\n\n\
+                 ## Goals\n{}\n\n\
+                 ## Commands\n{}\n\n\
+                 ## Notes\n{}",
+                action_plan.analysis,
+                action_plan
+                    .goals
+                    .iter()
+                    .enumerate()
+                    .map(|(i, g)| format!("{}. {}", i + 1, g))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                action_plan
+                    .command_plan
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cmd)| format!(
+                        "{}. {} [Risk: {:?}]\n   $ {}",
+                        i + 1,
+                        cmd.description,
+                        cmd.risk_level,
+                        cmd.command
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                action_plan.notes_for_user
+            )
+        }
+        Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence,
+            sources,
+        }) => {
+            // Format conversational answer for TUI
+            let confidence_str = match confidence {
+                AnswerConfidence::High => "✅ High",
+                AnswerConfidence::Medium => "🟡 Medium",
+                AnswerConfidence::Low => "⚠️  Low",
+            };
+
+            format!(
+                "{}\n\n---\n*Confidence: {} | Sources: {}*",
+                answer,
+                confidence_str,
+                sources.join(", ")
+            )
+        }
+        Err(e) => {
+            format!("⚠ Query failed: {}", e)
+        }
     }
-
-    // TODO Beta.118: Add RecipePlanner tier here (like one-off mode has)
-    // Current: Templates → LLM (2 tiers)
-    // Needed:  Templates → RecipePlanner → LLM (3 tiers, consistent with one-off)
-    //
-    // Challenges:
-    // 1. RecipePlanner needs interactive confirmation (can't do in streaming TUI)
-    // 2. Recipe execution needs step-by-step display (requires TUI redesign)
-    // 3. Need to integrate with channel-based messaging
-    //
-    // For now, TUI only uses generic LLM (inconsistent with one-off mode)
-    // This is why same question gets different answers in TUI vs one-off
-
-    // No template match - use streaming LLM
-    generate_llm_reply_streaming(input, state, tx).await;
-    String::new() // Return empty - streaming handled via channel
 }
 
 /// Beta.115: Generate LLM reply with streaming chunks sent via channel
@@ -484,6 +532,61 @@ pub async fn generate_llm_reply_streaming(
     };
 
     match llm_client.chat_stream(&prompt, &mut callback) {
+        Ok(_) => {
+            // Streaming complete
+            let _ = tx.send(TuiMessage::AnnaReplyComplete).await;
+        }
+        Err(_) => {
+            let _ = tx
+                .send(TuiMessage::AnnaReply(
+                    "## LLM Error\n\nFailed to get response.".to_string(),
+                ))
+                .await;
+        }
+    }
+}
+
+/// Beta.149: Generate LLM reply with pre-built prompt (for unified handler)
+async fn generate_llm_reply_streaming_with_prompt(
+    prompt: &str,
+    llm_config: &LlmConfig,
+    tx: mpsc::Sender<TuiMessage>,
+) {
+    let llm_client = match LlmClient::from_config(llm_config) {
+        Ok(client) => client,
+        Err(_) => {
+            // LLM not available
+            let _ = tx
+                .send(TuiMessage::AnnaReply(
+                    "## ⚠ LLM Unavailable\n\nI couldn't connect to the local LLM server (Ollama)."
+                        .to_string(),
+                ))
+                .await;
+            return;
+        }
+    };
+
+    // Build LLM prompt with unified handler's pre-built prompt
+    let llm_prompt = LlmPrompt {
+        system: LlmClient::anna_system_prompt().to_string(),
+        user: prompt.to_string(),
+        conversation_history: None,
+    };
+
+    // Streaming callback - send each chunk via channel
+    let tx_clone = tx.clone();
+    let mut callback = move |chunk: &str| {
+        let chunk_string = chunk.to_string();
+        let tx_inner = tx_clone.clone();
+        // Send chunk asynchronously
+        tokio::spawn(async move {
+            let _ = tx_inner
+                .send(TuiMessage::AnnaReplyChunk(chunk_string))
+                .await;
+        });
+    };
+
+    match llm_client.chat_stream(&llm_prompt, &mut callback) {
         Ok(_) => {
             // Streaming complete
             let _ = tx.send(TuiMessage::AnnaReplyComplete).await;

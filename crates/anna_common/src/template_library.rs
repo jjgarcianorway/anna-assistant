@@ -10,9 +10,7 @@
 //! 2. Fill in parameters (package names, file paths, etc.)
 //! 3. Only fall back to raw commands when no template exists
 
-use crate::command_recipe::{
-    CommandCategory, CommandRecipe, OutputValidation, SafetyLevel,
-};
+use crate::command_recipe::{CommandCategory, CommandRecipe, OutputValidation, SafetyLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -621,7 +619,9 @@ impl TemplateLibrary {
         Template {
             id: "list_orphaned_packages".to_string(),
             name: "List Orphaned Packages".to_string(),
-            description: "List packages that were installed as dependencies but are no longer required".to_string(),
+            description:
+                "List packages that were installed as dependencies but are no longer required"
+                    .to_string(),
             parameters: vec![],
             command_pattern: "pacman -Qdt".to_string(),
             category: CommandCategory::ReadOnly,
@@ -631,7 +631,8 @@ impl TemplateLibrary {
                 stdout_must_match: None, // Empty output is valid (no orphans)
                 stdout_must_not_match: None,
                 stderr_must_match: None,
-                validation_description: "Lists orphaned packages or shows empty if none".to_string(),
+                validation_description: "Lists orphaned packages or shows empty if none"
+                    .to_string(),
             }),
             example: "pacman -Qdt".to_string(),
         }
@@ -650,7 +651,8 @@ impl TemplateLibrary {
             }],
             command_pattern: "pacman -Qk {{package}}".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("{{package}}".to_string()),
@@ -670,7 +672,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "sudo pacman -Scc --noconfirm".to_string(),
             category: CommandCategory::SystemWrite,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Cleaning_the_package_cache".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Cleaning_the_package_cache"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: None,
@@ -695,7 +698,8 @@ impl TemplateLibrary {
             }],
             command_pattern: "pacman -Ql {{package}}".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("{{package}}".to_string()),
@@ -720,7 +724,8 @@ impl TemplateLibrary {
             }],
             command_pattern: "pacman -Qo {{filepath}}".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("owned by".to_string()),
@@ -740,7 +745,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "pacman -Qe".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: None,
@@ -760,13 +766,15 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "checkupdates".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/System_maintenance#Check_for_updates".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/System_maintenance#Check_for_updates"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: None, // Empty output is valid (no updates)
                 stdout_must_not_match: None,
                 stderr_must_match: None,
-                validation_description: "Lists available updates or shows empty if system is up to date".to_string(),
+                validation_description:
+                    "Lists available updates or shows empty if system is up to date".to_string(),
             }),
             example: "checkupdates".to_string(),
         }
@@ -805,7 +813,8 @@ impl TemplateLibrary {
             }],
             command_pattern: "pactree {{package}}".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("{{package}}".to_string()),
@@ -830,7 +839,8 @@ impl TemplateLibrary {
             }],
             command_pattern: "pactree -r {{package}}".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("{{package}}".to_string()),
@@ -897,7 +907,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "ip route".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Network_configuration#Routing_table".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Network_configuration#Routing_table"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: None,
@@ -970,7 +981,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "iwconfig 2>/dev/null | grep -E 'Quality|Signal'".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Wireless#Get_the_name_of_the_interface".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Wireless#Get_the_name_of_the_interface"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: None, // Empty if no WiFi
@@ -1155,7 +1167,8 @@ impl TemplateLibrary {
             name: "List Running Services".to_string(),
             description: "List all currently running services".to_string(),
             parameters: vec![],
-            command_pattern: "systemctl list-units --type=service --state=running --no-pager".to_string(),
+            command_pattern: "systemctl list-units --type=service --state=running --no-pager"
+                .to_string(),
             category: CommandCategory::ReadOnly,
             wiki_source: "https://wiki.archlinux.org/title/Systemd#Using_units".to_string(),
             validation_pattern: Some(OutputValidation {
@@ -1179,7 +1192,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "systemd-analyze blame | head -20".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Improving_performance/Boot_process".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Improving_performance/Boot_process"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("ms".to_string()),
@@ -1309,7 +1323,8 @@ impl TemplateLibrary {
                 validation_regex: Some(r"^/.*".to_string()),
                 required: true,
             }],
-            command_pattern: r#"sudo cp {{filepath}} {{filepath}}.backup.$(date +%Y%m%d_%H%M%S)"#.to_string(),
+            command_pattern: r#"sudo cp {{filepath}} {{filepath}}.backup.$(date +%Y%m%d_%H%M%S)"#
+                .to_string(),
             category: CommandCategory::SystemWrite,
             wiki_source: "https://wiki.archlinux.org/title/System_maintenance".to_string(),
             validation_pattern: Some(OutputValidation {
@@ -1319,7 +1334,8 @@ impl TemplateLibrary {
                 stderr_must_match: None,
                 validation_description: "Backup created successfully".to_string(),
             }),
-            example: r#"sudo cp /etc/pacman.conf /etc/pacman.conf.backup.$(date +%Y%m%d_%H%M%S)"#.to_string(),
+            example: r#"sudo cp /etc/pacman.conf /etc/pacman.conf.backup.$(date +%Y%m%d_%H%M%S)"#
+                .to_string(),
         }
     }
 
@@ -1396,7 +1412,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "hostnamectl".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Network_configuration#Set_the_hostname".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Network_configuration#Set_the_hostname"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("hostname".to_string()),
@@ -1477,9 +1494,12 @@ impl TemplateLibrary {
         Template {
             id: "check_pacman_status".to_string(),
             name: "Check Pacman Status".to_string(),
-            description: "Check if Pacman is working correctly and display current configuration".to_string(),
+            description: "Check if Pacman is working correctly and display current configuration"
+                .to_string(),
             parameters: vec![],
-            command_pattern: "pacman --version && echo && grep -v '^#' /etc/pacman.conf | grep -v '^$'".to_string(),
+            command_pattern:
+                "pacman --version && echo && grep -v '^#' /etc/pacman.conf | grep -v '^$'"
+                    .to_string(),
             category: CommandCategory::ReadOnly,
             wiki_source: "https://wiki.archlinux.org/title/Pacman".to_string(),
             validation_pattern: Some(OutputValidation {
@@ -1579,9 +1599,12 @@ impl TemplateLibrary {
             name: "Check Pending Updates".to_string(),
             description: "Check for available package updates".to_string(),
             parameters: vec![],
-            command_pattern: "checkupdates || echo 'No updates available (or checkupdates not installed)'".to_string(),
+            command_pattern:
+                "checkupdates || echo 'No updates available (or checkupdates not installed)'"
+                    .to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: None,
@@ -1641,7 +1664,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "systemctl list-units --failed --all".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("UNIT".to_string()),
@@ -1663,9 +1687,11 @@ impl TemplateLibrary {
             name: "Analyze Boot Time".to_string(),
             description: "Show systemd boot time analysis with service breakdown".to_string(),
             parameters: vec![],
-            command_pattern: "systemd-analyze && echo && systemd-analyze blame | head -20".to_string(),
+            command_pattern: "systemd-analyze && echo && systemd-analyze blame | head -20"
+                .to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Systemd#Analyzing_the_boot_process".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Analyzing_the_boot_process"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("Startup finished".to_string()),
@@ -1725,7 +1751,8 @@ impl TemplateLibrary {
             parameters: vec![],
             command_pattern: "systemd-analyze critical-chain".to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Systemd#Analyzing_the_boot_process".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Systemd#Analyzing_the_boot_process"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("graphical.target".to_string()),
@@ -1763,9 +1790,11 @@ impl TemplateLibrary {
             name: "Analyze Journal Size".to_string(),
             description: "Show journal disk usage and configuration".to_string(),
             parameters: vec![],
-            command_pattern: "journalctl --disk-usage && echo && du -sh /var/log/journal/*".to_string(),
+            command_pattern: "journalctl --disk-usage && echo && du -sh /var/log/journal/*"
+                .to_string(),
             category: CommandCategory::ReadOnly,
-            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit".to_string(),
+            wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal#Journal_size_limit"
+                .to_string(),
             validation_pattern: Some(OutputValidation {
                 exit_code: 0,
                 stdout_must_match: Some("Archived and active journals".to_string()),
@@ -1803,7 +1832,8 @@ impl TemplateLibrary {
             name: "Show Recent Journal Errors".to_string(),
             description: "Display recent system errors from the last hour".to_string(),
             parameters: vec![],
-            command_pattern: "journalctl --since '1 hour ago' -p err --no-pager | tail -50".to_string(),
+            command_pattern: "journalctl --since '1 hour ago' -p err --no-pager | tail -50"
+                .to_string(),
             category: CommandCategory::ReadOnly,
             wiki_source: "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
             validation_pattern: Some(OutputValidation {
@@ -1987,7 +2017,9 @@ impl TemplateLibrary {
         Template {
             id: "check_memory_usage".to_string(),
             name: "Check Memory Usage".to_string(),
-            description: "Show current memory usage overview (total, used, free, available, cached)".to_string(),
+            description:
+                "Show current memory usage overview (total, used, free, available, cached)"
+                    .to_string(),
             parameters: vec![],
             command_pattern: "free -h && echo && cat /proc/meminfo | head -20".to_string(),
             category: CommandCategory::ReadOnly,
@@ -2009,7 +2041,9 @@ impl TemplateLibrary {
             name: "Check Swap Usage".to_string(),
             description: "Show swap usage and configuration".to_string(),
             parameters: vec![],
-            command_pattern: "free -h | grep -i swap && echo && swapon --show && echo && cat /proc/swaps".to_string(),
+            command_pattern:
+                "free -h | grep -i swap && echo && swapon --show && echo && cat /proc/swaps"
+                    .to_string(),
             category: CommandCategory::ReadOnly,
             wiki_source: "https://wiki.archlinux.org/title/Swap".to_string(),
             validation_pattern: Some(OutputValidation {

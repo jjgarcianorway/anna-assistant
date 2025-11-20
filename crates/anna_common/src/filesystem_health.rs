@@ -407,11 +407,13 @@ fn check_xfs_filesystem(device: &str) -> Option<XfsFilesystem> {
     if let Ok(output) = Command::new("dmesg").output() {
         if let Ok(dmesg) = String::from_utf8(output.stdout) {
             for line in dmesg.lines() {
-                if line.contains(device) && (line.contains("XFS") || line.contains("xfs"))
-                    && (line.contains("error") || line.contains("corruption")) {
-                        fs.error_count += 1;
-                        fs.metadata_errors.push(line.to_string());
-                    }
+                if line.contains(device)
+                    && (line.contains("XFS") || line.contains("xfs"))
+                    && (line.contains("error") || line.contains("corruption"))
+                {
+                    fs.error_count += 1;
+                    fs.metadata_errors.push(line.to_string());
+                }
             }
         }
     }

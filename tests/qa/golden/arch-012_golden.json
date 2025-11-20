@@ -1,0 +1,49 @@
+{
+  "id": "arch-012",
+  "question": "How do I set up a firewall using ufw on Arch Linux?",
+  "golden_answer": {
+    "summary": "Install ufw, enable default deny policy, allow specific services, then enable and start ufw service.",
+    "steps": [
+      "Install ufw: sudo pacman -S ufw",
+      "Set default policies: sudo ufw default deny incoming && sudo ufw default allow outgoing",
+      "Allow SSH (if needed): sudo ufw allow ssh",
+      "Or allow specific port: sudo ufw allow 22/tcp",
+      "Allow other services as needed: sudo ufw allow 80/tcp (HTTP example)",
+      "Enable ufw: sudo ufw enable",
+      "Start ufw service: sudo systemctl enable --now ufw",
+      "Check status: sudo ufw status verbose",
+      "View numbered rules: sudo ufw status numbered"
+    ],
+    "required_commands": [
+      "pacman -S ufw",
+      "ufw enable",
+      "ufw default deny incoming",
+      "systemctl enable ufw"
+    ],
+    "required_files": [
+      "/etc/ufw/ufw.conf"
+    ],
+    "required_concepts": [
+      "ufw",
+      "firewall",
+      "iptables",
+      "default deny policy"
+    ],
+    "validation": [
+      "sudo ufw status shows 'Status: active'",
+      "Services work correctly (test SSH, HTTP, etc.)",
+      "systemctl status ufw shows active"
+    ],
+    "warnings": [
+      "CRITICAL: Allow SSH BEFORE enabling if managing remote server (or you'll lock yourself out!)",
+      "ufw is a frontend for iptables - don't mix with direct iptables commands",
+      "Default deny incoming means ALL ports blocked except those explicitly allowed",
+      "Make sure ufw service is enabled to persist across reboots",
+      "Test firewall rules from another machine to confirm they work"
+    ],
+    "references": [
+      "Arch Wiki: Uncomplicated Firewall",
+      "man ufw"
+    ]
+  }
+}

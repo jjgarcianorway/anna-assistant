@@ -1,0 +1,29 @@
+# Question: How do I search for packages that provide a specific file?
+# Question ID: arch-019
+# Timestamp: 2025-11-20T14:47:05.510282
+# Return code: 0
+
+--- STDOUT ---
+
+[1m[96myou:[39m[0m [37mHow do I search for packages that provide a specific file?[39m
+
+[2m[95manna (thinking):[39m[0m 
+                                                                                
+[1m[95manna:[39m[0m
+
+[36mℹ[39m [2mTo search for packages that provide a specific file, run this command:[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2m```bash[0m
+[36mℹ[39m [2mpacman -F <filename>[0m
+[36mℹ[39m [2m```[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mThis will search the pacman database for packages that contain the specified file.[0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mNote: Replace `<filename>` with the actual filename you're searching for. [0m
+[36mℹ[39m [2m[0m
+[36mℹ[39m [2mFor example, if you want to find the package that provides `/usr/bin/gcc`, you would run `pacman -F /usr/bin/gcc`.[0m
+
+[2m🔍 Confidence: Medium | Sources: LLM[0m
+
+
+--- STDERR ---

@@ -9,8 +9,10 @@
 //! - Automatic rollback on failure
 //! - Detailed execution logging
 
-use anna_common::action_plan_v3::{ActionPlan, CommandStep, NecessaryCheck, RiskLevel, RollbackStep};
-use anyhow::{Result, anyhow};
+use anna_common::action_plan_v3::{
+    ActionPlan, CommandStep, NecessaryCheck, RiskLevel, RollbackStep,
+};
+use anyhow::{anyhow, Result};
 use std::process::Command;
 
 /// Execution result for a single step
@@ -52,7 +54,7 @@ impl ExecutionResult {
 /// ActionPlan executor
 pub struct ActionPlanExecutor {
     pub plan: ActionPlan,
-    pub auto_confirm: bool,  // Skip confirmation prompts (dangerous!)
+    pub auto_confirm: bool, // Skip confirmation prompts (dangerous!)
 }
 
 impl ActionPlanExecutor {
@@ -71,13 +73,16 @@ impl ActionPlanExecutor {
         // Step 1: Run necessary checks
         eprintln!("🔍 Running necessary checks...");
         for check in &self.plan.necessary_checks {
+            // Version 150: Command transparency - show check commands
+            eprintln!("  Check: {} ({})", check.description, check.command);
+
             match self.execute_check(check).await {
                 Ok(check_result) => {
                     if check_result.success {
-                        eprintln!("  ✅ {}", check.description);
+                        eprintln!("    ✅ Passed");
                         result.checks_passed.push(check.id.clone());
                     } else {
-                        eprintln!("  ❌ {}: {}", check.description, check_result.stderr);
+                        eprintln!("    ❌ Failed: {}", check_result.stderr);
                         result.checks_failed.push(check.id.clone());
 
                         if check.required {
@@ -109,6 +114,20 @@ impl ActionPlanExecutor {
             eprintln!("   Steps: {}", self.plan.command_plan.len());
             eprintln!();
 
+            // Version 150: Show all commands before asking confirmation
+            eprintln!("📋 Commands to execute:");
+            for (i, step) in self.plan.command_plan.iter().enumerate() {
+                eprintln!(
+                    "   {}. {} {} [{}]",
+                    i + 1,
+                    step.risk_level.emoji(),
+                    step.description,
+                    step.risk_level.color()
+                );
+                eprintln!("      $ {}", step.command);
+            }
+            eprintln!();
+
             if !self.ask_confirmation()? {
                 eprintln!("❌ Execution cancelled by user.");
                 return Ok(result);
@@ -120,7 +139,14 @@ impl ActionPlanExecutor {
         eprintln!("🚀 Executing command plan...");
 
         for (i, step) in self.plan.command_plan.iter().enumerate() {
-            eprintln!("  {}. {} {}", i + 1, step.risk_level.emoji(), step.description);
+            eprintln!(
+                "  {}. {} {}",
+                i + 1,
+                step.risk_level.emoji(),
+                step.description
+            );
+            // Version 150: Command transparency - show exact command before execution
+            eprintln!("     Command: {}", step.command);
 
             match self.execute_step(step).await {
                 Ok(step_result) => {
@@ -181,10 +207,7 @@ impl ActionPlanExecutor {
 
     /// Execute a shell command
     async fn execute_command(&self, id: &str, command: &str) -> Result<StepResult> {
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()?;
+        let output = Command::new("sh").arg("-c").arg(command).output()?;
 
         Ok(StepResult {
             step_id: id.to_string(),
@@ -206,9 +229,19 @@ impl ActionPlanExecutor {
         // Rollback in reverse order
         for step_result in completed_steps.iter().rev() {
             // Find corresponding rollback
-            if let Some(step) = self.plan.command_plan.iter().find(|s| s.id == step_result.step_id) {
+            if let Some(step) = self
+                .plan
+                .command_plan
+                .iter()
+                .find(|s| s.id == step_result.step_id)
+            {
                 if let Some(rollback_id) = &step.rollback_id {
-                    if let Some(rollback) = self.plan.rollback_plan.iter().find(|r| &r.id == rollback_id) {
+                    if let Some(rollback) = self
+                        .plan
+                        .rollback_plan
+                        .iter()
+                        .find(|r| &r.id == rollback_id)
+                    {
                         eprintln!("  ↩ Rollback: {}", rollback.description);
 
                         match self.execute_rollback(rollback).await {
@@ -216,7 +249,10 @@ impl ActionPlanExecutor {
                                 if rollback_result.success {
                                     eprintln!("     ✅ Rollback successful");
                                 } else {
-                                    eprintln!("     ⚠️ Rollback failed (exit code: {})", rollback_result.exit_code);
+                                    eprintln!(
+                                        "     ⚠️ Rollback failed (exit code: {})",
+                                        rollback_result.exit_code
+                                    );
                                 }
                                 result.rollback_results.push(rollback_result);
                             }

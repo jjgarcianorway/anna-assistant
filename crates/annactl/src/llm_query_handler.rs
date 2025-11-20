@@ -1,20 +1,22 @@
 //! LLM Query Handler - Natural language query processing
 //!
-//! Beta.146: Extracted from main.rs and refactored to use query_handler
+//! Version 149: Now uses unified_query_handler for consistency with TUI
 //!
-//! Handles one-shot natural language queries using the 3-tier architecture.
+//! Handles one-shot natural language queries.
 
 use anna_common::display::UI;
+use anna_common::llm::LlmConfig;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::io::{self, Write};
 
-use crate::query_handler;
+use crate::system_query::query_system_telemetry;
+use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, UnifiedQueryResult};
 
 /// Handle a one-shot natural language query
 ///
 /// This is used for: annactl "free storage space"
-/// Uses 3-tier architecture from query_handler.
+/// Version 149: Uses unified handler for consistency with TUI.
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     let ui = UI::auto();
 
@@ -27,7 +29,89 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     }
     println!();
 
-    // Show thinking indicator
+    // Show thinking indicator with animation
+    show_thinking_animation(&ui, "Thinking");
+
+    // Get telemetry
+    let telemetry = query_system_telemetry()?;
+
+    // Get LLM config
+    let config = get_llm_config();
+
+    // Use unified query handler
+    match handle_unified_query(user_text, &telemetry, &config).await {
+        Ok(UnifiedQueryResult::DeterministicRecipe {
+            recipe_name,
+            action_plan,
+        }) => {
+            clear_thinking_line();
+            println!(
+                "{} {} {}",
+                "anna:".bright_magenta().bold(),
+                "Using deterministic recipe:".white(),
+                recipe_name.bright_green()
+            );
+            println!();
+            display_action_plan(&action_plan, &ui);
+        }
+        Ok(UnifiedQueryResult::Template {
+            command, output, ..
+        }) => {
+            clear_thinking_line();
+            println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
+            ui.info(&format!("  $ {}", command));
+            println!();
+            for line in output.lines() {
+                ui.info(line);
+            }
+            println!();
+        }
+        Ok(UnifiedQueryResult::ActionPlan {
+            action_plan,
+            raw_json: _,
+        }) => {
+            clear_thinking_line();
+            println!("{}", "anna:".bright_magenta().bold());
+            println!();
+            display_action_plan(&action_plan, &ui);
+        }
+        Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence,
+            sources,
+        }) => {
+            clear_thinking_line();
+            println!("{}", "anna:".bright_magenta().bold());
+            println!();
+
+            // Display answer
+            for line in answer.lines() {
+                ui.info(line);
+            }
+            println!();
+
+            // Show confidence and sources (subtle)
+            if ui.capabilities().use_colors() {
+                println!(
+                    "{}",
+                    format!("🔍 Confidence: {:?} | Sources: {}", confidence, sources.join(", "))
+                        .dimmed()
+                );
+            }
+            println!();
+        }
+        Err(e) => {
+            clear_thinking_line();
+            ui.error(&format!("Query failed: {}", e));
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
+/// Show thinking animation (Version 149: Added for CLI)
+fn show_thinking_animation(ui: &UI, _message: &str) {
     if ui.capabilities().use_colors() {
         print!("{} ", "anna (thinking):".bright_magenta().dimmed());
         io::stdout().flush().unwrap();
@@ -35,121 +119,67 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         print!("anna (thinking): ");
         io::stdout().flush().unwrap();
     }
+}
 
-    // Tier 1: Try template matching first (instant, accurate)
-    if let Some((template_id, params)) = query_handler::try_template_match(user_text) {
-        match query_handler::execute_template(template_id, &params) {
-            Ok(query_handler::QueryResult::Template { command, output, .. }) => {
-                // Clear thinking line and show result
-                println!("\r{}", " ".repeat(50));
-                if ui.capabilities().use_colors() {
-                    println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
-                } else {
-                    println!("anna: Running:");
-                }
-                ui.info(&format!("  $ {}", command));
-                println!();
+/// Clear thinking line
+fn clear_thinking_line() {
+    print!("\r{}\r", " ".repeat(80));
+    io::stdout().flush().unwrap();
+}
 
-                // Show command output
-                for line in output.lines() {
-                    ui.info(line);
-                }
-                println!();
-                return Ok(());
-            }
-            Err(e) => {
-                // Template execution failed, fall through to next tier
-                eprintln!("Template execution failed: {}", e);
-            }
-            _ => {}
+/// Display ActionPlan
+fn display_action_plan(plan: &anna_common::action_plan_v3::ActionPlan, ui: &UI) {
+    // Show analysis
+    ui.section_header("📋", "Analysis");
+    println!("{}\n", plan.analysis);
+
+    // Show goals
+    ui.section_header("🎯", "Goals");
+    for (i, goal) in plan.goals.iter().enumerate() {
+        println!("  {}. {}", i + 1, goal);
+    }
+    println!();
+
+    // Show command plan
+    if !plan.command_plan.is_empty() {
+        ui.section_header("⚡", "Command Plan");
+        for (i, step) in plan.command_plan.iter().enumerate() {
+            println!("  {}. {} [Risk: {:?}]", i + 1, step.description, step.risk_level);
+            println!("     $ {}", step.command);
         }
+        println!();
     }
 
-    // Tier 2: Try RecipePlanner
-    let config = query_handler::get_llm_config();
-    match query_handler::try_recipe_planner(user_text, &config).await {
-        Ok(Some(recipe)) => {
-            // Recipe generated successfully
-            println!("\r{}", " ".repeat(50));
-            if ui.capabilities().use_colors() {
-                println!("{}", "anna:".bright_magenta().bold());
-            } else {
-                println!("anna:");
-            }
-            println!();
-
-            display_and_execute_recipe(&recipe, &ui).await?;
-            return Ok(());
-        }
-        Ok(None) => {
-            // Recipe planning failed, fall through to LLM
-            println!("\r{}", " ".repeat(50));
-            if ui.capabilities().use_colors() {
-                ui.warning("Could not generate safe recipe. Falling back to conversational LLM...");
-            }
-            println!();
-        }
-        Err(e) => {
-            eprintln!("Recipe planning error: {}", e);
-        }
+    // Show notes
+    if !plan.notes_for_user.is_empty() {
+        ui.section_header("ℹ️", "Notes");
+        println!("{}\n", plan.notes_for_user);
     }
+}
 
-    // Tier 3: Generic LLM fallback (conversational)
+/// Stream LLM response
+async fn stream_llm_response(prompt: &str, config: &LlmConfig, ui: &UI) -> Result<()> {
     use anna_common::llm::{LlmClient, LlmPrompt};
-    use crate::system_query::query_system_telemetry;
 
-    // Create LLM client
-    let client = match LlmClient::from_config(&config) {
+    let client = match LlmClient::from_config(config) {
         Ok(client) => client,
         Err(_) => {
-            println!("\r{}", " ".repeat(50));
+            clear_thinking_line();
             ui.info("⚠ LLM not available (Ollama not running)");
-            ui.info("I can still help with template-based queries!");
-            println!();
-            ui.info("Try: annactl \"free storage space\"");
-            ui.info("Try: annactl \"check RAM\"");
-            ui.info("Try: annactl \"show CPU\"");
-            println!();
             return Ok(());
         }
     };
 
-    // Build system context
-    let system_context = if let Ok(telemetry) = query_system_telemetry() {
-        format!(
-            "System Information:\n\
-             - CPU: {}\n\
-             - RAM: {:.1} GB used / {:.1} GB total\n\
-             - GPU: {}\n\
-             - OS: Arch Linux",
-            telemetry.hardware.cpu_model,
-            telemetry.memory.used_mb as f64 / 1024.0,
-            telemetry.memory.total_mb as f64 / 1024.0,
-            telemetry.hardware.gpu_info.as_deref().unwrap_or("None"),
-        )
-    } else {
-        "OS: Arch Linux".to_string()
-    };
-
-    // Create prompt with system context
-    let system_prompt = format!(
-        "{}\n\n{}",
-        LlmClient::anna_system_prompt(),
-        system_context
-    );
-
-    let prompt = LlmPrompt {
-        system: system_prompt,
-        user: user_text.to_string(),
+    let llm_prompt = LlmPrompt {
+        system: LlmClient::anna_system_prompt().to_string(),
+        user: prompt.to_string(),
         conversation_history: None,
     };
 
-    // Stream response word-by-word
     let mut response_started = false;
     let mut callback = |chunk: &str| {
         if !response_started {
-            // Clear thinking indicator and start response
-            println!("\r{}", " ".repeat(50));
+            clear_thinking_line();
             if ui.capabilities().use_colors() {
                 print!("{} ", "anna:".bright_magenta().bold());
             } else {
@@ -158,7 +188,6 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             response_started = true;
         }
 
-        // Print each chunk as it arrives
         if ui.capabilities().use_colors() {
             print!("{}", chunk.white());
         } else {
@@ -167,96 +196,36 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         io::stdout().flush().unwrap();
     };
 
-    match client.chat_stream(&prompt, &mut callback) {
-        Ok(_) => {
-            println!("\n");
-        }
+    match client.chat_stream(&llm_prompt, &mut callback) {
+        Ok(_) => println!("\n"),
         Err(_) => {
             if !response_started {
-                println!("\r{}", " ".repeat(50));
+                clear_thinking_line();
             }
             println!();
             ui.info("⚠ LLM request failed");
-            println!();
         }
     }
 
     Ok(())
 }
 
-/// Display and execute a recipe
-async fn display_and_execute_recipe(
-    recipe: &anna_common::command_recipe::Recipe,
-    ui: &UI,
-) -> Result<()> {
-    use anna_common::command_recipe::SafetyLevel;
+/// Get LLM config
+fn get_llm_config() -> LlmConfig {
+    use std::process::Command;
 
-    // Display recipe
-    ui.section_header("🔧", "Recipe Plan");
-    println!();
-    ui.info(&format!("Summary: {}", recipe.summary));
-    ui.info(&format!("Steps: {}", recipe.steps.len()));
-    ui.info(&format!("Safety: {:?}", recipe.overall_safety));
-    println!();
-
-    // Show steps
-    for (i, step) in recipe.steps.iter().enumerate() {
-        ui.info(&format!("{}. {}", i + 1, step.explanation));
-        ui.info(&format!("   $ {}", step.command));
-    }
-    println!();
-
-    // Check if confirmation needed
-    let needs_confirmation = matches!(recipe.overall_safety, SafetyLevel::NeedsConfirmation);
-
-    if needs_confirmation {
-        ui.warning("This recipe requires confirmation.");
-        ui.info("Execute? (y/N): ");
-
-        use std::io::BufRead;
-        let stdin = std::io::stdin();
-        let mut line = String::new();
-        stdin.lock().read_line(&mut line)?;
-
-        if !line.trim().eq_ignore_ascii_case("y") {
-            ui.info("Recipe execution cancelled.");
-            return Ok(());
+    let model_name = match Command::new("ollama").arg("list").output() {
+        Ok(output) if output.status.success() => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            stdout
+                .lines()
+                .nth(1)
+                .and_then(|line| line.split_whitespace().next())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "llama3.1:8b".to_string())
         }
-    }
+        _ => "llama3.1:8b".to_string(),
+    };
 
-    // Execute recipe steps
-    ui.info("Executing recipe...");
-    println!();
-
-    // Beta.146: Simplified execution for refactoring
-    // TODO: Re-implement proper recipe execution
-    for (i, step) in recipe.steps.iter().enumerate() {
-        ui.info(&format!("Step {}: {}", i + 1, step.explanation));
-
-        use std::process::Command;
-        match Command::new("sh")
-            .arg("-c")
-            .arg(&step.command)
-            .output()
-        {
-            Ok(output) => {
-                if output.status.success() {
-                    ui.success(&format!("  ✓ {}", step.command));
-                } else {
-                    ui.error(&format!("  ✗ Command failed: {}", step.command));
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    if !stderr.is_empty() {
-                        ui.error(&format!("  Error: {}", stderr));
-                    }
-                }
-            }
-            Err(e) => {
-                ui.error(&format!("  ✗ Failed to execute: {}", e));
-            }
-        }
-    }
-
-    ui.success("✓ Recipe execution complete!");
-    println!();
-    Ok(())
+    LlmConfig::local("http://127.0.0.1:11434/v1", &model_name)
 }

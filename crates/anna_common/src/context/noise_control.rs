@@ -547,7 +547,6 @@ pub fn apply_issue_decisions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     fn create_test_db() -> Result<Connection> {
         let conn = Connection::open_in_memory()?;

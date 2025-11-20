@@ -50,13 +50,16 @@ pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
 }
 
 /// Draw professional header (Claude CLI style)
-/// Format: Anna v5.7.0 | llama3.2:3b | user@hostname | ● LIVE
+/// Version 150: Anna v5.7.0 | llama3.2:3b | user@hostname | Daemon: OK
 pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use std::env;
 
-    let hostname = env::var("HOSTNAME")
-        .or_else(|_| env::var("NAME"))
-        .unwrap_or_else(|_| "localhost".to_string());
+    // Version 150: Use real hostname from telemetry_truth (not env vars!)
+    let hostname = if !state.system_panel.hostname.is_empty() {
+        state.system_panel.hostname.as_str()
+    } else {
+        "unknown"
+    };
     let username = env::var("USER").unwrap_or_else(|_| "user".to_string());
 
     let header_text = Line::from(vec![
@@ -83,14 +86,14 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         Span::raw(" | "),
         Span::styled(
             if state.llm_panel.available {
-                "● LIVE"
+                "Daemon: OK"
             } else {
-                "○ OFFLINE"
+                "Daemon: N/A"
             },
             Style::default().fg(if state.llm_panel.available {
                 Color::Green
             } else {
-                Color::Red
+                Color::Yellow
             }),
         ),
     ]);
@@ -118,15 +121,14 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         None
     };
 
-    let health_icon = if state.system_panel.cpu_load_1min < 80.0
-        && state.system_panel.ram_used_gb < 14.0
-    {
-        ("✓", Color::Green)
-    } else if state.system_panel.cpu_load_1min < 95.0 {
-        ("⚠", Color::Yellow)
-    } else {
-        ("✗", Color::Red)
-    };
+    let health_icon =
+        if state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0 {
+            ("✓", Color::Green)
+        } else if state.system_panel.cpu_load_1min < 95.0 {
+            ("⚠", Color::Yellow)
+        } else {
+            ("✗", Color::Red)
+        };
 
     let mut spans = vec![
         Span::styled(time_str, Style::default().fg(Color::Gray)),
@@ -141,7 +143,10 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         spans.push(Span::raw(" | "));
     } else {
         spans.push(Span::raw("Health: "));
-        spans.push(Span::styled(health_icon.0, Style::default().fg(health_icon.1)));
+        spans.push(Span::styled(
+            health_icon.0,
+            Style::default().fg(health_icon.1),
+        ));
         spans.push(Span::raw(" | "));
     }
 

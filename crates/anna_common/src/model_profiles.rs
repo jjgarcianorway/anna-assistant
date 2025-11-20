@@ -47,8 +47,8 @@ impl QualityTier {
     /// Expected minimum quality score (0.0-1.0) for this tier
     pub fn min_quality_score(&self) -> f64 {
         match self {
-            QualityTier::Tiny => 0.6,   // Basic accuracy
-            QualityTier::Small => 0.75, // Good accuracy
+            QualityTier::Tiny => 0.6,    // Basic accuracy
+            QualityTier::Small => 0.75,  // Good accuracy
             QualityTier::Medium => 0.85, // High accuracy
             QualityTier::Large => 0.9,   // Excellent accuracy
         }
@@ -218,7 +218,8 @@ pub fn get_available_profiles() -> Vec<ModelProfile> {
             min_ram_gb: 32,
             recommended_cores: 8,
             quality_tier: QualityTier::Large,
-            description: "Llama 3.1 13B - Exceptional quality, requires significant resources".to_string(),
+            description: "Llama 3.1 13B - Exceptional quality, requires significant resources"
+                .to_string(),
             size_gb: 7.4,
         },
         ModelProfile {
@@ -304,10 +305,7 @@ pub fn get_recommended_with_fallbacks(
     }
 
     // Best match
-    let best = suitable
-        .iter()
-        .max_by_key(|p| p.quality_tier)
-        .cloned();
+    let best = suitable.iter().max_by_key(|p| p.quality_tier).cloned();
 
     // Fallback options (same tier, different models)
     let fallbacks: Vec<_> = if let Some(ref best_profile) = best {
@@ -413,12 +411,16 @@ mod tests {
     #[test]
     fn test_quality_tier_performance_expectations() {
         // Tiny should expect high speed, lower quality
-        assert!(QualityTier::Tiny.min_tokens_per_second() > QualityTier::Medium.min_tokens_per_second());
+        assert!(
+            QualityTier::Tiny.min_tokens_per_second() > QualityTier::Medium.min_tokens_per_second()
+        );
         assert!(QualityTier::Tiny.min_quality_score() < QualityTier::Medium.min_quality_score());
 
         // Large should expect high quality, lower speed acceptable
         assert!(QualityTier::Large.min_quality_score() > QualityTier::Small.min_quality_score());
-        assert!(QualityTier::Large.min_tokens_per_second() < QualityTier::Tiny.min_tokens_per_second());
+        assert!(
+            QualityTier::Large.min_tokens_per_second() < QualityTier::Tiny.min_tokens_per_second()
+        );
     }
 
     #[test]
@@ -429,7 +431,7 @@ mod tests {
         assert!(profile.meets_tier_expectations(25.0, 0.8));
 
         // Poor performance should fail
-        assert!(!profile.meets_tier_expectations(5.0, 0.8));  // Too slow
+        assert!(!profile.meets_tier_expectations(5.0, 0.8)); // Too slow
         assert!(!profile.meets_tier_expectations(25.0, 0.5)); // Poor quality
     }
 
@@ -451,11 +453,15 @@ mod tests {
     fn test_get_profiles_by_tier() {
         let tiny_models = get_profiles_by_tier(QualityTier::Tiny);
         assert!(!tiny_models.is_empty());
-        assert!(tiny_models.iter().all(|p| p.quality_tier == QualityTier::Tiny));
+        assert!(tiny_models
+            .iter()
+            .all(|p| p.quality_tier == QualityTier::Tiny));
 
         let medium_models = get_profiles_by_tier(QualityTier::Medium);
         assert!(!medium_models.is_empty());
-        assert!(medium_models.iter().all(|p| p.quality_tier == QualityTier::Medium));
+        assert!(medium_models
+            .iter()
+            .all(|p| p.quality_tier == QualityTier::Medium));
     }
 
     #[test]

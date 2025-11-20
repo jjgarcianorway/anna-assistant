@@ -538,10 +538,12 @@ fn detect_sudoers() -> SudoersConfig {
 
                     if line.contains("ALL=(ALL)") && line.contains("ALL") {
                         if let Some(user_part) = line.split_whitespace().next() {
-                            if !user_part.starts_with('%') && user_part != "root"
-                                && !all_access_users.contains(&user_part.to_string()) {
-                                    all_access_users.push(user_part.to_string());
-                                }
+                            if !user_part.starts_with('%')
+                                && user_part != "root"
+                                && !all_access_users.contains(&user_part.to_string())
+                            {
+                                all_access_users.push(user_part.to_string());
+                            }
                         }
                     }
                 }
@@ -725,15 +727,14 @@ fn analyze_security_issues(
     }
 
     // Check kernel lockdown
-    if lockdown.supported
-        && matches!(lockdown.mode, Some(LockdownMode::None)) {
-            issues.push(SecurityIssue {
+    if lockdown.supported && matches!(lockdown.mode, Some(LockdownMode::None)) {
+        issues.push(SecurityIssue {
                 severity: SecuritySeverity::Medium,
                 category: "Kernel Lockdown".to_string(),
                 description: "Kernel lockdown is not enabled".to_string(),
                 recommendation: "Enable kernel lockdown with 'lockdown=integrity' or 'lockdown=confidentiality' kernel parameter".to_string(),
             });
-        }
+    }
 
     issues
 }

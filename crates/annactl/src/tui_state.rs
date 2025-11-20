@@ -154,8 +154,7 @@ impl AnnaTuiState {
         // Store for potential execution
         self.last_action_plan = Some(Box::new(plan.clone()));
 
-        self.conversation
-            .push(ChatItem::ActionPlan(Box::new(plan)));
+        self.conversation.push(ChatItem::ActionPlan(Box::new(plan)));
         self.is_thinking = false;
 
         // Auto-scroll to bottom
@@ -300,6 +299,7 @@ pub struct SystemSummary {
     pub uptime_seconds: u64,
     pub outdated_packages: usize,
     pub recent_errors: Vec<String>,
+    pub hostname: String, // Version 150: Real hostname from telemetry_truth
 }
 
 /// LLM status for left panel

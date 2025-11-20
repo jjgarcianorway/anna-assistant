@@ -68,9 +68,7 @@ async fn dispatch_command(
             Ok(())
         }
 
-        Some(Commands::Tui) => {
-            crate::tui_v2::run().await
-        }
+        Some(Commands::Tui) => crate::tui_v2::run().await,
 
         Some(Commands::Ping) => {
             println!("pong");
@@ -88,8 +86,6 @@ async fn dispatch_command(
             Ok(())
         }
 
-        None => {
-            crate::tui_v2::run().await
-        }
+        None => crate::tui_v2::run().await,
     }
 }

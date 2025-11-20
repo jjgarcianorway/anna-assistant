@@ -387,14 +387,11 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
         use std::os::unix::fs::MetadataExt;
         use std::process::Command;
 
-        let metadata = std::fs::metadata(SOCKET_PATH)
-            .context("Failed to read socket metadata")?;
+        let metadata = std::fs::metadata(SOCKET_PATH).context("Failed to read socket metadata")?;
         let current_gid = metadata.gid();
 
         // Get 'anna' group GID if it exists
-        let anna_gid_result = Command::new("getent")
-            .args(&["group", "anna"])
-            .output();
+        let anna_gid_result = Command::new("getent").args(&["group", "anna"]).output();
 
         let needs_chown = if let Ok(output) = anna_gid_result {
             if output.status.success() {
@@ -432,10 +429,7 @@ pub async fn start_server(state: Arc<DaemonState>) -> Result<()> {
                     );
                     info!("Socket permissions managed by systemd (this is fine)");
                 } else {
-                    warn!(
-                        "Failed to set socket group to 'anna': {}",
-                        stderr
-                    );
+                    warn!("Failed to set socket group to 'anna': {}", stderr);
                     warn!("Socket will be owned by current user/group");
                     warn!("Run: sudo groupadd --system anna");
                 }
@@ -1622,18 +1616,19 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             // Beta.53: Return 30-day Historian summary
             if let Some(historian_mutex) = &state.historian {
                 match historian_mutex.try_lock() {
-                    Ok(historian) => {
-                        match historian.get_system_summary() {
-                            Ok(summary) => {
-                                info!("Generated Historian summary: {} days analyzed", summary.health_summary.days_analyzed);
-                                Ok(ResponseData::HistorianSummary(summary))
-                            }
-                            Err(e) => {
-                                error!("Failed to generate Historian summary: {}", e);
-                                Err(format!("Failed to generate Historian summary: {}", e))
-                            }
+                    Ok(historian) => match historian.get_system_summary() {
+                        Ok(summary) => {
+                            info!(
+                                "Generated Historian summary: {} days analyzed",
+                                summary.health_summary.days_analyzed
+                            );
+                            Ok(ResponseData::HistorianSummary(summary))
                         }
-                    }
+                        Err(e) => {
+                            error!("Failed to generate Historian summary: {}", e);
+                            Err(format!("Failed to generate Historian summary: {}", e))
+                        }
+                    },
                     Err(_) => {
                         warn!("Historian is currently locked, cannot generate summary");
                         Err("Historian is busy, try again later".to_string())

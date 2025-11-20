@@ -102,17 +102,25 @@ impl ValidationSuite {
 
         report.push_str("# Reddit QA Validation Report\n\n");
         report.push_str(&format!("**Total Questions:** {}\n", self.total_questions));
-        report.push_str(&format!("**Helpful Answers:** {} ({:.1}%)\n",
+        report.push_str(&format!(
+            "**Helpful Answers:** {} ({:.1}%)\n",
             self.helpful_count,
             (self.helpful_count as f64 / self.total_questions as f64) * 100.0
         ));
-        report.push_str(&format!("**Community Match:** {} ({:.1}%)\n",
+        report.push_str(&format!(
+            "**Community Match:** {} ({:.1}%)\n",
             self.matched_community,
             (self.matched_community as f64 / self.total_questions as f64) * 100.0
         ));
         report.push_str(&format!("**Avg Similarity:** {:.2}\n", self.avg_similarity));
-        report.push_str(&format!("**Avg Response Time:** {:.0}ms\n", self.avg_response_time_ms));
-        report.push_str(&format!("**Pass Rate:** {:.1}%\n\n", self.pass_rate * 100.0));
+        report.push_str(&format!(
+            "**Avg Response Time:** {:.0}ms\n",
+            self.avg_response_time_ms
+        ));
+        report.push_str(&format!(
+            "**Pass Rate:** {:.1}%\n\n",
+            self.pass_rate * 100.0
+        ));
 
         report.push_str("## Sample Comparisons\n\n");
 
@@ -123,9 +131,19 @@ impl ValidationSuite {
         report.push_str("### ✅ Best Matches (Anna ≈ Community)\n\n");
         for result in sorted_results.iter().take(5) {
             report.push_str(&format!("**Q:** {}\n", result.question.title));
-            report.push_str(&format!("**Similarity:** {:.0}%\n", result.similarity_score * 100.0));
-            report.push_str(&format!("**Anna:** {}...\n\n",
-                result.anna_response.answer.chars().take(200).collect::<String>()));
+            report.push_str(&format!(
+                "**Similarity:** {:.0}%\n",
+                result.similarity_score * 100.0
+            ));
+            report.push_str(&format!(
+                "**Anna:** {}...\n\n",
+                result
+                    .anna_response
+                    .answer
+                    .chars()
+                    .take(200)
+                    .collect::<String>()
+            ));
         }
 
         // Show 5 worst matches (areas for improvement)
@@ -133,8 +151,13 @@ impl ValidationSuite {
         sorted_results.reverse();
         for result in sorted_results.iter().take(5) {
             report.push_str(&format!("**Q:** {}\n", result.question.title));
-            report.push_str(&format!("**Similarity:** {:.0}%\n", result.similarity_score * 100.0));
-            report.push_str(&format!("**Issue:** Anna's answer diverged from community consensus\n\n"));
+            report.push_str(&format!(
+                "**Similarity:** {:.0}%\n",
+                result.similarity_score * 100.0
+            ));
+            report.push_str(&format!(
+                "**Issue:** Anna's answer diverged from community consensus\n\n"
+            ));
         }
 
         report

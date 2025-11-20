@@ -1,0 +1,41 @@
+{
+  "id": "arch-008",
+  "question": "How do I check which services failed to start?",
+  "golden_answer": {
+    "summary": "Use 'systemctl --failed' to list all failed units, then 'systemctl status <service>' and 'journalctl -u <service>' for details.",
+    "steps": [
+      "List all failed services: systemctl --failed",
+      "Or list only failed services: systemctl --state=failed",
+      "Check specific service status: systemctl status <service-name>",
+      "View detailed logs: journalctl -u <service-name> -n 50",
+      "View logs since last boot: journalctl -u <service-name> -b",
+      "Reset failed state after fixing: sudo systemctl reset-failed <service-name>"
+    ],
+    "required_commands": [
+      "systemctl --failed",
+      "systemctl status",
+      "journalctl -u"
+    ],
+    "required_files": [],
+    "required_concepts": [
+      "systemd",
+      "systemctl",
+      "journalctl",
+      "failed units"
+    ],
+    "validation": [
+      "systemctl --failed shows no output if all services OK",
+      "systemctl status <service> shows 'active (running)' after fix"
+    ],
+    "warnings": [
+      "Some failed services may be expected (like systemd-networkd if you use NetworkManager)",
+      "Check logs to understand why service failed before trying to restart",
+      "Failed services don't automatically retry - must be manually started after fixing"
+    ],
+    "references": [
+      "Arch Wiki: systemd",
+      "man systemctl",
+      "man journalctl"
+    ]
+  }
+}

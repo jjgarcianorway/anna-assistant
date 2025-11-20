@@ -88,7 +88,10 @@ impl AutoUpdater {
 
         match compare_versions(current_version, latest_version) {
             Ordering::Less => {
-                info!("🎯 Update available: v{} → v{}", current_version, latest_version);
+                info!(
+                    "🎯 Update available: v{} → v{}",
+                    current_version, latest_version
+                );
             }
             Ordering::Equal | Ordering::Greater => {
                 // Already up-to-date, return silently

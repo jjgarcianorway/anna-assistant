@@ -14,19 +14,20 @@ pub mod errors;
 
 // Beta.146: Core architecture modules
 mod cli;
-mod runtime;
 mod llm_query_handler;
+mod runtime;
 
 // Feature modules
-mod adaptive_help;
 mod action_executor;
-pub mod action_plan_executor;  // Beta.147: ActionPlan execution engine
+pub mod action_plan_executor; // Beta.147: ActionPlan execution engine
+mod adaptive_help;
 mod autonomy_command;
 mod chronos_commands;
 mod collective_commands;
 mod conscience_commands;
 mod consensus_commands;
 mod context_detection;
+mod context_engine; // Version 150: Contextual awareness and proactive monitoring
 mod dialogue_v3_json;
 mod discard_command;
 mod empathy_commands;
@@ -52,6 +53,7 @@ mod personality_commands;
 mod predictive_hints;
 mod query_handler;
 mod recipe_formatter;
+mod recipes; // Beta.151: Deterministic ActionPlan recipes
 mod repair;
 mod repl;
 mod report_command;
@@ -67,9 +69,12 @@ mod system_prompt_v2;
 mod system_prompt_v3_json;
 mod system_query;
 mod systemd;
+mod system_report; // Version 150: Unified system report generator
+mod telemetry_truth; // Version 150: Telemetry truth enforcement
 pub mod tui;
 pub mod tui_state;
 pub mod tui_v2;
+mod unified_query_handler; // Version 149: Unified query path for CLI and TUI
 mod upgrade_command;
 mod version_banner;
 

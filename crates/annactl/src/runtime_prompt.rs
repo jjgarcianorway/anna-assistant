@@ -3,9 +3,9 @@
 //! Beta.53: Builds comprehensive system prompt with Historian data
 //! This is the prompt that gets sent to the LLM on every user query
 
+use crate::model_catalog;
 use anna_common::historian::SystemSummary;
 use anna_common::types::SystemFacts;
-use crate::model_catalog;
 
 /// Build the complete runtime prompt for Anna
 pub fn build_runtime_prompt(
@@ -17,7 +17,9 @@ pub fn build_runtime_prompt(
     let mut prompt = String::new();
 
     // System identity and capabilities
-    prompt.push_str("You are Anna, an intelligent Linux system administrator for this Arch Linux machine.\n\n");
+    prompt.push_str(
+        "You are Anna, an intelligent Linux system administrator for this Arch Linux machine.\n\n",
+    );
 
     prompt.push_str("[ANNA_VERSION]\n");
     prompt.push_str("5.7.0-beta.87\n");
@@ -93,16 +95,28 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
     // System Health Scores
     let health = &sys_summary.health_summary;
     summary.push_str("System Health Scores:\n");
-    summary.push_str(&format!("  • Stability: {}/100\n", health.avg_stability_score));
-    summary.push_str(&format!("  • Performance: {}/100\n", health.avg_performance_score));
-    summary.push_str(&format!("  • Noise level: {}/100\n", health.avg_noise_score));
+    summary.push_str(&format!(
+        "  • Stability: {}/100\n",
+        health.avg_stability_score
+    ));
+    summary.push_str(&format!(
+        "  • Performance: {}/100\n",
+        health.avg_performance_score
+    ));
+    summary.push_str(&format!(
+        "  • Noise level: {}/100\n",
+        health.avg_noise_score
+    ));
     summary.push_str(&format!("  • Days analyzed: {}\n", health.days_analyzed));
     summary.push('\n');
 
     // Boot Performance
     let boot = &sys_summary.boot_trends;
     summary.push_str("Boot Performance:\n");
-    summary.push_str(&format!("  • Average boot time: {:.1}s\n", boot.avg_boot_time_ms as f64 / 1000.0));
+    summary.push_str(&format!(
+        "  • Average boot time: {:.1}s\n",
+        boot.avg_boot_time_ms as f64 / 1000.0
+    ));
     summary.push_str(&format!("  • Trend: {:?}\n", boot.trend));
     summary.push_str(&format!("  • Days analyzed: {}\n", boot.days_analyzed));
     summary.push('\n');
@@ -110,7 +124,10 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
     // CPU Usage
     let cpu = &sys_summary.cpu_trends;
     summary.push_str("CPU Usage:\n");
-    summary.push_str(&format!("  • Average utilization: {:.1}%\n", cpu.avg_utilization_percent));
+    summary.push_str(&format!(
+        "  • Average utilization: {:.1}%\n",
+        cpu.avg_utilization_percent
+    ));
     summary.push_str(&format!("  • Trend: {:?}\n", cpu.trend));
     summary.push_str(&format!("  • Days analyzed: {}\n", cpu.days_analyzed));
     summary.push('\n');
@@ -121,7 +138,10 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
         summary.push_str("Error Trends:\n");
         summary.push_str(&format!("  • Total errors: {}\n", errors.total_errors));
         summary.push_str(&format!("  • Total warnings: {}\n", errors.total_warnings));
-        summary.push_str(&format!("  • Total criticals: {}\n", errors.total_criticals));
+        summary.push_str(&format!(
+            "  • Total criticals: {}\n",
+            errors.total_criticals
+        ));
         summary.push_str(&format!("  • Days analyzed: {}\n", errors.days_analyzed));
         summary.push('\n');
     }
@@ -131,8 +151,12 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
         summary.push_str("Recent Repairs:\n");
         for repair in sys_summary.recent_repairs.iter().take(5) {
             let status = if repair.success { "✓" } else { "✗" };
-            summary.push_str(&format!("  • {} {} ({})\n",
-                status, repair.action_type, repair.timestamp.format("%Y-%m-%d")));
+            summary.push_str(&format!(
+                "  • {} {} ({})\n",
+                status,
+                repair.action_type,
+                repair.timestamp.format("%Y-%m-%d")
+            ));
         }
         summary.push('\n');
     }
@@ -149,7 +173,8 @@ fn build_current_state(facts: &SystemFacts) -> String {
         "healthy"
     };
 
-    let uptime_hours = facts.system_health
+    let uptime_hours = facts
+        .system_health
         .as_ref()
         .map(|h| h.system_uptime.uptime_seconds as f64 / 3600.0)
         .unwrap_or(0.0);
@@ -187,9 +212,7 @@ fn build_personality() -> String {
     for trait_item in &config.traits {
         output.push_str(&format!(
             "  {}: {}        # {}\n",
-            trait_item.key,
-            trait_item.value,
-            trait_item.meaning
+            trait_item.key, trait_item.value, trait_item.meaning
         ));
     }
 
@@ -228,7 +251,8 @@ fn build_instructions(current_model: &str) -> String {
     instr.push_str("2. Use existing telemetry data to answer questions when possible\n");
     instr.push_str("3. If data is missing or too old, propose commands to refresh it\n");
     instr.push_str("4. NEVER guess hardware specs or system state\n");
-    instr.push_str("5. Always say 'I do not have that information yet' when telemetry lacks data\n");
+    instr
+        .push_str("5. Always say 'I do not have that information yet' when telemetry lacks data\n");
     instr.push_str("[/ANNA_TELEMETRY_RULES]\n\n");
 
     // Backup and restore rules
@@ -270,7 +294,9 @@ fn build_instructions(current_model: &str) -> String {
 
     // Beta.70: Diagnostics First Rule
     instr.push_str("[ANNA_DIAGNOSTICS_FIRST]\n");
-    instr.push_str("MANDATORY: Follow this troubleshooting sequence for ALL problem-solving questions.\n\n");
+    instr.push_str(
+        "MANDATORY: Follow this troubleshooting sequence for ALL problem-solving questions.\n\n",
+    );
     instr.push_str("Step 1: CHECK - Gather facts BEFORE suggesting solutions\n");
     instr.push_str("  Hardware issues:\n");
     instr.push_str("    - GPU: lspci -k | grep -A 3 VGA\n");
@@ -346,7 +372,9 @@ fn build_instructions(current_model: &str) -> String {
 
     // Beta.70: Diagnostics First Rule
     instr.push_str("[ANNA_DIAGNOSTICS_FIRST]\n");
-    instr.push_str("MANDATORY: Follow this troubleshooting sequence for ALL problem-solving questions.\n\n");
+    instr.push_str(
+        "MANDATORY: Follow this troubleshooting sequence for ALL problem-solving questions.\n\n",
+    );
     instr.push_str("Step 1: CHECK - Gather facts BEFORE suggesting solutions\n");
     instr.push_str("  Hardware issues:\n");
     instr.push_str("    - GPU: lspci -k | grep -A 3 VGA\n");
@@ -379,7 +407,9 @@ fn build_instructions(current_model: &str) -> String {
     instr.push_str("3. NEVER replace the answer with detection of other problems\n\n");
     instr.push_str("Example:\n");
     instr.push_str("  User: 'What logs should I check when troubleshooting?'\n");
-    instr.push_str("  WRONG: 'I found 1 thing you might want to address: Anna daemon is not running...'\n");
+    instr.push_str(
+        "  WRONG: 'I found 1 thing you might want to address: Anna daemon is not running...'\n",
+    );
     instr.push_str("  CORRECT:\n");
     instr.push_str("    'For troubleshooting, check these logs:\n");
     instr.push_str("     - System: journalctl -xe\n");
@@ -416,7 +446,9 @@ fn build_instructions(current_model: &str) -> String {
     instr.push_str("   - THEN install/configure if needed\n\n");
     instr.push_str("6. Desktop Environments:\n");
     instr.push_str("   - Install DE package: sudo pacman -S <de-name>\n");
-    instr.push_str("   - CRITICAL: Enable display manager: sudo systemctl enable gdm (or lightdm, sddm)\n");
+    instr.push_str(
+        "   - CRITICAL: Enable display manager: sudo systemctl enable gdm (or lightdm, sddm)\n",
+    );
     instr.push_str("   - Without DM, login is CLI-only\n\n");
     instr.push_str("Pacman Flags:\n");
     instr.push_str("  -S : Sync/install from repositories\n");
@@ -483,7 +515,9 @@ fn build_instructions(current_model: &str) -> String {
     instr.push_str("  - Package names\n");
     instr.push_str("  - Configuration values\n\n");
     instr.push_str("Always state clearly:\n");
-    instr.push_str("  'I do not have that information yet. I will propose commands to retrieve it.'\n");
+    instr.push_str(
+        "  'I do not have that information yet. I will propose commands to retrieve it.'\n",
+    );
     instr.push_str("[/ANNA_HONESTY_POLICY]\n\n");
 
     // Tone and professionalism
@@ -502,7 +536,9 @@ fn build_instructions(current_model: &str) -> String {
     // Model-specific hints
     if current_model == "llama3.2:3b" {
         instr.push_str("[ANNA_MODEL_AWARENESS]\n");
-        instr.push_str("Be honest that llama3.2:3b has limitations for complex system administration.\n");
+        instr.push_str(
+            "Be honest that llama3.2:3b has limitations for complex system administration.\n",
+        );
         instr.push_str("Suggest upgrading to llama3.1:8b or qwen2.5:14b when the user's hardware supports it.\n");
         instr.push_str("[/ANNA_MODEL_AWARENESS]\n\n");
     }

@@ -28,10 +28,7 @@ pub enum QueryResult {
     /// Recipe planned and validated by critic
     Recipe(Recipe),
     /// Generic LLM response (needs streaming)
-    LlmFallback {
-        config: LlmConfig,
-        prompt: String,
-    },
+    LlmFallback { config: LlmConfig, prompt: String },
 }
 
 /// Try template matching first (Tier 1)
@@ -51,42 +48,77 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
         Some(("check_gpu_memory", HashMap::new()))
     } else if contains_word(&input_lower, "kernel") {
         Some(("check_kernel_version", HashMap::new()))
-    } else if contains_word(&input_lower, "disk") || input_lower.contains("space") || input_lower.contains("storage") {
+    } else if contains_word(&input_lower, "disk")
+        || input_lower.contains("space")
+        || input_lower.contains("storage")
+    {
         Some(("check_disk_space", HashMap::new()))
-    } else if contains_word(&input_lower, "ram") || contains_word(&input_lower, "memory") || contains_word(&input_lower, "mem") {
+    } else if contains_word(&input_lower, "ram")
+        || contains_word(&input_lower, "memory")
+        || contains_word(&input_lower, "mem")
+    {
         Some(("check_memory", HashMap::new()))
     } else if input_lower.contains("uptime") {
         Some(("check_uptime", HashMap::new()))
     } else if input_lower.contains("cpu model") || input_lower.contains("processor") {
         Some(("check_cpu_model", HashMap::new()))
-    } else if input_lower.contains("cpu load") || input_lower.contains("cpu usage") || input_lower.contains("load average") {
+    } else if input_lower.contains("cpu load")
+        || input_lower.contains("cpu usage")
+        || input_lower.contains("load average")
+    {
         Some(("check_cpu_load", HashMap::new()))
-    } else if input_lower.contains("distro") || input_lower.contains("distribution") || input_lower.contains("os-release") {
+    } else if input_lower.contains("distro")
+        || input_lower.contains("distribution")
+        || input_lower.contains("os-release")
+    {
         Some(("check_distro", HashMap::new()))
-    } else if input_lower.contains("failed services") || (input_lower.contains("systemctl") && input_lower.contains("failed")) {
+    } else if input_lower.contains("failed services")
+        || (input_lower.contains("systemctl") && input_lower.contains("failed"))
+    {
         Some(("check_failed_services", HashMap::new()))
-    } else if input_lower.contains("journal") || (input_lower.contains("system") && input_lower.contains("errors")) {
+    } else if input_lower.contains("journal")
+        || (input_lower.contains("system") && input_lower.contains("errors"))
+    {
         Some(("check_journal_errors", HashMap::new()))
-    } else if input_lower.contains("wifi") || input_lower.contains("wireless") ||
-              (input_lower.contains("network") && (input_lower.contains("slow") || input_lower.contains("issue") || input_lower.contains("problem"))) {
+    } else if input_lower.contains("wifi")
+        || input_lower.contains("wireless")
+        || (input_lower.contains("network")
+            && (input_lower.contains("slow")
+                || input_lower.contains("issue")
+                || input_lower.contains("problem")))
+    {
         Some(("wifi_diagnostics", HashMap::new()))
 
     // PACKAGE MANAGEMENT
-    } else if input_lower.contains("orphan") || (input_lower.contains("unused") && input_lower.contains("package")) {
+    } else if input_lower.contains("orphan")
+        || (input_lower.contains("unused") && input_lower.contains("package"))
+    {
         Some(("list_orphaned_packages", HashMap::new()))
     } else if input_lower.contains("aur") {
         Some(("list_aur_packages", HashMap::new()))
-    } else if input_lower.contains("pacman") && (input_lower.contains("cache") || input_lower.contains("size")) {
+    } else if input_lower.contains("pacman")
+        && (input_lower.contains("cache") || input_lower.contains("size"))
+    {
         Some(("check_pacman_cache_size", HashMap::new()))
-    } else if (input_lower.contains("clean") || input_lower.contains("clear")) && input_lower.contains("cache") {
+    } else if (input_lower.contains("clean") || input_lower.contains("clear"))
+        && input_lower.contains("cache")
+    {
         Some(("clean_package_cache", HashMap::new()))
-    } else if input_lower.contains("mirror") || (input_lower.contains("pacman") && input_lower.contains("server")) {
+    } else if input_lower.contains("mirror")
+        || (input_lower.contains("pacman") && input_lower.contains("server"))
+    {
         Some(("check_pacman_mirrors", HashMap::new()))
-    } else if input_lower.contains("update") || input_lower.contains("upgrade") || input_lower.contains("syu") {
+    } else if input_lower.contains("update")
+        || input_lower.contains("upgrade")
+        || input_lower.contains("syu")
+    {
         Some(("check_pending_updates", HashMap::new()))
     } else if input_lower.contains("pacman lock") || input_lower.contains("db.lck") {
         Some(("check_pacman_locks", HashMap::new()))
-    } else if input_lower.contains("keyring") || input_lower.contains("pgp") || input_lower.contains("signature") {
+    } else if input_lower.contains("keyring")
+        || input_lower.contains("pgp")
+        || input_lower.contains("signature")
+    {
         Some(("check_archlinux_keyring", HashMap::new()))
     } else if input_lower.contains("explicit") && input_lower.contains("package") {
         Some(("list_explicit_packages", HashMap::new()))
@@ -96,11 +128,15 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
         Some(("package_reverse_depends", HashMap::new()))
     } else if input_lower.contains("package integrity") || input_lower.contains("corrupt") {
         Some(("check_package_integrity", HashMap::new()))
-    } else if input_lower.contains("recent") && (input_lower.contains("install") || input_lower.contains("pacman")) {
+    } else if input_lower.contains("recent")
+        && (input_lower.contains("install") || input_lower.contains("pacman"))
+    {
         Some(("show_recent_pacman_operations", HashMap::new()))
 
     // BOOT & SYSTEMD
-    } else if input_lower.contains("boot") && (input_lower.contains("time") || input_lower.contains("slow")) {
+    } else if input_lower.contains("boot")
+        && (input_lower.contains("time") || input_lower.contains("slow"))
+    {
         Some(("analyze_boot_time", HashMap::new()))
     } else if input_lower.contains("boot") && input_lower.contains("error") {
         Some(("check_boot_errors", HashMap::new()))
@@ -108,25 +144,37 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
         Some(("show_boot_log", HashMap::new()))
     } else if input_lower.contains("critical chain") {
         Some(("analyze_boot_critical_chain", HashMap::new()))
-    } else if input_lower.contains("timer") || (input_lower.contains("systemd") && input_lower.contains("scheduled")) {
+    } else if input_lower.contains("timer")
+        || (input_lower.contains("systemd") && input_lower.contains("scheduled"))
+    {
         Some(("check_systemd_timers", HashMap::new()))
     } else if input_lower.contains("journal size") {
         Some(("analyze_journal_size", HashMap::new()))
     } else if input_lower.contains("systemd") && input_lower.contains("version") {
         Some(("check_systemd_version", HashMap::new()))
-    } else if input_lower.contains("recent") && (input_lower.contains("error") || input_lower.contains("journal")) {
+    } else if input_lower.contains("recent")
+        && (input_lower.contains("error") || input_lower.contains("journal"))
+    {
         Some(("show_recent_journal_errors", HashMap::new()))
 
     // CPU & PERFORMANCE
-    } else if input_lower.contains("cpu") && (input_lower.contains("freq") || input_lower.contains("speed")) {
+    } else if input_lower.contains("cpu")
+        && (input_lower.contains("freq") || input_lower.contains("speed"))
+    {
         Some(("check_cpu_frequency", HashMap::new()))
-    } else if input_lower.contains("governor") || (input_lower.contains("cpu") && input_lower.contains("scaling")) {
+    } else if input_lower.contains("governor")
+        || (input_lower.contains("cpu") && input_lower.contains("scaling"))
+    {
         Some(("check_cpu_governor", HashMap::new()))
     } else if input_lower.contains("cpu usage") || input_lower.contains("cpu percent") {
         Some(("analyze_cpu_usage", HashMap::new()))
-    } else if (input_lower.contains("cpu") || input_lower.contains("processor")) && (input_lower.contains("temp") || input_lower.contains("hot")) {
+    } else if (input_lower.contains("cpu") || input_lower.contains("processor"))
+        && (input_lower.contains("temp") || input_lower.contains("hot"))
+    {
         Some(("check_cpu_temperature", HashMap::new()))
-    } else if input_lower.contains("throttl") || (input_lower.contains("cpu") && input_lower.contains("slow")) {
+    } else if input_lower.contains("throttl")
+        || (input_lower.contains("cpu") && input_lower.contains("slow"))
+    {
         Some(("detect_cpu_throttling", HashMap::new()))
     } else if input_lower.contains("top") && input_lower.contains("cpu") {
         Some(("show_top_cpu_processes", HashMap::new()))
@@ -158,7 +206,9 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
         Some(("check_routing_table", HashMap::new()))
     } else if input_lower.contains("firewall") || input_lower.contains("iptables") {
         Some(("check_firewall_rules", HashMap::new()))
-    } else if input_lower.contains("port") && (input_lower.contains("open") || input_lower.contains("listen")) {
+    } else if input_lower.contains("port")
+        && (input_lower.contains("open") || input_lower.contains("listen"))
+    {
         Some(("check_listening_ports", HashMap::new()))
     } else if input_lower.contains("latency") || input_lower.contains("ping") {
         Some(("check_network_latency", HashMap::new()))
@@ -168,17 +218,29 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
     // GPU & DISPLAY
     } else if input_lower.contains("nvidia") && !input_lower.contains("install") {
         Some(("check_nvidia_status", HashMap::new()))
-    } else if input_lower.contains("amd") && (input_lower.contains("gpu") || input_lower.contains("graphics")) {
+    } else if input_lower.contains("amd")
+        && (input_lower.contains("gpu") || input_lower.contains("graphics"))
+    {
         Some(("check_amd_gpu", HashMap::new()))
-    } else if input_lower.contains("gpu") && (input_lower.contains("info") || input_lower.contains("detect")) {
+    } else if input_lower.contains("gpu")
+        && (input_lower.contains("info") || input_lower.contains("detect"))
+    {
         Some(("check_gpu_info", HashMap::new()))
     } else if input_lower.contains("gpu") && input_lower.contains("driver") {
         Some(("check_gpu_drivers", HashMap::new()))
-    } else if input_lower.contains("gpu") && (input_lower.contains("temp") || input_lower.contains("hot")) {
+    } else if input_lower.contains("gpu")
+        && (input_lower.contains("temp") || input_lower.contains("hot"))
+    {
         Some(("check_gpu_temperature", HashMap::new()))
-    } else if input_lower.contains("display server") || input_lower.contains("x11") || input_lower.contains("wayland") {
+    } else if input_lower.contains("display server")
+        || input_lower.contains("x11")
+        || input_lower.contains("wayland")
+    {
         Some(("check_display_server", HashMap::new()))
-    } else if input_lower.contains("desktop environment") || input_lower.contains("kde") || input_lower.contains("gnome") {
+    } else if input_lower.contains("desktop environment")
+        || input_lower.contains("kde")
+        || input_lower.contains("gnome")
+    {
         Some(("check_desktop_environment", HashMap::new()))
     } else if input_lower.contains("xorg") && input_lower.contains("error") {
         Some(("analyze_xorg_errors", HashMap::new()))
@@ -186,7 +248,10 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
         Some(("check_wayland_compositor", HashMap::new()))
 
     // HARDWARE
-    } else if input_lower.contains("temperature") || input_lower.contains("temp") || input_lower.contains("heat") {
+    } else if input_lower.contains("temperature")
+        || input_lower.contains("temp")
+        || input_lower.contains("heat")
+    {
         Some(("check_temperature", HashMap::new()))
     } else if input_lower.contains("usb") {
         Some(("check_usb_devices", HashMap::new()))
@@ -200,20 +265,22 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
 }
 
 /// Execute a template and return the result
-pub fn execute_template(template_id: &str, params: &HashMap<String, String>) -> Result<QueryResult> {
+pub fn execute_template(
+    template_id: &str,
+    params: &HashMap<String, String>,
+) -> Result<QueryResult> {
     let library = TemplateLibrary::default();
 
-    let template = library.get(template_id)
+    let template = library
+        .get(template_id)
         .ok_or_else(|| anyhow::anyhow!("Template not found: {}", template_id))?;
 
-    let recipe = template.instantiate(params)
+    let recipe = template
+        .instantiate(params)
         .map_err(|e| anyhow::anyhow!("Template instantiation failed: {}", e))?;
 
     // Execute command
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(&recipe.command)
-        .output()?;
+    let output = Command::new("sh").arg("-c").arg(&recipe.command).output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -226,7 +293,7 @@ pub fn execute_template(template_id: &str, params: &HashMap<String, String>) -> 
 
 /// Try RecipePlanner (Tier 2)
 pub async fn try_recipe_planner(user_text: &str, config: &LlmConfig) -> Result<Option<Recipe>> {
-    use anna_common::recipe_planner::{RecipePlanner, PlanningResult};
+    use anna_common::recipe_planner::{PlanningResult, RecipePlanner};
 
     let planner = RecipePlanner::new(config.clone());
     let telemetry_summary = "Arch Linux system".to_string();
@@ -243,7 +310,9 @@ pub fn get_llm_config() -> LlmConfig {
     let model_name = match Command::new("ollama").arg("list").output() {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout.lines().nth(1)
+            stdout
+                .lines()
+                .nth(1)
                 .and_then(|line| line.split_whitespace().next())
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "llama3.1:8b".to_string())
