@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.136] - 2025-11-20
+
+### 🔧 CRITICAL FIX: TUI Scroll and Reply Cutoff
+
+**What Changed:** Fixed TUI reply cutoff and scroll calculation bugs.
+
+#### Fixes
+
+- ✅ **Reply cutoff fixed**: Text no longer cuts off at end of Anna's replies
+- ✅ **Scroll calculation fixed**: Now accounts for wrapped text accurately
+- ✅ **Page Up/Down should work properly**: Scroll offsets now correct
+- ✅ **Manual text wrapping**: Pre-wrap text to know exact line count before rendering
+
+**Technical Details:**
+- Old: Counted logical lines, but ratatui wrapped text creating more visual lines
+- New: Manually wrap text first, count actual wrapped lines
+- Result: `max_scroll` calculation is now accurate
+
+**Impact:** TUI scrolling and navigation should work correctly now. Ready for user testing on razorback and rocinante.
+
+---
+
 ## [5.7.0-beta.135] - 2025-11-20
 
 ### 🔧 HOTFIX: Test Suite Restored

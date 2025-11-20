@@ -312,40 +312,64 @@ fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 
 /// Draw conversation panel (middle)
 /// Beta.99: Added scrolling support with PageUp/PageDown
+/// Beta.136: Fixed scroll calculation to account for text wrapping
 fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
-    // Beta.93: Use wrapped text for conversation history (no more cut-off messages)
+    // Beta.136: Calculate available width for text (subtract borders and padding)
+    let content_width = area.width.saturating_sub(4) as usize; // 2 for borders, 2 for padding
     let mut lines: Vec<Line> = Vec::new();
 
     for item in &state.conversation {
         match item {
             ChatItem::User(msg) => {
-                lines.push(Line::from(vec![
-                    Span::styled("You: ", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
-                    Span::raw(msg.clone()),
-                ]));
+                // Beta.136: Wrap user messages manually to get accurate line count
+                let prefix = "You: ";
+                let wrapped = wrap_text(msg, content_width.saturating_sub(prefix.len()));
+                for (i, wrapped_line) in wrapped.iter().enumerate() {
+                    if i == 0 {
+                        lines.push(Line::from(vec![
+                            Span::styled(prefix, Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                            Span::raw(wrapped_line.clone()),
+                        ]));
+                    } else {
+                        // Indent continuation lines
+                        lines.push(Line::from(Span::raw(format!("     {}", wrapped_line))));
+                    }
+                }
                 lines.push(Line::from("")); // Add spacing between messages
             }
             ChatItem::Anna(msg) => {
                 lines.push(Line::from(vec![
                     Span::styled("Anna: ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 ]));
-                // Split long Anna replies into separate lines for better readability
+                // Beta.136: Wrap each line of Anna's reply
                 for line in msg.lines() {
-                    lines.push(Line::from(Span::raw(line.to_string())));
+                    let wrapped = wrap_text(line, content_width);
+                    for wrapped_line in wrapped {
+                        lines.push(Line::from(Span::raw(wrapped_line)));
+                    }
                 }
                 lines.push(Line::from("")); // Add spacing between messages
             }
             ChatItem::System(msg) => {
-                lines.push(Line::from(vec![
-                    Span::styled("System: ", Style::default().fg(Color::Yellow)),
-                    Span::raw(msg.clone()),
-                ]));
+                // Beta.136: Wrap system messages
+                let prefix = "System: ";
+                let wrapped = wrap_text(msg, content_width.saturating_sub(prefix.len()));
+                for (i, wrapped_line) in wrapped.iter().enumerate() {
+                    if i == 0 {
+                        lines.push(Line::from(vec![
+                            Span::styled(prefix, Style::default().fg(Color::Yellow)),
+                            Span::raw(wrapped_line.clone()),
+                        ]));
+                    } else {
+                        lines.push(Line::from(Span::raw(format!("        {}", wrapped_line))));
+                    }
+                }
                 lines.push(Line::from("")); // Add spacing between messages
             }
         }
     }
 
-    // Beta.99: Calculate scroll indicator and clamp scroll_offset
+    // Beta.136: Now total_lines accurately reflects wrapped content
     let total_lines = lines.len();
     let visible_lines = area.height.saturating_sub(2) as usize; // Subtract 2 for borders
     let max_scroll = total_lines.saturating_sub(visible_lines);
@@ -368,10 +392,45 @@ fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
             .title(format!("Conversation{}", scroll_indicator))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)))
-        .wrap(Wrap { trim: true })  // Enable text wrapping!
+        // Beta.136: Disable auto-wrap (we wrap manually now for accurate scroll)
         .scroll((actual_scroll as u16, 0));  // Beta.99: Enable scrolling!
 
     f.render_widget(paragraph, area);
+}
+
+/// Beta.136: Wrap text to given width, preserving words
+fn wrap_text(text: &str, width: usize) -> Vec<String> {
+    if width == 0 {
+        return vec![text.to_string()];
+    }
+
+    let mut wrapped = Vec::new();
+    let mut current_line = String::new();
+
+    for word in text.split_whitespace() {
+        // If adding this word would exceed width, start new line
+        if !current_line.is_empty() && current_line.len() + 1 + word.len() > width {
+            wrapped.push(current_line);
+            current_line = word.to_string();
+        } else {
+            if !current_line.is_empty() {
+                current_line.push(' ');
+            }
+            current_line.push_str(word);
+        }
+    }
+
+    // Push last line
+    if !current_line.is_empty() {
+        wrapped.push(current_line);
+    }
+
+    // Handle empty input
+    if wrapped.is_empty() {
+        wrapped.push(String::new());
+    }
+
+    wrapped
 }
 
 /// Draw input bar (bottom)
