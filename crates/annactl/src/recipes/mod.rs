@@ -15,6 +15,7 @@
 //! Beta.163: Added virtualization recipes (virtualization, containers, virt_network)
 //! Beta.164: Added audio recipes (audio, music, recording)
 //! Beta.165: Added video and desktop recipes (video, desktop_env, display_manager)
+//! Beta.166: Added final core recipes (printing, bluetooth, cloud)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -74,6 +75,11 @@ pub mod recording;
 pub mod video;
 pub mod desktop_env;
 pub mod display_manager;
+
+// Beta.166 recipes
+pub mod printing;
+pub mod bluetooth;
+pub mod cloud;
 
 // Beta.163 recipes
 pub mod virtualization;
@@ -166,6 +172,19 @@ pub fn try_recipe_match(
 
     if display_manager::DisplayManagerRecipe::matches_request(user_input) {
         return Some(display_manager::DisplayManagerRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.166 recipes - Final Core (specific)
+    if printing::PrintingRecipe::matches_request(user_input) {
+        return Some(printing::PrintingRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if bluetooth::BluetoothRecipe::matches_request(user_input) {
+        return Some(bluetooth::BluetoothRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if cloud::CloudRecipe::matches_request(user_input) {
+        return Some(cloud::CloudRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.163 recipes - Virtualization (specific)
@@ -423,6 +442,14 @@ mod tests {
         assert!(try_recipe_match("install kde plasma", &telemetry).is_some());
         assert!(try_recipe_match("install sddm", &telemetry).is_some());
         assert!(try_recipe_match("switch to gdm", &telemetry).is_some());
+
+        // Beta.166 recipes
+        assert!(try_recipe_match("install cups", &telemetry).is_some());
+        assert!(try_recipe_match("setup printer", &telemetry).is_some());
+        assert!(try_recipe_match("install bluetooth", &telemetry).is_some());
+        assert!(try_recipe_match("enable bluetooth", &telemetry).is_some());
+        assert!(try_recipe_match("install nextcloud", &telemetry).is_some());
+        assert!(try_recipe_match("setup dropbox", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
