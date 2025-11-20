@@ -97,7 +97,7 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
     summary.push_str(&format!("  • Performance: {}/100\n", health.avg_performance_score));
     summary.push_str(&format!("  • Noise level: {}/100\n", health.avg_noise_score));
     summary.push_str(&format!("  • Days analyzed: {}\n", health.days_analyzed));
-    summary.push_str("\n");
+    summary.push('\n');
 
     // Boot Performance
     let boot = &sys_summary.boot_trends;
@@ -105,7 +105,7 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
     summary.push_str(&format!("  • Average boot time: {:.1}s\n", boot.avg_boot_time_ms as f64 / 1000.0));
     summary.push_str(&format!("  • Trend: {:?}\n", boot.trend));
     summary.push_str(&format!("  • Days analyzed: {}\n", boot.days_analyzed));
-    summary.push_str("\n");
+    summary.push('\n');
 
     // CPU Usage
     let cpu = &sys_summary.cpu_trends;
@@ -113,7 +113,7 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
     summary.push_str(&format!("  • Average utilization: {:.1}%\n", cpu.avg_utilization_percent));
     summary.push_str(&format!("  • Trend: {:?}\n", cpu.trend));
     summary.push_str(&format!("  • Days analyzed: {}\n", cpu.days_analyzed));
-    summary.push_str("\n");
+    summary.push('\n');
 
     // Error Trends
     let errors = &sys_summary.error_trends;
@@ -123,7 +123,7 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
         summary.push_str(&format!("  • Total warnings: {}\n", errors.total_warnings));
         summary.push_str(&format!("  • Total criticals: {}\n", errors.total_criticals));
         summary.push_str(&format!("  • Days analyzed: {}\n", errors.days_analyzed));
-        summary.push_str("\n");
+        summary.push('\n');
     }
 
     // Recent Repairs
@@ -134,7 +134,7 @@ fn build_historian_summary(sys_summary: &SystemSummary) -> String {
             summary.push_str(&format!("  • {} {} ({})\n",
                 status, repair.action_type, repair.timestamp.format("%Y-%m-%d")));
         }
-        summary.push_str("\n");
+        summary.push('\n');
     }
 
     summary.push_str("[/ANNA_HISTORIAN_SUMMARY]\n\n");

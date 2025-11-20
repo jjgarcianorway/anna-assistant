@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.121] - 2025-11-20
+
+### 🧹 CODE QUALITY: Clippy Lint Fixes
+
+**What Changed:** Cleaned up compiler warnings and unused code.
+
+#### Improvements
+
+- ✅ Removed unused imports in anna_common (Context, PathBuf, HashMap, etc.)
+- ✅ Prefixed unused function parameters with underscore (_limit, _std_cmd)
+- ✅ Fixed clippy auto-fixable warnings across workspace
+- ✅ Reduced warning count from 1237 → ~1180 (57 warnings fixed)
+
+#### Files Modified
+
+- `crates/anna_common/src/action_plan.rs` - Removed unused Context, PathBuf imports
+- `crates/anna_common/src/qa_scenarios.rs` - Removed unused Path import
+- `crates/anna_common/src/reddit_qa_validator.rs` - Removed HashMap, fixed _limit
+- `crates/anna_common/src/llm_benchmark.rs` - Removed anyhow!, Instant
+- `crates/annactl/*` - Various clippy auto-fixes
+- `crates/annad/*` - Various clippy auto-fixes
+
+#### Remaining Work
+
+- 🔄 Dead code warnings (unused functions/structs for future features)
+- 🔄 Complex refactors (functions with too many arguments)
+- 🔄 Style improvements (push_str with single char, manual iterations)
+
+**Philosophy:** Incremental quality improvements. Small consistent gains add up.
+
+---
+
 ## [5.7.0-beta.120] - 2025-11-19
 
 ### 📊 SUMMARY: Beta.116-120 Overnight Session

@@ -156,10 +156,10 @@ pub fn route_intent(input: &str) -> Intent {
     }
 
     // System status (system health)
-    if (lower.contains("system status")
+    if lower.contains("system status")
         || lower.contains("system health")
         || (contains_any(&words, &["status", "health"])
-            && contains_any(&words, &["system", "machine", "computer", "pc", "server"])))
+            && contains_any(&words, &["system", "machine", "computer", "pc", "server"]))
     {
         return Intent::SystemStatus;
     }

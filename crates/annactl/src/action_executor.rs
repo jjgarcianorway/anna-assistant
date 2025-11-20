@@ -7,12 +7,12 @@
 //!
 //! Implements the approval flow: show → confirm → execute → log
 
-use anna_common::action_plan::{ActionPlan, ActionRisk, SafeCommand};
+use anna_common::action_plan::{ActionPlan, ActionRisk};
 use anna_common::change_log::*;
 use anna_common::change_log_db::ChangeLogDb;
 use anna_common::context::db::DbLocation;
 use anna_common::suggestions::Suggestion;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::process::Command;
 

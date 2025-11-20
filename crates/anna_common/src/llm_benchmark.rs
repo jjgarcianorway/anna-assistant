@@ -8,9 +8,9 @@
 //! NOT a scientific benchmark - just enough to detect huge regressions
 //! and help users understand very slow models.
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// A single benchmark prompt for testing
 #[derive(Debug, Clone, Serialize, Deserialize)]

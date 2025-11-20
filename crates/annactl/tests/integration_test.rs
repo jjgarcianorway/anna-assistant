@@ -29,7 +29,7 @@ fn annactl_bin() -> PathBuf {
 #[test]
 fn test_annactl_compiles() {
     let output = Command::new("cargo")
-        .args(&["build", "--bin", "annactl"])
+        .args(["build", "--bin", "annactl"])
         .output()
         .expect("Failed to build annactl");
 
@@ -73,7 +73,7 @@ fn test_help_json_output() {
 
     // Use timeout to prevent hanging if daemon is unavailable
     let child = Command::new(annactl_bin())
-        .args(&["help", "--json"])
+        .args(["help", "--json"])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn();
@@ -289,7 +289,7 @@ fn test_adaptive_help_user_context() {
 #[test]
 fn test_adaptive_help_all_flag() {
     let output = Command::new(annactl_bin())
-        .args(&["--help", "--all"])
+        .args(["--help", "--all"])
         .output()
         .expect("Failed to run annactl --help --all");
 
@@ -321,7 +321,7 @@ fn test_adaptive_help_all_flag() {
 #[test]
 fn test_json_help_output() {
     let output = Command::new(annactl_bin())
-        .args(&["--help", "--json"])
+        .args(["--help", "--json"])
         .output()
         .expect("Failed to run annactl --help --json");
 
@@ -372,7 +372,7 @@ fn test_json_help_output() {
 /// Test command classification metadata exists
 #[test]
 fn test_command_classification() {
-    use anna_common::command_meta::{CommandCategory, CommandMetadata, CommandRegistry, RiskLevel};
+    use anna_common::command_meta::{CommandCategory, CommandRegistry, RiskLevel};
 
     let registry = CommandRegistry::new();
     let all_commands = registry.all();
@@ -531,7 +531,7 @@ fn test_phase39_help_all_shows_init() {
     let bin_path = annactl_bin();
 
     let output = Command::new(&bin_path)
-        .args(&["--help", "--all"])
+        .args(["--help", "--all"])
         .output()
         .expect("Failed to run annactl --help --all");
 
@@ -558,7 +558,7 @@ fn test_phase39_help_json_output() {
     let bin_path = annactl_bin();
 
     let output = Command::new(&bin_path)
-        .args(&["--help", "--json"])
+        .args(["--help", "--json"])
         .output()
         .expect("Failed to run annactl --help --json");
 
@@ -704,7 +704,7 @@ fn test_phase310_upgrade_command_exists() {
 
     // Test that upgrade command is recognized
     let output = Command::new(&bin_path)
-        .args(&["help", "upgrade"])
+        .args(["help", "upgrade"])
         .output()
         .expect("Failed to run annactl help upgrade");
 
@@ -725,7 +725,7 @@ fn test_phase40_daily_command_exists() {
 
     // Test that daily command is recognized in help
     let output = Command::new(&bin_path)
-        .args(&["help", "daily"])
+        .args(["help", "daily"])
         .output()
         .expect("Failed to run annactl help daily");
 
@@ -767,7 +767,7 @@ fn test_phase40_repair_command_enhanced() {
 
     // Test repair help shows enhanced features
     let output = Command::new(&bin_path)
-        .args(&["help", "repair"])
+        .args(["help", "repair"])
         .output()
         .expect("Failed to run annactl help repair");
 
@@ -829,7 +829,7 @@ fn test_phase47_noise_control_visibility_hints() {
     let config = NoiseControlConfig::default();
     assert_eq!(config.info_deemphasis_days, 7);
     assert_eq!(config.warning_deemphasis_days, 14);
-    assert_eq!(config.never_deemphasize_critical, true);
+    assert!(config.never_deemphasize_critical);
 }
 
 /// Phase 4.7: Test stable issue keys

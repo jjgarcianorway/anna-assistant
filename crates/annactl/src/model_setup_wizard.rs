@@ -10,7 +10,7 @@ use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::UI;
 use anna_common::llm::LlmConfig;
 use anna_common::model_profiles::{
-    get_profile_by_id, get_recommended_with_fallbacks, ModelProfile, QualityTier,
+    get_recommended_with_fallbacks, ModelProfile, QualityTier,
 };
 use anna_common::types::SystemFacts;
 use anyhow::Result;

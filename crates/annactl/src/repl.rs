@@ -7,7 +7,6 @@ use anna_common::context::db::{ContextDb, DbLocation};
 use anna_common::display::{print_privacy_explanation, print_prompt, UI};
 use anna_common::llm::ChatMessage;  // Beta.110: For conversation history
 use anyhow::Result;
-use chrono::Local;
 use std::collections::HashMap;
 use std::env;
 use std::io::{self, BufRead};
@@ -382,7 +381,7 @@ async fn run_repl_loop(ctx: ReplUiContext, db: Option<std::sync::Arc<ContextDb>>
 // Beta.53: Old HistorianSnapshot removed - replaced by SystemSummary from anna_common::historian
 // This function is stubbed out for now
 #[allow(dead_code)]
-fn load_historian_snapshot(_db: &ContextDb) -> () {
+fn load_historian_snapshot(_db: &ContextDb) {
     // TODO: Implement using Historian IPC to get SystemSummary from annad
 }
 
@@ -693,7 +692,7 @@ async fn handle_llm_query(
     };
 
     // Create LLM client
-    let mut client = match LlmClient::from_config(&llm_config) {
+    let client = match LlmClient::from_config(&llm_config) {
         Ok(client) => client,
         Err(e) => {
             print!("\r{}", " ".repeat(50));  // Clear thinking line
@@ -717,7 +716,7 @@ async fn handle_llm_query(
             telemetry.hardware.cpu_model,
             telemetry.memory.used_mb as f64 / 1024.0,
             telemetry.memory.total_mb as f64 / 1024.0,
-            telemetry.hardware.gpu_info.as_ref().map(|s| s.as_str()).unwrap_or("None"),
+            telemetry.hardware.gpu_info.as_deref().unwrap_or("None"),
         )
     } else {
         "OS: Arch Linux".to_string()
@@ -790,8 +789,8 @@ async fn handle_llm_query(
 
 /// Display structured LLM output sections
 fn display_structured_llm_output(response: &str) {
-    use std::collections::HashMap;
-    use regex::Regex;
+    
+    
 
     let ui = UI::auto();
 
@@ -892,9 +891,7 @@ fn display_tui_header(header_content: &str) {
             // NOTE: Don't print TUI header metadata (status, model_hint, etc.)
             // These are internal fields for future TUI implementation
             // Printing them confuses users and clutters output
-            match key {
-                _ => {}
-            }
+            {}
         }
     }
     println!();

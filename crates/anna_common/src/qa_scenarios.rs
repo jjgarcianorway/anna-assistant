@@ -15,7 +15,7 @@
 use crate::action_plan::{ActionPlan, ActionRisk, ActionStep};
 use anyhow::{anyhow, Result};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Scenario: Enable vim syntax highlighting
 ///

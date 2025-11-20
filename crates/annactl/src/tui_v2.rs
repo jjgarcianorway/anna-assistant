@@ -406,12 +406,12 @@ fn calculate_input_height(input: &str, available_width: u16) -> u16 {
 
     // Calculate how many lines the input will wrap to
     let input_len = input.len();
-    let wrapped_lines = (input_len + usable_width - 1) / usable_width;
+    let wrapped_lines = input_len.div_ceil(usable_width);
 
     // Add 2 for borders, then cap between 3 and 10
-    let total_height = (wrapped_lines + 2).max(3).min(10) as u16;
+    
 
-    total_height
+    (wrapped_lines + 2).max(3).min(10) as u16
 }
 
 /// Draw help overlay
@@ -572,7 +572,7 @@ async fn generate_llm_reply(input: &str, state: &AnnaTuiState) -> String {
         state.system_panel.cpu_load_15min,
         state.system_panel.ram_used_gb,
         state.system_panel.ram_total_gb,
-        state.system_panel.gpu_name.as_ref().map(|s| s.as_str()).unwrap_or("None"),
+        state.system_panel.gpu_name.as_deref().unwrap_or("None"),
         state.system_panel.disk_free_gb,
         state.system_panel.anna_version,
     );
@@ -1098,7 +1098,7 @@ fn update_telemetry(state: &mut AnnaTuiState) {
             let stdout = String::from_utf8_lossy(&output.stdout);
 
             // Get first non-header line (most recently used model)
-            if let Some(first_line) = stdout.lines().skip(1).next() {
+            if let Some(first_line) = stdout.lines().nth(1) {
                 let parts: Vec<&str> = first_line.split_whitespace().collect();
                 if let Some(model_name) = parts.first() {
                     state.llm_panel.model_name = model_name.to_string();

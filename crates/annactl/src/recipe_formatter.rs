@@ -36,7 +36,7 @@ pub fn format_recipe_answer(recipe: &Recipe, question: &str) -> String {
     for step in &recipe.steps {
         if !step.explanation.is_empty() {
             answer.push_str("• **");
-            answer.push_str(&step.command.split_whitespace().next().unwrap_or("cmd"));
+            answer.push_str(step.command.split_whitespace().next().unwrap_or("cmd"));
             answer.push_str("**: ");
             answer.push_str(&step.explanation);
             answer.push('\n');

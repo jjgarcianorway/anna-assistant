@@ -7,9 +7,8 @@
 //! - Risk classification
 //! - Injection-resistant design
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Risk level for an action step
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -388,7 +387,7 @@ mod tests {
         ]);
 
         // When converted to std::process::Command, spaces are handled safely
-        let std_cmd = cmd.to_command();
+        let _std_cmd = cmd.to_command();
         // Arguments are kept separate - no shell interpretation needed
     }
 }

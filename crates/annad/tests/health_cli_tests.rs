@@ -50,7 +50,7 @@ fn test_health_all_ok() {
 
     // Set environment to force all probes to return ok
     let output = Command::new(annactl_bin())
-        .args(&["health"])
+        .args(["health"])
         .env("TEST_PROBE_STATUS_DISK_SPACE", "ok")
         .env("TEST_PROBE_STATUS_PACMAN_DB", "ok")
         .env("TEST_PROBE_STATUS_SYSTEMD_UNITS", "ok")
@@ -80,7 +80,7 @@ fn test_health_with_warn() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["health"])
+        .args(["health"])
         .env("TEST_PROBE_STATUS_DISK_SPACE", "warn")
         .env("TEST_PROBE_STATUS_PACMAN_DB", "ok")
         .env("TEST_PROBE_STATUS_SYSTEMD_UNITS", "ok")
@@ -113,7 +113,7 @@ fn test_health_with_fail() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["health"])
+        .args(["health"])
         .env("TEST_PROBE_STATUS_DISK_SPACE", "fail")
         .env("TEST_PROBE_STATUS_PACMAN_DB", "ok")
         .env("TEST_PROBE_STATUS_SYSTEMD_UNITS", "ok")
@@ -146,7 +146,7 @@ fn test_health_report_generation() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["health"])
+        .args(["health"])
         .output()
         .expect("Failed to execute annactl health");
 
@@ -204,7 +204,7 @@ fn test_doctor_report() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["doctor"])
+        .args(["doctor"])
         .output()
         .expect("Failed to execute annactl doctor");
 
@@ -239,7 +239,7 @@ fn test_doctor_json_output() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["doctor", "--json"])
+        .args(["doctor", "--json"])
         .output()
         .expect("Failed to execute annactl doctor --json");
 
@@ -270,7 +270,7 @@ fn test_rescue_list() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["rescue", "list"])
+        .args(["rescue", "list"])
         .output()
         .expect("Failed to execute annactl rescue list");
 
@@ -296,7 +296,7 @@ fn test_daemon_unavailable_exit_code() {
     }
 
     let output = Command::new(annactl_bin())
-        .args(&["health"])
+        .args(["health"])
         .output()
         .expect("Failed to execute annactl health");
 
@@ -326,7 +326,7 @@ fn test_health_logging() {
 
     // Run health command
     let _output = Command::new(annactl_bin())
-        .args(&["health"])
+        .args(["health"])
         .output()
         .expect("Failed to execute annactl health");
 

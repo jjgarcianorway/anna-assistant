@@ -269,7 +269,7 @@ async fn handle_llm_query(user_text: &str) {
     use anna_common::llm::{LlmClient, LlmConfig, LlmPrompt};
     use anna_common::template_library::TemplateLibrary;
     use anna_common::recipe_planner::{RecipePlanner, PlanningResult};
-    use anna_common::command_recipe::{Recipe, SafetyLevel};
+    use anna_common::command_recipe::SafetyLevel;
     use std::collections::HashMap;
     use owo_colors::OwoColorize;
     use std::io::{self, Write};
@@ -508,9 +508,7 @@ async fn handle_llm_query(user_text: &str) {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             // Get first non-header line (most recently used model)
-            stdout.lines()
-                .skip(1)
-                .next()
+            stdout.lines().nth(1)
                 .and_then(|line| line.split_whitespace().next())
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "llama3.1:8b".to_string())
@@ -612,7 +610,7 @@ async fn handle_llm_query(user_text: &str) {
             telemetry.hardware.cpu_model,
             telemetry.memory.used_mb as f64 / 1024.0,
             telemetry.memory.total_mb as f64 / 1024.0,
-            telemetry.hardware.gpu_info.as_ref().map(|s| s.as_str()).unwrap_or("None"),
+            telemetry.hardware.gpu_info.as_deref().unwrap_or("None"),
         )
     } else {
         "OS: Arch Linux".to_string()
@@ -887,7 +885,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                         Ok(_) => {
                             println!();
                             ui.success(&format!("✓ Set {} to {}/10", trait_key, value));
-                            if let Some(trait_ref) = config.get_trait(&trait_key) {
+                            if let Some(trait_ref) = config.get_trait(trait_key) {
                                 ui.info(&format!("  {}", trait_ref.meaning));
                             }
                             println!();
@@ -983,7 +981,7 @@ async fn handle_one_shot_query(query: &str) -> Result<()> {
                     let new_ui = UI::new(&config);
                     let profile = config.profile();
                     println!();
-                    new_ui.success(&profile.translations.language_changed);
+                    new_ui.success(profile.translations.language_changed);
                     new_ui.info(&format!(
                         "{} {}",
                         profile.translations.now_speaking,

@@ -9,7 +9,6 @@
 //! This validates Anna against REAL problems, not just synthetic tests.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A Reddit post from r/archlinux
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,7 +160,7 @@ impl RedditClient {
     /// Note: Reddit API requires OAuth for more than 100 requests/min
     /// For 500-1000 questions, we'd need to implement proper authentication
     /// or scrape gradually over time.
-    pub async fn fetch_questions(&self, limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
+    pub async fn fetch_questions(&self, _limit: usize) -> anyhow::Result<Vec<RedditQuestion>> {
         // TODO: Implement actual Reddit API fetching
         // For now, return error indicating manual collection needed
         anyhow::bail!(

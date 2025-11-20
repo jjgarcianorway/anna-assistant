@@ -189,20 +189,20 @@ impl TelemetryPayload {
         let mut text = String::from("[ANNA_TELEMETRY_PAYLOAD]\n");
 
         // Hardware
-        text.push_str(&format!("Hardware:\n"));
+        text.push_str("Hardware:\n");
         text.push_str(&format!("  CPU: {} ({} cores)\n", self.hardware.cpu_model, self.hardware.cpu_cores));
         text.push_str(&format!("  RAM: {:.1} GB\n", self.hardware.total_ram_gb));
         if let Some(ref gpu) = self.hardware.gpu_model {
             text.push_str(&format!("  GPU: {}\n", gpu));
         }
-        text.push_str("\n");
+        text.push('\n');
 
         // OS
         text.push_str("OS:\n");
         text.push_str(&format!("  Hostname: {}\n", self.os.hostname));
         text.push_str(&format!("  Kernel: {}\n", self.os.kernel));
         text.push_str(&format!("  Arch: {} release\n", self.os.arch_status));
-        text.push_str("\n");
+        text.push('\n');
 
         // Resources
         text.push_str("Current Resources:\n");
@@ -220,7 +220,7 @@ impl TelemetryPayload {
                 disk.available_gb,
             ));
         }
-        text.push_str("\n");
+        text.push('\n');
 
         // Errors
         if !self.recent_errors.is_empty() {
@@ -228,7 +228,7 @@ impl TelemetryPayload {
             for err in &self.recent_errors {
                 text.push_str(&format!("  • {}\n", err));
             }
-            text.push_str("\n");
+            text.push('\n');
         }
 
         // Trends
@@ -239,7 +239,7 @@ impl TelemetryPayload {
             text.push_str(&format!("  Stability: {}/100\n", trends.stability_score));
             text.push_str(&format!("  Performance: {}/100\n", trends.performance_score));
             text.push_str(&format!("  Days analyzed: {}\n", trends.days_analyzed));
-            text.push_str("\n");
+            text.push('\n');
         }
 
         text.push_str("[/ANNA_TELEMETRY_PAYLOAD]\n");
@@ -386,7 +386,7 @@ fn build_simple_prompt(
             prompt.push_str(&format!("GPU: {}\n", gpu));
         }
         prompt.push_str(&format!("Kernel: {}\n", payload.os.kernel));
-        prompt.push_str("\n");
+        prompt.push('\n');
     }
 
     // User question
@@ -423,11 +423,11 @@ fn build_planner_prompt(
 
     // Telemetry
     prompt.push_str(&payload.render());
-    prompt.push_str("\n");
+    prompt.push('\n');
 
     // Personality
     prompt.push_str(&personality.render_personality_view());
-    prompt.push_str("\n");
+    prompt.push('\n');
 
     // User question
     prompt.push_str("[USER_QUESTION]\n");
@@ -475,11 +475,11 @@ fn build_answer_prompt(
 
     // Telemetry
     prompt.push_str(&payload.render());
-    prompt.push_str("\n");
+    prompt.push('\n');
 
     // Personality
     prompt.push_str(&personality.render_personality_view());
-    prompt.push_str("\n");
+    prompt.push('\n');
 
     // User question
     prompt.push_str("[USER_QUESTION]\n");
