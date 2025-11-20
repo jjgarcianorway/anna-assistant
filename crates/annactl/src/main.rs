@@ -35,6 +35,7 @@ mod llm_integration; // Beta.53: LLM query with streaming support
 mod model_catalog; // Beta.53: Intelligent model selection
 mod model_setup_wizard; // Beta.53: First-run model setup
 mod monitor_setup;
+mod query_handler; // Beta.144: Unified 3-tier query architecture
 mod runtime_prompt; // Beta.53: Prompt builder with Historian data
 mod startup_summary; // Beta.53: Startup health display
 pub mod output;

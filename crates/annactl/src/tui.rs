@@ -13,6 +13,7 @@
 //! - Efficient rendering
 
 use crate::llm_integration::{query_llm_with_context, query_llm_with_context_streaming};
+use crate::query_handler;
 use anna_common::context::db::{ContextDb, DbLocation};
 use anyhow::Result;
 use crossterm::{
@@ -231,7 +232,7 @@ impl TuiApp {
                     self.input.clear();
                     self.cursor_pos = 0;
 
-                    // Start with empty assistant message (Beta.89: streaming will fill it)
+                    // Start with empty assistant message
                     self.add_message(MessageRole::Assistant, "");
                     self.is_processing = true;
 
@@ -242,11 +243,50 @@ impl TuiApp {
                     // Clone db for async task
                     let db = self.db.clone();
 
-                    // Spawn async task to query LLM with streaming
-                    // Beta.89: Use streaming function to send word-by-word
+                    // Beta.144: Use 3-tier query architecture
+                    // Tier 1: Template matching (instant, accurate)
+                    // Tier 2: RecipePlanner (validated recipes)
+                    // Tier 3: Generic LLM (conversational fallback)
                     tokio::spawn(async move {
+                        // Tier 1: Try template matching first
+                        if let Some((template_id, params)) = query_handler::try_template_match(&input) {
+                            match query_handler::execute_template(template_id, &params) {
+                                Ok(query_handler::QueryResult::Template { command, output, .. }) => {
+                                    // Send template result through channel
+                                    let _ = tx.send(format!("📋 Running: {}\n\n", command));
+                                    let _ = tx.send(output);
+                                    return;
+                                }
+                                Err(e) => {
+                                    // Template execution failed, fall through to next tier
+                                    eprintln!("Template execution failed: {}", e);
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        // Tier 2: Try RecipePlanner
+                        let config = query_handler::get_llm_config();
+                        match query_handler::try_recipe_planner(&input, &config).await {
+                            Ok(Some(recipe)) => {
+                                // Recipe generated successfully
+                                let _ = tx.send(format!("🔧 Recipe: {}\n\n", recipe.summary));
+                                let _ = tx.send(format!("📋 Steps: {} steps\n", recipe.steps.len()));
+                                let _ = tx.send(format!("Safety: {:?}\n\n", recipe.overall_safety));
+                                // TODO: Actually execute recipe steps
+                                let _ = tx.send("(Recipe execution in TUI not yet implemented)\n".to_string());
+                                return;
+                            }
+                            Ok(None) => {
+                                // Recipe planning failed, fall through to LLM
+                            }
+                            Err(e) => {
+                                eprintln!("Recipe planning error: {}", e);
+                            }
+                        }
+
+                        // Tier 3: Generic LLM fallback
                         if let Err(e) = query_llm_with_context_streaming(&input, db.as_ref(), tx).await {
-                            // Error handling - send error message through channel
                             eprintln!("LLM streaming error: {}", e);
                         }
                     });

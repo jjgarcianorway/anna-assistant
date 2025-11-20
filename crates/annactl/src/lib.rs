@@ -11,6 +11,7 @@ pub mod system_prompt_v3_json; // Beta.143: JSON runtime contract
 pub mod llm_integration; // Beta.55: LLM integration
 pub mod logging;
 pub mod output;
+pub mod query_handler; // Beta.144: Unified 3-tier query architecture
 pub mod recipe_formatter; // Beta.90: Recipe answer formatting
 pub mod rpc_client; // RPC client for daemon communication
 pub mod system_query; // Beta.91: System telemetry queries
