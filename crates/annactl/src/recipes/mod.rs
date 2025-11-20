@@ -8,6 +8,7 @@
 //! Beta.156: Added infrastructure recipes (Docker Compose, PostgreSQL, Nginx)
 //! Beta.157: Added system management recipes (monitoring, backup, performance)
 //! Beta.158: Added desktop application recipes (browser, media, productivity)
+//! Beta.159: Added terminal and shell tool recipes (terminal, shell, compression)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -57,6 +58,11 @@ pub mod monitoring;
 pub mod performance;
 
 // Beta.158 recipes
+
+// Beta.159 recipes
+pub mod compression;
+pub mod shell;
+pub mod terminal;
 pub mod browser;
 pub mod media;
 pub mod productivity;
@@ -100,6 +106,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.159 recipes - Terminal and shell tools (specific)
+    if terminal::TerminalRecipe::matches_request(user_input) {
+        return Some(terminal::TerminalRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if shell::ShellRecipe::matches_request(user_input) {
+        return Some(shell::ShellRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if compression::CompressionRecipe::matches_request(user_input) {
+        return Some(compression::CompressionRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.158 recipes - Desktop applications (specific)
@@ -279,6 +298,11 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.159 recipes
+        assert!(try_recipe_match("install tmux", &telemetry).is_some());
+        assert!(try_recipe_match("install zsh", &telemetry).is_some());
+        assert!(try_recipe_match("install compression tools", &telemetry).is_some());
 
         // Beta.158 recipes
         assert!(try_recipe_match("install firefox", &telemetry).is_some());

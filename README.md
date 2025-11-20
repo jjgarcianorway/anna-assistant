@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.158
+**Version:** 5.7.0-beta.159
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.158)
+## Current Capabilities (Beta.159)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.158 - EXPANDED):
-- ✅ 26 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.159 - EXPANDED):
+- ✅ 29 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -148,14 +148,17 @@ annactl "give me a full system report"
 - ✅ Web browser installation (Firefox, Chrome, Chromium, Brave) (NEW)
 - ✅ Media players and codecs (VLC, MPV, ffmpeg, GStreamer) (NEW)
 - ✅ Productivity applications (LibreOffice, GIMP, Inkscape) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (188 tests passing)
+- ✅ Terminal tools (alacritty, kitty, tmux, screen) (NEW)
+- ✅ Shell environments (zsh, fish, oh-my-zsh) (NEW)
+- ✅ Compression tools (zip, 7zip, unrar) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (204 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
 
 **What exists but needs work:**
 - 🔧 LLM JSON output quality - Model doesn't consistently generate valid ActionPlan JSON for complex multi-step queries
-- 🔧 Recipe coverage - 26 recipes implemented (Beta.158), more needed for comprehensive coverage
+- 🔧 Recipe coverage - 29 recipes implemented (Beta.159), more needed for comprehensive coverage
 - 🔧 Template matching - Works for simple queries, limited coverage
 - 🔧 Action execution - Infrastructure ready, execution depends on recipe or LLM JSON quality
 
