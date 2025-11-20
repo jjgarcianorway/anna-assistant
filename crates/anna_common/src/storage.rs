@@ -208,7 +208,7 @@ fn detect_storage_devices(smartctl_available: bool) -> Vec<StorageDevice> {
             let capacity_gb = get_device_capacity(&device_name);
 
             // Get model, serial, firmware from sysfs or SMART data
-            let (model, serial, firmware) = if let Some(ref smart_data) = smart {
+            let (model, serial, firmware) = if let Some(ref _smart_data) = smart {
                 // SMART data might have these; we'll extract from smartctl output
                 (None, None, None) // Will be populated by get_smart_data
             } else {
@@ -369,7 +369,7 @@ fn parse_smart_json(json: &serde_json::Value) -> Option<SmartStatus> {
 
 /// Get I/O error counts from /sys/block
 fn get_io_error_counts(device_name: &str) -> IoErrorCounts {
-    let stat_path = format!("/sys/block/{}/stat", device_name);
+    let _stat_path = format!("/sys/block/{}/stat", device_name);
 
     // /sys/block/*/stat format (fields we care about):
     // Field 8: I/Os currently in progress (not errors)

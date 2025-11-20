@@ -373,7 +373,7 @@ impl PersonalityConfig {
         }
 
         // Conflict 2: Can't be both very calm and very excitable
-        if let (Some(calm), Some(excit)) = (
+        if let (Some(_calm), Some(_excit)) = (
             get_val("calm_vs_excitable"),
             get_val("calm_vs_excitable"),  // Note: excitable is inverse of calm
         ) {
@@ -382,7 +382,7 @@ impl PersonalityConfig {
         }
 
         // Conflict 3: Can't be both very minimalist and very verbose
-        if let (Some(minimal), Some(_verbose)) = (
+        if let (Some(_minimal), Some(_verbose)) = (
             get_val("minimalist_vs_verbose"),
             get_val("minimalist_vs_verbose"),  // Same trait, opposite poles
         ) {

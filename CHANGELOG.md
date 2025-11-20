@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.138] - 2025-11-20
+
+### 🧹 CODE QUALITY: More Warning Cleanup
+
+**What Changed:** Fixed 5 more unused variable warnings in anna_common.
+
+#### Improvements
+
+- ✅ Library warnings: 12 → 7 (42% reduction)
+- ✅ Fixed unused variables:
+  - `calm`, `excit` in personality.rs:376-377
+  - `minimal` in personality.rs:385
+  - `ipv6_status` in network_monitoring.rs:555, 578 (2 instances)
+  - `smart_data` in storage.rs:211
+  - `stat_path` in storage.rs:372
+
+**Progress:** Continuing systematic warning cleanup across codebase.
+
+---
+
 ## [5.7.0-beta.137] - 2025-11-20
 
 ### 🎯 LLM QUALITY: Simple Mode for Simple Questions
