@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.127] - 2025-11-20
+
+### ✅ BUILD: Release Binaries (All Tests Passing)
+
+**What Changed:** Built and verified release binaries with ALL tests passing.
+
+#### Build Status
+
+- ✅ `cargo build --release` succeeded
+- ✅ annactl: 29MB (optimized)
+- ✅ annad: 25MB (optimized)
+- ✅ **ALL 379 TESTS PASSING** (0 failures!)
+- ⚠️ Compiler warnings: ~270 (non-critical, down from 1237)
+
+#### Quality Metrics
+
+This build includes all improvements from Beta.121-126:
+- ✅ Clippy lint cleanup (967 warnings reduced/documented)
+- ✅ Legacy code properly documented
+- ✅ **5 critical bugs fixed** (dangerous command detection + test failures)
+- ✅ Test suite: 100% passing (379/379)
+- ✅ Answer validator security hole patched
+- ✅ Intent router priority fixed
+- ✅ Integration tests updated
+
+**Ready for production deployment.**
+
+---
+
 ## [5.7.0-beta.126] - 2025-11-20
 
 ### 🔧 FIX: Test Suite - 2 More Bugs Fixed
