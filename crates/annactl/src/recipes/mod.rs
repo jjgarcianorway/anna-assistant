@@ -98,6 +98,11 @@ pub mod email;
 pub mod passwords;
 pub mod torrents;
 
+// Beta.171 recipes
+pub mod irc;
+pub mod imageview;
+pub mod notes;
+
 // Beta.168 recipes
 pub mod screenshot;
 pub mod screencast;
@@ -246,6 +251,19 @@ pub fn try_recipe_match(
 
     if torrents::TorrentsRecipe::matches_request(user_input) {
         return Some(torrents::TorrentsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.171 recipes - Productivity Tools (specific)
+    if irc::IrcRecipe::matches_request(user_input) {
+        return Some(irc::IrcRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if imageview::ImageViewRecipe::matches_request(user_input) {
+        return Some(imageview::ImageViewRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if notes::NotesRecipe::matches_request(user_input) {
+        return Some(notes::NotesRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -557,6 +575,14 @@ mod tests {
         assert!(try_recipe_match("install password manager", &telemetry).is_some());
         assert!(try_recipe_match("install qbittorrent", &telemetry).is_some());
         assert!(try_recipe_match("install torrent client", &telemetry).is_some());
+
+        // Beta.171 recipes
+        assert!(try_recipe_match("install weechat", &telemetry).is_some());
+        assert!(try_recipe_match("install irc client", &telemetry).is_some());
+        assert!(try_recipe_match("install feh", &telemetry).is_some());
+        assert!(try_recipe_match("install image viewer", &telemetry).is_some());
+        assert!(try_recipe_match("install obsidian", &telemetry).is_some());
+        assert!(try_recipe_match("install note-taking app", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
