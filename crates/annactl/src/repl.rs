@@ -138,17 +138,20 @@ pub async fn start_repl() -> Result<()> {
         std::process::exit(health.exit_code());
     }
 
+    // Beta.146: Temporarily disabled during refactoring
+    // TODO: Re-enable LLM setup and brain upgrade notifications
     // Check if setup wizard needs to run
-    if let Some(db) = db_arc.as_ref() {
-        // Silently ignore setup errors - user will see issues when they try to use Anna
-        let _ = crate::run_llm_setup_if_needed(&ui, db).await;
-    }
+    // if let Some(db) = db_arc.as_ref() {
+    //     let _ = crate::run_llm_setup_if_needed(&ui, db).await;
+    // }
 
     // Check for brain upgrade notifications
-    if let Some(db) = db_arc.as_ref() {
-        // Silently ignore upgrade check errors - not critical for REPL startup
-        let _ = crate::check_brain_upgrade_notification(&ui, db).await;
-    }
+    // if let Some(db) = db_arc.as_ref() {
+    //     let _ = crate::check_brain_upgrade_notification(&ui, db).await;
+    // }
+
+    // Silence unused warnings
+    let _ = (&ui, &db_arc);
 
     // Show status bar and welcome message
     print_status_bar(&ctx);
