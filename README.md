@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.152
+**Version:** 5.7.0-beta.153
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.152)
+## Current Capabilities (Beta.153)
 
 ### ✅ What Works
 
@@ -124,20 +124,23 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.152 - NEW):**
-- ✅ 8 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.153 - EXPANDED):**
+- ✅ 11 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
 - ✅ AUR package installation with safety checks
-- ✅ Zero-hallucination, tested, safe action plans
+- ✅ SSH server installation and key management (NEW)
+- ✅ UFW firewall configuration and rule management (NEW)
+- ✅ User and group management (add/remove/modify) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (71 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
 
 **What exists but needs work:**
 - 🔧 LLM JSON output quality - Model doesn't consistently generate valid ActionPlan JSON for complex multi-step queries
-- 🔧 Recipe coverage - 8 recipes implemented (Beta.152), more needed for comprehensive coverage
+- 🔧 Recipe coverage - 11 recipes implemented (Beta.153), more needed for comprehensive coverage
 - 🔧 Template matching - Works for simple queries, limited coverage
 - 🔧 Action execution - Infrastructure ready, execution depends on recipe or LLM JSON quality
 

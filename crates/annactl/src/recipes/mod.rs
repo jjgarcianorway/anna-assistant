@@ -2,6 +2,7 @@
 //!
 //! Beta.151: Hard-coded, testable recipes for common user scenarios
 //! Beta.152: Expanded with systemd, network, system_update, and AUR recipes
+//! Beta.153: Added SSH, firewall (UFW), and user management recipes
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -24,6 +25,11 @@ pub mod aur;
 pub mod network;
 pub mod systemd;
 pub mod system_update;
+
+// Beta.153 recipes
+pub mod firewall;
+pub mod ssh;
+pub mod users;
 
 use anna_common::action_plan_v3::ActionPlan;
 use anyhow::Result;
@@ -61,6 +67,22 @@ pub fn try_recipe_match(
     // Network diagnostics (specific)
     if network::NetworkRecipe::matches_request(user_input) {
         return Some(network::NetworkRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.153 recipes
+    // SSH management (specific)
+    if ssh::SshRecipe::matches_request(user_input) {
+        return Some(ssh::SshRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Firewall management (specific)
+    if firewall::FirewallRecipe::matches_request(user_input) {
+        return Some(firewall::FirewallRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // User and group management (specific)
+    if users::UsersRecipe::matches_request(user_input) {
+        return Some(users::UsersRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.151 recipes
@@ -107,6 +129,17 @@ mod tests {
         assert!(try_recipe_match("update system", &telemetry).is_some());
         assert!(try_recipe_match("install package from AUR", &telemetry).is_some());
         assert!(try_recipe_match("do I have yay installed", &telemetry).is_some());
+
+        // Beta.153 recipes
+        assert!(try_recipe_match("install SSH server", &telemetry).is_some());
+        assert!(try_recipe_match("generate SSH keys", &telemetry).is_some());
+        assert!(try_recipe_match("install firewall", &telemetry).is_some());
+        assert!(try_recipe_match("enable ufw", &telemetry).is_some());
+        assert!(try_recipe_match("allow SSH through firewall", &telemetry).is_some());
+        assert!(try_recipe_match("add user john", &telemetry).is_some());
+        assert!(try_recipe_match("remove user testaccount", &telemetry).is_some());
+        assert!(try_recipe_match("add user to docker group", &telemetry).is_some());
+        assert!(try_recipe_match("list users", &telemetry).is_some());
 
         // Generic query should not match
         assert!(try_recipe_match("what is the weather", &telemetry).is_none());
