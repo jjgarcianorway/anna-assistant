@@ -17,6 +17,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::internal_dialogue::{run_internal_dialogue, TelemetryPayload};
 
 /// Request structure for OpenAI-compatible API
+/// NOTE: This is legacy code. Modern implementation uses internal_dialogue::query_llm
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 struct ChatCompletionRequest {
     model: String,
@@ -27,28 +29,35 @@ struct ChatCompletionRequest {
 }
 
 /// Response structure for OpenAI-compatible API (non-streaming)
+/// NOTE: Legacy code - see ChatCompletionRequest note above
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct ChatCompletionResponse {
     choices: Vec<ChatChoice>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct ChatChoice {
     message: ChatMessage,
 }
 
 /// Streaming response structure (Server-Sent Events)
+/// NOTE: Legacy code - see ChatCompletionRequest note above
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct StreamingChunk {
     choices: Vec<StreamingChoice>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct StreamingChoice {
     delta: StreamingDelta,
     finish_reason: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct StreamingDelta {
     content: Option<String>,
@@ -239,6 +248,8 @@ pub async fn query_llm_with_context_streaming(
 }
 
 /// Query the LLM with a prepared prompt
+/// NOTE: Legacy - use internal_dialogue::query_llm instead
+#[allow(dead_code)]
 async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
     let base_url = config.base_url.as_ref()
         .context("LLM base_url not configured")?;

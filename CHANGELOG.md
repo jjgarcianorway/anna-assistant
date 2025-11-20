@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.122] - 2025-11-20
+
+### 🧹 CODE QUALITY: Legacy Code Documentation
+
+**What Changed:** Marked legacy/unused code with #[allow(dead_code)] and documentation.
+
+#### Approach
+
+Instead of removing potentially useful code, marked it clearly:
+- Added `#[allow(dead_code)]` to suppress warnings
+- Documented why code is unused (replaced by better implementation)
+- Kept code for reference and potential future use
+
+#### Files Modified
+
+- `llm_integration.rs` - Marked legacy ChatCompletion structs and query_llm function
+  - NOTE: Replaced by internal_dialogue::query_llm
+  - Kept for reference and tests
+
+**Philosophy:** Pragmatic cleanup. Mark, don't delete. Future developers benefit from seeing evolution.
+
+---
+
 ## [5.7.0-beta.121] - 2025-11-20
 
 ### 🧹 CODE QUALITY: Clippy Lint Fixes
