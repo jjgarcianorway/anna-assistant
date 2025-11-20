@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.134] - 2025-11-20
+
+### 📊 SESSION SUMMARY: Beta.116-134 (19 Releases)
+
+**What Was Accomplished:** Comprehensive overnight development session with critical fixes, performance improvements, and code quality cleanup.
+
+#### 🔥 Critical Fixes (Beta.116-128)
+
+1. **Security: Dangerous Command Detection** (Beta.123)
+   - Fixed: `rm -rf /` in backticks was NOT being detected
+   - Enhanced command extraction in answer_validator.rs
+   - All dangerous commands now properly flagged
+
+2. **Bug: Intent Router Priority** (Beta.126)
+   - Fixed: "Anna, be more funny" matched wrong pattern
+   - Reordered pattern matching: specific before generic
+
+3. **Test Suite: 100% Pass Rate** (Beta.123, 126, 127)
+   - Fixed 3 test failures (Beta.123)
+   - Fixed 2 more test failures (Beta.126)
+   - **All 379 tests passing**
+
+#### 🚀 Performance Improvements (Beta.117)
+
+- **Daemon Startup:** 21+ seconds → 2-3 seconds (-90%)
+- Disabled experimental systems with flag
+
+#### 🧹 Code Quality (Beta.121-133)
+
+- **Clippy Warnings:** 1237 → 1180 (Beta.121)
+- **Library Warnings:** 18 → 12 (Beta.133)
+- **Fixed Warnings:** Unused imports, variables, fields
+- Legacy code properly documented
+
+#### 📦 Auto-Update System (Beta.128-134)
+
+- Switched git authentication: SSH → HTTPS
+- Created GitHub releases for all versions
+- **Auto-update now working** (daemon checks every 10 min)
+- Binaries pushed: annactl, annad
+
+#### 📝 Documentation
+
+- Honest README about what actually works
+- Comprehensive CHANGELOG entries for all 19 releases
+- Version tracking: beta.116 → beta.134
+
+**Session Impact:**
+- ✅ Security vulnerability patched
+- ✅ All tests passing (100%)
+- ✅ Auto-update functional
+- ✅ Startup 90% faster
+- ✅ Code quality improved
+
+---
+
 ## [5.7.0-beta.133] - 2025-11-20
 
 ### 🧹 CODE QUALITY: More Warning Cleanup
