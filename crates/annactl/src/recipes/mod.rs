@@ -24,6 +24,7 @@
 //! Beta.172: Added productivity recipes (calendar, tasks, diagram)
 //! Beta.173: Added content tools (ebooks, rss, sysinfo)
 //! Beta.174: Added academic and network tools (latex, scientific, network_tools)
+//! Beta.175: Added databases, CAD, and disk management (databases, cad_tools, disk_management)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -123,6 +124,11 @@ pub mod sysinfo;
 pub mod latex;
 pub mod scientific;
 pub mod network_tools;
+
+// Beta.175 recipes
+pub mod databases;
+pub mod cad_tools;
+pub mod disk_management;
 
 // Beta.168 recipes
 pub mod screenshot;
@@ -324,6 +330,19 @@ pub fn try_recipe_match(
 
     if network_tools::NetworkToolsRecipe::matches_request(user_input) {
         return Some(network_tools::NetworkToolsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.175 recipes - Databases, CAD, Disk Management (specific)
+    if databases::DatabasesRecipe::matches_request(user_input) {
+        return Some(databases::DatabasesRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if cad_tools::CADToolsRecipe::matches_request(user_input) {
+        return Some(cad_tools::CADToolsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if disk_management::DiskManagementRecipe::matches_request(user_input) {
+        return Some(disk_management::DiskManagementRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -667,6 +686,14 @@ mod tests {
         assert!(try_recipe_match("install scientific computing", &telemetry).is_some());
         assert!(try_recipe_match("install wireshark", &telemetry).is_some());
         assert!(try_recipe_match("install nmap", &telemetry).is_some());
+
+        // Beta.175 recipes
+        assert!(try_recipe_match("install mariadb", &telemetry).is_some());
+        assert!(try_recipe_match("install mongodb", &telemetry).is_some());
+        assert!(try_recipe_match("install freecad", &telemetry).is_some());
+        assert!(try_recipe_match("install kicad", &telemetry).is_some());
+        assert!(try_recipe_match("install gparted", &telemetry).is_some());
+        assert!(try_recipe_match("install disk management", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());

@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.174
+**Version:** 5.7.0-beta.175
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.174)
+## Current Capabilities (Beta.175)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.174):
-- ✅ 74 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.175):
+- ✅ 77 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -193,10 +193,13 @@ annactl "give me a full system report"
 - ✅ Ebook readers (Calibre, Foliate, Zathura, Okular)
 - ✅ RSS/feed readers (Newsboat, Liferea, Akregator, RSS Guard)
 - ✅ System info tools (Fastfetch, Neofetch, Screenfetch, inxi, hwinfo)
-- ✅ LaTeX tools (TeX Live, TeXstudio, LyX, Texmaker) (NEW)
-- ✅ Scientific computing (GNU Octave, Maxima, SageMath, RStudio) (NEW)
-- ✅ Network analysis (Wireshark, Nmap, tcpdump, Netcat) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (295 tests passing)
+- ✅ LaTeX tools (TeX Live, TeXstudio, LyX, Texmaker)
+- ✅ Scientific computing (GNU Octave, Maxima, SageMath, RStudio)
+- ✅ Network analysis (Wireshark, Nmap, tcpdump, Netcat)
+- ✅ Database systems (MariaDB, MySQL, MongoDB, Redis, SQLite) (NEW)
+- ✅ CAD and engineering tools (FreeCAD, LibreCAD, KiCad, OpenSCAD) (NEW)
+- ✅ Disk management tools (GParted, GNOME Disks, KDE Partition Manager) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (304 recipe tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
