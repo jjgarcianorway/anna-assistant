@@ -16,6 +16,7 @@
 //! Beta.164: Added audio recipes (audio, music, recording)
 //! Beta.165: Added video and desktop recipes (video, desktop_env, display_manager)
 //! Beta.166: Added final core recipes (printing, bluetooth, cloud)
+//! Beta.167: Added file management recipes (file_manager, archive_manager, pdf_reader)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -80,6 +81,11 @@ pub mod display_manager;
 pub mod printing;
 pub mod bluetooth;
 pub mod cloud;
+
+// Beta.167 recipes
+pub mod file_manager;
+pub mod archive_manager;
+pub mod pdf_reader;
 
 // Beta.163 recipes
 pub mod virtualization;
@@ -185,6 +191,19 @@ pub fn try_recipe_match(
 
     if cloud::CloudRecipe::matches_request(user_input) {
         return Some(cloud::CloudRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.167 recipes - File Management (specific)
+    if file_manager::FileManagerRecipe::matches_request(user_input) {
+        return Some(file_manager::FileManagerRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if archive_manager::ArchiveManagerRecipe::matches_request(user_input) {
+        return Some(archive_manager::ArchiveManagerRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if pdf_reader::PdfReaderRecipe::matches_request(user_input) {
+        return Some(pdf_reader::PdfReaderRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.163 recipes - Virtualization (specific)
@@ -450,6 +469,15 @@ mod tests {
         assert!(try_recipe_match("enable bluetooth", &telemetry).is_some());
         assert!(try_recipe_match("install nextcloud", &telemetry).is_some());
         assert!(try_recipe_match("setup dropbox", &telemetry).is_some());
+
+        // Beta.167 recipes
+        assert!(try_recipe_match("install nautilus", &telemetry).is_some());
+        assert!(try_recipe_match("install file manager", &telemetry).is_some());
+        assert!(try_recipe_match("install thunar", &telemetry).is_some());
+        assert!(try_recipe_match("install file-roller", &telemetry).is_some());
+        assert!(try_recipe_match("install ark", &telemetry).is_some());
+        assert!(try_recipe_match("install evince", &telemetry).is_some());
+        assert!(try_recipe_match("install pdf reader", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
