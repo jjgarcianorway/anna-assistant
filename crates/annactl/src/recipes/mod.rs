@@ -11,6 +11,7 @@
 //! Beta.159: Added terminal and shell tool recipes (terminal, shell, compression)
 //! Beta.160: Added communication and productivity recipes (communication, editor, sync)
 //! Beta.161: Added gaming recipes (gaming, wine, gamepad)
+//! Beta.162: Added security recipes (security, antivirus, vpn)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -60,6 +61,11 @@ pub mod monitoring;
 pub mod performance;
 
 // Beta.158 recipes
+
+// Beta.162 recipes
+pub mod security;
+pub mod antivirus;
+pub mod vpn;
 
 // Beta.161 recipes
 pub mod gaming;
@@ -116,6 +122,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.162 recipes - Security tools (specific)
+    if security::SecurityRecipe::matches_request(user_input) {
+        return Some(security::SecurityRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if antivirus::AntivirusRecipe::matches_request(user_input) {
+        return Some(antivirus::AntivirusRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if vpn::VpnRecipe::matches_request(user_input) {
+        return Some(vpn::VpnRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.161 recipes - Gaming tools (specific)
@@ -334,6 +353,11 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.162 recipes
+        assert!(try_recipe_match("install fail2ban", &telemetry).is_some());
+        assert!(try_recipe_match("install clamav", &telemetry).is_some());
+        assert!(try_recipe_match("setup wireguard", &telemetry).is_some());
 
         // Beta.161 recipes
         assert!(try_recipe_match("install steam", &telemetry).is_some());
