@@ -93,6 +93,11 @@ pub mod launcher;
 pub mod clipboard;
 pub mod notifications;
 
+// Beta.170 recipes
+pub mod email;
+pub mod passwords;
+pub mod torrents;
+
 // Beta.168 recipes
 pub mod screenshot;
 pub mod screencast;
@@ -228,6 +233,19 @@ pub fn try_recipe_match(
 
     if notifications::NotificationsRecipe::matches_request(user_input) {
         return Some(notifications::NotificationsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.170 recipes - User Applications (specific)
+    if email::EmailRecipe::matches_request(user_input) {
+        return Some(email::EmailRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if passwords::PasswordsRecipe::matches_request(user_input) {
+        return Some(passwords::PasswordsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if torrents::TorrentsRecipe::matches_request(user_input) {
+        return Some(torrents::TorrentsRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -531,6 +549,14 @@ mod tests {
         assert!(try_recipe_match("install clipboard manager", &telemetry).is_some());
         assert!(try_recipe_match("install dunst", &telemetry).is_some());
         assert!(try_recipe_match("install notification daemon", &telemetry).is_some());
+
+        // Beta.170 recipes
+        assert!(try_recipe_match("install thunderbird", &telemetry).is_some());
+        assert!(try_recipe_match("install email client", &telemetry).is_some());
+        assert!(try_recipe_match("install keepassxc", &telemetry).is_some());
+        assert!(try_recipe_match("install password manager", &telemetry).is_some());
+        assert!(try_recipe_match("install qbittorrent", &telemetry).is_some());
+        assert!(try_recipe_match("install torrent client", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
