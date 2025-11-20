@@ -10,6 +10,7 @@
 //! Beta.158: Added desktop application recipes (browser, media, productivity)
 //! Beta.159: Added terminal and shell tool recipes (terminal, shell, compression)
 //! Beta.160: Added communication and productivity recipes (communication, editor, sync)
+//! Beta.161: Added gaming recipes (gaming, wine, gamepad)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -59,6 +60,11 @@ pub mod monitoring;
 pub mod performance;
 
 // Beta.158 recipes
+
+// Beta.161 recipes
+pub mod gaming;
+pub mod wine;
+pub mod gamepad;
 
 // Beta.159 recipes
 pub mod communication;
@@ -110,6 +116,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.161 recipes - Gaming tools (specific)
+    if gaming::GamingRecipe::matches_request(user_input) {
+        return Some(gaming::GamingRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if wine::WineRecipe::matches_request(user_input) {
+        return Some(wine::WineRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if gamepad::GamepadRecipe::matches_request(user_input) {
+        return Some(gamepad::GamepadRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.160 recipes - Communication and productivity (specific)
@@ -315,6 +334,11 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.161 recipes
+        assert!(try_recipe_match("install steam", &telemetry).is_some());
+        assert!(try_recipe_match("install wine", &telemetry).is_some());
+        assert!(try_recipe_match("setup gamepad", &telemetry).is_some());
 
         // Beta.160 recipes
         assert!(try_recipe_match("install discord", &telemetry).is_some());
