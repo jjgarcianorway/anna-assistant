@@ -389,6 +389,41 @@ pub async fn run_internal_dialogue(
     }
 }
 
+/// Beta.142: Run internal dialogue V2 with strict reasoning discipline
+/// Uses new system prompt format with mandatory DIAGNOSTIC→DISCOVERY→ACTION_PLAN→RISK→ROLLBACK→USER_RESPONSE structure
+pub async fn run_internal_dialogue_v2(
+    user_message: &str,
+    payload: &TelemetryPayload,
+    personality: &PersonalityConfig,
+    _current_model: &str,
+    llm_config: &LlmConfig,
+) -> Result<InternalDialogueResult> {
+    let trace_enabled = std::env::var("ANNA_INTERNAL_TRACE").is_ok();
+
+    // Build strict system prompt (same for all models)
+    let system_prompt = crate::system_prompt_v2::build_system_prompt();
+
+    // Build user prompt with telemetry and question
+    let user_prompt = crate::system_prompt_v2::build_user_prompt(user_message, payload, personality);
+
+    // Single-round with strict system prompt
+    let answer = query_llm_with_system(llm_config, &system_prompt, &user_prompt).await?;
+
+    let trace = if trace_enabled {
+        Some(InternalTrace {
+            internal_summary: "V2: Single-round with strict system prompt".to_string(),
+            planner_prompt_excerpt: "".to_string(),
+            planner_response_excerpt: "".to_string(),
+            answer_prompt_excerpt: format!("System: {} chars, User: {} chars",
+                system_prompt.len(), user_prompt.len()),
+        })
+    } else {
+        None
+    };
+
+    Ok(InternalDialogueResult { answer, trace })
+}
+
 /// Build simple prompt for small models (1b, 3b)
 /// Simplified single-round with minimal context and anti-hallucination rules
 fn build_simple_prompt(
@@ -570,7 +605,87 @@ fn build_answer_instructions(_current_model: &str) -> String {
     instr
 }
 
-/// Query LLM with a prepared prompt
+/// Beta.142: Query LLM with system + user messages (new format)
+async fn query_llm_with_system(
+    config: &LlmConfig,
+    system_prompt: &str,
+    user_prompt: &str,
+) -> Result<String> {
+    let base_url = config.base_url.as_ref()
+        .context("LLM base_url not configured")?;
+
+    let model = config.model.as_ref()
+        .context("LLM model not configured")?;
+
+    let endpoint = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+
+    let messages = vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: system_prompt.to_string(),
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: user_prompt.to_string(),
+        },
+    ];
+
+    #[derive(Serialize)]
+    struct ChatCompletionRequest {
+        model: String,
+        messages: Vec<ChatMessage>,
+        max_tokens: Option<u32>,
+        temperature: f64,
+        stream: bool,
+    }
+
+    #[derive(Deserialize)]
+    struct ChatCompletionResponse {
+        choices: Vec<ChatChoice>,
+    }
+
+    #[derive(Deserialize)]
+    struct ChatChoice {
+        message: ChatMessage,
+    }
+
+    let request = ChatCompletionRequest {
+        model: model.clone(),
+        messages,
+        max_tokens: config.max_tokens,
+        temperature: 0.7,
+        stream: false,
+    };
+
+    let client = reqwest::Client::new();
+    let mut req_builder = client.post(&endpoint).json(&request);
+
+    if let Some(api_key_env) = &config.api_key_env {
+        if let Ok(api_key) = std::env::var(api_key_env) {
+            req_builder = req_builder.bearer_auth(api_key);
+        }
+    }
+
+    let response = req_builder.send().await.context("Failed to send LLM request")?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        anyhow::bail!("LLM API error {}: {}", status, error_text);
+    }
+
+    let completion: ChatCompletionResponse = response.json().await.context("Failed to parse LLM response")?;
+
+    let answer = completion
+        .choices
+        .first()
+        .map(|c| c.message.content.clone())
+        .unwrap_or_else(|| "No response from LLM".to_string());
+
+    Ok(answer)
+}
+
+/// Query LLM with a prepared prompt (legacy, for compatibility)
 async fn query_llm(config: &LlmConfig, prompt: &str) -> Result<String> {
     let base_url = config.base_url.as_ref()
         .context("LLM base_url not configured")?;
