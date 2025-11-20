@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.171
+**Version:** 5.7.0-beta.172
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.171)
+## Current Capabilities (Beta.172)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.171):
-- ✅ 65 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.172):
+- ✅ 68 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -184,10 +184,13 @@ annactl "give me a full system report"
 - ✅ Email clients (Thunderbird, Mutt, Evolution, Geary)
 - ✅ Password managers (KeePassXC, Bitwarden, Pass)
 - ✅ Torrent clients (qBittorrent, Transmission, Deluge, rTorrent)
-- ✅ IRC/Chat clients (WeeChat, Irssi, HexChat, Pidgin) (NEW)
-- ✅ Image viewers (feh, sxiv, Geeqie, imv) (NEW)
-- ✅ Note-taking apps (Obsidian, Joplin, Typora, Zettlr) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (277 tests passing)
+- ✅ IRC/Chat clients (WeeChat, Irssi, HexChat, Pidgin)
+- ✅ Image viewers (feh, sxiv, Geeqie, imv)
+- ✅ Note-taking apps (Obsidian, Joplin, Typora, Zettlr)
+- ✅ Calendar applications (GNOME Calendar, KOrganizer, calcurse, Orage) (NEW)
+- ✅ Task management (Taskwarrior, todoman, GNOME To Do) (NEW)
+- ✅ Diagram tools (draw.io Desktop, Dia, Graphviz, PlantUML) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (283 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented

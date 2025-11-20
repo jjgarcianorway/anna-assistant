@@ -103,6 +103,11 @@ pub mod irc;
 pub mod imageview;
 pub mod notes;
 
+// Beta.172 recipes
+pub mod calendar;
+pub mod tasks;
+pub mod diagram;
+
 // Beta.168 recipes
 pub mod screenshot;
 pub mod screencast;
@@ -264,6 +269,19 @@ pub fn try_recipe_match(
 
     if notes::NotesRecipe::matches_request(user_input) {
         return Some(notes::NotesRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.172 recipes - Productivity Applications (specific)
+    if calendar::CalendarRecipe::matches_request(user_input) {
+        return Some(calendar::CalendarRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if tasks::TasksRecipe::matches_request(user_input) {
+        return Some(tasks::TasksRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if diagram::DiagramRecipe::matches_request(user_input) {
+        return Some(diagram::DiagramRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -583,6 +601,14 @@ mod tests {
         assert!(try_recipe_match("install image viewer", &telemetry).is_some());
         assert!(try_recipe_match("install obsidian", &telemetry).is_some());
         assert!(try_recipe_match("install note-taking app", &telemetry).is_some());
+
+        // Beta.172 recipes
+        assert!(try_recipe_match("install gnome-calendar", &telemetry).is_some());
+        assert!(try_recipe_match("install calendar app", &telemetry).is_some());
+        assert!(try_recipe_match("install taskwarrior", &telemetry).is_some());
+        assert!(try_recipe_match("install task management app", &telemetry).is_some());
+        assert!(try_recipe_match("install draw.io", &telemetry).is_some());
+        assert!(try_recipe_match("install diagram tool", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
