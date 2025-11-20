@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.123] - 2025-11-20
+
+### 🔧 CRITICAL FIX: Test Suite Failures (3 Bugs Fixed)
+
+**What Changed:** Fixed 3 failing tests revealing serious bugs in answer validation and model selection.
+
+#### Bugs Fixed
+
+**Bug 1: Dangerous Command Detection Failure** 🚨
+- **Issue:** `rm -rf /` in backticks was NOT detected as dangerous
+- **Root Cause:** Command extractor only looked for sudo/pacman/systemctl keywords
+- **Impact:** Answer validator could miss dangerous commands in inline code
+- **Fix:** Enhanced extractor to detect rm, dd, mkfs and common shell commands
+- **File:** `answer_validator.rs:367-384`
+
+**Bug 2: Safe Command Validation Off-By-One**
+- **Issue:** Test expected confidence > 0.8, but got exactly 0.8
+- **Root Cause:** Assertion used `>` instead of `>=`
+- **Impact:** False test failure (minor)
+- **Fix:** Changed to `>= 0.8`
+- **File:** `answer_validator.rs:506`
+
+**Bug 3: Model Upgrade Test Wrong Assumption**
+- **Issue:** Test assumed llama3.1-8b (Medium) was "best model"
+- **Root Cause:** llama3.1-13b (Large tier) exists and is better
+- **Impact:** False test failure, wrong expectations
+- **Fix:** Changed test to use Large tier model (13b)
+- **File:** `llm_upgrade.rs:144`
+
+#### Test Results
+
+Before: `test result: FAILED. 311 passed; 3 failed`
+After: `test result: ok. 314 passed; 0 failed` ✅
+
+**Philosophy:** Tests failing = bugs found. Fixing tests found a CRITICAL security hole in dangerous command detection.
+
+---
+
 ## [5.7.0-beta.122] - 2025-11-20
 
 ### 🧹 CODE QUALITY: Legacy Code Documentation

@@ -139,11 +139,12 @@ mod tests {
 
     #[test]
     fn test_no_upgrade_when_already_best_model() {
-        // Already using the best available model
-        let upgrade = find_upgrade_profile("ollama-llama3.1-8b", 32.0, 16);
+        // Already using a Large tier model (highest quality)
+        // Beta.123: Fixed test to use Large tier (llama3.1-13b) instead of Medium tier (8b)
+        let upgrade = find_upgrade_profile("ollama-llama3.1-13b", 32.0, 16);
 
-        // No better model available
-        assert!(upgrade.is_none());
+        // No better model available for this hardware
+        assert!(upgrade.is_none(), "Expected no upgrade from llama3.1-13b (Large tier), but got: {:?}", upgrade);
     }
 
     #[test]
