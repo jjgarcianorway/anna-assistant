@@ -4,6 +4,7 @@
 //! Beta.152: Expanded with systemd, network, system_update, and AUR recipes
 //! Beta.153: Added SSH, firewall (UFW), and user management recipes
 //! Beta.154: Added development environment recipes (Rust, Python, Node.js)
+//! Beta.155: Added GPU driver management recipes (NVIDIA, AMD, Intel)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -36,6 +37,11 @@ pub mod users;
 pub mod nodejs;
 pub mod python;
 pub mod rust;
+
+// Beta.155 recipes
+pub mod amd;
+pub mod intel;
+pub mod nvidia;
 
 use anna_common::action_plan_v3::ActionPlan;
 use anyhow::Result;
@@ -76,6 +82,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.155 recipes - GPU drivers (specific)
+    if nvidia::NvidiaRecipe::matches_request(user_input) {
+        return Some(nvidia::NvidiaRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if amd::AmdRecipe::matches_request(user_input) {
+        return Some(amd::AmdRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if intel::IntelRecipe::matches_request(user_input) {
+        return Some(intel::IntelRecipe::build_plan(&telemetry_with_request));
     }
 
     // Systemd service management (specific)
@@ -170,6 +189,17 @@ mod tests {
         assert!(try_recipe_match("install Node.js", &telemetry).is_some());
         assert!(try_recipe_match("setup npm", &telemetry).is_some());
         assert!(try_recipe_match("initialize new npm project", &telemetry).is_some());
+
+        // Beta.155 recipes
+        assert!(try_recipe_match("install NVIDIA drivers", &telemetry).is_some());
+        assert!(try_recipe_match("setup nvidia GPU", &telemetry).is_some());
+        assert!(try_recipe_match("install CUDA", &telemetry).is_some());
+        assert!(try_recipe_match("install AMD drivers", &telemetry).is_some());
+        assert!(try_recipe_match("setup AMD GPU", &telemetry).is_some());
+        assert!(try_recipe_match("install ROCm", &telemetry).is_some());
+        assert!(try_recipe_match("install Intel drivers", &telemetry).is_some());
+        assert!(try_recipe_match("setup Intel GPU", &telemetry).is_some());
+        assert!(try_recipe_match("check nvidia status", &telemetry).is_some());
 
         // Generic query should not match
         assert!(try_recipe_match("what is the weather", &telemetry).is_none());

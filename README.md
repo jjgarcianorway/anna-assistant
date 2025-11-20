@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.154
+**Version:** 5.7.0-beta.155
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.154)
+## Current Capabilities (Beta.155)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.154 - EXPANDED):**
-- ✅ 14 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.155 - EXPANDED):**
+- ✅ 17 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -133,17 +133,20 @@ annactl "give me a full system report"
 - ✅ SSH server installation and key management
 - ✅ UFW firewall configuration and rule management
 - ✅ User and group management (add/remove/modify)
-- ✅ Rust development environment setup (rustup, cargo, tools) (NEW)
-- ✅ Python development environment setup (pip, venv, tools) (NEW)
-- ✅ Node.js development environment setup (npm, project init, tools) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (92 tests passing)
+- ✅ Rust development environment setup (rustup, cargo, tools)
+- ✅ Python development environment setup (pip, venv, tools)
+- ✅ Node.js development environment setup (npm, project init, tools)
+- ✅ NVIDIA GPU driver installation and configuration (CUDA, Xorg) (NEW)
+- ✅ AMD GPU driver installation and configuration (ROCm, Mesa) (NEW)
+- ✅ Intel GPU driver installation and configuration (Mesa, VA-API) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (113 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
 
 **What exists but needs work:**
 - 🔧 LLM JSON output quality - Model doesn't consistently generate valid ActionPlan JSON for complex multi-step queries
-- 🔧 Recipe coverage - 14 recipes implemented (Beta.154), more needed for comprehensive coverage
+- 🔧 Recipe coverage - 17 recipes implemented (Beta.155), more needed for comprehensive coverage
 - 🔧 Template matching - Works for simple queries, limited coverage
 - 🔧 Action execution - Infrastructure ready, execution depends on recipe or LLM JSON quality
 
