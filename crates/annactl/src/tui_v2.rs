@@ -732,6 +732,120 @@ fn send_demo_action_plan(tx: mpsc::Sender<TuiMessage>, risky: bool) {
     });
 }
 
+/// Beta.148: Determine if query should generate an ActionPlan
+///
+/// Queries that involve actions, commands, or system changes should use ActionPlan mode.
+/// Informational queries should use standard reply mode.
+fn should_generate_action_plan(input: &str) -> bool {
+    let input_lower = input.to_lowercase();
+
+    // Action keywords indicate user wants to DO something
+    let action_keywords = [
+        "install", "remove", "uninstall", "delete",
+        "create", "make", "setup", "configure",
+        "fix", "repair", "solve", "troubleshoot",
+        "start", "stop", "restart", "enable", "disable",
+        "update", "upgrade", "downgrade",
+        "clean", "clear", "purge",
+        "add", "set", "change", "modify",
+        "download", "build", "compile",
+        "run", "execute", "kill", "terminate",
+    ];
+
+    // Check for action verbs
+    for keyword in &action_keywords {
+        if input_lower.contains(keyword) {
+            return true;
+        }
+    }
+
+    // Questions and informational queries should NOT use ActionPlan
+    if input_lower.starts_with("what") ||
+       input_lower.starts_with("how") ||
+       input_lower.starts_with("why") ||
+       input_lower.starts_with("when") ||
+       input_lower.starts_with("who") ||
+       input_lower.starts_with("where") ||
+       input_lower.starts_with("is ") ||
+       input_lower.starts_with("are ") ||
+       input_lower.starts_with("do you") ||
+       input_lower.starts_with("can you explain") ||
+       input_lower.starts_with("tell me") ||
+       input_lower.starts_with("show me") {
+        return false;
+    }
+
+    false
+}
+
+/// Beta.148: Generate ActionPlan from LLM using V3 JSON dialogue
+async fn generate_action_plan_from_llm(
+    input: &str,
+    state: &AnnaTuiState,
+    tx: mpsc::Sender<TuiMessage>,
+) -> Result<()> {
+    use anna_common::llm::LlmConfig;
+    use crate::internal_dialogue::{
+        TelemetryPayload, HardwareSummary, OsSummary, ResourceSummary, DiskUsage
+    };
+    use crate::dialogue_v3_json;
+
+    // Build telemetry payload with nested structure
+    use sysinfo::System;
+
+    let mut sys = System::new_all();
+    sys.refresh_all();
+
+    let telemetry = TelemetryPayload {
+        hardware: HardwareSummary {
+            cpu_model: state.system_panel.cpu_model.clone(),
+            cpu_cores: sys.cpus().len() as u32,
+            total_ram_gb: state.system_panel.ram_total_gb,
+            gpu_model: state.system_panel.gpu_name.clone(),
+        },
+        os: OsSummary {
+            hostname: System::host_name().unwrap_or_else(|| "unknown".to_string()),
+            kernel: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
+            arch_status: "Arch Linux".to_string(),
+        },
+        resources: ResourceSummary {
+            load_avg: (
+                state.system_panel.cpu_load_1min,
+                state.system_panel.cpu_load_5min,
+                state.system_panel.cpu_load_15min
+            ),
+            ram_used_percent: (state.system_panel.ram_used_gb / state.system_panel.ram_total_gb) * 100.0,
+            disk_usage: vec![DiskUsage {
+                mount: "/".to_string(),
+                used_percent: 0.0,  // Could calculate if needed
+                available_gb: state.system_panel.disk_free_gb,
+            }],
+        },
+        recent_errors: Vec::new(),  // Could fetch from journal if needed
+        trends: None,  // Historian trends not available in TUI context
+    };
+
+    // Use detected model from state
+    let model_name = if state.llm_panel.model_name == "None" ||
+                        state.llm_panel.model_name == "Unknown" ||
+                        state.llm_panel.model_name == "Ollama N/A" {
+        "llama3.1:8b"
+    } else {
+        &state.llm_panel.model_name
+    };
+
+    let llm_config = LlmConfig::local("http://127.0.0.1:11434/v1", model_name);
+
+    // Run V3 JSON dialogue
+    let result = dialogue_v3_json::run_dialogue_v3_json(input, &telemetry, &llm_config).await?;
+
+    // Send ActionPlan to TUI for display
+    tx.send(TuiMessage::ActionPlanReply(result.action_plan)).await
+        .map_err(|e| anyhow::anyhow!("Failed to send ActionPlan: {}", e))?;
+
+    Ok(())
+}
+
 /// Beta.108: Handle user input (non-blocking)
 /// Returns true if should exit, false otherwise
 fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> bool {
@@ -778,7 +892,9 @@ fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> 
     state.is_thinking = true;
     state.thinking_frame = 0;
 
-    // Beta.108: Spawn LLM query in background (non-blocking)
+    // Beta.148: Determine if query should use ActionPlan mode
+    let should_use_action_plan = should_generate_action_plan(&input);
+
     // Clone state data needed for LLM query
     let state_clone = AnnaTuiState {
         system_panel: state.system_panel.clone(),
@@ -798,13 +914,31 @@ fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> 
         last_action_plan: None,  // Beta.147
     };
 
-    tokio::spawn(async move {
-        let reply = generate_reply_streaming(&input, &state_clone, tx.clone()).await;
-        // If template-based (non-streaming), send as complete reply
-        if !reply.is_empty() {
-            let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
-        }
-    });
+    // Beta.148: Route through appropriate handler
+    if should_use_action_plan {
+        // Use V3 JSON dialogue to generate ActionPlan
+        tokio::spawn(async move {
+            if let Err(e) = generate_action_plan_from_llm(&input, &state_clone, tx.clone()).await {
+                // Fallback to regular reply on error
+                let error_msg = format!("⚠️ Could not generate action plan: {}\n\nFalling back to standard reply...", e);
+                let _ = tx.send(TuiMessage::AnnaReply(error_msg)).await;
+
+                let reply = generate_reply_streaming(&input, &state_clone, tx.clone()).await;
+                if !reply.is_empty() {
+                    let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+                }
+            }
+        });
+    } else {
+        // Use standard reply generation
+        tokio::spawn(async move {
+            let reply = generate_reply_streaming(&input, &state_clone, tx.clone()).await;
+            // If template-based (non-streaming), send as complete reply
+            if !reply.is_empty() {
+                let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+            }
+        });
+    }
 
     false
 }
