@@ -840,10 +840,10 @@ async fn generate_reply(input: &str, state: &AnnaTuiState) -> String {
 async fn generate_reply_streaming(input: &str, state: &AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> String {
     
     use anna_common::template_library::TemplateLibrary;
-    
-    
 
-    let library = TemplateLibrary::default();
+
+
+    let _library = TemplateLibrary::default();
     let input_lower = input.to_lowercase();
 
     // Helper function for word-boundary keyword matching

@@ -638,7 +638,7 @@ fn ping_loss(host: &str, count: u32) -> Option<f64> {
     for line in stdout.lines() {
         if line.contains("packet loss") {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            for (i, part) in parts.iter().enumerate() {
+            for (_i, part) in parts.iter().enumerate() {
                 if part.ends_with('%') {
                     if let Ok(loss) = part.trim_end_matches('%').parse::<f64>() {
                         return Some(loss);

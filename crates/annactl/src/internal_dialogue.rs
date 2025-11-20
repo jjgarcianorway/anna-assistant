@@ -361,8 +361,8 @@ pub async fn run_internal_dialogue(
 fn build_simple_prompt(
     user_message: &str,
     payload: &TelemetryPayload,
-    personality: &PersonalityConfig,
-    current_model: &str,
+    _personality: &PersonalityConfig,
+    _current_model: &str,
 ) -> String {
     let mut prompt = String::new();
 
@@ -415,7 +415,7 @@ fn build_planner_prompt(
     user_message: &str,
     payload: &TelemetryPayload,
     personality: &PersonalityConfig,
-    current_model: &str,
+    _current_model: &str,
 ) -> String {
     let mut prompt = String::new();
 
@@ -493,7 +493,7 @@ fn build_answer_prompt(
 }
 
 /// Build answer round instructions
-fn build_answer_instructions(current_model: &str) -> String {
+fn build_answer_instructions(_current_model: &str) -> String {
     let mut instr = String::new();
 
     instr.push_str("[ANSWER_TASK]\n");

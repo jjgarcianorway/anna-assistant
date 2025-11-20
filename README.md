@@ -4,7 +4,7 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.128 (Production Ready: All Tests Passing + Security Fixes)
+**Version:** 5.7.0-beta.132 (Production Ready: All Tests Passing + Security Fixes + Continuous Improvements)
 
 ---
 
@@ -22,9 +22,9 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.128)
+## Current Status (v5.7.0-beta.131)
 
-### ✅ What Actually Works (Honest Assessment - Beta.116-128 Fixes)
+### ✅ What Actually Works (Honest Assessment - Beta.116-131 Improvements)
 
 **Recent Improvements (Beta.116-128):**
 - 🔒 **CRITICAL Security Fix (Beta.123):** Dangerous command detection now works (`rm -rf /` properly blocked)

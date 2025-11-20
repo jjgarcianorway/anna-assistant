@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.132] - 2025-11-20
+
+### 🚀 CODE QUALITY: Major Warning Cleanup (568 → 20)
+
+**What Changed:** Fixed unused imports and variables across the codebase.
+
+#### Improvements
+
+- ✅ **96% warning reduction** (568 → 20 warnings)
+- ✅ Fixed unused import: `SafetyLevel` in recipe_executor.rs:11
+- ✅ Fixed 7 unused variables:
+  - `i` → `_i` in network_monitoring.rs:641
+  - `library` → `_library` in tui_v2.rs:645, 846 (2 instances)
+  - `personality` → `_personality` in internal_dialogue.rs:364, 417
+  - `current_model` → `_current_model` in internal_dialogue.rs:365, 418, 496 (3 instances)
+
+**Why This Matters:** Cleaner build output makes real warnings visible. Unused parameters prefixed with underscore clearly indicate future use.
+
+**Warnings:** Now at 20 remaining (down from 568), 96% reduction.
+
+---
+
 ## [5.7.0-beta.131] - 2025-11-20
 
 ### 🧹 CODE QUALITY: Unused Field Cleanup
