@@ -17,6 +17,7 @@
 //! Beta.165: Added video and desktop recipes (video, desktop_env, display_manager)
 //! Beta.166: Added final core recipes (printing, bluetooth, cloud)
 //! Beta.167: Added file management recipes (file_manager, archive_manager, pdf_reader)
+//! Beta.168: Added screen utility recipes (screenshot, screencast, remote_desktop)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -86,6 +87,11 @@ pub mod cloud;
 pub mod file_manager;
 pub mod archive_manager;
 pub mod pdf_reader;
+
+// Beta.168 recipes
+pub mod screenshot;
+pub mod screencast;
+pub mod remote_desktop;
 
 // Beta.163 recipes
 pub mod virtualization;
@@ -204,6 +210,19 @@ pub fn try_recipe_match(
 
     if pdf_reader::PdfReaderRecipe::matches_request(user_input) {
         return Some(pdf_reader::PdfReaderRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.168 recipes - Screen Utilities (specific)
+    if screenshot::ScreenshotRecipe::matches_request(user_input) {
+        return Some(screenshot::ScreenshotRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if screencast::ScreencastRecipe::matches_request(user_input) {
+        return Some(screencast::ScreencastRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if remote_desktop::RemoteDesktopRecipe::matches_request(user_input) {
+        return Some(remote_desktop::RemoteDesktopRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.163 recipes - Virtualization (specific)
@@ -478,6 +497,14 @@ mod tests {
         assert!(try_recipe_match("install ark", &telemetry).is_some());
         assert!(try_recipe_match("install evince", &telemetry).is_some());
         assert!(try_recipe_match("install pdf reader", &telemetry).is_some());
+
+        // Beta.168 recipes
+        assert!(try_recipe_match("install flameshot", &telemetry).is_some());
+        assert!(try_recipe_match("install screenshot tool", &telemetry).is_some());
+        assert!(try_recipe_match("install obs", &telemetry).is_some());
+        assert!(try_recipe_match("install screen recording", &telemetry).is_some());
+        assert!(try_recipe_match("install remmina", &telemetry).is_some());
+        assert!(try_recipe_match("install remote desktop", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());

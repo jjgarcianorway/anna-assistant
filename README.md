@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.167
+**Version:** 5.7.0-beta.168
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.167)
+## Current Capabilities (Beta.168)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.167):
-- ✅ 53 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.168):
+- ✅ 56 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -175,7 +175,10 @@ annactl "give me a full system report"
 - ✅ File managers (Nautilus, Dolphin, Thunar, ranger) (NEW)
 - ✅ Archive managers (File Roller, Ark, Xarchiver) (NEW)
 - ✅ PDF readers (Evince, Okular, Zathura, MuPDF) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (253 tests passing)
+- ✅ Screenshot tools (Flameshot, Spectacle, scrot, GNOME Screenshot) (NEW)
+- ✅ Screencast/recording (OBS Studio, SimpleScreenRecorder, Peek) (NEW)
+- ✅ Remote desktop (Remmina, TigerVNC, AnyDesk) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (259 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
