@@ -8,7 +8,7 @@
 //! - Automatic rollback on failure (where applicable)
 
 use crate::command_recipe::{
-    CommandCategory, CommandRecipe, Recipe, RecipeResult, StepResult,
+    CommandCategory, CommandRecipe, Recipe, RecipeResult, SafetyLevel, StepResult,
 };
 use anyhow::{Context, Result};
 use std::process::{Command, Stdio};

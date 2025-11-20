@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.135] - 2025-11-20
+
+### 🔧 HOTFIX: Test Suite Restored
+
+**What Changed:** Fixed test compilation error introduced in Beta.132.
+
+#### Fix
+
+- ✅ Restored `SafetyLevel` import in recipe_executor.rs
+- ✅ Tests now compile and pass (563 tests passing)
+- ✅ Issue: Beta.132 removed import but tests still needed it
+
+**Impact:** Test suite fully functional again.
+
+---
+
 ## [5.7.0-beta.134] - 2025-11-20
 
 ### 📊 SESSION SUMMARY: Beta.116-134 (19 Releases)
