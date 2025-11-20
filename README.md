@@ -160,6 +160,9 @@ annactl "give me a full system report"
 - ✅ Security tools (fail2ban, AIDE intrusion detection) (NEW)
 - ✅ Antivirus (ClamAV virus scanning and protection) (NEW)
 - ✅ VPN tools (WireGuard, OpenVPN) (NEW)
+- ✅ Virtualization (QEMU/KVM, VirtualBox, virt-manager) (NEW)
+- ✅ Container tools (Podman, Buildah, Skopeo, rootless) (NEW)
+- ✅ Virtual networks (libvirt network management) (NEW)
 - ✅ Zero-hallucination, tested, safe action plans (223 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 

@@ -12,6 +12,7 @@
 //! Beta.160: Added communication and productivity recipes (communication, editor, sync)
 //! Beta.161: Added gaming recipes (gaming, wine, gamepad)
 //! Beta.162: Added security recipes (security, antivirus, vpn)
+//! Beta.163: Added virtualization recipes (virtualization, containers, virt_network)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -61,6 +62,11 @@ pub mod monitoring;
 pub mod performance;
 
 // Beta.158 recipes
+
+// Beta.163 recipes
+pub mod virtualization;
+pub mod containers;
+pub mod virt_network;
 
 // Beta.162 recipes
 pub mod security;
@@ -122,6 +128,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.163 recipes - Virtualization (specific)
+    if virtualization::VirtualizationRecipe::matches_request(user_input) {
+        return Some(virtualization::VirtualizationRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if containers::ContainersRecipe::matches_request(user_input) {
+        return Some(containers::ContainersRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if virt_network::VirtNetworkRecipe::matches_request(user_input) {
+        return Some(virt_network::VirtNetworkRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.162 recipes - Security tools (specific)
@@ -353,6 +372,11 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.163 recipes
+        assert!(try_recipe_match("install qemu", &telemetry).is_some());
+        assert!(try_recipe_match("install podman", &telemetry).is_some());
+        assert!(try_recipe_match("setup libvirt network", &telemetry).is_some());
 
         // Beta.162 recipes
         assert!(try_recipe_match("install fail2ban", &telemetry).is_some());
