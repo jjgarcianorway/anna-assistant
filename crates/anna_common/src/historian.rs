@@ -1993,7 +1993,7 @@ impl Historian {
     /// Answer "when did this problem start?"
     pub fn answer_when_did_this_start(
         &self,
-        problem_description: &str,
+        _problem_description: &str,
     ) -> Result<Option<DateTime<Utc>>> {
         // This is a simplified implementation - real version would use NLP to match problem description
         // For now, check for new errors in the last 90 days

@@ -543,7 +543,7 @@ fn calculate_status(
 
 fn generate_recommendations(
     driver_issues: &[DriverIssue],
-    config: &Option<DisplayConfiguration>,
+    _config: &Option<DisplayConfiguration>,
     multi_monitor_issues: &[MultiMonitorIssue],
 ) -> Vec<String> {
     let mut recommendations = Vec::new();

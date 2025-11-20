@@ -122,7 +122,7 @@ impl OllamaInstaller {
 
         // First, check if Ollama package exists in official repos
         info!("Checking for Ollama package in official repos...");
-        let check_cmd = ["pacman", "-Si", "ollama"];
+        let _check_cmd = ["pacman", "-Si", "ollama"];
         let check_output = Command::new("pacman")
             .args(["-Si", "ollama"])
             .output()

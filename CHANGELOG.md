@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.133] - 2025-11-20
+
+### 🧹 CODE QUALITY: More Warning Cleanup
+
+**What Changed:** Fixed 5 more unused variable warnings in library code.
+
+#### Improvements
+
+- ✅ Library warnings reduced: 18 → 12 (33% reduction)
+- ✅ Fixed unused variables:
+  - `question` in recipe_formatter.rs:15
+  - `env` in desktop_automation.rs:203
+  - `config` in display_issues.rs:546
+  - `problem_description` in historian.rs:1996
+  - `check_cmd` in ollama_installer.rs:125
+
+**Current State:**
+- anna_common (lib): 12 warnings
+- annad (bin): 273 warnings
+- annactl (bin): 266 warnings
+- Total: ~551 warnings (most are for planned features)
+
+---
+
 ## [5.7.0-beta.132] - 2025-11-20
 
 ### 🚀 CODE QUALITY: Major Warning Cleanup (568 → 20)

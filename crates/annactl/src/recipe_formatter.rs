@@ -12,7 +12,7 @@
 use anna_common::command_recipe::Recipe;
 
 /// Format a recipe into a user-friendly answer (Beta.94: with emojis)
-pub fn format_recipe_answer(recipe: &Recipe, question: &str) -> String {
+pub fn format_recipe_answer(recipe: &Recipe, _question: &str) -> String {
     let mut answer = String::new();
 
     // Section 1: Summary

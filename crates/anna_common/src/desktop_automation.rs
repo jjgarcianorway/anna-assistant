@@ -200,7 +200,7 @@ fn change_wallpaper_hyprland(
 fn change_wallpaper_i3_sway(
     new_wallpaper: &Path,
     config: &DesktopConfig,
-    env: &DesktopEnvironment,
+    _env: &DesktopEnvironment,
 ) -> Result<WallpaperChangeResult> {
     let wallpaper_config = config
         .wallpaper
