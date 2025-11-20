@@ -268,7 +268,7 @@ pub struct HttpOpenAiBackend {
     api_key: Option<String>,
     model: String,
     max_tokens: u32,
-    is_local: bool,
+    _is_local: bool, // Beta.131: Planned for future use
 }
 
 impl HttpOpenAiBackend {
@@ -327,7 +327,7 @@ impl HttpOpenAiBackend {
             api_key,
             model,
             max_tokens,
-            is_local,
+            _is_local: is_local,
         })
     }
 }

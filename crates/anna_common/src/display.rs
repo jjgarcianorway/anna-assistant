@@ -595,7 +595,7 @@ pub struct Section {
     title: String,
     level: StatusLevel,
     content: Vec<String>,
-    use_color: bool,
+    _use_color: bool, // Beta.131: Reserved for future use
 }
 
 impl Section {
@@ -604,7 +604,7 @@ impl Section {
             title: title.into(),
             level,
             content: Vec::new(),
-            use_color,
+            _use_color: use_color,
         }
     }
 

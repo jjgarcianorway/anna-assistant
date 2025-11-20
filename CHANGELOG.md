@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.131] - 2025-11-20
+
+### 🧹 CODE QUALITY: Unused Field Cleanup
+
+**What Changed:** Fixed unused field warnings by marking fields planned for future use.
+
+#### Fixes
+
+- ✅ Fixed `is_local` field warning in `HttpOpenAiBackend` (llm.rs:271)
+  - Marked as `_is_local` - reserved for future local/remote distinction
+- ✅ Fixed `use_color` field warning in `Section` (display.rs:598)
+  - Marked as `_use_color` - reserved for future color output control
+
+**Impact:** Cleaner compilation output, preserved fields for future functionality.
+
+**Warnings:** Still ~268 remaining (non-critical, mostly dead code for future features).
+
+---
+
 ## [5.7.0-beta.130] - 2025-11-20
 
 ### 🎉 MILESTONE: Beta.130 Reached!
