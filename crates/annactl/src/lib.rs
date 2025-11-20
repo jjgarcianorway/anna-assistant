@@ -7,6 +7,7 @@ pub mod context_detection;
 pub mod errors;
 pub mod internal_dialogue; // Beta.55: LLM internal dialogue
 pub mod system_prompt_v2; // Beta.142: Strict reasoning discipline prompts
+pub mod system_prompt_v3_json; // Beta.143: JSON runtime contract
 pub mod llm_integration; // Beta.55: LLM integration
 pub mod logging;
 pub mod output;

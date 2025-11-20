@@ -329,6 +329,14 @@ fn is_simple_question(question: &str) -> bool {
     false
 }
 
+/// LEGACY: V1 Prompt System (Markdown Output)
+///
+/// STATUS: Superseded by run_internal_dialogue_v3_json() in Beta.143
+/// This function uses the old v1 prompt system that outputs freeform markdown.
+///
+/// For new code, use run_internal_dialogue_v3_json() which enforces JSON output
+/// and provides structured action plans with validation.
+///
 /// Run internal dialogue with telemetry-first approach
 /// Uses simplified single-round for small models (1b, 3b)
 /// Uses two-round planning+answer for larger models (8b+)
@@ -389,6 +397,14 @@ pub async fn run_internal_dialogue(
     }
 }
 
+/// LEGACY: V2 Prompt System (Markdown Output with Strict Rules)
+///
+/// STATUS: Superseded by run_internal_dialogue_v3_json() in Beta.143
+/// This function uses v2 strict prompts but outputs markdown, not JSON.
+///
+/// See docs/archive/PROMPT_V2_SYSTEM.md for the design principles.
+/// All 17 rules from v2 have been integrated into v3's JSON contract.
+///
 /// Beta.142: Run internal dialogue V2 with strict reasoning discipline
 /// Uses new system prompt format with mandatory DIAGNOSTIC→DISCOVERY→ACTION_PLAN→RISK→ROLLBACK→USER_RESPONSE structure
 pub async fn run_internal_dialogue_v2(

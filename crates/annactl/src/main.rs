@@ -30,6 +30,7 @@ mod json_types;
 pub mod logging;
 mod internal_dialogue; // Beta.55: Telemetry-first internal dialogue
 mod system_prompt_v2; // Beta.142: Strict reasoning discipline prompts
+mod system_prompt_v3_json; // Beta.143: JSON runtime contract
 mod llm_integration; // Beta.53: LLM query with streaming support
 mod model_catalog; // Beta.53: Intelligent model selection
 mod model_setup_wizard; // Beta.53: First-run model setup

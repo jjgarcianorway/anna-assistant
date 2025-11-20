@@ -4,6 +4,7 @@
 //! the daemon (annad) and CLI client (annactl).
 
 pub mod action_plan; // Beta.66: Secure ACTION_PLAN execution with validation
+pub mod action_plan_v3; // Beta.143: JSON runtime contract for LLM
 pub mod answer_validator; // Beta.87: Multi-pass answer validation - zero hallucination guarantee
 pub mod advice_cache;
 pub mod qa_scenarios; // Beta.67: Real-world QA scenarios (vim, hardware, LLM upgrade)

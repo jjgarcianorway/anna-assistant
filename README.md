@@ -4,7 +4,9 @@
 
 Anna is a local system and desktop caretaker for Arch Linux. She's a bridge between technical documentation (Arch Wiki and official project docs) and you, focused on this machine: its hardware, software, and how you actually use it.
 
-**Version:** 5.7.0-beta.140 (Production Ready: See PRODUCTION_FEATURES.md for full report)
+**Version:** 5.7.0-beta.143 (JSON Runtime Contract - Foundation)
+
+**Latest:** Beta.143 implements the JSON Runtime Contract - a formal interface between Anna and the local LLM. See [`docs/runtime_llm_contract.md`](./docs/runtime_llm_contract.md) for details.
 
 ---
 
@@ -22,7 +24,64 @@ Anna is **not**:
 - ❌ Not a remote management server
 - ❌ Not running commands behind your back
 
-## Current Status (v5.7.0-beta.131)
+---
+
+## Architecture (Beta.143+)
+
+Anna uses a **JSON Runtime Contract** to interact with local LLMs:
+
+```
+User Request
+    ↓
+annactl (gathers telemetry from annad)
+    ↓
+Runtime LLM (Ollama: Llama/Qwen/etc)
+    ↓
+JSON Action Plan
+    ↓
+Validation & Display (TUI)
+    ↓
+User Approval
+    ↓
+annad (executes with safety checks)
+```
+
+**Key Points:**
+- LLM is a **planner**, not an actor - it only proposes JSON action plans
+- Every plan has: analysis, checks, commands, risk levels, rollback procedures
+- Commands are classified: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
+- User approves before execution (except INFO)
+- All plans are validated against safety rules and Arch standards
+
+**Example JSON Plan** (wallpaper change):
+```json
+{
+  "analysis": "User wants wallpaper change on Hyprland",
+  "goals": ["Set wallpaper to /path/to/image.png"],
+  "necessary_checks": [{
+    "id": "check_file",
+    "command": "test -f /path/to/image.png",
+    "risk_level": "INFO"
+  }],
+  "command_plan": [{
+    "id": "backup",
+    "command": "cp config config.backup",
+    "risk_level": "LOW",
+    "rollback_id": "restore"
+  }],
+  "rollback_plan": [{
+    "id": "restore",
+    "command": "cp config.backup config"
+  }],
+  "notes_for_user": "I'll change your wallpaper using hyprpaper. Risk: LOW"
+}
+```
+
+**See:** [`docs/runtime_llm_contract.md`](./docs/runtime_llm_contract.md) for complete specification.
+
+---
+
+## Current Status (v5.7.0-beta.143)
 
 ### ✅ What Actually Works (Honest Assessment - Beta.116-131 Improvements)
 
