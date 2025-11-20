@@ -4,6 +4,7 @@
 //! Phase 3.8: Export context_detection for adaptive CLI tests
 
 pub mod context_detection;
+pub mod dialogue_v3_json; // Beta.145: V3 JSON dialogue runner
 pub mod errors;
 pub mod internal_dialogue; // Beta.55: LLM internal dialogue
 pub mod system_prompt_v2; // Beta.142: Strict reasoning discipline prompts

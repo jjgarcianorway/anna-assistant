@@ -18,6 +18,7 @@ mod version_banner; // Startup version banner and update notifications
 mod action_executor; // Execute approved suggestions
 mod autonomy_command; // Handle autonomy intent
 mod context_detection;
+mod dialogue_v3_json; // Beta.145: V3 JSON dialogue runner
 mod discard_command; // Handle discard intent
 mod first_run;
 mod health; // Central health model and auto-repair
