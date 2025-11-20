@@ -7,7 +7,7 @@
 //! - User confirmation for write operations
 //! - Automatic rollback on failure (where applicable)
 
-use crate::command_recipe::{CommandCategory, CommandRecipe, Recipe, RecipeResult, StepResult};
+use crate::command_recipe::{CommandCategory, CommandRecipe, Recipe, RecipeResult, SafetyLevel, StepResult};
 use anyhow::{Context, Result};
 use std::process::{Command, Stdio};
 use std::time::Instant;

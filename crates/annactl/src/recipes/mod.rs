@@ -5,6 +5,7 @@
 //! Beta.153: Added SSH, firewall (UFW), and user management recipes
 //! Beta.154: Added development environment recipes (Rust, Python, Node.js)
 //! Beta.155: Added GPU driver management recipes (NVIDIA, AMD, Intel)
+//! Beta.156: Added infrastructure recipes (Docker Compose, PostgreSQL, Nginx)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -42,6 +43,11 @@ pub mod rust;
 pub mod amd;
 pub mod intel;
 pub mod nvidia;
+
+// Beta.156 recipes
+pub mod docker_compose;
+pub mod postgresql;
+pub mod webserver;
 
 use anna_common::action_plan_v3::ActionPlan;
 use anyhow::Result;
@@ -82,6 +88,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.156 recipes - Infrastructure (specific)
+    if docker_compose::DockerComposeRecipe::matches_request(user_input) {
+        return Some(docker_compose::DockerComposeRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if postgresql::PostgresqlRecipe::matches_request(user_input) {
+        return Some(postgresql::PostgresqlRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if webserver::WebServerRecipe::matches_request(user_input) {
+        return Some(webserver::WebServerRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.155 recipes - GPU drivers (specific)
@@ -200,6 +219,17 @@ mod tests {
         assert!(try_recipe_match("install Intel drivers", &telemetry).is_some());
         assert!(try_recipe_match("setup Intel GPU", &telemetry).is_some());
         assert!(try_recipe_match("check nvidia status", &telemetry).is_some());
+
+        // Beta.156 recipes
+        assert!(try_recipe_match("install docker-compose", &telemetry).is_some());
+        assert!(try_recipe_match("init docker compose project", &telemetry).is_some());
+        assert!(try_recipe_match("validate docker-compose.yml", &telemetry).is_some());
+        assert!(try_recipe_match("install postgresql", &telemetry).is_some());
+        assert!(try_recipe_match("create postgres database", &telemetry).is_some());
+        assert!(try_recipe_match("configure postgresql security", &telemetry).is_some());
+        assert!(try_recipe_match("install nginx", &telemetry).is_some());
+        assert!(try_recipe_match("create nginx site", &telemetry).is_some());
+        assert!(try_recipe_match("enable nginx SSL", &telemetry).is_some());
 
         // Generic query should not match
         assert!(try_recipe_match("what is the weather", &telemetry).is_none());
