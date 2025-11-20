@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.129] - 2025-11-20
+
+### 📝 DOCS: README Updated with Beta.116-128 Improvements
+
+**What Changed:** Updated README to reflect all improvements from extended session.
+
+#### Updates
+
+- ✅ Version updated: beta.120 → beta.128
+- ✅ Added "Recent Improvements" section highlighting:
+  - CRITICAL security fix (dangerous command detection)
+  - MAJOR performance improvement (daemon startup -90%)
+  - Quality improvements (100% test pass rate)
+  - Code cleanup (78% warning reduction)
+  - Documentation honesty improvements
+
+**Status:** README now accurately represents current state (beta.128).
+
+**Auto-Update:** GitHub release created - daemon should auto-update from 115 → 128!
+
+---
+
 ## [5.7.0-beta.128] - 2025-11-20
 
 ### 📊 FINAL SUMMARY: Extended Session Complete (Beta.116-128)
