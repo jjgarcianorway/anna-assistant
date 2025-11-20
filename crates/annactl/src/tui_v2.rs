@@ -612,6 +612,126 @@ fn handle_action_plan_execution(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMe
     }
 }
 
+/// Beta.147: Send demo ActionPlan for testing
+fn send_demo_action_plan(tx: mpsc::Sender<TuiMessage>, risky: bool) {
+    use anna_common::action_plan_v3::{
+        ActionPlan, CommandStep, NecessaryCheck, PlanMeta, RiskLevel, RollbackStep,
+    };
+
+    tokio::spawn(async move {
+        // Simulate thinking time
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        let demo_plan = if risky {
+            // Risky demo with rollback
+            ActionPlan {
+                analysis: "The user wants to create a test file in /tmp and then remove it. This demonstrates a risky operation with rollback capability. The file creation is medium risk as it modifies the filesystem.".to_string(),
+
+                goals: vec![
+                    "Create a test file in /tmp".to_string(),
+                    "Demonstrate rollback on cleanup".to_string(),
+                ],
+
+                necessary_checks: vec![
+                    NecessaryCheck {
+                        id: "check-tmp-writable".to_string(),
+                        description: "Verify /tmp directory is writable".to_string(),
+                        command: "test -w /tmp && echo 'writable'".to_string(),
+                        risk_level: RiskLevel::Info,
+                        required: true,
+                    },
+                ],
+
+                command_plan: vec![
+                    CommandStep {
+                        id: "create-test-file".to_string(),
+                        description: "Create test file with timestamp".to_string(),
+                        command: "echo 'Anna Demo Test' > /tmp/anna_demo_test.txt".to_string(),
+                        risk_level: RiskLevel::Medium,
+                        rollback_id: Some("remove-test-file".to_string()),
+                        requires_confirmation: true,
+                    },
+                    CommandStep {
+                        id: "show-file-content".to_string(),
+                        description: "Display the created file content".to_string(),
+                        command: "cat /tmp/anna_demo_test.txt".to_string(),
+                        risk_level: RiskLevel::Info,
+                        rollback_id: None,
+                        requires_confirmation: false,
+                    },
+                ],
+
+                rollback_plan: vec![
+                    RollbackStep {
+                        id: "remove-test-file".to_string(),
+                        description: "Remove the test file".to_string(),
+                        command: "rm -f /tmp/anna_demo_test.txt".to_string(),
+                    },
+                ],
+
+                notes_for_user: "This demo creates a test file in /tmp to show how Anna handles operations with rollback. The file will be automatically removed if any step fails. You can also manually delete it with: rm /tmp/anna_demo_test.txt".to_string(),
+
+                meta: PlanMeta {
+                    detection_results: Default::default(),
+                    template_used: Some("risky_demo".to_string()),
+                    llm_version: "demo-v1".to_string(),
+                },
+            }
+        } else {
+            // Safe demo
+            ActionPlan {
+                analysis: "The user wants to check free disk space on their system. This is a safe, read-only operation that uses the 'df' command, which is a standard Unix utility available on all Linux systems including Arch Linux.".to_string(),
+
+                goals: vec![
+                    "Display disk usage in human-readable format".to_string(),
+                    "Show filesystem types and mount points".to_string(),
+                ],
+
+                necessary_checks: vec![
+                    NecessaryCheck {
+                        id: "check-df".to_string(),
+                        description: "Verify 'df' command is available".to_string(),
+                        command: "which df".to_string(),
+                        risk_level: RiskLevel::Info,
+                        required: true,
+                    },
+                ],
+
+                command_plan: vec![
+                    CommandStep {
+                        id: "show-disk-usage".to_string(),
+                        description: "Display disk usage with human-readable sizes".to_string(),
+                        command: "df -h".to_string(),
+                        risk_level: RiskLevel::Info,
+                        rollback_id: None,
+                        requires_confirmation: false,
+                    },
+                    CommandStep {
+                        id: "show-inodes".to_string(),
+                        description: "Display inode usage information".to_string(),
+                        command: "df -i".to_string(),
+                        risk_level: RiskLevel::Info,
+                        rollback_id: None,
+                        requires_confirmation: false,
+                    },
+                ],
+
+                rollback_plan: vec![],
+
+                notes_for_user: "This is a completely safe operation that only reads system information. No changes will be made to your system. The 'df' command shows disk space usage across all mounted filesystems.".to_string(),
+
+                meta: PlanMeta {
+                    detection_results: Default::default(),
+                    template_used: Some("disk_space_check".to_string()),
+                    llm_version: "demo-v1".to_string(),
+                },
+            }
+        };
+
+        let _ = tx.send(TuiMessage::ActionPlanReply(demo_plan)).await;
+    });
+}
+
 /// Beta.108: Handle user input (non-blocking)
 /// Returns true if should exit, false otherwise
 fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> bool {
@@ -622,6 +742,28 @@ fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> 
     if input_lower == "bye" || input_lower == "exit" || input_lower == "quit" {
         state.add_system_message("Goodbye!".to_string());
         return true;
+    }
+
+    // Beta.147: Demo command for testing ActionPlan flow
+    if input_lower == "demo" || input_lower == "demo plan" {
+        state.add_user_message(input.clone());
+        state.input.clear();
+        state.cursor_pos = 0;
+
+        // Generate sample ActionPlan
+        send_demo_action_plan(tx, false);
+        return false;
+    }
+
+    // Beta.147: Risky demo with rollback
+    if input_lower == "demo risky" {
+        state.add_user_message(input.clone());
+        state.input.clear();
+        state.cursor_pos = 0;
+
+        // Generate risky ActionPlan with rollback
+        send_demo_action_plan(tx, true);
+        return false;
     }
 
     // Beta.108: Add user message immediately (visible in UI)
