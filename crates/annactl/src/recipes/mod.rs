@@ -25,6 +25,7 @@
 //! Beta.173: Added content tools (ebooks, rss, sysinfo)
 //! Beta.174: Added academic and network tools (latex, scientific, network_tools)
 //! Beta.175: Added databases, CAD, and disk management (databases, cad_tools, disk_management)
+//! Beta.176: Added build systems, rescue tools, and fonts (build_systems, rescue_tools, fonts)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -129,6 +130,11 @@ pub mod network_tools;
 pub mod databases;
 pub mod cad_tools;
 pub mod disk_management;
+
+// Beta.176 recipes
+pub mod build_systems;
+pub mod rescue_tools;
+pub mod fonts;
 
 // Beta.168 recipes
 pub mod screenshot;
@@ -343,6 +349,19 @@ pub fn try_recipe_match(
 
     if disk_management::DiskManagementRecipe::matches_request(user_input) {
         return Some(disk_management::DiskManagementRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.176 recipes - Build systems, rescue tools, fonts (specific)
+    if build_systems::BuildSystemsRecipe::matches_request(user_input) {
+        return Some(build_systems::BuildSystemsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if rescue_tools::RescueToolsRecipe::matches_request(user_input) {
+        return Some(rescue_tools::RescueToolsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if fonts::FontsRecipe::matches_request(user_input) {
+        return Some(fonts::FontsRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
