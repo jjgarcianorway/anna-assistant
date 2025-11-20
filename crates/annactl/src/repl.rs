@@ -192,7 +192,7 @@ pub async fn start_repl() -> Result<()> {
     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
 
     // Launch TUI (this blocks until user exits)
-    annactl::tui::run()
+    annactl::tui_v2::run().await
 }
 
 /// Display proactive startup summary with Historian data (Beta.53)

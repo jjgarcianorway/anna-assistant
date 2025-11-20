@@ -32,7 +32,6 @@ mod discard_command;
 mod empathy_commands;
 mod first_run;
 mod health;
-mod health_commands;
 mod help_commands;
 mod historian_cli;
 mod init_command;
