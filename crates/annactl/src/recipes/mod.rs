@@ -108,6 +108,11 @@ pub mod calendar;
 pub mod tasks;
 pub mod diagram;
 
+// Beta.173 recipes
+pub mod ebooks;
+pub mod rss;
+pub mod sysinfo;
+
 // Beta.168 recipes
 pub mod screenshot;
 pub mod screencast;
@@ -282,6 +287,19 @@ pub fn try_recipe_match(
 
     if diagram::DiagramRecipe::matches_request(user_input) {
         return Some(diagram::DiagramRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.173 recipes - Information Tools (specific)
+    if ebooks::EbooksRecipe::matches_request(user_input) {
+        return Some(ebooks::EbooksRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if rss::RssRecipe::matches_request(user_input) {
+        return Some(rss::RssRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if sysinfo::SysinfoRecipe::matches_request(user_input) {
+        return Some(sysinfo::SysinfoRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -609,6 +627,14 @@ mod tests {
         assert!(try_recipe_match("install task management app", &telemetry).is_some());
         assert!(try_recipe_match("install draw.io", &telemetry).is_some());
         assert!(try_recipe_match("install diagram tool", &telemetry).is_some());
+
+        // Beta.173 recipes
+        assert!(try_recipe_match("install calibre", &telemetry).is_some());
+        assert!(try_recipe_match("install ebook reader", &telemetry).is_some());
+        assert!(try_recipe_match("install newsboat", &telemetry).is_some());
+        assert!(try_recipe_match("install rss reader", &telemetry).is_some());
+        assert!(try_recipe_match("install neofetch", &telemetry).is_some());
+        assert!(try_recipe_match("install system info tool", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());
