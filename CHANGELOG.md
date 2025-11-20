@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.139] - 2025-11-20
+
+### 🧹 CODE QUALITY: UI Initialization Fix
+
+**What Changed:** Fixed unnecessary assignment in UI initialization.
+
+#### Fix
+
+- ✅ Fixed `ui_caps` double assignment in display.rs:26
+  - Old: Assigned from config, then immediately overwritten
+  - New: Direct assignment from detect()
+  - Cleaner, more readable code
+
+**Impact:** Removed confusing dead code, clearer initialization flow.
+
+---
+
 ## [5.7.0-beta.138] - 2025-11-20
 
 ### 🧹 CODE QUALITY: More Warning Cleanup

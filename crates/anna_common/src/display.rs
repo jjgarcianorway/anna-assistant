@@ -23,8 +23,8 @@ pub struct UI {
 impl UI {
     /// Create new UI with language configuration
     pub fn new(config: &LanguageConfig) -> Self {
-        let mut ui_caps = config.terminal;
-        ui_caps = TerminalCapabilities::detect(); // Always detect fresh
+        // Beta.139: Always detect fresh, ignore config value
+        let ui_caps = TerminalCapabilities::detect();
 
         Self {
             profile: config.profile(),
