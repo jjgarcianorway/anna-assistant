@@ -6,6 +6,7 @@
 //! Beta.154: Added development environment recipes (Rust, Python, Node.js)
 //! Beta.155: Added GPU driver management recipes (NVIDIA, AMD, Intel)
 //! Beta.156: Added infrastructure recipes (Docker Compose, PostgreSQL, Nginx)
+//! Beta.157: Added system management recipes (monitoring, backup, performance)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -49,6 +50,11 @@ pub mod docker_compose;
 pub mod postgresql;
 pub mod webserver;
 
+// Beta.157 recipes
+pub mod backup;
+pub mod monitoring;
+pub mod performance;
+
 use anna_common::action_plan_v3::ActionPlan;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -88,6 +94,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.157 recipes - System management (specific)
+    if monitoring::MonitoringRecipe::matches_request(user_input) {
+        return Some(monitoring::MonitoringRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if backup::BackupRecipe::matches_request(user_input) {
+        return Some(backup::BackupRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if performance::PerformanceRecipe::matches_request(user_input) {
+        return Some(performance::PerformanceRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.156 recipes - Infrastructure (specific)
@@ -230,6 +249,17 @@ mod tests {
         assert!(try_recipe_match("install nginx", &telemetry).is_some());
         assert!(try_recipe_match("create nginx site", &telemetry).is_some());
         assert!(try_recipe_match("enable nginx SSL", &telemetry).is_some());
+
+        // Beta.157 recipes
+        assert!(try_recipe_match("install monitoring tools", &telemetry).is_some());
+        assert!(try_recipe_match("install htop", &telemetry).is_some());
+        assert!(try_recipe_match("setup btop", &telemetry).is_some());
+        assert!(try_recipe_match("install backup tools", &telemetry).is_some());
+        assert!(try_recipe_match("setup rsync", &telemetry).is_some());
+        assert!(try_recipe_match("install borg", &telemetry).is_some());
+        assert!(try_recipe_match("install cpupower", &telemetry).is_some());
+        assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
+        assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
 
         // Generic query should not match
         assert!(try_recipe_match("what is the weather", &telemetry).is_none());

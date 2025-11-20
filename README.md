@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.156
+**Version:** 5.7.0-beta.157
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.156)
+## Current Capabilities (Beta.157)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.156 - EXPANDED):**
-- ✅ 20 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.157 - EXPANDED):**
+- ✅ 23 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -139,17 +139,20 @@ annactl "give me a full system report"
 - ✅ NVIDIA GPU driver installation and configuration (CUDA, Xorg)
 - ✅ AMD GPU driver installation and configuration (ROCm, Mesa)
 - ✅ Intel GPU driver installation and configuration (Mesa, VA-API)
-- ✅ Docker Compose installation and project management (NEW)
-- ✅ PostgreSQL database installation and management (NEW)
-- ✅ Nginx web server installation and configuration (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (137 tests passing)
+- ✅ Docker Compose installation and project management
+- ✅ PostgreSQL database installation and management
+- ✅ Nginx web server installation and configuration
+- ✅ System monitoring tools installation (htop, btop, glances) (NEW)
+- ✅ Backup solutions setup (rsync, borg backup) (NEW)
+- ✅ Performance tuning (CPU governor, swappiness) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (161 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
 
 **What exists but needs work:**
 - 🔧 LLM JSON output quality - Model doesn't consistently generate valid ActionPlan JSON for complex multi-step queries
-- 🔧 Recipe coverage - 20 recipes implemented (Beta.156), more needed for comprehensive coverage
+- 🔧 Recipe coverage - 23 recipes implemented (Beta.157), more needed for comprehensive coverage
 - 🔧 Template matching - Works for simple queries, limited coverage
 - 🔧 Action execution - Infrastructure ready, execution depends on recipe or LLM JSON quality
 
