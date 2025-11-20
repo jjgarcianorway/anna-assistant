@@ -49,6 +49,9 @@ pub struct AnnaTuiState {
 
     /// Beta.91: Animation frame for thinking indicator (0-3 for spinner)
     pub thinking_frame: usize,
+
+    /// Beta.147: Last action plan (for execution)
+    pub last_action_plan: Option<Box<anna_common::action_plan_v3::ActionPlan>>,
 }
 
 impl Default for AnnaTuiState {
@@ -68,6 +71,7 @@ impl Default for AnnaTuiState {
             show_help: false,
             is_thinking: false,
             thinking_frame: 0,
+            last_action_plan: None,
         }
     }
 }
@@ -147,6 +151,9 @@ impl AnnaTuiState {
 
     /// Beta.147: Add structured action plan to conversation
     pub fn add_action_plan(&mut self, plan: anna_common::action_plan_v3::ActionPlan) {
+        // Store for potential execution
+        self.last_action_plan = Some(Box::new(plan.clone()));
+
         self.conversation
             .push(ChatItem::ActionPlan(Box::new(plan)));
         self.is_thinking = false;

@@ -3,6 +3,7 @@
 //! Phase 0.3e: Export modules for integration tests
 //! Phase 3.8: Export context_detection for adaptive CLI tests
 
+pub mod action_plan_executor; // Beta.147: ActionPlan execution engine
 pub mod context_detection;
 pub mod dialogue_v3_json; // Beta.145: V3 JSON dialogue runner
 pub mod errors;

@@ -137,6 +137,13 @@ async fn run_event_loop(
                         state.input.clear();
                         state.cursor_pos = 0;
                     }
+                    // Ctrl+X - execute last action plan
+                    (KeyCode::Char('x'), KeyModifiers::CONTROL) => {
+                        // Beta.147: Execute action plan
+                        if state.last_action_plan.is_some() {
+                            handle_action_plan_execution(state, tx.clone());
+                        }
+                    }
                     // F1 - toggle help
                     (KeyCode::F(1), _) => {
                         state.show_help = !state.show_help;
@@ -500,6 +507,10 @@ fn draw_help_overlay(f: &mut Frame, area: Rect) {
             Span::raw(" - Clear input"),
         ]),
         Line::from(vec![
+            Span::styled("Ctrl+X", Style::default().fg(Color::Cyan)),
+            Span::raw(" - Execute action plan"),
+        ]),
+        Line::from(vec![
             Span::styled("F1", Style::default().fg(Color::Cyan)),
             Span::raw(" - Toggle help"),
         ]),
@@ -549,6 +560,58 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
+/// Beta.147: Handle action plan execution
+fn handle_action_plan_execution(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) {
+    use crate::action_plan_executor::ActionPlanExecutor;
+
+    // Take the action plan (so we can move it into the async task)
+    if let Some(plan) = state.last_action_plan.take() {
+        state.add_system_message("⚙️ Executing action plan...".to_string());
+
+        // Spawn async execution task
+        tokio::spawn(async move {
+            let executor = ActionPlanExecutor::new(*plan);
+
+            match executor.execute().await {
+                Ok(result) => {
+                    // Send execution results back to TUI
+                    let mut summary = String::new();
+
+                    if result.success {
+                        summary.push_str("✅ Execution completed successfully!\n\n");
+                    } else {
+                        summary.push_str("❌ Execution failed.\n\n");
+                    }
+
+                    if !result.checks_passed.is_empty() {
+                        summary.push_str(&format!("Checks passed: {}\n", result.checks_passed.len()));
+                    }
+
+                    if !result.checks_failed.is_empty() {
+                        summary.push_str(&format!("Checks failed: {}\n", result.checks_failed.len()));
+                    }
+
+                    summary.push_str(&format!("Steps completed: {}\n", result.steps_completed.len()));
+
+                    if !result.steps_failed.is_empty() {
+                        summary.push_str(&format!("Steps failed: {}\n", result.steps_failed.len()));
+                    }
+
+                    if result.rollback_performed {
+                        summary.push_str(&format!("\n🔄 Rollback performed ({} steps)\n", result.rollback_results.len()));
+                    }
+
+                    let _ = tx.send(TuiMessage::AnnaReply(summary)).await;
+                }
+                Err(e) => {
+                    let error_msg = format!("❌ Execution error: {}", e);
+                    let _ = tx.send(TuiMessage::AnnaReply(error_msg)).await;
+                }
+            }
+        });
+    }
+}
+
 /// Beta.108: Handle user input (non-blocking)
 /// Returns true if should exit, false otherwise
 fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> bool {
@@ -590,6 +653,7 @@ fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> 
         scroll_offset: 0,
         telemetry_ok: state.telemetry_ok,
         last_llm_reply: None,
+        last_action_plan: None,  // Beta.147
     };
 
     tokio::spawn(async move {

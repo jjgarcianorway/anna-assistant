@@ -20,6 +20,7 @@ mod llm_query_handler;
 // Feature modules
 mod adaptive_help;
 mod action_executor;
+pub mod action_plan_executor;  // Beta.147: ActionPlan execution engine
 mod autonomy_command;
 mod chronos_commands;
 mod collective_commands;
