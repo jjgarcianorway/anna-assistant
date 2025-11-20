@@ -7,6 +7,7 @@
 //! Beta.155: Added GPU driver management recipes (NVIDIA, AMD, Intel)
 //! Beta.156: Added infrastructure recipes (Docker Compose, PostgreSQL, Nginx)
 //! Beta.157: Added system management recipes (monitoring, backup, performance)
+//! Beta.158: Added desktop application recipes (browser, media, productivity)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -55,6 +56,11 @@ pub mod backup;
 pub mod monitoring;
 pub mod performance;
 
+// Beta.158 recipes
+pub mod browser;
+pub mod media;
+pub mod productivity;
+
 use anna_common::action_plan_v3::ActionPlan;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -94,6 +100,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.158 recipes - Desktop applications (specific)
+    if browser::BrowserRecipe::matches_request(user_input) {
+        return Some(browser::BrowserRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if media::MediaRecipe::matches_request(user_input) {
+        return Some(media::MediaRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if productivity::ProductivityRecipe::matches_request(user_input) {
+        return Some(productivity::ProductivityRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.157 recipes - System management (specific)
@@ -260,6 +279,17 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.158 recipes
+        assert!(try_recipe_match("install firefox", &telemetry).is_some());
+        assert!(try_recipe_match("install chrome", &telemetry).is_some());
+        assert!(try_recipe_match("check browser status", &telemetry).is_some());
+        assert!(try_recipe_match("install vlc", &telemetry).is_some());
+        assert!(try_recipe_match("install media player", &telemetry).is_some());
+        assert!(try_recipe_match("install codecs", &telemetry).is_some());
+        assert!(try_recipe_match("install libreoffice", &telemetry).is_some());
+        assert!(try_recipe_match("install gimp", &telemetry).is_some());
+        assert!(try_recipe_match("install office suite", &telemetry).is_some());
 
         // Generic query should not match
         assert!(try_recipe_match("what is the weather", &telemetry).is_none());
