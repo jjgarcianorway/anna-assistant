@@ -18,6 +18,12 @@
 //! Beta.166: Added final core recipes (printing, bluetooth, cloud)
 //! Beta.167: Added file management recipes (file_manager, archive_manager, pdf_reader)
 //! Beta.168: Added screen utility recipes (screenshot, screencast, remote_desktop)
+//! Beta.169: Added desktop utility recipes (launcher, clipboard, notifications)
+//! Beta.170: Added communication recipes (email, passwords, torrents)
+//! Beta.171: Added IRC/chat, image viewer, and note-taking recipes
+//! Beta.172: Added productivity recipes (calendar, tasks, diagram)
+//! Beta.173: Added content tools (ebooks, rss, sysinfo)
+//! Beta.174: Added academic and network tools (latex, scientific, network_tools)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -112,6 +118,11 @@ pub mod diagram;
 pub mod ebooks;
 pub mod rss;
 pub mod sysinfo;
+
+// Beta.174 recipes
+pub mod latex;
+pub mod scientific;
+pub mod network_tools;
 
 // Beta.168 recipes
 pub mod screenshot;
@@ -300,6 +311,19 @@ pub fn try_recipe_match(
 
     if sysinfo::SysinfoRecipe::matches_request(user_input) {
         return Some(sysinfo::SysinfoRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.174 recipes - Academic & Network Tools (specific)
+    if latex::LatexRecipe::matches_request(user_input) {
+        return Some(latex::LatexRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if scientific::ScientificRecipe::matches_request(user_input) {
+        return Some(scientific::ScientificRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if network_tools::NetworkToolsRecipe::matches_request(user_input) {
+        return Some(network_tools::NetworkToolsRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.168 recipes - Screen Utilities (specific)
@@ -635,6 +659,14 @@ mod tests {
         assert!(try_recipe_match("install rss reader", &telemetry).is_some());
         assert!(try_recipe_match("install neofetch", &telemetry).is_some());
         assert!(try_recipe_match("install system info tool", &telemetry).is_some());
+
+        // Beta.174 recipes
+        assert!(try_recipe_match("install latex", &telemetry).is_some());
+        assert!(try_recipe_match("install texstudio", &telemetry).is_some());
+        assert!(try_recipe_match("install octave", &telemetry).is_some());
+        assert!(try_recipe_match("install scientific computing", &telemetry).is_some());
+        assert!(try_recipe_match("install wireshark", &telemetry).is_some());
+        assert!(try_recipe_match("install nmap", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());

@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.173
+**Version:** 5.7.0-beta.174
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.173)
+## Current Capabilities (Beta.174)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.173):
-- ✅ 71 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.174):
+- ✅ 74 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -190,10 +190,13 @@ annactl "give me a full system report"
 - ✅ Calendar applications (GNOME Calendar, KOrganizer, calcurse, Orage)
 - ✅ Task management (Taskwarrior, todoman, GNOME To Do)
 - ✅ Diagram tools (draw.io Desktop, Dia, Graphviz, PlantUML)
-- ✅ Ebook readers (Calibre, Foliate, Zathura, Okular) (NEW)
-- ✅ RSS/feed readers (Newsboat, Liferea, Akregator, RSS Guard) (NEW)
-- ✅ System info tools (Fastfetch, Neofetch, Screenfetch, inxi, hwinfo) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (289 tests passing)
+- ✅ Ebook readers (Calibre, Foliate, Zathura, Okular)
+- ✅ RSS/feed readers (Newsboat, Liferea, Akregator, RSS Guard)
+- ✅ System info tools (Fastfetch, Neofetch, Screenfetch, inxi, hwinfo)
+- ✅ LaTeX tools (TeX Live, TeXstudio, LyX, Texmaker) (NEW)
+- ✅ Scientific computing (GNU Octave, Maxima, SageMath, RStudio) (NEW)
+- ✅ Network analysis (Wireshark, Nmap, tcpdump, Netcat) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (295 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
