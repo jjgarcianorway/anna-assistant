@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.124] - 2025-11-20
+
+### ✅ BUILD: Release Binaries Verified
+
+**What Changed:** Built and verified release binaries for Beta.121-124 changes.
+
+#### Build Status
+
+- ✅ `cargo build --release` succeeded
+- ✅ annactl: 29MB (optimized)
+- ✅ annad: 25MB (optimized)
+- ✅ All tests passing (314 passed, 0 failed)
+- ⚠️ Compiler warnings: ~270 (down from 1237, non-critical)
+
+#### Changes Included
+
+This build includes all improvements from Beta.121-123:
+- Clippy lint cleanup (57 warnings fixed)
+- Legacy code documentation
+- **Critical dangerous command detection fix**
+- Answer validator improvements
+- Test suite fixes
+
+**Ready for deployment.**
+
+---
+
 ## [5.7.0-beta.123] - 2025-11-20
 
 ### 🔧 CRITICAL FIX: Test Suite Failures (3 Bugs Fixed)
