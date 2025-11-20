@@ -403,36 +403,9 @@ pub fn route_intent(input: &str) -> Intent {
         }
     }
 
-    // "be more concise" | "be warmer" | "be less formal"
-    // Pattern: "be [more|less] <descriptor>"
-    if contains_any(&words, &["be"])
-        && (contains_any(&words, &["more", "less", "warmer", "colder", "formal", "casual",
-                                     "concise", "verbose", "friendly", "professional"]))
-    {
-        // Extract the full descriptor
-        let descriptor = lower
-            .trim_start_matches("be ")
-            .trim_start_matches("be more ")
-            .trim_start_matches("be less ")
-            .trim();
-
-        if !descriptor.is_empty() {
-            return Intent::Personality {
-                adjustment: PersonalityAdjustment::AdjustByDescriptor {
-                    descriptor: descriptor.to_string()
-                },
-            };
-        }
-    }
-
-    // Check for "show personality"
-    if contains_any(&words, &["show", "display", "current", "what"])
-        && contains_any(&words, &["personality", "settings", "preferences", "traits"])
-    {
-        return Intent::Personality {
-            adjustment: PersonalityAdjustment::Show,
-        };
-    }
+    // Beta.126: Move legacy personality checks BEFORE AdjustByDescriptor
+    // This ensures specific patterns like "be more funny" match correctly
+    // instead of falling into the generic descriptor catch-all
 
     // Legacy personality humor (backwards compatibility)
     if contains_any(&words, &["humor", "humour", "ironic", "playful", "serious"])
@@ -473,6 +446,38 @@ pub fn route_intent(input: &str) -> Intent {
     {
         return Intent::Personality {
             adjustment: PersonalityAdjustment::MoreDetailed,
+        };
+    }
+
+    // "be more concise" | "be warmer" | "be less formal"
+    // Pattern: "be [more|less] <descriptor>"
+    // Beta.126: Moved AFTER legacy checks to avoid catching "be more funny" etc.
+    if contains_any(&words, &["be"])
+        && (contains_any(&words, &["more", "less", "warmer", "colder", "formal", "casual",
+                                     "concise", "verbose", "friendly", "professional"]))
+    {
+        // Extract the full descriptor
+        let descriptor = lower
+            .trim_start_matches("be ")
+            .trim_start_matches("be more ")
+            .trim_start_matches("be less ")
+            .trim();
+
+        if !descriptor.is_empty() {
+            return Intent::Personality {
+                adjustment: PersonalityAdjustment::AdjustByDescriptor {
+                    descriptor: descriptor.to_string()
+                },
+            };
+        }
+    }
+
+    // Check for "show personality"
+    if contains_any(&words, &["show", "display", "current", "what"])
+        && contains_any(&words, &["personality", "settings", "preferences", "traits"])
+    {
+        return Intent::Personality {
+            adjustment: PersonalityAdjustment::Show,
         };
     }
 

@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.126] - 2025-11-20
+
+### 🔧 FIX: Test Suite - 2 More Bugs Fixed
+
+**What Changed:** Fixed 2 remaining test failures after user said "keep going".
+
+#### Bugs Fixed
+
+**Bug 1: Intent Router Priority Issue**
+- **Issue:** "Anna, be more funny" matched generic AdjustByDescriptor instead of IncreaseHumor
+- **Root Cause:** Generic pattern matching executed BEFORE specific legacy patterns
+- **Impact:** Personality commands not working as expected
+- **Fix:** Moved legacy humor/brief/detailed checks BEFORE generic AdjustByDescriptor
+- **File:** `intent_router.rs:406-482`
+- **Test:** `intent_router::tests::test_personality_intents` ✅
+
+**Bug 2: Integration Test Outdated Expectations**
+- **Issue:** Test checked for old help format pattern "available)"
+- **Root Cause:** Help output format changed, test not updated
+- **Impact:** False test failure (help actually works)
+- **Fix:** Updated test to check for current help format (command listings)
+- **File:** `integration_test.rs:511-519`
+- **Test:** `test_phase39_adaptive_help_shows_commands` ✅
+
+#### Test Results
+
+**All Tests Passing:** ✅
+- anna_common: 314 passed, 0 failed
+- consensus_sim: 7 passed, 0 failed
+- annactl lib: 29 passed, 0 failed
+- annactl integration: 29 passed, 0 failed
+- **Total: 379 tests, 0 failures**
+
+**Progress from Beta.123:**
+- Beta.123: Fixed 3 test failures (311 → 314 passing)
+- Beta.126: Fixed 2 more test failures (all tests now pass)
+- **Total fixed this session: 5 test failures**
+
+---
+
 ## [5.7.0-beta.125] - 2025-11-20
 
 ### 📊 SUMMARY: Beta.116-125 Complete Overnight Session

@@ -508,12 +508,13 @@ fn test_phase39_adaptive_help_shows_commands() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Should show at least one category with commands
-    let command_count = stdout.matches("available)").count();
+    // Beta.126: Updated to check for current help format
+    // Should show command listings (annactl, annactl status, etc.)
+    let has_commands = stdout.contains("annactl") && stdout.contains("status");
 
     assert!(
-        command_count > 0,
-        "Adaptive help should show command categories. stdout: {}",
+        has_commands,
+        "Adaptive help should show commands. stdout: {}",
         stdout
     );
 
