@@ -54,14 +54,19 @@ pub async fn execute_anna_status_command(
     println!("{}", fmt::dimmed(&format!("Mode: {}", llm_mode)));
     println!();
 
-    // Core Health
-    println!("{}", fmt::bold("Core Health:"));
+    // Beta.141: Enhanced core health display with emojis
+    println!("{}", fmt::section_title(&fmt::emojis::SERVICE, "Core Health"));
+    println!();
 
     // Daemon
     if health.daemon.installed && health.daemon.enabled && health.daemon.running {
         println!(
-            "  {} Daemon: service installed, enabled, running",
-            fmt::success("")
+            "  {}",
+            fmt::component_status("Daemon (annad)", "running")
+        );
+        println!(
+            "    {}",
+            fmt::dimmed("service installed, enabled, and active")
         );
     } else {
         let status = if !health.daemon.installed {
@@ -71,44 +76,64 @@ pub async fn execute_anna_status_command(
         } else {
             "not running"
         };
-        println!("  {} Daemon: {}", fmt::error(""), status);
+        println!("  {}", fmt::component_status("Daemon (annad)", status));
     }
 
     // LLM Backend
     if health.llm.reachable && health.llm.model_available {
         println!(
-            "  {} LLM backend: {} reachable, model {} available",
-            fmt::success(""),
-            health.llm.backend,
-            health.llm.model.as_deref().unwrap_or("unknown")
+            "  {}",
+            fmt::component_status(
+                &format!("LLM ({})", health.llm.backend),
+                "running"
+            )
+        );
+        println!(
+            "    {}",
+            fmt::dimmed(&format!(
+                "model: {}",
+                health.llm.model.as_deref().unwrap_or("unknown")
+            ))
         );
     } else if !health.llm.backend_running {
         println!(
-            "  {} LLM backend: {} not running",
-            fmt::error(""),
-            health.llm.backend
+            "  {}",
+            fmt::component_status(&format!("LLM ({})", health.llm.backend), "stopped")
         );
     } else if !health.llm.reachable {
         println!(
-            "  {} LLM backend: {} not reachable",
-            fmt::error(""),
-            health.llm.backend
+            "  {}",
+            fmt::component_status(&format!("LLM ({})", health.llm.backend), "degraded")
         );
+        println!("    {}", fmt::dimmed("backend not reachable"));
     } else {
         println!(
-            "  {} LLM backend: model {} not available",
-            fmt::error(""),
-            health.llm.model.as_deref().unwrap_or("unknown")
+            "  {}",
+            fmt::component_status(&format!("LLM ({})", health.llm.backend), "degraded")
+        );
+        println!(
+            "    {}",
+            fmt::dimmed(&format!(
+                "model {} not available",
+                health.llm.model.as_deref().unwrap_or("unknown")
+            ))
         );
     }
 
-    // Permissions
+    // Beta.141: Enhanced permissions display
     if health.permissions.data_dirs_ok && health.permissions.user_in_groups {
-        println!("  {} Data directories: permissions OK", fmt::success(""));
-        println!("  {} User groups: membership OK", fmt::success(""));
+        println!(
+            "  {}",
+            fmt::component_status("Permissions", "healthy")
+        );
+        println!("    {}", fmt::dimmed("data directories and user groups OK"));
     } else {
+        println!(
+            "  {}",
+            fmt::component_status("Permissions", "degraded")
+        );
         for issue in &health.permissions.issues {
-            println!("  {} {}", fmt::warning(""), issue);
+            println!("    {} {}", fmt::emojis::WARNING, fmt::dimmed(issue));
         }
     }
 
@@ -119,43 +144,63 @@ pub async fn execute_anna_status_command(
     health.display_summary();
     println!();
 
-    // Last repair (if any)
+    // Beta.141: Enhanced repair display
     if let Some(repair) = &health.last_repair {
-        println!("{}", fmt::bold("Last Self-Repair:"));
+        println!(
+            "{}",
+            fmt::section_title(&fmt::emojis::RESTORE, "Last Self-Repair")
+        );
+        println!();
         println!(
             "  {} {}",
-            fmt::dimmed("When:"),
+            fmt::emojis::TIME,
             repair.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
         );
         if repair.success {
-            println!("  {} Successful", fmt::success(""));
+            println!("  {} {}", fmt::emojis::SUCCESS, fmt::bold("Successful"));
         } else {
-            println!("  {} Incomplete", fmt::warning(""));
+            println!("  {} {}", fmt::emojis::WARNING, fmt::bold("Incomplete"));
         }
+        println!();
+        println!("  {}:", fmt::bold("Actions Taken"));
         for action in &repair.actions {
-            println!("    • {}", action);
+            println!("    {} {}", fmt::symbols::ARROW, fmt::dimmed(action));
         }
         println!();
     }
 
-    // Recent daemon log
-    println!("{}", fmt::bold("Recent daemon log (annad):"));
+    // Beta.141: Enhanced daemon log display
+    println!(
+        "{}",
+        fmt::section_title(&fmt::emojis::DAEMON, "Recent Daemon Log")
+    );
+    println!();
     display_recent_logs();
     println!();
 
-    // Top suggestions
+    // Beta.141: Enhanced suggestions display
     if let Ok(all_suggestions) = crate::suggestions::get_suggestions() {
         let critical: Vec<_> = all_suggestions.iter().filter(|s| s.priority <= 2).collect();
 
         if !critical.is_empty() {
-            println!("{}", fmt::bold("Top Suggestions:"));
+            println!(
+                "{}",
+                fmt::section_title(&fmt::emojis::TIP, "Top Suggestions")
+            );
+            println!();
             for (i, suggestion) in critical.iter().take(3).enumerate() {
-                println!("  {}. {}", i + 1, suggestion.title);
+                println!(
+                    "  {}. {} {}",
+                    i + 1,
+                    fmt::emojis::ROCKET,
+                    suggestion.title
+                );
             }
             println!();
             println!(
-                "  {} Ask Anna: \"what should I improve?\" for details",
-                fmt::dimmed("→")
+                "  {} {}",
+                fmt::emojis::INFO,
+                fmt::dimmed("Ask Anna: \"what should I improve?\" for details")
             );
             println!();
         }

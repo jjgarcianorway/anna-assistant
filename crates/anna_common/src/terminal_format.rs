@@ -60,6 +60,56 @@ pub mod symbols {
     pub const BOX_B: &str = "┴";
 }
 
+/// Beta.141: Emoji indicators for visual scanning (catch Claude's attention!)
+pub mod emojis {
+    // System status
+    pub const HEALTHY: &str = "✅";
+    pub const DEGRADED: &str = "⚠️";
+    pub const ERROR: &str = "❌";
+    pub const RUNNING: &str = "🟢";
+    pub const STOPPED: &str = "🔴";
+    pub const UNKNOWN: &str = "❓";
+
+    // Categories
+    pub const CPU: &str = "🔥";
+    pub const MEMORY: &str = "🧠";
+    pub const DISK: &str = "💾";
+    pub const NETWORK: &str = "🌐";
+    pub const GPU: &str = "🎮";
+    pub const PACKAGE: &str = "📦";
+    pub const SERVICE: &str = "⚙️";
+    pub const SECURITY: &str = "🔒";
+
+    // Actions
+    pub const INSTALL: &str = "⬇️";
+    pub const REMOVE: &str = "🗑️";
+    pub const UPDATE: &str = "🔄";
+    pub const CONFIGURE: &str = "⚙️";
+    pub const BACKUP: &str = "💾";
+    pub const RESTORE: &str = "♻️";
+
+    // Status
+    pub const SUCCESS: &str = "✅";
+    pub const FAILURE: &str = "❌";
+    pub const PENDING: &str = "⏳";
+    pub const SKIPPED: &str = "⏭️";
+
+    // Information
+    pub const NOTE: &str = "📝";
+    pub const TIP: &str = "💡";
+    pub const WARNING: &str = "⚠️";
+    pub const CRITICAL: &str = "🚨";
+    pub const INFO: &str = "ℹ️";
+
+    // System components
+    pub const DAEMON: &str = "👾";
+    pub const LLM: &str = "🤖";
+    pub const USER: &str = "👤";
+    pub const ROOT: &str = "🔐";
+    pub const TIME: &str = "⏰";
+    pub const ROCKET: &str = "🚀";
+}
+
 /// Format a section title with icon
 pub fn section_title(icon: &str, text: &str) -> String {
     format!(
@@ -320,6 +370,101 @@ pub fn dimmed(text: &str) -> String {
 /// Format bold text
 pub fn bold(text: &str) -> String {
     format!("{}{}{}", colors::BOLD, text, colors::RESET)
+}
+
+/// Beta.141: System status with emoji indicator
+pub fn system_status(status: &str, details: &str) -> String {
+    let (emoji, color) = match status.to_lowercase().as_str() {
+        "healthy" | "good" | "ok" => (emojis::HEALTHY, colors::GREEN),
+        "degraded" | "warning" => (emojis::DEGRADED, colors::YELLOW),
+        "error" | "critical" | "bad" => (emojis::ERROR, colors::RED),
+        "running" => (emojis::RUNNING, colors::GREEN),
+        "stopped" => (emojis::STOPPED, colors::RED),
+        _ => (emojis::UNKNOWN, colors::GRAY),
+    };
+    format!(
+        "{}{} {}{}{} {}",
+        color,
+        emoji,
+        colors::BOLD,
+        status.to_uppercase(),
+        colors::RESET,
+        details
+    )
+}
+
+/// Beta.141: Telemetry item with category emoji
+pub fn telemetry_item(category: &str, label: &str, value: &str) -> String {
+    let emoji = match category.to_lowercase().as_str() {
+        "cpu" => emojis::CPU,
+        "memory" | "ram" => emojis::MEMORY,
+        "disk" | "storage" => emojis::DISK,
+        "network" => emojis::NETWORK,
+        "gpu" => emojis::GPU,
+        "package" => emojis::PACKAGE,
+        "service" => emojis::SERVICE,
+        "security" => emojis::SECURITY,
+        _ => emojis::INFO,
+    };
+    format!(
+        "{} {}{}{}: {}{}{}",
+        emoji,
+        colors::BOLD,
+        label,
+        colors::RESET,
+        colors::CYAN,
+        value,
+        colors::RESET
+    )
+}
+
+/// Beta.141: Action message with emoji
+pub fn action_message(action: &str, target: &str) -> String {
+    let emoji = match action.to_lowercase().as_str() {
+        "install" | "installing" => emojis::INSTALL,
+        "remove" | "removing" | "uninstall" => emojis::REMOVE,
+        "update" | "updating" | "upgrade" => emojis::UPDATE,
+        "configure" | "configuring" => emojis::CONFIGURE,
+        "backup" => emojis::BACKUP,
+        "restore" => emojis::RESTORE,
+        _ => emojis::INFO,
+    };
+    format!(
+        "{} {}{}{} {}",
+        emoji,
+        colors::BOLD,
+        action,
+        colors::RESET,
+        target
+    )
+}
+
+/// Beta.141: Component status (daemon, LLM, etc.)
+pub fn component_status(component: &str, status: &str) -> String {
+    let emoji = match component.to_lowercase().as_str() {
+        "daemon" | "annad" => emojis::DAEMON,
+        "llm" | "model" => emojis::LLM,
+        "user" => emojis::USER,
+        "root" | "sudo" => emojis::ROOT,
+        _ => emojis::SERVICE,
+    };
+    let (status_emoji, color) = match status.to_lowercase().as_str() {
+        "running" | "active" | "healthy" => (emojis::RUNNING, colors::GREEN),
+        "stopped" | "inactive" => (emojis::STOPPED, colors::RED),
+        "degraded" | "warning" => (emojis::DEGRADED, colors::YELLOW),
+        _ => (emojis::UNKNOWN, colors::GRAY),
+    };
+    format!(
+        "{} {}{}{}: {} {}{}{}",
+        emoji,
+        colors::BOLD,
+        component,
+        colors::RESET,
+        status_emoji,
+        color,
+        status,
+        colors::RESET
+    )
 }
 
 #[cfg(test)]

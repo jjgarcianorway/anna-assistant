@@ -130,17 +130,26 @@ impl HealthReport {
         Ok(report)
     }
 
-    /// Display human-readable health summary
+    /// Beta.141: Enhanced display with emoji indicators
     pub fn display_summary(&self) {
         match self.status {
             HealthStatus::Healthy => {
-                println!("{}", fmt::success("✓ Anna is healthy"));
+                println!(
+                    "  {}",
+                    fmt::system_status("healthy", "all systems operational")
+                );
             }
             HealthStatus::Degraded => {
-                println!("{}", fmt::warning("⚠ Anna is degraded but functional"));
+                println!(
+                    "  {}",
+                    fmt::system_status("degraded", "some issues detected, but functional")
+                );
             }
             HealthStatus::Broken => {
-                println!("{}", fmt::error("✗ Anna has critical issues"));
+                println!(
+                    "  {}",
+                    fmt::system_status("error", "critical issues preventing normal operation")
+                );
             }
         }
     }
