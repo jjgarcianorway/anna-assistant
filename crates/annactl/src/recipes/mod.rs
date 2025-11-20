@@ -3,6 +3,7 @@
 //! Beta.151: Hard-coded, testable recipes for common user scenarios
 //! Beta.152: Expanded with systemd, network, system_update, and AUR recipes
 //! Beta.153: Added SSH, firewall (UFW), and user management recipes
+//! Beta.154: Added development environment recipes (Rust, Python, Node.js)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -31,6 +32,11 @@ pub mod firewall;
 pub mod ssh;
 pub mod users;
 
+// Beta.154 recipes
+pub mod nodejs;
+pub mod python;
+pub mod rust;
+
 use anna_common::action_plan_v3::ActionPlan;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -57,6 +63,19 @@ pub fn try_recipe_match(
     // System update recipes (specific)
     if system_update::SystemUpdateRecipe::matches_request(user_input) {
         return Some(system_update::SystemUpdateRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.154 recipes - Development environments (specific)
+    if rust::RustRecipe::matches_request(user_input) {
+        return Some(rust::RustRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if python::PythonRecipe::matches_request(user_input) {
+        return Some(python::PythonRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if nodejs::NodeJsRecipe::matches_request(user_input) {
+        return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
     }
 
     // Systemd service management (specific)
@@ -140,6 +159,17 @@ mod tests {
         assert!(try_recipe_match("remove user testaccount", &telemetry).is_some());
         assert!(try_recipe_match("add user to docker group", &telemetry).is_some());
         assert!(try_recipe_match("list users", &telemetry).is_some());
+
+        // Beta.154 recipes
+        assert!(try_recipe_match("install Rust", &telemetry).is_some());
+        assert!(try_recipe_match("install cargo and rustup", &telemetry).is_some());
+        assert!(try_recipe_match("check Rust status", &telemetry).is_some());
+        assert!(try_recipe_match("install Python", &telemetry).is_some());
+        assert!(try_recipe_match("setup Python development environment", &telemetry).is_some());
+        assert!(try_recipe_match("create Python venv", &telemetry).is_some());
+        assert!(try_recipe_match("install Node.js", &telemetry).is_some());
+        assert!(try_recipe_match("setup npm", &telemetry).is_some());
+        assert!(try_recipe_match("initialize new npm project", &telemetry).is_some());
 
         // Generic query should not match
         assert!(try_recipe_match("what is the weather", &telemetry).is_none());

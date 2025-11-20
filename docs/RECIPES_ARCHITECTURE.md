@@ -37,7 +37,10 @@ crates/annactl/src/recipes/
 ├── aur.rs              # AUR package management (Beta.152)
 ├── ssh.rs              # SSH installation and configuration (Beta.153)
 ├── firewall.rs         # UFW firewall management (Beta.153)
-└── users.rs            # User and group management (Beta.153)
+├── users.rs            # User and group management (Beta.153)
+├── rust.rs             # Rust development environment (Beta.154)
+├── python.rs           # Python development environment (Beta.154)
+└── nodejs.rs           # Node.js development environment (Beta.154)
 ```
 
 ### Recipe Module Pattern
@@ -556,7 +559,7 @@ The recipe system is the **first priority** in the query pipeline:
 
 ---
 
-## Recipe Coverage (Beta.153)
+## Recipe Coverage (Beta.154)
 
 | Category | Recipes | Example Queries |
 |----------|---------|-----------------|
@@ -564,9 +567,10 @@ The recipe system is the **first priority** in the query pipeline:
 | **Service Management** | systemd | "enable NetworkManager", "restart bluetooth", "status of sshd" |
 | **Network** | network | "check internet", "why is wifi not working", "show available networks" |
 | **Security & Access** | ssh, firewall, users | "install SSH server", "enable firewall", "add user john", "add user to docker group" |
+| **Development** | rust, python, nodejs | "install Rust", "setup Python venv", "initialize npm project", "install development tools" |
 | **Desktop** | wallpaper | "change my wallpaper" |
 
-**Total**: 11 recipes covering ~75 common Arch Linux admin tasks
+**Total**: 14 recipes covering ~90 common Arch Linux admin tasks
 
 ---
 
@@ -577,8 +581,8 @@ Potential recipes for future versions:
 1. ~~**Firewall management** (ufw, iptables)~~ ✅ **Done in Beta.153**
 2. ~~**User/group management** (useradd, usermod, groups)~~ ✅ **Done in Beta.153**
 3. ~~**SSH configuration** (install, keys, config)~~ ✅ **Done in Beta.153**
-4. **GPU drivers** (nvidia, amd, intel)
-5. **Development environments** (rust, python, node, go)
+4. ~~**Development environments** (rust, python, node)~~ ✅ **Done in Beta.154**
+5. **GPU drivers** (nvidia, amd, intel)
 6. **Disk operations** (mount, fstab, partitioning)
 7. **Backup operations** (rsync, timeshift)
 8. **Boot management** (grub, systemd-boot)
@@ -633,6 +637,7 @@ Recipes should feel like having an experienced sysadmin guide you through a task
 - **Beta.151**: Initial recipe system (docker, neovim, packages, wallpaper)
 - **Beta.152**: Major expansion (systemd, network, system_update, aur) - 4 new recipes, 8 total
 - **Beta.153**: Security & access control (ssh, firewall, users) - 3 new recipes, 11 total
+- **Beta.154**: Development environments (rust, python, nodejs) - 3 new recipes, 14 total
 
 ---
 
