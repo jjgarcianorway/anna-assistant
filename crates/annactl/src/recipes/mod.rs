@@ -9,6 +9,7 @@
 //! Beta.157: Added system management recipes (monitoring, backup, performance)
 //! Beta.158: Added desktop application recipes (browser, media, productivity)
 //! Beta.159: Added terminal and shell tool recipes (terminal, shell, compression)
+//! Beta.160: Added communication and productivity recipes (communication, editor, sync)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -60,6 +61,9 @@ pub mod performance;
 // Beta.158 recipes
 
 // Beta.159 recipes
+pub mod communication;
+pub mod editor;
+pub mod sync;
 pub mod compression;
 pub mod shell;
 pub mod terminal;
@@ -106,6 +110,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.160 recipes - Communication and productivity (specific)
+    if communication::CommunicationRecipe::matches_request(user_input) {
+        return Some(communication::CommunicationRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if editor::EditorRecipe::matches_request(user_input) {
+        return Some(editor::EditorRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if sync::SyncRecipe::matches_request(user_input) {
+        return Some(sync::SyncRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.159 recipes - Terminal and shell tools (specific)
@@ -298,6 +315,11 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.160 recipes
+        assert!(try_recipe_match("install discord", &telemetry).is_some());
+        assert!(try_recipe_match("install vscode", &telemetry).is_some());
+        assert!(try_recipe_match("install syncthing", &telemetry).is_some());
 
         // Beta.159 recipes
         assert!(try_recipe_match("install tmux", &telemetry).is_some());

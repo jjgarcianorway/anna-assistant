@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.159
+**Version:** 5.7.0-beta.160
 **Status:** Beta - Active Development
 
 ---
@@ -91,7 +91,7 @@ annactl "give me a full system report"
 
 ---
 
-## Current Capabilities (Beta.159)
+## Current Capabilities (Beta.160)
 
 ### ✅ What Works
 
@@ -124,8 +124,8 @@ annactl "give me a full system report"
 - ✅ Desktop environment detection (DE/WM/display protocol)
 - ✅ Risk levels: INFO (blue), LOW (green), MEDIUM (yellow), HIGH (red)
 
-**Recipe Library (Beta.159 - EXPANDED):
-- ✅ 29 deterministic recipes for common Arch Linux tasks
+**Recipe Library (Beta.160 - EXPANDED):
+- ✅ 32 deterministic recipes for common Arch Linux tasks
 - ✅ Systemd service management (enable/disable/start/stop/restart/status)
 - ✅ Network diagnostics and configuration guidance
 - ✅ System updates (check/upgrade packages)
@@ -151,14 +151,17 @@ annactl "give me a full system report"
 - ✅ Terminal tools (alacritty, kitty, tmux, screen) (NEW)
 - ✅ Shell environments (zsh, fish, oh-my-zsh) (NEW)
 - ✅ Compression tools (zip, 7zip, unrar) (NEW)
-- ✅ Zero-hallucination, tested, safe action plans (204 tests passing)
+- ✅ Communication apps (Discord, Slack, Telegram, Signal) (NEW)
+- ✅ Text editors (VS Code, Sublime Text, Neovim) (NEW)
+- ✅ File sync tools (Syncthing, rclone) (NEW)
+- ✅ Zero-hallucination, tested, safe action plans (211 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
 ### 🔧 Partially Implemented
 
 **What exists but needs work:**
 - 🔧 LLM JSON output quality - Model doesn't consistently generate valid ActionPlan JSON for complex multi-step queries
-- 🔧 Recipe coverage - 29 recipes implemented (Beta.159), more needed for comprehensive coverage
+- 🔧 Recipe coverage - 32 recipes implemented (Beta.160), more needed for comprehensive coverage
 - 🔧 Template matching - Works for simple queries, limited coverage
 - 🔧 Action execution - Infrastructure ready, execution depends on recipe or LLM JSON quality
 
