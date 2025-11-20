@@ -13,6 +13,7 @@
 //! Beta.161: Added gaming recipes (gaming, wine, gamepad)
 //! Beta.162: Added security recipes (security, antivirus, vpn)
 //! Beta.163: Added virtualization recipes (virtualization, containers, virt_network)
+//! Beta.164: Added audio recipes (audio, music, recording)
 //!
 //! These modules generate predictable ActionPlans without relying on LLM
 //! generation, reducing hallucination risk and ensuring consistent, safe
@@ -62,6 +63,11 @@ pub mod monitoring;
 pub mod performance;
 
 // Beta.158 recipes
+
+// Beta.164 recipes
+pub mod audio;
+pub mod music;
+pub mod recording;
 
 // Beta.163 recipes
 pub mod virtualization;
@@ -128,6 +134,19 @@ pub fn try_recipe_match(
 
     if nodejs::NodeJsRecipe::matches_request(user_input) {
         return Some(nodejs::NodeJsRecipe::build_plan(&telemetry_with_request));
+    }
+
+    // Beta.164 recipes - Audio & Music (specific)
+    if audio::AudioRecipe::matches_request(user_input) {
+        return Some(audio::AudioRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if music::MusicRecipe::matches_request(user_input) {
+        return Some(music::MusicRecipe::build_plan(&telemetry_with_request));
+    }
+
+    if recording::RecordingRecipe::matches_request(user_input) {
+        return Some(recording::RecordingRecipe::build_plan(&telemetry_with_request));
     }
 
     // Beta.163 recipes - Virtualization (specific)
@@ -372,6 +391,11 @@ mod tests {
         assert!(try_recipe_match("install cpupower", &telemetry).is_some());
         assert!(try_recipe_match("set cpu governor", &telemetry).is_some());
         assert!(try_recipe_match("tune swappiness", &telemetry).is_some());
+
+        // Beta.164 recipes
+        assert!(try_recipe_match("install pipewire", &telemetry).is_some());
+        assert!(try_recipe_match("install spotify", &telemetry).is_some());
+        assert!(try_recipe_match("setup jack", &telemetry).is_some());
 
         // Beta.163 recipes
         assert!(try_recipe_match("install qemu", &telemetry).is_some());

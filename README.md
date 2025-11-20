@@ -163,6 +163,9 @@ annactl "give me a full system report"
 - ✅ Virtualization (QEMU/KVM, VirtualBox, virt-manager) (NEW)
 - ✅ Container tools (Podman, Buildah, Skopeo, rootless) (NEW)
 - ✅ Virtual networks (libvirt network management) (NEW)
+- ✅ Audio systems (PipeWire, PulseAudio, ALSA) (NEW)
+- ✅ Music players (Spotify, MPD, ncmpcpp) (NEW)
+- ✅ Audio recording (Audacity, Ardour, JACK) (NEW)
 - ✅ Zero-hallucination, tested, safe action plans (223 tests passing)
 - ✅ See `docs/RECIPES_ARCHITECTURE.md` for details
 
