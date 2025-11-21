@@ -305,7 +305,7 @@ impl Default for RecipeExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::command_recipe::OutputValidation;
+    use crate::command_recipe::{OutputValidation, SafetyLevel};
 
     #[tokio::test]
     async fn test_simple_execution() {

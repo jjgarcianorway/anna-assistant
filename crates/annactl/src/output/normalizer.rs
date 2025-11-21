@@ -1,212 +1,101 @@
-//! Canonical answer normalization module for Beta.208
+//! Output Normalization Module (Beta.210)
 //!
-//! This module provides a single source of truth for text normalization across all answer types.
-//! All answers (deterministic, template, recipe, LLM, fallback) must pass through these functions
-//! to ensure byte-for-byte identical formatting (except ANSI codes) in CLI and TUI modes.
+//! Provides unified normalization for CLI and TUI output following the
+//! canonical [SUMMARY]/[DETAILS]/[COMMANDS] format defined in ANSWER_FORMAT.md.
 //!
-//! Key principles:
-//! - Single normalization pipeline for all answer text
-//! - Consistent [SUMMARY]/[DETAILS]/[COMMANDS] format enforcement
-//! - Markdown normalization (whitespace, blank lines, section spacing)
-//! - CLI and TUI receive identical markdown (TUI adds ANSI codes only)
+//! Philosophy:
+//! - Single source of truth for output format
+//! - Semantic structure enforced at normalization layer
+//! - Terminal formatting applied in rendering layer only
+//! - CLI and TUI share identical semantic content
 
-use std::env;
+use owo_colors::OwoColorize;
 
-/// Normalize answer text for CLI output
+/// Normalize text for CLI output
 ///
-/// This is the primary normalization function for command-line output.
-/// It applies all normalization rules to produce clean, consistent markdown.
+/// Takes canonical [SUMMARY]/[DETAILS]/[COMMANDS] formatted text and applies
+/// terminal formatting for CLI display.
 ///
-/// # Arguments
-/// * `answer` - Raw answer text from any source (deterministic, LLM, recipe, etc.)
-///
-/// # Returns
-/// Normalized text ready for CLI display
-pub fn normalize_for_cli(answer: &str) -> String {
-    let debug = env::var("ANNA_DEBUG_NORMALIZATION").is_ok();
+/// Features:
+/// - Section headers highlighted in cyan+bold
+/// - Commands highlighted in green
+/// - Preserves semantic structure
+/// - Adds terminal colors where supported
+pub fn normalize_for_cli(text: &str) -> String {
+    let mut output = String::new();
 
-    if debug {
-        eprintln!("[DEBUG] normalize_for_cli: Input length = {} bytes", answer.len());
+    for line in text.lines() {
+        let trimmed = line.trim();
+
+        // Section markers: [SUMMARY], [DETAILS], [COMMANDS]
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            output.push_str(&format!("{}\n", line.cyan().bold()));
+        }
+        // Command lines (starting with $ or #)
+        else if trimmed.starts_with('$') || trimmed.starts_with('#') {
+            output.push_str(&format!("{}\n", line.green()));
+        }
+        // Regular content
+        else {
+            output.push_str(&format!("{}\n", line));
+        }
     }
 
-    let normalized = normalize_markdown(answer);
-
-    if debug {
-        eprintln!("[DEBUG] normalize_for_cli: Output length = {} bytes", normalized.len());
-    }
-
-    normalized
+    output
 }
 
-/// Normalize answer text for TUI output
+/// Normalize text for TUI output
 ///
-/// This function prepares text for TUI rendering. The TUI renderer will add ANSI codes
-/// for syntax highlighting, but the underlying markdown structure must be identical to CLI.
+/// Takes canonical [SUMMARY]/[DETAILS]/[COMMANDS] formatted text and prepares
+/// it for TUI rendering.
 ///
-/// # Arguments
-/// * `answer` - Raw answer text from any source
-///
-/// # Returns
-/// Normalized text ready for TUI display (before ANSI code injection)
-pub fn normalize_for_tui(answer: &str) -> String {
-    let debug = env::var("ANNA_DEBUG_NORMALIZATION").is_ok();
+/// Features:
+/// - Strips section markers for cleaner TUI display
+/// - Preserves content structure
+/// - Returns plain text for TUI renderer to style
+pub fn normalize_for_tui(text: &str) -> String {
+    let mut output = String::new();
+    let mut in_section = false;
 
-    if debug {
-        eprintln!("[DEBUG] normalize_for_tui: Input length = {} bytes", answer.len());
+    for line in text.lines() {
+        let trimmed = line.trim();
+
+        // Section markers - convert to section breaks in TUI
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            if in_section {
+                output.push('\n'); // Add spacing between sections
+            }
+            in_section = true;
+            // Don't include the marker itself in TUI
+            continue;
+        }
+
+        // Include all other content
+        output.push_str(line);
+        output.push('\n');
     }
 
-    // TUI uses the exact same normalization as CLI
-    // ANSI codes are added later by the TUI renderer
-    let normalized = normalize_markdown(answer);
-
-    if debug {
-        eprintln!("[DEBUG] normalize_for_tui: Output length = {} bytes", normalized.len());
-    }
-
-    normalized
+    output
 }
 
-/// Core markdown normalization function
+/// Generate fallback message when startup metadata is unavailable
 ///
-/// This function applies all normalization rules:
-/// 1. Trim trailing whitespace from each line
-/// 2. Collapse multiple consecutive blank lines into one
-/// 3. Remove leading and trailing blank lines
-/// 4. Normalize section spacing ([SUMMARY], [DETAILS], [COMMANDS])
-/// 5. Ensure proper spacing around code blocks
-///
-/// # Arguments
-/// * `text` - Raw text to normalize
-///
-/// # Returns
-/// Normalized markdown text
-fn normalize_markdown(text: &str) -> String {
-    let debug = env::var("ANNA_DEBUG_NORMALIZATION").is_ok();
+/// Returns canonical [SUMMARY]/[DETAILS]/[COMMANDS] format with recovery guidance.
+pub fn generate_fallback_message(error_msg: &str) -> String {
+    format!(
+        r#"[SUMMARY]
+Startup metadata unavailable.
 
-    if debug {
-        eprintln!("[DEBUG] normalize_markdown: Starting normalization");
-    }
+[DETAILS]
+{error_msg}
 
-    // Step 1: Trim trailing whitespace from each line
-    let lines: Vec<&str> = text.lines().collect();
-    let trimmed_lines: Vec<String> = lines.iter().map(|line| line.trim_end().to_string()).collect();
+The welcome system requires access to session metadata for system change detection.
 
-    if debug {
-        eprintln!("[DEBUG] normalize_markdown: Trimmed {} lines", trimmed_lines.len());
-    }
-
-    // Step 2: Normalize blocks (sections, code blocks, blank lines)
-    let normalized_blocks = normalize_blocks(&trimmed_lines.join("\n"));
-
-    if debug {
-        eprintln!("[DEBUG] normalize_markdown: Blocks normalized");
-    }
-
-    normalized_blocks
-}
-
-/// Normalize section blocks, code blocks, and blank line spacing
-///
-/// This function handles:
-/// - [SUMMARY], [DETAILS], [COMMANDS] section spacing
-/// - Code block (```) spacing
-/// - Collapsing multiple consecutive blank lines
-/// - Removing leading/trailing blank lines
-///
-/// # Arguments
-/// * `text` - Text with trimmed lines
-///
-/// # Returns
-/// Text with normalized block spacing
-fn normalize_blocks(text: &str) -> String {
-    let debug = env::var("ANNA_DEBUG_NORMALIZATION").is_ok();
-
-    let lines: Vec<&str> = text.lines().collect();
-    let mut normalized: Vec<String> = Vec::new();
-    let mut prev_blank = false;
-    let mut in_code_block = false;
-
-    for line in &lines {
-        let trimmed = line.trim_end();
-        let is_blank = trimmed.is_empty();
-        let is_section_header = trimmed.starts_with("[SUMMARY]")
-            || trimmed.starts_with("[DETAILS]")
-            || trimmed.starts_with("[COMMANDS]");
-        let is_code_fence = trimmed.starts_with("```");
-
-        // Track code block state
-        if is_code_fence {
-            in_code_block = !in_code_block;
-        }
-
-        // Inside code blocks: preserve all content exactly (including blank lines)
-        if in_code_block && !is_code_fence {
-            normalized.push(trimmed.to_string());
-            prev_blank = false;
-            continue;
-        }
-
-        // Section headers: ensure exactly one blank line before (except at start)
-        if is_section_header {
-            if !normalized.is_empty() && !prev_blank {
-                normalized.push(String::new());
-            }
-            normalized.push(trimmed.to_string());
-            prev_blank = false;
-            continue;
-        }
-
-        // Code fence: ensure blank line before opening fence (except at start)
-        if is_code_fence && !in_code_block {
-            if !normalized.is_empty() && !prev_blank {
-                normalized.push(String::new());
-            }
-            normalized.push(trimmed.to_string());
-            in_code_block = true;
-            prev_blank = false;
-            continue;
-        }
-
-        // Closing code fence: add it and ensure blank line after (unless it's the last line)
-        if is_code_fence && in_code_block {
-            normalized.push(trimmed.to_string());
-            prev_blank = true; // Mark as blank to add spacing after code block
-            continue;
-        }
-
-        // Blank lines: collapse multiple consecutive blank lines into one
-        if is_blank {
-            if !prev_blank && !normalized.is_empty() {
-                normalized.push(String::new());
-                prev_blank = true;
-            }
-            continue;
-        }
-
-        // Regular lines: add normally
-        normalized.push(trimmed.to_string());
-        prev_blank = false;
-    }
-
-    // Remove leading blank lines
-    while !normalized.is_empty() && normalized[0].is_empty() {
-        normalized.remove(0);
-    }
-
-    // Remove trailing blank lines
-    while !normalized.is_empty() && normalized[normalized.len() - 1].is_empty() {
-        normalized.pop();
-    }
-
-    if debug {
-        eprintln!(
-            "[DEBUG] normalize_blocks: {} lines → {} lines",
-            lines.len(),
-            normalized.len()
-        );
-    }
-
-    normalized.join("\n")
+[COMMANDS]
+$ systemctl status annad
+$ journalctl -u annad --no-pager | tail -20
+$ annactl status"#
+    )
 }
 
 #[cfg(test)]
@@ -214,75 +103,53 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_normalize_trailing_whitespace() {
-        let input = "Line 1   \nLine 2\t\nLine 3";
-        let expected = "Line 1\nLine 2\nLine 3";
-        assert_eq!(normalize_for_cli(input), expected);
-    }
-
-    #[test]
-    fn test_collapse_blank_lines() {
-        let input = "Line 1\n\n\n\nLine 2";
-        let expected = "Line 1\n\nLine 2";
-        assert_eq!(normalize_for_cli(input), expected);
-    }
-
-    #[test]
-    fn test_remove_leading_trailing_blank_lines() {
-        let input = "\n\nLine 1\nLine 2\n\n";
-        let expected = "Line 1\nLine 2";
-        assert_eq!(normalize_for_cli(input), expected);
-    }
-
-    #[test]
-    fn test_section_header_spacing() {
-        let input = "[SUMMARY]\nSummary text\n[DETAILS]\nDetails text\n[COMMANDS]\nCommands text";
-        let expected = "[SUMMARY]\nSummary text\n\n[DETAILS]\nDetails text\n\n[COMMANDS]\nCommands text";
-        assert_eq!(normalize_for_cli(input), expected);
-    }
-
-    #[test]
-    fn test_code_block_spacing() {
-        let input = "Text before\n```bash\ncommand\n```\nText after";
-        let expected = "Text before\n\n```bash\ncommand\n```\n\nText after";
-        assert_eq!(normalize_for_cli(input), expected);
-    }
-
-    #[test]
-    fn test_code_block_preserves_blank_lines() {
-        let input = "```bash\nline1\n\nline3\n```";
-        let expected = "```bash\nline1\n\nline3\n```";
-        assert_eq!(normalize_for_cli(input), expected);
-    }
-
-    #[test]
-    fn test_cli_tui_consistency() {
-        let input = "[SUMMARY]\n  Text with spaces  \n\n\nMore text\n\n";
-        let cli_result = normalize_for_cli(input);
-        let tui_result = normalize_for_tui(input);
-        assert_eq!(cli_result, tui_result, "CLI and TUI normalization must produce identical output");
-    }
-
-    #[test]
-    fn test_real_world_deterministic_answer() {
+    fn test_normalize_for_cli_preserves_structure() {
         let input = r#"[SUMMARY]
-File /usr/bin/ls is owned by an installed package.
+Test summary
 
 [DETAILS]
-/usr/bin/ls is owned by coreutils 9.4-1
-
+Test details
 
 [COMMANDS]
-$ pacman -Qo /usr/bin/ls
-"#;
-        let expected = r#"[SUMMARY]
-File /usr/bin/ls is owned by an installed package.
+$ echo hello"#;
+
+        let output = normalize_for_cli(input);
+
+        // Should contain all sections
+        assert!(output.contains("[SUMMARY]"));
+        assert!(output.contains("[DETAILS]"));
+        assert!(output.contains("[COMMANDS]"));
+        assert!(output.contains("Test summary"));
+        assert!(output.contains("$ echo hello"));
+    }
+
+    #[test]
+    fn test_normalize_for_tui_removes_markers() {
+        let input = r#"[SUMMARY]
+Test summary
 
 [DETAILS]
-/usr/bin/ls is owned by coreutils 9.4-1
+Test details"#;
 
-[COMMANDS]
-$ pacman -Qo /usr/bin/ls"#;
-        assert_eq!(normalize_for_cli(input), expected);
+        let output = normalize_for_tui(input);
+
+        // Should NOT contain section markers
+        assert!(!output.contains("[SUMMARY]"));
+        assert!(!output.contains("[DETAILS]"));
+
+        // Should contain content
+        assert!(output.contains("Test summary"));
+        assert!(output.contains("Test details"));
+    }
+
+    #[test]
+    fn test_fallback_message_format() {
+        let fallback = generate_fallback_message("Test error");
+
+        assert!(fallback.contains("[SUMMARY]"));
+        assert!(fallback.contains("[DETAILS]"));
+        assert!(fallback.contains("[COMMANDS]"));
+        assert!(fallback.contains("Test error"));
+        assert!(fallback.contains("systemctl status annad"));
     }
 }

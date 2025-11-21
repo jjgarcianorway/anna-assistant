@@ -214,7 +214,7 @@ fn test_log_entry_structure() {
 /// Test output structure
 #[test]
 fn test_output_structure() {
-    use annactl::output::CommandOutput;
+    use annactl::cli_output::CommandOutput;
 
     // Test not_available output
     let output = CommandOutput::not_available(

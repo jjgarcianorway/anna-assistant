@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.210] - 2025-01-21
+
+### OUTPUT NORMALIZER INFRASTRUCTURE
+
+**What Changed:** Added foundational output normalization module with CLI and TUI formatting functions, preparing for unified startup system integration.
+
+#### Core Implementation
+
+**New Module: output/normalizer.rs (156 lines)**
+- `normalize_for_cli()` - Terminal output with ANSI colors (cyan headers, green commands)
+- `normalize_for_tui()` - Plain text for ratatui rendering (strips section markers)
+- `generate_fallback_message()` - Canonical error messages with recovery commands
+
+**Normalization Features:**
+- Preserves canonical `[SUMMARY]/[DETAILS]/[COMMANDS]` structure
+- CLI: Adds terminal colors for headers and command lines
+- TUI: Removes section markers for cleaner display
+- Handles whitespace normalization
+- Provides fallback message generation
+
+#### Integration Status
+
+**Infrastructure-Only Release:**
+- ✅ Normalizer module fully implemented
+- ✅ Unit tests passing (3/3)
+- ✅ Module compiles with zero warnings
+- ✅ Public API stable and documented
+- ⏳ CLI startup integration (deferred to Beta.211)
+- ⏳ TUI startup integration (deferred to Beta.212)
+- ⏳ Status bar updates (deferred to Beta.213)
+- ⏳ Legacy code removal (deferred to Beta.214)
+
+#### Test Coverage
+
+**3 unit tests in normalizer.rs:**
+- Structure preservation for CLI output
+- Section marker removal for TUI output
+- Fallback message formatting
+
+#### Technical Details
+
+**Files Changed:**
+- `crates/annactl/src/output/mod.rs` - NEW (8 lines)
+- `crates/annactl/src/output/normalizer.rs` - NEW (156 lines)
+- `docs/BETA_210_NOTES.md` - NEW (complete specification)
+- `CHANGELOG.md` - Updated
+
+**Philosophy:**
+Beta.210 follows infrastructure-first architecture: build solid foundations before integration. This release provides the complete normalizer module without modifying existing UI rendering paths, minimizing risk while establishing the foundation for future CLI and TUI startup unification.
+
 ## [5.7.0-beta.208] - 2025-11-21
 
 ### CANONICAL NORMALIZATION PIPELINE

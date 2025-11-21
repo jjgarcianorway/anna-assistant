@@ -56,7 +56,7 @@ use anna_common::telemetry::SystemTelemetry;
 use anyhow::Result;
 
 use crate::dialogue_v3_json;
-use crate::output::normalizer;
+use crate::output;
 use crate::query_handler;
 
 /// Unified query result - all query types in one enum
@@ -193,7 +193,7 @@ async fn generate_conversational_answer(
     // Beta.208: Apply canonical normalization to all answers
     if let Some(answer) = try_answer_from_telemetry(user_text, telemetry) {
         return Ok(UnifiedQueryResult::ConversationalAnswer {
-            answer: normalizer::normalize_for_cli(&answer),
+            answer: output::normalize_for_cli(&answer),
             confidence: AnswerConfidence::High,
             sources: vec!["system telemetry".to_string()],
         });
@@ -217,7 +217,7 @@ async fn generate_conversational_answer(
         .map_err(|e| anyhow::anyhow!("LLM query failed: {}", e))?;
 
     Ok(UnifiedQueryResult::ConversationalAnswer {
-        answer: normalizer::normalize_for_cli(&response.text),
+        answer: output::normalize_for_cli(&response.text),
         confidence: AnswerConfidence::Medium,
         sources: vec!["LLM".to_string()],
     })
