@@ -12,6 +12,7 @@ pub mod internal_dialogue; // LLM internal dialogue
 pub mod llm_integration; // LLM integration
 pub mod logging;
 pub mod output; // Answer normalization module (Beta.208)
+pub mod startup; // Startup context awareness and welcome reports (Beta.209)
 pub mod query_handler; // Unified 3-tier query architecture
 pub mod recipe_formatter; // Recipe answer formatting
 pub mod recipes; // Deterministic ActionPlan recipes (77+)
