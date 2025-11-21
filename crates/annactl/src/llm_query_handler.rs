@@ -59,6 +59,10 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     let config = get_llm_config();
     eprintln!("[ONE_SHOT] LLM config loaded: model={:?}", config.model);
 
+    // Beta.229: Stop spinner before unified handler to prevent corruption during streaming
+    eprintln!("[ONE_SHOT] Stopping spinner before query processing...");
+    spinner.finish_and_clear();
+
     // Use unified query handler
     eprintln!("[ONE_SHOT] Calling unified query handler...");
     let handler_start = std::time::Instant::now();
@@ -68,7 +72,6 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             action_plan,
         }) => {
             eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Deterministic recipe: {}", handler_start.elapsed(), recipe_name);
-            spinner.finish_and_clear();
             println!(
                 "{} {} {}",
                 "anna:".bright_magenta().bold(),
@@ -83,7 +86,6 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             command, output, ..
         }) => {
             eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Template command: {}", handler_start.elapsed(), command);
-            spinner.finish_and_clear();
             println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
             ui.info(&format!("  $ {}", command));
             println!();
@@ -98,7 +100,6 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             raw_json: _,
         }) => {
             eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Action plan generated", handler_start.elapsed());
-            spinner.finish_and_clear();
             println!("{}", "anna:".bright_magenta().bold());
             println!();
             display_action_plan(&action_plan, &ui);
@@ -110,43 +111,14 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             sources,
         }) => {
             eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Conversational answer ({} chars)", handler_start.elapsed(), answer.len());
-            spinner.finish_and_clear();
 
-            // Beta.213: Show welcome prelude before LLM-based answers (only for conversational answers)
-            // This provides system context delta without overwhelming the user
-            eprintln!("[ONE_SHOT] Fetching telemetry snapshot for welcome report...");
-            let current_snapshot_result = fetch_telemetry_snapshot().await;
+            // Beta.229: DISABLED - Welcome report adds 19s delay to one-shot queries
+            // The fetch_telemetry_snapshot() and generate_welcome_report() are extremely slow
+            // Re-enable in Beta.230+ with performance optimization or async background task
+            eprintln!("[ONE_SHOT] Welcome report disabled for performance (Beta.229)");
 
-            if let Some(snapshot) = current_snapshot_result {
-                eprintln!("[ONE_SHOT] Telemetry snapshot fetched, generating welcome report...");
-                let last_session = load_last_session().ok().flatten();
-                let welcome_report = generate_welcome_report(last_session, snapshot.clone());
-
-                // Only show welcome if there are changes detected (keep output minimal)
-                if !welcome_report.contains("No system changes detected") {
-                    eprintln!("[ONE_SHOT] Welcome report has system changes, displaying...");
-                    let normalized = normalize_for_cli(&welcome_report);
-                    println!("{}", normalized);
-                    println!();
-                } else {
-                    eprintln!("[ONE_SHOT] No system changes detected, skipping welcome report");
-                }
-
-                // Save session for next run
-                eprintln!("[ONE_SHOT] Saving session metadata...");
-                let _ = save_session_metadata(snapshot);
-            } else {
-                eprintln!("[ONE_SHOT] No telemetry snapshot available");
-            }
-
-            println!("{}", "anna:".bright_magenta().bold());
-            println!();
-
-            // Display answer
-            eprintln!("[ONE_SHOT] Displaying answer ({} lines)", answer.lines().count());
-            for line in answer.lines() {
-                ui.info(line);
-            }
+            // Beta.229: Answer already streamed to stdout during LLM call
+            // Don't print it again! Just show metadata
             println!();
 
             // Show confidence and sources (subtle)

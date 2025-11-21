@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.229] - 2025-01-21
+
+### CRITICAL PERFORMANCE FIXES
+
+**Type:** Performance & Feature Release
+**Focus:** Eliminate startup delays, enable streaming
+
+Beta.229 fixes the critical performance issues identified through Beta.228 logging:
+- TUI startup delay (18.5s → <1s)
+- One-shot query delay (22s → ~4s)
+- Enable word-by-word streaming everywhere
+
+#### Fixed 🔥
+- **TUI Welcome Message Removed** - Was causing 18.5s startup delay with LLM call
+- **One-Shot Welcome Report Removed** - Was adding 19s delay after LLM response
+- **Informational Queries in TUI** - Now handled properly instead of rejecting them
+
+#### Added ✨
+- **Word-by-Word Streaming** - All LLM responses now stream in real-time
+- **TUI Informational Queries** - Can now ask "how is my system?" in TUI mode
+
+#### Performance Improvements
+- TUI startup: **18.5s → <1s** (95% faster)
+- One-shot queries: **22s → ~4s** (82% faster)
+- Streaming: Real-time word output instead of waiting for complete response
+
+#### Technical Details
+- Disabled `show_welcome_message()` in TUI (event_loop.rs:136-139)
+- Disabled welcome report in one-shot queries (llm_query_handler.rs:115-118)
+- Modified TUI input handler to use unified_query_handler for all queries
+- Switched from `client.chat()` to `client.chat_stream()` with stdout printing
+- Streaming uses spawn_blocking with flush after each chunk
+
+#### User Impact
+- **TUI:** Starts instantly (no more black screen delay)
+- **One-Shot:** Responses appear immediately and stream word-by-word
+- **TUI Queries:** Can now ask any question, not just action plans
+
 ## [5.7.0-beta.228] - 2025-01-21
 
 ### COMPREHENSIVE DIAGNOSTIC LOGGING

@@ -239,19 +239,31 @@ async fn generate_conversational_answer(
         conversation_history: None,
     });
 
-    // Get LLM response (blocking, not streaming!)
-    // Beta.208: Apply canonical normalization to all answers
-    // Beta.224: Run blocking LLM call in thread pool to avoid blocking async runtime
-    eprintln!("[CONVERSATIONAL] Spawning blocking LLM call...");
+    // Beta.229: Use streaming for word-by-word output
+    eprintln!("[CONVERSATIONAL] Spawning blocking LLM streaming call...");
     let llm_start = std::time::Instant::now();
     let client_clone = Arc::clone(&client);
     let prompt_clone = Arc::clone(&llm_prompt);
-    let response = tokio::task::spawn_blocking(move || {
-        eprintln!("[LLM_THREAD] Entered spawn_blocking thread");
+
+    let response_text = tokio::task::spawn_blocking(move || {
+        eprintln!("[LLM_THREAD] Entered spawn_blocking thread (streaming mode)");
         let call_start = std::time::Instant::now();
-        let result = client_clone.chat(&prompt_clone);
-        eprintln!("[LLM_THREAD] LLM call completed in {:?}", call_start.elapsed());
-        result
+        let mut accumulated = String::new();
+
+        // Stream the response, printing each word as it arrives
+        let result = client_clone.chat_stream(&prompt_clone, &mut |chunk: &str| {
+            print!("{}", chunk);
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
+            accumulated.push_str(chunk);
+        });
+
+        eprintln!("\n[LLM_THREAD] LLM streaming completed in {:?}", call_start.elapsed());
+
+        match result {
+            Ok(()) => Ok(accumulated),
+            Err(e) => Err(e),
+        }
     })
     .await
     .map_err(|e| {
@@ -259,14 +271,14 @@ async fn generate_conversational_answer(
         anyhow::anyhow!("LLM task panicked: {}", e)
     })?
     .map_err(|e| {
-        eprintln!("[CONVERSATIONAL] LLM call error after {:?}: {}", llm_start.elapsed(), e);
+        eprintln!("[CONVERSATIONAL] LLM streaming error after {:?}: {}", llm_start.elapsed(), e);
         anyhow::anyhow!("LLM query failed: {}", e)
     })?;
 
-    eprintln!("[CONVERSATIONAL] LLM response received in {:?} ({} chars)", llm_start.elapsed(), response.text.len());
+    eprintln!("[CONVERSATIONAL] LLM response received in {:?} ({} chars)", llm_start.elapsed(), response_text.len());
 
     Ok(UnifiedQueryResult::ConversationalAnswer {
-        answer: output::normalize_for_cli(&response.text),
+        answer: output::normalize_for_cli(&response_text),
         confidence: AnswerConfidence::Medium,
         sources: vec!["LLM".to_string()],
     })

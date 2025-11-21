@@ -133,15 +133,10 @@ async fn run_event_loop(
     super::brain::update_brain_analysis(state).await;
     eprintln!("[EVENT_LOOP] Brain analysis completed in {:?}", brain_start.elapsed());
 
-    // Beta.94: Show welcome message on first launch
-    if state.conversation.is_empty() {
-        eprintln!("[EVENT_LOOP] Generating welcome message (first launch)...");
-        let welcome_start = std::time::Instant::now();
-        show_welcome_message(state).await;
-        eprintln!("[EVENT_LOOP] Welcome message generated in {:?}", welcome_start.elapsed());
-    } else {
-        eprintln!("[EVENT_LOOP] Skipping welcome message (conversation exists)");
-    }
+    // Beta.229: DISABLED - Welcome message causes 18.5s startup delay
+    // The async LLM call blocks TUI initialization
+    // Re-enable in Beta.230+ with pure telemetry-based greeting (no LLM)
+    eprintln!("[EVENT_LOOP] Welcome message disabled for performance (Beta.229)");
 
     // Track last telemetry update
     let mut last_telemetry_update = std::time::Instant::now();

@@ -140,13 +140,42 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
             }
         });
     } else {
-        // Beta.213: Simple placeholder for non-action-plan queries
-        // TUI mode is primarily for ActionPlan execution; for other queries use one-shot mode
-        eprintln!("[INPUT] Spawning informational response task");
+        // Beta.229: Handle informational queries in TUI using unified query handler
+        eprintln!("[INPUT] Spawning informational query task");
         tokio::spawn(async move {
-            eprintln!("[INPUT_TASK] Sending informational response");
-            let reply = "This query doesn't require an action plan. For informational queries, please use one-shot mode: annactl \"your question\"".to_string();
-            let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+            eprintln!("[INPUT_TASK] Starting informational query...");
+            let start = std::time::Instant::now();
+
+            // Get telemetry for query
+            let telemetry = match crate::system_query::query_system_telemetry() {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("[INPUT_TASK] Failed to get telemetry: {}", e);
+                    let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
+                    return;
+                }
+            };
+
+            // Get LLM config
+            let llm_config = crate::query_handler::get_llm_config();
+
+            // Use unified query handler
+            match crate::unified_query_handler::handle_unified_query(&input, &telemetry, &llm_config).await {
+                Ok(result) => {
+                    use crate::unified_query_handler::UnifiedQueryResult;
+                    let reply = match result {
+                        UnifiedQueryResult::ConversationalAnswer { answer, .. } => answer,
+                        UnifiedQueryResult::Template { output, .. } => output,
+                        _ => "Query processed successfully".to_string(),
+                    };
+                    eprintln!("[INPUT_TASK] Informational query completed in {:?}", start.elapsed());
+                    let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+                }
+                Err(e) => {
+                    eprintln!("[INPUT_TASK] Query failed after {:?}: {}", start.elapsed(), e);
+                    let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
+                }
+            }
         });
     }
 
