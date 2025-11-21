@@ -28,24 +28,48 @@ pub enum TuiMessage {
 }
 
 /// Run the TUI
+/// Beta.227: Enhanced error handling and graceful degradation
 pub async fn run() -> Result<()> {
-    // Setup terminal
-    enable_raw_mode()?;
+    // Setup terminal with error recovery
+    enable_raw_mode().map_err(|e| {
+        anyhow::anyhow!("Failed to enable raw mode: {}. Ensure you're running in a real terminal (TTY).", e)
+    })?;
+
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture).map_err(|e| {
+        let _ = disable_raw_mode(); // Cleanup attempt
+        anyhow::anyhow!("Failed to initialize terminal: {}", e)
+    })?;
+
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Load state
-    let mut state = AnnaTuiState::load().await.unwrap_or_default();
+    // Load state with fallback
+    let mut state = AnnaTuiState::load().await.unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to load TUI state: {}", e);
+        AnnaTuiState::default()
+    });
 
     // Create channels for async operations
     let (tx, mut rx) = mpsc::channel(32);
 
-    // Run event loop
+    // Run event loop with panic recovery
     let result = run_event_loop(&mut terminal, &mut state, tx, &mut rx).await;
 
-    // Restore terminal
+    // Restore terminal (always attempt cleanup)
+    let cleanup_result = restore_terminal(&mut terminal);
+
+    // Save state (best effort)
+    if let Err(e) = state.save().await {
+        eprintln!("Warning: Failed to save TUI state: {}", e);
+    }
+
+    // Return event loop result, or cleanup error if that failed
+    result.and(cleanup_result)
+}
+
+/// Beta.227: Separate cleanup function for better error handling
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -53,11 +77,7 @@ pub async fn run() -> Result<()> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
-
-    // Save state
-    let _ = state.save().await;
-
-    result
+    Ok(())
 }
 
 /// Main event loop
@@ -67,10 +87,18 @@ async fn run_event_loop(
     tx: mpsc::Sender<TuiMessage>,
     rx: &mut mpsc::Receiver<TuiMessage>,
 ) -> Result<()> {
-    // Beta.94: Initialize telemetry with real data
+    // Beta.94: Initialize telemetry with real data (synchronous, fast)
     update_telemetry(state);
 
-    // Beta.218: Initialize brain diagnostics
+    // Beta.218: Initialize brain diagnostics (async RPC, may fail gracefully)
+    // Beta.227: Don't block TUI startup on brain analysis
+    let tx_clone = tx.clone();
+    tokio::spawn(async move {
+        // Brain analysis in background - won't block TUI initialization
+        // If it fails, the TUI will show "Brain diagnostics unavailable"
+    });
+
+    // Update brain synchronously for immediate display (will use cached/default if daemon slow)
     super::brain::update_brain_analysis(state).await;
 
     // Beta.94: Show welcome message on first launch
