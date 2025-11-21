@@ -7,6 +7,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.232] - 2025-11-22
+
+### SYSTEM REALITY CHECK - Comprehensive Verification
+
+**Type:** System Audit & Documentation
+**Focus:** Hard reality check with no assumptions
+
+Beta.232 performs comprehensive verification of Anna's actual functionality versus documented functionality. After Beta.227-231 crisis, this release audits what actually works.
+
+#### Discovered Critical Bugs 🔍
+- **`annactl brain` Command Broken** - Routed to LLM instead of brain analysis RPC
+  - Root cause: `runtime.rs:43` missing "brain" in `known_subcommands` array
+  - Impact: Brain diagnostic feature completely inaccessible via CLI
+  - Evidence: `annactl brain` returns LLM response about "brain" instead of running analysis
+
+- **`--help` Returns Exit Code 1** - Should return 0 per POSIX convention
+  - Impact: Shell scripts checking exit codes think help failed
+  - Breaks standard CLI behavior expectations
+
+- **`version` Subcommand Doesn't Exist** - Only `--version` flag works
+  - `annactl version` treated as LLM query "what is version?"
+  - Confusing UX (users expect `git version` style behavior)
+
+#### TUI Deadlock Risks Identified 🚨
+- **Blocking RPC Calls in Main Event Loop** (event_loop.rs:105, 109, 128)
+  - RPC timeout only on connect (200ms), not on call execution
+  - If daemon hangs on BrainAnalysis, TUI shows black screen forever
+  - Critical severity: Direct cause of reported black screen issues
+
+- **Synchronous Process Execution** (state.rs:109)
+  - `std::process::Command` blocks every 5 seconds for `ollama list`
+  - If ollama hangs, entire TUI freezes
+  - No timeout protection
+
+- **Unconstrained Task Spawning**
+  - No limit on concurrent LLM query tasks
+  - User can spawn unlimited tasks, causing memory exhaustion
+  - No task tracking or cleanup
+
+#### Documentation Produced 📝
+- **docs/BETA_232_NOTES.md** - 600+ line comprehensive analysis
+  - Complete PASS/FAIL list for all CLI commands
+  - 11 identified issues with severity ratings
+  - Deadlock scenario walkthroughs
+  - Corrected roadmap based on reality
+  - Testing recommendations
+
+#### What Actually Works ✅
+- `annactl status` - Verified working correctly
+- `annactl --version` - Verified working correctly
+- One-shot queries - LLM integration functional
+- Daemon RPC communication - Works when not timing out
+- Installer - Successfully deploys binaries and services
+
+#### What's Broken/Incomplete ❌
+- `annactl brain` command (completely broken)
+- `--help` exit code (returns 1 instead of 0)
+- `version` subcommand (doesn't exist)
+- TUI deadlock protection (incomplete)
+- RPC call timeouts (only connect protected, not call)
+- Task management (unbounded spawning)
+- Panic recovery (not implemented)
+
+#### Corrected Roadmap
+**Short Term (Beta.233-235):** Fix critical bugs
+- Add "brain" to known_subcommands
+- Fix --help exit code
+- Add version subcommand
+- Move RPC calls out of main event loop
+- Replace std::process with tokio::process
+- Add RPC call timeouts
+- Implement task tracking
+
+**Medium Term (Beta.236-240):** Robustness improvements
+- Streaming text in TUI
+- Error handling improvements
+- Channel backpressure handling
+- Metrics and logging
+
+**Long Term (Beta.241+):** Feature completion
+- Historian verification
+- Recipe testing
+- Pipeline definition
+- Intelligence layer metrics
+
+#### No Code Changes
+Beta.232 is **verification and documentation only**. No bug fixes implemented.
+
+Focus: Document what's broken, provide evidence, create realistic roadmap.
+
+Fixes will come in Beta.233+ based on prioritized issues list.
+
+#### Honesty Assessment
+This release acknowledges multiple assumptions that were wrong:
+- Brain command works (it doesn't)
+- TUI is stable (it has deadlock risks)
+- RPC timeouts are comprehensive (they're not)
+- Task management is controlled (it's unbounded)
+- Exit codes are correct (help returns 1)
+
+See `docs/BETA_232_NOTES.md` for complete analysis.
+
 ## [5.7.0-beta.231] - 2025-01-21
 
 ### FIX TIMESTAMP DISPLAY - Status Logs
