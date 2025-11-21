@@ -29,7 +29,6 @@ use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, Unifi
 /// Version 149: Uses unified handler for consistency with TUI.
 /// Beta.228: Added comprehensive logging
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
-    eprintln!("[ONE_SHOT] Starting one-shot query: '{}'", user_text);
     let start_time = std::time::Instant::now();
 
     let ui = UI::auto();
@@ -44,34 +43,25 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     println!();
 
     // Create spinner for thinking animation (Beta.202: Professional animation)
-    eprintln!("[ONE_SHOT] Creating thinking spinner...");
     let spinner = create_thinking_spinner(&ui);
-    eprintln!("[ONE_SHOT] Spinner created and started");
 
     // Get telemetry
-    eprintln!("[ONE_SHOT] Fetching system telemetry...");
     let telemetry_start = std::time::Instant::now();
     let telemetry = query_system_telemetry()?;
-    eprintln!("[ONE_SHOT] Telemetry fetched in {:?}", telemetry_start.elapsed());
 
     // Get LLM config
-    eprintln!("[ONE_SHOT] Loading LLM config...");
     let config = get_llm_config();
-    eprintln!("[ONE_SHOT] LLM config loaded: model={:?}", config.model);
 
     // Beta.229: Stop spinner before unified handler to prevent corruption during streaming
-    eprintln!("[ONE_SHOT] Stopping spinner before query processing...");
     spinner.finish_and_clear();
 
     // Use unified query handler
-    eprintln!("[ONE_SHOT] Calling unified query handler...");
     let handler_start = std::time::Instant::now();
     match handle_unified_query(user_text, &telemetry, &config).await {
         Ok(UnifiedQueryResult::DeterministicRecipe {
             recipe_name,
             action_plan,
         }) => {
-            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Deterministic recipe: {}", handler_start.elapsed(), recipe_name);
             println!(
                 "{} {} {}",
                 "anna:".bright_magenta().bold(),
@@ -80,12 +70,10 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             );
             println!();
             display_action_plan(&action_plan, &ui);
-            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Ok(UnifiedQueryResult::Template {
             command, output, ..
         }) => {
-            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Template command: {}", handler_start.elapsed(), command);
             println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
             ui.info(&format!("  $ {}", command));
             println!();
@@ -93,29 +81,24 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
                 ui.info(line);
             }
             println!();
-            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Ok(UnifiedQueryResult::ActionPlan {
             action_plan,
             raw_json: _,
         }) => {
-            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Action plan generated", handler_start.elapsed());
             println!("{}", "anna:".bright_magenta().bold());
             println!();
             display_action_plan(&action_plan, &ui);
-            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Ok(UnifiedQueryResult::ConversationalAnswer {
             answer,
             confidence,
             sources,
         }) => {
-            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Conversational answer ({} chars)", handler_start.elapsed(), answer.len());
 
             // Beta.229: DISABLED - Welcome report adds 19s delay to one-shot queries
             // The fetch_telemetry_snapshot() and generate_welcome_report() are extremely slow
             // Re-enable in Beta.230+ with performance optimization or async background task
-            eprintln!("[ONE_SHOT] Welcome report disabled for performance (Beta.229)");
 
             // Beta.229: Answer already streamed to stdout during LLM call
             // Don't print it again! Just show metadata
@@ -130,18 +113,14 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
                 );
             }
             println!();
-            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Err(e) => {
-            eprintln!("[ONE_SHOT] Unified handler failed after {:?}: {}", handler_start.elapsed(), e);
             spinner.finish_and_clear();
             ui.error(&format!("Query failed: {}", e));
             println!();
-            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
     }
 
-    eprintln!("[ONE_SHOT] One-shot query completed successfully");
     Ok(())
 }
 

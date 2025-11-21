@@ -44,18 +44,15 @@ pub fn draw_input_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> bool {
     let input = state.input.clone();
     let input_lower = input.trim().to_lowercase();
-    eprintln!("[INPUT] Processing input: '{}'", input);
 
     // Check for exit commands
     if input_lower == "bye" || input_lower == "exit" || input_lower == "quit" {
-        eprintln!("[INPUT] Exit command detected");
         state.add_system_message("Goodbye!".to_string());
         return true;
     }
 
     // Beta.147: Demo command for testing ActionPlan flow
     if input_lower == "demo" || input_lower == "demo plan" {
-        eprintln!("[INPUT] Demo command detected");
         state.add_user_message(input.clone());
         state.input.clear();
         state.cursor_pos = 0;
@@ -67,7 +64,6 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
 
     // Beta.147: Risky demo with rollback
     if input_lower == "demo risky" {
-        eprintln!("[INPUT] Risky demo command detected");
         state.add_user_message(input.clone());
         state.input.clear();
         state.cursor_pos = 0;
@@ -78,27 +74,21 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
     }
 
     // Beta.108: Add user message immediately (visible in UI)
-    eprintln!("[INPUT] Adding user message to conversation");
     state.add_user_message(input.clone());
     state.input.clear();
     state.cursor_pos = 0;
 
     // Detect language change
-    eprintln!("[INPUT] Detecting language change...");
     detect_language_change(&input, state);
-    eprintln!("[INPUT] Current language: {:?}", state.language);
 
     // Beta.108: Set thinking state before LLM processing
-    eprintln!("[INPUT] Setting thinking state");
     state.is_thinking = true;
     state.thinking_frame = 0;
 
     // Beta.148: Determine if query should use ActionPlan mode
     let should_use_action_plan = should_generate_action_plan(&input);
-    eprintln!("[INPUT] Should use action plan: {}", should_use_action_plan);
 
     // Clone state data needed for LLM query
-    eprintln!("[INPUT] Cloning state for async task");
     let state_clone = AnnaTuiState {
         system_panel: state.system_panel.clone(),
         llm_panel: state.llm_panel.clone(),
@@ -123,12 +113,9 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
     // Beta.148: Route through appropriate handler
     if should_use_action_plan {
         // Use V3 JSON dialogue to generate ActionPlan
-        eprintln!("[INPUT] Spawning action plan generation task");
         tokio::spawn(async move {
-            eprintln!("[INPUT_TASK] Starting action plan generation...");
             let start = std::time::Instant::now();
             if let Err(e) = generate_action_plan_from_llm(&input, &state_clone, tx.clone()).await {
-                eprintln!("[INPUT_TASK] Action plan generation failed after {:?}: {}", start.elapsed(), e);
                 // Fallback to simple error message on action plan failure
                 let error_msg = format!(
                     "⚠️ Could not generate action plan: {}",
@@ -136,21 +123,17 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
                 );
                 let _ = tx.send(TuiMessage::AnnaReply(error_msg)).await;
             } else {
-                eprintln!("[INPUT_TASK] Action plan generated in {:?}", start.elapsed());
             }
         });
     } else {
         // Beta.229: Handle informational queries in TUI using unified query handler
-        eprintln!("[INPUT] Spawning informational query task");
         tokio::spawn(async move {
-            eprintln!("[INPUT_TASK] Starting informational query...");
             let start = std::time::Instant::now();
 
             // Get telemetry for query
             let telemetry = match crate::system_query::query_system_telemetry() {
                 Ok(t) => t,
                 Err(e) => {
-                    eprintln!("[INPUT_TASK] Failed to get telemetry: {}", e);
                     let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
                     return;
                 }
@@ -168,18 +151,15 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
                         UnifiedQueryResult::Template { output, .. } => output,
                         _ => "Query processed successfully".to_string(),
                     };
-                    eprintln!("[INPUT_TASK] Informational query completed in {:?}", start.elapsed());
                     let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
                 }
                 Err(e) => {
-                    eprintln!("[INPUT_TASK] Query failed after {:?}: {}", start.elapsed(), e);
                     let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
                 }
             }
         });
     }
 
-    eprintln!("[INPUT] Input handling complete, returning to event loop");
     false
 }
 

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.230] - 2025-01-21
+
+### CLEAN OUTPUT - Debug Logging Removed
+
+**Type:** User Experience Polish
+**Focus:** Remove diagnostic logging that clutters UI
+
+Beta.230 removes all the diagnostic eprintln! statements added in Beta.228 for debugging.
+
+#### Removed 🧹
+- **All Debug Logging** - Removed 120+ eprintln! statements that were printing to stderr
+- `[TUI]`, `[EVENT_LOOP]`, `[INPUT]`, `[ONE_SHOT]`, `[LLM_THREAD]`, `[CONVERSATIONAL]`, `[INPUT_TASK]`, `[UNIFIED]` prefixes all gone
+
+#### User Impact
+- **Clean TUI:** No more diagnostic text appearing before TUI loads
+- **Clean One-Shot:** No debug output during query processing
+- **Professional Experience:** Silent operation unless real errors occur
+
+#### Technical Details
+- Removed diagnostic logging from:
+  - `crates/annactl/src/tui/event_loop.rs`
+  - `crates/annactl/src/tui/input.rs`
+  - `crates/annactl/src/llm_query_handler.rs`
+  - `crates/annactl/src/unified_query_handler.rs`
+  - All TUI module files
+
 ## [5.7.0-beta.229] - 2025-01-21
 
 ### CRITICAL PERFORMANCE FIXES
