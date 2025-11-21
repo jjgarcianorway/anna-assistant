@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.231] - 2025-01-21
+
+### FIX TIMESTAMP DISPLAY - Status Logs
+
+**Type:** Bug Fix
+**Focus:** Correct timestamp display in `annactl status` logs
+
+Beta.231 fixes the confusing timestamp mismatch in status command log output.
+
+#### Fixed 🔧
+- **Timestamp Mismatch** - Changed journalctl output format from `--output=short-iso` to `--output=cat`
+  - Before: Two timestamps shown (journalctl local time + tracing UTC) with 1-hour difference
+  - After: Single UTC timestamp from tracing log (consistent format)
+  - Location: `crates/annactl/src/status_command.rs:359`
+
+#### User Impact
+- **Clear Log Display:** No more confusing dual timestamps
+- **Consistent Format:** All timestamps now show UTC (from tracing)
+- **Reduced Clutter:** Only message content shown, not journalctl metadata
+
+#### Technical Details
+```rust
+// Before (Beta.230):
+.args(["-u", "annad", "-n", "10", "--no-pager", "--output=short-iso"])
+// Output: 2025-11-21T23:40:28+01:00 razorback annad[797708]: 2025-11-21T22:40:28.052105Z  INFO ...
+
+// After (Beta.231):
+.args(["-u", "annad", "-n", "10", "--no-pager", "--output=cat"])
+// Output: 2025-11-21T22:42:33.325321Z  INFO annad::steward::health: Analyzing system logs
+```
+
 ## [5.7.0-beta.230] - 2025-01-21
 
 ### CLEAN OUTPUT - Debug Logging Removed

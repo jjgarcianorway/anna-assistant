@@ -356,7 +356,7 @@ fn display_recent_logs() {
             "-n",
             "10",
             "--no-pager",
-            "--output=short-iso",
+            "--output=cat",  // Beta.231: Show only message (already has timestamp from tracing)
         ])
         .output();
 
