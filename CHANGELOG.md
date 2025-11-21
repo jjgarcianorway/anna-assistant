@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.212] - 2025-01-21
+
+### FOUNDATION RELEASE
+
+**Type:** Version Bump + Documentation
+
+Beta.212 is a foundation-only release establishing the version number and documentation framework for future welcome engine integration work.
+
+**What Changed:**
+- ✅ Version: 5.7.0-beta.211 → 5.7.0-beta.212
+- ✅ Documentation: Created docs/BETA_212_NOTES.md documenting architectural analysis
+- ✅ Build Status: Verified TUI builds successfully (no spawn_telemetry_histogram_service error)
+
+**What Deferred to Beta.213:**
+- TUI welcome engine integration (requires RPC telemetry endpoint)
+- One-shot query prelude integration (depends on telemetry completion)
+- Legacy file cleanup (requires systematic audit)
+
+**Philosophy:** When faced with unexpected architectural gaps, document clearly and establish foundation rather than rush inadequate solutions.
+
+**Files Changed:**
+- `Cargo.toml` - Version bump
+- `docs/BETA_212_NOTES.md` - NEW (foundation documentation)
+- `CHANGELOG.md` - This entry
+- `README.md` - Version reference
+
 ## [5.7.0-beta.211] - 2025-01-21
 
 ### CLI WELCOME ENGINE INTEGRATION

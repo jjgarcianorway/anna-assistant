@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.211
+**Version:** 5.7.0-beta.212
 **Status:** Beta - Active Development
 
 ---
