@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.225] - 2025-01-21
+
+### CRITICAL HOTFIX: Async Runtime Architecture
+
+**Type:** Critical Bug Fix (Runtime Panics + Hanging Queries)
+
+Beta.225 completes the async runtime cleanup, fixing critical runtime panics and query hangs introduced in Beta.222.
+
+#### Fixed
+- **Runtime Panic in TUI Mode:** Fixed nested `Runtime::new().block_on()` in `show_welcome_message()` causing "Cannot start a runtime from within a runtime" panic (Beta.223)
+- **Runtime Panic in One-Shot Mode:** Fixed identical nested runtime issue in `handle_one_shot_query()` conversational answer path (Beta.224)
+- **Query Hanging Bug:** Fixed blocking `LlmClient::chat()` HTTP call in async context by wrapping in `tokio::task::spawn_blocking()` with Arc (Beta.225)
+
+#### Technical Details
+- Made `show_welcome_message()` fully async with direct `.await` calls
+- Made `handle_one_shot_query()` conversational path fully async
+- Wrapped synchronous LLM HTTP calls in `spawn_blocking()` thread pool
+- Used `Arc<T>` to share non-Clone types across thread boundaries
+- Verified no remaining `Runtime::new()` or `block_on()` calls in codebase
+
+#### Testing
+- ✅ One-shot queries: `annactl "How is my computer?"` returns proper LLM responses
+- ✅ TUI mode: No black screen, welcome message displays correctly
+- ✅ No runtime panics in any execution mode
+
+**IMPORTANT:** All changes tested before release per project requirements.
+
 ## [5.7.0-beta.222] - 2025-01-21
 
 ### COMPLETE TRUECOLOR TUI POLISH + GREETINGS
