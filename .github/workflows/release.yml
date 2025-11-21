@@ -44,11 +44,12 @@ jobs:
 
     - name: Verify embedded version in annad
       run: |
-        ANNAD_VERSION=$(./target/release/annad --version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+        ANNAD_VERSION=$(./target/release/annad --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
         echo "annad reports version: $ANNAD_VERSION"
-        if [ "$ANNAD_VERSION" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+        VERSION_CLEAN=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
+        if [ "$ANNAD_VERSION" != "$VERSION_CLEAN" ]; then
           echo "ERROR: Version mismatch!"
-          echo "Expected: ${{ steps.get_version.outputs.VERSION }}"
+          echo "Expected: $VERSION_CLEAN"
           echo "Got: $ANNAD_VERSION"
           exit 1
         fi
@@ -56,11 +57,12 @@ jobs:
 
     - name: Verify embedded version in annactl
       run: |
-        ANNACTL_VERSION=$(./target/release/annactl --version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
+        ANNACTL_VERSION=$(./target/release/annactl --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
         echo "annactl reports version: $ANNACTL_VERSION"
-        if [ "$ANNACTL_VERSION" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+        VERSION_CLEAN=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
+        if [ "$ANNACTL_VERSION" != "$VERSION_CLEAN" ]; then
           echo "ERROR: Version mismatch!"
-          echo "Expected: ${{ steps.get_version.outputs.VERSION }}"
+          echo "Expected: $VERSION_CLEAN"
           echo "Got: $ANNACTL_VERSION"
           exit 1
         fi
