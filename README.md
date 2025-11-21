@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 
-Anna is a local system assistant for Arch Linux that combines deterministic diagnostics with optional LLM-powered insights to help you understand and manage your system.
+Anna is a local system assistant for Arch Linux that combines deterministic diagnostics with LLM-powered insights to help you understand and manage your system. Think of her as your caffeinated sysadmin buddy who actually reads the logs.
 
 ---
 
@@ -16,7 +16,7 @@ Anna is a local system assistant for Arch Linux that combines deterministic diag
 - **🔍 Telemetry-First** - Real system data, zero hallucinations
 - **💬 Interactive TUI** - Natural language queries with structured action plans
 - **📊 System Status** - Comprehensive health reporting
-- **🤖 Local LLM** - Optional Ollama integration, all data stays local
+- **🤖 Local LLM** - Requires Ollama (all data stays local, no cloud nonsense)
 - **📝 77+ Recipes** - Deterministic system management actions
 - **🔒 Transparent** - Shows exact commands before execution
 - **✅ Approval-Based** - Requires confirmation before changes
@@ -91,7 +91,7 @@ Deep diagnostic analysis with all 9 rules:
 **Intelligence:**
 - Sysadmin Brain (deterministic rules)
 - 77+ deterministic recipes
-- Optional LLM integration (Ollama)
+- Local LLM via Ollama (required for conversational features)
 
 ---
 
@@ -99,9 +99,9 @@ Deep diagnostic analysis with all 9 rules:
 
 - **OS:** Arch Linux (native) or Arch-based distros
 - **CPU:** x86_64
-- **RAM:** 4GB minimum (8GB+ for LLM)
-- **Disk:** 2GB for Anna + 4GB for LLM models (optional)
-- **Optional:** Ollama for LLM features
+- **RAM:** 8GB recommended (4GB minimum for basic features)
+- **Disk:** 2GB for Anna + 4GB for LLM models
+- **Required:** Ollama with a model (qwen2.5:3b or similar)
 
 ---
 
