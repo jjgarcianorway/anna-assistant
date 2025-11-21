@@ -31,7 +31,6 @@ use crate::version_banner;
 pub async fn execute_anna_status_command(
     _json: bool,
     req_id: &str,
-    state: &str,
     start_time: Instant,
 ) -> Result<()> {
     // Display banner first
@@ -174,6 +173,14 @@ pub async fn execute_anna_status_command(
     // Log command and exit with appropriate code
     let exit_code = health.exit_code();
     let duration_ms = start_time.elapsed().as_millis() as u64;
+
+    // Compute state string from actual health status
+    let state = match health.status {
+        HealthStatus::Healthy => "healthy",
+        HealthStatus::Degraded => "degraded",
+        HealthStatus::Broken => "broken",
+    };
+
     let log_entry = LogEntry {
         ts: LogEntry::now(),
         req_id: req_id.to_string(),

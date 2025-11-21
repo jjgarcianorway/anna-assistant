@@ -220,7 +220,7 @@ impl AnswerValidator {
 
         for package in packages {
             // Common packages are OK
-            let common_packages = vec!["base-devel", "linux", "linux-headers", "gcc", "git"];
+            let common_packages = ["base-devel", "linux", "linux-headers", "gcc", "git"];
             if common_packages.contains(&package.as_str()) {
                 continue;
             }
@@ -297,14 +297,13 @@ impl AnswerValidator {
         }
 
         // Check for missing code formatting
-        if answer.contains("sudo ") || answer.contains("pacman ") || answer.contains("systemctl ") {
-            if !answer.contains("```") && !answer.contains("`") {
+        if (answer.contains("sudo ") || answer.contains("pacman ") || answer.contains("systemctl "))
+            && !answer.contains("```") && !answer.contains("`") {
                 issues.push(ValidationIssue::Clarity {
                     section: "commands".to_string(),
                     issue: "Commands should be in code blocks for clarity".to_string(),
                 });
             }
-        }
 
         Ok(issues)
     }
@@ -388,7 +387,7 @@ impl AnswerValidator {
                 // Odd index = inside backticks
                 // Check if it looks like a command
                 let part_lower = part.to_lowercase();
-                let first_word = part.trim().split_whitespace().next().unwrap_or("");
+                let first_word = part.split_whitespace().next().unwrap_or("");
 
                 if part_lower.contains("sudo")
                     || part_lower.contains("pacman")

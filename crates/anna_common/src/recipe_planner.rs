@@ -192,9 +192,9 @@ impl RecipePlanner {
             for doc in &context.retrieved_docs {
                 prompt.push_str("- ");
                 prompt.push_str(doc);
-                prompt.push_str("\n");
+                prompt.push('\n');
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         if !context.available_templates.is_empty() {
@@ -204,7 +204,7 @@ impl RecipePlanner {
                     prompt.push_str(&format!("- {}: {}\n", template.id, template.description));
                 }
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         prompt.push_str("## Instructions\n");
@@ -237,7 +237,7 @@ impl RecipePlanner {
             for correction in &rejection.corrections {
                 prompt.push_str(&format!("- {}\n", correction));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         prompt.push_str("Generate the recipe now:\n");
@@ -261,9 +261,9 @@ impl RecipePlanner {
         for doc in &context.retrieved_docs {
             prompt.push_str("- ");
             prompt.push_str(doc);
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
-        prompt.push_str("\n");
+        prompt.push('\n');
 
         prompt.push_str("## Proposed Recipe\n");
         prompt.push_str(&serde_json::to_string_pretty(recipe).unwrap_or_default());

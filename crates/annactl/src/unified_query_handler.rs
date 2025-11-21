@@ -12,11 +12,9 @@
 use anna_common::action_plan_v3::ActionPlan;
 use anna_common::llm::LlmConfig;
 use anna_common::telemetry::SystemTelemetry;
-use anna_common::types::SystemFacts;
 use anyhow::Result;
 
 use crate::dialogue_v3_json;
-use crate::internal_dialogue::TelemetryPayload;
 use crate::query_handler;
 
 /// Unified query result - all query types in one enum
@@ -30,7 +28,6 @@ pub enum UnifiedQueryResult {
     },
     /// Template matched - instant result
     Template {
-        template_id: String,
         command: String,
         output: String,
     },
@@ -104,12 +101,11 @@ pub async fn handle_unified_query(
     if let Some((template_id, params)) = query_handler::try_template_match(user_text) {
         match query_handler::execute_template(template_id, &params) {
             Ok(query_handler::QueryResult::Template {
-                template_id,
+                template_id: _,
                 command,
                 output,
             }) => {
                 return Ok(UnifiedQueryResult::Template {
-                    template_id: template_id.to_string(),
                     command,
                     output,
                 });
@@ -187,11 +183,25 @@ async fn generate_conversational_answer(
 fn try_answer_from_telemetry(user_text: &str, telemetry: &SystemTelemetry) -> Option<String> {
     let query_lower = user_text.to_lowercase();
 
-    // Personality/profile queries - use Context Engine data
-    if (query_lower.contains("personality") || query_lower.contains("describe me")
-        || query_lower.contains("what kind of user"))
+    // Anna's personality/design philosophy queries
+    if query_lower.contains("your") && query_lower.contains("personality") {
+        return Some(
+            "I'm Anna, your Arch Linux assistant. My design philosophy:\n\n\
+            • **Telemetry-first**: I gather real system data before answering\n\
+            • **Deterministic recipes**: 77 zero-hallucination command sequences\n\
+            • **Safety-conscious**: User confirmation for write operations\n\
+            • **Transparent**: I explain what I'm doing and why\n\
+            • **Local-first**: I run locally with optional LLM support\n\
+            • **Minimalist**: Three-command simplicity (TUI, status, query)\n\n\
+            My goal is reliable, explainable system management with zero surprises.".to_string()
+        );
+    }
+
+    // User profile/usage pattern queries - use Context Engine data
+    if (query_lower.contains("describe me") || query_lower.contains("what kind of user")
+        || query_lower.contains("my personality"))
         && (query_lower.contains("trait") || query_lower.contains("am i")
-            || query_lower.contains("as a user")) {
+            || query_lower.contains("as a user") || query_lower.contains("my usage")) {
         // Load context engine for usage patterns
         if let Ok(ctx) = crate::context_engine::ContextEngine::load() {
             let total_commands = ctx.usage_patterns.command_frequency.values().sum::<u32>();

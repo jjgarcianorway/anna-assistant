@@ -1,7 +1,7 @@
 // Beta.159: Compression Tools Recipe
 // Handles installation of archive/compression tools (zip, unzip, p7zip, unrar)
 
-use anna_common::action_plan_v3::{ActionPlan, CommandStep, NecessaryCheck, RiskLevel, RollbackStep};
+use anna_common::action_plan_v3::{ActionPlan, CommandStep, NecessaryCheck, RiskLevel};
 use anyhow::Result;
 use std::collections::HashMap;
 

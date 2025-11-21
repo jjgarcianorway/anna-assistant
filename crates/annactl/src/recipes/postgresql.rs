@@ -15,7 +15,7 @@
 //! - ConfigureSecurity: Configure authentication and security settings
 
 use anna_common::action_plan_v3::{ActionPlan, CommandStep, NecessaryCheck, RollbackStep, RiskLevel};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 
 pub struct PostgresqlRecipe;

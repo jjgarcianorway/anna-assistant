@@ -155,9 +155,7 @@ impl ValidationSuite {
                 "**Similarity:** {:.0}%\n",
                 result.similarity_score * 100.0
             ));
-            report.push_str(&format!(
-                "**Issue:** Anna's answer diverged from community consensus\n\n"
-            ));
+            report.push_str(&"**Issue:** Anna's answer diverged from community consensus\n\n".to_string());
         }
 
         report

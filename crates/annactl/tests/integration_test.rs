@@ -409,6 +409,9 @@ fn test_command_classification() {
     }
 }
 
+// Beta.200: Context detection module removed during architectural reset
+// These tests reference removed modules and are disabled
+/*
 /// Test context detection
 #[test]
 fn test_context_detection() {
@@ -440,6 +443,7 @@ fn test_tty_detection() {
     // Just verify the functions are callable
     assert!(true, "TTY detection functions should be callable");
 }
+*/
 
 /// Test adaptive help respects NO_COLOR environment variable
 #[test]

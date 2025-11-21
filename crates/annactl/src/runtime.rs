@@ -56,9 +56,8 @@ pub async fn run() -> Result<()> {
         Some(crate::cli::Commands::Status { json }) => {
             let start_time = Instant::now();
             let req_id = LogEntry::generate_req_id();
-            let state = "healthy"; // TODO: Get actual state from daemon
 
-            crate::status_command::execute_anna_status_command(json, &req_id, state, start_time)
+            crate::status_command::execute_anna_status_command(json, &req_id, start_time)
                 .await
         }
 

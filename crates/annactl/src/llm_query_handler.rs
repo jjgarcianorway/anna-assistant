@@ -12,8 +12,10 @@
 use anna_common::display::UI;
 use anna_common::llm::LlmConfig;
 use anyhow::Result;
+use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use std::io::{self, Write};
+use std::time::Duration;
 
 use crate::system_query::query_system_telemetry;
 use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, UnifiedQueryResult};
@@ -34,8 +36,8 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     }
     println!();
 
-    // Show thinking indicator with animation
-    show_thinking_animation(&ui, "Thinking");
+    // Create spinner for thinking animation (Beta.202: Professional animation)
+    let spinner = create_thinking_spinner(&ui);
 
     // Get telemetry
     let telemetry = query_system_telemetry()?;
@@ -49,7 +51,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             recipe_name,
             action_plan,
         }) => {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             println!(
                 "{} {} {}",
                 "anna:".bright_magenta().bold(),
@@ -62,7 +64,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         Ok(UnifiedQueryResult::Template {
             command, output, ..
         }) => {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
             ui.info(&format!("  $ {}", command));
             println!();
@@ -75,7 +77,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             action_plan,
             raw_json: _,
         }) => {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             println!("{}", "anna:".bright_magenta().bold());
             println!();
             display_action_plan(&action_plan, &ui);
@@ -85,7 +87,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             confidence,
             sources,
         }) => {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             println!("{}", "anna:".bright_magenta().bold());
             println!();
 
@@ -106,7 +108,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             println!();
         }
         Err(e) => {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             ui.error(&format!("Query failed: {}", e));
             println!();
         }
@@ -115,21 +117,30 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     Ok(())
 }
 
-/// Show thinking animation (Version 149: Added for CLI)
-fn show_thinking_animation(ui: &UI, _message: &str) {
-    if ui.capabilities().use_colors() {
-        print!("{} ", "anna (thinking):".bright_magenta().dimmed());
-        io::stdout().flush().unwrap();
-    } else {
-        print!("anna (thinking): ");
-        io::stdout().flush().unwrap();
-    }
-}
+/// Create thinking spinner (Beta.202: Professional animation)
+fn create_thinking_spinner(ui: &UI) -> ProgressBar {
+    let spinner = ProgressBar::new_spinner();
 
-/// Clear thinking line
-fn clear_thinking_line() {
-    print!("\r{}\r", " ".repeat(80));
-    io::stdout().flush().unwrap();
+    if ui.capabilities().use_colors() {
+        spinner.set_style(
+            ProgressStyle::default_spinner()
+                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                .template("{spinner:.magenta} {msg}")
+                .unwrap()
+        );
+        spinner.set_message("anna (thinking)...".to_string());
+    } else {
+        spinner.set_style(
+            ProgressStyle::default_spinner()
+                .tick_strings(&["-", "\\", "|", "/"])
+                .template("{spinner} {msg}")
+                .unwrap()
+        );
+        spinner.set_message("anna (thinking)...".to_string());
+    }
+
+    spinner.enable_steady_tick(Duration::from_millis(80));
+    spinner
 }
 
 /// Display ActionPlan
@@ -162,14 +173,14 @@ fn display_action_plan(plan: &anna_common::action_plan_v3::ActionPlan, ui: &UI) 
     }
 }
 
-/// Stream LLM response
-async fn stream_llm_response(prompt: &str, config: &LlmConfig, ui: &UI) -> Result<()> {
+/// Stream LLM response (Beta.202: Updated for spinner)
+async fn stream_llm_response(prompt: &str, config: &LlmConfig, ui: &UI, spinner: &ProgressBar) -> Result<()> {
     use anna_common::llm::{LlmClient, LlmPrompt};
 
     let client = match LlmClient::from_config(config) {
         Ok(client) => client,
         Err(_) => {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             ui.info("⚠ LLM not available (Ollama not running)");
             return Ok(());
         }
@@ -184,7 +195,7 @@ async fn stream_llm_response(prompt: &str, config: &LlmConfig, ui: &UI) -> Resul
     let mut response_started = false;
     let mut callback = |chunk: &str| {
         if !response_started {
-            clear_thinking_line();
+            spinner.finish_and_clear();
             if ui.capabilities().use_colors() {
                 print!("{} ", "anna:".bright_magenta().bold());
             } else {
@@ -205,7 +216,7 @@ async fn stream_llm_response(prompt: &str, config: &LlmConfig, ui: &UI) -> Resul
         Ok(_) => println!("\n"),
         Err(_) => {
             if !response_started {
-                clear_thinking_line();
+                spinner.finish_and_clear();
             }
             println!();
             ui.info("⚠ LLM request failed");

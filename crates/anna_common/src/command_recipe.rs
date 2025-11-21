@@ -240,8 +240,8 @@ impl CommandRecipe {
         if matches!(
             self.category,
             CommandCategory::SystemWrite | CommandCategory::Dangerous
-        ) {
-            if !policy.allowed_system_commands.is_empty()
+        )
+            && !policy.allowed_system_commands.is_empty()
                 && !policy
                     .allowed_system_commands
                     .contains(&base_cmd.to_string())
@@ -251,7 +251,6 @@ impl CommandRecipe {
                     base_cmd
                 ));
             }
-        }
 
         Ok(())
     }

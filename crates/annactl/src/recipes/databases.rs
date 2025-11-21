@@ -87,7 +87,7 @@ impl DatabasesRecipe {
             format!("sudo pacman -S --needed --noconfirm {}", package_name)
         };
 
-        let mut command_plan = vec![
+        let command_plan = vec![
             CommandStep {
                 id: format!("install-{}", database),
                 description: format!("Install {}", db_name),

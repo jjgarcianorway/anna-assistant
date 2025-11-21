@@ -1,5 +1,5 @@
 // Beta.165: Desktop Environments & Window Managers Recipe
-use anna_common::action_plan_v3::{ActionPlan, CommandStep, NecessaryCheck, RiskLevel, RollbackStep};
+use anna_common::action_plan_v3::{ActionPlan, CommandStep, RiskLevel, RollbackStep};
 use anyhow::Result;
 use std::collections::HashMap;
 

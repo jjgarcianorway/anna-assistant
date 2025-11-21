@@ -547,7 +547,7 @@ impl AmdRecipe {
             },
         ];
 
-        let mut command_plan = vec![
+        let command_plan = vec![
             CommandStep {
                 id: "install-rocm".to_string(),
                 description: "Install ROCm from AUR (via yay/paru)".to_string(),

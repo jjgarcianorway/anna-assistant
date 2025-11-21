@@ -12,7 +12,7 @@
 //! - ValidateConfig: Check if docker-compose.yml is valid
 
 use anna_common::action_plan_v3::{ActionPlan, CommandStep, NecessaryCheck, RollbackStep, RiskLevel};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 
 pub struct DockerComposeRecipe;
@@ -113,7 +113,7 @@ impl DockerComposeRecipe {
 
     /// Install Docker Compose
     fn build_install_plan(_telemetry: &HashMap<String, String>) -> Result<ActionPlan> {
-        let mut command_plan = vec![
+        let command_plan = vec![
             CommandStep {
                 id: "check-docker-installed".to_string(),
                 description: "Check if Docker is installed (prerequisite)".to_string(),
