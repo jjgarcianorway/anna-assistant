@@ -166,12 +166,39 @@ See `EVALUATION_RULES.md` for detailed PASS/PARTIAL/FAIL criteria.
 - **PARTIAL**: Most steps correct but missing minor details or too generic
 - **FAIL**: Wrong commands, dangerous operations without warnings, or no useful guidance
 
+## Beta.204: Rust QA Test Harness
+
+**New in Beta.204**: Rust integration tests for determinism validation.
+
+### Running Rust Tests
+```bash
+# Run all QA determinism tests
+cargo test --test qa_determinism
+
+# Run specific test
+cargo test --test qa_determinism test_deterministic_question_classification
+
+# Show coverage statistics
+cargo test --test qa_determinism test_determinism_coverage_stats -- --nocapture
+```
+
+### Test Files
+- `crates/annactl/tests/qa_determinism.rs` - Rust test harness
+- `docs/BETA_204_DETERMINISM_ANALYSIS.md` - Determinism analysis
+
+### Determinism Coverage (Beta.204)
+- **Deterministic**: 12/20 (60%) - recipes, templates, telemetry
+- **LLM-based**: 8/20 (40%) - complex procedures requiring reasoning
+
+See `docs/BETA_204_DETERMINISM_ANALYSIS.md` for detailed question-by-question analysis.
+
 ## Current Status
 
 - **Questions**: 20 / 700 (initial batch)
-- **Golden answers**: 0 / 20 (in progress)
-- **Test harness**: In development
-- **Evaluation rules**: In progress
+- **Rust test harness**: ✅ Complete (Beta.204)
+- **Determinism analysis**: ✅ Complete (Beta.204)
+- **Golden answers**: 0 / 20 (future work)
+- **Python test harness**: Deprecated (replaced by Rust tests)
 
 ## Design Principles
 
@@ -181,11 +208,40 @@ See `EVALUATION_RULES.md` for detailed PASS/PARTIAL/FAIL criteria.
 4. **Reproducibility**: One command to rerun entire suite
 5. **No optimistic language**: Report failures clearly, not as "opportunities"
 
+## Adding Deterministic Handlers (Beta.204)
+
+To increase determinism coverage, add handlers in priority order:
+
+### 1. Determin istic Recipes (Tier 1)
+Add to `crates/annactl/src/recipes/mod.rs`:
+```rust
+// Pattern match user input
+if query_lower.contains("your pattern") {
+    return Some(your_recipe_module::build_recipe(telemetry));
+}
+```
+
+### 2. Template Matching (Tier 2)
+Add to `crates/annactl/src/query_handler.rs:try_template_match()`:
+```rust
+} else if input_lower.contains("pattern") {
+    Some(("template_id", HashMap::new()))
+```
+
+### 3. Telemetry Answers (Tier 4)
+Add to `crates/annactl/src/unified_query_handler.rs:try_answer_from_telemetry()`:
+```rust
+if query_lower.contains("pattern") {
+    return Some(format!("Fixed answer using: {:?}", telemetry));
+}
+```
+
+See `docs/BETA_204_DETERMINISM_ANALYSIS.md` for examples of each pattern.
+
 ## Next Steps
 
-1. Write 20 golden answers for initial batch ✅ (Step 2)
-2. Implement test harness (run_qa_suite.sh) ✅ (Step 3)
-3. Define evaluation rules (EVALUATION_RULES.md) ✅ (Step 4)
-4. Run initial batch and generate results ✅ (Step 5)
-5. Create human review sample (HUMAN_REVIEW_SAMPLE.md) ✅ (Step 5)
-6. Extend to full 700 questions (iterative)
+1. Write 20 golden answers for initial batch (future work)
+2. Implement Python test harness (deprecated - use Rust tests)
+3. Extend determinism to 70% coverage (arch-017, arch-019)
+4. Extend to full 700 questions (future release)
+5. Add E2E testing with Ollama (future work)

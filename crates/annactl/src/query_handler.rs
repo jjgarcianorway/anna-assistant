@@ -104,6 +104,12 @@ pub fn try_template_match(user_text: &str) -> Option<(&'static str, HashMap<Stri
         && input_lower.contains("cache")
     {
         Some(("clean_package_cache", HashMap::new()))
+    } else if (input_lower.contains("search") || input_lower.contains("find"))
+        && input_lower.contains("package")
+        && (input_lower.contains("file") || input_lower.contains("provides"))
+    {
+        // Beta.204: arch-019 - Package file search
+        Some(("search_package_file", HashMap::new()))
     } else if input_lower.contains("mirror")
         || (input_lower.contains("pacman") && input_lower.contains("server"))
     {

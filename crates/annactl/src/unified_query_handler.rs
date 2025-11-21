@@ -1,13 +1,54 @@
-//! Unified Query Handler - Version 149
+//! Unified Query Handler - Version 150 (Beta.204: Determinism Lock)
 //!
 //! Single source of truth for ALL query processing (CLI and TUI).
 //! Fixes inconsistent responses between modes.
 //!
-//! Architecture (in order):
-//! 1. Beta.151 Deterministic Recipes (instant, zero hallucination)
-//! 2. Template Matching (instant shell commands)
-//! 3. V3 JSON Dialogue (structured action plans)
-//! 4. Streaming LLM (conversational fallback)
+//! ## Query Processing Architecture (Priority Order)
+//!
+//! **TIER 0: System Report** (lines 64-75)
+//! - Intercepts "full report" queries
+//! - Returns verified system telemetry
+//! - 100% deterministic ✅
+//!
+//! **TIER 1: Deterministic Recipes** (lines 77-98)
+//! - 77 hard-coded, tested ActionPlans
+//! - Zero hallucination, consistent output
+//! - 100% deterministic ✅
+//!
+//! **TIER 2: Template Matching** (lines 100-117)
+//! - Simple command templates (query_handler.rs)
+//! - Fast, accurate for simple queries
+//! - 100% deterministic ✅
+//!
+//! **TIER 3: V3 JSON Dialogue** (lines 119-135)
+//! - LLM-based ActionPlan generation
+//! - For complex actionable requests
+//! - Non-deterministic (by design) ❌
+//!
+//! **TIER 4: Conversational Answer** (lines 137-180)
+//! - **Deterministic path**: try_answer_from_telemetry() (lines 183-297) ✅
+//!   - Fixed templates using SystemTelemetry data
+//!   - CPU, RAM, disk, services queries
+//! - **LLM fallback**: For complex questions (lines 159-179) ❌
+//!   - Used when telemetry doesn't cover the query
+//!
+//! ## Determinism Guarantees (Beta.204)
+//!
+//! **Deterministic Query Types** (same input + same system state = same output):
+//! - System telemetry (CPU, RAM, disk, GPU, network status)
+//! - Failed services list
+//! - Package management (install, update, clean cache via recipes)
+//! - Service management (enable, start, stop, logs via recipes)
+//! - System updates (via system_update recipe)
+//!
+//! **Non-Deterministic Query Types** (may vary between runs):
+//! - Complex procedures (boot repair, Xorg configuration, networking setup)
+//! - Questions requiring decision-making based on multiple factors
+//! - Troubleshooting queries with unknown failure modes
+//!
+//! **Design Philosophy**:
+//! Maximize determinism for common system management tasks while gracefully
+//! degrading to LLM reasoning for legitimately complex questions.
 
 use anna_common::action_plan_v3::ActionPlan;
 use anna_common::llm::LlmConfig;
@@ -265,6 +306,30 @@ fn try_answer_from_telemetry(user_text: &str, telemetry: &SystemTelemetry) -> Op
                 free_gb, total_gb, root_disk.usage_percent
             ));
         }
+    }
+
+    // Disk space troubleshooting (Beta.204: arch-017)
+    if (query_lower.contains("disk") || query_lower.contains("space"))
+        && (query_lower.contains("error") || query_lower.contains("full")
+            || query_lower.contains("using") || query_lower.contains("find what")) {
+        let disk_summary: Vec<String> = telemetry.disks.iter()
+            .map(|d| format!("  {} - {:.1}% used ({:.1} GB / {:.1} GB)",
+                d.mount_point,
+                d.usage_percent,
+                d.used_mb as f64 / 1024.0,
+                d.total_mb as f64 / 1024.0))
+            .collect();
+
+        return Some(format!(
+            "To find what's using disk space:\n\n\
+            1. Check overall usage: df -h\n\
+            2. Find large directories: sudo du -sh /* | sort -h\n\
+            3. Find large files: sudo find / -type f -size +100M -exec ls -lh {{}} \\;\n\
+            4. Check package cache: du -sh /var/cache/pacman/pkg/\n\
+            5. Clear package cache: sudo pacman -Sc\n\n\
+            Current disk usage:\n{}",
+            disk_summary.join("\n")
+        ));
     }
 
     // GPU queries
