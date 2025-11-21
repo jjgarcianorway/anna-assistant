@@ -4,7 +4,7 @@
 
 Anna is a local system assistant for Arch Linux that uses telemetry and a local LLM to help you understand and manage your system.
 
-**Version:** 5.7.0-beta.210
+**Version:** 5.7.0-beta.211
 **Status:** Beta - Active Development
 
 ---
@@ -57,13 +57,13 @@ annactl
 
 ### 2. System Status - `annactl status`
 
-Quick one-line system health check:
+Comprehensive system health check with welcome report:
 
 ```bash
 annactl status
 ```
 
-Shows: CPU, RAM, disk usage, daemon status, LLM availability.
+Shows: Daemon status, LLM availability, recent logs, and system welcome report with change detection (kernel updates, package changes, disk space).
 
 ### 3. One-Shot Query - `annactl "<question>"`
 

@@ -46,6 +46,7 @@ mod repair; // Self-healing capabilities
 mod repl;
 mod rpc_client;
 mod runtime_prompt;
+mod startup; // Beta.211: Welcome engine
 mod startup_summary;
 mod status_command;
 mod system_prompt_v2;

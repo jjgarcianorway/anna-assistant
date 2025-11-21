@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.211] - 2025-01-21
+
+### CLI WELCOME ENGINE INTEGRATION
+
+**What Changed:** Integrated the deterministic welcome engine (Beta.209) into `annactl status` command with CLI formatting via the output normalizer (Beta.210).
+
+#### Core Implementation
+
+**CLI: annactl status now uses the deterministic welcome engine and CLI normalizer**
+- Displays "System Welcome Report" section with system changes detection
+- Tracks changes between sessions: kernel updates, package counts, disk space, hardware modifications
+- Uses telemetry-driven logic (zero LLM calls)
+- Formats output via `output::normalize_for_cli()` with ANSI colors
+- Stores session metadata in `/var/lib/anna/state/last_session.json`
+
+**First Run vs. Returning User:**
+- First run: Shows welcome message with current system information
+- Returning user with changes: Lists detected changes since last run
+- Returning user without changes: Confirms no changes detected
+
+#### Scope
+
+**What Beta.211 Does:**
+- ✅ CLI: `annactl status` shows System Welcome Report
+- ✅ Deterministic welcome logic (zero LLM calls)
+- ✅ Session tracking with telemetry snapshots
+- ✅ CLI formatting via normalizer
+
+**What Beta.211 Does NOT Do:**
+- ❌ No TUI changes (unchanged, deferred to Beta.212+)
+- ❌ No one-shot query prelude (explicitly deferred to Beta.212)
+- ❌ CLI surface unchanged (still exactly 3 commands)
+
+#### Technical Details
+
+**Files Modified:**
+- `crates/annactl/src/status_command.rs` (lines 175-212) - Added welcome report section
+- `crates/annactl/src/main.rs` (line 49) - Added `mod startup` declaration
+- `docs/BETA_211_NOTES.md` - NEW (complete specification)
+- `CHANGELOG.md` - Updated
+
+**Session Metadata:**
+- Stored in `/var/lib/anna/state/last_session.json`
+- Tracks: last_run timestamp, telemetry snapshot (CPU, RAM, hostname, kernel, packages, disk)
+- Enables deterministic change detection between sessions
+
+**Philosophy:**
+Beta.211 is a focused CLI enhancement that integrates existing Beta.209 welcome engine with Beta.210 normalizer for `annactl status` only. TUI and one-shot query integration explicitly deferred to maintain small, incremental releases.
+
 ## [5.7.0-beta.210] - 2025-01-21
 
 ### OUTPUT NORMALIZER INFRASTRUCTURE

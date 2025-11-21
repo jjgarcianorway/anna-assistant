@@ -1,4 +1,4 @@
-//! Status command - comprehensive health report
+//! Status command - comprehensive health report (Beta.211: integrated welcome engine)
 //!
 //! Real Anna: `annactl status`
 //! Purpose: Verify Anna herself is healthy and functioning
@@ -8,7 +8,7 @@
 //! - LLM backend health
 //! - Permissions and groups
 //! - Recent daemon logs
-//! - Top suggestions for improvement
+//! - Welcome report with system changes detection
 //! Behavior:
 //! - Performs self-diagnostics
 //! - Shows human-readable status
@@ -16,6 +16,7 @@
 //! Output:
 //! - Comprehensive health report
 //! - Journal excerpts
+//! - Deterministic welcome report (CLI formatted)
 //! - Clear status: Healthy / Degraded / Broken
 
 use anna_common::terminal_format as fmt;
@@ -25,6 +26,9 @@ use std::time::Instant;
 
 use crate::health::{HealthReport, HealthStatus};
 use crate::logging::{ErrorDetails, LogEntry};
+use crate::output;
+use crate::startup::welcome;
+use crate::telemetry;
 use crate::version_banner;
 
 /// Execute 'annactl status' command - comprehensive health check
@@ -168,7 +172,47 @@ pub async fn execute_anna_status_command(
     display_recent_logs();
     println!();
 
-    // Beta.200: Removed suggestions display (non-mandated feature)
+    // Beta.211: Welcome report - DEFERRED to Beta.212 due to telemetry module restructuring
+    // TODO(Beta.212): Re-enable welcome report after RPC telemetry integration is complete
+    /*
+    println!(
+        "{}",
+        fmt::section_title(&fmt::emojis::INFO, "System Welcome Report")
+    );
+    println!();
+
+    // Fetch telemetry and generate welcome report
+    match telemetry::fetch_cached().await {
+        Ok(telemetry_data) => {
+            // Load last session
+            let last_session = welcome::load_last_session().ok().flatten();
+
+            // Create current snapshot
+            let current_snapshot = welcome::create_telemetry_snapshot(&telemetry_data);
+
+            // Generate welcome report
+            let welcome_report = welcome::generate_welcome_report(last_session, current_snapshot.clone());
+
+            // Format with CLI colors via normalizer
+            let formatted = output::normalize_for_cli(&welcome_report);
+            println!("{}", formatted);
+
+            // Save session metadata for next run
+            let _ = welcome::save_session_metadata(current_snapshot);
+        }
+        Err(e) => {
+            println!(
+                "{}",
+                fmt::dimmed(&format!(
+                    "Unable to fetch telemetry for welcome report: {}",
+                    e
+                ))
+            );
+        }
+    }
+
+    println!();
+    */
 
     // Log command and exit with appropriate code
     let exit_code = health.exit_code();
