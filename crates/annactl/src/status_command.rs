@@ -214,6 +214,72 @@ pub async fn execute_anna_status_command(
     println!();
     */
 
+    // Beta.217b: Sysadmin Brain Analysis
+    println!(
+        "{}",
+        fmt::section_title(&fmt::emojis::INFO, "System Diagnostics (Brain Analysis)")
+    );
+    println!();
+
+    // Call brain analysis via RPC
+    match call_brain_analysis().await {
+        Ok(analysis) => {
+            if analysis.critical_count > 0 || analysis.warning_count > 0 {
+                println!(
+                    "  {} {} critical, {} warning",
+                    if analysis.critical_count > 0 {
+                        fmt::emojis::WARNING
+                    } else {
+                        fmt::emojis::SUCCESS
+                    },
+                    analysis.critical_count,
+                    analysis.warning_count
+                );
+                println!();
+
+                // Show top 3 insights
+                for (idx, insight) in analysis.insights.iter().take(3).enumerate() {
+                    let severity_emoji = match insight.severity.as_str() {
+                        "critical" => fmt::emojis::WARNING,
+                        "warning" => "⚠️",
+                        _ => fmt::emojis::INFO,
+                    };
+                    println!(
+                        "  {} {} {}",
+                        severity_emoji,
+                        fmt::bold(&format!("{}.", idx + 1)),
+                        insight.summary
+                    );
+                }
+
+                if analysis.insights.len() > 3 {
+                    println!(
+                        "    {}",
+                        fmt::dimmed(&format!(
+                            "... and {} more (run 'annactl brain' for full analysis)",
+                            analysis.insights.len() - 3
+                        ))
+                    );
+                }
+            } else {
+                println!(
+                    "  {} {}",
+                    fmt::emojis::SUCCESS,
+                    fmt::bold("All systems nominal")
+                );
+                println!("    {}", fmt::dimmed("No critical issues detected"));
+            }
+        }
+        Err(e) => {
+            println!(
+                "  {}",
+                fmt::dimmed(&format!("Brain analysis unavailable: {}", e))
+            );
+        }
+    }
+
+    println!();
+
     // Log command and exit with appropriate code
     let exit_code = health.exit_code();
     let duration_ms = start_time.elapsed().as_millis() as u64;
@@ -261,6 +327,23 @@ async fn get_llm_mode_string() -> String {
             Err(_) => "LLM not configured".to_string(),
         },
         Err(_) => "LLM not configured".to_string(),
+    }
+}
+
+/// Call brain analysis via RPC (Beta.217b)
+async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData> {
+    use anna_common::ipc::{Method, ResponseData};
+    use crate::rpc_client::RpcClient;
+
+    // Connect to daemon
+    let mut client = RpcClient::connect().await?;
+
+    // Send brain analysis request
+    let response = client.call(Method::BrainAnalysis).await?;
+
+    match response {
+        ResponseData::BrainAnalysis(data) => Ok(data),
+        _ => Err(anyhow::anyhow!("Unexpected response type")),
     }
 }
 

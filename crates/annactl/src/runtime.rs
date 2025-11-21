@@ -23,6 +23,12 @@ use crate::logging::LogEntry;
 pub async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
+    // Beta.214: Handle version flag with clean output (no "Error:" prefix)
+    if args.len() == 2 && (args[1] == "-V" || args[1] == "--version") {
+        println!("annactl {}", env!("CARGO_PKG_VERSION"));
+        std::process::exit(0);
+    }
+
     // Command 1: No arguments → Start TUI
     if args.len() == 1 {
         return crate::tui_v2::run().await;
@@ -58,6 +64,15 @@ pub async fn run() -> Result<()> {
             let req_id = LogEntry::generate_req_id();
 
             crate::status_command::execute_anna_status_command(json, &req_id, start_time)
+                .await
+        }
+
+        // Beta.217c: Command 3: Brain Analysis
+        Some(crate::cli::Commands::Brain { json, verbose }) => {
+            let start_time = Instant::now();
+            let req_id = LogEntry::generate_req_id();
+
+            crate::brain_command::execute_brain_command(json, verbose, &req_id, start_time)
                 .await
         }
 

@@ -14,6 +14,7 @@ use super::input::draw_input_bar;
 use super::utils::{calculate_input_height, draw_help_overlay, wrap_text};
 
 /// Draw the UI - Claude CLI style with header and status bar
+/// Beta.218: Added brain diagnostics panel on the right
 pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
     let size = f.size();
 
@@ -34,8 +35,20 @@ pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
     // Draw top header
     draw_header(f, main_chunks[0], state);
 
-    // Draw conversation panel (full width now)
-    draw_conversation_panel(f, main_chunks[1], state);
+    // Beta.218: Split content area: [Conversation | Brain Panel]
+    let content_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(65), // Conversation panel (left, 65%)
+            Constraint::Percentage(35), // Brain panel (right, 35%)
+        ])
+        .split(main_chunks[1]);
+
+    // Draw conversation panel (left side)
+    draw_conversation_panel(f, content_chunks[0], state);
+
+    // Beta.218: Draw brain diagnostics panel (right side)
+    super::brain::draw_brain_panel(f, content_chunks[1], state);
 
     // Draw bottom status bar
     draw_status_bar(f, main_chunks[2], state);
@@ -66,22 +79,22 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         Span::styled(
             "Anna ",
             Style::default()
-                .fg(Color::Cyan)
+                .fg(Color::Rgb(100, 200, 255)) // Bright cyan
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             format!("v{}", state.system_panel.anna_version),
-            Style::default().fg(Color::Gray),
+            Style::default().fg(Color::Rgb(120, 120, 120)), // Gray
         ),
         Span::raw(" | "),
         Span::styled(
             &state.llm_panel.model_name,
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(Color::Rgb(255, 200, 80)), // Yellow
         ),
         Span::raw(" | "),
         Span::styled(
             format!("{}@{}", username, hostname),
-            Style::default().fg(Color::Blue),
+            Style::default().fg(Color::Rgb(100, 150, 255)), // Blue
         ),
         Span::raw(" | "),
         Span::styled(
@@ -91,26 +104,26 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
                 "Daemon: N/A"
             },
             Style::default().fg(if state.llm_panel.available {
-                Color::Green
+                Color::Rgb(100, 255, 100) // Green
             } else {
-                Color::Yellow
+                Color::Rgb(255, 200, 80) // Yellow
             }),
         ),
     ]);
 
-    let header = Paragraph::new(header_text).style(Style::default().bg(Color::Black));
+    let header = Paragraph::new(header_text).style(Style::default().bg(Color::Rgb(0, 0, 0)));
 
     f.render_widget(header, area);
 }
 
 /// Draw professional status bar (bottom)
-/// Format: 15:42:08 Nov 19 | Health: ✓ | CPU: 8% | RAM: 4.2GB
-/// With thinking indicator: 15:42:08 Nov 19 | ⣾ Thinking... | CPU: 8% | RAM: 4.2GB
+/// Beta.220: Perfected with hostname, mode, daemon status, and flawless rendering
+/// Format: hostname | Mode: TUI | 15:42:08 | Health: ✓ | CPU: 8% | RAM: 4.2GB | LLM: ✓ | Daemon: ✓ | Brain: 2⚠
 pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use chrono::Local;
 
     let now = Local::now();
-    let time_str = now.format("%H:%M:%S %b %d").to_string();
+    let time_str = now.format("%H:%M:%S").to_string();
 
     // Beta.91: Thinking indicator with animation
     let thinking_spinner = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
@@ -121,43 +134,152 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         None
     };
 
-    let health_icon =
-        if state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0 {
-            ("✓", Color::Green)
-        } else if state.system_panel.cpu_load_1min < 95.0 {
-            ("⚠", Color::Yellow)
+    // Beta.218: Enhanced health check including brain diagnostics
+    let health_icon = if state.brain_available {
+        // Count critical issues from brain
+        let critical_count = state
+            .brain_insights
+            .iter()
+            .filter(|i| i.severity.to_lowercase() == "critical")
+            .count();
+        let warning_count = state
+            .brain_insights
+            .iter()
+            .filter(|i| i.severity.to_lowercase() == "warning")
+            .count();
+
+        if critical_count > 0 {
+            ("✗", Color::Rgb(255, 80, 80)) // Bright red
+        } else if warning_count > 0 {
+            ("⚠", Color::Rgb(255, 200, 80)) // Yellow/orange
         } else {
-            ("✗", Color::Red)
-        };
-
-    let mut spans = vec![
-        Span::styled(time_str, Style::default().fg(Color::Gray)),
-        Span::raw(" | "),
-    ];
-
-    // Add thinking indicator if active, otherwise show health
-    if let Some((spinner, text)) = thinking_indicator {
-        spans.push(Span::styled(spinner, Style::default().fg(Color::Cyan)));
-        spans.push(Span::raw(" "));
-        spans.push(Span::styled(text, Style::default().fg(Color::Cyan)));
-        spans.push(Span::raw(" | "));
+            ("✓", Color::Rgb(100, 255, 100)) // Bright green
+        }
     } else {
-        spans.push(Span::raw("Health: "));
+        // Fallback to CPU/RAM check if brain unavailable
+        if state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0 {
+            ("✓", Color::Rgb(100, 255, 100)) // Bright green
+        } else if state.system_panel.cpu_load_1min < 95.0 {
+            ("⚠", Color::Rgb(255, 200, 80)) // Yellow/orange
+        } else {
+            ("✗", Color::Rgb(255, 80, 80)) // Bright red
+        }
+    };
+
+    // Beta.220: Build status bar with consistent sections
+    let mut spans = Vec::new();
+
+    // Section 1: Hostname (with color)
+    let hostname = if !state.system_panel.hostname.is_empty() {
+        state.system_panel.hostname.as_str()
+    } else {
+        "unknown"
+    };
+    spans.push(Span::styled(
+        hostname,
+        Style::default().fg(Color::Rgb(100, 200, 255)).add_modifier(Modifier::BOLD), // Bright cyan
+    ));
+    spans.push(Span::raw(" │ "));
+
+    // Section 2: Mode
+    spans.push(Span::styled("Mode: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
+    spans.push(Span::styled(
+        "TUI",
+        Style::default().fg(Color::Rgb(100, 255, 100)), // Bright green
+    ));
+    spans.push(Span::raw(" │ "));
+
+    // Section 3: Clock (truecolor)
+    spans.push(Span::styled(
+        time_str,
+        Style::default().fg(Color::Rgb(150, 150, 150)),
+    ));
+    spans.push(Span::raw(" │ "));
+
+    // Section 4: Thinking indicator or Health
+    if let Some((spinner, text)) = thinking_indicator {
+        spans.push(Span::styled(spinner, Style::default().fg(Color::Rgb(100, 200, 255)))); // Bright cyan
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(text, Style::default().fg(Color::Rgb(100, 200, 255)))); // Bright cyan
+    } else {
+        spans.push(Span::styled("Health: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
         spans.push(Span::styled(
             health_icon.0,
-            Style::default().fg(health_icon.1),
+            Style::default().fg(health_icon.1).add_modifier(Modifier::BOLD),
         ));
-        spans.push(Span::raw(" | "));
+    }
+    spans.push(Span::raw(" │ "));
+
+    // Section 5: CPU and RAM (compact)
+    spans.push(Span::styled(
+        format!("CPU: {:.0}%", state.system_panel.cpu_load_1min),
+        Style::default().fg(Color::Rgb(180, 180, 180)),
+    ));
+    spans.push(Span::raw(" │ "));
+    spans.push(Span::styled(
+        format!("RAM: {:.1}G", state.system_panel.ram_used_gb),
+        Style::default().fg(Color::Rgb(180, 180, 180)),
+    ));
+    spans.push(Span::raw(" │ "));
+
+    // Section 6: LLM Status
+    spans.push(Span::styled("LLM: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
+    spans.push(Span::styled(
+        if state.llm_panel.available { "✓" } else { "✗" },
+        Style::default().fg(if state.llm_panel.available {
+            Color::Rgb(100, 255, 100) // Bright green
+        } else {
+            Color::Rgb(255, 200, 80) // Yellow
+        }).add_modifier(Modifier::BOLD),
+    ));
+    spans.push(Span::raw(" │ "));
+
+    // Section 7: Daemon Status (based on telemetry_ok and brain_available)
+    let daemon_ok = state.telemetry_ok || state.brain_available;
+    spans.push(Span::styled("Daemon: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
+    spans.push(Span::styled(
+        if daemon_ok { "✓" } else { "✗" },
+        Style::default().fg(if daemon_ok {
+            Color::Rgb(100, 255, 100) // Bright green
+        } else {
+            Color::Rgb(255, 80, 80) // Bright red
+        }).add_modifier(Modifier::BOLD),
+    ));
+
+    // Section 8: Brain diagnostics (only if issues exist)
+    if state.brain_available && !state.brain_insights.is_empty() {
+        let critical_count = state
+            .brain_insights
+            .iter()
+            .filter(|i| i.severity.to_lowercase() == "critical")
+            .count();
+        let warning_count = state
+            .brain_insights
+            .iter()
+            .filter(|i| i.severity.to_lowercase() == "warning")
+            .count();
+
+        if critical_count > 0 {
+            spans.push(Span::raw(" │ "));
+            spans.push(Span::styled("Brain: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
+            spans.push(Span::styled(
+                format!("{}✗", critical_count),
+                Style::default().fg(Color::Rgb(255, 80, 80)).add_modifier(Modifier::BOLD), // Bright red
+            ));
+        } else if warning_count > 0 {
+            spans.push(Span::raw(" │ "));
+            spans.push(Span::styled("Brain: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
+            spans.push(Span::styled(
+                format!("{}⚠", warning_count),
+                Style::default().fg(Color::Rgb(255, 200, 80)).add_modifier(Modifier::BOLD), // Yellow
+            ));
+        }
     }
 
-    spans.extend_from_slice(&[
-        Span::raw(format!("CPU: {:.0}%", state.system_panel.cpu_load_1min)),
-        Span::raw(" | "),
-        Span::raw(format!("RAM: {:.1}GB", state.system_panel.ram_used_gb)),
-    ]);
-
+    // Beta.220: Use truecolor background for status bar
     let status_text = Line::from(spans);
-    let status_bar = Paragraph::new(status_text).style(Style::default().bg(Color::Black));
+    let status_bar = Paragraph::new(status_text)
+        .style(Style::default().bg(Color::Rgb(20, 20, 20)));
 
     f.render_widget(status_bar, area);
 }
@@ -182,7 +304,7 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
                             Span::styled(
                                 prefix,
                                 Style::default()
-                                    .fg(Color::Blue)
+                                    .fg(Color::Rgb(100, 150, 255)) // Blue
                                     .add_modifier(Modifier::BOLD),
                             ),
                             Span::raw(wrapped_line.clone()),
@@ -198,7 +320,7 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
                 lines.push(Line::from(vec![Span::styled(
                     "Anna: ",
                     Style::default()
-                        .fg(Color::Green)
+                        .fg(Color::Rgb(100, 255, 100)) // Bright green
                         .add_modifier(Modifier::BOLD),
                 )]));
                 // Beta.136: Wrap each line of Anna's reply
@@ -217,7 +339,7 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
                 for (i, wrapped_line) in wrapped.iter().enumerate() {
                     if i == 0 {
                         lines.push(Line::from(vec![
-                            Span::styled(prefix, Style::default().fg(Color::Yellow)),
+                            Span::styled(prefix, Style::default().fg(Color::Rgb(255, 200, 80))), // Yellow
                             Span::raw(wrapped_line.clone()),
                         ]));
                     } else {
@@ -252,12 +374,13 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
         String::new()
     };
 
+    // Beta.220: Truecolor conversation panel border
     let paragraph = Paragraph::new(lines)
         .block(
             Block::default()
-                .title(format!("Conversation{}", scroll_indicator))
+                .title(format!(" Conversation{} ", scroll_indicator))
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(Color::Rgb(80, 180, 255))), // Bright cyan
         )
         // Beta.136: Disable auto-wrap (we wrap manually now for accurate scroll)
         .scroll((actual_scroll as u16, 0)); // Beta.99: Enable scrolling!

@@ -138,6 +138,11 @@ pub enum Method {
     /// Citation: [archwiki:System_maintenance]
     SystemHealth,
 
+    /// Get sysadmin brain analysis (Beta.217b)
+    /// Runs deterministic diagnostic rules and returns insights
+    /// Citation: [archwiki:System_maintenance]
+    BrainAnalysis,
+
     /// Perform system update (Phase 0.9)
     /// Citation: [archwiki:System_maintenance#Upgrading_the_system]
     SystemUpdate {
@@ -273,6 +278,9 @@ pub enum Method {
 
     /// Get Historian 30-day system summary (Beta.53)
     GetHistorianSummary,
+
+    /// Get telemetry snapshot for welcome reports (Beta.213)
+    GetTelemetrySnapshot,
 }
 
 /// Response data variants
@@ -287,6 +295,9 @@ pub enum ResponseData {
 
     /// Historian 30-day summary (Beta.53)
     HistorianSummary(crate::historian::SystemSummary),
+
+    /// Telemetry snapshot for welcome reports (Beta.213)
+    TelemetrySnapshot(crate::telemetry::TelemetrySnapshot),
 
     /// List of advice
     Advice(Vec<Advice>),
@@ -370,6 +381,10 @@ pub enum ResponseData {
     /// System health report (Phase 0.9)
     /// Citation: [archwiki:System_maintenance]
     HealthReport(HealthReportData),
+
+    /// Sysadmin brain analysis (Beta.217b)
+    /// Citation: [archwiki:System_maintenance]
+    BrainAnalysis(BrainAnalysisData),
 
     /// System update report (Phase 0.9)
     /// Citation: [archwiki:System_maintenance#Upgrading_the_system]
@@ -820,6 +835,41 @@ pub struct LogIssueData {
     pub severity: String,
     pub message: String,
     pub unit: String,
+}
+
+/// Sysadmin brain analysis data (Beta.217b)
+/// Citation: [archwiki:System_maintenance]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrainAnalysisData {
+    /// Report timestamp (ISO 8601)
+    pub timestamp: String,
+    /// List of diagnostic insights
+    pub insights: Vec<DiagnosticInsightData>,
+    /// Formatted output (canonical [SUMMARY]/[DETAILS]/[COMMANDS])
+    pub formatted_output: String,
+    /// Total critical issues count
+    pub critical_count: usize,
+    /// Total warning issues count
+    pub warning_count: usize,
+}
+
+/// Diagnostic insight data (Beta.217b)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticInsightData {
+    /// Rule identifier
+    pub rule_id: String,
+    /// Severity: "info", "warning", "critical"
+    pub severity: String,
+    /// One-sentence summary
+    pub summary: String,
+    /// Detailed explanation
+    pub details: String,
+    /// Diagnostic/fix commands
+    pub commands: Vec<String>,
+    /// Documentation citations
+    pub citations: Vec<String>,
+    /// Evidence from telemetry
+    pub evidence: String,
 }
 
 /// System update report data (Phase 0.9)

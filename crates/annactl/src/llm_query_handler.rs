@@ -17,6 +17,9 @@ use owo_colors::OwoColorize;
 use std::io::{self, Write};
 use std::time::Duration;
 
+use crate::llm_integration::fetch_telemetry_snapshot;
+use crate::output::normalize_for_cli;
+use crate::startup::welcome::{generate_welcome_report, load_last_session, save_session_metadata};
 use crate::system_query::query_system_telemetry;
 use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, UnifiedQueryResult};
 
@@ -88,6 +91,28 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             sources,
         }) => {
             spinner.finish_and_clear();
+
+            // Beta.213: Show welcome prelude before LLM-based answers (only for conversational answers)
+            // This provides system context delta without overwhelming the user
+            let current_snapshot_result = tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(async { fetch_telemetry_snapshot().await });
+
+            if let Some(snapshot) = current_snapshot_result {
+                let last_session = load_last_session().ok().flatten();
+                let welcome_report = generate_welcome_report(last_session, snapshot.clone());
+
+                // Only show welcome if there are changes detected (keep output minimal)
+                if !welcome_report.contains("No system changes detected") {
+                    let normalized = normalize_for_cli(&welcome_report);
+                    println!("{}", normalized);
+                    println!();
+                }
+
+                // Save session for next run
+                let _ = save_session_metadata(snapshot);
+            }
+
             println!("{}", "anna:".bright_magenta().bold());
             println!();
 

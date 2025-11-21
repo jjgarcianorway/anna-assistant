@@ -89,6 +89,7 @@ mod executor;
 mod health; // Phase 0.5: Health subsystem
 mod historian_integration; // Phase 5.7: Historian integration
 mod install; // Phase 0.8: Installation subsystem
+mod intel; // Beta.217a: Sysadmin Brain intelligence module
 mod llm_bootstrap; // LLM auto-detection and configuration
 mod mirror; // Phase 1.4: Mirror Protocol
 mod mirror_audit; // Phase 1.6: Mirror Audit

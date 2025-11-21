@@ -16,32 +16,77 @@ use owo_colors::OwoColorize;
 /// Takes canonical [SUMMARY]/[DETAILS]/[COMMANDS] formatted text and applies
 /// terminal formatting for CLI display.
 ///
-/// Features:
+/// Features (Beta.216):
 /// - Section headers highlighted in cyan+bold
 /// - Commands highlighted in green
+/// - **bold** markdown converted to ANSI bold
+/// - Triple backticks (```) stripped
 /// - Preserves semantic structure
 /// - Adds terminal colors where supported
 pub fn normalize_for_cli(text: &str) -> String {
     let mut output = String::new();
+    let mut in_code_block = false;
 
     for line in text.lines() {
         let trimmed = line.trim();
+
+        // Beta.216: Handle code block markers (strip them)
+        if trimmed == "```bash" || trimmed == "```" {
+            in_code_block = !in_code_block;
+            continue; // Skip the marker line
+        }
 
         // Section markers: [SUMMARY], [DETAILS], [COMMANDS]
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
             output.push_str(&format!("{}\n", line.cyan().bold()));
         }
-        // Command lines (starting with $ or #)
-        else if trimmed.starts_with('$') || trimmed.starts_with('#') {
+        // Command lines (starting with $ or # or inside code blocks)
+        else if trimmed.starts_with('$') || trimmed.starts_with('#') || in_code_block {
             output.push_str(&format!("{}\n", line.green()));
         }
-        // Regular content
+        // Regular content - convert **bold** to ANSI bold
         else {
-            output.push_str(&format!("{}\n", line));
+            let formatted = convert_markdown_to_ansi(line);
+            output.push_str(&format!("{}\n", formatted));
         }
     }
 
     output
+}
+
+/// Convert markdown formatting to ANSI terminal codes
+///
+/// Beta.216: Converts **bold** markdown to ANSI bold sequences
+fn convert_markdown_to_ansi(text: &str) -> String {
+    let mut result = String::new();
+    let mut chars = text.chars().peekable();
+    let mut in_bold = false;
+
+    while let Some(ch) = chars.next() {
+        if ch == '*' && chars.peek() == Some(&'*') {
+            // Found ** - toggle bold
+            chars.next(); // consume second *
+
+            if in_bold {
+                // Ending bold
+                result.push_str("\x1b[0m"); // Reset
+                in_bold = false;
+            } else {
+                // Starting bold
+                result.push_str("\x1b[1m"); // Bold
+                in_bold = true;
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    // If still in bold at end, reset
+    if in_bold {
+        result.push_str("\x1b[0m");
+    }
+
+    result
 }
 
 /// Normalize text for TUI output

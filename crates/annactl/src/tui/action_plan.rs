@@ -305,7 +305,7 @@ pub fn render_action_plan_lines(
     lines.push(Line::from(vec![Span::styled(
         "📋 Action Plan".to_string(),
         Style::default()
-            .fg(Color::Magenta)
+            .fg(Color::Rgb(255, 100, 255))
             .add_modifier(Modifier::BOLD),
     )]));
     lines.push(Line::from(""));
@@ -354,7 +354,7 @@ pub fn render_action_plan_lines(
         )]));
         for check in &plan.necessary_checks {
             let risk_color = match check.risk_level {
-                RiskLevel::Info => Color::Blue,
+                RiskLevel::Info => Color::Rgb(100, 150, 255),
                 RiskLevel::Low => Color::Green,
                 RiskLevel::Medium => Color::Yellow,
                 RiskLevel::High => Color::Red,
@@ -383,7 +383,7 @@ pub fn render_action_plan_lines(
         )]));
         for (i, step) in plan.command_plan.iter().enumerate() {
             let risk_color = match step.risk_level {
-                RiskLevel::Info => Color::Blue,
+                RiskLevel::Info => Color::Rgb(100, 150, 255),
                 RiskLevel::Low => Color::Green,
                 RiskLevel::Medium => Color::Yellow,
                 RiskLevel::High => Color::Red,
@@ -411,7 +411,7 @@ pub fn render_action_plan_lines(
                 lines.push(Line::from(vec![
                     Span::raw("      ".to_string()),
                     Span::styled("↩ Rollback: ".to_string(), Style::default().fg(Color::Gray)),
-                    Span::styled(rollback_id.clone(), Style::default().fg(Color::DarkGray)),
+                    Span::styled(rollback_id.clone(), Style::default().fg(Color::Rgb(80, 80, 80))),
                 ]));
             }
         }
@@ -459,7 +459,7 @@ pub fn render_action_plan_lines(
     // Max risk indicator
     if let Some(max_risk) = plan.max_risk_level() {
         let risk_color = match max_risk {
-            RiskLevel::Info => Color::Blue,
+            RiskLevel::Info => Color::Rgb(100, 150, 255),
             RiskLevel::Low => Color::Green,
             RiskLevel::Medium => Color::Yellow,
             RiskLevel::High => Color::Red,

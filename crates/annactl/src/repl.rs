@@ -242,8 +242,9 @@ async fn display_startup_summary(_ui: &UI) {
         "unknown".to_string()
     };
 
-    // Display comprehensive startup summary with Historian data
-    crate::startup_summary::display_startup_summary(&facts, historian.as_ref(), &current_model);
+    // Beta.214: Commented out - startup_summary module removed in Beta.200 architecture reset
+    // This REPL is dead code and will be removed in a future cleanup
+    // crate::startup_summary::display_startup_summary(&facts, historian.as_ref(), &current_model);
 }
 
 /// Main REPL loop (factored out for clarity)

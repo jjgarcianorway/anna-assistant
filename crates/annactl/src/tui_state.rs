@@ -52,6 +52,15 @@ pub struct AnnaTuiState {
 
     /// Beta.147: Last action plan (for execution)
     pub last_action_plan: Option<Box<anna_common::action_plan_v3::ActionPlan>>,
+
+    /// Beta.218: Brain diagnostic analysis (top 3 insights)
+    pub brain_insights: Vec<anna_common::ipc::DiagnosticInsightData>,
+
+    /// Beta.218: Brain analysis timestamp
+    pub brain_timestamp: Option<String>,
+
+    /// Beta.218: Whether brain data is available
+    pub brain_available: bool,
 }
 
 impl Default for AnnaTuiState {
@@ -72,6 +81,9 @@ impl Default for AnnaTuiState {
             is_thinking: false,
             thinking_frame: 0,
             last_action_plan: None,
+            brain_insights: Vec::new(),
+            brain_timestamp: None,
+            brain_available: false,
         }
     }
 }

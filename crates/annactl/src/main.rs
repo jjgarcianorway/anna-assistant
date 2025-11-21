@@ -23,6 +23,7 @@ pub mod telemetry; // Beta.200: Telemetry fetching and caching
 // Feature modules (KEEP - essential)
 mod action_executor;
 pub mod action_plan_executor; // ActionPlan execution engine
+mod brain_command; // Beta.217c: Standalone brain diagnostic command
 mod context_engine; // Contextual awareness and proactive monitoring
 mod dialogue_v3_json;
 mod first_run;
@@ -47,7 +48,6 @@ mod repl;
 mod rpc_client;
 mod runtime_prompt;
 mod startup; // Beta.211: Welcome engine
-mod startup_summary;
 mod status_command;
 mod system_prompt_v2;
 mod system_prompt_v3_json;

@@ -63,62 +63,123 @@ pub fn calculate_input_height(input: &str, available_width: u16) -> u16 {
     (wrapped_lines + 2).max(3).min(10) as u16
 }
 
-/// Draw help overlay
+/// Draw professional help overlay (Beta.220)
 pub fn draw_help_overlay(f: &mut Frame, area: Rect) {
     let help_text = vec![
+        // Title
         Line::from(Span::styled(
-            "Keyboard Shortcuts",
+            "Anna Assistant - Help & Keyboard Shortcuts",
             Style::default()
-                .fg(Color::Yellow)
+                .fg(Color::Rgb(255, 200, 80)) // Yellow
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
+
+        // Section 1: Navigation & Control
+        Line::from(Span::styled(
+            "Navigation & Control:",
+            Style::default()
+                .fg(Color::Rgb(100, 200, 255)) // Bright cyan
+                .add_modifier(Modifier::BOLD),
+        )),
         Line::from(vec![
-            Span::styled("Ctrl+C", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Exit"),
+            Span::styled("  Ctrl+C       ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Exit application"),
         ]),
         Line::from(vec![
-            Span::styled("Ctrl+L", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Clear conversation"),
+            Span::styled("  F1           ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Toggle this help overlay"),
         ]),
         Line::from(vec![
-            Span::styled("Ctrl+U", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Clear input"),
+            Span::styled("  Ctrl+L       ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Clear conversation history"),
         ]),
         Line::from(vec![
-            Span::styled("Ctrl+X", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Execute action plan"),
+            Span::styled("  ↑ / ↓        ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Navigate input history"),
         ]),
         Line::from(vec![
-            Span::styled("F1", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Toggle help"),
-        ]),
-        Line::from(vec![
-            Span::styled("↑/↓", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Navigate history"),
-        ]),
-        Line::from(vec![
-            Span::styled("PgUp/PgDn", Style::default().fg(Color::Cyan)),
-            Span::raw(" - Scroll conversation"),
+            Span::styled("  PgUp / PgDn  ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Scroll conversation"),
         ]),
         Line::from(""),
+
+        // Section 2: Input & Execution
         Line::from(Span::styled(
-            "Press F1 to close",
-            Style::default().fg(Color::Gray),
+            "Input & Execution:",
+            Style::default()
+                .fg(Color::Rgb(100, 200, 255)) // Bright cyan
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled("  Enter        ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Send query to Anna"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Ctrl+U       ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Clear input buffer"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Ctrl+X       ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Execute last action plan"),
+        ]),
+        Line::from(vec![
+            Span::styled("  ← / →        ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Move cursor in input"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Home / End   ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" Jump to start/end of input"),
+        ]),
+        Line::from(""),
+
+        // Section 3: Diagnostic Severity Colors
+        Line::from(Span::styled(
+            "Diagnostic Severity Colors:",
+            Style::default()
+                .fg(Color::Rgb(100, 200, 255)) // Bright cyan
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled("  ✗ ", Style::default().fg(Color::Rgb(255, 80, 80)).add_modifier(Modifier::BOLD)), // Bright red
+            Span::styled("Critical  ", Style::default().fg(Color::Rgb(255, 80, 80))), // Bright red
+            Span::raw(" Requires immediate attention"),
+        ]),
+        Line::from(vec![
+            Span::styled("  ⚠ ", Style::default().fg(Color::Rgb(255, 200, 80)).add_modifier(Modifier::BOLD)), // Yellow
+            Span::styled("Warning   ", Style::default().fg(Color::Rgb(255, 200, 80))), // Yellow
+            Span::raw(" Should be addressed soon"),
+        ]),
+        Line::from(vec![
+            Span::styled("  ℹ ", Style::default().fg(Color::Rgb(100, 200, 255)).add_modifier(Modifier::BOLD)), // Bright cyan
+            Span::styled("Info      ", Style::default().fg(Color::Rgb(100, 200, 255))), // Bright cyan
+            Span::raw(" Informational, no action needed"),
+        ]),
+        Line::from(vec![
+            Span::styled("  ✓ ", Style::default().fg(Color::Rgb(100, 255, 100)).add_modifier(Modifier::BOLD)), // Bright green
+            Span::styled("Healthy   ", Style::default().fg(Color::Rgb(100, 255, 100))), // Bright green
+            Span::raw(" System operating normally"),
+        ]),
+        Line::from(""),
+
+        // Footer
+        Line::from(Span::styled(
+            "Press F1 to close  •  Anna v5.7.0-beta.222",
+            Style::default().fg(Color::Rgb(120, 120, 120)), // Gray
         )),
     ];
 
-    // Center the help box
-    let help_area = centered_rect(50, 50, area);
+    // Center the help box (60% width, 70% height for more content)
+    let help_area = centered_rect(60, 70, area);
 
     let help_block = Paragraph::new(help_text)
         .block(
             Block::default()
-                .title("Help")
+                .title(" Help ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow)),
+                .border_style(Style::default().fg(Color::Rgb(255, 200, 80))), // Yellow
         )
-        .style(Style::default().bg(Color::Black));
+        .style(Style::default().bg(Color::Rgb(10, 10, 10)));
 
     f.render_widget(help_block, help_area);
 }

@@ -245,6 +245,29 @@ pub enum BootTrend {
     Degrading,
 }
 
+/// Minimal telemetry snapshot for welcome reports (Beta.213)
+/// Used by startup/welcome.rs for session change detection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelemetrySnapshot {
+    /// CPU count
+    pub cpu_count: usize,
+
+    /// Total RAM in MB
+    pub total_ram_mb: u64,
+
+    /// Hostname
+    pub hostname: String,
+
+    /// Kernel version
+    pub kernel_version: String,
+
+    /// Installed packages count
+    pub package_count: usize,
+
+    /// Available disk space in GB
+    pub available_disk_gb: u64,
+}
+
 /// Audio stack telemetry (Task 9: dependency-aware suggestions)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioTelemetry {

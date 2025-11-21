@@ -1640,6 +1640,36 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             }
         }
 
+        Method::GetTelemetrySnapshot => {
+            info!("GetTelemetrySnapshot method called");
+            // Beta.213: Return minimal telemetry snapshot for welcome reports
+            match crate::telemetry::collect_facts().await {
+                Ok(facts) => {
+                    // Extract the 6 required fields from SystemFacts
+                    let snapshot = anna_common::telemetry::TelemetrySnapshot {
+                        cpu_count: facts.cpu_cores,
+                        total_ram_mb: (facts.total_memory_gb * 1024.0) as u64,
+                        hostname: facts.hostname,
+                        kernel_version: facts.kernel,
+                        package_count: facts.installed_packages,
+                        available_disk_gb: {
+                            // Sum available space across all storage devices (size - used)
+                            facts.storage_devices.iter()
+                                .map(|d| (d.size_gb - d.used_gb).max(0.0))
+                                .sum::<f64>() as u64
+                        },
+                    };
+                    info!("Generated telemetry snapshot: hostname={}, packages={}, disk={}GB",
+                          snapshot.hostname, snapshot.package_count, snapshot.available_disk_gb);
+                    Ok(ResponseData::TelemetrySnapshot(snapshot))
+                }
+                Err(e) => {
+                    error!("Failed to collect telemetry: {}", e);
+                    Err(format!("Failed to collect telemetry: {}", e))
+                }
+            }
+        }
+
         Method::HealthProbe => {
             info!("HealthProbe method called");
             Ok(ResponseData::HealthProbe {
@@ -2061,6 +2091,61 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             };
 
             Ok(ResponseData::HealthReport(data))
+        }
+
+        Method::BrainAnalysis => {
+            info!("BrainAnalysis method called");
+
+            // Perform health check first to get system data
+            let health_report = match crate::steward::check_system_health().await {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Health check failed for brain analysis: {}", e);
+                    return Response {
+                        id,
+                        result: Err(format!("Health check failed: {}", e)),
+                        version: state.version.clone(),
+                    };
+                }
+            };
+
+            // Run sysadmin brain analysis
+            let insights = crate::intel::analyze_system_health(&health_report);
+            let formatted_output = crate::intel::sysadmin_brain::format_insights(&insights);
+
+            // Count by severity
+            let critical_count = insights
+                .iter()
+                .filter(|i| matches!(i.severity, crate::intel::DiagnosticSeverity::Critical))
+                .count();
+            let warning_count = insights
+                .iter()
+                .filter(|i| matches!(i.severity, crate::intel::DiagnosticSeverity::Warning))
+                .count();
+
+            // Convert to IPC format
+            let insights_data: Vec<anna_common::ipc::DiagnosticInsightData> = insights
+                .into_iter()
+                .map(|i| anna_common::ipc::DiagnosticInsightData {
+                    rule_id: i.rule_id,
+                    severity: format!("{:?}", i.severity).to_lowercase(),
+                    summary: i.summary,
+                    details: i.details,
+                    commands: i.commands,
+                    citations: i.citations,
+                    evidence: i.evidence,
+                })
+                .collect();
+
+            let data = anna_common::ipc::BrainAnalysisData {
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                insights: insights_data,
+                formatted_output,
+                critical_count,
+                warning_count,
+            };
+
+            Ok(ResponseData::BrainAnalysis(data))
         }
 
         Method::SystemUpdate { dry_run } => {

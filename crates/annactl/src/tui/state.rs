@@ -1,83 +1,68 @@
 //! State management - System telemetry updates and welcome message
-//! Version 150: Integrated Context Engine for contextual greetings
+//! Beta.213: Integrated deterministic welcome engine with RPC telemetry
 
-use crate::context_engine::ContextEngine;
-use crate::system_query::query_system_telemetry;
+use crate::startup::welcome::{load_last_session, save_session_metadata};
+use crate::llm_integration::fetch_telemetry_snapshot;
+use crate::output::normalize_for_tui;
 use crate::tui_state::AnnaTuiState;
 
-/// Version 150: Context-aware welcome message with health monitoring
+/// Beta.221: Enhanced welcome with system state from brain analysis
 pub fn show_welcome_message(state: &mut AnnaTuiState) {
-    // Load Context Engine and run health checks
-    let mut context = ContextEngine::load().unwrap_or_default();
+    // Fetch telemetry snapshot from daemon via RPC (Beta.213)
+    // This is non-blocking and doesn't use LLM
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let current_snapshot = rt.block_on(async {
+        fetch_telemetry_snapshot().await
+    });
 
-    // Get telemetry for health checks
-    if let Ok(telemetry) = query_system_telemetry() {
-        context.run_health_checks(&telemetry);
+    if let Some(snapshot) = current_snapshot {
+        // Load last session metadata
+        let last_session = load_last_session().ok().flatten();
+
+        // Beta.221: Determine system state from brain insights
+        let system_state = determine_system_state(state);
+
+        // Generate welcome report with system state (deterministic, zero LLM calls)
+        let welcome_report = crate::startup::welcome::generate_welcome_with_state(
+            last_session,
+            snapshot.clone(),
+            system_state
+        );
+
+        // Normalize for TUI display
+        let welcome = normalize_for_tui(&welcome_report);
+
+        // Display welcome report
+        state.add_anna_reply(welcome);
+
+        // Save current session for next run
+        let _ = save_session_metadata(snapshot);
+    } else {
+        // Fallback: RPC telemetry not available
+        let fallback = crate::output::generate_fallback_message(
+            "Failed to fetch telemetry from daemon. Ensure annad is running."
+        );
+        let welcome = normalize_for_tui(&fallback);
+        state.add_anna_reply(welcome);
+    }
+}
+
+/// Beta.221: Determine system state from brain insights
+fn determine_system_state(state: &AnnaTuiState) -> &'static str {
+    if !state.brain_available {
+        return "Unknown";
     }
 
-    // Generate contextual greeting
-    let greeting = context.generate_greeting();
+    let has_critical = state.brain_insights.iter().any(|i| i.severity.to_lowercase() == "critical");
+    let has_warning = state.brain_insights.iter().any(|i| i.severity.to_lowercase() == "warning");
 
-    // Build system status summary
-    let cpu_status = if state.system_panel.cpu_load_1min < 50.0 {
-        "✅ running smoothly"
-    } else if state.system_panel.cpu_load_1min < 80.0 {
-        "⚠️ moderate load"
+    if has_critical {
+        "Critical"
+    } else if has_warning {
+        "Warning"
     } else {
-        "🔥 high load"
-    };
-
-    let ram_percent = (state.system_panel.ram_used_gb / state.system_panel.ram_total_gb) * 100.0;
-    let ram_status = if ram_percent < 70.0 {
-        "✅ plenty available"
-    } else if ram_percent < 90.0 {
-        "⚠️ getting full"
-    } else {
-        "🔴 critically low"
-    };
-
-    let llm_status = if state.llm_panel.available {
-        format!("✅ {} ready", state.llm_panel.model_name)
-    } else {
-        "⚠️ LLM not available".to_string()
-    };
-
-    // Combine greeting with system summary
-    let welcome = format!(
-        "{}\n\n\
-         🖥️  **System Status:**\n\
-         • CPU: {} ({:.0}% load) - {}\n\
-         • RAM: {:.1}GB / {:.1}GB ({:.0}% used) - {}\n\
-         • Disk: {:.1}GB free\n\
-         {}\n\n\
-         🤖 **AI Assistant:** {}\n\n\
-         💡 **Quick Actions:**\n\
-         • \"how is my system?\" - Health overview\n\
-         • \"what are my personality traits?\" - Usage profile\n\
-         • \"show failed services\" - System issues\n\
-         • F1 - Help\n\n\
-         **What would you like to know or do?**",
-        greeting,
-        state.system_panel.cpu_model,
-        state.system_panel.cpu_load_1min,
-        cpu_status,
-        state.system_panel.ram_used_gb,
-        state.system_panel.ram_total_gb,
-        ram_percent,
-        ram_status,
-        state.system_panel.disk_free_gb,
-        if state.system_panel.gpu_name.is_some() {
-            format!("• GPU: {}\n", state.system_panel.gpu_name.as_ref().unwrap())
-        } else {
-            String::new()
-        },
-        llm_status
-    );
-
-    state.add_anna_reply(welcome);
-
-    // Save context for next session
-    let _ = context.save();
+        "Healthy"
+    }
 }
 
 /// Update telemetry data in state

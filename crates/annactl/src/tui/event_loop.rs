@@ -70,6 +70,9 @@ async fn run_event_loop(
     // Beta.94: Initialize telemetry with real data
     update_telemetry(state);
 
+    // Beta.218: Initialize brain diagnostics
+    super::brain::update_brain_analysis(state).await;
+
     // Beta.94: Show welcome message on first launch
     if state.conversation.is_empty() {
         show_welcome_message(state);
@@ -79,11 +82,21 @@ async fn run_event_loop(
     let mut last_telemetry_update = std::time::Instant::now();
     let telemetry_interval = std::time::Duration::from_secs(5);
 
+    // Beta.218: Track last brain analysis update (every 30 seconds)
+    let mut last_brain_update = std::time::Instant::now();
+    let brain_interval = std::time::Duration::from_secs(30);
+
     loop {
         // Beta.94: Update telemetry every 5 seconds
         if last_telemetry_update.elapsed() >= telemetry_interval {
             update_telemetry(state);
             last_telemetry_update = std::time::Instant::now();
+        }
+
+        // Beta.218: Update brain analysis every 30 seconds
+        if last_brain_update.elapsed() >= brain_interval {
+            super::brain::update_brain_analysis(state).await;
+            last_brain_update = std::time::Instant::now();
         }
 
         // Beta.91: Advance thinking animation frame

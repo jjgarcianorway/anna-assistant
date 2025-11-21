@@ -13,10 +13,10 @@ use super::action_plan::{
     generate_action_plan_from_llm, send_demo_action_plan, should_generate_action_plan,
 };
 use super::event_loop::TuiMessage;
-use super::llm::generate_reply_streaming;
 
 /// Draw input bar (bottom)
 /// Beta.99: Added text wrapping for multi-line input
+/// Beta.220: Enhanced input bar with truecolor and better cursor visibility
 pub fn draw_input_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     let lang_indicator = format!("[{}]", state.language.as_str().to_uppercase());
     let prompt = format!("{} > ", lang_indicator);
@@ -24,13 +24,15 @@ pub fn draw_input_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     // Beta.99: Build wrapped text with proper formatting
     let input_text = format!("{}{}_", prompt, &state.input);
 
+    // Beta.220: Use truecolor for input box
     let paragraph = Paragraph::new(input_text)
         .block(
             Block::default()
+                .title(" Input ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Green)),
+                .border_style(Style::default().fg(Color::Rgb(100, 200, 100))), // Green
         )
-        .style(Style::default().fg(Color::White))
+        .style(Style::default().fg(Color::Rgb(220, 220, 220))) // Light gray text
         .wrap(Wrap { trim: false }); // Beta.99: Enable wrapping!
 
     f.render_widget(paragraph, area);
@@ -102,6 +104,9 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
         telemetry_ok: state.telemetry_ok,
         last_llm_reply: None,
         last_action_plan: None, // Beta.147
+        brain_insights: Vec::new(), // Beta.218
+        brain_timestamp: None,      // Beta.218
+        brain_available: false,     // Beta.218
     };
 
     // Beta.148: Route through appropriate handler
@@ -109,27 +114,20 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
         // Use V3 JSON dialogue to generate ActionPlan
         tokio::spawn(async move {
             if let Err(e) = generate_action_plan_from_llm(&input, &state_clone, tx.clone()).await {
-                // Fallback to regular reply on error
+                // Fallback to simple error message on action plan failure
                 let error_msg = format!(
-                    "⚠️ Could not generate action plan: {}\n\nFalling back to standard reply...",
+                    "⚠️ Could not generate action plan: {}",
                     e
                 );
                 let _ = tx.send(TuiMessage::AnnaReply(error_msg)).await;
-
-                let reply = generate_reply_streaming(&input, &state_clone, tx.clone()).await;
-                if !reply.is_empty() {
-                    let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
-                }
             }
         });
     } else {
-        // Use standard reply generation
+        // Beta.213: Simple placeholder for non-action-plan queries
+        // TUI mode is primarily for ActionPlan execution; for other queries use one-shot mode
         tokio::spawn(async move {
-            let reply = generate_reply_streaming(&input, &state_clone, tx.clone()).await;
-            // If template-based (non-streaming), send as complete reply
-            if !reply.is_empty() {
-                let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
-            }
+            let reply = "This query doesn't require an action plan. For informational queries, please use one-shot mode: annactl \"your question\"".to_string();
+            let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
         });
     }
 

@@ -11,8 +11,8 @@
 //! - Canonical [SUMMARY]/[DETAILS] format
 
 use anyhow::{Context, Result};
-use anna_common::telemetry::SystemTelemetry;
-use chrono::{DateTime, Utc};
+use anna_common::telemetry::{SystemTelemetry, TelemetrySnapshot};
+use chrono::{DateTime, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -24,33 +24,11 @@ pub struct SessionMetadata {
     /// Timestamp of last Anna invocation
     pub last_run: DateTime<Utc>,
 
-    /// System snapshot at last run
+    /// System snapshot at last run (Beta.213: now shared with annad via RPC)
     pub last_telemetry: TelemetrySnapshot,
 
     /// Anna version at last run
     pub anna_version: String,
-}
-
-/// Minimal telemetry snapshot for diff computation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TelemetrySnapshot {
-    /// CPU count
-    pub cpu_count: usize,
-
-    /// Total RAM in MB
-    pub total_ram_mb: u64,
-
-    /// Hostname
-    pub hostname: String,
-
-    /// Kernel version
-    pub kernel_version: String,
-
-    /// Installed packages count
-    pub package_count: usize,
-
-    /// Available disk space in GB
-    pub available_disk_gb: u64,
 }
 
 /// Get path to session metadata file
@@ -109,7 +87,7 @@ pub fn save_session_metadata(telemetry: TelemetrySnapshot) -> Result<()> {
     Ok(())
 }
 
-/// Generate welcome report comparing last session to current state
+/// Beta.221: Generate enhanced welcome with greeting, user context, and system state
 ///
 /// Returns a canonical [SUMMARY]/[DETAILS] formatted report.
 /// Zero LLM usage - purely deterministic based on telemetry diff.
@@ -117,16 +95,36 @@ pub fn generate_welcome_report(
     last_session: Option<SessionMetadata>,
     current_telemetry: TelemetrySnapshot,
 ) -> String {
+    generate_welcome_with_state(last_session, current_telemetry, "Healthy")
+}
+
+/// Beta.221: Generate welcome with system state indicator
+pub fn generate_welcome_with_state(
+    last_session: Option<SessionMetadata>,
+    current_telemetry: TelemetrySnapshot,
+    system_state: &str,
+) -> String {
+    let greeting = get_time_based_greeting();
+    let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
+    let hostname = &current_telemetry.hostname;
+
+    let greeting_line = format!(
+        "{}, {}@{}! System state: {}",
+        greeting, username, hostname, system_state
+    );
+
     match last_session {
-        None => generate_first_run_welcome(&current_telemetry),
-        Some(last) => generate_returning_user_welcome(&last, &current_telemetry),
+        None => generate_first_run_welcome_with_greeting(&current_telemetry, &greeting_line),
+        Some(last) => generate_returning_user_welcome_with_greeting(&last, &current_telemetry, &greeting_line),
     }
 }
 
-/// Generate welcome for first-time run (no previous session)
-fn generate_first_run_welcome(current: &TelemetrySnapshot) -> String {
+/// Beta.221: Generate welcome for first-time run with greeting
+fn generate_first_run_welcome_with_greeting(current: &TelemetrySnapshot, greeting_line: &str) -> String {
     format!(
         r#"[SUMMARY]
+{}
+
 Welcome to Anna Assistant! This is your first session.
 
 [DETAILS]
@@ -140,6 +138,7 @@ System Information:
 
 Anna is ready to help with Arch Linux system management.
 Type your questions in natural language or use 'status' for system health."#,
+        greeting_line,
         current.hostname,
         current.kernel_version,
         current.cpu_count,
@@ -149,25 +148,32 @@ Type your questions in natural language or use 'status' for system health."#,
     )
 }
 
-/// Generate welcome for returning user (diff from last session)
-fn generate_returning_user_welcome(
+/// Generate welcome for first-time run (no previous session)
+fn generate_first_run_welcome(current: &TelemetrySnapshot) -> String {
+    generate_first_run_welcome_with_greeting(current, "Welcome to Anna Assistant!")
+}
+
+/// Beta.221: Generate welcome for returning user with greeting
+fn generate_returning_user_welcome_with_greeting(
     last: &SessionMetadata,
     current: &TelemetrySnapshot,
+    greeting_line: &str,
 ) -> String {
     let time_since = Utc::now() - last.last_run;
+    let time_since_str = format_time_since(time_since.num_seconds());
     let changes = compute_system_changes(&last.last_telemetry, current);
 
     let summary = if changes.is_empty() {
         format!(
-            "Welcome back! No system changes detected since last run ({}).",
-            format_time_since(time_since.num_seconds())
+            "Last login: {}. No system changes detected.",
+            time_since_str
         )
     } else {
         format!(
-            "Welcome back! {} system change{} detected since last run ({}).",
+            "Last login: {}. {} system change{} detected.",
+            time_since_str,
             changes.len(),
-            if changes.len() == 1 { "" } else { "s" },
-            format_time_since(time_since.num_seconds())
+            if changes.len() == 1 { "" } else { "s" }
         )
     };
 
@@ -210,7 +216,16 @@ Current System:
         )
     };
 
-    format!("[SUMMARY]\n{}\n\n[DETAILS]\n{}", summary, details)
+    format!("[SUMMARY]\n{}\n\n{}\n\n[DETAILS]\n{}", greeting_line, summary, details)
+}
+
+/// Generate welcome for returning user (diff from last session)
+fn generate_returning_user_welcome(
+    last: &SessionMetadata,
+    current: &TelemetrySnapshot,
+) -> String {
+    let greeting_line = "Welcome back!";
+    generate_returning_user_welcome_with_greeting(last, current, greeting_line)
 }
 
 /// Compute deterministic system changes between two telemetry snapshots
@@ -273,8 +288,37 @@ fn compute_system_changes(last: &TelemetrySnapshot, current: &TelemetrySnapshot)
     changes
 }
 
+/// Beta.221: Get time-based greeting
+///
+/// Returns deterministic greeting based on local time:
+/// - "Good morning" (5:00-11:59)
+/// - "Good afternoon" (12:00-16:59)
+/// - "Good evening" (17:00-21:59)
+/// - "Good night" (22:00-4:59)
+pub fn get_time_based_greeting() -> &'static str {
+    use chrono::Local;
+
+    let hour = Local::now().hour();
+
+    match hour {
+        5..=11 => "Good morning",
+        12..=16 => "Good afternoon",
+        17..=21 => "Good evening",
+        _ => "Good night",
+    }
+}
+
 /// Format time duration in human-readable form
-fn format_time_since(seconds: i64) -> String {
+///
+/// Beta.214: Improved formatting with combined units and proper singular/plural
+/// Examples:
+/// - "less than a minute ago"
+/// - "2 minutes ago"
+/// - "1 hour ago"
+/// - "1 hour 23 minutes ago"
+/// - "2 days 3 hours ago"
+/// - "5 days ago" (for longer spans, hours omitted for brevity)
+pub fn format_time_since(seconds: i64) -> String {
     if seconds < 60 {
         "less than a minute ago".to_string()
     } else if seconds < 3600 {
@@ -282,8 +326,37 @@ fn format_time_since(seconds: i64) -> String {
         format!("{} minute{} ago", minutes, if minutes == 1 { "" } else { "s" })
     } else if seconds < 86400 {
         let hours = seconds / 3600;
-        format!("{} hour{} ago", hours, if hours == 1 { "" } else { "s" })
+        let remaining_minutes = (seconds % 3600) / 60;
+
+        if remaining_minutes == 0 {
+            format!("{} hour{} ago", hours, if hours == 1 { "" } else { "s" })
+        } else {
+            format!(
+                "{} hour{} {} minute{} ago",
+                hours,
+                if hours == 1 { "" } else { "s" },
+                remaining_minutes,
+                if remaining_minutes == 1 { "" } else { "s" }
+            )
+        }
+    } else if seconds < 604800 {
+        // Less than 7 days: show days and hours
+        let days = seconds / 86400;
+        let remaining_hours = (seconds % 86400) / 3600;
+
+        if remaining_hours == 0 {
+            format!("{} day{} ago", days, if days == 1 { "" } else { "s" })
+        } else {
+            format!(
+                "{} day{} {} hour{} ago",
+                days,
+                if days == 1 { "" } else { "s" },
+                remaining_hours,
+                if remaining_hours == 1 { "" } else { "s" }
+            )
+        }
     } else {
+        // 7 days or more: just show days for simplicity
         let days = seconds / 86400;
         format!("{} day{} ago", days, if days == 1 { "" } else { "s" })
     }
@@ -453,11 +526,30 @@ mod tests {
 
     #[test]
     fn test_format_time_since() {
+        // Less than a minute
         assert_eq!(format_time_since(30), "less than a minute ago");
+
+        // Minutes only
         assert_eq!(format_time_since(120), "2 minutes ago");
+
+        // Hours without minutes
         assert_eq!(format_time_since(3600), "1 hour ago");
         assert_eq!(format_time_since(7200), "2 hours ago");
+
+        // Hours with minutes (Beta.214)
+        assert_eq!(format_time_since(5000), "1 hour 23 minutes ago");
+        assert_eq!(format_time_since(9060), "2 hours 31 minutes ago");
+
+        // Days without hours
         assert_eq!(format_time_since(86400), "1 day ago");
         assert_eq!(format_time_since(172800), "2 days ago");
+
+        // Days with hours (less than 7 days)
+        assert_eq!(format_time_since(90000), "1 day 1 hour ago");
+        assert_eq!(format_time_since(183600), "2 days 3 hours ago");
+
+        // 7 days or more: days only for brevity
+        assert_eq!(format_time_since(604800), "7 days ago");
+        assert_eq!(format_time_since(1209600), "14 days ago");
     }
 }

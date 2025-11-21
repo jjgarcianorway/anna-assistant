@@ -355,6 +355,27 @@ async fn fetch_historian_summary() -> Option<SystemSummary> {
     }
 }
 
+/// Fetch telemetry snapshot from daemon via IPC (Beta.213)
+/// Used by startup/welcome engine for session change detection
+pub async fn fetch_telemetry_snapshot() -> Option<anna_common::telemetry::TelemetrySnapshot> {
+    use crate::rpc_client::RpcClient;
+    use anna_common::ipc::Method;
+
+    let mut rpc = RpcClient::connect().await.ok()?;
+
+    match rpc.call(Method::GetTelemetrySnapshot).await {
+        Ok(anna_common::ipc::ResponseData::TelemetrySnapshot(snapshot)) => Some(snapshot),
+        Ok(_) => {
+            // Unexpected response type, return None
+            None
+        }
+        Err(_) => {
+            // Daemon not available or telemetry collection failed
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

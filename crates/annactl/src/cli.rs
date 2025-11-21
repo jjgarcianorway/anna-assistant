@@ -32,6 +32,7 @@ pub struct Cli {
 ///
 /// Beta.200: Only 'status' is a proper subcommand.
 /// Natural language queries are handled via runtime.rs before CLI parsing.
+/// Beta.217c: Added 'brain' subcommand for full diagnostic analysis
 #[derive(Subcommand)]
 pub enum Commands {
     /// Show system status and daemon health
@@ -39,5 +40,16 @@ pub enum Commands {
         /// Output JSON only
         #[arg(long)]
         json: bool,
+    },
+
+    /// Run full sysadmin brain diagnostic analysis (Beta.217c)
+    Brain {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+
+        /// Show verbose output with all details
+        #[arg(long, short)]
+        verbose: bool,
     },
 }
