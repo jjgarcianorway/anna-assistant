@@ -188,6 +188,7 @@ async fn generate_conversational_answer(
     llm_config: &LlmConfig,
 ) -> Result<UnifiedQueryResult> {
     use anna_common::llm::{LlmClient, LlmPrompt};
+    use std::sync::Arc;
 
     // Try to answer directly from telemetry first (highest confidence)
     // Beta.208: Apply canonical normalization to all answers
@@ -200,21 +201,27 @@ async fn generate_conversational_answer(
     }
 
     // Use LLM for complex conversational queries
-    let client = LlmClient::from_config(llm_config)
-        .map_err(|e| anyhow::anyhow!("LLM not available: {}", e))?;
+    let client = Arc::new(LlmClient::from_config(llm_config)
+        .map_err(|e| anyhow::anyhow!("LLM not available: {}", e))?);
 
     let prompt = build_conversational_prompt(user_text, telemetry);
-    let llm_prompt = LlmPrompt {
+    let llm_prompt = Arc::new(LlmPrompt {
         system: LlmClient::anna_system_prompt().to_string(),
         user: prompt,
         conversation_history: None,
-    };
+    });
 
     // Get LLM response (blocking, not streaming!)
     // Beta.208: Apply canonical normalization to all answers
-    let response = client
-        .chat(&llm_prompt)
-        .map_err(|e| anyhow::anyhow!("LLM query failed: {}", e))?;
+    // Beta.224: Run blocking LLM call in thread pool to avoid blocking async runtime
+    let client_clone = Arc::clone(&client);
+    let prompt_clone = Arc::clone(&llm_prompt);
+    let response = tokio::task::spawn_blocking(move || {
+        client_clone.chat(&prompt_clone)
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("LLM task panicked: {}", e))?
+    .map_err(|e| anyhow::anyhow!("LLM query failed: {}", e))?;
 
     Ok(UnifiedQueryResult::ConversationalAnswer {
         answer: output::normalize_for_cli(&response.text),
