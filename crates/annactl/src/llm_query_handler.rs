@@ -94,9 +94,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
 
             // Beta.213: Show welcome prelude before LLM-based answers (only for conversational answers)
             // This provides system context delta without overwhelming the user
-            let current_snapshot_result = tokio::runtime::Runtime::new()
-                .unwrap()
-                .block_on(async { fetch_telemetry_snapshot().await });
+            let current_snapshot_result = fetch_telemetry_snapshot().await;
 
             if let Some(snapshot) = current_snapshot_result {
                 let last_session = load_last_session().ok().flatten();
