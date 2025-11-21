@@ -291,7 +291,12 @@ async fn run_repl_loop(ctx: ReplUiContext, db: Option<std::sync::Arc<ContextDb>>
             Intent::Report => {
                 let ui = UI::auto();
                 ui.thinking();
-                crate::report_display::generate_professional_report().await;
+                // Beta.200: Use system_report instead of removed report_display
+                if let Ok(report) = crate::system_report::generate_full_report() {
+                    println!("{}", report);
+                } else {
+                    ui.error("Failed to generate system report");
+                }
             }
             Intent::Suggest | Intent::Improve => {
                 handle_improve_intent(db.as_ref()).await;

@@ -1,6 +1,6 @@
 //! CLI - Command-line argument parsing
 //!
-//! Beta.146: Extracted from main.rs for modularity
+//! Beta.200: Simplified to three commands only
 //!
 //! Defines the CLI structure using clap.
 //! Keeps argument parsing separate from execution logic.
@@ -8,9 +8,14 @@
 use clap::{Parser, Subcommand};
 
 /// Anna Assistant CLI
+///
+/// Beta.200: Three commands only:
+/// - `annactl` (no args) → TUI
+/// - `annactl status` → system health
+/// - `annactl "<question>"` → one-shot query
 #[derive(Parser)]
 #[command(name = "annactl")]
-#[command(about = "Anna Assistant - Autonomous system administrator", long_about = None)]
+#[command(about = "Anna Assistant - Local Arch Linux system assistant", long_about = None)]
 #[command(version = env!("ANNA_VERSION"))]
 #[command(disable_help_subcommand = true)]
 pub struct Cli {
@@ -24,6 +29,9 @@ pub struct Cli {
 }
 
 /// Available commands
+///
+/// Beta.200: Only 'status' is a proper subcommand.
+/// Natural language queries are handled via runtime.rs before CLI parsing.
 #[derive(Subcommand)]
 pub enum Commands {
     /// Show system status and daemon health
@@ -32,30 +40,4 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
-
-    /// Historian sanity inspection (developer-only, hidden)
-    #[command(hide = true)]
-    Historian {
-        #[command(subcommand)]
-        action: HistorianCommands,
-    },
-
-    /// Show version (hidden - use --version flag instead)
-    #[command(hide = true)]
-    Version,
-
-    /// Ping daemon (hidden - for health checks only)
-    #[command(hide = true)]
-    Ping,
-
-    /// Launch TUI REPL (hidden - experimental)
-    #[command(hide = true)]
-    Tui,
-}
-
-/// Historian subcommands
-#[derive(Subcommand)]
-pub enum HistorianCommands {
-    /// Inspect historian database
-    Inspect,
 }

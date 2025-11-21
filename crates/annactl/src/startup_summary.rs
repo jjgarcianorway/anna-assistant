@@ -1,7 +1,13 @@
 //! Startup Health Summary
 //!
-//! Beta.53: Display comprehensive system health on startup
-//! Shows current state + 30-day Historian trends
+//! Beta.200: Beautiful startup summary with system health
+//!
+//! Features:
+//! - System health status
+//! - 30-day Historian trends
+//! - Current alerts and issues
+//! - Model recommendations
+//! - Language-aware formatting
 
 use anna_common::display::UI;
 use anna_common::historian::SystemSummary;

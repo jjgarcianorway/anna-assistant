@@ -1,26 +1,29 @@
 //! Runtime - Application dispatch and execution
 //!
-//! Beta.146: Extracted from main.rs to keep it minimal
+//! Beta.200: Three-command architecture
 //!
 //! Responsibilities:
-//! - Determine which mode to run (TUI, CLI query, status, etc.)
+//! - Determine which mode to run (TUI, status, or one-shot query)
 //! - Dispatch to appropriate handlers
 //! - Coordinate between modules
+//!
+//! Commands:
+//! 1. `annactl` (no args) → TUI
+//! 2. `annactl status` → system health check
+//! 3. `annactl "<question>"` → one-shot query
 
 use anyhow::Result;
 use std::time::Instant;
 
-use crate::errors::*;
 use crate::logging::LogEntry;
 
 /// Main application entry point after CLI parsing
 ///
-/// This is called from main() with parsed arguments.
-/// Determines which mode to run and dispatches appropriately.
+/// This is called from main() and determines which mode to run.
 pub async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
-    // If no arguments, start TUI
+    // Command 1: No arguments → Start TUI
     if args.len() == 1 {
         return crate::tui_v2::run().await;
     }
@@ -30,62 +33,36 @@ pub async fn run() -> Result<()> {
         let first_arg = &args[1];
 
         // Known subcommands that should not be treated as natural language queries
-        let known_subcommands = ["status", "version", "ping", "tui", "historian"];
+        // Beta.200: Only "status" is a real subcommand
+        let known_subcommands = ["status"];
 
         let is_flag = first_arg.starts_with("--") || first_arg.starts_with("-");
         let is_known_command = known_subcommands.contains(&first_arg.as_str());
 
-        // If not a flag and not a known command, treat as natural language
+        // Command 3: Natural language query
+        // If not a flag and not "status", treat as natural language
         if !is_flag && !is_known_command {
             let query = args[1..].join(" ");
             return crate::llm_query_handler::handle_one_shot_query(&query).await;
         }
     }
 
-    // Parse CLI for structured commands
+    // Parse CLI for structured commands (only "status" at this point)
     use clap::Parser;
     let cli = crate::cli::Cli::try_parse()?;
 
-    // Dispatch based on command
-    let start_time = Instant::now();
-    let req_id = LogEntry::generate_req_id();
-
-    dispatch_command(cli, start_time, req_id).await
-}
-
-/// Dispatch to appropriate command handler
-async fn dispatch_command(
-    cli: crate::cli::Cli,
-    _start_time: Instant,
-    _req_id: String,
-) -> Result<()> {
-    use crate::cli::Commands;
-
+    // Command 2: Status
     match cli.command {
-        Some(Commands::Status { json: _ }) => {
-            // TODO: Re-implement status command
-            println!("Status command temporarily disabled during refactoring");
-            Ok(())
+        Some(crate::cli::Commands::Status { json }) => {
+            let start_time = Instant::now();
+            let req_id = LogEntry::generate_req_id();
+            let state = "healthy"; // TODO: Get actual state from daemon
+
+            crate::status_command::execute_anna_status_command(json, &req_id, state, start_time)
+                .await
         }
 
-        Some(Commands::Tui) => crate::tui_v2::run().await,
-
-        Some(Commands::Ping) => {
-            println!("pong");
-            Ok(())
-        }
-
-        Some(Commands::Version) => {
-            println!("annactl {}", env!("ANNA_VERSION"));
-            Ok(())
-        }
-
-        Some(Commands::Historian { action: _ }) => {
-            // TODO: Re-implement historian command
-            println!("Historian command temporarily disabled during refactoring");
-            Ok(())
-        }
-
+        // No command → TUI (should be caught earlier, but handle it anyway)
         None => crate::tui_v2::run().await,
     }
 }

@@ -1,5 +1,11 @@
 //! LLM Integration - Reply generation with template matching and streaming
-//! Beta.149: Now uses unified_query_handler for consistency with CLI
+//! Beta.200: Integrated with new llm/ module architecture for intent detection
+//!
+//! This module now uses:
+//! - crate::llm::detect_intent - Intent classification
+//! - crate::llm::RecipeMatcher - Recipe pattern matching
+//! - crate::llm::AnswerGenerator - Natural language responses
+//! - crate::unified_query_handler - Unified query processing
 
 use crate::recipe_formatter::format_recipe_answer;
 use crate::system_query::query_system_telemetry;

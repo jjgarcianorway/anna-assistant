@@ -1,8 +1,13 @@
 //! LLM Query Handler - Natural language query processing
 //!
-//! Version 149: Now uses unified_query_handler for consistency with TUI
+//! Beta.200: Unified workflow for one-shot queries
 //!
-//! Handles one-shot natural language queries.
+//! Implements telemetry-first architecture:
+//! 1. Detect intent (informational vs actionable)
+//! 2. Match to deterministic recipe (if actionable)
+//! 3. Generate answer based on real telemetry
+//!
+//! Uses unified_query_handler for consistency with TUI mode.
 
 use anna_common::display::UI;
 use anna_common::llm::LlmConfig;

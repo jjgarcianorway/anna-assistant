@@ -169,28 +169,7 @@ pub async fn execute_anna_status_command(
     display_recent_logs();
     println!();
 
-    // Beta.141: Enhanced suggestions display
-    if let Ok(all_suggestions) = crate::suggestions::get_suggestions() {
-        let critical: Vec<_> = all_suggestions.iter().filter(|s| s.priority <= 2).collect();
-
-        if !critical.is_empty() {
-            println!(
-                "{}",
-                fmt::section_title(&fmt::emojis::TIP, "Top Suggestions")
-            );
-            println!();
-            for (i, suggestion) in critical.iter().take(3).enumerate() {
-                println!("  {}. {} {}", i + 1, fmt::emojis::ROCKET, suggestion.title);
-            }
-            println!();
-            println!(
-                "  {} {}",
-                fmt::emojis::INFO,
-                fmt::dimmed("Ask Anna: \"what should I improve?\" for details")
-            );
-            println!();
-        }
-    }
+    // Beta.200: Removed suggestions display (non-mandated feature)
 
     // Log command and exit with appropriate code
     let exit_code = health.exit_code();
