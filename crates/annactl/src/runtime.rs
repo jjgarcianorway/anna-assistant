@@ -23,10 +23,26 @@ use crate::logging::LogEntry;
 pub async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
-    // Beta.214: Handle version flag with clean output (no "Error:" prefix)
-    if args.len() == 2 && (args[1] == "-V" || args[1] == "--version") {
-        println!("annactl {}", env!("CARGO_PKG_VERSION"));
-        std::process::exit(0);
+    // Beta.233: Handle help and version flags with correct exit codes
+    if args.len() >= 2 {
+        match args[1].as_str() {
+            "-h" | "--help" => {
+                // Parse will print help and exit with 0
+                use clap::Parser;
+                if let Err(e) = crate::cli::Cli::try_parse() {
+                    // For help, clap returns an error but we want exit 0
+                    if e.kind() == clap::error::ErrorKind::DisplayHelp {
+                        println!("{}", e);
+                        std::process::exit(0);
+                    }
+                }
+            }
+            "-V" | "--version" => {
+                println!("annactl {}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
+            _ => {}
+        }
     }
 
     // Command 1: No arguments → Start TUI
@@ -39,8 +55,8 @@ pub async fn run() -> Result<()> {
         let first_arg = &args[1];
 
         // Known subcommands that should not be treated as natural language queries
-        // Beta.200: Only "status" is a real subcommand
-        let known_subcommands = ["status"];
+        // Beta.233: Added "brain" and "version" subcommands
+        let known_subcommands = ["status", "brain", "version"];
 
         let is_flag = first_arg.starts_with("--") || first_arg.starts_with("-");
         let is_known_command = known_subcommands.contains(&first_arg.as_str());
@@ -74,6 +90,12 @@ pub async fn run() -> Result<()> {
 
             crate::brain_command::execute_brain_command(json, verbose, &req_id, start_time)
                 .await
+        }
+
+        // Beta.233: Command 4: Version
+        Some(crate::cli::Commands::Version) => {
+            println!("annactl {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
         }
 
         // No command → TUI (should be caught earlier, but handle it anyway)

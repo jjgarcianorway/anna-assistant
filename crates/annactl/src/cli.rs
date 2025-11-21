@@ -33,6 +33,7 @@ pub struct Cli {
 /// Beta.200: Only 'status' is a proper subcommand.
 /// Natural language queries are handled via runtime.rs before CLI parsing.
 /// Beta.217c: Added 'brain' subcommand for full diagnostic analysis
+/// Beta.233: Added 'version' subcommand for consistency with other CLI tools
 #[derive(Subcommand)]
 pub enum Commands {
     /// Show system status and daemon health
@@ -52,4 +53,7 @@ pub enum Commands {
         #[arg(long, short)]
         verbose: bool,
     },
+
+    /// Show version information (Beta.233)
+    Version,
 }
