@@ -56,6 +56,7 @@ use anna_common::telemetry::SystemTelemetry;
 use anyhow::Result;
 
 use crate::dialogue_v3_json;
+use crate::output::normalizer;
 use crate::query_handler;
 
 /// Unified query result - all query types in one enum
@@ -189,9 +190,10 @@ async fn generate_conversational_answer(
     use anna_common::llm::{LlmClient, LlmPrompt};
 
     // Try to answer directly from telemetry first (highest confidence)
+    // Beta.208: Apply canonical normalization to all answers
     if let Some(answer) = try_answer_from_telemetry(user_text, telemetry) {
         return Ok(UnifiedQueryResult::ConversationalAnswer {
-            answer,
+            answer: normalizer::normalize_for_cli(&answer),
             confidence: AnswerConfidence::High,
             sources: vec!["system telemetry".to_string()],
         });
@@ -209,12 +211,13 @@ async fn generate_conversational_answer(
     };
 
     // Get LLM response (blocking, not streaming!)
+    // Beta.208: Apply canonical normalization to all answers
     let response = client
         .chat(&llm_prompt)
         .map_err(|e| anyhow::anyhow!("LLM query failed: {}", e))?;
 
     Ok(UnifiedQueryResult::ConversationalAnswer {
-        answer: response.text,
+        answer: normalizer::normalize_for_cli(&response.text),
         confidence: AnswerConfidence::Medium,
         sources: vec!["LLM".to_string()],
     })
@@ -273,42 +276,45 @@ fn try_answer_from_telemetry(user_text: &str, telemetry: &SystemTelemetry) -> Op
         }
     }
 
-    // CPU queries
+    // Beta.207: CPU queries (deterministic telemetry - SUMMARY only)
     if query_lower.contains("cpu") && (query_lower.contains("what") || query_lower.contains("model")) {
         return Some(format!(
-            "Your CPU is a {} with {} cores. Current load: {:.2} (1-min avg).",
+            "[SUMMARY]\n\
+            Your CPU is a {} with {} cores. Current load: {:.2} (1-min avg).",
             telemetry.hardware.cpu_model,
             telemetry.cpu.cores,
             telemetry.cpu.load_avg_1min
         ));
     }
 
-    // RAM queries
+    // Beta.207: RAM queries (deterministic telemetry - SUMMARY only)
     if (query_lower.contains("ram") || query_lower.contains("memory"))
         && (query_lower.contains("how much") || query_lower.contains("total")) {
         let used_gb = telemetry.memory.used_mb as f64 / 1024.0;
         let total_gb = telemetry.memory.total_mb as f64 / 1024.0;
         let percent = (used_gb / total_gb) * 100.0;
         return Some(format!(
-            "You have {:.1} GB of RAM total. Currently using {:.1} GB ({:.1}%).",
+            "[SUMMARY]\n\
+            You have {:.1} GB of RAM total. Currently using {:.1} GB ({:.1}%).",
             total_gb, used_gb, percent
         ));
     }
 
-    // Disk space queries
+    // Beta.207: Disk space queries (deterministic telemetry - SUMMARY only)
     if (query_lower.contains("disk") || query_lower.contains("storage") || query_lower.contains("space"))
         && (query_lower.contains("free") || query_lower.contains("available") || query_lower.contains("how much")) {
         if let Some(root_disk) = telemetry.disks.iter().find(|d| d.mount_point == "/") {
             let free_gb = (root_disk.total_mb - root_disk.used_mb) as f64 / 1024.0;
             let total_gb = root_disk.total_mb as f64 / 1024.0;
             return Some(format!(
-                "Your root partition (/) has {:.1} GB free out of {:.1} GB total ({:.1}% used).",
+                "[SUMMARY]\n\
+                Your root partition (/) has {:.1} GB free out of {:.1} GB total ({:.1}% used).",
                 free_gb, total_gb, root_disk.usage_percent
             ));
         }
     }
 
-    // Disk space troubleshooting (Beta.204: arch-017)
+    // Beta.207: Disk space troubleshooting (SUMMARY + DETAILS + COMMANDS)
     if (query_lower.contains("disk") || query_lower.contains("space"))
         && (query_lower.contains("error") || query_lower.contains("full")
             || query_lower.contains("using") || query_lower.contains("find what")) {
@@ -321,40 +327,554 @@ fn try_answer_from_telemetry(user_text: &str, telemetry: &SystemTelemetry) -> Op
             .collect();
 
         return Some(format!(
-            "To find what's using disk space:\n\n\
-            1. Check overall usage: df -h\n\
-            2. Find large directories: sudo du -sh /* | sort -h\n\
-            3. Find large files: sudo find / -type f -size +100M -exec ls -lh {{}} \\;\n\
-            4. Check package cache: du -sh /var/cache/pacman/pkg/\n\
-            5. Clear package cache: sudo pacman -Sc\n\n\
-            Current disk usage:\n{}",
+            "[SUMMARY]\n\
+            Finding what's using disk space.\n\n\
+            [DETAILS]\n\
+            Current disk usage:\n{}\n\n\
+            [COMMANDS]\n\
+            $ df -h\n\
+            $ sudo du -sh /* | sort -h\n\
+            $ sudo find / -type f -size +100M -exec ls -lh {{}} \\;\n\
+            $ du -sh /var/cache/pacman/pkg/\n\
+            $ sudo pacman -Sc",
             disk_summary.join("\n")
         ));
     }
 
-    // GPU queries
+    // Beta.207: GPU queries (deterministic telemetry - SUMMARY only)
     if query_lower.contains("gpu") {
         if let Some(ref gpu) = telemetry.hardware.gpu_info {
-            return Some(format!("Your GPU is: {}", gpu));
+            return Some(format!("[SUMMARY]\nYour GPU is: {}", gpu));
         } else {
-            return Some("No GPU detected on this system.".to_string());
+            return Some("[SUMMARY]\nNo GPU detected on this system.".to_string());
         }
     }
 
-    // Failed services
+    // Beta.207: Failed services (deterministic telemetry - SUMMARY only)
     if query_lower.contains("failed") && query_lower.contains("service") {
         if telemetry.services.failed_units.is_empty() {
-            return Some("✅ No failed services detected.".to_string());
+            return Some("[SUMMARY]\nNo failed services detected.".to_string());
         } else {
             let failed_list: Vec<String> = telemetry.services.failed_units
                 .iter()
                 .map(|u| format!("- {}", u.name))
                 .collect();
             return Some(format!(
-                "❌ {} failed service(s):\n{}",
+                "[SUMMARY]\n\
+                {} failed service(s):\n{}",
                 telemetry.services.failed_units.len(),
                 failed_list.join("\n")
             ));
+        }
+    }
+
+    // Beta.207: RAM and swap usage queries with structured fallback
+    if (query_lower.contains("swap") || (query_lower.contains("ram") && query_lower.contains("swap")))
+        && !query_lower.contains("how much") && !query_lower.contains("total") {
+        let ram_used_gb = telemetry.memory.used_mb as f64 / 1024.0;
+        let ram_total_gb = telemetry.memory.total_mb as f64 / 1024.0;
+        let ram_percent = (ram_used_gb / ram_total_gb) * 100.0;
+
+        // Check if swap exists
+        match std::process::Command::new("swapon").arg("--show").output() {
+            Ok(output) if output.status.success() => {
+                if let Ok(swap_output) = String::from_utf8(output.stdout) {
+                    if swap_output.is_empty() || swap_output.lines().count() <= 1 {
+                        return Some(format!(
+                            "[SUMMARY]\n\
+                            RAM: {:.1} GB / {:.1} GB ({:.1}% used). Swap not configured.\n\n\
+                            [DETAILS]\n\
+                            No active swap space detected. Adding swap can prevent out-of-memory errors.\n\n\
+                            [COMMANDS]\n\
+                            $ sudo fallocate -l 4G /swapfile\n\
+                            $ sudo chmod 600 /swapfile\n\
+                            $ sudo mkswap /swapfile\n\
+                            $ sudo swapon /swapfile\n\
+                            $ echo '/swapfile none swap defaults 0 0' | sudo tee -a /etc/fstab",
+                            ram_used_gb, ram_total_gb, ram_percent
+                        ));
+                    } else {
+                        let swap_lines: Vec<&str> = swap_output.lines().skip(1).collect();
+                        let swap_info = if !swap_lines.is_empty() {
+                            swap_lines.join("\n")
+                        } else {
+                            "No active swap".to_string()
+                        };
+                        return Some(format!(
+                            "[SUMMARY]\n\
+                            RAM: {:.1} GB / {:.1} GB ({:.1}% used).\n\n\
+                            [DETAILS]\n\
+                            Swap status:\n{}",
+                            ram_used_gb, ram_total_gb, ram_percent, swap_info
+                        ));
+                    }
+                }
+            }
+            _ => {
+                return Some(format!(
+                    "[SUMMARY]\n\
+                    Unable to check swap status.\n\n\
+                    [DETAILS]\n\
+                    Reason: swapon command failed or not found\n\
+                    Missing: util-linux package\n\
+                    RAM: {:.1} GB / {:.1} GB ({:.1}% used)\n\n\
+                    [COMMANDS]\n\
+                    $ pacman -Qi util-linux\n\
+                    $ sudo pacman -S util-linux",
+                    ram_used_gb, ram_total_gb, ram_percent
+                ));
+            }
+        }
+    }
+
+    // Beta.207: GPU VRAM usage queries with structured fallback
+    if query_lower.contains("vram") || (query_lower.contains("gpu") && query_lower.contains("memory")) {
+        // Try nvidia-smi for NVIDIA GPUs
+        if let Ok(output) = std::process::Command::new("nvidia-smi")
+            .args(&["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"])
+            .output() {
+            if output.status.success() {
+                if let Ok(result) = String::from_utf8(output.stdout) {
+                    let parts: Vec<&str> = result.trim().split(',').collect();
+                    if parts.len() == 2 {
+                        let used_mb: f64 = parts[0].trim().parse().unwrap_or(0.0);
+                        let total_mb: f64 = parts[1].trim().parse().unwrap_or(0.0);
+                        let percent = if total_mb > 0.0 { (used_mb / total_mb) * 100.0 } else { 0.0 };
+                        return Some(format!(
+                            "[SUMMARY]\n\
+                            GPU VRAM: {:.0} MB / {:.0} MB ({:.1}% used)",
+                            used_mb, total_mb, percent
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Try radeontop for AMD GPUs
+        if let Some(ref gpu) = telemetry.hardware.gpu_info {
+            if gpu.to_lowercase().contains("amd") || gpu.to_lowercase().contains("radeon") {
+                return Some(format!(
+                    "[SUMMARY]\n\
+                    AMD GPU detected: {}\n\n\
+                    [DETAILS]\n\
+                    AMD GPU VRAM usage requires radeontop package.\n\n\
+                    [COMMANDS]\n\
+                    $ sudo pacman -S radeontop\n\
+                    $ sudo radeontop -d - -l 1",
+                    gpu
+                ));
+            }
+        }
+
+        return Some(
+            "[SUMMARY]\n\
+            Unable to determine GPU VRAM usage.\n\n\
+            [DETAILS]\n\
+            Reason: No GPU detected or VRAM query tools not installed\n\
+            Missing: nvidia-smi (NVIDIA) or radeontop (AMD)\n\n\
+            [COMMANDS]\n\
+            $ lspci | grep -i vga\n\
+            $ sudo pacman -S nvidia-utils\n\
+            $ nvidia-smi --query-gpu=memory.used,memory.total --format=csv".to_string()
+        );
+    }
+
+    // Beta.207: CPU governor status queries with structured fallback
+    if query_lower.contains("cpu") && (query_lower.contains("governor") || query_lower.contains("frequency")) {
+        match std::process::Command::new("cat")
+            .arg("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+            .output() {
+            Ok(output) if output.status.success() => {
+                if let Ok(governor) = String::from_utf8(output.stdout) {
+                    let governor = governor.trim();
+                    let available_governors = std::process::Command::new("cat")
+                        .arg("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors")
+                        .output()
+                        .ok()
+                        .and_then(|o| String::from_utf8(o.stdout).ok())
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_else(|| "unknown".to_string());
+
+                    return Some(format!(
+                        "[SUMMARY]\n\
+                        CPU Governor: {}\n\n\
+                        [DETAILS]\n\
+                        Available governors: {}\n\n\
+                        [COMMANDS]\n\
+                        $ sudo cpupower frequency-set -g <governor>",
+                        governor, available_governors
+                    ));
+                }
+            }
+            _ => {
+                return Some(
+                    "[SUMMARY]\n\
+                    Unable to determine CPU governor status.\n\n\
+                    [DETAILS]\n\
+                    Reason: CPU frequency scaling sysfs not accessible\n\
+                    Missing: cpufreq kernel module or cpupower tools\n\n\
+                    [COMMANDS]\n\
+                    $ ls /sys/devices/system/cpu/cpu0/cpufreq/\n\
+                    $ sudo pacman -S cpupower\n\
+                    $ sudo modprobe acpi-cpufreq".to_string()
+                );
+            }
+        }
+    }
+
+    // Beta.207: Systemd units list queries with structured fallback
+    if (query_lower.contains("systemd") || query_lower.contains("service"))
+        && (query_lower.contains("list") || query_lower.contains("all") || query_lower.contains("running")) {
+        let unit_type = if query_lower.contains("timer") {
+            "timer"
+        } else if query_lower.contains("socket") {
+            "socket"
+        } else {
+            "service"
+        };
+
+        match std::process::Command::new("systemctl")
+            .args(&["list-units", &format!("--type={}", unit_type), "--state=running", "--no-pager", "--no-legend"])
+            .output() {
+            Ok(output) if output.status.success() => {
+                if let Ok(result) = String::from_utf8(output.stdout) {
+                    let running_units: Vec<&str> = result.lines().take(20).collect();
+                    let total_count = result.lines().count();
+
+                    return Some(format!(
+                        "[SUMMARY]\n\
+                        Running {} units: {} total, showing first 20.\n\n\
+                        [DETAILS]\n\
+                        {}\n\n\
+                        [COMMANDS]\n\
+                        $ systemctl list-units --type={}",
+                        unit_type, total_count, running_units.join("\n"), unit_type
+                    ));
+                }
+            }
+            _ => {
+                return Some(format!(
+                    "[SUMMARY]\n\
+                    Unable to list systemd {} units.\n\n\
+                    [DETAILS]\n\
+                    Reason: systemctl command failed or not found\n\
+                    Missing: systemd package\n\n\
+                    [COMMANDS]\n\
+                    $ pacman -Qi systemd\n\
+                    $ sudo pacman -S systemd",
+                    unit_type
+                ));
+            }
+        }
+    }
+
+    // Beta.207: NVMe/SSD health queries with structured fallback
+    if (query_lower.contains("nvme") || query_lower.contains("ssd"))
+        && (query_lower.contains("health") || query_lower.contains("smart") || query_lower.contains("status")) {
+        // List NVMe devices
+        let nvme_list = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("ls /dev/nvme* 2>/dev/null | grep -E 'nvme[0-9]+$' || true")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        if nvme_list.is_empty() {
+            return Some(
+                "[SUMMARY]\n\
+                No NVMe devices detected.\n\n\
+                [DETAILS]\n\
+                Reason: No /dev/nvme* devices found\n\
+                System may have SATA SSDs instead\n\n\
+                [COMMANDS]\n\
+                $ lsblk -d -o NAME,ROTA\n\
+                $ sudo pacman -S smartmontools\n\
+                $ sudo smartctl -a /dev/sda".to_string()
+            );
+        }
+
+        let devices: Vec<&str> = nvme_list.lines().collect();
+        let mut health_reports = Vec::new();
+
+        for device in devices.iter().take(3) {
+            if let Ok(output) = std::process::Command::new("sudo")
+                .args(&["nvme", "smart-log", device])
+                .output() {
+                if output.status.success() {
+                    if let Ok(result) = String::from_utf8(output.stdout) {
+                        health_reports.push(format!("{}:\n{}", device, result));
+                    }
+                }
+            }
+        }
+
+        if health_reports.is_empty() {
+            return Some(format!(
+                "[SUMMARY]\n\
+                NVMe devices detected but health data unavailable.\n\n\
+                [DETAILS]\n\
+                Reason: nvme command not found or requires sudo\n\
+                Missing: nvme-cli package\n\
+                Devices found: {}\n\n\
+                [COMMANDS]\n\
+                $ sudo pacman -S nvme-cli\n\
+                $ sudo nvme smart-log /dev/nvme0",
+                devices.join(", ")
+            ));
+        }
+
+        return Some(format!("[SUMMARY]\nNVMe health report for {} device(s).\n\n[DETAILS]\n{}", devices.len(), health_reports.join("\n\n")));
+    }
+
+    // Beta.207: fstrim status queries with structured fallback
+    if query_lower.contains("trim") || query_lower.contains("fstrim") {
+        match std::process::Command::new("systemctl")
+            .args(&["is-enabled", "fstrim.timer"])
+            .output() {
+            Ok(enabled_output) => {
+                let timer_status = String::from_utf8(enabled_output.stdout)
+                    .ok()
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                let timer_active = std::process::Command::new("systemctl")
+                    .args(&["is-active", "fstrim.timer"])
+                    .output()
+                    .ok()
+                    .and_then(|o| String::from_utf8(o.stdout).ok())
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                let last_run = std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg("journalctl -u fstrim.service -n 1 --no-pager 2>/dev/null | grep -E '(Started|Finished)' || echo 'No recent runs'")
+                    .output()
+                    .ok()
+                    .and_then(|o| String::from_utf8(o.stdout).ok())
+                    .unwrap_or_else(|| "Unknown".to_string());
+
+                return Some(format!(
+                    "[SUMMARY]\n\
+                    fstrim.timer status: {} / {}\n\n\
+                    [DETAILS]\n\
+                    - Enabled: {}\n\
+                    - Active: {}\n\
+                    - Last run: {}\n\n\
+                    [COMMANDS]\n\
+                    $ sudo systemctl enable --now fstrim.timer",
+                    timer_status, timer_active, timer_status, timer_active, last_run.trim()
+                ));
+            }
+            _ => {
+                return Some(
+                    "[SUMMARY]\n\
+                    Unable to check fstrim.timer status.\n\n\
+                    [DETAILS]\n\
+                    Reason: systemctl command failed or fstrim.timer not found\n\
+                    Missing: util-linux package or systemd\n\n\
+                    [COMMANDS]\n\
+                    $ pacman -Qi util-linux\n\
+                    $ sudo pacman -S util-linux\n\
+                    $ systemctl list-timers".to_string()
+                );
+            }
+        }
+    }
+
+    // Beta.207: Network interface queries with structured fallback
+    if (query_lower.contains("network") || query_lower.contains("interface") || query_lower.contains("ip"))
+        && (query_lower.contains("list") || query_lower.contains("show") || query_lower.contains("what")) {
+        match std::process::Command::new("ip")
+            .args(&["-brief", "address"])
+            .output() {
+            Ok(output) if output.status.success() => {
+                if let Ok(interfaces) = String::from_utf8(output.stdout) {
+                    return Some(format!(
+                        "[SUMMARY]\n\
+                        Network interfaces on system.\n\n\
+                        [DETAILS]\n\
+                        {}\n\n\
+                        [COMMANDS]\n\
+                        $ ip addr show",
+                        interfaces
+                    ));
+                }
+            }
+            _ => {
+                return Some(
+                    "[SUMMARY]\n\
+                    Unable to list network interfaces.\n\n\
+                    [DETAILS]\n\
+                    Reason: ip command failed or not found\n\
+                    Missing: iproute2 package\n\n\
+                    [COMMANDS]\n\
+                    $ pacman -Qi iproute2\n\
+                    $ sudo pacman -S iproute2".to_string()
+                );
+            }
+        }
+    }
+
+    // Beta.207: arch-019 - Package file search queries with structured fallback
+    if (query_lower.contains("which") || query_lower.contains("what") || query_lower.contains("find"))
+        && query_lower.contains("package")
+        && (query_lower.contains("provides")
+            || query_lower.contains("contains")
+            || query_lower.contains("owns")
+            || query_lower.contains("owning")
+            || query_lower.contains("file"))
+    {
+        // Try to extract a file path or binary name from the query
+        // Common patterns: "which package provides <file>", "what package contains <binary>"
+        let potential_file = query_lower
+            .split_whitespace()
+            .last()
+            .unwrap_or("")
+            .trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '-' && c != '_');
+
+        if !potential_file.is_empty() && potential_file.len() > 1 {
+            // First try: pacman -Qo for installed files (full path)
+            if potential_file.starts_with('/') {
+                match std::process::Command::new("pacman")
+                    .arg("-Qo")
+                    .arg(potential_file)
+                    .output()
+                {
+                    Ok(output) if output.status.success() => {
+                        if let Ok(pacman_output) = String::from_utf8(output.stdout) {
+                            let lines: Vec<&str> = pacman_output.trim().lines().collect();
+                            if !lines.is_empty() {
+                                return Some(format!(
+                                    "[SUMMARY]\n\
+                                    File {} is owned by an installed package.\n\n\
+                                    [DETAILS]\n\
+                                    {}\n\n\
+                                    [COMMANDS]\n\
+                                    $ pacman -Qo {}",
+                                    potential_file, lines.join("\n"), potential_file
+                                ));
+                            }
+                        }
+                    }
+                    Ok(output) if !output.status.success() => {
+                        // File not found or not owned by a package, try pacman -F
+                        match std::process::Command::new("pacman")
+                            .arg("-F")
+                            .arg(potential_file.trim_start_matches('/'))
+                            .output()
+                        {
+                            Ok(search_output) if search_output.status.success() => {
+                                if let Ok(search_result) = String::from_utf8(search_output.stdout) {
+                                    let matches: Vec<&str> = search_result.trim().lines().take(10).collect();
+                                    if !matches.is_empty() {
+                                        return Some(format!(
+                                            "[SUMMARY]\n\
+                                            File {} not currently installed, but available in {} package(s).\n\n\
+                                            [DETAILS]\n\
+                                            {}\n\n\
+                                            [COMMANDS]\n\
+                                            $ pacman -F {}",
+                                            potential_file,
+                                            matches.len(),
+                                            matches.join("\n"),
+                                            potential_file.trim_start_matches('/')
+                                        ));
+                                    }
+                                }
+                            }
+                            _ => {
+                                return Some(
+                                    format!(
+                                        "[SUMMARY]\n\
+                                        Unable to find package for file {}.\n\n\
+                                        [DETAILS]\n\
+                                        Reason: pacman -F database not available or file not indexed\n\
+                                        Missing: File database may need updating\n\n\
+                                        To enable file search:\n\
+                                        [COMMANDS]\n\
+                                        $ sudo pacman -Fy\n\
+                                        $ pacman -F {}",
+                                        potential_file,
+                                        potential_file.trim_start_matches('/')
+                                    )
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        return Some(
+                            "[SUMMARY]\n\
+                            Unable to query package database.\n\n\
+                            [DETAILS]\n\
+                            Reason: pacman command failed or not found\n\
+                            Missing: pacman package manager\n\n\
+                            [COMMANDS]\n\
+                            $ which pacman\n\
+                            $ pacman --version"
+                                .to_string(),
+                        );
+                    }
+                }
+            } else {
+                // Binary or filename (no leading /): try pacman -F directly
+                match std::process::Command::new("pacman")
+                    .arg("-F")
+                    .arg(potential_file)
+                    .output()
+                {
+                    Ok(output) if output.status.success() => {
+                        if let Ok(search_result) = String::from_utf8(output.stdout) {
+                            let matches: Vec<&str> = search_result.trim().lines().take(10).collect();
+                            if !matches.is_empty() {
+                                return Some(format!(
+                                    "[SUMMARY]\n\
+                                    Found {} package(s) providing {}.\n\n\
+                                    [DETAILS]\n\
+                                    {}\n\n\
+                                    [COMMANDS]\n\
+                                    $ pacman -F {}",
+                                    matches.len(),
+                                    potential_file,
+                                    matches.join("\n"),
+                                    potential_file
+                                ));
+                            } else {
+                                return Some(format!(
+                                    "[SUMMARY]\n\
+                                    No packages found providing {}.\n\n\
+                                    [DETAILS]\n\
+                                    The file database contains no matches for this filename.\n\
+                                    It may be:\n\
+                                    - A file not provided by any Arch package\n\
+                                    - A typo in the filename\n\
+                                    - An AUR package (not indexed by pacman -F)\n\n\
+                                    [COMMANDS]\n\
+                                    $ pacman -F {}\n\
+                                    $ sudo pacman -Fy  # Update file database",
+                                    potential_file, potential_file
+                                ));
+                            }
+                        }
+                    }
+                    _ => {
+                        return Some(
+                            format!(
+                                "[SUMMARY]\n\
+                                Unable to search package file database.\n\n\
+                                [DETAILS]\n\
+                                Reason: pacman -F command failed or file database not available\n\
+                                Missing: File database may need initialization\n\n\
+                                To enable file search:\n\
+                                [COMMANDS]\n\
+                                $ sudo pacman -Fy\n\
+                                $ pacman -F {}",
+                                potential_file
+                            )
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -476,6 +996,12 @@ fn telemetry_to_hashmap(telemetry: &SystemTelemetry) -> std::collections::HashMa
 
     map
 }
+
+// Beta.208: normalize_answer() function removed - use output::normalizer module instead
+// All normalization is now handled by:
+//   - normalizer::normalize_for_cli() - for CLI output
+//   - normalizer::normalize_for_tui() - for TUI output (before ANSI codes)
+// This ensures consistent formatting across all answer types.
 
 #[cfg(test)]
 mod tests {
