@@ -7,13 +7,10 @@ use crate::output::normalize_for_tui;
 use crate::tui_state::AnnaTuiState;
 
 /// Beta.221: Enhanced welcome with system state from brain analysis
-pub fn show_welcome_message(state: &mut AnnaTuiState) {
+pub async fn show_welcome_message(state: &mut AnnaTuiState) {
     // Fetch telemetry snapshot from daemon via RPC (Beta.213)
     // This is non-blocking and doesn't use LLM
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let current_snapshot = rt.block_on(async {
-        fetch_telemetry_snapshot().await
-    });
+    let current_snapshot = fetch_telemetry_snapshot().await;
 
     if let Some(snapshot) = current_snapshot {
         // Load last session metadata

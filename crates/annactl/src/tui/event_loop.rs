@@ -75,7 +75,7 @@ async fn run_event_loop(
 
     // Beta.94: Show welcome message on first launch
     if state.conversation.is_empty() {
-        show_welcome_message(state);
+        show_welcome_message(state).await;
     }
 
     // Track last telemetry update
