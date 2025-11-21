@@ -98,14 +98,18 @@ pub enum AnswerConfidence {
 /// Unified query handler - single entry point for all queries
 ///
 /// This ensures CLI and TUI get IDENTICAL responses for the same question.
+/// Beta.228: Added comprehensive logging
 pub async fn handle_unified_query(
     user_text: &str,
     telemetry: &SystemTelemetry,
     llm_config: &LlmConfig,
 ) -> Result<UnifiedQueryResult> {
+    eprintln!("[UNIFIED] Processing query: '{}'", user_text);
+
     // TIER 0: System Report (Version 150 - highest priority, no LLM)
     // Intercept "full report" queries to prevent hallucination
     if crate::system_report::is_system_report_query(user_text) {
+        eprintln!("[UNIFIED] TIER 0: System report query detected");
         let report = crate::system_report::generate_full_report()
             .unwrap_or_else(|e| format!("Error generating system report: {}", e));
 
@@ -118,8 +122,11 @@ pub async fn handle_unified_query(
 
     // TIER 1: Beta.151 Deterministic Recipes (NEW - highest priority)
     // These are hard-coded, tested, zero-hallucination plans
+    eprintln!("[UNIFIED] TIER 1: Checking deterministic recipes...");
     let telemetry_map = telemetry_to_hashmap(telemetry);
     if let Some(recipe_result) = crate::recipes::try_recipe_match(user_text, &telemetry_map) {
+        eprintln!("[UNIFIED] TIER 1: Recipe matched!");
+
         let action_plan = recipe_result.map_err(|e| anyhow::anyhow!("Recipe build_plan failed: {}", e))?;
 
         // Validate recipe output
@@ -140,30 +147,40 @@ pub async fn handle_unified_query(
     }
 
     // TIER 2: Template Matching (fast, accurate for simple queries)
+    eprintln!("[UNIFIED] TIER 2: Checking template matching...");
     if let Some((template_id, params)) = query_handler::try_template_match(user_text) {
+        eprintln!("[UNIFIED] TIER 2: Template matched: {}", template_id);
         match query_handler::execute_template(template_id, &params) {
             Ok(query_handler::QueryResult::Template {
                 template_id: _,
                 command,
                 output,
             }) => {
+                eprintln!("[UNIFIED] TIER 2: Template executed successfully");
                 return Ok(UnifiedQueryResult::Template {
                     command,
                     output,
                 });
             }
             _ => {
+                eprintln!("[UNIFIED] TIER 2: Template execution failed, continuing to next tier");
                 // Template execution failed, continue to next tier
             }
         }
+    } else {
+        eprintln!("[UNIFIED] TIER 2: No template match");
     }
 
     // TIER 3: V3 JSON Dialogue (structured action plans with LLM)
     // Version 150: RE-ENABLED - V3 dialogue now works with SystemTelemetry
     // Check if this looks like an actionable request
+    eprintln!("[UNIFIED] TIER 3: Checking if query needs action plan...");
     if should_use_action_plan(user_text) {
+        eprintln!("[UNIFIED] TIER 3: Query identified as actionable, calling V3 dialogue...");
+        let v3_start = std::time::Instant::now();
         match dialogue_v3_json::run_dialogue_v3_json(user_text, telemetry, llm_config).await {
             Ok(result) => {
+                eprintln!("[UNIFIED] TIER 3: V3 dialogue succeeded in {:?}", v3_start.elapsed());
                 return Ok(UnifiedQueryResult::ActionPlan {
                     action_plan: result.action_plan,
                     raw_json: result.raw_json,
@@ -171,17 +188,21 @@ pub async fn handle_unified_query(
             }
             Err(e) => {
                 // V3 dialogue failed, fall through to conversational answer
-                eprintln!("V3 dialogue error (falling back to conversational): {}", e);
+                eprintln!("[UNIFIED] TIER 3: V3 dialogue failed after {:?}, falling back to conversational: {}", v3_start.elapsed(), e);
             }
         }
+    } else {
+        eprintln!("[UNIFIED] TIER 3: Query not actionable, skipping to conversational");
     }
 
     // TIER 4: Structured Conversational Answer (Version 150: NO STREAMING!)
     // Generate structured answer from telemetry or LLM
+    eprintln!("[UNIFIED] TIER 4: Generating conversational answer...");
     generate_conversational_answer(user_text, telemetry, llm_config).await
 }
 
 /// Generate structured conversational answer (Version 150: enforces JSON)
+/// Beta.228: Added comprehensive logging
 async fn generate_conversational_answer(
     user_text: &str,
     telemetry: &SystemTelemetry,
@@ -192,19 +213,26 @@ async fn generate_conversational_answer(
 
     // Try to answer directly from telemetry first (highest confidence)
     // Beta.208: Apply canonical normalization to all answers
+    eprintln!("[CONVERSATIONAL] Trying telemetry-based answer...");
     if let Some(answer) = try_answer_from_telemetry(user_text, telemetry) {
+        eprintln!("[CONVERSATIONAL] Answered from telemetry ({} chars)", answer.len());
         return Ok(UnifiedQueryResult::ConversationalAnswer {
             answer: output::normalize_for_cli(&answer),
             confidence: AnswerConfidence::High,
             sources: vec!["system telemetry".to_string()],
         });
     }
+    eprintln!("[CONVERSATIONAL] No telemetry match, using LLM...");
 
     // Use LLM for complex conversational queries
+    eprintln!("[CONVERSATIONAL] Creating LLM client...");
     let client = Arc::new(LlmClient::from_config(llm_config)
         .map_err(|e| anyhow::anyhow!("LLM not available: {}", e))?);
+    eprintln!("[CONVERSATIONAL] LLM client created");
 
+    eprintln!("[CONVERSATIONAL] Building prompt...");
     let prompt = build_conversational_prompt(user_text, telemetry);
+    eprintln!("[CONVERSATIONAL] Prompt built ({} chars)", prompt.len());
     let llm_prompt = Arc::new(LlmPrompt {
         system: LlmClient::anna_system_prompt().to_string(),
         user: prompt,
@@ -214,14 +242,28 @@ async fn generate_conversational_answer(
     // Get LLM response (blocking, not streaming!)
     // Beta.208: Apply canonical normalization to all answers
     // Beta.224: Run blocking LLM call in thread pool to avoid blocking async runtime
+    eprintln!("[CONVERSATIONAL] Spawning blocking LLM call...");
+    let llm_start = std::time::Instant::now();
     let client_clone = Arc::clone(&client);
     let prompt_clone = Arc::clone(&llm_prompt);
     let response = tokio::task::spawn_blocking(move || {
-        client_clone.chat(&prompt_clone)
+        eprintln!("[LLM_THREAD] Entered spawn_blocking thread");
+        let call_start = std::time::Instant::now();
+        let result = client_clone.chat(&prompt_clone);
+        eprintln!("[LLM_THREAD] LLM call completed in {:?}", call_start.elapsed());
+        result
     })
     .await
-    .map_err(|e| anyhow::anyhow!("LLM task panicked: {}", e))?
-    .map_err(|e| anyhow::anyhow!("LLM query failed: {}", e))?;
+    .map_err(|e| {
+        eprintln!("[CONVERSATIONAL] spawn_blocking join error after {:?}: {}", llm_start.elapsed(), e);
+        anyhow::anyhow!("LLM task panicked: {}", e)
+    })?
+    .map_err(|e| {
+        eprintln!("[CONVERSATIONAL] LLM call error after {:?}: {}", llm_start.elapsed(), e);
+        anyhow::anyhow!("LLM query failed: {}", e)
+    })?;
+
+    eprintln!("[CONVERSATIONAL] LLM response received in {:?} ({} chars)", llm_start.elapsed(), response.text.len());
 
     Ok(UnifiedQueryResult::ConversationalAnswer {
         answer: output::normalize_for_cli(&response.text),

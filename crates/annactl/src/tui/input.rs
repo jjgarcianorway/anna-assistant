@@ -39,19 +39,23 @@ pub fn draw_input_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 }
 
 /// Beta.108: Handle user input (non-blocking)
+/// Beta.228: Added comprehensive logging
 /// Returns true if should exit, false otherwise
 pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>) -> bool {
     let input = state.input.clone();
     let input_lower = input.trim().to_lowercase();
+    eprintln!("[INPUT] Processing input: '{}'", input);
 
     // Check for exit commands
     if input_lower == "bye" || input_lower == "exit" || input_lower == "quit" {
+        eprintln!("[INPUT] Exit command detected");
         state.add_system_message("Goodbye!".to_string());
         return true;
     }
 
     // Beta.147: Demo command for testing ActionPlan flow
     if input_lower == "demo" || input_lower == "demo plan" {
+        eprintln!("[INPUT] Demo command detected");
         state.add_user_message(input.clone());
         state.input.clear();
         state.cursor_pos = 0;
@@ -63,6 +67,7 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
 
     // Beta.147: Risky demo with rollback
     if input_lower == "demo risky" {
+        eprintln!("[INPUT] Risky demo command detected");
         state.add_user_message(input.clone());
         state.input.clear();
         state.cursor_pos = 0;
@@ -73,21 +78,27 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
     }
 
     // Beta.108: Add user message immediately (visible in UI)
+    eprintln!("[INPUT] Adding user message to conversation");
     state.add_user_message(input.clone());
     state.input.clear();
     state.cursor_pos = 0;
 
     // Detect language change
+    eprintln!("[INPUT] Detecting language change...");
     detect_language_change(&input, state);
+    eprintln!("[INPUT] Current language: {:?}", state.language);
 
     // Beta.108: Set thinking state before LLM processing
+    eprintln!("[INPUT] Setting thinking state");
     state.is_thinking = true;
     state.thinking_frame = 0;
 
     // Beta.148: Determine if query should use ActionPlan mode
     let should_use_action_plan = should_generate_action_plan(&input);
+    eprintln!("[INPUT] Should use action plan: {}", should_use_action_plan);
 
     // Clone state data needed for LLM query
+    eprintln!("[INPUT] Cloning state for async task");
     let state_clone = AnnaTuiState {
         system_panel: state.system_panel.clone(),
         llm_panel: state.llm_panel.clone(),
@@ -112,25 +123,34 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
     // Beta.148: Route through appropriate handler
     if should_use_action_plan {
         // Use V3 JSON dialogue to generate ActionPlan
+        eprintln!("[INPUT] Spawning action plan generation task");
         tokio::spawn(async move {
+            eprintln!("[INPUT_TASK] Starting action plan generation...");
+            let start = std::time::Instant::now();
             if let Err(e) = generate_action_plan_from_llm(&input, &state_clone, tx.clone()).await {
+                eprintln!("[INPUT_TASK] Action plan generation failed after {:?}: {}", start.elapsed(), e);
                 // Fallback to simple error message on action plan failure
                 let error_msg = format!(
                     "⚠️ Could not generate action plan: {}",
                     e
                 );
                 let _ = tx.send(TuiMessage::AnnaReply(error_msg)).await;
+            } else {
+                eprintln!("[INPUT_TASK] Action plan generated in {:?}", start.elapsed());
             }
         });
     } else {
         // Beta.213: Simple placeholder for non-action-plan queries
         // TUI mode is primarily for ActionPlan execution; for other queries use one-shot mode
+        eprintln!("[INPUT] Spawning informational response task");
         tokio::spawn(async move {
+            eprintln!("[INPUT_TASK] Sending informational response");
             let reply = "This query doesn't require an action plan. For informational queries, please use one-shot mode: annactl \"your question\"".to_string();
             let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
         });
     }
 
+    eprintln!("[INPUT] Input handling complete, returning to event loop");
     false
 }
 

@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.228] - 2025-01-21
+
+### COMPREHENSIVE DIAGNOSTIC LOGGING
+
+**Type:** Debugging & Observability Release
+
+Beta.228 adds extensive logging throughout the TUI and query processing paths to diagnose reported issues (black screen, slow queries). This is a pure diagnostic release to gather data from user testing.
+
+#### Added
+- **TUI Event Loop Logging:** Track initialization, state loading, brain analysis, welcome messages
+- **Input Handler Logging:** Monitor user input processing, language detection, action plan routing
+- **One-Shot Query Logging:** Time tracking for telemetry, LLM config, unified handler
+- **Unified Query Handler Logging:** Detailed tier-by-tier query processing with timing
+- **LLM Call Logging:** Track spawn_blocking entry/exit, LLM call duration, response size
+
+#### Logging Tags
+All logging uses `eprintln!()` to stderr with consistent prefixes:
+- `[TUI]` - Terminal initialization and cleanup
+- `[EVENT_LOOP]` - Main TUI event loop operations
+- `[INPUT]` - User input processing
+- `[INPUT_TASK]` - Async input handling tasks
+- `[ONE_SHOT]` - One-shot query execution
+- `[UNIFIED]` - Unified query handler tier processing
+- `[CONVERSATIONAL]` - Conversational answer generation
+- `[LLM_THREAD]` - LLM blocking call thread
+
+#### Timing Metrics
+- TUI initialization steps
+- Brain analysis RPC calls
+- Welcome message generation
+- Query processing tiers (0-4)
+- LLM call duration
+- Total query time end-to-end
+
+#### Purpose
+User reported:
+- TUI shows black screen on startup
+- One-shot queries "took almost forever"
+- No word streaming during LLM responses
+- Poor quality LLM answers
+
+This release provides comprehensive diagnostics to identify:
+- Where TUI hangs during initialization
+- Which query tier is causing slowness
+- Exact LLM call timings
+- Brain analysis delays
+
+**Next Step:** User testing with log output collection
+
 ## [5.7.0-beta.227] - 2025-01-21
 
 ### TUI STABILITY AND DEFENSIVE ARCHITECTURE

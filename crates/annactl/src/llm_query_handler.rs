@@ -27,7 +27,11 @@ use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, Unifi
 ///
 /// This is used for: annactl "free storage space"
 /// Version 149: Uses unified handler for consistency with TUI.
+/// Beta.228: Added comprehensive logging
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
+    eprintln!("[ONE_SHOT] Starting one-shot query: '{}'", user_text);
+    let start_time = std::time::Instant::now();
+
     let ui = UI::auto();
 
     // Show user's question with nice formatting
@@ -40,20 +44,30 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     println!();
 
     // Create spinner for thinking animation (Beta.202: Professional animation)
+    eprintln!("[ONE_SHOT] Creating thinking spinner...");
     let spinner = create_thinking_spinner(&ui);
+    eprintln!("[ONE_SHOT] Spinner created and started");
 
     // Get telemetry
+    eprintln!("[ONE_SHOT] Fetching system telemetry...");
+    let telemetry_start = std::time::Instant::now();
     let telemetry = query_system_telemetry()?;
+    eprintln!("[ONE_SHOT] Telemetry fetched in {:?}", telemetry_start.elapsed());
 
     // Get LLM config
+    eprintln!("[ONE_SHOT] Loading LLM config...");
     let config = get_llm_config();
+    eprintln!("[ONE_SHOT] LLM config loaded: model={:?}", config.model);
 
     // Use unified query handler
+    eprintln!("[ONE_SHOT] Calling unified query handler...");
+    let handler_start = std::time::Instant::now();
     match handle_unified_query(user_text, &telemetry, &config).await {
         Ok(UnifiedQueryResult::DeterministicRecipe {
             recipe_name,
             action_plan,
         }) => {
+            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Deterministic recipe: {}", handler_start.elapsed(), recipe_name);
             spinner.finish_and_clear();
             println!(
                 "{} {} {}",
@@ -63,10 +77,12 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             );
             println!();
             display_action_plan(&action_plan, &ui);
+            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Ok(UnifiedQueryResult::Template {
             command, output, ..
         }) => {
+            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Template command: {}", handler_start.elapsed(), command);
             spinner.finish_and_clear();
             println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
             ui.info(&format!("  $ {}", command));
@@ -75,46 +91,59 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
                 ui.info(line);
             }
             println!();
+            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Ok(UnifiedQueryResult::ActionPlan {
             action_plan,
             raw_json: _,
         }) => {
+            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Action plan generated", handler_start.elapsed());
             spinner.finish_and_clear();
             println!("{}", "anna:".bright_magenta().bold());
             println!();
             display_action_plan(&action_plan, &ui);
+            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Ok(UnifiedQueryResult::ConversationalAnswer {
             answer,
             confidence,
             sources,
         }) => {
+            eprintln!("[ONE_SHOT] Unified handler completed in {:?} - Conversational answer ({} chars)", handler_start.elapsed(), answer.len());
             spinner.finish_and_clear();
 
             // Beta.213: Show welcome prelude before LLM-based answers (only for conversational answers)
             // This provides system context delta without overwhelming the user
+            eprintln!("[ONE_SHOT] Fetching telemetry snapshot for welcome report...");
             let current_snapshot_result = fetch_telemetry_snapshot().await;
 
             if let Some(snapshot) = current_snapshot_result {
+                eprintln!("[ONE_SHOT] Telemetry snapshot fetched, generating welcome report...");
                 let last_session = load_last_session().ok().flatten();
                 let welcome_report = generate_welcome_report(last_session, snapshot.clone());
 
                 // Only show welcome if there are changes detected (keep output minimal)
                 if !welcome_report.contains("No system changes detected") {
+                    eprintln!("[ONE_SHOT] Welcome report has system changes, displaying...");
                     let normalized = normalize_for_cli(&welcome_report);
                     println!("{}", normalized);
                     println!();
+                } else {
+                    eprintln!("[ONE_SHOT] No system changes detected, skipping welcome report");
                 }
 
                 // Save session for next run
+                eprintln!("[ONE_SHOT] Saving session metadata...");
                 let _ = save_session_metadata(snapshot);
+            } else {
+                eprintln!("[ONE_SHOT] No telemetry snapshot available");
             }
 
             println!("{}", "anna:".bright_magenta().bold());
             println!();
 
             // Display answer
+            eprintln!("[ONE_SHOT] Displaying answer ({} lines)", answer.lines().count());
             for line in answer.lines() {
                 ui.info(line);
             }
@@ -129,14 +158,18 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
                 );
             }
             println!();
+            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
         Err(e) => {
+            eprintln!("[ONE_SHOT] Unified handler failed after {:?}: {}", handler_start.elapsed(), e);
             spinner.finish_and_clear();
             ui.error(&format!("Query failed: {}", e));
             println!();
+            eprintln!("[ONE_SHOT] Total query time: {:?}", start_time.elapsed());
         }
     }
 
+    eprintln!("[ONE_SHOT] One-shot query completed successfully");
     Ok(())
 }
 
