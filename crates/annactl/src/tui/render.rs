@@ -63,11 +63,11 @@ pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
 }
 
 /// Draw professional header (Claude CLI style)
-/// Version 150: Anna v5.7.0 | llama3.2:3b | user@hostname | Daemon: OK
+/// Beta.230: Simplified to avoid redundancy with status bar - shows context not status
+/// Format: Anna v5.7.0-beta.230 | llama3.2:3b | user@hostname
 pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use std::env;
 
-    // Version 150: Use real hostname from telemetry_truth (not env vars!)
     let hostname = if !state.system_panel.hostname.is_empty() {
         state.system_panel.hostname.as_str()
     } else {
@@ -86,28 +86,15 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
             format!("v{}", state.system_panel.anna_version),
             Style::default().fg(Color::Rgb(120, 120, 120)), // Gray
         ),
-        Span::raw(" | "),
+        Span::raw(" │ "),
         Span::styled(
             &state.llm_panel.model_name,
             Style::default().fg(Color::Rgb(255, 200, 80)), // Yellow
         ),
-        Span::raw(" | "),
+        Span::raw(" │ "),
         Span::styled(
             format!("{}@{}", username, hostname),
             Style::default().fg(Color::Rgb(100, 150, 255)), // Blue
-        ),
-        Span::raw(" | "),
-        Span::styled(
-            if state.llm_panel.available {
-                "Daemon: OK"
-            } else {
-                "Daemon: N/A"
-            },
-            Style::default().fg(if state.llm_panel.available {
-                Color::Rgb(100, 255, 100) // Green
-            } else {
-                Color::Rgb(255, 200, 80) // Yellow
-            }),
         ),
     ]);
 
@@ -117,8 +104,8 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
 }
 
 /// Draw professional status bar (bottom)
-/// Beta.220: Perfected with hostname, mode, daemon status, and flawless rendering
-/// Format: hostname | Mode: TUI | 15:42:08 | Health: ✓ | CPU: 8% | RAM: 4.2GB | LLM: ✓ | Daemon: ✓ | Brain: 2⚠
+/// Beta.230: Streamlined - removed redundant hostname and LLM status, focused on real-time metrics
+/// Format: Mode: TUI | 15:42:08 | Health: ✓ | CPU: 8% | RAM: 4.2GB | Daemon: ✓ | Brain: 2⚠
 pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use chrono::Local;
 
@@ -166,20 +153,8 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         }
     };
 
-    // Beta.220: Build status bar with consistent sections
+    // Beta.230: Build status bar with consistent sections (no redundant hostname)
     let mut spans = Vec::new();
-
-    // Section 1: Hostname (with color)
-    let hostname = if !state.system_panel.hostname.is_empty() {
-        state.system_panel.hostname.as_str()
-    } else {
-        "unknown"
-    };
-    spans.push(Span::styled(
-        hostname,
-        Style::default().fg(Color::Rgb(100, 200, 255)).add_modifier(Modifier::BOLD), // Bright cyan
-    ));
-    spans.push(Span::raw(" │ "));
 
     // Section 2: Mode
     spans.push(Span::styled("Mode: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
@@ -222,19 +197,7 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     ));
     spans.push(Span::raw(" │ "));
 
-    // Section 6: LLM Status
-    spans.push(Span::styled("LLM: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
-    spans.push(Span::styled(
-        if state.llm_panel.available { "✓" } else { "✗" },
-        Style::default().fg(if state.llm_panel.available {
-            Color::Rgb(100, 255, 100) // Bright green
-        } else {
-            Color::Rgb(255, 200, 80) // Yellow
-        }).add_modifier(Modifier::BOLD),
-    ));
-    spans.push(Span::raw(" │ "));
-
-    // Section 7: Daemon Status (based on telemetry_ok and brain_available)
+    // Section 6: Daemon Status (based on telemetry_ok and brain_available)
     let daemon_ok = state.telemetry_ok || state.brain_available;
     spans.push(Span::styled("Daemon: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
     spans.push(Span::styled(
@@ -246,7 +209,7 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         }).add_modifier(Modifier::BOLD),
     ));
 
-    // Section 8: Brain diagnostics (only if issues exist)
+    // Section 7: Brain diagnostics (only if issues exist)
     if state.brain_available && !state.brain_insights.is_empty() {
         let critical_count = state
             .brain_insights

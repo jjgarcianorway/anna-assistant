@@ -104,9 +104,9 @@ async fn run_event_loop(
     let brain_start = std::time::Instant::now();
     super::brain::update_brain_analysis(state).await;
 
-    // Beta.229: DISABLED - Welcome message causes 18.5s startup delay
-    // The async LLM call blocks TUI initialization
-    // Re-enable in Beta.230+ with pure telemetry-based greeting (no LLM)
+    // Beta.230: ENABLED - Deterministic welcome (no LLM, zero delay)
+    // Uses pure telemetry-based greeting without async LLM calls
+    show_welcome_message(state).await;
 
     // Track last telemetry update
     let mut last_telemetry_update = std::time::Instant::now();
@@ -167,7 +167,26 @@ async fn run_event_loop(
 
         // Handle events with timeout
         if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
+            let event = event::read()?;
+
+            // Handle mouse events for scrolling
+            if let Event::Mouse(mouse) = event {
+                use crossterm::event::MouseEventKind;
+                match mouse.kind {
+                    MouseEventKind::ScrollUp => {
+                        if state.scroll_offset > 0 {
+                            state.scroll_offset = state.scroll_offset.saturating_sub(3);
+                        }
+                    }
+                    MouseEventKind::ScrollDown => {
+                        state.scroll_offset = state.scroll_offset.saturating_add(3);
+                    }
+                    _ => {}
+                }
+            }
+
+            // Handle keyboard events
+            if let Event::Key(key) = event {
                 match (key.code, key.modifiers) {
                     // Ctrl+C - exit
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
@@ -218,15 +237,19 @@ async fn run_event_loop(
                     (KeyCode::Down, _) => {
                         state.history_down();
                     }
-                    // PageUp - scroll conversation up
+                    // PageUp - scroll conversation up (half page)
                     (KeyCode::PageUp, _) => {
+                        // Scroll by half a page (or 10 lines minimum)
+                        let scroll_amount = std::cmp::max(10, terminal.size().ok().map(|s| s.height / 4).unwrap_or(10) as usize);
                         if state.scroll_offset > 0 {
-                            state.scroll_offset = state.scroll_offset.saturating_sub(10);
+                            state.scroll_offset = state.scroll_offset.saturating_sub(scroll_amount);
                         }
                     }
-                    // PageDown - scroll conversation down
+                    // PageDown - scroll conversation down (half page)
                     (KeyCode::PageDown, _) => {
-                        state.scroll_offset = state.scroll_offset.saturating_add(10);
+                        // Scroll by half a page (or 10 lines minimum)
+                        let scroll_amount = std::cmp::max(10, terminal.size().ok().map(|s| s.height / 4).unwrap_or(10) as usize);
+                        state.scroll_offset = state.scroll_offset.saturating_add(scroll_amount);
                     }
                     // Character input
                     (KeyCode::Char(c), KeyModifiers::NONE)

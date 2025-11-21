@@ -7,12 +7,22 @@ use crate::output::normalize_for_tui;
 use crate::tui_state::AnnaTuiState;
 
 /// Beta.221: Enhanced welcome with system state from brain analysis
+/// Beta.230: Fixed to always show welcome, with fallback to local telemetry if daemon unavailable
 pub async fn show_welcome_message(state: &mut AnnaTuiState) {
-    // Fetch telemetry snapshot from daemon via RPC (Beta.213)
+    // Try to fetch telemetry snapshot from daemon via RPC (Beta.213)
     // This is non-blocking and doesn't use LLM
     let current_snapshot = fetch_telemetry_snapshot().await;
 
-    if let Some(snapshot) = current_snapshot {
+    // Fallback to local telemetry if daemon unavailable
+    let snapshot = current_snapshot.or_else(|| {
+        // Beta.230: Generate snapshot from local telemetry collection
+        use crate::system_query::query_system_telemetry;
+        query_system_telemetry()
+            .ok()
+            .map(|telemetry| crate::startup::welcome::create_telemetry_snapshot(&telemetry))
+    });
+
+    if let Some(snapshot) = snapshot {
         // Load last session metadata
         let last_session = load_last_session().ok().flatten();
 
@@ -32,15 +42,12 @@ pub async fn show_welcome_message(state: &mut AnnaTuiState) {
         // Display welcome report
         state.add_anna_reply(welcome);
 
-        // Save current session for next run
+        // Save current session for next run (best effort)
         let _ = save_session_metadata(snapshot);
     } else {
-        // Fallback: RPC telemetry not available
-        let fallback = crate::output::generate_fallback_message(
-            "Failed to fetch telemetry from daemon. Ensure annad is running."
-        );
-        let welcome = normalize_for_tui(&fallback);
-        state.add_anna_reply(welcome);
+        // Ultimate fallback: even local telemetry failed
+        let fallback = "Welcome to Anna! Unable to collect system telemetry.".to_string();
+        state.add_anna_reply(fallback);
     }
 }
 
