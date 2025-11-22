@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.238] - 2025-11-22
+
+### UX COHERENCE & DIAGNOSTIC ENTRY POINT
+
+**Type:** UX & Interface Consistency
+**Focus:** Natural language diagnostics, surface alignment, formatting polish
+
+#### Added ✨
+- **Natural Language Diagnostic Routing** (`crates/annactl/src/unified_query_handler.rs`)
+  - New TIER 0.5 routing for diagnostic queries (lines 121-126)
+  - `is_full_diagnostic_query()` - Detects diagnostic intent from 9+ phrase patterns
+  - `handle_diagnostic_query()` - Routes to `Method::BrainAnalysis` RPC call
+  - `format_diagnostic_report()` - Formats brain analysis as canonical [SUMMARY]/[DETAILS]/[COMMANDS]
+  - Recognized phrases:
+    - "check my system health", "run a full diagnostic", "show any problems"
+    - "diagnose my system", "full diagnostic", "system health check"
+  - Returns high-confidence answers from "internal diagnostic engine"
+  - Unit tests for phrase detection (lines 1215-1237)
+
+#### Changed 📝
+- **Surface Alignment** (`crates/annactl/src/status_command.rs`)
+  - Updated hint text to use natural language (line 259)
+  - Changed "run 'annactl brain'" → "say 'run a full diagnostic'"
+  - Maintains consistency: `annactl status` and TUI both show top 3 diagnostic issues
+  - Both use same `Method::BrainAnalysis` RPC call
+  - Identical severity sorting and markers (✗ critical, ⚠ warning)
+
+#### Documented 📚
+- **Comprehensive Beta.238 Documentation**
+  - Created `docs/BETA_238_NOTES.md` (400+ lines)
+  - Natural language routing system details
+  - All diagnostic paths (TUI, status, one-shot, hidden brain)
+  - Formatting rules (CLI vs TUI normalization)
+  - TUI UX polish notes
+  - Testing procedures and results
+  - Known limitations and future recommendations
+
+- **Diagnostic Consistency Guarantee**
+  - All paths use same `Method::BrainAnalysis`:
+    - `annactl brain` (hidden) - Full report, all insights
+    - `annactl "run a full diagnostic"` (public) - Formatted report
+    - `annactl status` (public) - Top 3 insights
+    - TUI diagnostic panel (public) - Top 3 insights
+  - Same 9 deterministic diagnostic rules across all surfaces
+
+#### Technical Details
+
+**Routing Priority (Unified Query Handler):**
+```
+TIER 0:   System Report
+TIER 0.5: Full Diagnostic (NEW) ← Natural language → Brain Analysis
+TIER 1:   Deterministic Recipes (77+ templates)
+TIER 2:   Template Matching
+TIER 3:   V3 JSON Dialogue (LLM action plans)
+TIER 4:   Conversational Answer
+```
+
+**Diagnostic Engine Access:**
+- Deterministic routing (pattern matching, not LLM)
+- High confidence (telemetry-based rules)
+- Consistent output format
+- Non-blocking in TUI (background tasks)
+
+**TUI Improvements:**
+- Help overlay (F1) - Only keyboard shortcuts, no CLI commands
+- Error handling - Clear messages when daemon unavailable
+- Status bar - Shows brain issue count with severity
+- Diagnostic panel - Matches `annactl status` output
+
+**Contract Compliance:**
+- ✅ Public interface unchanged: `annactl`, `annactl status`, `annactl "<question>"`
+- ✅ No new public commands
+- ✅ `brain` remains hidden/internal
+- ✅ TUI shows no CLI commands
+- ✅ Natural language is primary interface
+
+#### Files Modified
+- `crates/annactl/src/unified_query_handler.rs` - Diagnostic routing tier
+- `crates/annactl/src/status_command.rs` - Natural language hint
+- `docs/BETA_238_NOTES.md` - Complete documentation (NEW)
+- `Cargo.toml` - Version bump to 5.7.0-beta.238
+- `README.md` - Badge update to beta.238
+
 ## [5.7.0-beta.237] - 2025-11-22
 
 ### RPC RESILIENCE AND LATENCY PASS

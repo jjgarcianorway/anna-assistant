@@ -256,7 +256,7 @@ pub async fn execute_anna_status_command(
                     println!(
                         "    {}",
                         fmt::dimmed(&format!(
-                            "... and {} more (run 'annactl brain' for full analysis)",
+                            "... and {} more (say 'run a full diagnostic' for complete analysis)",
                             analysis.insights.len() - 3
                         ))
                     );

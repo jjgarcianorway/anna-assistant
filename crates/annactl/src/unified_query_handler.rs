@@ -118,6 +118,13 @@ pub async fn handle_unified_query(
         });
     }
 
+    // TIER 0.5: Beta.238 Full Diagnostic Routing (natural language → brain diagnostics)
+    // Detects "run a full diagnostic", "check my system health", "show any problems"
+    // Routes directly to internal diagnostic engine (same as hidden brain command)
+    if is_full_diagnostic_query(user_text) {
+        return handle_diagnostic_query().await;
+    }
+
     // TIER 1: Beta.151 Deterministic Recipes (NEW - highest priority)
     // These are hard-coded, tested, zero-hallucination plans
     let telemetry_map = telemetry_to_hashmap(telemetry);
@@ -1036,6 +1043,161 @@ fn telemetry_to_hashmap(telemetry: &SystemTelemetry) -> std::collections::HashMa
 //   - normalizer::normalize_for_tui() - for TUI output (before ANSI codes)
 // This ensures consistent formatting across all answer types.
 
+/// Beta.238: Detect if query is requesting full system diagnostics
+///
+/// Recognized phrases:
+/// - "run a full diagnostic"
+/// - "run full diagnostic"
+/// - "check my system health"
+/// - "check system health"
+/// - "show any problems"
+/// - "show me any problems"
+/// - "system health check"
+/// - "full system diagnostic"
+/// - "diagnose my system"
+/// - "diagnose the system"
+fn is_full_diagnostic_query(user_text: &str) -> bool {
+    let input_lower = user_text.to_lowercase();
+
+    // Exact phrase matches first (highest specificity)
+    let exact_matches = [
+        "run a full diagnostic",
+        "run full diagnostic",
+        "full diagnostic",
+        "check my system health",
+        "check system health",
+        "show any problems",
+        "show me any problems",
+        "full system diagnostic",
+        "system health check",
+    ];
+
+    for phrase in &exact_matches {
+        if input_lower.contains(phrase) {
+            return true;
+        }
+    }
+
+    // Pattern-based matches (broader but still specific)
+    // "diagnose" + "system" or "my system"
+    if input_lower.contains("diagnose") {
+        if input_lower.contains("system") || input_lower.contains("my system") {
+            return true;
+        }
+    }
+
+    // "full" + "diagnostic" (even if not adjacent)
+    if input_lower.contains("full") && input_lower.contains("diagnostic") {
+        return true;
+    }
+
+    // "system" + "health" (common combination)
+    if input_lower.contains("system") && input_lower.contains("health") {
+        return true;
+    }
+
+    false
+}
+
+/// Beta.238: Handle diagnostic query by calling internal brain analysis
+///
+/// Routes natural language diagnostic requests to the same diagnostic engine
+/// that powers the hidden `annactl brain` command. Returns formatted diagnostic
+/// report suitable for CLI or TUI display.
+async fn handle_diagnostic_query() -> Result<UnifiedQueryResult> {
+    use anna_common::ipc::{Method, ResponseData};
+    use crate::rpc_client::RpcClient;
+
+    // Fetch brain analysis from daemon (same as brain command)
+    let mut client = RpcClient::connect().await
+        .map_err(|e| anyhow::anyhow!("Diagnostic engine unavailable: {}\n\nThe daemon (annad) must be running to perform diagnostics.", e))?;
+
+    let response = client.call(Method::BrainAnalysis).await
+        .map_err(|e| anyhow::anyhow!("Diagnostic analysis failed: {}", e))?;
+
+    let analysis = match response {
+        ResponseData::BrainAnalysis(data) => data,
+        _ => return Err(anyhow::anyhow!("Unexpected response type from diagnostic engine")),
+    };
+
+    // Format diagnostic report in canonical [SUMMARY]/[DETAILS] format
+    let report = format_diagnostic_report(&analysis);
+
+    Ok(UnifiedQueryResult::ConversationalAnswer {
+        answer: report,
+        confidence: AnswerConfidence::High,
+        sources: vec!["internal diagnostic engine".to_string()],
+    })
+}
+
+/// Beta.238: Format brain analysis data as canonical report
+fn format_diagnostic_report(analysis: &anna_common::ipc::BrainAnalysisData) -> String {
+    use std::fmt::Write;
+
+    let mut report = String::new();
+
+    // Summary section
+    writeln!(&mut report, "[SUMMARY]").unwrap();
+    if analysis.critical_count == 0 && analysis.warning_count == 0 {
+        writeln!(&mut report, "System health: **All systems nominal**").unwrap();
+        writeln!(&mut report).unwrap();
+        writeln!(&mut report, "No critical or warning issues detected.").unwrap();
+    } else {
+        writeln!(&mut report, "System health: **{} issue(s) detected**", analysis.critical_count + analysis.warning_count).unwrap();
+        writeln!(&mut report).unwrap();
+        if analysis.critical_count > 0 {
+            writeln!(&mut report, "- **{}** critical issue(s) requiring immediate attention", analysis.critical_count).unwrap();
+        }
+        if analysis.warning_count > 0 {
+            writeln!(&mut report, "- **{}** warning(s) that should be investigated", analysis.warning_count).unwrap();
+        }
+    }
+    writeln!(&mut report).unwrap();
+
+    // Details section - show all diagnostic insights
+    if !analysis.insights.is_empty() {
+        writeln!(&mut report, "[DETAILS]").unwrap();
+        writeln!(&mut report, "Diagnostic Insights:").unwrap();
+        writeln!(&mut report).unwrap();
+
+        for (idx, insight) in analysis.insights.iter().enumerate() {
+            let severity_marker = match insight.severity.to_lowercase().as_str() {
+                "critical" => "✗",
+                "warning" => "⚠",
+                _ => "ℹ",
+            };
+
+            writeln!(&mut report, "{}. {} **{}**", idx + 1, severity_marker, insight.summary).unwrap();
+            writeln!(&mut report).unwrap();
+            writeln!(&mut report, "   {}", insight.details).unwrap();
+            writeln!(&mut report).unwrap();
+
+            // Add diagnostic commands if available
+            if !insight.commands.is_empty() {
+                writeln!(&mut report, "   Diagnostic commands:").unwrap();
+                for cmd in &insight.commands {
+                    writeln!(&mut report, "   $ {}", cmd).unwrap();
+                }
+                writeln!(&mut report).unwrap();
+            }
+        }
+    }
+
+    // Commands section - show recommended actions
+    writeln!(&mut report, "[COMMANDS]").unwrap();
+    if analysis.critical_count > 0 || analysis.warning_count > 0 {
+        writeln!(&mut report, "Recommended actions:").unwrap();
+        writeln!(&mut report, "$ annactl status        # View detailed system status").unwrap();
+        writeln!(&mut report, "$ journalctl -xe        # Check system logs").unwrap();
+        writeln!(&mut report, "$ systemctl --failed    # List failed services").unwrap();
+    } else {
+        writeln!(&mut report, "No immediate actions required. System is operating normally.").unwrap();
+        writeln!(&mut report, "$ annactl status        # View current system status").unwrap();
+    }
+
+    report
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1048,5 +1210,29 @@ mod tests {
 
         assert!(!should_use_action_plan("what is my CPU?"));
         assert!(!should_use_action_plan("how much RAM do I have?"));
+    }
+
+    #[test]
+    fn test_is_full_diagnostic_query() {
+        // Beta.238: Test diagnostic query detection
+        // Exact matches
+        assert!(is_full_diagnostic_query("run a full diagnostic"));
+        assert!(is_full_diagnostic_query("check my system health"));
+        assert!(is_full_diagnostic_query("show any problems"));
+        assert!(is_full_diagnostic_query("full system diagnostic"));
+
+        // Case insensitive
+        assert!(is_full_diagnostic_query("RUN A FULL DIAGNOSTIC"));
+        assert!(is_full_diagnostic_query("Check System Health"));
+
+        // Pattern matches
+        assert!(is_full_diagnostic_query("diagnose my system"));
+        assert!(is_full_diagnostic_query("can you diagnose the system"));
+        assert!(is_full_diagnostic_query("please check system health"));
+
+        // Non-diagnostic queries
+        assert!(!is_full_diagnostic_query("what is my CPU?"));
+        assert!(!is_full_diagnostic_query("install docker"));
+        assert!(!is_full_diagnostic_query("check disk space"));
     }
 }
