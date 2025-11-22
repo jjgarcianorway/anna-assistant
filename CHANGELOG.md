@@ -7,6 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.237] - 2025-11-22
+
+### RPC RESILIENCE AND LATENCY PASS
+
+**Type:** Reliability & Performance
+**Focus:** RPC resilience, one-shot latency reduction, diagnostic routing verification
+
+#### Added ✨
+- **Typed RPC Error Categories** (`crates/annactl/src/rpc_client.rs`)
+  - New `RpcErrorKind` enum for consistent error handling:
+    - `DaemonUnavailable` - Socket not found, daemon not running
+    - `PermissionDenied` - User not in anna group
+    - `Timeout` - Call exceeded timeout duration
+    - `ConnectionFailed` - Broken pipe, connection refused
+    - `Internal` - Unexpected errors
+  - Added `categorize_error()` helper function
+  - Enhanced `call()` method documentation with timeout and retry behavior
+
+- **Comprehensive Technical Documentation**
+  - Created `docs/BETA_237_NOTES.md` (563 lines)
+  - RPC timeout and error handling analysis
+  - TUI failure behavior documentation with test procedures
+  - One-shot latency root cause analysis
+  - Deep diagnostic routing verification
+  - Test results and recommendations for Beta.238
+
+#### Fixed 🐛
+- **One-Shot Latency Issue** (`crates/annactl/src/llm_query_handler.rs`)
+  - **Problem:** Noticeable delay between spinner finishing and answer appearing
+  - **Root Cause:** Gap between `spinner.finish_and_clear()` and first LLM chunk arrival
+  - **Solution:** Print "anna:" prefix immediately after spinner stops (lines 59-65)
+  - **Result:** Zero perceived latency, immediate visual feedback
+  - Adjusted all result type handlers to avoid duplicate "anna:" prefix
+
+#### Documented 📚
+- **TUI Resilience Under RPC Failures**
+  - Non-blocking architecture: All RPC calls in background tasks (`tokio::spawn`)
+  - Graceful degradation: Shows "unavailable" when daemon is down
+  - Never blocks main event loop on RPC
+  - Clear status indicators for connection issues
+
+- **Diagnostic Routing Consistency**
+  - Verified all three access points use `Method::BrainAnalysis`:
+    - `annactl status` - Top 3 issues (public)
+    - TUI diagnostic panel - Auto-updated every 30s (public)
+    - `annactl brain` - Full report (hidden/internal)
+  - All share same 9 deterministic diagnostic rules
+
+#### Technical Details
+
+**RPC Timeout Configuration:**
+```
+Connection timeout: 500ms per attempt, 10 attempts max
+Request timeout:
+  - BrainAnalysis: 10 seconds
+  - GetHistorianSummary: 10 seconds
+  - Standard calls: 5 seconds
+Retry policy:
+  - Max retries: 3
+  - Backoff: 50ms → 100ms → 200ms → 400ms → 800ms (capped)
+```
+
+**Test Results:**
+- ✅ `annactl --help` - Clean interface (only status, version)
+- ✅ `annactl --version` - Shows 5.7.0-beta.237
+- ✅ `annactl brain` - Hidden command still works internally
+- ✅ `annactl status` - Shows diagnostic issues correctly
+- ✅ One-shot query - No perceived latency after spinner
+
+**Contract Compliance:**
+- ✅ Public interface unchanged: `annactl`, `annactl status`, `annactl "<question>"`
+- ✅ No new public commands
+- ✅ `brain` remains hidden/internal only
+- ✅ Documentation aligned with behavior
+
+#### Files Modified
+- `crates/annactl/src/rpc_client.rs` - Added RpcErrorKind enum and documentation
+- `crates/annactl/src/llm_query_handler.rs` - Immediate "anna:" prefix for latency fix
+- `docs/BETA_237_NOTES.md` - Complete technical documentation (NEW)
+- `Cargo.toml` - Version bump to 5.7.0-beta.237
+- `README.md` - Badge update to beta.237
+
 ## [5.7.0-beta.236] - 2025-11-22
 
 ### PUBLIC INTERFACE CLARIFICATION
