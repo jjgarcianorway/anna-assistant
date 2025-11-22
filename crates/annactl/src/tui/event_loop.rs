@@ -25,31 +25,42 @@ pub enum TuiMessage {
     AnnaReplyComplete,      // Beta.115: Streaming complete
     ActionPlanReply(anna_common::action_plan_v3::ActionPlan), // Beta.147: Structured action plan
     TelemetryUpdate,
+    BrainUpdate(anna_common::ipc::BrainAnalysisData), // Beta.234: Brain analysis result
 }
 
 /// Run the TUI
 /// Beta.227: Enhanced error handling and graceful degradation
 /// Beta.228: Comprehensive logging for debugging
+/// Beta.235: Added fallback error screen for startup failures
 pub async fn run() -> Result<()> {
 
-    // Setup terminal with error recovery
+    // Setup terminal with error recovery and fallback screen
     enable_raw_mode().map_err(|e| {
+        display_fallback_error(&format!(
+            "Failed to enable raw mode: {}.\nEnsure you're running in a real terminal (TTY).",
+            e
+        ));
         anyhow::anyhow!("Failed to enable raw mode: {}. Ensure you're running in a real terminal (TTY).", e)
     })?;
 
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture).map_err(|e| {
         let _ = disable_raw_mode(); // Cleanup attempt
+        display_fallback_error(&format!("Failed to initialize terminal: {}", e));
         anyhow::anyhow!("Failed to initialize terminal: {}", e)
     })?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Load state with fallback
-    let mut state = AnnaTuiState::load().await.unwrap_or_else(|e| {
-        AnnaTuiState::default()
-    });
+    // Load state with timeout and fallback (Beta.235: prevent infinite hangs on I/O)
+    let mut state = match tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        AnnaTuiState::load()
+    ).await {
+        Ok(Ok(s)) => s,
+        Ok(Err(_)) | Err(_) => AnnaTuiState::default(),
+    };
 
     // Create channels for async operations
     let (tx, mut rx) = mpsc::channel(32);
@@ -60,10 +71,11 @@ pub async fn run() -> Result<()> {
     // Restore terminal (always attempt cleanup)
     let cleanup_result = restore_terminal(&mut terminal);
 
-    // Save state (best effort)
-    if let Err(e) = state.save().await {
-    } else {
-    }
+    // Save state (best effort, with timeout - Beta.235)
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        state.save()
+    ).await;
 
     // Return event loop result, or cleanup error if that failed
     result.and(cleanup_result)
@@ -92,21 +104,30 @@ async fn run_event_loop(
     // Beta.94: Initialize telemetry with real data (synchronous, fast)
     update_telemetry(state);
 
-    // Beta.218: Initialize brain diagnostics (async RPC, may fail gracefully)
-    // Beta.227: Don't block TUI startup on brain analysis
-    let tx_clone = tx.clone();
-    tokio::spawn(async move {
-        // Brain analysis in background - won't block TUI initialization
-        // If it fails, the TUI will show "Brain diagnostics unavailable"
-    });
+    // Beta.234: Initialize brain diagnostics in background (NON-BLOCKING)
+    // Spawn async task to fetch brain analysis without blocking main loop
+    {
+        let tx_clone = tx.clone();
+        tokio::spawn(async move {
+            // Fetch brain analysis in background
+            // Will send result via channel when ready
+            if let Ok(analysis) = super::brain::fetch_brain_data().await {
+                // Send brain update via channel (non-blocking for spawned task)
+                let _ = tx_clone.send(TuiMessage::BrainUpdate(analysis)).await;
+            }
+        });
+    }
 
-    // Update brain synchronously for immediate display (will use cached/default if daemon slow)
-    let brain_start = std::time::Instant::now();
-    super::brain::update_brain_analysis(state).await;
-
-    // Beta.230: ENABLED - Deterministic welcome (no LLM, zero delay)
-    // Uses pure telemetry-based greeting without async LLM calls
-    show_welcome_message(state).await;
+    // Beta.234: Show welcome message in background (NON-BLOCKING)
+    // Don't await here - let it run async and return immediately
+    {
+        let mut state_clone = state.clone();
+        tokio::spawn(async move {
+            // Welcome message generation in background
+            // Won't block TUI initialization
+            let _ = show_welcome_message(&mut state_clone).await;
+        });
+    }
 
     // Track last telemetry update
     let mut last_telemetry_update = std::time::Instant::now();
@@ -123,9 +144,15 @@ async fn run_event_loop(
             last_telemetry_update = std::time::Instant::now();
         }
 
-        // Beta.218: Update brain analysis every 30 seconds
+        // Beta.234: Update brain analysis every 30 seconds (NON-BLOCKING)
+        // Spawn background task instead of awaiting here
         if last_brain_update.elapsed() >= brain_interval {
-            super::brain::update_brain_analysis(state).await;
+            let tx_clone = tx.clone();
+            tokio::spawn(async move {
+                if let Ok(analysis) = super::brain::fetch_brain_data().await {
+                    let _ = tx_clone.send(TuiMessage::BrainUpdate(analysis)).await;
+                }
+            });
             last_brain_update = std::time::Instant::now();
         }
 
@@ -158,6 +185,10 @@ async fn run_event_loop(
                 }
                 TuiMessage::TelemetryUpdate => {
                     update_telemetry(state);
+                }
+                TuiMessage::BrainUpdate(diagnostics) => {
+                    // Beta.234: Brain analysis arrived from background task
+                    state.update_brain_diagnostics(diagnostics);
                 }
             }
         }
@@ -264,4 +295,21 @@ async fn run_event_loop(
     }
 
     Ok(())
+}
+
+/// Beta.235: Display fallback error screen when TUI fails to start
+/// Uses plain stderr output when terminal can't be initialized
+fn display_fallback_error(message: &str) {
+    eprintln!("\n╔══════════════════════════════════════════════════════════╗");
+    eprintln!("║                   TUI STARTUP FAILED                     ║");
+    eprintln!("╚══════════════════════════════════════════════════════════╝");
+    eprintln!();
+    eprintln!("Error: {}", message);
+    eprintln!();
+    eprintln!("Troubleshooting:");
+    eprintln!("  • Ensure you're running in a real terminal (TTY), not redirected");
+    eprintln!("  • Try resizing your terminal window");
+    eprintln!("  • Check terminal permissions: ls -la $(tty)");
+    eprintln!("  • Use 'annactl status' for non-interactive mode");
+    eprintln!();
 }

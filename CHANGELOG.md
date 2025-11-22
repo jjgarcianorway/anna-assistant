@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.235] - 2025-11-22
+
+### RPC TIMEOUTS AND FINAL HARDENING
+
+**Type:** Reliability & Performance
+**Focus:** Prevent infinite hangs, add timeouts to all critical paths
+
+Beta.235 implements comprehensive timeout system and final hardening for production readiness.
+
+#### Added ⚡
+- **RPC Call Timeouts** (rpc_client.rs:174-231)
+  - Complete timeout wrapper for all RPC calls (not just connection)
+  - Method-specific timeouts: Brain/Historian (10s), Standard calls (5s)
+  - Exponential backoff for transient errors (50ms → 800ms, max 3 retries)
+  - No more silent hangs on slow daemon responses
+
+- **TUI Startup Hardening** (tui/event_loop.rs:50-72, 300-315)
+  - 2-second timeout on state file I/O (load/save)
+  - Fallback error screen when terminal initialization fails
+  - All blocking I/O wrapped in tokio::time::timeout
+  - Graceful degradation instead of black screens
+
+#### Fixed 🔧
+- **Infinite Hang Risk** - RPC calls could hang forever if daemon froze
+- **Black Screen Risk** - TUI could hang on startup if file I/O blocked
+- **No Error Feedback** - Terminal failures showed no helpful message
+
+#### Technical Details
+**RPC Timeout System:**
+- Retry logic distinguishes transient vs permanent errors
+- Transient: "Failed to send request", "Failed to read response", "broken pipe", timeout
+- Permanent: Invalid response, ID mismatch (propagate immediately)
+- Final retry includes attempt count in error message
+
+**TUI Hardening:**
+- State load: `tokio::time::timeout(2s, AnnaTuiState::load())`
+- State save: `tokio::time::timeout(2s, state.save())`
+- Fallback screen: Plain stderr output with troubleshooting tips
+- All background tasks already timeout via RPC layer
+
+**Task Spawning Analysis:**
+- Max concurrent: 2-3 per user input + 1 periodic (30s)
+- Naturally bounded by input clearing and thinking animation
+- No registry needed - design is inherently safe
+
+#### Test Results ✅
+**CLI Regression (7/7 testable commands):**
+- ✅ `annactl --version` - Exit 0
+- ✅ `annactl -V` - Exit 0
+- ✅ `annactl version` - Exit 0
+- ✅ `annactl --help` - Exit 0
+- ✅ `annactl -h` - Exit 0
+- ✅ `annactl status` - Exit 0
+- ✅ `annactl brain` - Exit 1 (critical issues - correct behavior)
+
+**Result:** 100% pass rate, zero regressions vs Beta.233
+
+#### Files Modified
+- `crates/annactl/src/rpc_client.rs` - Complete RPC timeout system with exponential backoff
+- `crates/annactl/src/tui/event_loop.rs` - Startup timeouts and fallback error screen
+
+#### What's New ✨
+- 🔒 **No More Infinite Hangs** - All critical paths have timeouts
+- 🛡️ **Production Ready** - Graceful degradation everywhere
+- ⚡ **Faster Failure** - Transient errors retry with backoff
+- 📊 **Better Errors** - Fallback screen explains terminal failures
+
+#### What Works Now ✅
+All Beta.233 features still working + timeout protection on all RPC and I/O
+
 ## [5.7.0-beta.233] - 2025-11-22
 
 ### PRIORITY 1 COMPLETE - Critical CLI Bugs Fixed

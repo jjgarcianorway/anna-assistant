@@ -172,7 +172,66 @@ impl RpcClient {
     }
 
     /// Send a request and get a response
+    /// Beta.235: Added timeout and exponential backoff for transient errors
     pub async fn call(&mut self, method: Method) -> Result<ResponseData> {
+        use std::time::Duration;
+        use tokio::time::sleep;
+
+        // Beta.235: Wrap entire RPC call in timeout (not just connection)
+        // Default timeout: 5 seconds for normal calls
+        // Brain analysis and other expensive operations get more time
+        let timeout = match &method {
+            Method::BrainAnalysis => Duration::from_secs(10), // Brain needs more time
+            Method::GetHistorianSummary => Duration::from_secs(10), // Historian too
+            _ => Duration::from_secs(5), // Standard timeout for other calls
+        };
+
+        // Beta.235: Exponential backoff for transient errors
+        let max_retries = 3;
+        let mut retry_delay = Duration::from_millis(50);
+        let mut last_error: Option<anyhow::Error> = None;
+
+        for attempt in 0..=max_retries {
+            match tokio::time::timeout(timeout, self.call_inner(method.clone())).await {
+                Ok(Ok(response)) => return Ok(response),
+                Ok(Err(e)) => {
+                    // Check if error is transient (worth retrying)
+                    let error_msg = e.to_string();
+                    let is_transient = error_msg.contains("Failed to send request")
+                        || error_msg.contains("Failed to read response")
+                        || error_msg.contains("broken pipe");
+
+                    if is_transient && attempt < max_retries {
+                        last_error = Some(e);
+                        sleep(retry_delay).await;
+                        retry_delay = (retry_delay * 2).min(Duration::from_millis(800));
+                        continue;
+                    } else {
+                        // Non-transient error or final retry - propagate immediately
+                        return Err(e);
+                    }
+                }
+                Err(_) => {
+                    // Timeout error - transient, retry
+                    let timeout_error = anyhow::anyhow!("RPC call timed out after {:?}", timeout);
+                    if attempt < max_retries {
+                        last_error = Some(timeout_error);
+                        sleep(retry_delay).await;
+                        retry_delay = (retry_delay * 2).min(Duration::from_millis(800));
+                        continue;
+                    } else {
+                        return Err(timeout_error.context(format!("After {} retries", max_retries)));
+                    }
+                }
+            }
+        }
+
+        // Should never reach here, but handle gracefully
+        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("RPC call failed after {} retries", max_retries)))
+    }
+
+    /// Inner call implementation (without timeout wrapper)
+    async fn call_inner(&mut self, method: Method) -> Result<ResponseData> {
         let id = REQUEST_ID.fetch_add(1, Ordering::SeqCst);
 
         let request = Request { id, method };

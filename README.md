@@ -2,7 +2,7 @@
 
 **Intelligent Arch Linux System Assistant with Deterministic Diagnostics**
 
-[![Version](https://img.shields.io/badge/version-5.7.0--beta.233-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-5.7.0--beta.235-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 

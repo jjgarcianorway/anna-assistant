@@ -102,46 +102,26 @@ pub fn update_telemetry(state: &mut AnnaTuiState) {
         state.telemetry_ok = false;
     }
 
-    // Update LLM panel - detect actual Ollama model
+    // Beta.234: LLM panel - get model from config instead of executing `ollama list`
+    // REMOVED: Blocking std::process::Command that could freeze TUI if ollama hangs
+    // Instead, read model from LLM config (already cached, no blocking)
     state.llm_panel.mode = "Local".to_string();
 
-    // Run `ollama list` and parse output to detect installed models
-    match std::process::Command::new("ollama").arg("list").output() {
-        Ok(output) if output.status.success() => {
-            state.llm_panel.available = true;
+    // Get model from cached config (non-blocking, instant)
+    let config = crate::query_handler::get_llm_config();
+    if let Some(model) = &config.model {
+        state.llm_panel.model_name = model.clone();
+        state.llm_panel.available = true;
 
-            // Parse ollama list output (format: NAME ID SIZE MODIFIED)
-            let stdout = String::from_utf8_lossy(&output.stdout);
-
-            // Get first non-header line (most recently used model)
-            if let Some(first_line) = stdout.lines().nth(1) {
-                let parts: Vec<&str> = first_line.split_whitespace().collect();
-                if let Some(model_name) = parts.first() {
-                    state.llm_panel.model_name = model_name.to_string();
-
-                    // Extract size from model name (e.g., "llama3.1:8b" -> "8B")
-                    if let Some(size_part) = model_name.split(':').nth(1) {
-                        state.llm_panel.model_size = size_part.to_uppercase();
-                    } else {
-                        state.llm_panel.model_size = "Unknown".to_string();
-                    }
-                } else {
-                    // Fallback if parsing fails
-                    state.llm_panel.model_name = "Unknown".to_string();
-                    state.llm_panel.model_size = "?".to_string();
-                }
-            } else {
-                // No models installed
-                state.llm_panel.model_name = "None".to_string();
-                state.llm_panel.model_size = "-".to_string();
-                state.llm_panel.available = false;
-            }
+        // Extract size from model name (e.g., "llama3.1:8b" -> "8B")
+        if let Some(size_part) = model.split(':').nth(1) {
+            state.llm_panel.model_size = size_part.to_uppercase();
+        } else {
+            state.llm_panel.model_size = "Unknown".to_string();
         }
-        _ => {
-            // Ollama not available or command failed
-            state.llm_panel.available = false;
-            state.llm_panel.model_name = "Ollama N/A".to_string();
-            state.llm_panel.model_size = "-".to_string();
-        }
+    } else {
+        state.llm_panel.available = false;
+        state.llm_panel.model_name = "Not configured".to_string();
+        state.llm_panel.model_size = "-".to_string();
     }
 }

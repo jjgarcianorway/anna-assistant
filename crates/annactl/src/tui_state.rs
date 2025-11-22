@@ -173,6 +173,22 @@ impl AnnaTuiState {
         self.scroll_to_bottom();
     }
 
+    /// Beta.234: Update brain diagnostics from background task
+    pub fn update_brain_diagnostics(&mut self, analysis: anna_common::ipc::BrainAnalysisData) {
+        // Take top 3 insights (sorted by severity: critical > warning > info)
+        let mut insights = analysis.insights;
+        insights.sort_by(|a, b| {
+            let a_priority = severity_priority(&a.severity);
+            let b_priority = severity_priority(&b.severity);
+            b_priority.cmp(&a_priority) // Descending order (higher priority first)
+        });
+        insights.truncate(3);
+
+        self.brain_insights = insights;
+        self.brain_timestamp = Some(analysis.timestamp);
+        self.brain_available = true;
+    }
+
     /// Scroll to bottom of conversation
     pub fn scroll_to_bottom(&mut self) {
         // Set scroll offset to a large number - rendering will clamp it
@@ -328,4 +344,14 @@ pub struct LlmStatus {
 struct PersistedState {
     language: LanguageCode,
     input_history: Vec<String>,
+}
+
+/// Beta.234: Get severity priority for sorting (higher = more important)
+fn severity_priority(severity: &str) -> u8 {
+    match severity.to_lowercase().as_str() {
+        "critical" => 3,
+        "warning" => 2,
+        "info" => 1,
+        _ => 0,
+    }
 }

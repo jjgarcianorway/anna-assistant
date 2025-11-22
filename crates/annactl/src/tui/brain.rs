@@ -40,7 +40,8 @@ pub async fn update_brain_analysis(state: &mut AnnaTuiState) {
 }
 
 /// Fetch brain analysis via RPC
-async fn fetch_brain_data() -> anyhow::Result<BrainAnalysisData> {
+/// Beta.234: Made public for background task usage
+pub async fn fetch_brain_data() -> anyhow::Result<BrainAnalysisData> {
     let mut client = RpcClient::connect_quick(None).await?;
     let response = client.call(Method::BrainAnalysis).await?;
 
