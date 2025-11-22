@@ -2,7 +2,7 @@
 
 **Intelligent Arch Linux System Assistant with Deterministic Diagnostics**
 
-[![Version](https://img.shields.io/badge/version-5.7.0--beta.235-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-5.7.0--beta.236-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 
@@ -12,7 +12,7 @@ Anna is a local system assistant for Arch Linux that combines deterministic diag
 
 ## Features
 
-- **🧠 Sysadmin Brain** - 9 diagnostic rules analyzing services, disk, memory, CPU, packages, and mounts
+- **🧠 Internal Diagnostic Engine** - 9 rules analyzing services, disk, memory, CPU, packages, and mounts
 - **🔍 Telemetry-First** - Real system data, zero hallucinations
 - **💬 Interactive TUI** - Natural language queries with structured action plans
 - **📊 System Status** - Comprehensive health reporting
@@ -38,11 +38,10 @@ annactl
 # System health check
 annactl status
 
-# Deep diagnostics
-annactl brain
-
-# One-shot query
+# One-shot natural language
 annactl "what's using disk space?"
+annactl "run a full diagnostic"
+annactl "check my system health"
 ```
 
 ---
@@ -55,11 +54,18 @@ Launch the interactive assistant for natural language queries and system managem
 ### 2. Status Check - `annactl status`
 Quick health overview showing:
 - Daemon and LLM status
-- Top 3 system issues
+- Top 3 system issues (from diagnostic engine)
 - Recent logs
 
-### 3. Brain Analysis - `annactl brain`
-Deep diagnostic analysis with all 9 rules:
+**Options:**
+- `--json` - Machine-readable output for automation
+
+### 3. Deep System Analysis (Natural Language)
+Invoke comprehensive diagnostic analysis through natural language:
+- **In TUI:** "run a full diagnostic", "check my system health", "show any problems"
+- **One-shot:** `annactl "run a full diagnostic"`
+
+The internal diagnostic engine analyzes 9 critical system areas:
 - Failed/degraded services
 - Disk space issues
 - Memory pressure
@@ -68,9 +74,7 @@ Deep diagnostic analysis with all 9 rules:
 - Failed mounts
 - Critical log issues
 
-**Options:**
-- `--verbose` - Show evidence and citations
-- `--json` - Machine-readable output for automation
+Results are presented conversationally with evidence, citations, and actionable commands.
 
 ---
 
@@ -84,12 +88,12 @@ Deep diagnostic analysis with all 9 rules:
 - RPC server (Unix socket)
 
 **Client (`annactl`):**
-- Three-command CLI
+- Simple CLI (`status`, natural language)
 - Interactive TUI
 - RPC client
 
 **Intelligence:**
-- Sysadmin Brain (deterministic rules)
+- Internal diagnostic engine (9 deterministic rules)
 - 77+ deterministic recipes
 - Local LLM via Ollama (required for conversational features)
 
@@ -109,7 +113,7 @@ Deep diagnostic analysis with all 9 rules:
 
 - **[User Guide](docs/USER_GUIDE.md)** - Complete usage guide
 - **[Architecture](docs/ARCHITECTURE_BETA_200.md)** - System design
-- **[Beta.217 Release](docs/BETA_217_COMPLETE.md)** - Sysadmin Brain details
+- **[Beta.217 Release](docs/BETA_217_COMPLETE.md)** - Diagnostic engine details
 - **[Debugging Guide](docs/DEBUGGING_GUIDE.md)** - Troubleshooting
 - **[Changelog](CHANGELOG.md)** - Version history
 
@@ -180,8 +184,8 @@ sudo ./target/release/annad
 - ✅ Beta.222 - Complete truecolor palette migration + Beta.221 greetings
 - ✅ Beta.221 - Smart greetings with context-aware welcome
 - ✅ Beta.220 - Production-quality TUI with truecolor visuals
-- ✅ Beta.218 - Brain diagnostics integrated into TUI
-- ✅ Beta.217 - Sysadmin Brain (9 diagnostic rules)
+- ✅ Beta.218 - Diagnostic engine integrated into TUI
+- ✅ Beta.217 - Internal diagnostic engine (9 deterministic rules)
 - ✅ Beta.200 - Three-command architecture
 - ✅ 77+ deterministic recipes
 - ✅ Full RPC integration

@@ -55,8 +55,9 @@ pub async fn run() -> Result<()> {
         let first_arg = &args[1];
 
         // Known subcommands that should not be treated as natural language queries
-        // Beta.233: Added "brain" and "version" subcommands
-        let known_subcommands = ["status", "brain", "version"];
+        // Beta.233: Added "version" subcommand
+        // Beta.236: Removed "brain" from public interface - kept as hidden internal command
+        let known_subcommands = ["status", "version", "brain"];
 
         let is_flag = first_arg.starts_with("--") || first_arg.starts_with("-");
         let is_known_command = known_subcommands.contains(&first_arg.as_str());

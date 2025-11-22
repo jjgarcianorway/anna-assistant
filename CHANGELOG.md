@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.236] - 2025-11-22
+
+### PUBLIC INTERFACE CLARIFICATION
+
+**Type:** Documentation & UX
+**Focus:** Align public CLI surface with natural language design
+
+#### Changed 📝
+- **Removed `brain` from public CLI** - Hidden from `--help` output
+  - Deep diagnostics now invoked through natural language only
+  - Command still exists as internal/unstable feature (marked `#[command(hide = true)]`)
+  - Use: `annactl "run a full diagnostic"` or `annactl "check my system health"`
+
+- **Updated README interface section**
+  - Replaced "Brain Analysis - annactl brain" with "Deep System Analysis (Natural Language)"
+  - Clarified three-interface model: TUI, Status, Natural Language
+  - Removed all references to `--verbose`, `--json` flags on brain command
+  - Updated terminology: "Sysadmin Brain" → "Internal Diagnostic Engine"
+
+- **Simplified public CLI surface**
+  - `annactl` - Interactive TUI
+  - `annactl status` - Quick health check
+  - `annactl "natural language"` - One-shot queries
+  - `annactl --help` / `--version` - Standard flags
+
+#### Rationale
+The diagnostic engine is an internal capability invoked through user intent, not a standalone CLI verb. This aligns with the conversational design where users express needs in natural language rather than memorizing subcommands.
+
+**Public interface now matches design intent:**
+- TUI for conversation
+- Status for quick checks
+- Natural language for everything else
+
+#### Files Modified
+- `crates/annactl/src/cli.rs` - Marked Brain command as hidden
+- `crates/annactl/src/runtime.rs` - Updated comments
+- `README.md` - Complete interface section rewrite
+- `CHANGELOG.md` - This entry
+
 ## [5.7.0-beta.235] - 2025-11-22
 
 ### RPC TIMEOUTS AND FINAL HARDENING
