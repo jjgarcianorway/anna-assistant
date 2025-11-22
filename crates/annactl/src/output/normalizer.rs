@@ -96,13 +96,17 @@ fn convert_markdown_to_ansi(text: &str) -> String {
 ///
 /// Features:
 /// - Strips section markers for cleaner TUI display
+/// - Strips ANSI escape codes (Beta.247)
 /// - Preserves content structure
 /// - Returns plain text for TUI renderer to style
 pub fn normalize_for_tui(text: &str) -> String {
+    // Beta.247: First strip ANSI codes from CLI-normalized text
+    let text_no_ansi = strip_ansi_codes(text);
+
     let mut output = String::new();
     let mut in_section = false;
 
-    for line in text.lines() {
+    for line in text_no_ansi.lines() {
         let trimmed = line.trim();
 
         // Section markers - convert to section breaks in TUI
@@ -121,6 +125,29 @@ pub fn normalize_for_tui(text: &str) -> String {
     }
 
     output
+}
+
+/// Beta.247: Strip ANSI escape codes from text
+/// Removes terminal color/formatting codes for plain text rendering in TUI
+fn strip_ansi_codes(text: &str) -> String {
+    let mut result = String::new();
+    let mut chars = text.chars();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\x1b' {
+            // Found escape sequence start
+            // Skip until we find 'm' (end of ANSI sequence)
+            while let Some(next_ch) = chars.next() {
+                if next_ch == 'm' {
+                    break;
+                }
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
 }
 
 /// Generate fallback message when startup metadata is unavailable
@@ -196,5 +223,43 @@ Test details"#;
         assert!(fallback.contains("[COMMANDS]"));
         assert!(fallback.contains("Test error"));
         assert!(fallback.contains("systemctl status annad"));
+    }
+
+    // Beta.247: Test ANSI code stripping
+    #[test]
+    fn test_strip_ansi_codes_basic() {
+        let input = "\x1b[1mBold text\x1b[0m normal text";
+        let output = strip_ansi_codes(input);
+        assert_eq!(output, "Bold text normal text");
+    }
+
+    #[test]
+    fn test_strip_ansi_codes_colors() {
+        let input = "\x1b[31mRed\x1b[0m and \x1b[32mGreen\x1b[0m";
+        let output = strip_ansi_codes(input);
+        assert_eq!(output, "Red and Green");
+    }
+
+    #[test]
+    fn test_strip_ansi_codes_no_ansi() {
+        let input = "Plain text without codes";
+        let output = strip_ansi_codes(input);
+        assert_eq!(output, input);
+    }
+
+    #[test]
+    fn test_normalize_for_tui_strips_ansi() {
+        // Input with both ANSI codes and section markers
+        let input = "[SUMMARY]\n\x1b[1mBold summary\x1b[0m\n\n[DETAILS]\nNormal text";
+        let output = normalize_for_tui(input);
+
+        // Should not contain ANSI codes
+        assert!(!output.contains("\x1b"));
+        // Should not contain section markers
+        assert!(!output.contains("[SUMMARY]"));
+        assert!(!output.contains("[DETAILS]"));
+        // Should contain actual content
+        assert!(output.contains("Bold summary"));
+        assert!(output.contains("Normal text"));
     }
 }

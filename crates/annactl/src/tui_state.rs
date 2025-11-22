@@ -61,6 +61,9 @@ pub struct AnnaTuiState {
 
     /// Beta.218: Whether brain data is available
     pub brain_available: bool,
+
+    /// Beta.259: Daily snapshot combining health and session delta
+    pub daily_snapshot: Option<crate::diagnostic_formatter::DailySnapshotLite>,
 }
 
 impl Default for AnnaTuiState {
@@ -84,6 +87,7 @@ impl Default for AnnaTuiState {
             brain_insights: Vec::new(),
             brain_timestamp: None,
             brain_available: false,
+            daily_snapshot: None,
         }
     }
 }
@@ -174,9 +178,10 @@ impl AnnaTuiState {
     }
 
     /// Beta.234: Update brain diagnostics from background task
+    /// Beta.259: Also compute and store daily snapshot
     pub fn update_brain_diagnostics(&mut self, analysis: anna_common::ipc::BrainAnalysisData) {
         // Take top 3 insights (sorted by severity: critical > warning > info)
-        let mut insights = analysis.insights;
+        let mut insights = analysis.insights.clone(); // Beta.259: Clone for daily snapshot
         insights.sort_by(|a, b| {
             let a_priority = severity_priority(&a.severity);
             let b_priority = severity_priority(&b.severity);
@@ -185,8 +190,50 @@ impl AnnaTuiState {
         insights.truncate(3);
 
         self.brain_insights = insights;
-        self.brain_timestamp = Some(analysis.timestamp);
+        self.brain_timestamp = Some(analysis.timestamp.clone());
         self.brain_available = true;
+
+        // Beta.259: Compute daily snapshot
+        self.update_daily_snapshot(&analysis);
+    }
+
+    /// Beta.259: Update daily snapshot from brain analysis
+    fn update_daily_snapshot(&mut self, analysis: &anna_common::ipc::BrainAnalysisData) {
+        use crate::diagnostic_formatter::{compute_overall_health, DailySnapshotLite};
+
+        // Compute overall health
+        let overall_health = compute_overall_health(analysis);
+
+        // Try to get session delta (optional, best effort)
+        let (kernel_changed, packages_changed, boots_since_last) =
+            match crate::startup::welcome::load_last_session() {
+                Ok(Some(last_session)) => {
+                    match crate::system_query::query_system_telemetry() {
+                        Ok(current_telemetry) => {
+                            let current_snapshot =
+                                crate::startup::welcome::create_telemetry_snapshot(&current_telemetry);
+                            let kernel_changed = last_session.last_telemetry.kernel_version
+                                != current_snapshot.kernel_version;
+                            let packages_changed = last_session.last_telemetry.package_count
+                                != current_snapshot.package_count;
+                            let boots = if kernel_changed { 1 } else { 0 };
+                            (kernel_changed, packages_changed, boots)
+                        }
+                        Err(_) => (false, false, 0),
+                    }
+                }
+                _ => (false, false, 0),
+            };
+
+        // Store lite snapshot
+        self.daily_snapshot = Some(DailySnapshotLite {
+            overall_health_opt: Some(overall_health),
+            critical_count: analysis.critical_count,
+            warning_count: analysis.warning_count,
+            kernel_changed,
+            packages_changed,
+            boots_since_last,
+        });
     }
 
     /// Scroll to bottom of conversation

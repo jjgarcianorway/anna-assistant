@@ -1,4 +1,6 @@
 //! Rendering - UI drawing functions for conversation, header, and status bar
+//! Beta.260: Now uses canonical answer formatting via formatting module
+//! Beta.262: Uses centralized layout grid from layout module
 
 use crate::tui_state::{AnnaTuiState, ChatItem};
 use ratatui::{
@@ -10,51 +12,49 @@ use ratatui::{
 };
 
 use super::action_plan::render_action_plan_lines;
+use super::formatting::{parse_canonical_format, TuiStyles};
 use super::input::draw_input_bar;
-use super::utils::{calculate_input_height, draw_help_overlay, wrap_text};
+use super::layout;
+use super::utils::{draw_help_overlay, wrap_text};
 
 /// Draw the UI - Claude CLI style with header and status bar
 /// Beta.218: Added brain diagnostics panel on the right
+/// Beta.262: Uses centralized layout grid computation
 pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
     let size = f.size();
 
-    // Beta.99: Calculate dynamic input bar height (3 to 10 lines max)
-    let input_height = calculate_input_height(&state.input, size.width.saturating_sub(8));
-
-    // Create main layout: [Header | Content | Status Bar | Input Bar]
-    let main_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),            // Top header
-            Constraint::Min(3),               // Main content
-            Constraint::Length(1),            // Bottom status bar
-            Constraint::Length(input_height), // Beta.99: Dynamic input bar
-        ])
-        .split(size);
+    // Beta.262: Compute canonical layout grid
+    let layout_grid = layout::compute_layout(size);
 
     // Draw top header
-    draw_header(f, main_chunks[0], state);
+    draw_header(f, layout_grid.header, state);
 
-    // Beta.218: Split content area: [Conversation | Brain Panel]
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(65), // Conversation panel (left, 65%)
-            Constraint::Percentage(35), // Brain panel (right, 35%)
-        ])
-        .split(main_chunks[1]);
+    // Beta.262: Only split content if diagnostics panel has height
+    if layout_grid.diagnostics.height > 0 {
+        // Split conversation area horizontally: [Conversation | Brain Panel]
+        let content_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(65), // Conversation panel (left, 65%)
+                Constraint::Percentage(35), // Brain panel (right, 35%)
+            ])
+            .split(layout_grid.conversation);
 
-    // Draw conversation panel (left side)
-    draw_conversation_panel(f, content_chunks[0], state);
+        // Draw conversation panel (left side)
+        draw_conversation_panel(f, content_chunks[0], state);
 
-    // Beta.218: Draw brain diagnostics panel (right side)
-    super::brain::draw_brain_panel(f, content_chunks[1], state);
+        // Beta.218: Draw brain diagnostics panel (right side)
+        super::brain::draw_brain_panel(f, content_chunks[1], state);
+    } else {
+        // Small terminal - conversation takes full width, no diagnostics panel
+        draw_conversation_panel(f, layout_grid.conversation, state);
+    }
 
     // Draw bottom status bar
-    draw_status_bar(f, main_chunks[2], state);
+    draw_status_bar(f, layout_grid.status_bar, state);
 
     // Draw input bar
-    draw_input_bar(f, main_chunks[3], state);
+    draw_input_bar(f, layout_grid.input, state);
 
     // Draw help overlay if active
     if state.show_help {
@@ -64,7 +64,9 @@ pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
 
 /// Draw professional header (Claude CLI style)
 /// Beta.230: Simplified to avoid redundancy with status bar - shows context not status
-/// Format: Anna v5.7.0-beta.230 | llama3.2:3b | user@hostname
+/// Beta.260: Full-width, single clean bar with consistent styling
+/// Beta.262: Uses layout::compose_header_text for deterministic truncation
+/// Format: Anna v5.7.0-beta.262 | llama3.2:3b | user@hostname
 pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use std::env;
 
@@ -75,36 +77,36 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     };
     let username = env::var("USER").unwrap_or_else(|_| "user".to_string());
 
+    // Beta.262: Use composition function for truncation logic
+    let text = layout::compose_header_text(
+        area.width,
+        &state.system_panel.anna_version,
+        &username,
+        hostname,
+        &state.llm_panel.model_name,
+    );
+
+    // Build styled spans from composed text
+    // For simplicity, use uniform styling for the entire header
     let header_text = Line::from(vec![
+        Span::raw(" "), // Left padding for visual breathing room
         Span::styled(
-            "Anna ",
-            Style::default()
-                .fg(Color::Rgb(100, 200, 255)) // Bright cyan
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(
-            format!("v{}", state.system_panel.anna_version),
-            Style::default().fg(Color::Rgb(120, 120, 120)), // Gray
-        ),
-        Span::raw(" │ "),
-        Span::styled(
-            &state.llm_panel.model_name,
-            Style::default().fg(Color::Rgb(255, 200, 80)), // Yellow
-        ),
-        Span::raw(" │ "),
-        Span::styled(
-            format!("{}@{}", username, hostname),
-            Style::default().fg(Color::Rgb(100, 150, 255)), // Blue
+            text,
+            Style::default().fg(Color::Rgb(150, 200, 255)), // Bright cyan/blue
         ),
     ]);
 
-    let header = Paragraph::new(header_text).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+    // Beta.260: Full-width header with consistent background
+    let header = Paragraph::new(header_text)
+        .style(Style::default().bg(Color::Rgb(0, 0, 0)));
 
     f.render_widget(header, area);
 }
 
 /// Draw professional status bar (bottom)
 /// Beta.230: Streamlined - removed redundant hostname and LLM status, focused on real-time metrics
+/// Beta.247: Verified high-res layout sanity - spans build left-to-right, truncation handled by ratatui
+/// Beta.262: Uses layout::compose_status_bar_text for deterministic truncation
 /// Format: Mode: TUI | 15:42:08 | Health: ✓ | CPU: 8% | RAM: 4.2GB | Daemon: ✓ | Brain: 2⚠
 pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use chrono::Local;
@@ -112,135 +114,50 @@ pub fn draw_status_bar(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     let now = Local::now();
     let time_str = now.format("%H:%M:%S").to_string();
 
-    // Beta.91: Thinking indicator with animation
-    let thinking_spinner = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
-    let thinking_indicator = if state.is_thinking {
-        let frame = thinking_spinner[state.thinking_frame % thinking_spinner.len()];
-        Some((frame, "Thinking..."))
+    // Count brain issues for composition function
+    let critical_count = state
+        .brain_insights
+        .iter()
+        .filter(|i| i.severity.to_lowercase() == "critical")
+        .count();
+    let warning_count = state
+        .brain_insights
+        .iter()
+        .filter(|i| i.severity.to_lowercase() == "warning")
+        .count();
+
+    // Determine health status
+    let health_ok = if state.brain_available {
+        critical_count == 0 && warning_count == 0
     } else {
-        None
+        state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0
     };
 
-    // Beta.218: Enhanced health check including brain diagnostics
-    let health_icon = if state.brain_available {
-        // Count critical issues from brain
-        let critical_count = state
-            .brain_insights
-            .iter()
-            .filter(|i| i.severity.to_lowercase() == "critical")
-            .count();
-        let warning_count = state
-            .brain_insights
-            .iter()
-            .filter(|i| i.severity.to_lowercase() == "warning")
-            .count();
-
-        if critical_count > 0 {
-            ("✗", Color::Rgb(255, 80, 80)) // Bright red
-        } else if warning_count > 0 {
-            ("⚠", Color::Rgb(255, 200, 80)) // Yellow/orange
-        } else {
-            ("✓", Color::Rgb(100, 255, 100)) // Bright green
-        }
-    } else {
-        // Fallback to CPU/RAM check if brain unavailable
-        if state.system_panel.cpu_load_1min < 80.0 && state.system_panel.ram_used_gb < 14.0 {
-            ("✓", Color::Rgb(100, 255, 100)) // Bright green
-        } else if state.system_panel.cpu_load_1min < 95.0 {
-            ("⚠", Color::Rgb(255, 200, 80)) // Yellow/orange
-        } else {
-            ("✗", Color::Rgb(255, 80, 80)) // Bright red
-        }
-    };
-
-    // Beta.230: Build status bar with consistent sections (no redundant hostname)
-    let mut spans = Vec::new();
-
-    // Section 2: Mode
-    spans.push(Span::styled("Mode: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
-    spans.push(Span::styled(
-        "TUI",
-        Style::default().fg(Color::Rgb(100, 255, 100)), // Bright green
-    ));
-    spans.push(Span::raw(" │ "));
-
-    // Section 3: Clock (truecolor)
-    spans.push(Span::styled(
-        time_str,
-        Style::default().fg(Color::Rgb(150, 150, 150)),
-    ));
-    spans.push(Span::raw(" │ "));
-
-    // Section 4: Thinking indicator or Health
-    if let Some((spinner, text)) = thinking_indicator {
-        spans.push(Span::styled(spinner, Style::default().fg(Color::Rgb(100, 200, 255)))); // Bright cyan
-        spans.push(Span::raw(" "));
-        spans.push(Span::styled(text, Style::default().fg(Color::Rgb(100, 200, 255)))); // Bright cyan
-    } else {
-        spans.push(Span::styled("Health: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
-        spans.push(Span::styled(
-            health_icon.0,
-            Style::default().fg(health_icon.1).add_modifier(Modifier::BOLD),
-        ));
-    }
-    spans.push(Span::raw(" │ "));
-
-    // Section 5: CPU and RAM (compact)
-    spans.push(Span::styled(
-        format!("CPU: {:.0}%", state.system_panel.cpu_load_1min),
-        Style::default().fg(Color::Rgb(180, 180, 180)),
-    ));
-    spans.push(Span::raw(" │ "));
-    spans.push(Span::styled(
-        format!("RAM: {:.1}G", state.system_panel.ram_used_gb),
-        Style::default().fg(Color::Rgb(180, 180, 180)),
-    ));
-    spans.push(Span::raw(" │ "));
-
-    // Section 6: Daemon Status (based on telemetry_ok and brain_available)
     let daemon_ok = state.telemetry_ok || state.brain_available;
-    spans.push(Span::styled("Daemon: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
-    spans.push(Span::styled(
-        if daemon_ok { "✓" } else { "✗" },
-        Style::default().fg(if daemon_ok {
-            Color::Rgb(100, 255, 100) // Bright green
-        } else {
-            Color::Rgb(255, 80, 80) // Bright red
-        }).add_modifier(Modifier::BOLD),
-    ));
 
-    // Section 7: Brain diagnostics (only if issues exist)
-    if state.brain_available && !state.brain_insights.is_empty() {
-        let critical_count = state
-            .brain_insights
-            .iter()
-            .filter(|i| i.severity.to_lowercase() == "critical")
-            .count();
-        let warning_count = state
-            .brain_insights
-            .iter()
-            .filter(|i| i.severity.to_lowercase() == "warning")
-            .count();
+    // Beta.262: Use composition function for truncation logic
+    let text = layout::compose_status_bar_text(
+        area.width,
+        &time_str,
+        state.is_thinking,
+        health_ok,
+        state.system_panel.cpu_load_1min,
+        state.system_panel.ram_used_gb,
+        daemon_ok,
+        critical_count,
+        warning_count,
+    );
 
-        if critical_count > 0 {
-            spans.push(Span::raw(" │ "));
-            spans.push(Span::styled("Brain: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
-            spans.push(Span::styled(
-                format!("{}✗", critical_count),
-                Style::default().fg(Color::Rgb(255, 80, 80)).add_modifier(Modifier::BOLD), // Bright red
-            ));
-        } else if warning_count > 0 {
-            spans.push(Span::raw(" │ "));
-            spans.push(Span::styled("Brain: ", Style::default().fg(Color::Rgb(120, 120, 120)))); // Gray
-            spans.push(Span::styled(
-                format!("{}⚠", warning_count),
-                Style::default().fg(Color::Rgb(255, 200, 80)).add_modifier(Modifier::BOLD), // Yellow
-            ));
-        }
-    }
+    // Build styled line from composed text
+    let status_text = Line::from(vec![
+        Span::raw(" "), // Left padding
+        Span::styled(
+            text,
+            Style::default().fg(Color::Rgb(180, 180, 180)), // Light gray
+        ),
+    ]);
 
     // Beta.220: Use truecolor background for status bar
-    let status_text = Line::from(spans);
     let status_bar = Paragraph::new(status_text)
         .style(Style::default().bg(Color::Rgb(20, 20, 20)));
 
@@ -280,17 +197,38 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
                 lines.push(Line::from("")); // Add spacing between messages
             }
             ChatItem::Anna(msg) => {
+                // Beta.260: Use canonical formatting for Anna's responses
                 lines.push(Line::from(vec![Span::styled(
                     "Anna: ",
                     Style::default()
                         .fg(Color::Rgb(100, 255, 100)) // Bright green
                         .add_modifier(Modifier::BOLD),
                 )]));
-                // Beta.136: Wrap each line of Anna's reply
-                for line in msg.lines() {
-                    let wrapped = wrap_text(line, content_width);
-                    for wrapped_line in wrapped {
-                        lines.push(Line::from(Span::raw(wrapped_line)));
+
+                // Parse message using canonical format parser
+                let styles = TuiStyles::default();
+                let formatted_lines = parse_canonical_format(msg, &styles);
+
+                // Add formatted lines with wrapping
+                for formatted_line in formatted_lines {
+                    // Check if line needs wrapping
+                    let line_text: String = formatted_line.spans.iter().map(|s| s.content.as_ref()).collect();
+
+                    if line_text.len() > content_width {
+                        // Need to wrap - preserve styling for first segment
+                        let wrapped = wrap_text(&line_text, content_width);
+                        for (i, wrapped_line) in wrapped.iter().enumerate() {
+                            if i == 0 && !formatted_line.spans.is_empty() {
+                                // Use original styling for first line
+                                lines.push(formatted_line.clone());
+                            } else {
+                                // Continuation lines in normal style
+                                lines.push(Line::from(Span::raw(wrapped_line.clone())));
+                            }
+                        }
+                    } else {
+                        // No wrapping needed, use as-is
+                        lines.push(formatted_line);
                     }
                 }
                 lines.push(Line::from("")); // Add spacing between messages
@@ -331,13 +269,20 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
         state.scroll_offset
     };
 
+    // Beta.262: Use scroll indicator helpers from layout module
+    let can_scroll_up = layout::should_show_scroll_up_indicator(actual_scroll);
+    let can_scroll_down = layout::should_show_scroll_down_indicator(total_lines, visible_lines, actual_scroll);
+
+    // Build title with scroll indicators
     let scroll_indicator = if total_lines > visible_lines {
-        format!(" [↑↓ {}/{}]", actual_scroll, max_scroll)
+        let up_arrow = if can_scroll_up { "▲" } else { " " };
+        let down_arrow = if can_scroll_down { "▼" } else { " " };
+        format!(" {}{} ", up_arrow, down_arrow)
     } else {
         String::new()
     };
 
-    // Beta.220: Truecolor conversation panel border
+    // Beta.262: Consistent panel border style with scroll indicators
     let paragraph = Paragraph::new(lines)
         .block(
             Block::default()

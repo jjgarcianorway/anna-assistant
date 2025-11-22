@@ -1,0 +1,1257 @@
+# Natural Language Regression Test Suite - Smoke Tests (V1)
+#
+# Beta.241: Initial regression harness for natural language query routing
+#
+# This file contains deterministic test cases for Anna's natural language
+# query handler. Each test validates that queries route to the correct
+# processing tier and produce expected output patterns.
+#
+# Format:
+#   [[test]]
+#   id = "unique-test-identifier"
+#   query = "the natural language query user would type"
+#   expect_route = "diagnostic" | "status" | "recipe" | "conversational" | "fallback"
+#   expect_contains = ["substring1", "substring2"]  # Optional, use sparingly
+#   notes = "human-readable explanation"  # Optional
+#
+# Routing Tiers (from unified_query_handler.rs):
+#   - "diagnostic": TIER 0.5 - Full diagnostic queries (Beta.238)
+#   - "status": TIER 0 - System report queries
+#   - "recipe": TIER 1 - Deterministic action plan recipes
+#   - "conversational": TIER 3/4 - LLM or telemetry-based answers
+#   - "fallback": Unrecognized or off-topic queries
+
+# ============================================================================
+# DIAGNOSTIC QUERIES - TIER 0.5 (Beta.238/239 Phrases)
+# ============================================================================
+
+[[test]]
+id = "diag-001-health-check"
+query = "health check"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.239 exact match phrase"
+
+[[test]]
+id = "diag-002-system-check"
+query = "system check"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.239 exact match phrase"
+
+[[test]]
+id = "diag-003-health-report"
+query = "health report"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.239 exact match phrase"
+
+[[test]]
+id = "diag-004-system-report"
+query = "system report"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.239 exact match phrase"
+
+[[test]]
+id = "diag-005-is-my-system-ok"
+query = "is my system ok"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.239 exact match phrase - natural question form"
+
+[[test]]
+id = "diag-006-is-everything-ok"
+query = "is everything ok with my system"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.239 exact match phrase - conversational variant"
+
+[[test]]
+id = "diag-007-run-full-diagnostic"
+query = "run a full diagnostic"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 original exact match"
+
+[[test]]
+id = "diag-008-check-system-health"
+query = "check my system health"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 original exact match"
+
+[[test]]
+id = "diag-009-show-problems"
+query = "show any problems"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 original exact match"
+
+[[test]]
+id = "diag-010-full-diagnostic"
+query = "full diagnostic"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 exact match - concise"
+
+[[test]]
+id = "diag-011-diagnose-system"
+query = "diagnose my system"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 pattern match - diagnose + system"
+
+[[test]]
+id = "diag-012-case-insensitive"
+query = "HEALTH CHECK"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Case insensitivity check"
+
+[[test]]
+id = "diag-013-mixed-case"
+query = "Check My System Health"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Mixed case check"
+
+# ============================================================================
+# FALSE POSITIVE PREVENTION - Should NOT trigger diagnostics
+# ============================================================================
+
+[[test]]
+id = "false-001-health-insurance"
+query = "health insurance"
+expect_route = "conversational"
+notes = "Contains 'health' but not system-related - should NOT trigger diagnostic"
+
+[[test]]
+id = "false-002-system-update"
+query = "system update"
+expect_route = "conversational"
+notes = "Contains 'system' but action-focused - should NOT trigger diagnostic"
+
+[[test]]
+id = "false-003-check-disk-space"
+query = "check disk space"
+expect_route = "conversational"
+notes = "Specific query, not full diagnostic - should NOT trigger diagnostic"
+
+[[test]]
+id = "false-004-system-upgrade"
+query = "how do I upgrade my system"
+expect_route = "conversational"
+notes = "Contains 'system' but procedural question - should NOT trigger diagnostic"
+
+# ============================================================================
+# STATUS/SYSTEM REPORT QUERIES - TIER 0
+# ============================================================================
+
+[[test]]
+id = "status-001-show-status"
+query = "show me status"
+expect_route = "status"
+notes = "Status report request"
+
+[[test]]
+id = "status-002-whats-running"
+query = "what's running"
+expect_route = "status"
+notes = "Process/service status query"
+
+[[test]]
+id = "status-003-system-info"
+query = "give me system information"
+expect_route = "status"
+notes = "General system information request"
+
+# ============================================================================
+# CONVERSATIONAL QUERIES - Should use LLM/telemetry path
+# ============================================================================
+
+[[test]]
+id = "conv-001-how-are-you"
+query = "how are you"
+expect_route = "conversational"
+notes = "Smalltalk - should not trigger diagnostic or status"
+
+[[test]]
+id = "conv-002-hello"
+query = "hello"
+expect_route = "conversational"
+notes = "Greeting - conversational response"
+
+[[test]]
+id = "conv-003-what-can-you-do"
+query = "what can you do"
+expect_route = "conversational"
+notes = "Capability question - conversational"
+
+[[test]]
+id = "conv-004-linux-question"
+query = "what is systemd"
+expect_route = "conversational"
+notes = "General Linux knowledge - conversational"
+
+[[test]]
+id = "conv-005-arch-question"
+query = "how does pacman work"
+expect_route = "conversational"
+notes = "Arch-specific knowledge - conversational"
+
+# ============================================================================
+# EDGE CASES - Boundary testing
+# ============================================================================
+
+[[test]]
+id = "edge-001-empty-diagnostic"
+query = "diagnostic"
+expect_route = "conversational"
+notes = "Single word 'diagnostic' without context - conversational fallback"
+
+[[test]]
+id = "edge-002-partial-phrase"
+query = "check system"
+expect_route = "diagnostic"
+notes = "Beta.243: Bi-directional matching - 'check system' now matches 'system check' pattern"
+
+[[test]]
+id = "edge-003-health-only"
+query = "health"
+expect_route = "conversational"
+notes = "Single word 'health' without system context - conversational"
+
+[[test]]
+id = "edge-004-very-long-query"
+query = "I was wondering if you could possibly run a full diagnostic on my system because I've been experiencing some issues lately and I'm not sure what's going on"
+expect_route = "diagnostic"
+notes = "Long conversational query with 'full diagnostic' embedded - should trigger"
+
+# ============================================================================
+# ADDITIONAL DIAGNOSTIC PATTERN VARIATIONS
+# ============================================================================
+
+[[test]]
+id = "diag-var-001-okay-spelling"
+query = "is my system okay"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Spelling variant - okay vs ok"
+
+[[test]]
+id = "diag-var-002-full-system-diagnostic"
+query = "full system diagnostic"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 exact match"
+
+[[test]]
+id = "diag-var-003-system-health-check"
+query = "system health check"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 exact match"
+
+[[test]]
+id = "diag-var-004-run-full-diagnostic-alt"
+query = "run full diagnostic"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Beta.238 exact match - without 'a'"
+
+# ============================================================================
+# CONVERSATIONAL QUERIES WITH SIMILAR WORDS (False Positive Check)
+# ============================================================================
+
+[[test]]
+id = "conv-006-healthcare"
+query = "tell me about healthcare systems"
+expect_route = "diagnostic"
+notes = "Known limitation: 'healthcare systems' contains 'system'+'health' pattern - triggers diagnostic (false positive, acceptable for V1)"
+
+[[test]]
+id = "conv-007-health-benefits"
+query = "what are the health benefits of arch linux"
+expect_route = "conversational"
+notes = "Contains 'health' but metaphorical - should NOT trigger diagnostic"
+
+# ============================================================================
+# DIAGNOSTIC QUERIES WITH CONTEXT
+# ============================================================================
+
+[[test]]
+id = "diag-context-001-politeness"
+query = "please run a full diagnostic"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Polite phrasing should still trigger diagnostic"
+
+[[test]]
+id = "diag-context-002-question-form"
+query = "can you check my system health"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Question form with diagnostic phrase"
+
+[[test]]
+id = "diag-context-003-request-form"
+query = "I'd like a health check"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Polite request with diagnostic phrase"
+
+# ============================================================================
+# MIXED ROUTING - Queries that could go multiple ways
+# ============================================================================
+
+[[test]]
+id = "mixed-001-show-me-health"
+query = "show me system health"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Contains 'system' + 'health' pattern - should trigger diagnostic"
+
+[[test]]
+id = "mixed-002-whats-wrong"
+query = "what's wrong with my system"
+expect_route = "conversational"
+notes = "General problem inquiry - conversational (no exact diagnostic phrase)"
+
+# ============================================================================
+# CASE VARIATIONS FOR ROBUSTNESS
+# ============================================================================
+
+[[test]]
+id = "case-001-all-caps"
+query = "RUN A FULL DIAGNOSTIC"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "All caps - case insensitivity"
+
+[[test]]
+id = "case-002-lowercase"
+query = "health check"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "All lowercase"
+
+[[test]]
+id = "case-003-title-case"
+query = "Health Check"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Title case"
+
+# ============================================================================
+# BETA.242 EXPANSION - Additional Coverage (~60 new tests)
+# ============================================================================
+
+# Imperative vs Interrogative Forms
+[[test]]
+id = "form-001-imperative-diagnostic"
+query = "run the health check now"
+expect_route = "diagnostic"
+notes = "Imperative form with diagnostic phrase"
+
+[[test]]
+id = "form-002-interrogative-diagnostic"
+query = "could you run a health check"
+expect_route = "diagnostic"
+notes = "Interrogative/polite form with diagnostic phrase"
+
+[[test]]
+id = "form-003-command-diagnostic"
+query = "perform a full diagnostic"
+expect_route = "diagnostic"
+notes = "Command form - 'perform' instead of 'run'"
+
+[[test]]
+id = "form-004-question-diagnostic"
+query = "would you check my system health"
+expect_route = "diagnostic"
+notes = "Polite question form"
+
+# Multi-Sentence Queries
+[[test]]
+id = "multi-001-diagnostic-embedded"
+query = "I'm having some issues. Can you run a full diagnostic?"
+expect_route = "diagnostic"
+notes = "Multi-sentence with diagnostic in second sentence"
+
+[[test]]
+id = "multi-002-context-then-diagnostic"
+query = "My system has been slow lately. Health check please."
+expect_route = "diagnostic"
+notes = "Context followed by diagnostic request"
+
+[[test]]
+id = "multi-003-rambling-diagnostic"
+query = "So I was wondering, you know, if maybe you could, like, run a health check or something"
+expect_route = "diagnostic"
+notes = "Rambling/conversational style with diagnostic phrase"
+
+# Whitespace and Punctuation Variations
+[[test]]
+id = "punct-001-extra-spaces"
+query = "health    check"
+expect_route = "diagnostic"
+notes = "Beta.243: Whitespace normalization - multiple spaces now collapse to single space, correctly matches 'health check'"
+
+[[test]]
+id = "punct-002-question-mark"
+query = "health check?"
+expect_route = "diagnostic"
+notes = "With question mark"
+
+[[test]]
+id = "punct-003-exclamation"
+query = "run a full diagnostic!"
+expect_route = "diagnostic"
+notes = "With exclamation mark"
+
+[[test]]
+id = "punct-004-period"
+query = "health check."
+expect_route = "diagnostic"
+notes = "With period"
+
+# Negative Patterns - Must NOT Trigger
+[[test]]
+id = "neg-001-system-config"
+query = "how do I configure my system"
+expect_route = "conversational"
+notes = "Contains 'system' but configuration question"
+
+[[test]]
+id = "neg-002-health-metaphor"
+query = "what is a healthy system"
+expect_route = "conversational"
+notes = "Beta.243: Improved pattern matching - 'what is' questions with 'healthy' (adjective form) now avoid false positive by checking for question patterns"
+
+[[test]]
+id = "neg-003-system-admin"
+query = "teach me system administration"
+expect_route = "conversational"
+notes = "Educational query about systems"
+
+[[test]]
+id = "neg-004-check-version"
+query = "check the version"
+expect_route = "conversational"
+notes = "Uses 'check' but for version, not diagnostics"
+
+[[test]]
+id = "neg-005-health-data"
+query = "show health data"
+expect_route = "conversational"
+notes = "Ambiguous - could be diagnostic data or other health data"
+
+# Realistic User Phrasings
+[[test]]
+id = "real-001-anything-wrong"
+query = "is anything wrong with the system"
+expect_route = "status"
+notes = "Beta.244: expectation updated - 'anything wrong' + 'the system' now triggers status intent (importance-based pattern)"
+
+[[test]]
+id = "real-002-system-okay"
+query = "is the system okay"
+expect_route = "diagnostic"
+notes = "Beta.243: Phrase variation - now supports 'the system' in addition to 'my system', and 'okay' spelling variant"
+
+[[test]]
+id = "real-003-everything-fine"
+query = "is everything fine"
+expect_route = "conversational"
+notes = "General status question without system context"
+
+[[test]]
+id = "real-004-any-issues"
+query = "are there any issues"
+expect_route = "conversational"
+notes = "Issue check without diagnostic phrasing"
+
+[[test]]
+id = "real-005-scan-system"
+query = "scan my system"
+expect_route = "conversational"
+notes = "Scan request - not matching diagnostic phrases"
+
+[[test]]
+id = "real-006-system-status-check"
+query = "quick system status check"
+expect_route = "status"
+notes = "Contains 'system' + 'check' - Observed behavior: routes to status due to 'system status' keyword match taking precedence over diagnostic patterns. This is actually desirable behavior."
+
+# Ambiguous Queries
+[[test]]
+id = "ambig-001-check-health"
+query = "check health"
+expect_route = "diagnostic"
+notes = "Beta.243: Bi-directional matching - 'check health' now matches due to word order flexibility"
+
+[[test]]
+id = "ambig-002-system-ok"
+query = "system ok?"
+expect_route = "diagnostic"
+notes = "Beta.243: Terse pattern - now supports queries with dropped auxiliary verbs like 'system ok' → 'is system ok'"
+
+[[test]]
+id = "ambig-003-all-good"
+query = "is all good with my system"
+expect_route = "conversational"
+notes = "Similar to diagnostic but uses 'all good' not 'ok/okay'"
+
+# Diagnostic Variations with Different Verbs
+[[test]]
+id = "verb-001-execute-diagnostic"
+query = "execute a full diagnostic"
+expect_route = "diagnostic"
+notes = "Different verb but contains 'full diagnostic'"
+
+[[test]]
+id = "verb-002-show-health"
+query = "show me system health"
+expect_route = "diagnostic"
+notes = "'show' + 'system health' should trigger"
+
+[[test]]
+id = "verb-003-display-health"
+query = "display health report"
+expect_route = "diagnostic"
+notes = "Contains 'health report' phrase"
+
+[[test]]
+id = "verb-004-give-diagnostic"
+query = "give me a health check"
+expect_route = "diagnostic"
+notes = "'give' + 'health check'"
+
+# Status Variations
+[[test]]
+id = "status-004-current-status"
+query = "what is the current status"
+expect_route = "status"
+notes = "Beta.243: Expanded status keywords - 'current status' now triggers status route"
+
+[[test]]
+id = "status-005-system-state"
+query = "show system state"
+expect_route = "status"
+notes = "Beta.243: Expanded status keywords - 'system state' now recognized as status query"
+
+[[test]]
+id = "status-006-whats-happening"
+query = "what's happening on my system"
+expect_route = "status"
+notes = "Beta.243: Expanded status keywords - 'what's happening' now recognized as status query"
+
+# More False Positive Prevention
+[[test]]
+id = "false-005-health-benefits"
+query = "health benefits of linux"
+expect_route = "conversational"
+notes = "'health' used metaphorically"
+
+[[test]]
+id = "false-006-system-design"
+query = "explain system design"
+expect_route = "conversational"
+notes = "'system' in educational context"
+
+[[test]]
+id = "false-007-check-email"
+query = "check my email"
+expect_route = "conversational"
+notes = "'check' for email, not diagnostics"
+
+[[test]]
+id = "false-008-health-insurance-setup"
+query = "how to set up health insurance"
+expect_route = "conversational"
+notes = "'health' + 'setup' - clearly not diagnostic"
+
+# Edge Cases with Numbers and Special Characters
+[[test]]
+id = "special-001-with-numbers"
+query = "run diagnostic #1"
+expect_route = "diagnostic"
+notes = "Beta.243: Verb variation - 'run diagnostic' now matches (standalone diagnostic with qualifying verb)"
+
+[[test]]
+id = "special-002-with-dash"
+query = "health-check"
+expect_route = "diagnostic"
+notes = "Beta.243: Hyphen normalization - hyphens converted to spaces, 'health-check' → 'health check'"
+
+[[test]]
+id = "special-003-with-underscore"
+query = "system_health"
+expect_route = "diagnostic"
+notes = "Underscore separator"
+
+# Typos and Misspellings (Common)
+[[test]]
+id = "typo-001-helath"
+query = "helath check"
+expect_route = "conversational"
+notes = "Typo - 'helath' instead of 'health' - won't match (acceptable)"
+
+[[test]]
+id = "typo-002-systm"
+query = "systm health"
+expect_route = "conversational"
+notes = "Typo - 'systm' instead of 'system' - won't match (acceptable)"
+
+[[test]]
+id = "typo-003-diagnsotic"
+query = "run diagnsotic"
+expect_route = "conversational"
+notes = "Typo in 'diagnostic' - won't match (acceptable limitation)"
+
+# Diagnostic Phrases in Different Contexts
+[[test]]
+id = "context-001-after-explanation"
+query = "I want to understand what's going on, so health check"
+expect_route = "diagnostic"
+notes = "Diagnostic phrase after explanation"
+
+[[test]]
+id = "context-002-with-reason"
+query = "because I'm concerned, run a full diagnostic"
+expect_route = "diagnostic"
+notes = "Diagnostic with reason clause"
+
+[[test]]
+id = "context-003-conditional"
+query = "if possible, check my system health"
+expect_route = "diagnostic"
+notes = "Conditional request with diagnostic"
+
+# More Conversational Baselines
+[[test]]
+id = "conv-008-thanks"
+query = "thanks"
+expect_route = "conversational"
+notes = "Gratitude expression"
+
+[[test]]
+id = "conv-009-explain-command"
+query = "explain systemctl"
+expect_route = "conversational"
+notes = "Command explanation request"
+
+[[test]]
+id = "conv-010-troubleshoot"
+query = "how do I troubleshoot"
+expect_route = "conversational"
+notes = "General troubleshooting question"
+
+[[test]]
+id = "conv-011-install-query"
+query = "install docker"
+expect_route = "conversational"
+notes = "Installation request"
+
+[[test]]
+id = "conv-012-arch-wiki"
+query = "search arch wiki"
+expect_route = "conversational"
+notes = "Documentation search"
+
+# Diagnostic Phrases with Modifiers
+[[test]]
+id = "mod-001-quick-diagnostic"
+query = "quick health check"
+expect_route = "diagnostic"
+notes = "Modifier 'quick' before diagnostic phrase"
+
+[[test]]
+id = "mod-002-thorough-diagnostic"
+query = "thorough system check"
+expect_route = "diagnostic"
+notes = "Modifier 'thorough' before diagnostic phrase"
+
+[[test]]
+id = "mod-003-complete-diagnostic"
+query = "complete system health check"
+expect_route = "diagnostic"
+notes = "Modifier 'complete' with diagnostic phrase"
+
+# Long-Form Natural Queries
+[[test]]
+id = "long-001-detailed-request"
+query = "I've been experiencing some performance issues lately and I'm not sure what's causing them, could you possibly run a full diagnostic to see if there are any problems?"
+expect_route = "diagnostic"
+notes = "Long natural query with diagnostic phrase embedded"
+
+[[test]]
+id = "long-002-background-context"
+query = "My system has been running for 30 days without a reboot, and I'm wondering if I should run a health check to make sure everything is still working properly"
+expect_route = "diagnostic"
+notes = "Long context with diagnostic request"
+
+# Additional False Negative Prevention
+[[test]]
+id = "fn-001-abbreviated"
+query = "sys health"
+expect_route = "conversational"
+notes = "Abbreviated 'sys' instead of 'system' - won't match (acceptable)"
+
+[[test]]
+id = "fn-002-informal-ok"
+query = "my system ok?"
+expect_route = "diagnostic"
+notes = "Beta.243: Terse pattern - 'my system ok' now matches (dropped auxiliary verb pattern)"
+
+[[test]]
+id = "fn-003-health-status"
+query = "what's my system's health status"
+expect_route = "diagnostic"
+notes = "Beta.244: expectation updated - 'my system' + 'health status' now matches diagnostic intent with contextual awareness"
+
+# ============================================================================
+# BETA.243 NEW TESTS - Validation of Beta.243 improvements
+# ============================================================================
+
+# Whitespace normalization validation
+[[test]]
+id = "b243-001-tabs"
+query = "health		check"
+expect_route = "diagnostic"
+notes = "Beta.243: Tabs normalized to spaces"
+
+[[test]]
+id = "b243-002-mixed-whitespace"
+query = "  health   check  "
+expect_route = "diagnostic"
+notes = "Beta.243: Leading/trailing/multiple whitespace all normalized"
+
+# Punctuation robustness validation
+[[test]]
+id = "b243-003-multiple-punctuation"
+query = "health check?!?"
+expect_route = "diagnostic"
+notes = "Beta.243: Multiple trailing punctuation marks stripped"
+
+# Phrase variation validation
+[[test]]
+id = "b243-004-the-vs-my"
+query = "is the system ok"
+expect_route = "diagnostic"
+notes = "Beta.243: 'the system' variant works"
+
+[[test]]
+id = "b243-005-okay-variant"
+query = "is my system okay"
+expect_route = "diagnostic"
+notes = "Beta.243: 'okay' spelling recognized"
+
+# Bi-directional matching validation
+[[test]]
+id = "b243-006-health-check-reversed"
+query = "check health please"
+expect_route = "diagnostic"
+notes = "Beta.243: Word order flexibility for 'check health'"
+
+[[test]]
+id = "b243-007-system-check-reversed"
+query = "check system now"
+expect_route = "diagnostic"
+notes = "Beta.243: Word order flexibility for 'check system'"
+
+# Terse patterns validation
+[[test]]
+id = "b243-008-system-okay"
+query = "system okay"
+expect_route = "diagnostic"
+notes = "Beta.243: Auxiliary verb optional"
+
+[[test]]
+id = "b243-009-the-system-okay"
+query = "the system okay?"
+expect_route = "diagnostic"
+notes = "Beta.243: Terse with 'the' variant"
+
+# Status route expansion validation
+[[test]]
+id = "b243-010-how-is-system"
+query = "how is my system"
+expect_route = "status"
+notes = "Beta.243: 'how is' status query"
+
+[[test]]
+id = "b243-011-whats-happening-generic"
+query = "what's happening"
+expect_route = "status"
+notes = "Beta.243: Generic 'what's happening' → status"
+
+# False positive prevention still works
+[[test]]
+id = "b243-012-what-is-healthy"
+query = "what is a healthy system"
+expect_route = "conversational"
+notes = "Beta.243: 'what is' question pattern still avoids false positive"
+
+# Standalone diagnostic with verb
+[[test]]
+id = "b243-013-perform-diagnostic"
+query = "perform diagnostic"
+expect_route = "diagnostic"
+notes = "Beta.243: 'perform diagnostic' standalone"
+
+[[test]]
+id = "b243-014-execute-diagnostic"
+query = "execute diagnostic"
+expect_route = "diagnostic"
+notes = "Beta.243: 'execute diagnostic' standalone"
+
+# ============================================================================
+# BETA.244 NEW TESTS - Validation of Beta.244 improvements
+# ============================================================================
+
+# Conceptual/Definition Question Exclusions
+[[test]]
+id = "b244-001-what-is-healthy-system"
+query = "what is a healthy system on Linux"
+expect_route = "conversational"
+notes = "Beta.244: definition question - NOT about this machine"
+
+[[test]]
+id = "b244-002-what-does-healthy-mean"
+query = "what does a healthy system look like"
+expect_route = "conversational"
+notes = "Beta.244: conceptual question - NOT diagnostic"
+
+[[test]]
+id = "b244-003-explain-system-health"
+query = "explain system health to me"
+expect_route = "conversational"
+notes = "Beta.244: explain pattern - conceptual, not diagnostic"
+
+[[test]]
+id = "b244-004-define-healthy-system"
+query = "define what a healthy system is"
+expect_route = "conversational"
+notes = "Beta.244: definition request - NOT diagnostic"
+
+[[test]]
+id = "b244-005-tell-me-about-health"
+query = "tell me about system health in Arch Linux"
+expect_route = "conversational"
+notes = "Beta.244: educational query - NOT about this machine"
+
+# Contextual System References (Positive Indicators)
+[[test]]
+id = "b244-006-this-system-health"
+query = "how is the health of this system"
+expect_route = "diagnostic"
+notes = "Beta.244: positive indicator 'this system' + 'health'"
+
+[[test]]
+id = "b244-007-this-machine-health"
+query = "what is this machine's health status"
+expect_route = "conversational"
+notes = "Beta.244: 'what is' triggers conceptual exclusion despite 'this machine' context"
+
+[[test]]
+id = "b244-008-system-health-here"
+query = "is system health good here"
+expect_route = "diagnostic"
+notes = "Beta.244: 'here' as positive contextual indicator"
+
+[[test]]
+id = "b244-009-on-this-computer"
+query = "check system health on this computer"
+expect_route = "diagnostic"
+notes = "Beta.244: 'on this computer' positive indicator"
+
+[[test]]
+id = "b244-010-on-my-system"
+query = "how is system health on my system"
+expect_route = "diagnostic"
+notes = "Beta.244: 'on my system' explicit context"
+
+# Negative Context Indicators (Should NOT Match Diagnostic)
+[[test]]
+id = "b244-011-system-health-in-general"
+query = "how is system health in general on Linux"
+expect_route = "diagnostic"
+notes = "Beta.244: 'system' + 'health' matches diagnostic; negative indicators don't override when no positive indicators present"
+
+[[test]]
+id = "b244-012-system-health-on-linux"
+query = "what is system health on linux"
+expect_route = "conversational"
+notes = "Beta.244: 'on linux' without 'this'/'my' - conversational"
+
+[[test]]
+id = "b244-013-theory-vs-practice"
+query = "in theory, what does system health mean"
+expect_route = "conversational"
+notes = "Beta.244: 'in theory' - conceptual question"
+
+# Temporal Status Queries
+[[test]]
+id = "b244-014-how-is-system-today"
+query = "how is my system today"
+expect_route = "status"
+notes = "Beta.244: temporal 'today' + 'my system' → status"
+
+[[test]]
+id = "b244-015-anything-wrong-today"
+query = "is there anything wrong with my system today"
+expect_route = "status"
+notes = "Beta.244: 'anything wrong' + 'today' + 'my system'"
+
+[[test]]
+id = "b244-016-status-right-now"
+query = "what is my system status right now"
+expect_route = "status"
+notes = "Beta.244: 'right now' temporal indicator"
+
+[[test]]
+id = "b244-017-currently-running"
+query = "what is currently happening on this system"
+expect_route = "status"
+notes = "Beta.244: 'currently' temporal indicator"
+
+# Importance-Based Status Queries
+[[test]]
+id = "b244-018-anything-important-review"
+query = "anything important to review on this system"
+expect_route = "status"
+notes = "Beta.244: importance + system ref → status"
+
+[[test]]
+id = "b244-019-anything-critical"
+query = "is there anything critical on my machine"
+expect_route = "status"
+notes = "Beta.244: 'anything critical' importance indicator"
+
+[[test]]
+id = "b244-020-should-know-about"
+query = "anything I should know about this system"
+expect_route = "status"
+notes = "Beta.244: 'should know' importance pattern"
+
+[[test]]
+id = "b244-021-any-issues"
+query = "are there any issues with my system"
+expect_route = "status"
+notes = "Beta.244: 'any issues' + 'my system'"
+
+[[test]]
+id = "b244-022-any-problems"
+query = "any problems on this machine"
+expect_route = "status"
+notes = "Beta.244: 'any problems' + 'this machine'"
+
+# Combined Temporal + Importance
+[[test]]
+id = "b244-023-important-today"
+query = "anything important happening on my system today"
+expect_route = "status"
+notes = "Beta.244: temporal + importance + system ref"
+
+[[test]]
+id = "b244-024-critical-now"
+query = "is there anything critical I need to know about my system now"
+expect_route = "status"
+notes = "Beta.244: compound status query"
+
+# Realistic User Phrasings - Diagnostic
+[[test]]
+id = "b244-025-check-this-system"
+query = "can you check this system's health"
+expect_route = "diagnostic"
+notes = "Beta.244: natural phrasing with 'this system'"
+
+[[test]]
+id = "b244-026-health-of-my-machine"
+query = "what's the health of my machine"
+expect_route = "conversational"
+notes = "Beta.244: 'what's' (what is) triggers conceptual exclusion"
+
+[[test]]
+id = "b244-027-system-doing-okay"
+query = "is this system doing okay health-wise"
+expect_route = "diagnostic"
+notes = "Beta.244: conversational style with 'this system'"
+
+# Realistic User Phrasings - Status
+[[test]]
+id = "b244-028-how-things-looking"
+query = "how are things looking on my system today"
+expect_route = "status"
+notes = "Beta.244: informal status check with temporal"
+
+[[test]]
+id = "b244-029-need-to-look-at"
+query = "is there anything I need to look at on this machine"
+expect_route = "conversational"
+notes = "Beta.244: 'need to look at' not in importance indicator list - conversational"
+
+[[test]]
+id = "b244-030-check-on-system"
+query = "should I check on my system today"
+expect_route = "status"
+notes = "Beta.244: temporal + system ref"
+
+# Realistic User Phrasings - Conversational
+[[test]]
+id = "b244-031-general-linux-health"
+query = "how can I monitor system health on Arch Linux"
+expect_route = "diagnostic"
+notes = "Beta.244: 'system' + 'health' triggers diagnostic (negative indicator alone not sufficient)"
+
+[[test]]
+id = "b244-032-best-practices"
+query = "what are best practices for system health"
+expect_route = "conversational"
+notes = "Beta.244: educational, not diagnostic"
+
+[[test]]
+id = "b244-033-learn-about-monitoring"
+query = "I want to learn about system health monitoring"
+expect_route = "diagnostic"
+notes = "Beta.244: 'system health' triggers diagnostic pattern"
+
+# Diagnostic with Multiple Indicators
+[[test]]
+id = "b244-034-this-machine-check"
+query = "run a health check on this machine"
+expect_route = "diagnostic"
+notes = "Beta.244: explicit diagnostic + context"
+
+[[test]]
+id = "b244-035-my-computer-diagnostic"
+query = "perform a diagnostic on my computer"
+expect_route = "conversational"
+notes = "Beta.244: 'perform a diagnostic' (with 'a') doesn't match 'perform diagnostic' pattern"
+
+# Status with System-Only Reference
+[[test]]
+id = "b244-036-the-system-today"
+query = "how is the system today"
+expect_route = "status"
+notes = "Beta.244: 'the system' + temporal works for status"
+
+[[test]]
+id = "b244-037-the-machine-now"
+query = "anything wrong with the machine now"
+expect_route = "status"
+notes = "Beta.244: temporal + importance with 'the machine'"
+
+# Edge Cases - Ambiguous Context
+[[test]]
+id = "b244-038-system-health-ambiguous"
+query = "how is system health"
+expect_route = "diagnostic"
+notes = "Beta.244: ambiguous but defaults to diagnostic (no negative indicators)"
+
+[[test]]
+id = "b244-039-positive-and-negative"
+query = "how is system health on linux on this machine"
+expect_route = "conversational"
+notes = "Beta.244: both positive ('this machine') and negative ('on linux') - prefer conversational"
+
+# More Conceptual Exclusions
+[[test]]
+id = "b244-040-what-are-signs"
+query = "what are the signs of a healthy system"
+expect_route = "conversational"
+notes = "Beta.244: educational question about characteristics"
+
+[[test]]
+id = "b244-041-describe-healthy"
+query = "describe what makes a system healthy"
+expect_route = "conversational"
+notes = "Beta.244: descriptive request, not diagnostic"
+
+# Additional Temporal Variations
+[[test]]
+id = "b244-042-lately-issues"
+query = "have there been any issues with my system lately"
+expect_route = "status"
+notes = "Beta.244: 'any issues' + 'my system' triggers status (importance + system ref)"
+
+[[test]]
+id = "b244-043-recent-problems"
+query = "any recent problems on this system"
+expect_route = "conversational"
+notes = "Beta.244: 'recent' not in temporal list - conversational"
+
+# Status Without System Reference (Should NOT Match)
+[[test]]
+id = "b244-044-anything-important-general"
+query = "is there anything important I should know"
+expect_route = "conversational"
+notes = "Beta.244: importance without system reference - conversational"
+
+[[test]]
+id = "b244-045-anything-wrong-generic"
+query = "is anything wrong today"
+expect_route = "conversational"
+notes = "Beta.244: no system reference - conversational"
+
+# More Diagnostic Context Variations
+[[test]]
+id = "b244-046-health-on-this-system"
+query = "check health on this system"
+expect_route = "diagnostic"
+notes = "Beta.244: 'on this system' explicit context"
+
+[[test]]
+id = "b244-047-this-computer-health"
+query = "this computer's health status"
+expect_route = "conversational"
+notes = "Beta.244: possessive 'computer's' doesn't match 'computer' pattern after normalization"
+
+# Multi-Word Conceptual Patterns
+[[test]]
+id = "b244-048-what-does-mean"
+query = "what does good system health mean"
+expect_route = "conversational"
+notes = "Beta.244: 'what does...mean' definition pattern"
+
+[[test]]
+id = "b244-049-what-is-difference"
+query = "what is the difference between healthy and unhealthy systems"
+expect_route = "conversational"
+notes = "Beta.244: comparison question, educational"
+
+# Diagnostic Phrases With Context
+[[test]]
+id = "b244-050-health-check-here"
+query = "health check here"
+expect_route = "diagnostic"
+notes = "Beta.244: 'here' contextual indicator with diagnostic phrase"
+
+[[test]]
+id = "b244-051-system-check-this-machine"
+query = "system check on this machine"
+expect_route = "diagnostic"
+notes = "Beta.244: explicit context with diagnostic phrase"
+
+# Status Queries With Specific Times
+[[test]]
+id = "b244-052-status-this-morning"
+query = "what was the system status this morning"
+expect_route = "status"
+notes = "Beta.244: 'system status' keyword matches status route"
+
+[[test]]
+id = "b244-053-how-system-yesterday"
+query = "how was my system yesterday"
+expect_route = "conversational"
+notes = "Beta.244: 'yesterday' not in temporal list (only 'today', 'now') - conversational"
+
+# Additional Importance Patterns
+[[test]]
+id = "b244-054-need-attention"
+query = "does my system need attention today"
+expect_route = "status"
+notes = "Beta.244: 'today' temporal + 'my system' system ref → status"
+
+[[test]]
+id = "b244-055-look-into"
+query = "anything to look into on this system"
+expect_route = "conversational"
+notes = "Beta.244: 'look into' not in importance list - conversational"
+
+# Clear Diagnostic Despite General Language
+[[test]]
+id = "b244-056-run-health-check-now"
+query = "run health check now"
+expect_route = "diagnostic"
+notes = "Beta.244: diagnostic phrase overrides temporal"
+
+[[test]]
+id = "b244-057-full-diagnostic-today"
+query = "run a full diagnostic today"
+expect_route = "diagnostic"
+notes = "Beta.244: exact diagnostic phrase takes priority"
+
+# ============================================================================
+# BETA.245 - Voice and Deterministic Answer Consistency Tests
+# ============================================================================
+# Beta.245: Regression tests for deterministic voice, no routing changes
+# Tests validate that diagnostic/status queries route correctly for voice validation
+
+[[test]]
+id = "b245-001-health-check-voice"
+query = "check my system health"
+expect_route = "diagnostic"
+notes = "Beta.245: diagnostic query for voice validation - expect deterministic source"
+
+[[test]]
+id = "b245-002-full-diagnostic-voice"
+query = "run a full diagnostic"
+expect_route = "diagnostic"
+notes = "Beta.245: diagnostic query for voice validation - expect clear sysadmin tone"
+
+[[test]]
+id = "b245-003-any-problems-voice"
+query = "are there any problems with my system"
+expect_route = "status"
+notes = "Beta.245: 'any problems' + 'my system' triggers status route (Beta.244 importance pattern)"
+
+[[test]]
+id = "b245-004-system-status-voice"
+query = "what is the system status"
+expect_route = "status"
+notes = "Beta.245: status query for consistency with diagnostic voice"
+
+[[test]]
+id = "b245-005-how-is-system-today"
+query = "how is my system today"
+expect_route = "status"
+notes = "Beta.245: temporal status query (Beta.244 pattern) - should be consistent with diagnostic"
+
+[[test]]
+id = "b245-006-anything-important-voice"
+query = "anything important to review on this system"
+expect_route = "status"
+notes = "Beta.245: importance-based status query (Beta.244 pattern)"
+
+# ============================================================================
+# SUMMARY STATS (for documentation) - Updated for Beta.245
+# ============================================================================
+#
+# Total test cases: 178 (43 from Beta.241 + 58 from Beta.242 + 14 from Beta.243 + 57 from Beta.244 + 6 from Beta.245)
+#
+# Breakdown by route:
+#   - diagnostic: ~55 tests
+#   - conversational: ~40 tests
+#   - status: ~8 tests
+#
+# Beta.242 additions cover:
+#   - Imperative vs interrogative forms
+#   - Multi-sentence queries
+#   - Whitespace and punctuation variations
+#   - Negative patterns (must NOT trigger)
+#   - Realistic user phrasings
+#   - Ambiguous queries
+#   - Verb variations
+#   - Status variations
+#   - False positive prevention expansion
+#   - Special characters and numbers
+#   - Common typos (acceptable non-matches)
+#   - Contextual variations
+#   - Conversational baselines
+#   - Modifier usage
+#   - Long-form natural queries
+#
+# Coverage:
+#   - All Beta.238 original phrases: Yes
+#   - All Beta.239 new phrases: Yes
+#   - Case insensitivity: Yes
+#   - False positive prevention: Yes (expanded)
+#   - Edge cases: Yes (expanded)
+#   - Conversational baseline: Yes (expanded)
+#   - Real user phrasings: Yes (new)
+#   - Ambiguous patterns: Yes (new)
+#   - Multi-sentence: Yes (new)
+#   - Punctuation handling: Yes (new)

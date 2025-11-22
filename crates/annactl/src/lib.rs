@@ -1,10 +1,13 @@
 //! Annactl library - exposes modules for testing
 //!
 //! Beta.200: Simplified architecture - removed all non-mandated modules
+//! Beta.240: Added debug utilities for developer observability
 
 pub mod action_plan_executor; // ActionPlan execution engine
 pub mod cli_output; // JSON output formatting for CLI commands
 pub mod context_engine; // Contextual awareness and proactive monitoring
+pub mod debug; // Beta.240: Debug utilities (developer-only, unstable)
+pub mod diagnostic_formatter; // Beta.250: Canonical diagnostic report formatting
 pub mod dialogue_v3_json; // V3 JSON dialogue runner
 pub mod errors;
 pub mod health; // Modular health command implementations
@@ -17,6 +20,7 @@ pub mod query_handler; // Unified 3-tier query architecture
 pub mod recipe_formatter; // Recipe answer formatting
 pub mod recipes; // Deterministic ActionPlan recipes (77+)
 pub mod rpc_client; // RPC client for daemon communication
+pub mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs)
 pub mod system_prompt_v2; // Strict reasoning discipline prompts
 pub mod system_prompt_v3_json; // JSON runtime contract
 pub mod system_query; // System telemetry queries

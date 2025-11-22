@@ -114,15 +114,16 @@ pub async fn handle_unified_query(
         return Ok(UnifiedQueryResult::ConversationalAnswer {
             answer: report,
             confidence: AnswerConfidence::High,
-            sources: vec!["verified system telemetry".to_string()],
+            sources: vec!["verified system telemetry (direct system query)".to_string()],
         });
     }
 
     // TIER 0.5: Beta.238 Full Diagnostic Routing (natural language → brain diagnostics)
     // Detects "run a full diagnostic", "check my system health", "show any problems"
     // Routes directly to internal diagnostic engine (same as hidden brain command)
+    // Beta.257: Pass query for temporal wording support
     if is_full_diagnostic_query(user_text) {
-        return handle_diagnostic_query().await;
+        return handle_diagnostic_query(user_text).await;
     }
 
     // TIER 1: Beta.151 Deterministic Recipes (NEW - highest priority)
@@ -209,7 +210,7 @@ async fn generate_conversational_answer(
         return Ok(UnifiedQueryResult::ConversationalAnswer {
             answer: output::normalize_for_cli(&answer),
             confidence: AnswerConfidence::High,
-            sources: vec!["system telemetry".to_string()],
+            sources: vec!["system telemetry (direct system query)".to_string()],
         });
     }
 
@@ -1043,21 +1044,136 @@ fn telemetry_to_hashmap(telemetry: &SystemTelemetry) -> std::collections::HashMa
 //   - normalizer::normalize_for_tui() - for TUI output (before ANSI codes)
 // This ensures consistent formatting across all answer types.
 
+/// Beta.243: Normalize query text for consistent matching
+/// Beta.254: Enhanced with punctuation, emoji, and polite fluff removal
+///
+/// Applies bounded, conservative normalization:
+/// - Converts to lowercase
+/// - Strips repeated trailing punctuation (???, !!!, ..., etc.)
+/// - Strips single trailing punctuation (?, ., !)
+/// - Strips trailing emojis (🙂, 😊, 😅, 😉, 🤔, 👍, ✅)
+/// - Strips polite fluff at start (please, hey, hi, hello)
+/// - Strips polite fluff at end (please, thanks, thank you)
+/// - Collapses multiple whitespace to single space
+/// - Trims leading/trailing whitespace
+///
+/// Scope: Only leading/trailing noise removed. No in-sentence words deleted.
+/// Public to allow reuse by system_report.rs
+pub fn normalize_query_for_intent(text: &str) -> String {
+    // Convert to lowercase first
+    let mut normalized = text.to_lowercase();
+
+    // Beta.254: Strip repeated trailing punctuation (???, !!!, ..., etc.)
+    while normalized.ends_with("???") || normalized.ends_with("!!!") || normalized.ends_with("...") ||
+          normalized.ends_with("??") || normalized.ends_with("!!") || normalized.ends_with("..") ||
+          normalized.ends_with("?!") || normalized.ends_with("!?") {
+        normalized = normalized[..normalized.len()-2].to_string();
+    }
+
+    // Strip single trailing punctuation (?, ., !)
+    normalized = normalized.trim_end_matches(|c| c == '?' || c == '.' || c == '!').to_string();
+
+    // Beta.254: Strip trailing emojis (common simple ones)
+    let trailing_emojis = ["🙂", "😊", "😅", "😉", "🤔", "👍", "✅"];
+    for emoji in &trailing_emojis {
+        if normalized.ends_with(emoji) {
+            normalized = normalized[..normalized.len() - emoji.len()].trim_end().to_string();
+        }
+    }
+
+    // Beta.254: Strip polite fluff at start (separated by whitespace)
+    let polite_prefixes = ["please ", "hey ", "hi ", "hello "];
+    for prefix in &polite_prefixes {
+        if normalized.starts_with(prefix) {
+            normalized = normalized[prefix.len()..].to_string();
+        }
+    }
+
+    // Beta.254: Strip polite fluff at end (separated by whitespace)
+    let polite_suffixes = [" please", " thanks", " thank you"];
+    for suffix in &polite_suffixes {
+        if normalized.ends_with(suffix) {
+            normalized = normalized[..normalized.len() - suffix.len()].to_string();
+        }
+    }
+
+    // Normalize hyphens and underscores to spaces for word boundary matching
+    normalized = normalized.replace('-', " ").replace('_', " ");
+
+    // Collapse multiple whitespace to single space
+    let mut result = String::new();
+    let mut prev_was_space = false;
+
+    for c in normalized.chars() {
+        if c.is_whitespace() {
+            if !prev_was_space {
+                result.push(' ');
+                prev_was_space = true;
+            }
+        } else {
+            result.push(c);
+            prev_was_space = false;
+        }
+    }
+
+    result.trim().to_string()
+}
+
 /// Beta.238: Detect if query is requesting full system diagnostics
+/// Beta.239: Expanded phrase coverage
+/// Beta.243: Whitespace/punctuation normalization, phrase variations, bi-directional matching
+/// Beta.244: Conceptual question exclusions, contextual system references
 ///
 /// Recognized phrases:
-/// - "run a full diagnostic"
-/// - "run full diagnostic"
-/// - "check my system health"
-/// - "check system health"
+/// - "run a full diagnostic" / "run diagnostic" / "perform diagnostic" / "execute diagnostic"
+/// - "check my system health" / "check the system health" / "check system health"
 /// - "show any problems"
-/// - "show me any problems"
 /// - "system health check"
 /// - "full system diagnostic"
-/// - "diagnose my system"
-/// - "diagnose the system"
+/// - "diagnose my system" / "diagnose the system"
+/// - "health check" / "check health" (Beta.243: bi-directional)
+/// - "system check" / "check system" (Beta.243: bi-directional)
+/// - "health report"
+/// - "system report"
+/// - "is my system ok" / "is the system ok" (Beta.243: the/my variation)
+/// - "my system ok" / "system ok" (Beta.243: terse patterns)
+/// - "is everything ok with my system"
 fn is_full_diagnostic_query(user_text: &str) -> bool {
-    let input_lower = user_text.to_lowercase();
+    // Beta.243: Apply normalization for robust matching
+    let normalized = normalize_query_for_intent(user_text);
+
+    // Beta.244: Exclude conceptual/definition questions before checking patterns
+    // These are questions about what system health IS, not about THIS system's health
+    let conceptual_patterns = [
+        "what is",
+        "what does",
+        "what's",
+        "explain",
+        "define",
+        "definition of",
+        "what are",
+        "describe",
+        "tell me about",
+    ];
+
+    let conceptual_subjects = [
+        "healthy system",
+        "system health",
+        "a healthy",
+        "good system health",
+    ];
+
+    // If query is asking "what is a healthy system" or similar, route to conversational
+    for concept_pattern in &conceptual_patterns {
+        if normalized.contains(concept_pattern) {
+            for subject in &conceptual_subjects {
+                if normalized.contains(subject) {
+                    // This is a definition/conceptual question, not about this machine
+                    return false;
+                }
+            }
+        }
+    }
 
     // Exact phrase matches first (highest specificity)
     let exact_matches = [
@@ -1065,48 +1181,282 @@ fn is_full_diagnostic_query(user_text: &str) -> bool {
         "run full diagnostic",
         "full diagnostic",
         "check my system health",
+        "check the system health",  // Beta.243: the/my variation
         "check system health",
         "show any problems",
         "show me any problems",
         "full system diagnostic",
         "system health check",
+        // Beta.239: New exact phrases
+        "health check",
+        "check health",  // Beta.243: bi-directional
+        "system check",
+        "check system",  // Beta.243: bi-directional
+        "health report",
+        "system report",
+        "is my system ok",
+        "is the system ok",  // Beta.243: the/my variation
+        "is the system okay",  // Beta.243: the/my + okay variant
+        "is everything ok with my system",
+        "is my system okay",
+        "is everything okay with my system",
+        // Beta.243: Terse patterns (auxiliary verb dropped)
+        "my system ok",
+        "my system okay",
+        "the system ok",
+        "the system okay",
+        "system ok",
+        "system okay",
+        // Beta.243: Verb variations
+        "run diagnostic",  // standalone with run
+        "perform diagnostic",
+        "execute diagnostic",
+        // Beta.249: High-value health check patterns
+        "is my system healthy",
+        "is the system healthy",
+        "is everything ok",  // standalone, without "with my system"
+        "is everything okay",  // okay variant
+        "everything ok",  // terse form
+        "everything okay",  // terse okay variant
+        "are there any problems",
+        "are there any issues",
+        "show me any issues",
+        "anything wrong",
+        "are any services failing",
+        "how is my system",  // captures "how is my system today/doing/etc"
+        "how is the system",
+        // Beta.251: Troubleshooting and problem detection
+        "what's wrong",
+        "what is wrong",
+        "whats wrong",  // no apostrophe variant
+        "something wrong",
+        "anything wrong with",
+        // Beta.251: Compact health status patterns
+        "health status",
+        "status health",  // bi-directional
+        // Beta.251: Service health patterns
+        "services down",
+        "services are down",
+        "service down",
+        "which services down",
+        "which services are down",
+        // Beta.251: System doing patterns
+        "system doing",  // captures "how is [this/my] system doing"
+        "my system doing",
+        "the system doing",
+        "this system doing",
+        // Beta.251: Check machine/computer patterns
+        "check this machine",
+        "check my machine",
+        "check this computer",
+        "check my computer",
+        "check this host",
+        "check my host",
+        // Beta.252: Resource health variants (Category A - trivial safe fix)
+        "disk healthy",
+        "cpu healthy",
+        "memory healthy",
+        "ram healthy",
+        "network health",
+        "machine healthy",
+        "computer healthy",
+        // Beta.253: Category B - "What's wrong" with system context
+        "what's wrong with my system",
+        "what is wrong with my system",
+        "what's wrong with this system",
+        "what's wrong with my machine",
+        "what's wrong with this machine",
+        "what's wrong with my computer",
+        // Beta.253: Clear diagnostic commands
+        "service health",
+        "show me problems",
+        "show problems",
+        "display health",
+        "check system",
+        "diagnose system",
+        "do diagnostic",
+        "run diagnostic",
+        // Beta.254: Resource-specific errors/problems/issues (question format)
+        "journal errors",
+        "package problems",
+        "failed boot attempts",
+        "boot attempts",
+        "internet connectivity issues",
+        "connectivity issues",
+        "hardware problems",
+        "overheating issues",
+        "filesystem errors",
+        "mount problems",
+        "security issues",
+        // Beta.254: Possessive health forms
+        "computer's health",
+        "machine's health",
+        "system's health",
+        // Beta.255: Temporal diagnostic patterns (time + health/error terms)
+        "errors today",
+        "errors recently",
+        "errors lately",
+        "critical errors today",
+        "critical errors recently",
+        "failed services today",
+        "failed services recently",
+        "any errors today",
+        "any errors recently",
+        "issues today",
+        "issues recently",
+        "problems today",
+        "problems recently",
+        "failures today",
+        "failures recently",
+        "morning system check",
+        "morning check",
+        "checking in on the system",
+        "just checking the system",
+        // Beta.256: Resource health variants + consolidation
+        "is my machine healthy",
+        "is my disk healthy",
+        "machine healthy",
+        "disk healthy",
+        "full system check",
+        "complete diagnostic",
+        "system problem",  // singular form
+        "service issue",   // singular form
+        "no problems",     // negation pattern
+        // Beta.256: Intent markers and polite requests
+        "i want to know if my system is healthy",
+        "i need a system check",
+        "can you check my system",
     ];
 
     for phrase in &exact_matches {
-        if input_lower.contains(phrase) {
+        if normalized.contains(phrase) {
+            // Beta.240: Log diagnostic phrase match (developer-only)
+            crate::debug::log_diagnostic_phrase_match(phrase, "exact_match");
             return true;
         }
     }
 
     // Pattern-based matches (broader but still specific)
-    // "diagnose" + "system" or "my system"
-    if input_lower.contains("diagnose") {
-        if input_lower.contains("system") || input_lower.contains("my system") {
+    // "diagnose" + "system" or "my system" or "the system"
+    if normalized.contains("diagnose") {
+        if normalized.contains("system") || normalized.contains("my system") || normalized.contains("the system") {
+            // Beta.240: Log pattern match
+            crate::debug::log_diagnostic_phrase_match(&normalized, "diagnose_system_pattern");
             return true;
         }
     }
 
     // "full" + "diagnostic" (even if not adjacent)
-    if input_lower.contains("full") && input_lower.contains("diagnostic") {
+    if normalized.contains("full") && normalized.contains("diagnostic") {
+        // Beta.240: Log pattern match
+        crate::debug::log_diagnostic_phrase_match(&normalized, "full_diagnostic_pattern");
         return true;
     }
 
     // "system" + "health" (common combination)
-    if input_lower.contains("system") && input_lower.contains("health") {
+    // Beta.244: Enhanced with contextual awareness
+    // Positive indicators: this system, this machine, my system, on this computer, here
+    // Negative indicators: in general, in theory, on linux, on arch linux (without "this"/"my")
+    if normalized.contains("system") && normalized.contains("health") {
+        // Check for positive contextual indicators
+        let positive_indicators = [
+            "this system",
+            "this machine",
+            "my system",
+            "my machine",
+            "on this computer",
+            "on this system",
+            "on my system",
+            "here",
+            "this computer",
+        ];
+
+        let negative_indicators = [
+            "in general",
+            "in theory",
+            "on linux",
+            "on arch linux",
+            "in arch",
+            "for linux",
+        ];
+
+        let has_positive = positive_indicators.iter().any(|ind| normalized.contains(ind));
+        let has_negative = negative_indicators.iter().any(|ind| normalized.contains(ind));
+
+        // If both positive and negative, prefer conversational (ambiguous)
+        if has_positive && has_negative {
+            return false;
+        }
+
+        // If positive indicators present, treat as diagnostic
+        if has_positive {
+            crate::debug::log_diagnostic_phrase_match(&normalized, "system_health_contextual");
+            return true;
+        }
+
+        // If no conceptual question pattern detected earlier, allow the match
+        // (This preserves Beta.243 behavior for simple "system health" queries)
+        crate::debug::log_diagnostic_phrase_match(&normalized, "system_health_pattern");
         return true;
+    }
+
+    // Beta.249: Resource-specific health patterns
+    // Pattern: "[resource] problems?" or "[resource] issues?"
+    let resources = ["disk", "disk space", "cpu", "memory", "ram", "network", "service", "services", "boot", "package", "packages"];
+    let health_terms = ["problems", "issues", "errors", "failures", "failing"];
+
+    for resource in &resources {
+        for term in &health_terms {
+            let pattern = format!("{} {}", resource, term);
+            if normalized.contains(&pattern) {
+                crate::debug::log_diagnostic_phrase_match(&normalized, "resource_health_pattern");
+                return true;
+            }
+        }
+    }
+
+    // Beta.249: "Is [resource] [health_state]?" patterns
+    // Examples: "is my cpu overloaded?", "is disk full?"
+    let overload_terms = ["overloaded", "full", "exhausted", "running out"];
+    for resource in &resources {
+        for term in &overload_terms {
+            if normalized.contains(resource) && normalized.contains(term) {
+                crate::debug::log_diagnostic_phrase_match(&normalized, "resource_overload_pattern");
+                return true;
+            }
+        }
+    }
+
+    // Beta.249: "running out of [resource]" pattern
+    if normalized.contains("running out") {
+        for resource in &resources {
+            if normalized.contains(resource) {
+                crate::debug::log_diagnostic_phrase_match(&normalized, "running_out_pattern");
+                return true;
+            }
+        }
     }
 
     false
 }
 
 /// Beta.238: Handle diagnostic query by calling internal brain analysis
+/// Beta.250: Now uses canonical diagnostic formatter
 ///
 /// Routes natural language diagnostic requests to the same diagnostic engine
 /// that powers the hidden `annactl brain` command. Returns formatted diagnostic
 /// report suitable for CLI or TUI display.
-async fn handle_diagnostic_query() -> Result<UnifiedQueryResult> {
+///
+/// Beta.257: Accepts query parameter for temporal wording support
+/// Beta.258: Use daily snapshot for temporal queries ("today", "recently")
+async fn handle_diagnostic_query(query: &str) -> Result<UnifiedQueryResult> {
     use anna_common::ipc::{Method, ResponseData};
     use crate::rpc_client::RpcClient;
+    use crate::diagnostic_formatter::{
+        format_diagnostic_report_with_query, format_daily_snapshot,
+        compute_daily_snapshot, SessionDelta, DiagnosticMode
+    };
+    use crate::startup::welcome::load_last_session;
 
     // Fetch brain analysis from daemon (same as brain command)
     let mut client = RpcClient::connect().await
@@ -1115,88 +1465,73 @@ async fn handle_diagnostic_query() -> Result<UnifiedQueryResult> {
     let response = client.call(Method::BrainAnalysis).await
         .map_err(|e| anyhow::anyhow!("Diagnostic analysis failed: {}", e))?;
 
+    // Beta.240: Print RPC stats if debug enabled (developer-only)
+    crate::debug::print_rpc_stats(client.get_stats());
+
     let analysis = match response {
         ResponseData::BrainAnalysis(data) => data,
         _ => return Err(anyhow::anyhow!("Unexpected response type from diagnostic engine")),
     };
 
-    // Format diagnostic report in canonical [SUMMARY]/[DETAILS] format
-    let report = format_diagnostic_report(&analysis);
+    // Beta.258: Check if this is a temporal query
+    let normalized_query = query.to_lowercase();
+    let is_temporal = normalized_query.contains("today") || normalized_query.contains("recently");
 
-    Ok(UnifiedQueryResult::ConversationalAnswer {
-        answer: report,
-        confidence: AnswerConfidence::High,
-        sources: vec!["internal diagnostic engine".to_string()],
-    })
-}
+    // Beta.258: For temporal queries, use daily snapshot format
+    if is_temporal {
+        // Try to load session metadata for delta computation
+        let session_delta = match load_last_session() {
+            Ok(Some(last_session)) => {
+                // Fetch current telemetry using system_query module
+                match crate::system_query::query_system_telemetry() {
+                    Ok(current_telemetry) => {
+                        use crate::startup::welcome::create_telemetry_snapshot;
+                        let current_snapshot = create_telemetry_snapshot(&current_telemetry);
+                        let kernel_changed = last_session.last_telemetry.kernel_version != current_snapshot.kernel_version;
+                        let package_delta = (current_snapshot.package_count as i32) - (last_session.last_telemetry.package_count as i32);
 
-/// Beta.238: Format brain analysis data as canonical report
-fn format_diagnostic_report(analysis: &anna_common::ipc::BrainAnalysisData) -> String {
-    use std::fmt::Write;
-
-    let mut report = String::new();
-
-    // Summary section
-    writeln!(&mut report, "[SUMMARY]").unwrap();
-    if analysis.critical_count == 0 && analysis.warning_count == 0 {
-        writeln!(&mut report, "System health: **All systems nominal**").unwrap();
-        writeln!(&mut report).unwrap();
-        writeln!(&mut report, "No critical or warning issues detected.").unwrap();
-    } else {
-        writeln!(&mut report, "System health: **{} issue(s) detected**", analysis.critical_count + analysis.warning_count).unwrap();
-        writeln!(&mut report).unwrap();
-        if analysis.critical_count > 0 {
-            writeln!(&mut report, "- **{}** critical issue(s) requiring immediate attention", analysis.critical_count).unwrap();
-        }
-        if analysis.warning_count > 0 {
-            writeln!(&mut report, "- **{}** warning(s) that should be investigated", analysis.warning_count).unwrap();
-        }
-    }
-    writeln!(&mut report).unwrap();
-
-    // Details section - show all diagnostic insights
-    if !analysis.insights.is_empty() {
-        writeln!(&mut report, "[DETAILS]").unwrap();
-        writeln!(&mut report, "Diagnostic Insights:").unwrap();
-        writeln!(&mut report).unwrap();
-
-        for (idx, insight) in analysis.insights.iter().enumerate() {
-            let severity_marker = match insight.severity.to_lowercase().as_str() {
-                "critical" => "✗",
-                "warning" => "⚠",
-                _ => "ℹ",
-            };
-
-            writeln!(&mut report, "{}. {} **{}**", idx + 1, severity_marker, insight.summary).unwrap();
-            writeln!(&mut report).unwrap();
-            writeln!(&mut report, "   {}", insight.details).unwrap();
-            writeln!(&mut report).unwrap();
-
-            // Add diagnostic commands if available
-            if !insight.commands.is_empty() {
-                writeln!(&mut report, "   Diagnostic commands:").unwrap();
-                for cmd in &insight.commands {
-                    writeln!(&mut report, "   $ {}", cmd).unwrap();
+                        SessionDelta {
+                            kernel_changed,
+                            old_kernel: if kernel_changed { Some(last_session.last_telemetry.kernel_version.clone()) } else { None },
+                            new_kernel: if kernel_changed { Some(current_snapshot.kernel_version.clone()) } else { None },
+                            package_delta,
+                            boots_since_last: if kernel_changed { 1 } else { 0 },
+                        }
+                    }
+                    Err(_) => {
+                        // Telemetry fetch failed, use defaults
+                        SessionDelta::default()
+                    }
                 }
-                writeln!(&mut report).unwrap();
             }
-        }
-    }
+            _ => {
+                // No last session or load failed, use defaults
+                SessionDelta::default()
+            }
+        };
 
-    // Commands section - show recommended actions
-    writeln!(&mut report, "[COMMANDS]").unwrap();
-    if analysis.critical_count > 0 || analysis.warning_count > 0 {
-        writeln!(&mut report, "Recommended actions:").unwrap();
-        writeln!(&mut report, "$ annactl status        # View detailed system status").unwrap();
-        writeln!(&mut report, "$ journalctl -xe        # Check system logs").unwrap();
-        writeln!(&mut report, "$ systemctl --failed    # List failed services").unwrap();
+        let snapshot = compute_daily_snapshot(&analysis, session_delta);
+        let report = format_daily_snapshot(&snapshot, true);
+
+        Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer: report,
+            confidence: AnswerConfidence::High,
+            sources: vec!["internal diagnostic engine (9 deterministic checks) + session metadata".to_string()],
+        })
     } else {
-        writeln!(&mut report, "No immediate actions required. System is operating normally.").unwrap();
-        writeln!(&mut report, "$ annactl status        # View current system status").unwrap();
-    }
+        // Beta.257: Use query-aware formatter for non-temporal queries
+        let report = format_diagnostic_report_with_query(&analysis, DiagnosticMode::Full, query);
 
-    report
+        Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer: report,
+            confidence: AnswerConfidence::High,
+            sources: vec!["internal diagnostic engine (9 deterministic checks)".to_string()],
+        })
+    }
 }
+
+// Beta.250: Old format_diagnostic_report function removed
+// Now using canonical formatter from diagnostic_formatter module
 
 #[cfg(test)]
 mod tests {
@@ -1215,24 +1550,40 @@ mod tests {
     #[test]
     fn test_is_full_diagnostic_query() {
         // Beta.238: Test diagnostic query detection
-        // Exact matches
+        // Beta.239: Extended with new phrase patterns
+
+        // Exact matches - Beta.238
         assert!(is_full_diagnostic_query("run a full diagnostic"));
         assert!(is_full_diagnostic_query("check my system health"));
         assert!(is_full_diagnostic_query("show any problems"));
         assert!(is_full_diagnostic_query("full system diagnostic"));
 
+        // Beta.239: New exact matches
+        assert!(is_full_diagnostic_query("health check"));
+        assert!(is_full_diagnostic_query("system check"));
+        assert!(is_full_diagnostic_query("health report"));
+        assert!(is_full_diagnostic_query("system report"));
+        assert!(is_full_diagnostic_query("is my system ok"));
+        assert!(is_full_diagnostic_query("is everything ok with my system"));
+        assert!(is_full_diagnostic_query("is my system okay"));
+        assert!(is_full_diagnostic_query("is everything okay with my system"));
+
         // Case insensitive
         assert!(is_full_diagnostic_query("RUN A FULL DIAGNOSTIC"));
         assert!(is_full_diagnostic_query("Check System Health"));
+        assert!(is_full_diagnostic_query("HEALTH CHECK"));
+        assert!(is_full_diagnostic_query("System Report"));
 
         // Pattern matches
         assert!(is_full_diagnostic_query("diagnose my system"));
         assert!(is_full_diagnostic_query("can you diagnose the system"));
         assert!(is_full_diagnostic_query("please check system health"));
 
-        // Non-diagnostic queries
+        // Non-diagnostic queries (should NOT trigger)
         assert!(!is_full_diagnostic_query("what is my CPU?"));
         assert!(!is_full_diagnostic_query("install docker"));
         assert!(!is_full_diagnostic_query("check disk space"));
+        assert!(!is_full_diagnostic_query("health insurance"));  // "health" alone shouldn't trigger
+        assert!(!is_full_diagnostic_query("system update"));     // "system" alone shouldn't trigger
     }
 }

@@ -114,13 +114,28 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             // Don't print it again! Just show metadata
             println!();
 
-            // Show confidence and sources (subtle)
+            // Beta.245: Show source line based on confidence level
+            // Deterministic answers (High confidence from diagnostic engine or telemetry) get a clear source line
+            // LLM answers show confidence level
             if ui.capabilities().use_colors() {
-                println!(
-                    "{}",
-                    format!("🔍 Confidence: {:?} | Sources: {}", confidence, sources.join(", "))
-                        .dimmed()
-                );
+                match confidence {
+                    AnswerConfidence::High => {
+                        // Deterministic answer - show source without confidence score
+                        println!(
+                            "{}",
+                            format!("Source: {}", sources.join(", "))
+                                .dimmed()
+                        );
+                    }
+                    AnswerConfidence::Medium | AnswerConfidence::Low => {
+                        // LLM answer - show confidence and sources
+                        println!(
+                            "{}",
+                            format!("🔍 Confidence: {:?} | Sources: {}", confidence, sources.join(", "))
+                                .dimmed()
+                        );
+                    }
+                }
             }
             println!();
         }

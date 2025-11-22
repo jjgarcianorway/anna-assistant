@@ -1,6 +1,7 @@
 //! RPC Client - Unix socket client for communicating with daemon
 //!
 //! Beta.237: Enhanced error categorization and resilience
+//! Beta.239: Connection reuse and performance optimization
 
 use anna_common::ipc::{Method, Request, Response, ResponseData};
 use anyhow::{Context, Result};
@@ -9,6 +10,37 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
 static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Connection reuse statistics for performance monitoring
+/// Beta.239: Track connection overhead and reuse patterns
+/// Beta.240: Extended with RPC call success/failure tracking
+#[derive(Debug, Clone, Default)]
+pub struct ConnectionStats {
+    /// Number of new connections established
+    pub connections_created: u64,
+    /// Number of successful connection reuses
+    pub connections_reused: u64,
+    /// Number of reconnections due to broken connections
+    pub reconnections: u64,
+    /// Time spent establishing connections (microseconds)
+    pub connect_time_us: u64,
+
+    // Beta.240: RPC call tracking
+    /// Number of successful RPC calls
+    pub successful_calls: u64,
+    /// Number of failed calls due to daemon unavailable
+    pub failed_daemon_unavailable: u64,
+    /// Number of failed calls due to permission denied
+    pub failed_permission_denied: u64,
+    /// Number of failed calls due to timeout
+    pub failed_timeout: u64,
+    /// Number of failed calls due to connection issues
+    pub failed_connection: u64,
+    /// Number of failed calls due to internal errors
+    pub failed_internal: u64,
+    /// Number of successful reconnections
+    pub successful_reconnects: u64,
+}
 
 /// RPC Error categories for better error handling
 /// Beta.237: Typed errors for clearer failure modes
@@ -39,9 +71,12 @@ impl RpcErrorKind {
 }
 
 /// RPC Client for communicating with the daemon
+/// Beta.239: Connection reuse - keeps connection alive across multiple calls
 pub struct RpcClient {
     reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     writer: tokio::net::unix::OwnedWriteHalf,
+    socket_path: String,  // Beta.239: Store path for reconnection
+    stats: ConnectionStats,  // Beta.239: Track connection metrics
 }
 
 impl RpcClient {
@@ -80,7 +115,9 @@ impl RpcClient {
             Ok(Ok(stream)) => {
                 let (reader, writer) = stream.into_split();
                 let reader = BufReader::new(reader);
-                Ok(Self { reader, writer })
+                let mut stats = ConnectionStats::default();
+                stats.connections_created = 1;
+                Ok(Self { reader, writer, socket_path: path.clone(), stats })
             }
             Ok(Err(e)) => Err(anyhow::anyhow!("Daemon unavailable: {}", e)),
             Err(_) => Err(anyhow::anyhow!("Connection timeout")),
@@ -90,6 +127,7 @@ impl RpcClient {
     /// Connect to the daemon with retry logic and errno-specific error messages
     ///
     /// v1.16.2-alpha.2: Socket discovery order and detailed error hints
+    /// Beta.239: Track connection time and stats
     pub async fn connect_with_path(socket_path: Option<&str>) -> Result<Self> {
         use std::time::Duration;
         use tokio::time::sleep;
@@ -99,13 +137,22 @@ impl RpcClient {
         let mut retry_delay = Duration::from_millis(50);
         let mut last_error: Option<std::io::Error> = None;
 
+        // Beta.239: Track connection establishment time
+        let start = std::time::Instant::now();
+
         for attempt in 0..max_retries {
             match tokio::time::timeout(Duration::from_millis(500), UnixStream::connect(&path)).await
             {
                 Ok(Ok(stream)) => {
                     let (reader, writer) = stream.into_split();
                     let reader = BufReader::new(reader);
-                    return Ok(Self { reader, writer });
+
+                    // Beta.239: Record connection stats
+                    let mut stats = ConnectionStats::default();
+                    stats.connections_created = 1;
+                    stats.connect_time_us = start.elapsed().as_micros() as u64;
+
+                    return Ok(Self { reader, writer, socket_path: path.clone(), stats });
                 }
                 Ok(Err(e)) if attempt == max_retries - 1 => {
                     // Last attempt - provide errno-specific hint
@@ -221,13 +268,58 @@ impl RpcClient {
         }
     }
 
+    /// Check if an error indicates a broken connection that should trigger reconnection
+    /// Beta.239: Connection health detection
+    fn is_broken_connection(error: &anyhow::Error) -> bool {
+        let error_msg = error.to_string().to_lowercase();
+        error_msg.contains("broken pipe")
+            || error_msg.contains("connection reset")
+            || error_msg.contains("failed to send request")
+            || error_msg.contains("failed to read response")
+    }
+
+    /// Attempt to reconnect once (called after detecting broken connection)
+    /// Beta.239: Auto-reconnect on connection failure
+    async fn reconnect(&mut self) -> Result<()> {
+        use std::time::Duration;
+
+        let start = std::time::Instant::now();
+
+        // Single reconnection attempt (no retry loop - already failed once)
+        match tokio::time::timeout(Duration::from_millis(500), UnixStream::connect(&self.socket_path)).await {
+            Ok(Ok(stream)) => {
+                let (reader, writer) = stream.into_split();
+                self.reader = BufReader::new(reader);
+                self.writer = writer;
+
+                // Beta.239: Track reconnection stats
+                self.stats.reconnections += 1;
+                self.stats.connect_time_us += start.elapsed().as_micros() as u64;
+
+                Ok(())
+            }
+            Ok(Err(e)) => Err(Self::socket_error_with_hint(&self.socket_path, e)),
+            Err(_) => anyhow::bail!("Reconnection timeout"),
+        }
+    }
+
+    /// Get connection statistics (for debugging/monitoring)
+    /// Beta.239: Performance instrumentation
+    #[allow(dead_code)]
+    pub fn get_stats(&self) -> &ConnectionStats {
+        &self.stats
+    }
+
     /// Send a request and get a response with timeout and retry
     ///
     /// Beta.235: Added timeout and exponential backoff for transient errors
     /// Beta.237: Enhanced error categorization and documentation
+    /// Beta.239: Connection reuse with automatic reconnection on broken connections
+    /// Beta.240: Statistics tracking for successful/failed calls
     ///
     /// # Behavior
-    /// - Connection timeout: Configured in connect_with_path (500ms per attempt)
+    /// - Connection reuse: Keeps connection alive across multiple calls
+    /// - Auto-reconnect: Detects broken connections and reconnects once
     /// - Request timeout: Method-specific (5s standard, 10s for expensive calls)
     /// - Retries: Up to 3 attempts with exponential backoff (50ms → 800ms)
     /// - Transient errors: Retried automatically
@@ -243,9 +335,7 @@ impl RpcClient {
         use std::time::Duration;
         use tokio::time::sleep;
 
-        // Beta.235: Wrap entire RPC call in timeout (not just connection)
-        // Default timeout: 5 seconds for normal calls
-        // Brain analysis and other expensive operations get more time
+        // Beta.235: Method-specific timeout
         let timeout = match &method {
             Method::BrainAnalysis => Duration::from_secs(10), // Brain needs more time
             Method::GetHistorianSummary => Duration::from_secs(10), // Historian too
@@ -256,11 +346,31 @@ impl RpcClient {
         let max_retries = 3;
         let mut retry_delay = Duration::from_millis(50);
         let mut last_error: Option<anyhow::Error> = None;
+        let mut reconnected = false; // Beta.239: Track if we've already tried reconnecting
 
         for attempt in 0..=max_retries {
             match tokio::time::timeout(timeout, self.call_inner(method.clone())).await {
-                Ok(Ok(response)) => return Ok(response),
+                Ok(Ok(response)) => {
+                    // Beta.239: Track successful connection reuse
+                    if attempt == 0 && !reconnected {
+                        self.stats.connections_reused += 1;
+                    }
+                    // Beta.240: Track successful call
+                    self.stats.successful_calls += 1;
+                    return Ok(response);
+                }
                 Ok(Err(e)) => {
+                    // Beta.239: Check if this is a broken connection
+                    if Self::is_broken_connection(&e) && !reconnected {
+                        // Try to reconnect once
+                        if let Ok(()) = self.reconnect().await {
+                            self.stats.successful_reconnects += 1;  // Beta.240
+                            reconnected = true;
+                            // Retry this attempt after successful reconnection
+                            continue;
+                        }
+                    }
+
                     // Check if error is transient (worth retrying)
                     let error_msg = e.to_string();
                     let is_transient = error_msg.contains("Failed to send request")
@@ -273,6 +383,8 @@ impl RpcClient {
                         retry_delay = (retry_delay * 2).min(Duration::from_millis(800));
                         continue;
                     } else {
+                        // Beta.240: Track failure by category before returning
+                        self.track_error_stats(&e);
                         // Non-transient error or final retry - propagate immediately
                         return Err(e);
                     }
@@ -286,6 +398,8 @@ impl RpcClient {
                         retry_delay = (retry_delay * 2).min(Duration::from_millis(800));
                         continue;
                     } else {
+                        // Beta.240: Track timeout failure
+                        self.stats.failed_timeout += 1;
                         return Err(timeout_error.context(format!("After {} retries", max_retries)));
                     }
                 }
@@ -293,7 +407,21 @@ impl RpcClient {
         }
 
         // Should never reach here, but handle gracefully
-        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("RPC call failed after {} retries", max_retries)))
+        let final_error = last_error.unwrap_or_else(|| anyhow::anyhow!("RPC call failed after {} retries", max_retries));
+        self.track_error_stats(&final_error);  // Beta.240
+        Err(final_error)
+    }
+
+    /// Beta.240: Track error statistics by category
+    fn track_error_stats(&mut self, error: &anyhow::Error) {
+        let kind = Self::categorize_error(error);
+        match kind {
+            RpcErrorKind::DaemonUnavailable(_) => self.stats.failed_daemon_unavailable += 1,
+            RpcErrorKind::PermissionDenied(_) => self.stats.failed_permission_denied += 1,
+            RpcErrorKind::Timeout(_) => self.stats.failed_timeout += 1,
+            RpcErrorKind::ConnectionFailed(_) => self.stats.failed_connection += 1,
+            RpcErrorKind::Internal(_) => self.stats.failed_internal += 1,
+        }
     }
 
     /// Inner call implementation (without timeout wrapper)

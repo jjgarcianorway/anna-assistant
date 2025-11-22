@@ -63,7 +63,8 @@ pub fn calculate_input_height(input: &str, available_width: u16) -> u16 {
     (wrapped_lines + 2).max(3).min(10) as u16
 }
 
-/// Draw professional help overlay (Beta.220)
+/// Beta.247: Draw professional help overlay with proper background clearing
+/// Fixed: No more text bleed-through from conversation panel
 pub fn draw_help_overlay(f: &mut Frame, area: Rect) {
     let help_text = vec![
         // Title
@@ -164,7 +165,7 @@ pub fn draw_help_overlay(f: &mut Frame, area: Rect) {
 
         // Footer
         Line::from(Span::styled(
-            "Press F1 to close  •  Anna v5.7.0-beta.222",
+            "Press F1 to close  •  Anna v5.7.0-beta.247",
             Style::default().fg(Color::Rgb(120, 120, 120)), // Gray
         )),
     ];
@@ -172,6 +173,12 @@ pub fn draw_help_overlay(f: &mut Frame, area: Rect) {
     // Center the help box (60% width, 70% height for more content)
     let help_area = centered_rect(60, 70, area);
 
+    // Beta.247: Render full-screen dimmed overlay first (prevents bleed-through)
+    let dim_overlay = Block::default()
+        .style(Style::default().bg(Color::Rgb(0, 0, 0))); // Solid black background
+    f.render_widget(dim_overlay, area);
+
+    // Then render help box on top with its own background
     let help_block = Paragraph::new(help_text)
         .block(
             Block::default()
@@ -179,7 +186,7 @@ pub fn draw_help_overlay(f: &mut Frame, area: Rect) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Rgb(255, 200, 80))), // Yellow
         )
-        .style(Style::default().bg(Color::Rgb(10, 10, 10)));
+        .style(Style::default().bg(Color::Rgb(20, 20, 20))); // Darker background for contrast
 
     f.render_widget(help_block, help_area);
 }

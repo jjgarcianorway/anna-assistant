@@ -151,17 +151,140 @@ pub fn generate_short_summary() -> Result<String> {
     Ok(summary)
 }
 
-/// Check if a query is asking for a full system report
+/// Check if a query is asking for a full system report or status
+/// Beta.243: Expanded keyword coverage for status queries
+/// Beta.244: Added temporal and importance-based status patterns
+/// Beta.254: Now uses shared normalization from unified_query_handler
 pub fn is_system_report_query(query: &str) -> bool {
-    let query_lower = query.to_lowercase();
+    // Beta.254: Use shared normalization for consistent behavior
+    let query_lower = crate::unified_query_handler::normalize_query_for_intent(query);
 
-    // Match various phrasings
-    (query_lower.contains("full report") ||
-     query_lower.contains("complete report") ||
-     query_lower.contains("system report")) &&
-    (query_lower.contains("computer") ||
-     query_lower.contains("system") ||
-     query_lower.contains("machine"))
+    // Full report phrasings (original behavior)
+    let is_full_report = (query_lower.contains("full report") ||
+                         query_lower.contains("complete report") ||
+                         query_lower.contains("system report")) &&
+                        (query_lower.contains("computer") ||
+                         query_lower.contains("system") ||
+                         query_lower.contains("machine"));
+
+    if is_full_report {
+        return true;
+    }
+
+    // Beta.243: Expanded status query keywords
+    // These are lighter-weight status checks vs full diagnostic
+    let status_keywords = [
+        "show me status",
+        "system status",
+        "what's running",
+        "system information",
+        "system info",
+        // Beta.243: New status keywords
+        "current status",
+        "what is the current status",
+        "what is the status",
+        "system state",
+        "show system state",
+        "what's happening on my system",
+        "what's happening",
+        // Beta.249: Removed "how is my system" and "how is the system" - they're diagnostic patterns
+        // Beta.251: "status of" patterns
+        "status of my system",
+        "status of the system",
+        "status of this system",
+        "status of my machine",
+        "status of my computer",
+        "status of this machine",
+        "status of this computer",
+        // Beta.251: "[my/this] [computer/machine] status" patterns
+        "my computer status",
+        "my machine status",
+        "my system status",  // for consistency
+        "this computer status",
+        "this machine status",
+        "this system status",  // for consistency
+        "computer status",
+        "machine status",
+        // Beta.251: "status current" terse pattern
+        "status current",
+        "current system status",
+        // Beta.253: Category C - "the machine/computer/system status" variants
+        "the machine status",
+        "the computer status",
+        "the system status",
+        "check the machine status",
+        "check the computer status",
+        "check the system status",
+        "the machine's status",
+        "the computer's status",
+        "the system's status",
+    ];
+
+    for keyword in &status_keywords {
+        if query_lower.contains(keyword) {
+            return true;
+        }
+    }
+
+    // Beta.244: Temporal and importance-based status patterns
+    // Beta.255: Extended with recency and "what happened" patterns
+    // These imply "right now" or "anything important" combined with system references
+    //
+    // Temporal indicators: today, now, currently, right now, recently, lately, this morning
+    // Recency indicators: what happened, any events, anything changed
+    // Importance indicators: important, critical, wrong, issues, problems, review
+    // System references: this system, this machine, this computer, my system, my machine
+
+    let temporal_indicators = ["today", "now", "currently", "right now", "recently", "lately",
+                               "this morning", "this afternoon", "this evening", "in the last hour"];
+    let recency_indicators = [
+        "what happened",
+        "anything happened",
+        "any events",
+        "anything changed",
+        "any changes",
+    ];
+    let importance_indicators = [
+        "anything important",
+        "anything critical",
+        "anything wrong",
+        "any issues",
+        "any problems",
+        "important to review",
+        "to review",
+        "should know",
+        "need to know",
+    ];
+    let system_references = [
+        "this system",
+        "this machine",
+        "this computer",
+        "my system",
+        "my machine",
+        "my computer",
+        "the system",
+        "the machine",
+    ];
+
+    // Check if query has temporal indicator + system reference
+    let has_temporal = temporal_indicators.iter().any(|ind| query_lower.contains(ind));
+    let has_recency = recency_indicators.iter().any(|ind| query_lower.contains(ind));
+    let has_importance = importance_indicators.iter().any(|ind| query_lower.contains(ind));
+    let has_system_ref = system_references.iter().any(|ind| query_lower.contains(ind));
+
+    // Beta.255: Match if: (temporal OR recency OR importance) AND system_reference
+    // Examples: "how is my system today", "what happened on this machine", "anything important on my system"
+    if (has_temporal || has_recency || has_importance) && has_system_ref {
+        return true;
+    }
+
+    // Beta.244: Also match standalone importance queries that clearly reference system context
+    // Example: "anything important to review on this system today"
+    if has_importance && has_system_ref {
+        return true;
+    }
+
+    false
 }
 
 #[cfg(test)]

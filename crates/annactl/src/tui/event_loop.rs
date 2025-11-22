@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 use super::action_plan::handle_action_plan_execution;
 use super::input::handle_user_input;
 use super::render::draw_ui;
-use super::state::{show_welcome_message, update_telemetry};
+use super::state::update_telemetry;
 
 /// TUI message types
 #[derive(Debug)]
@@ -68,6 +68,11 @@ pub async fn run() -> Result<()> {
     // Run event loop with panic recovery
     let result = run_event_loop(&mut terminal, &mut state, tx, &mut rx).await;
 
+    // Beta.261: Show exit summary screen before cleanup
+    if result.is_ok() {
+        let _ = show_exit_summary(&mut terminal, &state);
+    }
+
     // Restore terminal (always attempt cleanup)
     let cleanup_result = restore_terminal(&mut terminal);
 
@@ -79,6 +84,40 @@ pub async fn run() -> Result<()> {
 
     // Return event loop result, or cleanup error if that failed
     result.and(cleanup_result)
+}
+
+/// Beta.261: Show exit summary screen
+/// Displays brief goodbye message with health summary and hint
+fn show_exit_summary(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    state: &AnnaTuiState,
+) -> Result<()> {
+    use ratatui::widgets::{Block, Borders, Paragraph};
+    use ratatui::style::{Color, Style};
+
+    // Generate exit summary lines
+    let exit_lines = super::flow::generate_exit_summary(state);
+
+    // Clear screen and show exit summary
+    terminal.draw(|f| {
+        let area = f.size();
+
+        let paragraph = Paragraph::new(exit_lines)
+            .block(
+                Block::default()
+                    .title(" Anna Assistant ")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Rgb(80, 180, 255))),
+            )
+            .style(Style::default().bg(Color::Rgb(0, 0, 0)));
+
+        f.render_widget(paragraph, area);
+    })?;
+
+    // Pause for 1 second to let user see the message
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+
+    Ok(())
 }
 
 /// Beta.227: Separate cleanup function for better error handling
@@ -118,15 +157,18 @@ async fn run_event_loop(
         });
     }
 
-    // Beta.234: Show welcome message in background (NON-BLOCKING)
-    // Don't await here - let it run async and return immediately
+    // Beta.261: Show startup welcome panel using flow module
+    // This replaces the old background welcome message with a compact,
+    // deterministic welcome strip that uses existing health data
     {
-        let mut state_clone = state.clone();
-        tokio::spawn(async move {
-            // Welcome message generation in background
-            // Won't block TUI initialization
-            let _ = show_welcome_message(&mut state_clone).await;
-        });
+        let welcome_lines = super::flow::generate_welcome_lines(state);
+        // Convert lines to conversation items (as System messages)
+        for line in welcome_lines {
+            let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+            if !text.trim().is_empty() {
+                state.add_system_message(text);
+            }
+        }
     }
 
     // Track last telemetry update
@@ -268,18 +310,31 @@ async fn run_event_loop(
                     (KeyCode::Down, _) => {
                         state.history_down();
                     }
-                    // PageUp - scroll conversation up (half page)
+                    // Beta.247: PageUp - scroll conversation up (half of visible conversation area)
                     (KeyCode::PageUp, _) => {
-                        // Scroll by half a page (or 10 lines minimum)
-                        let scroll_amount = std::cmp::max(10, terminal.size().ok().map(|s| s.height / 4).unwrap_or(10) as usize);
-                        if state.scroll_offset > 0 {
-                            state.scroll_offset = state.scroll_offset.saturating_sub(scroll_amount);
-                        }
+                        // Calculate actual conversation panel height
+                        // Total height - header (1) - status bar (1) - input bar (variable, assume 3 minimum)
+                        let input_height = super::utils::calculate_input_height(&state.input, terminal.size().ok().map(|s| s.width.saturating_sub(8)).unwrap_or(80));
+                        let conversation_height = terminal.size()
+                            .ok()
+                            .map(|s| s.height.saturating_sub(1).saturating_sub(1).saturating_sub(input_height))
+                            .unwrap_or(20);
+
+                        // Scroll by half of conversation panel height (or 5 lines minimum)
+                        let scroll_amount = std::cmp::max(5, (conversation_height / 2) as usize);
+                        state.scroll_offset = state.scroll_offset.saturating_sub(scroll_amount);
                     }
-                    // PageDown - scroll conversation down (half page)
+                    // Beta.247: PageDown - scroll conversation down (half of visible conversation area)
                     (KeyCode::PageDown, _) => {
-                        // Scroll by half a page (or 10 lines minimum)
-                        let scroll_amount = std::cmp::max(10, terminal.size().ok().map(|s| s.height / 4).unwrap_or(10) as usize);
+                        // Calculate actual conversation panel height
+                        let input_height = super::utils::calculate_input_height(&state.input, terminal.size().ok().map(|s| s.width.saturating_sub(8)).unwrap_or(80));
+                        let conversation_height = terminal.size()
+                            .ok()
+                            .map(|s| s.height.saturating_sub(1).saturating_sub(1).saturating_sub(input_height))
+                            .unwrap_or(20);
+
+                        // Scroll by half of conversation panel height (or 5 lines minimum)
+                        let scroll_amount = std::cmp::max(5, (conversation_height / 2) as usize);
                         state.scroll_offset = state.scroll_offset.saturating_add(scroll_amount);
                     }
                     // Character input

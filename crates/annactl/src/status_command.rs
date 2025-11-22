@@ -57,6 +57,51 @@ pub async fn execute_anna_status_command(
     println!("{}", fmt::dimmed(&format!("Mode: {}", llm_mode)));
     println!();
 
+    // Beta.259: Daily snapshot health summary
+    display_today_health_line().await;
+    println!();
+
+    // Beta.246: Session summary from welcome engine
+    println!(
+        "{}",
+        fmt::section_title(&fmt::emojis::INFO, "Session Summary")
+    );
+    println!();
+
+    // Fetch telemetry and generate session summary
+    match crate::system_query::query_system_telemetry() {
+        Ok(telemetry_data) => {
+            // Load last session
+            let last_session = welcome::load_last_session().ok().flatten();
+
+            // Create current snapshot
+            let current_snapshot = welcome::create_telemetry_snapshot(&telemetry_data);
+
+            // Generate compact session summary (not the full welcome report)
+            let session_summary = welcome::generate_session_summary(last_session, current_snapshot.clone());
+
+            // Format with CLI colors via normalizer
+            let formatted = crate::output::normalize_for_cli(&session_summary);
+            println!("{}", formatted);
+
+            // Save session metadata for next run
+            let _ = welcome::save_session_metadata(current_snapshot);
+        }
+        Err(e) => {
+            println!(
+                "{}",
+                fmt::dimmed(&format!(
+                    "Unable to fetch telemetry for session summary: {}",
+                    e
+                ))
+            );
+        }
+    }
+
+    println!();
+    println!("{}", fmt::dimmed("System health details follow in the diagnostics section."));
+    println!();
+
     // Beta.141: Enhanced core health display with emojis
     println!(
         "{}",
@@ -215,6 +260,7 @@ pub async fn execute_anna_status_command(
     */
 
     // Beta.217b: Sysadmin Brain Analysis
+    // Beta.250: Now uses canonical diagnostic formatter
     println!(
         "{}",
         fmt::section_title(&fmt::emojis::INFO, "System Diagnostics (Brain Analysis)")
@@ -224,51 +270,12 @@ pub async fn execute_anna_status_command(
     // Call brain analysis via RPC
     match call_brain_analysis().await {
         Ok(analysis) => {
-            if analysis.critical_count > 0 || analysis.warning_count > 0 {
-                println!(
-                    "  {} {} critical, {} warning",
-                    if analysis.critical_count > 0 {
-                        fmt::emojis::WARNING
-                    } else {
-                        fmt::emojis::SUCCESS
-                    },
-                    analysis.critical_count,
-                    analysis.warning_count
-                );
-                println!();
+            // Beta.250: Use canonical inline summary formatter
+            let summary = crate::diagnostic_formatter::format_diagnostic_summary_inline(&analysis);
 
-                // Show top 3 insights
-                for (idx, insight) in analysis.insights.iter().take(3).enumerate() {
-                    let severity_emoji = match insight.severity.as_str() {
-                        "critical" => fmt::emojis::WARNING,
-                        "warning" => "⚠️",
-                        _ => fmt::emojis::INFO,
-                    };
-                    println!(
-                        "  {} {} {}",
-                        severity_emoji,
-                        fmt::bold(&format!("{}.", idx + 1)),
-                        insight.summary
-                    );
-                }
-
-                if analysis.insights.len() > 3 {
-                    println!(
-                        "    {}",
-                        fmt::dimmed(&format!(
-                            "... and {} more (say 'run a full diagnostic' for complete analysis)",
-                            analysis.insights.len() - 3
-                        ))
-                    );
-                }
-            } else {
-                println!(
-                    "  {} {}",
-                    fmt::emojis::SUCCESS,
-                    fmt::bold("All systems nominal")
-                );
-                println!("    {}", fmt::dimmed("No critical issues detected"));
-            }
+            // Apply CLI formatting
+            let formatted = crate::output::normalize_for_cli(&summary);
+            print!("{}", formatted);
         }
         Err(e) => {
             println!(
@@ -327,6 +334,28 @@ async fn get_llm_mode_string() -> String {
             Err(_) => "LLM not configured".to_string(),
         },
         Err(_) => "LLM not configured".to_string(),
+    }
+}
+
+/// Beta.259: Display "Today:" health line using DailySnapshot
+async fn display_today_health_line() {
+    use crate::diagnostic_formatter::{compute_overall_health, format_today_health_line_from_health};
+
+    // Try to fetch brain analysis
+    match call_brain_analysis().await {
+        Ok(analysis) => {
+            // Compute overall health using the same logic as daily snapshot
+            let overall_health = compute_overall_health(&analysis);
+
+            // Format health line using the canonical formatter
+            let health_text = format_today_health_line_from_health(overall_health);
+
+            println!("{} {}", fmt::bold("Today:"), health_text);
+        }
+        Err(_) => {
+            // Brain analysis unavailable, show fallback
+            println!("{} {}", fmt::bold("Today:"), fmt::dimmed("System health status unavailable (daemon offline)"));
+        }
     }
 }
 

@@ -14,6 +14,7 @@ pub mod errors;
 
 // Beta.200: Core architecture modules (ONLY these remain)
 mod cli;
+mod debug; // Beta.240: Debug utilities (developer-only)
 pub mod llm; // Beta.200: Organized LLM functionality
 mod llm_query_handler;
 mod runtime;
@@ -25,6 +26,7 @@ mod action_executor;
 pub mod action_plan_executor; // ActionPlan execution engine
 mod brain_command; // Beta.217c: Standalone brain diagnostic command
 mod context_engine; // Contextual awareness and proactive monitoring
+mod diagnostic_formatter; // Beta.250: Canonical diagnostic report formatting
 mod dialogue_v3_json;
 mod first_run;
 mod health;
@@ -64,8 +66,19 @@ mod version_banner;
 /// Application entry point
 ///
 /// Beta.200: Delegates to runtime::run() for all application logic.
+/// Beta.240: Initializes debug flags and prints stats on exit (if enabled)
 /// This keeps main.rs minimal and focused on being an entry point.
 #[tokio::main]
 async fn main() -> Result<()> {
-    runtime::run().await
+    // Beta.240: Initialize debug flags from environment variables
+    debug::init_debug_flags();
+
+    // Run the application
+    let result = runtime::run().await;
+
+    // Beta.240: Print RPC stats on exit if debug enabled (developer-only)
+    // Note: Stats printing handled per-client in status_command, llm_query_handler, etc.
+    // This is just a reminder that debug output is opt-in via ANNA_DEBUG_RPC_STATS=1
+
+    result
 }

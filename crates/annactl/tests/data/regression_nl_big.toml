@@ -1,0 +1,3545 @@
+# Beta.248: Large NL QA Regression Suite
+# ========================================
+#
+# This suite contains 250 real-world system questions focused on:
+# - System health and status queries
+# - Resource monitoring (CPU, RAM, disk, services)
+# - Diagnostic and troubleshooting queries
+# - Natural language variants
+#
+# Sources:
+# - tests/qa/questions_archlinux.jsonl (20 questions)
+# - Synthesized system health questions (230 questions)
+# - Based on patterns from Beta.241-245 routing improvements
+#
+# Format:
+# [[test]] - Test case
+# id - Unique identifier
+# query - Natural language question
+# expect_route - Expected routing: "diagnostic", "status", "conversational"
+# expect_contains - Optional: substrings that should appear in answer
+# notes - Optional: Context or source information
+
+# ============================================================================
+# SECTION 1: SYSTEM HEALTH AND STATUS (Primary diagnostic/status routes)
+# ============================================================================
+
+[[test]]
+id = "big-001"
+query = "How is my system today?"
+expect_route = "diagnostic"
+expect_contains = ["System health", "Source:"]
+notes = "Core system health query - should trigger diagnostic engine"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-002"
+query = "Is everything ok on this machine?"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "System health check with 'this machine' context indicator"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-003"
+query = "Run a full diagnostic"
+expect_route = "diagnostic"
+expect_contains = ["diagnostic engine"]
+notes = "Direct diagnostic request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-004"
+query = "Check my system health"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Explicit health check request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-005"
+query = "Show system status"
+expect_route = "status"
+expect_contains = ["Daemon", "LLM"]
+notes = "Direct status request - may overlap with diagnostic"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-006"
+query = "Is my system healthy?"
+expect_route = "diagnostic"
+expect_contains = ["System health"]
+notes = "Health query with question format"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-007"
+query = "Are there any problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Generic problem detection query"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-008"
+query = "What's wrong with my system?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Troubleshooting query assuming issues exist"
+status = "future_maybe"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category B1: 'What's wrong' with diagnostic context
+
+[[test]]
+id = "big-009"
+query = "Show me any issues"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Issue detection request"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-010"
+query = "Current system state"
+expect_route = "status"
+expect_contains = []
+notes = "State query - may route to status or diagnostic"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-011"
+query = "How much disk space do I have?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Disk space query - likely conversational with telemetry"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-012"
+query = "Am I running out of disk space?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Disk space health check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-013"
+query = "Show disk usage"
+expect_route = "conversational"
+expect_contains = []
+notes = "Disk usage request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-014"
+query = "What's using all my disk space?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Disk space troubleshooting"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-015"
+query = "Disk space problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Disk space health query"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-016"
+query = "What's my CPU usage?"
+expect_route = "conversational"
+expect_contains = []
+notes = "CPU usage query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-017"
+query = "Is my CPU overloaded?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "CPU health check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-018"
+query = "How much RAM am I using?"
+expect_route = "conversational"
+expect_contains = []
+notes = "RAM usage query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-019"
+query = "Memory problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Memory health check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-020"
+query = "Show me CPU and RAM stats"
+expect_route = "conversational"
+expect_contains = []
+notes = "Resource statistics request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-021"
+query = "Are any services failing?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Service health check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-022"
+query = "Show failed services"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Failed service list request - matches 'failed services' diagnostic keyword"
+status = "ok"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-023"
+query = "Which services are down?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Service status query"
+status = "future_maybe"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-024"
+query = "Check systemd services"
+expect_route = "conversational"
+expect_contains = []
+notes = "Systemd service check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-025"
+query = "Service problems on my machine?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Service health with context indicator"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-026-arch-002"
+query = "How do I install a package from the AUR?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - How-to question"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-027-arch-005"
+query = "How do I clean the pacman cache to free up disk space?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Package management how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-028-arch-009"
+query = "How do I downgrade a package in Arch Linux?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Package management how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-029-arch-013"
+query = "How do I update my system safely?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - System update how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-030-arch-019"
+query = "How do I search for packages that provide a specific file?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Package search how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-031-arch-004"
+query = "How do I regenerate the GRUB configuration after editing /etc/default/grub?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Boot configuration how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-032-arch-006"
+query = "How do I rebuild the initramfs after a kernel update?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Kernel maintenance how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-033-arch-011"
+query = "My system won't boot after an update. How do I troubleshoot this?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Boot troubleshooting"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-034-arch-015"
+query = "How do I add a kernel parameter permanently?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Kernel configuration how-to"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-035-arch-017"
+query = "I'm getting disk space errors. How do I find what's using space?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Disk troubleshooting"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "ambiguous"
+target_route = "conversational"
+current_route = "diagnostic"
+# Category D1: Dot-separated keywords - low priority
+
+[[test]]
+id = "big-036-arch-001"
+query = "How do I configure a static IP address on Arch Linux using systemd-networkd?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Networking configuration"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-037-arch-007"
+query = "How do I configure DNS servers on Arch Linux?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - DNS configuration"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-038-arch-012"
+query = "How do I set up a firewall using ufw on Arch Linux?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Firewall setup"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-039-arch-018"
+query = "How do I connect to WiFi from the command line?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - WiFi configuration"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-040-arch-003"
+query = "How do I enable a systemd service to start automatically at boot?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Service management"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-041-arch-008"
+query = "How do I check which services failed to start?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Service troubleshooting"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-042-arch-014"
+query = "How do I view logs for a specific systemd service?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Log viewing"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-043-arch-020"
+query = "How do I change the hostname on Arch Linux?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - System configuration"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-044-arch-010"
+query = "How do I install and configure Xorg on Arch Linux?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Desktop environment setup"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-045-arch-016"
+query = "How do I install NVIDIA drivers on Arch Linux?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Source: questions_archlinux.jsonl - Driver installation"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-046"
+query = "system ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Terse health check - auxiliary verb optional"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-047"
+query = "is the system ok"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Health check without question mark"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-048"
+query = "system health check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Health check as noun phrase"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-049"
+query = "health status"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Minimal health query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-050"
+query = "run diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Minimal diagnostic command"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-051"
+query = "perform diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Formal diagnostic request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-052"
+query = "execute diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Technical diagnostic request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-053"
+query = "current status"
+expect_route = "status"
+expect_contains = []
+notes = "Minimal status query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-054"
+query = "system state"
+expect_route = "status"
+expect_contains = []
+notes = "State query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-055"
+query = "what's happening"
+expect_route = "status"
+expect_contains = []
+notes = "Casual status query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-056"
+query = "How is this system doing?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Context: 'this system' (positive indicator)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-057"
+query = "Check this machine"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Context: 'this machine' (positive indicator)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-058"
+query = "Is my machine healthy?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Context: 'my machine' (positive indicator)"
+
+# Beta.252 Metadata
+priority = "high"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category A: Resource health variant - missing pattern
+
+[[test]]
+id = "big-059"
+query = "Status of my system"
+expect_route = "status"
+expect_contains = []
+notes = "Context: 'my system' (positive indicator)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-060"
+query = "Anything important on this machine?"
+expect_route = "status"
+expect_contains = []
+notes = "Context: 'this machine' + importance-based status pattern"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-061"
+query = "What is a healthy system?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Exclusion: Conceptual question (no 'this system' context)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-062"
+query = "In general, how do I check system health?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Exclusion: 'in general' (negative context indicator)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-063"
+query = "Theoretically, what makes a system healthy?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Exclusion: 'theoretically' (negative context indicator)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-064"
+query = "How does system health checking work?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Educational question - matches 'system health' keywords despite conceptual exclusion patterns"
+status = "ok"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-065"
+query = "Explain system diagnostics"
+expect_route = "conversational"
+expect_contains = []
+notes = "Exclusion: Explanation request, not diagnostic execution"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-066"
+query = "  system health?  "
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Whitespace: Leading/trailing spaces"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-067"
+query = "system    health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Whitespace: Multiple spaces"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-068"
+query = "system-health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Punctuation: Hyphenated (should normalize to 'system health')"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-069"
+query = "system.health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Punctuation: Dot-separated"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "ambiguous"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category D1: Dot-separated keywords - low priority
+
+[[test]]
+id = "big-070"
+query = "SYSTEM HEALTH"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Case: All caps"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-071"
+query = "SyStEm HeAlTh"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Case: Mixed case"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-072"
+query = "health check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Bi-directional: 'health check' matches 'check health'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-073"
+query = "check health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Bi-directional: 'check health' matches 'health check'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-074"
+query = "status current"
+expect_route = "status"
+expect_contains = []
+notes = "Bi-directional: 'status current' matches 'current status'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-075"
+query = "How is my system today?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Temporal: 'today' indicates real-time status check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-076"
+query = "System status right now"
+expect_route = "status"
+expect_contains = []
+notes = "Temporal: 'right now'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-077"
+query = "Current system health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Temporal: 'current'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-078"
+query = "System health at the moment"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Temporal: 'at the moment'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-079"
+query = "Is my system ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Phrase variation: 'ok'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-080"
+query = "Is my system okay?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Phrase variation: 'okay'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-081"
+query = "Everything ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Phrase variation: 'ok' in general check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-082"
+query = "Everything okay?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Phrase variation: 'okay' in general check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-083"
+query = "Is my disk healthy?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource-specific health: disk"
+
+# Beta.252 Metadata
+priority = "high"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category A: Resource health variant - missing pattern
+
+[[test]]
+id = "big-084"
+query = "CPU health check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource-specific health: CPU"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-085"
+query = "Memory health status"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource-specific health: memory"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-086"
+query = "Network health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource-specific health: network"
+
+# Beta.252 Metadata
+priority = "high"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category A: Resource health variant - missing pattern
+
+[[test]]
+id = "big-087"
+query = "Service health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource-specific health: services"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-088"
+query = "Any problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Minimal problem detection"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-089"
+query = "Are there any issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Issue detection query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-090"
+query = "Show me problems"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Problem list request"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-091"
+query = "What's broken?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Casual problem detection - Beta.253: too vague for deterministic routing (Category G)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-092"
+query = "Anything wrong?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "General problem check"
+status = "candidate_fix"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-093"
+query = "Can you show me the current status of my system?"
+expect_route = "status"
+expect_contains = []
+notes = "Verbose status request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-094"
+query = "I would like to see the system status"
+expect_route = "status"
+expect_contains = []
+notes = "Polite status request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-095"
+query = "Please run a diagnostic on my machine"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Polite diagnostic request"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-096"
+query = "Show status"
+expect_route = "status"
+expect_contains = []
+notes = "Imperative status command"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-097"
+query = "Display health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Imperative health command"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-098"
+query = "Get system status"
+expect_route = "status"
+expect_contains = []
+notes = "Get-style command"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-099"
+query = "Check system"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Check command"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-100"
+query = "Diagnose system"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Diagnose command"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-101"
+query = "What's my kernel version?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Specific fact query - not health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-102"
+query = "How many packages are installed?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Specific count query - not health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-103"
+query = "What's my uptime?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Specific metric query - not health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-104"
+query = "Show me the CPU model"
+expect_route = "conversational"
+expect_contains = []
+notes = "Hardware info query - not health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-105"
+query = "What GPU do I have?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Hardware info query - not health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-106"
+query = "How is the system running today?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Multi-word: 'the system' + temporal"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-107"
+query = "Check the machine status"
+expect_route = "status"
+expect_contains = []
+notes = "Multi-word: 'the machine'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-108"
+query = "This computer's health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Multi-word: 'this computer'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-109"
+query = "My computer status"
+expect_route = "status"
+expect_contains = []
+notes = "Multi-word: 'my computer'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-110"
+query = "How do I check if my system is healthy on Linux in general?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Ambiguous: Both 'my system' (positive) and 'in general' (negative) - prefer conversational"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-111"
+query = "Theoretically, how is this system doing?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Ambiguous: 'this system' (positive) but 'theoretically' (negative) - prefer conversational"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-112"
+query = "Run diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Standalone verb: 'run diagnostic'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-113"
+query = "Perform diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Standalone verb: 'perform diagnostic'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-114"
+query = "Execute diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Standalone verb: 'execute diagnostic'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-115"
+query = "Do diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Standalone verb: 'do diagnostic'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-116"
+query = "Current status"
+expect_route = "status"
+expect_contains = []
+notes = "Status keyword: 'current status'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-117"
+query = "System state"
+expect_route = "status"
+expect_contains = []
+notes = "Status keyword: 'system state'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-118"
+query = "What's happening on my machine?"
+expect_route = "status"
+expect_contains = []
+notes = "Status keyword: 'what's happening'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-119"
+query = "Machine status"
+expect_route = "status"
+expect_contains = []
+notes = "Status keyword: 'machine status'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-120"
+query = "Is my disk full?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Disk health: Full disk check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-121"
+query = "Disk space issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Disk health: Issue check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-122"
+query = "Running low on disk space?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Disk health: Low space check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-123"
+query = "Any failed services?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Service health: Failed service check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-124"
+query = "Services down?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Service health: Down service check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-125"
+query = "Degraded services?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Service health: Degraded service check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-126"
+query = "CPU overloaded?"
+expect_route = "conversational"
+expect_contains = []
+notes = "CPU health: Overload check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-127"
+query = "High CPU usage?"
+expect_route = "conversational"
+expect_contains = []
+notes = "CPU health: High usage check - Beta.256: Too vague for deterministic routing, 'high' is relative"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-128"
+query = "CPU problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "CPU health: Problem check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-129"
+query = "Memory issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Memory health: Issue check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-130"
+query = "RAM problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Memory health: Problem check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-131"
+query = "Running out of memory?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Memory health: OOM check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-132"
+query = "Show recent errors"
+expect_route = "conversational"
+expect_contains = []
+notes = "Log query: Error log request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-133"
+query = "Any critical logs?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Log health: Critical log check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-134"
+query = "Journal errors?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Log health: Journal error check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-135"
+query = "Broken packages?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Package health: Broken package check - Beta.256: Too terse, needs explicit system context"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-136"
+query = "Package problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Package health: Problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-137"
+query = "Orphaned packages?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Package health: Orphan check - Beta.256: Too terse, would require overly broad 'orphan' pattern"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-138"
+query = "Boot problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Boot health: Problem check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-139"
+query = "Failed boot attempts?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Boot health: Failure check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-140"
+query = "Network problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Network health: Problem check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-141"
+query = "Internet connectivity issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Network health: Connectivity check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-142"
+query = "Hardware problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Hardware health: Problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-143"
+query = "Overheating issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Hardware health: Temperature check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-144"
+query = "Filesystem errors?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Filesystem health: Error check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-145"
+query = "Mount problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Filesystem health: Mount check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-146"
+query = "Security issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Security health: Issue check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-147"
+query = "Updates available?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Update query: Not a health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-148"
+query = "Critical updates?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Update health: Critical update check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-149"
+query = "Overall system health?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comprehensive: Overall health"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-150"
+query = "Full system check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comprehensive: Full check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-151"
+query = "Complete diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comprehensive: Complete diagnostic"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-152"
+query = "Hey, how's my system?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Casual: Greeting + health check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-153"
+query = "Yo, everything ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Casual: Slang greeting + check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-154"
+query = "Sup with my machine?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Casual: Slang status query - Beta.253: too informal/casual for deterministic routing (Category F)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Category F: Slang/casual - conversational is correct
+
+[[test]]
+id = "big-155"
+query = "No problems, right?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Negation: Expecting confirmation"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-156"
+query = "Nothing broken?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Negation: Broken check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-157"
+query = "Not having issues, am I?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Negation: Issue check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-158"
+query = "Is my system getting worse?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Trend: Health degradation"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-159"
+query = "System performance declining?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Trend: Performance decline"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-160"
+query = "Better than yesterday?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comparison: Temporal comparison"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-161"
+query = "Anything urgent?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Priority: Urgency check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-162"
+query = "Critical issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Priority: Critical check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-163"
+query = "High priority problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Priority: High priority check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-164"
+query = "System is healthy, right?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Confirmation: Health confirmation"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-165"
+query = "Everything's fine, isn't it?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Confirmation: General confirmation"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-166"
+query = "Quick health check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Scope: Quick check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-167"
+query = "Deep diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Scope: Deep diagnostic"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-168"
+query = "Thorough system check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Scope: Thorough check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-169"
+query = "Status since last boot"
+expect_route = "status"
+expect_contains = []
+notes = "Temporal: Since last boot"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "ambiguous"
+target_route = "conversational"
+current_route = "conversational"
+# Category E: Temporal status - may be better conversational
+
+[[test]]
+id = "big-170"
+query = "Changes since yesterday"
+expect_route = "status"
+expect_contains = []
+notes = "Temporal: Changes query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "ambiguous"
+target_route = "conversational"
+current_route = "conversational"
+# Category E: Temporal status - may be better conversational
+
+[[test]]
+id = "big-171"
+query = "CPU and memory status"
+expect_route = "conversational"
+expect_contains = []
+notes = "Multi-resource: CPU + Memory"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-172"
+query = "Disk and service health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Multi-resource: Disk + Services"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-173"
+query = "Network and boot status"
+expect_route = "conversational"
+expect_contains = []
+notes = "Multi-resource: Network + Boot"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-174"
+query = "Tell me the system status"
+expect_route = "status"
+expect_contains = []
+notes = "Imperative: Tell me"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-175"
+query = "Give me a diagnostic report"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Imperative: Give me"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-176"
+query = "Show me if there are problems"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Imperative: Show me"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-177"
+query = "If there are any issues, show them"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Conditional: If-then structure"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-178"
+query = "Are there problems? If so, what?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Conditional: Two-part question"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-179"
+query = "System wellness check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Alternative: 'wellness' instead of 'health'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-180"
+query = "Machine condition"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Alternative: 'condition' instead of 'health'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-181"
+query = "Computer status"
+expect_route = "status"
+expect_contains = []
+notes = "Alternative: 'computer' instead of 'system'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-182"
+query = "I'm seeing error messages. What's wrong?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Error context: User reporting errors"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-183"
+query = "System keeps showing warnings"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Warning context: User reporting warnings"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-184"
+query = "System performance ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Performance: General performance check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-185"
+query = "Is the system slow?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Performance: Slowness check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-186"
+query = "Performance problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Performance: Problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-187"
+query = "System stable?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Stability: Stability check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-188"
+query = "Any crashes?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Stability: Crash check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-189"
+query = "Unstable system?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Stability: Instability check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-190"
+query = "Running out of resources?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource exhaustion: General check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-191"
+query = "Resource problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Resource: Problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-192"
+query = "Is the system available?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Availability: Availability check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-193"
+query = "System up?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Availability: Up/down check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-194"
+query = "Configuration problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Configuration: Problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-195"
+query = "Misconfigurations?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Configuration: Misconfiguration check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-196"
+query = "Dependency issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Dependency: Issue check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-197"
+query = "Missing dependencies?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Dependency: Missing dependency check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-198"
+query = "Permission problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Permission: Problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-199"
+query = "Access issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Permission: Access issue check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-200"
+query = "Compatibility issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Compatibility: Issue check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-201"
+query = "Exceeded any limits?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Limits: Quota check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-202"
+query = "Quota problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Limits: Quota problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-203"
+query = "Any deadlocks?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Locks: Deadlock check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-204"
+query = "Lock problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Locks: Lock problem check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-205"
+query = "Timeout issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Latency: Timeout check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-206"
+query = "High latency?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Latency: High latency check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-207"
+query = "How do system diagnostics work?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Exclusion: Educational question about process"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-208"
+query = "What tools can check system health?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Tool recommendation - matches 'system health' keywords despite conceptual nature"
+status = "ok"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-209"
+query = "Best practices for system monitoring?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Exclusion: Best practices query"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-210"
+query = "How to improve system health?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Improvement advice - matches 'system health' keywords"
+status = "ok"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-211"
+query = "?"
+expect_route = "conversational"
+expect_contains = []
+notes = "Edge case: Single question mark"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-212"
+query = "help"
+expect_route = "conversational"
+expect_contains = []
+notes = "Edge case: Generic help request"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-213"
+query = "status"
+expect_route = "status"
+expect_contains = []
+notes = "Edge case: Single word 'status'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-214"
+query = "diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Edge case: Single word 'diagnostic'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-215"
+query = "Would you kindly perform a comprehensive system diagnostic analysis?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Formal: Very polite and verbose request"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-216"
+query = "I request a complete system health evaluation"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Formal: Formal language"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-217"
+query = "sys health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Abbreviation: 'sys' for 'system'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-218"
+query = "svc problems"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Abbreviation: 'svc' for 'service'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-219"
+query = "Machine diagnostico"
+expect_route = "conversational"
+expect_contains = []
+notes = "Edge case: Spanish-like word (should not match)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-220"
+query = "System problem"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Singular: 'problem' (singular)"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-221"
+query = "System problems"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Plural: 'problems' (plural)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-222"
+query = "Service issue"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Singular: 'issue' (singular)"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-223"
+query = "Service issues"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Plural: 'issues' (plural)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-224"
+query = "My system's health"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Possessive: Apostrophe-s"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-225"
+query = "The machine's status"
+expect_route = "status"
+expect_contains = []
+notes = "Possessive: Apostrophe-s with 'the'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "status"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-226"
+query = "That system's health"
+expect_route = "conversational"
+expect_contains = []
+notes = "Demonstrative: 'that system' (less direct reference)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-227"
+query = "These services ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Demonstrative: 'these services'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-228"
+query = "All services ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Quantifier: 'all'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-229"
+query = "Any services failing?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Quantifier: 'any'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-230"
+query = "Some services down?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Quantifier: 'some'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-231"
+query = "Really bad system problems?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Intensifier: 'really bad'"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-232"
+query = "Very serious issues?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Intensifier: 'very serious'"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-233"
+query = "System health report"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Noun phrase: Health report"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-234"
+query = "Generate diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Action: Generate diagnostic"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-235"
+query = "Produce system status"
+expect_route = "status"
+expect_contains = []
+notes = "Action: Produce status"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-236"
+query = "Fetch health info"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Action: Fetch health"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-237"
+query = "Retrieve system state"
+expect_route = "status"
+expect_contains = []
+notes = "Action: Retrieve state"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "status"
+current_route = "status"
+# Passing test - routing correct
+
+[[test]]
+id = "big-238"
+query = "Complete system analysis"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comprehensive: Complete analysis"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "test_unrealistic"
+target_route = "conversational"
+current_route = "conversational"
+# Category G: Generic/underspecified - too vague for deterministic routing
+
+[[test]]
+id = "big-239"
+query = "Detailed health check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comprehensive: Detailed check"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct
+
+[[test]]
+id = "big-240"
+query = "In-depth diagnostic"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Comprehensive: In-depth diagnostic"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-241"
+query = "Extensive status report"
+expect_route = "status"
+expect_contains = []
+notes = "Comprehensive: Extensive status"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "status"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-242"
+query = "I want to know if my system is healthy"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Intent: Explicit want statement"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-243"
+query = "I need a system check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Intent: Need statement"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-244"
+query = "Can you check my system?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Intent: Polite request for check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-245"
+query = "System"
+expect_route = "conversational"
+expect_contains = []
+notes = "Edge case: Single word 'system' (too vague)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-246"
+query = "Health"
+expect_route = "conversational"
+expect_contains = []
+notes = "Edge case: Single word 'health' (too vague)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-247"
+query = "Check"
+expect_route = "conversational"
+expect_contains = []
+notes = "Edge case: Single word 'check' (too vague)"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "conversational"
+current_route = "conversational"
+# Passing test - routing correct
+
+[[test]]
+id = "big-248"
+query = "Just checking in on the system"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Realistic: Casual check-in"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-249"
+query = "Morning system check"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Realistic: Time-of-day routine check"
+
+# Beta.252 Metadata
+priority = "medium"
+classification = "router_bug"
+target_route = "diagnostic"
+current_route = "conversational"
+# Category G2: Has some keywords but pattern not matched
+
+[[test]]
+id = "big-250"
+query = "Before I leave, is the system ok?"
+expect_route = "diagnostic"
+expect_contains = []
+notes = "Realistic: Contextual check before action"
+
+# Beta.252 Metadata
+priority = "low"
+classification = "correct"
+target_route = "diagnostic"
+current_route = "diagnostic"
+# Passing test - routing correct

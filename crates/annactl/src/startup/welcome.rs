@@ -362,6 +362,76 @@ pub fn format_time_since(seconds: i64) -> String {
     }
 }
 
+/// Beta.246: Generate compact session summary for `annactl status`
+///
+/// Returns a minimal [SUMMARY]/[DETAILS] formatted block with session info.
+/// This is NOT a health report - just session tracking.
+pub fn generate_session_summary(
+    last_session: Option<SessionMetadata>,
+    current_telemetry: TelemetrySnapshot,
+) -> String {
+    match last_session {
+        None => {
+            // First session
+            format!(
+                r#"[SUMMARY]
+Session overview: **first recorded session** for this user
+
+[DETAILS]
+- No previous status run recorded
+- Kernel: {}
+- Packages: {} installed"#,
+                current_telemetry.kernel_version,
+                current_telemetry.package_count
+            )
+        }
+        Some(last) => {
+            // Returning session
+            let time_since = Utc::now() - last.last_run;
+            let time_since_str = format_time_since(time_since.num_seconds());
+
+            // Count boot events (if kernel changed, assume at least 1 boot)
+            let kernel_changed = last.last_telemetry.kernel_version != current_telemetry.kernel_version;
+            let boot_count = if kernel_changed { "1+" } else { "0" };
+
+            // Package changes
+            let pkg_diff = current_telemetry.package_count as i64 - last.last_telemetry.package_count as i64;
+            let pkg_status = if pkg_diff == 0 {
+                "0 upgraded, 0 new, 0 removed".to_string()
+            } else if pkg_diff > 0 {
+                format!("{} new package{}", pkg_diff, if pkg_diff == 1 { "" } else { "s" })
+            } else {
+                format!("{} removed", pkg_diff.abs())
+            };
+
+            // Kernel status
+            let kernel_status = if kernel_changed {
+                format!(
+                    "{} → {} (changed since last session)",
+                    last.last_telemetry.kernel_version,
+                    current_telemetry.kernel_version
+                )
+            } else {
+                format!("{} (unchanged since last session)", current_telemetry.kernel_version)
+            };
+
+            format!(
+                r#"[SUMMARY]
+Session overview: **returning session** (last run {})
+
+[DETAILS]
+- Kernel: {}
+- Packages: {} since last session
+- Boots: {} since previous status"#,
+                time_since_str,
+                kernel_status,
+                pkg_status,
+                boot_count
+            )
+        }
+    }
+}
+
 /// Create TelemetrySnapshot from SystemTelemetry
 ///
 /// Extracts minimal fields needed for diff computation

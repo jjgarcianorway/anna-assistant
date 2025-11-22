@@ -2,7 +2,7 @@
 
 **Intelligent Arch Linux System Assistant with Deterministic Diagnostics**
 
-[![Version](https://img.shields.io/badge/version-5.7.0--beta.238-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-5.7.0--beta.263-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 
@@ -178,15 +178,24 @@ sudo ./target/release/annad
 
 ## Project Status
 
-**Current:** Beta.222 - Complete Truecolor TUI Polish + Greetings
+**Current:** Beta.258 - "How is my system today?" Daily Snapshot v1
 
 **Recent milestones:**
-- ✅ Beta.222 - Complete truecolor palette migration + Beta.221 greetings
-- ✅ Beta.221 - Smart greetings with context-aware welcome
-- ✅ Beta.220 - Production-quality TUI with truecolor visuals
-- ✅ Beta.218 - Diagnostic engine integrated into TUI
-- ✅ Beta.217 - Internal diagnostic engine (9 deterministic rules)
-- ✅ Beta.200 - Three-command architecture
+- ✅ Beta.258 - Daily snapshot for "today" queries (sysadmin briefing format, session delta integration, 8 new tests, 186/250 maintained)
+- ✅ Beta.257 - Unified health & status experience (health consistency, temporal wording, 13 new tests, 186/250 maintained)
+- ✅ Beta.256 - Routing consolidation and expectation cleanup (+11 tests, 186/250 big suite passing, 74.4%)
+- ✅ Beta.255 - Temporal and recency routing patterns (+2 tests, 175/250 big suite passing, 70.0%)
+- ✅ Beta.254 - Punctuation and noise normalization (+10 tests, 173/250 big suite passing, 69.2%)
+- ✅ Beta.253 - Strategic routing improvements and expectation corrections (+13 tests, 163/250 big suite passing, 65.2%)
+- ✅ Beta.252 - Comprehensive failure taxonomy, metadata-driven tests (+3 tests, 150/250 big suite passing, 60.0%)
+- ✅ Beta.251 - Conservative routing improvements (+9 tests, 147/250 big suite passing, 58.8%)
+- ✅ Beta.250 - Canonical diagnostic formatter, consistent health answers across all surfaces
+- ✅ Beta.249 - Router alignment with high-value fixes (55.2% pass rate on big suite, +7.6pp)
+- ✅ Beta.248 - NL QA Marathon v1 (250-test big suite, measurement baseline)
+- ✅ Beta.243 - First routing improvement pass (whitespace, punctuation, phrase variations)
+- ✅ Beta.242 - Regression suite expansion (115 tests, 100% pass rate)
+- ✅ Beta.241 - Regression test infrastructure foundation
+- ✅ Beta.238 - Full diagnostic routing via natural language
 - ✅ 77+ deterministic recipes
 - ✅ Full RPC integration
 - ✅ JSON output modes

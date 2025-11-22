@@ -108,6 +108,7 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
         brain_insights: Vec::new(), // Beta.218
         brain_timestamp: None,      // Beta.218
         brain_available: false,     // Beta.218
+        daily_snapshot: None,       // Beta.259
     };
 
     // Beta.148: Route through appropriate handler
@@ -142,7 +143,7 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
             // Get LLM config
             let llm_config = crate::query_handler::get_llm_config();
 
-            // Use unified query handler
+            // Beta.247: Use unified query handler with TUI normalization
             match crate::unified_query_handler::handle_unified_query(&input, &telemetry, &llm_config).await {
                 Ok(result) => {
                     use crate::unified_query_handler::UnifiedQueryResult;
@@ -151,7 +152,11 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
                         UnifiedQueryResult::Template { output, .. } => output,
                         _ => "Query processed successfully".to_string(),
                     };
-                    let _ = tx.send(TuiMessage::AnnaReply(reply)).await;
+                    // Beta.247: Apply TUI normalization to strip ANSI codes and format for TUI
+                    // The unified handler returns CLI-normalized output (with ANSI codes)
+                    // TUI needs plain text for ratatui rendering
+                    let normalized_reply = crate::output::normalize_for_tui(&reply);
+                    let _ = tx.send(TuiMessage::AnnaReply(normalized_reply)).await;
                 }
                 Err(e) => {
                     let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
