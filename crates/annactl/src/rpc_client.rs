@@ -1,4 +1,6 @@
 //! RPC Client - Unix socket client for communicating with daemon
+//!
+//! Beta.237: Enhanced error categorization and resilience
 
 use anna_common::ipc::{Method, Request, Response, ResponseData};
 use anyhow::{Context, Result};
@@ -7,6 +9,34 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
 static REQUEST_ID: AtomicU64 = AtomicU64::new(1);
+
+/// RPC Error categories for better error handling
+/// Beta.237: Typed errors for clearer failure modes
+#[derive(Debug, Clone)]
+pub enum RpcErrorKind {
+    /// Daemon is not running or socket doesn't exist
+    DaemonUnavailable(String),
+    /// Permission denied accessing socket
+    PermissionDenied(String),
+    /// RPC call timed out
+    Timeout(String),
+    /// Connection refused or broken
+    ConnectionFailed(String),
+    /// Unexpected internal error
+    Internal(String),
+}
+
+impl RpcErrorKind {
+    pub fn to_user_message(&self) -> String {
+        match self {
+            Self::DaemonUnavailable(msg) => format!("Daemon unavailable: {}", msg),
+            Self::PermissionDenied(msg) => format!("Permission denied: {}", msg),
+            Self::Timeout(msg) => format!("RPC timeout: {}", msg),
+            Self::ConnectionFailed(msg) => format!("Connection failed: {}", msg),
+            Self::Internal(msg) => format!("Internal error: {}", msg),
+        }
+    }
+}
 
 /// RPC Client for communicating with the daemon
 pub struct RpcClient {
@@ -171,8 +201,44 @@ impl RpcClient {
         anyhow::Error::new(error).context(hint)
     }
 
-    /// Send a request and get a response
+    /// Categorize an RPC error for better handling
+    /// Beta.237: Type-safe error categorization
+    fn categorize_error(error: &anyhow::Error) -> RpcErrorKind {
+        let error_msg = error.to_string().to_lowercase();
+
+        if error_msg.contains("socket not found") || error_msg.contains("no such file") {
+            RpcErrorKind::DaemonUnavailable(error.to_string())
+        } else if error_msg.contains("permission denied") {
+            RpcErrorKind::PermissionDenied(error.to_string())
+        } else if error_msg.contains("timeout") || error_msg.contains("timed out") {
+            RpcErrorKind::Timeout(error.to_string())
+        } else if error_msg.contains("connection refused")
+            || error_msg.contains("broken pipe")
+            || error_msg.contains("connection reset") {
+            RpcErrorKind::ConnectionFailed(error.to_string())
+        } else {
+            RpcErrorKind::Internal(error.to_string())
+        }
+    }
+
+    /// Send a request and get a response with timeout and retry
+    ///
     /// Beta.235: Added timeout and exponential backoff for transient errors
+    /// Beta.237: Enhanced error categorization and documentation
+    ///
+    /// # Behavior
+    /// - Connection timeout: Configured in connect_with_path (500ms per attempt)
+    /// - Request timeout: Method-specific (5s standard, 10s for expensive calls)
+    /// - Retries: Up to 3 attempts with exponential backoff (50ms → 800ms)
+    /// - Transient errors: Retried automatically
+    /// - Permanent errors: Returned immediately
+    ///
+    /// # Error Categories
+    /// - DaemonUnavailable: Socket not found, daemon not running
+    /// - PermissionDenied: User not in anna group
+    /// - Timeout: Call exceeded timeout duration
+    /// - ConnectionFailed: Broken pipe, connection refused
+    /// - Internal: Unexpected errors
     pub async fn call(&mut self, method: Method) -> Result<ResponseData> {
         use std::time::Duration;
         use tokio::time::sleep;

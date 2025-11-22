@@ -53,7 +53,16 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     let config = get_llm_config();
 
     // Beta.229: Stop spinner before unified handler to prevent corruption during streaming
+    // Beta.237: Immediately show "anna:" prefix to reduce perceived latency
     spinner.finish_and_clear();
+
+    // Show immediate feedback to reduce perceived latency between spinner and answer
+    if ui.capabilities().use_colors() {
+        print!("{} ", "anna:".bright_magenta().bold());
+    } else {
+        print!("anna: ");
+    }
+    io::stdout().flush().unwrap();
 
     // Use unified query handler
     let handler_start = std::time::Instant::now();
@@ -62,9 +71,9 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             recipe_name,
             action_plan,
         }) => {
+            // Beta.237: "anna:" already printed above, just add the recipe info
             println!(
-                "{} {} {}",
-                "anna:".bright_magenta().bold(),
+                "{} {}",
                 "Using deterministic recipe:".white(),
                 recipe_name.bright_green()
             );
@@ -74,7 +83,8 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         Ok(UnifiedQueryResult::Template {
             command, output, ..
         }) => {
-            println!("{} {}", "anna:".bright_magenta().bold(), "Running:".white());
+            // Beta.237: "anna:" already printed above
+            println!("{}", "Running:".white());
             ui.info(&format!("  $ {}", command));
             println!();
             for line in output.lines() {
@@ -86,7 +96,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             action_plan,
             raw_json: _,
         }) => {
-            println!("{}", "anna:".bright_magenta().bold());
+            // Beta.237: "anna:" already printed above, just newline
             println!();
             display_action_plan(&action_plan, &ui);
         }
