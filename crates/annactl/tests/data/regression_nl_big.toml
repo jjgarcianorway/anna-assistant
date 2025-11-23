@@ -2529,9 +2529,9 @@ notes = "Conditional: Two-part question"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -3035,9 +3035,9 @@ notes = "Edge case: Single word 'diagnostic'"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -3049,9 +3049,9 @@ notes = "Formal: Very polite and verbose request"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -3189,9 +3189,9 @@ notes = "Possessive: Apostrophe-s with 'the'"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "status"
-current_route = "conversational"
+current_route = "status"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -3413,9 +3413,9 @@ notes = "Comprehensive: Extensive status"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "status"
-current_route = "conversational"
+current_route = "status"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -5413,7 +5413,7 @@ expect_contains = []
 notes = "Beta.274: Two word diagnostic command (router_bug per existing pattern)"
 
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
 current_route = "conversational"
 

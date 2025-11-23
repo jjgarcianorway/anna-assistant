@@ -221,7 +221,6 @@ fn is_full_diagnostic_query(query: &str) -> bool {
         // Short diagnostic commands
         "diagnose system", "generate diagnostic", "fetch health info",
         "in depth diagnostic", "deep diagnostic", "thorough system check",
-        "extensive status report",
         // System wellness and completeness
         "system wellness check", "complete diagnostic",
         // Abbreviated forms
@@ -251,17 +250,27 @@ fn is_full_diagnostic_query(query: &str) -> bool {
         "give me a diagnostic report", "show me if there are problems",
         "are there problems if so what",
         // Machine/PC variants
-        "is my machine healthy", "is my disk healthy", "machine's status",
+        "is my machine healthy", "is my disk healthy",
         // Negative question forms
         "system is healthy right",
-        // One-word diagnostic
-        "diagnostic",
+        // Beta.276: Conditional diagnostic patterns
+        "are there problems", "any problems",
     ];
 
     for keyword in &diagnostic_keywords {
         if normalized.contains(keyword) {
             return true;
         }
+    }
+
+    // Beta.276: Single-word "diagnostic" as exact match only
+    if normalized == "diagnostic" {
+        return true;
+    }
+
+    // Beta.276: "system diagnostic" or "diagnostic analysis" patterns
+    if normalized.contains("system diagnostic") || normalized.contains("diagnostic analysis") {
+        return true;
     }
 
     // Beta.249: Resource-specific patterns

@@ -1353,7 +1353,6 @@ fn is_full_diagnostic_query(user_text: &str) -> bool {
         "in depth diagnostic",
         "deep diagnostic",
         "thorough system check",
-        "extensive status report",
         // System wellness and completeness
         "system wellness check",
         "complete diagnostic",
@@ -1408,11 +1407,11 @@ fn is_full_diagnostic_query(user_text: &str) -> bool {
         // Machine/PC variants
         "is my machine healthy",
         "is my disk healthy",
-        "machine's status",
         // Negative question forms
         "system is healthy right",
-        // One-word diagnostic
-        "diagnostic",
+        // Beta.276: Conditional diagnostic patterns
+        "are there problems",
+        "any problems",
     ];
 
     for phrase in &exact_matches {
@@ -1421,6 +1420,13 @@ fn is_full_diagnostic_query(user_text: &str) -> bool {
             crate::debug::log_diagnostic_phrase_match(phrase, "exact_match");
             return true;
         }
+    }
+
+    // Beta.276: Single-word "diagnostic" as exact match only (not substring)
+    // This avoids false positives like "do diagnostic" while catching "diagnostic" alone
+    if normalized == "diagnostic" {
+        crate::debug::log_diagnostic_phrase_match("diagnostic", "exact_word");
+        return true;
     }
 
     // Pattern-based matches (broader but still specific)
@@ -1437,6 +1443,12 @@ fn is_full_diagnostic_query(user_text: &str) -> bool {
     if normalized.contains("full") && normalized.contains("diagnostic") {
         // Beta.240: Log pattern match
         crate::debug::log_diagnostic_phrase_match(&normalized, "full_diagnostic_pattern");
+        return true;
+    }
+
+    // Beta.276: "system diagnostic" or "diagnostic analysis" patterns
+    if normalized.contains("system diagnostic") || normalized.contains("diagnostic analysis") {
+        crate::debug::log_diagnostic_phrase_match(&normalized, "system_diagnostic_pattern");
         return true;
     }
 
