@@ -128,10 +128,8 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
             }
         });
     } else {
-        // Beta.229: Handle informational queries in TUI using unified query handler
+        // Beta.280: Handle informational queries with TUI streaming support
         tokio::spawn(async move {
-            let start = std::time::Instant::now();
-
             // Get telemetry for query
             let telemetry = match crate::system_query::query_system_telemetry() {
                 Ok(t) => t,
@@ -144,24 +142,9 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
             // Get LLM config
             let llm_config = crate::query_handler::get_llm_config();
 
-            // Beta.247: Use unified query handler with TUI normalization
-            match crate::unified_query_handler::handle_unified_query(&input, &telemetry, &llm_config).await {
-                Ok(result) => {
-                    use crate::unified_query_handler::UnifiedQueryResult;
-                    let reply = match result {
-                        UnifiedQueryResult::ConversationalAnswer { answer, .. } => answer,
-                        UnifiedQueryResult::Template { output, .. } => output,
-                        _ => "Query processed successfully".to_string(),
-                    };
-                    // Beta.247: Apply TUI normalization to strip ANSI codes and format for TUI
-                    // The unified handler returns CLI-normalized output (with ANSI codes)
-                    // TUI needs plain text for ratatui rendering
-                    let normalized_reply = crate::output::normalize_for_tui(&reply);
-                    let _ = tx.send(TuiMessage::AnnaReply(normalized_reply)).await;
-                }
-                Err(e) => {
-                    let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
-                }
+            // Beta.280: Handle query with TUI streaming
+            if let Err(e) = handle_tui_query_with_streaming(&input, &telemetry, &llm_config, tx.clone()).await {
+                let _ = tx.send(TuiMessage::AnnaReply(format!("Error: {}", e))).await;
             }
         });
     }
@@ -184,4 +167,69 @@ fn detect_language_change(input: &str, state: &mut AnnaTuiState) {
     } else if input_lower.contains("parla italiano") || input_lower.contains("in italiano") {
         state.language = LanguageCode::Italian;
     }
+}
+
+/// Beta.280: Handle TUI query with streaming support
+///
+/// This function intercepts LLM streaming and sends chunks to the TUI channel
+/// instead of printing to stdout (which would appear outside the TUI).
+async fn handle_tui_query_with_streaming(
+    user_text: &str,
+    telemetry: &anna_common::telemetry::SystemTelemetry,
+    llm_config: &anna_common::llm::LlmConfig,
+    tx: tokio::sync::mpsc::Sender<TuiMessage>,
+) -> anyhow::Result<()> {
+    use anna_common::llm::{LlmClient, LlmPrompt};
+    use std::sync::Arc;
+
+    // Build conversational prompt
+    let prompt = crate::unified_query_handler::build_conversational_prompt_for_tui(user_text, telemetry);
+
+    // Create LLM client
+    let client = Arc::new(LlmClient::from_config(llm_config)
+        .map_err(|e| anyhow::anyhow!("LLM not available: {}", e))?);
+
+    let llm_prompt = Arc::new(LlmPrompt {
+        system: LlmClient::anna_system_prompt().to_string(),
+        user: prompt,
+        conversation_history: None,
+    });
+
+    // Send start streaming message
+    let _ = tx.send(TuiMessage::AnnaReplyStart).await;
+
+    // Clone for spawn_blocking
+    let client_clone = Arc::clone(&client);
+    let prompt_clone = Arc::clone(&llm_prompt);
+    let tx_clone = tx.clone();
+
+    // Stream the response with TUI chunks
+    let response_text = tokio::task::spawn_blocking(move || {
+        let mut accumulated = String::new();
+
+        // Beta.280: Send chunks to TUI instead of printing to stdout
+        let result = client_clone.chat_stream(&prompt_clone, &mut |chunk: &str| {
+            accumulated.push_str(chunk);
+
+            // Send chunk to TUI (best effort, don't fail streaming on send error)
+            let tx_chunk = tx_clone.clone();
+            let chunk_owned = chunk.to_string();
+            tokio::spawn(async move {
+                let _ = tx_chunk.send(TuiMessage::AnnaReplyChunk(chunk_owned)).await;
+            });
+        });
+
+        match result {
+            Ok(()) => Ok(accumulated),
+            Err(e) => Err(e),
+        }
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("LLM task panicked: {}", e))?
+    .map_err(|e| anyhow::anyhow!("LLM query failed: {}", e))?;
+
+    // Send completion message
+    let _ = tx.send(TuiMessage::AnnaReplyComplete).await;
+
+    Ok(())
 }

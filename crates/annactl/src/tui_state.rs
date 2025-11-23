@@ -162,11 +162,33 @@ impl AnnaTuiState {
 
     /// Add Anna's reply to conversation
     pub fn add_anna_reply(&mut self, reply: String) {
-        self.conversation.push(ChatItem::Anna(reply.clone()));
+        self.conversation.push(ChatItem::Anna {
+            text: reply.clone(),
+            is_streaming: false,
+        });
         self.last_llm_reply = Some(reply);
 
         // Auto-scroll to bottom
         self.scroll_to_bottom();
+    }
+
+    /// Beta.280: Start a new streaming Anna reply
+    pub fn start_streaming_reply(&mut self) {
+        self.conversation.push(ChatItem::Anna {
+            text: String::new(),
+            is_streaming: true,
+        });
+        self.scroll_to_bottom();
+    }
+
+    /// Beta.280: Complete the current streaming reply
+    pub fn complete_streaming_reply(&mut self) {
+        if let Some(ChatItem::Anna { text, is_streaming }) = self.conversation.last_mut() {
+            if *is_streaming {
+                *is_streaming = false;
+                self.last_llm_reply = Some(text.clone());
+            }
+        }
     }
 
     /// Beta.147: Add structured action plan to conversation
@@ -246,13 +268,16 @@ impl AnnaTuiState {
         self.scroll_offset = usize::MAX;
     }
 
-    /// Beta.115: Append chunk to last Anna message (for streaming)
+    /// Beta.115/Beta.280: Append chunk to last Anna message (for streaming)
     pub fn append_to_last_anna_reply(&mut self, chunk: String) {
-        if let Some(ChatItem::Anna(last_reply)) = self.conversation.last_mut() {
-            last_reply.push_str(&chunk);
+        if let Some(ChatItem::Anna { text, .. }) = self.conversation.last_mut() {
+            text.push_str(&chunk);
         } else {
-            // No Anna reply exists yet, create one
-            self.conversation.push(ChatItem::Anna(chunk));
+            // No Anna reply exists yet, create one in streaming mode
+            self.conversation.push(ChatItem::Anna {
+                text: chunk,
+                is_streaming: true,
+            });
         }
         // Auto-scroll as chunks arrive
         self.scroll_to_bottom();
@@ -354,7 +379,11 @@ impl LanguageCode {
 #[derive(Debug, Clone)]
 pub enum ChatItem {
     User(String),
-    Anna(String),
+    /// Beta.280: Anna reply with streaming state
+    Anna {
+        text: String,
+        is_streaming: bool,
+    },
     System(String),
     /// Beta.147: Structured action plan display
     ActionPlan(Box<anna_common::action_plan_v3::ActionPlan>),

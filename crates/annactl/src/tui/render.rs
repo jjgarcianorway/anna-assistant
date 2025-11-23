@@ -234,10 +234,16 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
                 }
                 lines.push(Line::from("")); // Add spacing between messages
             }
-            ChatItem::Anna(msg) => {
-                // Beta.260: Use canonical formatting for Anna's responses
+            ChatItem::Anna { text, is_streaming } => {
+                // Beta.280: Handle streaming state in Anna replies
+                let header_text = if *is_streaming {
+                    "Anna: ⋯" // Indicate streaming in progress
+                } else {
+                    "Anna: "
+                };
+
                 lines.push(Line::from(vec![Span::styled(
-                    "Anna: ",
+                    header_text,
                     Style::default()
                         .fg(Color::Rgb(100, 255, 100)) // Bright green
                         .add_modifier(Modifier::BOLD),
@@ -245,7 +251,7 @@ pub fn draw_conversation_panel(f: &mut Frame, area: Rect, state: &AnnaTuiState) 
 
                 // Parse message using canonical format parser
                 let styles = TuiStyles::default();
-                let formatted_lines = parse_canonical_format(msg, &styles);
+                let formatted_lines = parse_canonical_format(text, &styles);
 
                 // Add formatted lines with wrapping
                 for formatted_line in formatted_lines {

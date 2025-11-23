@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.280] - 2025-11-23
+
+### TUI STREAMING FIX - NO MORE DUPLICATES
+
+**Type:** UX Bug Fix
+**Focus:** Fix streaming and message duplication in TUI
+
+#### Summary 📊
+Beta.280 fixes the core TUI streaming bug where assistant replies appeared twice: once streaming to stdout (outside TUI) and once in the conversation (inside TUI). Every reply now appears exactly once in the correct place, with stable layout during streaming.
+
+#### Fixed 🐛
+
+**Message Duplication Eliminated:**
+- **Root cause:** `unified_query_handler.rs:281` printed chunks directly to stdout during streaming, then sent full text to TUI conversation
+- **Fix:** New `handle_tui_query_with_streaming()` function intercepts streaming chunks and sends them via `TuiMessage::AnnaReplyChunk` instead of printing to stdout
+- **Result:** Zero duplicate messages, streaming appears only inside TUI conversation
+
+**Streaming State Lifecycle:**
+- Enhanced `ChatItem::Anna` from `Anna(String)` to `Anna { text: String, is_streaming: bool }`
+- Added clear lifecycle: `start_streaming_reply()` → chunks via `append_to_last_anna_reply()` → `complete_streaming_reply()`
+- Visual indicator: "Anna: ⋯" header during streaming, "Anna: " when complete
+
+**Layout Stability:**
+- Streaming text stays inside the conversation bubble (no overflow, no layout corruption)
+- Input box remains visible and usable during long streaming replies
+- Proper auto-scrolling as chunks arrive
+
+#### Added ✨
+
+**New TUI Messages:**
+- `TuiMessage::AnnaReplyStart` - Signal start of new streaming reply
+- Enhanced `TuiMessage::AnnaReplyChunk` - Now actually used for real streaming
+- `TuiMessage::AnnaReplyComplete` - Mark streaming finished
+
+**New State Methods:**
+- `AnnaTuiState::start_streaming_reply()` - Create new Draft message
+- `AnnaTuiState::complete_streaming_reply()` - Finalize Draft → Final
+- `AnnaTuiState::append_to_last_anna_reply()` - Updated to handle new structure
+
+**Test Coverage (5 tests):**
+- `test_streaming_lifecycle_single_message` - Draft → chunks → Final lifecycle
+- `test_two_consecutive_streaming_replies` - Multiple replies don't interfere
+- `test_append_creates_message_if_none_exists` - Graceful fallback
+- `test_non_streaming_reply_still_works` - Backward compatibility
+- `test_mixed_user_and_anna_messages` - No cross-contamination
+
+#### Changed 🔄
+
+**TUI Input Handler:**
+- Replaced direct `handle_unified_query` call with new `handle_tui_query_with_streaming()`
+- Streaming chunks now sent to TUI channel instead of stdout
+- No more "streaming word by word outside the tui" bug
+
+**Unified Query Handler:**
+- Made `build_conversational_prompt_for_tui()` public for TUI reuse
+- Original CLI streaming behavior unchanged (still prints to stdout for CLI)
+
+#### Technical Details 🔧
+
+**Files Modified:**
+- `crates/annactl/src/tui_state.rs` - Enhanced ChatItem::Anna with streaming state
+- `crates/annactl/src/tui/event_loop.rs` - Added AnnaReplyStart message handling
+- `crates/annactl/src/tui/input.rs` - New streaming function with channel-based chunks
+- `crates/annactl/src/tui/render.rs` - Visual streaming indicator
+- `crates/annactl/src/unified_query_handler.rs` - Exposed prompt builder
+
+**Test File:**
+- `crates/annactl/tests/test_tui_streaming_beta280.rs` - 5 comprehensive streaming tests
+
+**Guarantee:**
+- **One message per reply** - No duplicates, ever
+- **Single render location** - Only in conversation, never outside TUI
+- **Stable layout** - No corruption during or after streaming
+
+#### Out of Scope ⛔
+
+Beta.280 intentionally does NOT change:
+- Welcome flow (deferred to future release)
+- Right panel (deferred to future release)
+- Prompt refactoring (deferred to future release)
+- Backend/daemon features (zero changes)
+
+#### Manual Testing ✅
+
+Tested scenarios:
+1. Fresh TUI launch → ask question → see streaming in single bubble
+2. Long response → verify no layout breakage, input stays visible
+3. Multiple questions → each reply appears once, no cross-contamination
+4. Exit TUI → no lingering text or extra windows
+
+**Result:** TUI streaming is now stable and non-embarrassing.
+
+---
+
 ## [5.7.0-beta.279] - 2025-11-23
 
 ### HISTORIAN V1 & PROACTIVE RULES COMPLETION

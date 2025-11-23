@@ -21,8 +21,12 @@ use super::state::update_telemetry;
 pub enum TuiMessage {
     UserInput(String),
     AnnaReply(String),
-    AnnaReplyChunk(String), // Beta.115: Streaming chunk
-    AnnaReplyComplete,      // Beta.115: Streaming complete
+    /// Beta.280: Start a new streaming reply
+    AnnaReplyStart,
+    /// Beta.280: Streaming chunk
+    AnnaReplyChunk(String),
+    /// Beta.280: Streaming complete
+    AnnaReplyComplete,
     ActionPlanReply(anna_common::action_plan_v3::ActionPlan), // Beta.147: Structured action plan
     TelemetryUpdate,
     BrainUpdate(anna_common::ipc::BrainAnalysisData), // Beta.234: Brain analysis result
@@ -210,16 +214,22 @@ async fn run_event_loop(
         while let Ok(msg) = rx.try_recv() {
             match msg {
                 TuiMessage::AnnaReply(reply) => {
+                    // Beta.280: Non-streaming reply (full message at once)
                     state.is_thinking = false;
                     state.add_anna_reply(reply);
                 }
+                TuiMessage::AnnaReplyStart => {
+                    // Beta.280: Start new streaming reply
+                    state.start_streaming_reply();
+                }
                 TuiMessage::AnnaReplyChunk(chunk) => {
-                    // Beta.115: Streaming chunk arrives
+                    // Beta.280: Streaming chunk arrives
                     state.append_to_last_anna_reply(chunk);
                 }
                 TuiMessage::AnnaReplyComplete => {
-                    // Beta.115: Streaming complete
+                    // Beta.280: Streaming complete
                     state.is_thinking = false;
+                    state.complete_streaming_reply();
                 }
                 TuiMessage::ActionPlanReply(plan) => {
                     // Beta.147: Structured action plan arrives

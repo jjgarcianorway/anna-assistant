@@ -260,7 +260,7 @@ async fn generate_conversational_answer(
     let client = Arc::new(LlmClient::from_config(llm_config)
         .map_err(|e| anyhow::anyhow!("LLM not available: {}", e))?);
 
-    let prompt = build_conversational_prompt(user_text, telemetry);
+    let prompt = build_conversational_prompt_for_tui(user_text, telemetry);
     let llm_prompt = Arc::new(LlmPrompt {
         system: LlmClient::anna_system_prompt().to_string(),
         user: prompt,
@@ -995,7 +995,8 @@ fn should_use_action_plan(user_text: &str) -> bool {
 }
 
 /// Build conversational prompt for streaming LLM
-fn build_conversational_prompt(user_text: &str, telemetry: &SystemTelemetry) -> String {
+/// Beta.280: Made public for TUI streaming support
+pub fn build_conversational_prompt_for_tui(user_text: &str, telemetry: &SystemTelemetry) -> String {
     let hostname = std::process::Command::new("hostname")
         .output()
         .ok()
