@@ -14,6 +14,7 @@ pub mod health; // Modular health command implementations
 pub mod internal_dialogue; // LLM internal dialogue
 pub mod llm_integration; // LLM integration
 pub mod logging;
+pub mod net_diagnostics; // Beta.265: Proactive network diagnostics engine
 pub mod output; // Answer normalization module (Beta.208)
 pub mod startup; // Startup context awareness and welcome reports (Beta.209)
 pub mod query_handler; // Unified 3-tier query architecture

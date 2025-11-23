@@ -395,6 +395,231 @@ ping -c 4 example.com";
     format!("{}{}{}", summary, details, commands)
 }
 
+/// Compose a focused network conflict answer (Beta.265)
+///
+/// Detects and reports multi-interface collisions using NetworkDiagnostics.
+/// Scenarios covered:
+/// - Ethernet slower than WiFi but taking default route
+/// - Duplicate default routes
+/// - Multiple active interfaces causing unpredictable routing
+/// - Interface priority mismatches
+pub fn compose_network_conflict_answer(
+    diagnostics: &crate::net_diagnostics::NetworkDiagnostics,
+) -> String {
+    use crate::net_diagnostics::{CollisionType, NetworkHealthStatus};
+
+    let has_conflict = diagnostics.interface_collision.is_some();
+
+    // Build summary
+    let summary = if let Some(ref collision) = diagnostics.interface_collision {
+        match collision.collision_type {
+            CollisionType::EthernetSlowerThanWiFi => {
+                "[SUMMARY]\nNetwork conflict: critical – Ethernet is slower than WiFi but taking default route priority.".to_string()
+            }
+            CollisionType::DuplicateDefaultRoutes => {
+                "[SUMMARY]\nNetwork conflict: critical – Multiple default routes detected causing unpredictable routing.".to_string()
+            }
+            CollisionType::MultipleActiveInterfaces => {
+                "[SUMMARY]\nNetwork conflict: warning – Both Ethernet and WiFi are active simultaneously.".to_string()
+            }
+        }
+    } else if diagnostics.health_status == NetworkHealthStatus::Healthy {
+        "[SUMMARY]\nNetwork conflict: none – Single active interface with proper routing.".to_string()
+    } else {
+        "[SUMMARY]\nNetwork conflict: no interface collision detected.".to_string()
+    };
+
+    // Build details
+    let mut details = String::from("\n\n[DETAILS]");
+
+    if let Some(ref collision) = diagnostics.interface_collision {
+        details.push_str(&format!("\n{}", collision.description));
+
+        // Add interface speeds if available
+        if let Some(eth_speed) = collision.metrics.ethernet_speed_mbps {
+            details.push_str(&format!("\nEthernet speed: {} Mbps", eth_speed));
+        }
+        if let Some(wifi_speed) = collision.metrics.wifi_speed_mbps {
+            details.push_str(&format!("\nWiFi speed: {} Mbps", wifi_speed));
+        }
+
+        // Add error rates
+        if collision.metrics.ethernet_error_rate > 0.0 {
+            details.push_str(&format!("\nEthernet error rate: {:.2}%", collision.metrics.ethernet_error_rate));
+        }
+        if collision.metrics.wifi_error_rate > 0.0 {
+            details.push_str(&format!("\nWiFi error rate: {:.2}%", collision.metrics.wifi_error_rate));
+        }
+
+        // Add default route info
+        if let Some(ref default_iface) = collision.metrics.default_route_interface {
+            details.push_str(&format!("\nDefault route interface: {}", default_iface));
+        }
+
+        // Add priority mismatch if present
+        if let Some(ref mismatch) = diagnostics.priority_mismatch {
+            details.push_str(&format!("\n\nPriority mismatch: {}", mismatch.description));
+            details.push_str(&format!("\n  Expected: {} (rank {})", mismatch.expected_interface, mismatch.expected_rank));
+            details.push_str(&format!("\n  Actual: {} (rank {})", mismatch.actual_interface, mismatch.actual_rank));
+        }
+    } else {
+        details.push_str("\nNo multi-interface conflicts detected.");
+        details.push_str("\nSingle active interface configuration is optimal for predictable routing.");
+    }
+
+    // Build commands
+    let commands = if has_conflict {
+        "\n\n[COMMANDS]\n\
+# Check interface status and speeds:\n\
+ip -brief link show\n\
+ethtool <interface>  # Replace <interface> with eth0, wlan0, etc.\n\
+\n\
+# Check routing table and metrics:\n\
+ip route show\n\
+\n\
+# Check NetworkManager connections:\n\
+nmcli device show\n\
+nmcli connection show --active\n\
+\n\
+# Disable slower interface (example for eth0):\n\
+nmcli device disconnect eth0\n\
+\n\
+# Or adjust route metrics to prefer faster interface:\n\
+# Lower metric = higher priority\n\
+nmcli connection modify <connection-name> ipv4.route-metric 100"
+    } else {
+        "\n\n[COMMANDS]\n\
+# Verify current network configuration:\n\
+ip -brief link show\n\
+ip route show\n\
+nmcli device status"
+    };
+
+    format!("{}{}{}", summary, details, commands)
+}
+
+/// Compose a focused network routing answer (Beta.265)
+///
+/// Detects and reports routing table misconfigurations.
+/// Scenarios covered:
+/// - Duplicate default routes with same metric
+/// - Missing IPv4/IPv6 fallback routes
+/// - High metric on default route
+/// - Connectivity degradation (packet loss, latency, DNS)
+pub fn compose_network_routing_answer(
+    diagnostics: &crate::net_diagnostics::NetworkDiagnostics,
+) -> String {
+    use crate::net_diagnostics::{DiagnosticSeverity, NetworkHealthStatus};
+
+    let has_routing_issues = !diagnostics.routing_issues.is_empty();
+    let has_degradation = diagnostics.connectivity_degradation.is_some();
+
+    // Build summary
+    let summary = if diagnostics.health_status == NetworkHealthStatus::Critical {
+        "[SUMMARY]\nNetwork routing: critical – Major routing or connectivity issues detected.".to_string()
+    } else if diagnostics.health_status == NetworkHealthStatus::Degraded {
+        "[SUMMARY]\nNetwork routing: degraded – Minor routing configuration issues detected.".to_string()
+    } else {
+        "[SUMMARY]\nNetwork routing: all clear – Routing table properly configured.".to_string()
+    };
+
+    // Build details
+    let mut details = String::from("\n\n[DETAILS]");
+
+    // Report routing issues
+    if has_routing_issues {
+        details.push_str("\n\nRouting Table Issues:");
+        for issue in &diagnostics.routing_issues {
+            details.push_str(&format!("\n• {} - {}",
+                match issue.severity {
+                    DiagnosticSeverity::Critical => "CRITICAL",
+                    DiagnosticSeverity::Warning => "WARNING",
+                },
+                issue.description
+            ));
+            if !issue.affected_routes.is_empty() {
+                for route in &issue.affected_routes {
+                    details.push_str(&format!("\n  - {}", route));
+                }
+            }
+        }
+    }
+
+    // Report connectivity degradation
+    if let Some(ref degradation) = diagnostics.connectivity_degradation {
+        details.push_str("\n\nConnectivity Issues:");
+        details.push_str(&format!("\n• {} - {}",
+            match degradation.severity {
+                DiagnosticSeverity::Critical => "CRITICAL",
+                DiagnosticSeverity::Warning => "WARNING",
+            },
+            degradation.description
+        ));
+
+        // Add metrics
+        if let Some(loss) = degradation.metrics.packet_loss_percent {
+            details.push_str(&format!("\n  Packet loss: {:.1}%", loss));
+        }
+        if let Some(latency) = degradation.metrics.internet_latency_ms {
+            details.push_str(&format!("\n  Internet latency: {:.1}ms", latency));
+        }
+        if let Some(gw_latency) = degradation.metrics.gateway_latency_ms {
+            details.push_str(&format!("\n  Gateway latency: {:.1}ms", gw_latency));
+        }
+        if degradation.metrics.interface_errors > 0 {
+            details.push_str(&format!("\n  Interface errors: {}", degradation.metrics.interface_errors));
+        }
+    }
+
+    if !has_routing_issues && !has_degradation {
+        details.push_str("\nRouting table configuration is correct.");
+        details.push_str("\nNo connectivity degradation detected.");
+    }
+
+    // Build commands
+    let commands = if has_routing_issues || has_degradation {
+        let mut cmd = String::from("\n\n[COMMANDS]\n");
+
+        if has_routing_issues {
+            cmd.push_str("# Check routing table:\n\
+ip route show\n\
+ip -6 route show\n\
+\n");
+        }
+
+        if has_degradation {
+            cmd.push_str("# Test connectivity:\n\
+ping -c 10 $(ip route | grep default | awk '{print $3}')  # Gateway\n\
+ping -c 10 1.1.1.1  # Internet\n\
+ping -c 10 example.com  # DNS resolution\n\
+\n\
+# Check interface statistics:\n\
+ip -s link show\n\
+\n");
+        }
+
+        cmd.push_str("# NetworkManager diagnostics:\n\
+nmcli device show\n\
+systemd-resolve --status\n\
+\n\
+# Check for interface flapping:\n\
+journalctl -u NetworkManager --since \"1 hour ago\" | grep -E 'up|down|disconnect'");
+
+        cmd
+    } else {
+        "\n\n[COMMANDS]\n\
+# Verify routing configuration:\n\
+ip route show\n\
+ip -6 route show\n\
+\n\
+# Test basic connectivity:\n\
+ping -c 4 1.1.1.1\n\
+ping -c 4 example.com".to_string()
+    };
+
+    format!("{}{}{}", summary, details, commands)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

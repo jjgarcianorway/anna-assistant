@@ -7,6 +7,146 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.265] - 2025-11-23
+
+### PROACTIVE NETWORK DIAGNOSTICS & SYSADMIN BRAIN EXPANSION
+
+**Type:** Diagnostic Engine & Proactive Detection
+**Focus**: First real proactive sysadmin subsystem - network conflict detection before users notice
+
+#### Summary 🚀
+Beta.265 implements deterministic network diagnostics that detect multi-interface collisions, connectivity degradation, and routing misconfigurations. Anna now proactively identifies when slow Ethernet outranks fast WiFi, duplicate default routes cause unpredictable behavior, and packet loss degrades connectivity—all before users notice performance issues.
+
+**Key Achievement:** Proactive detection of complex multi-interface network conflicts with zero LLM involvement.
+
+#### Added ✨
+**Network Diagnostics Engine** (`net_diagnostics.rs`, 610 lines)
+- Multi-interface collision detection
+  - Detects when Ethernet slower than WiFi but takes routing priority
+  - Identifies duplicate default routes (critical severity)
+  - Warns when both Ethernet and WiFi active simultaneously
+- Deterministic interface ranking heuristic
+  - Speed-based scoring: Gigabit Ethernet > Fast WiFi > 100Mbps Ethernet
+  - Error rate penalties (>1% = -10 points, >5% = -30 points)
+  - Gateway connectivity bonus (+10 points)
+- Connectivity degradation detection
+  - Packet loss thresholds: >10% warning, >30% critical
+  - Latency thresholds: >200ms warning, >500ms critical
+  - Interface error rate monitoring (>1% triggers detection)
+- Routing table validation
+  - Duplicate default route detection
+  - Missing IPv4/IPv6 fallback routes
+  - High metric default routes (>1000)
+- Priority mismatch detection
+  - Compares expected interface (by rank) vs actual (from routing table)
+  - Triggers when rank difference >10 points
+- **4 module tests** (100% passing)
+
+**Sysadmin Answer Composers** (sysadmin_answers.rs, +225 lines)
+- `compose_network_conflict_answer()` - Multi-interface collision analysis
+  - [SUMMARY]: Conflict type and severity
+  - [DETAILS]: Interface speeds, error rates, priority mismatch explanation
+  - [COMMANDS]: ethtool, ip route, nmcli diagnostics, remediation suggestions
+- `compose_network_routing_answer()` - Routing & connectivity issues
+  - [SUMMARY]: Routing health status (healthy/degraded/critical)
+  - [DETAILS]: Routing issues + connectivity degradation with metrics
+  - [COMMANDS]: Route inspection, ping tests, interface stats, journal checks
+
+**Regression Test Suite** (`regression_sysadmin_network.rs`, 10 tests, 100% passing)
+1. test_slow_ethernet_outranks_fast_wifi - 100 Mbps vs 866 Mbps detection
+2. test_duplicate_default_routes - Multiple routes with different metrics
+3. test_priority_mismatch_detection - WiFi should win but Ethernet has route
+4. test_high_packet_loss_detection - 25% loss triggers warning
+5. test_high_latency_detection - 350ms latency triggers warning
+6. test_interface_error_rate_detection - High error rate detection
+7. test_healthy_single_interface - Baseline no-issues case
+8. test_missing_ipv6_route - IPv4 present but no IPv6 fallback
+9. test_answer_format_consistency - [SUMMARY]+[DETAILS]+[COMMANDS] validation
+10. test_commands_are_deterministic - Same input = same output verification
+
+#### Technical Details 🔧
+**Data Sources**:
+- `/sys/class/net/<iface>/speed` - Link speed (Mbps)
+- `/sys/class/net/<iface>/statistics/*` - RX/TX error counters
+- `ip route show` - Routing table with metrics
+- Ping tests - Latency and packet loss measurements
+- NetworkMonitoring telemetry (from anna_common)
+
+**Detection Flow**:
+1. NetworkMonitoring::detect() → Interface/route data collection
+2. NetworkDiagnostics::analyze() → Apply detection algorithms
+3. Composers generate answers → [SUMMARY]+[DETAILS]+[COMMANDS]
+
+**Zero LLM Involvement**: All thresholds, rankings, and decisions are hard-coded deterministic logic.
+
+#### Design Principles ✅
+- **Proactive**: Detect issues before user notices
+- **Deterministic**: Same network state → same diagnosis (always)
+- **Transparent**: All thresholds and logic are explicit
+- **Actionable**: Every finding includes specific commands
+- **Safe**: Read-only analysis, no automatic changes
+- **Sysadmin-grade**: Matches real-world network troubleshooting
+
+#### Real-World Use Cases 🎯
+
+**Use Case 1: USB Ethernet Dongle Misconfiguration**
+- User connects USB-C Ethernet dongle
+- Dongle negotiates at 100 Mbps (slow USB controller)
+- WiFi is 866 Mbps (802.11ac)
+- System prioritizes Ethernet (default behavior)
+- **Detection**: EthernetSlowerThanWiFi (critical)
+- **Answer**: Explains speed difference, provides commands to disable eth0 or adjust metrics
+
+**Use Case 2: Dual Active Interfaces**
+- Laptop has both Ethernet and WiFi connected
+- Both have default routes (common misconfiguration)
+- Routing behavior unpredictable (kernel picks arbitrarily)
+- **Detection**: DuplicateDefaultRoutes (critical)
+- **Answer**: Explains routing ambiguity, suggests disabling one interface
+
+**Use Case 3: VPN Connection Degradation**
+- VPN has 20% packet loss
+- User doesn't notice until video call drops
+- **Detection**: HighPacketLoss (warning, 20% > 10% threshold)
+- **Answer**: Reports packet loss percentage, provides ping commands to verify
+
+#### Comparison: Beta.264 vs Beta.265
+
+| Capability | Beta.264 | Beta.265 |
+|------------|----------|----------|
+| Network diagnostics | Generic brain hints | Deterministic engine (610 lines) |
+| Multi-interface detection | ❌ None | ✅ Collision detection + ranking |
+| Packet loss thresholds | ❌ None | ✅ 10%/30% critical thresholds |
+| Latency thresholds | ❌ None | ✅ 200ms/500ms thresholds |
+| Route validation | ❌ None | ✅ Duplicate/missing detection |
+| Interface ranking | ❌ None | ✅ Speed-based heuristic |
+| Answer format | Brain insights | [SUMMARY]+[DETAILS]+[COMMANDS] |
+| Test coverage | 0 network tests | 10 tests (100% passing) |
+
+#### Known Limitations ⚠️
+- No historical trending (current state only)
+- Static thresholds (not adaptive to network type)
+- No process-level attribution for network load
+- Can't detect wireless signal strength (only link speed)
+- Manual remediation (suggests commands, doesn't auto-fix)
+- Composers not yet wired to NL query handler (conservative)
+
+#### Documentation 📚
+- Created `docs/BETA_265_NOTES.md` - Complete implementation guide
+- Module: `crates/annactl/src/net_diagnostics.rs`
+- Tests: `crates/annactl/tests/regression_sysadmin_network.rs`
+
+#### Next Steps 🚀
+- Wire composers to unified_query_handler (conservative routing)
+- Historical network performance tracking
+- Wireless signal strength diagnostics
+- Bandwidth testing (actual throughput vs link speed)
+- Process-level network attribution
+- Adaptive thresholds for different network types
+- Auto-remediation recipes for common conflicts
+
+---
+
 ## [5.7.0-beta.264] - 2025-11-23
 
 ### REAL SYSADMIN ANSWERS V2 – CPU, MEMORY, PROCESSES, NETWORK
