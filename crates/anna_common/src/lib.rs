@@ -48,6 +48,7 @@ pub mod installation_source;
 pub mod ipc;
 pub mod kernel_modules; // Kernel and boot detection (installed kernels, modules, boot config)
 pub mod language; // Language system with natural configuration
+pub mod orchestrator; // 6.2.0: Adaptive planner with Arch Wiki consultation
 pub mod learning;
 pub mod llm; // Task 12: LLM abstraction layer
 pub mod llm_benchmark; // Beta.68: LLM benchmarking harness

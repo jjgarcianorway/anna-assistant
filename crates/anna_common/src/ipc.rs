@@ -883,6 +883,34 @@ pub struct ProactiveIssueSummaryData {
     pub first_seen: String,
     /// Last seen timestamp (ISO 8601)
     pub last_seen: String,
+    /// 6.2.0: Suggested fix based on Arch Wiki (optional)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_fix: Option<SuggestedFixData>,
+}
+
+/// 6.2.0: Suggested fix with Arch Wiki sources
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuggestedFixData {
+    pub description: String,
+    pub steps: Vec<SuggestedStepData>,
+    pub knowledge_sources: Vec<KnowledgeSourceData>,
+}
+
+/// Step in a suggested fix
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuggestedStepData {
+    pub kind: String, // "inspect" or "change"
+    pub command: String,
+    pub requires_confirmation: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rollback_command: Option<String>,
+}
+
+/// Knowledge source reference
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeSourceData {
+    pub url: String,
+    pub kind: String, // "ArchWiki" or "OfficialProjectDoc"
 }
 
 /// Diagnostic insight data (Beta.217b)
