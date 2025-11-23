@@ -25,6 +25,36 @@ pub struct WikiSummary {
     pub warnings: Vec<String>,
 }
 
+/// Get Arch Wiki help for failed systemd service
+///
+/// Based on: https://wiki.archlinux.org/title/Systemd
+pub fn get_arch_help_service_failure(service_name: &str) -> WikiSummary {
+    WikiSummary {
+        topic: format!("Systemd service failure troubleshooting ({})", service_name),
+        sources: vec![
+            KnowledgeSourceRef {
+                url: "https://wiki.archlinux.org/title/Systemd".to_string(),
+                kind: KnowledgeSourceKind::ArchWiki,
+            },
+            KnowledgeSourceRef {
+                url: format!("https://wiki.archlinux.org/title/{}",
+                    service_name.trim_end_matches(".service")),
+                kind: KnowledgeSourceKind::ArchWiki,
+            },
+        ],
+        recommended_commands: vec![
+            format!("systemctl status {}.service", service_name.trim_end_matches(".service")),
+            format!("journalctl -u {}.service -n 100", service_name.trim_end_matches(".service")),
+            format!("systemctl cat {}.service", service_name.trim_end_matches(".service")),
+            format!("sudo systemctl restart {}.service", service_name.trim_end_matches(".service")),
+        ],
+        warnings: vec![
+            "Check logs before restarting to understand the failure cause".to_string(),
+            "Restarting the service may briefly interrupt its functionality".to_string(),
+        ],
+    }
+}
+
 /// Get Arch Wiki help for DNS troubleshooting
 ///
 /// Based on: https://wiki.archlinux.org/title/Systemd-resolved
@@ -89,5 +119,39 @@ mod tests {
 
         assert!(has_status, "Should include status check");
         assert!(has_restart, "Should include restart command");
+    }
+
+    #[test]
+    fn test_service_wiki_has_arch_sources() {
+        let wiki = get_arch_help_service_failure("nginx");
+
+        assert!(!wiki.sources.is_empty(), "Should have sources");
+
+        for source in &wiki.sources {
+            assert!(
+                source.url.starts_with("https://wiki.archlinux.org/"),
+                "All sources should be from Arch Wiki: {}", source.url
+            );
+            assert_eq!(source.kind, KnowledgeSourceKind::ArchWiki);
+        }
+    }
+
+    #[test]
+    fn test_service_wiki_has_service_specific_commands() {
+        let wiki = get_arch_help_service_failure("nginx");
+
+        assert!(!wiki.recommended_commands.is_empty(), "Should have commands");
+
+        // Verify service-specific commands
+        let has_status = wiki.recommended_commands.iter()
+            .any(|cmd| cmd.contains("systemctl status nginx"));
+        let has_logs = wiki.recommended_commands.iter()
+            .any(|cmd| cmd.contains("journalctl -u nginx"));
+        let has_restart = wiki.recommended_commands.iter()
+            .any(|cmd| cmd.contains("systemctl restart nginx"));
+
+        assert!(has_status, "Should include status check for nginx");
+        assert!(has_logs, "Should include log check for nginx");
+        assert!(has_restart, "Should include restart for nginx");
     }
 }

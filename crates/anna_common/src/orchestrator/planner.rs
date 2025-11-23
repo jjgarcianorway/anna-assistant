@@ -70,6 +70,77 @@ impl Plan {
     }
 }
 
+/// Plan fix for failed systemd service
+///
+/// # Arguments
+/// * `_user_goal` - User's stated goal
+/// * `telemetry` - Current system state
+/// * `wiki` - Arch Wiki guidance for service troubleshooting
+///
+/// # Returns
+/// A plan with inspect steps followed by change steps if service failure detected
+pub fn plan_service_failure_fix(
+    _user_goal: &str,
+    telemetry: &TelemetrySummary,
+    wiki: &WikiSummary,
+) -> Plan {
+    let mut steps = Vec::new();
+
+    // Find first failed service
+    let failed_service = telemetry.failed_services.iter()
+        .find(|s| s.is_failed);
+
+    if failed_service.is_none() {
+        // No failed services - return empty plan
+        return Plan { steps };
+    }
+
+    let service = failed_service.unwrap();
+    let service_name = service.name.trim_end_matches(".service");
+
+    // Step 1: Check service status
+    steps.push(PlanStep {
+        kind: PlanStepKind::Inspect,
+        command: format!("systemctl status {}.service", service_name),
+        requires_confirmation: false,
+        backup_command: None,
+        rollback_command: None,
+        knowledge_sources: wiki.sources.clone(),
+    });
+
+    // Step 2: Check service logs
+    steps.push(PlanStep {
+        kind: PlanStepKind::Inspect,
+        command: format!("journalctl -u {}.service -n 100", service_name),
+        requires_confirmation: false,
+        backup_command: None,
+        rollback_command: None,
+        knowledge_sources: wiki.sources.clone(),
+    });
+
+    // Step 3: View service configuration
+    steps.push(PlanStep {
+        kind: PlanStepKind::Inspect,
+        command: format!("systemctl cat {}.service", service_name),
+        requires_confirmation: false,
+        backup_command: None,
+        rollback_command: None,
+        knowledge_sources: wiki.sources.clone(),
+    });
+
+    // Step 4: Restart service (CHANGE step - requires confirmation)
+    steps.push(PlanStep {
+        kind: PlanStepKind::Change,
+        command: format!("sudo systemctl restart {}.service", service_name),
+        requires_confirmation: true,
+        backup_command: None, // Restart is reversible
+        rollback_command: Some(format!("sudo systemctl restart {}.service", service_name)),
+        knowledge_sources: wiki.sources.clone(),
+    });
+
+    Plan { steps }
+}
+
 /// Plan DNS fix based on telemetry and wiki guidance
 ///
 /// # Arguments
@@ -250,6 +321,7 @@ mod tests {
         let telemetry = TelemetrySummary {
             dns_suspected_broken: true,
             network_reachable: false, // Network is down
+            failed_services: Vec::new(),
         };
         let wiki = get_arch_help_dns();
 
