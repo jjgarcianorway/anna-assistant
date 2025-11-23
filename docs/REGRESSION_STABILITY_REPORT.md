@@ -1,10 +1,22 @@
 # Natural Language Routing - Regression Stability Report
 
-**Version:** Beta.248
+**Version:** Beta.248 (OUTDATED - see note below)
 **Date:** 2025-11-22
 **Test Suites:** regression_nl_smoke (v1) + regression_nl_big (v1)
 **Total Tests:** 428 (178 smoke + 250 big)
 **Status:** ✅ Smoke: 100% | ⚠️ Big: 47.6% | Combined: 69.4%
+
+---
+
+## ⚠️ NOTE: This Document Is Historical
+
+**Current Anna Version**: v5.7.0-beta.277 (as of 2025-11-23)
+
+This document captures the state as of Beta.248. For **current status**, see:
+- **[PROJECT_STATUS_OVERVIEW.md](PROJECT_STATUS_OVERVIEW.md)** - Complete status of all subsystems as of Beta.277
+- **[TESTING_STRATEGY_V1.md](TESTING_STRATEGY_V1.md)** - Real-world testing plan
+
+**Current Accuracy**: 609/700 (87.0%) on regression_nl_big suite (Beta.277)
 
 ---
 

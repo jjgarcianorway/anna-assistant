@@ -108,12 +108,12 @@ pub fn generate_exit_summary(state: &AnnaTuiState) -> Vec<Line<'static>> {
         Span::styled(hostname.to_string(), styles.info),
     ]));
 
-    // Line 2: Health summary
+    // Line 2: Health summary (matches CLI wording)
     if let Some(snapshot) = &state.daily_snapshot {
         if let Some(health) = snapshot.overall_health_opt {
             let health_text = format_health_line(health);
             lines.push(Line::from(vec![
-                Span::styled("Session health: ", styles.dimmed),
+                Span::styled("System health: ", styles.dimmed),
                 Span::styled(health_text, get_health_style(health)),
             ]));
         } else {
@@ -129,14 +129,31 @@ pub fn generate_exit_summary(state: &AnnaTuiState) -> Vec<Line<'static>> {
         )));
     }
 
-    // Line 3: Diagnostic hint
+    // Line 3: Diagnostic hint (Beta.267: network-aware)
     lines.push(Line::from("")); // Spacing
-    lines.push(Line::from(vec![
-        Span::styled("Tip: ", styles.dimmed),
-        Span::raw("Try asking "),
-        Span::styled("\"check my system health\"", styles.command),
-        Span::raw(" for a full diagnostic"),
-    ]));
+
+    // Check for network issues in brain insights
+    let has_network_issues = state.brain_insights.iter().any(|i|
+        i.rule_id.starts_with("network_") ||
+        i.rule_id.contains("packet_loss") ||
+        i.rule_id.contains("latency")
+    );
+
+    if has_network_issues {
+        lines.push(Line::from(vec![
+            Span::styled("Tip: ", styles.dimmed),
+            Span::raw("Try asking "),
+            Span::styled("\"check my network\"", styles.command),
+            Span::raw(" for focused network diagnostics"),
+        ]));
+    } else {
+        lines.push(Line::from(vec![
+            Span::styled("Tip: ", styles.dimmed),
+            Span::raw("Try asking "),
+            Span::styled("\"check my system health\"", styles.command),
+            Span::raw(" for a full diagnostic"),
+        ]));
+    }
 
     lines.push(Line::from("")); // Bottom spacing
     lines
@@ -172,12 +189,12 @@ pub fn generate_daemon_unavailable_lines() -> Vec<Line<'static>> {
     ]
 }
 
-/// Format health state as single line (matches CLI wording)
+/// Format health state as single line (matches CLI wording from diagnostic_formatter.rs)
 fn format_health_line(health: OverallHealth) -> String {
     match health {
-        OverallHealth::Healthy => "All clear, no critical issues".to_string(),
-        OverallHealth::DegradedWarning => "Degraded – warnings detected".to_string(),
-        OverallHealth::DegradedCritical => "Degraded – critical issues require attention".to_string(),
+        OverallHealth::Healthy => "all clear, no critical issues detected".to_string(),
+        OverallHealth::DegradedWarning => "degraded – warning issues detected".to_string(),
+        OverallHealth::DegradedCritical => "degraded – critical issues require attention".to_string(),
     }
 }
 

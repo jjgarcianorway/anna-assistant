@@ -837,7 +837,7 @@ pub struct LogIssueData {
     pub unit: String,
 }
 
-/// Sysadmin brain analysis data (Beta.217b)
+/// Sysadmin brain analysis data (Beta.217b, Beta.271)
 /// Citation: [archwiki:System_maintenance]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrainAnalysisData {
@@ -851,6 +851,38 @@ pub struct BrainAnalysisData {
     pub critical_count: usize,
     /// Total warning issues count
     pub warning_count: usize,
+    /// Proactive correlated issues (Beta.271)
+    #[serde(default)]
+    pub proactive_issues: Vec<ProactiveIssueSummaryData>,
+    /// Proactive health score 0-100 (Beta.273)
+    #[serde(default = "default_health_score")]
+    pub proactive_health_score: u8,
+}
+
+/// Default health score for backward compatibility
+fn default_health_score() -> u8 {
+    100
+}
+
+/// Proactive issue summary data (Beta.271)
+/// User-safe representation of correlated issues from proactive engine
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProactiveIssueSummaryData {
+    /// Root cause type (user-safe string)
+    pub root_cause: String,
+    /// Severity: "critical", "warning", "info", "trend"
+    pub severity: String,
+    /// Human-readable summary
+    pub summary: String,
+    /// Optional rule ID for remediation mapping
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule_id: Option<String>,
+    /// Confidence (0.7-1.0)
+    pub confidence: f32,
+    /// First seen timestamp (ISO 8601)
+    pub first_seen: String,
+    /// Last seen timestamp (ISO 8601)
+    pub last_seen: String,
 }
 
 /// Diagnostic insight data (Beta.217b)

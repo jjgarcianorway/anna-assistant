@@ -1893,13 +1893,13 @@ current_route = "conversational"
 [[test]]
 id = "big-133"
 query = "Any critical logs?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Log health: Critical log check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2103,13 +2103,13 @@ current_route = "conversational"
 [[test]]
 id = "big-148"
 query = "Critical updates?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Update health: Critical update check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2159,13 +2159,13 @@ current_route = "diagnostic"
 [[test]]
 id = "big-152"
 query = "Hey, how's my system?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Casual: Greeting + health check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2217,11 +2217,11 @@ id = "big-156"
 query = "Nothing broken?"
 expect_route = "diagnostic"
 expect_contains = []
-notes = "Negation: Broken check"
+notes = "Negation: Broken check (Beta.275 exact match pattern)"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2243,13 +2243,13 @@ current_route = "diagnostic"
 [[test]]
 id = "big-158"
 query = "Is my system getting worse?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Trend: Health degradation"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2257,13 +2257,13 @@ current_route = "conversational"
 [[test]]
 id = "big-159"
 query = "System performance declining?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Trend: Performance decline"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2271,13 +2271,13 @@ current_route = "conversational"
 [[test]]
 id = "big-160"
 query = "Better than yesterday?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Comparison: Temporal comparison"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2285,13 +2285,13 @@ current_route = "conversational"
 [[test]]
 id = "big-161"
 query = "Anything urgent?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Priority: Urgency check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2341,13 +2341,13 @@ current_route = "diagnostic"
 [[test]]
 id = "big-165"
 query = "Everything's fine, isn't it?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Confirmation: General confirmation"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2551,13 +2551,13 @@ current_route = "conversational"
 [[test]]
 id = "big-180"
 query = "Machine condition"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Alternative: 'condition' instead of 'health'"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2593,13 +2593,13 @@ current_route = "diagnostic"
 [[test]]
 id = "big-183"
 query = "System keeps showing warnings"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Warning context: User reporting warnings"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2607,13 +2607,13 @@ current_route = "conversational"
 [[test]]
 id = "big-184"
 query = "System performance ok?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Performance: General performance check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2621,13 +2621,13 @@ current_route = "conversational"
 [[test]]
 id = "big-185"
 query = "Is the system slow?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Performance: Slowness check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2649,13 +2649,13 @@ current_route = "conversational"
 [[test]]
 id = "big-187"
 query = "System stable?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Stability: Stability check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2663,13 +2663,13 @@ current_route = "conversational"
 [[test]]
 id = "big-188"
 query = "Any crashes?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Stability: Crash check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2677,13 +2677,13 @@ current_route = "conversational"
 [[test]]
 id = "big-189"
 query = "Unstable system?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Stability: Instability check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2691,13 +2691,13 @@ current_route = "conversational"
 [[test]]
 id = "big-190"
 query = "Running out of resources?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Resource exhaustion: General check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2719,13 +2719,13 @@ current_route = "conversational"
 [[test]]
 id = "big-192"
 query = "Is the system available?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Availability: Availability check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2733,13 +2733,13 @@ current_route = "conversational"
 [[test]]
 id = "big-193"
 query = "System up?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Availability: Up/down check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2761,13 +2761,13 @@ current_route = "conversational"
 [[test]]
 id = "big-195"
 query = "Misconfigurations?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Configuration: Misconfiguration check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2789,13 +2789,13 @@ current_route = "conversational"
 [[test]]
 id = "big-197"
 query = "Missing dependencies?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Dependency: Missing dependency check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2845,13 +2845,13 @@ current_route = "conversational"
 [[test]]
 id = "big-201"
 query = "Exceeded any limits?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Limits: Quota check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2873,13 +2873,13 @@ current_route = "conversational"
 [[test]]
 id = "big-203"
 query = "Any deadlocks?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Locks: Deadlock check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -2915,13 +2915,13 @@ current_route = "conversational"
 [[test]]
 id = "big-206"
 query = "High latency?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Latency: High latency check"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -3211,13 +3211,13 @@ current_route = "conversational"
 [[test]]
 id = "big-227"
 query = "These services ok?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Demonstrative: 'these services'"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -3225,13 +3225,13 @@ current_route = "conversational"
 [[test]]
 id = "big-228"
 query = "All services ok?"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Quantifier: 'all'"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing
@@ -3365,13 +3365,13 @@ current_route = "status"
 [[test]]
 id = "big-238"
 query = "Complete system analysis"
-expect_route = "diagnostic"
+expect_route = "conversational"
 expect_contains = []
 notes = "Comprehensive: Complete analysis"
 
 # Beta.252 Metadata
 priority = "low"
-classification = "test_unrealistic"
+classification = "correct"
 target_route = "conversational"
 current_route = "conversational"
 # Category G: Generic/underspecified - too vague for deterministic routing

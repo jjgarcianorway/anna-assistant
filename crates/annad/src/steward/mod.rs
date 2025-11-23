@@ -9,7 +9,7 @@ pub mod logging;
 mod types;
 mod update;
 
-pub use types::{AuditReport, HealthReport, HealthStatus, LogIssue, ServiceStatus, UpdateReport};
+pub use types::{AuditReport, HealthReport, HealthStatus, LogIssue, ServiceStatus, UpdateReport, ProactiveIssueSummary};
 
 use anyhow::Result;
 use tracing::info;

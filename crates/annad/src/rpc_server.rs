@@ -2123,6 +2123,17 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 .filter(|i| matches!(i.severity, crate::intel::DiagnosticSeverity::Warning))
                 .count();
 
+            // Beta.271: Compute proactive assessment
+            let proactive_input = crate::intel::ProactiveInput {
+                current_health: &health_report,
+                brain_insights: &insights,
+                network_monitoring: health_report.network_monitoring.as_ref(),
+                previous_assessment: None, // TODO: Load from state in later iteration
+                historian_context: None,    // TODO: Populate from historian in later iteration
+            };
+            let proactive_assessment = crate::intel::compute_proactive_assessment(&proactive_input);
+            let proactive_summaries = crate::intel::assessment_to_summaries(&proactive_assessment);
+
             // Convert to IPC format
             let insights_data: Vec<anna_common::ipc::DiagnosticInsightData> = insights
                 .into_iter()
@@ -2137,12 +2148,29 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 })
                 .collect();
 
+            // Convert proactive summaries to IPC format
+            let proactive_issues_data: Vec<anna_common::ipc::ProactiveIssueSummaryData> =
+                proactive_summaries
+                    .into_iter()
+                    .map(|s| anna_common::ipc::ProactiveIssueSummaryData {
+                        root_cause: s.root_cause,
+                        severity: s.severity,
+                        summary: s.summary,
+                        rule_id: s.rule_id,
+                        confidence: s.confidence,
+                        first_seen: s.first_seen,
+                        last_seen: s.last_seen,
+                    })
+                    .collect();
+
             let data = anna_common::ipc::BrainAnalysisData {
                 timestamp: chrono::Utc::now().to_rfc3339(),
                 insights: insights_data,
                 formatted_output,
                 critical_count,
                 warning_count,
+                proactive_issues: proactive_issues_data,
+                proactive_health_score: proactive_assessment.health_score,
             };
 
             Ok(ResponseData::BrainAnalysis(data))

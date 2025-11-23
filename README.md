@@ -2,7 +2,7 @@
 
 **Intelligent Arch Linux System Assistant with Deterministic Diagnostics**
 
-[![Version](https://img.shields.io/badge/version-5.7.0--beta.276-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-5.7.0--beta.279-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 
@@ -178,9 +178,13 @@ sudo ./target/release/annad
 
 ## Project Status
 
-**Current:** Beta.258 - "How is my system today?" Daily Snapshot v1
+**Current:** Beta.279 - Historian v1 & Proactive Rules Completion (Temporal Intelligence, Durable History Storage)
 
 **Recent milestones:**
+- ✅ Beta.279 - Historian v1 with JSONL storage, 6 temporal correlation rules (SVC-001 flapping, DISK-002 growth, RES-001/002 sustained pressure, NET-003 degradation, SYS-001 kernel regression), 36 new tests
+- ✅ Beta.277 - Ambiguity detection framework, stability rules documentation, 26 test_unrealistic reclassifications (609/700 maintained, 87.0%, +44 tests)
+- ✅ Beta.276 - Edge cases & ground truth cleanup (final 6 router_bug edge cases fixed, 609/700, 87.0%, +10 tests)
+- ✅ Beta.275 - Strategic routing expansion marathon (60+ patterns, 608/700, 86.9%, +19 tests, +11 stability tests)
 - ✅ Beta.258 - Daily snapshot for "today" queries (sysadmin briefing format, session delta integration, 8 new tests, 186/250 maintained)
 - ✅ Beta.257 - Unified health & status experience (health consistency, temporal wording, 13 new tests, 186/250 maintained)
 - ✅ Beta.256 - Routing consolidation and expectation cleanup (+11 tests, 186/250 big suite passing, 74.4%)

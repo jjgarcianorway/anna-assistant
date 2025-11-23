@@ -28,7 +28,7 @@ pub mod system_query; // System telemetry queries
 pub mod system_report; // Unified system report generator
 pub mod systemd; // Systemd service management
 pub mod telemetry_truth; // Telemetry truth enforcement
-mod tui; // Modular TUI implementation (src/tui/ directory)
+pub mod tui; // Modular TUI implementation (src/tui/ directory) - Beta.266: Made public for testing
 // pub mod tui_old; // Removed in Beta.217d cleanup
 pub mod tui_state; // TUI state management
 pub mod tui_v2; // Real TUI implementation (re-exports from tui/)

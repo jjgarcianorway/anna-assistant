@@ -15,7 +15,7 @@
 mod action_plan;
 mod brain;
 mod event_loop;
-mod flow;
+pub mod flow; // Beta.266: Made public for testing
 mod formatting;
 mod input;
 mod layout;
@@ -28,3 +28,6 @@ pub use event_loop::run;
 
 // Re-export message type for external use
 pub use event_loop::TuiMessage;
+
+// Beta.266: Re-export flow functions for testing
+pub use flow::{generate_exit_summary, generate_welcome_lines};

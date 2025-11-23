@@ -214,7 +214,48 @@ pub fn format_diagnostic_report(analysis: &BrainAnalysisData, mode: DiagnosticMo
             writeln!(&mut report, "System is stable but warnings should be investigated.").unwrap();
         }
     }
+
+    // Beta.271: Add proactive issue count if present
+    if !analysis.proactive_issues.is_empty() {
+        writeln!(
+            &mut report,
+            "ℹ Proactive engine detected {} correlated issue pattern(s).",
+            analysis.proactive_issues.len()
+        ).unwrap();
+    }
     writeln!(&mut report).unwrap();
+
+    // Beta.273: [PROACTIVE SUMMARY] - First-class proactive status
+    if !analysis.proactive_issues.is_empty() {
+        writeln!(&mut report, "[PROACTIVE SUMMARY]").unwrap();
+        writeln!(
+            &mut report,
+            "- {} correlated issue(s) detected",
+            analysis.proactive_issues.len()
+        ).unwrap();
+        writeln!(
+            &mut report,
+            "- Health score: {}/100",
+            analysis.proactive_health_score
+        ).unwrap();
+
+        // Get top issue by severity
+        let mut sorted_issues = analysis.proactive_issues.clone();
+        sorted_issues.sort_by(|a, b| {
+            let a_priority = severity_priority_proactive(&a.severity);
+            let b_priority = severity_priority_proactive(&b.severity);
+            b_priority.cmp(&a_priority) // Descending
+        });
+
+        if let Some(top_issue) = sorted_issues.first() {
+            writeln!(
+                &mut report,
+                "- Top root cause: {}",
+                top_issue.root_cause
+            ).unwrap();
+        }
+        writeln!(&mut report).unwrap();
+    }
 
     // [DETAILS] - Show insights, limited by mode
     if !analysis.insights.is_empty() {
@@ -260,6 +301,31 @@ pub fn format_diagnostic_report(analysis: &BrainAnalysisData, mode: DiagnosticMo
         }
     }
 
+    // Beta.272: [PROACTIVE] - Correlated issues from proactive engine
+    if !analysis.proactive_issues.is_empty() {
+        writeln!(&mut report, "[PROACTIVE]").unwrap();
+        writeln!(&mut report, "Top correlated issues:").unwrap();
+
+        // Sort by severity (critical first) and cap at 10
+        let mut sorted_issues = analysis.proactive_issues.clone();
+        sorted_issues.sort_by(|a, b| {
+            let a_priority = severity_priority_proactive(&a.severity);
+            let b_priority = severity_priority_proactive(&b.severity);
+            b_priority.cmp(&a_priority) // Descending (higher priority first)
+        });
+        sorted_issues.truncate(10);
+
+        for (idx, issue) in sorted_issues.iter().enumerate() {
+            let marker = match issue.severity.to_lowercase().as_str() {
+                "critical" => "✗",
+                "warning" => "⚠",
+                _ => "ℹ",
+            };
+            writeln!(&mut report, "{}. {} {}", idx + 1, marker, issue.summary).unwrap();
+        }
+        writeln!(&mut report).unwrap();
+    }
+
     // [COMMANDS] - Prioritized action list
     writeln!(&mut report, "[COMMANDS]").unwrap();
     if analysis.critical_count > 0 || analysis.warning_count > 0 {
@@ -267,6 +333,18 @@ pub fn format_diagnostic_report(analysis: &BrainAnalysisData, mode: DiagnosticMo
         writeln!(&mut report, "$ annactl status").unwrap();
         writeln!(&mut report, "$ journalctl -xe").unwrap();
         writeln!(&mut report, "$ systemctl --failed").unwrap();
+
+        // Beta.267: Add network hint if network issues present
+        let has_network_issues = analysis.insights.iter().any(|i|
+            i.rule_id.starts_with("network_") ||
+            i.rule_id.contains("packet_loss") ||
+            i.rule_id.contains("latency")
+        );
+        if has_network_issues {
+            writeln!(&mut report).unwrap();
+            writeln!(&mut report, "# Network issues detected - run focused diagnostic:").unwrap();
+            writeln!(&mut report, "$ annactl \"check my network\"").unwrap();
+        }
     } else {
         writeln!(&mut report).unwrap();
         writeln!(&mut report, "No actions required - system is healthy.").unwrap();
@@ -337,7 +415,48 @@ pub fn format_diagnostic_report_with_query(
             writeln!(&mut report, "System is stable but warnings should be investigated.").unwrap();
         }
     }
+
+    // Beta.271: Add proactive issue count if present
+    if !analysis.proactive_issues.is_empty() {
+        writeln!(
+            &mut report,
+            "ℹ Proactive engine detected {} correlated issue pattern(s).",
+            analysis.proactive_issues.len()
+        ).unwrap();
+    }
     writeln!(&mut report).unwrap();
+
+    // Beta.273: [PROACTIVE SUMMARY] - First-class proactive status
+    if !analysis.proactive_issues.is_empty() {
+        writeln!(&mut report, "[PROACTIVE SUMMARY]").unwrap();
+        writeln!(
+            &mut report,
+            "- {} correlated issue(s) detected",
+            analysis.proactive_issues.len()
+        ).unwrap();
+        writeln!(
+            &mut report,
+            "- Health score: {}/100",
+            analysis.proactive_health_score
+        ).unwrap();
+
+        // Get top issue by severity
+        let mut sorted_issues = analysis.proactive_issues.clone();
+        sorted_issues.sort_by(|a, b| {
+            let a_priority = severity_priority_proactive(&a.severity);
+            let b_priority = severity_priority_proactive(&b.severity);
+            b_priority.cmp(&a_priority) // Descending
+        });
+
+        if let Some(top_issue) = sorted_issues.first() {
+            writeln!(
+                &mut report,
+                "- Top root cause: {}",
+                top_issue.root_cause
+            ).unwrap();
+        }
+        writeln!(&mut report).unwrap();
+    }
 
     // [DETAILS] - Show insights, limited by mode
     if !analysis.insights.is_empty() {
@@ -378,6 +497,31 @@ pub fn format_diagnostic_report_with_query(
         }
     }
 
+    // Beta.272: [PROACTIVE] - Correlated issues from proactive engine
+    if !analysis.proactive_issues.is_empty() {
+        writeln!(&mut report, "[PROACTIVE]").unwrap();
+        writeln!(&mut report, "Top correlated issues:").unwrap();
+
+        // Sort by severity (critical first) and cap at 10
+        let mut sorted_issues = analysis.proactive_issues.clone();
+        sorted_issues.sort_by(|a, b| {
+            let a_priority = severity_priority_proactive(&a.severity);
+            let b_priority = severity_priority_proactive(&b.severity);
+            b_priority.cmp(&a_priority) // Descending (higher priority first)
+        });
+        sorted_issues.truncate(10);
+
+        for (idx, issue) in sorted_issues.iter().enumerate() {
+            let marker = match issue.severity.to_lowercase().as_str() {
+                "critical" => "✗",
+                "warning" => "⚠",
+                _ => "ℹ",
+            };
+            writeln!(&mut report, "{}. {} {}", idx + 1, marker, issue.summary).unwrap();
+        }
+        writeln!(&mut report).unwrap();
+    }
+
     // [COMMANDS] - Prioritized action list
     writeln!(&mut report, "[COMMANDS]").unwrap();
     if analysis.critical_count > 0 || analysis.warning_count > 0 {
@@ -385,6 +529,18 @@ pub fn format_diagnostic_report_with_query(
         writeln!(&mut report, "$ annactl status").unwrap();
         writeln!(&mut report, "$ journalctl -xe").unwrap();
         writeln!(&mut report, "$ systemctl --failed").unwrap();
+
+        // Beta.267: Add network hint if network issues present
+        let has_network_issues = analysis.insights.iter().any(|i|
+            i.rule_id.starts_with("network_") ||
+            i.rule_id.contains("packet_loss") ||
+            i.rule_id.contains("latency")
+        );
+        if has_network_issues {
+            writeln!(&mut report).unwrap();
+            writeln!(&mut report, "# Network issues detected - run focused diagnostic:").unwrap();
+            writeln!(&mut report, "$ annactl \"check my network\"").unwrap();
+        }
     } else {
         writeln!(&mut report).unwrap();
         writeln!(&mut report, "No actions required - system is healthy.").unwrap();
@@ -557,6 +713,19 @@ pub fn format_today_health_line_from_health(health: OverallHealth) -> String {
     }
 }
 
+/// Beta.272: Get severity priority for proactive issues sorting
+///
+/// Higher number = higher priority (critical > warning > info > trend)
+pub fn severity_priority_proactive(severity: &str) -> u8 {
+    match severity.to_lowercase().as_str() {
+        "critical" => 4,
+        "warning" => 3,
+        "info" => 2,
+        "trend" => 1,
+        _ => 0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -570,6 +739,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_issues: vec![],
         };
 
         let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -589,6 +759,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 2,
             warning_count: 1,
+            proactive_issues: vec![],
             insights: vec![
                 DiagnosticInsightData {
                     rule_id: "failed_services".to_string(),
@@ -655,6 +826,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 5,
             warning_count: 0,
+            proactive_issues: vec![],
             insights,
         };
 
@@ -676,6 +848,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 1,
             warning_count: 1,
+            proactive_issues: vec![],
             insights: vec![
                 DiagnosticInsightData {
                     rule_id: "rule_1".to_string(),

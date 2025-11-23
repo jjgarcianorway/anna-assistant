@@ -27,6 +27,8 @@ pub mod action_plan_executor; // ActionPlan execution engine
 mod brain_command; // Beta.217c: Standalone brain diagnostic command
 mod context_engine; // Contextual awareness and proactive monitoring
 mod diagnostic_formatter; // Beta.250: Canonical diagnostic report formatting
+mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs, network, CPU, memory)
+mod net_diagnostics; // Beta.265: Proactive network diagnostics engine
 mod dialogue_v3_json;
 mod first_run;
 mod health;

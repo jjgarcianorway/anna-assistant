@@ -62,6 +62,9 @@ pub struct AnnaTuiState {
     /// Beta.218: Whether brain data is available
     pub brain_available: bool,
 
+    /// Beta.271: Proactive correlated issues from proactive engine
+    pub proactive_issues: Vec<anna_common::ipc::ProactiveIssueSummaryData>,
+
     /// Beta.259: Daily snapshot combining health and session delta
     pub daily_snapshot: Option<crate::diagnostic_formatter::DailySnapshotLite>,
 }
@@ -87,6 +90,7 @@ impl Default for AnnaTuiState {
             brain_insights: Vec::new(),
             brain_timestamp: None,
             brain_available: false,
+            proactive_issues: Vec::new(),
             daily_snapshot: None,
         }
     }

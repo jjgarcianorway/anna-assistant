@@ -108,6 +108,7 @@ pub fn handle_user_input(state: &mut AnnaTuiState, tx: mpsc::Sender<TuiMessage>)
         brain_insights: Vec::new(), // Beta.218
         brain_timestamp: None,      // Beta.218
         brain_available: false,     // Beta.218
+        proactive_issues: Vec::new(), // Beta.271
         daily_snapshot: None,       // Beta.259
     };
 

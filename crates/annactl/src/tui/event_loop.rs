@@ -8,7 +8,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::io;
+use std::io::{self, Write};
 use tokio::sync::mpsc;
 
 use super::action_plan::handle_action_plan_execution;
@@ -114,8 +114,11 @@ fn show_exit_summary(
         f.render_widget(paragraph, area);
     })?;
 
-    // Pause for 1 second to let user see the message
-    std::thread::sleep(std::time::Duration::from_millis(1000));
+    // Beta.266: Ensure terminal flushes before pause
+    let _ = terminal.backend_mut().flush();
+
+    // Pause for 1.5 seconds to let user see the message
+    std::thread::sleep(std::time::Duration::from_millis(1500));
 
     Ok(())
 }

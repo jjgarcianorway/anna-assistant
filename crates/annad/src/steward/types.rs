@@ -1,10 +1,40 @@
 //! Steward types and data structures
 //!
 //! Phase 0.9: System Steward types
+//! Beta.271: Proactive Issue Summary
 //! Citation: [archwiki:System_maintenance]
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Proactive issue summary (Beta.271)
+///
+/// User-safe representation of a correlated issue from the proactive engine.
+/// All internal Rust types are mapped to strings for safe transmission.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProactiveIssueSummary {
+    /// Root cause type (user-safe string label, not Rust enum)
+    /// Examples: "network_routing_conflict", "disk_pressure", "memory_pressure"
+    pub root_cause: String,
+
+    /// Severity level: "critical", "warning", "info", "trend"
+    pub severity: String,
+
+    /// Human-readable one-line summary
+    pub summary: String,
+
+    /// Optional rule ID for future remediation mapping
+    pub rule_id: Option<String>,
+
+    /// Confidence level (0.7-1.0)
+    pub confidence: f32,
+
+    /// When this issue was first detected
+    pub first_seen: String, // ISO 8601
+
+    /// When this issue was last updated
+    pub last_seen: String, // ISO 8601
+}
 
 /// Steward configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +70,8 @@ pub struct HealthReport {
     pub packages: Vec<PackageStatus>,
     /// Log analysis
     pub log_issues: Vec<LogIssue>,
+    /// Network monitoring data (Beta.267)
+    pub network_monitoring: Option<anna_common::network_monitoring::NetworkMonitoring>,
     /// Recommendations
     pub recommendations: Vec<String>,
     /// Summary message

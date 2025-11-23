@@ -129,9 +129,50 @@ fn normalize_query_for_intent(text: &str) -> String {
     result.trim().to_string()
 }
 
+/// Beta.277: Ambiguity detection (synced with production)
+fn is_ambiguous_query(normalized: &str) -> bool {
+    let system_keywords = [
+        "system", "machine", "computer", "health", "diagnostic", "check",
+        "server", "host", "pc", "laptop", "hardware", "software",
+    ];
+
+    let has_system_context = system_keywords.iter().any(|kw| normalized.contains(kw));
+    if has_system_context {
+        return false;
+    }
+
+    let diagnostic_keywords = ["problems", "issues", "errors", "failures", "warnings"];
+    let has_diagnostic_keyword = diagnostic_keywords.iter().any(|kw| normalized.contains(kw));
+
+    let human_context = [
+        "life", "my day", "my situation", "feeling", "i think", "i feel",
+        "personally", "in general", "theoretically", "existential",
+        "philosophical", "mentally", "emotionally",
+    ];
+    let has_human_context = human_context.iter().any(|ctx| normalized.contains(ctx));
+
+    if has_diagnostic_keyword && !has_system_context && has_human_context {
+        return true;
+    }
+
+    if has_diagnostic_keyword && !has_system_context {
+        let word_count = normalized.split_whitespace().count();
+        if word_count <= 2 {
+            return true;
+        }
+    }
+
+    false
+}
+
 /// Check if query is a diagnostic request
 fn is_full_diagnostic_query(query: &str) -> bool {
     let normalized = normalize_query_for_intent(query);
+
+    // Beta.277: Rule C - Check ambiguity FIRST
+    if is_ambiguous_query(&normalized) {
+        return false;
+    }
 
     // Exclude conceptual questions
     let conceptual_patterns = ["what is", "what does", "what's", "explain", "define"];

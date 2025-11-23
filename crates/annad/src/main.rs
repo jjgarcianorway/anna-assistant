@@ -87,6 +87,7 @@ mod consensus; // Phase 1.7: Distributed Consensus (STUB)
 mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
+mod historian; // Beta.279: Historian v1 - Durable health & telemetry history
 mod historian_integration; // Phase 5.7: Historian integration
 mod install; // Phase 0.8: Installation subsystem
 mod intel; // Beta.217a: Sysadmin Brain intelligence module

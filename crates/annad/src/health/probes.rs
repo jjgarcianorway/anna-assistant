@@ -475,6 +475,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore] // Test calls actual system commands (df) - skipping for CI
     fn test_disk_space_probe() {
         let probe = DiskSpaceProbe {
             warn_threshold: 80,

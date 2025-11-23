@@ -66,7 +66,9 @@ pub fn draw_ui(f: &mut Frame, state: &AnnaTuiState) {
 /// Beta.230: Simplified to avoid redundancy with status bar - shows context not status
 /// Beta.260: Full-width, single clean bar with consistent styling
 /// Beta.262: Uses layout::compose_header_text for deterministic truncation
+/// Beta.273: Added proactive issue indicator as second line
 /// Format: Anna v5.7.0-beta.262 | llama3.2:3b | user@hostname
+///         ⚡ Top Issue: <root_cause> (score: YY) [if proactive issues exist]
 pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
     use std::env;
 
@@ -86,18 +88,54 @@ pub fn draw_header(f: &mut Frame, area: Rect, state: &AnnaTuiState) {
         &state.llm_panel.model_name,
     );
 
-    // Build styled spans from composed text
-    // For simplicity, use uniform styling for the entire header
-    let header_text = Line::from(vec![
-        Span::raw(" "), // Left padding for visual breathing room
-        Span::styled(
-            text,
-            Style::default().fg(Color::Rgb(150, 200, 255)), // Bright cyan/blue
-        ),
-    ]);
+    // Build first line: main header
+    let mut lines = vec![
+        Line::from(vec![
+            Span::raw(" "), // Left padding for visual breathing room
+            Span::styled(
+                text,
+                Style::default().fg(Color::Rgb(150, 200, 255)), // Bright cyan/blue
+            ),
+        ])
+    ];
+
+    // Beta.273: Add proactive issue indicator if issues exist
+    if !state.proactive_issues.is_empty() {
+        // Sort by severity to get top issue
+        let mut sorted = state.proactive_issues.clone();
+        sorted.sort_by(|a, b| {
+            let a_priority = crate::diagnostic_formatter::severity_priority_proactive(&a.severity);
+            let b_priority = crate::diagnostic_formatter::severity_priority_proactive(&b.severity);
+            b_priority.cmp(&a_priority)
+        });
+
+        if let Some(top_issue) = sorted.first() {
+            // Calculate a simple score from confidence and severity
+            let score = (top_issue.confidence * 100.0) as u8;
+
+            // Truncate root_cause if too long
+            let max_root_cause_len = (area.width as usize).saturating_sub(30);
+            let root_cause_display = if top_issue.root_cause.len() > max_root_cause_len {
+                format!("{}...", &top_issue.root_cause[..max_root_cause_len.saturating_sub(3)])
+            } else {
+                top_issue.root_cause.clone()
+            };
+
+            let proactive_line = format!(" ⚡ Top Issue: {} (score: {})", root_cause_display, score);
+
+            lines.push(Line::from(vec![
+                Span::styled(
+                    proactive_line,
+                    Style::default()
+                        .fg(Color::Rgb(255, 180, 80)) // Bright yellow/orange
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]));
+        }
+    }
 
     // Beta.260: Full-width header with consistent background
-    let header = Paragraph::new(header_text)
+    let header = Paragraph::new(lines)
         .style(Style::default().bg(Color::Rgb(0, 0, 0)));
 
     f.render_widget(header, area);

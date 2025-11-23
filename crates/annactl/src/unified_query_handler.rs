@@ -105,8 +105,29 @@ pub async fn handle_unified_query(
     llm_config: &LlmConfig,
 ) -> Result<UnifiedQueryResult> {
 
+    // ========================================================================
+    // Beta.277: NL Routing Stability Rules
+    // ========================================================================
+    //
+    // Rule A - Mutual Exclusion:
+    //   If a query matches status, it NEVER falls into diagnostic.
+    //   Enforced by: checking status (TIER 0) before diagnostic (TIER 0.5)
+    //
+    // Rule B - Conversational Catch-All:
+    //   If no route matches, fallback is ALWAYS conversational.
+    //   Enforced by: returning conversational at end of function (TIER 4)
+    //
+    // Rule C - Diagnostic Requires Clear System Intent:
+    //   Diagnostic only matches when query contains system keywords:
+    //   system | machine | computer | health | diagnostic | check | errors | problems | issues
+    //   Enforced by: is_ambiguous_query() check inside is_full_diagnostic_query()
+    //
+    // Priority Order: status → diagnostic → proactive → recipe → template → conversational
+    // ========================================================================
+
     // TIER 0: System Report (Version 150 - highest priority, no LLM)
     // Intercept "full report" queries to prevent hallucination
+    // Beta.277: Rule A enforced - status checked FIRST
     if crate::system_report::is_system_report_query(user_text) {
         let report = crate::system_report::generate_full_report()
             .unwrap_or_else(|e| format!("Error generating system report: {}", e));
@@ -138,6 +159,13 @@ pub async fn handle_unified_query(
     // Routes to proactive engine for correlated issue remediation
     if is_proactive_remediation_query(user_text) {
         return handle_proactive_remediation_query(user_text).await;
+    }
+
+    // TIER 0.7: Beta.278 Sysadmin Report Routing
+    // Detects "full sysadmin report", "give me a full system report", "overall situation"
+    // Generates comprehensive sysadmin briefing combining health, proactive, and session data
+    if is_sysadmin_report_query(user_text) {
+        return handle_sysadmin_report_query(user_text).await;
     }
 
     // TIER 1: Beta.151 Deterministic Recipes (NEW - highest priority)
@@ -1152,9 +1180,208 @@ pub fn normalize_query_for_intent(text: &str) -> String {
 /// - "is my system ok" / "is the system ok" (Beta.243: the/my variation)
 /// - "my system ok" / "system ok" (Beta.243: terse patterns)
 /// - "is everything ok with my system"
+///
+/// Beta.277: Ambiguity Resolution Framework
+/// ========================================
+///
+/// Detects queries that contain diagnostic keywords but lack system context,
+/// or contain human/existential language that makes intent ambiguous.
+///
+/// A query is ambiguous if:
+/// - It contains diagnostic keywords ("problems", "issues", "errors")
+/// - But NO system context keywords
+/// - AND contains human-context or existential language
+///
+/// Examples:
+/// - "Any problems?" → ambiguous (no system context)
+/// - "Problems in my life?" → ambiguous (human context)
+/// - "Any problems with my system?" → NOT ambiguous (has system context)
+fn is_ambiguous_query(normalized: &str) -> bool {
+    // System context keywords (Rule C requirement)
+    let system_keywords = [
+        "system", "machine", "computer", "health", "diagnostic", "check",
+        "server", "host", "pc", "laptop", "hardware", "software",
+    ];
+
+    // Check if query has system context
+    let has_system_context = system_keywords.iter().any(|kw| normalized.contains(kw));
+
+    // If has clear system context, not ambiguous
+    if has_system_context {
+        return false;
+    }
+
+    // Diagnostic keywords that could be ambiguous without context
+    let diagnostic_keywords = ["problems", "issues", "errors", "failures", "warnings"];
+    let has_diagnostic_keyword = diagnostic_keywords.iter().any(|kw| normalized.contains(kw));
+
+    // Human/existential context indicators
+    let human_context = [
+        "life", "my day", "my situation", "feeling", "i think", "i feel",
+        "personally", "in general", "theoretically", "existential",
+        "philosophical", "mentally", "emotionally",
+    ];
+
+    let has_human_context = human_context.iter().any(|ctx| normalized.contains(ctx));
+
+    // Ambiguous if: has diagnostic keyword BUT no system context AND has human context
+    if has_diagnostic_keyword && !has_system_context && has_human_context {
+        return true;
+    }
+
+    // Short queries without system context are ambiguous ONLY if very short (2 words or less)
+    // Examples: "Any problems?" → ambiguous, "Show problems" → NOT ambiguous (has "show" action verb)
+    if has_diagnostic_keyword && !has_system_context {
+        let word_count = normalized.split_whitespace().count();
+        if word_count <= 2 {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Beta.278: Sysadmin Report v1 - Full System Briefing Detection
+/// ==============================================================
+///
+/// Detects queries requesting a comprehensive sysadmin-style briefing
+/// that combines health, diagnostics, proactive issues, and session info.
+///
+/// This is distinct from:
+/// - Pure health checks ("check my system health") → diagnostic
+/// - Domain-specific queries ("check my network") → sysadmin domain answers
+/// - Educational queries ("what is a healthy system") → conversational
+///
+/// Sysadmin report queries ask for a **broad overview** of the system state,
+/// like what a senior sysadmin would want at the start of a shift.
+///
+/// Examples that SHOULD match:
+/// - "full system report"
+/// - "sysadmin report"
+/// - "overall situation on this system"
+/// - "summarize the state of my machine"
+/// - "what's the current situation on this box"
+/// - "give me a full status report"
+///
+/// Examples that should NOT match:
+/// - "check my system health" → goes to diagnostic
+/// - "check my network" → goes to domain-specific sysadmin composer
+/// - "what is a healthy system" → goes to conversational (educational)
+/// - "status" → goes to system_report (lighter status check)
+pub fn is_sysadmin_report_query(user_text: &str) -> bool {
+    let normalized = normalize_query_for_intent(user_text);
+
+    // Exact multi-word phrases indicating sysadmin report intent
+    let exact_patterns = [
+        // Core sysadmin report phrases
+        "sysadmin report",
+        "full sysadmin report",
+        "complete sysadmin report",
+        "sysadmin style report",
+        "sysadmin briefing",
+        "system admin report",
+        "system administrator report",
+
+        // Full system report variants
+        "full system report",
+        "complete system report",
+        "full status report",
+        "complete status report",
+        "comprehensive system report",
+        "detailed system report",
+
+        // Overall/summary phrasing
+        "overall situation",
+        "overall system situation",
+        "overall machine situation",
+        "overall computer situation",
+        "current situation",
+        "system situation",
+        "machine situation",
+
+        // Summarize variants
+        "summarize the system",
+        "summarize my system",
+        "summarize this system",
+        "summarize the machine",
+        "summarize my machine",
+        "summarize this machine",
+        "summarize the state",
+        "summarize system state",
+        "summarize machine state",
+
+        // "Give me" imperatives
+        "give me a full report",
+        "give me a system report",
+        "give me a full system report",
+        "give me an overview",
+        "give me a full overview",
+        "give me the full picture",
+        "give me everything",
+
+        // "Show me" imperatives
+        "show me a full report",
+        "show me the full system report",
+        "show me everything",
+        "show me the full picture",
+        "show me the complete picture",
+
+        // What's going on (broad scope)
+        "what is going on with this system",
+        "what is going on with my system",
+        "what is happening on this system",
+        "what is happening on my system",
+        "what's going on overall",
+
+        // Overview phrases
+        "overview of this system",
+        "overview of my system",
+        "overview of the system",
+        "overview of problems",
+        "system overview",
+        "machine overview",
+        "complete overview",
+        "full overview",
+    ];
+
+    for pattern in &exact_patterns {
+        if normalized.contains(pattern) {
+            return true;
+        }
+    }
+
+    // Combined keyword patterns (need both)
+    // Example: "full" + "report" + "system"
+    let has_full_or_complete = normalized.contains("full") ||
+                                normalized.contains("complete") ||
+                                normalized.contains("comprehensive") ||
+                                normalized.contains("detailed");
+
+    let has_report_or_briefing = normalized.contains("report") ||
+                                   normalized.contains("briefing") ||
+                                   normalized.contains("summary");
+
+    let has_system_ref = normalized.contains("system") ||
+                         normalized.contains("machine") ||
+                         normalized.contains("computer") ||
+                         normalized.contains("box");
+
+    if has_full_or_complete && has_report_or_briefing && has_system_ref {
+        return true;
+    }
+
+    false
+}
+
 fn is_full_diagnostic_query(user_text: &str) -> bool {
     // Beta.243: Apply normalization for robust matching
     let normalized = normalize_query_for_intent(user_text);
+
+    // Beta.277: Rule C - Diagnostic Requires Clear System Intent
+    // Check ambiguity BEFORE pattern matching
+    if is_ambiguous_query(&normalized) {
+        return false;
+    }
 
     // Beta.244: Exclude conceptual/definition questions before checking patterns
     // These are questions about what system health IS, not about THIS system's health
@@ -1627,6 +1854,86 @@ async fn handle_diagnostic_query(query: &str) -> Result<UnifiedQueryResult> {
             sources: vec!["internal diagnostic engine (9 deterministic checks)".to_string()],
         })
     }
+}
+
+/// Beta.278: Handle sysadmin report query
+///
+/// Generates a comprehensive sysadmin briefing combining:
+/// - Health summary and diagnostics
+/// - Daily snapshot
+/// - Proactive correlated issues
+/// - Key domain highlights
+async fn handle_sysadmin_report_query(_query: &str) -> Result<UnifiedQueryResult> {
+    use anna_common::ipc::{Method, ResponseData};
+    use crate::rpc_client::RpcClient;
+    use crate::diagnostic_formatter::{format_daily_snapshot, compute_daily_snapshot, SessionDelta};
+    use crate::startup::welcome::load_last_session;
+
+    // Fetch brain analysis from daemon
+    let mut client = RpcClient::connect().await
+        .map_err(|e| anyhow::anyhow!("Diagnostic engine unavailable: {}\n\nThe daemon (annad) must be running to perform diagnostics.", e))?;
+
+    let response = client.call(Method::BrainAnalysis).await
+        .map_err(|e| anyhow::anyhow!("Sysadmin report failed: {}", e))?;
+
+    crate::debug::print_rpc_stats(client.get_stats());
+
+    let analysis = match response {
+        ResponseData::BrainAnalysis(data) => data,
+        _ => return Err(anyhow::anyhow!("Unexpected response type from diagnostic engine")),
+    };
+
+    // Compute daily snapshot for session context
+    let session_delta = match load_last_session() {
+        Ok(Some(last_session)) => {
+            // Fetch current telemetry using system_query module
+            match crate::system_query::query_system_telemetry() {
+                Ok(current_telemetry) => {
+                    use crate::startup::welcome::create_telemetry_snapshot;
+                    let current_snapshot = create_telemetry_snapshot(&current_telemetry);
+                    let kernel_changed = last_session.last_telemetry.kernel_version != current_snapshot.kernel_version;
+                    let package_delta = (current_snapshot.package_count as i32) - (last_session.last_telemetry.package_count as i32);
+
+                    SessionDelta {
+                        kernel_changed,
+                        old_kernel: if kernel_changed { Some(last_session.last_telemetry.kernel_version.clone()) } else { None },
+                        new_kernel: if kernel_changed { Some(current_snapshot.kernel_version.clone()) } else { None },
+                        package_delta,
+                        boots_since_last: if kernel_changed { 1 } else { 0 },
+                    }
+                }
+                Err(_) => {
+                    // Telemetry fetch failed, use defaults
+                    SessionDelta::default()
+                }
+            }
+        }
+        _ => {
+            // No last session or load failed, use defaults
+            SessionDelta::default()
+        }
+    };
+
+    let daily_snapshot = compute_daily_snapshot(&analysis, session_delta);
+    let snapshot_text = format_daily_snapshot(&daily_snapshot, false);
+
+    // Extract proactive data
+    let proactive_issues = &analysis.proactive_issues;
+    let proactive_health_score = analysis.proactive_health_score;
+
+    // Compose the sysadmin report
+    let report = crate::sysadmin_answers::compose_sysadmin_report_answer(
+        &analysis,
+        Some(&snapshot_text),
+        proactive_issues,
+        proactive_health_score,
+    );
+
+    Ok(UnifiedQueryResult::ConversationalAnswer {
+        answer: report,
+        confidence: AnswerConfidence::High,
+        sources: vec!["system diagnostics, proactive analysis, session tracking".to_string()],
+    })
 }
 
 // Beta.250: Old format_diagnostic_report function removed
