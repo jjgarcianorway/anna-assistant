@@ -64,6 +64,17 @@ Shows:
 - Recent logs
 - JSON output available with `--json` flag
 
+**Plan Command (6.3.0):**
+```bash
+annactl plan         # Human-readable execution plans
+annactl plan --json  # Machine-readable JSON output
+```
+Shows:
+- Arch Wiki-based execution plans for detected issues
+- DNS resolution fixes
+- Service failure remediation
+- Read-only (displays plans, does not execute)
+
 **One-Shot Queries:**
 ```bash
 annactl "what's using disk space?"

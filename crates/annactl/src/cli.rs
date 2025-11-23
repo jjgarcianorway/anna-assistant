@@ -34,6 +34,7 @@ pub struct Cli {
 /// Natural language queries are handled via runtime.rs before CLI parsing.
 /// Beta.233: Added 'version' subcommand for consistency with other CLI tools
 /// Beta.236: Removed 'brain' from public CLI - diagnostics invoked via natural language
+/// 6.3.0: Added 'plan' subcommand for Arch Wiki-based planner
 #[derive(Subcommand)]
 pub enum Commands {
     /// Show system status and daemon health
@@ -45,6 +46,13 @@ pub enum Commands {
 
     /// Show version information (Beta.233)
     Version,
+
+    /// Generate execution plan for system issues (6.3.0)
+    Plan {
+        /// Output JSON only
+        #[arg(long)]
+        json: bool,
+    },
 
     /// INTERNAL: Brain diagnostic analysis (hidden from help, use natural language instead)
     #[command(hide = true)]
