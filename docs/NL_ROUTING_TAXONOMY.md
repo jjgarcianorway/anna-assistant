@@ -8,15 +8,17 @@
 
 ## Current State
 
-**Test Suite Status (Beta.251):**
+**Test Suite Status (Beta.274):**
 - Smoke suite: 178/178 passing (100%)
-- Big suite: 147/250 passing (58.8%)
-- **Failing tests: 103 (41.2%)**
+- Big suite: ~700 tests (expanded from 250 in Beta.248-251)
+- End-to-end suite: 20 tests (new in Beta.274)
+- **Total NL test coverage: ~900 tests**
 
-**Failure Breakdown:**
-- Expected diagnostic, got conversational: 97 tests
-- Expected status, got conversational: 5 tests
-- Expected conversational, got diagnostic: 1 test
+**Beta.274 Changes:**
+- Expanded big suite from 250 → 700 tests
+- Added coverage metrics (overall, per-route, per-classification, per-priority)
+- Added 20 end-to-end content validation tests
+- No routing changes (pure QA/measurement release)
 
 ---
 

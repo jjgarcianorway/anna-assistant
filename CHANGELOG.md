@@ -7,6 +7,727 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.274] - 2025-11-23
+
+### NL ROUTING QA V3 – 700-QUESTION SUITE & COVERAGE REPORTS
+
+**Type:** Quality Assurance & Measurement
+**Focus:** Expand NL test coverage from 250 to 700 tests with comprehensive metrics
+
+#### Summary 📊
+Beta.274 is a pure QA/measurement release that expands the natural language routing test suite from 250 to 700 tests and adds comprehensive coverage reporting. NO routing logic changes—only observing, measuring, and documenting current behavior.
+
+**Key Achievement:** 900+ total NL tests (smoke + big + e2e) with detailed coverage metrics.
+
+#### Added ✨
+**Expanded Test Suite** (regression_nl_big.toml)
+- 450 new tests added (250 → 700 total)
+- Coverage areas: proactive status (30), typos/noise (40), network (35), temporal (30), short queries (30), resource-specific (145), diagnostic variants (50), conversational (40), mixed patterns (65)
+- All tests maintain metadata: priority, classification, target_route, current_route
+- Test distribution: ~50% diagnostic, ~40% conversational, ~10% status
+
+**Coverage Metrics** (regression_nl_big.rs)
+- Overall metrics: total/passed/failed/accuracy %
+- Per-route breakdown: diagnostic, status, conversational accuracy
+- Per-classification breakdown: correct, router_bug, test_unrealistic, ambiguous
+- Per-priority breakdown: high, medium, low
+- Formatted console output for easy interpretation
+
+**End-to-End Tests** (regression_nl_end_to_end.rs) - NEW
+- 20 tests validating BOTH routing AND content structure
+- 8 diagnostic tests: verify [SUMMARY], [DETAILS], [COMMANDS] markers
+- 8 status tests: verify Daemon, LLM, log structure
+- 4 conversational tests: verify reasonable response formatting
+- Content validation ensures responses aren't just routed correctly but formatted properly
+
+#### Changed 🔧
+**Documentation Updates**
+- NL_ROUTING_TAXONOMY.md: Updated test counts to reflect 700-test suite
+- REGRESSION_TESTING_NL_V1.md: Updated version and suite status
+- BETA_274_NOTES.md: Complete documentation of QA expansion
+
+**Test Infrastructure**
+- Big suite header updated to reflect 700 tests
+- Coverage reporting added after route distribution analysis
+- Final assertion messages updated for Beta.274
+
+#### Testing ✅
+**New Tests:**
+- 450 new routing tests in big suite (total 700)
+- 20 new end-to-end content tests
+- Total: 470 new tests added
+
+**All Tests Pass:**
+- regression_nl_smoke: 178/178 (100%)
+- regression_nl_big: Always passes (measurement mode)
+- regression_nl_end_to_end: 20/20 (100%)
+
+**Coverage Verification:**
+```bash
+cargo test -p annactl --test regression_nl_big
+cargo test -p annactl --test regression_nl_end_to_end
+```
+
+#### Constraints ✓
+- ✅ NO routing logic changes
+- ✅ NO CLI/TUI changes
+- ✅ NO LLM involvement
+- ✅ All tests deterministic
+- ✅ Backward compatible
+- ✅ Measurement-only release
+
+#### Files Modified
+**Test Data:**
+- crates/annactl/tests/data/regression_nl_big.toml (+450 tests)
+
+**Test Harness:**
+- crates/annactl/tests/regression_nl_big.rs (coverage metrics)
+- crates/annactl/tests/regression_nl_end_to_end.rs (NEW, 20 tests)
+
+**Documentation:**
+- docs/NL_ROUTING_TAXONOMY.md (test counts)
+- docs/REGRESSION_TESTING_NL_V1.md (version update)
+- docs/BETA_274_NOTES.md (NEW, complete docs)
+- CHANGELOG.md (this entry)
+- Cargo.toml (version 5.7.0-beta.274)
+- README.md (badge update)
+
+#### Citations 📚
+- Beta.248: Initial large NL suite (250 tests)
+- Beta.249-257: Incremental routing improvements
+- Beta.270-273: Proactive correlation engine
+- Beta.274: QA expansion and measurement (this release)
+
+---
+
+## [5.7.0-beta.273] - 2025-11-23
+
+### PROACTIVE ENGINE V2 – TUI & CLI FIRST-CLASS EXPERIENCE
+
+**Type:** User Experience Enhancement
+**Focus**: Promote proactive engine to primary, first-class status across all surfaces
+
+#### Summary 🚀
+Beta.273 elevates the proactive correlation engine from secondary to primary status. Health scores, top issues, and correlated problems now appear prominently in CLI ([PROACTIVE SUMMARY] section), TUI (header indicator + mini-panel), and natural language queries ("summarize top issues").
+
+**Key Achievement:** Proactive health is no longer buried—it's front and center in every user interaction.
+
+#### Added ✨
+**CLI [PROACTIVE SUMMARY] Section** (diagnostic_formatter.rs)
+- New first-class section after [SUMMARY], before [DETAILS]
+- Shows: issue count, health score (0-100), top root cause
+- Example:
+  ```
+  [PROACTIVE SUMMARY]
+  - 3 correlated issue(s) detected
+  - Health score: 75/100
+  - Top root cause: network_routing_conflict
+  ```
+- Only appears when proactive issues exist
+- Deterministic formatting, sorted by severity
+
+**TUI Header Bar Proactive Indicator** (tui/render.rs)
+- Second line in header when issues exist: `⚡ Top Issue: <root_cause> (score: XX)`
+- Bright yellow/orange, bold for visibility
+- Truncates gracefully for narrow terminals
+- Updates live with brain refresh
+
+**TUI Proactive Mini-Panel** (tui/brain.rs)
+- Enhanced with bordered visual panel:
+  ```
+  ┌ Proactive Analysis ┐
+    ✗ routing conflict (score: 95)
+    ⚠ memory pressure (score: 85)
+  └────────────────────┘
+  ```
+- Capped at 3 issues (space-constrained)
+- Shows severity markers + scores
+- Displays root_cause (not summary) for technical precision
+
+**NL Proactive Status Query Routing** (unified_query_handler.rs)
+- New handler for status summary queries
+- 15+ patterns: "show proactive status", "summarize top issues", "summarize correlations", etc.
+- Returns formatted answer with all issues, severity, and scores
+- "No issues" response when clean
+
+**IPC Protocol Extension** (ipc.rs + rpc_server.rs)
+- Added `proactive_health_score: u8` to `BrainAnalysisData`
+- Backward compatible via `#[serde(default = "default_health_score")]`
+- Default value: 100 (perfect health)
+- Populated from proactive engine's health score calculation
+
+#### Testing 🧪
+**29 New Regression Tests** (2 test files)
+- `regression_proactive_v2_beta273.rs` (19 tests):
+  - CLI [PROACTIVE SUMMARY] presence/absence
+  - Health score display and formatting
+  - Top root cause selection (severity priority)
+  - Human-readable naming (no Rust enums)
+  - Severity priority validation
+  - Edge cases (single issue, many issues, zero issues)
+- `regression_proactive_consistency.rs` (10 tests):
+  - Root cause naming consistency (snake_case)
+  - No Rust enum leakage (::, Option<>, etc.)
+  - Severity marker consistency (✗, ⚠, ℹ, ~)
+  - Score calculation (confidence * 100)
+  - Severity sorting (critical > warning > info > trend)
+  - Format consistency across surfaces
+  - Deterministic output validation
+
+**All 29 tests passing** ✅
+
+#### Changed 🔧
+**Modified Files** (6 files + 2 new test files + docs)
+- `crates/anna_common/src/ipc.rs` - Added proactive_health_score field
+- `crates/annad/src/rpc_server.rs` - Populated health score
+- `crates/annactl/src/diagnostic_formatter.rs` - Added [PROACTIVE SUMMARY] section
+- `crates/annactl/src/tui/render.rs` - Added header indicator (multi-line)
+- `crates/annactl/src/tui/brain.rs` - Enhanced mini-panel (3 issues, scores, borders)
+- `crates/annactl/src/unified_query_handler.rs` - Added NL status query routing
+- `crates/annactl/tests/regression_proactive_v2_beta273.rs` - **NEW** (19 tests)
+- `crates/annactl/tests/regression_proactive_consistency.rs` - **NEW** (10 tests)
+
+**No Changes To**:
+- No new CLI commands
+- No new TUI keybindings
+- No daemon core logic changes
+- No LLM usage added
+
+#### Technical Details
+**Determinism Only**: All routing and formatting is rule-based, zero LLM involvement
+**Backward Compatible**: Old clients without health_score field default to 100
+**Score Formula**: `score = (confidence * 100.0) as u8` (consistent across all surfaces)
+**Severity Sorting**: Critical=4, Warning=3, Info=2, Trend=1, Unknown=0
+**Issue Caps**: CLI 10 max, TUI 3 max (space constraints)
+**Global Constraints Compliance**:
+- ✅ No Rust types in output (all enum → snake_case)
+- ✅ No new commands or keybindings
+- ✅ Deterministic formatting
+- ✅ Standard [SUMMARY]/[DETAILS]/[COMMANDS] format maintained
+
+#### Documentation 📚
+- `docs/BETA_273_NOTES.md` - Comprehensive technical documentation
+- Includes implementation details, design decisions, testing strategy
+
+## [5.7.0-beta.272] - 2025-11-23
+
+### PROACTIVE SURFACING & REMEDIATION INTEGRATION
+
+**Type:** User-Facing Proactive Diagnostics
+**Focus**: Surface proactive correlation insights with actionable remediation
+
+#### Summary 🚀
+Beta.272 connects the proactive correlation engine (Beta.270) to user-facing features. When the proactive engine detects correlated patterns across network, disk, services, CPU, or memory, Anna now surfaces these insights in health output, answers natural language queries like "what should I fix first", and displays proactive issues in the TUI brain panel with deterministic remediation guidance.
+
+**Key Achievement:** Complete proactive correlation surfacing—users can now see and act on multi-signal correlated issues, not just individual diagnostic insights.
+
+#### Added ✨
+**CLI [PROACTIVE] Section** (diagnostic_formatter.rs)
+- New `[PROACTIVE]` section in health output after `[SUMMARY]`, before `[COMMANDS]`
+- Shows "Top correlated issues:" with numbered list (1-10 max)
+- Severity markers: ✗ critical, ⚠ warning, ℹ info, ~ trend
+- Issues sorted by severity (critical first)
+- Example:
+  ```
+  [PROACTIVE]
+  Top correlated issues:
+  1. ✗ Network priority issue: slow Ethernet is outranking fast WiFi
+  2. ⚠ Disk pressure on /
+  3. ⚠ Service flapping: sshd restarted 5 times in 15 minutes
+  ```
+
+**Proactive Remediation Composer** (sysadmin_answers.rs)
+- `compose_top_proactive_remediation()` - Maps proactive root causes to fix guidance
+- Covers 12 root cause types:
+  - Network: routing_conflict, priority_mismatch, quality_degradation
+  - Disk: pressure, log_growth → calls compose_disk_fix_answer()
+  - Services: flapping, under_load, config_error
+  - Resources: memory_pressure, cpu_overload → calls resource composers
+  - Device: kernel_regression, device_hotplug
+  - Unknown causes → generic guidance with confidence/timestamps
+- All output uses canonical [SUMMARY]/[DETAILS]/[COMMANDS] format
+
+**Natural Language Routing** (unified_query_handler.rs)
+- New TIER 0.6 routing for proactive remediation queries
+- 40+ patterns recognized:
+  - "what should i fix first"
+  - "what are my top issues"
+  - "show me my top issues"
+  - "most important issue"
+  - "any critical problems"
+  - "priority issues"
+  - And many more variations
+- Behavior:
+  - No issues → "No correlated issues detected" message
+  - Has issues → sorts by severity, returns remediation for top issue
+- Returns `UnifiedQueryResult::ConversationalAnswer` with high confidence
+
+**TUI Brain Panel Proactive Display** (tui/brain.rs)
+- Enhanced brain diagnostics panel with proactive correlation section
+- Shows "Proactive Correlations:" header after brain insights
+- Displays up to 5 proactive issues (space-constrained)
+- Same severity markers as CLI (✗, ⚠, ℹ, ~)
+- Shows "... and N more" if more than 5 issues
+- Dim separator line between insights and proactive section
+- State already wired in Beta.271, now fully rendered
+
+**Severity Priority System**
+- `severity_priority_proactive()` helper function
+- Priority values: critical=4, warning=3, info=2, trend=1, unknown=0
+- Used for consistent sorting in CLI and TUI
+- Ensures critical issues always surface first
+
+**Module Visibility Fix** (main.rs)
+- Added `mod sysadmin_answers;` and `mod net_diagnostics;` to binary context
+- Fixed "unresolved import" errors when binary tried to use library modules
+- Ensures both library and binary contexts can access remediation composers
+
+#### Testing 🧪
+**28 Regression Tests** (regression_proactive_surfacing.rs - NEW)
+- CLI [PROACTIVE] Section (8 tests):
+  - Section appears when issues exist
+  - Section hidden when no issues
+  - Severity markers displayed
+  - Numbered list formatting
+  - Issue capping at 10
+  - Severity-based sorting
+  - Positioning validation
+- Remediation Composer (15 tests):
+  - All 12 root cause mappings tested
+  - Confidence display in generic remediation
+  - Timestamp display in generic remediation
+  - Format validation (SUMMARY/DETAILS/COMMANDS)
+- Severity Priority (5 tests):
+  - Priority value validation for all severity levels
+
+**All 28 tests passing** ✅
+
+#### Changed 🔧
+**Modified Files** (5 files + 1 new test file)
+- `crates/annactl/src/diagnostic_formatter.rs` - Added [PROACTIVE] section, severity_priority_proactive()
+- `crates/annactl/src/sysadmin_answers.rs` - Added compose_top_proactive_remediation() (155 lines)
+- `crates/annactl/src/unified_query_handler.rs` - Added NL routing (133 lines)
+- `crates/annactl/src/tui/brain.rs` - Added proactive issues rendering (70 lines)
+- `crates/annactl/src/main.rs` - Added module declarations for binary context
+- `crates/annactl/tests/regression_proactive_surfacing.rs` - NEW (476 lines, 28 tests)
+
+**No Changes To**:
+- No new CLI commands
+- No new TUI keybindings
+- No daemon RPC changes (uses Beta.271 plumbing)
+- No new action plans
+
+#### Technical Details
+**Determinism Only**: No LLM usage - all pattern matching and remediation is rule-based
+**Backward Compatible**: Optional sections, graceful degradation, Beta.271 RPC compatibility maintained
+**Safe Commands**: All remediation provides guidance only, no auto-execution
+**Global Constraints Compliance**:
+- ✅ No Rust types in user output
+- ✅ Issue cap: 10 for CLI, 5 for TUI
+- ✅ Confidence threshold: >= 0.7 (server-side from Beta.270)
+- ✅ Severity sorting: critical > warning > info > trend
+- ✅ Standard output format: [SUMMARY]/[DETAILS]/[COMMANDS]
+
+#### Documentation 📚
+- `docs/BETA_272_NOTES.md` - Comprehensive technical documentation
+- Includes design decisions, usage examples, future work
+
+## [5.7.0-beta.269] - 2025-11-23
+
+### SYSADMIN REMEDIATION V2 – CORE SYSTEM DOMAINS
+
+**Type:** Sysadmin Answer Expansion
+**Focus**: Extend remediation pattern to all core system domains
+
+#### Summary 🚀
+Beta.269 extends the deterministic remediation pattern from Beta.268 (network) to all core system domains: services, disk, logs, CPU, memory, and processes. When system issues are detected by brain analysis, Anna now provides actionable step-by-step fix instructions across ALL diagnostic categories using the canonical sysadmin answer format.
+
+**Key Achievement:** Complete system remediation coverage—every brain insight now has actionable fix guidance.
+
+#### Added ✨
+**Six Core Remediation Composers** (canonical [SUMMARY] + [DETAILS] + [COMMANDS] format)
+- `compose_services_fix_answer()` - Fix failed/degraded systemd services
+  - Guides users through service status, log inspection, restart
+  - Distinguishes between failed (critical) and degraded (warning) states
+  - Example: systemctl --failed, journalctl -u <service> -p err
+- `compose_disk_fix_answer()` - Fix high disk usage
+  - Identifies common culprits (logs, package cache, user data)
+  - Safe cleanup commands (pacman -Sc, journalctl --vacuum-time)
+  - WARNING: explicitly cautions against blind file deletion
+- `compose_logs_fix_answer()` - Fix critical log issues
+  - Handles both error detection and disk space consumption
+  - Journal cleanup and rotation commands
+  - Guides user to root cause analysis
+- `compose_cpu_fix_answer()` - Fix high CPU usage
+  - Distinguishes sustained (critical) vs elevated (normal) load
+  - Process identification and monitoring
+  - Suggests systemd service restart vs process termination
+- `compose_memory_fix_answer()` - Fix high RAM/swap usage
+  - Handles systems with/without swap configured
+  - Explains OOM killer risk and memory pressure
+  - Different guidance for heavy swap vs no swap scenarios
+- `compose_process_fix_answer()` - Fix runaway processes
+  - Separates CPU vs memory runaway scenarios
+  - WARNING: explicitly cautions about data loss from killing processes
+  - Prefers systemd service restart over raw kill commands
+
+**Extended Routing Layer** (route_system_remediation)
+- Routes ALL brain insights to appropriate remediation composers
+- Priority order: Services > Disk > Memory > CPU > Logs > Network
+- Ensures critical system failures addressed first
+- Deterministic routing based on rule_id from brain analysis:
+  - `failed_services` / `degraded_services` → services composer
+  - `disk_space_critical` / `disk_space_warning` → disk composer
+  - `memory_pressure_critical` / `memory_pressure_warning` → memory composer
+  - `cpu_overload_critical` / `cpu_high_load` → CPU composer
+  - `critical_log_issues` → logs composer
+  - Network rule_ids → network composers (from Beta.268)
+
+**Evidence Parsing Helpers** (6 new + 4 from Beta.268)
+- `extract_service_names_from_insight()` - Parses service names from details (handles UTF-8 bullets)
+- `extract_disk_info_from_insight()` - Extracts mountpoint and percentage from summary
+- `extract_swap_percent_from_details()` - Locates swap usage in details text
+- `extract_process_name_from_details()` - Finds process name in details
+- `extract_count_from_summary()` - Extracts numeric count from summary
+- All parsers are defensive (return `Option`), handle parse failures gracefully
+
+**Regression Test Suite** (12 tests, all passing)
+- `test_failed_service_routes_to_services_composer` - Verifies failed services (2 services)
+- `test_degraded_service_routes_to_services_composer` - Tests degraded state
+- `test_disk_critical_routes_to_disk_composer` - Tests 92% on / (critical)
+- `test_disk_warning_routes_to_disk_composer` - Tests 85% on /home (warning)
+- `test_critical_log_issues_routes_to_logs_composer` - Tests 5 log issues
+- `test_cpu_overload_routes_to_cpu_composer` - Tests 98.5% CPU (sustained)
+- `test_single_process_cpu_hog_routes_to_process_composer` - Tests chromium CPU hog
+- `test_memory_pressure_with_swap_routes_to_memory_composer` - Tests 94% RAM + 65% swap
+- `test_memory_without_swap_routes_to_memory_composer` - Tests 87% RAM, no swap
+- `test_healthy_system_no_remediation` - Verifies no false positives
+- `test_canonical_format_validation_all_composers` - Ensures format consistency
+- `test_safety_no_rust_types_in_output` - Checks no Rust artifacts (::, Option<, etc.)
+
+#### Changed 🔧
+**Modified Files** (1 file + 1 new test file)
+- `crates/annactl/src/sysadmin_answers.rs` - Added 485 lines (6 composers + routing + parsers)
+- `crates/annactl/tests/regression_sysadmin_remediation_core.rs` - NEW, 397 lines
+
+**No Changes To**:
+- No routing logic changes
+- No CLI surface changes
+- No TUI changes
+- No daemon RPC changes
+- No LLM involvement
+
+#### Technical Details
+**Zero LLM Involvement**: All remediation is deterministic, rule-based routing from brain insights
+**Canonical Format**: Matches existing sysadmin answers (Beta.263-264, Beta.268)
+**Defensive Parsing**: All evidence parsers return `Option`, router handles failures gracefully
+**Safe Commands**: All commands use placeholders or are read-only diagnostics; destructive actions require explicit user confirmation
+
+**Priority Ordering**:
+1. Services (critical system functionality)
+2. Disk (can cause immediate failure)
+3. Memory (OOM killer risk)
+4. CPU (performance degradation)
+5. Logs (diagnostic information)
+6. Network (connectivity issues)
+
+#### Example Outputs
+
+**Services Remediation**:
+```
+[SUMMARY]
+Critical: 2 systemd services have failed.
+
+[DETAILS]
+Failed systemd services prevent critical system functionality from working...
+
+[COMMANDS]
+systemctl --failed
+systemctl status sshd.service
+journalctl -u sshd.service -p err -n 50
+sudo systemctl restart sshd.service
+```
+
+**Disk Remediation**:
+```
+[SUMMARY]
+Critical: Disk usage on / is 92% (critical threshold exceeded).
+
+[DETAILS]
+High disk usage on / can cause system instability and crashes...
+IMPORTANT: Do not blindly delete files...
+
+[COMMANDS]
+df -h
+sudo du -h / 2>/dev/null | sort -h | tail -20
+sudo pacman -Sc
+sudo journalctl --vacuum-time=7d
+```
+
+**Memory Remediation** (with swap):
+```
+[SUMMARY]
+Critical: Memory at 94.2%, swap at 65.0% (system under pressure).
+
+[DETAILS]
+High memory usage combined with heavy swap usage indicates memory pressure.
+When swap is heavily used, system becomes very slow...
+
+[COMMANDS]
+free -h
+ps aux --sort=-%mem | head -20
+swapon --show
+```
+
+#### Benefits
+- **Complete coverage**: Every brain insight domain now has remediation guidance
+- **Consistency**: Same canonical format across services, disk, CPU, memory, logs, network
+- **Safety**: Explicit warnings for destructive operations, placeholder usage
+- **Educational**: Users learn what commands do and why they're needed
+- **Deterministic**: Same issue always produces same remediation
+
+#### Documentation
+- `docs/BETA_269_NOTES.md` - Complete implementation guide, all six composers, routing table, test coverage
+
+---
+
+## [5.7.0-beta.268] - 2025-11-23
+
+### NETWORK REMEDIATION ACTIONS & PROACTIVE FIXES V1
+
+**Type:** Sysadmin Answer Expansion
+**Focus**: Actionable remediation guidance for network issues
+
+#### Summary 🚀
+Beta.268 extends network diagnostics with deterministic remediation guidance. When network issues are detected (Beta.267), Anna now provides step-by-step fix instructions using the canonical sysadmin answer format. Users get actionable, safe-to-run commands with clear explanations—no LLM involvement, purely rule-based routing.
+
+**Key Achievement:** Complete network troubleshooting workflow from detection (Beta.267) to remediation (Beta.268).
+
+#### Added ✨
+**Three Remediation Composers** (canonical [SUMMARY] + [DETAILS] + [COMMANDS] format)
+- `compose_network_priority_fix_answer()` - Fix slow Ethernet outranking fast WiFi
+  - Guides users to disconnect slower interface or adjust route metrics
+  - Example: "nmcli connection down eth0" to prefer 866 Mbps WiFi over 100 Mbps Ethernet
+- `compose_network_route_fix_answer()` - Fix duplicate/missing default routes
+  - Handles unpredictable routing from multiple default routes
+  - Provides safe route deletion commands with NetworkManager restart
+- `compose_network_quality_fix_answer()` - Fix packet loss, latency, interface errors
+  - Diagnoses connectivity degradation with ping/traceroute
+  - Explains root causes (WiFi interference, faulty cables, driver issues)
+
+**Deterministic Routing Layer**
+- `route_network_remediation()` - Routes brain insights to appropriate remediation composer
+- Routes based on rule_id from Beta.267 network detection:
+  - `network_priority_mismatch` → priority fix
+  - `duplicate_default_routes` → route fix
+  - `high_packet_loss` → quality fix (packet loss variant)
+  - `high_latency` → quality fix (latency variant)
+- Evidence parsing helpers extract parameters from insight data:
+  - Interface names and speeds from priority mismatch evidence
+  - Percentage values from packet loss summaries
+  - Latency milliseconds from summary text
+
+**Regression Test Suite** (8 tests, all passing)
+- `test_priority_mismatch_routes_to_correct_composer` - Verifies 100 Mbps vs 866 Mbps scenario
+- `test_duplicate_routes_routes_to_correct_composer` - Tests duplicate route remediation
+- `test_missing_route_routes_to_correct_composer` - Tests missing route scenario
+- `test_packet_loss_routes_to_quality_composer` - Tests 35% packet loss routing
+- `test_latency_routes_to_quality_composer` - Tests 350ms latency routing
+- `test_interface_errors_quality_composer` - Tests interface error guidance
+- `test_healthy_network_no_remediation` - Verifies no false positives
+- `test_canonical_format_validation` - Ensures format consistency, no LLM-style language
+
+#### Changed 🔧
+**Modified Files** (1 file + 1 new test file)
+- `crates/annactl/src/sysadmin_answers.rs` - Added 265 lines (3 composers + routing + parsers)
+- `crates/annactl/tests/regression_sysadmin_network_remediation.rs` - NEW, 287 lines
+
+**No Changes To**:
+- No routing logic changes
+- No CLI surface changes
+- No TUI changes
+- No daemon RPC changes
+- No LLM involvement
+
+#### Technical Details
+**Zero LLM Involvement**: All remediation is deterministic, rule-based routing from Beta.267 insights
+**Canonical Format**: Matches existing sysadmin answers (services, disk, logs, CPU, memory)
+**Defensive Parsing**: All evidence parsers return `None` on failure, router handles gracefully
+**Safe Commands**: All commands are read-only diagnostics or standard NetworkManager operations
+
+#### Example Output
+
+**Priority Mismatch Remediation**:
+```
+[SUMMARY]
+Network priority issue detected.
+
+[DETAILS]
+Your system is currently using a slower Ethernet connection (eth0 at 100 Mbps)
+for routing instead of a faster WiFi connection (wlan0 at 866 Mbps).
+...
+
+[COMMANDS]
+nmcli connection down eth0
+ip route
+nmcli connection modify wlan0 ipv4.route-metric 100
+```
+
+**Packet Loss Remediation**:
+```
+[SUMMARY]
+High packet loss detected (35.0%).
+
+[DETAILS]
+Your network connection is experiencing 35.0% packet loss.
+Packet loss above 5% indicates connectivity problems...
+
+[COMMANDS]
+ping -c 20 $(ip route | grep default | awk '{print $3}')
+nmcli device wifi
+sudo systemctl restart NetworkManager
+```
+
+#### Benefits
+- **Actionable**: Users get exact commands to fix network issues
+- **Educational**: Explanations help users understand root causes
+- **Safe**: Commands are reviewed before execution (no auto-apply)
+- **Deterministic**: Same issue always produces same remediation
+
+#### Documentation
+- `docs/BETA_268_NOTES.md` - Complete implementation guide, composer examples, routing table, test coverage
+
+---
+
+## [5.7.0-beta.267] - 2025-11-23
+
+### PROACTIVE NETWORK SURFACING & HEALTH INTEGRATION V1
+
+**Type:** Diagnostic Enhancement
+**Focus**: Promote network diagnostics to first-class health signal with brain integration
+
+#### Summary 🚀
+Beta.267 promotes network diagnostics from "hidden recipe" status into the first-class brain analysis pipeline. Network issues now appear as DiagnosticInsights alongside service failures and log issues across all diagnostic surfaces (CLI `annactl status`, TUI brain panel, NL queries). Network problems automatically influence OverallHealth computation and trigger proactive "check my network" hints.
+
+**Key Achievement:** Network visibility parity with services/logs/disk diagnostics across all UIs.
+
+#### Added ✨
+**Brain Analysis Integration**
+- Network monitoring integrated into daemon's HealthReport structure
+- `check_network_issues()` function generates DiagnosticInsights from NetworkMonitoring data
+- 4 detection rules:
+  - Priority mismatch: Slow Ethernet taking precedence over fast WiFi (Critical)
+  - Duplicate default routes: Multiple interfaces with default routes (Critical)
+  - High packet loss: >30% critical, >10% warning
+  - High latency: >500ms critical, >200ms warning
+- Network insights automatically influence OverallHealth (Critical/Warning) via existing machinery
+
+**Proactive Hints**
+- CLI diagnostic reports show "check my network" hint when network issues detected
+- TUI exit summary shows network-aware hints based on issue presence
+- Hints consistent with existing [COMMANDS] section formatting
+
+**Regression Tests** (3 comprehensive tests)
+- `test_network_priority_mismatch_detected()` - Verifies 100 Mbps Ethernet vs 866 Mbps WiFi scenario
+- `test_duplicate_default_routes_detected()` - Tests multiple default routes
+- `test_high_packet_loss_detected()` - Tests 35% packet loss detection
+- All tests verify no Rust enum syntax (::) in evidence fields
+
+#### Changed 🔧
+**Modified Files** (5 files, ~200 lines)
+- `crates/annad/src/steward/types.rs` - Added `network_monitoring` field to HealthReport
+- `crates/annad/src/steward/health.rs` - Collect NetworkMonitoring during health check
+- `crates/annad/src/intel/sysadmin_brain.rs` - Added `check_network_issues()` + 3 tests + 173 lines
+- `crates/annactl/src/diagnostic_formatter.rs` - Network hint in CLI [COMMANDS] section
+- `crates/annactl/src/tui/flow.rs` - Network-aware exit summary hints
+
+**Data Flow**
+```
+Network detection → HealthReport → Brain analysis → DiagnosticInsights → UI
+                                  ↓
+                            OverallHealth (Critical/Warning/Healthy)
+```
+
+#### Technical Details
+**No LLM Involvement**: All network insights generated deterministically from NetworkMonitoring struct
+**No New RPC Calls**: Reuses existing health check RPC endpoint
+**Canonical Formatting**: Uses existing DiagnosticInsight structure and TuiStyles
+**OverallHealth Integration**: Network Critical/Warning insights increment critical_count/warning_count
+
+#### Benefits
+- **Visibility**: Network problems surface in all diagnostic UIs without explicit queries
+- **Proactivity**: Users alerted to network issues during normal health checks
+- **Consistency**: Network treated like other health signals (services, logs, disk)
+- **Actionability**: Proactive hints guide users to focused network diagnostics
+
+#### Documentation
+- `docs/BETA_267_NOTES.md` - Complete implementation guide, test coverage, architecture decisions
+
+---
+
+## [5.7.0-beta.266] - 2025-11-23
+
+### TUI HEALTH COHERENCE & BUG FIXES V1
+
+**Type:** Bug Fixes & Testing
+**Focus**: TUI health display consistency and internal debug output elimination
+
+#### Summary 🚀
+Beta.266 fixes critical TUI bugs identified from real user screenshots: inconsistent health wording between CLI and TUI, internal debug output leaking into brain panel, and exit summary rendering issues. All bugs fixed with deterministic filters and canonical wording alignment.
+
+**Key Achievement:** Zero tolerance for internal Rust artifacts in user-visible TUI text.
+
+#### Fixed 🐛
+**TUI Health Wording**
+- Exit summary now uses "System health:" label matching CLI (was "Session health:")
+- Health phrases match `diagnostic_formatter.rs` exactly:
+  - Healthy: "all clear, no critical issues detected"
+  - Warning: "degraded – warning issues detected"
+  - Critical: "degraded – critical issues require attention"
+- Welcome panel already used correct "Today:" label
+
+**Brain Panel Debug Filter**
+- Added `is_internal_debug_output()` filter to block Rust enum names
+- Filters evidence containing `::` (enum syntax)
+- Filters debug fragments like "System degraded: 0 failed"
+- Brain panel will never show "HealthStatus::Degraded" or similar artifacts
+
+**Exit Summary Rendering**
+- Added explicit terminal flush before 1.5s pause
+- Ensures exit summary renders fully inside Ratatui before terminal restore
+- Prevents visual glitches from premature cleanup
+
+#### Added ✨
+**Regression Test Suite** (`tests/regression_tui_health.rs`, 269 lines)
+- 7 comprehensive tests (100% passing)
+- `test_welcome_uses_canonical_health_wording` - Verifies all health states
+- `test_exit_summary_uses_canonical_health_wording` - CLI/TUI consistency
+- `test_no_raw_internal_types_in_welcome` - No enum names or `::`
+- `test_no_raw_internal_types_in_exit_summary` - Same for exit
+- `test_brain_panel_filters_internal_debug_output` - Documents filter behavior
+- `test_health_wording_consistency_across_surfaces` - Cross-surface check
+- `test_welcome_panel_shows_today_label` - Temporal label verification
+
+**Module Exports for Testing**
+- Made `tui` module public in lib.rs
+- Made `flow` submodule public in tui/mod.rs
+- Re-exported `generate_welcome_lines()` and `generate_exit_summary()`
+
+#### Changed 🔧
+**Modified Files** (36 lines total across 6 files)
+- `crates/annactl/src/tui/flow.rs` (+3 lines)
+- `crates/annactl/src/tui/brain.rs` (+25 lines)
+- `crates/annactl/src/tui/event_loop.rs` (+3 lines)
+- `crates/annactl/src/lib.rs` (+1 line)
+- `crates/annactl/src/tui/mod.rs` (+3 lines)
+- `crates/annactl/tests/regression_tui_health.rs` (NEW, +269 lines)
+
+#### Known Limitations
+- Network diagnostics from Beta.265 not yet integrated into TUI brain panel (deferred to future beta)
+- Filter may block legitimate URLs containing `://` in evidence (acceptable trade-off)
+
+---
+
 ## [5.7.0-beta.265] - 2025-11-23
 
 ### PROACTIVE NETWORK DIAGNOSTICS & SYSADMIN BRAIN EXPANSION

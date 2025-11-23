@@ -1,9 +1,11 @@
 // Beta.248: Large NL QA Regression Test Suite
 // ============================================
 //
-// This test suite contains 250 real-world natural language queries focused on
+// Beta.274: Expanded to 700 tests with comprehensive coverage metrics
+//
+// This test suite contains 700 real-world natural language queries focused on
 // system health, status, and diagnostic patterns. It complements the smoke suite
-// (178 tests) with a broader coverage of actual user queries.
+// (178 tests) with broader coverage of actual user queries.
 //
 // Test data: tests/data/regression_nl_big.toml
 //
@@ -11,8 +13,9 @@
 // - Measure routing accuracy on real-world questions
 // - Detect routing regressions as Anna evolves
 // - Provide visibility into which queries work and which don't
+// - Generate per-route, per-classification, per-priority coverage metrics
 //
-// Beta.248 is measurement-only: no behavior changes, just data collection.
+// Beta.248/274 is measurement-only: no behavior changes, just data collection.
 
 use serde::Deserialize;
 use std::fs;
@@ -487,25 +490,116 @@ async fn test_regression_nl_big_suite() {
     );
 
     // ========================================================================
+    // BETA.274: COVERAGE METRICS
+    // ========================================================================
+
+    println!("\n📊 Beta.274 Coverage Metrics");
+    println!("============================\n");
+
+    // Overall metrics
+    let total = test_suite.test.len();
+    let accuracy = (passed as f64 / total as f64) * 100.0;
+    println!("Overall Coverage:");
+    println!("  Total tests:  {}", total);
+    println!("  Passed:       {} ({:.1}%)", passed, accuracy);
+    println!("  Failed:       {} ({:.1}%)", failed, 100.0 - accuracy);
+    println!();
+
+    // Per-route coverage
+    println!("Per-Route Coverage:");
+    for route in &["diagnostic", "status", "conversational"] {
+        let route_tests: Vec<_> = test_suite.test.iter()
+            .filter(|t| t.expect_route == *route)
+            .collect();
+        let route_passed = route_tests.iter()
+            .filter(|t| classify_route(&t.query) == *route)
+            .count();
+        let route_total = route_tests.len();
+        let route_accuracy = if route_total > 0 {
+            (route_passed as f64 / route_total as f64) * 100.0
+        } else {
+            0.0
+        };
+        println!("  {:15} {}/{} ({:.1}%)",
+            format!("{}:", route),
+            route_passed,
+            route_total,
+            route_accuracy
+        );
+    }
+    println!();
+
+    // Per-classification coverage
+    println!("Per-Classification Coverage:");
+    for classification in &["correct", "router_bug", "test_unrealistic", "ambiguous"] {
+        let class_tests: Vec<_> = test_suite.test.iter()
+            .filter(|t| t.classification.as_ref().map(|c| c == *classification).unwrap_or(false))
+            .collect();
+        let class_passed = class_tests.iter()
+            .filter(|t| classify_route(&t.query) == t.expect_route)
+            .count();
+        let class_total = class_tests.len();
+        let class_accuracy = if class_total > 0 {
+            (class_passed as f64 / class_total as f64) * 100.0
+        } else {
+            0.0
+        };
+        if class_total > 0 {
+            println!("  {:20} {}/{} ({:.1}%)",
+                format!("{}:", classification),
+                class_passed,
+                class_total,
+                class_accuracy
+            );
+        }
+    }
+    println!();
+
+    // Per-priority coverage
+    println!("Per-Priority Coverage:");
+    for priority in &["high", "medium", "low"] {
+        let priority_tests: Vec<_> = test_suite.test.iter()
+            .filter(|t| t.priority.as_ref().map(|p| p == *priority).unwrap_or(false))
+            .collect();
+        let priority_passed = priority_tests.iter()
+            .filter(|t| classify_route(&t.query) == t.expect_route)
+            .count();
+        let priority_total = priority_tests.len();
+        let priority_accuracy = if priority_total > 0 {
+            (priority_passed as f64 / priority_total as f64) * 100.0
+        } else {
+            0.0
+        };
+        if priority_total > 0 {
+            println!("  {:10} {}/{} ({:.1}%)",
+                format!("{}:", priority),
+                priority_passed,
+                priority_total,
+                priority_accuracy
+            );
+        }
+    }
+
+    // ========================================================================
     // FINAL ASSERTION
     // ========================================================================
 
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-    // Beta.248: This is measurement-only, so we don't fail the test on routing mismatches
+    // Beta.248/274: This is measurement-only, so we don't fail the test on routing mismatches
     // Instead, we pass the test unconditionally and report the results
 
     if failed > 0 {
         println!("⚠️  NOTE: {} tests had routing mismatches.", failed);
-        println!("   Beta.248 is measurement-only - these are documented for future improvement.");
-        println!("   See BETA_248_NOTES.md for analysis and next steps.\n");
+        println!("   Beta.248/274 is measurement-only - these are documented for future improvement.");
+        println!("   See BETA_274_NOTES.md for analysis and next steps.\n");
     } else {
         println!("✅ All tests passed! Routing is 100% accurate.\n");
     }
 
     // For now, always pass the test to collect data
     // Future betas may enforce routing accuracy
-    assert!(true, "Beta.248 big suite measurement complete");
+    assert!(true, "Beta.274 big suite measurement complete");
 }
 
 // ============================================================================

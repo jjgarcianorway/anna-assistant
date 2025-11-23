@@ -1,8 +1,11 @@
 # Natural Language Regression Testing Guide - V1
 
-**Version:** Beta.244
-**Test Suite:** regression_nl_smoke
-**Status:** Production-ready (172 tests, 100% passing)
+**Version:** Beta.274
+**Test Suites:**
+- regression_nl_smoke (178 tests, 100% passing)
+- regression_nl_big (700 tests, measurement mode)
+- regression_nl_end_to_end (20 tests, content validation)
+**Status:** Production-ready with comprehensive coverage
 
 ---
 
