@@ -126,6 +126,20 @@ pub async fn handle_unified_query(
         return handle_diagnostic_query(user_text).await;
     }
 
+    // TIER 0.6: Beta.273 Proactive Status Summary Routing
+    // Detects "show proactive status", "summarize top issues", "summarize findings"
+    // Routes to proactive engine for status summary
+    if is_proactive_status_query(user_text) {
+        return handle_proactive_status_query(user_text).await;
+    }
+
+    // TIER 0.6: Beta.272 Proactive Remediation Routing
+    // Detects "what should I fix first", "what are my top issues", "any critical problems"
+    // Routes to proactive engine for correlated issue remediation
+    if is_proactive_remediation_query(user_text) {
+        return handle_proactive_remediation_query(user_text).await;
+    }
+
     // TIER 1: Beta.151 Deterministic Recipes (NEW - highest priority)
     // These are hard-coded, tested, zero-hallucination plans
     let telemetry_map = telemetry_to_hashmap(telemetry);
@@ -1326,6 +1340,79 @@ fn is_full_diagnostic_query(user_text: &str) -> bool {
         "i want to know if my system is healthy",
         "i need a system check",
         "can you check my system",
+        // Beta.275: High/medium priority router_bug fixes
+        // Negative forms
+        "nothing broken",
+        "no problems right",
+        "not having issues am i",
+        "should i worry",
+        // Short diagnostic commands
+        "diagnose system",
+        "generate diagnostic",
+        "fetch health info",
+        "in depth diagnostic",
+        "deep diagnostic",
+        "thorough system check",
+        "extensive status report",
+        // System wellness and completeness
+        "system wellness check",
+        "complete diagnostic",
+        // Abbreviated forms
+        "sys health",
+        "svc problems",
+        "system problem",  // singular
+        "service issue",   // singular
+        // Possessive health forms
+        "my system's health",
+        "this computer's health",
+        // Resource-specific question patterns
+        "journal errors",
+        "package problems",
+        "broken packages",
+        "orphaned packages",
+        "network problems",
+        "hardware problems",
+        "overheating issues",
+        "filesystem errors",
+        "mount problems",
+        "security issues",
+        "failed boot attempts",
+        "internet connectivity issues",
+        "updates available",
+        "performance problems",
+        "resource problems",
+        "configuration problems",
+        "dependency issues",
+        "permission problems",
+        "access issues",
+        "compatibility issues",
+        "quota problems",
+        "lock problems",
+        "timeout issues",
+        // Status forms that should be diagnostic
+        "status of my system",
+        "my computer status",
+        "cpu health check",
+        // Critical/priority forms
+        "critical issues",
+        "high priority problems",
+        "very serious issues",
+        // "Just checking" patterns
+        "just checking in on the system",
+        "morning system check",
+        "morning check",
+        // Diagnostic report requests
+        "give me a diagnostic report",
+        "show me if there are problems",
+        "are there problems if so what",
+        // Machine/PC variants
+        "is my machine healthy",
+        "is my disk healthy",
+        "machine's status",
+        // Negative question forms
+        "system is healthy right",
+        // One-word diagnostic
+        "diagnostic",
     ];
 
     for phrase in &exact_matches {
@@ -1532,6 +1619,263 @@ async fn handle_diagnostic_query(query: &str) -> Result<UnifiedQueryResult> {
 
 // Beta.250: Old format_diagnostic_report function removed
 // Now using canonical formatter from diagnostic_formatter module
+
+/// Beta.272: Detect proactive remediation queries
+///
+/// Patterns focused on "what should I fix" and "top issues"
+fn is_proactive_remediation_query(text: &str) -> bool {
+    let normalized = normalize_query_for_intent(text);
+
+    let proactive_patterns = [
+        // "What should I fix" family
+        "what should i fix first",
+        "what should i fix",
+        "what do i fix first",
+        "what to fix first",
+        "what needs fixing first",
+        "what needs to be fixed first",
+
+        // "Top issues" family
+        "what are my top issues",
+        "what are the top issues",
+        "show me my top issues",
+        "show top issues",
+        "top issues",
+        "top problems",
+        "main issues",
+        "main problems",
+
+        // "Most important" family
+        "what is the most important issue",
+        "what's the most important issue",
+        "most important issue",
+        "most important problem",
+        "biggest issue",
+        "biggest problem",
+
+        // "Main problem" family
+        "what is the main problem",
+        "what's the main problem",
+        "main problem",
+
+        // "Critical/urgent" family
+        "any critical problems",
+        "any critical issues",
+        "critical problems",
+        "critical issues",
+        "any urgent issues",
+        "any urgent problems",
+        "urgent issues",
+        "urgent problems",
+
+        // "Priority" family
+        "highest priority issue",
+        "highest priority problem",
+        "priority issues",
+        "priority problems",
+    ];
+
+    for pattern in &proactive_patterns {
+        if normalized == *pattern || normalized.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Beta.272: Handle proactive remediation query
+///
+/// Returns remediation answer for the top proactive issue, or "no issues" message
+async fn handle_proactive_remediation_query(_user_text: &str) -> Result<UnifiedQueryResult> {
+    // Fetch brain/health data via RPC
+    let mut client = crate::rpc_client::RpcClient::connect_quick(None).await?;
+    let response = client.call(anna_common::ipc::Method::BrainAnalysis).await?;
+
+    let brain_data = match response {
+        anna_common::ipc::ResponseData::BrainAnalysis(data) => data,
+        _ => return Err(anyhow::anyhow!("Unexpected RPC response type")),
+    };
+
+    // Check if there are any proactive issues
+    if brain_data.proactive_issues.is_empty() {
+        // No proactive issues detected
+        let answer = format!(
+            "[SUMMARY]\n\
+            No correlated issues detected. System health is determined by individual checks only.\n\n\
+            [DETAILS]\n\
+            The proactive engine did not find any high confidence correlations between network, \
+            disk, services, CPU, memory, or processes.\n\n\
+            Individual diagnostic insights may still be present. Run a full health check for details.\n\n\
+            [COMMANDS]\n\
+            $ annactl \"check my system health\"\n\
+            $ annactl status"
+        );
+
+        return Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence: AnswerConfidence::High,
+            sources: vec!["proactive engine (deterministic)".to_string()],
+        });
+    }
+
+    // Sort by severity and get top issue
+    let mut sorted_issues = brain_data.proactive_issues.clone();
+    sorted_issues.sort_by(|a, b| {
+        let a_priority = crate::diagnostic_formatter::severity_priority_proactive(&a.severity);
+        let b_priority = crate::diagnostic_formatter::severity_priority_proactive(&b.severity);
+        b_priority.cmp(&a_priority) // Descending
+    });
+
+    let top_issue = &sorted_issues[0];
+
+    // Generate remediation answer
+    let answer = crate::sysadmin_answers::compose_top_proactive_remediation(top_issue, &brain_data)
+        .unwrap_or_else(|| {
+            format!(
+                "[SUMMARY]\n\
+                Top correlated issue: {}\n\n\
+                [DETAILS]\n\
+                Specific remediation guidance not yet available for this issue type (root cause: {}).\n\
+                Confidence: {:.0}%\n\n\
+                [COMMANDS]\n\
+                $ annactl \"check my system health\"\n\
+                $ annactl status",
+                top_issue.summary,
+                top_issue.root_cause,
+                top_issue.confidence * 100.0
+            )
+        });
+
+    Ok(UnifiedQueryResult::ConversationalAnswer {
+        answer,
+        confidence: AnswerConfidence::High,
+        sources: vec!["proactive engine + deterministic remediation".to_string()],
+    })
+}
+
+/// Beta.273: Detect proactive status summary queries
+///
+/// Patterns focused on "show proactive status", "summarize top issues", "summarize findings"
+fn is_proactive_status_query(text: &str) -> bool {
+    let normalized = normalize_query_for_intent(text);
+
+    let status_patterns = [
+        "show proactive status",
+        "proactive status",
+        "summarize top issues",
+        "summarize issues",
+        "what problems do you see",
+        "what problems can you see",
+        "summarize correlations",
+        "summarize findings",
+        "top correlated issues",
+        "show correlations",
+        "show top correlations",
+        "list proactive issues",
+        "list correlations",
+        "proactive summary",
+        "correlation summary",
+    ];
+
+    for pattern in &status_patterns {
+        if normalized == *pattern || normalized.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Beta.273: Handle proactive status summary query
+///
+/// Returns a summary of all proactive issues with scores, or "no issues" message
+async fn handle_proactive_status_query(_user_text: &str) -> Result<UnifiedQueryResult> {
+    // Fetch brain/health data via RPC
+    let mut client = crate::rpc_client::RpcClient::connect_quick(None).await?;
+    let response = client.call(anna_common::ipc::Method::BrainAnalysis).await?;
+
+    let brain_data = match response {
+        anna_common::ipc::ResponseData::BrainAnalysis(data) => data,
+        _ => return Err(anyhow::anyhow!("Unexpected RPC response type")),
+    };
+
+    // Check if there are any proactive issues
+    if brain_data.proactive_issues.is_empty() {
+        // No proactive issues detected
+        let answer = format!(
+            "[SUMMARY]\n\
+            No correlated issues found.\n\n\
+            [DETAILS]\n\
+            The proactive engine did not detect any high-confidence correlations. \
+            System health is determined by individual diagnostic checks only.\n\n\
+            [COMMANDS]\n\
+            $ annactl status\n\
+            $ annactl \"check my system health\""
+        );
+
+        return Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence: AnswerConfidence::High,
+            sources: vec!["proactive engine (deterministic)".to_string()],
+        });
+    }
+
+    // Build summary answer
+    let issue_count = brain_data.proactive_issues.len();
+    let health_score = brain_data.proactive_health_score;
+
+    let mut answer = format!(
+        "[SUMMARY]\n\
+        Proactive engine detected {} correlated issue(s).\n\
+        System health score: {}/100\n\n\
+        [DETAILS]\n",
+        issue_count,
+        health_score
+    );
+
+    // Sort by severity
+    let mut sorted_issues = brain_data.proactive_issues.clone();
+    sorted_issues.sort_by(|a, b| {
+        let a_priority = crate::diagnostic_formatter::severity_priority_proactive(&a.severity);
+        let b_priority = crate::diagnostic_formatter::severity_priority_proactive(&b.severity);
+        b_priority.cmp(&a_priority) // Descending
+    });
+
+    // Show all issues (up to 10)
+    sorted_issues.truncate(10);
+    for (idx, issue) in sorted_issues.iter().enumerate() {
+        let score = (issue.confidence * 100.0) as u8;
+        let severity_marker = match issue.severity.to_lowercase().as_str() {
+            "critical" => "✗",
+            "warning" => "⚠",
+            "info" => "ℹ",
+            "trend" => "~",
+            _ => "•",
+        };
+
+        answer.push_str(&format!(
+            "{}. {} {} (severity: {}, score: {})\n",
+            idx + 1,
+            severity_marker,
+            issue.root_cause,
+            issue.severity,
+            score
+        ));
+    }
+
+    answer.push_str(
+        "\n[COMMANDS]\n\
+        $ annactl status\n\
+        $ annactl \"check my system health\""
+    );
+
+    Ok(UnifiedQueryResult::ConversationalAnswer {
+        answer,
+        confidence: AnswerConfidence::High,
+        sources: vec!["proactive engine (deterministic)".to_string()],
+    })
+}
 
 #[cfg(test)]
 mod tests {

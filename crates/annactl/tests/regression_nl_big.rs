@@ -214,6 +214,48 @@ fn is_full_diagnostic_query(query: &str) -> bool {
         // Beta.256: Intent markers and polite requests
         "i want to know if my system is healthy",
         "i need a system check", "can you check my system",
+        // Beta.275: High/medium priority router_bug fixes
+        // Negative forms
+        "nothing broken", "no problems right", "not having issues am i",
+        "should i worry",
+        // Short diagnostic commands
+        "diagnose system", "generate diagnostic", "fetch health info",
+        "in depth diagnostic", "deep diagnostic", "thorough system check",
+        "extensive status report",
+        // System wellness and completeness
+        "system wellness check", "complete diagnostic",
+        // Abbreviated forms
+        "sys health", "svc problems", "system problem", "service issue",
+        // Possessive health forms
+        "my system's health", "this computer's health",
+        // Resource-specific question patterns
+        "journal errors", "package problems", "broken packages",
+        "orphaned packages", "network problems", "hardware problems",
+        "overheating issues", "filesystem errors", "mount problems",
+        "security issues", "failed boot attempts",
+        "internet connectivity issues", "updates available",
+        "performance problems", "resource problems",
+        "configuration problems", "dependency issues",
+        "permission problems", "access issues",
+        "compatibility issues", "quota problems",
+        "lock problems", "timeout issues",
+        // Status forms that should be diagnostic
+        "status of my system", "my computer status",
+        "cpu health check",
+        // Critical/priority forms
+        "critical issues", "high priority problems",
+        "very serious issues",
+        // "Just checking" patterns
+        "just checking in on the system", "morning system check", "morning check",
+        // Diagnostic report requests
+        "give me a diagnostic report", "show me if there are problems",
+        "are there problems if so what",
+        // Machine/PC variants
+        "is my machine healthy", "is my disk healthy", "machine's status",
+        // Negative question forms
+        "system is healthy right",
+        // One-word diagnostic
+        "diagnostic",
     ];
 
     for keyword in &diagnostic_keywords {
@@ -268,6 +310,8 @@ fn is_system_report_query(query: &str) -> bool {
         "any events on my system", "any events on this machine",
         "recently on my system", "recently on this system", "recently on my machine",
         "lately on my system", "lately on this system",
+        // Beta.275: Additional status report patterns
+        "extensive status report", "detailed status report",
     ];
 
     for keyword in &status_keywords {

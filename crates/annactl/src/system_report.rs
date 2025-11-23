@@ -218,6 +218,9 @@ pub fn is_system_report_query(query: &str) -> bool {
         "the machine's status",
         "the computer's status",
         "the system's status",
+        // Beta.275: Additional status report patterns
+        "extensive status report",
+        "detailed status report",
     ];
 
     for keyword in &status_keywords {

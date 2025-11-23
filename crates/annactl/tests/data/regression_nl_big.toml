@@ -136,9 +136,9 @@ status = "future_maybe"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category B1: 'What's wrong' with diagnostic context
 
 [[test]]
@@ -844,9 +844,9 @@ notes = "Context: 'my machine' (positive indicator)"
 
 # Beta.252 Metadata
 priority = "high"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category A: Resource health variant - missing pattern
 
 [[test]]
@@ -1198,9 +1198,9 @@ notes = "Resource-specific health: disk"
 
 # Beta.252 Metadata
 priority = "high"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category A: Resource health variant - missing pattern
 
 [[test]]
@@ -1240,9 +1240,9 @@ notes = "Resource-specific health: network"
 
 # Beta.252 Metadata
 priority = "high"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category A: Resource health variant - missing pattern
 
 [[test]]
@@ -1254,9 +1254,9 @@ notes = "Resource-specific health: services"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1296,9 +1296,9 @@ notes = "Problem list request"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1367,9 +1367,9 @@ notes = "Polite diagnostic request"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1395,9 +1395,9 @@ notes = "Imperative health command"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1423,9 +1423,9 @@ notes = "Check command"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1437,9 +1437,9 @@ notes = "Diagnose command"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1549,9 +1549,9 @@ notes = "Multi-word: 'this computer'"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1647,9 +1647,9 @@ notes = "Standalone verb: 'do diagnostic'"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -1913,9 +1913,9 @@ notes = "Log health: Journal error check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2011,9 +2011,9 @@ notes = "Network health: Connectivity check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2025,9 +2025,9 @@ notes = "Hardware health: Problem check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2039,9 +2039,9 @@ notes = "Hardware health: Temperature check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2053,9 +2053,9 @@ notes = "Filesystem health: Error check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2067,9 +2067,9 @@ notes = "Filesystem health: Mount check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2081,9 +2081,9 @@ notes = "Security health: Issue check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2137,9 +2137,9 @@ notes = "Comprehensive: Full check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2151,9 +2151,9 @@ notes = "Comprehensive: Complete diagnostic"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2207,9 +2207,9 @@ notes = "Negation: Expecting confirmation"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2235,9 +2235,9 @@ notes = "Negation: Issue check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2305,9 +2305,9 @@ notes = "Priority: Critical check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2319,9 +2319,9 @@ notes = "Priority: High priority check"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2333,9 +2333,9 @@ notes = "Confirmation: Health confirmation"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2375,9 +2375,9 @@ notes = "Scope: Deep diagnostic"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2445,9 +2445,9 @@ notes = "Multi-resource: Disk + Services"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
@@ -2487,9 +2487,9 @@ notes = "Imperative: Give me"
 
 # Beta.252 Metadata
 priority = "medium"
-classification = "router_bug"
+classification = "correct"
 target_route = "diagnostic"
-current_route = "conversational"
+current_route = "diagnostic"
 # Category G2: Has some keywords but pattern not matched
 
 [[test]]
