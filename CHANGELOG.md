@@ -7,7 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.7.0-beta.280] - 2025-11-23
+## [6.0.0] - 2025-11-23
+
+### PROTOTYPE RESET - NEW RELEASE LINE
+
+**Type:** Major version reset / Architecture cleanup
+**Focus:** Disable unstable TUI, focus on stable CLI and daemon
+
+#### Summary 📊
+
+Anna 6.0.0 represents a complete reset of the project direction. The 5.x TUI proved persistently unstable despite multiple fixes. Rather than continue patching, 6.0.0 disables the TUI entirely and focuses on what actually works: the daemon, CLI, and core intelligence features.
+
+**This is not a continuation of 5.x - it is a fresh start.**
+
+#### Changed 🔄
+
+**TUI Disabled:**
+- Interactive TUI from 5.x completely disabled
+- `annactl` (no args) now shows error message directing to CLI commands
+- All TUI code archived in `crates/annactl/src/tui_legacy/`
+- TUI tests archived in `crates/annactl/tests_legacy/`
+
+**Documentation Overhaul:**
+- README.md completely rewritten to honestly describe what works in 6.0.0
+- Added RELEASE_NOTES_6.0.0.md explaining the reset
+- Removed misleading feature claims
+- Clear warnings about experimental status
+
+**Repository Cleanup:**
+- Removed TUI module declarations from `main.rs` and `lib.rs`
+- Archived `repl.rs` (unused REPL interface)
+- Legacy tests quarantined
+- Build system cleaned (compiles without TUI)
+
+#### Removed 🗑️
+
+**From User Perspective:**
+- No interactive terminal UI
+- No panels (right panel, brain panel, etc.)
+- No streaming UI
+- No welcome flow screens
+- No multi-panel layouts
+
+**All removed code preserved in `tui_legacy/` for future reference.**
+
+#### Kept ✅
+
+**Daemon (`annad`) - Unchanged from Beta.279:**
+- Historian (JSONL storage, 6 temporal correlation rules)
+- ProactiveAssessment (correlated issue detection)
+- Diagnostic engine (9 deterministic rules)
+- 77+ deterministic recipes
+- RPC server
+- Health monitoring
+
+**CLI Interface (`annactl`):**
+- `annactl status` - System health check
+- `annactl "<question>"` - One-shot natural language queries
+- `--json` output mode
+- `--help` documentation
+
+**LLM Integration:**
+- Ollama integration
+- Natural language processing
+- System prompt architecture
+
+#### Version Strategy 🎯
+
+- **6.0.0** = Prototype reset, CLI-only, stable foundation
+- **6.x** = Incremental improvements to CLI and daemon
+- **Future** = Rebuild TUI when it can be done right
+
+#### Migration Notes 📝
+
+**From 5.x TUI users:**
+- TUI is gone, use `annactl status` or one-shot queries
+- No migration path - TUI will be rebuilt from scratch
+
+**From 5.x CLI/daemon users:**
+- Everything works exactly as before
+- No changes needed
+
+#### Files Changed 📁
+
+**Modified:**
+- `Cargo.toml` - Version 6.0.0
+- `README.md` - Complete rewrite (honest, accurate)
+- `CHANGELOG.md` - This entry
+- `crates/annactl/src/runtime.rs` - TUI calls replaced with error messages
+- `crates/annactl/src/main.rs` - TUI modules removed
+- `crates/annactl/src/lib.rs` - TUI modules removed
+
+**Created:**
+- `RELEASE_NOTES_6.0.0.md` - Detailed release explanation
+- `crates/annactl/src/tui_legacy/README.md` - Archive documentation
+- `crates/annactl/tests_legacy/README.md` - Legacy test documentation
+
+**Archived:**
+- `crates/annactl/src/tui/` → `crates/annactl/src/tui_legacy/tui/`
+- `crates/annactl/src/tui_state.rs` → `crates/annactl/src/tui_legacy/`
+- `crates/annactl/src/tui_v2.rs` → `crates/annactl/src/tui_legacy/`
+- `crates/annactl/src/repl.rs` → `crates/annactl/src/tui_legacy/`
+- `crates/annactl/tests/test_tui_streaming_beta280.rs` → `crates/annactl/tests_legacy/`
+
+---
+
+## [5.7.0-beta.280] - 2025-11-23 (Abandoned)
 
 ### TUI STREAMING FIX - NO MORE DUPLICATES
 

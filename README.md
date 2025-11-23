@@ -1,127 +1,180 @@
 # Anna Assistant
 
-**Intelligent Arch Linux System Assistant with Deterministic Diagnostics**
+**Intelligent Arch Linux System Assistant - Version 6.0.0 (Experimental Prototype)**
 
-[![Version](https://img.shields.io/badge/version-5.7.0--beta.280-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 
-Anna is a local system assistant for Arch Linux that combines deterministic diagnostics with LLM-powered insights to help you understand and manage your system. Think of her as your caffeinated sysadmin buddy who actually reads the logs.
+---
+
+## ⚠️ Important: 6.0.0 is a Prototype Reset
+
+**Anna 6.0.0 is an experimental release focused on stabilizing the core architecture.**
+
+- **CLI-only interface**: The interactive TUI from 5.x has been disabled
+- **Daemon stability**: Focus on proven daemon features (Historian, ProactiveAssessment, health monitoring)
+- **Clean foundation**: Removed unstable code to build a solid base for future UI work
+
+This is **not production software**. It is a working prototype for Arch Linux power users who want local system intelligence without the instability of the 5.x TUI.
 
 ---
 
-## Features
+## What Actually Works in 6.0.0
 
-- **🧠 Internal Diagnostic Engine** - 9 rules analyzing services, disk, memory, CPU, packages, and mounts
-- **🔍 Telemetry-First** - Real system data, zero hallucinations
-- **💬 Interactive TUI** - Natural language queries with structured action plans
-- **📊 System Status** - Comprehensive health reporting
-- **🤖 Local LLM** - Requires Ollama (all data stays local, no cloud nonsense)
-- **📝 77+ Recipes** - Deterministic system management actions
-- **🔒 Transparent** - Shows exact commands before execution
-- **✅ Approval-Based** - Requires confirmation before changes
+### ✅ Stable Features
 
----
+#### 1. System Health Monitoring (`annad` daemon)
+- **Runs as systemd service** with root privileges
+- **9 diagnostic rules** analyzing:
+  - Failed/degraded systemd services
+  - Disk space issues
+  - Memory pressure
+  - CPU load
+  - Orphaned packages
+  - Failed mounts
+  - Critical log errors
+- **77+ deterministic recipes** for common system tasks
+- **RPC server** (Unix socket communication)
 
-## Quick Start
+#### 2. Historian (Beta.279)
+- **JSONL-based storage** of system health snapshots
+- **6 temporal correlation rules**:
+  - Service flapping detection
+  - Disk growth trends
+  - Sustained resource pressure
+  - Network degradation
+  - Kernel regression detection
+- **Automatic pruning** and efficient lookups
 
-**Install:**
+#### 3. Proactive Assessment (Beta.271-279)
+- **Correlated issue detection** across time
+- **Health score calculation** (0-100)
+- **Integration** with diagnostic engine
+
+#### 4. CLI Interface (`annactl`)
+
+**Status Command:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
-```
-
-**Usage:**
-```bash
-# Interactive assistant
-annactl
-
-# System health check
 annactl status
+```
+Shows:
+- Daemon and LLM status
+- Top 3 system issues (from diagnostic engine)
+- Recent logs
+- JSON output available with `--json` flag
 
-# One-shot natural language
+**One-Shot Queries:**
+```bash
 annactl "what's using disk space?"
 annactl "run a full diagnostic"
 annactl "check my system health"
 ```
 
+Natural language queries are processed by local LLM (requires Ollama).
+
 ---
 
-## Three Interfaces
+## ❌ What Does NOT Work in 6.0.0
 
-### 1. Interactive TUI - `annactl`
-Launch the interactive assistant for natural language queries and system management.
+- **No interactive TUI** - The 5.x terminal UI is disabled
+- **No panels** - Right panel, brain panel, etc. are archived
+- **No streaming UI** - CLI queries return complete answers only
+- **No fancy workflows** - Focus is on working core features
 
-### 2. Status Check - `annactl status`
-Quick health overview showing:
-- Daemon and LLM status
-- Top 3 system issues (from diagnostic engine)
-- Recent logs
+---
 
-**Options:**
-- `--json` - Machine-readable output for automation
+## Quick Start
 
-### 3. Deep System Analysis (Natural Language)
-Invoke comprehensive diagnostic analysis through natural language:
-- **In TUI:** "run a full diagnostic", "check my system health", "show any problems"
-- **One-shot:** `annactl "run a full diagnostic"`
+### Requirements
 
-The internal diagnostic engine analyzes 9 critical system areas:
-- Failed/degraded services
-- Disk space issues
-- Memory pressure
-- CPU load
-- Orphaned packages
-- Failed mounts
-- Critical log issues
+- **OS:** Arch Linux (native) or Arch-based distros
+- **CPU:** x86_64
+- **RAM:** 8GB recommended (4GB minimum)
+- **Disk:** 2GB for Anna + 4GB for LLM models
+- **LLM:** Ollama with a model (qwen2.5:3b or similar)
 
-Results are presented conversationally with evidence, citations, and actionable commands.
+### Installation
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
+```
+
+### Usage
+
+**Start the daemon:**
+```bash
+sudo systemctl start annad
+sudo systemctl enable annad  # Optional: start on boot
+```
+
+**Check system health:**
+```bash
+annactl status
+```
+
+Example output:
+```
+[DAEMON STATUS]
+✓ annad running (PID 1234)
+✓ LLM available (ollama/qwen2.5:3b)
+
+[TOP ISSUES]
+1. ⚠ Disk usage at 85% on /
+2. ⚠ Service NetworkManager failed
+3. ℹ 12 orphaned packages detected
+
+[RECENT LOGS]
+2025-11-23 14:32:01 - Health check completed
+2025-11-23 14:30:00 - Historian snapshot saved
+```
+
+**Ask questions:**
+```bash
+annactl "why did NetworkManager fail?"
+annactl "show disk usage breakdown"
+```
 
 ---
 
 ## Architecture
 
+Anna 6.0.0 consists of:
+
 **Daemon (`annad`):**
 - Runs as systemd service
 - Collects telemetry
-- Performs health checks
+- Performs health checks via diagnostic engine
+- Stores history in Historian
 - Executes approved actions
 - RPC server (Unix socket)
 
 **Client (`annactl`):**
-- Simple CLI (`status`, natural language)
-- Interactive TUI
-- RPC client
+- Simple CLI for `status` command
+- One-shot natural language queries
+- RPC client to daemon
 
 **Intelligence:**
 - Internal diagnostic engine (9 deterministic rules)
+- Historian (temporal correlation, 6 rules)
+- Proactive Assessment (issue correlation)
 - 77+ deterministic recipes
-- Local LLM via Ollama (required for conversational features)
-
----
-
-## Requirements
-
-- **OS:** Arch Linux (native) or Arch-based distros
-- **CPU:** x86_64
-- **RAM:** 8GB recommended (4GB minimum for basic features)
-- **Disk:** 2GB for Anna + 4GB for LLM models
-- **Required:** Ollama with a model (qwen2.5:3b or similar)
+- Local LLM via Ollama (for natural language)
 
 ---
 
 ## Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** - Complete usage guide
-- **[Architecture](docs/ARCHITECTURE_BETA_200.md)** - System design
-- **[Beta.217 Release](docs/BETA_217_COMPLETE.md)** - Diagnostic engine details
-- **[Debugging Guide](docs/DEBUGGING_GUIDE.md)** - Troubleshooting
+- **[Architecture](docs/ARCHITECTURE_BETA_200.md)** - System design overview
+- **[Beta.279 Notes](docs/BETA_279_NOTES.md)** - Historian implementation
 - **[Changelog](CHANGELOG.md)** - Version history
+- **[Release Notes 6.0.0](RELEASE_NOTES_6.0.0.md)** - What changed in 6.0.0
 
 ---
 
 ## Core Principles
 
-- **Local-First:** All data stays on your machine, no cloud services
+- **Local-First:** All data stays on your machine
 - **Telemetry-First:** Real system facts, not LLM guesses
 - **Transparent:** Every command shown before execution
 - **Deterministic:** Predictable, reproducible actions
@@ -132,24 +185,11 @@ Results are presented conversationally with evidence, citations, and actionable 
 
 ## What Anna is NOT
 
+- ❌ Not production-ready (experimental prototype)
 - ❌ Not a remote management tool
 - ❌ Not a fully autonomous agent
-- ❌ Not production-ready (beta software)
 - ❌ Not a generic chatbot
 - ❌ Not a replacement for system knowledge
-
----
-
-## Security
-
-Anna operates with appropriate privileges:
-- Daemon runs as root (for system management)
-- Client runs as user
-- Actions require explicit approval
-- All commands logged with citations
-- No network access except localhost LLM
-
-See [SECURITY.md](SECURITY.md) for details.
 
 ---
 
@@ -171,42 +211,26 @@ cargo test
 sudo ./target/release/annad
 
 # Client
-./target/release/annactl
+./target/release/annactl status
 ```
 
 ---
 
 ## Project Status
 
-**Current:** Beta.280 - TUI Streaming Fix (No More Duplicates, Stable Layout)
+**Current:** 6.0.0 - Prototype Reset (CLI-only, stable daemon)
 
 **Recent milestones:**
-- ✅ Beta.280 - Fixed TUI streaming duplication bug, one message per reply, stable layout, 5 new tests (streaming lifecycle coverage)
-- ✅ Beta.279 - Historian v1 with JSONL storage, 6 temporal correlation rules (SVC-001 flapping, DISK-002 growth, RES-001/002 sustained pressure, NET-003 degradation, SYS-001 kernel regression), 36 new tests
-- ✅ Beta.277 - Ambiguity detection framework, stability rules documentation, 26 test_unrealistic reclassifications (609/700 maintained, 87.0%, +44 tests)
-- ✅ Beta.276 - Edge cases & ground truth cleanup (final 6 router_bug edge cases fixed, 609/700, 87.0%, +10 tests)
-- ✅ Beta.275 - Strategic routing expansion marathon (60+ patterns, 608/700, 86.9%, +19 tests, +11 stability tests)
-- ✅ Beta.258 - Daily snapshot for "today" queries (sysadmin briefing format, session delta integration, 8 new tests, 186/250 maintained)
-- ✅ Beta.257 - Unified health & status experience (health consistency, temporal wording, 13 new tests, 186/250 maintained)
-- ✅ Beta.256 - Routing consolidation and expectation cleanup (+11 tests, 186/250 big suite passing, 74.4%)
-- ✅ Beta.255 - Temporal and recency routing patterns (+2 tests, 175/250 big suite passing, 70.0%)
-- ✅ Beta.254 - Punctuation and noise normalization (+10 tests, 173/250 big suite passing, 69.2%)
-- ✅ Beta.253 - Strategic routing improvements and expectation corrections (+13 tests, 163/250 big suite passing, 65.2%)
-- ✅ Beta.252 - Comprehensive failure taxonomy, metadata-driven tests (+3 tests, 150/250 big suite passing, 60.0%)
-- ✅ Beta.251 - Conservative routing improvements (+9 tests, 147/250 big suite passing, 58.8%)
-- ✅ Beta.250 - Canonical diagnostic formatter, consistent health answers across all surfaces
-- ✅ Beta.249 - Router alignment with high-value fixes (55.2% pass rate on big suite, +7.6pp)
-- ✅ Beta.248 - NL QA Marathon v1 (250-test big suite, measurement baseline)
-- ✅ Beta.243 - First routing improvement pass (whitespace, punctuation, phrase variations)
-- ✅ Beta.242 - Regression suite expansion (115 tests, 100% pass rate)
-- ✅ Beta.241 - Regression test infrastructure foundation
-- ✅ Beta.238 - Full diagnostic routing via natural language
+- ✅ 6.0.0 - Disabled TUI, cleaned repository, focused on stable CLI
+- ✅ Beta.279 - Historian v1 with JSONL storage and 6 temporal rules
+- ✅ Beta.271 - Proactive Assessment integration
+- ✅ Beta.250 - Canonical diagnostic formatting
 - ✅ 77+ deterministic recipes
 - ✅ Full RPC integration
-- ✅ JSON output modes
 
-**Next:**
-- Network diagnostics
+**Future roadmap:**
+- Rebuild TUI as a stable feature
+- Network diagnostics expansion
 - Configuration validation
 - Hardware monitoring
 - Recipe expansion
@@ -215,7 +239,7 @@ sudo ./target/release/annad
 
 ## Contributing
 
-Anna is currently in active development. Contributions welcome!
+Anna is in active development. Contributions welcome!
 
 **Areas of interest:**
 - Additional diagnostic rules

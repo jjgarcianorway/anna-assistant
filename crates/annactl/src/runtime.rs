@@ -45,9 +45,17 @@ pub async fn run() -> Result<()> {
         }
     }
 
-    // Command 1: No arguments → Start TUI
+    // Command 1: No arguments → TUI disabled in 6.0.0
     if args.len() == 1 {
-        return crate::tui_v2::run().await;
+        eprintln!("❌ Interactive TUI is disabled in version 6.0.0 (prototype reset)");
+        eprintln!();
+        eprintln!("Available commands:");
+        eprintln!("  annactl status          - System health check");
+        eprintln!("  annactl \"<question>\"    - One-shot natural language query");
+        eprintln!("  annactl --help          - Show detailed help");
+        eprintln!();
+        eprintln!("The TUI will return in a future release as a stable feature.");
+        std::process::exit(1);
     }
 
     // Check for natural language query (not a subcommand or flag)
@@ -99,7 +107,11 @@ pub async fn run() -> Result<()> {
             Ok(())
         }
 
-        // No command → TUI (should be caught earlier, but handle it anyway)
-        None => crate::tui_v2::run().await,
+        // No command → TUI disabled in 6.0.0
+        None => {
+            eprintln!("❌ Interactive TUI is disabled in version 6.0.0 (prototype reset)");
+            eprintln!("Use 'annactl status' or 'annactl \"<question>\"' instead.");
+            std::process::exit(1);
+        }
     }
 }

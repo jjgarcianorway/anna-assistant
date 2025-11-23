@@ -2073,6 +2073,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
         let systemd = SystemdHealth {
             failed_units: vec![],
@@ -2099,6 +2100,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
         let systemd = SystemdHealth {
             failed_units: vec![
@@ -2132,6 +2134,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
         let systemd = SystemdHealth {
             failed_units: vec![
@@ -2181,6 +2184,7 @@ mod tests {
             critical_count: 1,
             warning_count: 0,
             proactive_issues: vec![],
+            proactive_health_score: 100,
         };
 
         let answer = compose_disk_health_answer(&brain);
@@ -2201,6 +2205,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_disk_health_answer(&brain);
@@ -2228,6 +2233,7 @@ mod tests {
             critical_count: 1,
             warning_count: 0,
             proactive_issues: vec![],
+            proactive_health_score: 100,
         };
 
         let answer = compose_log_health_answer(&brain);
@@ -2246,6 +2252,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_log_health_answer(&brain);
@@ -2271,6 +2278,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_cpu_health_answer(&cpu, &brain);
@@ -2297,6 +2305,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_cpu_health_answer(&cpu, &brain);
@@ -2322,6 +2331,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_memory_health_answer(&memory, &brain);
@@ -2349,6 +2359,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_memory_health_answer(&memory, &brain);
@@ -2367,6 +2378,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_process_health_answer(&brain);
@@ -2394,6 +2406,7 @@ mod tests {
             critical_count: 0,
             warning_count: 1,
             proactive_issues: vec![],
+            proactive_health_score: 100,
         };
 
         let answer = compose_process_health_answer(&brain);
@@ -2411,6 +2424,7 @@ mod tests {
             formatted_output: String::new(),
             critical_count: 0,
             warning_count: 0,
+            proactive_health_score: 100,
         };
 
         let answer = compose_network_health_answer(&brain);
@@ -2439,6 +2453,7 @@ mod tests {
             critical_count: 1,
             warning_count: 0,
             proactive_issues: vec![],
+            proactive_health_score: 100,
         };
 
         let answer = compose_network_health_answer(&brain);

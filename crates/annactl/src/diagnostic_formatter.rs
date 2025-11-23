@@ -740,6 +740,7 @@ mod tests {
             critical_count: 0,
             warning_count: 0,
             proactive_issues: vec![],
+            proactive_health_score: 100,
         };
 
         let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -760,6 +761,7 @@ mod tests {
             critical_count: 2,
             warning_count: 1,
             proactive_issues: vec![],
+            proactive_health_score: 100,
             insights: vec![
                 DiagnosticInsightData {
                     rule_id: "failed_services".to_string(),
@@ -827,6 +829,7 @@ mod tests {
             critical_count: 5,
             warning_count: 0,
             proactive_issues: vec![],
+            proactive_health_score: 100,
             insights,
         };
 
@@ -849,6 +852,7 @@ mod tests {
             critical_count: 1,
             warning_count: 1,
             proactive_issues: vec![],
+            proactive_health_score: 100,
             insights: vec![
                 DiagnosticInsightData {
                     rule_id: "rule_1".to_string(),

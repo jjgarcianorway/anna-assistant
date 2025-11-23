@@ -48,7 +48,7 @@ mod query_handler;
 mod recipe_formatter;
 mod recipes; // Deterministic ActionPlan recipes (77+)
 mod repair; // Self-healing capabilities
-mod repl;
+// 6.0.0: repl.rs archived (see tui_legacy/repl.rs)
 mod rpc_client;
 mod runtime_prompt;
 mod startup; // Beta.211: Welcome engine
@@ -59,10 +59,8 @@ mod system_query;
 mod systemd;
 mod system_report; // Unified system report generator
 mod telemetry_truth; // Telemetry truth enforcement
-pub mod tui;
-pub mod tui_state;
-pub mod tui_v2;
-mod unified_query_handler; // Unified query path for CLI and TUI
+// 6.0.0: TUI modules archived (see tui_legacy/ directory)
+mod unified_query_handler; // Unified query path for CLI
 mod version_banner;
 
 /// Application entry point
