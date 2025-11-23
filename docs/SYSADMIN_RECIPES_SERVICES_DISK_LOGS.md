@@ -1,6 +1,8 @@
-# Sysadmin Recipes Inventory: Services, Disk, Logs
+# Sysadmin Recipes Inventory: Services, Disk, Logs, CPU, Memory, Processes, Network
 
-**Purpose**: Internal developer mapping of existing templates, modules, and diagnostic rules for services, disk, and logs.
+**Purpose**: Internal developer mapping of existing templates, modules, and diagnostic rules for system troubleshooting.
+
+**Last Updated**: Beta.264
 
 ## Services (Systemd)
 
@@ -90,26 +92,129 @@ journalctl --disk-usage
 - No structured error summarization (currently raw log spam risk)
 - No temporal scoping for recent errors (last hour, today, etc.)
 
-## Action Items for Beta.263
+## CPU Load
 
-### Services
-1. Create `compose_service_health_answer()` function
-2. Wire to NL queries: "service health", "failed services", "why is X failing"
-3. Format: [SUMMARY] + [DETAILS] + [COMMANDS] using existing `SystemdHealth` data
+### Existing Infrastructure
 
-### Disk
-1. Create `compose_disk_health_answer()` function
-2. Wire to NL queries: "disk space", "what's using disk", "disk full"
-3. Format: [SUMMARY] + [DETAILS] + [COMMANDS] using existing disk analysis
+**Module**: `crates/anna_common/src/telemetry.rs`
+- `CpuInfo` struct with usage percentage
+- Load average tracking
+- CPU count available
 
-### Logs
-1. Create `compose_log_health_answer()` function
-2. Wire to NL queries: "log errors", "critical errors", "check logs"
-3. Format: [SUMMARY] + [DETAILS] + [COMMANDS] using journal analysis
+**Commands Used**:
+```bash
+uptime
+ps -eo pid,comm,%cpu --sort=-%cpu | head
+top
+htop
+```
+
+**Current Usage**:
+- CPU metrics in telemetry snapshots
+- Load average monitoring
+- Available via RPC
+
+**What's Missing** (Beta.264):
+- No focused "is my CPU overloaded" handler
+- No process-level CPU consumer analysis
+- Generic LLM answers instead of deterministic patterns
+
+## Memory & Swap
+
+### Existing Infrastructure
+
+**Module**: `crates/anna_common/src/telemetry.rs`
+- `MemoryInfo` struct with total/used/available/swap
+- Memory usage percentage
+- Swap usage tracking
+
+**Commands Used**:
+```bash
+free -h
+cat /proc/meminfo | head
+ps -eo pid,comm,%mem --sort=-%mem | head
+```
+
+**Current Usage**:
+- Memory metrics in telemetry
+- Swap pressure detection
+- Available via diagnostic engine
+
+**What's Missing** (Beta.264):
+- No focused "am I low on memory" handler
+- No swap pressure explanation
+- Generic responses for memory questions
+
+## Processes
+
+### Existing Infrastructure
+
+**Module**: System telemetry and diagnostic rules
+- Process scanning capabilities
+- CPU/memory per-process tracking possible
+
+**Commands Used**:
+```bash
+ps aux
+ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head
+pgrep
+top
+```
+
+**Current Usage**:
+- Brain can detect misbehaving processes
+- Process info available in telemetry
+
+**What's Missing** (Beta.264):
+- No focused "what is using resources" handler
+- No top process consumer reporting
+- Generic answers for process queries
+
+## Network
+
+### Existing Infrastructure
+
+**Module**: `crates/anna_common/src/network_config.rs`
+- Network interface detection
+- Basic connectivity checks possible
+
+**Commands Used**:
+```bash
+ip addr show
+ip route
+ping -c 4 1.1.1.1
+ping -c 4 example.com
+ss
+netstat
+systemctl status NetworkManager
+```
+
+**Current Usage**:
+- Network status monitoring
+- Interface configuration detection
+
+**What's Missing** (Beta.264):
+- No focused "is my network ok" handler
+- No basic connectivity health check
+- Generic responses for network questions
+
+## Action Items
+
+### Beta.263 (Completed)
+- ✅ Services: `compose_service_health_answer()`
+- ✅ Disk: `compose_disk_health_answer()`
+- ✅ Logs: `compose_log_health_answer()`
+
+### Beta.264 (Current)
+- CPU: `compose_cpu_health_answer()`
+- Memory: `compose_memory_health_answer()`
+- Processes: `compose_process_health_answer()`
+- Network: `compose_network_health_answer()`
 
 ## Notes
 
-- All infrastructure already exists in diagnostic engine
+- All infrastructure already exists in diagnostic engine and telemetry
 - Main gap is NL query → deterministic answer wiring
-- Should reuse Brain analysis data instead of re-querying system
+- Should reuse telemetry and Brain data instead of re-querying system
 - Answer patterns should match canonical format from ANSWER_FORMAT.md
+- All composers follow [SUMMARY] + [DETAILS] + [COMMANDS] structure

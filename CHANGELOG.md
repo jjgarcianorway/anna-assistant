@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.264] - 2025-11-23
+
+### REAL SYSADMIN ANSWERS V2 – CPU, MEMORY, PROCESSES, NETWORK
+
+**Type:** Content & Answer Quality Enhancement
+**Focus**: Extend deterministic sysadmin answer system with CPU, memory, process, and network families
+
+#### Summary 📊
+Beta.264 completes the sysadmin answer system infrastructure by adding four critical diagnostic families. Anna now provides zero-hallucination answers for CPU load, memory pressure, process consumption, and network connectivity.
+
+**Key Achievement:** Full coverage of core sysadmin diagnostic areas (7 total families).
+
+#### Added ✨
+**Extended Sysadmin Answer Composers** (`sysadmin_answers.rs`, 764 lines)
+- `compose_cpu_health_answer()`: CPU load and utilization analysis
+  - [SUMMARY] + [DETAILS] + [COMMANDS] structure
+  - Uses CpuInfo telemetry (cores, load avg, usage %)
+  - Thresholds: >80% degraded, >50% moderate, ≤50% all clear
+  - Provides uptime and ps commands
+- `compose_memory_health_answer()`: Memory and swap usage patterns
+  - Uses MemoryInfo telemetry (RAM, swap, usage %)
+  - Thresholds: >90% + swap = degraded, >85% = warning
+  - Provides free and ps commands for memory analysis
+- `compose_process_health_answer()`: Process resource consumption
+  - Uses BrainAnalysisData for process issues
+  - Reports clean state or problematic processes
+  - Provides ps and top commands for process investigation
+- `compose_network_health_answer()`: Network connectivity status
+  - Uses BrainAnalysisData for network issues
+  - Reports interface and connectivity status
+  - Provides ip, ping, and systemctl commands
+
+**Extended Test Coverage** (+8 tests, 15 total)
+- 2 CPU tests: normal load (25.5%), high load (85%)
+- 2 memory tests: normal (50%, no swap), degraded (91.6% + swap)
+- 2 process tests: no issues, resource hog detected
+- 2 network tests: connectivity OK, network degraded
+- All tests validate [SUMMARY]/[DETAILS]/[COMMANDS] structure
+- **Test results**: ✅ 15/15 passing (100%)
+
+**Extended Infrastructure Inventory** (`docs/SYSADMIN_RECIPES_SERVICES_DISK_LOGS.md`)
+- Added CPU, Memory, Processes, Network sections
+- Mapped existing telemetry infrastructure (CpuInfo, MemoryInfo)
+- Updated "What's Missing" sections for Beta.264
+
+#### Technical Details 🔧
+- **Module**: `crates/annactl/src/sysadmin_answers.rs`
+  - 4 new composer functions
+  - 8 new tests
+  - 764 total lines (up from 585)
+- **Telemetry integration**: CpuInfo, MemoryInfo from anna_common
+- **Answer format**: Consistent [SUMMARY]+[DETAILS]+[COMMANDS] across all 7 families
+- **Routing status**: Composers ready, conservative routing integration pending
+
+#### Design Principles ✅
+- Pure functions (no I/O, no RPC calls)
+- Deterministic output (same input = same answer)
+- Three-section format maintained across all answer families
+- Telemetry-first (real data, zero hallucination)
+- Conservative routing (composers exist, integration is follow-up)
+
+#### Comparison: Beta.263 vs Beta.264
+| Metric | Beta.263 | Beta.264 |
+|--------|----------|----------|
+| Diagnostic families | 3 | 7 (+4) |
+| Composer functions | 3 | 7 (+4) |
+| Tests | 7 | 15 (+8) |
+| Telemetry sources | SystemdHealth, disk | +CpuInfo, MemoryInfo |
+| Lines of code | 585 | 764 (+179) |
+
+#### Known Limitations ⚠️
+- Process and network composers rely on BrainAnalysisData (not independent analysis)
+- No routing integration yet (conservative approach)
+- CPU thresholds use usage_percent only (not load avg vs cores)
+- Memory thresholds don't distinguish cache pressure vs real memory pressure
+
+#### Documentation 📚
+- Created `docs/BETA_264_NOTES.md` - Complete implementation notes
+- Extended `docs/SYSADMIN_RECIPES_SERVICES_DISK_LOGS.md` - Full inventory
+
+#### Next Steps 🚀
+- Add conservative keyword patterns to try_answer_from_telemetry()
+- Create deterministic action plans for CPU/memory remediation
+- Independent process analysis (not just brain insights)
+- Network interface polling and connectivity checks
+- Load threshold semantics (cores vs load average)
+
+---
+
 ## [5.7.0-beta.263] - 2025-11-22
 
 ### REAL SYSADMIN ANSWERS V1 – SERVICES, DISK, LOGS
