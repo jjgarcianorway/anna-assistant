@@ -203,13 +203,16 @@ fn parse_journal_line(line: &str) -> Option<JournalError> {
 fn get_previous_version() -> Option<String> {
     use std::fs;
     let cache_path = "/tmp/anna_last_version.txt";
-    let prev_version = fs::read_to_string(cache_path).ok()?;
-
-    // Save current version for next time
     let current_version = env!("CARGO_PKG_VERSION");
+
+    // Try to read previous version
+    let prev_version = fs::read_to_string(cache_path).ok();
+
+    // Always save current version for next time
     let _ = fs::write(cache_path, current_version);
 
-    Some(prev_version.trim().to_string())
+    // Return previous version if it existed and was different
+    prev_version.map(|v| v.trim().to_string())
 }
 
 #[cfg(test)]

@@ -279,10 +279,21 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     }
 
     // Beta.229: Stop spinner before unified handler to prevent corruption during streaming
-    // Beta.237: Immediately show "anna:" prefix to reduce perceived latency
     spinner.finish_and_clear();
 
-    // Show immediate feedback to reduce perceived latency between spinner and answer
+    // 6.7.0: Show reflection preamble for ALL queries (not just planner)
+    let reflection = crate::reflection_helper::build_local_reflection();
+    if reflection.items.len() > 0 {
+        let limited_reflection = anna_common::ipc::ReflectionSummaryData {
+            items: reflection.items.into_iter().take(3).collect(),
+            generated_at: reflection.generated_at,
+        };
+        let reflection_text = crate::reflection_helper::format_reflection(&limited_reflection, ui.capabilities().use_colors());
+        print!("{}", reflection_text);
+        println!("---\n");
+    }
+
+    // Beta.237: Show "anna:" prefix to reduce perceived latency
     if ui.capabilities().use_colors() {
         print!("{} ", "anna:".bright_magenta().bold());
     } else {
