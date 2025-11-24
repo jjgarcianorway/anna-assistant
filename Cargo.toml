@@ -4,11 +4,10 @@ members = [
     "crates/annad",
     "crates/annactl",
     "crates/anna_common",
-    "tools/consensus_sim",
 ]
 
 [workspace.package]
-version = "6.8.1"
+version = "6.9.0"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"

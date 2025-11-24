@@ -44,6 +44,8 @@ fn create_brain_with_insight(
         formatted_output: String::new(),
         critical_count: if severity == "critical" { 1 } else { 0 },
         warning_count: if severity == "warning" { 1 } else { 0 },
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     }
 }
 
@@ -244,12 +246,12 @@ fn test_memory_without_swap_routes_to_memory_composer() {
 fn test_healthy_system_no_remediation() {
     let brain = BrainAnalysisData {
         insights: vec![],
-        proactive_issues: vec![],
         timestamp: chrono::Utc::now().to_rfc3339(),
         formatted_output: String::new(),
         critical_count: 0,
         warning_count: 0,
         proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let result = route_system_remediation(&brain);

@@ -19,6 +19,7 @@ fn create_brain_data_with_issues(issues: Vec<ProactiveIssueSummaryData>) -> Brai
         warning_count: 0,
         insights: vec![],
         proactive_issues: issues,
+        proactive_health_score: 100,
     }
 }
 
@@ -32,6 +33,7 @@ fn create_test_issue(root_cause: &str, severity: &str, summary: &str) -> Proacti
         confidence: 0.85,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     }
 }
 
@@ -328,6 +330,7 @@ fn test_remediation_includes_confidence() {
         confidence: 0.78,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     };
     let brain_data = create_brain_data_with_issues(vec![]);
 
@@ -348,6 +351,7 @@ fn test_remediation_includes_timestamps() {
         confidence: 0.85,
         first_seen: "2025-11-23T10:30:00Z".to_string(),
         last_seen: "2025-11-23T12:45:00Z".to_string(),
+        suggested_fix: None,
     };
     let brain_data = create_brain_data_with_issues(vec![]);
 

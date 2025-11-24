@@ -17,9 +17,9 @@ fn test_all_clear_contains_required_phrases() {
         formatted_output: String::new(),
         critical_count: 0,
         warning_count: 0,
-        proactive_issues: vec![],
         insights: vec![],
         proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -45,7 +45,6 @@ fn test_critical_issues_contains_counts() {
         formatted_output: String::new(),
         critical_count: 2,
         warning_count: 1,
-        proactive_issues: vec![],
         insights: vec![
             DiagnosticInsightData {
                 rule_id: "test_1".to_string(),
@@ -75,6 +74,8 @@ fn test_critical_issues_contains_counts() {
                 evidence: String::new(),
             },
         ],
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -104,7 +105,6 @@ fn test_warnings_only_clearly_stated() {
         formatted_output: String::new(),
         critical_count: 0,
         warning_count: 2,
-        proactive_issues: vec![],
         insights: vec![
             DiagnosticInsightData {
                 rule_id: "test_1".to_string(),
@@ -125,6 +125,8 @@ fn test_warnings_only_clearly_stated() {
                 evidence: String::new(),
             },
         ],
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -155,8 +157,9 @@ fn test_summary_mode_limits_to_three() {
         formatted_output: String::new(),
         critical_count: 10,
         warning_count: 0,
-        proactive_issues: vec![],
         insights,
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&analysis, DiagnosticMode::Summary);
@@ -189,8 +192,9 @@ fn test_full_mode_shows_up_to_five() {
         formatted_output: String::new(),
         critical_count: 10,
         warning_count: 0,
-        proactive_issues: vec![],
         insights,
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -212,9 +216,9 @@ fn test_commands_section_appropriate_for_state() {
         formatted_output: String::new(),
         critical_count: 0,
         warning_count: 0,
-        proactive_issues: vec![],
         insights: vec![],
         proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&all_clear, DiagnosticMode::Full);
@@ -227,7 +231,6 @@ fn test_commands_section_appropriate_for_state() {
         formatted_output: String::new(),
         critical_count: 1,
         warning_count: 0,
-        proactive_issues: vec![],
         insights: vec![
             DiagnosticInsightData {
                 rule_id: "test".to_string(),
@@ -239,6 +242,8 @@ fn test_commands_section_appropriate_for_state() {
                 evidence: String::new(),
             },
         ],
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report_issues = format_diagnostic_report(&with_issues, DiagnosticMode::Full);
@@ -253,7 +258,6 @@ fn test_no_llm_attribution_in_diagnostic_answers() {
         formatted_output: String::new(),
         critical_count: 1,
         warning_count: 0,
-        proactive_issues: vec![],
         insights: vec![
             DiagnosticInsightData {
                 rule_id: "test".to_string(),
@@ -265,6 +269,8 @@ fn test_no_llm_attribution_in_diagnostic_answers() {
                 evidence: String::new(),
             },
         ],
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report(&analysis, DiagnosticMode::Full);
@@ -296,9 +302,9 @@ fn test_health_consistency_healthy_scenario() {
         formatted_output: String::new(),
         critical_count: 0,
         warning_count: 0,
-        proactive_issues: vec![],
         insights: vec![],
         proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let session_delta = SessionDelta::default();
@@ -342,7 +348,6 @@ fn test_health_consistency_degraded_critical_scenario() {
         formatted_output: String::new(),
         critical_count: 2,
         warning_count: 1,
-        proactive_issues: vec![],
         insights: vec![
             DiagnosticInsightData {
                 rule_id: "crit_1".to_string(),
@@ -372,6 +377,8 @@ fn test_health_consistency_degraded_critical_scenario() {
                 evidence: String::new(),
             },
         ],
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let session_delta = SessionDelta::default();
@@ -418,7 +425,6 @@ fn test_health_consistency_degraded_warning_scenario() {
         formatted_output: String::new(),
         critical_count: 0,
         warning_count: 2,
-        proactive_issues: vec![],
         insights: vec![
             DiagnosticInsightData {
                 rule_id: "warn_1".to_string(),
@@ -439,6 +445,8 @@ fn test_health_consistency_degraded_warning_scenario() {
                 evidence: String::new(),
             },
         ],
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     };
 
     let session_delta = SessionDelta::default();

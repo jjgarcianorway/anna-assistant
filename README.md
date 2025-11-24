@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Intelligent Arch Linux System Assistant - Version 6.8.1**
+**Intelligent Arch Linux System Assistant - Version 6.9.0**
 
-[![Version](https://img.shields.io/badge/version-6.8.1-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.9.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 
@@ -220,7 +220,7 @@ Anna 6.0.0 consists of:
 ## Documentation
 
 - **[Architecture](docs/ARCHITECTURE_BETA_200.md)** - System design overview
-- **[Beta.279 Notes](docs/BETA_279_NOTES.md)** - Historian implementation
+- **[Planner Design](docs/PLANNER_DESIGN_6x.md)** - Adaptive planning system
 - **[Changelog](CHANGELOG.md)** - Version history
 - **[Release Notes 6.0.0](RELEASE_NOTES_6.0.0.md)** - What changed in 6.0.0
 
@@ -272,22 +272,23 @@ sudo ./target/release/annad
 
 ## Project Status
 
-**Current:** 6.0.0 - Prototype Reset (CLI-only, stable daemon)
+**Current:** 6.9.0 - Repository Hygiene Release (CLI-only, stable daemon)
 
 **Recent milestones:**
+- ✅ 6.9.0 - Removed legacy code (monitoring, observability, consensus simulator)
+- ✅ 6.8.1 - Fixed health status coherence and telemetry-based health queries
+- ✅ 6.7.0 - Reflection integration (self-awareness of system changes)
 - ✅ 6.0.0 - Disabled TUI, cleaned repository, focused on stable CLI
-- ✅ Beta.279 - Historian v1 with JSONL storage and 6 temporal rules
-- ✅ Beta.271 - Proactive Assessment integration
-- ✅ Beta.250 - Canonical diagnostic formatting
+- ✅ Historian v1 with JSONL storage and temporal correlation
+- ✅ Proactive Assessment integration
 - ✅ 77+ deterministic recipes
-- ✅ Full RPC integration
 
 **Future roadmap:**
-- Rebuild TUI as a stable feature
-- Network diagnostics expansion
-- Configuration validation
-- Hardware monitoring
-- Recipe expansion
+- Expand Arch Wiki scenario coverage
+- Network diagnostics scenarios
+- Configuration validation checks
+- Hardware monitoring integration
+- Recipe library expansion
 
 ---
 

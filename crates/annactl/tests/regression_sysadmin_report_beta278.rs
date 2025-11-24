@@ -195,6 +195,7 @@ fn test_content_with_proactive_issues() {
             rule_id: Some("network_priority".to_string()),
             first_seen: "2025-11-23T12:00:00Z".to_string(),
             last_seen: "2025-11-23T12:00:00Z".to_string(),
+            suggested_fix: None,
         },
     ];
 
@@ -338,6 +339,7 @@ fn test_content_limits_proactive_to_three() {
             rule_id: Some("rule1".to_string()),
             first_seen: "2025-11-23T12:00:00Z".to_string(),
             last_seen: "2025-11-23T12:00:00Z".to_string(),
+            suggested_fix: None,
         },
         ProactiveIssueSummaryData {
             summary: "Issue 2".to_string(),
@@ -347,6 +349,7 @@ fn test_content_limits_proactive_to_three() {
             rule_id: Some("rule2".to_string()),
             first_seen: "2025-11-23T12:00:00Z".to_string(),
             last_seen: "2025-11-23T12:00:00Z".to_string(),
+            suggested_fix: None,
         },
         ProactiveIssueSummaryData {
             summary: "Issue 3".to_string(),
@@ -356,6 +359,7 @@ fn test_content_limits_proactive_to_three() {
             rule_id: Some("rule3".to_string()),
             first_seen: "2025-11-23T12:00:00Z".to_string(),
             last_seen: "2025-11-23T12:00:00Z".to_string(),
+            suggested_fix: None,
         },
         ProactiveIssueSummaryData {
             summary: "Issue 4".to_string(),
@@ -365,6 +369,7 @@ fn test_content_limits_proactive_to_three() {
             rule_id: Some("rule4".to_string()),
             first_seen: "2025-11-23T12:00:00Z".to_string(),
             last_seen: "2025-11-23T12:00:00Z".to_string(),
+            suggested_fix: None,
         },
     ];
 
@@ -478,6 +483,7 @@ fn test_format_concise_report_length() {
             rule_id: Some("network_rule".to_string()),
             first_seen: "2025-11-23T12:00:00Z".to_string(),
             last_seen: "2025-11-23T12:00:00Z".to_string(),
+            suggested_fix: None,
         },
     ];
 

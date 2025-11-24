@@ -48,6 +48,8 @@ fn mock_analysis(critical_count: usize, warning_count: usize) -> BrainAnalysisDa
         critical_count,
         warning_count,
         insights,
+        proactive_issues: vec![],
+        proactive_health_score: 100,
     }
 }
 

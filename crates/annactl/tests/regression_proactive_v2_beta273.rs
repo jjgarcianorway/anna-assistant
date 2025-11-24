@@ -35,6 +35,7 @@ fn create_test_issue(root_cause: &str, severity: &str, confidence: f32) -> Proac
         confidence,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     }
 }
 

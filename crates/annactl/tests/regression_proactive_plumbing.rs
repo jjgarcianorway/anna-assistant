@@ -23,6 +23,7 @@ fn create_brain_data_with_proactive(proactive_count: usize) -> BrainAnalysisData
             confidence: 0.8,
             first_seen: "2025-11-23T00:00:00Z".to_string(),
             last_seen: "2025-11-23T01:00:00Z".to_string(),
+            suggested_fix: None,
         });
     }
 
@@ -33,6 +34,7 @@ fn create_brain_data_with_proactive(proactive_count: usize) -> BrainAnalysisData
         warning_count: 0,
         insights: vec![],
         proactive_issues,
+        proactive_health_score: 100,
     }
 }
 
@@ -73,6 +75,7 @@ fn test_proactive_summary_data_serialization() {
         confidence: 0.95,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     };
 
     let json = serde_json::to_string(&summary).unwrap();
@@ -178,6 +181,7 @@ fn test_low_confidence_issues_filtered_server_side() {
         confidence: 0.85,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     };
 
     // Server should never send low confidence issues, but if it does,
@@ -189,6 +193,7 @@ fn test_low_confidence_issues_filtered_server_side() {
         warning_count: 0,
         insights: vec![],
         proactive_issues: vec![high_conf],
+        proactive_health_score: 100,
     };
 
     let report = format_diagnostic_report_with_query(&data, DiagnosticMode::Full, "check");
@@ -217,8 +222,10 @@ fn test_root_cause_labels_are_user_safe() {
                 confidence: 0.9,
                 first_seen: "2025-11-23T00:00:00Z".to_string(),
                 last_seen: "2025-11-23T01:00:00Z".to_string(),
+                suggested_fix: None,
             }
         ],
+        proactive_health_score: 100,
     };
 
     // Root cause should not contain Rust-style names like "NetworkRoutingConflict"
@@ -238,6 +245,7 @@ fn test_severity_labels_are_lowercase() {
         confidence: 0.9,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     };
 
     assert_eq!(summary.severity, "critical");
@@ -259,6 +267,7 @@ fn test_timestamps_are_iso8601() {
         confidence: 0.8,
         first_seen: "2025-11-23T00:00:00Z".to_string(),
         last_seen: "2025-11-23T01:00:00Z".to_string(),
+        suggested_fix: None,
     };
 
     // Verify format is parseable as RFC 3339

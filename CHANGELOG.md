@@ -7,6 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.9.0] - 2025-11-24
+
+### REPOSITORY HYGIENE RELEASE
+
+**Type:** Maintenance / Code cleanup
+**Focus:** Remove legacy code, no functional changes
+
+#### Summary 📊
+
+Version 6.9.0 is a repository cleanup release following the "fewer features, fully production ready" philosophy. This release removes 102 tracked files and 53 untracked directories containing legacy code from pre-6.0 experiments (TUI, consensus simulator, monitoring dashboards, old documentation).
+
+**Zero functional changes** - `annactl status` and `annactl "<question>"` work identically. All 428 tests pass.
+
+#### Removed 🗑️
+
+**Deleted Directories:**
+- `monitoring/` - Unused Grafana dashboards and Prometheus configs (28 files)
+- `observability/` - Unused observability stack (8 files)
+- `examples/` - Unused example code (2 files)
+- `dist/` - Old distribution artifacts (5 files)
+- `logrotate/` - Unused logrotate config (1 file)
+- `packaging/` - Unused AUR/deb/rpm/homebrew packaging (9 files)
+- `tools/consensus_sim/` - Consensus simulator prototype (2 files)
+- 53 untracked `release-v*` directories from filesystem
+
+**Documentation Cleanup:**
+- Removed 47 old beta version notes (BETA_217 through BETA_279)
+- Removed QA audit documents from pre-6.0 era
+- Total: 102 tracked files deleted
+
+**Workspace Changes:**
+- Removed `tools/consensus_sim` from Cargo.toml workspace members
+
+#### Changed 🔄
+
+**README.md:**
+- Updated version to 6.9.0
+- Removed reference to deleted BETA_279_NOTES.md
+- Updated "Future roadmap" to reflect CLI-only focus (removed "Rebuild TUI")
+- Added 6.7.0, 6.8.1, and 6.9.0 to recent milestones
+
+**Documentation:**
+- Added RELEASE_NOTES_6.9.0.md explaining cleanup
+- Kept only: architecture docs, planner design, recipes, testing strategy
+
+#### Technical Notes 🔧
+
+**Before cleanup:** Repository contained abandoned experiments from multiple eras
+**After cleanup:** Focused codebase with only CLI-relevant code
+**Build verification:** All tests pass, binaries build successfully
+**User impact:** None - this is purely internal cleanup
+
+See [RELEASE_NOTES_6.9.0.md](RELEASE_NOTES_6.9.0.md) for complete details.
+
+---
+
+## [6.8.1] - 2025-11-24
+
+### HOTFIX: Status Coherence and Health Questions
+
+**Type:** Bug fix
+**Focus:** Fix contradictory health messages and generic LLM responses
+
+#### Fixed 🐛
+
+**Health Status Contradiction:**
+- Fixed "Today: degraded" vs "Overall Status: HEALTHY" contradiction
+- Single source of truth: both use brain analysis health determination
+
+**Vague Diagnostic Output:**
+- Added concrete evidence/details after each diagnostic summary
+- Now shows filesystem names with percentages (e.g., "/ (95%)")
+- Now shows log message counts (e.g., "most frequent: 318 occurrences")
+- Modified `diagnostic_formatter.rs` to display `insight.evidence` field
+
+**Generic LLM Health Responses:**
+- Added pattern matching for health questions ("how is my computer", "system health", etc.)
+- Created `handle_health_question()` using telemetry + brain analysis
+- Health queries now show reflection + concrete issues instead of "Sources: LLM"
+
+#### Changed 🔄
+
+**annactl health questions:**
+- Queries like "how is my computer?" now use telemetry-based responses
+- Show reflection, health status, top 3 issues with evidence
+- No more generic LLM commands (free -h, inxi, etc.)
+
+**RPC server:**
+- Added `suggested_fix: None` field to ProactiveIssueSummaryData
+- Added GetReflection method handler (returns Ok for now)
+
+See manual testing results in commit message.
+
+---
+
+## [6.7.0] - 2025-11-23
+
+### REFLECTION INTEGRATION COMPLETE
+
+**Type:** Feature
+**Focus:** Self-awareness system for version changes and system events
+
+#### Added ✨
+
+**Reflection System:**
+- Anna now tracks version changes, daemon errors, and system modifications
+- Displays context-aware messages at query start
+- Smart filtering: only shows fresh items (within 7 days)
+- Stored in SQLite database with timestamps
+
+**Health-Coherent Filtering:**
+- Reflection items filtered by current health state
+- "All good" health only shows neutral/positive items
+- Critical health shows all items for context
+
+#### Technical 🔧
+
+**Reflection storage:**
+- Added reflection table to context.db
+- Supports: version_change, error, system_change event types
+- Automatic timestamp tracking and age-based filtering
+
+See commit history for implementation details.
+
+---
+
 ## [6.0.0] - 2025-11-23
 
 ### PROTOTYPE RESET - NEW RELEASE LINE

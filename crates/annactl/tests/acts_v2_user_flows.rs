@@ -23,6 +23,8 @@
 //! Note: These tests will be implemented incrementally as the fixture
 //! system and output capture mechanisms are built.
 
+use anna_common::telemetry::SystemTelemetry;
+
 /// Test helper: Run annactl with arguments and capture stdout
 ///
 /// This simulates real CLI usage by spawning the annactl binary
