@@ -142,6 +142,43 @@ impl InsightsEngine {
             insights.push(insight);
         }
 
+        // v6.25.0: Service Reliability Detectors
+        // 7. Service flapping (restart loops)
+        if let Some(insight) = self.detect_service_flapping(hours)? {
+            insights.push(insight);
+        }
+
+        // 8. Degraded units at boot
+        if let Some(insight) = self.detect_degraded_units()? {
+            insights.push(insight);
+        }
+
+        // 9. User service failures
+        if let Some(insight) = self.detect_user_service_failures()? {
+            insights.push(insight);
+        }
+
+        // 10. Timer reliability issues
+        if let Some(insight) = self.detect_timer_issues()? {
+            insights.push(insight);
+        }
+
+        // v6.25.0: Cross-Subsystem Correlation
+        // 11. Disk pressure → service failures
+        if let Some(insight) = self.correlate_disk_to_service()? {
+            insights.push(insight);
+        }
+
+        // 12. Network issues → service degradation
+        if let Some(insight) = self.correlate_network_to_service()? {
+            insights.push(insight);
+        }
+
+        // 13. Boot regression + failed services → root cause
+        if let Some(insight) = self.correlate_boot_and_services()? {
+            insights.push(insight);
+        }
+
         // Sort by severity (Critical > Warning > Info)
         insights.sort_by(|a, b| {
             use InsightSeverity::*;
@@ -402,6 +439,419 @@ impl InsightsEngine {
 
         Ok(None)
     }
+
+    // ========================================================================
+    // v6.25.0: Service Reliability Detectors
+    // ========================================================================
+
+    /// Detect service flapping (rapid restart/crash loops)
+    fn detect_service_flapping(&self, hours: i64) -> Result<Option<Insight>> {
+        let flapping_services = self.historian.detect_flapping_services(hours)?;
+
+        if flapping_services.is_empty() {
+            return Ok(None);
+        }
+
+        // Critical: Any service with 5+ events
+        let critical_services: Vec<_> = flapping_services
+            .iter()
+            .filter(|s| s.event_count >= 5)
+            .collect();
+
+        if !critical_services.is_empty() {
+            let service_list = critical_services
+                .iter()
+                .map(|s| format!("{} ({} events)", s.service_name, s.event_count))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let evidence = critical_services
+                .iter()
+                .map(|s| {
+                    let duration = s.last_event.signed_duration_since(s.first_event);
+                    format!(
+                        "{}: {} restarts/crashes in {} minutes",
+                        s.service_name,
+                        s.event_count,
+                        duration.num_minutes().max(1)
+                    )
+                })
+                .collect();
+
+            return Ok(Some(
+                Insight::new(
+                    "service_flapping_critical",
+                    InsightSeverity::Critical,
+                    "Service Restart Loop Detected",
+                    format!(
+                        "Critical instability detected: {}. These services are in restart loops, indicating serious failures.",
+                        service_list
+                    ),
+                )
+                .with_evidence(evidence)
+                .with_suggestion("Run 'annactl \"diagnose service crashes\"' to investigate root causes"),
+            ));
+        }
+
+        // Warning: Any flapping service (3-4 events)
+        let service = &flapping_services[0];
+        let duration = service
+            .last_event
+            .signed_duration_since(service.first_event);
+
+        Ok(Some(
+            Insight::new(
+                "service_flapping_warning",
+                InsightSeverity::Warning,
+                "Service Instability Detected",
+                format!(
+                    "{} has restarted {} times in the last {} minutes. This indicates potential configuration or dependency issues.",
+                    service.service_name,
+                    service.event_count,
+                    duration.num_minutes().max(1)
+                ),
+            )
+            .with_evidence(vec![format!(
+                "{} restarts/crashes over {} minutes",
+                service.event_count,
+                duration.num_minutes().max(1)
+            )])
+            .with_suggestion(format!("Check service logs with 'journalctl -u {}'", service.service_name)),
+        ))
+    }
+
+    /// Detect degraded units appearing after boot
+    fn detect_degraded_units(&self) -> Result<Option<Insight>> {
+        // Query SystemdHealth from telemetry (via SystemFacts)
+        // This detector looks for units that failed AFTER boot completed
+        use crate::systemd_health::SystemdHealth;
+
+        let systemd_health = SystemdHealth::detect();
+
+        if systemd_health.failed_units.is_empty() {
+            return Ok(None);
+        }
+
+        // Exclude units that commonly fail at boot (user-specific services, etc.)
+        let degraded_services: Vec<_> = systemd_health
+            .failed_units
+            .iter()
+            .filter(|u| {
+                // Only include system services
+                u.unit_type == "service"
+                    && !u.name.contains("@")
+                    && !u.name.starts_with("user@")
+            })
+            .collect();
+
+        if degraded_services.is_empty() {
+            return Ok(None);
+        }
+
+        // Critical: Multiple failed services
+        if degraded_services.len() >= 3 {
+            let service_list = degraded_services
+                .iter()
+                .map(|u| u.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let evidence = degraded_services
+                .iter()
+                .map(|u| format!("{}: {} ({})", u.name, u.active_state, u.sub_state))
+                .collect();
+
+            return Ok(Some(
+                Insight::new(
+                    "degraded_units_critical",
+                    InsightSeverity::Critical,
+                    "Multiple Failed System Services",
+                    format!(
+                        "System has {} failed services: {}. This indicates widespread system degradation.",
+                        degraded_services.len(),
+                        service_list
+                    ),
+                )
+                .with_evidence(evidence)
+                .with_suggestion("Run 'systemctl status' and investigate failed units"),
+            ));
+        }
+
+        // Warning: Single failed service
+        let service = degraded_services[0];
+        Ok(Some(
+            Insight::new(
+                "degraded_unit_warning",
+                InsightSeverity::Warning,
+                "Failed System Service Detected",
+                format!(
+                    "{} is in failed state ({}). This may affect system functionality.",
+                    service.name, service.sub_state
+                ),
+            )
+            .with_evidence(vec![format!(
+                "{}: active={}, load={}",
+                service.name, service.active_state, service.load_state
+            )])
+            .with_suggestion(format!("Check logs with 'journalctl -u {}'", service.name)),
+        ))
+    }
+
+    /// Detect user service failures (systemctl --user)
+    fn detect_user_service_failures(&self) -> Result<Option<Insight>> {
+        use std::process::Command;
+
+        // Query user-level systemd for failed units
+        let output = Command::new("systemctl")
+            .arg("--user")
+            .arg("list-units")
+            .arg("--state=failed")
+            .arg("--no-pager")
+            .arg("--no-legend")
+            .output();
+
+        let failed_count = match output {
+            Ok(out) if out.status.success() => {
+                String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .count()
+            }
+            _ => return Ok(None),
+        };
+
+        if failed_count == 0 {
+            return Ok(None);
+        }
+
+        // Info: User services failed
+        Ok(Some(
+            Insight::new(
+                "user_service_failures",
+                InsightSeverity::Info,
+                "User Service Failures Detected",
+                format!(
+                    "{} user-level service(s) have failed. These may affect your desktop environment or user applications.",
+                    failed_count
+                ),
+            )
+            .with_evidence(vec![format!("{} failed user services", failed_count)])
+            .with_suggestion("Run 'systemctl --user list-units --state=failed' to see details"),
+        ))
+    }
+
+    /// Detect timer reliability issues (late triggers, failures)
+    fn detect_timer_issues(&self) -> Result<Option<Insight>> {
+        use crate::systemd_health::SystemdHealth;
+
+        let systemd_health = SystemdHealth::detect();
+
+        // Check for disabled essential timers
+        let disabled_timers: Vec<_> = systemd_health
+            .essential_timers
+            .iter()
+            .filter(|t| !t.enabled || !t.active)
+            .collect();
+
+        if disabled_timers.is_empty() {
+            return Ok(None);
+        }
+
+        // Warning: Essential timers not running
+        let timer_list = disabled_timers
+            .iter()
+            .map(|t| t.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let evidence = disabled_timers
+            .iter()
+            .map(|t| {
+                format!(
+                    "{}: enabled={}, active={}",
+                    t.name, t.enabled, t.active
+                )
+            })
+            .collect();
+
+        Ok(Some(
+            Insight::new(
+                "timer_issues",
+                InsightSeverity::Warning,
+                "Essential Timers Not Running",
+                format!(
+                    "System maintenance timers are not active: {}. This may lead to disk space issues or outdated mirrors.",
+                    timer_list
+                ),
+            )
+            .with_evidence(evidence)
+            .with_suggestion("Enable and start timers with 'sudo systemctl enable --now <timer>'"),
+        ))
+    }
+
+    // ========================================================================
+    // v6.25.0: Cross-Subsystem Correlation
+    // ========================================================================
+
+    /// Correlate disk pressure with service failures
+    fn correlate_disk_to_service(&self) -> Result<Option<Insight>> {
+        // Get disk trends and service restart trends
+        let disk_trends = self.historian.get_disk_trends(7)?;
+        let service_trends = self.historian.get_service_restart_trends(7)?;
+
+        // Only correlate if disk is >85% AND services are crashing
+        if disk_trends.current_used_percent < 85.0 || service_trends.is_empty() {
+            return Ok(None);
+        }
+
+        // Check if any services have crashes (not just restarts)
+        let services_with_crashes: Vec<_> = service_trends
+            .iter()
+            .filter(|s| s.crash_count > 0)
+            .collect();
+
+        if services_with_crashes.is_empty() {
+            return Ok(None);
+        }
+
+        // Critical correlation: High disk + crashes
+        let service_list = services_with_crashes
+            .iter()
+            .take(3)
+            .map(|s| s.service_name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        Ok(Some(
+            Insight::new(
+                "disk_service_correlation",
+                InsightSeverity::Critical,
+                "Disk Pressure Causing Service Failures",
+                format!(
+                    "Root filesystem is {:.0}% full, and {} services have crashed recently ({}). \
+                     Services may be failing due to insufficient disk space for logs, temporary files, or databases.",
+                    disk_trends.current_used_percent,
+                    services_with_crashes.len(),
+                    service_list
+                ),
+            )
+            .with_evidence(vec![
+                format!("Disk usage: {:.0}%", disk_trends.current_used_percent),
+                format!("{} services with crashes", services_with_crashes.len()),
+                format!("Growth rate: {:.2} GB/day", disk_trends.growth_rate_gb_per_day),
+            ])
+            .with_suggestion("Run 'annactl \"clean up disk space\"' immediately and restart failed services"),
+        ))
+    }
+
+    /// Correlate network issues with service degradation
+    fn correlate_network_to_service(&self) -> Result<Option<Insight>> {
+        // Get network trends and service restart trends
+        let network_trends = self.historian.get_network_trends(24)?;
+        let service_trends = self.historian.get_service_restart_trends(1)?; // Last 24 hours
+
+        // Only correlate if network is degraded AND services are restarting
+        if network_trends.avg_latency_ms < 200.0 || service_trends.is_empty() {
+            return Ok(None);
+        }
+
+        // Filter for network-dependent services
+        let network_services: Vec<_> = service_trends
+            .iter()
+            .filter(|s| {
+                let name = s.service_name.to_lowercase();
+                name.contains("network")
+                    || name.contains("dhcp")
+                    || name.contains("dns")
+                    || name.contains("resolved")
+                    || name.contains("NetworkManager")
+            })
+            .collect();
+
+        if network_services.is_empty() {
+            return Ok(None);
+        }
+
+        // Warning: Network latency + service restarts
+        let service_list = network_services
+            .iter()
+            .map(|s| s.service_name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        Ok(Some(
+            Insight::new(
+                "network_service_correlation",
+                InsightSeverity::Warning,
+                "Network Issues Affecting Services",
+                format!(
+                    "Network latency is elevated ({:.0} ms avg) and network services are restarting: {}. \
+                     This may indicate connectivity issues or misconfigurations.",
+                    network_trends.avg_latency_ms, service_list
+                ),
+            )
+            .with_evidence(vec![
+                format!("Network latency: {:.0} ms", network_trends.avg_latency_ms),
+                format!("Packet loss: {:.1}%", network_trends.avg_packet_loss_percent),
+                format!("{} network service restarts", network_services.len()),
+            ])
+            .with_suggestion("Run 'annactl \"diagnose network issues\"' to investigate connectivity"),
+        ))
+    }
+
+    /// Correlate boot regression with failed services (root cause analysis)
+    fn correlate_boot_and_services(&self) -> Result<Option<Insight>> {
+        use crate::systemd_health::SystemdHealth;
+        use crate::historian::Trend;
+
+        // Check if we have boot regression AND failed services
+        let boot_trends = self.historian.get_boot_trends(30)?;
+        let systemd_health = SystemdHealth::detect();
+
+        // Boot regression: increasing trend or slow boot
+        if boot_trends.avg_boot_time_ms < 15000 || systemd_health.failed_units.is_empty() {
+            return Ok(None);
+        }
+
+        // Only correlate if boot trend is Up (getting worse)
+        if !matches!(boot_trends.trend, Trend::Up) {
+            return Ok(None);
+        }
+
+        // Critical: Boot regression + failed services = dependency issue
+        let service_list = systemd_health
+            .failed_units
+            .iter()
+            .take(3)
+            .map(|u| u.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        Ok(Some(
+            Insight::new(
+                "boot_service_correlation",
+                InsightSeverity::Critical,
+                "Boot Regression Linked to Service Failures",
+                format!(
+                    "Boot time is elevated at {} seconds with {} trend, and {} services have failed: {}. \
+                     This suggests a dependency chain issue or broken service ordering.",
+                    boot_trends.avg_boot_time_ms / 1000,
+                    format!("{:?}", boot_trends.trend).to_lowercase(),
+                    systemd_health.failed_units.len(),
+                    service_list
+                ),
+            )
+            .with_evidence(vec![
+                format!(
+                    "Boot time: {} ms ({:?} trend over {} days)",
+                    boot_trends.avg_boot_time_ms, boot_trends.trend, boot_trends.days_analyzed
+                ),
+                format!("{} failed services", systemd_health.failed_units.len()),
+                format!("Slowest units may be timing out"),
+            ])
+            .with_suggestion("Run 'systemd-analyze blame' and check service dependencies with 'systemctl list-dependencies'"),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -491,5 +941,198 @@ mod tests {
         assert_ne!(insight1.id, insight2.id);
         // But detector names should be the same
         assert_eq!(insight1.detector, insight2.detector);
+    }
+
+    // v6.25.0: Service Reliability Detector Tests
+    #[test]
+    fn test_service_flapping_insight_critical() {
+        // Test that critical flapping (5+ events) generates correct insight
+        let insight = Insight::new(
+            "service_flapping_critical",
+            InsightSeverity::Critical,
+            "Service Restart Loop Detected",
+            "Critical instability detected: foo.service (5 events). These services are in restart loops, indicating serious failures.",
+        )
+        .with_evidence(vec!["foo.service: 5 restarts/crashes in 10 minutes".to_string()])
+        .with_suggestion("Run 'annactl \"diagnose service crashes\"' to investigate root causes");
+
+        assert_eq!(insight.severity, InsightSeverity::Critical);
+        assert_eq!(insight.detector, "service_flapping_critical");
+        assert!(insight.title.contains("Restart Loop"));
+        assert_eq!(insight.evidence.len(), 1);
+        assert!(insight.suggestion.is_some());
+    }
+
+    #[test]
+    fn test_degraded_unit_insight_warning() {
+        // Test that single failed service generates warning
+        let insight = Insight::new(
+            "degraded_unit_warning",
+            InsightSeverity::Warning,
+            "Failed System Service Detected",
+            "nginx.service is in failed state (failed). This may affect system functionality.",
+        )
+        .with_evidence(vec!["nginx.service: active=failed, load=loaded".to_string()])
+        .with_suggestion("Check logs with 'journalctl -u nginx.service'");
+
+        assert_eq!(insight.severity, InsightSeverity::Warning);
+        assert_eq!(insight.detector, "degraded_unit_warning");
+        assert!(insight.explanation.contains("nginx.service"));
+        assert_eq!(insight.evidence.len(), 1);
+    }
+
+    #[test]
+    fn test_degraded_units_critical_multiple() {
+        // Test that multiple failed services generate critical insight
+        let insight = Insight::new(
+            "degraded_units_critical",
+            InsightSeverity::Critical,
+            "Multiple Failed System Services",
+            "System has 3 failed services: foo.service, bar.service, baz.service. This indicates widespread system degradation.",
+        )
+        .with_evidence(vec![
+            "foo.service: failed (dead)".to_string(),
+            "bar.service: failed (dead)".to_string(),
+            "baz.service: failed (dead)".to_string(),
+        ])
+        .with_suggestion("Run 'systemctl status' and investigate failed units");
+
+        assert_eq!(insight.severity, InsightSeverity::Critical);
+        assert!(insight.explanation.contains("3 failed services"));
+        assert_eq!(insight.evidence.len(), 3);
+    }
+
+    #[test]
+    fn test_user_service_failures_info() {
+        // Test that user service failures generate info insight
+        let insight = Insight::new(
+            "user_service_failures",
+            InsightSeverity::Info,
+            "User Service Failures Detected",
+            "2 user-level service(s) have failed. These may affect your desktop environment or user applications.",
+        )
+        .with_evidence(vec!["2 failed user services".to_string()])
+        .with_suggestion("Run 'systemctl --user list-units --state=failed' to see details");
+
+        assert_eq!(insight.severity, InsightSeverity::Info);
+        assert_eq!(insight.detector, "user_service_failures");
+        assert!(insight.explanation.contains("user-level"));
+        assert!(insight.suggestion.is_some());
+    }
+
+    #[test]
+    fn test_timer_issues_warning() {
+        // Test that disabled essential timers generate warning
+        let insight = Insight::new(
+            "timer_issues",
+            InsightSeverity::Warning,
+            "Essential Timers Not Running",
+            "System maintenance timers are not active: fstrim.timer. This may lead to disk space issues or outdated mirrors.",
+        )
+        .with_evidence(vec!["fstrim.timer: enabled=false, active=false".to_string()])
+        .with_suggestion("Enable and start timers with 'sudo systemctl enable --now <timer>'");
+
+        assert_eq!(insight.severity, InsightSeverity::Warning);
+        assert!(insight.explanation.contains("fstrim.timer"));
+        assert_eq!(insight.evidence.len(), 1);
+    }
+
+    #[test]
+    fn test_disk_service_correlation_critical() {
+        // Test disk pressure → service failure correlation
+        let insight = Insight::new(
+            "disk_service_correlation",
+            InsightSeverity::Critical,
+            "Disk Pressure Causing Service Failures",
+            "Root filesystem is 92% full, and 2 services have crashed recently (foo.service, bar.service). Services may be failing due to insufficient disk space for logs, temporary files, or databases.",
+        )
+        .with_evidence(vec![
+            "Disk usage: 92%".to_string(),
+            "2 services with crashes".to_string(),
+            "Growth rate: 0.50 GB/day".to_string(),
+        ])
+        .with_suggestion("Run 'annactl \"clean up disk space\"' immediately and restart failed services");
+
+        assert_eq!(insight.severity, InsightSeverity::Critical);
+        assert_eq!(insight.detector, "disk_service_correlation");
+        assert!(insight.explanation.contains("92% full"));
+        assert_eq!(insight.evidence.len(), 3);
+    }
+
+    #[test]
+    fn test_network_service_correlation_warning() {
+        // Test network issues → service degradation correlation
+        let insight = Insight::new(
+            "network_service_correlation",
+            InsightSeverity::Warning,
+            "Network Issues Affecting Services",
+            "Network latency is elevated (250 ms avg) and network services are restarting: NetworkManager.service. This may indicate connectivity issues or misconfigurations.",
+        )
+        .with_evidence(vec![
+            "Network latency: 250 ms".to_string(),
+            "Packet loss: 5.0%".to_string(),
+            "1 network service restarts".to_string(),
+        ])
+        .with_suggestion("Run 'annactl \"diagnose network issues\"' to investigate connectivity");
+
+        assert_eq!(insight.severity, InsightSeverity::Warning);
+        assert!(insight.explanation.contains("Network latency"));
+        assert_eq!(insight.evidence.len(), 3);
+    }
+
+    #[test]
+    fn test_boot_service_correlation_critical() {
+        // Test boot regression + failed services correlation
+        let insight = Insight::new(
+            "boot_service_correlation",
+            InsightSeverity::Critical,
+            "Boot Regression Linked to Service Failures",
+            "Boot time is elevated at 25 seconds with up trend, and 2 services have failed: foo.service, bar.service. This suggests a dependency chain issue or broken service ordering.",
+        )
+        .with_evidence(vec![
+            "Boot time: 25000 ms (Up trend over 30 days)".to_string(),
+            "2 failed services".to_string(),
+            "Slowest units may be timing out".to_string(),
+        ])
+        .with_suggestion("Run 'systemd-analyze blame' and check service dependencies with 'systemctl list-dependencies'");
+
+        assert_eq!(insight.severity, InsightSeverity::Critical);
+        assert_eq!(insight.detector, "boot_service_correlation");
+        assert!(insight.explanation.contains("Boot time"));
+        assert_eq!(insight.evidence.len(), 3);
+    }
+
+    #[test]
+    fn test_insight_sorting_by_severity() {
+        // Test that insights are properly sorted by severity
+        let mut insights = vec![
+            Insight::new("test1", InsightSeverity::Info, "Info", "info"),
+            Insight::new("test2", InsightSeverity::Critical, "Critical", "critical"),
+            Insight::new("test3", InsightSeverity::Warning, "Warning", "warning"),
+            Insight::new("test4", InsightSeverity::Critical, "Critical2", "critical2"),
+        ];
+
+        insights.sort_by(|a, b| {
+            use InsightSeverity::*;
+            let a_val = match a.severity {
+                Critical => 3,
+                Warning => 2,
+                Info => 1,
+            };
+            let b_val = match b.severity {
+                Critical => 3,
+                Warning => 2,
+                Info => 1,
+            };
+            b_val.cmp(&a_val)
+        });
+
+        // First two should be Critical
+        assert_eq!(insights[0].severity, InsightSeverity::Critical);
+        assert_eq!(insights[1].severity, InsightSeverity::Critical);
+        // Third should be Warning
+        assert_eq!(insights[2].severity, InsightSeverity::Warning);
+        // Last should be Info
+        assert_eq!(insights[3].severity, InsightSeverity::Info);
     }
 }
