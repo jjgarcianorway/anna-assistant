@@ -34,7 +34,6 @@ This is **not production software**. It is a working prototype for Arch Linux po
   - Orphaned packages
   - Failed mounts
   - Critical log errors
-- **77+ deterministic recipes** for common system tasks
 - **RPC server** (Unix socket communication)
 
 #### 2. Historian (Beta.279)
@@ -47,12 +46,25 @@ This is **not production software**. It is a working prototype for Arch Linux po
   - Kernel regression detection
 - **Automatic pruning** and efficient lookups
 
-#### 3. Proactive Assessment (Beta.271-279)
+#### 3. Adaptive Planner (6.2.0-6.3.1)
+- **Arch Wiki-only planning** - No random blog posts or StackOverflow
+- **Two scenarios implemented**:
+  - DNS resolution troubleshooting (systemd-resolved)
+  - Failed systemd service troubleshooting
+- **Safety guarantees**:
+  - Inspect steps before Change steps
+  - All changes require confirmation
+  - Rollback commands provided
+  - Knowledge sources traceable to Arch Wiki
+- **Deterministic** - No LLM needed for plan generation
+- **Tested** - ACTS v1 test suite + selftest command
+
+#### 4. Proactive Assessment (Beta.271-279)
 - **Correlated issue detection** across time
 - **Health score calculation** (0-100)
 - **Integration** with diagnostic engine
 
-#### 4. CLI Interface (`annactl`)
+#### 5. CLI Interface (`annactl`)
 
 **Status Command:**
 ```bash
@@ -71,9 +83,19 @@ annactl plan --json  # Machine-readable JSON output
 ```
 Shows:
 - Arch Wiki-based execution plans for detected issues
-- DNS resolution fixes
-- Service failure remediation
+- DNS resolution fixes (systemd-resolved)
+- Service failure remediation (systemd services)
 - Read-only (displays plans, does not execute)
+
+**Selftest Command (6.3.1):**
+```bash
+annactl selftest     # Run built-in capability tests
+```
+Verifies:
+- DNS troubleshooting scenario works correctly
+- Service failure scenario works correctly
+- Healthy system produces no unnecessary changes
+- All plans follow safety guarantees (Inspect before Change, confirmation required, Arch Wiki sources only)
 
 **One-Shot Queries:**
 ```bash

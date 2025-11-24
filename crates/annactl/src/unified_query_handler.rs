@@ -168,29 +168,12 @@ pub async fn handle_unified_query(
         return handle_sysadmin_report_query(user_text).await;
     }
 
-    // TIER 1: Beta.151 Deterministic Recipes (NEW - highest priority)
-    // These are hard-coded, tested, zero-hallucination plans
-    let telemetry_map = telemetry_to_hashmap(telemetry);
-    if let Some(recipe_result) = crate::recipes::try_recipe_match(user_text, &telemetry_map) {
-
-        let action_plan = recipe_result.map_err(|e| anyhow::anyhow!("Recipe build_plan failed: {}", e))?;
-
-        // Validate recipe output
-        action_plan
-            .validate()
-            .map_err(|e| anyhow::anyhow!("Recipe generated invalid ActionPlan: {}", e))?;
-
-        let recipe_name = action_plan
-            .meta
-            .template_used
-            .clone()
-            .unwrap_or_else(|| "unknown_recipe".to_string());
-
-        return Ok(UnifiedQueryResult::DeterministicRecipe {
-            recipe_name,
-            action_plan,
-        });
-    }
+    // 6.3.1: Recipe system removed - planner is the only planning path
+    // Old TIER 1 recipe matching disabled:
+    // let telemetry_map = telemetry_to_hashmap(telemetry);
+    // if let Some(recipe_result) = crate::recipes::try_recipe_match(user_text, &telemetry_map) {
+    //     return Ok(UnifiedQueryResult::DeterministicRecipe { recipe_name, action_plan });
+    // }
 
     // TIER 2: Template Matching (fast, accurate for simple queries)
     if let Some((template_id, params)) = query_handler::try_template_match(user_text) {

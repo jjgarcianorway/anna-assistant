@@ -54,6 +54,9 @@ pub enum Commands {
         json: bool,
     },
 
+    /// Run built-in capability self-test (6.3.1)
+    Selftest,
+
     /// INTERNAL: Brain diagnostic analysis (hidden from help, use natural language instead)
     #[command(hide = true)]
     Brain {

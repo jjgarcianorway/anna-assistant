@@ -19,7 +19,8 @@ pub mod output; // Answer normalization module (Beta.208)
 pub mod startup; // Startup context awareness and welcome reports (Beta.209)
 pub mod query_handler; // Unified 3-tier query architecture
 pub mod recipe_formatter; // Recipe answer formatting
-pub mod recipes; // Deterministic ActionPlan recipes (77+)
+// 6.3.1: recipes moved to legacy_recipes/ - not compiled in 6.x
+// pub mod recipes; // Deterministic ActionPlan recipes (77+)
 pub mod rpc_client; // RPC client for daemon communication
 pub mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs)
 pub mod system_prompt_v2; // Strict reasoning discipline prompts

@@ -18,7 +18,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::recipes;
+// 6.3.1: recipes removed - planner is the only planning path
+// use crate::recipes;
 use crate::system_prompt_v3_json;
 
 /// V3 dialogue result with structured action plan
@@ -43,25 +44,14 @@ pub async fn run_dialogue_v3_json(
     telemetry: &SystemTelemetry,
     llm_config: &LlmConfig,
 ) -> Result<DialogueV3Result> {
-    // Beta.151: Try recipe matching first
-    let telemetry_map = convert_telemetry_to_hashmap(telemetry);
+    // 6.3.1: Recipe system removed - LLM generation only
+    // Old recipe matching logic disabled:
+    // let telemetry_map = convert_telemetry_to_hashmap(telemetry);
+    // if let Some(recipe_result) = recipes::try_recipe_match(user_request, &telemetry_map) {
+    //     return Ok(DialogueV3Result { action_plan, raw_json: String::new() });
+    // }
 
-    if let Some(recipe_result) = recipes::try_recipe_match(user_request, &telemetry_map) {
-        // Recipe matched - use deterministic plan
-        let action_plan = recipe_result.context("Recipe build_plan failed")?;
-
-        // Validate action plan (same as LLM output)
-        action_plan
-            .validate()
-            .map_err(|e| anyhow::anyhow!("Recipe action plan validation failed: {}", e))?;
-
-        return Ok(DialogueV3Result {
-            action_plan,
-            raw_json: String::new(), // No raw JSON for recipe-based plans
-        });
-    }
-
-    // No recipe matched - fall back to LLM generation
+    // LLM generation
 
     // Build system prompt with JSON contract
     let system_prompt = system_prompt_v3_json::build_runtime_system_prompt();

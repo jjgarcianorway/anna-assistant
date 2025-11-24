@@ -20,34 +20,42 @@ This document tracks the codebase cleanup for the 6.x series.
 - Status: **ACTIVE** - Enforces planner safety guarantees
 - Tests: DNS fix, service failure, network-down safety
 
-### ❌ DELETE - Legacy Recipe System
+**Selftest** (`crates/anna_common/src/selftest.rs`, 6.3.1)
+- Status: **ACTIVE** - Built-in capability verification
+- Command: `annactl selftest`
+- Runs: DNS scenario, service failure scenario, healthy system safety check
 
-**Recipe Library** (`crates/annactl/src/recipes/`)
+### ✅ DELETED - Legacy Recipe System (6.3.1)
+
+**Recipe Library** (`crates/annactl/src/legacy_recipes/`)
+- Status: **MOVED TO LEGACY** - 81 recipe files archived
+- Location: `crates/annactl/src/legacy_recipes/` (not compiled)
 - `mod.rs` - Recipe registry (77+ hardcoded recipes)
 - `network.rs` - Network troubleshooting recipes
 - `services.rs` - Service management recipes
 - `disk.rs` - Disk space recipes
-- `packages.rs` - Package management recipes
-- `wallpaper.rs` - Desktop customization recipes
-- `bluetooth.rs` - Bluetooth recipes
-- `sound.rs` - Audio recipes
-- ... (all recipe files)
+- ... (all 81 files)
 - **Reason**: Replaced by adaptive planner with Arch Wiki consultation
-- **Action**: Mark as deprecated, remove from active imports
+- **Action COMPLETED**: Moved to legacy_recipes/, removed from imports, disabled in code
 
 **Recipe Formatter** (`crates/annactl/src/recipe_formatter.rs`)
 - Status: **DELETE**
 - **Reason**: Only used by legacy recipe system
 
+**Recipe Calls in Code** (6.3.1)
+- `dialogue_v3_json.rs` - recipe matching logic commented out
+- `unified_query_handler.rs` - TIER 1 recipe matching disabled
+- **Action COMPLETED**: All calls to `recipes::try_recipe_match()` disabled
+
 **Intent Router** (`crates/annactl/src/intent_router.rs`)
-- Status: **DELETE** or **QUARANTINE**
-- **Reason**: Routes to recipe library, which is being replaced
-- **Action**: Remove recipe routing logic, keep only if used for other purposes
+- Status: **KEEP FOR NOW**
+- **Reason**: May still be used for non-recipe intent routing
+- **Action**: Monitor for usage, consider removal in future cleanup
 
 **Brain Command** (`crates/annactl/src/brain_command.rs`)
-- Status: **REVIEW**
-- **Reason**: May reference old recipe/brain architecture
-- **Action**: Verify it doesn't depend on recipes, keep if standalone
+- Status: **KEEP FOR NOW**
+- **Reason**: Hidden diagnostic command, independent of recipes
+- **Action**: Keep as internal diagnostic tool
 
 ### 🔍 REVIEW - Potential Dependencies
 

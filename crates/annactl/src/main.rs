@@ -27,6 +27,7 @@ pub mod action_plan_executor; // ActionPlan execution engine
 mod brain_command; // Beta.217c: Standalone brain diagnostic command
 mod context_engine; // Contextual awareness and proactive monitoring
 mod plan_command; // 6.3.0: Arch Wiki-based execution planner
+mod selftest_command; // 6.3.1: Built-in capability verification
 mod diagnostic_formatter; // Beta.250: Canonical diagnostic report formatting
 mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs, network, CPU, memory)
 mod net_diagnostics; // Beta.265: Proactive network diagnostics engine
@@ -47,7 +48,8 @@ mod output;
 mod personality_commands; // Simplified - core traits only
 mod query_handler;
 mod recipe_formatter;
-mod recipes; // Deterministic ActionPlan recipes (77+)
+// 6.3.1: recipes moved to legacy_recipes/ - not compiled in 6.x
+// mod recipes; // Deterministic ActionPlan recipes (77+)
 mod repair; // Self-healing capabilities
 // 6.0.0: repl.rs archived (see tui_legacy/repl.rs)
 mod rpc_client;
