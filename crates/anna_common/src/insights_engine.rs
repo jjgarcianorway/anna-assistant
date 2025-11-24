@@ -321,10 +321,57 @@ impl InsightsEngine {
     }
 
     /// Detect swap usage anomalies
-    /// TODO: Implement once Historian tracks swap metrics
     fn detect_swap_anomalies(&self) -> Result<Option<Insight>> {
-        // Swap tracking not yet implemented in Historian's MemoryTrends
-        // Will be added in full v6.24.0 release
+        let memory_trends = self.historian.get_memory_trends(7)?;
+
+        // Skip if no swap configured
+        if memory_trends.swap_total_mb == 0 {
+            return Ok(None);
+        }
+
+        // Critical: Heavy swap usage (>50% swap used)
+        if memory_trends.avg_swap_used_mb > 1024 {
+            let swap_percent = (memory_trends.avg_swap_used_mb as f64 / memory_trends.swap_total_mb as f64) * 100.0;
+
+            if swap_percent > 50.0 {
+                return Ok(Some(
+                    Insight::new(
+                        "swap_heavy_usage",
+                        InsightSeverity::Critical,
+                        "Heavy Swap Usage Detected",
+                        format!(
+                            "System is using {:.0}% of swap memory ({} MB of {} MB). \
+                             This indicates severe memory pressure.",
+                            swap_percent, memory_trends.avg_swap_used_mb, memory_trends.swap_total_mb
+                        ),
+                    )
+                    .with_evidence(vec![
+                        format!("Swap used: {} MB ({:.0}%)", memory_trends.avg_swap_used_mb, swap_percent),
+                        format!("RAM pressure: High"),
+                    ])
+                    .with_suggestion("Consider closing memory-intensive applications or adding more RAM"),
+                ));
+            }
+
+            // Warning: Moderate swap usage (>20%)
+            if swap_percent > 20.0 {
+                return Ok(Some(
+                    Insight::new(
+                        "swap_moderate_usage",
+                        InsightSeverity::Warning,
+                        "Swap Usage Increasing",
+                        format!(
+                            "System is using {:.0}% of swap memory ({} MB). \
+                             This may impact performance.",
+                            swap_percent, memory_trends.avg_swap_used_mb
+                        ),
+                    )
+                    .with_evidence(vec![format!("Swap used: {} MB ({:.0}%)", memory_trends.avg_swap_used_mb, swap_percent)])
+                    .with_suggestion("Monitor memory usage and consider closing unused applications"),
+                ));
+            }
+        }
+
         Ok(None)
     }
 
@@ -406,5 +453,43 @@ mod tests {
         assert_eq!(insight.evidence.len(), 2);
         assert!(insight.suggestion.is_some());
         assert_eq!(insight.suggestion.unwrap(), "Do this");
+    }
+
+    #[test]
+    fn test_severity_conversion_from_trend_severity() {
+        use crate::trend_detectors::TrendSeverity;
+
+        assert_eq!(InsightSeverity::from(TrendSeverity::Info), InsightSeverity::Info);
+        assert_eq!(InsightSeverity::from(TrendSeverity::Warning), InsightSeverity::Warning);
+        assert_eq!(InsightSeverity::from(TrendSeverity::Critical), InsightSeverity::Critical);
+    }
+
+    #[test]
+    fn test_insight_with_no_suggestion() {
+        let insight = Insight::new("test", InsightSeverity::Info, "Title", "Explanation")
+            .with_evidence(vec!["Evidence".to_string()]);
+
+        assert!(insight.suggestion.is_none());
+        assert_eq!(insight.evidence.len(), 1);
+    }
+
+    #[test]
+    fn test_insight_with_empty_evidence() {
+        let insight = Insight::new("test", InsightSeverity::Warning, "Title", "Explanation");
+
+        assert!(insight.evidence.is_empty());
+        assert!(insight.suggestion.is_none());
+    }
+
+    #[test]
+    fn test_insight_timestamp_generation() {
+        let insight1 = Insight::new("test", InsightSeverity::Info, "Title", "Explanation");
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        let insight2 = Insight::new("test", InsightSeverity::Info, "Title", "Explanation");
+
+        // IDs should be different due to timestamp (second precision)
+        assert_ne!(insight1.id, insight2.id);
+        // But detector names should be the same
+        assert_eq!(insight1.detector, insight2.detector);
     }
 }

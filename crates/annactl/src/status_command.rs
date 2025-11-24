@@ -19,6 +19,8 @@
 //! - Deterministic welcome report (CLI formatted)
 //! - Clear status: Healthy / Degraded / Broken
 
+use anna_common::historian::Historian;
+use anna_common::insights_engine::{InsightsEngine, InsightSeverity};
 use anna_common::ipc::BrainAnalysisData;
 use anna_common::terminal_format as fmt;
 use anyhow::Result;
@@ -83,6 +85,9 @@ pub async fn execute_anna_status_command(
     }
     println!("{}", "=".repeat(50));
     println!();
+
+    // v6.24.0: Display insights from Historian (before other status sections)
+    display_insights().await;
 
     // Display banner (version + LLM mode)
     let version = env!("CARGO_PKG_VERSION");
@@ -732,4 +737,69 @@ async fn build_unified_health_summary(
     summary.compute_level();
 
     summary
+}
+
+/// v6.24.0: Display insights from Historian
+async fn display_insights() {
+    // Try to open Historian database
+    let historian = match Historian::new("/var/lib/anna/historian.db") {
+        Ok(h) => h,
+        Err(_) => return, // Silently skip if DB doesn't exist yet
+    };
+
+    let engine = InsightsEngine::new(historian);
+
+    // Get top 3 insights from last 24 hours
+    let insights = match engine.get_top_insights(3, 24) {
+        Ok(insights) => insights,
+        Err(_) => return, // Skip on error
+    };
+
+    if insights.is_empty() {
+        return; // No insights to display
+    }
+
+    // Display insights section
+    println!("{}", fmt::bold("Recent Insights:"));
+    println!();
+
+    for insight in insights {
+        // Severity emoji
+        let emoji = match insight.severity {
+            InsightSeverity::Critical => fmt::emojis::CRITICAL,
+            InsightSeverity::Warning => fmt::emojis::WARNING,
+            InsightSeverity::Info => fmt::emojis::INFO,
+        };
+
+        // Title with severity
+        println!("{} {} {}", emoji, fmt::bold(&insight.title), fmt::dimmed(&format!("({})", format_severity(insight.severity))));
+
+        // Explanation
+        println!("   {}", insight.explanation);
+
+        // Evidence
+        if !insight.evidence.is_empty() {
+            for evidence in &insight.evidence {
+                println!("   {} {}", fmt::dimmed("•"), fmt::dimmed(evidence));
+            }
+        }
+
+        // Suggestion
+        if let Some(ref suggestion) = insight.suggestion {
+            println!("   {} {}", fmt::dimmed("→"), suggestion);
+        }
+
+        println!();
+    }
+
+    println!("{}", "=".repeat(50));
+    println!();
+}
+
+fn format_severity(severity: InsightSeverity) -> &'static str {
+    match severity {
+        InsightSeverity::Critical => "Critical",
+        InsightSeverity::Warning => "Warning",
+        InsightSeverity::Info => "Info",
+    }
 }

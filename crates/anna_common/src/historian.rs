@@ -1059,10 +1059,28 @@ impl Historian {
             0.0
         };
 
+        // v6.24.0: Query swap usage from memory_samples
+        let swap_stats = self.conn.query_row(
+            "SELECT AVG(avg_swap_used_mb), MAX(peak_swap_used_mb)
+             FROM memory_samples
+             WHERE timestamp >= ?",
+            [cutoff.to_rfc3339()],
+            |row| Ok((row.get::<_, i64>(0).unwrap_or(0), row.get::<_, i64>(1).unwrap_or(0))),
+        ).unwrap_or((0, 0));
+
+        // Estimate total swap: use 2x peak or reasonable default
+        let swap_total = if swap_stats.1 > 0 {
+            swap_stats.1 * 2
+        } else {
+            4096 // Default 4GB
+        };
+
         Ok(MemoryTrends {
             avg_ram_used_mb: avg_ram as i64,
             trend,
             days_analyzed: days,
+            avg_swap_used_mb: swap_stats.0,
+            swap_total_mb: swap_total,
         })
     }
 
@@ -2299,6 +2317,9 @@ pub struct MemoryTrends {
     pub avg_ram_used_mb: i64,
     pub trend: Trend,
     pub days_analyzed: u32,
+    /// v6.24.0: Swap usage tracking
+    pub avg_swap_used_mb: i64,
+    pub swap_total_mb: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
