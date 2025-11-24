@@ -1,4 +1,5 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 /// Historian - Anna's long-term memory and trend analysis system
@@ -2139,6 +2140,124 @@ impl Historian {
 
         repairs.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
+
+    /// v6.24.0: Get disk space trends over N days
+    pub fn get_disk_trends(&self, days: u32) -> Result<DiskTrends> {
+        let start_time = Utc::now() - Duration::days(days as i64);
+        let start_str = start_time.to_rfc3339();
+
+        let mut stmt = self.conn.prepare(
+            "SELECT used_gb, total_gb, used_percent
+             FROM disk_space_samples
+             WHERE filesystem = '/' AND timestamp >= ?
+             ORDER BY timestamp DESC
+             LIMIT 1",
+        )?;
+
+        if let Ok(row) = stmt.query_row(params![start_str], |row| {
+            Ok((row.get::<_, f64>(0)?, row.get::<_, f64>(1)?, row.get::<_, f64>(2)?))
+        }) {
+            let (used_gb, total_gb, used_percent) = row;
+
+            // Calculate growth rate from first to last sample
+            let mut growth_stmt = self.conn.prepare(
+                "SELECT used_gb, timestamp
+                 FROM disk_space_samples
+                 WHERE filesystem = '/' AND timestamp >= ?
+                 ORDER BY timestamp ASC",
+            )?;
+
+            let samples: Vec<(f64, String)> = growth_stmt
+                .query_map(params![start_str], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let growth_rate = if samples.len() >= 2 {
+                let first = &samples[0];
+                let last = &samples[samples.len() - 1];
+                let time_diff = DateTime::parse_from_rfc3339(&last.1)
+                    .ok()
+                    .and_then(|t2| DateTime::parse_from_rfc3339(&first.1).ok().map(|t1| (t2 - t1).num_seconds()))
+                    .unwrap_or(0) as f64
+                    / 86400.0;
+                if time_diff > 0.0 {
+                    (last.0 - first.0) / time_diff
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+
+            return Ok(DiskTrends {
+                used_gb,
+                total_gb,
+                current_used_percent: used_percent,
+                growth_rate_gb_per_day: growth_rate,
+                days_analyzed: days,
+            });
+        }
+
+        Ok(DiskTrends {
+            used_gb: 0.0,
+            total_gb: 0.0,
+            current_used_percent: 0.0,
+            growth_rate_gb_per_day: 0.0,
+            days_analyzed: days,
+        })
+    }
+
+    /// v6.24.0: Get Anna usage statistics
+    pub fn get_anna_usage_stats(&self, hours: i64) -> Result<AnnaUsageStats> {
+        let start_time = Utc::now() - Duration::hours(hours);
+        let start_str = start_time.to_rfc3339();
+
+        let invocation_count: i32 = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(SUM(anna_invocation_count), 0) FROM usage_patterns WHERE date >= ?",
+                params![start_str],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let hours_since_last = if invocation_count > 0 { 0 } else { hours };
+
+        Ok(AnnaUsageStats {
+            invocation_count,
+            hours_since_last_invocation: hours_since_last,
+            hours_analyzed: hours,
+        })
+    }
+
+    /// v6.24.0: Get error trends with hourly averages
+    pub fn get_error_trends_v2(&self, hours: i64) -> Result<ErrorTrendsV2> {
+        let start_time = Utc::now() - Duration::hours(hours);
+        let start_str = start_time.to_rfc3339();
+
+        let (total_errors, total_warnings, total_criticals) = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(SUM(error_count), 0), COALESCE(SUM(warning_count), 0), COALESCE(SUM(critical_count), 0)
+                 FROM error_rate_samples WHERE timestamp >= ?",
+                params![start_str],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+            )
+            .unwrap_or((0, 0, 0));
+
+        let avg_errors_per_hour = if hours > 0 {
+            total_errors as f64 / hours as f64
+        } else {
+            0.0
+        };
+
+        Ok(ErrorTrendsV2 {
+            total_errors: total_errors as usize,
+            total_warnings: total_warnings as usize,
+            total_criticals: total_criticals as usize,
+            avg_errors_per_hour,
+            hours_analyzed: hours,
+        })
+    }
 }
 
 // ============================================================================
@@ -2250,6 +2369,34 @@ pub struct ErrorTrends {
     pub total_warnings: usize,
     pub total_criticals: usize,
     pub days_analyzed: u32,
+}
+
+/// v6.24.0: Error trends with hourly averages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorTrendsV2 {
+    pub total_errors: usize,
+    pub total_warnings: usize,
+    pub total_criticals: usize,
+    pub avg_errors_per_hour: f64,
+    pub hours_analyzed: i64,
+}
+
+/// v6.24.0: Disk space trends
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskTrends {
+    pub used_gb: f64,
+    pub total_gb: f64,
+    pub current_used_percent: f64,
+    pub growth_rate_gb_per_day: f64,
+    pub days_analyzed: u32,
+}
+
+/// v6.24.0: Anna usage statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnaUsageStats {
+    pub invocation_count: i32,
+    pub hours_since_last_invocation: i64,
+    pub hours_analyzed: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
