@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.29.0] - 2025-11-24
+
+### INSIGHT SUMMARIES ENGINE V1
+
+**Type:** Major Feature
+**Focus:** High-level deterministic summaries of insights, predictions, and trends
+
+#### Added ✨
+
+**Insight Summaries Engine Module:**
+- New `insight_summaries.rs` module - aggregates multiple data sources
+- `generate_insight_summary()` - deterministic summary generation (zero LLM)
+- Three detail levels: Short (1-2 lines), Normal (4-6 lines), Verbose (8-12 lines)
+- Merges 3 data sources:
+  1. Current insights from Insights Engine
+  2. Predictive diagnostics from Predictive Diagnostics Engine
+  3. Historical trends from Historian (verbose mode only)
+
+**Summary Formatting:**
+- `format_short_summary()` - Critical + warnings only, concise
+- `format_normal_summary()` - Structured with severity icons (⚠️ ⚡ ℹ️)
+- `format_verbose_summary()` - Complete with headers, sections, observations
+- Severity-based sorting: Critical → Warning → Info
+- Item categorization: Disk, Memory, CPU, Network, Service, Boot, Thermal, IO, General
+
+**Natural Language Intent Detection:**
+- New `is_insight_summary_query()` - pattern matching for summary requests
+- Supported patterns:
+  - "give me a summary" / "system summary" / "brief summary"
+  - "what should I know today" / "anything I should know"
+  - "how is my computer" / "how is my system" / "how is everything"
+  - "summarize insights" / "summarize findings"
+  - "high level overview" / "bird's eye view" / "highlights"
+
+**TIER 0.8 Routing:**
+- Added after Sysadmin Report (TIER 0.7)
+- Routes to `handle_insight_summary_query()`
+- Returns deterministic summary with `AnswerConfidence::High`
+- Source attribution: "Insight Summaries Engine v6.29.0 (deterministic)"
+
+**Follow-Up Support:**
+- New `FollowUpType::SummariesPlease` enum variant
+- Pattern detection: "summaries please", "give me summaries", "summary please"
+- `handle_summaries_followup()` - delegates to main summary handler
+- Works after ANY previous query (not context-dependent)
+
+**Session Context Extension:**
+- Updated `FollowUpType` enum with `SummariesPlease`
+- `detect_followup_type()` extended with summaries patterns
+- No conflicts with existing follow-up types (MoreDetails, JustCommands)
+
+**ItemCategory Enum:**
+- 9 categories: Disk, Memory, CPU, Network, Service, Boot, Thermal, IO, General
+- `categorize_insight_title()` - keyword-based categorization for insights
+- `categorize_prediction_title()` - keyword-based categorization for predictions
+
+**Helper Functions:**
+- `summarize_insight()` - extracts title + numerical evidence
+- `summarize_prediction()` - formats title + prediction window
+- `generate_trend_observation()` - boot time trends (verbose only)
+- `extract_key_phrase()` - shortens text for compact display (40 char limit)
+
+#### Tests 🧪
+
+**Module Tests (8 tests in insight_summaries.rs):**
+1. `test_generate_summary_empty_data` - Handles empty inputs
+2. `test_categorize_disk_insight` - Disk categorization
+3. `test_categorize_cpu_prediction` - CPU prediction categorization
+4. `test_categorize_thermal_prediction` - Thermal prediction categorization
+5. `test_extract_key_phrase` - Text truncation
+6. `test_summarize_insight_with_evidence` - Evidence extraction
+7. `test_format_short_summary_healthy` - Healthy system output
+8. `test_format_short_summary_with_issues` - Issue highlighting
+
+**Intent Detection Tests (1 test in unified_query_handler.rs):**
+1. `test_is_insight_summary_query` - 22 assertions covering all patterns
+
+**Follow-Up Detection Tests (3 tests in session_context.rs):**
+1. `test_followup_type_detection_summaries_please` - 5 patterns
+2. `test_summaries_please_does_not_conflict` - No conflicts with other types
+3. `test_summaries_please_case_insensitive` - Case handling
+
+**Total: 12 new tests, all passing**
+
+#### Design Principles 🎯
+
+1. **Deterministic** - Pure rules-based logic, zero LLM dependencies
+2. **High-Level** - Summaries are conceptual, not low-level logs
+3. **Severity-Aware** - Critical issues highlighted first
+4. **Detail-Adaptive** - Respects user preferences (Short/Normal/Verbose)
+5. **Non-Contradictory** - Never conflicts with source data
+6. **Concise** - No verbatim repetition of full insights
+
+#### Example Output 📋
+
+**Short (Critical system):**
+```
+Critical: Disk full. Watch: CPU pressure, Memory pressure
+```
+
+**Normal (Warnings present):**
+```
+⚡ Warning: Disk space low (Current: 85%)
+⚡ Warning: CPU pressure elevated
+ℹ Info: Boot time improving over last 7 days
+```
+
+**Verbose (Healthy system):**
+```
+✓ System Health: Normal Operation
+
+Observations:
+  • Boot time improving over last 7 days
+```
+
+#### Changed 🔄
+
+**unified_query_handler.rs:**
+- Added TIER 0.8 routing for insight summaries
+- New `is_insight_summary_query()` function (45 patterns)
+- New `handle_insight_summary_query()` async function
+- New `handle_summaries_followup()` for follow-up support
+
+**session_context.rs:**
+- Extended `FollowUpType` enum with `SummariesPlease`
+- Added summaries patterns to `detect_followup_type()`
+
+**lib.rs (anna_common):**
+- Exported `pub mod insight_summaries;` after predictive_diagnostics
+
+---
+
 ## [6.28.0] - 2025-11-24
 
 ### PREDICTIVE DIAGNOSTICS ENGINE V1

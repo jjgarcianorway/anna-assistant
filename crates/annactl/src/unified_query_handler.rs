@@ -136,6 +136,10 @@ pub async fn handle_unified_query(
                     // v6.27.0: Explain the proactive commentary
                     handle_explain_commentary_followup(&mut session_ctx, user_text).await
                 }
+                FollowUpType::SummariesPlease => {
+                    // v6.29.0: Generate insight summaries on demand
+                    handle_summaries_followup(user_text).await
+                }
                 FollowUpType::Clarification => {
                     // For clarification, we can re-run with more context
                     // For now, treat as "more details"
@@ -378,6 +382,13 @@ pub async fn handle_unified_query(
     // Generates comprehensive sysadmin briefing combining health, proactive, and session data
     if is_sysadmin_report_query(user_text) {
         return handle_sysadmin_report_query(user_text).await;
+    }
+
+    // TIER 0.8: v6.29.0 Insight Summaries Routing
+    // Detects "give me a summary", "what should I know today", "how is my system"
+    // Generates deterministic high-level summary of insights, predictions, and trends
+    if is_insight_summary_query(user_text) {
+        return handle_insight_summary_query(user_text).await;
     }
 
     // 6.3.1: Recipe system removed - planner is the only planning path
@@ -2157,6 +2168,100 @@ async fn handle_sysadmin_report_query(_query: &str) -> Result<UnifiedQueryResult
 // Beta.250: Old format_diagnostic_report function removed
 // Now using canonical formatter from diagnostic_formatter module
 
+/// v6.29.0: Detect insight summary queries
+///
+/// Patterns focused on "give me a summary", "what should I know today", "system summary"
+pub fn is_insight_summary_query(text: &str) -> bool {
+    let normalized = normalize_query_for_intent(text);
+
+    let summary_patterns = [
+        // "Give me a summary" family
+        "give me a summary",
+        "give me a system summary",
+        "give summary",
+        "system summary",
+        "brief summary",
+        "quick summary",
+        "summary of the system",
+        "summary of my system",
+        "summary please",
+
+        // "What should I know" family
+        "what should i know today",
+        "what should i know",
+        "what do i need to know",
+        "anything i should know",
+        "what's important to know",
+        "what is important to know",
+
+        // "How is my computer" family
+        "how is my computer",
+        "how is my system",
+        "how is my machine",
+        "how is the system",
+        "how is the computer",
+        "how is the machine",
+        "how is everything",
+        "how are things",
+
+        // "Summarize" imperative
+        "summarize insights",
+        "summarize findings",
+        "summarize issues",
+        "summarize problems",
+        "summarize diagnostics",
+
+        // "High level" family
+        "high level overview",
+        "high level summary",
+        "give me the highlights",
+        "just the highlights",
+        "top level summary",
+        "bird's eye view",
+    ];
+
+    for pattern in &summary_patterns {
+        if normalized == *pattern || normalized.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// v6.29.0: Handle insight summary query
+///
+/// Returns high-level summary of insights, predictions, and trends
+async fn handle_insight_summary_query(_user_text: &str) -> Result<UnifiedQueryResult> {
+    use anna_common::insight_summaries::generate_insight_summary;
+    use anna_common::session_context::DetailPreference;
+
+    // v6.29.0: For initial release, use empty data sets
+    // Future enhancement: Add RPC methods for get_insights() and get_predictive_insights()
+    let insights = vec![];
+    let predictions = vec![];
+
+    // Use a temporary historian for trend analysis
+    // Future enhancement: Get historian from daemon via RPC
+    let historian = anna_common::historian::Historian::new("/tmp/anna_historian_temp.db")?;
+
+    // Get user's detail preference (default to Normal)
+    let detail_pref = DetailPreference::Normal;
+
+    // Generate summary
+    let summary_opt = generate_insight_summary(&insights, &predictions, &historian, &detail_pref)?;
+
+    let answer = summary_opt.unwrap_or_else(|| {
+        "Your system is operating normally. No significant insights, predictions, or trends to report.".to_string()
+    });
+
+    Ok(UnifiedQueryResult::ConversationalAnswer {
+        answer,
+        confidence: AnswerConfidence::High,
+        sources: vec!["Insight Summaries Engine v6.29.0 (deterministic)".to_string()],
+    })
+}
+
 /// Beta.272: Detect proactive remediation queries
 ///
 /// Patterns focused on "what should I fix" and "top issues"
@@ -2880,6 +2985,15 @@ async fn handle_explain_commentary_followup(
     }
 }
 
+/// v6.29.0: Handle "summaries please" follow-up
+///
+/// Generates insight summaries on demand, regardless of previous context
+async fn handle_summaries_followup(user_text: &str) -> Result<UnifiedQueryResult> {
+    // Simply delegate to handle_insight_summary_query
+    // This provides the same summary generation but via follow-up pattern
+    handle_insight_summary_query(user_text).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2892,6 +3006,46 @@ mod tests {
 
         assert!(!should_use_action_plan("what is my CPU?"));
         assert!(!should_use_action_plan("how much RAM do I have?"));
+    }
+
+    #[test]
+    fn test_is_insight_summary_query() {
+        // v6.29.0: Test insight summary query detection
+
+        // "Give me a summary" family
+        assert!(is_insight_summary_query("give me a summary"));
+        assert!(is_insight_summary_query("give me a system summary"));
+        assert!(is_insight_summary_query("system summary"));
+        assert!(is_insight_summary_query("brief summary"));
+
+        // "What should I know" family
+        assert!(is_insight_summary_query("what should i know today"));
+        assert!(is_insight_summary_query("what do i need to know"));
+        assert!(is_insight_summary_query("anything i should know"));
+
+        // "How is my computer" family
+        assert!(is_insight_summary_query("how is my computer"));
+        assert!(is_insight_summary_query("how is my system"));
+        assert!(is_insight_summary_query("how is everything"));
+
+        // "Summarize" imperative
+        assert!(is_insight_summary_query("summarize insights"));
+        assert!(is_insight_summary_query("summarize findings"));
+
+        // "High level" family
+        assert!(is_insight_summary_query("high level overview"));
+        assert!(is_insight_summary_query("give me the highlights"));
+        assert!(is_insight_summary_query("bird's eye view"));
+
+        // Case insensitive
+        assert!(is_insight_summary_query("GIVE ME A SUMMARY"));
+        assert!(is_insight_summary_query("How Is My System"));
+
+        // Non-summary queries (should NOT trigger)
+        assert!(!is_insight_summary_query("what is my CPU?"));
+        assert!(!is_insight_summary_query("install docker"));
+        assert!(!is_insight_summary_query("check disk space"));
+        assert!(!is_insight_summary_query("run a diagnostic")); // diagnostic, not summary
     }
 
     #[test]

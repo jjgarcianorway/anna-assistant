@@ -98,6 +98,9 @@ pub enum FollowUpType {
 
     /// User wants explanation of proactive commentary (v6.27.0)
     ExplainCommentary,
+
+    /// User wants insight summaries (v6.29.0)
+    SummariesPlease,
 }
 
 /// Summary of last answer for follow-up support
@@ -355,6 +358,23 @@ impl SessionContext {
         for pattern in &explain_commentary_patterns {
             if query_lower.contains(pattern) {
                 return Some(FollowUpType::ExplainCommentary);
+            }
+        }
+
+        // v6.29.0: "summaries please" patterns
+        let summaries_patterns = [
+            "summaries please",
+            "give me summaries",
+            "show summaries",
+            "summary please",
+            "summarize please",
+            "give me a summary",
+            "show me a summary",
+        ];
+
+        for pattern in &summaries_patterns {
+            if query_lower.contains(pattern) {
+                return Some(FollowUpType::SummariesPlease);
             }
         }
 
@@ -812,5 +832,65 @@ mod tests {
 
         // Should now have a timestamp
         assert!(ctx.last_status_time.is_some());
+    }
+
+    #[test]
+    fn test_followup_type_detection_summaries_please() {
+        // v6.29.0: Test summaries please follow-up detection
+        assert_eq!(
+            SessionContext::detect_followup_type("summaries please"),
+            Some(FollowUpType::SummariesPlease)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("give me summaries"),
+            Some(FollowUpType::SummariesPlease)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("show summaries"),
+            Some(FollowUpType::SummariesPlease)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("summary please"),
+            Some(FollowUpType::SummariesPlease)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("give me a summary"),
+            Some(FollowUpType::SummariesPlease)
+        );
+    }
+
+    #[test]
+    fn test_summaries_please_does_not_conflict() {
+        // Ensure summaries please doesn't conflict with other follow-up types
+
+        // Should detect "more details" not "summaries"
+        assert_eq!(
+            SessionContext::detect_followup_type("give me more details"),
+            Some(FollowUpType::MoreDetails)
+        );
+
+        // Should detect "just commands" not "summaries"
+        assert_eq!(
+            SessionContext::detect_followup_type("just the commands"),
+            Some(FollowUpType::JustCommands)
+        );
+    }
+
+    #[test]
+    fn test_summaries_please_case_insensitive() {
+        // v6.29.0: Test case insensitivity for summaries
+        assert_eq!(
+            SessionContext::detect_followup_type("SUMMARIES PLEASE"),
+            Some(FollowUpType::SummariesPlease)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("Give Me A Summary"),
+            Some(FollowUpType::SummariesPlease)
+        );
     }
 }
