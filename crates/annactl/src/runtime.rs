@@ -65,9 +65,8 @@ pub async fn run() -> Result<()> {
         // Known subcommands that should not be treated as natural language queries
         // Beta.233: Added "version" subcommand
         // Beta.236: Removed "brain" from public interface - kept as hidden internal command
-        // 6.3.0: Added "plan" subcommand
-        // 6.3.1: Added "selftest" subcommand
-        let known_subcommands = ["status", "version", "brain", "plan", "selftest"];
+        // 6.4.x: Removed plan/selftest as public commands - two-command UX only
+        let known_subcommands = ["status", "version", "brain"];
 
         let is_flag = first_arg.starts_with("--") || first_arg.starts_with("-");
         let is_known_command = known_subcommands.contains(&first_arg.as_str());
@@ -107,24 +106,6 @@ pub async fn run() -> Result<()> {
         Some(crate::cli::Commands::Version) => {
             println!("annactl {}", env!("CARGO_PKG_VERSION"));
             Ok(())
-        }
-
-        // 6.3.0: Command 5: Plan
-        Some(crate::cli::Commands::Plan { json }) => {
-            let start_time = Instant::now();
-            let req_id = LogEntry::generate_req_id();
-
-            crate::plan_command::execute_plan_command(json, &req_id, start_time)
-                .await
-        }
-
-        // 6.3.1: Command 6: Selftest
-        Some(crate::cli::Commands::Selftest) => {
-            let start_time = Instant::now();
-            let req_id = LogEntry::generate_req_id();
-
-            crate::selftest_command::execute_selftest_command(&req_id, start_time)
-                .await
         }
 
         // No command → TUI disabled in 6.0.0

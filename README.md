@@ -66,7 +66,11 @@ This is **not production software**. It is a working prototype for Arch Linux po
 
 #### 5. CLI Interface (`annactl`)
 
-**Status Command:**
+**Two Commands Only:**
+
+Anna has exactly two CLI entry points:
+
+**1. Status Command:**
 ```bash
 annactl status
 ```
@@ -76,35 +80,52 @@ Shows:
 - Recent logs
 - JSON output available with `--json` flag
 
-**Plan Command (6.3.0):**
+**2. Ask Anna (One-Shot Queries):**
 ```bash
-annactl plan         # Human-readable execution plans
-annactl plan --json  # Machine-readable JSON output
-```
-Shows:
-- Arch Wiki-based execution plans for detected issues
-- DNS resolution fixes (systemd-resolved)
-- Service failure remediation (systemd services)
-- Read-only (displays plans, does not execute)
-
-**Selftest Command (6.3.1):**
-```bash
-annactl selftest     # Run built-in capability tests
-```
-Verifies:
-- DNS troubleshooting scenario works correctly
-- Service failure scenario works correctly
-- Healthy system produces no unnecessary changes
-- All plans follow safety guarantees (Inspect before Change, confirmation required, Arch Wiki sources only)
-
-**One-Shot Queries:**
-```bash
+annactl "my DNS is broken"
+annactl "nginx keeps crashing"
 annactl "what's using disk space?"
-annactl "run a full diagnostic"
-annactl "check my system health"
 ```
 
-Natural language queries are processed by local LLM (requires Ollama).
+**How Anna Responds:**
+
+When you ask a question, Anna will:
+1. **Analyze your system** - Fetch telemetry from the daemon
+2. **Consult Arch Wiki** - Find authoritative guidance for detected issues
+3. **Propose a plan** - Show step-by-step commands with explanations
+4. **Present commands clearly** - List all commands that would be run
+5. **Ask for confirmation** - End with: "Do you want me to run it for you?? y/N"
+
+Example response structure:
+```
+You requested help fixing DNS resolution on your Arch system: "my DNS is broken"
+
+Anna detected:
+- Network is reachable
+- DNS resolution suspected broken
+
+Based on Arch Wiki guidance:
+- https://wiki.archlinux.org/title/Systemd-resolved
+
+This plan follows the safe pattern: inspect first (4 steps), then propose changes (1 steps).
+All changes require confirmation and have rollback commands if needed.
+
+This is what we need to run:
+systemctl status systemd-resolved.service
+journalctl -u systemd-resolved.service -n 50
+cat /etc/resolv.conf
+resolvectl query archlinux.org
+sudo systemctl restart systemd-resolved.service
+
+Do you want me to run it for you?? y/N
+```
+
+**What Anna Can Plan (6.4.x):**
+- DNS resolution troubleshooting (systemd-resolved)
+- Failed systemd service troubleshooting
+- More scenarios coming in future releases
+
+For other questions, Anna falls back to LLM-generated answers (requires Ollama).
 
 ---
 

@@ -47,16 +47,6 @@ pub enum Commands {
     /// Show version information (Beta.233)
     Version,
 
-    /// Generate execution plan for system issues (6.3.0)
-    Plan {
-        /// Output JSON only
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Run built-in capability self-test (6.3.1)
-    Selftest,
-
     /// INTERNAL: Brain diagnostic analysis (hidden from help, use natural language instead)
     #[command(hide = true)]
     Brain {

@@ -9,8 +9,14 @@
 //!
 //! Uses unified_query_handler for consistency with TUI mode.
 
+use anna_common::answer_formatter::{render_human_answer, AnswerContext};
 use anna_common::display::UI;
 use anna_common::llm::LlmConfig;
+use anna_common::orchestrator::{
+    get_arch_help_dns, get_arch_help_service_failure,
+    plan_dns_fix, plan_service_failure_fix,
+    Plan, ServiceStatus, TelemetrySummary,
+};
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
@@ -23,11 +29,95 @@ use crate::startup::welcome::{generate_welcome_report, load_last_session, save_s
 use crate::system_query::query_system_telemetry;
 use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, UnifiedQueryResult};
 
+/// Try to handle query with the planner (6.4.x)
+///
+/// Returns Some(answer_string) if the planner can handle it, None otherwise.
+fn try_planner_answer(
+    user_text: &str,
+    telemetry: &anna_common::telemetry::SystemTelemetry,
+) -> Option<String> {
+    // Convert to TelemetrySummary
+    let telemetry_summary = convert_to_planner_summary(telemetry);
+
+    // Check if we have anything to plan for
+    let has_dns_issue = telemetry_summary.dns_suspected_broken && telemetry_summary.network_reachable;
+    let has_failed_services = !telemetry_summary.failed_services.is_empty();
+
+    if !has_dns_issue && !has_failed_services {
+        return None; // Nothing for planner to handle
+    }
+
+    // Run relevant planner slices
+    let mut all_plans = Vec::new();
+
+    if has_dns_issue {
+        let wiki = get_arch_help_dns();
+        let plan = plan_dns_fix(user_text, &telemetry_summary, &wiki);
+        if !plan.steps.is_empty() {
+            all_plans.push((plan, wiki.sources));
+        }
+    }
+
+    for service in &telemetry_summary.failed_services {
+        if service.is_failed {
+            let service_name = service.name.trim_end_matches(".service");
+            let wiki = get_arch_help_service_failure(service_name);
+            let plan = plan_service_failure_fix(user_text, &telemetry_summary, &wiki);
+            if !plan.steps.is_empty() {
+                all_plans.push((plan, wiki.sources));
+            }
+        }
+    }
+
+    if all_plans.is_empty() {
+        return None;
+    }
+
+    // Combine plans and generate answer using standard formatter
+    // For now, use the first plan (DNS or first service)
+    let (plan, wiki_sources) = all_plans.into_iter().next().unwrap();
+
+    let ctx = AnswerContext {
+        user_goal: user_text.to_string(),
+        telemetry_summary,
+        plan,
+        wiki_sources,
+    };
+
+    Some(render_human_answer(&ctx))
+}
+
+/// Convert SystemTelemetry to TelemetrySummary for planner
+fn convert_to_planner_summary(
+    system_telemetry: &anna_common::telemetry::SystemTelemetry,
+) -> TelemetrySummary {
+    let network_reachable = system_telemetry.network.is_connected;
+    let dns_suspected_broken = false; // TODO: Add DNS-specific checks to NetworkInfo
+
+    let failed_services: Vec<ServiceStatus> = system_telemetry
+        .services
+        .failed_units
+        .iter()
+        .filter(|unit| unit.unit_type == "service")
+        .map(|unit| ServiceStatus {
+            name: unit.name.clone(),
+            is_failed: true,
+        })
+        .collect();
+
+    TelemetrySummary {
+        dns_suspected_broken,
+        network_reachable,
+        failed_services,
+    }
+}
+
 /// Handle a one-shot natural language query
 ///
 /// This is used for: annactl "free storage space"
 /// Version 149: Uses unified handler for consistency with TUI.
 /// Beta.228: Added comprehensive logging
+/// 6.4.x: Try planner first, fall back to LLM
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     let start_time = std::time::Instant::now();
 
@@ -52,6 +142,22 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Get LLM config
     let config = get_llm_config();
 
+    // 6.4.x: Try planner first
+    if let Some(planner_answer) = try_planner_answer(user_text, &telemetry) {
+        spinner.finish_and_clear();
+
+        if ui.capabilities().use_colors() {
+            print!("{} ", "anna:".bright_magenta().bold());
+        } else {
+            print!("anna: ");
+        }
+        io::stdout().flush().unwrap();
+
+        // Print the planner answer directly
+        println!("{}", planner_answer);
+        return Ok(());
+    }
+
     // Beta.229: Stop spinner before unified handler to prevent corruption during streaming
     // Beta.237: Immediately show "anna:" prefix to reduce perceived latency
     spinner.finish_and_clear();
@@ -64,7 +170,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     }
     io::stdout().flush().unwrap();
 
-    // Use unified query handler
+    // Use unified query handler (fallback for non-planner queries)
     let handler_start = std::time::Instant::now();
     match handle_unified_query(user_text, &telemetry, &config).await {
         Ok(UnifiedQueryResult::DeterministicRecipe {
