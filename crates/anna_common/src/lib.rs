@@ -48,6 +48,7 @@ pub mod installation_source;
 pub mod ipc;
 pub mod kernel_modules; // Kernel and boot detection (installed kernels, modules, boot config)
 pub mod language; // Language system with natural configuration
+pub mod wiki_adapter; // 6.9.0: Arch Wiki adaptation pipeline (intent + context → user-specific plans)
 pub mod answer_formatter; // 6.4.x: Standard answer format for planner responses
 pub mod executor; // 6.5.0: Safe command execution with file-writing detection
 pub mod orchestrator; // 6.2.0: Adaptive planner with Arch Wiki consultation
