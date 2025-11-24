@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.21.0] - 2025-11-24
+
+### CONVERSATIONAL INTELLIGENCE
+
+**Type:** UX Improvement
+**Focus:** Intent routing,  data-driven responses
+
+#### Added ✨
+
+- Intent router now integrated into query handler (routes FIRST before LLM)
+- SystemStatus intent: "how is my computer", "show me details", "more details"
+- Personality intent: "personality traits", "how about your"
+- Diagnostic handler shows actual system data via `annactl status`
+- Personality handler shows real config (emojis, colors)
+
+#### Fixed 🐛
+
+**Embarrassing Responses:**
+- "how is my computer doing?" no longer says "I'm doing well!"
+- "more details?" no longer suggests commands - shows actual data
+- "personality traits?" no longer returns empty
+- Less chatty, more professional
+
+#### Technical
+
+- Modified: `llm_query_handler.rs`, `intent_router.rs`
+- System queries call status command directly
+- Personality shows AnnaConfig values
+
 ## [6.20.0] - 2025-11-24
 
 ### SAFE MODE FOUNDATION & CLI CONTRACT

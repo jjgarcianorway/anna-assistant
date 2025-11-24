@@ -160,11 +160,19 @@ pub fn route_intent(input: &str) -> Intent {
         return Intent::AnnaStatus;
     }
 
-    // System status (system health)
+    // System status (system health) - 6.21.0: More comprehensive matching
     if lower.contains("system status")
         || lower.contains("system health")
-        || (contains_any(&words, &["status", "health"])
-            && contains_any(&words, &["system", "machine", "computer", "pc", "server"]))
+        || lower.contains("how is my computer")
+        || lower.contains("how's my computer")
+        || lower.contains("computer doing")
+        || lower.contains("machine doing")
+        || lower.contains("system doing")
+        || lower.contains("show me details")
+        || lower.contains("more details")
+        || lower.contains("give me details")
+        || (contains_any(&words, &["status", "health", "doing"])
+            && contains_any(&words, &["system", "machine", "computer", "pc", "server", "my"]))
     {
         return Intent::SystemStatus;
     }
@@ -210,6 +218,15 @@ pub fn route_intent(input: &str) -> Intent {
         || lower.contains("fix anna")
     {
         return Intent::AnnaSelfRepair;
+    }
+
+    // Personality trait queries - 6.21.0
+    if (lower.contains("personality") || lower.contains("trait"))
+        && (lower.contains("show") || lower.contains("what") || lower.contains("your") || lower.contains("how about"))
+    {
+        return Intent::Personality {
+            adjustment: PersonalityAdjustment::Show,
+        };
     }
 
     // Privacy explanation - multilingual

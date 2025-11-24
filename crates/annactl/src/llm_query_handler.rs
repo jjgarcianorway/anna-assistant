@@ -228,6 +228,26 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Get LLM config
     let config = get_llm_config();
 
+    // 6.21.0: Route through intent system FIRST for structured queries
+    let intent = crate::intent_router::route_intent(user_text);
+
+    match intent {
+        crate::intent_router::Intent::SystemStatus => {
+            spinner.finish_and_clear();
+            return handle_system_diagnostics_query(&ui, &telemetry).await;
+        }
+        crate::intent_router::Intent::Personality { adjustment } => {
+            spinner.finish_and_clear();
+            return handle_personality_query(&ui, adjustment).await;
+        }
+        crate::intent_router::Intent::AnnaStatus => {
+            return handle_health_question(&ui).await;
+        }
+        _ => {
+            // Continue with legacy pattern matching for other intents
+        }
+    }
+
     // 6.8.1: Handle health questions with telemetry, not generic LLM
     if matches_health_question(user_text) {
         return handle_health_question(&ui).await;
@@ -763,6 +783,70 @@ async fn handle_desktop_question(ui: &UI) -> Result<()> {
     println!("**Commands I ran:**");
     for cmd in commands_run {
         println!("  {}", cmd);
+    }
+
+    Ok(())
+}
+
+/// Handle "how is my computer doing?" with actual diagnostic data
+/// 6.21.0: Just run the status command - it already has all the info
+async fn handle_system_diagnostics_query(
+    _ui: &UI,
+    _telemetry: &anna_common::telemetry::SystemTelemetry,
+) -> Result<()> {
+    use anna_common::terminal_format as fmt;
+
+    println!();
+    print!("{}", fmt::bold("anna:"));
+    print!(" ");
+
+    println!("Here's your complete system status:\n");
+
+    // Just run the status command - it has all the diagnostics already
+    let req_id = "system_query";
+    let start_time = std::time::Instant::now();
+    crate::status_command::execute_anna_status_command(false, req_id, start_time).await?;
+
+    Ok(())
+}
+
+/// Handle personality trait queries
+/// 6.21.0: Show actual personality configuration
+async fn handle_personality_query(
+    _ui: &UI,
+    adjustment: crate::intent_router::PersonalityAdjustment,
+) -> Result<()> {
+    use anna_common::terminal_format as fmt;
+
+    match adjustment {
+        crate::intent_router::PersonalityAdjustment::Show => {
+            println!();
+            print!("{}", fmt::bold("anna:"));
+            print!(" ");
+
+            println!("My personality traits:\n");
+
+            // Load personality from config
+            let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();
+
+            println!("{}", fmt::bold("Output Style:"));
+            println!("  Emojis: {:?}", config.output.emojis);
+            println!("  Colors: {:?}", config.output.color);
+            println!();
+
+            println!("{}", fmt::dimmed("Note: Full personality system coming in future release"));
+            println!("For now, you can configure: emojis and colors");
+            println!();
+        }
+        _ => {
+            // For other adjustments, fall back to generic handler for now
+            println!();
+            print!("{}", fmt::bold("anna:"));
+            print!(" ");
+            println!("Personality adjustment not yet implemented.");
+            println!("Use: annactl \"disable emojis\" or annactl \"enable colors\"");
+            println!();
+        }
     }
 
     Ok(())
