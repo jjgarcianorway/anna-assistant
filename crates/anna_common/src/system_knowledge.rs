@@ -41,12 +41,33 @@ pub struct WallpaperProfile {
     pub wallpaper_dirs: Vec<PathBuf>,       // ~/Wallpapers, ~/Pictures
 }
 
+impl Default for WallpaperProfile {
+    fn default() -> Self {
+        Self {
+            wm_or_de: None,
+            wallpaper_tool: None,
+            config_files: Vec::new(),
+            wallpaper_dirs: Vec::new(),
+        }
+    }
+}
+
 /// System usage snapshot
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemUsageProfile {
     pub cpu_cores: u64,
     pub total_ram_bytes: u64,
     pub last_seen_processes: Vec<String>,  // top N CPU-heavy processes
+}
+
+impl Default for SystemUsageProfile {
+    fn default() -> Self {
+        Self {
+            cpu_cores: 0,
+            total_ram_bytes: 0,
+            last_seen_processes: Vec::new(),
+        }
+    }
 }
 
 /// Hardware profile - 6.12.1
@@ -78,34 +99,39 @@ impl Default for HardwareProfile {
 }
 
 /// The complete system knowledge base
+/// 6.19.0: Added schema_version for future migrations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemKnowledgeBase {
+    /// Schema version for backward compatibility (6.19.0)
+    #[serde(default)]
+    pub schema_version: Option<u32>,
+
     pub services: Vec<ServiceProfile>,
     pub packages: Vec<PackageProfile>,
     pub config_files: Vec<ConfigFileProfile>,
+
+    #[serde(default)]
     pub wallpaper: WallpaperProfile,
+
+    #[serde(default)]
     pub usage: SystemUsageProfile,
-    pub hardware: HardwareProfile,  // 6.12.1
+
+    /// Hardware profile (6.12.1) - made optional for backward compatibility (6.19.0)
+    #[serde(default)]
+    pub hardware: HardwareProfile,
+
     pub last_updated: SystemTime,
 }
 
 impl Default for SystemKnowledgeBase {
     fn default() -> Self {
         Self {
+            schema_version: Some(1),  // 6.19.0: Current schema version
             services: Vec::new(),
             packages: Vec::new(),
             config_files: Vec::new(),
-            wallpaper: WallpaperProfile {
-                wm_or_de: None,
-                wallpaper_tool: None,
-                config_files: Vec::new(),
-                wallpaper_dirs: Vec::new(),
-            },
-            usage: SystemUsageProfile {
-                cpu_cores: 0,
-                total_ram_bytes: 0,
-                last_seen_processes: Vec::new(),
-            },
+            wallpaper: WallpaperProfile::default(),
+            usage: SystemUsageProfile::default(),
             hardware: HardwareProfile::default(),
             last_updated: SystemTime::now(),
         }

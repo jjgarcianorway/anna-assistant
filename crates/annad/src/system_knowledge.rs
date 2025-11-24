@@ -20,14 +20,46 @@ pub struct SystemKnowledgeManager {
 }
 
 impl SystemKnowledgeManager {
-    /// Load existing knowledge or initialize new
+    /// Load existing knowledge or initialize new (6.19.0: Safe backward-compatible loader)
     pub fn load_or_init(path: &Path) -> Result<Self> {
         let knowledge = if path.exists() {
             info!("Loading system knowledge from {}", path.display());
             let contents = fs::read_to_string(path)
                 .context("Failed to read knowledge file")?;
-            serde_json::from_str(&contents)
-                .context("Failed to parse knowledge JSON")?
+
+            // 6.19.0: Safe deserialization with schema recovery
+            match serde_json::from_str::<SystemKnowledgeBase>(&contents) {
+                Ok(kb) => {
+                    // Successfully parsed
+                    if kb.schema_version.is_none() {
+                        info!("Loaded legacy system knowledge (no schema version)");
+                    } else {
+                        debug!("Loaded system knowledge (schema v{})", kb.schema_version.unwrap());
+                    }
+                    kb
+                }
+                Err(e) => {
+                    // Schema mismatch - recover gracefully
+                    warn!(
+                        "Failed to parse knowledge JSON: {}. Creating backup and starting fresh.",
+                        e
+                    );
+
+                    // Create backup with timestamp
+                    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                    let backup_path = path.with_extension(format!("broken-{}.json", timestamp));
+
+                    if let Err(rename_err) = fs::rename(path, &backup_path) {
+                        warn!("Could not backup old knowledge file: {}", rename_err);
+                    } else {
+                        info!("Backed up incompatible knowledge to {}", backup_path.display());
+                    }
+
+                    // Start with fresh knowledge
+                    info!("Initializing fresh system knowledge");
+                    SystemKnowledgeBase::default()
+                }
+            }
         } else {
             info!("No existing knowledge found, initializing new");
             SystemKnowledgeBase::default()
@@ -58,6 +90,7 @@ impl SystemKnowledgeManager {
         info!("Taking fresh system knowledge snapshot");
 
         let kb = SystemKnowledgeBase {
+            schema_version: Some(1),  // 6.19.0: Current schema version
             services: scan_services()?,
             packages: scan_packages()?,
             config_files: scan_config_files()?,
@@ -620,5 +653,52 @@ mod tests {
 
         assert_eq!(deserialized.wm_or_de, Some("Hyprland".to_string()));
         assert_eq!(deserialized.wallpaper_tool, Some("swww".to_string()));
+    }
+
+    #[test]
+    fn test_backward_compatible_deserialization() {
+        // 6.19.0: Test that old JSON without hardware field can be loaded
+        let old_json = r#"{
+            "services": [],
+            "packages": [],
+            "config_files": [],
+            "wallpaper": {
+                "wm_or_de": null,
+                "wallpaper_tool": null,
+                "config_files": [],
+                "wallpaper_dirs": []
+            },
+            "usage": {
+                "cpu_cores": 8,
+                "total_ram_bytes": 16000000000,
+                "last_seen_processes": []
+            },
+            "last_updated": {
+                "secs_since_epoch": 1700000000,
+                "nanos_since_epoch": 0
+            }
+        }"#;
+
+        // This should not panic - serde(default) makes hardware optional
+        let kb: Result<SystemKnowledgeBase, _> = serde_json::from_str(old_json);
+        assert!(kb.is_ok(), "Failed to deserialize old JSON: {:?}", kb.err());
+
+        let kb = kb.unwrap();
+        // Schema version should be None for legacy files
+        assert_eq!(kb.schema_version, None);
+        // Hardware should use defaults
+        assert_eq!(kb.hardware.cpu_model, None);
+        assert_eq!(kb.hardware.gpu_model, None);
+        assert_eq!(kb.hardware.sound_devices.len(), 0);
+    }
+
+    #[test]
+    fn test_new_format_with_schema_version() {
+        // 6.19.0: Test that new JSON with schema_version and hardware parses correctly
+        let new_kb = SystemKnowledgeBase::default();
+        let json = serde_json::to_string(&new_kb).unwrap();
+
+        let parsed: SystemKnowledgeBase = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.schema_version, Some(1));
     }
 }

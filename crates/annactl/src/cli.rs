@@ -1,9 +1,18 @@
 //! CLI - Command-line argument parsing
 //!
 //! Beta.200: Simplified to three commands only
+//! 6.19.0: Annactl-only UX contract
 //!
 //! Defines the CLI structure using clap.
 //! Keeps argument parsing separate from execution logic.
+//!
+//! ## UX Contract (6.19.0)
+//!
+//! **IMPORTANT:** All user-facing operations MUST be expressed via `annactl <request>`.
+//! - User documentation should NEVER instruct calling binaries directly
+//! - User documentation should NEVER reference source scripts like `./scripts/install.sh`
+//! - Developer internal tools may exist, but official usage presents `annactl` as the single entrypoint
+//! - This ensures consistency and allows future implementation of features like `annactl self-update`
 
 use clap::{Parser, Subcommand};
 

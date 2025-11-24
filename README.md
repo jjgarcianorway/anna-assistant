@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.17.0**
+**Experimental Arch Linux System Assistant - Version 6.19.0**
 
-[![Version](https://img.shields.io/badge/version-6.17.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.19.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.17.0)
+## What Works Right Now (6.19.0)
 
 ### 1. Status Command
 
@@ -51,7 +51,7 @@ Shows:
 
 **Output example:**
 ```
-Anna Assistant v6.17.0
+Anna Assistant v6.19.0
 Mode: Local LLM (Ollama)
 
 Overall Status:
@@ -114,26 +114,26 @@ Be honest about what's missing:
 - systemd (for daemon mode)
 - User in `systemd-journal` group (for log access)
 
-### Install Script
+### Quick Install
 
+Download the latest release binaries from [GitHub Releases](https://github.com/jjgarcianorway/anna-assistant/releases) and place them in your system PATH.
+
+Once installed, verify with:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
+annactl --version
+annactl status
 ```
 
-This will:
-1. Download binaries for your architecture
-2. Install to `/usr/local/bin/`
-3. Set up systemd service (if you want it)
-4. Create required directories
+### For Developers
 
-### Manual Build
-
+Build from source:
 ```bash
 git clone https://github.com/jjgarcianorway/anna-assistant
 cd anna-assistant
 cargo build --release
-sudo cp target/release/{annad,annactl} /usr/local/bin/
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup details.
 
 ---
 

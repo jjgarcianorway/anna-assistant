@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.19.0] - 2025-11-24
+
+### DAEMON STABILITY & UX CONSISTENCY
+
+**Type:** Critical Bug Fix + UX Refinement
+**Focus:** System knowledge schema recovery, annactl-only contract
+
+#### Fixed 🐛
+
+**Critical Daemon Crash Loop:**
+- annad was crash-looping with `missing field 'hardware'` error
+- Old system_knowledge.json files incompatible with new schema
+- **Impact:** Daemon restarted 160+ times, Anna completely unusable
+- **Fix:**
+  - Made all new fields in SystemKnowledgeBase optional with `#[serde(default)]`
+  - Added safe loader that backs up incompatible files instead of crashing
+  - Introduced `schema_version` field for future migrations
+  - Legacy files without hardware/schema_version now load successfully
+- **Result:** Daemon no longer crashes on schema mismatches
+
+#### Changed 🔄
+
+**Annactl-only UX Contract:**
+- Clarified that all user operations must be via `annactl <request>`
+- Updated README to remove direct binary/script references
+- Installation now points to GitHub releases
+- Developer builds clearly separated from user guidance
+- Documented UX contract in CLI module comments
+
+#### Technical Details 🔧
+
+**Schema Recovery:**
+- Added `schema_version: Option<u32>` to SystemKnowledgeBase
+- All new fields use `#[serde(default)]` for backward compatibility
+- Safe loader creates timestamped backups: `system_knowledge.broken-YYYYMMDD_HHMMSS.json`
+- 2 new tests verify old JSON loads without panicking
+
+**Known Limitations:**
+- Emoji config (6.18.0) not fully enforced - some emojis bypass config checks
+- Will be completed in future release
+
 ## [6.18.0] - 2025-11-24
 
 ### CONFIGURABLE OUTPUT & CURATED LOGS
