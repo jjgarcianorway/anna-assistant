@@ -243,9 +243,12 @@ async fn generate_conversational_answer(
     let client = Arc::new(LlmClient::from_config(llm_config)
         .map_err(|e| anyhow::anyhow!("LLM not available: {}", e))?);
 
+    // 6.5.0: Load personality configuration
+    let personality = anna_common::personality::PersonalityConfig::load();
+
     let prompt = build_conversational_prompt_for_tui(user_text, telemetry);
     let llm_prompt = Arc::new(LlmPrompt {
-        system: LlmClient::anna_system_prompt().to_string(),
+        system: LlmClient::anna_system_prompt_with_personality(Some(&personality)),
         user: prompt,
         conversation_history: None,
     });

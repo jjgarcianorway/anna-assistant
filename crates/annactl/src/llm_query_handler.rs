@@ -11,6 +11,7 @@
 
 use anna_common::answer_formatter::{render_human_answer, AnswerContext};
 use anna_common::display::UI;
+use anna_common::executor::{execute_plan, ExecutionReport, StepExecutionKind};
 use anna_common::llm::LlmConfig;
 use anna_common::orchestrator::{
     get_arch_help_dns, get_arch_help_service_failure,
@@ -20,7 +21,7 @@ use anna_common::orchestrator::{
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
 use crate::llm_integration::fetch_telemetry_snapshot;
@@ -29,13 +30,92 @@ use crate::startup::welcome::{generate_welcome_report, load_last_session, save_s
 use crate::system_query::query_system_telemetry;
 use crate::unified_query_handler::{handle_unified_query, AnswerConfidence, UnifiedQueryResult};
 
-/// Try to handle query with the planner (6.4.x)
+/// Print execution report to user (6.5.0)
+fn print_execution_report(report: &ExecutionReport, ui: &UI) {
+    for result in &report.results {
+        if let Some(reason) = &result.skipped_reason {
+            // Skipped step
+            if ui.capabilities().use_colors() {
+                println!(
+                    "[{}] {}",
+                    "SKIPPED".yellow().bold(),
+                    result.command.dimmed()
+                );
+                println!("  Reason: {}", reason.dimmed());
+            } else {
+                println!("[SKIPPED] {}", result.command);
+                println!("  Reason: {}", reason);
+            }
+        } else if result.kind == StepExecutionKind::Harmless {
+            // Executed step
+            if result.success {
+                if ui.capabilities().use_colors() {
+                    println!("[{}] {}", "OK".green().bold(), result.command);
+                } else {
+                    println!("[OK] {}", result.command);
+                }
+            } else {
+                if ui.capabilities().use_colors() {
+                    println!(
+                        "[{}] {}",
+                        "FAILED".red().bold(),
+                        result.command.bright_red()
+                    );
+                    if let Some(code) = result.exit_code {
+                        println!("  Exit code: {}", code);
+                    }
+                } else {
+                    println!("[FAILED] {}", result.command);
+                    if let Some(code) = result.exit_code {
+                        println!("  Exit code: {}", code);
+                    }
+                }
+            }
+        }
+    }
+
+    println!();
+
+    // Summary
+    if report.all_succeeded() {
+        if ui.capabilities().use_colors() {
+            println!(
+                "{} All {} harmless steps executed successfully.",
+                "✓".green().bold(),
+                report.executed_count()
+            );
+        } else {
+            println!(
+                "All {} harmless steps executed successfully.",
+                report.executed_count()
+            );
+        }
+    } else {
+        if ui.capabilities().use_colors() {
+            println!(
+                "{} Some steps failed.",
+                "✗".red().bold()
+            );
+        } else {
+            println!("Some steps failed.");
+        }
+    }
+
+    if report.skipped_count() > 0 {
+        println!(
+            "{} file-writing steps were skipped for safety.",
+            report.skipped_count()
+        );
+    }
+}
+
+/// Try to handle query with the planner (6.4.x, 6.5.0)
 ///
-/// Returns Some(answer_string) if the planner can handle it, None otherwise.
+/// Returns Some((answer_string, plan)) if the planner can handle it, None otherwise.
 fn try_planner_answer(
     user_text: &str,
     telemetry: &anna_common::telemetry::SystemTelemetry,
-) -> Option<String> {
+) -> Option<(String, Plan)> {
     // Convert to TelemetrySummary
     let telemetry_summary = convert_to_planner_summary(telemetry);
 
@@ -80,11 +160,12 @@ fn try_planner_answer(
     let ctx = AnswerContext {
         user_goal: user_text.to_string(),
         telemetry_summary,
-        plan,
+        plan: plan.clone(),
         wiki_sources,
     };
 
-    Some(render_human_answer(&ctx))
+    let answer = render_human_answer(&ctx);
+    Some((answer, plan))
 }
 
 /// Convert SystemTelemetry to TelemetrySummary for planner
@@ -142,8 +223,8 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Get LLM config
     let config = get_llm_config();
 
-    // 6.4.x: Try planner first
-    if let Some(planner_answer) = try_planner_answer(user_text, &telemetry) {
+    // 6.4.x/6.5.0: Try planner first
+    if let Some((planner_answer, plan)) = try_planner_answer(user_text, &telemetry) {
         spinner.finish_and_clear();
 
         if ui.capabilities().use_colors() {
@@ -153,8 +234,33 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         }
         io::stdout().flush().unwrap();
 
-        // Print the planner answer directly
+        // Print the planner answer
         println!("{}", planner_answer);
+
+        // 6.5.0: Read user confirmation for execution
+        let stdin = io::stdin();
+        let mut input = String::new();
+        if let Ok(_) = stdin.lock().read_line(&mut input) {
+            let trimmed = input.trim();
+            if trimmed.starts_with('y') || trimmed.starts_with('Y') {
+                // User confirmed - execute the plan
+                println!();
+                println!("Executing harmless steps:");
+                println!();
+
+                let report = execute_plan(&plan);
+                print_execution_report(&report, &ui);
+
+                // Exit with appropriate code
+                if report.all_succeeded() {
+                    return Ok(());
+                } else {
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        // User declined or no input - just exit
         return Ok(());
     }
 
