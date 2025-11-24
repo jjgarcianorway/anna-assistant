@@ -281,6 +281,10 @@ pub enum Method {
 
     /// Get telemetry snapshot for welcome reports (Beta.213)
     GetTelemetrySnapshot,
+
+    /// Get reflection summary (6.7.0)
+    /// Returns Anna's reflection on recent changes and system events
+    GetReflection,
 }
 
 /// Response data variants
@@ -477,6 +481,36 @@ pub enum ResponseData {
     /// System profile for adaptive intelligence (Phase 3.0)
     /// Citation: [linux:proc][systemd:detect-virt][xdg:session]
     Profile(ProfileData),
+
+    /// Reflection summary (6.7.0)
+    /// Anna's reflection on recent changes and system events
+    Reflection(ReflectionSummaryData),
+}
+
+/// Reflection summary data for RPC (6.7.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflectionSummaryData {
+    pub items: Vec<ReflectionItemData>,
+    pub generated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Reflection item data for RPC (6.7.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflectionItemData {
+    pub severity: ReflectionSeverity,
+    pub category: String,
+    pub title: String,
+    pub details: String,
+    pub since_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Reflection severity for RPC (6.7.0)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ReflectionSeverity {
+    Info,
+    Notice,
+    Warning,
+    Critical,
 }
 
 /// Type of streaming chunk

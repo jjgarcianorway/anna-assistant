@@ -47,6 +47,7 @@ mod model_setup_wizard;
 mod output;
 mod personality_commands; // Simplified - core traits only
 mod query_handler;
+mod reflection_helper; // 6.7.0: Client-side reflection building
 mod recipe_formatter;
 // 6.3.1: recipes moved to legacy_recipes/ - not compiled in 6.x
 // mod recipes; // Deterministic ActionPlan recipes (77+)

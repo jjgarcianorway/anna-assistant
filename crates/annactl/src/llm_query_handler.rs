@@ -227,11 +227,25 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     if let Some((planner_answer, plan)) = try_planner_answer(user_text, &telemetry) {
         spinner.finish_and_clear();
 
+        // 6.7.0: Show reflection preamble first (limit to top 3 items)
+        let reflection = crate::reflection_helper::build_local_reflection();
+        if reflection.items.len() > 0 {
+            let limited_reflection = anna_common::ipc::ReflectionSummaryData {
+                items: reflection.items.into_iter().take(3).collect(),
+                generated_at: reflection.generated_at,
+            };
+            let reflection_text = crate::reflection_helper::format_reflection(&limited_reflection, ui.capabilities().use_colors());
+            print!("{}", reflection_text);
+            println!("---\n");
+        }
+
+        // Print "Now about your question..."
         if ui.capabilities().use_colors() {
             print!("{} ", "anna:".bright_magenta().bold());
         } else {
             print!("anna: ");
         }
+        println!("Now about your question: \"{}\"\n", user_text);
         io::stdout().flush().unwrap();
 
         // Print the planner answer

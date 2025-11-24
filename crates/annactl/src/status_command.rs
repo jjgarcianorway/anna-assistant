@@ -42,6 +42,16 @@ pub async fn execute_anna_status_command(
     println!("{}", "=".repeat(50));
     println!();
 
+    // 6.7.0: Show reflection first
+    let reflection = crate::reflection_helper::build_local_reflection();
+    let reflection_text = crate::reflection_helper::format_reflection(&reflection, true);
+    print!("{}", reflection_text);
+    if reflection.items.is_empty() {
+        println!();
+    }
+    println!("{}", "=".repeat(50));
+    println!();
+
     // Get comprehensive health report
     let health = HealthReport::check(false).await?;
 

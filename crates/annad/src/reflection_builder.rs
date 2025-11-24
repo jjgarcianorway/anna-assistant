@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_version_upgrade_detected() {
-        let historian = Historian::new_with_retention("/tmp/test_history.jsonl", 100);
+        let historian = Historian::new("/tmp/test_history_upgrade.db").unwrap();
         let version_info = VersionInfo {
             current_version: "6.7.0".to_string(),
             previous_version: Some("6.5.0".to_string()),
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_no_upgrade_if_same_version() {
-        let historian = Historian::new_with_retention("/tmp/test_history.jsonl", 100);
+        let historian = Historian::new("/tmp/test_history_same.db").unwrap();
         let version_info = VersionInfo {
             current_version: "6.7.0".to_string(),
             previous_version: Some("6.7.0".to_string()),

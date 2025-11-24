@@ -12,6 +12,65 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Serializable reflection summary for RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflectionSummaryData {
+    pub items: Vec<ReflectionItemData>,
+    pub generated_at: DateTime<Utc>,
+}
+
+/// Serializable reflection item for RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflectionItemData {
+    pub severity: ReflectionSeverity,
+    pub category: String,
+    pub title: String,
+    pub details: String,
+    pub since_timestamp: Option<DateTime<Utc>>,
+}
+
+impl From<ReflectionSummary> for ReflectionSummaryData {
+    fn from(summary: ReflectionSummary) -> Self {
+        Self {
+            items: summary.items.into_iter().map(|item| item.into()).collect(),
+            generated_at: summary.generated_at,
+        }
+    }
+}
+
+impl From<ReflectionItem> for ReflectionItemData {
+    fn from(item: ReflectionItem) -> Self {
+        Self {
+            severity: item.severity,
+            category: item.category,
+            title: item.title,
+            details: item.details,
+            since_timestamp: item.since_timestamp,
+        }
+    }
+}
+
+impl From<ReflectionSummaryData> for ReflectionSummary {
+    fn from(data: ReflectionSummaryData) -> Self {
+        Self {
+            items: data.items.into_iter().map(|item| item.into()).collect(),
+            generated_at: data.generated_at,
+        }
+    }
+}
+
+impl From<ReflectionItemData> for ReflectionItem {
+    fn from(data: ReflectionItemData) -> Self {
+        Self {
+            severity: data.severity,
+            category: data.category,
+            title: data.title,
+            details: data.details,
+            since_timestamp: data.since_timestamp,
+        }
+    }
+}
+
 /// Severity level for reflection items
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReflectionSeverity {
