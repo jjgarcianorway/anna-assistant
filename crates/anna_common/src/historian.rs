@@ -2380,6 +2380,314 @@ impl Historian {
             hours_analyzed: hours,
         })
     }
+
+    // ========================================================================
+    // v6.28.0: Predictive Diagnostics Trend Models
+    // ========================================================================
+
+    /// Get CPU pressure trend analysis for predictive diagnostics
+    ///
+    /// Analyzes CPU utilization patterns over the specified time period to detect
+    /// sustained pressure and calculate growth rates.
+    pub fn get_cpu_pressure_trend(&self, days: u32) -> anyhow::Result<crate::predictive_diagnostics::CpuPressureTrend> {
+        use crate::predictive_diagnostics::CpuPressureTrend;
+
+        let cutoff = Utc::now() - Duration::days(days as i64);
+        let cutoff_str = cutoff.format("%Y-%m-%d").to_string();
+
+        // Get all CPU utilization data points
+        let mut stmt = self.conn.prepare(
+            "SELECT avg_utilization_percent FROM cpu_aggregates
+             WHERE date >= DATE(?)
+             ORDER BY date ASC",
+        )?;
+
+        let mut utilizations: Vec<f64> = Vec::new();
+        let rows = stmt.query_map([&cutoff_str], |row| {
+            let util: Option<f64> = row.get(0)?;
+            Ok(util)
+        })?;
+
+        for row in rows {
+            if let Some(util) = row? {
+                utilizations.push(util);
+            }
+        }
+
+        let data_points_count = utilizations.len();
+
+        if data_points_count < 2 {
+            return Ok(CpuPressureTrend {
+                baseline: 0.0,
+                current_average: 0.0,
+                deviation_percent: 0.0,
+                slope: 0.0,
+                data_points_count,
+            });
+        }
+
+        // Calculate baseline (first 30% of data)
+        let baseline_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let baseline: f64 = if baseline_count > 0 {
+            utilizations.iter().take(baseline_count).sum::<f64>() / baseline_count as f64
+        } else {
+            utilizations[0]
+        };
+
+        // Calculate current average (last 30% of data)
+        let current_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let current_average: f64 = if current_count > 0 {
+            utilizations.iter().rev().take(current_count).sum::<f64>() / current_count as f64
+        } else {
+            *utilizations.last().unwrap()
+        };
+
+        // Calculate deviation
+        let deviation_percent = if baseline > 0.0 {
+            ((current_average - baseline) / baseline) * 100.0
+        } else {
+            0.0
+        };
+
+        // Calculate slope (linear regression - percentage points per day)
+        let slope = calculate_slope(&utilizations);
+
+        Ok(CpuPressureTrend {
+            baseline,
+            current_average,
+            deviation_percent,
+            slope,
+            data_points_count,
+        })
+    }
+
+    /// Get I/O pressure trend analysis for predictive diagnostics
+    ///
+    /// Analyzes I/O wait patterns and latency trends over time.
+    pub fn get_io_pressure_trend(&self, days: u32) -> anyhow::Result<crate::predictive_diagnostics::IoPressureTrend> {
+        use crate::predictive_diagnostics::IoPressureTrend;
+
+        let cutoff = Utc::now() - Duration::days(days as i64);
+        let cutoff_str = cutoff.to_rfc3339();
+
+        // Get I/O latency data from io_samples
+        let mut stmt = self.conn.prepare(
+            "SELECT avg_latency_ms FROM io_samples
+             WHERE timestamp >= ?
+             AND avg_latency_ms IS NOT NULL
+             ORDER BY timestamp ASC",
+        )?;
+
+        let mut latencies: Vec<f64> = Vec::new();
+        let rows = stmt.query_map([&cutoff_str], |row| {
+            let latency: Option<f64> = row.get(0)?;
+            Ok(latency)
+        })?;
+
+        for row in rows {
+            if let Some(latency) = row? {
+                latencies.push(latency);
+            }
+        }
+
+        let data_points_count = latencies.len();
+
+        if data_points_count < 2 {
+            return Ok(IoPressureTrend {
+                baseline: 0.0,
+                current_average: 0.0,
+                deviation_percent: 0.0,
+                slope: 0.0,
+                data_points_count,
+            });
+        }
+
+        // Calculate baseline (first 30% of data)
+        let baseline_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let baseline: f64 = if baseline_count > 0 {
+            latencies.iter().take(baseline_count).sum::<f64>() / baseline_count as f64
+        } else {
+            latencies[0]
+        };
+
+        // Calculate current average (last 30% of data)
+        let current_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let current_average: f64 = if current_count > 0 {
+            latencies.iter().rev().take(current_count).sum::<f64>() / current_count as f64
+        } else {
+            *latencies.last().unwrap()
+        };
+
+        // Calculate deviation
+        let deviation_percent = if baseline > 0.0 {
+            ((current_average - baseline) / baseline) * 100.0
+        } else {
+            0.0
+        };
+
+        // Calculate slope (ms per day)
+        let slope = calculate_slope(&latencies);
+
+        Ok(IoPressureTrend {
+            baseline,
+            current_average,
+            deviation_percent,
+            slope,
+            data_points_count,
+        })
+    }
+
+    /// Get thermal trend analysis for predictive diagnostics
+    ///
+    /// Analyzes temperature trends from LLM performance data.
+    pub fn get_thermal_trend(&self, days: u32) -> anyhow::Result<crate::predictive_diagnostics::ThermalTrend> {
+        use crate::predictive_diagnostics::ThermalTrend;
+
+        let cutoff = Utc::now() - Duration::days(days as i64);
+        let cutoff_str = cutoff.to_rfc3339();
+
+        // Get temperature data from llm_samples
+        let mut stmt = self.conn.prepare(
+            "SELECT avg_temperature_c FROM llm_samples
+             WHERE timestamp >= ?
+             AND avg_temperature_c IS NOT NULL
+             ORDER BY timestamp ASC",
+        )?;
+
+        let mut temperatures: Vec<f64> = Vec::new();
+        let rows = stmt.query_map([&cutoff_str], |row| {
+            let temp: Option<f64> = row.get(0)?;
+            Ok(temp)
+        })?;
+
+        for row in rows {
+            if let Some(temp) = row? {
+                temperatures.push(temp);
+            }
+        }
+
+        let data_points_count = temperatures.len();
+
+        if data_points_count < 2 {
+            return Ok(ThermalTrend {
+                baseline: 0.0,
+                current_average: 0.0,
+                deviation_degrees: 0.0,
+                slope: 0.0,
+                data_points_count,
+            });
+        }
+
+        // Calculate baseline (first 30% of data)
+        let baseline_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let baseline: f64 = if baseline_count > 0 {
+            temperatures.iter().take(baseline_count).sum::<f64>() / baseline_count as f64
+        } else {
+            temperatures[0]
+        };
+
+        // Calculate current average (last 30% of data)
+        let current_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let current_average: f64 = if current_count > 0 {
+            temperatures.iter().rev().take(current_count).sum::<f64>() / current_count as f64
+        } else {
+            *temperatures.last().unwrap()
+        };
+
+        // Calculate deviation in degrees
+        let deviation_degrees = current_average - baseline;
+
+        // Calculate slope (°C per day)
+        let slope = calculate_slope(&temperatures);
+
+        Ok(ThermalTrend {
+            baseline,
+            current_average,
+            deviation_degrees,
+            slope,
+            data_points_count,
+        })
+    }
+
+    /// Get network latency trend analysis for predictive diagnostics
+    ///
+    /// Analyzes network latency patterns and variance over time.
+    pub fn get_network_latency_trend(&self, days: u32) -> anyhow::Result<crate::predictive_diagnostics::NetworkLatencyTrend> {
+        use crate::predictive_diagnostics::NetworkLatencyTrend;
+
+        let cutoff = Utc::now() - Duration::days(days as i64);
+        let cutoff_str = cutoff.to_rfc3339();
+
+        // Get network latency data
+        let mut stmt = self.conn.prepare(
+            "SELECT avg_latency_ms FROM network_samples
+             WHERE timestamp >= ?
+             AND avg_latency_ms IS NOT NULL
+             ORDER BY timestamp ASC",
+        )?;
+
+        let mut latencies: Vec<f64> = Vec::new();
+        let rows = stmt.query_map([&cutoff_str], |row| {
+            let latency: Option<f64> = row.get(0)?;
+            Ok(latency)
+        })?;
+
+        for row in rows {
+            if let Some(latency) = row? {
+                latencies.push(latency);
+            }
+        }
+
+        let data_points_count = latencies.len();
+
+        if data_points_count < 2 {
+            return Ok(NetworkLatencyTrend {
+                baseline: 0.0,
+                current_average: 0.0,
+                deviation_ms: 0.0,
+                slope: 0.0,
+                variance: 0.0,
+                data_points_count,
+            });
+        }
+
+        // Calculate baseline (first 30% of data)
+        let baseline_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let baseline: f64 = if baseline_count > 0 {
+            latencies.iter().take(baseline_count).sum::<f64>() / baseline_count as f64
+        } else {
+            latencies[0]
+        };
+
+        // Calculate current average (last 30% of data)
+        let current_count = (data_points_count as f64 * 0.3).ceil() as usize;
+        let current_average: f64 = if current_count > 0 {
+            latencies.iter().rev().take(current_count).sum::<f64>() / current_count as f64
+        } else {
+            *latencies.last().unwrap()
+        };
+
+        // Calculate deviation
+        let deviation_ms = current_average - baseline;
+
+        // Calculate slope (ms per hour, not day, for network latency)
+        let slope = calculate_slope(&latencies) / 24.0; // Convert to per-hour
+
+        // Calculate variance for instability detection
+        let mean = latencies.iter().sum::<f64>() / data_points_count as f64;
+        let variance = latencies.iter()
+            .map(|x| (x - mean).powi(2))
+            .sum::<f64>() / data_points_count as f64;
+
+        Ok(NetworkLatencyTrend {
+            baseline,
+            current_average,
+            deviation_ms,
+            slope,
+            variance,
+            data_points_count,
+        })
+    }
 }
 
 // ============================================================================
@@ -2706,6 +3014,36 @@ fn calculate_trend(values: &[f64]) -> Trend {
     } else {
         Trend::Flat
     }
+}
+
+/// Calculate raw slope value from a series of values (for predictive diagnostics)
+///
+/// Returns the linear regression slope without classification.
+/// This is used by the Predictive Diagnostics Engine to forecast future values.
+fn calculate_slope(values: &[f64]) -> f64 {
+    if values.len() < 2 {
+        return 0.0;
+    }
+
+    // Simple linear regression slope
+    let n = values.len() as f64;
+    let x_mean = (n - 1.0) / 2.0;
+    let y_mean = values.iter().sum::<f64>() / n;
+
+    let mut numerator = 0.0;
+    let mut denominator = 0.0;
+
+    for (i, &y) in values.iter().enumerate() {
+        let x = i as f64;
+        numerator += (x - x_mean) * (y - y_mean);
+        denominator += (x - x_mean).powi(2);
+    }
+
+    if denominator == 0.0 {
+        return 0.0;
+    }
+
+    numerator / denominator
 }
 
 /// Create a signature hash from an error message

@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.27.0**
+**Experimental Arch Linux System Assistant - Version 6.28.0**
 
-[![Version](https://img.shields.io/badge/version-6.27.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.28.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.27.0)
+## What Works Right Now (6.28.0)
 
 ### 1. Status Command
 
@@ -291,14 +291,14 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.27.0 (November 24, 2025)
+**Current Version:** 6.28.0 (November 24, 2025)
 
 **Recent Progress:**
+- ✅  6.28.0 - Predictive Diagnostics Engine v1 (forecast future system risks deterministically)
 - ✅  6.27.0 - Proactive Commentary Engine v1 (context-aware insights, "why did you say that?" follow-up)
 - ✅  6.26.0 - Deep Context Memory & Proactive Commentary (follow-up queries, session persistence)
 - ✅  6.25.0 - Service Reliability & Degraded-Unit Correlation (7 new insight detectors)
 - ✅  6.24.0 - Historical Metrics & Insight Engine (trend analysis)
-- ✅  6.23.0 - Wiki Reasoning Engine (LLM-powered wiki interpretation)
 
 **Active Development:**
 - Full answer path integration for commentary

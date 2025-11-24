@@ -852,6 +852,60 @@ impl InsightsEngine {
             .with_suggestion("Run 'systemd-analyze blame' and check service dependencies with 'systemctl list-dependencies'"),
         ))
     }
+
+    // ========================================================================
+    // v6.28.0: Predictive Diagnostics Engine Integration
+    // ========================================================================
+
+    /// Generate predictive insights from trend analysis
+    ///
+    /// This method runs all 5 predictor algorithms and returns future-looking insights
+    /// about potential system risks. Uses deterministic forecasting based on historical trends.
+    ///
+    /// Predictors:
+    /// 1. Disk-full prediction (95% threshold, 30-day window)
+    /// 2. Thermal creep detection (8% increase, throttling risk)
+    /// 3. CPU pressure forecasting (sustained high usage)
+    /// 4. I/O wait pressure (storage bottleneck prediction)
+    /// 5. Network latency instability (connectivity degradation)
+    ///
+    /// Returns top 2 predictions sorted by severity (Critical > Warning > Info)
+    pub fn generate_predictive_insights(&self, days: u32) -> Result<Vec<crate::predictive_diagnostics::PredictiveInsight>> {
+        use crate::predictive_diagnostics::*;
+
+        let mut predictions = Vec::new();
+
+        // Run all 5 predictors
+        if let Some(insight) = predict_disk_full(&self.historian, days)? {
+            predictions.push(insight);
+        }
+
+        if let Some(insight) = predict_thermal_creep(&self.historian, days)? {
+            predictions.push(insight);
+        }
+
+        if let Some(insight) = predict_cpu_pressure(&self.historian, days)? {
+            predictions.push(insight);
+        }
+
+        if let Some(insight) = predict_io_wait_pressure(&self.historian, days)? {
+            predictions.push(insight);
+        }
+
+        if let Some(insight) = predict_network_latency_issues(&self.historian, days)? {
+            predictions.push(insight);
+        }
+
+        // Sort by severity (Critical first, then Warning, then Info)
+        predictions.sort_by(|a, b| {
+            b.severity.cmp(&a.severity) // Descending order
+        });
+
+        // Limit to top 2 predictions for status display
+        predictions.truncate(2);
+
+        Ok(predictions)
+    }
 }
 
 #[cfg(test)]

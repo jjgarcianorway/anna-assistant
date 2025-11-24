@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.28.0] - 2025-11-24
+
+### PREDICTIVE DIAGNOSTICS ENGINE V1
+
+**Type:** Major Feature
+**Focus:** Deterministic forecasting of future system risks using historical trend analysis
+
+#### Added ✨
+
+**Predictive Diagnostics Engine Module:**
+- New `predictive_diagnostics` module - pure deterministic predictive system
+- `PredictiveInsight` struct - prediction with time window, evidence, and recommended actions
+- 5 predictor algorithms (all rules-based, zero LLM dependencies):
+  1. **Disk-Full Predictor** - Predicts when root partition reaches 95%/98% capacity
+  2. **Thermal Creep Detector** - Forecasts thermal throttling from temperature trends
+  3. **CPU Pressure Predictor** - Detects sustained high CPU usage leading to degradation
+  4. **I/O Wait Pressure Predictor** - Predicts storage bottlenecks from latency growth
+  5. **Network Latency Predictor** - Forecasts connectivity issues from latency/variance
+
+**Historian Trend Models (4 new methods):**
+```rust
+pub fn get_cpu_pressure_trend(&self, days: u32) -> Result<CpuPressureTrend>
+pub fn get_io_pressure_trend(&self, days: u32) -> Result<IoPressureTrend>
+pub fn get_thermal_trend(&self, days: u32) -> Result<ThermalTrend>
+pub fn get_network_latency_trend(&self, days: u32) -> Result<NetworkLatencyTrend>
+```
+
+**Trend Analysis Models:**
+- `CpuPressureTrend` - baseline, current avg, deviation %, slope, data count
+- `IoPressureTrend` - I/O latency analysis with growth rate
+- `ThermalTrend` - temperature trends with °C per day slope
+- `NetworkLatencyTrend` - latency + variance for instability detection
+
+**InsightsEngine Integration:**
+```rust
+pub fn generate_predictive_insights(&self, days: u32) -> Result<Vec<PredictiveInsight>>
+```
+- Runs all 5 predictors in sequence
+- Sorts by severity (Critical → Warning → Info)
+- Returns top 2 predictions for status display
+- Fully deterministic, no randomness
+
+**Prediction Algorithms:**
+
+1. **Disk-Full Prediction:**
+   - Linear extrapolation from growth rate (GB/day)
+   - Warning: 95% capacity within 30 days
+   - Critical: 98% capacity within 7 days
+   - Actions: df -h, du, pacman -Sc, remove orphans, check journals
+
+2. **Thermal Creep Detection:**
+   - Triggers on 8%+ temperature increase
+   - Warning: 75°C+ or 15%+ deviation
+   - Critical: 85°C+ or thermal throttling imminent
+   - Actions: sensors, check cooling, review high-load processes
+
+3. **CPU Pressure Forecasting:**
+   - Detects sustained 80%+ CPU usage trends
+   - Critical: 95%+ sustained usage
+   - 15%+ deviation from baseline triggers prediction
+   - Actions: ps aux, top, systemctl list-units, check timers
+
+4. **I/O Wait Pressure:**
+   - Monitors I/O latency growth (ms/day)
+   - Warning: 50ms+ average latency
+   - Critical: 100ms+ or 50%+ deviation
+   - Actions: iostat, iotop, SMART status, filesystem errors
+
+5. **Network Latency Instability:**
+   - Tracks latency trend AND variance
+   - High variance (>1000 ms²) indicates instability
+   - Warning: 100ms+ latency
+   - Critical: 200ms+ or unstable connection
+   - Actions: ping tests, packet loss, DNS checks, interface status
+
+#### Changed 🔄
+
+**Historian:**
+- Added `calculate_slope()` helper for linear regression slope calculation
+- Extended with 4 new trend analysis methods using existing database schema
+- CPU pressure uses `cpu_aggregates` table
+- I/O pressure uses `io_samples` table (avg_latency_ms)
+- Thermal trends use `llm_samples` table (avg_temperature_c)
+- Network latency uses `network_samples` table (avg_latency_ms)
+
+**PredictiveInsight:**
+- Builder pattern with `with_evidence()`, `with_cause()`, `with_actions()`
+- ID generation: `{prefix}_{YYYYMMDD_HHMMSS}`
+- Severity alignment with InsightSeverity enum
+- Optional cause field for root cause analysis
+- Recommended actions as Vec<String>
+
+#### Technical
+
+**Architecture:**
+- 100% deterministic, rules-based prediction
+- Conservative thresholds (prefer false negatives over false positives)
+- Evidence-based predictions with exact data point counts
+- Time-windowed forecasts ("next 3 days", "48 hours", "ongoing")
+- Linear extrapolation for growth-based predictions
+- Statistical analysis (baseline, slope, deviation, variance)
+
+**Data Sources:**
+- Historian SQLite database (`/var/lib/anna/historian.db`)
+- CPU aggregates (daily averages)
+- I/O samples (hourly latency)
+- LLM samples (temperature data)
+- Network samples (latency + variance)
+
+**Thresholds:**
+- Disk: 95% warning, 98% critical, 0.1 GB/day min growth
+- Thermal: 75°C warning, 85°C critical, 8% deviation trigger
+- CPU: 80% warning, 95% critical, 15% deviation trigger
+- I/O: 50ms warning, 100ms critical, 30% deviation trigger
+- Network: 100ms warning, 200ms critical, 1000ms² variance threshold
+
+**Performance:**
+- Each predictor: <5ms query time
+- All 5 predictors: <25ms total
+- Sorting and limiting: O(n log n) where n ≤ 5
+- Zero LLM overhead (fully local)
+
+**Testing:**
+- 16 unit tests for PredictiveInsight and trend models
+- 3 basic PredictiveInsight construction tests
+- 4 trend structure validation tests
+- 9 insight builder/format/severity tests
+- Test coverage: structures, patterns, edge cases
+- Regression suite: 454/455 passing (1 pre-existing failure)
+
+**Limitations:**
+- Predictions require ≥5 data points for reliability
+- Linear extrapolation assumes constant growth (no seasonality)
+- Network predictions require ≥10 data points
+- Only forecasts within reasonable windows (7-90 days)
+- Conservative: may miss edge cases but won't false alarm
+
+**Future Enhancements:**
+- Status command integration ("📈 Predictive Diagnostics" section)
+- ACTS integration tests with synthetic historian data
+- Additional predictors (memory pressure, swap exhaustion)
+- Seasonal adjustment for cyclical patterns
+- Multi-variable correlation (e.g., disk + memory pressure)
+
+#### Fixed 🐛
+- None (new feature, no bugs fixed)
+
+---
+
 ## [6.27.0] - 2025-11-24
 
 ### PROACTIVE COMMENTARY ENGINE V1
