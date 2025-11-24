@@ -2160,6 +2160,7 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                         confidence: s.confidence,
                         first_seen: s.first_seen,
                         last_seen: s.last_seen,
+                        suggested_fix: None, // 6.8.1: Will be populated by planner later
                     })
                     .collect();
 
@@ -3277,6 +3278,12 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 }
                 None => Err("Mirror audit not initialized".to_string()),
             }
+        }
+
+        // 6.7.0: Reflection endpoint (not yet implemented in daemon)
+        Method::GetReflection => {
+            // For now, return empty reflection - client builds it locally
+            Ok(ResponseData::Ok)
         }
     };
 
