@@ -863,3 +863,7 @@ fn check_sound_hardware() -> bool {
 
     false
 }
+
+// 6.8.x: Test fixtures for ACTS v2 - TODO: Implement after telemetry stabilizes
+// #[cfg(test)]
+// pub mod fixtures;

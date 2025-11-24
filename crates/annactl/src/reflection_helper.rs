@@ -121,6 +121,11 @@ fn extract_journal_errors(items: &mut Vec<ReflectionItemData>) {
             for line in log_text.lines() {
                 // Parse journalctl output format
                 if let Some(error_info) = parse_journal_line(line) {
+                    // 6.8.x: Filter out kernel/hardware noise
+                    if !is_actionable_error(&error_info) {
+                        continue; // Skip this error, it's noise
+                    }
+
                     // Deduplicate by creating a key from service + message prefix
                     let key = format!("{}:{}", error_info.service, &error_info.message[..error_info.message.len().min(50)]);
                     if seen_errors.insert(key) && items.len() < 3 {
@@ -197,6 +202,56 @@ fn parse_journal_line(line: &str) -> Option<JournalError> {
         timestamp: timestamp_str,
         parsed_timestamp,
     })
+}
+
+/// 6.8.x: Filter out known kernel/hardware noise
+///
+/// Returns true if the error is actionable and should be shown to the user.
+/// Returns false if it's known noise (driver spam, transient hardware messages).
+fn is_actionable_error(error: &JournalError) -> bool {
+    let service_lower = error.service.to_lowercase();
+    let message_lower = error.message.to_lowercase();
+
+    // Filter kernel/driver noise
+    if service_lower == "kernel" {
+        // Known noisy patterns in kernel messages
+        let noise_patterns = [
+            "crc",
+            "dualsense",
+            "playstation",
+            "iwlwifi",
+            "microcode",
+            "bluetooth",  // Kernel Bluetooth spam, not service failures
+            "usb disconnect",
+            "usb connect",
+            "pcie",
+            "acpi",
+        ];
+
+        for pattern in &noise_patterns {
+            if message_lower.contains(pattern) {
+                return false; // Known noise, filter out
+            }
+        }
+    }
+
+    // Filter non-interactive sudo failures (these are from scripts/automation)
+    if service_lower == "sudo" {
+        if message_lower.contains("conversation failed")
+            || message_lower.contains("auth could not identify password") {
+            return false; // Non-interactive sudo attempt, not user error
+        }
+    }
+
+    // Filter transient systemd-logind messages
+    if service_lower.contains("systemd-logind") {
+        if message_lower.contains("watching system buttons") {
+            return false; // Transient message, not an error
+        }
+    }
+
+    // Keep everything else - it's likely actionable
+    true
 }
 
 /// Get previous version from a cache file

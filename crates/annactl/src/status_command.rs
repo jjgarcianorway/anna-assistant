@@ -67,8 +67,30 @@ pub async fn execute_anna_status_command(
     println!("{}", fmt::dimmed(&format!("Mode: {}", llm_mode)));
     println!();
 
-    // Beta.259: Daily snapshot health summary
-    display_today_health_line().await;
+    // 6.8.x: Single source of truth for system health
+    // Fetch brain analysis to get authoritative health status
+    let overall_health_status = match call_brain_analysis().await {
+        Ok(analysis) => {
+            use crate::diagnostic_formatter::compute_overall_health;
+            Some(compute_overall_health(&analysis))
+        }
+        Err(_) => None, // Daemon offline, use HealthReport fallback
+    };
+
+    // Display "Today:" health line
+    if let Some(health_status) = overall_health_status {
+        use crate::diagnostic_formatter::format_today_health_line_from_health;
+        let health_text = format_today_health_line_from_health(health_status);
+        println!("{} {}", fmt::bold("Today:"), health_text);
+    } else {
+        // Fallback if brain analysis unavailable
+        let health_text = match health.status {
+            HealthStatus::Healthy => "System healthy",
+            HealthStatus::Degraded => "System degraded – some issues detected",
+            HealthStatus::Broken => "System broken – critical failures present",
+        };
+        println!("{} {}", fmt::bold("Today:"), health_text);
+    }
     println!();
 
     // Beta.246: Session summary from welcome engine
@@ -188,9 +210,26 @@ pub async fn execute_anna_status_command(
 
     println!();
 
-    // Overall Status
+    // 6.8.x: Overall Status (uses same health determination as "Today:")
     println!("{}", fmt::bold("Overall Status:"));
-    health.display_summary();
+    if let Some(brain_health) = overall_health_status {
+        // Use brain analysis health (authoritative)
+        use crate::diagnostic_formatter::OverallHealth;
+        match brain_health {
+            OverallHealth::Healthy => {
+                println!("  {} {}", fmt::emojis::SUCCESS, fmt::bold("HEALTHY: all systems operational"));
+            }
+            OverallHealth::DegradedWarning => {
+                println!("  {} {}", fmt::emojis::WARNING, fmt::bold("DEGRADED: warnings detected"));
+            }
+            OverallHealth::DegradedCritical => {
+                println!("  {} {}", fmt::emojis::CRITICAL, fmt::bold("DEGRADED: critical issues require attention"));
+            }
+        }
+    } else {
+        // Fallback to HealthReport if brain analysis unavailable
+        health.display_summary();
+    }
     println!();
 
     // Beta.141: Enhanced repair display
@@ -347,27 +386,8 @@ async fn get_llm_mode_string() -> String {
     }
 }
 
-/// Beta.259: Display "Today:" health line using DailySnapshot
-async fn display_today_health_line() {
-    use crate::diagnostic_formatter::{compute_overall_health, format_today_health_line_from_health};
-
-    // Try to fetch brain analysis
-    match call_brain_analysis().await {
-        Ok(analysis) => {
-            // Compute overall health using the same logic as daily snapshot
-            let overall_health = compute_overall_health(&analysis);
-
-            // Format health line using the canonical formatter
-            let health_text = format_today_health_line_from_health(overall_health);
-
-            println!("{} {}", fmt::bold("Today:"), health_text);
-        }
-        Err(_) => {
-            // Brain analysis unavailable, show fallback
-            println!("{} {}", fmt::bold("Today:"), fmt::dimmed("System health status unavailable (daemon offline)"));
-        }
-    }
-}
+// 6.8.x: Removed display_today_health_line() - now inline in execute_anna_status_command()
+// This ensures single source of truth for health status
 
 /// Call brain analysis via RPC (Beta.217b)
 async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData> {
