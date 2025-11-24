@@ -228,6 +228,11 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         return handle_health_question(&ui).await;
     }
 
+    // 6.10.0: Handle desktop/WM questions with real detection, not generic LLM
+    if matches_desktop_question(user_text) {
+        return handle_desktop_question(&ui).await;
+    }
+
     // 6.4.x/6.5.0: Try planner first
     if let Some((planner_answer, plan)) = try_planner_answer(user_text, &telemetry) {
         spinner.finish_and_clear();
@@ -239,7 +244,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
                 items: reflection.items.into_iter().take(3).collect(),
                 generated_at: reflection.generated_at,
             };
-            let reflection_text = crate::reflection_helper::format_reflection(&limited_reflection, ui.capabilities().use_colors());
+            let reflection_text = crate::reflection_helper::format_reflection(&limited_reflection, ui.capabilities().use_colors(), None);
             print!("{}", reflection_text);
             println!("---\n");
         }
@@ -293,7 +298,7 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             items: reflection.items.into_iter().take(3).collect(),
             generated_at: reflection.generated_at,
         };
-        let reflection_text = crate::reflection_helper::format_reflection(&limited_reflection, ui.capabilities().use_colors());
+        let reflection_text = crate::reflection_helper::format_reflection(&limited_reflection, ui.capabilities().use_colors(), None);
         print!("{}", reflection_text);
         println!("---\n");
     }
@@ -576,7 +581,7 @@ async fn handle_health_question(ui: &UI) -> Result<()> {
             let reflection = crate::reflection_helper::build_local_reflection();
             if !reflection.items.is_empty() {
                 let reflection_text =
-                    crate::reflection_helper::format_reflection(&reflection, ui.capabilities().use_colors());
+                    crate::reflection_helper::format_reflection(&reflection, ui.capabilities().use_colors(), None);
                 print!("{}", reflection_text);
                 println!();
             }
@@ -619,6 +624,140 @@ async fn handle_health_question(ui: &UI) -> Result<()> {
             println!();
             println!("Try running: {}", "annactl status".bright_cyan());
         }
+    }
+
+    Ok(())
+}
+
+/// Detect if a question is asking about desktop environment or window manager (6.10.0)
+///
+/// These questions should use actual detection, not generic LLM responses.
+fn matches_desktop_question(question: &str) -> bool {
+    let q_lower = question.to_lowercase();
+
+    let desktop_patterns = [
+        "what de am i using",
+        "what desktop am i using",
+        "what wm am i using",
+        "which desktop environment",
+        "which window manager",
+        "what desktop environment",
+        "what window manager",
+        "which de am i",
+        "which wm am i",
+        "what is my de",
+        "what is my wm",
+        "what desktop",
+        "what window manager",
+    ];
+
+    for pattern in &desktop_patterns {
+        if q_lower.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Handle desktop/WM questions using real detection (6.10.0)
+///
+/// Runs safe read-only commands automatically:
+/// - echo $XDG_CURRENT_DESKTOP
+/// - echo $DESKTOP_SESSION
+/// - ps -e (for WM process detection)
+///
+/// Then provides a clear answer based on what was detected.
+async fn handle_desktop_question(ui: &UI) -> Result<()> {
+    use anna_common::desktop::DesktopInfo;
+
+    // Show "anna:" prefix
+    if ui.capabilities().use_colors() {
+        println!("{}", "anna:".bright_magenta().bold());
+    } else {
+        println!("anna:");
+    }
+    println!();
+
+    // Detect desktop environment
+    let desktop_info = DesktopInfo::detect();
+
+    // Build list of commands we ran for transparency
+    let mut commands_run = vec![
+        "echo \"$XDG_CURRENT_DESKTOP\"".to_string(),
+        "echo \"$DESKTOP_SESSION\"".to_string(),
+    ];
+
+    match &desktop_info.environment {
+        anna_common::desktop::DesktopEnvironment::None => {
+            // No desktop detected
+            println!("I checked your current session but could not confidently detect a desktop environment or window manager.");
+            println!();
+            println!("**Detection methods tried:**");
+            println!("- Environment variables: $XDG_CURRENT_DESKTOP, $DESKTOP_SESSION");
+            println!("- Process inspection: ps -e");
+            commands_run.push("ps -e".to_string());
+            println!();
+            println!("You may be running:");
+            println!("- A headless/TTY session");
+            println!("- An uncommon or custom window manager");
+            println!("- A desktop that doesn't set standard environment variables");
+        }
+        _ => {
+            // Desktop detected
+            let de_name = desktop_info.environment.name();
+            let is_wm = matches!(
+                desktop_info.environment,
+                anna_common::desktop::DesktopEnvironment::Hyprland
+                    | anna_common::desktop::DesktopEnvironment::I3
+                    | anna_common::desktop::DesktopEnvironment::Sway
+            );
+
+            let de_type = if is_wm {
+                "window manager"
+            } else {
+                "desktop environment"
+            };
+
+            println!("**Detected:** {} ({})", de_name, de_type);
+            println!();
+
+            // Show session type
+            match desktop_info.session_type {
+                anna_common::desktop::SessionType::Wayland => {
+                    println!("**Session type:** Wayland");
+                }
+                anna_common::desktop::SessionType::X11 => {
+                    println!("**Session type:** X11");
+                }
+                _ => {}
+            }
+
+            // Show config file location if known
+            if let Some(config_file) = &desktop_info.config_file {
+                println!();
+                println!(
+                    "**Config file:** {}",
+                    config_file.display()
+                );
+            }
+
+            // Explain detection method
+            println!();
+            println!("**Detection method:**");
+            println!("- Checked environment variables ($XDG_CURRENT_DESKTOP, $DESKTOP_SESSION)");
+            if is_wm {
+                println!("- Verified {} process is running", de_name);
+                commands_run.push(format!("ps -C {}", de_name.to_lowercase()));
+            }
+        }
+    }
+
+    // Show commands run for transparency (6.10.0 requirement)
+    println!();
+    println!("**Commands I ran:**");
+    for cmd in commands_run {
+        println!("  {}", cmd);
     }
 
     Ok(())

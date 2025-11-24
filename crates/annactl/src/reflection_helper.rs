@@ -43,12 +43,47 @@ pub fn build_local_reflection() -> ReflectionSummaryData {
 }
 
 /// Format reflection summary for display
-pub fn format_reflection(summary: &ReflectionSummaryData, use_colors: bool) -> String {
-    if summary.items.is_empty() {
+///
+/// 6.10.0: Now takes optional overall health status to avoid contradictions.
+/// If system is degraded/broken, never say "no significant changes".
+pub fn format_reflection(
+    summary: &ReflectionSummaryData,
+    use_colors: bool,
+    overall_health: Option<crate::diagnostic_formatter::OverallHealth>,
+) -> String {
+    // 6.10.0: Check if we have critical/warning reflection items
+    let has_critical_or_warning = summary.items.iter().any(|item| {
+        matches!(
+            item.severity,
+            ReflectionSeverity::Critical | ReflectionSeverity::Warning
+        )
+    });
+
+    // 6.10.0: Determine if system is actually healthy
+    let system_is_healthy = match overall_health {
+        Some(crate::diagnostic_formatter::OverallHealth::Healthy) => true,
+        Some(_) => false, // DegradedWarning or DegradedCritical
+        None => !has_critical_or_warning, // Fallback: check reflection severity
+    };
+
+    if summary.items.is_empty() && system_is_healthy {
+        // Only say "no significant changes" when BOTH:
+        // 1. No reflection items
+        // 2. Overall health is HEALTHY
         return "Anna reflection: no significant changes, degradations, or recent errors detected.\n".to_string();
     }
 
-    let mut output = String::from("Anna reflection (recent changes and events):\n\n");
+    // If we have no reflection items but system is degraded, say so
+    if summary.items.is_empty() && !system_is_healthy {
+        return "Anna reflection: system health requires attention (see diagnostics below).\n".to_string();
+    }
+
+    // If we have reflection items, show them
+    let mut output = if has_critical_or_warning {
+        String::from("Anna reflection: significant issues detected in recent activity:\n\n")
+    } else {
+        String::from("Anna reflection (recent changes and events):\n\n")
+    };
 
     for item in &summary.items {
         output.push_str(&format_reflection_item(item, use_colors));
@@ -275,14 +310,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_empty_reflection_format() {
+    fn test_empty_reflection_format_healthy() {
         let summary = ReflectionSummaryData {
             items: vec![],
             generated_at: Utc::now(),
         };
 
-        let formatted = format_reflection(&summary, false);
+        // With healthy status, should say "no significant changes"
+        let formatted = format_reflection(&summary, false, Some(crate::diagnostic_formatter::OverallHealth::Healthy));
         assert!(formatted.contains("no significant changes"));
+    }
+
+    #[test]
+    fn test_empty_reflection_format_degraded() {
+        let summary = ReflectionSummaryData {
+            items: vec![],
+            generated_at: Utc::now(),
+        };
+
+        // 6.10.0: With degraded status, should NOT say "no significant changes"
+        let formatted = format_reflection(&summary, false, Some(crate::diagnostic_formatter::OverallHealth::DegradedCritical));
+        assert!(!formatted.contains("no significant changes"));
+        assert!(formatted.contains("requires attention"));
     }
 
     #[test]
@@ -298,11 +347,29 @@ mod tests {
             generated_at: Utc::now(),
         };
 
-        let formatted = format_reflection(&summary, false);
+        let formatted = format_reflection(&summary, false, None);
         assert!(formatted.contains("Anna reflection"));
         assert!(formatted.contains("[NOTICE]"));
         assert!(formatted.contains("upgrade"));
         assert!(formatted.contains("6.7.0"));
+    }
+
+    #[test]
+    fn test_reflection_with_warning_items() {
+        let summary = ReflectionSummaryData {
+            items: vec![ReflectionItemData {
+                severity: ReflectionSeverity::Warning,
+                category: "logs".to_string(),
+                title: "Error: systemd".to_string(),
+                details: "Failed to start service".to_string(),
+                since_timestamp: None,
+            }],
+            generated_at: Utc::now(),
+        };
+
+        // 6.10.0: With warning/critical items, should say "significant issues"
+        let formatted = format_reflection(&summary, false, None);
+        assert!(formatted.contains("significant issues detected"));
     }
 
     #[test]

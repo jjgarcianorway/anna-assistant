@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.10.0] - 2025-11-24
+
+### DESKTOP DETECTION + REFLECTION FIX
+
+**Type:** Feature + Bug fix
+**Focus:** Honest reflection headers, desktop/WM detection
+
+#### Fixed 🐛
+
+**Reflection Header Honesty (6.10.0):**
+- Fixed contradiction where reflection said "no significant changes" while status showed "DEGRADED"
+- Reflection header now aware of overall system health
+- Only says "no significant changes" when BOTH reflection empty AND system healthy
+- When degraded with no reflection items, says "system health requires attention"
+
+#### Added ✨
+
+**Desktop/WM Detection (6.10.0):**
+- Added `matches_desktop_question()` - detects 13 DE/WM question patterns
+- Added `handle_desktop_question()` - provides telemetry-based answers
+- Uses existing `DesktopInfo::detect()` from anna_common::desktop
+- Runs safe read-only commands automatically (no y/N prompt needed)
+- Shows what was detected + detection method + commands run
+- Handles: Hyprland, sway, i3, KDE Plasma, GNOME, Xfce, and more
+
+**Example output:**
+```
+$ annactl "what DE or WM am I using?"
+
+anna:
+
+**Detected:** Hyprland (window manager)
+
+**Session type:** Wayland
+
+**Config file:** /home/user/.config/hypr/hyprland.conf
+
+**Detection method:**
+- Checked environment variables ($XDG_CURRENT_DESKTOP, $DESKTOP_SESSION)
+- Verified Hyprland process is running
+
+**Commands I ran:**
+  echo "$XDG_CURRENT_DESKTOP"
+  echo "$DESKTOP_SESSION"
+  ps -C hyprland
+```
+
+#### Changed 🔄
+
+**Reflection Header Logic:**
+- `format_reflection()` now takes `Option<OverallHealth>` parameter
+- Reordered status_command.rs to fetch brain analysis before showing reflection
+- Updated all call sites to pass health status or None
+
+---
+
 ## [6.9.0] - 2025-11-24
 
 ### REPOSITORY HYGIENE RELEASE

@@ -42,9 +42,19 @@ pub async fn execute_anna_status_command(
     println!("{}", "=".repeat(50));
     println!();
 
-    // 6.7.0: Show reflection first
+    // 6.10.0: Fetch brain analysis FIRST to get authoritative health status
+    // This allows reflection header to be honest about system state
+    let overall_health_status = match call_brain_analysis().await {
+        Ok(analysis) => {
+            use crate::diagnostic_formatter::compute_overall_health;
+            Some(compute_overall_health(&analysis))
+        }
+        Err(_) => None, // Daemon offline, use HealthReport fallback
+    };
+
+    // 6.7.0/6.10.0: Show reflection with health-aware header
     let reflection = crate::reflection_helper::build_local_reflection();
-    let reflection_text = crate::reflection_helper::format_reflection(&reflection, true);
+    let reflection_text = crate::reflection_helper::format_reflection(&reflection, true, overall_health_status);
     print!("{}", reflection_text);
     if reflection.items.is_empty() {
         println!();
@@ -66,16 +76,6 @@ pub async fn execute_anna_status_command(
     let llm_mode = get_llm_mode_string().await;
     println!("{}", fmt::dimmed(&format!("Mode: {}", llm_mode)));
     println!();
-
-    // 6.8.x: Single source of truth for system health
-    // Fetch brain analysis to get authoritative health status
-    let overall_health_status = match call_brain_analysis().await {
-        Ok(analysis) => {
-            use crate::diagnostic_formatter::compute_overall_health;
-            Some(compute_overall_health(&analysis))
-        }
-        Err(_) => None, // Daemon offline, use HealthReport fallback
-    };
 
     // Display "Today:" health line
     if let Some(health_status) = overall_health_status {
