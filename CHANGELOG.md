@@ -7,6 +7,167 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.30.0] - 2025-11-24
+
+### FIRST SELF-OPTIMIZING CYCLE
+
+**Type:** Major Feature
+**Focus:** Anna's first deterministic self-tuning system - zero user configuration
+
+#### Added ✨
+
+**Meta Insight Telemetry Module (`meta_telemetry.rs`):**
+- New `InsightMetaStats` struct - tracks insight emission patterns
+- Fields: `insight_kind`, `severity`, `trigger_count`, `suppressed_count`
+- Timestamps: `last_triggered_at`, `last_shown_at`, `last_resolved_at`
+- Helper methods:
+  - `record_trigger(shown, now)` - records an insight detection event
+  - `record_resolution(now)` - marks when condition clears
+  - `is_unresolved()` - checks if insight is currently active
+  - `triggered_within_days(days, now)` - recent activity check
+  - `unresolved_for_days(days, now)` - long-standing issues
+- **6 unit tests** - all passing
+
+**Historian Integration:**
+- New DB schema: `insight_meta_stats` table
+- `record_insight_emission(insight, shown)` - fail-safe telemetry recording
+- `load_insight_meta()` - retrieves all insight meta stats
+- `upsert_insight_meta(stats)` - updates tracking data
+- Fail-safe design: DB errors never break status/queries
+- **6 integration tests** - all passing
+
+**Optimization Engine Module (`optimization_engine.rs`):**
+- New `OptimizationProfile` struct:
+  - `suppressed_kinds` - noisy insights to hide
+  - `highlighted_kinds` - high-value insights to always show
+  - `preferred_detail` - user's inferred detail level
+  - `generated_at` - profile timestamp
+- `build_optimization_profile(meta_stats, detail_pref)` - builds profile
+- **Rule Cluster 1: Noisy Insight Suppression**
+  - Criteria: trigger_count >= 5, unresolved 7+ days, not worsening
+  - Never suppresses Critical severity
+- **Rule Cluster 2: High-Value Insight Highlighting**
+  - Criteria: 2+ successful predictions in 30 days, resolved within 7 days
+- **Rule Cluster 3: Detail Level Tuning**
+  - Uses provided preference (future: infer from user interactions)
+- `should_suppress(insight)` - checks if insight should be hidden
+- `should_highlight(insight)` - checks if insight is high-value
+- **9 unit tests** (6 optimization + 3 report) - all passing
+
+**Insights Engine Integration:**
+- New `generate_insights_with_optimization()` method
+- Applies OptimizationProfile filtering
+- Records meta telemetry for every generated insight
+- Suppresses noisy insights (unless Critical)
+- Always shows highlighted insights
+
+**Insight Summaries Integration:**
+- New `generate_insight_summary_with_optimization()` function
+- Filters suppressed insights before summarization
+- Highlighted insights shown even in Short mode
+- Uses profile's preferred detail level
+
+**Proactive Commentary Integration:**
+- New `generate_proactive_commentary_with_optimization()` function
+- Skips noisy insights unless Critical
+- Always includes highlighted insights
+- Preserves existing commentary logic
+
+**Self-Tuning Report:**
+- New `generate_self_tuning_report(meta_stats, profile, detail)` function
+- Human-readable status of Anna's self-optimization
+- **Short variant (2 lines):** Tracking count + suppressions
+- **Normal variant (4 lines):** Suppressions, highlights, most frequent
+- **Verbose variant (6 lines):** Full details with insight names
+- No CLI changes - natural language only
+- **3 unit tests** - all passing
+
+#### Tests 🧪
+
+**Total: 24 new tests, all passing (499/499 suite passing)**
+
+**Meta Telemetry (6 tests):**
+1. `test_new_meta_stats` - Initialization
+2. `test_record_trigger_shown` - Shown emission tracking
+3. `test_record_trigger_suppressed` - Suppressed emission tracking
+4. `test_is_unresolved` - Resolution state logic
+5. `test_triggered_within_days` - Time-based filtering
+6. `test_unresolved_for_days` - Long-term issue detection
+
+**Historian Integration (6 tests):**
+1. `test_historian_meta_telemetry_record_emission` - Basic recording
+2. `test_historian_meta_telemetry_suppressed_emission` - Suppression tracking
+3. `test_historian_meta_telemetry_multiple_emissions` - Count accuracy
+4. `test_historian_meta_telemetry_upsert` - Update logic
+5. `test_historian_meta_telemetry_multiple_insight_kinds` - Separate tracking
+6. `test_historian_meta_telemetry_severity_persistence` - Severity storage
+
+**Optimization Engine (9 tests):**
+1. `test_optimization_profile_default` - Default state
+2. `test_should_suppress_never_suppresses_critical` - Critical override
+3. `test_should_suppress_respects_highlighted` - Highlight priority
+4. `test_identify_noisy_insights` - Noise detection logic
+5. `test_identify_high_value_insights` - High-value detection logic
+6. `test_build_optimization_profile` - Full profile generation
+7. `test_generate_self_tuning_report_short` - Short report format
+8. `test_generate_self_tuning_report_normal` - Normal report format
+9. `test_generate_self_tuning_report_verbose` - Verbose report format
+
+**Bug Fixes:**
+- Fixed `system_knowledge::test_llm_context_summary` - Now sets hardware fields correctly
+
+#### Design Principles 🎯
+
+1. **Deterministic** - Pure rules-based, no randomness, no LLM
+2. **Transparent** - All decisions are inspectable and explainable
+3. **Conservative** - Bias toward showing too much vs too little
+4. **Fail-Safe** - DB errors never break status or query handling
+5. **Reversible** - All suppressions can be undone
+6. **Privacy-Safe** - Only counts and timestamps, no sensitive data
+
+#### Architecture
+
+**Self-Tuning Flow:**
+1. Insights Engine generates all insights
+2. Historian records emission events (shown/suppressed)
+3. Meta stats accumulate over time
+4. Optimization Engine builds profile from stats
+5. Filtered insights used in summaries and commentary
+
+**No User Configuration Required:**
+- Anna learns from system behavior patterns
+- Suppresses noisy insights automatically
+- Highlights accurate predictions automatically
+- No knobs, no settings, no maintenance
+
+#### Integration Points
+
+- `insights_engine::generate_insights_with_optimization()` - Main entry point
+- `insight_summaries::generate_insight_summary_with_optimization()` - Summary filtering
+- `proactive_commentary::generate_proactive_commentary_with_optimization()` - Commentary filtering
+- `optimization_engine::generate_self_tuning_report()` - Status reporting
+
+#### Example Output
+
+**Self-Tuning Report (Normal):**
+```
+**Self-Tuning Status**: Tracking 5 insight types
+
+• Suppressed (noisy): 2
+• Highlighted (high-value): 1
+• Most frequent: disk_space (8 triggers)
+```
+
+**Before v6.30.0:**
+- All insights shown every time
+- Repetitive noise from unresolved issues
+- No learning from past accuracy
+
+**After v6.30.0:**
+- Noisy insights suppressed after 5 triggers + 7 days unresolved
+- High-value insights always visible
+- Anna adapts behavior based on evidence
+
 ## [6.29.0] - 2025-11-24
 
 ### INSIGHT SUMMARIES ENGINE V1

@@ -198,6 +198,38 @@ impl InsightsEngine {
         Ok(insights)
     }
 
+    /// v6.30.0: Generate insights with optimization profile applied
+    ///
+    /// This is the self-tuning entry point that:
+    /// - Suppresses noisy insights (unless Critical)
+    /// - Always shows highlighted high-value insights
+    /// - Records meta telemetry for future optimization
+    pub fn generate_insights_with_optimization(
+        &self,
+        hours: i64,
+        profile: &crate::optimization_engine::OptimizationProfile,
+    ) -> Result<Vec<Insight>> {
+        // Generate all insights
+        let all_insights = self.generate_insights(hours)?;
+
+        // Apply optimization profile filtering
+        let mut filtered = Vec::new();
+        for insight in all_insights {
+            // Record emission in meta telemetry (fail-safe)
+            let shown = !profile.should_suppress(&insight);
+            let _ = self.historian.record_insight_emission(&insight, shown);
+
+            // Apply suppression rules
+            if profile.should_suppress(&insight) {
+                continue; // Skip this insight
+            }
+
+            filtered.push(insight);
+        }
+
+        Ok(filtered)
+    }
+
     /// Get top N insights (for status display)
     pub fn get_top_insights(&self, count: usize, hours: i64) -> Result<Vec<Insight>> {
         let all_insights = self.generate_insights(hours)?;

@@ -53,6 +53,8 @@ pub mod session_context; // v6.26.0: Session Context - Deep Context Memory for f
 pub mod proactive_commentary; // v6.27.0: Proactive Commentary Engine - Evidence-based insights
 pub mod predictive_diagnostics; // v6.28.0: Predictive Diagnostics Engine - Forecast future risks
 pub mod insight_summaries; // v6.29.0: Insight Summaries Engine - High-level system summaries
+pub mod meta_telemetry; // v6.30.0: Meta Insight Telemetry - Self-optimization tracking
+pub mod optimization_engine; // v6.30.0: Optimization Engine - Self-tuning profiles
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

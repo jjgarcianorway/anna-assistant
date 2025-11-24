@@ -108,6 +108,44 @@ pub fn generate_insight_summary(
     }
 }
 
+/// v6.30.0: Generate insight summary with optimization profile
+///
+/// Respects OptimizationProfile rules:
+/// - Filters out suppressed (noisy) insights
+/// - Highlights high-value insights (shown even in Short mode)
+/// - Uses profile's preferred detail level
+pub fn generate_insight_summary_with_optimization(
+    insights: &[Insight],
+    predictive: &[PredictiveInsight],
+    historian: &Historian,
+    profile: &crate::optimization_engine::OptimizationProfile,
+) -> Result<Option<String>> {
+    // Filter insights based on optimization profile
+    let filtered_insights: Vec<Insight> = insights
+        .iter()
+        .filter(|i| !profile.should_suppress(i))
+        .cloned()
+        .collect();
+
+    // Always include highlighted insights (even in Short mode)
+    let highlighted: Vec<&Insight> = filtered_insights
+        .iter()
+        .filter(|i| profile.should_highlight(i))
+        .collect();
+
+    // Use profile's preferred detail level
+    let preferences = &profile.preferred_detail;
+
+    // If Short mode but we have highlighted items, upgrade to Normal temporarily
+    let effective_preference = if matches!(preferences, DetailPreference::Short) && !highlighted.is_empty() {
+        DetailPreference::Normal
+    } else {
+        preferences.clone()
+    };
+
+    generate_insight_summary(&filtered_insights, predictive, historian, &effective_preference)
+}
+
 /// Internal representation of a summary item
 #[derive(Debug, Clone)]
 struct SummaryItem {

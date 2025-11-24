@@ -283,6 +283,8 @@ mod tests {
         kb.usage.cpu_cores = 16;
         kb.usage.total_ram_bytes = 32 * 1024 * 1024 * 1024;
         kb.usage.last_seen_processes = vec!["firefox".to_string(), "hyprland".to_string()];
+        kb.hardware.total_ram_bytes = Some(32 * 1024 * 1024 * 1024);
+        kb.hardware.cpu_physical_cores = Some(16);
 
         kb.services.push(ServiceProfile {
             name: "sshd".to_string(),

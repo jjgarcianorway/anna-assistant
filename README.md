@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.29.0**
+**Experimental Arch Linux System Assistant - Version 6.30.0**
 
-[![Version](https://img.shields.io/badge/version-6.29.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.30.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.29.0)
+## What Works Right Now (6.30.0)
 
 ### 1. Status Command
 
@@ -237,26 +237,28 @@ journalctl -u annad -n 50
 
 ## What's Tested
 
-### Passing Tests (450/451 - 99.8%)
+### Passing Tests (499/499 - 100%)
 
-**New in 6.27.0:**
-- Proactive commentary engine (8 tests)
-- Insight matching (3 tests)
-- Session context enhancements (5 new tests, 19 total)
-- "Why did you say that?" follow-up (1 test)
+**New in 6.30.0:**
+- Self-optimizing system (24 tests)
+  - Meta telemetry tracking (6 tests)
+  - Historian insight metadata (6 tests)
+  - Optimization profile rules (9 tests)
+  - Self-tuning report generation (3 tests)
+- System knowledge test fixed (was failing in v6.29.0)
 
 **Existing:**
+- Proactive commentary engine (8 tests)
 - Wiki answer engine (40 tests)
 - Insights engine (16 tests)
-- Session context (14 tests from v6.26.0)
+- Session context (19 tests)
 - Command intelligence (10 tests)
 - Status health derivation (6 tests)
 - Output formatting (8 tests)
 - Diagnostic engine (core functionality)
 - Action plan validation
 
-**Known Failures:**
-- 1 pre-existing test (system_knowledge) - non-critical
+**Test Status:** All tests passing (100% green)
 
 ---
 
@@ -291,9 +293,10 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.29.0 (November 24, 2025)
+**Current Version:** 6.30.0 (November 24, 2025)
 
 **Recent Progress:**
+- ✅  6.30.0 - First Self-Optimizing Cycle (noise suppression, high-value highlighting, meta telemetry)
 - ✅  6.29.0 - Insight Summaries Engine v1 (high-level deterministic system summaries)
 - ✅  6.28.0 - Predictive Diagnostics Engine v1 (forecast future system risks deterministically)
 - ✅  6.27.0 - Proactive Commentary Engine v1 (context-aware insights, "why did you say that?" follow-up)

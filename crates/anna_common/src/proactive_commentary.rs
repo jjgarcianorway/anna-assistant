@@ -186,6 +186,35 @@ pub fn generate_proactive_commentary(
     Some(commentary.trim().to_string())
 }
 
+/// v6.30.0: Generate proactive commentary with optimization profile
+///
+/// Respects OptimizationProfile rules:
+/// - Skips noisy insights unless Critical
+/// - Always includes highlighted high-value insights
+pub fn generate_proactive_commentary_with_optimization(
+    session_ctx: &SessionContext,
+    intent: &QueryIntent,
+    insights: &[Insight],
+    profile: &crate::optimization_engine::OptimizationProfile,
+) -> Option<String> {
+    // Filter insights based on optimization profile
+    let filtered_insights: Vec<Insight> = insights
+        .iter()
+        .filter(|i| {
+            // Always show Critical
+            if i.severity == crate::insights_engine::InsightSeverity::Critical {
+                return true;
+            }
+            // Skip suppressed insights
+            !profile.should_suppress(i)
+        })
+        .cloned()
+        .collect();
+
+    // Use the original function with filtered insights
+    generate_proactive_commentary(session_ctx, intent, &filtered_insights)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

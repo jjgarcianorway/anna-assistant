@@ -387,6 +387,21 @@ CREATE TABLE IF NOT EXISTS health_scores (
     improvement_cause TEXT
 );
 
+-- ============================================================================
+-- 13. Meta Insight Telemetry (v6.30.0)
+-- ============================================================================
+
+-- Track insight emission patterns for self-optimization
+CREATE TABLE IF NOT EXISTS insight_meta_stats (
+    insight_kind TEXT PRIMARY KEY,
+    severity TEXT NOT NULL,
+    trigger_count INTEGER NOT NULL DEFAULT 0,
+    suppressed_count INTEGER NOT NULL DEFAULT 0,
+    last_triggered_at TEXT,
+    last_shown_at TEXT,
+    last_resolved_at TEXT
+);
+
 -- Indices for common queries
 CREATE INDEX IF NOT EXISTS idx_boot_timestamp ON boot_events(boot_timestamp);
 CREATE INDEX IF NOT EXISTS idx_boot_date ON boot_aggregates(date);
@@ -2688,6 +2703,171 @@ impl Historian {
             data_points_count,
         })
     }
+
+    // ========================================================================
+    // v6.30.0: Meta Insight Telemetry Methods
+    // ========================================================================
+
+    /// Record an insight emission (trigger/show/suppress event)
+    ///
+    /// This method is fail-safe: DB errors are logged but never break caller flow.
+    /// Uses the insight's detector field as the kind identifier.
+    pub fn record_insight_emission(
+        &self,
+        insight: &crate::insights_engine::Insight,
+        shown: bool,
+    ) -> Result<()> {
+        use crate::meta_telemetry::InsightMetaStats;
+
+        // Use detector as the insight kind
+        let kind = &insight.detector;
+
+        // Try to load existing stats, or create new
+        let mut stats = match self.load_insight_meta_for_kind(kind, &insight.severity)? {
+            Some(s) => s,
+            None => InsightMetaStats::new(kind, insight.severity.clone()),
+        };
+
+        // Record the trigger
+        stats.record_trigger(shown, Utc::now());
+
+        // Upsert back to DB (fail-safe: errors are swallowed by caller if needed)
+        self.upsert_insight_meta(&stats)
+    }
+
+    /// Load all insight meta stats from the database
+    ///
+    /// Returns empty vec on DB errors (fail-safe behavior).
+    pub fn load_insight_meta(&self) -> Result<Vec<crate::meta_telemetry::InsightMetaStats>> {
+        use crate::insights_engine::InsightSeverity;
+        use crate::meta_telemetry::InsightMetaStats;
+
+        let mut stmt = self.conn.prepare(
+            "SELECT insight_kind, severity, trigger_count, suppressed_count,
+                    last_triggered_at, last_shown_at, last_resolved_at
+             FROM insight_meta_stats",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let severity_str: String = row.get(1)?;
+            let severity = match severity_str.as_str() {
+                "info" => InsightSeverity::Info,
+                "warning" => InsightSeverity::Warning,
+                "critical" => InsightSeverity::Critical,
+                _ => InsightSeverity::Info,
+            };
+
+            let last_triggered: Option<String> = row.get(4)?;
+            let last_shown: Option<String> = row.get(5)?;
+            let last_resolved: Option<String> = row.get(6)?;
+
+            Ok(InsightMetaStats {
+                insight_kind: row.get(0)?,
+                severity,
+                trigger_count: row.get(2)?,
+                suppressed_count: row.get(3)?,
+                last_triggered_at: last_triggered
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+                last_shown_at: last_shown
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+                last_resolved_at: last_resolved
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+            })
+        })?;
+
+        let mut stats = Vec::new();
+        for row in rows {
+            stats.push(row?);
+        }
+
+        Ok(stats)
+    }
+
+    /// Insert or update insight meta stats in the database
+    ///
+    /// Uses REPLACE to upsert based on PRIMARY KEY (insight_kind).
+    pub fn upsert_insight_meta(&self, stats: &crate::meta_telemetry::InsightMetaStats) -> Result<()> {
+        let severity_str = match stats.severity {
+            crate::insights_engine::InsightSeverity::Info => "info",
+            crate::insights_engine::InsightSeverity::Warning => "warning",
+            crate::insights_engine::InsightSeverity::Critical => "critical",
+        };
+
+        let last_triggered = stats.last_triggered_at.map(|dt| dt.to_rfc3339());
+        let last_shown = stats.last_shown_at.map(|dt| dt.to_rfc3339());
+        let last_resolved = stats.last_resolved_at.map(|dt| dt.to_rfc3339());
+
+        self.conn.execute(
+            "REPLACE INTO insight_meta_stats
+             (insight_kind, severity, trigger_count, suppressed_count,
+              last_triggered_at, last_shown_at, last_resolved_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                stats.insight_kind,
+                severity_str,
+                stats.trigger_count,
+                stats.suppressed_count,
+                last_triggered,
+                last_shown,
+                last_resolved,
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Helper: Load insight meta stats for a specific kind
+    fn load_insight_meta_for_kind(
+        &self,
+        kind: &str,
+        severity: &crate::insights_engine::InsightSeverity,
+    ) -> Result<Option<crate::meta_telemetry::InsightMetaStats>> {
+        use crate::insights_engine::InsightSeverity;
+        use crate::meta_telemetry::InsightMetaStats;
+
+        let mut stmt = self.conn.prepare(
+            "SELECT insight_kind, severity, trigger_count, suppressed_count,
+                    last_triggered_at, last_shown_at, last_resolved_at
+             FROM insight_meta_stats WHERE insight_kind = ?1",
+        )?;
+
+        let mut rows = stmt.query([kind])?;
+
+        if let Some(row) = rows.next()? {
+            let severity_str: String = row.get(1)?;
+            let severity = match severity_str.as_str() {
+                "info" => InsightSeverity::Info,
+                "warning" => InsightSeverity::Warning,
+                "critical" => InsightSeverity::Critical,
+                _ => severity.clone(),
+            };
+
+            let last_triggered: Option<String> = row.get(4)?;
+            let last_shown: Option<String> = row.get(5)?;
+            let last_resolved: Option<String> = row.get(6)?;
+
+            Ok(Some(InsightMetaStats {
+                insight_kind: row.get(0)?,
+                severity,
+                trigger_count: row.get(2)?,
+                suppressed_count: row.get(3)?,
+                last_triggered_at: last_triggered
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+                last_shown_at: last_shown
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+                last_resolved_at: last_resolved
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc)),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 // ============================================================================
@@ -3126,4 +3306,199 @@ fn calculate_metric_deviations(
     }
 
     deviations
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::insights_engine::{Insight, InsightSeverity};
+
+    #[test]
+    fn test_historian_meta_telemetry_record_emission() {
+        let temp_db = tempfile::NamedTempFile::new().unwrap();
+        let historian = Historian::new(temp_db.path()).unwrap();
+
+        let insight = Insight {
+            id: "disk_space_test_1".to_string(),
+            timestamp: Utc::now(),
+            title: "Low disk space on /home".to_string(),
+            severity: InsightSeverity::Warning,
+            explanation: "Disk space is running low".to_string(),
+            evidence: vec!["85% full".to_string()],
+            suggestion: Some("Clear cache".to_string()),
+            detector: "disk_space".to_string(),
+        };
+
+        // Record first emission (shown)
+        historian.record_insight_emission(&insight, true).unwrap();
+
+        // Load and verify
+        let stats = historian.load_insight_meta().unwrap();
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0].insight_kind, "disk_space");
+        assert_eq!(stats[0].trigger_count, 1);
+        assert_eq!(stats[0].suppressed_count, 0);
+        assert!(stats[0].last_shown_at.is_some());
+    }
+
+    #[test]
+    fn test_historian_meta_telemetry_suppressed_emission() {
+        let temp_db = tempfile::NamedTempFile::new().unwrap();
+        let historian = Historian::new(temp_db.path()).unwrap();
+
+        let insight = Insight {
+            id: "cpu_pressure_test_1".to_string(),
+            timestamp: Utc::now(),
+            title: "High CPU load".to_string(),
+            severity: InsightSeverity::Info,
+            explanation: "CPU usage is high".to_string(),
+            evidence: vec!["95% util".to_string()],
+            suggestion: None,
+            detector: "cpu_pressure".to_string(),
+        };
+
+        // Record suppressed emission
+        historian.record_insight_emission(&insight, false).unwrap();
+
+        // Load and verify
+        let stats = historian.load_insight_meta().unwrap();
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0].trigger_count, 1);
+        assert_eq!(stats[0].suppressed_count, 1);
+        assert!(stats[0].last_shown_at.is_none());
+        assert!(stats[0].last_triggered_at.is_some());
+    }
+
+    #[test]
+    fn test_historian_meta_telemetry_multiple_emissions() {
+        let temp_db = tempfile::NamedTempFile::new().unwrap();
+        let historian = Historian::new(temp_db.path()).unwrap();
+
+        let insight = Insight {
+            id: "network_latency_test_1".to_string(),
+            timestamp: Utc::now(),
+            title: "High network latency".to_string(),
+            severity: InsightSeverity::Warning,
+            explanation: "Network latency is elevated".to_string(),
+            evidence: vec!["150ms avg".to_string()],
+            suggestion: None,
+            detector: "network_latency".to_string(),
+        };
+
+        // Record multiple emissions
+        historian.record_insight_emission(&insight, true).unwrap();
+        historian.record_insight_emission(&insight, false).unwrap();
+        historian.record_insight_emission(&insight, true).unwrap();
+
+        // Load and verify
+        let stats = historian.load_insight_meta().unwrap();
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0].trigger_count, 3);
+        assert_eq!(stats[0].suppressed_count, 1);
+    }
+
+    #[test]
+    fn test_historian_meta_telemetry_upsert() {
+        let temp_db = tempfile::NamedTempFile::new().unwrap();
+        let historian = Historian::new(temp_db.path()).unwrap();
+
+        let mut stats = crate::meta_telemetry::InsightMetaStats::new("boot_regression", InsightSeverity::Critical);
+        stats.record_trigger(true, Utc::now());
+
+        // Upsert initial
+        historian.upsert_insight_meta(&stats).unwrap();
+
+        // Update counts
+        stats.record_trigger(false, Utc::now());
+        stats.record_trigger(true, Utc::now());
+
+        // Upsert again (should update, not insert)
+        historian.upsert_insight_meta(&stats).unwrap();
+
+        // Verify single record with updated counts
+        let loaded = historian.load_insight_meta().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].trigger_count, 3);
+        assert_eq!(loaded[0].suppressed_count, 1);
+    }
+
+    #[test]
+    fn test_historian_meta_telemetry_multiple_insight_kinds() {
+        let temp_db = tempfile::NamedTempFile::new().unwrap();
+        let historian = Historian::new(temp_db.path()).unwrap();
+
+        let insights = vec![
+            Insight {
+                id: "disk_space_test_2".to_string(),
+                timestamp: Utc::now(),
+                title: "Low disk".to_string(),
+                severity: InsightSeverity::Warning,
+                explanation: "Disk space low".to_string(),
+                evidence: vec![],
+                suggestion: None,
+                detector: "disk_space".to_string(),
+            },
+            Insight {
+                id: "memory_pressure_test_1".to_string(),
+                timestamp: Utc::now(),
+                title: "High memory".to_string(),
+                severity: InsightSeverity::Info,
+                explanation: "Memory usage high".to_string(),
+                evidence: vec![],
+                suggestion: None,
+                detector: "memory_pressure".to_string(),
+            },
+            Insight {
+                id: "service_failure_test_1".to_string(),
+                timestamp: Utc::now(),
+                title: "Failed service".to_string(),
+                severity: InsightSeverity::Critical,
+                explanation: "Service has failed".to_string(),
+                evidence: vec![],
+                suggestion: None,
+                detector: "service_failure".to_string(),
+            },
+        ];
+
+        for insight in &insights {
+            historian.record_insight_emission(insight, true).unwrap();
+        }
+
+        // Verify all three are tracked separately
+        let stats = historian.load_insight_meta().unwrap();
+        assert_eq!(stats.len(), 3);
+
+        let kinds: Vec<&str> = stats.iter().map(|s| s.insight_kind.as_str()).collect();
+        assert!(kinds.contains(&"disk_space"));
+        assert!(kinds.contains(&"memory_pressure"));
+        assert!(kinds.contains(&"service_failure"));
+    }
+
+    #[test]
+    fn test_historian_meta_telemetry_severity_persistence() {
+        let temp_db = tempfile::NamedTempFile::new().unwrap();
+        let historian = Historian::new(temp_db.path()).unwrap();
+
+        let insight = Insight {
+            id: "test_insight_1".to_string(),
+            timestamp: Utc::now(),
+            title: "Test".to_string(),
+            severity: InsightSeverity::Critical,
+            explanation: "Test insight".to_string(),
+            evidence: vec![],
+            suggestion: None,
+            detector: "test_detector".to_string(),
+        };
+
+        historian.record_insight_emission(&insight, true).unwrap();
+
+        // Verify severity is persisted correctly
+        let stats = historian.load_insight_meta().unwrap();
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0].severity, InsightSeverity::Critical);
+    }
 }
