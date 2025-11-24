@@ -225,6 +225,39 @@ pub async fn execute_anna_status_command(
 
     println!();
 
+    // 6.22.0: Anna Mode and Update Status
+    match get_daemon_status().await {
+        Ok(status) => {
+            // Show Anna Mode if present
+            if let Some(ref anna_mode) = status.anna_mode {
+                let mode_emoji = if anna_mode == "SAFE" {
+                    fmt::emojis::WARNING
+                } else {
+                    fmt::emojis::SUCCESS
+                };
+                println!("{}", fmt::bold("Anna Mode:"));
+                print!("  {} {}", mode_emoji, fmt::bold(anna_mode));
+
+                if let Some(ref reason) = status.anna_mode_reason {
+                    println!(" ({})", fmt::dimmed(reason));
+                } else {
+                    println!();
+                }
+                println!();
+            }
+
+            // Show Update Status if present
+            if let Some(ref update_status) = status.update_status {
+                println!("{}", fmt::bold("Update Status:"));
+                println!("  {}", fmt::dimmed(update_status));
+                println!();
+            }
+        }
+        Err(_e) => {
+            // Daemon not reachable, skip mode/update display silently
+        }
+    }
+
     // 6.17.0: System Diagnostics (show all issues from unified health)
     if !unified_health.diagnostics.is_empty() {
         println!("{}", fmt::bold("System Diagnostics:"));
@@ -475,6 +508,23 @@ async fn get_llm_mode_string() -> String {
             Err(_) => "LLM not configured".to_string(),
         },
         Err(_) => "LLM not configured".to_string(),
+    }
+}
+
+/// Get daemon status via RPC (6.22.0)
+async fn get_daemon_status() -> Result<anna_common::ipc::StatusData> {
+    use anna_common::ipc::{Method, ResponseData};
+    use crate::rpc_client::RpcClient;
+
+    // Connect to daemon
+    let mut client = RpcClient::connect().await?;
+
+    // Send status request
+    let response = client.call(Method::Status).await?;
+
+    match response {
+        ResponseData::Status(data) => Ok(data),
+        _ => Err(anyhow::anyhow!("Unexpected response type")),
     }
 }
 

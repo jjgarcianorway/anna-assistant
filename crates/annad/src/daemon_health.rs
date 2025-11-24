@@ -1,13 +1,15 @@
-//! Daemon Health Model - 6.20.0
+//! Daemon Health Model - 6.20.0 / 6.22.0
 //!
 //! Tracks daemon startup health, initialization state, and crash loop detection.
 //! Enables Safe Mode when critical failures are detected.
+//!
+//! 6.22.0: Extended with AnnaMode for comprehensive safe mode support
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use tracing::{info, warn};
 
 const STATE_FILE: &str = "/var/lib/anna/daemon_health.json";
@@ -62,6 +64,97 @@ impl Default for InitializationState {
         Self::Initializing {
             started_at: SystemTime::now(),
             progress: "Starting up".to_string(),
+        }
+    }
+}
+
+/// Anna's operating mode - 6.22.0
+/// Distinct from DaemonHealthState - this is about overall operational mode
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnnaMode {
+    /// Normal operation - all features available
+    Normal,
+    /// Safe mode - limited functionality due to critical self-health issue
+    Safe {
+        /// Why safe mode was entered
+        reason: String,
+        /// When safe mode was entered (not serialized)
+        since: Instant,
+    },
+}
+
+// Manual Serialize/Deserialize to handle Instant
+impl Serialize for AnnaMode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            AnnaMode::Normal => {
+                serializer.serialize_unit_variant("AnnaMode", 0, "Normal")
+            }
+            AnnaMode::Safe { reason, .. } => {
+                use serde::ser::SerializeStructVariant;
+                let mut state = serializer.serialize_struct_variant("AnnaMode", 1, "Safe", 1)?;
+                state.serialize_field("reason", reason)?;
+                state.end()
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for AnnaMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field { Reason }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        enum AnnaMode_Internal {
+            Normal,
+            Safe { reason: String },
+        }
+
+        match AnnaMode_Internal::deserialize(deserializer)? {
+            AnnaMode_Internal::Normal => Ok(AnnaMode::Normal),
+            AnnaMode_Internal::Safe { reason } => Ok(AnnaMode::Safe {
+                reason,
+                since: Instant::now(),
+            }),
+        }
+    }
+}
+
+impl Default for AnnaMode {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+impl AnnaMode {
+    pub fn is_safe(&self) -> bool {
+        matches!(self, Self::Safe { .. })
+    }
+
+    pub fn is_normal(&self) -> bool {
+        matches!(self, Self::Normal)
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Normal => "NORMAL",
+            Self::Safe { .. } => "SAFE",
+        }
+    }
+
+    pub fn reason(&self) -> Option<&str> {
+        match self {
+            Self::Normal => None,
+            Self::Safe { reason, .. } => Some(reason),
         }
     }
 }

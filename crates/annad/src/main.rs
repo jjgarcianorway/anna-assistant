@@ -109,6 +109,7 @@ mod state; // Phase 0.2: State machine
 mod steward; // Phase 0.9: System steward
 mod system_knowledge; // 6.12.0: System Knowledge Base
 mod telemetry;
+mod update_manager; // 6.22.0: Background auto-update system
 mod watcher;
 mod wiki_cache;
 

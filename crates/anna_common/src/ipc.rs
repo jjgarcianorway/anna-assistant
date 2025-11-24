@@ -590,6 +590,15 @@ pub struct StatusData {
     /// 6.20.0: Reason for degraded/safe mode state
     #[serde(default)]
     pub health_reason: Option<String>,
+    /// 6.22.0: Anna's operational mode (NORMAL or SAFE)
+    #[serde(default)]
+    pub anna_mode: Option<String>,
+    /// 6.22.0: Reason for safe mode if applicable
+    #[serde(default)]
+    pub anna_mode_reason: Option<String>,
+    /// 6.22.0: Update status string
+    #[serde(default)]
+    pub update_status: Option<String>,
 }
 
 /// Configuration data

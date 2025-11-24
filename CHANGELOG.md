@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.22.0] - 2025-11-24
+
+### SAFE MODE & AUTO-UPDATE INFRASTRUCTURE
+
+**Type:** New Feature
+**Focus:** Safe mode implementation, background auto-update system foundation
+
+#### Added ✨
+
+**Anna Mode:**
+- New `AnnaMode` enum (Normal / Safe) - distinct from DaemonHealthState
+- Safe mode triggered by critical self-health failures (crash loops, permission issues)
+- Mode and reason exposed in `annactl status`
+- Safe mode limits heavy operations (no scans, no system modifications)
+- RPC remains responsive for status, health, update, and config queries
+
+**Update Manager:**
+- Background update checking infrastructure (`UpdateManager`)
+- Update state machine: Idle, Checking, Downloading, ReadyToInstall, Error
+- Downloads cached to `/var/lib/anna/updates/` with `.partial` suffix
+- Checksum verification (placeholder - not yet implemented)
+- Update status exposed via RPC and shown in `annactl status`
+- Config: `auto_update_check` already present in ConfigData
+
+**Status Display:**
+- `annactl status` now shows Anna Mode (NORMAL / SAFE) with reason
+- `annactl status` shows update status (up to date, checking, downloading, etc.)
+- Mode display with appropriate emoji indicators
+
+#### Technical
+
+**New Modules:**
+- `annad/src/update_manager.rs` - Background auto-update system
+- `daemon_health.rs` extended with AnnaMode enum
+
+**Modified:**
+- `rpc_server.rs` - Added `anna_mode` and `update_manager` to DaemonState
+- `ipc.rs` - Extended StatusData with `anna_mode`, `anna_mode_reason`, `update_status`
+- `status_command.rs` - Display mode and update information
+
+**Design:**
+- Update manager initialized with current version and config
+- Mode syncs with daemon health state at startup
+- Both exposed via RPC for truthful status reporting
+
+#### Not Yet Implemented ⏳
+
+The following were designed in 6.22.0 but require future work:
+- Actual GitHub API update checking (placeholder returns "up to date")
+- Download logic with progress tracking
+- Checksum verification and atomic file operations
+- Apply update routine (binary replacement + restart)
+- Natural language intent handlers ("update yourself", "enable auto-updates")
+- Comprehensive tests for state transitions
+
+**Note:** This release establishes the *infrastructure* for safe mode and auto-updates. The full feature set (update checking, downloading, applying, intent routing) will be completed in a future release.
+
 ## [6.21.0] - 2025-11-24
 
 ### CONVERSATIONAL INTELLIGENCE

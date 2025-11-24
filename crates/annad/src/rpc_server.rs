@@ -136,6 +136,10 @@ pub struct DaemonState {
     pub knowledge: Arc<tokio::sync::RwLock<crate::system_knowledge::SystemKnowledgeManager>>,
     /// Daemon Health - crash loop detection and Safe Mode (6.20.0)
     pub health: Arc<tokio::sync::RwLock<crate::daemon_health::DaemonHealth>>,
+    /// Anna Mode - normal vs safe mode (6.22.0)
+    pub anna_mode: Arc<tokio::sync::RwLock<crate::daemon_health::AnnaMode>>,
+    /// Update Manager - background auto-update system (6.22.0)
+    pub update_manager: Arc<tokio::sync::RwLock<crate::update_manager::UpdateManager>>,
 }
 
 impl DaemonState {
@@ -161,12 +165,29 @@ impl DaemonState {
         // Take initial snapshot
         let _ = knowledge_mgr.snapshot_now();
 
+        // 6.22.0: Initialize Anna Mode - enter Safe Mode if health indicates it
+        let anna_mode = if health.health_state == crate::daemon_health::DaemonHealthState::SafeMode {
+            crate::daemon_health::AnnaMode::Safe {
+                reason: health.last_exit_reason.clone().unwrap_or_else(|| "Unknown reason".to_string()),
+                since: std::time::Instant::now(),
+            }
+        } else {
+            crate::daemon_health::AnnaMode::Normal
+        };
+
+        // 6.22.0: Initialize Update Manager with config
+        let config = ConfigData::default();
+        let update_manager = crate::update_manager::UpdateManager::new(
+            version.clone(),
+            config.auto_update_check,
+        )?;
+
         Ok(Self {
             version,
             start_time: std::time::Instant::now(),
             facts: RwLock::new(facts),
             advice: RwLock::new(advice),
-            config: RwLock::new(ConfigData::default()),
+            config: RwLock::new(config),
             audit_logger,
             action_history,
             rate_limiter: RateLimiter::new(120), // 120 requests per minute (2 per second)
@@ -179,6 +200,8 @@ impl DaemonState {
             historian: None,    // Will be set later in main.rs
             knowledge: Arc::new(tokio::sync::RwLock::new(knowledge_mgr)),
             health: Arc::new(tokio::sync::RwLock::new(health)),
+            anna_mode: Arc::new(tokio::sync::RwLock::new(anna_mode)),
+            update_manager: Arc::new(tokio::sync::RwLock::new(update_manager)),
         })
     }
 }
@@ -819,6 +842,14 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 None
             };
 
+            // 6.22.0: Read Anna mode and update state
+            let anna_mode = state.anna_mode.read().await;
+            let anna_mode_str = anna_mode.as_str().to_string();
+            let anna_mode_reason = anna_mode.reason().map(|s| s.to_string());
+
+            let update_mgr = state.update_manager.read().await;
+            let update_status_str = update_mgr.get_state().status_string();
+
             let status = StatusData {
                 version: state.version.clone(),
                 uptime_seconds: state.start_time.elapsed().as_secs(),
@@ -826,6 +857,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 pending_recommendations: advice.len(),
                 health_state: Some(health_state_str),
                 health_reason,
+                anna_mode: Some(anna_mode_str),
+                anna_mode_reason,
+                update_status: Some(update_status_str),
             };
             Ok(ResponseData::Status(status))
         }
