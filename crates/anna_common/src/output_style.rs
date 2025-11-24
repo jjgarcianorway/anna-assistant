@@ -13,6 +13,9 @@
 use std::env;
 use std::io::IsTerminal;
 
+// Import configuration types (6.18.0)
+use crate::anna_config::{EmojiMode, ColorMode, OutputConfig};
+
 // ============================================================================
 // Capability Detection
 // ============================================================================
@@ -80,38 +83,11 @@ fn detect_emoji_support() -> bool {
 }
 
 // ============================================================================
-// Output Configuration
+// Output Configuration (6.18.0: Now imported from anna_config)
 // ============================================================================
 
-/// User preferences for output styling
-#[derive(Debug, Clone)]
-pub struct OutputConfig {
-    pub emoji_mode: EmojiMode,
-    pub color_mode: ColorMode,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EmojiMode {
-    Auto,
-    Enabled,
-    Disabled,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ColorMode {
-    Auto,
-    Basic,
-    None,
-}
-
-impl Default for OutputConfig {
-    fn default() -> Self {
-        Self {
-            emoji_mode: EmojiMode::Auto,
-            color_mode: ColorMode::Auto,
-        }
-    }
-}
+// OutputConfig, EmojiMode, and ColorMode are now defined in anna_config.rs
+// and imported at the top of this file.
 
 // ============================================================================
 // Severity Enum
@@ -142,13 +118,13 @@ impl OutputFormatter {
     pub fn new(config: OutputConfig) -> Self {
         let caps = TerminalCapabilities::detect();
 
-        let use_emoji = match config.emoji_mode {
+        let use_emoji = match config.emojis {
             EmojiMode::Auto => caps.supports_emoji,
             EmojiMode::Enabled => true,
             EmojiMode::Disabled => false,
         };
 
-        let use_color = match config.color_mode {
+        let use_color = match config.color {
             ColorMode::Auto => caps.color_depth != ColorDepth::None,
             ColorMode::Basic => true,
             ColorMode::None => false,
@@ -341,8 +317,8 @@ mod tests {
     #[test]
     fn test_emoji_enabled_has_emoji() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Enabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Enabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 
@@ -356,8 +332,8 @@ mod tests {
     #[test]
     fn test_emoji_disabled_has_no_emoji() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Disabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Disabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 
@@ -371,8 +347,8 @@ mod tests {
     #[test]
     fn test_bullet_ok_format() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Enabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Enabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 
@@ -386,8 +362,8 @@ mod tests {
     #[test]
     fn test_bullet_crit_format() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Enabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Enabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 
@@ -401,8 +377,8 @@ mod tests {
     #[test]
     fn test_diagnostic_block_with_hints() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Disabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Disabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 
@@ -423,8 +399,8 @@ mod tests {
     #[test]
     fn test_overall_status_degraded() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Disabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Disabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 
@@ -438,8 +414,8 @@ mod tests {
     #[test]
     fn test_color_disabled_no_ansi() {
         let config = OutputConfig {
-            emoji_mode: EmojiMode::Disabled,
-            color_mode: ColorMode::None,
+            emojis: EmojiMode::Disabled,
+            color: ColorMode::None,
         };
         let fmt = OutputFormatter::new(config);
 

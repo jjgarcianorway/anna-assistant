@@ -199,7 +199,12 @@ fn convert_to_planner_summary(
 /// Version 149: Uses unified handler for consistency with TUI.
 /// Beta.228: Added comprehensive logging
 /// 6.4.x: Try planner first, fall back to LLM
+/// 6.18.0: Initialize formatter with user configuration
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
+    // 6.18.0: Initialize formatter with user configuration
+    let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();
+    anna_common::terminal_format::init_with_config(&config);
+
     let start_time = std::time::Instant::now();
 
     let ui = UI::auto();

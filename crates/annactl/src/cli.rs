@@ -47,6 +47,12 @@ pub enum Commands {
     /// Show version information (Beta.233)
     Version,
 
+    /// Manage Anna configuration (6.18.0)
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
     /// INTERNAL: Brain diagnostic analysis (hidden from help, use natural language instead)
     #[command(hide = true)]
     Brain {
@@ -57,5 +63,21 @@ pub enum Commands {
         /// Show verbose output with all details
         #[arg(long, short)]
         verbose: bool,
+    },
+}
+
+/// Configuration actions
+#[derive(Subcommand)]
+pub enum ConfigAction {
+    /// Show current configuration
+    Show,
+
+    /// Set a configuration value
+    Set {
+        /// Configuration key (e.g., output.emojis, output.color)
+        key: String,
+
+        /// New value
+        value: String,
     },
 }

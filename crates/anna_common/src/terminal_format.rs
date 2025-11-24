@@ -1,9 +1,114 @@
 //! Terminal Formatting Helpers
 //!
 //! Phase 8: Beautiful UX & Terminal Enhancements
+//! 6.18.0: Config-aware formatting (respects user emoji/color preferences)
 //!
 //! Provides consistent, professional formatting for Anna's terminal output.
 //! Colors are subtle and WCAG-friendly. No hardcoded ANSI strings scattered everywhere.
+
+use crate::anna_config::{AnnaConfig, ColorMode, EmojiMode};
+use std::sync::OnceLock;
+
+/// Global formatter configuration
+static FORMATTER_CONFIG: OnceLock<FormatterConfig> = OnceLock::new();
+
+/// Formatter configuration derived from user config
+#[derive(Debug, Clone)]
+struct FormatterConfig {
+    use_emojis: bool,
+    use_colors: bool,
+}
+
+impl FormatterConfig {
+    fn from_anna_config(config: &AnnaConfig) -> Self {
+        let use_emojis = match config.output.emojis {
+            EmojiMode::Auto => detect_emoji_support(),
+            EmojiMode::Enabled => true,
+            EmojiMode::Disabled => false,
+        };
+
+        let use_colors = match config.output.color {
+            ColorMode::Auto => detect_color_support(),
+            ColorMode::Basic => true,
+            ColorMode::None => false,
+        };
+
+        Self {
+            use_emojis,
+            use_colors,
+        }
+    }
+
+    fn default() -> Self {
+        Self {
+            use_emojis: detect_emoji_support(),
+            use_colors: detect_color_support(),
+        }
+    }
+}
+
+/// Initialize formatter with user configuration (6.18.0)
+///
+/// Call this once at the start of annactl commands to respect user config.
+/// If not called, defaults to auto-detection.
+pub fn init_with_config(config: &AnnaConfig) {
+    let _ = FORMATTER_CONFIG.set(FormatterConfig::from_anna_config(config));
+}
+
+/// Get current formatter configuration
+fn get_config() -> &'static FormatterConfig {
+    FORMATTER_CONFIG.get_or_init(FormatterConfig::default)
+}
+
+/// Detect if terminal supports emojis (auto mode)
+fn detect_emoji_support() -> bool {
+    use std::env;
+    if let Ok(lang) = env::var("LANG") {
+        if lang.to_lowercase().contains("utf") {
+            return true;
+        }
+    }
+    if let Ok(lc_all) = env::var("LC_ALL") {
+        if lc_all.to_lowercase().contains("utf") {
+            return true;
+        }
+    }
+    false
+}
+
+/// Detect if terminal supports colors (auto mode)
+fn detect_color_support() -> bool {
+    use std::io::IsTerminal;
+    if !std::io::stdout().is_terminal() {
+        return false;
+    }
+    if let Ok(term) = std::env::var("TERM") {
+        if term == "dumb" {
+            return false;
+        }
+    }
+    true
+}
+
+/// Helper: Apply color if enabled (6.18.0)
+fn with_color(color: &str, text: &str) -> String {
+    let config = get_config();
+    if config.use_colors {
+        format!("{}{}{}", color, text, colors::RESET)
+    } else {
+        text.to_string()
+    }
+}
+
+/// Helper: Get emoji or fallback (6.18.0)
+fn emoji_or(emoji: &str, fallback: &str) -> String {
+    let config = get_config();
+    if config.use_emojis {
+        emoji.to_string()
+    } else {
+        fallback.to_string()
+    }
+}
 
 /// ANSI color codes - WCAG-friendly palette
 pub mod colors {
@@ -112,15 +217,27 @@ pub mod emojis {
 
 /// Format a section title with icon
 /// 6.12.2: Fixed spacing - now adds TWO spaces after emoji
+/// 6.18.0: Config-aware (respects user emoji/color preferences)
 pub fn section_title(icon: &str, text: &str) -> String {
-    format!(
-        "{}{}{}  {}{}",
-        colors::BOLD,
-        colors::CYAN,
-        icon,
-        text,
-        colors::RESET
-    )
+    let config = get_config();
+    let display_icon = if config.use_emojis {
+        format!("{}  ", icon)
+    } else {
+        String::new()
+    };
+
+    if config.use_colors {
+        format!(
+            "{}{}{}{}{}",
+            colors::BOLD,
+            colors::CYAN,
+            display_icon,
+            text,
+            colors::RESET
+        )
+    } else {
+        format!("{}{}", display_icon, text)
+    }
 }
 
 /// Format a success message
@@ -363,35 +480,50 @@ pub fn numbered(number: usize, text: &str) -> String {
     format!("{}{}. {}{}", colors::CYAN, number, colors::RESET, text)
 }
 
-/// Format a dimmed/secondary text
+/// Format a dimmed/secondary text (6.18.0: Config-aware)
 pub fn dimmed(text: &str) -> String {
-    format!("{}{}{}", colors::DIM, text, colors::RESET)
+    with_color(colors::DIM, text)
 }
 
-/// Format bold text
+/// Format bold text (6.18.0: Config-aware)
 pub fn bold(text: &str) -> String {
-    format!("{}{}{}", colors::BOLD, text, colors::RESET)
+    with_color(colors::BOLD, text)
 }
 
 /// Beta.141: System status with emoji indicator
+/// 6.18.0: Config-aware (respects user emoji/color preferences)
 pub fn system_status(status: &str, details: &str) -> String {
-    let (emoji, color) = match status.to_lowercase().as_str() {
-        "healthy" | "good" | "ok" => (emojis::HEALTHY, colors::GREEN),
-        "degraded" | "warning" => (emojis::DEGRADED, colors::YELLOW),
-        "error" | "critical" | "bad" => (emojis::ERROR, colors::RED),
-        "running" => (emojis::RUNNING, colors::GREEN),
-        "stopped" => (emojis::STOPPED, colors::RED),
-        _ => (emojis::UNKNOWN, colors::GRAY),
+    let config = get_config();
+
+    let (emoji, fallback, color) = match status.to_lowercase().as_str() {
+        "healthy" | "good" | "ok" => (emojis::HEALTHY, "[OK]", colors::GREEN),
+        "degraded" | "warning" => (emojis::DEGRADED, "[WARN]", colors::YELLOW),
+        "error" | "critical" | "bad" => (emojis::ERROR, "[CRIT]", colors::RED),
+        "running" => (emojis::RUNNING, "[RUN]", colors::GREEN),
+        "stopped" => (emojis::STOPPED, "[STOP]", colors::RED),
+        _ => (emojis::UNKNOWN, "[?]", colors::GRAY),
     };
-    format!(
-        "{}{} {}{}{} {}",
-        color,
-        emoji,
-        colors::BOLD,
-        status.to_uppercase(),
-        colors::RESET,
-        details
-    )
+
+    let display_emoji = emoji_or(emoji, fallback);
+
+    if config.use_colors {
+        format!(
+            "{}{}  {}{}{} {}",
+            color,
+            display_emoji,
+            colors::BOLD,
+            status.to_uppercase(),
+            colors::RESET,
+            details
+        )
+    } else {
+        format!(
+            "{}  {} {}",
+            display_emoji,
+            status.to_uppercase(),
+            details
+        )
+    }
 }
 
 /// Beta.141: Telemetry item with category emoji

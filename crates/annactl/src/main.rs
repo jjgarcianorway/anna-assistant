@@ -25,6 +25,7 @@ pub mod telemetry; // Beta.200: Telemetry fetching and caching
 mod action_executor;
 pub mod action_plan_executor; // ActionPlan execution engine
 mod brain_command; // Beta.217c: Standalone brain diagnostic command
+mod config_command; // 6.18.0: Configuration management
 mod context_engine; // Contextual awareness and proactive monitoring
 mod plan_command; // 6.3.0: Arch Wiki-based execution planner
 mod selftest_command; // 6.3.1: Built-in capability verification

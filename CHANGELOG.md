@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.18.0] - 2025-11-24
+
+### CONFIGURABLE OUTPUT & CURATED LOGS
+
+**Type:** Feature
+**Focus:** User configuration system, emoji/color preferences, improved log curation
+
+#### Added ✨
+
+**Configuration System:**
+- New `AnnaConfig` with TOML-based configuration
+- Configuration file: `~/.config/anna/config.toml` (user) or `/etc/anna/config.toml` (system)
+- Two configuration settings:
+  - `output.emojis`: `auto` (default), `on`, or `off`
+  - `output.color`: `auto` (default), `basic`, or `none`
+- New commands:
+  - `annactl config show` - Display current configuration
+  - `annactl config set KEY VALUE` - Update configuration
+- Auto-detection fallback when no config file exists
+- XDG_CONFIG_HOME path resolution support
+
+**Config-Aware Formatting:**
+- `terminal_format` module now respects user configuration:
+  - Auto mode: Uses terminal detection (LANG, TERM, TTY check)
+  - Enabled/Basic mode: Force emojis/colors even if detection unsure
+  - Disabled/None mode: Never output emojis/ANSI codes
+- Initialized at start of each command (status, queries)
+- Global formatter configuration with `OnceLock` for thread-safety
+- ASCII fallbacks for all emoji indicators
+
+**Improved Log Curation:**
+- Strict 5-10 line limit for journal logs in status output
+- Priority-based filtering:
+  1. Up to 3 most recent errors (highest priority)
+  2. Up to 2 most recent warnings
+  3. Up to 5 recent info messages (fills remaining space)
+- Total never exceeds 10 lines
+- Summary line shows how many entries were filtered
+- Empty lines are now filtered out
+
+#### Changed 🔄
+
+**Code Organization:**
+- `output_style.rs` now imports `EmojiMode`, `ColorMode`, `OutputConfig` from `anna_config.rs`
+- Removed duplicate enum definitions
+- Consolidated configuration types in `anna_common::anna_config`
+
+#### Technical Details 🔧
+
+**New Modules:**
+- `crates/anna_common/src/anna_config.rs` (240 lines) - Configuration system with TOML support
+- `crates/annactl/src/config_command.rs` (95 lines) - Config command implementation
+
+**Modified Modules:**
+- `crates/anna_common/src/terminal_format.rs` - Added config-awareness with `init_with_config()`
+- `crates/annactl/src/status_command.rs` - Config initialization + improved log curation
+- `crates/annactl/src/llm_query_handler.rs` - Config initialization
+- `crates/annactl/src/cli.rs` - Added Config command and ConfigAction enum
+- `crates/annactl/src/runtime.rs` - Wired config commands into execution flow
+
+**Testing:**
+- 5 unit tests for `AnnaConfig` (parsing, serialization, round-trip)
+- 8 unit tests for `OutputFormatter` with config modes
+- All tests passing
+
+#### Migration Notes 📝
+
+**For Users:**
+- No action required - defaults to Auto mode (current behavior)
+- To disable emojis: `annactl config set output.emojis off`
+- To disable colors: `annactl config set output.color none`
+- Config file created automatically on first `set` command
+
+**For Developers:**
+- Use `anna_common::terminal_format::init_with_config()` at start of CLI commands
+- Import config types from `anna_common::anna_config` (not `output_style`)
+
 ## [6.17.0] - 2025-11-24
 
 ### TRUTHFUL STATUS & PROFESSIONAL OUTPUT

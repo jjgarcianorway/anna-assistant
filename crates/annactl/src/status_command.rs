@@ -38,6 +38,10 @@ pub async fn execute_anna_status_command(
     req_id: &str,
     start_time: Instant,
 ) -> Result<()> {
+    // 6.18.0: Initialize formatter with user configuration
+    let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();
+    anna_common::terminal_format::init_with_config(&config);
+
     // Display banner first
     println!(); // Breathing room at the top
     println!("{}", fmt::bold("Anna Status Check"));
@@ -510,7 +514,9 @@ pub async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData
     }
 }
 
-/// Display recent journal logs (6.11.1: prioritize errors/warnings)
+/// Display recent journal logs
+/// 6.11.1: Prioritize errors/warnings
+/// 6.18.0: Curated to 5-10 most relevant lines
 fn display_recent_logs() {
     let output = Command::new("journalctl")
         .args([
@@ -529,7 +535,8 @@ fn display_recent_logs() {
             if logs.trim().is_empty() {
                 println!("  {}", fmt::dimmed("No recent logs"));
             } else {
-                // 6.11.1: Categorize logs by severity
+                // 6.18.0: Strict 5-10 line curation
+                // Priority: errors > warnings > recent info
                 let mut errors = Vec::new();
                 let mut warnings = Vec::new();
                 let mut info = Vec::new();
@@ -539,31 +546,49 @@ fn display_recent_logs() {
                         errors.push(line);
                     } else if line.contains("WARN") || line.contains("warn") {
                         warnings.push(line);
-                    } else {
+                    } else if !line.trim().is_empty() {
                         info.push(line);
                     }
                 }
 
-                // Show errors first (all of them)
-                for line in errors.iter() {
+                let mut displayed = 0;
+                const MAX_LINES: usize = 10;
+
+                // Show up to 3 most recent errors
+                for line in errors.iter().rev().take(3) {
+                    if displayed >= MAX_LINES {
+                        break;
+                    }
                     println!("  {} {}", fmt::emojis::CRITICAL, fmt::error(line));
+                    displayed += 1;
                 }
 
-                // Show warnings next (up to 3)
-                for line in warnings.iter().take(3) {
+                // Show up to 2 most recent warnings
+                for line in warnings.iter().rev().take(2) {
+                    if displayed >= MAX_LINES {
+                        break;
+                    }
                     println!("  {} {}", fmt::emojis::WARNING, fmt::warning(line));
+                    displayed += 1;
                 }
 
-                // Show recent info logs (up to 5, skip if we have errors/warnings)
-                let info_limit = if errors.is_empty() && warnings.is_empty() { 10 } else { 5 };
+                // Fill remaining space with recent info (up to max 10 total)
+                let info_limit = MAX_LINES.saturating_sub(displayed).min(5);
                 for line in info.iter().rev().take(info_limit) {
                     println!("  {}", fmt::dimmed(line));
+                    displayed += 1;
                 }
 
                 // Summary if logs were filtered
-                let total_logged = errors.len() + warnings.len() + info.len();
-                if total_logged > 18 {
-                    println!("  {}", fmt::dimmed(&format!("({} more log entries - run 'journalctl -u annad' for full log)", total_logged - 18)));
+                let total = errors.len() + warnings.len() + info.len();
+                if total > displayed {
+                    println!(
+                        "  {}",
+                        fmt::dimmed(&format!(
+                            "({} more entries - run 'journalctl -u annad' for full log)",
+                            total - displayed
+                        ))
+                    );
                 }
             }
         } else {
