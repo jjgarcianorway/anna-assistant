@@ -111,9 +111,10 @@ pub mod emojis {
 }
 
 /// Format a section title with icon
+/// 6.12.2: Fixed spacing - now adds TWO spaces after emoji
 pub fn section_title(icon: &str, text: &str) -> String {
     format!(
-        "{}{} {}{}{}",
+        "{}{}{}  {}{}",
         colors::BOLD,
         colors::CYAN,
         icon,

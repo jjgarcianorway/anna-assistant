@@ -56,6 +56,7 @@ use anna_common::telemetry::SystemTelemetry;
 use anyhow::Result;
 
 use crate::dialogue_v3_json;
+use crate::hardware_questions;  // 6.12.1: Knowledge-first hardware answers
 use crate::output;
 use crate::query_handler;
 
@@ -137,6 +138,99 @@ pub async fn handle_unified_query(
             confidence: AnswerConfidence::High,
             sources: vec!["verified system telemetry (direct system query)".to_string()],
         });
+    }
+
+    // TIER 0.3: 6.12.1 Hardware Questions + 6.12.2 System Questions
+    // Answers hardware/system questions directly from SystemKnowledgeBase
+    // Never suggests "run this command" - uses persistent knowledge
+    match hardware_questions::classify_question(user_text) {
+        hardware_questions::QuestionKind::Hardware(hw_question) => {
+            // Try to get system knowledge from daemon
+            if let Ok(knowledge) = try_get_system_knowledge().await {
+                if let Some(answer) = hardware_questions::handle_hardware_question(hw_question, &knowledge) {
+                    return Ok(UnifiedQueryResult::ConversationalAnswer {
+                        answer: output::normalize_for_cli(&answer),
+                        confidence: AnswerConfidence::High,
+                        sources: vec!["SystemKnowledgeBase".to_string()],
+                    });
+                }
+            }
+            // If knowledge not available, fall through to normal processing
+        }
+        hardware_questions::QuestionKind::System(sys_question) => {
+            // 6.12.2: System questions (desktop/WM, etc.)
+            if let Ok(knowledge) = try_get_system_knowledge().await {
+                if let Some(answer) = hardware_questions::handle_system_question(sys_question, &knowledge) {
+                    return Ok(UnifiedQueryResult::ConversationalAnswer {
+                        answer: output::normalize_for_cli(&answer),
+                        confidence: AnswerConfidence::High,
+                        sources: vec!["SystemKnowledgeBase".to_string()],
+                    });
+                }
+            }
+            // If knowledge not available, fall through to normal processing
+        }
+        hardware_questions::QuestionKind::Power(power_question) => {
+            // 6.13.0: Power questions (TLP, etc.)
+            use hardware_questions::PowerQuestion;
+            match power_question {
+                PowerQuestion::TlpNotWorking | PowerQuestion::TlpStatus => {
+                    // Detect TLP status and build fix plan if needed
+                    if let Some(answer) = handle_power_question_tlp(power_question).await {
+                        return Ok(UnifiedQueryResult::ConversationalAnswer {
+                            answer: output::normalize_for_cli(&answer),
+                            confidence: AnswerConfidence::High,
+                            sources: vec!["Arch Wiki + System Diagnostics".to_string()],
+                        });
+                    }
+                }
+            }
+            // If no TLP issue detected, fall through to normal processing
+        }
+        hardware_questions::QuestionKind::Other => {
+            // Continue with normal query processing
+        }
+    }
+
+    // TIER 0.25: 6.15.0 Command Intelligence Layer (CIL)
+    // Handles "how do I check/list/show X" questions dynamically
+    // No hardcoded commands - derives from system state + Arch Wiki
+    use anna_common::command_intelligence::{
+        classify_command_query, resolve_command_for_intent, format_command_suggestions,
+        CommandIntent,
+    };
+
+    let command_intent = classify_command_query(user_text);
+
+    if !matches!(command_intent, CommandIntent::Unknown) {
+        // Try to get system knowledge for dynamic command resolution
+        if let Ok(knowledge) = try_get_system_knowledge().await {
+            let suggestions = resolve_command_for_intent(command_intent, &knowledge);
+
+            if !suggestions.is_empty() {
+                let formatted = format_command_suggestions(&suggestions);
+
+                return Ok(UnifiedQueryResult::ConversationalAnswer {
+                    answer: formatted,
+                    confidence: AnswerConfidence::High,
+                    sources: vec!["Command Intelligence Layer (dynamic)".to_string()],
+                });
+            }
+        } else {
+            // If daemon not available, still try with empty knowledge
+            let empty_knowledge = anna_common::system_knowledge::SystemKnowledgeBase::default();
+            let suggestions = resolve_command_for_intent(command_intent, &empty_knowledge);
+
+            if !suggestions.is_empty() {
+                let formatted = format_command_suggestions(&suggestions);
+
+                return Ok(UnifiedQueryResult::ConversationalAnswer {
+                    answer: formatted,
+                    confidence: AnswerConfidence::High,
+                    sources: vec!["Command Intelligence Layer (dynamic)".to_string()],
+                });
+            }
+        }
     }
 
     // TIER 0.5: Beta.238 Full Diagnostic Routing (natural language → brain diagnostics)
@@ -246,7 +340,10 @@ async fn generate_conversational_answer(
     // 6.5.0: Load personality configuration
     let personality = anna_common::personality::PersonalityConfig::load();
 
-    let prompt = build_conversational_prompt_for_tui(user_text, telemetry);
+    // 6.12.2: Try to fetch system knowledge for richer LLM context
+    let knowledge = try_get_system_knowledge().await.ok();
+
+    let prompt = build_conversational_prompt_for_tui(user_text, telemetry, knowledge.as_ref());
     let llm_prompt = Arc::new(LlmPrompt {
         system: LlmClient::anna_system_prompt_with_personality(Some(&personality)),
         user: prompt,
@@ -982,7 +1079,12 @@ fn should_use_action_plan(user_text: &str) -> bool {
 
 /// Build conversational prompt for streaming LLM
 /// Beta.280: Made public for TUI streaming support
-pub fn build_conversational_prompt_for_tui(user_text: &str, telemetry: &SystemTelemetry) -> String {
+/// 6.12.2: Now accepts optional SystemKnowledgeBase for richer context
+pub fn build_conversational_prompt_for_tui(
+    user_text: &str,
+    telemetry: &SystemTelemetry,
+    knowledge: Option<&anna_common::system_knowledge::SystemKnowledgeBase>,
+) -> String {
     let hostname = std::process::Command::new("hostname")
         .output()
         .ok()
@@ -990,18 +1092,29 @@ pub fn build_conversational_prompt_for_tui(user_text: &str, telemetry: &SystemTe
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "localhost".to_string());
 
-    format!(
-        "You are Anna, an Arch Linux system administrator assistant.\n\n\
-         System Context:\n\
-         - CPU: {}\n\
+    // Base system context from telemetry
+    let mut system_context = format!(
+        "- CPU: {}\n\
          - RAM: {:.1} GB used / {:.1} GB total\n\
-         - Hostname: {}\n\n\
-         User Question: {}\n\n\
-         Provide a helpful, concise answer. If you don't know, say so.",
+         - Hostname: {}",
         telemetry.hardware.cpu_model,
         telemetry.memory.used_mb as f64 / 1024.0,
         telemetry.memory.total_mb as f64 / 1024.0,
-        hostname,
+        hostname
+    );
+
+    // 6.12.2: Append SystemKnowledge summary if available
+    if let Some(kb) = knowledge {
+        system_context.push_str("\n\n");
+        system_context.push_str(&kb.to_llm_context_summary());
+    }
+
+    format!(
+        "You are Anna, an Arch Linux system administrator assistant.\n\n\
+         System Context:\n{}\n\n\
+         User Question: {}\n\n\
+         Provide a helpful, concise answer. If you don't know, say so.",
+        system_context,
         user_text
     )
 }
@@ -2181,6 +2294,143 @@ async fn handle_proactive_status_query(_user_text: &str) -> Result<UnifiedQueryR
         confidence: AnswerConfidence::High,
         sources: vec!["proactive engine (deterministic)".to_string()],
     })
+}
+
+/// 6.12.1: Try to get SystemKnowledgeBase from daemon
+///
+/// Returns the knowledge base if daemon is available, otherwise returns error
+async fn try_get_system_knowledge() -> Result<anna_common::system_knowledge::SystemKnowledgeBase> {
+    use anna_common::ipc::{Method, ResponseData};
+    use anna_common::system_knowledge::{SystemKnowledgeBase, HardwareProfile, WallpaperProfile, SystemUsageProfile};
+    use crate::rpc_client::RpcClient;
+    use std::path::PathBuf;
+
+    let mut client = RpcClient::connect().await
+        .map_err(|e| anyhow::anyhow!("Cannot fetch system knowledge: daemon not running - {}", e))?;
+
+    let response = client.call(Method::GetSystemKnowledge).await
+        .map_err(|e| anyhow::anyhow!("Failed to get system knowledge: {}", e))?;
+
+    match response {
+        ResponseData::SystemKnowledge(data) => {
+            // Convert IPC data to SystemKnowledgeBase
+            let mut kb = SystemKnowledgeBase::default();
+
+            // 6.12.1: Hardware profile from IPC data
+            kb.hardware = HardwareProfile {
+                cpu_model: data.hw_cpu_model,
+                cpu_physical_cores: data.hw_cpu_physical_cores,
+                cpu_logical_cores: data.hw_cpu_logical_cores,
+                gpu_model: data.hw_gpu_model,
+                gpu_type: data.hw_gpu_type,
+                sound_devices: data.hw_sound_devices,
+                total_ram_bytes: data.hw_total_ram_bytes,
+                machine_model: data.hw_machine_model,
+            };
+
+            // 6.12.2: Wallpaper profile from IPC data
+            kb.wallpaper = WallpaperProfile {
+                wm_or_de: data.wm_or_de,
+                wallpaper_tool: data.wallpaper_tool,
+                config_files: data.wallpaper_config_files.iter()
+                    .map(|s| PathBuf::from(s))
+                    .collect(),
+                wallpaper_dirs: data.wallpaper_dirs.iter()
+                    .map(|s| PathBuf::from(s))
+                    .collect(),
+            };
+
+            // 6.12.2: Usage profile from IPC data
+            kb.usage = SystemUsageProfile {
+                cpu_cores: data.cpu_cores,
+                total_ram_bytes: data.total_ram_gib * 1024 * 1024 * 1024,
+                last_seen_processes: data.top_processes,
+            };
+
+            // 6.12.2: Service counts (we don't have full ServiceProfile details, just counts)
+            // Note: Full service details remain in daemon only, but we can infer counts
+            // This is intentionally minimal - annactl doesn't need full service lists for LLM context
+
+            Ok(kb)
+        }
+        _ => Err(anyhow::anyhow!("Unexpected response type from GetSystemKnowledge")),
+    }
+}
+
+/// 6.13.0: Handle TLP power questions with wiki-backed fix plans
+///
+/// Detects TLP status, consults Arch Wiki, and returns actionable fix plan.
+async fn handle_power_question_tlp(question: hardware_questions::PowerQuestion) -> Option<String> {
+    use anna_common::arch_wiki_corpus::{WikiTopic, get_wiki_snippet};
+    use anna_common::tlp_planner::{TlpStatusSummary, build_tlp_fix_plan};
+    use crate::power_diagnostics::detect_tlp_status;
+
+    // Detect current TLP status
+    let status = detect_tlp_status().await.ok()?;
+
+    // Convert to TlpStatusSummary
+    let status_summary = TlpStatusSummary {
+        installed: status.installed,
+        service_exists: status.service_exists,
+        enabled: status.enabled,
+        active: status.active,
+        warned_in_logs: status.warned_in_logs,
+    };
+
+    match question {
+        hardware_questions::PowerQuestion::TlpStatus => {
+            // Simple status query
+            if !status.installed {
+                return Some("TLP is not installed on your system.".to_string());
+            }
+
+            let status_msg = if status.enabled && status.active {
+                "TLP is installed, enabled, and currently running."
+            } else if status.enabled {
+                "TLP is installed and enabled, but not currently running."
+            } else {
+                "TLP is installed but not enabled. Power saving will not apply on boot."
+            };
+
+            Some(status_msg.to_string())
+        }
+        hardware_questions::PowerQuestion::TlpNotWorking => {
+            // User has a problem - build fix plan if applicable
+            if !status.installed {
+                return Some("TLP is not installed. Install it with: sudo pacman -S tlp".to_string());
+            }
+
+            if status.enabled && status.active {
+                return Some("TLP is already enabled and running. If you're still seeing issues, please describe the specific problem.".to_string());
+            }
+
+            // TLP installed but not enabled - build wiki-backed fix plan
+            let wiki = get_wiki_snippet(WikiTopic::TlpPowerSaving);
+            let plan = build_tlp_fix_plan(&status_summary, &wiki);
+
+            // Format the answer
+            let mut answer = String::new();
+            answer.push_str(&plan.recap);
+            answer.push_str("\n\n");
+            answer.push_str(&plan.explanation);
+            answer.push_str(&format!("\n\nSource: {}\n\n", plan.wiki_url));
+            answer.push_str("To fix this, run these commands:\n\n");
+
+            for (i, step) in plan.steps.iter().enumerate() {
+                answer.push_str(&format!("{}. {}\n", i + 1, step.description));
+                answer.push_str(&format!("   $ {}\n", step.command));
+                if step.requires_confirmation {
+                    answer.push_str("   (requires confirmation)\n");
+                }
+                if let Some(ref rollback) = step.rollback_command {
+                    answer.push_str(&format!("   Rollback: {}\n", rollback));
+                }
+                answer.push_str("\n");
+            }
+
+            Some(answer)
+        }
+    }
 }
 
 #[cfg(test)]

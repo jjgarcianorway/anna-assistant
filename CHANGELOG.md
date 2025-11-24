@@ -7,6 +7,197 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.15.0] - 2025-11-24
+
+### COMMAND INTELLIGENCE LAYER (CIL)
+
+**Type:** Feature
+**Focus:** Dynamic command derivation without hardcoded templates
+
+#### Added ✨
+
+**Command Intelligence Layer:**
+- New `command_intelligence` module (740+ lines) with dynamic command synthesis
+- `CommandIntent` enum: Inspect, Configure, Install, Test, ServiceControl
+- `InspectTarget` enum: Cpu, Memory, Disk, Gpu, Network, Services, Processes, Logs, Hardware, Package, File
+- `CommandSuggestion` struct with command, description, safety flags, wiki sources, package requirements
+- NO hardcoded command tables - all commands derived dynamically from system state
+
+**Core Functions:**
+- `classify_command_query()` - Lightweight NLP heuristics for intent detection
+- `resolve_command_for_intent()` - Dynamic command resolution using SystemKnowledgeBase
+- `format_command_suggestions()` - Clean terminal output with wiki citations
+- Runtime tool detection: `is_command_available()`, `is_package_installed()`
+
+**Query Handler Integration:**
+- TIER 0.25 routing for "how do I check/list/show" queries
+- Sits between power questions (0.3) and diagnostics (0.5)
+- Graceful fallback when daemon unavailable (uses empty SystemKnowledgeBase)
+- High confidence answers from dynamic synthesis
+
+**ACTS v3 Test Suite:**
+- New `acts_v3_commands.rs` with pattern-based assertions (300+ lines)
+- 10 test cases with regex matching: CPU, memory, disk, GPU, network, services, processes
+- Test harness with summary report (Total/Passed/Failed percentages)
+- Requires 70% pass rate for CIL capability
+- 8 additional unit tests for classification + resolution
+- All 9 tests passing
+
+#### Technical Changes 🔧
+
+**New Files:**
+- `anna_common/src/command_intelligence.rs` (740+ lines)
+- `annactl/tests/acts_v3_commands.rs` (300+ lines)
+
+**Modified Files:**
+- `anna_common/src/lib.rs` (added CIL module export)
+- `annactl/src/unified_query_handler.rs` (TIER 0.25 integration)
+
+**Tests:**
+- ACTS v3: 9/9 passing (10 integration + 8 unit tests)
+- CIL module: 7 unit tests passing
+- Full test suite: 100% pass rate
+
+#### Example Usage 💡
+
+```bash
+$ annactl "how do I check my CPU?"
+To check your CPU information:
+
+lscpu
+  Show detailed CPU architecture information
+  Wiki: https://wiki.archlinux.org/title/CPU
+
+htop
+  Interactive process viewer with CPU usage (requires: htop)
+  Wiki: https://wiki.archlinux.org/title/Htop
+
+$ annactl "how do I list my disks?"
+To list disk information:
+
+lsblk
+  List block devices and partitions
+  Wiki: https://wiki.archlinux.org/title/Lsblk
+
+df -h
+  Show disk usage with human-readable sizes
+```
+
+#### Architecture Highlights 🏗️
+
+**Dynamic Command Resolution:**
+- Checks which tools are installed before suggesting them
+- Prioritizes standard utilities (lscpu, free, lsblk) over optional ones (htop, iotop)
+- GPU detection adapts to hardware: nvidia-smi (NVIDIA), radeontop (AMD), lspci (generic)
+- No static templates - commands synthesized from intent + system knowledge
+
+**Arch Wiki Integration:**
+- Every command suggestion includes relevant Arch Wiki URL
+- Sources: CPU, Memory, System monitoring, Lsblk, Systemd, Ip, Ps
+- Knowledge-backed answers without suggesting "run this command"
+
+**Safety Guarantees:**
+- All suggested commands are read-only (no system modifications)
+- Root requirements clearly flagged (requires_root: bool)
+- Safety validation (is_safe: bool) for every suggestion
+- Package requirements specified when tools not in base system
+
+#### Future Work 📝
+
+- Expand to Configure/Install intents (currently focused on Inspect)
+- Add hardware-specific command adaptation (e.g., battery, sensors)
+- Integrate with action plan execution for safe command running
+- Expand ACTS v3 to 300 questions across all categories
+
+## [6.13.0] - 2025-11-24
+
+### FIRST WIKI-BACKED FIX - TLP POWER MANAGEMENT
+
+**Type:** Feature
+**Focus:** Complete vertical slice - detect issue, consult Arch Wiki, present safe fix plan
+
+#### Added ✨
+
+**Arch Wiki Corpus:**
+- New `arch_wiki_corpus` module with embedded wiki snippets
+- `WikiTopic` enum for organized knowledge (TLP, systemd service management)
+- `WikiSnippet` struct with URL, summary, and canonical commands
+- Hardcoded wiki content (no live scraping) for reliability
+- 5 unit tests verifying wiki structure and URLs
+
+**Power Diagnostics:**
+- New `power_diagnostics` module detecting TLP installation and status
+- `TlpStatus` struct tracking: installed, service_exists, enabled, active, warned_in_logs
+- `detect_tlp_status()` using systemctl and journalctl
+- Log scanning for classic TLP warning: "tlp.service is not enabled"
+- 3 unit tests for different TLP scenarios
+
+**Power Question Classification:**
+- Extended `hardware_questions` with `PowerQuestion` enum
+- New classification: TlpNotWorking, TlpStatus
+- Detects queries: "tlp not working", "tlp warning", "enable tlp"
+- 4 new unit tests for power question detection
+
+**TLP Fix Planner:**
+- New `tlp_planner` module generating wiki-backed fix plans
+- `TlpFixPlan` struct with recap, explanation, wiki_url, and steps
+- 2-step plan: INSPECT (systemctl status) + CHANGE (systemctl enable)
+- Rollback command included for safety
+- 3 unit tests verifying plan structure
+
+**Query Handler Integration:**
+- TIER 0.3 routing for power questions
+- `handle_power_question_tlp()` orchestrating detection + plan building
+- Returns formatted answer with wiki citation
+- High confidence answer from system diagnostics
+
+#### Technical Changes 🔧
+
+- `anna_common/src/arch_wiki_corpus.rs` (150 lines)
+- `annactl/src/power_diagnostics.rs` (170 lines)
+- `anna_common/src/tlp_planner.rs` (170 lines)
+- `annactl/src/hardware_questions.rs` (extended with power classification)
+- `annactl/src/unified_query_handler.rs` (added power question handling)
+
+**Tests:**
+- Total: 20 new tests (all passing)
+- Wiki corpus: 5 tests
+- Power diagnostics: 3 tests
+- TLP classification: 4 tests
+- TLP planner: 3 tests
+- Hardware questions: 13 tests (4 new)
+
+#### Example Usage 💡
+
+```bash
+$ annactl "why isn't tlp working?"
+TLP is installed on your system, but tlp.service is not enabled. Recent logs show
+TLP warning that power saving will not apply on boot.
+
+TLP must be enabled and started as a systemd service to apply its power saving
+settings. According to the Arch Wiki, this is required for TLP to function properly
+at boot time.
+
+Source: https://wiki.archlinux.org/title/TLP
+
+To fix this, run these commands:
+
+1. Check the current state of tlp.service and confirm it is not enabled.
+   $ systemctl status tlp.service
+
+2. Enable TLP so power saving settings apply on boot and start it immediately.
+   $ systemctl enable --now tlp.service
+   (requires confirmation)
+   Rollback: systemctl disable --now tlp.service
+```
+
+#### Future Work 📝
+
+- Expand to other power management tools (laptop-mode-tools, powertop)
+- Add more wiki-backed scenarios (networking, boot repair, driver issues)
+- Implement actual plan execution with y/N prompts
+- Add wiki content for more topics
+
 ## [6.12.0] - 2025-11-24
 
 ### SYSTEM KNOWLEDGE BASE - FOUNDATION

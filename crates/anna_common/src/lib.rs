@@ -9,11 +9,13 @@ pub mod advice_cache;
 pub mod anna_hardware_profile; // 6.11.0: Hardware profile tracking and LLM recommendations
 pub mod anna_self_health; // 6.11.0: Anna self-health checks (deps, permissions, LLM)
 pub mod answer_validator; // Beta.87: Multi-pass answer validation - zero hallucination guarantee
+pub mod arch_wiki_corpus; // 6.13.0: Local embedded Arch Wiki snippets for concrete fixes
 pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
 pub mod backup_detection; // Backup tool detection (timeshift, snapper, borg, restic)
 pub mod beautiful;
 pub mod boot; // Boot system detection (UEFI/BIOS, Secure Boot, bootloader)
 pub mod caretaker_brain; // Core analysis engine - ties everything together
+pub mod command_intelligence; // 6.15.0: Dynamic command derivation (CIL)
 pub mod categories;
 pub mod change_log; // Phase 5.1: Change logging and rollback
 pub mod change_log_db; // Phase 5.1: SQLite persistence for change logs
@@ -94,6 +96,7 @@ pub mod systemd_health; // Systemd health detection (failed units, timers, journ
 pub mod telemetry; // Telemetry structures from annad
 pub mod template_library; // Beta.90: Pre-built templates for common operations
 pub mod terminal_format; // Phase 8: Beautiful terminal formatting
+pub mod tlp_planner; // 6.13.0: TLP fix planner - wiki-backed TLP enablement
 pub mod trend_detectors; // Milestone 1.3: Trend-based detection and proactive warnings
 pub mod types;
 pub mod updater;

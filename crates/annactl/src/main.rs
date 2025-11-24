@@ -33,6 +33,7 @@ mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, log
 mod net_diagnostics; // Beta.265: Proactive network diagnostics engine
 mod dialogue_v3_json;
 mod first_run;
+mod hardware_questions; // 6.12.1: Knowledge-first hardware answers
 mod health;
 mod help_commands;
 mod historian_cli; // Simplified - basic history only
@@ -46,6 +47,7 @@ mod model_catalog;
 mod model_setup_wizard;
 mod output;
 mod personality_commands; // Simplified - core traits only
+mod power_diagnostics; // 6.13.0: TLP and power management diagnostics
 mod query_handler;
 mod reflection_helper; // 6.7.0: Client-side reflection building
 mod recipe_formatter;

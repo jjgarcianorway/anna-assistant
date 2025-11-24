@@ -510,6 +510,15 @@ pub struct SystemKnowledgeData {
     pub total_ram_gib: u64,
     pub cpu_cores: u64,
     pub last_updated_secs: u64,
+    // 6.12.1: Hardware profile
+    pub hw_cpu_model: Option<String>,
+    pub hw_cpu_physical_cores: Option<u64>,
+    pub hw_cpu_logical_cores: Option<u64>,
+    pub hw_gpu_model: Option<String>,
+    pub hw_gpu_type: Option<String>,
+    pub hw_sound_devices: Vec<String>,
+    pub hw_total_ram_bytes: Option<u64>,
+    pub hw_machine_model: Option<String>,
 }
 
 /// Reflection summary data for RPC (6.7.0)

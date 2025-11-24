@@ -57,12 +57,13 @@ impl SystemKnowledgeManager {
     pub fn snapshot_now(&mut self) -> Result<SystemKnowledgeBase> {
         info!("Taking fresh system knowledge snapshot");
 
-        let mut kb = SystemKnowledgeBase {
+        let kb = SystemKnowledgeBase {
             services: scan_services()?,
             packages: scan_packages()?,
             config_files: scan_config_files()?,
             wallpaper: scan_wallpaper_profile()?,
             usage: scan_usage_profile()?,
+            hardware: scan_hardware_profile()?,  // 6.12.1
             last_updated: SystemTime::now(),
         };
 
@@ -358,6 +359,218 @@ fn scan_usage_profile() -> Result<SystemUsageProfile> {
         total_ram_bytes,
         last_seen_processes,
     })
+}
+
+/// Scan hardware profile - 6.12.1
+fn scan_hardware_profile() -> Result<HardwareProfile> {
+    debug!("Scanning hardware profile");
+
+    // CPU info from lscpu
+    let (cpu_model, cpu_physical_cores, cpu_logical_cores) = scan_cpu_info();
+
+    // GPU info from lspci
+    let (gpu_model, gpu_type) = scan_gpu_info();
+
+    // Sound devices from lspci
+    let sound_devices = scan_sound_devices();
+
+    // RAM from /proc/meminfo
+    let total_ram_bytes = scan_total_ram();
+
+    // Machine model from DMI
+    let machine_model = scan_machine_model();
+
+    Ok(HardwareProfile {
+        cpu_model,
+        cpu_physical_cores,
+        cpu_logical_cores,
+        gpu_model,
+        gpu_type,
+        sound_devices,
+        total_ram_bytes,
+        machine_model,
+    })
+}
+
+/// Scan CPU information using lscpu
+fn scan_cpu_info() -> (Option<String>, Option<u64>, Option<u64>) {
+    let output = Command::new("lscpu").output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let mut model = None;
+            let mut physical_cores = None;
+            let mut logical_cores = None;
+
+            for line in text.lines() {
+                if line.starts_with("Model name:") {
+                    model = line.split(':').nth(1).map(|s| s.trim().to_string());
+                } else if line.starts_with("CPU(s):") {
+                    if let Some(val) = line.split(':').nth(1) {
+                        logical_cores = val.trim().parse::<u64>().ok();
+                    }
+                } else if line.starts_with("Core(s) per socket:") {
+                    if let Some(val) = line.split(':').nth(1) {
+                        if let Ok(cores_per_socket) = val.trim().parse::<u64>() {
+                            // Try to get socket count
+                            physical_cores = Some(cores_per_socket);
+                        }
+                    }
+                } else if line.starts_with("Socket(s):") {
+                    if let Some(val) = line.split(':').nth(1) {
+                        if let Ok(sockets) = val.trim().parse::<u64>() {
+                            if let Some(cores) = physical_cores {
+                                physical_cores = Some(cores * sockets);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return (model, physical_cores, logical_cores);
+        }
+    }
+
+    // Fallback to /proc/cpuinfo
+    if let Ok(contents) = fs::read_to_string("/proc/cpuinfo") {
+        let model = contents
+            .lines()
+            .find(|line| line.starts_with("model name"))
+            .and_then(|line| line.split(':').nth(1))
+            .map(|s| s.trim().to_string());
+
+        let logical_cores = contents
+            .lines()
+            .filter(|line| line.starts_with("processor"))
+            .count() as u64;
+
+        return (model, None, Some(logical_cores));
+    }
+
+    (None, None, None)
+}
+
+/// Scan GPU information using lspci
+fn scan_gpu_info() -> (Option<String>, Option<String>) {
+    let output = Command::new("lspci").output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+
+            // Look for VGA or 3D controller
+            for line in text.lines() {
+                if line.contains("VGA compatible controller") || line.contains("3D controller") {
+                    // Extract GPU model
+                    if let Some(desc_start) = line.find(':') {
+                        let desc = &line[desc_start + 1..].trim();
+                        let model = desc.to_string();
+
+                        // Classify as integrated or discrete
+                        let gpu_type = classify_gpu_type(&model);
+
+                        return (Some(model.to_string()), Some(gpu_type));
+                    }
+                }
+            }
+        }
+    }
+
+    (None, None)
+}
+
+/// Classify GPU as integrated, discrete, or unknown
+fn classify_gpu_type(model: &str) -> String {
+    let model_lower = model.to_lowercase();
+
+    // Integrated indicators
+    if model_lower.contains("integrated")
+        || model_lower.contains("uhd graphics")
+        || model_lower.contains("iris xe")
+        || model_lower.contains("iris plus")
+        || model_lower.contains("radeon graphics")  // APU integrated
+        || model_lower.contains("vega")  // APU integrated
+        || (model_lower.contains("intel") && !model_lower.contains("arc"))
+    {
+        return "integrated".to_string();
+    }
+
+    // Discrete indicators
+    if model_lower.contains("nvidia")
+        || model_lower.contains("geforce")
+        || model_lower.contains("quadro")
+        || model_lower.contains("radeon rx")
+        || model_lower.contains("radeon pro")
+        || model_lower.contains("arc ")  // Intel Arc discrete GPUs
+    {
+        return "discrete".to_string();
+    }
+
+    "unknown".to_string()
+}
+
+/// Scan sound devices using lspci
+fn scan_sound_devices() -> Vec<String> {
+    let output = Command::new("lspci").output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let mut devices = Vec::new();
+
+            for line in text.lines() {
+                if line.contains("Audio device") || line.contains("Audio controller") {
+                    if let Some(desc_start) = line.find(':') {
+                        let desc = &line[desc_start + 1..].trim();
+                        devices.push(desc.to_string());
+                    }
+                }
+            }
+
+            return devices;
+        }
+    }
+
+    Vec::new()
+}
+
+/// Scan total RAM from /proc/meminfo
+fn scan_total_ram() -> Option<u64> {
+    if let Ok(contents) = fs::read_to_string("/proc/meminfo") {
+        for line in contents.lines() {
+            if line.starts_with("MemTotal:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    if let Ok(kb) = parts[1].parse::<u64>() {
+                        return Some(kb * 1024); // Convert KB to bytes
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Scan machine model from DMI
+fn scan_machine_model() -> Option<String> {
+    // Try /sys/class/dmi/id/product_name
+    if let Ok(product) = fs::read_to_string("/sys/class/dmi/id/product_name") {
+        let trimmed = product.trim();
+        if !trimmed.is_empty() && trimmed != "To be filled by O.E.M." {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    // Try /sys/class/dmi/id/board_name as fallback
+    if let Ok(board) = fs::read_to_string("/sys/class/dmi/id/board_name") {
+        let trimmed = board.trim();
+        if !trimmed.is_empty() && trimmed != "To be filled by O.E.M." {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    None
 }
 
 /// Default path for the knowledge file

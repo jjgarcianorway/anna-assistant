@@ -183,7 +183,8 @@ async fn handle_tui_query_with_streaming(
     use std::sync::Arc;
 
     // Build conversational prompt
-    let prompt = crate::unified_query_handler::build_conversational_prompt_for_tui(user_text, telemetry);
+    // 6.12.2: TUI doesn't pass knowledge (legacy code, not a priority)
+    let prompt = crate::unified_query_handler::build_conversational_prompt_for_tui(user_text, telemetry, None);
 
     // Create LLM client
     let client = Arc::new(LlmClient::from_config(llm_config)
