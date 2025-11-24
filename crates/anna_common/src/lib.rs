@@ -105,7 +105,10 @@ pub mod types;
 pub mod updater;
 pub mod user_behavior; // User behavior pattern detection (commands, resources, development, gaming, security)
 pub mod virtualization;
-pub mod voltage_monitoring; // Voltage monitoring and anomaly detection // Virtualization and containerization (KVM, Docker, libvirt)
+pub mod voltage_monitoring; // Voltage monitoring and anomaly detection
+pub mod wiki_llm; // 6.23.0: LLM integration for wiki reasoning
+pub mod wiki_reasoner; // 6.23.0: Wiki Reasoning Engine - core types and pipeline
+pub mod wiki_topics; // 6.23.0: Wiki topic classification and metadata
 
 pub use advice_cache::*;
 pub use beautiful::*;

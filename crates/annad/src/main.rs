@@ -112,6 +112,7 @@ mod telemetry;
 mod update_manager; // 6.22.0: Background auto-update system
 mod watcher;
 mod wiki_cache;
+mod wiki_client; // 6.23.0: Arch Wiki fetch and cache
 
 use anyhow::{Context as AnyhowContext, Result};
 use anna_common::SystemFacts;

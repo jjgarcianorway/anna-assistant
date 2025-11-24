@@ -256,6 +256,50 @@ pub async fn handle_unified_query(
         }
     }
 
+    // TIER 0.4: 6.23.0 Wiki Reasoning Engine
+    // LLM-powered reasoning using Arch Wiki content + system telemetry
+    // Topics: Power Management, Disk Space, Boot Performance, Networking, GPU Stack
+    use anna_common::wiki_topics;
+    use anna_common::wiki_reasoner::{reason_with_wiki, WikiReasonerConfig, WikiError};
+
+    // Check if question matches a wiki topic
+    if let Some(topic_match) = wiki_topics::classify_wiki_topic(user_text) {
+        if topic_match.confidence >= 0.6 {
+            // Try to get system knowledge
+            if let Ok(knowledge) = try_get_system_knowledge().await {
+                let cfg = WikiReasonerConfig::default();
+
+                // Call wiki reasoning engine
+                match reason_with_wiki(user_text, telemetry, &knowledge, &cfg).await {
+                    Ok(advice) => {
+                        // Format the advice
+                        let formatted = format_wiki_advice(&advice);
+
+                        // Extract citation URLs
+                        let sources: Vec<String> = advice
+                            .citations
+                            .iter()
+                            .map(|c| format!("Arch Wiki: {}", c.url))
+                            .collect();
+
+                        return Ok(UnifiedQueryResult::ConversationalAnswer {
+                            answer: formatted,
+                            confidence: AnswerConfidence::High,
+                            sources,
+                        });
+                    }
+                    Err(WikiError::NoRelevantTopic) => {
+                        // Fall through to next tier
+                    }
+                    Err(e) => {
+                        // Log error and fall through
+                        eprintln!("Wiki reasoning error: {}", e);
+                    }
+                }
+            }
+        }
+    }
+
     // TIER 0.5: Beta.238 Full Diagnostic Routing (natural language → brain diagnostics)
     // Detects "run a full diagnostic", "check my system health", "show any problems"
     // Routes directly to internal diagnostic engine (same as hidden brain command)
@@ -2456,6 +2500,76 @@ async fn handle_power_question_tlp(question: hardware_questions::PowerQuestion) 
     }
 }
 
+/// 6.23.0: Format WikiAdvice for CLI display
+///
+/// Converts WikiAdvice structure into human-readable text with:
+/// - Summary section
+/// - Numbered steps with commands
+/// - Caution warnings (⚠️)
+/// - Notes section
+/// - Wiki citations
+fn format_wiki_advice(advice: &anna_common::wiki_reasoner::WikiAdvice) -> String {
+    use std::fmt::Write;
+
+    let mut output = String::new();
+
+    // Summary section
+    writeln!(output, "[SUMMARY]").unwrap();
+    writeln!(output, "{}", advice.summary).unwrap();
+    writeln!(output).unwrap();
+
+    // Steps section
+    if !advice.steps.is_empty() {
+        writeln!(output, "[STEPS]").unwrap();
+        for (idx, step) in advice.steps.iter().enumerate() {
+            writeln!(output, "{}. {}", idx + 1, step.title).unwrap();
+            writeln!(output, "   {}", step.description).unwrap();
+
+            // Commands
+            if !step.commands.is_empty() {
+                writeln!(output).unwrap();
+                for cmd in &step.commands {
+                    writeln!(output, "   $ {}", cmd).unwrap();
+                }
+            }
+
+            // Caution warning
+            if let Some(ref caution) = step.caution {
+                writeln!(output).unwrap();
+                writeln!(output, "   ⚠️  {}", caution).unwrap();
+            }
+
+            writeln!(output).unwrap();
+        }
+    }
+
+    // Notes section
+    if !advice.notes.is_empty() {
+        writeln!(output, "[NOTES]").unwrap();
+        for note in &advice.notes {
+            writeln!(output, "• {}", note).unwrap();
+        }
+        writeln!(output).unwrap();
+    }
+
+    // Citations section
+    if !advice.citations.is_empty() {
+        writeln!(output, "[REFERENCES]").unwrap();
+        for citation in &advice.citations {
+            if let Some(ref section) = citation.section {
+                writeln!(output, "• {} - {}", citation.url, section).unwrap();
+            } else {
+                writeln!(output, "• {}", citation.url).unwrap();
+            }
+            if let Some(ref note) = citation.note {
+                writeln!(output, "  {}", note).unwrap();
+            }
+        }
+    }
+
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2508,5 +2622,101 @@ mod tests {
         assert!(!is_full_diagnostic_query("check disk space"));
         assert!(!is_full_diagnostic_query("health insurance"));  // "health" alone shouldn't trigger
         assert!(!is_full_diagnostic_query("system update"));     // "system" alone shouldn't trigger
+    }
+
+    #[test]
+    fn test_format_wiki_advice() {
+        use anna_common::wiki_reasoner::{WikiAdvice, WikiStep, WikiCitation};
+
+        // Create test WikiAdvice
+        let advice = WikiAdvice {
+            summary: "Test summary explaining the situation".to_string(),
+            steps: vec![
+                WikiStep {
+                    title: "First step".to_string(),
+                    description: "Description of first step".to_string(),
+                    commands: vec!["command1".to_string(), "command2".to_string()],
+                    caution: Some("Be careful with this".to_string()),
+                },
+                WikiStep {
+                    title: "Second step".to_string(),
+                    description: "Description of second step".to_string(),
+                    commands: vec!["command3".to_string()],
+                    caution: None,
+                },
+            ],
+            notes: vec![
+                "First helpful note".to_string(),
+                "Second helpful note".to_string(),
+            ],
+            citations: vec![
+                WikiCitation {
+                    url: "https://wiki.archlinux.org/title/Test".to_string(),
+                    section: Some("Section A".to_string()),
+                    note: Some("Useful info here".to_string()),
+                },
+                WikiCitation {
+                    url: "https://wiki.archlinux.org/title/Test2".to_string(),
+                    section: None,
+                    note: None,
+                },
+            ],
+        };
+
+        let formatted = format_wiki_advice(&advice);
+
+        // Verify structure
+        assert!(formatted.contains("[SUMMARY]"));
+        assert!(formatted.contains("Test summary explaining the situation"));
+        assert!(formatted.contains("[STEPS]"));
+        assert!(formatted.contains("1. First step"));
+        assert!(formatted.contains("2. Second step"));
+        assert!(formatted.contains("$ command1"));
+        assert!(formatted.contains("$ command2"));
+        assert!(formatted.contains("$ command3"));
+        assert!(formatted.contains("⚠️  Be careful with this"));
+        assert!(formatted.contains("[NOTES]"));
+        assert!(formatted.contains("• First helpful note"));
+        assert!(formatted.contains("• Second helpful note"));
+        assert!(formatted.contains("[REFERENCES]"));
+        assert!(formatted.contains("https://wiki.archlinux.org/title/Test"));
+        assert!(formatted.contains("Section A"));
+        assert!(formatted.contains("Useful info here"));
+        assert!(formatted.contains("https://wiki.archlinux.org/title/Test2"));
+    }
+
+    #[test]
+    fn test_format_wiki_advice_minimal() {
+        use anna_common::wiki_reasoner::{WikiAdvice, WikiStep, WikiCitation};
+
+        // Minimal advice with required fields only
+        let advice = WikiAdvice {
+            summary: "Minimal summary".to_string(),
+            steps: vec![
+                WikiStep {
+                    title: "Only step".to_string(),
+                    description: "Single step description".to_string(),
+                    commands: vec![],
+                    caution: None,
+                },
+            ],
+            notes: vec![],
+            citations: vec![
+                WikiCitation {
+                    url: "https://wiki.archlinux.org/title/Minimal".to_string(),
+                    section: None,
+                    note: None,
+                },
+            ],
+        };
+
+        let formatted = format_wiki_advice(&advice);
+
+        assert!(formatted.contains("[SUMMARY]"));
+        assert!(formatted.contains("Minimal summary"));
+        assert!(formatted.contains("[STEPS]"));
+        assert!(formatted.contains("1. Only step"));
+        assert!(!formatted.contains("[NOTES]")); // Should not appear when empty
+        assert!(formatted.contains("[REFERENCES]"));
     }
 }
