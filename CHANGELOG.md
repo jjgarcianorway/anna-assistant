@@ -7,6 +7,160 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.25.0] - 2025-11-24
+
+### SERVICE RELIABILITY & DEGRADED-UNIT CORRELATION
+
+**Type:** Major Feature
+**Focus:** Proactive service health monitoring with cross-subsystem correlation
+
+#### Added ✨
+
+**7 New Insight Detectors:**
+1. **Service Flapping Detection** - Identifies restart loops (rapid restart/crash cycles)
+   - Critical: 5+ restarts/crashes within timeframe
+   - Warning: 3-4 restarts/crashes
+   - Tracks event timing and frequency patterns
+
+2. **Degraded Unit Detection** - Finds failed systemd services after boot
+   - Critical: 3+ failed system services
+   - Warning: Single failed service
+   - Filters out user@ units and template instances
+
+3. **User Service Failures** - Monitors `systemctl --user` for failures
+   - Info: Reports failed user-level services
+   - Detects desktop environment and application service issues
+
+4. **Timer Reliability** - Identifies disabled essential timers
+   - Warning: fstrim, reflector, paccache, tmpfiles-clean not running
+   - Prevents disk space issues and outdated mirrors
+
+5. **Disk→Service Correlation** - Links disk pressure to service crashes
+   - Critical: >85% disk usage + service crashes detected
+   - Explains failure root cause: insufficient space for logs/databases
+   - Actionable: "clean up disk space and restart services"
+
+6. **Network→Service Correlation** - Connects network issues to service restarts
+   - Warning: >200ms latency + network service restarts
+   - Identifies connectivity issues affecting system services
+   - Filters for network-dependent services (NetworkManager, dhcp, dns, resolved)
+
+7. **Boot+Service Correlation** - Root cause analysis for boot regressions
+   - Critical: Boot time increasing (Up trend) + failed services
+   - Suggests dependency chain issues or broken service ordering
+   - Evidence: boot metrics + failed unit list + trend analysis
+
+**Historian Extensions:**
+- `get_service_restart_trends(days)` - Track restart/crash events per service over time
+- `detect_flapping_services(hours)` - Identify services with 3+ restart/crash cycles
+- `get_network_trends(hours)` - Aggregate network quality metrics across interfaces
+
+**New Data Structures:**
+```rust
+pub struct ServiceRestartTrend {
+    pub service_name: String,
+    pub restart_count: usize,
+    pub crash_count: usize,
+    pub total_events: usize,
+    pub first_event: DateTime<Utc>,
+    pub last_event: DateTime<Utc>,
+}
+
+pub struct FlappingService {
+    pub service_name: String,
+    pub event_count: usize,
+    pub first_event: DateTime<Utc>,
+    pub last_event: DateTime<Utc>,
+}
+```
+
+#### Technical
+
+**Integration:**
+- All 7 detectors integrated into `InsightsEngine::generate_insights()`
+- Insights displayed via `annactl status` (existing `display_insights()`)
+- Graceful fallback when Historian DB doesn't exist
+- No LLM required - pure rules-based telemetry analysis
+
+**Robustness:**
+- All detectors handle sparse data gracefully (return `Ok(None)`)
+- Network trends return neutral defaults when no data exists
+- Empty checks on all collections before processing
+- Schema backward-compatible (no database migrations needed)
+
+**Performance:**
+- Status command latency: ~700ms (acceptable)
+- No impact on daemon startup
+- No changes to unified_query_handler
+- No extra CLI commands introduced
+
+#### Testing
+
+**Unit Tests:** 16 passing (7 existing + 9 new v6.25.0 tests)
+- `test_service_flapping_insight_critical` - Validates critical flapping detection
+- `test_degraded_unit_insight_warning` - Single failed service warning
+- `test_degraded_units_critical_multiple` - Multiple failed services critical
+- `test_user_service_failures_info` - User service info insights
+- `test_timer_issues_warning` - Essential timer warnings
+- `test_disk_service_correlation_critical` - Disk→service correlation
+- `test_network_service_correlation_warning` - Network→service correlation
+- `test_boot_service_correlation_critical` - Boot+service correlation
+- `test_insight_sorting_by_severity` - Severity-based sorting
+
+**Deterministic Behavior:**
+- All detectors are rules-based (no LLM, no randomness)
+- Evidence and suggestions are statically defined
+- Thresholds are fixed numeric values
+- Sorting by severity is consistent
+
+#### Example Output
+
+```
+Recent Insights:
+
+🚨 Service Restart Loop Detected (Critical)
+   Critical instability detected: foo.service (5 events). These services are in restart loops.
+   • foo.service: 5 restarts/crashes in 10 minutes
+   → Run 'annactl "diagnose service crashes"' to investigate root causes
+
+⚠️ Disk Pressure Causing Service Failures (Critical)
+   Root filesystem is 92% full, and 2 services have crashed recently (foo.service, bar.service).
+   Services may be failing due to insufficient disk space for logs, temporary files, or databases.
+   • Disk usage: 92%
+   • 2 services with crashes
+   • Growth rate: 0.50 GB/day
+   → Run 'annactl "clean up disk space"' immediately and restart failed services
+
+⚠️ Essential Timers Not Running (Warning)
+   System maintenance timers are not active: fstrim.timer. This may lead to disk space issues.
+   • fstrim.timer: enabled=false, active=false
+   → Enable and start timers with 'sudo systemctl enable --now <timer>'
+```
+
+#### Impact
+
+**Before v6.25.0:**
+- Anna detected service failures reactively (only when user asked)
+- No correlation between subsystems
+- No explanation of root causes
+- User had to manually investigate service issues
+
+**After v6.25.0:**
+- Anna detects service failures proactively (before user notices)
+- Cross-subsystem correlation explains why services fail
+- Evidence-backed root cause analysis (disk→service, network→service, boot→service)
+- Actionable suggestions with specific commands
+
+**Key Evolution:**
+- From reactive diagnostics → proactive monitoring
+- From isolated metrics → correlated insights
+- From "what happened" → "why it happened"
+- From generic advice → specific actionable commands
+
+This release moves Anna closer to the vision: "the first AI sysadmin that behaves like a seasoned engineer instead of a chatbot."
+
+---
+
 ## [6.24.0] - 2025-11-24
 
 ### HISTORICAL METRICS & INSIGHT ENGINE
