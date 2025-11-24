@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.11.2] - 2025-11-24
+
+### REFLECTION STALENESS FIX
+
+**Type:** Bug Fix
+**Focus:** Proper monitoring - verify issues still exist before showing
+
+#### Fixed 🐛
+
+**Reflection System:**
+- Reflection now verifies issues are still present before displaying warnings
+- Checks if systemd services mentioned in log errors are actually still disabled/failed
+- Prevents showing stale warnings for resolved issues (e.g., "tlp.service is not enabled" after enabling it)
+- Added verification for "service not enabled" and "service failed" errors
+
+**How It Works:**
+- Extracts service name from error message
+- Runs `systemctl is-enabled` or `systemctl is-active` to verify current state
+- Only shows reflection item if issue persists
+
+#### Technical Changes 🔧
+
+- `reflection_helper.rs`: Added `is_issue_still_present()` and `extract_service_name_from_message()`
+- Verification happens before displaying each reflection item
+- Supports both ".service" explicit names and implicit service names
+
 ## [6.11.1] - 2025-11-24
 
 ### UX IMPROVEMENTS

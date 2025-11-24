@@ -161,6 +161,11 @@ fn extract_journal_errors(items: &mut Vec<ReflectionItemData>) {
                         continue; // Skip this error, it's noise
                     }
 
+                    // 6.11.2: Verify issue still exists before showing
+                    if !is_issue_still_present(&error_info) {
+                        continue; // Issue was resolved, don't show stale warning
+                    }
+
                     // Deduplicate by creating a key from service + message prefix
                     let key = format!("{}:{}", error_info.service, &error_info.message[..error_info.message.len().min(50)]);
                     if seen_errors.insert(key) && items.len() < 3 {
@@ -237,6 +242,85 @@ fn parse_journal_line(line: &str) -> Option<JournalError> {
         timestamp: timestamp_str,
         parsed_timestamp,
     })
+}
+
+/// 6.11.2: Verify if the reported issue still exists
+///
+/// Returns true if the issue is still present and should be shown.
+/// Returns false if the issue has been resolved.
+fn is_issue_still_present(error: &JournalError) -> bool {
+    use std::process::Command;
+
+    // Check for "service is not enabled" errors
+    if error.message.contains("is not enabled") || error.message.contains("not enabled") {
+        // Extract service name from message (e.g., "tlp.service is not enabled")
+        if let Some(service_name) = extract_service_name_from_message(&error.message) {
+            // Check if service is now enabled
+            if let Ok(output) = Command::new("systemctl")
+                .args(&["is-enabled", &service_name])
+                .output()
+            {
+                if output.status.success() {
+                    let status = String::from_utf8_lossy(&output.stdout);
+                    // If service is enabled or static, the issue is resolved
+                    if status.trim() == "enabled" || status.trim() == "static" {
+                        return false; // Issue resolved, don't show
+                    }
+                }
+            }
+        }
+    }
+
+    // Check for "service failed" or "service is failed" errors
+    if error.message.contains("failed") && (error.service.ends_with(".service") || error.message.contains(".service")) {
+        let service_name = if error.service.ends_with(".service") {
+            error.service.clone()
+        } else {
+            extract_service_name_from_message(&error.message).unwrap_or_default()
+        };
+
+        if !service_name.is_empty() {
+            // Check current service status
+            if let Ok(output) = Command::new("systemctl")
+                .args(&["is-active", &service_name])
+                .output()
+            {
+                if output.status.success() {
+                    let status = String::from_utf8_lossy(&output.stdout);
+                    // If service is active, the issue is resolved
+                    if status.trim() == "active" {
+                        return false; // Issue resolved, don't show
+                    }
+                }
+            }
+        }
+    }
+
+    // Default: assume issue still present
+    true
+}
+
+/// Extract service name from error message
+fn extract_service_name_from_message(message: &str) -> Option<String> {
+    // Look for patterns like "tlp.service" or "tlp service"
+    let words: Vec<&str> = message.split_whitespace().collect();
+    for word in words {
+        if word.ends_with(".service") {
+            return Some(word.to_string());
+        }
+    }
+    // Try to find service name before "is not enabled" or "service"
+    if let Some(pos) = message.find("is not enabled") {
+        let before = &message[..pos].trim();
+        let words: Vec<&str> = before.split_whitespace().collect();
+        if let Some(last_word) = words.last() {
+            // If it doesn't end with .service, add it
+            if !last_word.ends_with(".service") {
+                return Some(format!("{}.service", last_word));
+            }
+        }
+    }
+    None
 }
 
 /// 6.8.x: Filter out known kernel/hardware noise
