@@ -6,6 +6,8 @@
 pub mod action_plan; // Beta.66: Secure ACTION_PLAN execution with validation
 pub mod action_plan_v3; // Beta.143: JSON runtime contract for LLM
 pub mod advice_cache;
+pub mod anna_hardware_profile; // 6.11.0: Hardware profile tracking and LLM recommendations
+pub mod anna_self_health; // 6.11.0: Anna self-health checks (deps, permissions, LLM)
 pub mod answer_validator; // Beta.87: Multi-pass answer validation - zero hallucination guarantee
 pub mod audio; // Audio system detection (PipeWire, Pulse, ALSA)
 pub mod backup_detection; // Backup tool detection (timeshift, snapper, borg, restic)

@@ -232,6 +232,79 @@ pub async fn execute_anna_status_command(
     }
     println!();
 
+    // 6.11.0: Anna Self-Health
+    println!(
+        "{}",
+        fmt::section_title(&fmt::emojis::SERVICE, "Anna Self-Health")
+    );
+    println!();
+
+    let self_health = anna_common::anna_self_health::check_anna_self_health();
+
+    if self_health.deps_ok && self_health.permissions_ok && self_health.llm_ok {
+        println!("  {} {}", fmt::emojis::SUCCESS, "All dependencies, permissions, and LLM backend are healthy");
+    } else {
+        // Show issues
+        if !self_health.deps_ok {
+            println!("  {} {}", fmt::emojis::WARNING, "Missing dependencies:");
+            for dep in &self_health.missing_deps {
+                println!("    {} {}", fmt::symbols::ARROW, dep);
+            }
+        }
+
+        if !self_health.permissions_ok {
+            println!("  {} {}", fmt::emojis::WARNING, "Permission issues:");
+            for issue in &self_health.missing_permissions {
+                println!("    {} {}", fmt::symbols::ARROW, issue);
+            }
+        }
+
+        if !self_health.llm_ok {
+            println!("  {} LLM: {}", fmt::emojis::WARNING, self_health.llm_details);
+        }
+    }
+
+    println!();
+
+    // 6.11.0: Hardware Profile and LLM Recommendation
+    let current_hw = anna_common::anna_hardware_profile::detect_current_hardware();
+    if let Some(previous_hw) = anna_common::anna_hardware_profile::AnnaHardwareProfile::read() {
+        // Check for hardware changes
+        if let Some(changes) = anna_common::anna_hardware_profile::compare_profiles(&previous_hw, &current_hw) {
+            println!(
+                "{}",
+                fmt::section_title(&fmt::emojis::INFO, "Hardware Changes Detected")
+            );
+            println!();
+            println!("  {} {}", fmt::emojis::INFO, changes);
+            println!();
+        }
+
+        // Check LLM recommendation
+        let recommended_model = anna_common::anna_hardware_profile::recommend_llm_model(
+            current_hw.total_ram_gib,
+            current_hw.cpu_cores,
+        );
+
+        // Get currently configured model (try to read from context.db)
+        let current_model = previous_hw.last_llm_model;
+
+        if !current_model.is_empty() && recommended_model != current_model {
+            println!(
+                "{}",
+                fmt::section_title(&fmt::emojis::INFO, "LLM Model Recommendation")
+            );
+            println!();
+            println!("  Current model: {}", current_model);
+            println!("  Recommended model: {} (based on {} GiB RAM, {} cores)",
+                     recommended_model, current_hw.total_ram_gib, current_hw.cpu_cores);
+            println!();
+            println!("  {} This is advisory only - Anna will not change your config automatically", fmt::emojis::INFO);
+            println!("  To change, update your LLM config or run: ollama pull {}", recommended_model);
+            println!();
+        }
+    }
+
     // Beta.141: Enhanced repair display
     if let Some(repair) = &health.last_repair {
         println!(

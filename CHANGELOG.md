@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.11.0] - 2025-11-24
+
+### ANNA SELF-HEALTH & LLM AUTOTUNING
+
+**Type:** Feature
+**Focus:** Anna monitors herself and adapts to hardware
+
+#### Added ✨
+
+**Self-Health Checks:**
+- New `anna_self_health` module checks dependencies, permissions, and LLM backend
+- Detects missing tools: systemctl, journalctl, ps, df, ip
+- Verifies journal access and data directory permissions
+- Checks Ollama service status and model availability
+- Displayed in `annactl status` under "Anna Self-Health" section
+- Detection only - no auto-installation in 6.11.0
+
+**Hardware Profile Tracking:**
+- New `anna_hardware_profile` module tracks RAM/CPU changes over time
+- Persisted to `/var/lib/anna/hardware_profile.json` (or ~/.local/share/anna/)
+- Detects significant changes (±8 GiB RAM, ±4 CPU cores)
+- Shows hardware upgrades/downgrades in status command
+
+**LLM Model Recommendations:**
+- Advisory-only model selection based on hardware:
+  - < 8 GiB RAM → llama3.1:3b
+  - 8-31 GiB RAM → llama3.1:8b
+  - ≥ 32 GiB + ≥ 16 cores → llama3.1:70b
+- Shows recommendation in status when different from current model
+- Does NOT auto-change config (user control preserved)
+
+#### Changed 🔄
+
+**Status Output:**
+- Added "Anna Self-Health" section showing deps/permissions/LLM status
+- Added "Hardware Changes Detected" section (when applicable)
+- Added "LLM Model Recommendation" section (when applicable)
+
+#### Tests ✅
+- 11 new unit tests for self-health checks
+- 9 new unit tests for hardware profile and LLM recommendations
+- All 365 tests passing
+
+---
+
 ## [6.10.0] - 2025-11-24
 
 ### DESKTOP DETECTION + REFLECTION FIX
