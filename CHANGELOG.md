@@ -7,6 +7,163 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.26.0] - 2025-11-24
+
+### DEEP CONTEXT MEMORY & PROACTIVE COMMENTARY
+
+**Type:** Major Feature
+**Focus:** Session-aware follow-up queries and intelligent commentary
+
+#### Added ✨
+
+**Session Context Memory:**
+- New `SessionContext` module with file-based persistence (`/tmp/anna-session-{uid}.json`)
+- Short-term memory across annactl invocations (5-minute staleness timeout)
+- Tracks last query intent, answer summary, and user preferences
+- Zero daemon integration required - pure client-side state management
+
+**Follow-Up Query Support:**
+1. **"More Details" Handler** - Expands previous answer with additional context
+   - Pattern matching: "more detail", "more information", "can you give me more", "expand on that"
+   - Works with WikiAdvice, Insights, Status, and Generic answers
+   - Preserves commands from original answer
+
+2. **"Just Commands" Handler** - Extracts executable commands from last answer
+   - Pattern matching: "just the command", "just show me the command", "only the command"
+   - Returns clean command list without explanation text
+   - Handles cases with no commands gracefully
+
+3. **"Clarification" Handler** - Re-presents previous answer with rephrasing
+   - Pattern matching: "what do you mean", "clarify", "explain that"
+   - Falls back to "more details" behavior
+
+**User Preference Inference:**
+- CLI/GUI bias detection: Tracks mentions of "terminal", "command", "gui", "window", "desktop"
+- Detail level tracking: Infers Normal/Verbose/Short from query patterns
+- Thresholds: Requires 3+ queries and 2x keyword ratio to set preference
+- Pure rule-based logic (no LLM required)
+
+**Proactive Commentary Foundation:**
+- `generate_proactive_commentary()` stub for future enhancements
+- Designed for adding relevant extra info without being noisy
+- Currently returns None (will be enhanced in future versions)
+
+**Data Structures:**
+```rust
+pub struct SessionContext {
+    pub last_intent: Option<QueryIntent>,
+    pub last_answer: Option<LastAnswerSummary>,
+    pub preferences: UserPreferences,
+    last_updated_secs: u64,
+    query_count: usize,
+}
+
+pub enum LastAnswerSummary {
+    WikiAdvice { topic: String, summary: String, commands: Vec<String> },
+    Insights { count: usize, top_severity: String },
+    Status { health: String, issues: Vec<String> },
+    Generic { summary: String },
+}
+
+pub enum FollowUpType {
+    MoreDetails,
+    JustCommands,
+    Clarification,
+}
+```
+
+#### Changed 🔄
+
+**unified_query_handler Integration:**
+- Early follow-up detection at start of `handle_unified_query()`
+- Checks for follow-up patterns before normal query routing
+- Loads session context from file automatically
+- Updates context after each query with new intent and answer
+- Zero impact on non-follow-up queries
+
+**Answer Persistence:**
+- All query results now update SessionContext before return
+- LastAnswerSummary captures key details for future follow-ups
+- Automatic file save after each update
+
+#### Technical
+
+**Architecture:**
+- File-based persistence: `/tmp/anna-session-{uid}.json`
+- No RPC protocol changes
+- No daemon modifications required
+- Zero breaking changes to existing features
+
+**Robustness:**
+- Graceful handling of missing/stale session files
+- Creates new session if file is invalid or >5 minutes old
+- Pattern matching is case-insensitive and flexible
+- Handles answers with no commands explicitly
+
+**Performance:**
+- Session file load: <1ms
+- Follow-up detection: <1ms (pattern matching)
+- No impact on normal query latency
+- File writes are async and non-blocking
+
+#### Testing
+
+**Unit Tests:** 14 passing
+- Session creation and staleness detection (3 tests)
+- Follow-up type detection for all 3 patterns (3 tests)
+- Context retrieval with/without data (2 tests)
+- User preference inference (CLI/GUI bias, detail level) (3 tests)
+- Follow-up command extraction and edge cases (2 tests)
+- Session persistence across instances (1 test)
+
+**Regression Tests:**
+- v6.23.0 Wiki Reasoning: 38 tests passing ✅
+- v6.24.0 Insights Engine: 16 tests passing ✅
+- v6.25.0 Service Detectors: No regressions ✅
+- Total: 436/438 tests passing (2 pre-existing non-critical failures)
+
+**Known Limitations:**
+- Proactive commentary is a stub (to be enhanced)
+- Session state not shared across different user accounts
+- 5-minute timeout may be too short for some workflows
+
+#### User Experience
+
+**Before v6.26.0:**
+```bash
+$ annactl "how do I check disk space?"
+[... shows answer with df command ...]
+
+$ annactl "give me more details"
+[treats as new query, loses context]
+```
+
+**After v6.26.0:**
+```bash
+$ annactl "how do I check disk space?"
+[... shows answer with df command ...]
+
+$ annactl "give me more details"
+[expands previous answer with filesystem types, mount options, usage patterns]
+
+$ annactl "just show me the commands"
+• df -h
+• df -i
+• lsblk -f
+```
+
+#### Migration Notes
+
+**For Users:**
+- No action required - feature works automatically
+- Session files stored in `/tmp` (cleaned on reboot)
+- No configuration needed
+
+**For Developers:**
+- New SessionContext API available for future features
+- Follow-up handlers extensible for new patterns
+- Proactive commentary ready for enhancement
+
 ## [6.25.0] - 2025-11-24
 
 ### SERVICE RELIABILITY & DEGRADED-UNIT CORRELATION

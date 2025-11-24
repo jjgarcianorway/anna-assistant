@@ -107,6 +107,53 @@ pub async fn handle_unified_query(
 ) -> Result<UnifiedQueryResult> {
 
     // ========================================================================
+    // v6.26.0: Session Context - Follow-Up Detection
+    // ========================================================================
+    //
+    // Load session context and check if this is a follow-up query
+    // Follow-ups bypass normal routing and use stored context
+    //
+    use anna_common::session_context::{SessionContext, FollowUpType};
+
+    let mut session_ctx = SessionContext::load_or_new();
+
+    // Detect if this is a follow-up request
+    if let Some(followup_type) = SessionContext::detect_followup_type(user_text) {
+        // This is a follow-up - check if we have valid context
+        if let Some((_, last_answer)) = session_ctx.get_followup_context() {
+            // Clone last_answer to avoid borrow checker issues
+            let last_answer_cloned = last_answer.clone();
+
+            // Valid context exists - handle the follow-up
+            let result = match followup_type {
+                FollowUpType::MoreDetails => {
+                    handle_more_details_followup(&last_answer_cloned, &mut session_ctx, user_text).await
+                }
+                FollowUpType::JustCommands => {
+                    handle_just_commands_followup(&last_answer_cloned, &mut session_ctx, user_text).await
+                }
+                FollowUpType::Clarification => {
+                    // For clarification, we can re-run with more context
+                    // For now, treat as "more details"
+                    handle_more_details_followup(&last_answer_cloned, &mut session_ctx, user_text).await
+                }
+            };
+
+            return result;
+        } else {
+            // No valid context - return explicit message
+            return Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer: "I do not have any recent result to expand in this session. Please ask your question again.".to_string(),
+                confidence: AnswerConfidence::High,
+                sources: vec!["session context (stale or missing)".to_string()],
+            });
+        }
+    }
+
+    // Not a follow-up - continue with normal query processing
+    // ========================================================================
+
+    // ========================================================================
     // Beta.277: NL Routing Stability Rules
     // ========================================================================
     //
@@ -2568,6 +2615,217 @@ fn format_wiki_advice(advice: &anna_common::wiki_reasoner::WikiAdvice) -> String
     }
 
     output
+}
+
+// ============================================================================
+// v6.26.0: Follow-Up Handlers
+// ============================================================================
+
+/// Handle "more details" follow-up request
+async fn handle_more_details_followup(
+    last_answer: &anna_common::session_context::LastAnswerSummary,
+    session_ctx: &mut anna_common::session_context::SessionContext,
+    user_text: &str,
+) -> Result<UnifiedQueryResult> {
+    use anna_common::session_context::{LastAnswerSummary, QueryIntent};
+
+    match last_answer {
+        LastAnswerSummary::WikiAdvice { topic, summary, commands, .. } => {
+            // Expand on the WikiAdvice with more detail
+            let expanded_answer = format!(
+                "**Expanding on {}:**\n\n{}\n\n**Commands to execute:**\n{}",
+                topic,
+                summary,
+                commands.iter().enumerate()
+                    .map(|(i, cmd)| format!("{}. `{}`", i + 1, cmd))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+
+            // Update context
+            session_ctx.update_from_query(
+                QueryIntent::FollowUp {
+                    follow_up_type: anna_common::session_context::FollowUpType::MoreDetails,
+                },
+                Some(last_answer.clone()),
+                user_text,
+            );
+
+            Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer: expanded_answer,
+                confidence: AnswerConfidence::High,
+                sources: vec![format!("expanded from previous {} advice", topic)],
+            })
+        }
+        LastAnswerSummary::Insights { summary, .. } => {
+            // Show more detailed view of insights
+            let expanded = format!(
+                "**Detailed Insight Analysis:**\n\n{}\n\nFor comprehensive system analysis, run: `annactl status`",
+                summary
+            );
+
+            session_ctx.update_from_query(
+                QueryIntent::FollowUp {
+                    follow_up_type: anna_common::session_context::FollowUpType::MoreDetails,
+                },
+                Some(last_answer.clone()),
+                user_text,
+            );
+
+            Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer: expanded,
+                confidence: AnswerConfidence::High,
+                sources: vec!["expanded insights from previous query".to_string()],
+            })
+        }
+        LastAnswerSummary::Status { summary, .. } => {
+            // Re-explain status with more detail
+            let expanded = format!(
+                "**Detailed System Status:**\n\n{}\n\nFor full diagnostics, run: `annactl status`",
+                summary
+            );
+
+            session_ctx.update_from_query(
+                QueryIntent::FollowUp {
+                    follow_up_type: anna_common::session_context::FollowUpType::MoreDetails,
+                },
+                Some(last_answer.clone()),
+                user_text,
+            );
+
+            Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer: expanded,
+                confidence: AnswerConfidence::High,
+                sources: vec!["expanded status from previous query".to_string()],
+            })
+        }
+        LastAnswerSummary::Generic { summary } => {
+            // Generic expansion
+            let expanded = format!(
+                "**More Details:**\n\n{}\n\n(This is a generic expansion. For specific guidance, please ask a more targeted question.)",
+                summary
+            );
+
+            session_ctx.update_from_query(
+                QueryIntent::FollowUp {
+                    follow_up_type: anna_common::session_context::FollowUpType::MoreDetails,
+                },
+                Some(last_answer.clone()),
+                user_text,
+            );
+
+            Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer: expanded,
+                confidence: AnswerConfidence::Medium,
+                sources: vec!["expanded from previous generic answer".to_string()],
+            })
+        }
+    }
+}
+
+/// Generate proactive commentary based on context and insights
+///
+/// Rules:
+/// - At most 1 commentary block per response
+/// - Only for Critical/Warning insights related to the query
+/// - Respects detail_level preference (Short = no Info insights)
+fn generate_proactive_commentary(
+    _session_ctx: &anna_common::session_context::SessionContext,
+    primary_answer: &str,
+    _detail_level: anna_common::session_context::DetailPreference,
+) -> Option<String> {
+    // v6.26.0: Simplified proactive commentary
+    // For now, we don't have direct access to Insights Engine from annactl
+    // This will be enhanced in future versions when we have proper integration
+
+    // Check if primary answer is short and might benefit from a tip
+    if primary_answer.len() < 200 {
+        // Could add a helpful tip, but for v6.26.0 we keep it minimal
+        return None;
+    }
+
+    None
+}
+
+/// Handle "just the commands" follow-up request
+async fn handle_just_commands_followup(
+    last_answer: &anna_common::session_context::LastAnswerSummary,
+    session_ctx: &mut anna_common::session_context::SessionContext,
+    user_text: &str,
+) -> Result<UnifiedQueryResult> {
+    use anna_common::session_context::{LastAnswerSummary, QueryIntent};
+
+    match last_answer {
+        LastAnswerSummary::WikiAdvice { topic, commands, .. } => {
+            if commands.is_empty() {
+                // No commands in the previous answer
+                let answer = format!(
+                    "The previous {} advice did not contain specific commands to execute. It was informational guidance.",
+                    topic
+                );
+
+                session_ctx.update_from_query(
+                    QueryIntent::FollowUp {
+                        follow_up_type: anna_common::session_context::FollowUpType::JustCommands,
+                    },
+                    Some(last_answer.clone()),
+                    user_text,
+                );
+
+                return Ok(UnifiedQueryResult::ConversationalAnswer {
+                    answer,
+                    confidence: AnswerConfidence::High,
+                    sources: vec![format!("previous {} advice (no commands)", topic)],
+                });
+            }
+
+            // Extract and format commands only
+            let commands_list = commands.iter()
+                .map(|cmd| format!("• {}", cmd))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let answer = format!(
+                "**Commands to execute ({})**:\n\n{}",
+                topic,
+                commands_list
+            );
+
+            session_ctx.update_from_query(
+                QueryIntent::FollowUp {
+                    follow_up_type: anna_common::session_context::FollowUpType::JustCommands,
+                },
+                Some(last_answer.clone()),
+                user_text,
+            );
+
+            Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer,
+                confidence: AnswerConfidence::High,
+                sources: vec![format!("commands extracted from {} advice", topic)],
+            })
+        }
+        LastAnswerSummary::Insights { .. }
+        | LastAnswerSummary::Status { .. }
+        | LastAnswerSummary::Generic { .. } => {
+            // These types don't have executable commands
+            let answer = "The previous answer did not contain specific commands to execute. It was status/diagnostic information.".to_string();
+
+            session_ctx.update_from_query(
+                QueryIntent::FollowUp {
+                    follow_up_type: anna_common::session_context::FollowUpType::JustCommands,
+                },
+                Some(last_answer.clone()),
+                user_text,
+            );
+
+            Ok(UnifiedQueryResult::ConversationalAnswer {
+                answer,
+                confidence: AnswerConfidence::High,
+                sources: vec!["previous answer (no executable commands)".to_string()],
+            })
+        }
+    }
 }
 
 #[cfg(test)]

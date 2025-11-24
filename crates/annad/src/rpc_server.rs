@@ -140,6 +140,8 @@ pub struct DaemonState {
     pub anna_mode: Arc<tokio::sync::RwLock<crate::daemon_health::AnnaMode>>,
     /// Update Manager - background auto-update system (6.22.0)
     pub update_manager: Arc<tokio::sync::RwLock<crate::update_manager::UpdateManager>>,
+    /// Session Context - in-memory context for follow-ups (v6.26.0)
+    pub session_context: Arc<tokio::sync::RwLock<anna_common::session_context::SessionContext>>,
 }
 
 impl DaemonState {
@@ -182,6 +184,9 @@ impl DaemonState {
             config.auto_update_check,
         )?;
 
+        // v6.26.0: Initialize Session Context for follow-up queries
+        let session_context = anna_common::session_context::SessionContext::new();
+
         Ok(Self {
             version,
             start_time: std::time::Instant::now(),
@@ -202,6 +207,7 @@ impl DaemonState {
             health: Arc::new(tokio::sync::RwLock::new(health)),
             anna_mode: Arc::new(tokio::sync::RwLock::new(anna_mode)),
             update_manager: Arc::new(tokio::sync::RwLock::new(update_manager)),
+            session_context: Arc::new(tokio::sync::RwLock::new(session_context)),
         })
     }
 }

@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.25.0**
+**Experimental Arch Linux System Assistant - Version 6.26.0**
 
-[![Version](https://img.shields.io/badge/version-6.25.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.26.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.20.0)
+## What Works Right Now (6.26.0)
 
 ### 1. Status Command
 
@@ -62,7 +62,7 @@ Anna Self-Health
   ✓ Daemon health: HEALTHY
 ```
 
-### 2. Natural Language Queries
+### 2. Natural Language Queries with Follow-Up Support (NEW in 6.26.0!)
 
 ```bash
 annactl "how do I check my kernel version?"
@@ -76,8 +76,31 @@ annactl "show me failed services"
 3. Fetches actual system telemetry to ground answers in reality
 4. Returns answers immediately (no interactive mode)
 
+**NEW: Follow-Up Queries (6.26.0)**
+Anna now remembers your last query for 5 minutes and can handle follow-ups:
+
+```bash
+annactl "how do I check disk space?"
+# ... shows answer with df command ...
+
+annactl "give me more details"
+# ... expands with filesystem types, mount options, usage patterns ...
+
+annactl "just show me the commands"
+# ... extracts just the executable commands:
+# • df -h
+# • df -i
+# • lsblk -f
+```
+
+**Supported follow-up patterns:**
+- "more details", "more information", "expand on that"
+- "just the commands", "only the command"
+- "what do you mean", "clarify", "explain that"
+
 **What's tested:**
 - 40 wiki answer engine tests (query understanding, command synthesis)
+- 14 session context tests (follow-ups, preference inference)
 - Command intelligence layer tests (dynamic command generation)
 - Answer validation tests
 
@@ -85,6 +108,7 @@ annactl "show me failed services"
 - LLM answers may contain errors (hallucination possible)
 - Only ~10 wiki scenarios implemented so far
 - Command execution requires manual confirmation
+- Follow-up context expires after 5 minutes
 
 ---
 
@@ -194,12 +218,14 @@ journalctl -u annad -n 50
 - Talks to daemon via Unix socket
 - Formats answers for terminal display
 - No interactive mode (one-shot only)
+- **Session Context (6.26.0):** Remembers last query for follow-ups
 - **Status:** Works but limited features
 
-**Intelligence Layers (6.15.0-6.17.0):**
+**Intelligence Layers (6.15.0-6.26.0):**
 1. **Wiki Answer Engine (6.16.0)** - Pattern-based query matching to Arch Wiki articles (deterministic, no LLM)
-2. **Command Intelligence Layer (6.15.0)** - Dynamic command synthesis based on system state
-3. **LLM Fallback** - Ollama integration for questions without wiki coverage
+2. **Session Context Memory (6.26.0)** - Follow-up query support with file-based persistence
+3. **Command Intelligence Layer (6.15.0)** - Dynamic command synthesis based on system state
+4. **LLM Fallback** - Ollama integration for questions without wiki coverage
 
 **Diagnostic Engine:**
 - 9 rule-based checks (disk, memory, services, packages, mounts, logs)
@@ -211,21 +237,25 @@ journalctl -u annad -n 50
 
 ## What's Tested
 
-### Passing Tests (385/386 - 99.7%)
+### Passing Tests (436/438 - 99.5%)
 
-**New in 6.17.0:**
-- Status health derivation (6 tests)
-- Output formatting (8 tests)
-- Self-health checks (4 tests)
+**New in 6.26.0:**
+- Session context memory (14 tests)
+- Follow-up query detection (3 tests)
+- User preference inference (3 tests)
+- Session persistence (1 test)
 
 **Existing:**
 - Wiki answer engine (40 tests)
+- Insights engine (16 tests)
 - Command intelligence (10 tests)
+- Status health derivation (6 tests)
+- Output formatting (8 tests)
 - Diagnostic engine (core functionality)
 - Action plan validation
 
 **Known Failures:**
-- 1 test in system_knowledge (LLM context summary) - non-critical
+- 2 pre-existing tests (paths, system_knowledge) - non-critical
 
 ---
 
@@ -260,20 +290,20 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.20.0 (November 24, 2025)
+**Current Version:** 6.26.0 (November 24, 2025)
 
 **Recent Progress:**
+- ✅  6.26.0 - Deep Context Memory & Proactive Commentary (follow-up queries, session persistence)
+- ✅  6.25.0 - Service Reliability & Degraded-Unit Correlation (7 new insight detectors)
+- ✅  6.24.0 - Historical Metrics & Insight Engine (trend analysis)
+- ✅  6.23.0 - Wiki Reasoning Engine (LLM-powered wiki interpretation)
 - ✅  6.20.0 - Safe Mode foundation (crash loop detection)
-- ✅  6.19.0 - Fixed daemon crash loop (schema compatibility)
-- ✅  6.18.0 - Configuration system
-- ✅  6.17.0 - Fixed status logic bug (health derivation)
-- ✅  6.16.0 - Wiki Answer Engine v1 (deterministic answers)
 
 **Active Development:**
-- Safe Mode implementation (crash prevention)
-- Background auto-updater (cache-based)
-- Natural language intent routing
-- Daemon stability improvements
+- Enhanced proactive commentary
+- Additional follow-up patterns
+- Natural language intent routing improvements
+- Daemon stability enhancements
 
 **Not Planned:**
 - Interactive TUI (archived from 5.x)

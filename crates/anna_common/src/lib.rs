@@ -49,6 +49,7 @@ pub mod graphics; // Graphics and display detection (Vulkan, OpenGL, session typ
 pub mod hardware_capability; // Hardware capability detection for local LLM
 pub mod historian; // Historian - Long-term memory and trend analysis system
 pub mod insights_engine; // v6.24.0: Insights Engine - Historical Metrics & Trend Analysis
+pub mod session_context; // v6.26.0: Session Context - Deep Context Memory for follow-ups
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine
