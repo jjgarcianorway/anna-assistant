@@ -7,6 +7,154 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.16.0] - 2025-11-24
+
+### WIKI ANSWER ENGINE V1
+
+**Type:** Feature
+**Focus:** Deterministic, multi-step reasoning pipeline for operational questions
+
+#### Added ✨
+
+**Query Understanding:**
+- 5 classification categories using lightweight NLP (no LLM):
+  - Informational Lookup (what is X)
+  - Command Synthesis (how do I do X)
+  - Config Path Discovery (where is X config)
+  - Capability Check (what DE/WM/GPU am I running)
+  - System State Check (is X running/installed)
+- Pattern-based classification with regex and keyword matchers
+- Entity extraction (service names, package names, module names)
+
+**Wiki Retrieval Layer:**
+- Maps queries to Arch Wiki articles
+- Retrieves relevant subsections from local corpus
+- Extracts canonical commands from wiki
+- Guarantees reproducible, verifiable answers
+
+**System Tailoring:**
+- Uses SystemKnowledgeBase + SystemTelemetry
+- Detects installed packages and replaces commands accordingly
+- Adjusts paths based on actual system
+- Detects available tools (lspci vs inxi vs hwinfo)
+- Uses actual session type, DE, WM, GPU from telemetry
+- Detects X11 vs Wayland
+- Never mentions tools/commands that aren't installed
+
+**Answer Assembly:**
+- Concise, correct explanation from wiki
+- Exact commands (not suggestions)
+- System-specific tailored notes
+- Hyperlinked wiki citations at bottom
+- No filler, no invention, no hallucination
+
+**ACTS v4 Test Suite:**
+- 40 tests covering top sysadmin questions
+- Mock SystemKnowledgeBase for each test
+- Validates:
+  - Correct wiki topic selection
+  - Correct command synthesis
+  - Correct system tailoring
+  - Correct citation formatting
+- All 40 tests passing (100%)
+
+#### Technical Changes 🔧
+
+**New Files:**
+- `anna_common/src/wiki_answer_engine.rs` (700+ lines)
+- `annactl/tests/acts_v4_wiki_engine.rs` (600+ lines)
+
+**Modified Files:**
+- `anna_common/src/lib.rs` (added wiki_answer_engine module)
+- `annactl/src/unified_query_handler.rs` (TIER 0.2 integration)
+
+**Tests:**
+- ACTS v4: 40/40 passing
+  - 10 query understanding tests
+  - 10 capability check tests
+  - 10 command synthesis tests
+  - 5 config path discovery tests
+  - 5 end-to-end integration tests
+- Full determinism test (same query → same answer)
+
+#### Example Usage 💡
+
+\`\`\`bash
+$ annactl "how do I check my kernel version?"
+To check your kernel version, use uname -r which prints the running kernel release.
+
+$ uname -r
+  Show kernel version
+
+References:
+• Kernel: https://wiki.archlinux.org/title/Kernel
+
+$ annactl "what desktop am I using?"
+You are running Hyprland.
+
+References:
+• Desktop environment: https://wiki.archlinux.org/title/Desktop_environment
+
+$ annactl "where is the pacman config?"
+The main pacman configuration file is /etc/pacman.conf.
+
+→ /etc/pacman.conf
+
+References:
+• Pacman: https://wiki.archlinux.org/title/Pacman
+\`\`\`
+
+#### Architecture Highlights 🏗️
+
+**Deterministic Pipeline:**
+1. Query Understanding - classify using patterns (no LLM)
+2. Wiki Retrieval - map to known wiki articles
+3. System Tailoring - adapt to actual system state
+4. Answer Assembly - format with citations
+
+**Guarantees:**
+- Same query + same system state = same answer
+- All answers wiki-backed (no invention)
+- All commands are canonical from Arch Wiki
+- All tools mentioned are actually installed
+- No hallucination, no filler text
+
+**Integration:**
+- TIER 0.2 in unified query handler (before CIL)
+- High confidence (derived from wiki + system data)
+- Graceful fallback if wiki doesn't cover query
+
+#### Query Coverage 📋
+
+**Capability Checks:**
+- What DE/WM/compositor am I running?
+- What display server (Wayland/X11)?
+- What GPU/shell am I using?
+
+**Command Synthesis:**
+- How do I check kernel version?
+- How do I list WiFi networks?
+- How do I check service status?
+- How do I check disk space?
+
+**Config Path Discovery:**
+- Where is pacman config?
+- Where is GRUB config?
+- Where is NetworkManager config?
+
+**System State Checks:**
+- Is X service running?
+- Do I have X package installed?
+- Is X module loaded?
+
+#### Future Work 📝
+
+- Expand wiki corpus to cover more topics
+- Add Install and Configure intent handling
+- Support for more config files
+- Deeper system state integration
+- Pattern mining from Arch Wiki for auto-expansion
+
 ## [6.15.0] - 2025-11-24
 
 ### COMMAND INTELLIGENCE LAYER (CIL)

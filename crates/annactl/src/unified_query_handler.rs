@@ -192,6 +192,29 @@ pub async fn handle_unified_query(
         }
     }
 
+    // TIER 0.2: 6.16.0 Wiki Answer Engine v1
+    // Deterministic wiki-backed reasoning for operational questions
+    // 5 categories: informational, command, config path, capability, state check
+    use anna_common::wiki_answer_engine::{
+        understand_query, generate_answer, format_answer,
+    };
+
+    let query_category = understand_query(user_text);
+
+    // Try to generate wiki-backed answer
+    if let Some(wiki_answer) = generate_answer(query_category.clone(),
+        &anna_common::system_knowledge::SystemKnowledgeBase::default(),
+        telemetry)
+    {
+        let formatted = format_answer(&wiki_answer);
+
+        return Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer: formatted,
+            confidence: AnswerConfidence::High,
+            sources: vec!["Wiki Answer Engine v1 (deterministic)".to_string()],
+        });
+    }
+
     // TIER 0.25: 6.15.0 Command Intelligence Layer (CIL)
     // Handles "how do I check/list/show X" questions dynamically
     // No hardcoded commands - derives from system state + Arch Wiki
