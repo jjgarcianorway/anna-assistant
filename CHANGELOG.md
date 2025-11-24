@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.11.1] - 2025-11-24
+
+### UX IMPROVEMENTS
+
+**Type:** Bug Fix / UX Enhancement
+**Focus:** Better formatting and information display in status and queries
+
+#### Fixed 🐛
+
+**Status Command:**
+- Added breathing space before "Anna Status Check" banner
+- Added extra spacing after "Today:" health line for better readability
+- Added spacing before "Core Health" section
+- Improved "System Diagnostics" to show actual error details and investigation commands
+- Prioritized errors/warnings in "Recent Daemon Log" (shows all errors, up to 3 warnings, then recent info)
+- Daemon log now fetches 50 entries and filters intelligently
+
+**Query Responses:**
+- Fixed double markdown asterisks in health status ("System health **degraded – critical issues require attention.**" → correct rendering)
+- Improved diagnostic insight formatting with proper indentation and spacing
+- Added blank lines between diagnostic insights for clarity
+- Show investigation commands for each issue
+
+#### Technical Changes 🔧
+
+- `status_command.rs`: Enhanced log display with severity-based filtering
+- `diagnostic_formatter.rs`: Better multi-line detail handling, show investigation commands
+- `llm_query_handler.rs`: Fixed markdown wrapping issue (removed extra **)
+
 ## [6.11.0] - 2025-11-24
 
 ### ANNA SELF-HEALTH & LLM AUTOTUNING

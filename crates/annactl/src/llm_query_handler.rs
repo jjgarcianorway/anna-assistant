@@ -589,9 +589,9 @@ async fn handle_health_question(ui: &UI) -> Result<()> {
             // Compute overall health
             let overall_health = crate::diagnostic_formatter::compute_overall_health(&analysis);
 
-            // Format health line
+            // Format health line (6.11.1: already has markdown formatting)
             let health_text = crate::diagnostic_formatter::format_today_health_line_from_health(overall_health);
-            println!("**{}**", health_text);
+            println!("{}", health_text);
             println!();
 
             // Show top issues if any

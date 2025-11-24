@@ -567,7 +567,7 @@ pub fn format_diagnostic_summary_inline(analysis: &BrainAnalysisData) -> String 
         ).unwrap();
         writeln!(&mut summary).unwrap();
 
-        // Show top 3 insights with concrete details (6.8.1 hotfix)
+        // Show top 3 insights with concrete details (6.8.1 hotfix / 6.11.1 enhancement)
         for (idx, insight) in analysis.insights.iter().take(3).enumerate() {
             let severity_marker = match insight.severity.to_lowercase().as_str() {
                 "critical" => "✗",
@@ -582,14 +582,22 @@ pub fn format_diagnostic_summary_inline(analysis: &BrainAnalysisData) -> String 
                 insight.summary
             ).unwrap();
 
-            // 6.8.1: Show concrete details/evidence, not just summary
-            if !insight.evidence.is_empty() {
+            // 6.11.1: Show details (more helpful than generic evidence)
+            if !insight.details.is_empty() && insight.details != insight.summary {
+                // Indent multi-line details properly
+                for line in insight.details.lines() {
+                    writeln!(&mut summary, "       {}", line).unwrap();
+                }
+            } else if !insight.evidence.is_empty() {
                 // Evidence contains concrete data (filesystem %, log messages, etc)
-                writeln!(&mut summary, "     {}", insight.evidence).unwrap();
-            } else if !insight.details.is_empty() && insight.details != insight.summary {
-                // Fall back to details if no evidence
-                writeln!(&mut summary, "     {}", insight.details).unwrap();
+                writeln!(&mut summary, "       {}", insight.evidence).unwrap();
             }
+
+            // Show first command if available (diagnostic command)
+            if !insight.commands.is_empty() {
+                writeln!(&mut summary, "       Investigate: {}", insight.commands[0]).unwrap();
+            }
+            writeln!(&mut summary).unwrap(); // Blank line between insights
         }
 
         if analysis.insights.len() > 3 {

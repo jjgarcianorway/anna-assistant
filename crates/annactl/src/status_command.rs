@@ -38,6 +38,7 @@ pub async fn execute_anna_status_command(
     start_time: Instant,
 ) -> Result<()> {
     // Display banner first
+    println!(); // Breathing room at the top
     println!("{}", fmt::bold("Anna Status Check"));
     println!("{}", "=".repeat(50));
     println!();
@@ -92,6 +93,7 @@ pub async fn execute_anna_status_command(
         println!("{} {}", fmt::bold("Today:"), health_text);
     }
     println!();
+    println!();
 
     // Beta.246: Session summary from welcome engine
     println!(
@@ -132,6 +134,7 @@ pub async fn execute_anna_status_command(
 
     println!();
     println!("{}", fmt::dimmed("System health details follow in the diagnostics section."));
+    println!();
     println!();
 
     // Beta.141: Enhanced core health display with emojis
@@ -480,14 +483,14 @@ pub async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData
     }
 }
 
-/// Display recent journal logs
+/// Display recent journal logs (6.11.1: prioritize errors/warnings)
 fn display_recent_logs() {
     let output = Command::new("journalctl")
         .args([
             "-u",
             "annad",
             "-n",
-            "10",
+            "50",  // Fetch more logs to filter
             "--no-pager",
             "--output=cat",  // Beta.231: Show only message (already has timestamp from tracing)
         ])
@@ -499,14 +502,41 @@ fn display_recent_logs() {
             if logs.trim().is_empty() {
                 println!("  {}", fmt::dimmed("No recent logs"));
             } else {
-                for line in logs.lines().take(10) {
-                    if line.contains("error") || line.contains("ERROR") {
-                        println!("  {}", fmt::error(line));
-                    } else if line.contains("warn") || line.contains("WARN") {
-                        println!("  {}", fmt::warning(line));
+                // 6.11.1: Categorize logs by severity
+                let mut errors = Vec::new();
+                let mut warnings = Vec::new();
+                let mut info = Vec::new();
+
+                for line in logs.lines() {
+                    if line.contains("ERROR") || line.contains("error") {
+                        errors.push(line);
+                    } else if line.contains("WARN") || line.contains("warn") {
+                        warnings.push(line);
                     } else {
-                        println!("  {}", fmt::dimmed(line));
+                        info.push(line);
                     }
+                }
+
+                // Show errors first (all of them)
+                for line in errors.iter() {
+                    println!("  {} {}", fmt::emojis::CRITICAL, fmt::error(line));
+                }
+
+                // Show warnings next (up to 3)
+                for line in warnings.iter().take(3) {
+                    println!("  {} {}", fmt::emojis::WARNING, fmt::warning(line));
+                }
+
+                // Show recent info logs (up to 5, skip if we have errors/warnings)
+                let info_limit = if errors.is_empty() && warnings.is_empty() { 10 } else { 5 };
+                for line in info.iter().rev().take(info_limit) {
+                    println!("  {}", fmt::dimmed(line));
+                }
+
+                // Summary if logs were filtered
+                let total_logged = errors.len() + warnings.len() + info.len();
+                if total_logged > 18 {
+                    println!("  {}", fmt::dimmed(&format!("({} more log entries - run 'journalctl -u annad' for full log)", total_logged - 18)));
                 }
             }
         } else {
