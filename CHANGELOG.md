@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.20.0] - 2025-11-24
+
+### SAFE MODE FOUNDATION & CLI CONTRACT
+
+**Type:** New Feature + Breaking Change
+**Focus:** Crash loop detection, Safe Mode infrastructure, strict CLI surface
+
+#### Added ✨
+
+**Daemon Health Model:**
+- New `DaemonHealth` struct tracks daemon startup health and crash history
+- Persistent state at `/var/lib/anna/daemon_health.json`
+- `DaemonHealthState` enum: Healthy, Degraded, BrokenRecoverable, SafeMode
+- `InitializationState` enum: Initializing, Ready, Failed (for future background tasks)
+- Crash loop detection: 5 crashes in 2 minutes automatically triggers Safe Mode
+- Safe Mode behavior: skips Historian and experimental systems to prevent further crashes
+- Health state exposed via RPC in StatusData
+- 4 unit tests for crash detection, window cleanup, state transitions
+
+**Daemon Startup:**
+- Loads health state on startup and checks for crash loops
+- Records each startup with timestamp
+- Cleans old crash records outside 2-minute window
+- Enters Safe Mode automatically if crash threshold exceeded
+- Saves health state after startup
+
+#### Changed 🔄
+
+**CLI Surface (Breaking):**
+- Removed `annactl config` subcommand (violates CLI contract)
+- Deleted `crates/annactl/src/config_command.rs`
+- Removed ConfigAction enum from cli.rs
+- **CLI now strictly:** `annactl "query"`, `annactl status`, `annactl -V`
+- Config changes must go through natural language: `annactl "disable emojis"`
+
+**RPC Protocol:**
+- StatusData now includes `health_state` and `health_reason` fields
+- Daemon reports its health state to clients
+
+#### Fixed 🐛
+
+**Repository Cleanup:**
+- Removed 24.8GB of build artifacts (cargo clean)
+- Deleted old release directories (6.9-6.18)
+- Project size reduced from 24GB to 163MB
+
+#### Technical Details 🔧
+
+**Safe Mode Implementation:**
+- `crates/annad/src/daemon_health.rs` - Core health model (328 lines)
+- Constants: CRASH_WINDOW_SECS=120, CRASH_THRESHOLD=5
+- Atomic file writes with temp+rename pattern
+- Timestamped crash records with automatic cleanup
+- Integration points in main.rs and rpc_server.rs
+
+**Known Limitations:**
+- Safe Mode skips heavy operations but doesn't yet implement lazy loading
+- Status command doesn't fully display Safe Mode state in UI (foundation only)
+- Background updater not yet implemented
+- Config/update intents not wired through natural language yet
+
+#### Migration Notes
+
+**For Users:**
+- `annactl config show` → Use natural language: `annactl "show my config"`
+- `annactl config set` → Use natural language: `annactl "disable emojis"`
+- Old health.json files will be migrated automatically
+
+**For Developers:**
+- DaemonState::new() now requires a DaemonHealth parameter
+- StatusData includes new optional fields for backward compatibility
+
 ## [6.19.0] - 2025-11-24
 
 ### DAEMON STABILITY & UX CONSISTENCY

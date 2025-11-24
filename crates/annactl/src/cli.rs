@@ -56,11 +56,7 @@ pub enum Commands {
     /// Show version information (Beta.233)
     Version,
 
-    /// Manage Anna configuration (6.18.0)
-    Config {
-        #[command(subcommand)]
-        action: ConfigAction,
-    },
+    // 6.20.0: Config removed - use natural language: annactl "disable emojis", annactl "enable colors"
 
     /// INTERNAL: Brain diagnostic analysis (hidden from help, use natural language instead)
     #[command(hide = true)]
@@ -75,18 +71,4 @@ pub enum Commands {
     },
 }
 
-/// Configuration actions
-#[derive(Subcommand)]
-pub enum ConfigAction {
-    /// Show current configuration
-    Show,
-
-    /// Set a configuration value
-    Set {
-        /// Configuration key (e.g., output.emojis, output.color)
-        key: String,
-
-        /// New value
-        value: String,
-    },
-}
+// 6.20.0: ConfigAction removed - config changes go through natural language intent router

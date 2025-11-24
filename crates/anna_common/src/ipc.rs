@@ -584,6 +584,12 @@ pub struct StatusData {
     pub uptime_seconds: u64,
     pub last_telemetry_check: String,
     pub pending_recommendations: usize,
+    /// 6.20.0: Daemon health state (Healthy, Degraded, BrokenRecoverable, SafeMode)
+    #[serde(default)]
+    pub health_state: Option<String>,
+    /// 6.20.0: Reason for degraded/safe mode state
+    #[serde(default)]
+    pub health_reason: Option<String>,
 }
 
 /// Configuration data

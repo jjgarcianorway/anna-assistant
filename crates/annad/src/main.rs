@@ -84,6 +84,7 @@ mod chronos; // Phase 1.5: Chronos Loop
 mod collective; // Phase 1.3: Collective Mind
 mod conscience; // Phase 1.1: Conscience layer
 mod consensus; // Phase 1.7: Distributed Consensus (STUB)
+mod daemon_health; // 6.20.0: Daemon health model and Safe Mode
 mod empathy; // Phase 1.2: Empathy Kernel
 mod executor;
 mod health; // Phase 0.5: Health subsystem
@@ -112,6 +113,7 @@ mod watcher;
 mod wiki_cache;
 
 use anyhow::{Context as AnyhowContext, Result};
+use anna_common::SystemFacts;
 use rpc_server::DaemonState;
 use std::env;
 use std::sync::Arc;
@@ -180,15 +182,43 @@ async fn main() -> Result<()> {
     // Store mode for RPC server
     let socket_mode = if user_mode { "user" } else { "system" };
 
+    // 6.20.0: Load daemon health and check for crash loops
+    let health_path = daemon_health::default_health_path();
+    let mut daemon_health = daemon_health::DaemonHealth::load_or_init(&health_path);
+    daemon_health.record_startup();
+
+    let in_safe_mode = daemon_health.should_enter_safe_mode();
+    if in_safe_mode {
+        daemon_health.enter_safe_mode("Crash loop detected - too many restarts".to_string());
+        warn!(
+            "SAFE MODE ACTIVATED: Daemon will run with minimal functionality to prevent crash loop"
+        );
+    }
+
+    // Save updated health state
+    if let Err(e) = daemon_health.save(&health_path) {
+        warn!("Failed to save daemon health state: {}", e);
+    }
+
     // Collect initial system facts
+    // 6.20.0 TODO: In Safe Mode, could skip heavy scans, but for now collect normally
     let facts = telemetry::collect_facts().await?;
     info!(
         "System facts collected: {} packages installed",
         facts.installed_packages
     );
 
-    // Generate recommendations
-    let mut advice = recommender::generate_advice(&facts);
+    if in_safe_mode {
+        info!("Safe Mode active - heavy background tasks will be skipped");
+    }
+
+    // Generate recommendations (skip if in Safe Mode)
+    let mut advice = if in_safe_mode {
+        info!("Safe Mode: Skipping recommendation generation");
+        Vec::new()
+    } else {
+        recommender::generate_advice(&facts)
+    };
 
     let advice_count_before_dedup = advice.len();
 
@@ -201,13 +231,17 @@ async fn main() -> Result<()> {
         info!("Removed {} duplicate advice items", duplicates_removed);
     }
 
-    info!(
-        "Generated {} recommendations (Wiki-strict only)",
-        advice.len()
-    );
+    if !in_safe_mode {
+        info!(
+            "Generated {} recommendations (Wiki-strict only)",
+            advice.len()
+        );
+    }
 
-    // Initialize daemon state
-    let state = Arc::new(DaemonState::new(VERSION.to_string(), facts, advice).await?);
+    // Initialize daemon state (6.20.0: Pass health to DaemonState)
+    let state = Arc::new(
+        DaemonState::new(VERSION.to_string(), facts, advice, daemon_health).await?,
+    );
 
     // Bootstrap LLM if not configured (RC.11.3: auto-detect Ollama)
     if let Err(e) = llm_bootstrap::bootstrap_llm_if_needed().await {
@@ -215,11 +249,14 @@ async fn main() -> Result<()> {
     }
 
     // Beta.117: Skip heavy experimental systems to speed up startup (21s → 2s)
+    // 6.20.0: Also skip in Safe Mode to minimize resource usage
     // These systems (Sentinel, Collective, Mirror, Chronos, Mirror Audit) are experimental
     // and add significant startup time. They can be re-enabled later when actually used.
     const ENABLE_EXPERIMENTAL_SYSTEMS: bool = false;
 
-    if ENABLE_EXPERIMENTAL_SYSTEMS {
+    if in_safe_mode {
+        info!("Safe Mode: Skipping all experimental systems");
+    } else if ENABLE_EXPERIMENTAL_SYSTEMS {
         info!("Initializing experimental systems (Sentinel, Collective, Mirror, Chronos, Mirror Audit)...");
     } else {
         info!("Skipping experimental systems to optimize startup time");
@@ -228,7 +265,7 @@ async fn main() -> Result<()> {
     info!("Anna Daemon ready");
 
     // Initialize Sentinel framework (Phase 1.0)
-    if ENABLE_EXPERIMENTAL_SYSTEMS {
+    if !in_safe_mode && ENABLE_EXPERIMENTAL_SYSTEMS {
         info!("Initializing Sentinel framework...");
         match sentinel::initialize().await {
             Ok(sentinel_daemon) => {
@@ -386,13 +423,15 @@ async fn main() -> Result<()> {
     } // End of ENABLE_EXPERIMENTAL_SYSTEMS block (Beta.117)
 
     // Initialize Historian (Phase 5.7: Long-term memory and trend analysis)
-    info!("Initializing Historian...");
-    // Create /var/lib/anna directory if it doesn't exist
-    if let Err(e) = std::fs::create_dir_all("/var/lib/anna") {
-        tracing::warn!("Failed to create /var/lib/anna directory: {}", e);
-        tracing::warn!("Historian will not be available");
-    } else {
-        match anna_common::historian::Historian::new("/var/lib/anna/historian.db") {
+    // 6.20.0: Skip in Safe Mode
+    if !in_safe_mode {
+        info!("Initializing Historian...");
+        // Create /var/lib/anna directory if it doesn't exist
+        if let Err(e) = std::fs::create_dir_all("/var/lib/anna") {
+            tracing::warn!("Failed to create /var/lib/anna directory: {}", e);
+            tracing::warn!("Historian will not be available");
+        } else {
+            match anna_common::historian::Historian::new("/var/lib/anna/historian.db") {
             Ok(historian) => {
                 info!("Historian initialized - long-term trend analysis enabled");
 
@@ -483,8 +522,9 @@ async fn main() -> Result<()> {
                 tracing::warn!("Failed to initialize Historian: {}", e);
                 tracing::warn!("Continuing without long-term trend analysis");
             }
+            }
         }
-    }
+    } // End of !in_safe_mode block for Historian
 
     // Set up system watcher for automatic advice refresh
     let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();

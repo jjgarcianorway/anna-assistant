@@ -134,10 +134,17 @@ pub struct DaemonState {
     pub historian: Option<Arc<tokio::sync::Mutex<anna_common::historian::Historian>>>,
     /// System Knowledge Manager - persistent memory (6.12.0)
     pub knowledge: Arc<tokio::sync::RwLock<crate::system_knowledge::SystemKnowledgeManager>>,
+    /// Daemon Health - crash loop detection and Safe Mode (6.20.0)
+    pub health: Arc<tokio::sync::RwLock<crate::daemon_health::DaemonHealth>>,
 }
 
 impl DaemonState {
-    pub async fn new(version: String, facts: SystemFacts, advice: Vec<Advice>) -> Result<Self> {
+    pub async fn new(
+        version: String,
+        facts: SystemFacts,
+        advice: Vec<Advice>,
+        health: crate::daemon_health::DaemonHealth,
+    ) -> Result<Self> {
         let audit_logger = AuditLogger::new().await?;
         let action_history = crate::action_history::ActionHistory::new().await?;
 
@@ -171,6 +178,7 @@ impl DaemonState {
             mirror_audit: None, // Will be set later in main.rs
             historian: None,    // Will be set later in main.rs
             knowledge: Arc::new(tokio::sync::RwLock::new(knowledge_mgr)),
+            health: Arc::new(tokio::sync::RwLock::new(health)),
         })
     }
 }
@@ -801,11 +809,23 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
 
         Method::Status => {
             let advice = state.advice.read().await;
+
+            // 6.20.0: Read daemon health state
+            let health = state.health.read().await;
+            let health_state_str = health.health_state.as_str().to_string();
+            let health_reason = if health.health_state != crate::daemon_health::DaemonHealthState::Healthy {
+                health.last_exit_reason.clone()
+            } else {
+                None
+            };
+
             let status = StatusData {
                 version: state.version.clone(),
                 uptime_seconds: state.start_time.elapsed().as_secs(),
                 last_telemetry_check: "Just now".to_string(), // TODO: track actual last check
                 pending_recommendations: advice.len(),
+                health_state: Some(health_state_str),
+                health_reason,
             };
             Ok(ResponseData::Status(status))
         }

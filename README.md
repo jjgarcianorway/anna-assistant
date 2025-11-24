@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.19.0**
+**Experimental Arch Linux System Assistant - Version 6.20.0**
 
-[![Version](https://img.shields.io/badge/version-6.19.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.20.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.19.0)
+## What Works Right Now (6.20.0)
 
 ### 1. Status Command
 
@@ -51,7 +51,7 @@ Shows:
 
 **Output example:**
 ```
-Anna Assistant v6.19.0
+Anna Assistant v6.20.0
 Mode: Local LLM (Ollama)
 
 Overall Status:
@@ -59,6 +59,7 @@ Overall Status:
 
 Anna Self-Health
   ✓ All dependencies, permissions, and LLM backend are healthy
+  ✓ Daemon health: HEALTHY
 ```
 
 ### 2. Natural Language Queries
@@ -259,20 +260,20 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.17.0 (November 24, 2025)
+**Current Version:** 6.20.0 (November 24, 2025)
 
 **Recent Progress:**
+- ✅  6.20.0 - Safe Mode foundation (crash loop detection)
+- ✅  6.19.0 - Fixed daemon crash loop (schema compatibility)
+- ✅  6.18.0 - Configuration system
 - ✅  6.17.0 - Fixed status logic bug (health derivation)
 - ✅  6.16.0 - Wiki Answer Engine v1 (deterministic answers)
-- ✅  6.15.0 - Command Intelligence Layer (dynamic commands)
-- ✅  6.9.0 - Repository cleanup (removed dead code)
-- ✅  6.7.0 - Reflection system (system change awareness)
 
 **Active Development:**
-- Expanding wiki scenario coverage
-- Improving daemon stability
-- Adding more diagnostic rules
-- Professional output formatting
+- Safe Mode implementation (crash prevention)
+- Background auto-updater (cache-based)
+- Natural language intent routing
+- Daemon stability improvements
 
 **Not Planned:**
 - Interactive TUI (archived from 5.x)

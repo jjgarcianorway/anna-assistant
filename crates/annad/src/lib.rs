@@ -19,3 +19,6 @@ pub mod reflection_builder;
 
 // 6.12.0: System Knowledge Base - Anna's persistent memory
 pub mod system_knowledge;
+
+// 6.20.0: Daemon Health Model - Crash loop detection and Safe Mode
+pub mod daemon_health;
