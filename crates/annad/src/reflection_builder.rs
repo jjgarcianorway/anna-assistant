@@ -8,9 +8,9 @@
 //! Returns concrete metrics and real error messages, not vague statements.
 
 use crate::historian::{HistoryEvent, Historian};
-use crate::intel::proactive_engine::{ProactiveAssessment, IssueSeverity, TrendType};
+use crate::intel::proactive_engine::{ProactiveAssessment, IssueSeverity};
 use crate::reflection::{ReflectionItem, ReflectionSeverity, ReflectionSummary};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 
 /// Version information for Anna
 pub struct VersionInfo {
@@ -49,8 +49,8 @@ pub fn build_reflection_summary(
         }
     }
 
-    // 2. Extract trends from Historian
-    if let Ok(recent_events) = historian.load_recent(100) {
+    // 2. Extract trends from Historian (last 7 days)
+    if let Ok(recent_events) = historian.load_recent(Duration::days(7)) {
         extract_historian_trends(&mut summary, &recent_events);
     }
 
