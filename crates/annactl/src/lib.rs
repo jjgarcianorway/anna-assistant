@@ -24,6 +24,7 @@ pub mod recipe_formatter; // Recipe answer formatting
 // 6.3.1: recipes moved to legacy_recipes/ - not compiled in 6.x
 // pub mod recipes; // Deterministic ActionPlan recipes (77+)
 pub mod rpc_client; // RPC client for daemon communication
+pub mod status_health; // 6.17.0: Strict health derivation for status command
 pub mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs)
 pub mod system_prompt_v2; // Strict reasoning discipline prompts
 pub mod system_prompt_v3_json; // JSON runtime contract

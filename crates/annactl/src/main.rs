@@ -59,6 +59,7 @@ mod rpc_client;
 mod runtime_prompt;
 mod startup; // Beta.211: Welcome engine
 mod status_command;
+mod status_health; // 6.17.0: Strict health derivation
 mod system_prompt_v2;
 mod system_prompt_v3_json;
 mod system_query;

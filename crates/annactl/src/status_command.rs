@@ -19,6 +19,7 @@
 //! - Deterministic welcome report (CLI formatted)
 //! - Clear status: Healthy / Degraded / Broken
 
+use anna_common::ipc::BrainAnalysisData;
 use anna_common::terminal_format as fmt;
 use anyhow::Result;
 use std::process::Command;
@@ -43,14 +44,30 @@ pub async fn execute_anna_status_command(
     println!("{}", "=".repeat(50));
     println!();
 
-    // 6.10.0: Fetch brain analysis FIRST to get authoritative health status
-    // This allows reflection header to be honest about system state
-    let overall_health_status = match call_brain_analysis().await {
-        Ok(analysis) => {
-            use crate::diagnostic_formatter::compute_overall_health;
-            Some(compute_overall_health(&analysis))
+    // 6.17.0: Fetch brain analysis FIRST
+    let brain_analysis = call_brain_analysis().await.ok();
+
+    // Get comprehensive health report
+    let health = HealthReport::check(false).await?;
+
+    // 6.17.0: Build unified health summary with strict derivation
+    let unified_health = build_unified_health_summary(&health, brain_analysis.as_ref()).await;
+
+    // Map to OverallHealth for reflection display
+    let overall_health_status = match unified_health.level {
+        crate::status_health::HealthLevel::Healthy => {
+            Some(crate::diagnostic_formatter::OverallHealth::Healthy)
         }
-        Err(_) => None, // Daemon offline, use HealthReport fallback
+        crate::status_health::HealthLevel::Degraded => {
+            if unified_health.critical_count > 0 {
+                Some(crate::diagnostic_formatter::OverallHealth::DegradedCritical)
+            } else {
+                Some(crate::diagnostic_formatter::OverallHealth::DegradedWarning)
+            }
+        }
+        crate::status_health::HealthLevel::Critical => {
+            Some(crate::diagnostic_formatter::OverallHealth::DegradedCritical)
+        }
     };
 
     // 6.7.0/6.10.0: Show reflection with health-aware header
@@ -62,9 +79,6 @@ pub async fn execute_anna_status_command(
     }
     println!("{}", "=".repeat(50));
     println!();
-
-    // Get comprehensive health report
-    let health = HealthReport::check(false).await?;
 
     // Display banner (version + LLM mode)
     let version = env!("CARGO_PKG_VERSION");
@@ -78,20 +92,14 @@ pub async fn execute_anna_status_command(
     println!("{}", fmt::dimmed(&format!("Mode: {}", llm_mode)));
     println!();
 
-    // Display "Today:" health line
-    if let Some(health_status) = overall_health_status {
-        use crate::diagnostic_formatter::format_today_health_line_from_health;
-        let health_text = format_today_health_line_from_health(health_status);
-        println!("{} {}", fmt::bold("Today:"), health_text);
-    } else {
-        // Fallback if brain analysis unavailable
-        let health_text = match health.status {
-            HealthStatus::Healthy => "System healthy",
-            HealthStatus::Degraded => "System degraded – some issues detected",
-            HealthStatus::Broken => "System broken – critical failures present",
-        };
-        println!("{} {}", fmt::bold("Today:"), health_text);
-    }
+    // 6.17.0: Overall Status (strict derivation from unified health)
+    println!("{}", fmt::bold("Overall Status:"));
+    let status_emoji = match unified_health.level {
+        crate::status_health::HealthLevel::Healthy => fmt::emojis::SUCCESS,
+        crate::status_health::HealthLevel::Degraded => fmt::emojis::WARNING,
+        crate::status_health::HealthLevel::Critical => fmt::emojis::CRITICAL,
+    };
+    println!("  {} {}: {}", status_emoji, fmt::bold(&format!("{}", unified_health.level)), unified_health.status_line());
     println!();
     println!();
 
@@ -213,26 +221,30 @@ pub async fn execute_anna_status_command(
 
     println!();
 
-    // 6.8.x: Overall Status (uses same health determination as "Today:")
-    println!("{}", fmt::bold("Overall Status:"));
-    if let Some(brain_health) = overall_health_status {
-        // Use brain analysis health (authoritative)
-        use crate::diagnostic_formatter::OverallHealth;
-        match brain_health {
-            OverallHealth::Healthy => {
-                println!("  {} {}", fmt::emojis::SUCCESS, fmt::bold("HEALTHY: all systems operational"));
+    // 6.17.0: System Diagnostics (show all issues from unified health)
+    if !unified_health.diagnostics.is_empty() {
+        println!("{}", fmt::bold("System Diagnostics:"));
+        println!();
+
+        for (idx, diagnostic) in unified_health.diagnostics.iter().enumerate() {
+            let severity_emoji = match diagnostic.severity {
+                crate::status_health::DiagnosticSeverity::Info => fmt::emojis::INFO,
+                crate::status_health::DiagnosticSeverity::Warning => fmt::emojis::WARNING,
+                crate::status_health::DiagnosticSeverity::Critical => fmt::emojis::CRITICAL,
+            };
+
+            println!("  {} {} {}", idx + 1, severity_emoji, fmt::bold(&diagnostic.title));
+            println!("    {}", fmt::dimmed(&diagnostic.body));
+
+            if !diagnostic.hints.is_empty() {
+                for hint in &diagnostic.hints {
+                    println!("    {} {}", fmt::symbols::ARROW, fmt::dimmed(hint));
+                }
             }
-            OverallHealth::DegradedWarning => {
-                println!("  {} {}", fmt::emojis::WARNING, fmt::bold("DEGRADED: warnings detected"));
-            }
-            OverallHealth::DegradedCritical => {
-                println!("  {} {}", fmt::emojis::CRITICAL, fmt::bold("DEGRADED: critical issues require attention"));
-            }
+            println!();
         }
-    } else {
-        // Fallback to HealthReport if brain analysis unavailable
-        health.display_summary();
     }
+
     println!();
 
     // 6.11.0: Anna Self-Health
@@ -467,6 +479,21 @@ async fn get_llm_mode_string() -> String {
 
 /// Call brain analysis via RPC (Beta.217b)
 /// 6.8.1: Made public for health question handler
+/// Check if daemon RPC socket is reachable
+///
+/// Returns true only if:
+/// 1. Socket file exists
+/// 2. Connection succeeds
+/// 3. Socket is responsive
+///
+/// This is a quick lightweight check (200ms timeout).
+pub async fn check_daemon_rpc_reachable() -> bool {
+    use crate::rpc_client::RpcClient;
+
+    // Try quick connect
+    RpcClient::connect_quick(None).await.is_ok()
+}
+
 pub async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData> {
     use anna_common::ipc::{Method, ResponseData};
     use crate::rpc_client::RpcClient;
@@ -551,4 +578,83 @@ fn display_recent_logs() {
             fmt::dimmed("Unable to fetch logs (journalctl not available)")
         );
     }
+}
+
+/// Build unified health summary (6.17.0)
+///
+/// Collects diagnostics from:
+/// - Daemon (systemd + RPC reachability)
+/// - Brain analysis availability
+/// - Anna self-health (deps, permissions, LLM)
+/// - Daemon restart count
+///
+/// Returns HealthSummary with strict monotonic health computation.
+async fn build_unified_health_summary(
+    health: &HealthReport,
+    brain_analysis: Option<&BrainAnalysisData>,
+) -> crate::status_health::HealthSummary {
+    use crate::status_health;
+
+    let mut summary = status_health::HealthSummary::new();
+
+    // Check 1: Daemon health (systemd + RPC reachability)
+    let rpc_reachable = check_daemon_rpc_reachable().await;
+    if let Some(daemon_diag) = status_health::check_daemon_health(
+        health.daemon.running,
+        health.daemon.enabled,
+        rpc_reachable,
+    ).await {
+        summary.add_diagnostic(daemon_diag);
+    }
+
+    // Check 2: Brain analysis availability
+    if let Some(brain_diag) = status_health::check_brain_analysis(brain_analysis) {
+        summary.add_diagnostic(brain_diag);
+    }
+
+    // Check 3: Anna self-health (includes /var/log/anna checks)
+    for diag in status_health::check_anna_self_health() {
+        summary.add_diagnostic(diag);
+    }
+
+    // Check 4: Daemon restart count
+    if let Some(restart_diag) = status_health::check_daemon_restarts().await {
+        summary.add_diagnostic(restart_diag);
+    }
+
+    // Check 5: Incorporate brain analysis insights
+    if let Some(analysis) = brain_analysis {
+        // Brain analysis critical issues
+        if analysis.critical_count > 0 {
+            for insight in analysis.insights.iter().take(3) {
+                if insight.severity == "critical" {
+                    summary.add_diagnostic(status_health::Diagnostic {
+                        title: format!("System: {}", insight.summary),
+                        body: insight.details.clone(),
+                        severity: status_health::DiagnosticSeverity::Critical,
+                        hints: insight.commands.clone(),
+                    });
+                }
+            }
+        }
+
+        // Brain analysis warnings
+        if analysis.warning_count > 0 && analysis.critical_count == 0 {
+            for insight in analysis.insights.iter().take(3) {
+                if insight.severity == "warning" {
+                    summary.add_diagnostic(status_health::Diagnostic {
+                        title: format!("System: {}", insight.summary),
+                        body: insight.details.clone(),
+                        severity: status_health::DiagnosticSeverity::Warning,
+                        hints: insight.commands.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Compute final health level
+    summary.compute_level();
+
+    summary
 }

@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "6.16.0"
+version = "6.17.0"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -67,6 +67,9 @@ hex = "0.4"
 
 # Configuration
 toml = "0.8"
+
+# Regex
+regex = "1.10"
 
 # Networking (Phase 1.9)
 axum = "0.7"

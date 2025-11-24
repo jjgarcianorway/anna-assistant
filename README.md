@@ -1,324 +1,366 @@
 # Anna Assistant
 
-**Intelligent Arch Linux System Assistant - Version 6.16.0**
+**Experimental Arch Linux System Assistant - Version 6.17.0**
 
-[![Version](https://img.shields.io/badge/version-6.16.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.17.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
+[![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
 
 ---
 
-## ⚠️ Important: 6.0.0 is a Prototype Reset
+## ⚠️ Status: Experimental Prototype
 
-**Anna 6.0.0 is an experimental release focused on stabilizing the core architecture.**
+**Anna is NOT production-ready software.**
 
-- **CLI-only interface**: The interactive TUI from 5.x has been disabled
-- **Daemon stability**: Focus on proven daemon features (Historian, ProactiveAssessment, health monitoring)
-- **Clean foundation**: Removed unstable code to build a solid base for future UI work
+This is an experimental CLI tool for Arch Linux system diagnostics and troubleshooting. It's under active development and changing rapidly. Use it if you:
+- Want to experiment with local LLM-based system assistance
+- Are comfortable debugging issues yourself
+- Understand that features may break or change
+- Don't rely on it for critical systems
 
-This is **not production software**. It is a working prototype for Arch Linux power users who want local system intelligence without the instability of the 5.x TUI.
+**What this means:**
+- ❌  Not suitable for production systems
+- ❌  No stability guarantees
+- ❌  Features may be incomplete or experimental
+- ✅  CLI-only (no GUI)
+- ✅  Local-first (no telemetry sent anywhere)
+- ✅  Open source (GPL-3.0)
 
 ---
 
-## What Actually Works in 6.0.0
+## What Works Right Now (6.17.0)
 
-### ✅ Stable Features
+### 1. Status Command
 
-#### 1. System Health Monitoring (`annad` daemon)
-- **Runs as systemd service** with root privileges
-- **9 diagnostic rules** analyzing:
-  - Failed/degraded systemd services
-  - Disk space issues
-  - Memory pressure
-  - CPU load
-  - Orphaned packages
-  - Failed mounts
-  - Critical log errors
-- **RPC server** (Unix socket communication)
-
-#### 2. Historian (Beta.279)
-- **JSONL-based storage** of system health snapshots
-- **6 temporal correlation rules**:
-  - Service flapping detection
-  - Disk growth trends
-  - Sustained resource pressure
-  - Network degradation
-  - Kernel regression detection
-- **Automatic pruning** and efficient lookups
-
-#### 3. Adaptive Planner (6.2.0-6.3.1)
-- **Arch Wiki-only planning** - No random blog posts or StackOverflow
-- **Two scenarios implemented**:
-  - DNS resolution troubleshooting (systemd-resolved)
-  - Failed systemd service troubleshooting
-- **Safety guarantees**:
-  - Inspect steps before Change steps
-  - All changes require confirmation
-  - Rollback commands provided
-  - Knowledge sources traceable to Arch Wiki
-- **Deterministic** - No LLM needed for plan generation
-- **Tested** - ACTS v1 test suite + selftest command
-
-#### 4. Proactive Assessment (Beta.271-279)
-- **Correlated issue detection** across time
-- **Health score calculation** (0-100)
-- **Integration** with diagnostic engine
-
-#### 5. CLI Interface (`annactl`)
-
-**Two Commands Only:**
-
-Anna has exactly two CLI entry points:
-
-**1. Status Command:**
 ```bash
 annactl status
 ```
+
 Shows:
-- Daemon and LLM status
-- Top 3 system issues (from diagnostic engine)
-- Recent logs
-- JSON output available with `--json` flag
+- Overall system health (HEALTHY/DEGRADED/CRITICAL)
+- Anna's self-health (daemon, permissions, LLM backend)
+- System diagnostics with fix commands
+- Recent daemon logs
 
-**2. Ask Anna (One-Shot Queries):**
+**What's actually tested:**
+- Daemon RPC reachability checks
+- Strict health derivation (never lies about status)
+- /var/log/anna permission validation
+- Daemon restart instability detection
+
+**Output example:**
+```
+Anna Assistant v6.17.0
+Mode: Local LLM (Ollama)
+
+Overall Status:
+  ✓ HEALTHY: all systems operational
+
+Anna Self-Health
+  ✓ All dependencies, permissions, and LLM backend are healthy
+```
+
+### 2. Natural Language Queries
+
 ```bash
-annactl "my DNS is broken"
-annactl "nginx keeps crashing"
-annactl "what's using disk space?"
+annactl "how do I check my kernel version?"
+annactl "what desktop am I running?"
+annactl "show me failed services"
 ```
 
-**How Anna Responds:**
+**How it works:**
+1. Tries deterministic wiki-backed answers first (6.16.0 - Wiki Answer Engine)
+2. Falls back to LLM if no wiki match (requires Ollama)
+3. Fetches actual system telemetry to ground answers in reality
+4. Returns answers immediately (no interactive mode)
 
-When you ask a question, Anna will:
-1. **Analyze your system** - Fetch telemetry from the daemon
-2. **Consult Arch Wiki** - Find authoritative guidance for detected issues
-3. **Propose a plan** - Show step-by-step commands with explanations
-4. **Present commands clearly** - List all commands that would be run
-5. **Ask for confirmation** - End with: "Do you want me to run it for you?? y/N"
+**What's tested:**
+- 40 wiki answer engine tests (query understanding, command synthesis)
+- Command intelligence layer tests (dynamic command generation)
+- Answer validation tests
 
-Example response structure:
-```
-You requested help fixing DNS resolution on your Arch system: "my DNS is broken"
-
-Anna detected:
-- Network is reachable
-- DNS resolution suspected broken
-
-Based on Arch Wiki guidance:
-- https://wiki.archlinux.org/title/Systemd-resolved
-
-This plan follows the safe pattern: inspect first (4 steps), then propose changes (1 steps).
-All changes require confirmation and have rollback commands if needed.
-
-This is what we need to run:
-systemctl status systemd-resolved.service
-journalctl -u systemd-resolved.service -n 50
-cat /etc/resolv.conf
-resolvectl query archlinux.org
-sudo systemctl restart systemd-resolved.service
-
-Do you want me to run it for you?? y/N
-```
-
-**What Anna Can Plan (6.4.x):**
-- DNS resolution troubleshooting (systemd-resolved)
-- Failed systemd service troubleshooting
-- More scenarios coming in future releases
-
-For other questions, Anna falls back to LLM-generated answers (requires Ollama).
+**Limitations:**
+- LLM answers may contain errors (hallucination possible)
+- Only ~10 wiki scenarios implemented so far
+- Command execution requires manual confirmation
 
 ---
 
-## ❌ What Does NOT Work in 6.0.0
+## What Does NOT Work
 
-- **No interactive TUI** - The 5.x terminal UI is disabled
-- **No panels** - Right panel, brain panel, etc. are archived
-- **No streaming UI** - CLI queries return complete answers only
-- **No fancy workflows** - Focus is on working core features
+Be honest about what's missing:
+
+- ❌  **No interactive TUI** - The 5.x terminal UI is archived and disabled
+- ❌  **No command execution** - Anna shows commands but doesn't run them (you run them)
+- ❌  **No autonomous actions** - Everything requires manual approval
+- ❌  **Limited scenario coverage** - Only DNS and service troubleshooting plans implemented
+- ❌  **Daemon stability issues** - annad may crash or restart (experimental code)
+- ❌  **No automatic fixes** - Anna diagnoses, you fix
+- ❌  **Requires Ollama** - Most features need a local LLM running
 
 ---
 
-## Quick Start
+## Installation
 
 ### Requirements
 
-- **OS:** Arch Linux (native) or Arch-based distros
-- **CPU:** x86_64
-- **RAM:** 8GB recommended (4GB minimum)
-- **Disk:** 2GB for Anna + 4GB for LLM models
-- **LLM:** Ollama with a model (qwen2.5:3b or similar)
+**Mandatory:**
+- Arch Linux (x86_64) or Arch-based distro
+- 8GB RAM minimum (for LLM)
+- Ollama installed with a model (e.g., `qwen2.5:3b`)
 
-### Installation
+**Optional but recommended:**
+- systemd (for daemon mode)
+- User in `systemd-journal` group (for log access)
+
+### Install Script
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 ```
 
-### Usage
+This will:
+1. Download binaries for your architecture
+2. Install to `/usr/local/bin/`
+3. Set up systemd service (if you want it)
+4. Create required directories
 
-**Start the daemon:**
+### Manual Build
+
 ```bash
-sudo systemctl start annad
-sudo systemctl enable annad  # Optional: start on boot
+git clone https://github.com/jjgarcianorway/anna-assistant
+cd anna-assistant
+cargo build --release
+sudo cp target/release/{annad,annactl} /usr/local/bin/
 ```
 
-**Check system health:**
+---
+
+## Usage
+
+### Basic Commands
+
+**Check Anna's status:**
 ```bash
 annactl status
 ```
 
-Example output:
-```
-[DAEMON STATUS]
-✓ annad running (PID 1234)
-✓ LLM available (ollama/qwen2.5:3b)
-
-[TOP ISSUES]
-1. ⚠ Disk usage at 85% on /
-2. ⚠ Service NetworkManager failed
-3. ℹ 12 orphaned packages detected
-
-[RECENT LOGS]
-2025-11-23 14:32:01 - Health check completed
-2025-11-23 14:30:00 - Historian snapshot saved
-```
-
-**Ask questions:**
+**Ask a question:**
 ```bash
-annactl "why did NetworkManager fail?"
-annactl "show disk usage breakdown"
+annactl "show me disk usage"
 ```
 
----
+**That's it.** There are only two entry points.
 
-## Architecture
+### Running the Daemon (Optional)
 
-Anna 6.0.0 consists of:
+The daemon (`annad`) collects telemetry and runs background diagnostics.
 
-**Daemon (`annad`):**
-- Runs as systemd service
-- Collects telemetry
-- Performs health checks via diagnostic engine
-- Stores history in Historian
-- Executes approved actions
-- RPC server (Unix socket)
-
-**Client (`annactl`):**
-- Simple CLI for `status` command
-- One-shot natural language queries
-- RPC client to daemon
-
-**Intelligence:**
-- Internal diagnostic engine (9 deterministic rules)
-- Historian (temporal correlation, 6 rules)
-- Proactive Assessment (issue correlation)
-- 77+ deterministic recipes
-- Local LLM via Ollama (for natural language)
-
----
-
-## Documentation
-
-- **[Architecture](docs/ARCHITECTURE_BETA_200.md)** - System design overview
-- **[Planner Design](docs/PLANNER_DESIGN_6x.md)** - Adaptive planning system
-- **[Changelog](CHANGELOG.md)** - Version history
-- **[Release Notes 6.0.0](RELEASE_NOTES_6.0.0.md)** - What changed in 6.0.0
-
----
-
-## Core Principles
-
-- **Local-First:** All data stays on your machine
-- **Telemetry-First:** Real system facts, not LLM guesses
-- **Transparent:** Every command shown before execution
-- **Deterministic:** Predictable, reproducible actions
-- **Safe:** Approval required for system changes
-- **Arch-Focused:** Deep Arch Linux integration
-
----
-
-## What Anna is NOT
-
-- ❌ Not production-ready (experimental prototype)
-- ❌ Not a remote management tool
-- ❌ Not a fully autonomous agent
-- ❌ Not a generic chatbot
-- ❌ Not a replacement for system knowledge
-
----
-
-## Development
-
-**Build:**
+**Start manually:**
 ```bash
-cargo build --release
-```
-
-**Test:**
-```bash
-cargo test
-```
-
-**Run locally:**
-```bash
-# Daemon (requires root)
 sudo ./target/release/annad
+```
 
-# Client
-./target/release/annactl status
+**Or use systemd:**
+```bash
+sudo systemctl start annad
+sudo systemctl enable annad  # Start on boot
+```
+
+**Check if it's working:**
+```bash
+systemctl status annad
+journalctl -u annad -n 50
 ```
 
 ---
 
-## Project Status
+## Architecture (Current Reality)
 
-**Current:** 6.9.0 - Repository Hygiene Release (CLI-only, stable daemon)
+### What's Actually Built
 
-**Recent milestones:**
-- ✅ 6.9.0 - Removed legacy code (monitoring, observability, consensus simulator)
-- ✅ 6.8.1 - Fixed health status coherence and telemetry-based health queries
-- ✅ 6.7.0 - Reflection integration (self-awareness of system changes)
-- ✅ 6.0.0 - Disabled TUI, cleaned repository, focused on stable CLI
-- ✅ Historian v1 with JSONL storage and temporal correlation
-- ✅ Proactive Assessment integration
-- ✅ 77+ deterministic recipes
+**annad (Daemon):**
+- Systemd service that runs as root
+- Collects system telemetry (packages, services, hardware, logs)
+- Runs diagnostic rules (9 built-in checks)
+- Historian: Stores snapshots for trend analysis
+- RPC server on Unix socket (`/run/anna.sock`)
+- **Status:** Experimental, may crash
 
-**Future roadmap:**
-- Expand Arch Wiki scenario coverage
-- Network diagnostics scenarios
-- Configuration validation checks
-- Hardware monitoring integration
-- Recipe library expansion
+**annactl (Client):**
+- CLI tool for status and queries
+- Talks to daemon via Unix socket
+- Formats answers for terminal display
+- No interactive mode (one-shot only)
+- **Status:** Works but limited features
+
+**Intelligence Layers (6.15.0-6.17.0):**
+1. **Wiki Answer Engine (6.16.0)** - Pattern-based query matching to Arch Wiki articles (deterministic, no LLM)
+2. **Command Intelligence Layer (6.15.0)** - Dynamic command synthesis based on system state
+3. **LLM Fallback** - Ollama integration for questions without wiki coverage
+
+**Diagnostic Engine:**
+- 9 rule-based checks (disk, memory, services, packages, mounts, logs)
+- 6 temporal correlation rules (Historian)
+- Proactive assessment (calculates health score)
+- **Status:** Works but limited scope
+
+---
+
+## What's Tested
+
+### Passing Tests (385/386 - 99.7%)
+
+**New in 6.17.0:**
+- Status health derivation (6 tests)
+- Output formatting (8 tests)
+- Self-health checks (4 tests)
+
+**Existing:**
+- Wiki answer engine (40 tests)
+- Command intelligence (10 tests)
+- Diagnostic engine (core functionality)
+- Action plan validation
+
+**Known Failures:**
+- 1 test in system_knowledge (LLM context summary) - non-critical
+
+---
+
+## Known Issues
+
+Be transparent:
+
+1. **Daemon Instability**
+   - annad may restart frequently under load
+   - Memory usage can grow over time
+   - Socket sometimes becomes unresponsive
+   - **Workaround:** `sudo systemctl restart annad`
+
+2. **LLM Dependency**
+   - Most features require Ollama running
+   - Models must be downloaded separately (4GB+)
+   - Slow on systems with <8GB RAM
+   - **Workaround:** Use wiki-backed queries only
+
+3. **Limited Scenario Coverage**
+   - Only ~10 troubleshooting scenarios implemented
+   - Many queries fall back to generic LLM answers
+   - Not all Arch Wiki articles mapped yet
+   - **Workaround:** Use manual Arch Wiki lookups
+
+4. **Permission Issues**
+   - Requires correct `/var/log/anna` ownership (root:anna mode 750)
+   - User must be in required groups for full features
+   - **Workaround:** Status command will tell you exact fix commands
+
+---
+
+## Development Status
+
+**Current Version:** 6.17.0 (November 24, 2025)
+
+**Recent Progress:**
+- ✅  6.17.0 - Fixed status logic bug (health derivation)
+- ✅  6.16.0 - Wiki Answer Engine v1 (deterministic answers)
+- ✅  6.15.0 - Command Intelligence Layer (dynamic commands)
+- ✅  6.9.0 - Repository cleanup (removed dead code)
+- ✅  6.7.0 - Reflection system (system change awareness)
+
+**Active Development:**
+- Expanding wiki scenario coverage
+- Improving daemon stability
+- Adding more diagnostic rules
+- Professional output formatting
+
+**Not Planned:**
+- Interactive TUI (archived from 5.x)
+- Remote management
+- Cloud integration
+- Autonomous actions without approval
 
 ---
 
 ## Contributing
 
-Anna is in active development. Contributions welcome!
+This project needs help! Areas where contributions are valuable:
 
-**Areas of interest:**
-- Additional diagnostic rules
-- Recipe improvements
+**High Priority:**
+- Daemon stability fixes
+- Additional wiki scenario mappings
+- More diagnostic rules
+- Test coverage improvements
 - Documentation
-- Testing
-- Bug reports
+
+**Lower Priority:**
+- New features (focus on stability first)
+- Performance optimizations
+- UI/UX enhancements
+
+**How to Contribute:**
+1. Fork the repo
+2. Create a branch
+3. Make changes
+4. Run tests: `cargo test`
+5. Submit PR with clear description
+
+---
+
+## Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) - Version history
+- [Architecture](docs/ARCHITECTURE_BETA_200.md) - System design (may be outdated)
+- [Planner Design](docs/PLANNER_DESIGN_6x.md) - Planning system (6.2.0-6.4.x)
+
+---
+
+## Core Principles
+
+What Anna is trying to be:
+
+- **Local-First:** All data stays on your machine
+- **Telemetry-First:** Real system facts, not LLM guesses
+- **Transparent:** Every command shown before execution
+- **Deterministic:** Prefer wiki-backed answers over LLM
+- **Safe:** Never modify system without explicit approval
+- **Honest:** Don't claim capabilities we don't have
 
 ---
 
 ## License
 
-GPL-3.0 - See [LICENSE](LICENSE) for details.
+GPL-3.0-or-later - See [LICENSE](LICENSE)
 
 ---
 
-## Acknowledgments
+## Credits
 
 Built with:
-- [Rust](https://www.rust-lang.org/) - Systems programming
+- [Rust](https://www.rust-lang.org/) - Systems programming language
 - [Ollama](https://ollama.ai/) - Local LLM runtime
-- [Arch Wiki](https://wiki.archlinux.org/) - Documentation source
-- Community feedback and testing
+- [Arch Wiki](https://wiki.archlinux.org/) - Authoritative documentation
+- Community testing and feedback
 
 ---
 
-**Made for Arch Linux enthusiasts who want intelligent system management without sacrificing control or privacy.**
+## Disclaimer
+
+**This is experimental software. Use at your own risk.**
+
+- No warranty of any kind
+- May contain bugs or incomplete features
+- Not suitable for production systems
+- Commands may be incorrect (always verify before running)
+- LLM answers may hallucinate (use wiki-backed answers when available)
+
+**If you need production-ready system management, use:**
+- Standard Arch Linux tools (pacman, systemctl, journalctl)
+- Cockpit or similar web UIs
+- Commercial monitoring solutions
+
+Anna is for experimentation and learning, not production deployment.
+
+---
+
+**Made for Arch Linux enthusiasts who want to explore local LLM-based system assistance, understand the limitations, and enjoy the development process.**

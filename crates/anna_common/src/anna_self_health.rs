@@ -91,6 +91,84 @@ fn command_exists(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Check /var/log/anna directory with precise ownership and permissions
+///
+/// Expected configuration:
+/// - Owner: root
+/// - Group: anna (or the service group)
+/// - Mode: 0750 (drwxr-x---)
+///
+/// Reports issues with exact fix commands if configuration is incorrect.
+fn check_var_log_anna(issues: &mut Vec<String>) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let log_dir = std::path::Path::new("/var/log/anna");
+
+    // Check if directory exists
+    if !log_dir.exists() {
+        issues.push("Directory /var/log/anna does not exist → Fix: sudo mkdir -p /var/log/anna && sudo chown root:anna /var/log/anna && sudo chmod 750 /var/log/anna".to_string());
+        return;
+    }
+
+    // Get directory metadata
+    let metadata = match std::fs::metadata(log_dir) {
+        Ok(m) => m,
+        Err(e) => {
+            issues.push(format!("Cannot read /var/log/anna metadata: {} → Fix: sudo chown root:anna /var/log/anna && sudo chmod 750 /var/log/anna", e));
+            return;
+        }
+    };
+
+    // Check ownership using stat command (more reliable than Rust APIs for owner/group)
+    let stat_output = Command::new("stat")
+        .args(&["-c", "%U:%G:%a", "/var/log/anna"])
+        .output();
+
+    match stat_output {
+        Ok(output) if output.status.success() => {
+            let stat_str = String::from_utf8_lossy(&output.stdout);
+            let parts: Vec<&str> = stat_str.trim().split(':').collect();
+
+            if parts.len() == 3 {
+                let owner = parts[0];
+                let group = parts[1];
+                let mode = parts[2];
+
+                let mut problems = Vec::new();
+
+                // Check owner (should be root)
+                if owner != "root" {
+                    problems.push(format!("owner is '{}' (expected 'root')", owner));
+                }
+
+                // Check group (should be anna, or at least not root)
+                if group != "anna" {
+                    problems.push(format!("group is '{}' (expected 'anna')", group));
+                }
+
+                // Check mode (should be 750)
+                if mode != "750" {
+                    problems.push(format!("mode is '{}' (expected '750')", mode));
+                }
+
+                if !problems.is_empty() {
+                    let problem_str = problems.join(", ");
+                    issues.push(format!("/var/log/anna has wrong permissions: {} → Fix: sudo chown root:anna /var/log/anna && sudo chmod 750 /var/log/anna", problem_str));
+                }
+            }
+        }
+        _ => {
+            // Fallback: just check if writable
+            let test_file = "/var/log/anna/.health_check";
+            if std::fs::write(test_file, "test").is_err() {
+                issues.push("Cannot write to /var/log/anna → Fix: sudo chown root:anna /var/log/anna && sudo chmod 750 /var/log/anna".to_string());
+            } else {
+                let _ = std::fs::remove_file(test_file);
+            }
+        }
+    }
+}
+
 /// Check Anna's permissions
 ///
 /// Verifies:
@@ -119,11 +197,11 @@ fn check_permissions() -> (bool, Vec<String>) {
         }
     }
 
-    // Check data directory access
-    let data_dirs = [
-        "/var/lib/anna",
-        "/var/log/anna",
-    ];
+    // Check /var/log/anna with precise ownership and permission validation
+    check_var_log_anna(&mut issues);
+
+    // Check other data directories
+    let data_dirs = ["/var/lib/anna"];
 
     for dir in &data_dirs {
         if std::path::Path::new(dir).exists() {

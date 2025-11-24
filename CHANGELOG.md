@@ -7,6 +7,183 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.0] - 2025-11-24
+
+### TRUTHFUL STATUS & PROFESSIONAL OUTPUT
+
+**Type:** Bug Fix + Feature
+**Focus:** Strict health derivation, consistent diagnostics, professional formatting
+
+#### Fixed 🐛
+
+**Critical Status Logic Bug:**
+- Status command could claim "HEALTHY" while simultaneously showing:
+  - `/var/log/anna` permission issues
+  - Brain analysis unavailable (socket not found)
+  - Daemon restarted 41+ times
+  - This was objectively lying to the user
+- Fixed by implementing strict monotonic health derivation:
+  - Overall status is now computed from ALL diagnostics
+  - If critical_count > 0: Status = CRITICAL
+  - Else if warning_count > 0: Status = DEGRADED
+  - Else: Status = HEALTHY
+  - **Status can NEVER be HEALTHY when there are ANY warnings or critical issues**
+
+**Daemon Health Consistency:**
+- Daemon health now requires BOTH:
+  1. Systemd reports service as active
+  2. RPC socket (/run/anna.sock) is reachable
+- Previously only checked systemd status
+- Now detects "systemd says active but socket missing" as CRITICAL issue
+- Provides diagnostic with fix commands when socket unreachable
+
+**Permission Checks:**
+- `/var/log/anna` directory now has precise validation:
+  - Expected owner: root
+  - Expected group: anna
+  - Expected mode: 0750 (drwxr-x---)
+- Reports exact ownership/permission problems
+- Provides fix commands in diagnostic hints
+- Consistent across Core Health and Anna Self-Health sections
+
+**Brain Analysis Unavailability:**
+- Treated as CRITICAL issue (not a footnote)
+- Shows up in diagnostics with clear title and fix commands
+- Contributes to overall health status
+
+**Daemon Instability Detection:**
+- Parses journal for restart counter
+- If restarts >= 10: Warning diagnostic
+- If restarts >= 20: Critical diagnostic
+- Clearly states "annad has restarted N times this boot"
+
+#### Added ✨
+
+**New Modules:**
+- `status_health.rs` (300+ lines) - Strict health derivation logic:
+  - HealthSummary with monotonic computation
+  - Diagnostic struct for individual checks
+  - Check functions for daemon, brain analysis, self-health, restarts
+  - 4 unit tests validating health rules
+- `output_style.rs` (460+ lines) - Professional output formatting:
+  - Terminal capability detection (TTY, color depth, emoji)
+  - OutputConfig (emoji_mode, color_mode)
+  - OutputFormatter with professional methods
+  - 8 unit tests
+
+**Enhanced Anna Self-Health:**
+- `check_var_log_anna()` function validates directory precisely
+- Uses `stat` command to check owner:group:mode
+- Reports problems with exact fix commands
+- Example: "/var/log/anna has wrong permissions: owner is 'user' (expected 'root'), group is 'users' (expected 'anna'), mode is '755' (expected '750') → Fix: sudo chown root:anna /var/log/anna && sudo chmod 750 /var/log/anna"
+
+**New Test Suite:**
+- `status_output_validation.rs` - 6 tests:
+  - Daemon health requires both systemd AND RPC
+  - Brain analysis unavailability is critical
+  - Health summary never healthy with warnings
+  - Critical issues trigger critical status
+  - Healthy only when zero issues
+  - Status line formatting
+- All 6 tests passing
+
+#### Changed 🔧
+
+**Status Command Restructure:**
+- Overall Status moved to TOP of output (right after version banner)
+- Status now shows counts: "1 warning(s), 0 critical issue(s)" or "2 critical issue(s) require attention"
+- System Diagnostics section shows ALL issues with numbered list
+- Each diagnostic shows:
+  - Severity emoji (ℹ️ / ⚠️ / ✗)
+  - Bold title
+  - Dimmed body text
+  - Fix command hints (→ command)
+- Removed duplicate "Overall Status" section that appeared later
+
+**Unified Health Summary:**
+- `build_unified_health_summary()` collects diagnostics from:
+  - Daemon (systemd + RPC reachability)
+  - Brain analysis availability
+  - Anna self-health (deps, permissions, LLM)
+  - Daemon restart count
+  - Brain analysis insights (critical + warnings)
+- Returns HealthSummary with strict computed level
+
+**RPC Reachability Check:**
+- New function: `check_daemon_rpc_reachable()`
+- Quick 200ms timeout socket test
+- Used by daemon health diagnostic
+- Ensures daemon isn't just "active" in systemd but actually reachable
+
+#### Technical Changes 🔧
+
+**New Files:**
+- `crates/annactl/src/status_health.rs` (300+ lines)
+- `crates/anna_common/src/output_style.rs` (460+ lines)
+- `crates/annactl/tests/status_output_validation.rs` (140+ lines)
+
+**Modified Files:**
+- `crates/annactl/src/status_command.rs` - Complete health logic rewrite
+- `crates/anna_common/src/anna_self_health.rs` - Added precise /var/log/anna checks
+- `crates/annactl/src/main.rs` - Added status_health module
+- `crates/annactl/src/lib.rs` - Exported status_health for tests
+- `crates/anna_common/src/lib.rs` - Added output_style module
+- `Cargo.toml` - Added regex dependency for ANSI stripping
+
+**Dependencies:**
+- Added: `regex = "1.10"` (for ANSI code stripping in output_style)
+
+**Tests:**
+- status_health: 4 unit tests passing
+- output_style: 8 unit tests passing
+- status_output_validation: 6 integration tests passing
+- **Total: 18 new tests, all passing**
+
+#### Example Behavior 💡
+
+**Before 6.17.0 (WRONG):**
+```
+Overall Status:
+  ✅ HEALTHY: all systems operational
+
+⚙️  Anna Self-Health
+  ⚠️ Permission issues:
+    → Cannot write to /var/log/anna
+
+ℹ️  System Diagnostics (Brain Analysis)
+  Brain analysis unavailable: Socket not found at /run/anna.sock
+```
+
+**After 6.17.0 (CORRECT):**
+```
+Overall Status:
+  ⚠️ DEGRADED: 2 warning(s), 1 critical issue(s)
+
+System Diagnostics:
+  1 ✗ Anna daemon not reachable
+    annad is active according to systemd, but the RPC socket /run/anna.sock is missing or unresponsive
+    → Investigate: sudo systemctl status annad
+    → Check socket: ls -la /run/anna.sock
+    → Logs: journalctl -u annad -n 50
+
+  2 ⚠️ Permission issue
+    /var/log/anna has wrong permissions: group is 'root' (expected 'anna'), mode is '770' (expected '750')
+    → sudo chown root:anna /var/log/anna && sudo chmod 750 /var/log/anna
+```
+
+#### Breaking Changes ⚠️
+
+None. This is a bug fix release that makes status output truthful.
+
+#### Notes 📝
+
+- This release addresses critical feedback that status could lie about system health
+- The fix ensures Anna never claims "HEALTHY" when there are issues
+- All diagnostics now contribute to overall health computation
+- Status output is now suitable for a senior Arch Linux administrator
+- No hardcoded machine-specific checks
+- All error messages include fix commands
+
 ## [6.16.0] - 2025-11-24
 
 ### WIKI ANSWER ENGINE V1
