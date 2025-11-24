@@ -7,6 +7,248 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.24.0] - 2025-11-24
+
+### HISTORICAL METRICS & INSIGHT ENGINE
+
+**Type:** Major Feature
+**Focus:** Proactive system health monitoring with trend-based insights
+
+#### Added ✨
+
+**Insights Engine:**
+- New `InsightsEngine` with 6 rules-based detectors
+- Automatic insight generation from Historian data (no LLM required)
+- InsightSeverity levels: Info, Warning, Critical
+- Evidence-backed recommendations with actionable suggestions
+- Insights displayed in `annactl status` (top 3 from last 24 hours)
+
+**Insight Detectors:**
+1. **Boot Regression** - Detects increasing boot times over 30 days
+2. **Disk Space Issues** - Monitors usage with growth rate predictions ("full in N days")
+3. **Error Rate Spikes** - Tracks journal errors with hourly averages
+4. **Memory Pressure** - Detects sustained memory growth trends
+5. **Swap Usage Anomalies** - Warns on heavy swap usage (>20% moderate, >50% critical)
+6. **Anna Inactivity** - Detects when Anna hasn't been used for 7+ days
+
+**Historian Enhancements:**
+- Extended `MemoryTrends` struct with swap tracking fields
+- `get_disk_trends(days)` - Disk usage trends with growth rate calculation
+- `get_anna_usage_stats(hours)` - Anna invocation frequency tracking
+- `get_error_trends_v2(hours)` - Error rates with hourly averages
+- Updated `get_memory_trends()` to query swap from memory_samples table
+
+**Status Integration:**
+- Insights displayed prominently before other status sections
+- Formatted with severity emoji (🔴 Critical, ⚠️ Warning, ℹ️ Info)
+- Shows title, explanation, evidence, and suggestions
+- Gracefully handles missing Historian database
+
+#### Technical
+
+**New Modules:**
+- `anna_common/src/insights_engine.rs` - Core insight engine with detectors
+
+**New Data Structures:**
+```rust
+pub struct Insight {
+    pub id: String,                    // Unique ID with timestamp
+    pub severity: InsightSeverity,
+    pub title: String,
+    pub explanation: String,
+    pub evidence: Vec<String>,
+    pub suggestion: Option<String>,
+}
+
+pub struct DiskTrends {
+    pub used_gb: f64,
+    pub current_used_percent: f64,
+    pub growth_rate_gb_per_day: f64,
+}
+
+pub struct AnnaUsageStats {
+    pub invocation_count: i32,
+    pub hours_since_last_invocation: i64,
+}
+```
+
+**Modified:**
+- `historian.rs` - Extended MemoryTrends, added 3 new methods
+- `status_command.rs` - Added `display_insights()` function
+- `lib.rs` - Exported insights_engine module
+
+**Design Principles:**
+- Rules-based detection (fast, deterministic, no LLM overhead)
+- Evidence-backed insights (transparent reasoning)
+- Actionable suggestions (specific commands, not vague advice)
+- Graceful degradation (silently skips if Historian DB missing)
+
+#### Testing ✅
+
+- 7 comprehensive unit tests for Insight struct
+- Builder pattern validation
+- Severity ordering and conversion from TrendSeverity
+- Timestamp generation with second precision
+- Evidence and suggestion handling
+- All tests passing
+
+#### Example Output
+
+```
+Recent Insights:
+
+🔴 Disk Space Critical (Critical)
+   Root filesystem is 92% full (450.5 GB used of 490.0 GB total).
+   At current growth rate, disk will be full in 8 days.
+   • Current usage: 92.0%
+   • Growth rate: 5.12 GB/day
+   → Run 'annactl "clean up disk space"' for cleanup recommendations
+
+⚠️  Boot Time Increasing (Warning)
+   System boot time has been increasing over the last 30 days.
+   Average boot time is now 18500 ms (18 seconds).
+   • Average boot time: 18500 ms
+   • Trend: Increasing over 30 days
+   → Review recently enabled systemd services with 'systemd-analyze blame'
+
+==================================================
+```
+
+#### Impact
+
+**Transformation Complete:**
+- **Before v6.24.0:** Anna responds to queries ("check my system")
+- **After v6.24.0:** Anna surfaces insights proactively ("here's what you should know")
+
+Users now see critical trends and issues automatically in `annactl status`, backed by historical data. Anna has evolved from reactive assistant to proactive system observer.
+
+## [6.23.0] - 2025-11-24
+
+### WIKI REASONING ENGINE - COMPLETE VERTICAL SLICE
+
+**Type:** Major Feature
+**Focus:** Transform Arch Wiki into first-class reasoning source
+
+#### Added ✨
+
+**Wiki Reasoning Pipeline:**
+- Turn Arch Wiki from "just a URL" into active reasoning source
+- Pattern-based topic classification (instant, deterministic)
+- LLM-powered reasoning combining wiki + telemetry + system knowledge
+- Structured WikiAdvice output with steps, commands, cautions, citations
+
+**Supported Topics (5 vertical slices):**
+1. **Power Management** - TLP, battery optimization, thermal management
+2. **Disk Space** - Cleanup, large file detection, maintenance
+3. **Boot Performance** - Startup optimization, systemd analysis
+4. **Networking** - WiFi troubleshooting, DNS, connectivity
+5. **GPU Stack** - NVIDIA, AMD, Intel graphics drivers
+
+**Wiki Client:**
+- HTTP fetching with 7-day local caching (`~/.cache/anna/wiki/`)
+- HTML to text conversion with scraper + html2text
+- Section extraction for targeted content retrieval
+
+**LLM Integration:**
+- Ollama endpoint: `localhost:11434/v1/chat/completions`
+- Model: llama3.2:3b (temperature 0.3 for consistent JSON)
+- Structured JSON schema enforcement
+- 60-second timeout with error handling
+
+**Query Handler Integration:**
+- TIER 0.4 placement (after CIL, before Diagnostics)
+- Confidence threshold: 0.6 for wiki topic matching
+- Graceful fallthrough if no match or LLM fails
+- `format_wiki_advice()` - CLI formatter with sections
+
+#### Technical
+
+**New Modules:**
+- `anna_common/src/wiki_reasoner.rs` - Core types and reasoning pipeline
+- `anna_common/src/wiki_topics.rs` - Pattern-based classifier (11 tests)
+- `anna_common/src/wiki_llm.rs` - Ollama integration
+- `annad/src/wiki_client.rs` - HTTP fetching and caching
+
+**Data Structures:**
+```rust
+pub struct WikiAdvice {
+    pub summary: String,              // 2-5 line explanation
+    pub steps: Vec<WikiStep>,         // Ordered steps with commands
+    pub notes: Vec<String>,           // Helpful hints
+    pub citations: Vec<WikiCitation>, // Arch Wiki sources
+}
+
+pub struct WikiStep {
+    pub title: String,
+    pub description: String,
+    pub commands: Vec<String>,        // Shell commands
+    pub caution: Option<String>,      // ⚠️ warnings
+}
+```
+
+**Modified:**
+- `unified_query_handler.rs` - Added TIER 0.4 wiki reasoning
+- `lib.rs` - Exported 3 new wiki modules
+- `annad/Cargo.toml` - Added scraper, html2text, dirs dependencies
+
+**Design Decisions:**
+- Pattern-based classification (not LLM) for speed and determinism
+- LLM for reasoning to adapt generic wiki content to user's system
+- No new CLI commands (natural language only via `annactl "text"`)
+- 7-day cache for offline operation and performance
+
+#### Testing ✅
+
+**Classification Tests (11 total):**
+- All 5 topics with real questions
+- Intent detection (Troubleshoot, Install, Configure)
+- Confidence scoring validation
+- Metadata completeness
+
+**Formatter Tests (2 total):**
+- Full WikiAdvice rendering with all sections
+- Minimal advice with optional fields omitted
+
+#### Example Output
+
+```
+[SUMMARY]
+Your WiFi connection drops are likely due to power management settings
+or driver configuration. Let's check both.
+
+[STEPS]
+1. Check power management settings
+   Verify if WiFi adapter is being power-managed aggressively
+
+   $ iw dev
+   $ cat /sys/module/iwlwifi/parameters/power_save
+
+   ⚠️  Do not disable power management globally without checking impact
+
+2. Review driver configuration
+   Check for known issues with your wireless driver
+
+   $ dmesg | grep wifi
+   $ journalctl -u NetworkManager --since today
+
+[NOTES]
+• NetworkManager handles WiFi power management by default
+• Consider updating firmware if using Intel wireless cards
+
+[REFERENCES]
+• Arch Wiki: https://wiki.archlinux.org/title/Network_configuration
+```
+
+#### Impact
+
+Anna can now handle domain-specific questions like "my wifi drops sometimes" by:
+1. Identifying topic (Networking) and intent (Troubleshoot)
+2. Fetching relevant Arch Wiki sections
+3. Combining with system telemetry (e.g., Hyprland → Wayland gotchas)
+4. Producing tailored, step-by-step guidance with citations
+
+This is the **first domain-specific reasoning module** - establishing the pattern for future knowledge sources (man pages, forums, docs).
+
 ## [6.22.0] - 2025-11-24
 
 ### SAFE MODE & AUTO-UPDATE INFRASTRUCTURE
