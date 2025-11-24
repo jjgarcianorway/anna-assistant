@@ -47,6 +47,16 @@ pub struct SessionContext {
 
     /// Query count in this session (for preference inference)
     query_count: usize,
+
+    // v6.27.0: Proactive Commentary Engine
+    /// Recent wiki topics discussed (max 5, for context awareness)
+    pub recent_topics: Vec<String>,
+
+    /// Last time status was checked (Unix timestamp)
+    pub last_status_time: Option<u64>,
+
+    /// Last proactive commentary shown (for "why did you say that?" follow-up)
+    pub last_commentary: Option<String>,
 }
 
 /// High-level query intent classification
@@ -85,6 +95,9 @@ pub enum FollowUpType {
 
     /// User wants to clarify or refine last answer
     Clarification,
+
+    /// User wants explanation of proactive commentary (v6.27.0)
+    ExplainCommentary,
 }
 
 /// Summary of last answer for follow-up support
@@ -164,6 +177,9 @@ impl SessionContext {
             preferences: UserPreferences::default(),
             last_updated_secs: now_secs,
             query_count: 0,
+            recent_topics: Vec::new(),
+            last_status_time: None,
+            last_commentary: None,
         }
     }
 
@@ -325,6 +341,23 @@ impl SessionContext {
     pub fn detect_followup_type(query: &str) -> Option<FollowUpType> {
         let query_lower = query.to_lowercase();
 
+        // v6.27.0: "why did you say that?" patterns (check first - most specific)
+        let explain_commentary_patterns = [
+            "why did you say that",
+            "why did you mention that",
+            "why are you telling me this",
+            "explain that insight",
+            "expand the last warning",
+            "what do you mean by that",
+            "tell me more about that warning",
+        ];
+
+        for pattern in &explain_commentary_patterns {
+            if query_lower.contains(pattern) {
+                return Some(FollowUpType::ExplainCommentary);
+            }
+        }
+
         // "more details" patterns
         let detail_patterns = [
             "more detail",
@@ -372,6 +405,45 @@ impl SessionContext {
         }
 
         None
+    }
+
+    // v6.27.0: Proactive Commentary Engine helpers
+
+    /// Add a topic to recent_topics (max 5, FIFO)
+    pub fn track_topic(&mut self, topic: impl Into<String>) {
+        let topic_str = topic.into();
+
+        // Remove if already exists (move to front)
+        self.recent_topics.retain(|t| t != &topic_str);
+
+        // Add to front
+        self.recent_topics.insert(0, topic_str);
+
+        // Keep only last 5
+        self.recent_topics.truncate(5);
+
+        self.save();
+    }
+
+    /// Record that status was just checked
+    pub fn mark_status_checked(&mut self) {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        self.last_status_time = Some(now_secs);
+        self.save();
+    }
+
+    /// Store the last proactive commentary shown
+    pub fn store_commentary(&mut self, commentary: impl Into<String>) {
+        self.last_commentary = Some(commentary.into());
+        self.save();
+    }
+
+    /// Get last commentary for "why did you say that?" follow-up
+    pub fn get_last_commentary(&self) -> Option<&str> {
+        self.last_commentary.as_deref()
     }
 }
 
@@ -650,5 +722,95 @@ mod tests {
         ctx2.update_from_query(QueryIntent::Generic, None, "brief please");
 
         assert_eq!(ctx2.preferences.detail_level, DetailPreference::Short);
+    }
+
+    // v6.27.0: New tests for Proactive Commentary Engine
+
+    #[test]
+    fn test_followup_explain_commentary_detection() {
+        assert_eq!(
+            SessionContext::detect_followup_type("why did you say that?"),
+            Some(FollowUpType::ExplainCommentary)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("why did you mention that?"),
+            Some(FollowUpType::ExplainCommentary)
+        );
+
+        assert_eq!(
+            SessionContext::detect_followup_type("explain that insight"),
+            Some(FollowUpType::ExplainCommentary)
+        );
+    }
+
+    #[test]
+    fn test_track_topic() {
+        let mut ctx = SessionContext::new();
+
+        // Track topics (max 5)
+        ctx.track_topic("DiskSpace");
+        ctx.track_topic("Networking");
+        ctx.track_topic("BootPerformance");
+
+        assert_eq!(ctx.recent_topics.len(), 3);
+        assert_eq!(ctx.recent_topics[0], "BootPerformance"); // Most recent first
+        assert_eq!(ctx.recent_topics[1], "Networking");
+        assert_eq!(ctx.recent_topics[2], "DiskSpace");
+
+        // Adding duplicate should move to front
+        ctx.track_topic("Networking");
+        assert_eq!(ctx.recent_topics[0], "Networking");
+        assert_eq!(ctx.recent_topics[1], "BootPerformance");
+        assert_eq!(ctx.recent_topics[2], "DiskSpace");
+        assert_eq!(ctx.recent_topics.len(), 3);
+    }
+
+    #[test]
+    fn test_track_topic_truncates_at_5() {
+        let mut ctx = SessionContext::new();
+
+        // Track 7 topics
+        ctx.track_topic("Topic1");
+        ctx.track_topic("Topic2");
+        ctx.track_topic("Topic3");
+        ctx.track_topic("Topic4");
+        ctx.track_topic("Topic5");
+        ctx.track_topic("Topic6");
+        ctx.track_topic("Topic7");
+
+        // Should keep only last 5
+        assert_eq!(ctx.recent_topics.len(), 5);
+        assert_eq!(ctx.recent_topics[0], "Topic7");
+        assert_eq!(ctx.recent_topics[4], "Topic3");
+    }
+
+    #[test]
+    fn test_store_and_retrieve_commentary() {
+        let mut ctx = SessionContext::new();
+
+        // Store commentary
+        ctx.store_commentary("Your disk usage has been trending upward for 3 days.");
+
+        // Retrieve it
+        assert!(ctx.get_last_commentary().is_some());
+        assert_eq!(
+            ctx.get_last_commentary().unwrap(),
+            "Your disk usage has been trending upward for 3 days."
+        );
+    }
+
+    #[test]
+    fn test_mark_status_checked() {
+        let mut ctx = SessionContext::new();
+
+        // Initially no status time
+        assert!(ctx.last_status_time.is_none());
+
+        // Mark status as checked
+        ctx.mark_status_checked();
+
+        // Should now have a timestamp
+        assert!(ctx.last_status_time.is_some());
     }
 }

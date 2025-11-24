@@ -132,6 +132,10 @@ pub async fn handle_unified_query(
                 FollowUpType::JustCommands => {
                     handle_just_commands_followup(&last_answer_cloned, &mut session_ctx, user_text).await
                 }
+                FollowUpType::ExplainCommentary => {
+                    // v6.27.0: Explain the proactive commentary
+                    handle_explain_commentary_followup(&mut session_ctx, user_text).await
+                }
                 FollowUpType::Clarification => {
                     // For clarification, we can re-run with more context
                     // For now, treat as "more details"
@@ -2825,6 +2829,54 @@ async fn handle_just_commands_followup(
                 sources: vec!["previous answer (no executable commands)".to_string()],
             })
         }
+    }
+}
+
+/// v6.27.0: Handle "why did you say that?" follow-up to explain proactive commentary
+async fn handle_explain_commentary_followup(
+    session_ctx: &mut anna_common::session_context::SessionContext,
+    user_text: &str,
+) -> Result<UnifiedQueryResult> {
+    use anna_common::session_context::QueryIntent;
+
+    // Check if we have stored commentary
+    if let Some(commentary) = session_ctx.get_last_commentary() {
+        // Return the full commentary with expanded explanation
+        let answer = format!(
+            "I mentioned this because I noticed patterns in your system telemetry:\n\n{}",
+            commentary
+        );
+
+        session_ctx.update_from_query(
+            QueryIntent::FollowUp {
+                follow_up_type: anna_common::session_context::FollowUpType::ExplainCommentary,
+            },
+            None, // Don't overwrite last_answer
+            user_text,
+        );
+
+        Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence: AnswerConfidence::High,
+            sources: vec!["proactive commentary explanation".to_string()],
+        })
+    } else {
+        // No commentary in last answer
+        let answer = "I didn't give any additional commentary in my previous answer. If you ask about system status or health, I may provide proactive insights based on trend analysis.".to_string();
+
+        session_ctx.update_from_query(
+            QueryIntent::FollowUp {
+                follow_up_type: anna_common::session_context::FollowUpType::ExplainCommentary,
+            },
+            None,
+            user_text,
+        );
+
+        Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence: AnswerConfidence::High,
+            sources: vec!["no commentary in previous answer".to_string()],
+        })
     }
 }
 

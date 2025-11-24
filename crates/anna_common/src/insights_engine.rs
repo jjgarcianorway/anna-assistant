@@ -25,7 +25,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Severity levels for insights (aligned with TrendSeverity)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum InsightSeverity {
     Info,     // Informational observation
     Warning,  // Requires attention soon

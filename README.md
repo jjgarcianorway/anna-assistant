@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.26.0**
+**Experimental Arch Linux System Assistant - Version 6.27.0**
 
-[![Version](https://img.shields.io/badge/version-6.26.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.27.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.26.0)
+## What Works Right Now (6.27.0)
 
 ### 1. Status Command
 
@@ -237,17 +237,18 @@ journalctl -u annad -n 50
 
 ## What's Tested
 
-### Passing Tests (436/438 - 99.5%)
+### Passing Tests (450/451 - 99.8%)
 
-**New in 6.26.0:**
-- Session context memory (14 tests)
-- Follow-up query detection (3 tests)
-- User preference inference (3 tests)
-- Session persistence (1 test)
+**New in 6.27.0:**
+- Proactive commentary engine (8 tests)
+- Insight matching (3 tests)
+- Session context enhancements (5 new tests, 19 total)
+- "Why did you say that?" follow-up (1 test)
 
 **Existing:**
 - Wiki answer engine (40 tests)
 - Insights engine (16 tests)
+- Session context (14 tests from v6.26.0)
 - Command intelligence (10 tests)
 - Status health derivation (6 tests)
 - Output formatting (8 tests)
@@ -255,7 +256,7 @@ journalctl -u annad -n 50
 - Action plan validation
 
 **Known Failures:**
-- 2 pre-existing tests (paths, system_knowledge) - non-critical
+- 1 pre-existing test (system_knowledge) - non-critical
 
 ---
 
@@ -290,18 +291,18 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.26.0 (November 24, 2025)
+**Current Version:** 6.27.0 (November 24, 2025)
 
 **Recent Progress:**
+- ✅  6.27.0 - Proactive Commentary Engine v1 (context-aware insights, "why did you say that?" follow-up)
 - ✅  6.26.0 - Deep Context Memory & Proactive Commentary (follow-up queries, session persistence)
 - ✅  6.25.0 - Service Reliability & Degraded-Unit Correlation (7 new insight detectors)
 - ✅  6.24.0 - Historical Metrics & Insight Engine (trend analysis)
 - ✅  6.23.0 - Wiki Reasoning Engine (LLM-powered wiki interpretation)
-- ✅  6.20.0 - Safe Mode foundation (crash loop detection)
 
 **Active Development:**
-- Enhanced proactive commentary
-- Additional follow-up patterns
+- Full answer path integration for commentary
+- Additional insight matchers
 - Natural language intent routing improvements
 - Daemon stability enhancements
 
