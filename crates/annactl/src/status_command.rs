@@ -390,7 +390,8 @@ async fn get_llm_mode_string() -> String {
 // This ensures single source of truth for health status
 
 /// Call brain analysis via RPC (Beta.217b)
-async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData> {
+/// 6.8.1: Made public for health question handler
+pub async fn call_brain_analysis() -> Result<anna_common::ipc::BrainAnalysisData> {
     use anna_common::ipc::{Method, ResponseData};
     use crate::rpc_client::RpcClient;
 

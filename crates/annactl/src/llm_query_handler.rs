@@ -223,6 +223,11 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Get LLM config
     let config = get_llm_config();
 
+    // 6.8.1: Handle health questions with telemetry, not generic LLM
+    if matches_health_question(user_text) {
+        return handle_health_question(&ui).await;
+    }
+
     // 6.4.x/6.5.0: Try planner first
     if let Some((planner_answer, plan)) = try_planner_answer(user_text, &telemetry) {
         spinner.finish_and_clear();
@@ -513,4 +518,108 @@ fn get_llm_config() -> LlmConfig {
     };
 
     LlmConfig::local("http://127.0.0.1:11434/v1", &model_name)
+}
+
+// ============================================================================
+// 6.8.1 Hotfix: Health Question Handling
+// ============================================================================
+
+/// Detect if a question is asking about system health
+///
+/// These questions should use telemetry, not generic LLM responses.
+fn matches_health_question(question: &str) -> bool {
+    let q_lower = question.to_lowercase();
+
+    let health_patterns = [
+        "how is my computer",
+        "how is my system",
+        "is my system healthy",
+        "is my computer healthy",
+        "status of my machine",
+        "status of my system",
+        "how is my machine",
+        "system health",
+        "computer health",
+    ];
+
+    for pattern in &health_patterns {
+        if q_lower.contains(pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Handle health questions using telemetry instead of generic LLM
+///
+/// Produces a short health summary based on:
+/// - Overall health status
+/// - Reflection
+/// - Brain diagnostics
+async fn handle_health_question(ui: &UI) -> Result<()> {
+    use crate::status_command::call_brain_analysis;
+    use anna_common::ipc::Method;
+
+    // Show "anna:" prefix
+    if ui.capabilities().use_colors() {
+        println!("{}", "anna:".bright_magenta().bold());
+    } else {
+        println!("anna:");
+    }
+    println!();
+
+    // Get health data (same as status command)
+    match call_brain_analysis().await {
+        Ok(analysis) => {
+            // Show reflection first
+            let reflection = crate::reflection_helper::build_local_reflection();
+            if !reflection.items.is_empty() {
+                let reflection_text =
+                    crate::reflection_helper::format_reflection(&reflection, ui.capabilities().use_colors());
+                print!("{}", reflection_text);
+                println!();
+            }
+
+            // Compute overall health
+            let overall_health = crate::diagnostic_formatter::compute_overall_health(&analysis);
+
+            // Format health line
+            let health_text = crate::diagnostic_formatter::format_today_health_line_from_health(overall_health);
+            println!("**{}**", health_text);
+            println!();
+
+            // Show top issues if any
+            if analysis.critical_count > 0 || analysis.warning_count > 0 {
+                println!("Key issues detected:");
+                println!();
+
+                for (idx, insight) in analysis.insights.iter().take(3).enumerate() {
+                    let severity_marker = match insight.severity.to_lowercase().as_str() {
+                        "critical" => "✗",
+                        "warning" => "⚠",
+                        _ => "ℹ",
+                    };
+                    println!("  {} {}", severity_marker, insight.summary);
+
+                    // Show evidence if available
+                    if !insight.evidence.is_empty() {
+                        println!("     {}", insight.evidence);
+                    }
+                }
+
+                println!();
+                println!("For the full report, run: {}", "annactl status".bright_cyan());
+            } else {
+                println!("No critical issues detected. System is operating normally.");
+            }
+        }
+        Err(_) => {
+            println!("Unable to fetch system health data (daemon may be offline).");
+            println!();
+            println!("Try running: {}", "annactl status".bright_cyan());
+        }
+    }
+
+    Ok(())
 }

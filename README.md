@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Intelligent Arch Linux System Assistant - Version 6.5.0 (Experimental Prototype)**
+**Intelligent Arch Linux System Assistant - Version 6.8.1**
 
-[![Version](https://img.shields.io/badge/version-6.5.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.8.1-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 

@@ -567,7 +567,7 @@ pub fn format_diagnostic_summary_inline(analysis: &BrainAnalysisData) -> String 
         ).unwrap();
         writeln!(&mut summary).unwrap();
 
-        // Show top 3 insights
+        // Show top 3 insights with concrete details (6.8.1 hotfix)
         for (idx, insight) in analysis.insights.iter().take(3).enumerate() {
             let severity_marker = match insight.severity.to_lowercase().as_str() {
                 "critical" => "✗",
@@ -581,6 +581,15 @@ pub fn format_diagnostic_summary_inline(analysis: &BrainAnalysisData) -> String 
                 idx + 1,
                 insight.summary
             ).unwrap();
+
+            // 6.8.1: Show concrete details/evidence, not just summary
+            if !insight.evidence.is_empty() {
+                // Evidence contains concrete data (filesystem %, log messages, etc)
+                writeln!(&mut summary, "     {}", insight.evidence).unwrap();
+            } else if !insight.details.is_empty() && insight.details != insight.summary {
+                // Fall back to details if no evidence
+                writeln!(&mut summary, "     {}", insight.details).unwrap();
+            }
         }
 
         if analysis.insights.len() > 3 {
