@@ -89,6 +89,7 @@ pub mod storage; // Storage detection (SSD/HDD, SMART status, health, I/O errors
 pub mod suggestion_engine; // Task 8: Deep Caretaker v0.1 - Rule-based suggestion generation
 pub mod suggestions; // Phase 5.1: Suggestion engine with Arch Wiki integration
 pub mod system_health; // System health detection (load averages, daemon crashes, uptime)
+pub mod system_knowledge; // 6.12.0: System Knowledge Base - Anna's persistent memory
 pub mod systemd_health; // Systemd health detection (failed units, timers, journal)
 pub mod telemetry; // Telemetry structures from annad
 pub mod template_library; // Beta.90: Pre-built templates for common operations

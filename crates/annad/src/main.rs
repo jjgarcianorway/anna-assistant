@@ -106,6 +106,7 @@ mod sentinel; // Phase 1.0: Sentinel framework
 mod snapshotter;
 mod state; // Phase 0.2: State machine
 mod steward; // Phase 0.9: System steward
+mod system_knowledge; // 6.12.0: System Knowledge Base
 mod telemetry;
 mod watcher;
 mod wiki_cache;

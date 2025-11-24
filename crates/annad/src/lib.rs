@@ -16,3 +16,6 @@ pub mod steward;
 // 6.7.0: Reflection - Anna's self-awareness and concrete error reporting
 pub mod reflection;
 pub mod reflection_builder;
+
+// 6.12.0: System Knowledge Base - Anna's persistent memory
+pub mod system_knowledge;

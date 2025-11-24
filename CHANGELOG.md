@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.12.0] - 2025-11-24
+
+### SYSTEM KNOWLEDGE BASE - FOUNDATION
+
+**Type:** Architecture / Feature
+**Focus:** Anna now maintains persistent memory of your system
+
+#### Added ✨
+
+**System Knowledge Base:**
+- New persistent data model tracking services, packages, config files, hardware, and usage
+- `SystemKnowledgeBase` struct with:
+  - `ServiceProfile` - systemd service states (active/failed/masked/enabled)
+  - `PackageProfile` - explicitly installed packages
+  - `ConfigFileProfile` - important config files (Hyprland, i3, sway, swww)
+  - `WallpaperProfile` - WM/DE, wallpaper tool, config paths, wallpaper directories
+  - `SystemUsageProfile` - CPU cores, RAM, top processes
+- JSON persistence to `/var/lib/anna/system_knowledge.json`
+- Auto-refresh every 5 minutes during health checks
+
+**System Knowledge Manager:**
+- `SystemKnowledgeManager` in annad daemon
+- Scans system on startup and refreshes periodically
+- Detects services with `systemctl list-units` and `systemctl is-enabled`
+- Scans explicitly installed packages with `pacman -Qe`
+- Detects wallpaper tools (swww, hyprpaper, feh, nitrogen, swaybg)
+- Captures top 10 CPU-intensive processes
+- Atomic writes with temp file + rename for reliability
+
+**IPC Integration:**
+- New `GetSystemKnowledge` RPC method
+- Returns `SystemKnowledgeData` with system snapshot
+- Wired into daemon state (accessible to all handlers)
+- Automatic refresh on each `BrainAnalysis` call (when status runs)
+
+#### Technical Changes 🔧
+
+- `anna_common/src/system_knowledge.rs` - Core data model (350+ lines)
+- `annad/src/system_knowledge.rs` - Scanner and manager (500+ lines)
+- `anna_common/src/ipc.rs` - New IPC method and response type
+- `annad/src/rpc_server.rs` - Handler integration and auto-refresh
+- `annad/src/main.rs` - Module registration
+
+**Tests:**
+- Knowledge base serialization tests
+- Service profile parsing tests
+- Wallpaper profile detection tests
+- LLM context summary generation tests
+
+#### Future Work 📝
+
+- Wiki-backed answer pipeline (wallpaper + service management) - coming in 6.12.1
+- File-change watchers (inotify) for real-time updates
+- Expanded config file tracking
+- Integration with LLM context for better answers
+
 ## [6.11.2] - 2025-11-24
 
 ### REFLECTION STALENESS FIX

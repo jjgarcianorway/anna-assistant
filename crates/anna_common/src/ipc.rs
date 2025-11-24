@@ -285,6 +285,10 @@ pub enum Method {
     /// Get reflection summary (6.7.0)
     /// Returns Anna's reflection on recent changes and system events
     GetReflection,
+
+    /// Get system knowledge snapshot (6.12.0)
+    /// Returns Anna's persistent memory of the system
+    GetSystemKnowledge,
 }
 
 /// Response data variants
@@ -485,6 +489,27 @@ pub enum ResponseData {
     /// Reflection summary (6.7.0)
     /// Anna's reflection on recent changes and system events
     Reflection(ReflectionSummaryData),
+
+    /// System knowledge snapshot (6.12.0)
+    /// Anna's persistent memory of the system
+    SystemKnowledge(SystemKnowledgeData),
+}
+
+/// System knowledge data for RPC (6.12.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemKnowledgeData {
+    pub wm_or_de: Option<String>,
+    pub wallpaper_tool: Option<String>,
+    pub wallpaper_config_files: Vec<String>,
+    pub wallpaper_dirs: Vec<String>,
+    pub services_failed: usize,
+    pub services_masked: usize,
+    pub services_disabled: usize,
+    pub services_active: usize,
+    pub top_processes: Vec<String>,
+    pub total_ram_gib: u64,
+    pub cpu_cores: u64,
+    pub last_updated_secs: u64,
 }
 
 /// Reflection summary data for RPC (6.7.0)

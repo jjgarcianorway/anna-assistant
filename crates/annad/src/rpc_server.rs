@@ -132,6 +132,8 @@ pub struct DaemonState {
     pub mirror_audit: Option<Arc<tokio::sync::RwLock<crate::mirror_audit::MirrorAudit>>>,
     /// Historian - long-term memory and trend analysis (Phase 5.7)
     pub historian: Option<Arc<tokio::sync::Mutex<anna_common::historian::Historian>>>,
+    /// System Knowledge Manager - persistent memory (6.12.0)
+    pub knowledge: Arc<tokio::sync::RwLock<crate::system_knowledge::SystemKnowledgeManager>>,
 }
 
 impl DaemonState {
@@ -145,6 +147,12 @@ impl DaemonState {
             "Initial state detected: {} - {}",
             current_state.state, current_state.citation
         );
+
+        // 6.12.0: Initialize system knowledge manager
+        let knowledge_path = crate::system_knowledge::default_knowledge_path();
+        let mut knowledge_mgr = crate::system_knowledge::SystemKnowledgeManager::load_or_init(&knowledge_path)?;
+        // Take initial snapshot
+        let _ = knowledge_mgr.snapshot_now();
 
         Ok(Self {
             version,
@@ -162,6 +170,7 @@ impl DaemonState {
             chronos: None,      // Will be set later in main.rs
             mirror_audit: None, // Will be set later in main.rs
             historian: None,    // Will be set later in main.rs
+            knowledge: Arc::new(tokio::sync::RwLock::new(knowledge_mgr)),
         })
     }
 }
@@ -2109,6 +2118,17 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 }
             };
 
+            // 6.12.0: Refresh system knowledge if needed
+            {
+                let mut knowledge = state.knowledge.write().await;
+                if knowledge.needs_refresh() {
+                    info!("Refreshing system knowledge snapshot");
+                    if let Err(e) = knowledge.snapshot_now() {
+                        warn!("Failed to refresh knowledge: {}", e);
+                    }
+                }
+            }
+
             // Run sysadmin brain analysis
             let insights = crate::intel::analyze_system_health(&health_report);
             let formatted_output = crate::intel::sysadmin_brain::format_insights(&insights);
@@ -3284,6 +3304,14 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
         Method::GetReflection => {
             // For now, return empty reflection - client builds it locally
             Ok(ResponseData::Ok)
+        }
+
+        Method::GetSystemKnowledge => {
+            // 6.12.0: Return system knowledge snapshot
+            let knowledge = state.knowledge.read().await;
+            let kb = knowledge.get_cached();
+            let data = kb.to_rpc_data();
+            Ok(ResponseData::SystemKnowledge(data))
         }
     };
 
