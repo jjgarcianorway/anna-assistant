@@ -53,10 +53,69 @@ impl Config {
         Ok(config_dir.join("config.toml"))
     }
 
-    /// Load configuration from file, or create default if not exists
-    pub fn load() -> Result<Self> {
-        let path = Self::default_path()?;
+    /// Get system-wide config path: /etc/anna/config.toml
+    pub fn system_path() -> PathBuf {
+        PathBuf::from("/etc/anna/config.toml")
+    }
 
+    /// Get config path for the real user (when running as root via systemd)
+    /// Checks SUDO_USER first, then tries to find the primary non-root user's config
+    pub fn real_user_path() -> Option<PathBuf> {
+        // If we're running as root via systemd, try to find the real user's config
+        if std::env::var("HOME").ok().as_deref() == Some("/root") {
+            // Try SUDO_USER environment variable (if running via sudo)
+            if let Ok(sudo_user) = std::env::var("SUDO_USER") {
+                let user_home = format!("/home/{}", sudo_user);
+                let path = Path::new(&user_home)
+                    .join(".config")
+                    .join("anna")
+                    .join("config.toml");
+                if path.exists() {
+                    return Some(path);
+                }
+            }
+
+            // Try to find config from logged-in users by checking /home/*/.config/anna/config.toml
+            if let Ok(entries) = std::fs::read_dir("/home") {
+                for entry in entries.flatten() {
+                    let path = entry
+                        .path()
+                        .join(".config")
+                        .join("anna")
+                        .join("config.toml");
+                    if path.exists() {
+                        return Some(path);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Load configuration from file, or create default if not exists
+    /// v6.54.2: When running as root (daemon), also checks real user's config and /etc/anna/
+    pub fn load() -> Result<Self> {
+        // Priority 1: Real user's config (when running as root daemon)
+        if let Some(user_path) = Self::real_user_path() {
+            if let Ok(contents) = fs::read_to_string(&user_path) {
+                if let Ok(config) = toml::from_str(&contents) {
+                    return Ok(config);
+                }
+            }
+        }
+
+        // Priority 2: System-wide config
+        let system_path = Self::system_path();
+        if system_path.exists() {
+            if let Ok(contents) = fs::read_to_string(&system_path) {
+                if let Ok(config) = toml::from_str(&contents) {
+                    return Ok(config);
+                }
+            }
+        }
+
+        // Priority 3: User's own config (~/.config/anna/config.toml)
+        let path = Self::default_path()?;
         if path.exists() {
             let contents = fs::read_to_string(&path).context("Failed to read config file")?;
             let config: Config =

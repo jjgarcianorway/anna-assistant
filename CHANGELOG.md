@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.54.2] - 2025-11-25
+
+### Bugfix: Daemon Config Path Resolution
+
+**Type:** Bugfix
+**Focus:** Fix daemon not reading user's config when running as root
+**Status:** Complete ✓
+
+#### Problem
+
+In v6.54.1, the daemon (which runs as root via systemd) was unable to read the user's config file at `~/.config/anna/config.toml` because `$HOME` resolves to `/root` when running as root.
+
+#### Solution
+
+Enhanced `Config::load()` with multi-source config resolution:
+1. **Priority 1**: Real user's config (`/home/<user>/.config/anna/config.toml`)
+2. **Priority 2**: System-wide config (`/etc/anna/config.toml`)
+3. **Priority 3**: Default user config (falls back to previous behavior)
+
+When running as root, the daemon now:
+- Checks `SUDO_USER` environment variable
+- Scans `/home/*/.config/anna/config.toml` to find user configs
+- Falls back gracefully if no config found
+
+#### Files Modified
+
+- `crates/anna_common/src/config.rs` - Added `real_user_path()` and updated `load()`
+
 ## [6.54.1] - 2025-11-25
 
 ### Config-Driven LLM Model Selection
