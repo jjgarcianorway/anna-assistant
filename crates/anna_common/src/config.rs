@@ -6,10 +6,12 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use tracing::{debug, info};
 
 use crate::types::{AutonomyTier, Priority, RiskLevel};
 
 /// Main configuration structure
+/// v6.54.4: Added #[serde(flatten)] to allow unknown sections in config
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// General settings
@@ -43,6 +45,14 @@ pub struct Config {
     /// LLM configuration (v6.54.1)
     #[serde(default)]
     pub llm: LlmUserConfig,
+
+    /// Output configuration (v6.54.4)
+    #[serde(default)]
+    pub output: OutputConfig,
+
+    /// Catch-all for unknown sections to prevent parse failures
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, toml::Value>,
 }
 
 impl Config {
@@ -59,35 +69,66 @@ impl Config {
     }
 
     /// Get config path for the real user (when running as root via systemd)
-    /// Checks SUDO_USER first, then tries to find the primary non-root user's config
+    /// v6.54.5: Always scan /home/* for user configs when running as a system service
     pub fn real_user_path() -> Option<PathBuf> {
-        // If we're running as root via systemd, try to find the real user's config
-        if std::env::var("HOME").ok().as_deref() == Some("/root") {
-            // Try SUDO_USER environment variable (if running via sudo)
+        let home = std::env::var("HOME").ok();
+        let uid = unsafe { libc::getuid() };
+        info!("real_user_path: HOME={:?}, uid={}", home, uid);
+
+        // If running as root (uid 0), look for user configs
+        if uid == 0 {
+            info!("Running as root (uid=0), scanning /home for user configs...");
+
+            // Try SUDO_USER environment variable first (if running via sudo)
             if let Ok(sudo_user) = std::env::var("SUDO_USER") {
                 let user_home = format!("/home/{}", sudo_user);
                 let path = Path::new(&user_home)
                     .join(".config")
                     .join("anna")
                     .join("config.toml");
+                info!("Checking SUDO_USER path: {:?} exists={}", path, path.exists());
                 if path.exists() {
+                    info!("Found config via SUDO_USER: {:?}", path);
                     return Some(path);
                 }
             }
 
-            // Try to find config from logged-in users by checking /home/*/.config/anna/config.toml
-            if let Ok(entries) = std::fs::read_dir("/home") {
-                for entry in entries.flatten() {
-                    let path = entry
-                        .path()
-                        .join(".config")
-                        .join("anna")
-                        .join("config.toml");
-                    if path.exists() {
-                        return Some(path);
+            // Scan /home/*/.config/anna/config.toml
+            match std::fs::read_dir("/home") {
+                Ok(entries) => {
+                    let mut found_any = false;
+                    for entry_result in entries {
+                        match entry_result {
+                            Ok(entry) => {
+                                found_any = true;
+                                let path = entry
+                                    .path()
+                                    .join(".config")
+                                    .join("anna")
+                                    .join("config.toml");
+                                info!("Checking: {:?} exists={}", path, path.exists());
+                                if path.exists() {
+                                    info!("Found user config at: {:?}", path);
+                                    return Some(path);
+                                }
+                            }
+                            Err(e) => {
+                                info!("Error reading /home entry: {}", e);
+                            }
+                        }
+                    }
+                    if !found_any {
+                        info!("No entries found in /home");
+                    } else {
+                        info!("No user configs found in /home");
                     }
                 }
+                Err(e) => {
+                    info!("Failed to read /home directory: {}", e);
+                }
             }
+        } else {
+            info!("Not running as root (uid={}), using standard config path", uid);
         }
         None
     }
@@ -95,37 +136,63 @@ impl Config {
     /// Load configuration from file, or create default if not exists
     /// v6.54.2: When running as root (daemon), also checks real user's config and /etc/anna/
     pub fn load() -> Result<Self> {
+        Self::load_with_path().map(|(config, _)| config)
+    }
+
+    /// Load configuration and return which file it was loaded from
+    /// v6.54.3: Returns (Config, Option<PathBuf>) for debugging
+    pub fn load_with_path() -> Result<(Self, Option<PathBuf>)> {
+        let home = std::env::var("HOME").unwrap_or_default();
+        debug!("Config::load() - HOME={}", home);
+
         // Priority 1: Real user's config (when running as root daemon)
         if let Some(user_path) = Self::real_user_path() {
+            debug!("Checking real user config: {:?}", user_path);
             if let Ok(contents) = fs::read_to_string(&user_path) {
-                if let Ok(config) = toml::from_str(&contents) {
-                    return Ok(config);
+                match toml::from_str(&contents) {
+                    Ok(config) => {
+                        info!("Loaded config from real user path: {:?}", user_path);
+                        return Ok((config, Some(user_path)));
+                    }
+                    Err(e) => {
+                        // v6.54.3: Log parse errors at INFO level so they're visible
+                        info!("Failed to parse {:?}: {}", user_path, e);
+                    }
                 }
             }
         }
 
         // Priority 2: System-wide config
         let system_path = Self::system_path();
+        debug!("Checking system config: {:?}", system_path);
         if system_path.exists() {
             if let Ok(contents) = fs::read_to_string(&system_path) {
-                if let Ok(config) = toml::from_str(&contents) {
-                    return Ok(config);
+                match toml::from_str(&contents) {
+                    Ok(config) => {
+                        info!("Loaded config from system path: {:?}", system_path);
+                        return Ok((config, Some(system_path)));
+                    }
+                    Err(e) => {
+                        info!("Failed to parse {:?}: {}", system_path, e);
+                    }
                 }
             }
         }
 
         // Priority 3: User's own config (~/.config/anna/config.toml)
         let path = Self::default_path()?;
+        debug!("Checking default config: {:?}", path);
         if path.exists() {
             let contents = fs::read_to_string(&path).context("Failed to read config file")?;
             let config: Config =
                 toml::from_str(&contents).context("Failed to parse config file")?;
-            Ok(config)
+            info!("Loaded config from default path: {:?}", path);
+            Ok((config, Some(path)))
         } else {
-            // Create default config
-            let config = Config::default();
-            config.save()?;
-            Ok(config)
+            // No config found - return defaults
+            // v6.54.2: Don't try to save when running as root (daemon), just return defaults
+            debug!("No config found, using defaults (HOME={})", home);
+            Ok((Config::default(), None))
         }
     }
 
@@ -394,6 +461,18 @@ impl Default for LlmUserConfig {
     fn default() -> Self {
         Self { model: None }
     }
+}
+
+/// Output configuration (v6.54.4)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OutputConfig {
+    /// Emoji display: "enabled", "disabled", "auto"
+    #[serde(default)]
+    pub emojis: Option<String>,
+
+    /// Color output: "always", "never", "auto"
+    #[serde(default)]
+    pub color: Option<String>,
 }
 
 #[cfg(test)]

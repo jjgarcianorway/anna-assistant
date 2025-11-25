@@ -276,38 +276,41 @@ else
 fi
 echo
 
-# Smart model selection matrix based on hardware
-# Tier 4 (Powerful): 64GB+ RAM, 16GB+ VRAM, 16+ cores → llama3.1:70b (40GB)
-# Tier 3 (Good): 16GB+ RAM, 8GB+ VRAM OR 32+ cores → llama3.1:8b (4.7GB)
-# Tier 2 (Medium): 8GB+ RAM → llama3.2:3b (2.0GB)
-# Tier 1 (Light): 4GB+ RAM → llama3.2:1b (1.3GB)
+# Smart model selection matrix based on hardware (v6.55.0)
+# Tier 4 (Powerful): 64GB+ RAM, 16GB+ VRAM → llama3.1:70b (40GB)
+# Tier 3 (Large): 24GB+ RAM, 16+ cores → qwen2.5:14b (9GB) - best quality for system admin
+# Tier 2 (Good): 16GB+ RAM → llama3.1:8b (4.7GB)
+# Tier 1 (Medium): 8GB+ RAM → llama3.2:3b (2.0GB)
+# Tier 0 (Light): <8GB RAM → llama3.2:1b (1.3GB)
 
-if [ "$TOTAL_RAM_GB" -ge 64 ] && [ "$GPU_VRAM_MB" -ge 16000 ] && [ "$CPU_CORES" -ge 16 ]; then
+if [ "$TOTAL_RAM_GB" -ge 64 ] && [ "$GPU_VRAM_MB" -ge 16000 ]; then
     MODEL="llama3.1:70b"
     MODEL_SIZE="40GB"
     MODEL_DESC="Tier 4: Powerful - 70B parameters"
     echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(${MODEL_DESC})${RESET}"
     echo -e "${GRAY}  Perfect match: ${TOTAL_RAM_GB}GB RAM | ${GPU_VRAM_GB}GB VRAM | ${CPU_CORES} cores${RESET}"
-elif [ "$TOTAL_RAM_GB" -ge 16 ] && { [ "$GPU_VRAM_MB" -ge 8000 ] || [ "$CPU_CORES" -ge 32 ]; }; then
+elif [ "$TOTAL_RAM_GB" -ge 24 ] && [ "$CPU_CORES" -ge 16 ]; then
+    MODEL="qwen2.5:14b"
+    MODEL_SIZE="9.0GB"
+    MODEL_DESC="Tier 3: Large - 14B Qwen, excellent for system administration"
+    echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(${MODEL_DESC})${RESET}"
+    echo -e "${GRAY}  Optimal: ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
+elif [ "$TOTAL_RAM_GB" -ge 16 ]; then
     MODEL="llama3.1:8b"
     MODEL_SIZE="4.7GB"
-    MODEL_DESC="Tier 3: Good - 8B parameters, excellent performance"
+    MODEL_DESC="Tier 2: Good - 8B parameters"
     echo -e "${CYAN}Selected model:${RESET} ${BOLD}${MODEL}${RESET} ${GREEN}(${MODEL_DESC})${RESET}"
-    if [ "$GPU_VRAM_MB" -ge 8000 ]; then
-        echo -e "${GRAY}  Optimal: ${TOTAL_RAM_GB}GB RAM | ${GPU_VRAM_GB}GB VRAM | ${CPU_CORES} cores${RESET}"
-    else
-        echo -e "${GRAY}  CPU-optimized: ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
-    fi
+    echo -e "${GRAY}  ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
 elif [ "$TOTAL_RAM_GB" -ge 8 ]; then
     MODEL="llama3.2:3b"
     MODEL_SIZE="2.0GB"
-    MODEL_DESC="Tier 2: Medium - 3B parameters"
+    MODEL_DESC="Tier 1: Medium - 3B parameters"
     echo -e "${CYAN}Selected model:${RESET} ${MODEL} (${MODEL_DESC})"
     echo -e "${GRAY}  ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
 else
     MODEL="llama3.2:1b"
     MODEL_SIZE="1.3GB"
-    MODEL_DESC="Tier 1: Light - 1B parameters"
+    MODEL_DESC="Tier 0: Light - 1B parameters"
     echo -e "${CYAN}Selected model:${RESET} ${MODEL} (${MODEL_DESC})"
     echo -e "${GRAY}  ${TOTAL_RAM_GB}GB RAM | ${CPU_CORES} cores${RESET}"
 fi

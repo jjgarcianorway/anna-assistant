@@ -40,13 +40,27 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     let db = ContextDb::open(db_location).await?;
 
     // v6.54.1: First check if user specified a model in config
-    let user_config = anna_common::config::Config::load().ok();
+    // v6.54.2: Config::load() now checks /home/*/.config/anna/config.toml when running as root
+    // v6.54.3: Log which config file was loaded
+    let user_config = match anna_common::config::Config::load_with_path() {
+        Ok((config, path)) => {
+            info!("Loaded user config from: {:?}", path);
+            info!("Config llm.model = {:?}", config.llm.model);
+            Some(config)
+        }
+        Err(e) => {
+            warn!("Failed to load user config: {}", e);
+            None
+        }
+    };
     let preferred_model = user_config
         .as_ref()
         .and_then(|c| c.llm.model.clone());
 
     if let Some(ref model_name) = preferred_model {
         info!("User config specifies preferred LLM model: {}", model_name);
+    } else {
+        info!("No preferred LLM model in user config");
     }
 
     // Check if LLM is already configured

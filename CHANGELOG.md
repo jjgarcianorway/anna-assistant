@@ -7,29 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.54.2] - 2025-11-25
+## [6.55.0] - 2025-11-25
 
-### Bugfix: Daemon Config Path Resolution
+### Installer Model Selection Improvement
+
+**Type:** Enhancement
+**Focus:** Better default LLM model for capable systems
+
+#### Changes
+
+- Installer now selects `qwen2.5:14b` for systems with 24GB+ RAM and 16+ cores
+- Qwen 2.5 14B provides better system administration responses than Llama 3.1 8B
+- Model tier updated:
+  - Tier 4 (64GB+, 16GB+ VRAM): llama3.1:70b
+  - Tier 3 (24GB+, 16+ cores): qwen2.5:14b (NEW)
+  - Tier 2 (16GB+): llama3.1:8b
+  - Tier 1 (8GB+): llama3.2:3b
+  - Tier 0 (<8GB): llama3.2:1b
+
+#### Note on Model Changes
+
+To change your LLM model manually, update the database:
+```bash
+# Stop daemon, update, restart
+sudo systemctl stop annad
+sudo sqlite3 /var/lib/anna/context.db "UPDATE user_preferences SET value = replace(value, 'OLD_MODEL', 'NEW_MODEL') WHERE key = 'llm_config';"
+sudo systemctl start annad
+```
+
+## [6.54.4] - 2025-11-25
+
+### Bugfix: Enhanced Config Path Logging for Daemon
+
+**Type:** Bugfix
+**Focus:** Debug and fix daemon config loading
+
+#### Changes
+
+- Added `load_with_path()` to return which config file was loaded
+- Log config file path and llm.model value at INFO level for visibility
+- Parse errors now logged at INFO level instead of DEBUG
+
+## [6.54.3] - 2025-11-25
+
+### Bugfix: Complete Fix for Daemon Config Path Resolution
 
 **Type:** Bugfix
 **Focus:** Fix daemon not reading user's config when running as root
-**Status:** Complete ✓
 
 #### Problem
 
-In v6.54.1, the daemon (which runs as root via systemd) was unable to read the user's config file at `~/.config/anna/config.toml` because `$HOME` resolves to `/root` when running as root.
+v6.54.2 attempted to fix daemon config loading but failed due to:
+1. Config loading tried to save a default config when none was found, which failed on `/root`
+2. Insufficient logging made debugging difficult
 
 #### Solution
+
+- Don't try to save default config when running as root (just return defaults)
+- Added detailed debug logging to trace config path resolution
+
+## [6.54.2] - 2025-11-25
+
+### Bugfix: Daemon Config Path Resolution (Incomplete)
+
+**Type:** Bugfix
+**Focus:** Attempted fix for daemon config loading - see v6.54.3 for complete fix
+
+#### Changes
 
 Enhanced `Config::load()` with multi-source config resolution:
 1. **Priority 1**: Real user's config (`/home/<user>/.config/anna/config.toml`)
 2. **Priority 2**: System-wide config (`/etc/anna/config.toml`)
 3. **Priority 3**: Default user config (falls back to previous behavior)
-
-When running as root, the daemon now:
-- Checks `SUDO_USER` environment variable
-- Scans `/home/*/.config/anna/config.toml` to find user configs
-- Falls back gracefully if no config found
 
 #### Files Modified
 
