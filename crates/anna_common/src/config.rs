@@ -39,6 +39,10 @@ pub struct Config {
     /// User profiles for multi-user systems
     #[serde(default)]
     pub profiles: Vec<UserProfile>,
+
+    /// LLM configuration (v6.54.1)
+    #[serde(default)]
+    pub llm: LlmUserConfig,
 }
 
 impl Config {
@@ -315,4 +319,78 @@ pub struct UserProfile {
 
     /// Custom autonomy tier for this user
     pub autonomy_tier: Option<AutonomyTier>,
+}
+
+/// LLM user configuration (v6.54.1)
+/// This is the user's preference in ~/.config/anna/config.toml
+/// Separate from the internal LlmConfig in llm.rs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmUserConfig {
+    /// Preferred LLM model (e.g., "qwen2.5:14b", "llama3.1:8b")
+    /// If not set or model is missing, falls back to default
+    pub model: Option<String>,
+}
+
+impl Default for LlmUserConfig {
+    fn default() -> Self {
+        Self { model: None }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test 1: Config with model specified (v6.54.1)
+    #[test]
+    fn test_llm_config_with_model() {
+        let toml_str = r#"
+[llm]
+model = "qwen2.5:14b"
+"#;
+        let config: Config = toml::from_str(toml_str).expect("Failed to parse config");
+        assert_eq!(config.llm.model, Some("qwen2.5:14b".to_string()));
+    }
+
+    /// Test 2: Config without LLM section - should use default (v6.54.1)
+    #[test]
+    fn test_llm_config_no_section() {
+        // Empty config should deserialize with all defaults
+        let toml_str = "";
+        let config: Config = toml::from_str(toml_str).expect("Failed to parse config");
+        assert_eq!(config.llm.model, None);
+    }
+
+    /// Test 3: Config with LLM section but no model - should use default (v6.54.1)
+    #[test]
+    fn test_llm_config_empty_section() {
+        let toml_str = r#"
+[llm]
+"#;
+        let config: Config = toml::from_str(toml_str).expect("Failed to parse config");
+        assert_eq!(config.llm.model, None);
+    }
+
+    /// Test 4: Multiple valid model names (v6.54.1)
+    #[test]
+    fn test_llm_config_various_models() {
+        let test_cases = vec![
+            "llama3.1:8b",
+            "qwen2.5:14b",
+            "mixtral:8x7b",
+            "codellama:13b",
+        ];
+
+        for model_name in test_cases {
+            let toml_str = format!(
+                r#"
+[llm]
+model = "{}"
+"#,
+                model_name
+            );
+            let config: Config = toml::from_str(&toml_str).expect("Failed to parse config");
+            assert_eq!(config.llm.model, Some(model_name.to_string()));
+        }
+    }
 }

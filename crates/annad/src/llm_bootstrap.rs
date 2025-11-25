@@ -33,9 +33,21 @@ fn extract_param_size(model_name: &str) -> Option<f64> {
 ///
 /// This runs on daemon startup to auto-detect Ollama installations
 /// that were set up by the installer but not yet configured in Anna's database.
+///
+/// v6.54.1: Also checks user config ([llm].model) and prioritizes that choice.
 pub async fn bootstrap_llm_if_needed() -> Result<()> {
     let db_location = DbLocation::auto_detect();
     let db = ContextDb::open(db_location).await?;
+
+    // v6.54.1: First check if user specified a model in config
+    let user_config = anna_common::config::Config::load().ok();
+    let preferred_model = user_config
+        .as_ref()
+        .and_then(|c| c.llm.model.clone());
+
+    if let Some(ref model_name) = preferred_model {
+        info!("User config specifies preferred LLM model: {}", model_name);
+    }
 
     // Check if LLM is already configured
     let existing_config = db.load_llm_config().await?;
@@ -110,6 +122,29 @@ pub async fn bootstrap_llm_if_needed() -> Result<()> {
     }
 
     info!("Available models: {:?}", available_models);
+
+    // v6.54.1: Check if user's preferred model exists in Ollama
+    if let Some(ref preferred) = preferred_model {
+        if available_models.contains(preferred) {
+            info!("✓ User's preferred model '{}' found in Ollama", preferred);
+
+            // Check if we should update the DB config
+            if !is_configured || existing_config.model.as_deref() != Some(preferred.as_str()) {
+                let config = LlmConfig::local("http://127.0.0.1:11434/v1", preferred);
+                db.save_llm_config(&config).await?;
+                info!("✓ LLM configured from user config: Ollama with {}", preferred);
+            } else {
+                info!("✓ Already using configured model: {}", preferred);
+            }
+            return Ok(());
+        } else {
+            warn!(
+                "⚠ User's preferred model '{}' not found in Ollama. Available models: {:?}",
+                preferred, available_models
+            );
+            warn!("  Falling back to auto-detection...");
+        }
+    }
 
     // Detect hardware capabilities
     use sysinfo::System;

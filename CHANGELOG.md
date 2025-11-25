@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.54.1] - 2025-11-25
+
+### Config-Driven LLM Model Selection
+
+**Type:** Feature enhancement
+**Focus:** User control over LLM model selection
+**Status:** Complete ✓
+
+#### Overview
+
+v6.54.1 adds the ability to specify a preferred LLM model in the user config file (~/.config/anna/config.toml). The daemon checks if the model exists in Ollama and uses it, or falls back to the default if missing.
+
+#### New Features
+
+1. **User Config Extension**
+   - Added `[llm]` section with `model` field
+   - Example: `[llm]` followed by `model = "qwen2.5:14b"`
+   - Falls back gracefully if model not installed
+
+2. **Daemon Startup Enhancement**
+   - Reads user config on startup (llm_bootstrap.rs:38-50)
+   - Checks if preferred model exists via `ollama list`
+   - Uses configured model if available, logs warning and falls back if not
+
+3. **Status Display Update**
+   - Shows "(from config)" when using user's configured model (version_banner.rs:40-81)
+   - Shows "(config model 'X' missing)" when falling back to default
+   - Clear feedback about which model is actually being used
+
+4. **Test Coverage**
+   - 4 new tests in config.rs:340-396
+   - Tests model parsing, defaults, and various model names
+   - All tests passing ✓
+
+#### Files Modified
+
+- `crates/anna_common/src/config.rs` - Added LlmUserConfig struct and tests
+- `crates/annad/src/llm_bootstrap.rs` - Added config check on daemon startup
+- `crates/annactl/src/version_banner.rs` - Enhanced status display with config source
+
+#### Migration Notes
+
+- Fully backward compatible - no config required
+- To specify a preferred model, add to ~/.config/anna/config.toml:
+  ```toml
+  [llm]
+  model = "qwen2.5:14b"  # or any Ollama model name
+  ```
+
 ## [6.54.0] - 2025-11-25
 
 ### Identity, Persistence, and Multi-User Awareness

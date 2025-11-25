@@ -37,14 +37,29 @@ pub async fn display_startup_banner(db: &ContextDb) {
     println!(); // Blank line after banner/notice
 }
 
-/// Format LLM mode for display
+/// Format LLM mode for display (v6.54.1: shows config source)
 pub fn format_llm_mode(config: &LlmConfig) -> String {
     match config.mode {
         LlmMode::NotConfigured => "Rules + Arch Wiki (LLM not configured)".to_string(),
         LlmMode::Disabled => "Rules + Arch Wiki only".to_string(),
         LlmMode::Local => {
             let model = config.model.as_deref().unwrap_or("llama3.2");
-            format!("Local LLM via Ollama: {}", model)
+
+            // v6.54.1: Check if model matches user config
+            let user_config = anna_common::config::Config::load().ok();
+            let preferred_model = user_config
+                .as_ref()
+                .and_then(|c| c.llm.model.as_deref());
+
+            if let Some(preferred) = preferred_model {
+                if preferred == model {
+                    format!("Local LLM via Ollama: {} (from config)", model)
+                } else {
+                    format!("Local LLM via Ollama: {} (config model '{}' missing)", model, preferred)
+                }
+            } else {
+                format!("Local LLM via Ollama: {}", model)
+            }
         }
         LlmMode::Remote => {
             // Show just the hostname for brevity
