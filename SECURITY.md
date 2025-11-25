@@ -1,5 +1,17 @@
 # Security Policy
 
+## Overview
+
+Anna Assistant is a local-first system administrator for Arch Linux. Security is built on three principles:
+
+1. **Local-first**: All data stays on your machine unless you explicitly configure otherwise
+2. **Least privilege**: The daemon runs with minimal necessary permissions
+3. **Explicit approval**: No system changes without your explicit command
+
+This document describes Anna's security model, how to report vulnerabilities, and recommended hardening practices.
+
+---
+
 ## Reporting Security Vulnerabilities
 
 If you discover a security vulnerability in Anna Assistant, please report it privately:
@@ -7,443 +19,452 @@ If you discover a security vulnerability in Anna Assistant, please report it pri
 **Email**: jjgarcianorway@gmail.com
 **Subject**: [SECURITY] Anna Assistant Vulnerability Report
 
-Please include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+### What to Include
 
-We aim to respond within 48 hours and provide a fix within 7 days for critical issues.
+- **Description**: Clear explanation of the vulnerability
+- **Impact**: What an attacker could do
+- **Reproduction steps**: How to reproduce the issue
+- **Environment**: Anna version, Arch Linux version, relevant hardware/software
+- **Suggested fix** (optional): If you have ideas for remediation
+
+### Response Timeline
+
+- **Acknowledgment**: Within 48 hours of report
+- **Assessment**: Vulnerability validated within 7 days
+- **Fix**: Critical issues fixed and released within 7-14 days
+- **Disclosure**: Coordinated public disclosure 90 days after fix release or when patch is widely deployed
+
+---
+
+## Data & Privacy Model
+
+### What Anna Stores Locally
+
+Anna keeps all data on your machine by default:
+
+**Historian Database** (`/var/lib/anna/historian.db`):
+- System metrics snapshots (CPU, memory, disk, boot events)
+- Service health history
+- OOM kill events and process statistics
+- No personally identifying information beyond hostname
+
+**Query Logs** (`/var/log/anna/`):
+- User queries to `annactl`
+- Command executions and results
+- Success/failure status and timing
+- Logged in structured format for diagnostics
+
+**State Files** (`/var/lib/anna/`):
+- Context database for conversation history
+- Daemon state and configuration
+- Health check results and reports
+
+### What Anna Sends Over the Network
+
+By default, Anna only makes network requests for:
+
+1. **LLM Backend** (if configured):
+   - Sends queries to the configured endpoint (default: `localhost:11434` for Ollama)
+   - Query text and system context may be sent to the LLM
+   - **No automatic "phone home"** - only to your configured LLM endpoint
+
+2. **GitHub Release Checks** (manual installations only):
+   - Checks GitHub API for new releases every 24 hours
+   - Sends no user data, only receives release information
+   - AUR installations disable this automatically
+
+3. **Package manager operations** (when you explicitly request them):
+   - Standard pacman/yay network access for package queries and updates
+
+### Privacy Guarantees
+
+- ✅ All telemetry stays local unless you configure a remote LLM
+- ✅ No analytics or tracking sent to developers
+- ✅ Historian database is SQLite on disk, no cloud sync
+- ✅ Logs are readable by the `anna` group for diagnostics
+- ✅ You can inspect `/var/log/anna/` at any time to see what's logged
 
 ---
 
 ## Secrets Management Policy
 
-Anna Assistant follows strict secrets management practices:
+### Repository Policy
 
-### What We Prevent
+The Anna Assistant repository enforces strict secrets hygiene:
 
-✅ **Never commit**:
-- Private keys (*.key)
-- Certificates (*.pem, *.crt)
-- Certificate signing requests (*.csr)
-- Certificate serial numbers (*.srl)
-- API tokens or credentials
-- Configuration files with secrets
+**Never commit:**
+- API keys or tokens
+- Private keys (`*.key`)
+- Certificates (`*.pem`, `*.crt`, `*.csr`)
+- Certificate serials (`*.srl`)
+- Configuration files containing secrets
 
-### How We Prevent It
+**Gitignore rules** (`.gitignore`):
+```
+testnet/config/tls/
+testnet/certs/
+**/*.key
+**/*.pem
+**/*.srl
+**/*.crt
+**/*.csr
+.env
+.env.local
+```
 
-1. **Gitignore Rules** (`.gitignore`):
-   ```
-   testnet/config/tls/
-   **/*.key
-   **/*.pem
-   **/*.srl
-   **/*.crt
-   **/*.csr
-   ```
+### User Secret Management
 
-2. **Pre-commit Hooks** (`.pre-commit-config.yaml`):
-   - `detect-secrets` from Yelp
-   - Custom TLS material blocking hooks
-   - Repository-wide validation on push
+If you configure Anna to use a remote LLM endpoint requiring authentication:
 
-3. **CI Security Guards** (`.github/workflows/consensus-smoke.yml`):
-   - Pre-build check fails if TLS materials are tracked
-   - Ephemeral certificate generation for tests
-   - No certificates ever stored in CI artifacts
+**Store API keys in:**
+- Environment variables (e.g., `OPENAI_API_KEY`)
+- Local configuration files with restricted permissions:
+  ```bash
+  sudo chown root:anna /etc/anna/llm.toml
+  sudo chmod 640 /etc/anna/llm.toml
+  ```
 
-4. **Developer Workflow**:
-   ```bash
-   # Install pre-commit hooks
-   pip install pre-commit
-   pre-commit install
-
-   # Generate test certificates locally (never commit)
-   ./scripts/gen-selfsigned-ca.sh
-   ```
-
-### TLS Certificate Management
-
-See `testnet/config/README.md` for certificate generation guidance.
-
-**Key Principles**:
-- Certificates are generated locally or ephemerally in CI
-- Private keys never leave the developer's machine or CI workspace
-- Production certificates use proper PKI and secret management (Vault, etc.)
+**Never:**
+- Commit API keys to version control
+- Store keys in world-readable files
+- Share keys in issues or pull requests
 
 ---
 
-## Security Incident History
+## Runtime Permissions and Systemd Hardening
 
-### v1.16.1-alpha.1 (2025-11-12): TLS Materials Purge
+### Current Service Configuration
 
-**Incident**: GitGuardian detected committed private keys in `testnet/config/tls/`
+The `annad.service` systemd unit implements security hardening:
 
-**Remediation**:
-1. Purged all TLS materials from git history using `git-filter-repo`
-2. Removed 9 files: `ca.key`, `ca.pem`, `ca.srl`, `node_*.key`, `node_*.pem`
-3. Implemented pre-commit and CI guards
-4. Force-pushed rewritten history (all commit SHAs changed)
-
-**Impact**: Test certificates only, no production keys exposed
-
-**Timeline**:
-- Detection: 2025-11-12 (GitGuardian alert)
-- Remediation: Same day (3 hours)
-- Verification: Pending GitGuardian rescan
-
-**References**:
-- CHANGELOG.md v1.16.1-alpha.1 entry
-- OWASP Key Management Cheat Sheet
-- GitGuardian Secrets Detection Guide
-
----
-
-## Security Features
-
-### Systemd Hardening (Phase 0.4 + Phase 3.9)
-
-Anna runs with a strict systemd security sandbox. **Phase 3.9** adds enhanced hardening:
-
+**User and Group Isolation:**
 ```ini
-[Service]
-# User/Group isolation
-User=annad
+User=root  # Currently root for compatibility
 Group=anna
 SupplementaryGroups=
+```
 
-# Capability restrictions (Phase 3.9)
-CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SYS_ADMIN
+**Capability Restrictions:**
+```ini
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SYS_ADMIN CAP_SYS_RESOURCE
 AmbientCapabilities=
 NoNewPrivileges=true
+```
 
-# File system restrictions
-PrivateTmp=true
+**Filesystem Protection:**
+```ini
 ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/anna /var/lib/anna /run/anna
+ProtectHome=yes
+ReadWritePaths=/var/log/anna /var/lib/anna /run/anna /usr/local/bin
+PrivateTmp=true
+```
 
-# Kernel restrictions
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectKernelLogs=true
-ProtectControlGroups=true
+**Kernel Protection:**
+```ini
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+```
 
-# Network restrictions
+**Network Restrictions:**
+```ini
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-IPAddressDeny=any
-RestrictNamespaces=true
-LockPersonality=true
-RestrictRealtime=true
+# Note: IPAddressDeny removed due to WiFi driver compatibility
+```
 
-# System call filtering
+**System Call Filtering:**
+```ini
 SystemCallFilter=@system-service
-SystemCallFilter=~@privileged @resources @obsolete
+SystemCallFilter=~@privileged @obsolete @resources
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+```
 
-# Device access
+**Device Access:**
+```ini
 DevicePolicy=closed
 DeviceAllow=/dev/null rw
 DeviceAllow=/dev/zero rw
 DeviceAllow=/dev/urandom r
 ```
 
-**To apply Phase 3.9 hardening**:
+### File System Permissions
 
-```bash
-# Backup and edit service file
-sudo cp /usr/lib/systemd/system/annad.service /etc/systemd/system/annad.service.backup
-sudo systemctl edit --full annad.service
-# (Add directives above)
+Anna uses the `anna` group for access control:
 
-# Reload and restart
-sudo systemctl daemon-reload
-sudo systemctl restart annad
-sudo systemctl status annad
-```
+**Configuration** (`/etc/anna/`):
+- Owner: `root:anna`
+- Permissions: `755` (directory), `644` (files)
+- Only root can modify, anna group can read
 
-### Rate Limiting (Phase 1.16)
+**Logs** (`/var/log/anna/`):
+- Owner: `root:anna`
+- Permissions: `750` (directory), `640` (files)
+- Anna group can read for diagnostics
 
-Dual-tier protection:
-- Burst: 20 requests / 10 seconds
-- Sustained: 100 requests / 60 seconds
+**Socket** (`/run/anna/anna.sock`):
+- Owner: `root:anna`
+- Permissions: `660`
+- Only anna group members can connect
 
-### Certificate Pinning (Phase 1.16)
+**State/Database** (`/var/lib/anna/`):
+- Owner: `root:anna`
+- Permissions: `770` (directory), `640` (files)
+- Anna group has write access for reports
 
-SHA256 fingerprint validation infrastructure (Phase 2 integration planned).
-
-### Cryptographic Identity (Phase 1.7)
-
-Ed25519 signatures for distributed consensus.
+**Auto-update Path** (`/usr/local/bin/`):
+- Required for self-update capability
+- Only manual installations update binaries here
+- AUR installations are managed by pacman
 
 ---
 
-## System Hardening Guide (Phase 3.9)
+## Command Risk Levels and Action Safety
 
-### Permission Model
+Anna's Planner → Executor → Interpreter architecture enforces safety at execution time:
 
-Anna uses a layered permission model:
+### Safety Levels
 
-#### 🟢 User-Safe Commands (No Special Permissions)
-- `help`, `status`, `health`, `metrics`, `profile`, `ping`
-- `learn`, `predict` (read-only analysis)
-- **Risk**: None - read-only operations
+**Read-Only (Safe)**:
+- Inspection queries: "do I have steam installed?"
+- Hardware queries: "does my CPU support AVX2?"
+- System status: CPU usage, memory, service health
+- **Risk**: None - no system modifications
 - **Requirement**: User in `anna` group
 
-#### 🟡 Advanced Commands (Root/Sudo Required)
-- `init`, `update`, `install`, `doctor`, `repair`, `monitor`
-- **Risk**: Medium - modifies system state
-- **Requirement**: User must be in `anna` group + use sudo
+**Configuration/Package Changes (Requires Approval)**:
+- Package installation/removal
+- Service start/stop/restart
+- Configuration file modifications
+- **Risk**: Medium - changes system state
+- **Requirement**: Explicit user command + sudo when needed
+- **Safety**: Commands shown for review before execution
 
-#### 🔴 Internal Commands (Developer/Diagnostic)
-- `sentinel`, `conscience`, `consensus`
-- **Risk**: Low - diagnostic/monitoring only
-- **Requirement**: Developer mode or explicit flag
+**High-Risk Operations (Manual Only)**:
+- Destructive filesystem operations (rm, dd)
+- Kernel parameter changes
+- System-wide configuration
+- **Risk**: High - potential data loss or system instability
+- **Safety**: Executor blocks by default, requires explicit override
 
-### File System Security
+### Executor Safety Rules
 
-Verify and enforce correct permissions:
+The executor (`anna_common/src/executor_core.rs`) validates all commands before execution:
 
+- ✅ Package queries (pacman -Q, pacman -Qq)
+- ✅ System inspection (lscpu, lsblk, systemctl status)
+- ✅ Safe grep/awk/sed read operations
+- ❌ Destructive commands (rm -rf, dd, mkfs)
+- ❌ Privilege escalation attempts
+- ❌ Arbitrary command execution without validation
+
+### Future: Rollback and Backups
+
+Current version does not include automatic rollback for configuration changes. For now:
+- **Package operations**: Use pacman's cache (`/var/cache/pacman/pkg/`)
+- **Configuration**: Manually back up `/etc/` before changes
+- **State**: Anna keeps history in historian database
+
+Future versions may include structured rollback helpers.
+
+---
+
+## Network Access and Auto-Update
+
+### Network Calls
+
+Anna makes network requests only for:
+
+1. **LLM Endpoint** (when enabled):
+   - Default: `http://localhost:11434` (Ollama)
+   - Configurable to OpenAI-compatible endpoints
+   - Only sends queries you explicitly ask
+
+2. **GitHub Release Checks** (manual installations):
+   - Checks `https://api.github.com/repos/jjgarcianorway/anna-assistant/releases`
+   - Every 24 hours for update availability
+   - Logs results, never auto-installs
+
+3. **Package Managers**:
+   - Standard pacman/AUR mirrors when you request updates
+   - Respects your pacman configuration
+
+### Auto-Update Security
+
+**Manual installations** support self-update via `annactl upgrade`:
+
+**Security precautions:**
+- ✅ SHA256 checksum verification of downloaded binaries
+- ✅ Atomic binary replacement (no partial installs)
+- ✅ Backup of previous version to `/var/lib/anna/backup/`
+- ✅ Root requirement (`sudo annactl upgrade`)
+- ✅ HTTPS for all GitHub API and download URLs
+- ✅ 10-second timeout on network operations
+
+**AUR/Pacman installations:**
+- Auto-update **disabled** - respects package manager
+- Updates via `yay -Syu` or `pacman -Syu`
+
+---
+
+## Logging, Audit, and Monitoring
+
+### What Gets Logged
+
+**Daemon logs** (`/var/log/anna/` and `journalctl -u annad`):
+- Daemon startup/shutdown events
+- Mode changes and critical errors
+- System health check results
+- Network operations (LLM calls, update checks)
+
+**Query logs** (`/var/log/anna/ctl.jsonl`):
+- User commands to annactl
+- Query text and responses
+- Execution timing and success/failure
+
+**Historian database** (`/var/lib/anna/historian.db`):
+- Time-series system metrics (CPU, memory, disk)
+- Service health status changes
+- Boot events and OOM kills
+
+### Log Security
+
+- Logs are local-only (no automatic forwarding)
+- Sensitive values (API keys, tokens) should not be logged
+- Log files readable by `anna` group for diagnostics
+- Rotate logs with `logrotate` to manage size
+
+### Monitoring
+
+If you set up Prometheus/Grafana for Anna metrics:
+
+**Bind to localhost only:**
 ```bash
-# Configuration directory (root-only write)
-sudo chown -R root:anna /etc/anna
-sudo chmod 755 /etc/anna
-sudo chmod 644 /etc/anna/*.toml
+# Prometheus: http://localhost:9090
+# Grafana: http://localhost:3000
 
-# Log directory (anna group readable - v3.9.1)
-sudo chown -R root:anna /var/log/anna
-sudo chmod 750 /var/log/anna
-sudo chmod 640 /var/log/anna/*.jsonl
-
-# Socket directory (anna group writable - v3.9.1)
-sudo chown -R root:anna /run/anna
-sudo chmod 770 /run/anna
-sudo chmod 660 /run/anna/anna.sock
-
-# State directory (anna group readable - v3.9.1)
-sudo chown -R root:anna /var/lib/anna
-sudo chmod 750 /var/lib/anna
-sudo chmod 640 /var/lib/anna/*.db
-
-# Reports directory (anna group writable - v3.9.1 FIX)
-sudo mkdir -p /var/lib/anna/reports
-sudo chown root:anna /var/lib/anna/reports
-sudo chmod 770 /var/lib/anna/reports
-# Set default ACL for future files
-sudo setfacl -d -m g:anna:rwx /var/lib/anna/reports
-```
-
-### Socket Security
-
-Unix domain socket with group-based access:
-
-```bash
-# Verify socket permissions
-ls -la /run/anna/annad.sock
-# Expected: srw-rw---- 1 annad anna
-
-# Only users in 'anna' group can connect
-id $USER | grep anna
-
-# Add user to group
-sudo usermod -aG anna $USER
-newgrp anna  # Activate new group
-```
-
-### Self-Healing Safety (Phase 3.9)
-
-**Self-healing is DISABLED by default**:
-
-```toml
-# /etc/anna/sentinel.toml
-[self_healing]
-enabled = false  # Must be explicitly enabled
-max_actions_per_hour = 3
-allow_service_restart = false
-allow_package_update = false
-```
-
-**Risk Level Enforcement**:
-
-| Risk Level | Examples | Auto-Healing |
-|------------|----------|--------------|
-| None | Monitoring, logging | ✅ Always safe |
-| Low | Clear cache, restart non-critical services | ✅ When enabled |
-| Medium | Update packages, restart critical services | ❌ Manual only |
-| High | Modify config files | ❌ Manual only |
-| Critical | System-wide changes | ❌ Manual only |
-
-**Safety Guarantees**:
-- No automatic actions without `enable_self_healing = true`
-- Medium+ risk actions NEVER execute automatically
-- All actions logged with reasoning in `/var/log/anna/actions.log`
-- User can always rollback via `annactl rollback`
-
-### Audit and Logging
-
-All commands are logged for audit purposes:
-
-```bash
-# Command audit log (JSON format)
-/var/log/anna/ctl.jsonl
-
-# Example entry
-{
-  "ts": "2025-11-13T10:30:45Z",
-  "req_id": "abc123",
-  "state": "configured",
-  "command": "update",
-  "allowed": true,
-  "args": ["--dry-run"],
-  "exit_code": 0,
-  "duration_ms": 1234,
-  "ok": true,
-  "citation": "[archwiki:system_maintenance]"
-}
-
-# Query recent commands
-jq -r '.command' /var/log/anna/ctl.jsonl | tail -20
-
-# Find failed commands
-jq 'select(.ok == false)' /var/log/anna/ctl.jsonl
-
-# Average command duration
-jq -s 'map(.duration_ms) | add / length' /var/log/anna/ctl.jsonl
-```
-
-## Auto-Update Security (Phase 3.10)
-
-### Installation Source Detection
-
-Anna automatically detects how it was installed:
-
-- **AUR/Pacman**: Auto-update **disabled** (respects package manager)
-- **Manual (GitHub/curl)**: Auto-update **enabled** (safe upgrade path)
-
-```bash
-# Check installation source
-sudo annactl doctor
-# Shows: "Installation Source: AUR Package (anna-assistant-bin)"
-#    or: "Installation Source: Manual Installation (/usr/local/bin)"
-```
-
-### Upgrade Security
-
-When upgrading manually-installed Anna:
-
-1. **SHA256 Verification**: All binaries verified against GitHub checksums
-2. **Backup Before Replace**: Previous version saved to `/var/lib/anna/backup/`
-3. **Atomic Updates**: Binary replacement is atomic (no partial installs)
-4. **Rollback Support**: `sudo annactl rollback` restores from backup
-5. **Network Security**: GitHub API over HTTPS with 10s timeout
-6. **Permission Check**: Only root can perform upgrades
-
-```bash
-# Safe upgrade workflow
-sudo annactl upgrade           # Interactive with confirmation
-sudo annactl upgrade --check   # Check only, no install
-sudo annactl rollback          # Restore previous version
-```
-
-### Daemon Auto-Update Behavior
-
-For manual installations, the daemon checks for updates every 24 hours:
-
-- **What it does**: Queries GitHub API, logs availability
-- **What it doesn't do**: Never auto-installs without explicit user action
-- **Logs**: `/var/log/anna/` and `journalctl -u annad`
-- **Disable**: AUR installations disable this automatically
-
-### Monitoring Security
-
-Anna's monitoring components are opt-in and localhost-only:
-
-```bash
-# Prometheus (localhost only)
-# http://localhost:9090
-
-# Grafana (localhost only, default: admin/admin)
-# http://localhost:3000
-
-# For remote access, use SSH tunnels (never expose ports):
-ssh -L 3000:localhost:3000 user@host
+# Access remotely via SSH tunnel (NEVER expose ports):
 ssh -L 9090:localhost:9090 user@host
-
-# Firewall rules (if needed)
-sudo ufw allow from 127.0.0.1 to any port 9090
-sudo ufw allow from 127.0.0.1 to any port 3000
+ssh -L 3000:localhost:3000 user@host
 ```
 
-### Security Checklist
+---
 
-After installation, verify:
+## User Hardening Checklist
 
-- [ ] Daemon running as dedicated `annad` user (not root)
-- [ ] Your user added to `anna` group
-- [ ] Socket permissions correct (`srw-rw---- annad:anna`)
-- [ ] Configuration directory owned by root (`/etc/anna`)
-- [ ] Self-healing disabled by default
-- [ ] Logs writable by anna group
-- [ ] Systemd hardening directives applied
+After installation, verify these security practices:
+
+### Service Security
+- [ ] Daemon running as `root` user with `anna` group (current design)
+- [ ] Your user added to `anna` group: `sudo usermod -aG anna $USER`
+- [ ] Socket permissions correct: `ls -la /run/anna/anna.sock` → `srw-rw---- root anna`
+- [ ] Systemd hardening directives applied (see `annad.service`)
+
+### Filesystem Security
+- [ ] `/etc/anna/` owned by root, `644` permissions
+- [ ] `/var/log/anna/` has `750` permissions, `anna` group readable
+- [ ] `/var/lib/anna/` has `770` permissions, `anna` group writable
+- [ ] `/run/anna/` has `770` permissions for socket
+
+### LLM Security
+- [ ] LLM endpoint configured (default: `localhost:11434`)
+- [ ] If using remote LLM, API key stored securely in `/etc/anna/` with `640` permissions
+- [ ] Remote LLM endpoint uses HTTPS
+
+### Network Security
 - [ ] Monitoring (if installed) bound to localhost only
 - [ ] SSH tunnels configured for remote access
-- [ ] Regular updates enabled
+- [ ] Firewall rules restrict external access
+
+### Operational Security
+- [ ] Regular updates: `sudo annactl upgrade` (manual) or `yay -Syu` (AUR)
+- [ ] Review logs periodically: `journalctl -u annad`
+- [ ] Monitor anna group membership: `getent group anna`
 
 ---
 
-## GitGuardian Integration
+## Recommended Additional Hardening
 
-Anna Assistant uses GitGuardian for continuous secrets scanning:
+These are **recommendations**, not currently enforced by default:
 
-- **Public Dashboard**: [GitGuardian](https://www.gitguardian.com/)
-- **Scan Frequency**: Every push to main
-- **Incident Response**: Automated alerts to maintainers
+### Systemd Unit Hardening
 
-### For Contributors
+Consider adding to `/etc/systemd/system/annad.service.d/override.conf`:
 
-If you receive a GitGuardian alert:
-1. **Stop**: Do not push any more commits
-2. **Revert**: Use `git reset` to remove the commit locally
-3. **Notify**: Email security contact immediately
-4. **Rotate**: If the secret was real (not test), rotate it immediately
+```ini
+[Service]
+# Run as dedicated user (requires user creation)
+User=annad
+Group=anna
 
-### Verifying Repository Status
+# Stricter syscall filtering
+SystemCallFilter=@system-service @file-system @network-io
+SystemCallFilter=~@privileged @resources @obsolete @debug
 
-```bash
-# Check for accidentally committed secrets
-git ls-files | grep -E '\.(key|pem|srl|crt|csr)$'
+# Disable network if using local-only LLM
+# (Uncomment only if Ollama is local and no GitHub checks needed)
+# PrivateNetwork=yes
 
-# Should return no results
+# Restrict writable paths further
+ReadWritePaths=/var/log/anna /var/lib/anna /run/anna
+# Remove /usr/local/bin if not using manual updates
 ```
 
----
+Apply with:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart annad
+```
 
-## Security Audit History
+### Firewall Rules
 
-- **v1.0.0-rc.1**: Initial security audit (see `SECURITY_AUDIT.md`)
-- **v1.16.1-alpha.1**: TLS materials purge and prevention system
+If exposing monitoring tools remotely:
+```bash
+# Allow only from specific IPs
+sudo ufw allow from 192.168.1.0/24 to any port 9090
+sudo ufw allow from 192.168.1.0/24 to any port 3000
+
+# Default deny
+sudo ufw default deny incoming
+```
+
+### AppArmor Profile
+
+Consider creating an AppArmor profile for additional MAC-level protection (not provided by default).
 
 ---
 
 ## Responsible Disclosure
 
-We follow coordinated disclosure:
-1. Report received → Acknowledgment within 48 hours
-2. Validation → Confirmed within 7 days
-3. Fix developed → Tested and reviewed
-4. Release → Security advisory published
-5. Public disclosure → 90 days after fix release
+We follow coordinated disclosure practices:
+
+1. **Report received** → Acknowledge within 48 hours
+2. **Validation** → Confirm vulnerability within 7 days
+3. **Fix developed** → Test and review patch
+4. **Release** → Publish fix with security advisory
+5. **Public disclosure** → 90 days after fix release, or when widely deployed
+
+**For contributors**: If GitGuardian or another tool alerts you about a committed secret:
+1. **Stop**: Do not push more commits
+2. **Revert**: Use `git reset` to remove the commit locally
+3. **Notify**: Email security contact immediately
+4. **Rotate**: If the secret was real (not test), rotate it
 
 ---
 
 ## References
 
+- [Anna Assistant GitHub Repository](https://github.com/jjgarcianorway/anna-assistant)
+- [Arch Linux Security Guidelines](https://wiki.archlinux.org/title/Security)
 - [OWASP Key Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html)
-- [GitGuardian Secrets Detection](https://www.gitguardian.com/)
-- [Pre-commit Framework](https://pre-commit.com/)
-- [detect-secrets by Yelp](https://github.com/Yelp/detect-secrets)
+- [systemd Security Hardening](https://www.freedesktop.org/software/systemd/man/systemd.exec.html)
 
 ---
 
-**Last Updated**: 2025-11-13 (Phase 3.9 hardening documentation added)
+**Last Updated**: 2025-11-25 (v6.42.0 - Security documentation rewritten to match current architecture)
 **Maintained By**: Anna Assistant Security Team
