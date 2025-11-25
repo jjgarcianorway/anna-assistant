@@ -51,9 +51,11 @@
 //! degrading to LLM reasoning for legitimately complex questions.
 
 use anna_common::action_plan_v3::ActionPlan;
+use anna_common::historian::Historian;  // v6.35.0: Usage tracking
 use anna_common::llm::LlmConfig;
 use anna_common::telemetry::SystemTelemetry;
 use anyhow::Result;
+use chrono::Timelike;  // v6.35.0: For num_hours()
 
 use crate::dialogue_v3_json;
 use crate::hardware_questions;  // 6.12.1: Knowledge-first hardware answers
@@ -116,6 +118,34 @@ pub async fn handle_unified_query(
     use anna_common::session_context::{SessionContext, FollowUpType};
 
     let mut session_ctx = SessionContext::load_or_new();
+
+    // ========================================================================
+    // v6.35.0: Usage Tracking - Record Every Query
+    // ========================================================================
+    //
+    // Record this query event in Historian for presence tracking
+    // Fail-safe: DB write failures do not impact query results
+    //
+    let _ = Historian::new("/var/lib/anna/historian.db")
+        .and_then(|h| h.record_query_event(chrono::Utc::now()))
+        .ok(); // Silently ignore DB errors
+
+    // ========================================================================
+    // v6.35.0: Presence Greeting - Show if returning after absence
+    // ========================================================================
+    //
+    // Check if we should show a greeting and store it for prepending to answer
+    //
+    let presence_greeting = if should_show_presence_greeting(user_text) {
+        build_presence_greeting(&session_ctx)
+    } else {
+        None
+    };
+
+    // If we showed a greeting, mark it in session context
+    if let Some(ref greeting) = presence_greeting {
+        session_ctx.mark_greeted(greeting.trim().to_string());
+    }
 
     // Detect if this is a follow-up request
     if let Some(followup_type) = SessionContext::detect_followup_type(user_text) {
@@ -188,11 +218,13 @@ pub async fn handle_unified_query(
         let report = crate::system_report::generate_full_report()
             .unwrap_or_else(|e| format!("Error generating system report: {}", e));
 
-        return Ok(UnifiedQueryResult::ConversationalAnswer {
+        let result = UnifiedQueryResult::ConversationalAnswer {
             answer: report,
             confidence: AnswerConfidence::High,
             sources: vec!["verified system telemetry (direct system query)".to_string()],
-        });
+        };
+
+        return Ok(prepend_greeting_if_present(result, presence_greeting.clone()));
     }
 
     // TIER 0.1: v6.33.0 Capability Checks (deterministic, no LLM)
@@ -3018,6 +3050,103 @@ async fn handle_summaries_followup(user_text: &str) -> Result<UnifiedQueryResult
     handle_insight_summary_query(user_text).await
 }
 
+// ============================================================================
+// v6.35.0: Presence Greeting Helpers
+// ============================================================================
+
+/// Check if this query type should trigger a presence greeting
+///
+/// Only greet for system-oriented queries, never for quick capability checks
+fn should_show_presence_greeting(user_text: &str) -> bool {
+    // Never greet for capability check queries (too small/focused)
+    if crate::system_report::is_capability_query(user_text).is_some() {
+        return false;
+    }
+
+    // Never greet for disk explorer queries (too focused)
+    if crate::system_report::is_disk_explorer_query(user_text).is_some() {
+        return false;
+    }
+
+    // Greet for system reports
+    if crate::system_report::is_system_report_query(user_text) {
+        return true;
+    }
+
+    // Greet for diagnostics
+    if is_full_diagnostic_query(user_text) {
+        return true;
+    }
+
+    // Greet for insight summaries (broad system questions)
+    if is_insight_summary_query(user_text) {
+        return true;
+    }
+
+    // For all other queries, don't greet (too specific or conversational)
+    false
+}
+
+/// Build presence greeting if conditions are met
+///
+/// Returns Some(greeting_text) if we should greet, None otherwise
+fn build_presence_greeting(
+    session_ctx: &anna_common::session_context::SessionContext,
+) -> Option<String> {
+    use anna_common::output_engine::OutputEngine;
+
+    // Try to get usage stats from Historian
+    let historian = Historian::new("/var/lib/anna/historian.db").ok()?;
+    let usage_stats = historian.get_usage_stats().ok().flatten()?;
+
+    // Check if we should greet now
+    let last_seen_secs = usage_stats.last_seen_at.timestamp() as u64;
+    if !session_ctx.should_greet_now(last_seen_secs) {
+        return None;
+    }
+
+    // Calculate hours since last query for greeting message
+    let now = chrono::Utc::now();
+    let hours_since_last = (now - usage_stats.last_seen_at).num_hours();
+
+    // Build greeting message
+    let greeting = if hours_since_last >= 168 {
+        // 7+ days
+        let days = hours_since_last / 24;
+        format!("Welcome back! It's been {} days.", days)
+    } else if hours_since_last >= 48 {
+        // 2-7 days
+        let days = hours_since_last / 24;
+        format!("Haven't seen you in {} days.", days)
+    } else {
+        // 12-48 hours
+        format!("Back after {}h.", hours_since_last)
+    };
+
+    // Format with OutputEngine
+    let engine = OutputEngine::new();
+    Some(format!("{}\n", engine.format_source_line(&greeting)))
+}
+
+/// Prepend greeting to answer if one was generated
+fn prepend_greeting_if_present(
+    mut result: UnifiedQueryResult,
+    greeting: Option<String>,
+) -> UnifiedQueryResult {
+    if let Some(greeting_text) = greeting {
+        match &mut result {
+            UnifiedQueryResult::ConversationalAnswer { answer, .. } => {
+                *answer = format!("{}{}", greeting_text, answer);
+            }
+            _ => {
+                // For other result types, greeting is not prepended
+                // (they have their own formatting)
+            }
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3206,5 +3335,53 @@ mod tests {
         assert!(formatted.contains("1. Only step"));
         assert!(!formatted.contains("[NOTES]")); // Should not appear when empty
         assert!(formatted.contains("[REFERENCES]"));
+    }
+
+    // ========================================================================
+    // v6.35.0: Presence Greeting Tests (6 tests)
+    // ========================================================================
+
+    #[test]
+    fn test_should_show_presence_greeting_for_system_report() {
+        // System reports should trigger greeting
+        assert!(should_show_presence_greeting("give me a full system report"));
+        assert!(should_show_presence_greeting("complete report of my computer"));
+    }
+
+    #[test]
+    fn test_should_show_presence_greeting_for_diagnostics() {
+        // Diagnostics should trigger greeting
+        assert!(should_show_presence_greeting("run a full diagnostic"));
+        assert!(should_show_presence_greeting("check my system health"));
+    }
+
+    #[test]
+    fn test_should_show_presence_greeting_for_insight_summaries() {
+        // Insight summaries should trigger greeting
+        assert!(should_show_presence_greeting("give me a summary"));
+        assert!(should_show_presence_greeting("how is my system"));
+    }
+
+    #[test]
+    fn test_should_not_greet_for_capability_checks() {
+        // Capability checks are too small/focused for greeting
+        assert!(!should_show_presence_greeting("does my CPU support SSE2?"));
+        assert!(!should_show_presence_greeting("do I have AVX2?"));
+        assert!(!should_show_presence_greeting("how much VRAM do I have?"));
+    }
+
+    #[test]
+    fn test_should_not_greet_for_disk_explorer() {
+        // Disk explorer queries are too focused for greeting
+        assert!(!should_show_presence_greeting("show me the 10 biggest folders"));
+        assert!(!should_show_presence_greeting("what are the biggest directories"));
+    }
+
+    #[test]
+    fn test_should_not_greet_for_conversational_queries() {
+        // Generic conversational queries should not trigger greeting
+        assert!(!should_show_presence_greeting("what is my CPU?"));
+        assert!(!should_show_presence_greeting("install docker"));
+        assert!(!should_show_presence_greeting("how do I check disk space?"));
     }
 }

@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.34.0**
+**Experimental Arch Linux System Assistant - Version 6.35.0**
 
-[![Version](https://img.shields.io/badge/version-6.34.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.35.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,9 +29,62 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.34.0)
+## What Works Right Now (6.35.0)
 
-### 1. System Reports & Capability Queries (NEW in 6.33.0!)
+### 1. Presence Awareness & Anna Reflection (NEW in 6.35.0!)
+
+Anna now tracks your usage patterns and shows contextual awareness:
+
+**Anna Reflection on Status:**
+When you run `annactl status`, Anna displays a self-aware reflection block at the top:
+
+```bash
+annactl status
+```
+
+```
+Haven't seen you in 3 days - checking if anything broke while you were away.
+Note: Memory usage trending upward
+==================================================
+
+SYSTEM STATUS — 2025-11-25 14:32:01 UTC
+...
+```
+
+**What Anna tracks:**
+- When you first and last used Anna
+- Total query count and rolling 7-day/30-day windows
+- Usage patterns (long absence, intense usage, quiet periods)
+- Current system state from insights engine
+
+**Presence Greetings:**
+Anna greets you when you return after 12+ hours of inactivity (on system-oriented queries only):
+
+```bash
+# After a week away
+annactl "run a full diagnostic"
+```
+
+```
+Welcome back! It's been 8 days.
+
+▪  System Diagnostics
+   All core services: healthy
+   No failed systemd units
+...
+```
+
+**What's tested:**
+- 8 reflection engine tests (usage commentary patterns, system reflection)
+- 6 greeting behavior tests (intent filtering, throttling logic)
+- Fail-safe design: DB failures never impact query results
+
+**Privacy:**
+- All data stored locally in `/var/lib/anna/historian.db`
+- No network calls, no external tracking
+- Only usage timestamps and query counts (no query content)
+
+### 2. System Reports & Capability Queries (NEW in 6.33.0!)
 
 ```bash
 # Generate full system reports
@@ -67,13 +120,14 @@ annactl "show top 5 largest folders under /var"
 - Handler execution and error handling
 - Integration with unified query router
 
-### 2. Status Command
+### 3. Status Command
 
 ```bash
 annactl status
 ```
 
 Shows:
+- **Anna's Reflection** (NEW in 6.35.0): Self-aware commentary on usage patterns and system state
 - Overall system health (HEALTHY/DEGRADED/CRITICAL)
 - Anna's self-health (daemon, permissions, LLM backend)
 - System diagnostics with fix commands
@@ -84,11 +138,15 @@ Shows:
 - Strict health derivation (never lies about status)
 - /var/log/anna permission validation
 - Daemon restart instability detection
+- Reflection engine usage commentary and system state
 
 **Output example:**
 ```
-Anna Assistant v6.20.0
-Mode: Local LLM (Ollama)
+You've been using Anna more intensively this week (47 queries vs usual 12).
+System looks healthy.
+==================================================
+
+SYSTEM STATUS — 2025-11-25 14:32:01 UTC
 
 Overall Status:
   ✓ HEALTHY: all systems operational
@@ -98,7 +156,7 @@ Anna Self-Health
   ✓ Daemon health: HEALTHY
 ```
 
-### 3. Natural Language Queries with Follow-Up Support (6.26.0)
+### 4. Natural Language Queries with Follow-Up Support (6.26.0)
 
 ```bash
 annactl "how do I check my kernel version?"

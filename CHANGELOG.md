@@ -7,6 +7,135 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.35.0] - 2025-11-25
+
+### PRESENCE & REFLECTION V1
+
+**Type:** Behavioral & UX Enhancement
+**Focus:** Usage tracking, presence awareness, self-reflection status block
+
+#### Added ✨
+
+**1. Usage & Presence Metrics (Historian)**
+
+- Added `UsageStats` tracking to Historian:
+  - `first_seen_at`: When user first interacted with Anna
+  - `last_seen_at`: Most recent query timestamp
+  - `total_queries`: Lifetime query count
+  - `queries_last_7d`: Rolling 7-day window
+  - `queries_last_30d`: Rolling 30-day window
+- Implemented `record_query_event()` - called on every query
+- Implemented `get_usage_stats()` - retrieve current metrics
+- Two-table design: `usage_stats` singleton + `query_events` indexed table
+- Fail-safe: DB write failures never impact query results
+
+**2. SessionContext Presence Fields**
+
+- Added `last_greeting_at: Option<u64>` - timestamp of last greeting shown
+- Added `last_presence_message: Option<String>` - last greeting text
+- Implemented `should_greet_now()` - dual-condition throttling:
+  - Must be >12h since last query (from UsageStats)
+  - Must be >6h since last greeting (from SessionContext)
+- Implemented `mark_greeted()` - record greeting timestamp
+
+**3. Anna Reflection 2.0 (reflection_engine.rs)**
+
+New module generates Anna's self-aware status block (1-3 lines):
+
+- `build_anna_reflection()` - synthesize usage + insights into reflection
+- `build_usage_commentary()` - detect usage patterns:
+  - Long absence: "Haven't seen you in 8 days - checking if anything broke while you were away."
+  - Intense usage: "You've been using Anna more intensively this week (47 queries vs usual 12)."
+  - Quiet period: "Quiet week - no queries in the last 7 days."
+- `build_system_reflection()` - reflect on system state from insights:
+  - Critical: "Critical: Disk space critically low"
+  - Warning: "Note: Memory usage trending upward"
+  - Healthy: "System looks healthy."
+- Integrated at top of `annactl status` output
+
+**4. Presence Greeting Logic**
+
+- Greeting shown when user returns after 12+ hours of inactivity
+- Only for system-oriented queries:
+  - ✅ System reports: "give me a full system report"
+  - ✅ Diagnostics: "run a full diagnostic"
+  - ✅ Insight summaries: "how is my system"
+  - ❌ Capability checks: "does my CPU support SSE2?"
+  - ❌ Disk explorer: "show me the 10 biggest folders"
+  - ❌ Conversational queries: "what is my CPU?"
+- Greeting format (OutputEngine compact style):
+  - >7 days: "Welcome back! It's been 8 days."
+  - 2-7 days: "Haven't seen you in 3 days."
+  - 12-48h: "Back after 18h."
+- Prepended to ConversationalAnswer results
+
+#### Changed 🔄
+
+**unified_query_handler.rs:**
+
+- Added `record_query_event()` call at start of every query
+- Added `should_show_presence_greeting()` - intent-based filtering
+- Added `build_presence_greeting()` - generate greeting with throttling
+- Added `prepend_greeting_if_present()` - inject greeting into answers
+- System report path now includes presence greeting
+
+**status_command.rs:**
+
+- Added `display_anna_reflection()` at top of status output
+- Reflection block uses OutputEngine formatting
+- Separated from rest of status with "=" divider
+
+#### Tests ✅
+
+**8 new reflection_engine tests:**
+1. `test_usage_commentary_long_absence` - 200+ hour gap
+2. `test_usage_commentary_intense_usage` - 2x average weekly
+3. `test_usage_commentary_quiet_week` - 0 queries this week
+4. `test_usage_commentary_not_enough_data` - <20 queries threshold
+5. `test_system_reflection_critical_insight` - Critical issue formatting
+6. `test_system_reflection_warning` - Warning issue formatting
+7. `test_system_reflection_healthy` - No issues baseline
+8. `test_build_anna_reflection_max_3_lines` - Line truncation
+
+**6 new greeting behavior tests:**
+1. `test_should_show_presence_greeting_for_system_report`
+2. `test_should_show_presence_greeting_for_diagnostics`
+3. `test_should_show_presence_greeting_for_insight_summaries`
+4. `test_should_not_greet_for_capability_checks`
+5. `test_should_not_greet_for_disk_explorer`
+6. `test_should_not_greet_for_conversational_queries`
+
+**Regression:** All 516 existing tests passing (1 pre-existing environment-specific failure)
+
+#### Examples 💡
+
+**Anna Reflection on Status:**
+```
+Haven't seen you in 3 days - checking if anything broke while you were away.
+Note: Memory usage trending upward
+==================================================
+
+SYSTEM STATUS — 2025-11-25 14:32:01 UTC
+...
+```
+
+**Presence Greeting (System Report):**
+```
+Welcome back! It's been 8 days.
+
+▪  System Configuration
+   CPU: AMD Ryzen 9 5950X (32 threads)
+   RAM: 64 GB DDR4
+...
+```
+
+**Usage Commentary (Intense Period):**
+```
+You've been using Anna more intensively this week (47 queries vs usual 12).
+System looks healthy.
+==================================================
+```
+
 ## [6.34.0] - 2025-11-25
 
 ### CLI CONSISTENCY & OUTPUT STANDARDS V1

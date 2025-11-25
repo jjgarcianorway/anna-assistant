@@ -56,6 +56,7 @@ pub mod predictive_diagnostics; // v6.28.0: Predictive Diagnostics Engine - Fore
 pub mod insight_summaries; // v6.29.0: Insight Summaries Engine - High-level system summaries
 pub mod meta_telemetry; // v6.30.0: Meta Insight Telemetry - Self-optimization tracking
 pub mod optimization_engine; // v6.30.0: Optimization Engine - Self-tuning profiles
+pub mod reflection_engine; // v6.35.0: Reflection Engine - Anna's self-aware status block
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

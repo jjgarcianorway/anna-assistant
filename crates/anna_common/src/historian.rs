@@ -402,6 +402,26 @@ CREATE TABLE IF NOT EXISTS insight_meta_stats (
     last_resolved_at TEXT
 );
 
+-- ============================================================================
+-- 13. User Presence & Usage Tracking (v6.35.0)
+-- ============================================================================
+
+-- Anna usage statistics and presence tracking
+CREATE TABLE IF NOT EXISTS usage_stats (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- singleton table
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    total_queries INTEGER NOT NULL DEFAULT 0,
+    queries_last_7d INTEGER NOT NULL DEFAULT 0,
+    queries_last_30d INTEGER NOT NULL DEFAULT 0
+);
+
+-- Query event log (for calculating rolling windows)
+CREATE TABLE IF NOT EXISTS query_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL
+);
+
 -- Indices for common queries
 CREATE INDEX IF NOT EXISTS idx_boot_timestamp ON boot_events(boot_timestamp);
 CREATE INDEX IF NOT EXISTS idx_boot_date ON boot_aggregates(date);
@@ -412,6 +432,7 @@ CREATE INDEX IF NOT EXISTS idx_network_window ON network_samples(window_start, w
 CREATE INDEX IF NOT EXISTS idx_service_timestamp ON service_reliability(timestamp, service_name);
 CREATE INDEX IF NOT EXISTS idx_error_signature ON error_signatures(signature_hash);
 CREATE INDEX IF NOT EXISTS idx_health_date ON health_scores(date);
+CREATE INDEX IF NOT EXISTS idx_query_timestamp ON query_events(timestamp);
 "#;
 
 // ============================================================================
@@ -588,6 +609,16 @@ impl std::fmt::Display for Trend {
             Trend::Flat => write!(f, "→"),
         }
     }
+}
+
+/// User presence and usage statistics (v6.35.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageStats {
+    pub first_seen_at: DateTime<Utc>,
+    pub last_seen_at: DateTime<Utc>,
+    pub total_queries: u64,
+    pub queries_last_7d: u64,
+    pub queries_last_30d: u64,
 }
 
 // ============================================================================
@@ -2863,6 +2894,98 @@ impl Historian {
                 last_resolved_at: last_resolved
                     .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    // ========================================================================
+    // User Presence & Usage Tracking (v6.35.0)
+    // ========================================================================
+
+    /// Record a user query event for presence tracking
+    ///
+    /// This method is fail-safe: if the DB write fails, it will not impact
+    /// the query result. Called from the unified query path for every annactl query.
+    pub fn record_query_event(&self, when: DateTime<Utc>) -> Result<()> {
+        // Insert the query event into the log
+        self.conn.execute(
+            "INSERT INTO query_events (timestamp) VALUES (?1)",
+            params![when.to_rfc3339()],
+        )?;
+
+        // Update or initialize the usage_stats singleton
+        // First, try to update if the row exists
+        let updated = self.conn.execute(
+            "UPDATE usage_stats SET
+                last_seen_at = ?1,
+                total_queries = total_queries + 1
+             WHERE id = 1",
+            params![when.to_rfc3339()],
+        )?;
+
+        // If no row was updated, insert initial row
+        if updated == 0 {
+            self.conn.execute(
+                "INSERT INTO usage_stats (id, first_seen_at, last_seen_at, total_queries, queries_last_7d, queries_last_30d)
+                 VALUES (1, ?1, ?1, 1, 1, 1)",
+                params![when.to_rfc3339()],
+            )?;
+        } else {
+            // Recalculate rolling windows (7d and 30d)
+            let seven_days_ago = when - Duration::days(7);
+            let thirty_days_ago = when - Duration::days(30);
+
+            let queries_7d: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM query_events WHERE timestamp >= ?1",
+                params![seven_days_ago.to_rfc3339()],
+                |row| row.get(0),
+            )?;
+
+            let queries_30d: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM query_events WHERE timestamp >= ?1",
+                params![thirty_days_ago.to_rfc3339()],
+                |row| row.get(0),
+            )?;
+
+            self.conn.execute(
+                "UPDATE usage_stats SET queries_last_7d = ?1, queries_last_30d = ?2 WHERE id = 1",
+                params![queries_7d, queries_30d],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Get current usage statistics
+    ///
+    /// Returns None if no queries have been recorded yet.
+    pub fn get_usage_stats(&self) -> Result<Option<UsageStats>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT first_seen_at, last_seen_at, total_queries, queries_last_7d, queries_last_30d
+             FROM usage_stats WHERE id = 1",
+        )?;
+
+        let mut rows = stmt.query([])?;
+
+        if let Some(row) = rows.next()? {
+            let first_seen_str: String = row.get(0)?;
+            let last_seen_str: String = row.get(1)?;
+            let total_queries: i64 = row.get(2)?;
+            let queries_last_7d: i64 = row.get(3)?;
+            let queries_last_30d: i64 = row.get(4)?;
+
+            Ok(Some(UsageStats {
+                first_seen_at: DateTime::parse_from_rfc3339(&first_seen_str)
+                    .context("Failed to parse first_seen_at")?
+                    .with_timezone(&Utc),
+                last_seen_at: DateTime::parse_from_rfc3339(&last_seen_str)
+                    .context("Failed to parse last_seen_at")?
+                    .with_timezone(&Utc),
+                total_queries: total_queries as u64,
+                queries_last_7d: queries_last_7d as u64,
+                queries_last_30d: queries_last_30d as u64,
             }))
         } else {
             Ok(None)

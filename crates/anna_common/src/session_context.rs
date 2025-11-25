@@ -57,6 +57,13 @@ pub struct SessionContext {
 
     /// Last proactive commentary shown (for "why did you say that?" follow-up)
     pub last_commentary: Option<String>,
+
+    // v6.35.0: Presence & Greeting Tracking
+    /// Last time we greeted the user (Unix timestamp)
+    pub last_greeting_at: Option<u64>,
+
+    /// Last presence message shown (for debugging)
+    pub last_presence_message: Option<String>,
 }
 
 /// High-level query intent classification
@@ -183,6 +190,8 @@ impl SessionContext {
             recent_topics: Vec::new(),
             last_status_time: None,
             last_commentary: None,
+            last_greeting_at: None,
+            last_presence_message: None,
         }
     }
 
@@ -464,6 +473,52 @@ impl SessionContext {
     /// Get last commentary for "why did you say that?" follow-up
     pub fn get_last_commentary(&self) -> Option<&str> {
         self.last_commentary.as_deref()
+    }
+
+    // v6.35.0: Presence & Greeting logic
+
+    /// Check if we should greet the user now
+    ///
+    /// Greeting conditions:
+    /// - Last query from UsageStats was >12h ago (user returning after absence)
+    /// - Last greeting was >6h ago (don't spam greetings)
+    ///
+    /// Returns true only if both conditions are met
+    pub fn should_greet_now(&self, usage_last_seen_secs: u64) -> bool {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Condition 1: User last query was >12h ago (43200 seconds)
+        let hours_since_last_query = (now_secs.saturating_sub(usage_last_seen_secs)) / 3600;
+        if hours_since_last_query < 12 {
+            return false;
+        }
+
+        // Condition 2: Last greeting was >6h ago (or never greeted)
+        if let Some(last_greeting) = self.last_greeting_at {
+            let hours_since_greeting = (now_secs.saturating_sub(last_greeting)) / 3600;
+            if hours_since_greeting < 6 {
+                return false; // Too soon to greet again
+            }
+        }
+
+        // Both conditions met
+        true
+    }
+
+    /// Mark that we just greeted the user
+    pub fn mark_greeted(&mut self, message: impl Into<String>) {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        self.last_greeting_at = Some(now_secs);
+        self.last_presence_message = Some(message.into());
+
+        let _ = self.save();
     }
 }
 

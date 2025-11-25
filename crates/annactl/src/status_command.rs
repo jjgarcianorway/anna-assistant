@@ -54,6 +54,9 @@ pub async fn execute_anna_status_command(
     println!("{}", "=".repeat(50));
     println!();
 
+    // v6.35.0: Anna Reflection 2.0 - self-aware status block (at the very top)
+    display_anna_reflection();
+
     // 6.17.0: Fetch brain analysis FIRST
     let brain_analysis = call_brain_analysis().await.ok();
 
@@ -753,6 +756,40 @@ async fn build_unified_health_summary(
 
 /// v6.24.0: Display insights from Historian
 /// v6.32.0: Refactored to use OutputEngine
+/// v6.35.0: Display Anna's reflection on system state (top block of status output)
+fn display_anna_reflection() {
+    // Try to open Historian database
+    let historian = match Historian::new("/var/lib/anna/historian.db") {
+        Ok(h) => h,
+        Err(_) => return, // Silently skip if DB doesn't exist yet
+    };
+
+    // Get usage stats
+    let usage_stats = historian.get_usage_stats().ok().flatten();
+
+    // Get insights for reflection
+    let insights_engine = InsightsEngine::new(historian);
+    let insights = insights_engine.get_top_insights(5, 24).unwrap_or_default();
+
+    // Build Anna's reflection
+    let reflection_lines = anna_common::reflection_engine::build_anna_reflection(
+        &insights,
+        usage_stats.as_ref(),
+    );
+
+    // Display reflection (if any)
+    if !reflection_lines.is_empty() {
+        let engine = OutputEngine::new();
+
+        for line in &reflection_lines {
+            println!("{}", engine.format_source_line(line));
+        }
+
+        println!("{}", "=".repeat(50));
+        println!();
+    }
+}
+
 async fn display_insights() {
     // Try to open Historian database
     let historian = match Historian::new("/var/lib/anna/historian.db") {
