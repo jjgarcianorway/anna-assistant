@@ -303,6 +303,67 @@ impl OutputEngine {
         let bullet = if self.mode == TerminalMode::Color { "•" } else { "-" };
         format!("  {} {}", bullet, text)
     }
+
+    /// Format a compact one-line answer with optional source
+    /// v6.34.0: For simple capability checks and fact queries
+    pub fn format_compact(&self, main_line: &str, source: Option<&str>) -> String {
+        let mut output = main_line.to_string();
+        if let Some(src) = source {
+            output.push_str(&format!("\n\n{}", self.format_source_line(src)));
+        }
+        output
+    }
+
+    /// Format a source attribution line
+    pub fn format_source_line(&self, source: &str) -> String {
+        match self.mode {
+            TerminalMode::Color => format!("Source: {}", source.dimmed()),
+            TerminalMode::Basic => format!("Source: {}", source),
+        }
+    }
+
+    /// Format a numbered list (for step-by-step instructions)
+    /// v6.34.0: For wiki reasoning and procedural answers
+    pub fn format_numbered_list(&self, items: Vec<String>) -> String {
+        let mut output = String::new();
+        for (idx, item) in items.iter().enumerate() {
+            output.push_str(&format!("  {}. {}\n", idx + 1, item));
+        }
+        output.trim_end().to_string()
+    }
+
+    /// Validate that text contains no markdown fences
+    /// v6.34.0: For testing and assertion
+    pub fn validate_no_fences(text: &str) -> bool {
+        !text.contains("```")
+    }
+}
+
+/// Answer style guidelines (v6.34.0)
+/// Maps intent types to consistent output formatting styles
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnswerStyle {
+    /// One-line or short block (CapabilityCheck, simple facts)
+    Compact,
+    /// Header + multiple sections (SystemStatus, SystemReport, Diagnostics)
+    Sectioned,
+    /// Numbered or bulleted steps (WikiReasoning, how-to questions)
+    Stepwise,
+    /// High-level summary (Insights, self-tuning reports)
+    Summary,
+}
+
+impl AnswerStyle {
+    /// Determine the appropriate style for a given intent
+    pub fn from_intent(intent: &str) -> Self {
+        match intent {
+            "CapabilityCheck" | "SimpleFact" => AnswerStyle::Compact,
+            "SystemStatus" | "SystemReport" | "Diagnostics" => AnswerStyle::Sectioned,
+            "WikiReasoning" | "HowTo" | "DiskExplorer" => AnswerStyle::Stepwise,
+            "InsightSummary" | "SelfTuning" => AnswerStyle::Summary,
+            _ => AnswerStyle::Sectioned, // Safe default
+        }
+    }
 }
 
 impl Default for OutputEngine {

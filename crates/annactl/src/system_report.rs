@@ -11,6 +11,7 @@
 
 use crate::system_query::query_system_telemetry;
 use crate::telemetry_truth::{VerifiedSystemReport, HealthStatus};
+use anna_common::output_engine::OutputEngine;
 use anyhow::Result;
 
 /// Generate a complete system report
@@ -439,56 +440,61 @@ pub fn is_disk_explorer_query(text: &str) -> Option<DiskExplorerSpec> {
     })
 }
 
-/// Handle capability check queries (v6.33.0)
+/// Handle capability check queries (v6.33.0, polished v6.34.0)
+/// Uses compact style with OutputEngine for consistent formatting
 pub fn handle_capability_check(kind: CapabilityKind) -> Result<String> {
+    let engine = OutputEngine::new();
+
     match kind {
         CapabilityKind::CpuFlag(flag) => {
             // Try to check CPU flags from /proc/cpuinfo
             let has_flag = check_cpu_flag(&flag)?;
 
-            let answer = if has_flag {
-                format!("Yes, your CPU supports {}.\n\nThis is based on CPU flags reported by the system.", flag.to_uppercase())
+            let main_line = if has_flag {
+                format!("Yes, your CPU supports {}.", flag.to_uppercase())
             } else {
-                format!("No, your CPU does not expose {} in its flags.\n\nThis is based on CPU flags from /proc/cpuinfo.", flag.to_uppercase())
+                format!("No, your CPU does not support {}.", flag.to_uppercase())
             };
 
-            Ok(answer)
+            Ok(engine.format_compact(&main_line, Some("CPU flags from /proc/cpuinfo")))
         }
         CapabilityKind::GpuVram => {
             // Check for GPU VRAM in telemetry
             let telemetry = query_system_telemetry()?;
-            let answer = if telemetry.hardware.has_gpu {
-                format!("GPU detected: {}\n\nNote: VRAM detection requires additional system queries. Run:\n  lspci -v | grep -A 10 VGA", telemetry.hardware.cpu_model)
+
+            let main_line = if telemetry.hardware.has_gpu {
+                "Discrete GPU detected. VRAM info requires: lspci -v | grep -A 10 VGA".to_string()
             } else {
-                "No discrete GPU detected in system telemetry.\n\nFor integrated graphics, VRAM is shared with system RAM.".to_string()
+                "No discrete GPU detected. Integrated graphics share system RAM.".to_string()
             };
 
-            Ok(answer)
+            Ok(engine.format_compact(&main_line, Some("System telemetry")))
         }
         CapabilityKind::GpuVendor => {
             let telemetry = query_system_telemetry()?;
-            let answer = if telemetry.hardware.has_gpu {
-                "Discrete GPU detected.\n\nFor detailed GPU information, run:\n  lspci | grep -i vga".to_string()
+
+            let main_line = if telemetry.hardware.has_gpu {
+                "Discrete GPU detected. Details: lspci | grep -i vga".to_string()
             } else {
-                "No discrete GPU detected.\n\nYour system may be using integrated graphics.".to_string()
+                "No discrete GPU detected. System may use integrated graphics.".to_string()
             };
 
-            Ok(answer)
+            Ok(engine.format_compact(&main_line, Some("System telemetry")))
         }
         CapabilityKind::VirtualizationSupport => {
             // Check for vmx (Intel) or svm (AMD) flags
             let has_vmx = check_cpu_flag("vmx").unwrap_or(false);
             let has_svm = check_cpu_flag("svm").unwrap_or(false);
 
-            let answer = if has_vmx {
-                "Yes, this CPU supports hardware virtualization (Intel VT-x).\n\nThe 'vmx' flag is present in CPU flags.".to_string()
+            let main_line = if has_vmx {
+                "Yes, hardware virtualization supported (Intel VT-x detected).".to_string()
             } else if has_svm {
-                "Yes, this CPU supports hardware virtualization (AMD-V).\n\nThe 'svm' flag is present in CPU flags.".to_string()
+                "Yes, hardware virtualization supported (AMD-V detected).".to_string()
             } else {
-                "No hardware virtualization support flags were found.\n\nNeither 'vmx' (Intel VT-x) nor 'svm' (AMD-V) flags are present.".to_string()
+                "No hardware virtualization flags found (checked vmx and svm).".to_string()
             };
 
-            Ok(answer)
+            Ok(engine.format_compact(&main_line, Some("CPU flags from /proc/cpuinfo")))
         }
     }
 }
@@ -521,14 +527,17 @@ fn check_cpu_flag(flag: &str) -> Result<bool> {
     Ok(false)
 }
 
-/// Handle disk explorer queries (v6.33.0)
+/// Handle disk explorer queries (v6.33.0, polished v6.34.0)
+/// Uses stepwise style with OutputEngine for consistent formatting
 pub fn handle_disk_explorer(spec: DiskExplorerSpec) -> Result<String> {
     use std::process::Command;
 
+    let engine = OutputEngine::new();
     let mut output = String::new();
 
-    // Section header
-    output.push_str(&format!("## Largest directories under {}\n\n", spec.root_path));
+    // Section header - v6.34.0: Use OutputEngine
+    output.push_str(&engine.format_subheader(&format!("Largest directories under {}", spec.root_path)));
+    output.push_str("\n\n");
 
     // Run du command (safe, read-only)
     let du_output = Command::new("du")
@@ -565,8 +574,10 @@ pub fn handle_disk_explorer(spec: DiskExplorerSpec) -> Result<String> {
             if top_entries.is_empty() {
                 output.push_str("No directories found or insufficient permissions.\n");
             } else {
+                // v6.34.0: Use key-value formatting
                 for (size, path) in top_entries {
-                    output.push_str(&format!("  {}  {}\n", size, path));
+                    output.push_str(&engine.format_key_value(size, path));
+                    output.push('\n');
                 }
             }
 
@@ -580,11 +591,13 @@ pub fn handle_disk_explorer(spec: DiskExplorerSpec) -> Result<String> {
         Err(e) => {
             output.push_str(&format!("Unable to run du command: {}\n", e));
             output.push_str("\nYou can run manually:\n");
-            output.push_str(&format!(
-                "```\ndu -x -h --max-depth=3 {} 2>/dev/null | sort -h | tail -n {}\n```\n",
+            // v6.34.0: No markdown fences - use format_command
+            output.push_str(&engine.format_command(&format!(
+                "du -x -h --max-depth=3 {} 2>/dev/null | sort -h | tail -n {}",
                 spec.root_path,
                 spec.count
-            ));
+            )));
+            output.push('\n');
         }
     }
 
@@ -806,6 +819,204 @@ mod tests {
         if let Some(spec) = spec {
             assert_eq!(spec.root_path, "/var");
             assert_eq!(spec.count, 5);
+        }
+    }
+
+    // ========================================================================
+    // v6.34.0: CLI Consistency & Output Standards Tests
+    // ========================================================================
+
+    // No-markdown-fence tests (6 tests)
+
+    #[test]
+    fn test_no_fences_capability_check() {
+        use anna_common::output_engine::OutputEngine;
+
+        // Test CPU flag check
+        let result = handle_capability_check(CapabilityKind::CpuFlag("sse2".to_string()));
+        if let Ok(answer) = result {
+            assert!(!answer.contains("```"), "CapabilityCheck must not contain markdown fences");
+            assert!(OutputEngine::validate_no_fences(&answer), "Failed no-fences validation");
+        }
+    }
+
+    #[test]
+    fn test_no_fences_gpu_vram() {
+        use anna_common::output_engine::OutputEngine;
+
+        let result = handle_capability_check(CapabilityKind::GpuVram);
+        if let Ok(answer) = result {
+            assert!(!answer.contains("```"), "GPU VRAM check must not contain markdown fences");
+            assert!(OutputEngine::validate_no_fences(&answer));
+        }
+    }
+
+    #[test]
+    fn test_no_fences_virtualization() {
+        use anna_common::output_engine::OutputEngine;
+
+        let result = handle_capability_check(CapabilityKind::VirtualizationSupport);
+        if let Ok(answer) = result {
+            assert!(!answer.contains("```"), "Virtualization check must not contain markdown fences");
+            assert!(OutputEngine::validate_no_fences(&answer));
+        }
+    }
+
+    #[test]
+    fn test_no_fences_disk_explorer() {
+        use anna_common::output_engine::OutputEngine;
+
+        let spec = DiskExplorerSpec {
+            root_path: "/tmp".to_string(),
+            count: 5,
+        };
+
+        let result = handle_disk_explorer(spec);
+        if let Ok(answer) = result {
+            assert!(!answer.contains("```"), "DiskExplorer must not contain markdown fences");
+            assert!(OutputEngine::validate_no_fences(&answer));
+        }
+    }
+
+    #[test]
+    fn test_no_fences_system_report() {
+        use anna_common::output_engine::OutputEngine;
+
+        if is_system_report_query("write me a report") {
+            // System report should not have fences (already tested in v6.32)
+            let result = generate_full_report();
+            if let Ok(report) = result {
+                assert!(!report.contains("```"), "SystemReport must not contain markdown fences");
+                assert!(OutputEngine::validate_no_fences(&report));
+            }
+        }
+    }
+
+    #[test]
+    fn test_answer_style_enum() {
+        use anna_common::output_engine::AnswerStyle;
+
+        // Test style mapping
+        assert_eq!(AnswerStyle::from_intent("CapabilityCheck"), AnswerStyle::Compact);
+        assert_eq!(AnswerStyle::from_intent("SimpleFact"), AnswerStyle::Compact);
+        assert_eq!(AnswerStyle::from_intent("SystemReport"), AnswerStyle::Sectioned);
+        assert_eq!(AnswerStyle::from_intent("DiskExplorer"), AnswerStyle::Stepwise);
+        assert_eq!(AnswerStyle::from_intent("Unknown"), AnswerStyle::Sectioned); // Default
+    }
+
+    // Style correctness tests (10 tests)
+
+    #[test]
+    fn test_style_cpu_flag_compact() {
+        // Capability check should be compact (1-3 lines)
+        let result = handle_capability_check(CapabilityKind::CpuFlag("avx2".to_string()));
+        if let Ok(answer) = result {
+            let lines: Vec<&str> = answer.lines().collect();
+            assert!(lines.len() <= 4, "CPU flag check should be compact (≤4 lines), got {}", lines.len());
+            assert!(answer.contains("AVX2") || answer.contains("avx2"), "Should mention the queried flag");
+        }
+    }
+
+    #[test]
+    fn test_style_gpu_vram_compact() {
+        let result = handle_capability_check(CapabilityKind::GpuVram);
+        if let Ok(answer) = result {
+            let lines: Vec<&str> = answer.lines().collect();
+            assert!(lines.len() <= 4, "GPU VRAM check should be compact (≤4 lines), got {}", lines.len());
+        }
+    }
+
+    #[test]
+    fn test_style_virtualization_compact() {
+        let result = handle_capability_check(CapabilityKind::VirtualizationSupport);
+        if let Ok(answer) = result {
+            let lines: Vec<&str> = answer.lines().collect();
+            assert!(lines.len() <= 4, "Virtualization check should be compact (≤4 lines), got {}", lines.len());
+            assert!(answer.to_lowercase().contains("virtualization"), "Should mention virtualization");
+        }
+    }
+
+    #[test]
+    fn test_style_disk_explorer_has_header() {
+        let spec = DiskExplorerSpec {
+            root_path: "/tmp".to_string(),
+            count: 10,
+        };
+
+        let result = handle_disk_explorer(spec);
+        if let Ok(answer) = result {
+            assert!(answer.contains("Largest directories") || answer.contains("/tmp"),
+                    "DiskExplorer should have descriptive header");
+        }
+    }
+
+    #[test]
+    fn test_style_capability_has_source() {
+        // v6.34.0: Compact answers should include source attribution
+        let result = handle_capability_check(CapabilityKind::CpuFlag("sse2".to_string()));
+        if let Ok(answer) = result {
+            assert!(answer.to_lowercase().contains("source:") || answer.contains("/proc/cpuinfo"),
+                    "Should include source attribution");
+        }
+    }
+
+    #[test]
+    fn test_style_system_report_has_sections() {
+        if is_system_report_query("generate system report") {
+            let result = generate_full_report();
+            if let Ok(report) = result {
+                // Should have multiple sections
+                let has_sections = report.contains("Health") || report.contains("Storage") || report.contains("Services");
+                assert!(has_sections, "System report should have named sections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_outputengine_compact_format() {
+        use anna_common::output_engine::OutputEngine;
+
+        let engine = OutputEngine::new();
+        let compact = engine.format_compact("Yes, feature supported.", Some("CPU flags"));
+
+        assert!(!compact.contains("```"));
+        assert!(compact.contains("Yes, feature supported."));
+        assert!(compact.contains("Source:"));
+    }
+
+    #[test]
+    fn test_outputengine_no_fences_stripper() {
+        use anna_common::output_engine::OutputEngine;
+
+        let engine = OutputEngine::new();
+        let input = "Text\n```bash\ndf -h\n```\nMore text";
+        let output = engine.strip_markdown_fences(input);
+
+        assert!(!output.contains("```"));
+        assert!(output.contains("[CMD]") || output.contains("df -h"));
+    }
+
+    #[test]
+    fn test_outputengine_numbered_list() {
+        use anna_common::output_engine::OutputEngine;
+
+        let engine = OutputEngine::new();
+        let items = vec!["First step".to_string(), "Second step".to_string()];
+        let numbered = engine.format_numbered_list(items);
+
+        assert!(numbered.contains("1."));
+        assert!(numbered.contains("2."));
+        assert!(numbered.contains("First step"));
+    }
+
+    #[test]
+    fn test_integration_no_raw_ansi_in_output() {
+        // Ensure no raw ANSI codes leak into output (should use OutputEngine)
+        let result = handle_capability_check(CapabilityKind::CpuFlag("avx".to_string()));
+        if let Ok(answer) = result {
+            // Check for common ANSI escape sequences
+            assert!(!answer.contains("\x1b[31m"), "Should not contain raw ANSI color codes");
+            assert!(!answer.contains("\x1b[0m"), "Should not contain raw ANSI reset codes");
         }
     }
 }

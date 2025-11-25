@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.34.0] - 2025-11-25
+
+### CLI CONSISTENCY & OUTPUT STANDARDS V1
+
+**Type:** UX/Formatting Polish
+**Focus:** Unify output formatting across all answer paths using OutputEngine, eliminate markdown fences, enforce consistent styles
+
+#### Changed 🔄
+
+**Polished Handlers - v6.33.0 Features:**
+
+1. **Capability Check Handlers (Compact Style)**
+   - Refactored `handle_capability_check()` to use `OutputEngine.format_compact()`
+   - All capability answers now follow compact style: 1 clear line + optional source attribution
+   - **Before (v6.33.0):**
+     ```
+     Yes, your CPU supports SSE2.
+
+     This is based on CPU flags reported by the system.
+     ```
+   - **After (v6.34.0):**
+     ```
+     Yes, your CPU supports SSE2.
+
+     Source: CPU flags from /proc/cpuinfo
+     ```
+
+2. **Disk Explorer Handler (Stepwise Style)**
+   - Refactored `handle_disk_explorer()` to use `OutputEngine.format_subheader()` and `format_key_value()`
+   - **Removed markdown fences** from manual command suggestions
+   - **Before (v6.33.0):**
+     ```
+     ## Largest directories under /home
+
+       512M  /home/user
+     You can run manually:
+     ```
+     du -x -h --max-depth=3 /home 2>/dev/null | sort -h | tail -n 10
+     ```
+     ```
+   - **After (v6.34.0):**
+     ```
+     ▪  Largest directories under /home
+
+       512M  /home/user
+     You can run manually:
+       [CMD] du -x -h --max-depth=3 /home 2>/dev/null | sort -h | tail -n 10
+     ```
+
+**OutputEngine Enhancements:**
+
+- Added `format_compact(main_line, source)` - One-line answers with source attribution
+- Added `format_source_line(source)` - Consistent "Source: X" formatting
+- Added `format_numbered_list(items)` - Step-by-step numbered instructions
+- Added `validate_no_fences(text)` - Static validation for testing
+- Added `AnswerStyle` enum - Maps intents to styles (Compact, Sectioned, Stepwise, Summary)
+
+**Style Guidelines Enforced:**
+
+- ✅ **No markdown fences in CLI output** - All code blocks use `[CMD]` prefix
+- ✅ **Color & emoji via OutputEngine only** - No raw ANSI codes
+- ✅ **Consistent answer styles:**
+  - Compact: CapabilityCheck, simple facts (1-3 lines)
+  - Sectioned: SystemStatus, SystemReport (header + sections)
+  - Stepwise: DiskExplorer, HowTo questions (numbered/bulleted)
+  - Summary: Insights, optimization reports
+
+#### Added ✨
+
+**Test Coverage (16 new tests):**
+
+*No-Markdown-Fence Tests (5):*
+1. `test_no_fences_capability_check` - CPU flag checks
+2. `test_no_fences_gpu_vram` - GPU VRAM queries
+3. `test_no_fences_virtualization` - Virtualization support
+4. `test_no_fences_disk_explorer` - Disk usage explorer
+5. `test_no_fences_system_report` - Full system reports
+
+*Style Correctness Tests (6):*
+1. `test_style_cpu_flag_compact` - Compact style (≤4 lines)
+2. `test_style_gpu_vram_compact` - GPU answers compact
+3. `test_style_virtualization_compact` - Virtualization compact
+4. `test_style_disk_explorer_has_header` - Header presence
+5. `test_style_capability_has_source` - Source attribution
+6. `test_style_system_report_has_sections` - Section structure
+
+*OutputEngine Integration Tests (5):*
+1. `test_answer_style_enum` - Style mapping logic
+2. `test_outputengine_compact_format` - Compact formatting
+3. `test_outputengine_no_fences_stripper` - Fence removal
+4. `test_outputengine_numbered_list` - Numbered lists
+5. `test_integration_no_raw_ansi_in_output` - No raw ANSI codes
+
+#### Technical Notes 📝
+
+- Zero functional changes to detection logic or thresholds
+- All formatting changes are presentation-only
+- Existing v6.23-v6.33 features retain identical behavior
+- Total test suite: **657 tests** (up from 641)
+
+**Files Modified:**
+- `output_engine.rs`: Added compact/stepwise helpers and AnswerStyle enum
+- `system_report.rs`: Polished capability and disk explorer handlers
+- `system_report.rs`: Added 16 new tests
+
 ## [6.33.0] - 2025-11-25
 
 ### ACTIONABLE SYSTEM REPORTS & CAPABILITY QUERIES V1
