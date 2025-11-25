@@ -59,6 +59,12 @@ pub mod optimization_engine; // v6.30.0: Optimization Engine - Self-tuning profi
 pub mod reflection_engine; // v6.35.0: Reflection Engine - Anna's self-aware status block
 pub mod progress_indicator; // v6.36.0: Progress Indicator - Visual feedback for long operations
 pub mod de_wm_detector; // v6.40.0: DE/WM Detector - Multi-layered desktop environment detection
+pub mod system_info; // v6.41.0: Deterministic system information (NO LLM HALLUCINATION)
+pub mod system_report; // v6.41.0: System Report v2 - Fully deterministic (NO LLM)
+pub mod planner_core; // v6.41.0: Planner Core - LLM-driven command planning
+pub mod executor_core; // v6.41.0: Executor Core - Safe command execution with capturing
+pub mod interpreter_core; // v6.41.0: Interpreter Core - LLM-driven output interpretation
+pub mod trace_renderer; // v6.41.0: Trace Renderer - Visible thinking trace
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

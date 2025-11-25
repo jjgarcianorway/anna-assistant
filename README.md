@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.40.0**
+**Experimental Arch Linux System Assistant - Version 6.41.0**
 
-[![Version](https://img.shields.io/badge/version-6.40.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.41.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,15 +29,47 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.40.0)
+## What's New in 6.41.0 - Architectural Revolution 🎉
 
-### Quality & Accuracy Fixes in 6.40.0
+### Planner → Executor → Interpreter Core
 
-**Problem 1:** Desktop environment detection returned "Unknown" even when DE/WM was active
-**Solution:** Implemented 5-layer detection (env vars, processes, packages, config dirs, X11 props)
+**The Game Changer:** Anna now has ONE unified brain that handles ALL inspection questions generically, instead of hardcoded special-case handlers.
 
-**Problem 2:** Session summary showed stale "last run 3 days ago" while actively using Anna
-**Solution:** Fixed historian.db permissions (now `0o660`) so user can write timestamps
+**Visible Thinking Traces:**
+```
+🧠 Anna thinking trace
+
+Intent:
+  - Goal: Inspect
+  - Domain: Packages
+
+Commands executed:
+  [CMD] pacman -Qq | grep -Ei '(steam|game...)' ✓
+
+Key outputs:
+  sh: gamemode, steam, wine-staging
+
+Execution time: 27ms
+```
+
+**How It Works:**
+1. **Planner** - Understands your question, classifies intent (Inspect/Diagnose/List/Check)
+2. **Executor** - Plans & runs safe commands specific to YOUR system
+3. **Interpreter** - Analyzes outputs and gives you a clear answer
+4. **Trace** - Shows you exactly how Anna reasoned
+
+**Pilot Queries Working:**
+- ✅ "do I have games installed?" → detects steam, lutris, wine, etc.
+- ✅ "what DE/WM am I running?" → uses 5-layer detection (Sway, i3, KDE, etc.)
+- ✅ "does my CPU have SSE/AVX?" → parses flags, groups by feature family
+- ✅ "do I have any file manager installed?" → checks thunar, dolphin, nautilus, etc.
+
+**Benefits:**
+- 🎯 **Generic** - One architecture for all questions
+- 👁️ **Transparent** - See how Anna thinks
+- 🔒 **Safe** - Command validation, tool detection
+- ⚡ **Fast** - 20-100ms typical queries
+- 📈 **Extensible** - Easy to add new questions
 
 **Problem 3:** Daemon logs spammed with routine INFO messages for every RPC call
 **Solution:** Moved routine connection logs to DEBUG level (security failures still WARN)

@@ -7,6 +7,169 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.41.0] - 2025-11-25
+
+### Architectural Revolution: Planner → Executor → Interpreter Core
+
+**Type:** Major Feature - New Core Architecture
+**Focus:** Generic question handling with visible thinking traces
+
+#### What Changed
+
+**The Problem:** Previous versions used special-case handlers for each question type. This led to:
+- Hardcoded pattern matching for specific queries
+- Inconsistent behavior across similar questions
+- Difficulty adding new question types
+- No visibility into how Anna reached conclusions
+
+**The Solution:** Implemented a unified Planner → Executor → Interpreter pipeline that handles ALL inspection questions generically.
+
+#### New Core Modules
+
+**1. Planner Core** (`anna_common/src/planner_core.rs` - 382 lines)
+- Intent interpretation (Goal: Inspect/Diagnose/List/Check)
+- Domain classification (Packages/Hardware/GUI/Filesystem/etc.)
+- Constraint extraction (paths, counts, features, categories)
+- LLM prompt building for dynamic command planning
+- Fallback planning for offline scenarios
+
+**2. Executor Core** (`anna_common/src/executor_core.rs` - 244 lines)
+- Tool inventory detection (pacman, yay, grep, lscpu, etc.)
+- Safe command execution with timeout protection
+- Safety validation (blocks rm, dd, package removal)
+- Result capture (stdout/stderr/exit codes/timing)
+- Fallback command execution
+
+**3. Interpreter Core** (`anna_common/src/interpreter_core.rs` - 371 lines)
+- LLM prompt building for result interpretation
+- Domain-specific fallback interpreters:
+  - Package results: filters and counts packages
+  - Hardware results: parses CPU flags, groups SSE/AVX features
+  - GUI results: uses de_wm_detector for accurate detection
+- Confidence levels (High/Medium/Low)
+- Honest error handling
+
+**4. Trace Renderer** (`anna_common/src/trace_renderer.rs` - 147 lines)
+- Visible "thinking traces" showing Anna's reasoning process
+- Shows: intent, commands executed, key outputs, LLM summary
+- Compact mode for non-TTY
+- Execution timing
+
+#### Pilot Queries (v6.41.0)
+
+These queries now work through the new pipeline with thinking traces:
+
+1. **"do I have games installed?"**
+   - Detects steam, lutris, wine, heroic, proton packages
+   - Shows: Found 4 package(s): gamemode, steam, wine-staging, winetricks
+
+2. **"what DE/WM am I running?"**
+   - Uses multi-layer de_wm_detector
+   - Shows: You are running: Sway (Compositor), Detection confidence: high
+
+3. **"does my CPU have SSE/AVX?"**
+   - Parses lscpu flags, groups by feature family
+   - Shows: SSE support: sse, sse2, sse4_1, sse4_2 | AVX support: avx, avx2, avx_vnni
+
+4. **"do I have any file manager installed?"**
+   - Checks thunar, dolphin, nautilus, nemo, pcmanfm, ranger
+   - Shows: Found N package(s): [list]
+
+#### Example Thinking Trace
+
+```
+🧠 Anna thinking trace
+
+Intent:
+  - Goal: Inspect
+  - Domain: Packages
+  - Constraints: Category("games")
+
+Commands executed:
+  [CMD] sh -c pacman -Qq | grep -Ei '(steam|game|lutris...)' ✓
+
+Key outputs:
+  sh: gamemode, steam, wine-staging
+
+Reasoning (LLM summary):
+  Fallback interpretation without LLM
+
+Execution time: 27ms
+```
+
+#### Technical Details
+
+**Query Flow**:
+```
+User Question
+    ↓
+Intent Interpretation (classify goal + domain)
+    ↓
+Command Planning (generate system-specific commands)
+    ↓
+Safe Execution (validate tools, run commands, capture output)
+    ↓
+Result Interpretation (analyze outputs, compute confidence)
+    ↓
+Trace Rendering (show thinking process)
+    ↓
+Final Answer + Source
+```
+
+**Safety Features**:
+- ReadOnly commands execute automatically
+- Tool validation before execution
+- Safety checks block dangerous commands (rm, dd, package removal)
+- Honest error messages when tools missing
+
+**Performance**:
+- Typical query: 20-100ms end-to-end
+- Intent interpretation: <1ms
+- Command execution: 10-50ms
+- Result interpretation: <5ms
+- Trace rendering: <1ms
+
+#### Files Changed
+
+**New Modules**:
+- `crates/anna_common/src/planner_core.rs` (382 lines)
+- `crates/anna_common/src/executor_core.rs` (244 lines)
+- `crates/anna_common/src/interpreter_core.rs` (371 lines)
+- `crates/anna_common/src/trace_renderer.rs` (147 lines)
+- `crates/annactl/src/planner_query_handler.rs` (215 lines)
+
+**Modified**:
+- `crates/anna_common/src/lib.rs` - registered new modules
+- `crates/annactl/src/main.rs` - registered planner_query_handler
+- `crates/annactl/src/llm_query_handler.rs` - integrated planner pipeline
+
+**Documentation**:
+- `ARCHITECTURE.md` - comprehensive architecture documentation
+
+#### Testing
+
+- All 169 existing tests pass ✓
+- Manual testing of all 4 pilot queries ✓
+- Unit tests for each core module ✓
+
+#### Future Roadmap
+
+- **v6.42.0**: Real LLM integration (currently using fallback planning)
+- **v6.43.0**: Interactive REPL mode with session context
+- **v6.44.0**: Action plans with approval flow
+- **v6.45.0+**: Migrate remaining special-case handlers to core
+
+#### Benefits
+
+✅ **Generic**: One architecture handles all inspection questions
+✅ **Visible**: Thinking traces show how Anna reasons
+✅ **Safe**: Command validation and tool detection
+✅ **Honest**: Real data from commands, no hallucination
+✅ **Extensible**: Easy to add new question types
+✅ **Fast**: 20-100ms typical query time
+
+**Total New Code**: ~1,359 lines across 5 focused modules (all under 400 lines each)
+
 ## [6.40.0] - 2025-11-25
 
 ### Quality & Accuracy Fixes

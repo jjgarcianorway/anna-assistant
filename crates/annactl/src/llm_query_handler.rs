@@ -218,12 +218,56 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     }
     println!();
 
-    // Create spinner for thinking animation (Beta.202: Professional animation)
-    let spinner = create_thinking_spinner(&ui);
-
-    // Get telemetry
+    // Get telemetry first (needed for all query paths)
     let telemetry_start = std::time::Instant::now();
     let telemetry = query_system_telemetry()?;
+
+    // v6.41.0: Try Planner → Executor → Interpreter FIRST for pilot queries
+    if crate::planner_query_handler::should_use_planner(user_text) {
+        // Create spinner for thinking animation
+        let spinner = create_thinking_spinner(&ui);
+
+        // Handle through planner core
+        match crate::planner_query_handler::handle_with_planner(user_text, &telemetry, None).await {
+            Ok(output) => {
+                spinner.finish_and_clear();
+                if ui.capabilities().use_colors() {
+                    println!("{}", "anna:".bright_magenta().bold());
+                } else {
+                    println!("anna:");
+                }
+                println!("{}", output);
+                return Ok(());
+            }
+            Err(e) => {
+                spinner.finish_and_clear();
+                // Fall through to deterministic or LLM handler
+                eprintln!("Planner failed: {}, falling back", e);
+            }
+        }
+    }
+
+    // v6.41.0: Try deterministic answer as fallback (NO LLM for system facts)
+    if let Some(det_answer) = crate::deterministic_answers::try_deterministic_answer(user_text) {
+        if ui.capabilities().use_colors() {
+            println!("{}", "anna:".bright_magenta().bold());
+        } else {
+            println!("anna:");
+        }
+        println!("{}", det_answer.answer);
+        if !det_answer.source.is_empty() {
+            println!();
+            if ui.capabilities().use_colors() {
+                println!("{}", det_answer.source.dimmed());
+            } else {
+                println!("{}", det_answer.source);
+            }
+        }
+        return Ok(());
+    }
+
+    // Create spinner for thinking animation (Beta.202: Professional animation)
+    let spinner = create_thinking_spinner(&ui);
 
     // Get LLM config
     let config = get_llm_config();
