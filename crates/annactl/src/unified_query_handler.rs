@@ -54,6 +54,7 @@ use anna_common::action_plan_v3::ActionPlan;
 use anna_common::historian::Historian;  // v6.35.0: Usage tracking
 use anna_common::llm::LlmConfig;
 use anna_common::progress_indicator::ProgressIndicator;  // v6.36.0: Thinking spinner
+use anna_common::session_context::QueryIntent;  // v6.26.0: Session context tracking
 use anna_common::telemetry::SystemTelemetry;
 use anyhow::Result;
 use chrono::Timelike;  // v6.35.0: For num_hours()
@@ -513,7 +514,17 @@ pub async fn handle_unified_query(
 
     // TIER 4: Structured Conversational Answer (Version 150: NO STREAMING!)
     // Generate structured answer from telemetry or LLM
-    generate_conversational_answer(user_text, telemetry, llm_config).await
+    let result = generate_conversational_answer(user_text, telemetry, llm_config).await;
+
+    // v6.40.0: Update session timestamp on EVERY query (fixes stale "last run" bug)
+    // This ensures session context reflects actual last interaction time
+    session_ctx.update_from_query(
+        QueryIntent::Generic,
+        None,
+        user_text,
+    );
+
+    result
 }
 
 /// Generate structured conversational answer (Version 150: enforces JSON)

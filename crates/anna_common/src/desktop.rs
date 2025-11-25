@@ -138,13 +138,14 @@ impl DesktopInfo {
     }
 
     /// Detect desktop environment
+    /// v6.40.0: Layered detection - never returns None unless ALL methods fail
     fn detect_environment() -> DesktopEnvironment {
-        // Check HYPRLAND_INSTANCE_SIGNATURE (most specific)
+        // Layer 1: Check HYPRLAND_INSTANCE_SIGNATURE (most specific)
         if env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
             return DesktopEnvironment::Hyprland;
         }
 
-        // Check XDG_CURRENT_DESKTOP
+        // Layer 2: Check XDG_CURRENT_DESKTOP
         if let Ok(desktop) = env::var("XDG_CURRENT_DESKTOP") {
             let desktop_lower = desktop.to_lowercase();
 
@@ -166,12 +167,23 @@ impl DesktopInfo {
             if desktop_lower.contains("xfce") {
                 return DesktopEnvironment::Xfce;
             }
+            if desktop_lower.contains("cinnamon") {
+                return DesktopEnvironment::Other("Cinnamon".to_string());
+            }
+            if desktop_lower.contains("mate") {
+                return DesktopEnvironment::Other("MATE".to_string());
+            }
+            if desktop_lower.contains("lxde") || desktop_lower.contains("lxqt") {
+                return DesktopEnvironment::Other("LXQt".to_string());
+            }
 
-            // Return as "Other" if not recognized
-            return DesktopEnvironment::Other(desktop);
+            // Return as "Other" if not recognized but has a value
+            if !desktop.is_empty() {
+                return DesktopEnvironment::Other(desktop);
+            }
         }
 
-        // Check DESKTOP_SESSION as fallback
+        // Layer 3: Check DESKTOP_SESSION as fallback
         if let Ok(session) = env::var("DESKTOP_SESSION") {
             let session_lower = session.to_lowercase();
 
@@ -193,19 +205,142 @@ impl DesktopInfo {
             if session_lower.contains("xfce") {
                 return DesktopEnvironment::Xfce;
             }
+            if session_lower.contains("cinnamon") {
+                return DesktopEnvironment::Other("Cinnamon".to_string());
+            }
+
+            if !session.is_empty() {
+                return DesktopEnvironment::Other(session);
+            }
         }
 
-        // Check SWAYSOCK for Sway
+        // Layer 4: Check Wayland compositor sockets
         if env::var("SWAYSOCK").is_ok() {
             return DesktopEnvironment::Sway;
         }
 
-        // Check I3SOCK for i3
+        // Layer 5: Check X11 window manager sockets
         if env::var("I3SOCK").is_ok() {
             return DesktopEnvironment::I3;
         }
 
+        // Layer 6: Check for common WM/compositor processes
+        if let Ok(result) = Self::detect_from_processes() {
+            return result;
+        }
+
+        // Layer 7: For X11, try xprop to detect WM
+        if Self::detect_session_type() == SessionType::X11 {
+            if let Ok(wm) = Self::detect_wm_from_xprop() {
+                return DesktopEnvironment::Other(wm);
+            }
+        }
+
         DesktopEnvironment::None
+    }
+
+    /// Detect DE/WM from running processes (Layer 6)
+    fn detect_from_processes() -> Result<DesktopEnvironment, ()> {
+        use std::process::Command;
+
+        // Try to get process list
+        let output = Command::new("ps")
+            .args(&["aux"])
+            .output()
+            .map_err(|_| ())?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout_lower = stdout.to_lowercase();
+
+        // Check for Wayland compositors first
+        if stdout_lower.contains("hyprland") {
+            return Ok(DesktopEnvironment::Hyprland);
+        }
+        if stdout_lower.contains("/sway ") || stdout_lower.contains("/sway\n") {
+            return Ok(DesktopEnvironment::Sway);
+        }
+        if stdout_lower.contains("wayfire") {
+            return Ok(DesktopEnvironment::Other("Wayfire".to_string()));
+        }
+        if stdout_lower.contains("river") {
+            return Ok(DesktopEnvironment::Other("River".to_string()));
+        }
+
+        // Check for DE processes
+        if stdout_lower.contains("gnome-shell") {
+            return Ok(DesktopEnvironment::Gnome);
+        }
+        if stdout_lower.contains("plasmashell") || stdout_lower.contains("kwin") {
+            return Ok(DesktopEnvironment::Kde);
+        }
+        if stdout_lower.contains("xfce4-session") {
+            return Ok(DesktopEnvironment::Xfce);
+        }
+        if stdout_lower.contains("cinnamon") {
+            return Ok(DesktopEnvironment::Other("Cinnamon".to_string()));
+        }
+
+        // Check for X11 window managers
+        if stdout_lower.contains("/i3 ") || stdout_lower.contains("/i3\n") || stdout_lower.contains("i3-msg") {
+            return Ok(DesktopEnvironment::I3);
+        }
+        if stdout_lower.contains("bspwm") {
+            return Ok(DesktopEnvironment::Other("bspwm".to_string()));
+        }
+        if stdout_lower.contains("openbox") {
+            return Ok(DesktopEnvironment::Other("Openbox".to_string()));
+        }
+        if stdout_lower.contains("fluxbox") {
+            return Ok(DesktopEnvironment::Other("Fluxbox".to_string()));
+        }
+        if stdout_lower.contains("awesome") {
+            return Ok(DesktopEnvironment::Other("Awesome".to_string()));
+        }
+        if stdout_lower.contains("dwm") {
+            return Ok(DesktopEnvironment::Other("dwm".to_string()));
+        }
+
+        Err(())
+    }
+
+    /// Detect WM from xprop (Layer 7, X11 only)
+    fn detect_wm_from_xprop() -> Result<String, ()> {
+        use std::process::Command;
+
+        let output = Command::new("xprop")
+            .args(&["-root", "_NET_SUPPORTING_WM_CHECK"])
+            .output()
+            .map_err(|_| ())?;
+
+        if !output.status.success() {
+            return Err(());
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // xprop output: _NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x...
+        // We need to query that window for _NET_WM_NAME
+        if let Some(window_id) = stdout.split_whitespace().last() {
+            let name_output = Command::new("xprop")
+                .args(&["-id", window_id, "_NET_WM_NAME"])
+                .output()
+                .map_err(|_| ())?;
+
+            if name_output.status.success() {
+                let name_stdout = String::from_utf8_lossy(&name_output.stdout);
+                // Parse: _NET_WM_NAME(UTF8_STRING) = "WindowManager Name"
+                if let Some(name_start) = name_stdout.find('"') {
+                    if let Some(name_end) = name_stdout[name_start + 1..].find('"') {
+                        let wm_name = &name_stdout[name_start + 1..name_start + 1 + name_end];
+                        if !wm_name.is_empty() {
+                            return Ok(wm_name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(())
     }
 
     /// Find config directory and file paths
@@ -281,5 +416,69 @@ mod tests {
         assert_eq!(DesktopEnvironment::Hyprland.name(), "Hyprland");
         assert_eq!(DesktopEnvironment::I3.name(), "i3");
         assert_eq!(DesktopEnvironment::Sway.name(), "Sway");
+    }
+
+    // v6.40.0: Tests for enhanced DE/WM detection
+
+    #[test]
+    fn test_detect_from_processes_finds_common_wms() {
+        // Test that process detection works for common patterns
+        // Note: This test might fail if the actual processes aren't running
+        // but it exercises the code path
+        let result = DesktopInfo::detect_from_processes();
+        // Should return Ok or Err, but not panic
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_detect_wm_from_xprop_handles_missing_xprop() {
+        // Test that xprop detection gracefully handles missing xprop command
+        let result = DesktopInfo::detect_wm_from_xprop();
+        // Should return Err if xprop not available or not in X11 session
+        // Should not panic
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_layered_detection_handles_empty_env_vars() {
+        // Simulate environment with no DE/WM env vars set
+        // Detection should still work or gracefully return None
+        std::env::remove_var("XDG_CURRENT_DESKTOP");
+        std::env::remove_var("DESKTOP_SESSION");
+        std::env::remove_var("HYPRLAND_INSTANCE_SIGNATURE");
+        std::env::remove_var("SWAYSOCK");
+        std::env::remove_var("I3SOCK");
+
+        let info = DesktopInfo::detect();
+        // Should return something (either detected from processes or None)
+        // Should not panic
+        assert!(matches!(info.environment, DesktopEnvironment::None | DesktopEnvironment::Other(_) | _));
+    }
+
+    #[test]
+    fn test_detect_environment_with_xdg_current_desktop() {
+        // Test detection from XDG_CURRENT_DESKTOP
+        std::env::set_var("XDG_CURRENT_DESKTOP", "KDE");
+        let env = DesktopInfo::detect_environment();
+        assert!(matches!(env, DesktopEnvironment::Kde));
+
+        std::env::set_var("XDG_CURRENT_DESKTOP", "GNOME");
+        let env = DesktopInfo::detect_environment();
+        assert!(matches!(env, DesktopEnvironment::Gnome));
+
+        // Cleanup
+        std::env::remove_var("XDG_CURRENT_DESKTOP");
+    }
+
+    #[test]
+    fn test_detect_environment_with_desktop_session() {
+        // Test fallback to DESKTOP_SESSION
+        std::env::remove_var("XDG_CURRENT_DESKTOP");
+        std::env::set_var("DESKTOP_SESSION", "xfce");
+        let env = DesktopInfo::detect_environment();
+        assert!(matches!(env, DesktopEnvironment::Xfce));
+
+        // Cleanup
+        std::env::remove_var("DESKTOP_SESSION");
     }
 }

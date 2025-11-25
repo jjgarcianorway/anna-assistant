@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.40.0] - 2025-11-25
+
+### Quality & Accuracy Fixes
+
+**Type:** Bug Fixes & Reliability Improvements
+**Focus:** Fix stale session tracking, improve DE/WM detection, reduce daemon log spam
+
+#### Problems Fixed
+
+**1. DE/WM Detection Returning "Unknown"**
+
+User query: "what DE or WM am I running?" returned "You are running Unknown" even though desktop environment was active.
+
+**Root Cause:** Desktop detection only checked environment variables (XDG_CURRENT_DESKTOP). If those weren't set, it failed.
+
+**Solution:** Implemented comprehensive 5-layer DE/WM detection:
+
+- **Layer 1**: Environment variables (XDG_CURRENT_DESKTOP, DESKTOP_SESSION)
+- **Layer 2**: Running processes (gnome-shell, plasmashell, sway, i3, etc.)
+- **Layer 3**: Installed packages (pacman -Qq for plasma-desktop, gnome-shell, etc.)
+- **Layer 4**: Config directories (~/.config/i3, ~/.config/hypr, etc.)
+- **Layer 5**: X11 properties (xprop for X11 systems)
+
+Each detection includes confidence scoring (Low/Medium/High) and detection method tracking.
+
+**2. Session Summary Showing Stale "Last Run" Time**
+
+Status showed "last run 3 days 11 hours ago" when actively using Anna.
+
+**Root Cause:** historian.db file had incorrect permissions (`-rw-r-----`). User (in anna group) couldn't write to it, so `record_query_event()` silently failed via `.ok()`.
+
+**Solution:**
+- Added automatic permission fixing in `Historian::new()` - sets file to `0o660` (rw-rw----)
+- Now both daemon (root) and user (anna group) can update timestamps
+
+**3. Daemon Log INFO Spam**
+
+Daemon logs showed repetitive INFO messages for every RPC call:
+```
+INFO annad::rpc_server: Connection from UID 1000 GID 1000 PID 17104
+INFO annad::rpc_server: Access granted: UID 1000 is authorized
+```
+
+**Root Cause:** Routine security checks logged at INFO level.
+
+**Solution:** Changed routine successful RPC connections to DEBUG level. Only security failures (access denied) remain at WARN level.
+
+#### Added ✨
+
+**1. DE/WM Detector Module** (`de_wm_detector.rs`)
+
+Multi-layered desktop environment detection with 390 lines of comprehensive checking:
+
+- 6 unit tests (normalize, classify, detection)
+- Confidence scoring for detection reliability
+- Detection method tracking for transparency
+- Support for GNOME, KDE, XFCE, i3, sway, Hyprland, bspwm, etc.
+
+**2. Historian Permission Fix**
+
+Automatic file permission correction on database initialization ensures cross-user write access.
+
+#### Changed 🔧
+
+**1. Desktop Detection in Telemetry**
+
+`collect_desktop_info()` now uses comprehensive `de_wm_detector` instead of simple env var check (`crates/anna_common/src/telemetry.rs:770`)
+
+**2. RPC Server Logging**
+
+Routine connection logs moved from INFO to DEBUG level (`crates/annad/src/rpc_server.rs:707-713`)
+
+**3. Session Context Test**
+
+Fixed flaky test timing - sleep duration increased from 100ms to 1s to match timestamp second resolution
+
+#### Files Modified 📝
+
+- `crates/anna_common/src/de_wm_detector.rs` (NEW - 390 lines)
+- `crates/anna_common/src/lib.rs` (+1 module export)
+- `crates/anna_common/src/telemetry.rs` (~40 lines modified)
+- `crates/anna_common/src/historian.rs` (~15 lines added for permission fix)
+- `crates/anna_common/src/session_context.rs` (test timing fix)
+- `crates/annad/src/rpc_server.rs` (2 INFO → DEBUG changes)
+- `crates/annactl/src/unified_query_handler.rs` (+1 import fix)
+
 ## [6.39.0] - 2025-11-25
 
 ### Intelligent Log Noise Filtering

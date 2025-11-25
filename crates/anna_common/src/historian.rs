@@ -642,6 +642,21 @@ impl Historian {
 
         let mut historian = Self { conn };
         historian.init_schema()?;
+
+        // v6.40.0: Fix file permissions for group write access
+        // The daemon runs as root, but annactl runs as the user.
+        // Both need write access to update last_seen_at timestamp.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = std::fs::set_permissions(
+                path.as_ref(),
+                std::fs::Permissions::from_mode(0o660), // rw-rw----
+            ) {
+                tracing::warn!("Failed to set group write permission on historian.db: {}", e);
+            }
+        }
+
         Ok(historian)
     }
 

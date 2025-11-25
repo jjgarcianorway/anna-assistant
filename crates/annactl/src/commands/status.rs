@@ -46,22 +46,20 @@ async fn check_and_notify_updates() {
     // If check fails, we already updated cache, so won't spam
 }
 
-/// Read recent daemon logs from journalctl (Beta.90)
+/// Read recent daemon logs from journalctl (v6.40.0: filtered for relevance)
+/// Only shows WARN and ERROR levels, filters out routine INFO noise
 async fn read_recent_daemon_logs(count: usize) -> Result<Vec<String>> {
     use tokio::process::Command;
 
-    // Use journalctl to get recent annad logs
-    // -u annad: only annad service
-    // -n count: last N lines
-    // --no-pager: don't use pager
-    // -o short-iso: ISO timestamp format
+    // v6.40.0: Changed to --priority=warning to exclude routine INFO logs
+    // This prevents spam like "Access granted: UID 1000" and "Connection from UID"
     let output = Command::new("journalctl")
         .args(&[
             "-u", "annad",
-            "-n", &count.to_string(),
+            "-n", &(count * 3).to_string(),  // Get more lines since we'll filter
             "--no-pager",
             "-o", "short-iso",
-            "--priority=info"  // info and above (info, notice, warning, err, crit)
+            "--priority=warning"  // warning and above (warning, err, crit, alert, emerg)
         ])
         .output()
         .await?;
@@ -73,28 +71,41 @@ async fn read_recent_daemon_logs(count: usize) -> Result<Vec<String>> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut logs = Vec::new();
+    let mut filtered_count = 0;
+
+    // v6.40.0: Also filter out specific noisy patterns even if they're at WARN level
+    let noise_patterns = [
+        "Access granted",
+        "Connection from UID",
+        "System knowledge snapshot complete",
+        "RPC handshake",
+        "Telemetry updated",
+    ];
 
     for line in stdout.lines() {
         if line.trim().is_empty() {
             continue;
         }
 
+        // Skip noise patterns
+        let is_noise = noise_patterns.iter().any(|pattern| line.contains(pattern));
+        if is_noise {
+            filtered_count += 1;
+            continue;
+        }
+
         // Parse journalctl line: timestamp hostname service[pid]: message
-        // Example: 2025-11-06T14:00:00+0000 hostname annad[1234]: Connection from UID 1000
         if let Some(message_start) = line.find("annad[") {
             if let Some(colon_pos) = line[message_start..].find(':') {
                 let timestamp_end = message_start.min(24); // ISO timestamp is ~24 chars
                 let timestamp = &line[..timestamp_end].trim();
                 let message = &line[message_start + colon_pos + 1..].trim();
 
-                // Format: [time] message
                 // Color code based on log level
                 let colored_message = if message.contains("ERROR") || message.contains("error") {
                     format!("\x1b[91m{}\x1b[0m", message) // Red
                 } else if message.contains("WARN") || message.contains("warn") {
                     format!("\x1b[93m{}\x1b[0m", message) // Yellow
-                } else if message.contains("INFO") || message.contains("info") {
-                    format!("\x1b[96m{}\x1b[0m", message) // Cyan
                 } else {
                     message.to_string()
                 };
@@ -107,8 +118,24 @@ async fn read_recent_daemon_logs(count: usize) -> Result<Vec<String>> {
                 };
 
                 logs.push(format!("\x1b[90m{}\x1b[0m {}", timestamp, display_msg));
+
+                // Stop after collecting enough non-noise logs
+                if logs.len() >= count {
+                    break;
+                }
             }
         }
+    }
+
+    // v6.40.0: If we filtered out noise, mention it
+    if filtered_count > 0 && logs.is_empty() {
+        // No warnings or errors - show friendly message
+        logs.push(format!("\x1b[90m  No warnings or errors in recent logs\x1b[0m"));
+        logs.push(format!("\x1b[90m  ({} routine events filtered - run 'journalctl -u annad' for full log)\x1b[0m", filtered_count));
+    } else if filtered_count > 0 {
+        // Had some warnings/errors, note how many routine events were filtered
+        logs.push(String::new()); // blank line
+        logs.push(format!("\x1b[90m  ({} routine events filtered)\x1b[0m", filtered_count));
     }
 
     Ok(logs)

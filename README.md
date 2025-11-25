@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.39.0**
+**Experimental Arch Linux System Assistant - Version 6.40.0**
 
-[![Version](https://img.shields.io/badge/version-6.39.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.40.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,20 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.39.0)
+## What Works Right Now (6.40.0)
+
+### Quality & Accuracy Fixes in 6.40.0
+
+**Problem 1:** Desktop environment detection returned "Unknown" even when DE/WM was active
+**Solution:** Implemented 5-layer detection (env vars, processes, packages, config dirs, X11 props)
+
+**Problem 2:** Session summary showed stale "last run 3 days ago" while actively using Anna
+**Solution:** Fixed historian.db permissions (now `0o660`) so user can write timestamps
+
+**Problem 3:** Daemon logs spammed with routine INFO messages for every RPC call
+**Solution:** Moved routine connection logs to DEBUG level (security failures still WARN)
+
+**See CHANGELOG.md for complete v6.40.0 details.**
 
 ### Intelligent Log Noise Filtering in 6.39.0
 

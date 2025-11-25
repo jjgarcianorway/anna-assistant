@@ -948,4 +948,45 @@ mod tests {
             Some(FollowUpType::SummariesPlease)
         );
     }
+
+    // v6.40.0: Test for session timestamp update fix
+
+    #[test]
+    fn test_session_timestamp_updates_on_every_query() {
+        use std::thread;
+        use std::time::Duration;
+
+        let mut ctx = SessionContext::new();
+        let initial_timestamp = ctx.last_updated_secs;
+
+        // v6.40.0: Wait at least 1 second (timestamps use second resolution)
+        thread::sleep(Duration::from_secs(1));
+
+        // Update with a query
+        ctx.update_from_query(QueryIntent::Generic, None, "test query");
+
+        // Timestamp should be newer
+        assert!(ctx.last_updated_secs > initial_timestamp);
+
+        // Wait again
+        thread::sleep(Duration::from_secs(1));
+        let second_timestamp = ctx.last_updated_secs;
+
+        // Update with another query
+        ctx.update_from_query(QueryIntent::Generic, None, "another query");
+
+        // Timestamp should be even newer
+        assert!(ctx.last_updated_secs > second_timestamp);
+    }
+
+    #[test]
+    fn test_session_not_stale_immediately_after_update() {
+        let mut ctx = SessionContext::new();
+
+        // Update with a query
+        ctx.update_from_query(QueryIntent::Status, None, "check status");
+
+        // Should not be stale immediately after update
+        assert!(!ctx.is_stale());
+    }
 }

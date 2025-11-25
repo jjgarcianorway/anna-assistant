@@ -703,14 +703,15 @@ async fn handle_connection(stream: UnixStream, state: Arc<DaemonState>) -> Resul
         let gid = cred.gid();
         let pid = cred.pid();
 
-        // Log the connection attempt for audit purposes
-        info!("Connection from UID {} GID {} PID {}", uid, gid, pid);
+        // v6.40.0: Log routine connections at DEBUG level to reduce noise
+        // Only security failures (access denied) remain at WARN level
+        debug!("Connection from UID {} GID {} PID {}", uid, gid, pid);
 
         // SECURITY: Enforce group-based access control
         // Check if user is in 'annactl' group (or is root)
         match is_user_in_group(uid, ANNACTL_GROUP) {
             Ok(true) => {
-                info!("Access granted: UID {} is authorized", uid);
+                debug!("Access granted: UID {} is authorized", uid);
             }
             Ok(false) => {
                 warn!(

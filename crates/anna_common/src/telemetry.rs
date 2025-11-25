@@ -769,6 +769,10 @@ fn collect_security_info() -> SecurityInfo {
 
 fn collect_desktop_info() -> Option<DesktopInfo> {
     use std::env;
+    use crate::de_wm_detector;
+
+    // v6.40.0: Multi-layered DE/WM detection with confidence scoring
+    let detection = de_wm_detector::detect_de_wm();
 
     // Check if we're in a desktop session
     let display_server = if env::var("WAYLAND_DISPLAY").is_ok() {
@@ -779,9 +783,20 @@ fn collect_desktop_info() -> Option<DesktopInfo> {
         None
     };
 
-    if display_server.is_some() {
-        let de_name = env::var("XDG_CURRENT_DESKTOP").ok();
-        let wm_name = env::var("XDG_SESSION_DESKTOP").ok();
+    if display_server.is_some() || detection.name != "Unable to detect" {
+        // Use comprehensive detection results
+        let (de_name, wm_name) = match detection.de_type {
+            de_wm_detector::DeType::DesktopEnvironment => {
+                (Some(detection.name.clone()), None)
+            },
+            de_wm_detector::DeType::WindowManager => {
+                (None, Some(detection.name.clone()))
+            },
+            de_wm_detector::DeType::Compositor => {
+                // Wayland compositors act as both DE and WM
+                (Some(detection.name.clone()), Some(detection.name.clone()))
+            },
+        };
 
         Some(DesktopInfo {
             de_name,

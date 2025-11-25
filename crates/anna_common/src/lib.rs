@@ -58,6 +58,7 @@ pub mod meta_telemetry; // v6.30.0: Meta Insight Telemetry - Self-optimization t
 pub mod optimization_engine; // v6.30.0: Optimization Engine - Self-tuning profiles
 pub mod reflection_engine; // v6.35.0: Reflection Engine - Anna's self-aware status block
 pub mod progress_indicator; // v6.36.0: Progress Indicator - Visual feedback for long operations
+pub mod de_wm_detector; // v6.40.0: DE/WM Detector - Multi-layered desktop environment detection
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine
