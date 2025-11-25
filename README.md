@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.48.0**
+**Experimental Arch Linux System Assistant - Version 6.49.0**
 
-[![Version](https://img.shields.io/badge/version-6.48.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.49.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -28,6 +28,57 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 - ✅  Open source (GPL-3.0)
 
 ---
+
+## What's New in 6.49.0 - Episodic Action Log & Rollback Foundation 🔄
+
+### "If Anna did it, Anna can undo it" - Infrastructure Complete
+
+**The Problem:** When Anna makes changes to your system, there's no way to track what was done or roll it back later.
+
+**The Solution:** Complete action tracking and rollback infrastructure:
+
+1. **Episodic Action Log** - Track every change
+   - 📝 **ActionEpisode**: User question → actions → final result
+   - 🏷️ **Smart tagging**: Automatic categorization (vim, ssh, audio, packages, services)
+   - 💾 **Persistent storage**: SQLite database with fast topic queries
+   - ✅ **Rollback capability**: Full, Partial, or None based on backup availability
+
+2. **Rollback Engine** - Mechanical inverse commands
+   - 📁 **File edits**: Restore from `.anna-*.bak` backups
+   - 📦 **Packages**: Install ↔ Remove with same tool (yay/pacman)
+   - ⚙️ **Services**: Enable ↔ Disable, Start ↔ Stop
+   - 🎯 **Smart summaries**: "Restore 1 file backup and undo 2 package changes"
+
+3. **Foundation for Semantic Rollback**
+   - Ready for future integration: "revert my vim changes"
+   - Topic-based episode selection
+   - Safe rollback plan generation
+
+**Example (Infrastructure API):**
+```rust
+// Episode building
+let mut builder = EpisodeBuilder::new("make my vim use 4 spaces");
+builder.add_action(ActionRecord {
+    kind: ActionKind::EditFile,
+    files_touched: vec!["/home/user/.vimrc"],
+    backup_paths: vec!["/home/user/.vimrc.anna-backup"],
+    ...
+});
+
+// Storage
+let storage = EpisodeStorage::new("/var/lib/anna/episodes.db")?;
+storage.store_action_episode(&episode)?;
+
+// Rollback plan
+let plan = build_rollback_plan(&episode);
+// → "Restore 1 file backup" with inverse commands
+```
+
+**Status:** Foundation complete with 18 tests. User-facing rollback commands coming in v6.50.0+.
+
+**Previous: 6.48.0 - Reality Check Engine ✅**
+
+Multi-signal truth verification. 670 tests passing.
 
 ## What's New in 6.48.0 - Reality Check Engine ✅
 

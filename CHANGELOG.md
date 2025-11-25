@@ -7,6 +7,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.49.0] - 2025-11-25
+
+### Episodic Action Log & Semantic Rollback v1: "If Anna did it, Anna can undo it"
+
+**Type:** Core reliability feature
+**Focus:** Persistent action tracking with topic-based semantic rollback
+
+#### The Solution
+
+Complete infrastructure for tracking Anna's actions and rolling them back later:
+
+**New Modules (3 modules, 18 tests total)**
+
+1. **action_episodes.rs** (350 lines, 7 tests)
+   - ActionEpisode: User question, actions, tags, rollback capability
+   - ActionKind: EditFile, CreateFile, DeleteFile, InstallPackages, RemovePackages, EnableServices, etc.
+   - EpisodeBuilder: Fluent API for building episodes
+   - Tag inference: Automatic categorization by topic (vim, ssh, audio, packages, services)
+   - RollbackCapability: Full, Partial, None based on backup availability
+
+2. **rollback_engine.rs** (350 lines, 7 tests)
+   - RollbackPlan: Inverse commands for each action
+   - Automatic inverse generation:
+     - File edits → restore from backup
+     - Package install → remove packages
+     - Package remove → reinstall packages
+     - Service enable → disable
+     - Service disable → enable
+   - Capability analysis: Full if all actions reversible
+   - Human-readable summary: "Restore 1 file backup and undo 2 package changes"
+
+3. **episode_storage.rs** (450 lines, 4 tests)
+   - SQLite-based persistent storage
+   - Tables: action_episodes, action_actions
+   - Query by: recency, topic, episode ID
+   - JSON serialization for tags and file lists
+   - Rollback capability persistence
+
+#### Key Features
+
+**Episode Tracking:**
+- Every state-changing plan becomes an ActionEpisode
+- Tracks: user question, commands run, files touched, backups created, final result
+- Automatic tagging by topic: vim, ssh, audio, packages, services, desktop
+- Episode-level rollback capability assessment
+
+**Rollback Engine:**
+- Mechanical inverse command generation (no LLM)
+- Per-action reversibility check
+- Smart summaries: file count, package count, service count
+- Safety: won't generate inverse for unsafe actions
+
+**Storage:**
+- Persistent SQLite database
+- Fast queries by topic: "find vim-related episodes"
+- Recency-based listing
+- Full episode reconstruction with all actions
+
+#### Example Flow
+
+```rust
+// Build episode
+let mut builder = EpisodeBuilder::new("make my vim use 4 spaces");
+builder.add_action(ActionRecord {
+    kind: ActionKind::EditFile,
+    command: "edit ~/.vimrc",
+    files_touched: vec!["/home/user/.vimrc"],
+    backup_paths: vec!["/home/user/.vimrc.anna-20251125.bak"],
+    notes: Some("vim config"),
+});
+
+let episode = builder
+    .with_final_answer_summary("Updated vim to use 4 spaces")
+    .with_tags(infer_tags_from_plan_and_answer(...))
+    .build();
+
+// Store episode
+let storage = EpisodeStorage::new("/var/lib/anna/episodes.db")?;
+let episode_id = storage.store_action_episode(&episode)?;
+
+// Later: Build rollback plan
+let episode = storage.load_action_episode(episode_id)?.unwrap();
+let plan = build_rollback_plan(&episode);
+
+// plan.summary: "Restore 1 file backup"
+// plan.actions[0].inverse_commands: ["cp /home/user/.vimrc.anna-20251125.bak /home/user/.vimrc"]
+// plan.capability: RollbackCapability::Full
+```
+
+#### Testing
+
+- **18 unit tests** covering all scenarios:
+  - Episode building and tag inference (7 tests)
+  - Rollback plan generation for files, packages, services (7 tests)
+  - Episode storage persistence and querying (4 tests)
+
+#### Implementation Status
+
+**v6.49.0 Provides:**
+- ✅ Complete episode data model
+- ✅ Rollback plan computation
+- ✅ Persistent storage with SQLite
+- ✅ Tag inference from user questions
+- ✅ 18 comprehensive unit tests
+
+**Future Work (v6.50.0+):**
+- Integration with Planner→Executor→Interpreter pipeline
+- LLM-assisted episode selection for semantic queries
+- Interactive rollback flow in annactl
+- Rollback intent detection ("revert my vim changes")
+- Automatic episode creation during plan execution
+
+#### Limitations
+
+- Episode creation not yet wired into Planner/Executor
+- Rollback commands are generated but not executed
+- No user-facing rollback commands yet
+- This release provides the **foundation** for full rollback capability
+
+#### Impact
+
+Infrastructure for "If Anna did it, Anna can undo it":
+- Complete action history tracking
+- Mechanical rollback plan generation
+- Topic-based episode organization
+- Foundation for semantic rollback queries in future releases
+
 ## [6.48.0] - 2025-11-25
 
 ### Reality Check Engine: Multi-Signal Truth Verification

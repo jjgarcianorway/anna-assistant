@@ -74,6 +74,9 @@ pub mod greeting_engine; // v6.47.0: Greeting Engine - Situational and personali
 pub mod learning_engine; // v6.47.0: Learning Engine - Pattern learning with time decay
 pub mod telemetry_diff; // v6.47.0: Telemetry Diff - Detect changes between snapshots
 pub mod reality_check; // v6.48.0: Reality Check Engine - Multi-signal truth verification
+pub mod action_episodes; // v6.49.0: Episodic Action Log - "If Anna did it, Anna can undo it"
+pub mod rollback_engine; // v6.49.0: Rollback Engine - Semantic rollback with topic-based selection
+pub mod episode_storage; // v6.49.0: Episode Storage - Persistent SQLite storage for episodes
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine
