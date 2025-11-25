@@ -86,6 +86,9 @@ pub mod journal_query_intent; // v6.51.0: Journal Query Intent - Natural languag
 pub mod journal_renderer; // v6.51.0: Journal Renderer - Episode rendering for OutputEngine
 pub mod config_diff; // v6.51.0: Config Diff - Unified diffs for configuration changes
 pub mod policy_engine; // v6.52.0: Policy Engine - User-configurable guardrails
+pub mod machine_identity; // v6.54.0: Machine identity and fingerprinting
+pub mod user_identity; // v6.54.0: User identity and profiles
+pub mod knowledge_scope; // v6.54.0: System vs User scoped data
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

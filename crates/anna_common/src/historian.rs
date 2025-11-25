@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 // Database Schema Constants
 // ============================================================================
 
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 pub const SCHEMA_SQL: &str = r#"
 -- Historian database schema v1
@@ -422,6 +422,48 @@ CREATE TABLE IF NOT EXISTS query_events (
     timestamp TEXT NOT NULL
 );
 
+-- ============================================================================
+-- 14. Machine Identity & User Profiles (v6.54.0)
+-- ============================================================================
+
+-- Machine fingerprint history
+CREATE TABLE IF NOT EXISTS machine_fingerprints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fingerprint_id TEXT NOT NULL, -- hash of hardware components
+    cpu_model TEXT NOT NULL,
+    total_ram_gib INTEGER NOT NULL,
+    primary_disk_model TEXT NOT NULL,
+    primary_disk_size_gb INTEGER NOT NULL,
+    hostname TEXT NOT NULL,
+    os_release TEXT NOT NULL,
+    is_virtual_machine INTEGER NOT NULL DEFAULT 0,
+    vm_hint TEXT,
+    environment TEXT NOT NULL, -- 'BareMetal', 'VM', 'Container'
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    is_current INTEGER NOT NULL DEFAULT 0 -- only one current fingerprint
+);
+
+-- User profiles (multi-user support)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL UNIQUE, -- stable hash of user identity
+    username TEXT NOT NULL,
+    uid INTEGER NOT NULL,
+    home_dir TEXT NOT NULL,
+    personality_type TEXT,
+    greeting_style TEXT NOT NULL DEFAULT 'professional',
+    greeting_topics TEXT, -- JSON array
+    show_system_alerts INTEGER NOT NULL DEFAULT 1,
+    show_user_alerts INTEGER NOT NULL DEFAULT 1,
+    see_system_watches INTEGER NOT NULL DEFAULT 1,
+    see_other_user_watches INTEGER NOT NULL DEFAULT 0,
+    my_watches_visible_to_others INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(username, uid)
+);
+
 -- Indices for common queries
 CREATE INDEX IF NOT EXISTS idx_boot_timestamp ON boot_events(boot_timestamp);
 CREATE INDEX IF NOT EXISTS idx_boot_date ON boot_aggregates(date);
@@ -433,6 +475,9 @@ CREATE INDEX IF NOT EXISTS idx_service_timestamp ON service_reliability(timestam
 CREATE INDEX IF NOT EXISTS idx_error_signature ON error_signatures(signature_hash);
 CREATE INDEX IF NOT EXISTS idx_health_date ON health_scores(date);
 CREATE INDEX IF NOT EXISTS idx_query_timestamp ON query_events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_machine_fingerprint ON machine_fingerprints(fingerprint_id);
+CREATE INDEX IF NOT EXISTS idx_user_profile ON user_profiles(profile_id);
+CREATE INDEX IF NOT EXISTS idx_user_uid ON user_profiles(uid);
 "#;
 
 // ============================================================================
@@ -3004,6 +3049,272 @@ impl Historian {
             }))
         } else {
             Ok(None)
+        }
+    }
+
+    // ========================================================================
+    // Machine Identity & User Profiles (v6.54.0)
+    // ========================================================================
+
+    /// Store a machine fingerprint
+    pub fn store_machine_fingerprint(
+        &self,
+        fp: &crate::machine_identity::MachineFingerprint,
+    ) -> Result<i64> {
+        // Clear previous "is_current" flags
+        self.conn.execute(
+            "UPDATE machine_fingerprints SET is_current = 0 WHERE is_current = 1",
+            [],
+        )?;
+
+        // Check if this fingerprint already exists
+        let existing: Option<(i64, String, String)> = self
+            .conn
+            .query_row(
+                "SELECT id, first_seen_at, last_seen_at FROM machine_fingerprints WHERE fingerprint_id = ?1",
+                [&fp.id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+
+        if let Some((id, _first_seen_at, _)) = existing {
+            // Update existing fingerprint
+            self.conn.execute(
+                "UPDATE machine_fingerprints SET
+                    last_seen_at = ?1,
+                    is_current = 1,
+                    hostname = ?2,
+                    os_release = ?3,
+                    vm_hint = ?4,
+                    environment = ?5
+                WHERE id = ?6",
+                rusqlite::params![
+                    Utc::now().to_rfc3339(),
+                    &fp.hostname,
+                    &fp.os_release,
+                    fp.vm_hint.as_ref(),
+                    format!("{:?}", fp.environment),
+                    id,
+                ],
+            )?;
+            Ok(id)
+        } else {
+            // Insert new fingerprint
+            let now = Utc::now().to_rfc3339();
+            self.conn.execute(
+                "INSERT INTO machine_fingerprints (
+                    fingerprint_id, cpu_model, total_ram_gib, primary_disk_model, primary_disk_size_gb,
+                    hostname, os_release, is_virtual_machine, vm_hint, environment,
+                    first_seen_at, last_seen_at, is_current
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                rusqlite::params![
+                    &fp.id,
+                    &fp.cpu_model,
+                    fp.total_ram_gib,
+                    &fp.primary_disk_model,
+                    fp.primary_disk_size_gb,
+                    &fp.hostname,
+                    &fp.os_release,
+                    fp.is_virtual_machine as i32,
+                    fp.vm_hint.as_ref(),
+                    format!("{:?}", fp.environment),
+                    &now,
+                    &now,
+                    1,
+                ],
+            )?;
+            Ok(self.conn.last_insert_rowid())
+        }
+    }
+
+    /// Get the current machine fingerprint
+    pub fn get_current_machine_fingerprint(&self) -> Result<Option<crate::machine_identity::MachineFingerprint>> {
+        let result = self.conn.query_row(
+            "SELECT fingerprint_id, cpu_model, total_ram_gib, primary_disk_model, primary_disk_size_gb,
+                    hostname, os_release, is_virtual_machine, vm_hint, environment
+             FROM machine_fingerprints WHERE is_current = 1",
+            [],
+            |row| {
+                let fingerprint_id: String = row.get(0)?;
+                let cpu_model: String = row.get(1)?;
+                let total_ram_gib: u64 = row.get(2)?;
+                let primary_disk_model: String = row.get(3)?;
+                let primary_disk_size_gb: u64 = row.get(4)?;
+                let hostname: String = row.get(5)?;
+                let os_release: String = row.get(6)?;
+                let is_virtual_machine: i32 = row.get(7)?;
+                let vm_hint: Option<String> = row.get(8)?;
+                let environment_str: String = row.get(9)?;
+
+                let environment = match environment_str.as_str() {
+                    "BareMetal" => crate::machine_identity::EnvironmentType::BareMetal,
+                    "VM" => crate::machine_identity::EnvironmentType::VM,
+                    "Container" => crate::machine_identity::EnvironmentType::Container,
+                    _ => crate::machine_identity::EnvironmentType::BareMetal,
+                };
+
+                Ok(crate::machine_identity::MachineFingerprint {
+                    id: fingerprint_id,
+                    cpu_model,
+                    total_ram_gib,
+                    primary_disk_model,
+                    primary_disk_size_gb,
+                    hostname,
+                    os_release,
+                    is_virtual_machine: is_virtual_machine != 0,
+                    vm_hint,
+                    environment,
+                })
+            },
+        );
+
+        match result {
+            Ok(fp) => Ok(Some(fp)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Store or update a user profile
+    pub fn store_user_profile(&self, profile: &crate::user_identity::UserProfile) -> Result<i64> {
+        let greeting_topics = serde_json::to_string(&profile.greeting_preferences.topics)?;
+
+        // Check if profile already exists
+        let existing: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM user_profiles WHERE profile_id = ?1",
+                [&profile.id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(id) = existing {
+            // Update existing profile
+            self.conn.execute(
+                "UPDATE user_profiles SET
+                    username = ?1,
+                    uid = ?2,
+                    home_dir = ?3,
+                    personality_type = ?4,
+                    greeting_style = ?5,
+                    greeting_topics = ?6,
+                    show_system_alerts = ?7,
+                    show_user_alerts = ?8,
+                    see_system_watches = ?9,
+                    see_other_user_watches = ?10,
+                    my_watches_visible_to_others = ?11,
+                    updated_at = ?12
+                WHERE id = ?13",
+                rusqlite::params![
+                    &profile.primary_identity.username,
+                    profile.primary_identity.uid,
+                    profile.primary_identity.home_dir.to_string_lossy().as_ref(),
+                    profile.personality_type.as_ref(),
+                    &profile.greeting_preferences.style,
+                    &greeting_topics,
+                    profile.greeting_preferences.show_system_alerts as i32,
+                    profile.greeting_preferences.show_user_alerts as i32,
+                    profile.watch_visibility.see_system_watches as i32,
+                    profile.watch_visibility.see_other_user_watches as i32,
+                    profile.watch_visibility.my_watches_visible_to_others as i32,
+                    profile.updated_at.to_rfc3339(),
+                    id,
+                ],
+            )?;
+            Ok(id)
+        } else {
+            // Insert new profile
+            self.conn.execute(
+                "INSERT INTO user_profiles (
+                    profile_id, username, uid, home_dir, personality_type,
+                    greeting_style, greeting_topics,
+                    show_system_alerts, show_user_alerts,
+                    see_system_watches, see_other_user_watches, my_watches_visible_to_others,
+                    created_at, updated_at
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                rusqlite::params![
+                    &profile.id,
+                    &profile.primary_identity.username,
+                    profile.primary_identity.uid,
+                    profile.primary_identity.home_dir.to_string_lossy().as_ref(),
+                    profile.personality_type.as_ref(),
+                    &profile.greeting_preferences.style,
+                    &greeting_topics,
+                    profile.greeting_preferences.show_system_alerts as i32,
+                    profile.greeting_preferences.show_user_alerts as i32,
+                    profile.watch_visibility.see_system_watches as i32,
+                    profile.watch_visibility.see_other_user_watches as i32,
+                    profile.watch_visibility.my_watches_visible_to_others as i32,
+                    profile.created_at.to_rfc3339(),
+                    profile.updated_at.to_rfc3339(),
+                ],
+            )?;
+            Ok(self.conn.last_insert_rowid())
+        }
+    }
+
+    /// Get a user profile by UID
+    pub fn get_user_profile_by_uid(&self, uid: u32) -> Result<Option<crate::user_identity::UserProfile>> {
+        use std::path::PathBuf;
+
+        let result = self.conn.query_row(
+            "SELECT profile_id, username, uid, home_dir, personality_type,
+                    greeting_style, greeting_topics,
+                    show_system_alerts, show_user_alerts,
+                    see_system_watches, see_other_user_watches, my_watches_visible_to_others,
+                    created_at, updated_at
+             FROM user_profiles WHERE uid = ?1",
+            [uid],
+            |row| {
+                let profile_id: String = row.get(0)?;
+                let username: String = row.get(1)?;
+                let uid: u32 = row.get(2)?;
+                let home_dir: String = row.get(3)?;
+                let personality_type: Option<String> = row.get(4)?;
+                let greeting_style: String = row.get(5)?;
+                let greeting_topics_str: String = row.get(6)?;
+                let show_system_alerts: i32 = row.get(7)?;
+                let show_user_alerts: i32 = row.get(8)?;
+                let see_system_watches: i32 = row.get(9)?;
+                let see_other_user_watches: i32 = row.get(10)?;
+                let my_watches_visible_to_others: i32 = row.get(11)?;
+                let created_at: String = row.get(12)?;
+                let updated_at: String = row.get(13)?;
+
+                let greeting_topics: Vec<String> =
+                    serde_json::from_str(&greeting_topics_str).unwrap_or_default();
+
+                Ok(crate::user_identity::UserProfile {
+                    id: profile_id,
+                    primary_identity: crate::user_identity::UserIdentity {
+                        username,
+                        uid,
+                        home_dir: PathBuf::from(home_dir),
+                    },
+                    other_identities: Vec::new(),
+                    personality_type,
+                    greeting_preferences: crate::user_identity::GreetingPreferences {
+                        style: greeting_style,
+                        topics: greeting_topics,
+                        show_system_alerts: show_system_alerts != 0,
+                        show_user_alerts: show_user_alerts != 0,
+                    },
+                    watch_visibility: crate::user_identity::WatchVisibilityRules {
+                        see_system_watches: see_system_watches != 0,
+                        see_other_user_watches: see_other_user_watches != 0,
+                        my_watches_visible_to_others: my_watches_visible_to_others != 0,
+                    },
+                    created_at: created_at.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                    updated_at: updated_at.parse().unwrap_or_else(|_| chrono::Utc::now()),
+                })
+            },
+        );
+
+        match result {
+            Ok(profile) => Ok(Some(profile)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
         }
     }
 }

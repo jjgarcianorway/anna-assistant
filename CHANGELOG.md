@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.54.0] - 2025-11-25
+
+### Identity, Persistence, and Multi-User Awareness
+
+**Type:** Infrastructure and persistence foundations
+**Focus:** Machine identity, user profiles, and knowledge scoping
+**Status:** Complete ✓
+
+#### Overview
+
+v6.54.0 introduces machine identity fingerprinting and user profile management, enabling Anna to:
+- Detect when the system has been reinstalled or cloned
+- Maintain separate preferences for different users on the same machine
+- Scope knowledge appropriately (system-wide vs user-specific)
+- Prepare for future knowledge backup and migration features
+
+#### New Modules (3 modules, 20 unit tests)
+
+1. **machine_identity.rs** (~530 lines, 7 tests)
+   - MachineFingerprint: Stable hardware-based identification
+   - EnvironmentType enum: BareMetal, VM, Container
+   - MachineRelation enum: SameMachine, SameHardwareReinstalled, ProbablyCloned, DifferentMachine
+   - similarity_score(): Weighted comparison (disk 35%, CPU 30%, RAM 20%, hostname 8%, OS 7%)
+   - classification(): Determines relationship between fingerprints
+   - detect_vm(): Multi-signal VM detection (DMI info, CPU vendor, systemd-detect-virt)
+
+2. **user_identity.rs** (~330 lines, 10 tests)
+   - UserIdentity: username, UID, home directory
+   - UserProfile: Stable profile ID with SHA256 hash
+   - GreetingPreferences: Style, topics, alert visibility
+   - WatchVisibilityRules: Multi-user watch isolation
+   - Profile management: Create, update, link alternate identities
+
+3. **knowledge_scope.rs** (~90 lines, 3 tests)
+   - KnowledgeScope enum: System, User, SystemAndUser
+   - scope_from_path(): Path-based scope detection (/home, /etc, etc.)
+   - scope_from_operation(): Operation-based scope inference
+
+#### Database Changes
+
+**Historian Schema v2:**
+- New table: `machine_fingerprints` (14 columns, 3 indices)
+- New table: `user_profiles` (14 columns, 3 indices)
+- Schema version bumped from 1 to 2
+
+**New Historian Methods:**
+- `store_machine_fingerprint()`: Upsert with current flag management
+- `get_current_machine_fingerprint()`: Retrieve active fingerprint
+- `store_user_profile()`: Upsert user profiles by UID
+- `get_user_profile_by_uid()`: Retrieve user-specific settings
+
+#### Test Coverage
+
+- 20 unit tests across all identity modules
+- All tests passing (19 identity tests + existing tests)
+- Coverage includes: fingerprint collection, similarity scoring, classification, profile management, scope detection
+
+#### Future-Ready Architecture
+
+This release lays the groundwork for:
+- v6.55.0: Knowledge backup, export, and pruning
+- v6.56.0: Cross-machine knowledge migration
+- Multi-user installations with isolated preferences
+- Restore flows for reinstalled or cloned systems
+
+## [6.52.0] - 2025-11-25
+
+### User Policies & Guardrails v1
+
+**Type:** Safety and control framework
+**Focus:** User-configurable execution policies
+**Status:** Complete ✓
+
+(Previous v6.52.0 content remains...)
+
 ## [6.51.0] - 2025-11-25
 
 ### Change Journal & History: "What did you change?"
