@@ -2821,15 +2821,17 @@ async fn handle_more_details_followup(
     match last_answer {
         LastAnswerSummary::WikiAdvice { topic, summary, commands, .. } => {
             // Expand on the WikiAdvice with more detail
-            let expanded_answer = format!(
-                "**Expanding on {}:**\n\n{}\n\n**Commands to execute:**\n{}",
-                topic,
-                summary,
-                commands.iter().enumerate()
-                    .map(|(i, cmd)| format!("{}. `{}`", i + 1, cmd))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            );
+            let engine = anna_common::output_engine::OutputEngine::new();
+            let mut expanded_answer = format!("Expanding on {}:\n\n{}\n\n", topic, summary);
+
+            if !commands.is_empty() {
+                expanded_answer.push_str("Commands to execute:\n");
+                for (i, cmd) in commands.iter().enumerate() {
+                    expanded_answer.push_str(&format!("{}. {}\n", i + 1, engine.format_command(cmd)));
+                }
+            }
+
+            let expanded_answer = expanded_answer;
 
             // Update context
             session_ctx.update_from_query(
@@ -2848,9 +2850,11 @@ async fn handle_more_details_followup(
         }
         LastAnswerSummary::Insights { summary, .. } => {
             // Show more detailed view of insights
+            let engine = anna_common::output_engine::OutputEngine::new();
             let expanded = format!(
-                "**Detailed Insight Analysis:**\n\n{}\n\nFor comprehensive system analysis, run: `annactl status`",
-                summary
+                "Detailed Insight Analysis:\n\n{}\n\nFor comprehensive system analysis, run:\n{}",
+                summary,
+                engine.format_command("annactl status")
             );
 
             session_ctx.update_from_query(
@@ -2869,9 +2873,11 @@ async fn handle_more_details_followup(
         }
         LastAnswerSummary::Status { summary, .. } => {
             // Re-explain status with more detail
+            let engine = anna_common::output_engine::OutputEngine::new();
             let expanded = format!(
-                "**Detailed System Status:**\n\n{}\n\nFor full diagnostics, run: `annactl status`",
-                summary
+                "Detailed System Status:\n\n{}\n\nFor full diagnostics, run:\n{}",
+                summary,
+                engine.format_command("annactl status")
             );
 
             session_ctx.update_from_query(
@@ -2891,7 +2897,7 @@ async fn handle_more_details_followup(
         LastAnswerSummary::Generic { summary } => {
             // Generic expansion
             let expanded = format!(
-                "**More Details:**\n\n{}\n\n(This is a generic expansion. For specific guidance, please ask a more targeted question.)",
+                "More Details:\n\n{}\n\n(This is a generic expansion. For specific guidance, please ask a more targeted question.)",
                 summary
             );
 
@@ -2969,16 +2975,14 @@ async fn handle_just_commands_followup(
             }
 
             // Extract and format commands only
-            let commands_list = commands.iter()
-                .map(|cmd| format!("• {}", cmd))
-                .collect::<Vec<_>>()
-                .join("\n");
+            let engine = anna_common::output_engine::OutputEngine::new();
+            let mut answer = format!("Commands to execute ({}):\n\n", topic);
+            for cmd in commands.iter() {
+                answer.push_str(&engine.format_command(cmd));
+                answer.push('\n');
+            }
 
-            let answer = format!(
-                "**Commands to execute ({})**:\n\n{}",
-                topic,
-                commands_list
-            );
+            let answer = answer;
 
             session_ctx.update_from_query(
                 QueryIntent::FollowUp {

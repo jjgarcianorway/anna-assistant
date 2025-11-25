@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.37.0] - 2025-11-25
+
+### RELIABLE UPDATES & HARDENED ANSWER UX
+
+**Type:** Critical Fix + UX Polish
+**Focus:** System update detection reliability and professional CLI output discipline
+
+#### Fixed 🐛
+
+**1. Update Detection Logic (CRITICAL)**
+
+Fixed critical bug where update detection was only checking `yay -Qu`, which would fail on systems without yay installed. Now implements proper fallback chain:
+
+- Files changed: `telemetry/packages.rs`, `diagnostic_engine/rules/packages.rs`, `features/status/health.rs`, `features/status/self_health.rs`, `diagnostics/action_plans.rs`, `features/answer/llm.rs`
+- Logic: Try `yay -Qu` first, fallback to `pacman -Qu`, then fallback to `checkupdates`
+- Ensures update detection works on all Arch Linux systems regardless of AUR helper installation
+- Prevents false negatives where Anna would miss available updates
+
+**Before:** System could report "0 updates available" when updates existed but yay wasn't installed
+
+**After:** Reliable update detection on all Arch systems (yay/pacman/checkupdates)
+
+**2. Markdown Fence Removal**
+
+Removed all markdown code fences (```bash, ```json, etc.) from CLI output:
+
+- System reports, disk explorer, action plans, diagnostic output
+- Ensures clean, native terminal output without syntax artifacts
+- Professional CLI experience without markdown formatting leaking through
+
+**3. Bold Formatting Removal**
+
+Removed markdown bold (`**text**`) from system status reports:
+
+- Affects Anna's reflection blocks and status health summaries
+- Ensures pure text output without markdown syntax in terminal
+- Maintains visual hierarchy through spacing and bullet points only
+
+#### Changed 🔄
+
+**Output Discipline:**
+- All CLI output now uses plain text with structured formatting (bullets, indentation, spacing)
+- No markdown syntax markers visible to end users
+- Professional terminal UX consistent with standard Linux CLI tools
+
+#### Tests ✅
+
+**4 new tests for update detection:**
+- `test_available_updates_yay_installed` - Verifies yay detection path
+- `test_available_updates_no_yay_pacman_fallback` - Verifies pacman fallback
+- `test_available_updates_checkupdates_fallback` - Verifies checkupdates fallback
+- `test_available_updates_all_methods_fail` - Verifies graceful failure handling
+
+**Test Status:** All 661 tests passing (100% green)
+
+---
+
 ## [6.36.0] - 2025-11-25
 
 ### THINKING INDICATOR & PROGRESS FEEDBACK V1

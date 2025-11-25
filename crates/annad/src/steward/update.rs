@@ -98,7 +98,12 @@ pub async fn perform_update(dry_run: bool) -> Result<UpdateReport> {
 async fn check_available_updates() -> Result<Vec<PackageUpdate>> {
     info!("Checking for available updates");
 
-    let output = Command::new("checkupdates").output();
+    // v6.37.0: Fixed to check both official repos and AUR
+    let output = Command::new("yay")
+        .arg("-Qu")
+        .output()
+        .or_else(|_| Command::new("pacman").arg("-Qu").output())
+        .or_else(|_| Command::new("checkupdates").output());
 
     let mut updates = Vec::new();
 

@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.36.0**
+**Experimental Arch Linux System Assistant - Version 6.37.0**
 
-[![Version](https://img.shields.io/badge/version-6.36.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.37.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.36.0)
+## What Works Right Now (6.37.0)
 
 ### 1. Thinking Indicator & Progress Feedback (NEW in 6.36.0!)
 
@@ -369,7 +369,7 @@ journalctl -u annad -n 50
 
 ## What's Tested
 
-### Passing Tests (657/657 - 100%)
+### Passing Tests (661/661 - 100%)
 
 **New in 6.34.0:**
 - CLI consistency & output standards (16 tests)
@@ -438,9 +438,12 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.34.0 (November 25, 2025)
+**Current Version:** 6.37.0 (November 25, 2025)
 
 **Recent Progress:**
+- ✅  6.37.0 - Reliable Updates & Hardened Answer UX (critical update detection fix, markdown fence/bold removal - 4 new tests)
+- ✅  6.36.0 - Thinking Indicator & Progress Feedback v1 (animated spinners, TTY-aware, timing display - 8 new tests)
+- ✅  6.35.0 - Presence Awareness & Anna Reflection (usage tracking, contextual greetings - 14 new tests)
 - ✅  6.34.0 - CLI Consistency & Output Standards v1 (unified OutputEngine formatting, no markdown fences, compact/stepwise/sectioned styles - 16 new tests)
 - ✅  6.33.0 - Actionable System Reports & Capability Queries v1 (system reports, CPU feature detection, disk explorer - 20 new tests)
 - ✅  6.32.0 - Status Command Output Engine Integration (formatting refactor, 18 new tests, zero behavior changes)

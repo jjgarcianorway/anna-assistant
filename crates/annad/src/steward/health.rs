@@ -161,8 +161,12 @@ fn is_important_service(name: &str) -> bool {
 async fn check_packages() -> Result<Vec<PackageStatus>> {
     info!("Checking package updates");
 
-    // Get list of updates available
-    let output = Command::new("checkupdates").output();
+    // v6.37.0: Fixed to check both official repos and AUR
+    let output = Command::new("yay")
+        .arg("-Qu")
+        .output()
+        .or_else(|_| Command::new("pacman").arg("-Qu").output())
+        .or_else(|_| Command::new("checkupdates").output());
 
     let mut packages = Vec::new();
 

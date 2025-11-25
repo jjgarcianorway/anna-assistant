@@ -234,12 +234,15 @@ fn query_packages() -> Result<PackageInfo> {
         .map(|s| s.lines().count() as u64)
         .unwrap_or(0);
 
-    // Get updates available
-    let updates_available = Command::new("checkupdates")
+    // Get updates available (v6.37.0: try yay first for both repos + AUR)
+    let updates_available = Command::new("yay")
+        .arg("-Qu")
         .output()
+        .or_else(|_| Command::new("pacman").arg("-Qu").output())
+        .or_else(|_| Command::new("checkupdates").output())
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.lines().count() as u64)
+        .map(|s| s.lines().filter(|l| !l.is_empty()).count() as u64)
         .unwrap_or(0);
 
     // Get orphaned packages

@@ -371,10 +371,15 @@ fn find_conflicting_files() -> Vec<FileConflict> {
 fn check_partial_upgrades() -> Vec<String> {
     let mut warnings = Vec::new();
 
-    // Check for packages that need updating
-    if let Ok(output) = Command::new("checkupdates").output() {
+    // Check for packages that need updating (try yay first, then pacman, then checkupdates)
+    // v6.37.0: Fixed to check both official repos and AUR
+    let output = Command::new("yay").arg("-Qu").output()
+        .or_else(|_| Command::new("pacman").arg("-Qu").output())
+        .or_else(|_| Command::new("checkupdates").output());
+
+    if let Ok(output) = output {
         let updates = String::from_utf8_lossy(&output.stdout);
-        let update_count = updates.lines().count();
+        let update_count = updates.lines().filter(|l| !l.is_empty()).count();
 
         if update_count > 0 {
             warnings.push(format!("{} packages have available updates", update_count));

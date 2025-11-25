@@ -762,9 +762,9 @@ impl TemplateLibrary {
         Template {
             id: "check_package_updates".to_string(),
             name: "Check for Package Updates".to_string(),
-            description: "List packages with available updates".to_string(),
+            description: "List packages with available updates (official repos and AUR)".to_string(),
             parameters: vec![],
-            command_pattern: "checkupdates".to_string(),
+            command_pattern: "yay -Qu 2>/dev/null || pacman -Qu 2>/dev/null || checkupdates 2>/dev/null || echo 'Unable to check for updates'".to_string(),
             category: CommandCategory::ReadOnly,
             wiki_source: "https://wiki.archlinux.org/title/System_maintenance#Check_for_updates"
                 .to_string(),
@@ -774,9 +774,9 @@ impl TemplateLibrary {
                 stdout_must_not_match: None,
                 stderr_must_match: None,
                 validation_description:
-                    "Lists available updates or shows empty if system is up to date".to_string(),
+                    "Lists available updates, shows empty if up to date, or reports unable to check".to_string(),
             }),
-            example: "checkupdates".to_string(),
+            example: "yay -Qu".to_string(),
         }
     }
 
@@ -1597,10 +1597,10 @@ impl TemplateLibrary {
         Template {
             id: "check_pending_updates".to_string(),
             name: "Check Pending Updates".to_string(),
-            description: "Check for available package updates".to_string(),
+            description: "Check for available package updates (both official repos and AUR)".to_string(),
             parameters: vec![],
             command_pattern:
-                "checkupdates || echo 'No updates available (or checkupdates not installed)'"
+                "yay -Qu 2>/dev/null || pacman -Qu 2>/dev/null || checkupdates 2>/dev/null || echo 'Unable to check for updates'"
                     .to_string(),
             category: CommandCategory::ReadOnly,
             wiki_source: "https://wiki.archlinux.org/title/Pacman#Querying_package_databases"
@@ -1610,9 +1610,9 @@ impl TemplateLibrary {
                 stdout_must_match: None,
                 stdout_must_not_match: None,
                 stderr_must_match: None,
-                validation_description: "Available updates listed".to_string(),
+                validation_description: "Available updates listed or unable to check message".to_string(),
             }),
-            example: "checkupdates".to_string(),
+            example: "yay -Qu".to_string(),
         }
     }
 
@@ -2548,5 +2548,42 @@ mod tests {
         assert_eq!(recipe.command, "swapon --show");
         assert_eq!(recipe.category, CommandCategory::ReadOnly);
         assert!(recipe.is_auto_executable());
+    }
+
+    // v6.37.0: Tests for reliable update detection
+    #[test]
+    fn test_update_check_uses_yay_first() {
+        let library = TemplateLibrary::new();
+        let template = library.get("check_pending_updates").unwrap();
+
+        // Should use yay -Qu as first option
+        assert!(template.command_pattern.starts_with("yay -Qu"));
+    }
+
+    #[test]
+    fn test_update_check_has_pacman_fallback() {
+        let library = TemplateLibrary::new();
+        let template = library.get("check_pending_updates").unwrap();
+
+        // Should have pacman -Qu fallback
+        assert!(template.command_pattern.contains("pacman -Qu"));
+    }
+
+    #[test]
+    fn test_update_check_has_checkupdates_fallback() {
+        let library = TemplateLibrary::new();
+        let template = library.get("check_pending_updates").unwrap();
+
+        // Should have checkupdates as final fallback
+        assert!(template.command_pattern.contains("checkupdates"));
+    }
+
+    #[test]
+    fn test_update_check_handles_failure_gracefully() {
+        let library = TemplateLibrary::new();
+        let template = library.get("check_pending_updates").unwrap();
+
+        // Should have honest failure message, not "no updates"
+        assert!(template.command_pattern.contains("Unable to check for updates"));
     }
 }
