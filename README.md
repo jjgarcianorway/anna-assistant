@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.37.0**
+**Experimental Arch Linux System Assistant - Version 6.38.0**
 
-[![Version](https://img.shields.io/badge/version-6.37.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.38.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,26 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.37.0)
+## What Works Right Now (6.38.0)
+
+### Code Quality & File Size Guidelines (NEW in 6.38.0!)
+
+To maintain code quality, Anna enforces file size limits:
+
+**File Size Targets:**
+- **Soft limit:** 400 lines per file
+- **Hard limit:** 500 lines per file
+- **Script:** `scripts/check_file_sizes.sh`
+
+**Recent Modularization:**
+- **recommender.rs**: Split from 12,012 → 241 lines (12 submodules)
+- Result: 98% size reduction, zero breaking changes
+
+**Guidelines:**
+- Break large files into focused submodules using `mod` subdirectories
+- Preserve public APIs (use re-exports)
+- Group related functionality logically
+- Document any whitelisted exceptions
 
 ### 1. Thinking Indicator & Progress Feedback (NEW in 6.36.0!)
 

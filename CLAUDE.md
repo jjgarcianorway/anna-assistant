@@ -1,2 +1,6 @@
 - never release without testing... never tell me that something is implemented without testing.
+- Ensure no files has more than 400 lines. Modulariation is key.
+- Use best practices for coding, security, documentation,... 
+- Ensure the software is always escalable
+- Have a beautiful UX/UI is mandatory. Any output (direct output from the software or the logs) must be beautiful, well formatted. Use TRUE COLOR, Bold, emojis/icons where they have sense. Ensure there are 2 spaces after each icon/emoji so they look good.
 - always release when you bump a version (commit, upload, release, push, tag, and update accordingly the readme.md and remove anything in the repository that is no longer needed....

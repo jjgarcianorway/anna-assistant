@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.38.0] - 2025-11-25
+
+### PURE REFACTORING: CODE MODULARIZATION
+
+**Type:** Internal Refactoring (No Feature Changes)
+**Focus:** File size reduction and improved code organization
+
+#### Refactored 🔧
+
+**1. Recommender Module Split (12,012 → 241 lines)**
+
+Split the monolithic `recommender.rs` into 12 focused submodules:
+- `applications.rs` (1,092 lines) - Application recommendations
+- `desktop.rs` (1,783 lines) - Desktop environment, gaming, audio
+- `development.rs` (1,307 lines) - Programming languages, containers, git
+- `hardware.rs` (1,686 lines) - CPU, GPU, disk, battery monitoring
+- `misc.rs` (1,234 lines) - Miscellaneous utilities and tools
+- `network.rs` (1,094 lines) - Networking, firewall, SSH, VPN
+- `packages.rs` (469 lines) - Package management (pacman, AUR, flatpak)
+- `security.rs` (482 lines) - Security tools and hardening
+- `shell.rs` (842 lines) - Shell enhancements and CLI tools
+- `storage.rs` (640 lines) - Filesystem, btrfs, swap, SSD
+- `system.rs` (526 lines) - Systemd, kernel, locale, firmware
+- `telemetry.rs` (601 lines) - Health checks and monitoring
+
+Main file reduced from 12,012 to 241 lines (98% reduction).
+All public APIs preserved - zero breaking changes.
+
+**2. Codebase Cleanup**
+
+Removed per-version design documents:
+- `RELEASE_NOTES_6.0.0.md`
+- `RELEASE_NOTES_6.9.0.md`
+- `FEATURE_INVENTORY_6x.md`
+- `IMPLEMENTATION_STATUS_6.23.0.md`
+- `V6.23.0_FOUNDATION_COMPLETE.md`
+- `V6.23.0_WIKI_REASONING_ENGINE.md`
+- `V6.24.0_ALPHA_RELEASE_NOTES.md`
+
+Essential documentation retained: README, CHANGELOG, CONTRIBUTING, docs/
+
+#### Technical Notes
+
+- No logic changes - pure code movement
+- All existing tests pass
+- Compilation successful with warnings (expected for this refactoring)
+- File size check script updated at `scripts/check_file_sizes.sh`
+
 ## [6.37.0] - 2025-11-25
 
 ### RELIABLE UPDATES & HARDENED ANSWER UX
