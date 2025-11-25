@@ -72,6 +72,7 @@ pub mod orchestrator; // 6.2.0: Adaptive planner with Arch Wiki consultation
 pub mod selftest; // 6.3.1: Built-in capability verification
 pub mod learning;
 pub mod llm; // Task 12: LLM abstraction layer
+pub mod log_noise_filter; // v6.39.0: Intelligent hardware error filtering
 pub mod llm_benchmark; // Beta.68: LLM benchmarking harness
 pub mod llm_context; // LLM Contextualization - Synthesizes all detection data for caretaker brain
 pub mod llm_upgrade; // Step 3: Hardware upgrade detection for brain improvements

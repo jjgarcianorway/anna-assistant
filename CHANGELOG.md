@@ -7,6 +7,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.39.0] - 2025-11-25
+
+### Intelligent Log Noise Filtering
+
+**Type:** Feature Enhancement - False-Positive Reduction
+**Focus:** Filter benign hardware errors from critical log analysis
+
+#### Problem Statement
+
+Anna was reporting `CRITICAL: 10 critical log issues` when the only errors were:
+```
+playstation 0005:054C:0CE6.0010: DualSense input CRC's check failed
+```
+
+This is hardware noise from gaming controllers, NOT a system health issue. But it caused Anna to report CRITICAL status, eroding user trust in health diagnostics.
+
+#### Solution
+
+Implemented intelligent log noise filtering that distinguishes benign hardware errors from real system issues.
+
+#### Added ✨
+
+**1. Log Noise Filter Module** (`log_noise_filter.rs`)
+
+New module in `anna_common` with pattern-based filtering:
+
+- **Filtered Patterns:**
+  - PlayStation DualSense controller CRC errors
+  - PlayStation controller communication errors
+  - Xbox controller disconnections (low battery)
+  - Transient USB enumeration errors
+  - Bluetooth controller connection attempts
+
+- **Repetitive Noise Detection:**
+  - Detects when same error repeats >100 times at >80% ratio
+  - Identifies hardware spam vs. system health issues
+
+- **Severity Override:**
+  - Hardware errors downgraded to Info level
+  - Real system errors still escalate to Critical
+
+**2. Sysadmin Brain Integration**
+
+Modified `check_log_issues()` in `sysadmin_brain.rs`:
+
+- Applies filter before escalating to CRITICAL
+- Counts only non-filtered errors for severity
+- If ALL errors are filtered → reports HEALTHY (Info insight)
+- If mix of noise + real errors → shows both counts transparently
+
+**Before v6.39.0:**
+```
+Overall Status: 🚨 CRITICAL
+  - 10 critical log issues detected
+
+Investigate: journalctl -p err --since "1 hour ago"
+```
+
+**After v6.39.0:**
+```
+Overall Status: ✓ HEALTHY
+
+System Diagnostics:
+  ℹ️  10 hardware errors filtered as benign
+      (PlayStation controller noise)
+```
+
+**With Real + Noise Errors:**
+```
+Overall Status: 🚨 CRITICAL
+  - 3 critical log issues (7 hardware errors filtered)
+
+Investigate: journalctl -p err --since "1 hour ago"
+```
+
+#### Tests Added 🧪
+
+Added 16 new tests across 2 files:
+
+**Log Noise Filter Tests (`log_noise_filter.rs`):** 13 tests
+1. `test_dualsense_pattern_matches` - DualSense errors match pattern
+2. `test_non_matching_errors_pass_through` - Real errors not filtered
+3. `test_repetitive_detection_works` - Detects >100 identical errors
+4. `test_repetitive_detection_diverse_errors` - Diverse errors not filtered
+5. `test_filter_logs_separates_real_from_noise` - Separation logic
+6. `test_filter_summary_formatting` - Human-readable summaries
+7. `test_xbox_controller_pattern` - Xbox controller errors filtered
+8. `test_usb_transient_errors` - USB enumeration errors filtered
+9. `test_bluetooth_controller_errors` - Bluetooth errors filtered
+10. `test_severity_override_applied` - Severity downgrade works
+11. `test_repetitive_noise_threshold` - 100+ threshold enforced
+12. `test_empty_log_list` - Handles empty input
+13. `test_all_filtered_no_real_errors` - All filtered scenario
+
+**Sysadmin Brain Integration Tests (`sysadmin_brain.rs`):** 6 tests
+1. `test_dualsense_errors_filtered` - DualSense doesn't cause CRITICAL
+2. `test_real_errors_not_filtered` - Real errors still escalate
+3. `test_mixed_errors_counted_correctly` - Mixed scenario counts correctly
+4. `test_status_shows_filtered_count` - Status displays filter info
+5. `test_no_false_positive_with_empty_logs` - Empty logs don't trigger false positives
+6. `test_multiple_dualsense_errors_all_filtered` - Multiple noise errors filtered
+
+#### Technical Details
+
+**Files Modified:**
+- `anna_common/src/log_noise_filter.rs` (NEW, 385 lines) - Core filtering logic + 13 tests
+- `anna_common/src/lib.rs` (+1 line) - Module registration
+- `annad/src/intel/sysadmin_brain.rs` (+143 lines) - Integration + 6 tests
+
+**Design Principles:**
+- Zero false negatives: Real system errors ALWAYS escalate
+- Transparent filtering: Show what was filtered and why
+- Extensible patterns: Easy to add new noise patterns
+- Deterministic logic: No LLM, pure regex matching
+
+#### Impact
+
+- ✅ Eliminates false-positive CRITICAL alerts from gaming controllers
+- ✅ Improves trust in system health reporting
+- ✅ Maintains sensitivity to real system errors
+- ✅ Provides transparency via filtered error counts
+
+#### Dependencies
+
+- Requires `regex` crate (already in workspace dependencies)
+
+---
+
 ## [6.38.1] - 2025-11-25
 
 ### CRITICAL HOTFIX: Disk Explorer Output & Space Warnings

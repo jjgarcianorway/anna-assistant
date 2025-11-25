@@ -171,7 +171,7 @@ fn check_degraded_services(health: &HealthReport) -> Vec<DiagnosticInsight> {
     insights
 }
 
-/// Rule: Detect critical log issues
+/// Rule: Detect critical log issues (v6.39.0: with intelligent noise filtering)
 fn check_log_issues(health: &HealthReport) -> Vec<DiagnosticInsight> {
     let mut insights = Vec::new();
 
@@ -182,42 +182,129 @@ fn check_log_issues(health: &HealthReport) -> Vec<DiagnosticInsight> {
         .filter(|issue| issue.severity == "critical" || issue.severity == "error")
         .collect();
 
-    if !critical_issues.is_empty() {
-        // Take the most frequent critical issue
-        let top_issue = critical_issues
-            .iter()
-            .max_by_key(|issue| issue.count)
-            .unwrap();
-
-        insights.push(DiagnosticInsight {
-            rule_id: "critical_log_issues".to_string(),
-            severity: DiagnosticSeverity::Critical,
-            summary: format!("{} critical log issue(s) detected", critical_issues.len()),
-            details: format!(
-                "System logs contain {} critical or error-level issues. \
-                 Most frequent: \"{}\" from {} (seen {} times since {}).",
-                critical_issues.len(),
-                top_issue.message,
-                top_issue.source,
-                top_issue.count,
-                top_issue.first_seen.format("%Y-%m-%d %H:%M")
-            ),
-            commands: vec![
-                format!("journalctl -p err -n 20 --no-pager"),
-                format!("journalctl -p crit -n 20 --no-pager"),
-                format!("journalctl --since \"1 hour ago\" | grep -i error | head -20"),
-            ],
-            citations: vec![
-                "man journalctl".to_string(),
-                "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
-            ],
-            evidence: format!(
-                "Critical issues: {} (most frequent: {} occurrences)",
-                critical_issues.len(),
-                top_issue.count
-            ),
-        });
+    if critical_issues.is_empty() {
+        return insights;
     }
+
+    // v6.39.0: Apply log noise filter to reduce false positives
+    use anna_common::log_noise_filter::LogNoiseFilter;
+    let filter = LogNoiseFilter::new();
+
+    // Collect log messages for filtering
+    let log_messages: Vec<&str> = critical_issues
+        .iter()
+        .map(|issue| issue.message.as_str())
+        .collect();
+
+    // Filter out benign hardware noise
+    let (real_errors_msgs, filtered_errors) = filter.filter_logs(&log_messages);
+
+    // Count unique real errors (not just messages, but original LogIssue objects)
+    let real_errors: Vec<&LogIssue> = critical_issues
+        .iter()
+        .filter(|issue| real_errors_msgs.contains(&issue.message.as_str()))
+        .copied()
+        .collect();
+
+    let filtered_count = filtered_errors.len();
+
+    // If ALL errors are filtered, system is healthy
+    if real_errors.is_empty() {
+        // All errors were hardware noise - don't escalate to CRITICAL
+        // But show what was filtered for transparency
+        if filtered_count > 0 {
+            let filter_reason = if !filtered_errors.is_empty() {
+                filtered_errors[0].1 // Get reason from first filtered error
+            } else {
+                "hardware noise"
+            };
+
+            insights.push(DiagnosticInsight {
+                rule_id: "log_issues_filtered".to_string(),
+                severity: DiagnosticSeverity::Info,
+                summary: format!("{} hardware error(s) filtered as benign", filtered_count),
+                details: format!(
+                    "System logs contained {} error-level entries, but all were identified as benign hardware noise: {}. \
+                     No actual system health issues detected.",
+                    filtered_count,
+                    filter_reason
+                ),
+                commands: vec![
+                    "journalctl -p err -n 20 --no-pager".to_string(),
+                ],
+                citations: vec![
+                    "man journalctl".to_string(),
+                ],
+                evidence: format!("{} errors filtered ({})", filtered_count, filter_reason),
+            });
+        }
+        return insights;
+    }
+
+    // We have real errors - escalate to CRITICAL
+    let top_issue = real_errors
+        .iter()
+        .max_by_key(|issue| issue.count)
+        .unwrap();
+
+    let summary = if filtered_count > 0 {
+        format!("{} critical log issue(s) detected ({} hardware errors filtered)", real_errors.len(), filtered_count)
+    } else {
+        format!("{} critical log issue(s) detected", real_errors.len())
+    };
+
+    let details = if filtered_count > 0 {
+        format!(
+            "System logs contain {} critical or error-level issues ({} hardware errors filtered as benign). \
+             Most frequent real error: \"{}\" from {} (seen {} times since {}).",
+            real_errors.len(),
+            filtered_count,
+            top_issue.message,
+            top_issue.source,
+            top_issue.count,
+            top_issue.first_seen.format("%Y-%m-%d %H:%M")
+        )
+    } else {
+        format!(
+            "System logs contain {} critical or error-level issues. \
+             Most frequent: \"{}\" from {} (seen {} times since {}).",
+            real_errors.len(),
+            top_issue.message,
+            top_issue.source,
+            top_issue.count,
+            top_issue.first_seen.format("%Y-%m-%d %H:%M")
+        )
+    };
+
+    insights.push(DiagnosticInsight {
+        rule_id: "critical_log_issues".to_string(),
+        severity: DiagnosticSeverity::Critical,
+        summary,
+        details,
+        commands: vec![
+            "journalctl -p err -n 20 --no-pager".to_string(),
+            "journalctl -p crit -n 20 --no-pager".to_string(),
+            "journalctl --since \"1 hour ago\" | grep -i error | head -20".to_string(),
+        ],
+        citations: vec![
+            "man journalctl".to_string(),
+            "https://wiki.archlinux.org/title/Systemd/Journal".to_string(),
+        ],
+        evidence: if filtered_count > 0 {
+            format!(
+                "Critical issues: {} real, {} filtered (most frequent: {} occurrences)",
+                real_errors.len(),
+                filtered_count,
+                top_issue.count
+            )
+        } else {
+            format!(
+                "Critical issues: {} (most frequent: {} occurrences)",
+                real_errors.len(),
+                top_issue.count
+            )
+        },
+    });
 
     insights
 }
@@ -1419,5 +1506,216 @@ mod tests {
         let insight = network_insight.unwrap();
         assert_eq!(insight.severity, DiagnosticSeverity::Critical);
         assert!(insight.summary.contains("35"));
+    }
+
+    // v6.39.0: Log Noise Filter Integration Tests
+
+    #[test]
+    fn test_dualsense_errors_filtered() {
+        // Test that DualSense errors don't cause CRITICAL status
+        let health = HealthReport {
+            timestamp: Utc::now(),
+            overall_status: HealthStatus::Healthy,
+            services: vec![],
+            packages: vec![],
+            log_issues: vec![
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "playstation 0005:054C:0CE6.0010: DualSense input CRC's check failed".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 10,
+                },
+            ],
+            network_monitoring: None,
+            recommendations: vec![],
+            message: "Test".to_string(),
+            citation: "Test".to_string(),
+        };
+
+        let insights = analyze_system_health(&health);
+
+        // Should NOT have critical_log_issues
+        let critical_insight = insights.iter().find(|i| i.rule_id == "critical_log_issues");
+        assert!(critical_insight.is_none(), "DualSense errors should NOT escalate to CRITICAL");
+
+        // Should have log_issues_filtered with Info severity
+        let filtered_insight = insights.iter().find(|i| i.rule_id == "log_issues_filtered");
+        assert!(filtered_insight.is_some(), "Should show filtered errors");
+        assert_eq!(filtered_insight.unwrap().severity, DiagnosticSeverity::Info);
+    }
+
+    #[test]
+    fn test_real_errors_not_filtered() {
+        // Test that actual system errors still escalate to CRITICAL
+        let health = HealthReport {
+            timestamp: Utc::now(),
+            overall_status: HealthStatus::Critical,
+            services: vec![],
+            packages: vec![],
+            log_issues: vec![
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "kernel: Out of memory: Killed process 1234".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 5,
+                },
+            ],
+            network_monitoring: None,
+            recommendations: vec![],
+            message: "Test".to_string(),
+            citation: "Test".to_string(),
+        };
+
+        let insights = analyze_system_health(&health);
+
+        // Should have critical_log_issues
+        let critical_insight = insights.iter().find(|i| i.rule_id == "critical_log_issues");
+        assert!(critical_insight.is_some(), "Real errors should escalate to CRITICAL");
+        assert_eq!(critical_insight.unwrap().severity, DiagnosticSeverity::Critical);
+    }
+
+    #[test]
+    fn test_mixed_errors_counted_correctly() {
+        // Test mix of noise + real errors
+        let health = HealthReport {
+            timestamp: Utc::now(),
+            overall_status: HealthStatus::Degraded,
+            services: vec![],
+            packages: vec![],
+            log_issues: vec![
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "playstation 0005:054C:0CE6.0010: DualSense input CRC's check failed".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 7,
+                },
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "ext4: I/O error writing to inode 12345".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 3,
+                },
+            ],
+            network_monitoring: None,
+            recommendations: vec![],
+            message: "Test".to_string(),
+            citation: "Test".to_string(),
+        };
+
+        let insights = analyze_system_health(&health);
+
+        // Should have critical_log_issues with count=1 (only ext4 error)
+        let critical_insight = insights.iter().find(|i| i.rule_id == "critical_log_issues");
+        assert!(critical_insight.is_some(), "Real error should be detected");
+
+        let insight = critical_insight.unwrap();
+        assert!(insight.summary.contains("1 critical log issue"), "Should count only 1 real error");
+        assert!(insight.summary.contains("hardware error") && insight.summary.contains("filtered"),
+                "Should mention filtered count");
+    }
+
+    #[test]
+    fn test_status_shows_filtered_count() {
+        // Test that filtered count is shown in status display
+        let health = HealthReport {
+            timestamp: Utc::now(),
+            overall_status: HealthStatus::Healthy,
+            services: vec![],
+            packages: vec![],
+            log_issues: vec![
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "playstation 0005:054C:0CE6.0010: DualSense input CRC's check failed".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 10,
+                },
+            ],
+            network_monitoring: None,
+            recommendations: vec![],
+            message: "Test".to_string(),
+            citation: "Test".to_string(),
+        };
+
+        let insights = analyze_system_health(&health);
+
+        // Find the filtered insight
+        let filtered_insight = insights.iter().find(|i| i.rule_id == "log_issues_filtered");
+        assert!(filtered_insight.is_some());
+
+        let insight = filtered_insight.unwrap();
+        assert!(insight.summary.contains("hardware error"));
+        assert!(insight.details.contains("benign hardware noise"));
+    }
+
+    #[test]
+    fn test_no_false_positive_with_empty_logs() {
+        // Test that empty logs don't cause false positives
+        let health = HealthReport {
+            timestamp: Utc::now(),
+            overall_status: HealthStatus::Healthy,
+            services: vec![],
+            packages: vec![],
+            log_issues: vec![], // No log issues at all
+            network_monitoring: None,
+            recommendations: vec![],
+            message: "Test".to_string(),
+            citation: "Test".to_string(),
+        };
+
+        let insights = analyze_system_health(&health);
+
+        // Should NOT have critical_log_issues or log_issues_filtered
+        let critical_insight = insights.iter().find(|i| i.rule_id == "critical_log_issues");
+        assert!(critical_insight.is_none(), "No errors should mean no critical insight");
+
+        let filtered_insight = insights.iter().find(|i| i.rule_id == "log_issues_filtered");
+        assert!(filtered_insight.is_none(), "No errors should mean no filtered insight");
+    }
+
+    #[test]
+    fn test_multiple_dualsense_errors_all_filtered() {
+        // Test that multiple DualSense errors are all filtered
+        let health = HealthReport {
+            timestamp: Utc::now(),
+            overall_status: HealthStatus::Healthy,
+            services: vec![],
+            packages: vec![],
+            log_issues: vec![
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "playstation 0005:054C:0CE6.0010: DualSense input CRC's check failed".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 100,
+                },
+                LogIssue {
+                    severity: "error".to_string(),
+                    message: "playstation 0005:054C:0CE6.0011: DualSense input CRC's check failed".to_string(),
+                    source: "kernel".to_string(),
+                    first_seen: Utc::now(),
+                    count: 50,
+                },
+            ],
+            network_monitoring: None,
+            recommendations: vec![],
+            message: "Test".to_string(),
+            citation: "Test".to_string(),
+        };
+
+        let insights = analyze_system_health(&health);
+
+        // Should NOT have critical_log_issues
+        let critical_insight = insights.iter().find(|i| i.rule_id == "critical_log_issues");
+        assert!(critical_insight.is_none(), "All DualSense errors should be filtered");
+
+        // Should have log_issues_filtered
+        let filtered_insight = insights.iter().find(|i| i.rule_id == "log_issues_filtered");
+        assert!(filtered_insight.is_some(), "Should report filtered count");
+        assert!(filtered_insight.unwrap().summary.contains("2 hardware error"));
     }
 }

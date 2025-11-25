@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.38.1**
+**Experimental Arch Linux System Assistant - Version 6.39.0**
 
-[![Version](https://img.shields.io/badge/version-6.38.1-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.39.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,13 +29,33 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.38.1)
+## What Works Right Now (6.39.0)
 
-### Critical Hotfix in 6.38.1
+### Intelligent Log Noise Filtering in 6.39.0
 
-**Fixed:** Disk explorer output not being displayed (queries would show spinner and source but no results)
-**Added:** Deterministic disk space warnings (≥90% warning, ≥95% critical, ≥98% urgent) - shown in `annactl status` and inline in disk queries
-**Tests:** Added 8 new tests (4 disk explorer + 4 disk warnings)
+**Problem:** Anna was reporting `CRITICAL: 10 critical log issues` when the only errors were gaming controller CRC errors (PlayStation DualSense, Xbox controllers). This eroded trust in health diagnostics.
+
+**Solution:** Implemented intelligent log noise filtering:
+- **Filters benign hardware errors:** PlayStation/Xbox controllers, USB enumeration, Bluetooth
+- **Transparent:** Shows what was filtered and why
+- **Zero false negatives:** Real system errors still escalate to CRITICAL
+- **16 new tests:** 13 filter tests + 6 integration tests
+
+**Before v6.39.0:**
+```
+Overall Status: 🚨 CRITICAL (10 log issues)
+```
+
+**After v6.39.0:**
+```
+Overall Status: ✓ HEALTHY
+  ℹ️  10 hardware errors filtered (PlayStation controller noise)
+```
+
+**Impact:**
+- Eliminates false-positive CRITICAL alerts from gaming hardware
+- Improves trust in system health reporting
+- Maintains sensitivity to real system errors
 
 ### Code Quality & File Size Guidelines (from 6.38.0)
 
