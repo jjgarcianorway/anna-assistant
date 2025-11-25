@@ -535,6 +535,16 @@ pub fn handle_disk_explorer(spec: DiskExplorerSpec) -> Result<String> {
     let engine = OutputEngine::new();
     let mut output = String::new();
 
+    // v6.38.1: Check for disk space warnings FIRST
+    if let Ok(Some(disk_insight)) = anna_common::insights_engine::InsightsEngine::check_disk_space_now() {
+        // Display warning at the top
+        output.push_str(&format!("⚠️  {}: {}\n", disk_insight.title, disk_insight.explanation));
+        if let Some(suggestion) = &disk_insight.suggestion {
+            output.push_str(&format!("💡 {}\n", suggestion));
+        }
+        output.push_str("\n");
+    }
+
     // Section header - v6.34.0: Use OutputEngine
     output.push_str(&engine.format_subheader(&format!("Largest directories under {}", spec.root_path)));
     output.push_str("\n\n");
@@ -1017,6 +1027,67 @@ mod tests {
             // Check for common ANSI escape sequences
             assert!(!answer.contains("\x1b[31m"), "Should not contain raw ANSI color codes");
             assert!(!answer.contains("\x1b[0m"), "Should not contain raw ANSI reset codes");
+        }
+    }
+
+    // v6.38.1: Tests for disk explorer
+    #[test]
+    fn test_disk_explorer_returns_result() {
+        // Test that disk explorer runs without error
+        let spec = DiskExplorerSpec {
+            root_path: "/".to_string(),
+            count: 10,
+        };
+        let result = handle_disk_explorer(spec);
+        assert!(result.is_ok(), "Disk explorer should not error");
+    }
+
+    #[test]
+    fn test_disk_explorer_no_empty_output() {
+        // Test that disk explorer produces non-empty output
+        let spec = DiskExplorerSpec {
+            root_path: "/".to_string(),
+            count: 5,
+        };
+        let result = handle_disk_explorer(spec);
+        assert!(result.is_ok());
+
+        let output = result.unwrap();
+        assert!(!output.is_empty(), "Disk explorer output should not be empty");
+        assert!(output.contains("Largest directories") || output.contains("directories"),
+                "Output should mention directories");
+    }
+
+    #[test]
+    fn test_disk_explorer_no_markdown_fences() {
+        // v6.34.0: Ensure no markdown code fences in output
+        let spec = DiskExplorerSpec {
+            root_path: "/tmp".to_string(),
+            count: 3,
+        };
+        let result = handle_disk_explorer(spec);
+        assert!(result.is_ok());
+
+        let output = result.unwrap();
+        assert!(!output.contains("```"), "Output should not contain markdown fences");
+        assert!(!output.contains("```bash"), "Output should not contain markdown bash blocks");
+    }
+
+    #[test]
+    fn test_disk_explorer_handles_invalid_path_gracefully() {
+        // Test that disk explorer handles non-existent paths gracefully
+        let spec = DiskExplorerSpec {
+            root_path: "/nonexistent/path/12345".to_string(),
+            count: 5,
+        };
+        let result = handle_disk_explorer(spec);
+
+        // Should still return Ok, but with error message in output
+        assert!(result.is_ok(), "Should handle invalid paths gracefully");
+
+        if let Ok(output) = result {
+            // Output should contain some kind of message (either error or empty result)
+            assert!(!output.is_empty());
         }
     }
 }

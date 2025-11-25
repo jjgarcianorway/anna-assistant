@@ -382,8 +382,12 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             // The fetch_telemetry_snapshot() and generate_welcome_report() are extremely slow
             // Re-enable in Beta.230+ with performance optimization or async background task
 
-            // Beta.229: Answer already streamed to stdout during LLM call
-            // Don't print it again! Just show metadata
+            // v6.38.1: BUG FIX - Deterministic answers (like Disk Explorer) must be printed!
+            // LLM answers are streamed during the call, but deterministic answers are not.
+            // Solution: Print the answer if it's not empty
+            if !answer.is_empty() {
+                println!("{}", answer);
+            }
             println!();
 
             // Beta.245: Show source line based on confidence level

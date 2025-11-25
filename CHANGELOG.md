@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.38.1] - 2025-11-25
+
+### CRITICAL HOTFIX: Disk Explorer Output & Space Warnings
+
+**Type:** Critical Bug Fix + Deterministic Health Feature
+**Focus:** Fix missing disk explorer output and add proactive disk space warnings
+
+#### Fixed 🐛
+
+**1. Disk Explorer Output Not Displayed (CRITICAL)**
+
+Fixed critical bug where disk explorer queries returned empty output:
+
+- Bug location: `llm_query_handler.rs:385-386`
+- Root cause: Comment incorrectly stated "Answer already streamed to stdout during LLM call" but this is FALSE for deterministic answers like Disk Explorer
+- Impact: Commands like `annactl "find the 10 biggest folders on my computer"` would show spinner and source line but NO results
+- Fix: Added check to print `answer` if not empty before showing source metadata
+
+**Before:**
+```
+⠋ Analyzing disk usage...
+✓ Analysis complete (0.9s)
+
+Source: Disk Explorer v6.33.0 (deterministic)
+```
+
+**After:**
+```
+⠋ Analyzing disk usage...
+✓ Analysis complete (0.9s)
+
+📂 Largest directories under /
+
+12.3G  /home/user/.cache
+8.7G   /var/lib/docker
+...
+
+Showing top 10 of 156 total entries.
+
+Source: Disk Explorer v6.33.0 (deterministic)
+```
+
+#### Added ✨
+
+**2. Deterministic Disk Space Warnings**
+
+Added immediate disk space checking (no historian required):
+
+- New function: `InsightsEngine::check_disk_space_now()` in `insights_engine.rs`
+- Thresholds:
+  - ≥98% usage → Critical severity with urgent warning
+  - ≥95% usage → Critical severity
+  - ≥90% usage → Warning severity
+- Displayed in:
+  - `annactl status` (shown at top of Recent Insights)
+  - Inline in disk explorer queries (warning appears before results)
+- Pure deterministic logic - uses `df` command, no LLM calls
+- Evidence-based: Shows current usage %, available GB, and actionable suggestion
+
+**Example Warning (at 99% disk usage):**
+```
+⚠️  Disk Space Critically Low (≥98%): Root filesystem is 99% full (787.3 GB used of 803.0 GB total, 15.7 GB available). System instability is imminent. IMMEDIATE cleanup required!
+💡 Run 'annactl "what's using disk space"' to identify large directories
+```
+
+#### Tests Added 🧪
+
+Added 8 new tests (4 disk explorer + 4 disk warnings):
+
+**Disk Explorer Tests (`system_report.rs`):**
+1. `test_disk_explorer_returns_result` - Validates function runs without error
+2. `test_disk_explorer_no_empty_output` - Ensures non-empty output
+3. `test_disk_explorer_no_markdown_fences` - Validates clean output (no ``` blocks)
+4. `test_disk_explorer_handles_invalid_path_gracefully` - Error handling
+
+**Disk Space Warning Tests (`insights_engine.rs`):**
+1. `test_disk_space_check_runs` - Validates function executes without error
+2. `test_disk_space_check_returns_option` - Tests return type correctness
+3. `test_disk_space_severity_logic` - Documents severity thresholds (98%, 95%, 90%)
+4. `test_disk_space_insight_structure` - Validates insight structure and content
+
+#### Technical Details
+
+**Files Modified:**
+- `llm_query_handler.rs` (5 lines changed) - Bug fix for missing output
+- `insights_engine.rs` (+105 lines) - New deterministic disk check + 4 tests
+- `system_report.rs` (+66 lines) - Warning display + 4 tests
+- `status_command.rs` (+10 lines) - Display disk warnings in status
+
+**Line Count Compliance:**
+All modified files were already >400 lines. No new files created. Incremental changes only.
+
+#### Migration Notes
+
+- No breaking changes
+- Disk warnings appear automatically in `annactl status` and disk queries
+- No configuration changes required
+- Works immediately on upgrade
+
 ## [6.38.0] - 2025-11-25
 
 ### PURE REFACTORING: CODE MODULARIZATION

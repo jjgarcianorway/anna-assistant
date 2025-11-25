@@ -327,6 +327,111 @@ impl InsightsEngine {
         Ok(None)
     }
 
+    /// v6.38.1: Check current disk space immediately (deterministic, no historian required)
+    /// Returns an insight if disk usage is ≥90% (warning) or ≥95% (critical)
+    pub fn check_disk_space_now() -> Result<Option<Insight>> {
+        use std::process::Command;
+
+        // Get current disk usage using df
+        let output = Command::new("df")
+            .args(["--output=pcent,used,size", "/"])
+            .output()?;
+
+        if !output.status.success() {
+            return Ok(None);
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = stdout.lines().collect();
+
+        if lines.len() < 2 {
+            return Ok(None);
+        }
+
+        // Parse the second line (first is header)
+        let parts: Vec<&str> = lines[1].split_whitespace().collect();
+        if parts.len() < 3 {
+            return Ok(None);
+        }
+
+        // Parse percentage (e.g., "98%" -> 98.0)
+        let percent_str = parts[0].trim_end_matches('%');
+        let usage_percent: f64 = percent_str.parse().unwrap_or(0.0);
+
+        // Parse used and total (in KB)
+        let used_kb: u64 = parts[1].parse().unwrap_or(0);
+        let total_kb: u64 = parts[2].parse().unwrap_or(1);
+
+        let used_gb = used_kb as f64 / 1024.0 / 1024.0;
+        let total_gb = total_kb as f64 / 1024.0 / 1024.0;
+        let avail_gb = total_gb - used_gb;
+
+        // Critical: ≥98%
+        if usage_percent >= 98.0 {
+            return Ok(Some(
+                Insight::new(
+                    "disk_space_critical_now",
+                    InsightSeverity::Critical,
+                    "Disk Space Critically Low (≥98%)",
+                    format!(
+                        "Root filesystem is {:.0}% full ({:.1} GB used of {:.1} GB total, {:.1} GB available). \
+                         System instability is imminent. IMMEDIATE cleanup required!",
+                        usage_percent, used_gb, total_gb, avail_gb
+                    ),
+                )
+                .with_evidence(vec![
+                    format!("Current usage: {:.1}%", usage_percent),
+                    format!("Available: {:.1} GB", avail_gb),
+                ])
+                .with_suggestion("Run 'annactl \"what's using disk space\"' to identify large directories"),
+            ));
+        }
+
+        // Critical: ≥95%
+        if usage_percent >= 95.0 {
+            return Ok(Some(
+                Insight::new(
+                    "disk_space_critical_now",
+                    InsightSeverity::Critical,
+                    "Disk Space Critically Low (≥95%)",
+                    format!(
+                        "Root filesystem is {:.0}% full ({:.1} GB used of {:.1} GB total, {:.1} GB available). \
+                         Urgent cleanup needed to prevent system issues.",
+                        usage_percent, used_gb, total_gb, avail_gb
+                    ),
+                )
+                .with_evidence(vec![
+                    format!("Current usage: {:.1}%", usage_percent),
+                    format!("Available: {:.1} GB", avail_gb),
+                ])
+                .with_suggestion("Run 'annactl \"what's using disk space\"' to identify large directories"),
+            ));
+        }
+
+        // Warning: ≥90%
+        if usage_percent >= 90.0 {
+            return Ok(Some(
+                Insight::new(
+                    "disk_space_warning_now",
+                    InsightSeverity::Warning,
+                    "Disk Space Low (≥90%)",
+                    format!(
+                        "Root filesystem is {:.0}% full ({:.1} GB used of {:.1} GB total, {:.1} GB available). \
+                         Consider cleanup to prevent future issues.",
+                        usage_percent, used_gb, total_gb, avail_gb
+                    ),
+                )
+                .with_evidence(vec![
+                    format!("Current usage: {:.1}%", usage_percent),
+                    format!("Available: {:.1} GB", avail_gb),
+                ])
+                .with_suggestion("Run 'annactl \"what's using disk space\"' to identify large directories"),
+            ));
+        }
+
+        Ok(None)
+    }
+
     /// Detect error rate spikes
     fn detect_error_spikes(&self, hours: i64) -> Result<Option<Insight>> {
         let error_trends = self.historian.get_error_trends_v2(hours)?;
@@ -1220,5 +1325,75 @@ mod tests {
         assert_eq!(insights[2].severity, InsightSeverity::Warning);
         // Last should be Info
         assert_eq!(insights[3].severity, InsightSeverity::Info);
+    }
+
+    // v6.38.1: Tests for check_disk_space_now()
+    // Note: These tests run against the actual system disk, so results vary
+    // We test that the function runs without errors and follows the documented rules
+
+    #[test]
+    fn test_disk_space_check_runs() {
+        // Test that the function runs without error
+        let result = InsightsEngine::check_disk_space_now();
+        assert!(result.is_ok(), "check_disk_space_now should not error");
+    }
+
+    #[test]
+    fn test_disk_space_check_returns_option() {
+        // Test that the function returns Option<Insight>
+        let result = InsightsEngine::check_disk_space_now();
+        assert!(result.is_ok());
+
+        // The result may be None (if disk < 90%) or Some (if disk >= 90%)
+        // Both are valid outcomes
+        let _insight_opt = result.unwrap();
+    }
+
+    #[test]
+    fn test_disk_space_severity_logic() {
+        // This test documents the expected behavior:
+        // >= 98% -> Critical with urgent message
+        // >= 95% -> Critical
+        // >= 90% -> Warning
+        // < 90%  -> None
+
+        // We can't force disk usage in a unit test, but we document the rules
+        let result = InsightsEngine::check_disk_space_now();
+        assert!(result.is_ok());
+
+        if let Ok(Some(insight)) = result {
+            // If we got an insight, verify it has all required fields
+            assert!(!insight.id.is_empty());
+            assert!(!insight.title.is_empty());
+            assert!(!insight.explanation.is_empty());
+            assert!(!insight.evidence.is_empty());
+            assert!(insight.suggestion.is_some());
+
+            // Verify severity is either Warning or Critical
+            assert!(
+                insight.severity == InsightSeverity::Warning
+                || insight.severity == InsightSeverity::Critical
+            );
+        }
+    }
+
+    #[test]
+    fn test_disk_space_insight_structure() {
+        let result = InsightsEngine::check_disk_space_now();
+        assert!(result.is_ok());
+
+        if let Ok(Some(insight)) = result {
+            // Test insight structure
+            assert!(insight.id.contains("disk_space"));
+            assert!(insight.detector == "disk_space_critical_now" || insight.detector == "disk_space_warning_now");
+            assert!(insight.title.contains("Disk Space"));
+            assert!(insight.explanation.contains("filesystem"));
+            assert!(insight.evidence.len() >= 2); // Should have usage % and available GB
+
+            // Test suggestion exists and is useful
+            if let Some(suggestion) = insight.suggestion {
+                assert!(suggestion.contains("annactl"));
+            }
+        }
     }
 }

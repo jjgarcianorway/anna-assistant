@@ -791,21 +791,26 @@ fn display_anna_reflection() {
 }
 
 async fn display_insights() {
-    // Try to open Historian database
-    let historian = match Historian::new("/var/lib/anna/historian.db") {
-        Ok(h) => h,
-        Err(_) => return, // Silently skip if DB doesn't exist yet
-    };
+    use anna_common::insights_engine::Insight;
 
-    let insights_engine = InsightsEngine::new(historian);
+    let mut all_insights: Vec<Insight> = Vec::new();
 
-    // Get top 3 insights from last 24 hours
-    let insights = match insights_engine.get_top_insights(3, 24) {
-        Ok(insights) => insights,
-        Err(_) => return, // Skip on error
-    };
+    // v6.38.1: Check current disk space FIRST (deterministic, no historian required)
+    if let Ok(Some(disk_insight)) = InsightsEngine::check_disk_space_now() {
+        all_insights.push(disk_insight);
+    }
 
-    if insights.is_empty() {
+    // Try to open Historian database for historical insights
+    if let Ok(historian) = Historian::new("/var/lib/anna/historian.db") {
+        let insights_engine = InsightsEngine::new(historian);
+
+        // Get top 3 insights from last 24 hours
+        if let Ok(mut insights) = insights_engine.get_top_insights(3, 24) {
+            all_insights.append(&mut insights);
+        }
+    }
+
+    if all_insights.is_empty() {
         return; // No insights to display
     }
 
@@ -816,7 +821,7 @@ async fn display_insights() {
     println!("{}", output_engine.format_subheader("Recent Insights"));
     println!();
 
-    for insight in insights {
+    for insight in all_insights {
         // v6.32.0: Use engine.format_insight() for professional formatting
         print!("{}", output_engine.format_insight(&insight));
     }
