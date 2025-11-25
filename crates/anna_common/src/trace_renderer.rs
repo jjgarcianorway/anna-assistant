@@ -129,6 +129,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: Some("Check for games".to_string()),
+                assumptions: vec![],
+                confidence: 0.9,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -138,6 +141,7 @@ mod tests {
                 stderr: String::new(),
                 success: true,
                 time_ms: 10,
+                evidence: crate::executor_core::EvidenceItem { command: "test".to_string(), exit_code: 0, stderr_snippet: String::new(), kind: crate::executor_core::EvidenceKind::Positive, summary: None },
             }],
             success: true,
             execution_time_ms: 10,
@@ -180,6 +184,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: Some("Hardware check test".to_string()),
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![
                 CommandResult {
@@ -190,6 +197,7 @@ mod tests {
                     stderr: String::new(),
                     success: true,
                     time_ms: 5,
+                evidence: crate::executor_core::EvidenceItem { command: "test".to_string(), exit_code: 0, stderr_snippet: String::new(), kind: crate::executor_core::EvidenceKind::Positive, summary: None },
                 },
                 CommandResult {
                     command: "cmd2".to_string(),
@@ -199,6 +207,7 @@ mod tests {
                     stderr: String::new(),
                     success: false,
                     time_ms: 5,
+                evidence: crate::executor_core::EvidenceItem { command: "test".to_string(), exit_code: 0, stderr_snippet: String::new(), kind: crate::executor_core::EvidenceKind::Positive, summary: None },
                 },
             ],
             success: false,

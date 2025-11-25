@@ -67,6 +67,7 @@ pub mod planner_core; // v6.41.0: Planner Core - LLM-driven command planning
 pub mod executor_core; // v6.41.0: Executor Core - Safe command execution with capturing
 pub mod interpreter_core; // v6.41.0: Interpreter Core - LLM-driven output interpretation
 pub mod trace_renderer; // v6.41.0: Trace Renderer - Visible thinking trace
+pub mod command_validator; // v6.44.0: Command Validation - Strict safety rails for planned commands
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

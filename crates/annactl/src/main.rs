@@ -33,6 +33,7 @@ mod diagnostic_formatter; // Beta.250: Canonical diagnostic report formatting
 mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs, network, CPU, memory)
 mod deterministic_answers; // v6.41.0: Deterministic answer engine (NO LLM HALLUCINATION)
 mod planner_query_handler; // v6.41.0: Planner → Executor → Interpreter core
+mod approval_ui; // v6.43.0: User approval for action plans
 mod net_diagnostics; // Beta.265: Proactive network diagnostics engine
 mod dialogue_v3_json;
 mod first_run;

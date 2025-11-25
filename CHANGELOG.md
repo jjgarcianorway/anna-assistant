@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.44.0] - 2025-11-25
+
+### Core Safety Rails & Evidence Policy: Preventing False Conclusions
+
+**Type:** Major Hardening Release - Quality & Correctness
+**Focus:** Lock down the Planner → Executor → Interpreter core with strict validation and evidence classification
+
+#### The Problem
+
+v6.42.0 introduced real LLM planning and interpretation, but lacked safety rails:
+- LLMs generated syntactically invalid commands (`free -m | awk '{print $3}' -m`)
+- LLMs confused "not found" with "system errors" (database corruption interpreted as "no games installed")
+- Interpreter made definitive claims based on failed commands
+- No validation of command syntax before execution
+
+#### The Solution
+
+Three-layer safety system ensuring commands are valid, evidence is properly classified, and interpretations are honest:
+
+**1. Command Validation Layer** (`command_validator.rs` - 372 lines)
+- **Pre-execution validation**: Commands are validated BEFORE running
+- **Tool existence checks**: Verifies all required tools are installed
+- **Syntax sanity rules**:
+  - Catches trailing flags after awk blocks: `awk '{print $3}' -m` → rejected
+  - Rejects inefficient patterns: `pacman -Q | grep games` → suggests `pacman -Qs games`
+  - Detects empty pipes, malformed grep patterns
+- **Operation safety**: Enforces read-only mode (no rm, no pacman -S, no file writes)
+- **Testing**: 8 validation tests covering all error types
+
+**2. Evidence Classification** (Extended `executor_core.rs` by ~150 lines)
+- **EvidenceKind enum**: Positive, Negative, Unknown, Conflicting
+- **Proper classification**:
+  - `pacman -Q steam` exit 0 + output = **Positive** (can claim "steam is installed")
+  - `pacman -Q games` exit 1 + "package not found" = **Negative** (can claim "games not installed")
+  - `pacman -Q games` exit 1 + "could not open database" = **Unknown** (CANNOT claim anything)
+- **is_clear_negative()** function: Distinguishes "not found" from system errors
+- **Evidence summary**: Generates human-readable summaries for each classification
+
+**3. Evidence-Aware Interpreter** (Extended `interpreter_core.rs` by ~80 lines)
+- **Evidence checking**: interpret_without_llm() checks EvidenceKind BEFORE making claims
+- **Honest error reporting**:
+  - Unknown evidence → "I cannot determine... because [system error]"
+  - No longer says "no games installed" when database is missing
+- **Package results**: Only trust Positive evidence for package presence
+- **LLM prompts**: Include evidence classification in prompts to guide LLM reasoning
+- **Testing**: Added test_fallback_interpreter_with_unknown_evidence()
+
+#### Key Behavioral Changes
+
+**Before v6.44.0:**
+```
+User: "do I have games?"
+Anna: "No games are installed"
+Reality: pacman database was corrupted, Anna guessed based on failure
+```
+
+**After v6.44.0:**
+```
+User: "do I have games?"
+Anna: "I cannot determine package status due to system errors.
+Error: could not open database"
+Reality: Anna is honest about what went wrong
+```
+
+**Prevented Invalid Commands:**
+- `free -m | awk '{print $3}' -m` → Rejected (trailing flag after awk)
+- `pacman -Q | grep games` → Rejected (use pacman -Qs instead)
+- `rm -rf /tmp/test` → Rejected (write operation forbidden)
+
+#### New Modules
+
+- `command_validator.rs`: 372 lines, 8 tests
+- Extended `executor_core.rs`: +150 lines for evidence types and classification
+- Extended `interpreter_core.rs`: +80 lines for evidence-aware interpretation
+
+#### Testing
+
+**Total tests:** 610 passed (anna_common), 123 passed (annactl), 46 passed (annad)
+
+**v6.44.0 specific tests:**
+- 8 validation tests (valid commands, broken syntax, unknown tools, forbidden operations)
+- 1 evidence handling test (Unknown evidence prevents false conclusions)
+- Updated existing tests to use proper EvidenceKind classification
+
+#### Impact
+
+- **Correctness**: No more false conclusions from failed commands
+- **Reliability**: Invalid commands caught before execution
+- **Transparency**: Users see actual errors instead of Anna guessing
+- **Foundation**: Core is now ready for multi-round validation (v6.45.0)
+
 ## [6.42.0] - 2025-11-25
 
 ### LLM Intelligence Layer: Real AI Planning and Interpretation

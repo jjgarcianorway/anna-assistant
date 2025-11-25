@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.42.0**
+**Experimental Arch Linux System Assistant - Version 6.44.0**
 
-[![Version](https://img.shields.io/badge/version-6.42.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.44.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -26,6 +26,34 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 - ✅  CLI-only (no GUI)
 - ✅  Local-first (no telemetry sent anywhere)
 - ✅  Open source (GPL-3.0)
+
+---
+
+## What's New in 6.44.0 - Core Safety Rails 🛡️
+
+### Preventing False Conclusions with Evidence Policy
+
+**The Problem:** v6.42.0 gave LLMs too much freedom - they generated invalid commands and confused "not found" with "system errors".
+
+**The Solution:** Three-layer safety system:
+
+1. **Command Validation** - Catches invalid syntax BEFORE execution
+   - ❌ `free -m | awk '{print $3}' -m` (trailing flag)
+   - ❌ `pacman -Q | grep games` (use `pacman -Qs`)
+   - ❌ `rm -rf /tmp/test` (write operations forbidden)
+
+2. **Evidence Classification** - Distinguishes "not found" from errors
+   - ✅ Positive: Command succeeded with output
+   - ✅ Negative: "package not found" (clear negative)
+   - ❌ Unknown: "could not open database" (system error)
+
+3. **Honest Interpretation** - No guessing from failed commands
+   - Before: "No games installed" (database was broken)
+   - After: "I cannot determine... database error"
+
+**Impact:** No more false conclusions. 610 tests passing. Ready for multi-round validation (v6.45.0).
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 ---
 

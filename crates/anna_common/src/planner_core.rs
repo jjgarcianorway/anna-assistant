@@ -101,6 +101,16 @@ pub struct CommandPlan {
 
     /// LLM reasoning for this plan
     pub reasoning: String,
+
+    // v6.43.0: Approval flow metadata
+    /// Human-readable description of what the user wants to achieve
+    pub goal_description: Option<String>,
+
+    /// Assumptions made by the planner
+    pub assumptions: Vec<String>,
+
+    /// Estimated confidence that this plan will satisfy the request (0.0-1.0)
+    pub confidence: f32,
 }
 
 /// A single planned command
@@ -117,6 +127,38 @@ pub struct PlannedCommand {
 
     /// Required tools that must exist
     pub requires_tools: Vec<String>,
+
+    // v6.43.0: Step-level approval metadata
+    /// Step-specific risk level
+    pub risk_level: StepRiskLevel,
+
+    /// Whether this step writes files
+    pub writes_files: bool,
+
+    /// Whether this step requires root/sudo
+    pub requires_root: bool,
+
+    /// What "success" looks like for this step
+    pub expected_outcome: Option<String>,
+
+    /// What to check in the output to confirm success
+    pub validation_hint: Option<String>,
+}
+
+/// Risk level for individual command steps (v6.43.0)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StepRiskLevel {
+    /// Read-only operation, no side effects
+    ReadOnly,
+
+    /// Low risk (creates cache, writes logs)
+    Low,
+
+    /// Medium risk (modifies config, requires user data)
+    Medium,
+
+    /// High risk (deletes data, system-wide changes)
+    High,
 }
 
 /// Safety level for commands
@@ -130,6 +172,32 @@ pub enum SafetyLevel {
 
     /// Risky operations (package install, file deletion)
     Risky,
+}
+
+/// Planner interaction result (v6.43.0)
+///
+/// Represents the outcome of a planning attempt - either a ready plan
+/// or a need for more information from the user.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PlannerInteraction {
+    /// Planner has enough information and produced a plan
+    PlanReady {
+        plan: CommandPlan,
+    },
+
+    /// Planner needs clarification before it can produce a plan
+    NeedMoreInfo {
+        /// Questions to ask the user (numbered list)
+        questions: Vec<String>,
+
+        /// Context to pass back when user answers
+        context: serde_json::Value,
+    },
+
+    /// Planner determined the query cannot be handled
+    CannotHandle {
+        reason: String,
+    },
 }
 
 /// Interpret user query into structured intent
@@ -405,6 +473,14 @@ impl<'a> LlmPlanner<'a> {
             .ok_or_else(|| LlmError::InvalidJson("Missing 'commands' array".to_string()))?
             .iter()
             .filter_map(|cmd_json| {
+                let risk_level = match cmd_json.get("risk_level").and_then(|v| v.as_str()) {
+                    Some("ReadOnly") => StepRiskLevel::ReadOnly,
+                    Some("Low") => StepRiskLevel::Low,
+                    Some("Medium") => StepRiskLevel::Medium,
+                    Some("High") => StepRiskLevel::High,
+                    _ => StepRiskLevel::ReadOnly, // Default to safe
+                };
+
                 Some(PlannedCommand {
                     command: cmd_json.get("command")?.as_str()?.to_string(),
                     args: cmd_json
@@ -420,6 +496,11 @@ impl<'a> LlmPlanner<'a> {
                         .iter()
                         .filter_map(|v| v.as_str().map(|s| s.to_string()))
                         .collect(),
+                    risk_level,
+                    writes_files: cmd_json.get("writes_files").and_then(|v| v.as_bool()).unwrap_or(false),
+                    requires_root: cmd_json.get("requires_root").and_then(|v| v.as_bool()).unwrap_or(false),
+                    expected_outcome: cmd_json.get("expected_outcome").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    validation_hint: cmd_json.get("validation_hint").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 })
             })
             .collect();
@@ -441,6 +522,14 @@ impl<'a> LlmPlanner<'a> {
             .map(|arr| {
                 arr.iter()
                     .filter_map(|cmd_json| {
+                        let risk_level = match cmd_json.get("risk_level").and_then(|v| v.as_str()) {
+                            Some("ReadOnly") => StepRiskLevel::ReadOnly,
+                            Some("Low") => StepRiskLevel::Low,
+                            Some("Medium") => StepRiskLevel::Medium,
+                            Some("High") => StepRiskLevel::High,
+                            _ => StepRiskLevel::ReadOnly,
+                        };
+
                         Some(PlannedCommand {
                             command: cmd_json.get("command")?.as_str()?.to_string(),
                             args: cmd_json
@@ -456,6 +545,11 @@ impl<'a> LlmPlanner<'a> {
                                 .iter()
                                 .filter_map(|v| v.as_str().map(|s| s.to_string()))
                                 .collect(),
+                            risk_level,
+                            writes_files: cmd_json.get("writes_files").and_then(|v| v.as_bool()).unwrap_or(false),
+                            requires_root: cmd_json.get("requires_root").and_then(|v| v.as_bool()).unwrap_or(false),
+                            expected_outcome: cmd_json.get("expected_outcome").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            validation_hint: cmd_json.get("validation_hint").and_then(|v| v.as_str()).map(|s| s.to_string()),
                         })
                     })
                     .collect()
@@ -474,12 +568,36 @@ impl<'a> LlmPlanner<'a> {
             .unwrap_or("LLM-generated plan")
             .to_string();
 
+        // v6.43.0: Parse approval flow metadata
+        let goal_description = json
+            .get("goal_description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let assumptions: Vec<String> = json
+            .get("assumptions")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let confidence = json
+            .get("confidence")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.8) as f32;
+
         Ok(CommandPlan {
             commands,
             safety_level,
             fallbacks,
             expected_output,
             reasoning,
+            goal_description,
+            assumptions,
+            confidence,
         })
     }
 }
@@ -499,6 +617,11 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
                     ],
                     purpose: "Find game-related packages".to_string(),
                     requires_tools: vec!["pacman".to_string(), "grep".to_string()],
+                    risk_level: StepRiskLevel::ReadOnly,
+                    writes_files: false,
+                    requires_root: false,
+                    expected_outcome: Some("List of game packages if any exist".to_string()),
+                    validation_hint: Some("Non-empty output indicates games are installed".to_string()),
                 });
             } else if intent.query.to_lowercase().contains("file manager") {
                 commands.push(PlannedCommand {
@@ -509,6 +632,11 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
                     ],
                     purpose: "Find file manager packages".to_string(),
                     requires_tools: vec!["pacman".to_string(), "grep".to_string()],
+                    risk_level: StepRiskLevel::ReadOnly,
+                    writes_files: false,
+                    requires_root: false,
+                    expected_outcome: Some("List of file manager packages if any exist".to_string()),
+                    validation_hint: Some("Non-empty output indicates file managers are installed".to_string()),
                 });
             }
         }
@@ -534,6 +662,11 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
                     ],
                     purpose: format!("Get CPU flags to check for: {}", features.join(", ")),
                     requires_tools: vec!["lscpu".to_string(), "grep".to_string()],
+                    risk_level: StepRiskLevel::ReadOnly,
+                    writes_files: false,
+                    requires_root: false,
+                    expected_outcome: Some("CPU flags line from lscpu or /proc/cpuinfo".to_string()),
+                    validation_hint: Some(format!("Check if output contains: {}", features.join(", "))),
                 });
             }
         }
@@ -543,6 +676,11 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
                 args: vec!["DE_WM_DETECTOR".to_string()],
                 purpose: "Use de_wm_detector module for accurate detection".to_string(),
                 requires_tools: vec![],
+                risk_level: StepRiskLevel::ReadOnly,
+                writes_files: false,
+                requires_root: false,
+                expected_outcome: Some("Signal for de_wm_detector invocation".to_string()),
+                validation_hint: None,
             });
         }
         _ => {
@@ -552,6 +690,11 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
                 args: vec!["Unsupported query for fallback planner".to_string()],
                 purpose: "Placeholder for unsupported domain".to_string(),
                 requires_tools: vec![],
+                risk_level: StepRiskLevel::ReadOnly,
+                writes_files: false,
+                requires_root: false,
+                expected_outcome: None,
+                validation_hint: None,
             });
         }
     }
@@ -562,6 +705,9 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
         fallbacks: vec![],
         expected_output: "Command outputs for analysis".to_string(),
         reasoning: "Deterministic fallback plan (LLM unavailable)".to_string(),
+        goal_description: Some(intent.query.clone()),
+        assumptions: vec!["Using deterministic fallback (LLM unavailable)".to_string()],
+        confidence: 0.7, // Fallback plans are reasonably confident but not as good as LLM
     }
 }
 

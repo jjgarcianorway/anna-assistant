@@ -138,38 +138,60 @@ pub fn parse_confidence(s: &str) -> ConfidenceLevel {
 }
 
 /// Fallback interpreter when LLM is not available
+/// v6.44.0: Now evidence-aware - checks EvidenceKind before making claims
 pub fn interpret_without_llm(
     intent: &Intent,
     exec_result: &ExecutionResult,
 ) -> InterpretedAnswer {
-    if !exec_result.success {
-        // All commands failed
+    // v6.44.0: Check evidence classification FIRST
+    use crate::executor_core::EvidenceKind;
+
+    // If we have any Unknown evidence, be honest about it
+    let has_unknown = exec_result
+        .command_results
+        .iter()
+        .any(|r| r.evidence.kind == EvidenceKind::Unknown);
+
+    let has_positive = exec_result
+        .command_results
+        .iter()
+        .any(|r| r.evidence.kind == EvidenceKind::Positive);
+
+    let has_negative = exec_result
+        .command_results
+        .iter()
+        .any(|r| r.evidence.kind == EvidenceKind::Negative);
+
+    // If we ONLY have Unknown evidence, don't make claims
+    if !exec_result.success && !has_positive && !has_negative {
         let mut error_msg = format!(
-            "I tried to answer your question but encountered errors:\n\n"
+            "I cannot answer your question due to command failures:\n\n"
         );
 
         for cmd_result in &exec_result.command_results {
-            if !cmd_result.success {
+            if cmd_result.evidence.kind == EvidenceKind::Unknown {
+                let error_detail = if !cmd_result.stderr.is_empty() {
+                    cmd_result.stderr.lines().next().unwrap_or("unknown error")
+                } else {
+                    "command failed with no error message"
+                };
+
                 error_msg.push_str(&format!(
                     "  • {}: {}\n",
                     cmd_result.full_command,
-                    if cmd_result.stderr.is_empty() {
-                        "command failed"
-                    } else {
-                        cmd_result.stderr.lines().next().unwrap_or("unknown error")
-                    }
+                    error_detail
                 ));
             }
         }
 
-        error_msg.push_str("\nPlease ensure required tools are installed.");
+        error_msg.push_str("\nThis is likely a system issue (missing database, permission error, etc.).");
 
         return InterpretedAnswer {
             answer: error_msg,
             details: None,
             confidence: ConfidenceLevel::Low,
-            reasoning: "All commands failed".to_string(),
-            source: "Execution failure".to_string(),
+            reasoning: "All commands failed with system errors (Unknown evidence)".to_string(),
+            source: "Command execution errors".to_string(),
             achieved_goal: false,
             validation_confidence: 0.0,
             followup_suggestions: vec![],
@@ -205,10 +227,16 @@ pub fn interpret_without_llm(
 }
 
 fn interpret_package_results(exec_result: &ExecutionResult) -> String {
+    use crate::executor_core::EvidenceKind;
+
+    // v6.44.0: Check evidence before making claims
     let mut packages = Vec::new();
+    let mut has_unknown = false;
+    let mut unknown_reason = String::new();
 
     for cmd_result in &exec_result.command_results {
-        if cmd_result.success && !cmd_result.stdout.is_empty() {
+        // Only trust Positive evidence for package presence
+        if cmd_result.evidence.kind == EvidenceKind::Positive && !cmd_result.stdout.is_empty() {
             // Extract package names from output
             for line in cmd_result.stdout.lines() {
                 if let Some(pkg_name) = line.split_whitespace().next() {
@@ -217,7 +245,21 @@ fn interpret_package_results(exec_result: &ExecutionResult) -> String {
                     }
                 }
             }
+        } else if cmd_result.evidence.kind == EvidenceKind::Unknown {
+            has_unknown = true;
+            if !cmd_result.stderr.is_empty() {
+                unknown_reason = cmd_result.stderr.lines().next().unwrap_or("").to_string();
+            }
         }
+    }
+
+    // If we have Unknown evidence and no packages, be honest
+    if packages.is_empty() && has_unknown {
+        return format!(
+            "I cannot determine package status due to system errors.\n\
+            Error: {}",
+            unknown_reason
+        );
     }
 
     if packages.is_empty() {
@@ -422,6 +464,13 @@ impl<'a> LlmInterpreter<'a> {
     fn build_system_prompt(&self) -> String {
         "You are a result interpreter for Arch Linux system commands. \
         Your job is to analyze command outputs and provide clear, honest answers to the user's question. \
+        \n\n\
+        EVIDENCE RULES (v6.44.0):\n\
+        - Positive evidence: Command succeeded with output. You CAN make positive claims.\n\
+        - Negative evidence: Command succeeded with 'not found' result. You CAN make negative claims.\n\
+        - Unknown evidence: System error (database missing, permission denied, etc.). You CANNOT make claims. Say 'I cannot determine...' instead.\n\
+        - If evidence is Unknown, explain the system error, don't guess the answer.\n\
+        \n\
         Be specific and include actual data from the outputs. \
         Do NOT use markdown code fences in your answer. \
         If commands failed, explain what went wrong honestly.".to_string()
@@ -440,7 +489,7 @@ impl<'a> LlmInterpreter<'a> {
             intent.query, intent.goal, intent.domain
         );
 
-        // Add command execution results
+        // Add command execution results with evidence (v6.44.0)
         prompt.push_str("Command execution results:\n");
         if exec_result.command_results.is_empty() {
             prompt.push_str("  (no commands executed)\n");
@@ -448,6 +497,12 @@ impl<'a> LlmInterpreter<'a> {
             for (i, cmd_result) in exec_result.command_results.iter().enumerate() {
                 prompt.push_str(&format!("\nCommand {}: {}\n", i + 1, cmd_result.full_command));
                 prompt.push_str(&format!("Exit code: {}\n", cmd_result.exit_code));
+
+                // v6.44.0: Include evidence classification
+                prompt.push_str(&format!("Evidence: {:?}\n", cmd_result.evidence.kind));
+                if let Some(ref summary) = cmd_result.evidence.summary {
+                    prompt.push_str(&format!("Evidence summary: {}\n", summary));
+                }
 
                 if !cmd_result.stdout.is_empty() {
                     let output_lines: Vec<&str> = cmd_result.stdout.lines().take(100).collect();
@@ -550,8 +605,23 @@ impl<'a> LlmInterpreter<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::executor_core::{CommandResult, ExecutionResult};
+    use crate::executor_core::{CommandResult, EvidenceItem, EvidenceKind, ExecutionResult};
     use crate::planner_core::{CommandPlan, DomainType, GoalType, Intent, SafetyLevel};
+
+    // Helper to create test evidence
+    fn test_evidence(cmd: &str, exit_code: i32, success: bool) -> EvidenceItem {
+        EvidenceItem {
+            command: cmd.to_string(),
+            exit_code,
+            stderr_snippet: String::new(),
+            kind: if success {
+                EvidenceKind::Positive
+            } else {
+                EvidenceKind::Unknown
+            },
+            summary: None,
+        }
+    }
 
     #[test]
     fn test_parse_confidence() {
@@ -570,6 +640,7 @@ mod tests {
             query: "test query".to_string(),
         };
 
+        // v6.44.0: pacman exit 1 with "package not found" is Negative evidence, not Unknown
         let exec_result = ExecutionResult {
             plan: CommandPlan {
                 commands: vec![],
@@ -577,6 +648,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -586,6 +660,59 @@ mod tests {
                 stderr: "error: package not found".to_string(),
                 success: false,
                 time_ms: 10,
+                evidence: EvidenceItem {
+                    command: "pacman -Q test".to_string(),
+                    exit_code: 1,
+                    stderr_snippet: "error: package not found".to_string(),
+                    kind: EvidenceKind::Negative,  // "not found" is clear negative
+                    summary: Some("No matches/results from pacman".to_string()),
+                },
+            }],
+            success: false,
+            execution_time_ms: 10,
+        };
+
+        let answer = interpret_without_llm(&intent, &exec_result);
+        assert_eq!(answer.confidence, ConfidenceLevel::Medium);  // Has negative evidence, not unknown
+        assert!(answer.answer.contains("No matching packages found"));
+    }
+
+    #[test]
+    fn test_fallback_interpreter_with_unknown_evidence() {
+        // v6.44.0: Test that Unknown evidence prevents false conclusions
+        let intent = Intent {
+            goal: GoalType::Inspect,
+            domain: DomainType::Packages,
+            constraints: vec![],
+            query: "do I have games?".to_string(),
+        };
+
+        let exec_result = ExecutionResult {
+            plan: CommandPlan {
+                commands: vec![],
+                safety_level: SafetyLevel::ReadOnly,
+                fallbacks: vec![],
+                expected_output: String::new(),
+                reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
+            },
+            command_results: vec![CommandResult {
+                command: "pacman".to_string(),
+                full_command: "pacman -Qs games".to_string(),
+                exit_code: 1,
+                stdout: String::new(),
+                stderr: "error: could not open database".to_string(),
+                success: false,
+                time_ms: 10,
+                evidence: EvidenceItem {
+                    command: "pacman -Qs games".to_string(),
+                    exit_code: 1,
+                    stderr_snippet: "error: could not open database".to_string(),
+                    kind: EvidenceKind::Unknown,  // Database error, not "not found"
+                    summary: Some("Error from pacman: could not open database".to_string()),
+                },
             }],
             success: false,
             execution_time_ms: 10,
@@ -593,7 +720,9 @@ mod tests {
 
         let answer = interpret_without_llm(&intent, &exec_result);
         assert_eq!(answer.confidence, ConfidenceLevel::Low);
-        assert!(answer.answer.contains("encountered errors"));
+        assert!(answer.answer.contains("I cannot answer"));
+        assert!(answer.answer.contains("could not open database"));
+        assert!(!answer.achieved_goal);
     }
 
     #[test]
@@ -605,6 +734,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -614,6 +746,7 @@ mod tests {
                 stderr: String::new(),
                 success: true,
                 time_ms: 10,
+                evidence: test_evidence("test", 0, true),
             }],
             success: true,
             execution_time_ms: 10,
@@ -657,6 +790,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -666,6 +802,7 @@ mod tests {
                 stderr: String::new(),
                 success: true,
                 time_ms: 10,
+                evidence: test_evidence("test", 0, true),
             }],
             success: true,
             execution_time_ms: 10,
@@ -701,6 +838,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![CommandResult {
                 command: "sh".to_string(),
@@ -710,6 +850,7 @@ mod tests {
                 stderr: String::new(),
                 success: true,
                 time_ms: 10,
+                evidence: test_evidence("test", 0, true),
             }],
             success: true,
             execution_time_ms: 10,
@@ -741,6 +882,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![CommandResult {
                 command: "lscpu".to_string(),
@@ -750,6 +894,7 @@ mod tests {
                 stderr: String::new(),
                 success: true,
                 time_ms: 10,
+                evidence: test_evidence("lscpu", 0, true),
             }],
             success: true,
             execution_time_ms: 10,
@@ -792,6 +937,9 @@ mod tests {
                 fallbacks: vec![],
                 expected_output: String::new(),
                 reasoning: String::new(),
+                goal_description: None,
+                assumptions: vec![],
+                confidence: 0.8,
             },
             command_results: vec![],
             success: true,

@@ -2,12 +2,13 @@
 //!
 //! v6.41.0: The Executor takes command plans from the Planner and runs them
 //! on the real system, with safety checks and output capturing.
+//!
+//! v6.44.0: Evidence-based execution with proper classification of results.
 
 use crate::planner_core::{CommandPlan, PlannedCommand, SafetyLevel};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use std::time::Duration;
 
 /// Result of executing a command plan
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +24,44 @@ pub struct ExecutionResult {
 
     /// Overall execution time in milliseconds
     pub execution_time_ms: u64,
+}
+
+/// Evidence classification for command results (v6.44.0)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum EvidenceKind {
+    /// Command succeeded and output clearly supports a fact
+    /// Example: grep found matches, pacman found packages
+    Positive,
+
+    /// Command succeeded with empty/explicit "not found" output
+    /// Example: grep found no matches, pacman -Q returns exit 1 for "not installed"
+    Negative,
+
+    /// Command failed with OS errors or non-zero exit that doesn't encode clear negative
+    /// Example: ENOENT, EACCES, database corruption, invalid command
+    Unknown,
+
+    /// Different commands gave incompatible answers
+    Conflicting,
+}
+
+/// Evidence item for a single command execution (v6.44.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceItem {
+    /// Command string
+    pub command: String,
+
+    /// Exit code
+    pub exit_code: i32,
+
+    /// Stderr snippet (truncated if too long)
+    pub stderr_snippet: String,
+
+    /// Classified evidence kind
+    pub kind: EvidenceKind,
+
+    /// Parsed summary if available
+    pub summary: Option<String>,
 }
 
 /// Result of executing a single command
@@ -48,6 +87,9 @@ pub struct CommandResult {
 
     /// Execution time in milliseconds
     pub time_ms: u64,
+
+    /// Evidence classification (v6.44.0)
+    pub evidence: EvidenceItem,
 }
 
 /// Tool inventory - what's available on this system
@@ -123,14 +165,22 @@ pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
 
         if !missing_tools.is_empty() {
             // Skip this command, tool not available
+            let stderr_msg = format!("Required tools not found: {}", missing_tools.join(", "));
             command_results.push(CommandResult {
                 command: planned_cmd.command.clone(),
                 full_command: format_full_command(planned_cmd),
                 exit_code: -1,
                 stdout: String::new(),
-                stderr: format!("Required tools not found: {}", missing_tools.join(", ")),
+                stderr: stderr_msg.clone(),
                 success: false,
                 time_ms: 0,
+                evidence: EvidenceItem {
+                    command: format_full_command(planned_cmd),
+                    exit_code: -1,
+                    stderr_snippet: stderr_msg,
+                    kind: EvidenceKind::Unknown,
+                    summary: Some("Tool not available".to_string()),
+                },
             });
             all_success = false;
             continue;
@@ -145,14 +195,22 @@ pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
                 command_results.push(result);
             }
             Err(e) => {
+                let stderr_msg = format!("Execution error: {}", e);
                 command_results.push(CommandResult {
                     command: planned_cmd.command.clone(),
                     full_command: format_full_command(planned_cmd),
                     exit_code: -1,
                     stdout: String::new(),
-                    stderr: format!("Execution error: {}", e),
+                    stderr: stderr_msg.clone(),
                     success: false,
                     time_ms: 0,
+                    evidence: EvidenceItem {
+                        command: format_full_command(planned_cmd),
+                        exit_code: -1,
+                        stderr_snippet: stderr_msg,
+                        kind: EvidenceKind::Unknown,
+                        summary: Some("Execution error".to_string()),
+                    },
                 });
                 all_success = false;
             }
@@ -192,16 +250,140 @@ fn execute_command(planned: &PlannedCommand) -> Result<CommandResult> {
         .output()?;
 
     let time_ms = start.elapsed().as_millis() as u64;
+    let exit_code = output.status.code().unwrap_or(-1);
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let success = output.status.success();
+
+    // v6.44.0: Classify evidence
+    let evidence = classify_evidence(
+        &format_full_command(planned),
+        exit_code,
+        &stdout,
+        &stderr,
+        success,
+        &planned.command,
+    );
 
     Ok(CommandResult {
         command: planned.command.clone(),
         full_command: format_full_command(planned),
-        exit_code: output.status.code().unwrap_or(-1),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        success: output.status.success(),
+        exit_code,
+        stdout,
+        stderr,
+        success,
         time_ms,
+        evidence,
     })
+}
+
+/// Classify evidence from command execution (v6.44.0)
+fn classify_evidence(
+    full_command: &str,
+    exit_code: i32,
+    stdout: &str,
+    stderr: &str,
+    success: bool,
+    command_name: &str,
+) -> EvidenceItem {
+    let stderr_snippet = if stderr.len() > 200 {
+        format!("{}...", &stderr[..200])
+    } else {
+        stderr.to_string()
+    };
+
+    // Determine evidence kind
+    let kind = if !success {
+        // Command failed - determine if it's a clear negative or unknown
+        if is_clear_negative(exit_code, stderr, command_name) {
+            EvidenceKind::Negative
+        } else {
+            EvidenceKind::Unknown
+        }
+    } else if stdout.trim().is_empty() && stderr.trim().is_empty() {
+        // Command succeeded but no output - usually negative
+        EvidenceKind::Negative
+    } else if !stdout.trim().is_empty() {
+        // Command succeeded with output - positive evidence
+        EvidenceKind::Positive
+    } else {
+        // Success but only stderr - context dependent
+        EvidenceKind::Positive
+    };
+
+    let summary = generate_evidence_summary(&kind, command_name, stdout, stderr);
+
+    EvidenceItem {
+        command: full_command.to_string(),
+        exit_code,
+        stderr_snippet,
+        kind,
+        summary,
+    }
+}
+
+/// Check if a failed command represents a clear negative (not found/not installed)
+/// vs Unknown (system error, permission denied, database corruption)
+fn is_clear_negative(exit_code: i32, stderr: &str, command_name: &str) -> bool {
+    // Pacman returns 1 for "package not found" (clear negative)
+    if command_name == "pacman" && exit_code == 1 {
+        if stderr.contains("error: package") && stderr.contains("was not found") {
+            return true;
+        }
+        if stderr.contains("error: target not found") {
+            return true;
+        }
+    }
+
+    // Grep returns 1 for "no matches" (clear negative)
+    if command_name == "grep" && exit_code == 1 && stderr.is_empty() {
+        return true;
+    }
+
+    // System errors are NOT clear negatives
+    if stderr.contains("No such file or directory") {
+        return false; // Unknown - database/file missing
+    }
+    if stderr.contains("Permission denied") {
+        return false; // Unknown - access error
+    }
+    if stderr.contains("could not open database") {
+        return false; // Unknown - corruption/missing
+    }
+    if stderr.contains("failed to initialize") {
+        return false; // Unknown - setup error
+    }
+
+    // Default: unknown for non-zero exit
+    false
+}
+
+/// Generate a brief summary of the evidence
+fn generate_evidence_summary(
+    kind: &EvidenceKind,
+    command_name: &str,
+    stdout: &str,
+    stderr: &str,
+) -> Option<String> {
+    match kind {
+        EvidenceKind::Positive => {
+            let line_count = stdout.lines().count();
+            if line_count > 0 {
+                Some(format!("{} lines of output from {}", line_count, command_name))
+            } else {
+                Some(format!("Success from {}", command_name))
+            }
+        }
+        EvidenceKind::Negative => Some(format!("No matches/results from {}", command_name)),
+        EvidenceKind::Unknown => {
+            if !stderr.is_empty() {
+                Some(format!("Error from {}: {}", command_name, &stderr[..stderr.len().min(100)]))
+            } else {
+                Some(format!("Failed with no clear error from {}", command_name))
+            }
+        }
+        EvidenceKind::Conflicting => Some("Conflicting results from multiple commands".to_string()),
+    }
 }
 
 /// Format a command for display
@@ -270,6 +452,11 @@ mod tests {
             args: vec!["hello".to_string()],
             purpose: "test command".to_string(),
             requires_tools: vec![],
+            risk_level: crate::planner_core::StepRiskLevel::ReadOnly,
+            writes_files: false,
+            requires_root: false,
+            expected_outcome: None,
+            validation_hint: None,
         };
 
         let result = execute_command(&planned);
@@ -286,6 +473,11 @@ mod tests {
             args: vec!["-Q".to_string(), "steam".to_string()],
             purpose: "check steam".to_string(),
             requires_tools: vec!["pacman".to_string()],
+            risk_level: crate::planner_core::StepRiskLevel::ReadOnly,
+            writes_files: false,
+            requires_root: false,
+            expected_outcome: None,
+            validation_hint: None,
         };
 
         assert_eq!(format_full_command(&planned), "pacman -Q steam");

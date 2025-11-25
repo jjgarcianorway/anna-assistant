@@ -95,6 +95,20 @@ pub async fn handle_with_planner(
         planner_core::fallback_plan(&intent, &tool_inventory)
     };
 
+    // Step 4.5: Request approval if needed (v6.43.0)
+    if crate::approval_ui::requires_approval(&plan) {
+        match crate::approval_ui::request_approval(&plan) {
+            Ok(approved) => {
+                if !approved {
+                    return Ok("Operation cancelled by user.".to_string());
+                }
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!("Failed to get user approval: {}", e));
+            }
+        }
+    }
+
     // Step 5: Execute the plan
     let exec_result = executor_core::execute_plan(&plan)?;
 
