@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.46.0] - 2025-11-25
+
+### Interactive Query Mode: Multi-Turn Conversations with Follow-Ups
+
+**Type:** Feature Release - Interactive Dialogue System
+**Focus:** Enable LLM to ask clarifying questions and suggest alternatives based on validation results
+
+#### The Solution
+
+Interactive mode that transforms single-shot queries into multi-turn conversations:
+
+**New Module: `interactive_mode.rs` (295 lines, 10 tests)**
+- **InteractiveSession**: Tracks conversation state across multiple rounds
+- **InteractivePromptType**: ClarificationRequest, AlternativeSuggestion, Completion
+- **User input parsing**: Handles yes/no responses and numbered/text-based selections
+- **Session management**: Maximum 3 rounds with complete history preservation
+
+#### Key Features
+
+- **Smart prompting**: LLM automatically generates follow-up questions when:
+  - Results are ambiguous → Ask user to clarify between alternatives
+  - Data is insufficient → Suggest alternative approach and ask permission
+  - Results are complete → Show summary and conclude
+- **User-friendly parsing**: Accepts "yes/y/sure/ok" for confirmations, numbers or keywords for selections
+- **Context preservation**: Full conversation history maintained across rounds
+- **Graceful completion**: Sessions auto-complete after 3 rounds or when user declines
+
+#### Example Flow
+
+```
+User: "do I have games?"
+Anna: [Finds multiple types of "games"]
+Anna: "The results are ambiguous.
+
+      Which interpretation makes sense to you?
+      1. Steam gaming
+      2. Game development
+
+      Please select a number (1-2)"
+
+User: "1"
+Anna: "✓ Found 3 Steam games installed: steam, lutris, wine-staging"
+```
+
+#### Testing
+
+- **Total tests**: 628 passed (618 + 10 new interactive tests)
+- All prompt types and parsing scenarios covered
+
+#### Impact
+
+- **Better UX**: No more cryptic "insufficient data" messages
+- **Adaptive conversations**: Anna can refine queries based on user feedback
+- **Leverages v6.45.0**: Uses ValidationDecision to drive interactive prompts
+- **Foundation for v6.47.0**: Ready for personality-aware greetings
+
 ## [6.45.0] - 2025-11-25
 
 ### Multi-Round LLM Validation Loop: Adaptive Command Retry

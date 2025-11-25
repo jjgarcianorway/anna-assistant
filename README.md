@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.45.0**
+**Experimental Arch Linux System Assistant - Version 6.46.0**
 
-[![Version](https://img.shields.io/badge/version-6.45.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.46.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,34 +29,48 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.45.0 - Multi-Round Validation Loop 🔄
+## What's New in 6.46.0 - Interactive Query Mode 💬
 
-### Adaptive Command Retry with LLM Intelligence
+### Multi-Turn Conversations with Follow-Up Questions
 
-**The Problem:** Single-shot commands can't always answer complex questions. If initial results are insufficient, Anna had no way to try alternative approaches.
+**The Problem:** When results are ambiguous or incomplete, Anna just says "insufficient data" without offering help. Users are left stuck.
 
-**The Solution:** Multi-round validation loop that lets the LLM request retries:
+**The Solution:** Interactive mode that transforms queries into conversations:
 
-1. **Validation Decision System** - LLM evaluates execution results
-   - ✅ **Sufficient** - Proceed with interpretation
-   - 🔄 **NeedMoreData** - Try different commands (with suggested approach)
-   - ❓ **Ambiguous** - Results are contradictory (with alternatives)
+1. **Smart Follow-Ups** - Anna asks clarifying questions
+   - 📝 **Ambiguous results?** → "Which interpretation: 1. Gaming, 2. Development?"
+   - 🔍 **Need more data?** → "Would you like me to check system logs? (yes/no)"
+   - ✅ **Complete results?** → Shows summary and concludes
 
-2. **Context-Aware Retry** - Maximum 3 rounds with full context
-   - Round 1: Initial command attempt
-   - Round 2: LLM sees previous results + evidence classification
-   - Round 3: Final chance (forces "Sufficient" to prevent infinite loops)
+2. **User-Friendly Input** - Natural response parsing
+   - Confirmations: "yes", "y", "sure", "ok" → Proceed
+   - Selections: "1" or "gaming" → Pick first option
+   - Maximum 3 rounds with full history
 
-3. **Evidence Integration** - Validation respects v6.44.0 safety rails
-   - Validation prompts include EvidenceKind (Positive/Negative/Unknown)
-   - Failed commands due to missing tools → Marked "Sufficient" (can't fix)
-   - Clear "not found" results → Negative evidence (can answer)
+3. **Leverages v6.45.0 Validation** - Automatically triggered
+   - ValidationDecision::Ambiguous → Clarification prompt
+   - ValidationDecision::NeedMoreData → Alternative suggestion
+   - ValidationDecision::Sufficient → Completion message
 
-**Impact:** Adaptive planning foundation. 618 tests passing (610 + 8 new). Ready for interactive mode (v6.46.0).
+**Example:**
+```
+You: "do I have games?"
+Anna: "The results are ambiguous. Which interpretation?
+       1. Steam gaming
+       2. Game development"
+You: "1"
+Anna: "✓ Found 3 Steam games: steam, lutris, wine-staging"
+```
+
+**Impact:** Better UX, adaptive conversations. 628 tests passing (618 + 10 new). Foundation for v6.47.0 personality greetings.
+
+**Previous: 6.45.0 - Multi-Round Validation Loop 🔄**
+
+Adaptive command retry with LLM validation (Sufficient/NeedMoreData/Ambiguous). Maximum 3 rounds with context preservation. 618 tests passing.
 
 **Previous: 6.44.0 - Core Safety Rails 🛡️**
 
-Three-layer safety system preventing false conclusions: Command validation (syntax checks), Evidence classification (Positive/Negative/Unknown), Honest interpretation (no guessing from errors). 610 tests passing.
+Three-layer safety: Command validation, Evidence classification (Positive/Negative/Unknown), Honest interpretation. 610 tests passing.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
