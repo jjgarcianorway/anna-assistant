@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.31.0] - 2025-11-24
+
+### PROFESSIONAL OUTPUT ENGINE (Foundation Only)
+
+**Type:** Infrastructure
+**Focus:** Internal formatting foundation - no user-visible changes yet
+
+#### Added ✨
+
+**Professional Output Engine Module (`output_engine.rs`):**
+- New internal module in `anna_common` for deterministic, consistent formatting
+- **Purpose**: Replaces ad-hoc formatting across Anna with unified rules
+- **Status**: Foundation module - not yet used by user-facing commands
+
+**Core Functions:**
+- `format_header(title)` - Top-level section headers with emoji support
+- `format_subheader(title)` - Section subheaders with consistent bullets
+- `format_section(title, body)` - Complete sections with unified styling
+- `format_command_list(commands)` - Command lists with `[CMD]` prefix (no ``` fences)
+- `format_command(cmd)` - Single command formatting with dimmed tag
+- `format_insight(insight)` - Color-coded insight display (Critical/Warning/Info)
+- `format_prediction(prediction)` - Predictive insight formatting with recommendations
+- `format_summary(text)` - Summary text with markdown fence stripping
+- `format_system_report(...)` - Multi-section system report generator
+- `strip_markdown_fences(text)` - Removes ``` fences and formats as commands
+- `strip_color(text)` - ANSI escape sequence removal for basic terminals
+- `format_key_value(key, value)` - Key-value pair formatting
+- `format_bullet(text)` - Bulleted list items
+
+**Terminal Capability Detection:**
+- `TerminalMode::Color` - Full ANSI color support
+- `TerminalMode::Basic` - ASCII-only, no color
+- Automatic detection via `console` crate
+- Explicit mode override for testing
+
+**Design Principles:**
+- **Deterministic**: Pure logic, no LLM, no randomness
+- **Terminal-aware**: Color only when supported, graceful ASCII fallback
+- **Consistent spacing**: 2 spaces after emojis, proper vertical alignment
+- **Professional hierarchy**: Clear visual structure with headers/subheaders
+- **Zero markdown fences**: No ``` marks in output, commands use [CMD] prefix
+- **Command-first readability**: Commands formatted for easy copy-paste
+
+**Test Coverage:**
+- 10 new unit tests (all passing)
+- Tests cover: headers, commands, fences, insights, color stripping
+- Basic and Color mode variants
+
+#### Technical Notes
+
+- **No behavioral changes**: This is pure infrastructure
+- **Not yet integrated**: User-facing commands still use existing formatting
+- **Future integration**: Planned for v6.32.0+ (status, wiki, insights, etc.)
+- **Zero risk**: Adding unused module cannot break existing functionality
+- **Foundation complete**: All formatting functions ready for gradual migration
+
+#### Why Foundation-Only?
+
+- **Safety**: Separating module creation from integration minimizes risk
+- **Incremental**: Future versions will migrate one command at a time
+- **Testable**: Foundation is complete and tested independently
+- **Reversible**: No user-facing changes means nothing to roll back
+
+#### Test Status
+
+- **Total tests**: 509 (499 existing + 10 new)
+- **Pass rate**: 100% (509/509)
+- **New failures**: 0
+- **Regressions**: 0
+
+---
+
 ## [6.30.0] - 2025-11-24
 
 ### FIRST SELF-OPTIMIZING CYCLE

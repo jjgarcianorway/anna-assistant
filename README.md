@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.30.0**
+**Experimental Arch Linux System Assistant - Version 6.31.0**
 
-[![Version](https://img.shields.io/badge/version-6.30.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.31.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,7 +29,7 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.30.0)
+## What Works Right Now (6.31.0)
 
 ### 1. Status Command
 
@@ -293,9 +293,10 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.30.0 (November 24, 2025)
+**Current Version:** 6.31.0 (November 24, 2025)
 
 **Recent Progress:**
+- ✅  6.31.0 - Professional Output Engine (foundation module, no user-facing changes yet)
 - ✅  6.30.0 - First Self-Optimizing Cycle (noise suppression, high-value highlighting, meta telemetry)
 - ✅  6.29.0 - Insight Summaries Engine v1 (high-level deterministic system summaries)
 - ✅  6.28.0 - Predictive Diagnostics Engine v1 (forecast future system risks deterministically)

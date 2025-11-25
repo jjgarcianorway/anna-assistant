@@ -19,6 +19,7 @@ pub mod caretaker_brain; // Core analysis engine - ties everything together
 pub mod command_intelligence; // 6.15.0: Dynamic command derivation (CIL)
 pub mod wiki_answer_engine; // 6.16.0: Arch Wiki Answer Engine v1 - deterministic wiki-backed reasoning
 pub mod output_style; // 6.17.0: Professional output styling with capability detection
+pub mod output_engine; // 6.31.0: Professional Output Engine v1 - Unified formatting
 pub mod categories;
 pub mod change_log; // Phase 5.1: Change logging and rollback
 pub mod change_log_db; // Phase 5.1: SQLite persistence for change logs
