@@ -149,6 +149,10 @@ mod tests {
             confidence: ConfidenceLevel::High,
             reasoning: "Pacman query returned steam package.".to_string(),
             source: "Command output".to_string(),
+            achieved_goal: true,
+            validation_confidence: 0.95,
+            followup_suggestions: vec![],
+            short_summary: Some("Steam is installed".to_string()),
         };
 
         let trace = render_trace(&intent, &exec_result, &answer);

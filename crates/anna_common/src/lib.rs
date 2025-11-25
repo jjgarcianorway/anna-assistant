@@ -61,6 +61,8 @@ pub mod progress_indicator; // v6.36.0: Progress Indicator - Visual feedback for
 pub mod de_wm_detector; // v6.40.0: DE/WM Detector - Multi-layered desktop environment detection
 pub mod system_info; // v6.41.0: Deterministic system information (NO LLM HALLUCINATION)
 pub mod system_report; // v6.41.0: System Report v2 - Fully deterministic (NO LLM)
+pub mod llm_client; // v6.42.0: LLM Client - Abstraction for LLM backends with JSON schemas
+pub mod tool_inventory; // v6.42.0: Tool Inventory - Detection of available system tools
 pub mod planner_core; // v6.41.0: Planner Core - LLM-driven command planning
 pub mod executor_core; // v6.41.0: Executor Core - Safe command execution with capturing
 pub mod interpreter_core; // v6.41.0: Interpreter Core - LLM-driven output interpretation

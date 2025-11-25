@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.42.0] - 2025-11-25
+
+### LLM Intelligence Layer: Real AI Planning and Interpretation
+
+**Type:** Major Feature - LLM Integration
+**Focus:** Wire real LLM into Planner → Executor → Interpreter core
+
+#### What Changed
+
+**The Problem:** v6.41.0 introduced the generic Planner → Executor → Interpreter pipeline, but planning and interpretation were deterministic/hard-coded. The system couldn't adapt to novel queries or provide intelligent reasoning beyond pattern matching.
+
+**The Solution:** Integrated real LLM backends (Ollama, OpenAI-compatible) with strict JSON schemas for dynamic, intelligent planning and interpretation while maintaining safe fallback behavior.
+
+#### New Modules
+
+**1. LLM Client** (`anna_common/src/llm_client.rs` - 340 lines)
+- Generic `LlmClient` trait for backend abstraction
+- `HttpLlmClient`: Real implementation supporting Ollama and OpenAI-compatible APIs
+- `FakeLlmClient`: Testing client with canned responses (no network calls)
+- Comprehensive error handling: timeout, invalid JSON, disabled config
+- JSON schema enforcement for structured responses
+
+**2. Tool Inventory** (`anna_common/src/tool_inventory.rs` - 180 lines)
+- Runtime detection of installed tools: pacman, yay, paru, flatpak, snap, grep, lscpu, systemctl
+- Gaming tools: steam, lutris, heroic
+- File managers: thunar, dolphin, nautilus, nemo, pcmanfm, ranger
+- JSON context generation for LLM prompts
+- Available package manager detection for dynamic command planning
+
+**3. LLM-Backed Planner** (Extended `planner_core.rs` by ~270 lines)
+- `LlmPlanner` struct with JSON schema-based planning
+- Schema includes: commands, args, purpose, required tools, safety level, reasoning
+- Fallback to deterministic planning on LLM failure/timeout/invalid JSON
+- Tool-aware: only generates commands for installed tools
+- Tested: 6 tests (valid JSON, invalid JSON fallback, timeout, disabled config)
+
+**4. LLM-Backed Interpreter** (Extended `interpreter_core.rs` by ~170 lines)
+- `LlmInterpreter` struct with JSON schema-based interpretation
+- Schema includes: final_answer, achieved_goal, validation_confidence, followup_suggestions
+- Fallback to domain-specific interpreters on LLM failure
+- Extended `InterpretedAnswer` with: achieved_goal, validation_confidence, followup_suggestions, short_summary
+- Tested: 4 tests (valid JSON, invalid JSON fallback, timeout, low confidence)
+
+#### Integration
+
+**Planner Query Handler** (`annactl/src/planner_query_handler.rs`)
+- Wired LLM into query flow: LlmConfig → HttpLlmClient → LlmPlanner → Executor → LlmInterpreter
+- Graceful degradation: LLM failure automatically falls back to v6.41.0 deterministic behavior
+- Expanded query patterns: packages, hardware, DE/WM, file managers, browsers, text editors
+- System signals integration (prepared for full telemetry later)
+
+#### How It Works
+
+**Query Flow with LLM:**
+1. User asks: "do I have steam installed?"
+2. Intent interpretation: Goal=Inspect, Domain=Packages, Constraint=steam
+3. Tool inventory detection: Finds pacman, yay available
+4. **LLM Planning:** Receives JSON schema, generates plan with commands tailored to system
+5. Executor: Runs commands safely, captures results
+6. **LLM Interpretation:** Analyzes execution results, provides natural language answer
+7. Trace renderer: Shows thinking process with LLM reasoning
+
+**Fallback Strategy:**
+- If LLM disabled/timeout/error → use v6.41.0 deterministic planning
+- If LLM returns invalid JSON → parse error, fall back immediately
+- System never fails due to LLM issues
+
+#### Configuration
+
+Default LLM config (Ollama):
+```rust
+LlmConfig {
+    enabled: true,
+    endpoint: "http://localhost:11434",
+    model: "llama3.2:3b",
+    api_key: None,
+    timeout_secs: 30,
+}
+```
+
+Supports:
+- Ollama API (`/api/generate`)
+- OpenAI-compatible API (`/v1/chat/completions`)
+- Custom endpoints and models
+- API key authentication
+
+#### Testing
+
+**Test Coverage:** 25 total tests for v6.42.0 components
+- LLM Client: 4 tests (config, fake client, multiple responses)
+- Planner Core: 10 tests (6 LLM tests + 4 from v6.41.0)
+- Interpreter Core: 7 tests (4 LLM tests + 3 from v6.41.0)
+- Tool Inventory: 4 tests (detection, JSON context, package managers)
+
+All tests use `FakeLlmClient` - no network calls, fully deterministic.
+
+#### What's NOT in v6.42.0
+
+- Interactive REPL mode (planned for v6.43.0)
+- Action approval/rollback UI (planned for v6.44.0)
+- Full telemetry integration in system signals (simplified for now)
+- New feature families beyond v6.41.0 pilot queries
+
+#### Technical Highlights
+
+- Module discipline: All new modules under 400 lines
+- Safety-first: Executor still controls what commands are allowed
+- Trait-based design: Easy to add new LLM backends
+- JSON schema validation: Type-safe LLM communication
+- Comprehensive error handling: Every failure path has a fallback
+- Visible thinking: Trace renderer shows LLM reasoning
+
 ## [6.41.0] - 2025-11-25
 
 ### Architectural Revolution: Planner → Executor → Interpreter Core

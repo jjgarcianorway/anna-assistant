@@ -222,13 +222,16 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     let telemetry_start = std::time::Instant::now();
     let telemetry = query_system_telemetry()?;
 
-    // v6.41.0: Try Planner → Executor → Interpreter FIRST for pilot queries
+    // v6.42.0: Try Planner → Executor → Interpreter FIRST for matching queries
     if crate::planner_query_handler::should_use_planner(user_text) {
         // Create spinner for thinking animation
         let spinner = create_thinking_spinner(&ui);
 
+        // v6.42.0: Use LLM config with default settings
+        let llm_config = anna_common::llm_client::LlmConfig::default();
+
         // Handle through planner core
-        match crate::planner_query_handler::handle_with_planner(user_text, &telemetry, None).await {
+        match crate::planner_query_handler::handle_with_planner(user_text, &telemetry, Some(&llm_config)).await {
             Ok(output) => {
                 spinner.finish_and_clear();
                 if ui.capabilities().use_colors() {

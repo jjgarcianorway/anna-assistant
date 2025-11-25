@@ -3,8 +3,12 @@
 //! v6.41.0: The Planner receives user intent + telemetry and uses the LLM
 //! to generate system-specific commands that will answer the question.
 //!
+//! v6.42.0: Real LLM integration with JSON schemas and fallback planning.
+//!
 //! This replaces hardcoded handlers with dynamic planning.
 
+use crate::llm_client::{LlmClient, LlmError};
+use crate::tool_inventory::ToolInventory;
 use serde::{Deserialize, Serialize};
 
 /// User intent classification
@@ -283,6 +287,284 @@ pub fn build_planner_prompt(intent: &Intent, telemetry_summary: &str, available_
     prompt
 }
 
+/// v6.42.0: LLM-backed planner that uses real LLM for dynamic planning
+pub struct LlmPlanner<'a> {
+    llm_client: &'a dyn LlmClient,
+    tool_inventory: ToolInventory,
+}
+
+impl<'a> LlmPlanner<'a> {
+    pub fn new(llm_client: &'a dyn LlmClient, tool_inventory: ToolInventory) -> Self {
+        Self {
+            llm_client,
+            tool_inventory,
+        }
+    }
+
+    /// Plan commands using LLM, with fallback to deterministic planning
+    pub fn plan(
+        &self,
+        intent: &Intent,
+        system_signals: &serde_json::Value,
+    ) -> Result<CommandPlan, LlmError> {
+        // Try LLM-backed planning first
+        match self.plan_with_llm(intent, system_signals) {
+            Ok(plan) => {
+                tracing::debug!("LLM planning succeeded");
+                Ok(plan)
+            }
+            Err(e) => {
+                tracing::debug!("LLM planning failed ({}), falling back to deterministic", e);
+                // Fall back to deterministic planning
+                Ok(fallback_plan(intent, &self.tool_inventory))
+            }
+        }
+    }
+
+    fn plan_with_llm(
+        &self,
+        intent: &Intent,
+        system_signals: &serde_json::Value,
+    ) -> Result<CommandPlan, LlmError> {
+        let system_prompt = self.build_system_prompt();
+        let user_prompt = self.build_user_prompt(intent, system_signals);
+        let schema = self.get_plan_schema();
+
+        let response_json = self.llm_client.call_json(&system_prompt, &user_prompt, &schema)?;
+
+        // Parse response into CommandPlan
+        self.parse_plan_json(response_json)
+    }
+
+    fn build_system_prompt(&self) -> String {
+        "You are a system command planner for Arch Linux. \
+        Your job is to generate safe, read-only shell commands that will gather information to answer the user's question. \
+        You must ONLY use tools that are available on the system. \
+        You must NEVER suggest destructive commands (rm, dd, mkfs, package removal). \
+        Always provide your reasoning for the plan.".to_string()
+    }
+
+    fn build_user_prompt(&self, intent: &Intent, system_signals: &serde_json::Value) -> String {
+        let mut prompt = format!(
+            "User question: \"{}\"\n\n\
+            Intent classification:\n\
+            - Goal: {:?}\n\
+            - Domain: {:?}\n",
+            intent.query, intent.goal, intent.domain
+        );
+
+        if !intent.constraints.is_empty() {
+            prompt.push_str("\nConstraints:\n");
+            for constraint in &intent.constraints {
+                prompt.push_str(&format!("  - {:?}\n", constraint));
+            }
+        }
+
+        // Add tool inventory
+        prompt.push_str("\nAvailable tools on this system:\n");
+        let tools_json = self.tool_inventory.to_json_context();
+        prompt.push_str(&serde_json::to_string_pretty(&tools_json).unwrap_or_default());
+
+        // Add system signals
+        prompt.push_str("\n\nSystem context:\n");
+        prompt.push_str(&serde_json::to_string_pretty(system_signals).unwrap_or_default());
+
+        prompt.push_str("\n\nGenerate a command plan to answer this question using only available tools.");
+
+        prompt
+    }
+
+    fn get_plan_schema(&self) -> String {
+        r#"{
+  "commands": [
+    {
+      "command": "string (command name)",
+      "args": ["array of string arguments"],
+      "purpose": "string (what this command does)",
+      "requires_tools": ["array of required tool names"]
+    }
+  ],
+  "safety_level": "ReadOnly | MinimalWrite | Risky",
+  "fallbacks": [
+    {
+      "command": "string",
+      "args": ["array"],
+      "purpose": "string",
+      "requires_tools": ["array"]
+    }
+  ],
+  "expected_output": "string describing what output to expect",
+  "reasoning": "string explaining why this plan will answer the question"
+}"#.to_string()
+    }
+
+    fn parse_plan_json(&self, json: serde_json::Value) -> Result<CommandPlan, LlmError> {
+        let commands: Vec<PlannedCommand> = json
+            .get("commands")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| LlmError::InvalidJson("Missing 'commands' array".to_string()))?
+            .iter()
+            .filter_map(|cmd_json| {
+                Some(PlannedCommand {
+                    command: cmd_json.get("command")?.as_str()?.to_string(),
+                    args: cmd_json
+                        .get("args")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect(),
+                    purpose: cmd_json.get("purpose")?.as_str()?.to_string(),
+                    requires_tools: cmd_json
+                        .get("requires_tools")?
+                        .as_array()?
+                        .iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect(),
+                })
+            })
+            .collect();
+
+        if commands.is_empty() {
+            return Err(LlmError::InvalidJson("No valid commands in plan".to_string()));
+        }
+
+        let safety_level = match json.get("safety_level").and_then(|v| v.as_str()) {
+            Some("ReadOnly") => SafetyLevel::ReadOnly,
+            Some("MinimalWrite") => SafetyLevel::MinimalWrite,
+            Some("Risky") => SafetyLevel::Risky,
+            _ => SafetyLevel::ReadOnly, // Default to safe
+        };
+
+        let fallbacks: Vec<PlannedCommand> = json
+            .get("fallbacks")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|cmd_json| {
+                        Some(PlannedCommand {
+                            command: cmd_json.get("command")?.as_str()?.to_string(),
+                            args: cmd_json
+                                .get("args")?
+                                .as_array()?
+                                .iter()
+                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                .collect(),
+                            purpose: cmd_json.get("purpose")?.as_str()?.to_string(),
+                            requires_tools: cmd_json
+                                .get("requires_tools")?
+                                .as_array()?
+                                .iter()
+                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                .collect(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let expected_output = json
+            .get("expected_output")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Command output")
+            .to_string();
+
+        let reasoning = json
+            .get("reasoning")
+            .and_then(|v| v.as_str())
+            .unwrap_or("LLM-generated plan")
+            .to_string();
+
+        Ok(CommandPlan {
+            commands,
+            safety_level,
+            fallbacks,
+            expected_output,
+            reasoning,
+        })
+    }
+}
+
+/// Deterministic fallback planning (v6.41.0 logic)
+pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> CommandPlan {
+    let mut commands = Vec::new();
+
+    match intent.domain {
+        DomainType::Packages => {
+            if intent.query.to_lowercase().contains("game") {
+                commands.push(PlannedCommand {
+                    command: "sh".to_string(),
+                    args: vec![
+                        "-c".to_string(),
+                        "pacman -Qq | grep -Ei '(steam|game|lutris|heroic|wine|proton)'".to_string(),
+                    ],
+                    purpose: "Find game-related packages".to_string(),
+                    requires_tools: vec!["pacman".to_string(), "grep".to_string()],
+                });
+            } else if intent.query.to_lowercase().contains("file manager") {
+                commands.push(PlannedCommand {
+                    command: "sh".to_string(),
+                    args: vec![
+                        "-c".to_string(),
+                        "pacman -Qq | grep -Ei '(thunar|dolphin|nautilus|nemo|pcmanfm|ranger|mc)'".to_string(),
+                    ],
+                    purpose: "Find file manager packages".to_string(),
+                    requires_tools: vec!["pacman".to_string(), "grep".to_string()],
+                });
+            }
+        }
+        DomainType::Hardware => {
+            let features: Vec<String> = intent
+                .constraints
+                .iter()
+                .filter_map(|c| {
+                    if let Constraint::Feature(f) = c {
+                        Some(f.to_uppercase())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if !features.is_empty() {
+                commands.push(PlannedCommand {
+                    command: "sh".to_string(),
+                    args: vec![
+                        "-c".to_string(),
+                        "lscpu | grep -i 'flags' || grep -i 'flags' /proc/cpuinfo | head -1".to_string(),
+                    ],
+                    purpose: format!("Get CPU flags to check for: {}", features.join(", ")),
+                    requires_tools: vec!["lscpu".to_string(), "grep".to_string()],
+                });
+            }
+        }
+        DomainType::Gui => {
+            commands.push(PlannedCommand {
+                command: "echo".to_string(),
+                args: vec!["DE_WM_DETECTOR".to_string()],
+                purpose: "Use de_wm_detector module for accurate detection".to_string(),
+                requires_tools: vec![],
+            });
+        }
+        _ => {
+            // Generic fallback
+            commands.push(PlannedCommand {
+                command: "echo".to_string(),
+                args: vec!["Unsupported query for fallback planner".to_string()],
+                purpose: "Placeholder for unsupported domain".to_string(),
+                requires_tools: vec![],
+            });
+        }
+    }
+
+    CommandPlan {
+        commands,
+        safety_level: SafetyLevel::ReadOnly,
+        fallbacks: vec![],
+        expected_output: "Command outputs for analysis".to_string(),
+        reasoning: "Deterministic fallback plan (LLM unavailable)".to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,5 +600,108 @@ mod tests {
     fn test_extract_count() {
         let intent = interpret_intent("show me the top 10 folders");
         assert!(intent.constraints.iter().any(|c| matches!(c, Constraint::Count(10))));
+    }
+
+    // v6.42.0: LLM Planner tests
+    use crate::llm_client::{FakeLlmClient, LlmError};
+
+    #[test]
+    fn test_llm_planner_valid_json() {
+        let valid_plan = serde_json::json!({
+            "commands": [{
+                "command": "pacman",
+                "args": ["-Qq", "steam"],
+                "purpose": "Check if steam is installed",
+                "requires_tools": ["pacman"]
+            }],
+            "safety_level": "ReadOnly",
+            "fallbacks": [],
+            "expected_output": "Package name or error",
+            "reasoning": "Query pacman for steam package"
+        });
+
+        let fake_client = FakeLlmClient::always_valid(valid_plan);
+        let tool_inventory = ToolInventory::default();
+        let planner = LlmPlanner::new(&fake_client, tool_inventory);
+
+        let intent = interpret_intent("do I have steam?");
+        let system_signals = serde_json::json!({});
+
+        let result = planner.plan(&intent, &system_signals);
+        assert!(result.is_ok());
+
+        let plan = result.unwrap();
+        assert_eq!(plan.commands.len(), 1);
+        assert_eq!(plan.commands[0].command, "pacman");
+        assert_eq!(plan.safety_level, SafetyLevel::ReadOnly);
+    }
+
+    #[test]
+    fn test_llm_planner_invalid_json_fallback() {
+        let fake_client = FakeLlmClient::always_error(LlmError::InvalidJson(
+            "Malformed JSON".to_string(),
+        ));
+        let tool_inventory = ToolInventory::default();
+        let planner = LlmPlanner::new(&fake_client, tool_inventory);
+
+        let intent = interpret_intent("do I have games?");
+        let system_signals = serde_json::json!({});
+
+        let result = planner.plan(&intent, &system_signals);
+        assert!(result.is_ok()); // Should succeed via fallback
+
+        let plan = result.unwrap();
+        assert!(plan.reasoning.contains("fallback"));
+    }
+
+    #[test]
+    fn test_llm_planner_timeout_fallback() {
+        let fake_client = FakeLlmClient::always_error(LlmError::Timeout(30));
+        let tool_inventory = ToolInventory::default();
+        let planner = LlmPlanner::new(&fake_client, tool_inventory);
+
+        let intent = interpret_intent("what DE am I running?");
+        let system_signals = serde_json::json!({});
+
+        let result = planner.plan(&intent, &system_signals);
+        assert!(result.is_ok()); // Should succeed via fallback
+
+        let plan = result.unwrap();
+        assert_eq!(plan.safety_level, SafetyLevel::ReadOnly);
+    }
+
+    #[test]
+    fn test_llm_planner_disabled_fallback() {
+        let fake_client = FakeLlmClient::always_error(LlmError::Disabled);
+        let tool_inventory = ToolInventory::default();
+        let planner = LlmPlanner::new(&fake_client, tool_inventory);
+
+        let intent = interpret_intent("does my CPU have SSE?");
+        let system_signals = serde_json::json!({});
+
+        let result = planner.plan(&intent, &system_signals);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fallback_plan_games() {
+        let tool_inventory = ToolInventory::default();
+        let intent = interpret_intent("do I have games?");
+
+        let plan = fallback_plan(&intent, &tool_inventory);
+        assert!(!plan.commands.is_empty());
+        assert_eq!(plan.safety_level, SafetyLevel::ReadOnly);
+        assert!(plan.reasoning.contains("fallback"));
+    }
+
+    #[test]
+    fn test_fallback_plan_de_wm() {
+        let tool_inventory = ToolInventory::default();
+        let intent = interpret_intent("what DE am I running?");
+
+        let plan = fallback_plan(&intent, &tool_inventory);
+        assert!(!plan.commands.is_empty());
+        assert_eq!(plan.commands[0].command, "echo");
+        assert!(plan.commands[0].args[0].contains("DE_WM_DETECTOR"));
     }
 }

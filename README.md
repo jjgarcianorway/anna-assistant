@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.41.0**
+**Experimental Arch Linux System Assistant - Version 6.42.0**
 
-[![Version](https://img.shields.io/badge/version-6.41.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.42.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,11 +29,29 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.41.0 - Architectural Revolution 🎉
+## What's New in 6.42.0 - LLM Intelligence Layer 🧠
 
-### Planner → Executor → Interpreter Core
+### Real AI Planning and Interpretation
 
-**The Game Changer:** Anna now has ONE unified brain that handles ALL inspection questions generically, instead of hardcoded special-case handlers.
+**The Breakthrough:** Anna now uses real LLM backends (Ollama, OpenAI-compatible) for intelligent planning and interpretation, while maintaining safe fallback behavior when LLM is unavailable.
+
+**What This Means:**
+- Dynamic command planning based on your installed tools
+- Intelligent interpretation of results with natural language reasoning
+- Adapts to novel queries beyond hard-coded patterns
+- Graceful degradation: Falls back to v6.41.0 deterministic behavior on LLM failure
+
+**Key Features:**
+- ✅ Trait-based LLM client (HttpLlmClient + FakeLlmClient for testing)
+- ✅ JSON schema enforcement for structured LLM responses
+- ✅ Tool inventory detection (pacman, yay, grep, lscpu, steam, etc.)
+- ✅ LLM-backed Planner with fallback planning
+- ✅ LLM-backed Interpreter with fallback interpretation
+- ✅ 25 tests - all passing with fake clients (no network calls)
+
+**Previous: 6.41.0 - Architectural Revolution 🎉**
+
+Anna introduced the unified Planner → Executor → Interpreter pipeline that handles ALL inspection questions generically.
 
 **Visible Thinking Traces:**
 ```
