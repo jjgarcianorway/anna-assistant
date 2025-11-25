@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.32.0**
+**Experimental Arch Linux System Assistant - Version 6.33.0**
 
-[![Version](https://img.shields.io/badge/version-6.32.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.33.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,9 +29,45 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.32.0)
+## What Works Right Now (6.33.0)
 
-### 1. Status Command
+### 1. System Reports & Capability Queries (NEW in 6.33.0!)
+
+```bash
+# Generate full system reports
+annactl "write me a report about my computer"
+annactl "generate a system report"
+
+# Check CPU capabilities
+annactl "does my CPU support SSE2?"
+annactl "do I have AVX2?"
+annactl "does my system support virtualization?"
+
+# Check GPU information
+annactl "how much VRAM do I have?"
+annactl "what GPU do I have?"
+
+# Explore disk usage
+annactl "show me the 10 biggest folders in /home"
+annactl "what are the biggest directories?"
+annactl "show top 5 largest folders under /var"
+```
+
+**What's new:**
+- Deterministic pattern-based query detection (no LLM required)
+- CPU feature flag detection (SSE2, AVX, AVX2, AVX-512, virtualization)
+- GPU presence detection from system telemetry
+- Disk usage analysis with safe `du` parameters
+- All handlers tested with 20 new tests (12 unit + 8 integration)
+
+**What's actually tested:**
+- Pattern matching for all three query families
+- CPU flag detection from `/proc/cpuinfo`
+- Disk explorer path and count extraction
+- Handler execution and error handling
+- Integration with unified query router
+
+### 2. Status Command
 
 ```bash
 annactl status
@@ -62,7 +98,7 @@ Anna Self-Health
   ✓ Daemon health: HEALTHY
 ```
 
-### 2. Natural Language Queries with Follow-Up Support (NEW in 6.26.0!)
+### 3. Natural Language Queries with Follow-Up Support (6.26.0)
 
 ```bash
 annactl "how do I check my kernel version?"
@@ -237,7 +273,14 @@ journalctl -u annad -n 50
 
 ## What's Tested
 
-### Passing Tests (499/499 - 100%)
+### Passing Tests (641/641 - 100%)
+
+**New in 6.33.0:**
+- System report queries (20 tests)
+  - Pattern matching for capability queries (4 tests)
+  - Pattern matching for disk explorer (4 tests)
+  - CPU flag detection (4 tests)
+  - Integration tests - end-to-end flow (8 tests)
 
 **New in 6.30.0:**
 - Self-optimizing system (24 tests)
@@ -293,9 +336,10 @@ Be transparent:
 
 ## Development Status
 
-**Current Version:** 6.32.0 (November 25, 2025)
+**Current Version:** 6.33.0 (November 25, 2025)
 
 **Recent Progress:**
+- ✅  6.33.0 - Actionable System Reports & Capability Queries v1 (system reports, CPU feature detection, disk explorer - 20 new tests)
 - ✅  6.32.0 - Status Command Output Engine Integration (formatting refactor, 18 new tests, zero behavior changes)
 - ✅  6.31.0 - Professional Output Engine (foundation module, no user-facing changes yet)
 - ✅  6.30.0 - First Self-Optimizing Cycle (noise suppression, high-value highlighting, meta telemetry)
@@ -303,7 +347,6 @@ Be transparent:
 - ✅  6.28.0 - Predictive Diagnostics Engine v1 (forecast future system risks deterministically)
 - ✅  6.27.0 - Proactive Commentary Engine v1 (context-aware insights, "why did you say that?" follow-up)
 - ✅  6.26.0 - Deep Context Memory & Proactive Commentary (follow-up queries, session persistence)
-- ✅  6.25.0 - Service Reliability & Degraded-Unit Correlation (7 new insight detectors)
 
 **Active Development:**
 - Full answer path integration for commentary

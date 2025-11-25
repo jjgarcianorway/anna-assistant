@@ -195,6 +195,30 @@ pub async fn handle_unified_query(
         });
     }
 
+    // TIER 0.1: v6.33.0 Capability Checks (deterministic, no LLM)
+    if let Some(capability_kind) = crate::system_report::is_capability_query(user_text) {
+        let answer = crate::system_report::handle_capability_check(capability_kind)
+            .unwrap_or_else(|e| format!("Error checking capability: {}", e));
+
+        return Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence: AnswerConfidence::High,
+            sources: vec!["Capability Check v6.33.0 (deterministic)".to_string()],
+        });
+    }
+
+    // TIER 0.15: v6.33.0 Disk Explorer (deterministic, no LLM)
+    if let Some(disk_spec) = crate::system_report::is_disk_explorer_query(user_text) {
+        let answer = crate::system_report::handle_disk_explorer(disk_spec)
+            .unwrap_or_else(|e| format!("Error exploring disk: {}", e));
+
+        return Ok(UnifiedQueryResult::ConversationalAnswer {
+            answer,
+            confidence: AnswerConfidence::High,
+            sources: vec!["Disk Explorer v6.33.0 (deterministic)".to_string()],
+        });
+    }
+
     // TIER 0.3: 6.12.1 Hardware Questions + 6.12.2 System Questions
     // Answers hardware/system questions directly from SystemKnowledgeBase
     // Never suggests "run this command" - uses persistent knowledge

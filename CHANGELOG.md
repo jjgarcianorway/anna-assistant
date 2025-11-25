@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.33.0] - 2025-11-25
+
+### ACTIONABLE SYSTEM REPORTS & CAPABILITY QUERIES V1
+
+**Type:** New Features
+**Focus:** Three new deterministic query families - system reports, capability checks, disk exploration
+
+#### Added ✨
+
+**Query Family 1: System Reports**
+- Pattern-based detection for "write me a report about my computer", "generate a system report"
+- Full system telemetry reports with health status, hardware, services, disk usage
+- Deterministic output from verified system data (no LLM hallucination)
+
+**Query Family 2: Capability Checks**
+- CPU feature flag detection: SSE2, AVX, AVX2, AVX-512
+- Reads `/proc/cpuinfo` directly for accurate flag detection
+- Virtualization support detection (VMX for Intel, SVM for AMD)
+- GPU presence detection from system telemetry
+- Query patterns: "does my CPU support X?", "do I have AVX2?", "how much VRAM?"
+
+**Query Family 3: Disk Explorer**
+- Pattern-based disk usage queries: "show biggest folders", "top 10 directories"
+- Safe `du` execution with `--max-depth=3` and `-x` (no filesystem crossing)
+- Customizable path and count: "/home", "/var", "/usr", or root "/"
+- Human-readable size sorting and formatting
+
+**Integration:**
+- All three families integrated into `unified_query_handler.rs` as TIER 0.1 and 0.15
+- Higher priority than LLM fallback (deterministic answers preferred)
+- Consistent error handling and user feedback
+
+**Test Coverage (20 new tests):**
+
+*Unit Tests (12):*
+1. `test_is_capability_query_cpu_flags` - CPU flag pattern matching (SSE2, AVX, AVX2, AVX-512)
+2. `test_is_capability_query_gpu` - GPU VRAM and vendor detection
+3. `test_is_capability_query_virtualization` - Virtualization support detection
+4. `test_is_capability_query_negative` - False positive prevention
+5. `test_is_disk_explorer_query_positive` - Basic disk query detection
+6. `test_is_disk_explorer_query_paths` - Path extraction (/home, /var, /usr, /)
+7. `test_is_disk_explorer_query_counts` - Count extraction (5, 10, 15, 20)
+8. `test_is_disk_explorer_query_negative` - False positive prevention
+9. `test_parse_human_size` - Size parsing (K, M, G, T units)
+10. `test_check_cpu_flag` - CPU flag detection helper
+11. Additional CPU flag edge cases
+12. Disk explorer default values
+
+*Integration Tests (8):*
+1. `test_integration_cpu_flag_check_sse2` - Full SSE2 detection flow
+2. `test_integration_cpu_flag_check_avx2` - Full AVX2 detection flow
+3. `test_integration_gpu_vram_query` - GPU VRAM query flow
+4. `test_integration_gpu_vendor_query` - GPU vendor query flow
+5. `test_integration_virtualization_query` - Virtualization detection flow
+6. `test_integration_disk_explorer_biggest_folders` - Disk query with path
+7. `test_integration_disk_explorer_default_path` - Default "/" path
+8. `test_integration_disk_explorer_custom_count` - Custom result count
+
+#### Changed 🔄
+- `system_report.rs`: Extended with capability and disk explorer handlers
+- `unified_query_handler.rs`: Added TIER 0.1 and 0.15 routing for new query types
+- Total test suite: **641 tests** (up from 621)
+
+#### Technical Notes 📝
+- All pattern matching is deterministic (no LLM required)
+- CPU flag detection uses `/proc/cpuinfo` directly
+- Disk explorer uses safe `du` parameters to prevent long scans
+- Error handling ensures graceful degradation on permission issues
+
 ## [6.32.0] - 2025-11-25
 
 ### STATUS COMMAND OUTPUT ENGINE INTEGRATION (Formatting Only)
