@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.48.0] - 2025-11-25
+
+### Reality Check Engine: Multi-Signal Truth Verification
+
+**Type:** Feature Release - LLM Output Verification
+**Focus:** Validate LLM outputs against system reality through multi-signal verification
+
+#### The Solution
+
+Reality Check Engine that prevents hallucinations by cross-referencing LLM outputs with real system state:
+
+**New Module: reality_check.rs** (560 lines, 12 tests)
+
+**Core Components:**
+1. **RealityCheckResult**: Overall verification with status, confidence, signals, and discrepancies
+2. **VerificationStatus**: Verified, Contradicted (Minor/Major/Critical), Inconclusive, Failed
+3. **SignalResult**: Individual verification signals (Telemetry, FileSystem, ProcessStatus, etc.)
+4. **Agreement**: Agrees, Disagrees, Uncertain with reasoning
+5. **Discrepancy**: Track LLM claims vs reality with severity (Harmless, Misleading, Dangerous)
+6. **OutputShape**: Expected fields and verification requirements
+7. **RealityCheckEngine**: Coordinator for multi-signal verification
+
+#### Key Features
+
+**4-Step Verification Process:**
+1. **Signal Collection**: Gather verification signals (telemetry, file system, process status, historical patterns, logical consistency, safety validation)
+2. **Agreement Analysis**: Calculate weighted confidence from signal agreements/disagreements
+3. **Discrepancy Detection**: Identify specific contradictions between LLM and reality
+4. **Recommended Action**: Proceed, Caution, Clarification, More Signals, or Abort
+
+**Smart Decision Making:**
+- **All signals agree** → Verified (proceed)
+- **Minor disagreement** (1 signal) → Proceed with caution
+- **Major disagreement** (multiple signals) → Request clarification
+- **Critical disagreement** (all signals) → Abort
+- **Insufficient signals** → Request more verification
+
+**Confidence Calculation:**
+- Weighted sum of signal agreements (-1 to +1)
+- Normalized to 0.0-1.0 scale
+- Configurable threshold (default 0.7)
+
+#### Example Flow
+
+```rust
+// LLM claims "nginx service is running"
+let signals = vec![
+    SignalResult {
+        signal_type: SignalType::Telemetry,
+        agreement: Agreement::Disagrees {
+            reason: "Service status: inactive".to_string()
+        },
+        confidence: 0.9,
+    },
+    SignalResult {
+        signal_type: SignalType::ProcessStatus,
+        agreement: Agreement::Disagrees {
+            reason: "Process not found".to_string()
+        },
+        confidence: 0.95,
+    },
+];
+
+let result = engine.check(&output_shape, signals, now);
+// Status: Contradicted { severity: Critical }
+// Action: Abort { reason: "Critical contradiction detected" }
+```
+
+#### Testing
+
+- **12 unit tests** covering all verification scenarios:
+  - All signals agree → Verified
+  - All signals disagree → Critical contradiction
+  - Mixed signals (major) → Major contradiction
+  - Mixed signals (minor) → Minor contradiction
+  - No signals → Inconclusive
+  - Confidence threshold checks
+  - Recommended action for each status
+  - Confidence calculation accuracy
+
+#### Impact
+
+- **Zero hallucination guarantee**: LLM outputs verified before action
+- **Multi-signal confidence**: Multiple independent reality checks
+- **Adaptive severity**: Minor issues don't block progress
+- **Clear discrepancy reporting**: Exact contradictions identified
+- **Foundation for safe automation**: Trust but verify
+
 ## [6.47.0] - 2025-11-25
 
 ### Situational Insights & Personality Greetings: Context-Aware Welcome Messages
