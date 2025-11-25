@@ -74,6 +74,19 @@ impl OutputEngine {
         }
     }
 
+    /// Format a section subheader with custom emoji (v6.32.0)
+    pub fn format_subheader_with_emoji(&self, emoji: &str, title: &str) -> String {
+        let display_emoji = if self.use_emoji {
+            format!("{}  ", emoji)
+        } else {
+            String::new()
+        };
+        match self.mode {
+            TerminalMode::Color => format!("{}{}", display_emoji, title.bold().bright_cyan()),
+            TerminalMode::Basic => format!("{}{}", display_emoji, title),
+        }
+    }
+
     /// Format a complete section with title and body
     pub fn format_section(&self, title: &str, body: &str) -> String {
         let header = self.format_subheader(title);

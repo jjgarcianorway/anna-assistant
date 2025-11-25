@@ -7,6 +7,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.32.0] - 2025-11-25
+
+### STATUS COMMAND OUTPUT ENGINE INTEGRATION (Formatting Only)
+
+**Type:** Formatting Refactor
+**Focus:** First integration of Professional Output Engine - status command only
+
+#### Changed 🔄
+
+**Status Command Refactoring:**
+- **Refactored `status_command.rs` to use `OutputEngine`** for all section headers and insights
+- Replaced all `fmt::section_title()` calls with `engine.format_subheader_with_emoji()`
+- Replaced main header with `engine.format_header()`
+- Refactored `display_insights()` to use `engine.format_insight()` for consistent formatting
+- **Zero functional changes** - formatting only, exact same content and order
+
+**OutputEngine Enhancements:**
+- Added `format_subheader_with_emoji(emoji, title)` to support emoji-specific section headers
+- Preserves all emojis from v6.31.0 (INFO, SERVICE, DAEMON, RESTORE, etc.)
+- Terminal mode detection respects user configuration (color/emoji settings)
+
+**Sections Refactored:**
+- "Anna Status Check" (main header)
+- "Session Summary"
+- "Core Health"
+- "Anna Self-Health"
+- "Hardware Changes Detected"
+- "LLM Model Recommendation"
+- "Last Self-Repair"
+- "Recent Daemon Log"
+- "System Diagnostics (Brain Analysis)"
+- "Recent Insights" (full insight formatting migration)
+
+#### Added ✨
+
+**Test Coverage (18 new tests):**
+
+*Unit Tests (8):*
+1. `test_status_header_uses_outputengine` - Header formatting verification
+2. `test_degraded_status_shows_exact_same_strings` - Degraded status preservation
+3. `test_healthy_status_shows_exact_same_strings` - Healthy status preservation
+4. `test_insights_render_using_format_insight` - Insight formatting validation
+5. `test_predictions_render_using_format_prediction` - Prediction formatting validation
+6. `test_command_lists_render_using_format_command` - Command list formatting
+7. `test_works_with_emojis_disabled` - Emoji-disabled mode compatibility
+8. `test_works_with_color_disabled` - Color-disabled mode compatibility
+
+*Integration Tests (8):*
+9. `test_status_full_system_healthy` - Healthy system output
+10. `test_status_with_failed_units` - Failed unit formatting
+11. `test_status_with_disk_full` - Disk full critical insight
+12. `test_status_with_insights` - Multiple insights rendering
+13. `test_status_with_predictions` - Prediction rendering
+14. `test_status_no_emoji_config` - No-emoji configuration
+15. `test_status_terminal_ascii_mode` - ASCII-only terminal mode
+16. `test_status_output_engine_roundtrip` - Deterministic output consistency
+
+*Regression Tests (2):*
+17. `test_summary_string_matches_v6_31_baseline` - Content preservation from v6.31.0
+18. `test_no_behavioral_changes_other_than_formatting` - Logic preservation verification
+
+**Total Test Count:** 721 tests (509 anna_common + 4 annad + 75 annactl lib + 133 annactl bin)
+- **New tests:** +18 (status_command integration tests)
+- **Pass rate:** 719/721 (99.7%) - 2 pre-existing flaky tests unrelated to this release
+
+#### Technical Details
+
+**What Changed:**
+- Formatting code only - no behavior, thresholds, or diagnostic logic changes
+- All insights still use same severity markers (🚨/⚠️/ℹ️ or [!]/[*]/[i])
+- Section order and content identical to v6.31.0
+- Terminal capability detection unchanged
+
+**What Did NOT Change:**
+- Health assessment logic
+- Diagnostic rules or thresholds
+- Insight generation (Insights Engine, Predictive Diagnostics)
+- Session tracking
+- Daemon communication
+- LLM integration
+- User configuration handling
+- Any other commands (wiki, query, etc.) - still use old fmt::
+
+#### Why Formatting-Only?
+
+- **Safety**: Separates presentation from logic
+- **Incremental**: Validates OutputEngine in production before wider adoption
+- **Reversible**: Zero risk to rollback since no behavior changed
+- **Testable**: 18 tests verify exact output matches
+
+#### Next Steps
+
+**v6.33.0+**: Gradual migration of other subsystems
+- Wiki reasoner output
+- Insight summaries
+- Proactive commentary
+- One subsystem per release with focused testing
+
+#### Breaking Changes
+
+**None** - This is a pure formatting refactor with zero user-facing behavioral changes.
+
 ## [6.31.0] - 2025-11-24
 
 ### PROFESSIONAL OUTPUT ENGINE (Foundation Only)

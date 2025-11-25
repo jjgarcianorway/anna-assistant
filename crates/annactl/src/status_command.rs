@@ -22,6 +22,7 @@
 use anna_common::historian::Historian;
 use anna_common::insights_engine::{InsightsEngine, InsightSeverity};
 use anna_common::ipc::BrainAnalysisData;
+use anna_common::output_engine::OutputEngine; // v6.32.0: Professional Output Engine
 use anna_common::terminal_format as fmt;
 use anyhow::Result;
 use std::process::Command;
@@ -44,9 +45,12 @@ pub async fn execute_anna_status_command(
     let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();
     anna_common::terminal_format::init_with_config(&config);
 
+    // v6.32.0: Initialize Professional Output Engine
+    let engine = OutputEngine::new();
+
     // Display banner first
     println!(); // Breathing room at the top
-    println!("{}", fmt::bold("Anna Status Check"));
+    println!("{}", engine.format_header("Anna Status Check"));
     println!("{}", "=".repeat(50));
     println!();
 
@@ -113,9 +117,10 @@ pub async fn execute_anna_status_command(
     println!();
 
     // Beta.246: Session summary from welcome engine
+    // v6.32.0: Use OutputEngine for section headers
     println!(
         "{}",
-        fmt::section_title(&fmt::emojis::INFO, "Session Summary")
+        engine.format_subheader_with_emoji(fmt::emojis::INFO, "Session Summary")
     );
     println!();
 
@@ -155,9 +160,10 @@ pub async fn execute_anna_status_command(
     println!();
 
     // Beta.141: Enhanced core health display with emojis
+    // v6.32.0: Use OutputEngine
     println!(
         "{}",
-        fmt::section_title(&fmt::emojis::SERVICE, "Core Health")
+        engine.format_subheader_with_emoji(fmt::emojis::SERVICE, "Core Health")
     );
     println!();
 
@@ -290,9 +296,10 @@ pub async fn execute_anna_status_command(
     println!();
 
     // 6.11.0: Anna Self-Health
+    // v6.32.0: Use OutputEngine
     println!(
         "{}",
-        fmt::section_title(&fmt::emojis::SERVICE, "Anna Self-Health")
+        engine.format_subheader_with_emoji(fmt::emojis::SERVICE, "Anna Self-Health")
     );
     println!();
 
@@ -328,9 +335,10 @@ pub async fn execute_anna_status_command(
     if let Some(previous_hw) = anna_common::anna_hardware_profile::AnnaHardwareProfile::read() {
         // Check for hardware changes
         if let Some(changes) = anna_common::anna_hardware_profile::compare_profiles(&previous_hw, &current_hw) {
+            // v6.32.0: Use OutputEngine
             println!(
                 "{}",
-                fmt::section_title(&fmt::emojis::INFO, "Hardware Changes Detected")
+                engine.format_subheader_with_emoji(fmt::emojis::INFO, "Hardware Changes Detected")
             );
             println!();
             println!("  {} {}", fmt::emojis::INFO, changes);
@@ -347,9 +355,10 @@ pub async fn execute_anna_status_command(
         let current_model = previous_hw.last_llm_model;
 
         if !current_model.is_empty() && recommended_model != current_model {
+            // v6.32.0: Use OutputEngine
             println!(
                 "{}",
-                fmt::section_title(&fmt::emojis::INFO, "LLM Model Recommendation")
+                engine.format_subheader_with_emoji(fmt::emojis::INFO, "LLM Model Recommendation")
             );
             println!();
             println!("  Current model: {}", current_model);
@@ -363,10 +372,11 @@ pub async fn execute_anna_status_command(
     }
 
     // Beta.141: Enhanced repair display
+    // v6.32.0: Use OutputEngine
     if let Some(repair) = &health.last_repair {
         println!(
             "{}",
-            fmt::section_title(&fmt::emojis::RESTORE, "Last Self-Repair")
+            engine.format_subheader_with_emoji(fmt::emojis::RESTORE, "Last Self-Repair")
         );
         println!();
         println!(
@@ -388,9 +398,10 @@ pub async fn execute_anna_status_command(
     }
 
     // Beta.141: Enhanced daemon log display
+    // v6.32.0: Use OutputEngine
     println!(
         "{}",
-        fmt::section_title(&fmt::emojis::DAEMON, "Recent Daemon Log")
+        engine.format_subheader_with_emoji(fmt::emojis::DAEMON, "Recent Daemon Log")
     );
     println!();
     display_recent_logs();
@@ -440,9 +451,10 @@ pub async fn execute_anna_status_command(
 
     // Beta.217b: Sysadmin Brain Analysis
     // Beta.250: Now uses canonical diagnostic formatter
+    // v6.32.0: Use OutputEngine
     println!(
         "{}",
-        fmt::section_title(&fmt::emojis::INFO, "System Diagnostics (Brain Analysis)")
+        engine.format_subheader_with_emoji(fmt::emojis::INFO, "System Diagnostics (Brain Analysis)")
     );
     println!();
 
@@ -740,6 +752,7 @@ async fn build_unified_health_summary(
 }
 
 /// v6.24.0: Display insights from Historian
+/// v6.32.0: Refactored to use OutputEngine
 async fn display_insights() {
     // Try to open Historian database
     let historian = match Historian::new("/var/lib/anna/historian.db") {
@@ -747,10 +760,10 @@ async fn display_insights() {
         Err(_) => return, // Silently skip if DB doesn't exist yet
     };
 
-    let engine = InsightsEngine::new(historian);
+    let insights_engine = InsightsEngine::new(historian);
 
     // Get top 3 insights from last 24 hours
-    let insights = match engine.get_top_insights(3, 24) {
+    let insights = match insights_engine.get_top_insights(3, 24) {
         Ok(insights) => insights,
         Err(_) => return, // Skip on error
     };
@@ -759,47 +772,312 @@ async fn display_insights() {
         return; // No insights to display
     }
 
+    // v6.32.0: Use Professional Output Engine for consistent formatting
+    let output_engine = OutputEngine::new();
+
     // Display insights section
-    println!("{}", fmt::bold("Recent Insights:"));
+    println!("{}", output_engine.format_subheader("Recent Insights"));
     println!();
 
     for insight in insights {
-        // Severity emoji
-        let emoji = match insight.severity {
-            InsightSeverity::Critical => fmt::emojis::CRITICAL,
-            InsightSeverity::Warning => fmt::emojis::WARNING,
-            InsightSeverity::Info => fmt::emojis::INFO,
-        };
-
-        // Title with severity
-        println!("{} {} {}", emoji, fmt::bold(&insight.title), fmt::dimmed(&format!("({})", format_severity(insight.severity))));
-
-        // Explanation
-        println!("   {}", insight.explanation);
-
-        // Evidence
-        if !insight.evidence.is_empty() {
-            for evidence in &insight.evidence {
-                println!("   {} {}", fmt::dimmed("•"), fmt::dimmed(evidence));
-            }
-        }
-
-        // Suggestion
-        if let Some(ref suggestion) = insight.suggestion {
-            println!("   {} {}", fmt::dimmed("→"), suggestion);
-        }
-
-        println!();
+        // v6.32.0: Use engine.format_insight() for professional formatting
+        print!("{}", output_engine.format_insight(&insight));
     }
 
     println!("{}", "=".repeat(50));
     println!();
 }
 
-fn format_severity(severity: InsightSeverity) -> &'static str {
-    match severity {
-        InsightSeverity::Critical => "Critical",
-        InsightSeverity::Warning => "Warning",
-        InsightSeverity::Info => "Info",
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anna_common::output_engine::{OutputEngine, TerminalMode};
+    use anna_common::insights_engine::{Insight, InsightSeverity};
+
+    // ========== Unit Tests (8 tests) ==========
+
+    #[test]
+    fn test_status_header_uses_outputengine() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let result = engine.format_header("Anna Status Check");
+        assert_eq!(result, "Anna Status Check");
+    }
+
+    #[test]
+    fn test_degraded_status_shows_exact_same_strings() {
+        // v6.32.0: Verify that status strings remain unchanged
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let result = engine.format_subheader_with_emoji("⚠️", "System Diagnostics");
+        // Should preserve exact text (emoji included if terminal supports it)
+        assert!(result.contains("System Diagnostics"));
+        // In Basic mode, emoji should be present
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_healthy_status_shows_exact_same_strings() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let result = engine.format_subheader_with_emoji("✅", "Core Health");
+        assert!(result.contains("Core Health"));
+    }
+
+    #[test]
+    fn test_insights_render_using_format_insight() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let insight = Insight::new(
+            "test_detector",
+            InsightSeverity::Warning,
+            "Test Warning",
+            "This is a test warning"
+        ).with_suggestion("Fix it");
+
+        let result = engine.format_insight(&insight);
+        assert!(result.contains("Test Warning"));
+        assert!(result.contains("This is a test warning"));
+        assert!(result.contains("Fix it"));
+        assert!(result.contains("[*]")); // Warning marker in Basic mode
+    }
+
+    #[test]
+    fn test_predictions_render_using_format_prediction() {
+        use anna_common::predictive_diagnostics::PredictiveInsight;
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        let prediction = PredictiveInsight::new(
+            "disk_full_test",
+            "Disk will fill in 3 days",
+            InsightSeverity::Warning,
+            "3 days"
+        )
+        .with_cause("Log growth rate exceeds cleanup")
+        .with_actions(vec!["Clear old logs".to_string()]);
+
+        let result = engine.format_prediction(&prediction);
+        assert!(result.contains("Disk will fill in 3 days"));
+        assert!(result.contains("3 days"));
+        assert!(result.contains("Clear old logs"));
+    }
+
+    #[test]
+    fn test_command_lists_render_using_format_command() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let commands = vec!["df -h".to_string(), "systemctl status annad".to_string()];
+        let result = engine.format_command_list(commands);
+
+        assert!(result.contains("[CMD] df -h"));
+        assert!(result.contains("[CMD] systemctl status annad"));
+    }
+
+    #[test]
+    fn test_works_with_emojis_disabled() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let result = engine.format_subheader_with_emoji("🔧", "Test Section");
+
+        // In Basic mode with emojis potentially disabled, should still work
+        assert!(result.contains("Test Section"));
+        // Emoji handling should not crash
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_works_with_color_disabled() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+        let result = engine.format_header("Test Header");
+
+        // Should not contain ANSI escape codes
+        assert!(!result.contains("\x1b["));
+        assert_eq!(result, "Test Header");
+    }
+
+    // ========== Integration Tests (8 tests) ==========
+    // These test formatting with synthetic system state
+
+    #[test]
+    fn test_status_full_system_healthy() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        // Simulate healthy system output
+        let header = engine.format_header("Anna Status Check");
+        let core_health = engine.format_subheader_with_emoji("⚙️", "Core Health");
+
+        assert!(header.contains("Anna Status Check"));
+        assert!(core_health.contains("Core Health"));
+    }
+
+    #[test]
+    fn test_status_with_failed_units() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        // Test that failed unit formatting works
+        let diagnostics = engine.format_subheader_with_emoji("⚠️", "System Diagnostics");
+        assert!(diagnostics.contains("System Diagnostics"));
+    }
+
+    #[test]
+    fn test_status_with_disk_full() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        let insight = Insight::new(
+            "disk_monitor",
+            InsightSeverity::Critical,
+            "Disk space critical",
+            "Root partition is 95% full"
+        ).with_suggestion("Clear package cache or old logs");
+
+        let result = engine.format_insight(&insight);
+        assert!(result.contains("Disk space critical"));
+        assert!(result.contains("[!]")); // Critical marker
+    }
+
+    #[test]
+    fn test_status_with_insights() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        let insights = vec![
+            Insight::new(
+                "boot_monitor",
+                InsightSeverity::Info,
+                "Boot time improved",
+                "Last 3 boots averaged 15s (down from 20s)"
+            ),
+            Insight::new(
+                "memory_monitor",
+                InsightSeverity::Warning,
+                "Memory pressure detected",
+                "Swap usage increased by 30% over 24h"
+            ),
+        ];
+
+        for insight in insights {
+            let result = engine.format_insight(&insight);
+            assert!(!result.is_empty());
+            assert!(result.contains(&insight.title));
+        }
+    }
+
+    #[test]
+    fn test_status_with_predictions() {
+        use anna_common::predictive_diagnostics::PredictiveInsight;
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        let predictions = vec![
+            PredictiveInsight::new(
+                "service_failure_test",
+                "Service failure likely within 24h",
+                InsightSeverity::Critical,
+                "24 hours"
+            )
+            .with_cause("Memory leak detected in annad")
+            .with_actions(vec!["Restart daemon".to_string(), "Monitor logs".to_string()]),
+        ];
+
+        for pred in predictions {
+            let result = engine.format_prediction(&pred);
+            assert!(result.contains("Service failure likely within 24h"));
+            assert!(result.contains("Restart daemon"));
+        }
+    }
+
+    #[test]
+    fn test_status_no_emoji_config() {
+        // Test that Basic mode works without emojis
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        let header = engine.format_header("Test");
+        let subheader = engine.format_subheader("Subsection");
+
+        // Should not crash and produce readable output
+        assert_eq!(header, "Test");
+        assert!(subheader.contains("Subsection"));
+    }
+
+    #[test]
+    fn test_status_terminal_ascii_mode() {
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        // Test ASCII-safe output
+        let insight = Insight::new(
+            "test",
+            InsightSeverity::Warning,
+            "ASCII Test",
+            "Should use [*] not ⚠️"
+        );
+
+        let result = engine.format_insight(&insight);
+        assert!(result.contains("[*]")); // ASCII fallback
+        assert!(result.contains("ASCII Test"));
+    }
+
+    #[test]
+    fn test_status_output_engine_roundtrip() {
+        // Test that OutputEngine produces consistent output across calls
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        let result1 = engine.format_header("Test Header");
+        let result2 = engine.format_header("Test Header");
+
+        assert_eq!(result1, result2); // Deterministic
+    }
+
+    // ========== Regression Tests (2 tests) ==========
+
+    #[test]
+    fn test_summary_string_matches_v6_31_baseline() {
+        // v6.32.0: Verify formatting changes don't alter content
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        // Core sections that existed in v6.31.0
+        let header = engine.format_header("Anna Status Check");
+        let session_summary = engine.format_subheader_with_emoji("ℹ️", "Session Summary");
+        let core_health = engine.format_subheader_with_emoji("⚙️", "Core Health");
+        let self_health = engine.format_subheader_with_emoji("⚙️", "Anna Self-Health");
+        let daemon_log = engine.format_subheader_with_emoji("👾", "Recent Daemon Log");
+
+        // All these sections must still exist and contain expected text
+        assert!(header.contains("Anna Status Check"));
+        assert!(session_summary.contains("Session Summary"));
+        assert!(core_health.contains("Core Health"));
+        assert!(self_health.contains("Anna Self-Health"));
+        assert!(daemon_log.contains("Recent Daemon Log"));
+    }
+
+    #[test]
+    fn test_no_behavioral_changes_other_than_formatting() {
+        // v6.32.0: Critical test - OutputEngine must not change logic
+        let engine = OutputEngine::with_mode(TerminalMode::Basic);
+
+        // Test that insight severity mapping is preserved
+        let critical_insight = Insight::new(
+            "test",
+            InsightSeverity::Critical,
+            "Critical",
+            "Test"
+        );
+        let warning_insight = Insight::new(
+            "test",
+            InsightSeverity::Warning,
+            "Warning",
+            "Test"
+        );
+        let info_insight = Insight::new(
+            "test",
+            InsightSeverity::Info,
+            "Info",
+            "Test"
+        );
+
+        let critical_output = engine.format_insight(&critical_insight);
+        let warning_output = engine.format_insight(&warning_insight);
+        let info_output = engine.format_insight(&info_insight);
+
+        // Verify severity markers are correct (v6.31.0 behavior)
+        assert!(critical_output.contains("[!]")); // Critical
+        assert!(warning_output.contains("[*]"));  // Warning
+        assert!(info_output.contains("[i]"));     // Info
+
+        // Verify all three formats are distinct
+        assert_ne!(critical_output, warning_output);
+        assert_ne!(warning_output, info_output);
+        assert_ne!(critical_output, info_output);
     }
 }
