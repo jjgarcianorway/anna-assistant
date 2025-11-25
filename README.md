@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.46.0**
+**Experimental Arch Linux System Assistant - Version 6.47.0**
 
-[![Version](https://img.shields.io/badge/version-6.46.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.47.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -28,6 +28,38 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 - ✅  Open source (GPL-3.0)
 
 ---
+
+## What's New in 6.47.0 - Situational Insights & Personality Greetings 🎭
+
+### Context-Aware Welcome Messages with Pattern Learning
+
+**The Problem:** Generic greetings don't adapt to user preferences or surface important system changes.
+
+**The Solution:** Three-engine system for intelligent, personalized greetings:
+
+1. **Greeting Engine** - Personality-aware messages
+   - 🎩 **Professional**: "Good morning. Note: High memory usage"
+   - 😊 **Friendly**: "Good morning! ☀️ Heads up: High memory usage"
+   - 🔧 **Technical**: "Morning. System operational. ⚠️ Warning: High memory usage"
+   - 😎 **Casual**: "Hey! Morning. BTW: High memory usage"
+
+2. **Learning Engine** - Pattern learning with time decay
+   - Tracks user's preferred personality style
+   - Confidence-based reinforcement (0.0-1.0)
+   - Exponential decay (30-day half-life default)
+   - Automatic pattern replacement on contradictions
+
+3. **Telemetry Diff** - Change detection
+   - Compares snapshots (packages, services, memory, load, errors)
+   - Severity classification: Info, Warning, Critical
+   - Health trend: Improving, Stable, Degrading
+   - Automatic descriptions: "2 services failed", "Memory usage increased by 15%"
+
+**Impact:** Anna adapts to your style and proactively surfaces system changes. 658 tests passing (628 + 30 new). Foundation for v6.48.0 Reality Check Engine.
+
+**Previous: 6.46.0 - Interactive Query Mode 💬**
+
+Multi-turn conversations with follow-up questions. Adaptive clarifications and alternative suggestions. 628 tests passing.
 
 ## What's New in 6.46.0 - Interactive Query Mode 💬
 

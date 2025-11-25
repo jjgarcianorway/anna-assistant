@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.47.0] - 2025-11-25
+
+### Situational Insights & Personality Greetings: Context-Aware Welcome Messages
+
+**Type:** Feature Release - Intelligent Greeting System
+**Focus:** Generate personality-aware greetings with system insights and pattern learning
+
+#### The Solution
+
+Three-engine system for contextual, intelligent greetings:
+
+**New Modules (3 modules, 30 tests total)**
+1. **greeting_engine.rs** (260 lines, 10 tests)
+   - Personality styles: Professional, Friendly, Technical, Casual
+   - Time-of-day awareness: Morning, Afternoon, Evening, Night
+   - System state integration: Healthy, Warning, Critical, Recovering
+   - Change formatting: Notable system changes highlighted
+
+2. **learning_engine.rs** (280 lines, 10 tests)
+   - Pattern learning with exponential time decay (default 30-day half-life)
+   - Confidence-based reinforcement (0.0-1.0 scale)
+   - Automatic pattern replacement on contradictions
+   - Pruning of low-confidence patterns
+
+3. **telemetry_diff.rs** (220 lines, 10 tests)
+   - Snapshot comparison: packages, services, memory, load, errors
+   - Change detection with severity classification (Info, Warning, Critical)
+   - Health trend analysis: Improving, Stable, Degrading
+   - Automatic change descriptions
+
+#### Key Features
+
+- **Personality-aware greetings**: "Good morning!" (Friendly) vs "Morning. System operational." (Technical)
+- **Contextual insights**: Automatic mention of warnings/critical issues
+- **Learning preferences**: Tracks user's preferred personality style over time
+- **Change highlights**: "2 services failed" or "Memory usage increased by 15%"
+- **Time decay**: Old patterns gradually lose confidence
+
+#### Example Flow
+
+```
+First interaction (morning, system healthy):
+Anna: "Good morning! ☀️"
+
+After learning user prefers Technical style:
+Anna: "Morning. System operational."
+
+With system warning:
+Anna: "Good morning. ⚠️ Warning: High memory usage"
+Context notes:
+  [RES] Memory usage increased to 85%
+```
+
+#### Testing
+
+- **Total tests**: 658 passed (628 + 30 new greeting/learning/diff tests)
+- All personality styles, time periods, and change types covered
+
+#### Impact
+
+- **Personalized UX**: Anna adapts to user preferences
+- **Proactive insights**: System changes surfaced immediately
+- **Foundation for v6.48.0**: Ready for Reality Check Engine
+
 ## [6.46.0] - 2025-11-25
 
 ### Interactive Query Mode: Multi-Turn Conversations with Follow-Ups

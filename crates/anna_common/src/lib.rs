@@ -70,6 +70,9 @@ pub mod trace_renderer; // v6.41.0: Trace Renderer - Visible thinking trace
 pub mod command_validator; // v6.44.0: Command Validation - Strict safety rails for planned commands
 pub mod validation_loop; // v6.45.0: Multi-round LLM validation for insufficient results
 pub mod interactive_mode; // v6.46.0: Interactive Mode - Multi-turn conversations with follow-ups
+pub mod greeting_engine; // v6.47.0: Greeting Engine - Situational and personality-aware greetings
+pub mod learning_engine; // v6.47.0: Learning Engine - Pattern learning with time decay
+pub mod telemetry_diff; // v6.47.0: Telemetry Diff - Detect changes between snapshots
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine
