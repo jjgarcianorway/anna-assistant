@@ -145,6 +145,17 @@ impl ToolInventory {
 pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
     let start = std::time::Instant::now();
 
+    // v6.52.0: Policy re-check before execution
+    // Plans must have been checked during planning, but re-verify before execution
+    if let Some(ref decision) = plan.policy_decision {
+        if !decision.allowed {
+            return Err(anyhow!(
+                "Policy denial: {}",
+                decision.notes.join("; ")
+            ));
+        }
+    }
+
     // Safety check
     if plan.safety_level == SafetyLevel::Risky {
         return Err(anyhow!("Refusing to execute risky command plan"));

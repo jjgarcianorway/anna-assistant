@@ -85,6 +85,7 @@ pub mod change_journal; // v6.51.0: Change Journal - Read-only auditing of actio
 pub mod journal_query_intent; // v6.51.0: Journal Query Intent - Natural language to structured queries
 pub mod journal_renderer; // v6.51.0: Journal Renderer - Episode rendering for OutputEngine
 pub mod config_diff; // v6.51.0: Config Diff - Unified diffs for configuration changes
+pub mod policy_engine; // v6.52.0: Policy Engine - User-configurable guardrails
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

@@ -287,6 +287,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.9,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),

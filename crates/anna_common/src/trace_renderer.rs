@@ -132,6 +132,7 @@ mod tests {
                 goal_description: Some("Check for games".to_string()),
                 assumptions: vec![],
                 confidence: 0.9,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -187,6 +188,7 @@ mod tests {
                 goal_description: Some("Hardware check test".to_string()),
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![
                 CommandResult {

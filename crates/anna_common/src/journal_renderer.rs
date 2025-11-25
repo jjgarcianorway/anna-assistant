@@ -247,6 +247,8 @@ mod tests {
             validation_score: Some(0.95),
             validation_label: Some("likely satisfied".to_string()),
             tags: vec!["test".to_string()],
+            blocked_by_policy: false, // v6.52.0
+            policy_denial_reason: None, // v6.52.0
         }
     }
 

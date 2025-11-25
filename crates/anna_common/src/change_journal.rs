@@ -64,6 +64,7 @@ pub struct EpisodeFilter {
     pub tags: Vec<String>,
     pub executed_only: bool,
     pub rolled_back_only: bool,
+    pub blocked_by_policy_only: bool, // v6.52.0
 }
 
 /// Compact episode summary for journal lists
@@ -79,6 +80,8 @@ pub struct EpisodeSummary {
     pub validation_score: Option<f32>,
     pub validation_label: Option<String>,
     pub tags: Vec<String>,
+    pub blocked_by_policy: bool, // v6.52.0
+    pub policy_denial_reason: Option<String>, // v6.52.0
 }
 
 impl EpisodeSummary {
@@ -114,6 +117,15 @@ impl EpisodeSummary {
             (None, None)
         };
 
+        // v6.52.0: Extract policy denial reason
+        let policy_denial_reason = if episode.blocked_by_policy {
+            episode.policy_decision.as_ref()
+                .and_then(|pd| pd.notes.first())
+                .cloned()
+        } else {
+            None
+        };
+
         Self {
             id: episode.episode_id,
             timestamp: episode.created_at,
@@ -125,6 +137,8 @@ impl EpisodeSummary {
             validation_score,
             validation_label,
             tags: episode.tags.topics.clone(),
+            blocked_by_policy: episode.blocked_by_policy, // v6.52.0
+            policy_denial_reason, // v6.52.0
         }
     }
 }

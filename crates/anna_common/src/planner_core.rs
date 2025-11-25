@@ -113,6 +113,11 @@ pub struct CommandPlan {
 
     /// Estimated confidence that this plan will satisfy the request (0.0-1.0)
     pub confidence: f32,
+
+    // v6.52.0: Policy decision
+    /// Policy evaluation result (None if policies not yet checked)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_decision: Option<crate::policy_engine::PolicyDecision>,
 }
 
 /// A single planned command
@@ -217,6 +222,74 @@ impl CommandPlan {
             will_create_backups,
             execution_mode,
         }
+    }
+
+    /// Check this plan against the policy engine (v6.52.0)
+    ///
+    /// Converts the plan to a PlannedAction and evaluates it against the given policy.
+    /// Returns the policy decision and updates self.policy_decision.
+    pub fn check_against_policy(&mut self, policy: &crate::policy_engine::PolicySet) -> crate::policy_engine::PolicyDecision {
+        use crate::policy_engine::{PlannedAction, PolicyRiskLevel, PolicyDomain, evaluate_plan_against_policy};
+        use crate::execution_safety::{RiskLevel, CommandDomain};
+
+        // Compute plan summary to get risk and domains
+        let summary = self.compute_plan_summary(false);
+
+        // Convert execution_safety::RiskLevel to policy_engine::PolicyRiskLevel
+        let risk_level = match summary.risk_level {
+            RiskLevel::Safe => PolicyRiskLevel::Safe,
+            RiskLevel::Moderate => PolicyRiskLevel::Moderate,
+            RiskLevel::High => PolicyRiskLevel::High,
+        };
+
+        // Convert execution_safety::CommandDomain to policy_engine::PolicyDomain
+        // Take the primary (highest priority) domain
+        let domain = if let Some(first_domain) = summary.domains.first() {
+            match first_domain {
+                CommandDomain::UserConfig | CommandDomain::SystemConfig => PolicyDomain::Config,
+                CommandDomain::Packages => PolicyDomain::Packages,
+                CommandDomain::Services => PolicyDomain::Services,
+                CommandDomain::Network => PolicyDomain::Network,
+                CommandDomain::Boot | CommandDomain::Disk => PolicyDomain::Filesystem,
+                CommandDomain::Crypto => PolicyDomain::Config,
+                CommandDomain::ReadOnly => PolicyDomain::General,
+            }
+        } else {
+            PolicyDomain::General
+        };
+
+        // Extract paths from commands
+        let mut paths = Vec::new();
+        let mut tags = Vec::new();
+        for cmd in &self.commands {
+            // Extract paths from command and args
+            for arg in &cmd.args {
+                if arg.starts_with('/') || arg.starts_with("~/") {
+                    paths.push(arg.clone());
+                }
+            }
+
+            // Extract tags from purpose
+            if cmd.purpose.to_lowercase().contains("ssh") {
+                tags.push("ssh".to_string());
+            }
+            if cmd.purpose.to_lowercase().contains("config") {
+                tags.push("config".to_string());
+            }
+        }
+
+        let planned_action = PlannedAction {
+            domain,
+            risk_level,
+            target_paths: paths,
+            target_services: Vec::new(), // TODO: extract from commands
+            target_packages: Vec::new(), // TODO: extract from commands
+            tags,
+        };
+
+        let decision = evaluate_plan_against_policy(policy, &planned_action);
+        self.policy_decision = Some(decision.clone());
+        decision
     }
 }
 
@@ -644,6 +717,7 @@ impl<'a> LlmPlanner<'a> {
             goal_description,
             assumptions,
             confidence,
+            policy_decision: None,
         })
     }
 }
@@ -754,6 +828,7 @@ pub fn fallback_plan(intent: &Intent, tool_inventory: &ToolInventory) -> Command
         goal_description: Some(intent.query.clone()),
         assumptions: vec!["Using deterministic fallback (LLM unavailable)".to_string()],
         confidence: 0.7, // Fallback plans are reasonably confident but not as good as LLM
+        policy_decision: None,
     }
 }
 
@@ -921,6 +996,7 @@ mod tests {
             goal_description: Some("List files".to_string()),
             assumptions: vec![],
             confidence: 0.9,
+            policy_decision: None,
         };
 
         let summary = plan.compute_plan_summary(true);
@@ -952,6 +1028,7 @@ mod tests {
             goal_description: Some("Restart SSH".to_string()),
             assumptions: vec![],
             confidence: 0.85,
+            policy_decision: None,
         };
 
         let summary = plan.compute_plan_summary(true);
@@ -982,6 +1059,7 @@ mod tests {
             goal_description: Some("Partition disk".to_string()),
             assumptions: vec![],
             confidence: 0.7,
+            policy_decision: None,
         };
 
         let summary = plan.compute_plan_summary(true);
@@ -1012,6 +1090,7 @@ mod tests {
             goal_description: None,
             assumptions: vec![],
             confidence: 0.9,
+            policy_decision: None,
         };
 
         let summary = plan.compute_plan_summary(false); // non-interactive

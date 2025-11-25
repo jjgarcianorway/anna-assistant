@@ -157,6 +157,7 @@ mod tests {
             goal_description: Some("Test operation".to_string()),
             assumptions: vec![],
             confidence: 0.9,
+            policy_decision: None,
         }
     }
 

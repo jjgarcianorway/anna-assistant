@@ -26,6 +26,7 @@ impl JournalQueryIntent {
             tags: self.tag_hints.clone(),
             executed_only: self.executed_only,
             rolled_back_only: self.rolled_back_only,
+            blocked_by_policy_only: false, // v6.52.0: TODO: parse from query
         }
     }
 }

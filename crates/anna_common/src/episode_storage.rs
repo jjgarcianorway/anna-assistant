@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS action_episodes (
     rollback_capability TEXT NOT NULL,
     execution_status TEXT NOT NULL DEFAULT 'PlannedOnly',
     post_validation_json TEXT,
-    rolled_back_episode_id INTEGER
+    rolled_back_episode_id INTEGER,
+    policy_decision_json TEXT,
+    blocked_by_policy INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS action_actions (
@@ -38,6 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_episodes_created ON action_episodes(created_at);
 CREATE INDEX IF NOT EXISTS idx_actions_episode ON action_actions(episode_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_status ON action_episodes(execution_status);
 CREATE INDEX IF NOT EXISTS idx_episodes_rollback ON action_episodes(rolled_back_episode_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_blocked ON action_episodes(blocked_by_policy);
 "#;
 
 /// Episode storage manager
@@ -65,10 +68,14 @@ impl EpisodeStorage {
         let post_validation_json = episode.post_validation.as_ref()
             .map(|pv| serde_json::to_string(pv).ok())
             .flatten();
+        let policy_decision_json = episode.policy_decision.as_ref()
+            .map(|pd| serde_json::to_string(pd).ok())
+            .flatten();
+        let blocked_by_policy = if episode.blocked_by_policy { 1 } else { 0 };
 
         self.conn.execute(
-            "INSERT INTO action_episodes (created_at, user_question, final_answer_summary, tags_json, rollback_capability, execution_status, post_validation_json, rolled_back_episode_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO action_episodes (created_at, user_question, final_answer_summary, tags_json, rollback_capability, execution_status, post_validation_json, rolled_back_episode_id, policy_decision_json, blocked_by_policy)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 episode.created_at.to_rfc3339(),
                 &episode.user_question,
@@ -78,6 +85,8 @@ impl EpisodeStorage {
                 &execution_status,
                 &post_validation_json,
                 &episode.rolled_back_episode_id,
+                &policy_decision_json,
+                &blocked_by_policy,
             ],
         )?;
 
@@ -308,6 +317,8 @@ impl EpisodeStorage {
             execution_status,
             post_validation,
             rolled_back_episode_id,
+            policy_decision: None, // v6.52.0: TODO: load from policy_decision_json
+            blocked_by_policy: false, // v6.52.0: TODO: load from blocked_by_policy column
         }))
     }
 }

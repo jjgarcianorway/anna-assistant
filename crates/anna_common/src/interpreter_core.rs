@@ -651,6 +651,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -697,6 +698,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -737,6 +739,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -793,6 +796,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "pacman".to_string(),
@@ -841,6 +845,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "sh".to_string(),
@@ -885,6 +890,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![CommandResult {
                 command: "lscpu".to_string(),
@@ -940,6 +946,7 @@ mod tests {
                 goal_description: None,
                 assumptions: vec![],
                 confidence: 0.8,
+                policy_decision: None,
             },
             command_results: vec![],
             success: true,

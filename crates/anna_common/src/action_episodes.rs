@@ -79,6 +79,15 @@ pub struct ActionEpisode {
     pub execution_status: ExecutionStatus,
     pub post_validation: Option<PostValidation>,
     pub rolled_back_episode_id: Option<i64>, // If this is a rollback, link to original
+
+    // v6.52.0: Policy tracking
+    /// Policy decision for this episode (if evaluated)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_decision: Option<crate::policy_engine::PolicyDecision>,
+
+    /// Whether this episode was blocked by policy
+    #[serde(default)]
+    pub blocked_by_policy: bool,
 }
 
 /// Builder for constructing episodes
@@ -88,6 +97,8 @@ pub struct EpisodeBuilder {
     tags: Option<EpisodeTags>,
     actions: Vec<ActionRecord>,
     next_action_id: i64,
+    policy_decision: Option<crate::policy_engine::PolicyDecision>, // v6.52.0
+    blocked_by_policy: bool, // v6.52.0
 }
 
 impl EpisodeBuilder {
@@ -99,6 +110,8 @@ impl EpisodeBuilder {
             tags: None,
             actions: Vec::new(),
             next_action_id: 1,
+            policy_decision: None, // v6.52.0
+            blocked_by_policy: false, // v6.52.0
         }
     }
 
@@ -111,6 +124,19 @@ impl EpisodeBuilder {
     /// Set tags
     pub fn with_tags(mut self, tags: EpisodeTags) -> Self {
         self.tags = Some(tags);
+        self
+    }
+
+    /// Set policy decision (v6.52.0)
+    pub fn with_policy_decision(mut self, decision: crate::policy_engine::PolicyDecision) -> Self {
+        self.blocked_by_policy = !decision.allowed;
+        self.policy_decision = Some(decision);
+        self
+    }
+
+    /// Mark as blocked by policy (v6.52.0)
+    pub fn mark_blocked_by_policy(mut self) -> Self {
+        self.blocked_by_policy = true;
         self
     }
 
@@ -172,6 +198,8 @@ impl EpisodeBuilder {
             execution_status: ExecutionStatus::PlannedOnly,
             post_validation: None,
             rolled_back_episode_id: None,
+            policy_decision: self.policy_decision, // v6.52.0
+            blocked_by_policy: self.blocked_by_policy, // v6.52.0
         }
     }
 }

@@ -302,6 +302,8 @@ mod tests {
             execution_status: crate::action_episodes::ExecutionStatus::PlannedOnly,
             post_validation: None,
             rolled_back_episode_id: None,
+            policy_decision: None, // v6.52.0
+            blocked_by_policy: false, // v6.52.0
         }
     }
 
