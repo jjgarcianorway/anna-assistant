@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.45.0] - 2025-11-25
+
+### Multi-Round LLM Validation Loop: Adaptive Command Retry
+
+**Type:** Feature Release - Intelligent Retry System
+**Focus:** Allow LLM to request additional rounds when initial results are insufficient
+
+#### The Solution
+
+Validation loop system that enables the LLM to refine its approach based on execution results:
+
+**New Module: `validation_loop.rs` (340 lines, 8 tests)**
+- **ValidationDecision enum**: Sufficient, NeedMoreData, Ambiguous
+- **ValidationLoop coordinator**: Manages up to 3 validation rounds
+- **Validation prompts**: LLM receives execution results + evidence classification
+- **Retry logic**: LLM can request different commands based on what it learned
+
+#### Key Features
+
+- **MAX_VALIDATION_ROUNDS = 3**: Prevents infinite loops
+- **Context preservation**: Previous attempts included in validation requests
+- **Evidence-aware**: Validation respects v6.44.0 evidence classification
+- **Graceful degradation**: Last round forces "Sufficient" decision
+
+#### Testing
+
+- **Total tests**: 618 passed (610 + 8 new validation tests)
+- All validation scenarios covered
+
+#### Impact
+
+- **Adaptive planning**: LLM can try alternative approaches
+- **Better coverage**: No longer limited to single-shot commands
+- **Foundation**: Ready for interactive mode (v6.46.0)
+
 ## [6.44.0] - 2025-11-25
 
 ### Core Safety Rails & Evidence Policy: Preventing False Conclusions

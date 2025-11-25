@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.44.0**
+**Experimental Arch Linux System Assistant - Version 6.45.0**
 
-[![Version](https://img.shields.io/badge/version-6.44.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.45.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,29 +29,34 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.44.0 - Core Safety Rails 🛡️
+## What's New in 6.45.0 - Multi-Round Validation Loop 🔄
 
-### Preventing False Conclusions with Evidence Policy
+### Adaptive Command Retry with LLM Intelligence
 
-**The Problem:** v6.42.0 gave LLMs too much freedom - they generated invalid commands and confused "not found" with "system errors".
+**The Problem:** Single-shot commands can't always answer complex questions. If initial results are insufficient, Anna had no way to try alternative approaches.
 
-**The Solution:** Three-layer safety system:
+**The Solution:** Multi-round validation loop that lets the LLM request retries:
 
-1. **Command Validation** - Catches invalid syntax BEFORE execution
-   - ❌ `free -m | awk '{print $3}' -m` (trailing flag)
-   - ❌ `pacman -Q | grep games` (use `pacman -Qs`)
-   - ❌ `rm -rf /tmp/test` (write operations forbidden)
+1. **Validation Decision System** - LLM evaluates execution results
+   - ✅ **Sufficient** - Proceed with interpretation
+   - 🔄 **NeedMoreData** - Try different commands (with suggested approach)
+   - ❓ **Ambiguous** - Results are contradictory (with alternatives)
 
-2. **Evidence Classification** - Distinguishes "not found" from errors
-   - ✅ Positive: Command succeeded with output
-   - ✅ Negative: "package not found" (clear negative)
-   - ❌ Unknown: "could not open database" (system error)
+2. **Context-Aware Retry** - Maximum 3 rounds with full context
+   - Round 1: Initial command attempt
+   - Round 2: LLM sees previous results + evidence classification
+   - Round 3: Final chance (forces "Sufficient" to prevent infinite loops)
 
-3. **Honest Interpretation** - No guessing from failed commands
-   - Before: "No games installed" (database was broken)
-   - After: "I cannot determine... database error"
+3. **Evidence Integration** - Validation respects v6.44.0 safety rails
+   - Validation prompts include EvidenceKind (Positive/Negative/Unknown)
+   - Failed commands due to missing tools → Marked "Sufficient" (can't fix)
+   - Clear "not found" results → Negative evidence (can answer)
 
-**Impact:** No more false conclusions. 610 tests passing. Ready for multi-round validation (v6.45.0).
+**Impact:** Adaptive planning foundation. 618 tests passing (610 + 8 new). Ready for interactive mode (v6.46.0).
+
+**Previous: 6.44.0 - Core Safety Rails 🛡️**
+
+Three-layer safety system preventing false conclusions: Command validation (syntax checks), Evidence classification (Positive/Negative/Unknown), Honest interpretation (no guessing from errors). 610 tests passing.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
