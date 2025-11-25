@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.35.0**
+**Experimental Arch Linux System Assistant - Version 6.36.0**
 
-[![Version](https://img.shields.io/badge/version-6.35.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.36.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,9 +29,47 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What Works Right Now (6.35.0)
+## What Works Right Now (6.36.0)
 
-### 1. Presence Awareness & Anna Reflection (NEW in 6.35.0!)
+### 1. Thinking Indicator & Progress Feedback (NEW in 6.36.0!)
+
+Anna now shows visual progress during long-running operations:
+
+**Animated Spinner:**
+```bash
+$ annactl "give me a system report"
+⠹ Gathering system information...
+✓ Report ready (1.8s)
+
+▪  System Configuration
+   CPU: AMD Ryzen 9 5950X (32 threads)
+   RAM: 64 GB DDR4
+...
+```
+
+**When You'll See It:**
+- ✅ System reports (1-2 seconds)
+- ✅ Disk analysis (1-5 seconds)
+- ✅ LLM queries (2-10 seconds)
+- ❌ Instant operations like capability checks (<100ms)
+
+**Smart Behavior:**
+- Only shows for operations taking >500ms
+- Automatically hidden in piped output: `annactl status | cat` ✓
+- Respects NO_COLOR environment variable
+- Always cleans up on Ctrl+C (no broken terminal)
+
+**Example with LLM:**
+```bash
+$ annactl "how do I check disk space?"
+⠙ Thinking...
+✓ Answer ready (2.7s)
+
+To check disk space on Arch Linux, use the df command:
+...
+```
+
+### 2. Presence Awareness & Anna Reflection (NEW in 6.35.0!)
 
 Anna now tracks your usage patterns and shows contextual awareness:
 
@@ -84,7 +122,7 @@ Welcome back! It's been 8 days.
 - No network calls, no external tracking
 - Only usage timestamps and query counts (no query content)
 
-### 2. System Reports & Capability Queries (NEW in 6.33.0!)
+### 3. System Reports & Capability Queries (NEW in 6.33.0!)
 
 ```bash
 # Generate full system reports
@@ -120,7 +158,7 @@ annactl "show top 5 largest folders under /var"
 - Handler execution and error handling
 - Integration with unified query router
 
-### 3. Status Command
+### 4. Status Command
 
 ```bash
 annactl status
@@ -156,7 +194,7 @@ Anna Self-Health
   ✓ Daemon health: HEALTHY
 ```
 
-### 4. Natural Language Queries with Follow-Up Support (6.26.0)
+### 5. Natural Language Queries with Follow-Up Support (6.26.0)
 
 ```bash
 annactl "how do I check my kernel version?"

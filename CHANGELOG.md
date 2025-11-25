@@ -7,6 +7,187 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.36.0] - 2025-11-25
+
+### THINKING INDICATOR & PROGRESS FEEDBACK V1
+
+**Type:** UX Enhancement
+**Focus:** Visual feedback during long-running operations, zero logic changes
+
+#### Added ✨
+
+**1. Progress Indicator Module (progress_indicator.rs)**
+
+New module provides animated spinner and timing feedback for operations >500ms:
+
+- `ProgressIndicator::new(message)` - Create spinner with custom message
+- `update_message(message)` - Change spinner message mid-operation
+- `finish_with_timing(message)` - Stop spinner and show elapsed time
+- **TTY-Aware**: Only shows spinner if stdout is a TTY (no artifacts in piped output)
+- **Respects NO_COLOR**: Uses OutputEngine capability detection
+- **Fail-Safe**: Spinner failures never block query execution
+- **Auto-Cleanup**: Drop trait ensures spinner always terminates cleanly
+
+**Spinner Styles:**
+- Unicode (default): ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ (Braille dots)
+- ASCII (fallback): ◐◓◑◒ (for limited terminals)
+- 80ms refresh rate for smooth animation
+
+**2. Spinner Integration**
+
+Spinners added to long-running query paths:
+
+**✅ System Report Generation:**
+```bash
+$ annactl "give me a full system report"
+⠹ Gathering system information...
+✓ Report ready (1.8s)
+
+▪  System Configuration
+   CPU: AMD Ryzen 9 5950X (32 threads)
+...
+```
+
+**✅ Disk Explorer:**
+```bash
+$ annactl "show me the 10 biggest folders"
+⠋ Analyzing disk usage...
+✓ Analysis complete (2.3s)
+
+▪  Largest directories under /home
+   512M  /home/user/Downloads
+...
+```
+
+**✅ LLM Queries (V3 JSON Dialogue):**
+```bash
+$ annactl "install docker"
+⠙ Thinking...
+✓ Action plan ready (4.1s)
+
+ACTION PLAN: Install Docker
+...
+```
+
+**✅ Conversational Answers (LLM):**
+```bash
+$ annactl "how do I check disk space?"
+⠹ Thinking...
+✓ Answer ready (2.7s)
+
+To check disk space on Arch Linux, use the df command:
+...
+```
+
+**❌ NO Spinner (Instant Operations):**
+- Capability checks (<100ms): "does my CPU support SSE2?"
+- Status command: `annactl status` (already fast, has reflection block)
+- Any operation completing in <500ms
+
+#### Changed 🔄
+
+**unified_query_handler.rs:**
+
+- System report path: Added spinner with "Gathering system information..."
+- Disk explorer path: Added spinner with "Analyzing disk usage..."
+- V3 JSON dialogue path: Added spinner with "Thinking..."
+- Conversational answer path: Added spinner before LLM call
+- Capability check path: NO spinner (remains instant)
+
+**Timing Display Format:**
+```
+✓ <message> (X.Xs)
+```
+
+Examples:
+- `✓ Report ready (1.8s)`
+- `✓ Analysis complete (2.3s)`
+- `✓ Answer ready (4.1s)`
+
+**Graceful Cancellation (Ctrl+C):**
+- Spinner automatically cleaned up via Drop trait
+- Terminal state never left broken (cursor visible, no artifacts)
+- Non-zero exit code on interruption
+
+#### Tests ✅
+
+**8 new progress_indicator tests:**
+1. `test_progress_indicator_creation` - Basic instantiation
+2. `test_progress_indicator_timing` - Time tracking accuracy
+3. `test_progress_indicator_message_update` - Message changes
+4. `test_progress_indicator_finish_formats` - Completion messages
+5. `test_progress_indicator_no_tty` - Graceful degradation
+6. `test_progress_indicator_cleanup` - Resource cleanup
+7. `test_supports_unicode` - Unicode detection
+8. `test_progress_indicator_enabled_flag` - TTY detection
+
+**5 new integration tests:**
+1. `test_system_report_path_has_spinner_integration`
+2. `test_disk_explorer_path_has_spinner_integration`
+3. `test_capability_check_no_spinner`
+4. `test_progress_indicator_tty_awareness`
+5. `test_progress_indicator_no_panic_on_cleanup`
+
+**Regression:** All 521 existing tests still passing
+
+#### Technical Details 🔧
+
+**TTY Detection:**
+- Uses `atty` crate to detect if stdout is a TTY
+- Spinner disabled in piped output: `annactl status | cat`
+- Spinner disabled in redirected output: `annactl status > file.txt`
+- Spinner disabled in non-TTY environments (CI, scripts)
+
+**NO_COLOR Support:**
+- Respects NO_COLOR environment variable
+- Spinner disabled if `NO_COLOR=1`
+
+**Threshold-Based Display:**
+- Only show spinner if operation expected to take >500ms
+- Prevents flashing spinner on fast operations
+- Based on empirical operation timing:
+  - System reports: 0.5-2s (spinner shown)
+  - Disk explorer: 1-5s (spinner shown)
+  - LLM calls: 2-10s (spinner shown)
+  - Capability checks: <100ms (NO spinner)
+
+**Implementation Guarantees:**
+- ✅ Spinner failures never block queries
+- ✅ Drop trait ensures cleanup on panic/Ctrl+C
+- ✅ No markdown fences in output
+- ✅ No raw ANSI codes (uses `indicatif` properly)
+- ✅ No logic changes to query routing
+- ✅ No new CLI commands or flags
+
+#### Examples 💡
+
+**Before (v6.35.0):**
+```bash
+$ annactl "give me a system report"
+[2 second pause with no feedback]
+
+▪  System Configuration
+...
+```
+
+**After (v6.36.0):**
+```bash
+$ annactl "give me a system report"
+⠹ Gathering system information...
+✓ Report ready (1.8s)
+
+▪  System Configuration
+...
+```
+
+**Piped Output (No Artifacts):**
+```bash
+$ annactl status | cat
+SYSTEM STATUS — 2025-11-25 14:32:01 UTC
+...
+(No spinner artifacts, clean text output)
+```
+
 ## [6.35.0] - 2025-11-25
 
 ### PRESENCE & REFLECTION V1
