@@ -1,8 +1,9 @@
 //! Episode Storage - Persistent storage for action episodes
 //!
 //! v6.49.0: SQLite-based episode storage for rollback capability
+//! v6.50.0: Extended with execution_status, post_validation, rolled_back_episode_id
 
-use crate::action_episodes::{ActionEpisode, ActionKind, ActionRecord, EpisodeTags, RollbackCapability};
+use crate::action_episodes::{ActionEpisode, ActionKind, ActionRecord, EpisodeTags, RollbackCapability, ExecutionStatus, PostValidation};
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use std::path::Path;
@@ -14,7 +15,10 @@ CREATE TABLE IF NOT EXISTS action_episodes (
     user_question   TEXT NOT NULL,
     final_answer_summary TEXT NOT NULL,
     tags_json       TEXT NOT NULL,
-    rollback_capability TEXT NOT NULL
+    rollback_capability TEXT NOT NULL,
+    execution_status TEXT NOT NULL DEFAULT 'PlannedOnly',
+    post_validation_json TEXT,
+    rolled_back_episode_id INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS action_actions (
@@ -32,6 +36,8 @@ CREATE TABLE IF NOT EXISTS action_actions (
 
 CREATE INDEX IF NOT EXISTS idx_episodes_created ON action_episodes(created_at);
 CREATE INDEX IF NOT EXISTS idx_actions_episode ON action_actions(episode_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_status ON action_episodes(execution_status);
+CREATE INDEX IF NOT EXISTS idx_episodes_rollback ON action_episodes(rolled_back_episode_id);
 "#;
 
 /// Episode storage manager
@@ -55,16 +61,23 @@ impl EpisodeStorage {
     pub fn store_action_episode(&self, episode: &ActionEpisode) -> Result<i64> {
         let tags_json = serde_json::to_string(&episode.tags)?;
         let rollback_capability = format!("{:?}", episode.rollback_capability);
+        let execution_status = format!("{:?}", episode.execution_status);
+        let post_validation_json = episode.post_validation.as_ref()
+            .map(|pv| serde_json::to_string(pv).ok())
+            .flatten();
 
         self.conn.execute(
-            "INSERT INTO action_episodes (created_at, user_question, final_answer_summary, tags_json, rollback_capability)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO action_episodes (created_at, user_question, final_answer_summary, tags_json, rollback_capability, execution_status, post_validation_json, rolled_back_episode_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 episode.created_at.to_rfc3339(),
                 &episode.user_question,
                 &episode.final_answer_summary,
                 &tags_json,
                 &rollback_capability,
+                &execution_status,
+                &post_validation_json,
+                &episode.rolled_back_episode_id,
             ],
         )?;
 
@@ -98,7 +111,7 @@ impl EpisodeStorage {
     /// List recent action episodes
     pub fn list_action_episodes_recent(&self, limit: usize) -> Result<Vec<ActionEpisode>> {
         let mut stmt = self.conn.prepare(
-            "SELECT episode_id, created_at, user_question, final_answer_summary, tags_json, rollback_capability
+            "SELECT episode_id, created_at, user_question, final_answer_summary, tags_json, rollback_capability, execution_status, post_validation_json, rolled_back_episode_id
              FROM action_episodes
              ORDER BY created_at DESC
              LIMIT ?1"
@@ -111,15 +124,18 @@ impl EpisodeStorage {
             let final_answer_summary: String = row.get(3)?;
             let tags_json: String = row.get(4)?;
             let rollback_capability_str: String = row.get(5)?;
+            let execution_status_str: String = row.get(6)?;
+            let post_validation_json: Option<String> = row.get(7)?;
+            let rolled_back_episode_id: Option<i64> = row.get(8)?;
 
-            Ok((episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str))
+            Ok((episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str, execution_status_str, post_validation_json, rolled_back_episode_id))
         })?;
 
         let mut result = Vec::new();
         for episode_row in episodes {
-            let (episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str) = episode_row?;
+            let (episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str, execution_status_str, post_validation_json, rolled_back_episode_id) = episode_row?;
 
-            if let Some(episode) = self.load_episode_by_id(episode_id, &created_at_str, &user_question, &final_answer_summary, &tags_json, &rollback_capability_str)? {
+            if let Some(episode) = self.load_episode_by_id(episode_id, &created_at_str, &user_question, &final_answer_summary, &tags_json, &rollback_capability_str, &execution_status_str, post_validation_json.as_deref(), rolled_back_episode_id)? {
                 result.push(episode);
             }
         }
@@ -130,7 +146,7 @@ impl EpisodeStorage {
     /// List action episodes by topic
     pub fn list_action_episodes_by_topic(&self, topic: &str, limit: usize) -> Result<Vec<ActionEpisode>> {
         let mut stmt = self.conn.prepare(
-            "SELECT episode_id, created_at, user_question, final_answer_summary, tags_json, rollback_capability
+            "SELECT episode_id, created_at, user_question, final_answer_summary, tags_json, rollback_capability, execution_status, post_validation_json, rolled_back_episode_id
              FROM action_episodes
              WHERE tags_json LIKE ?1
              ORDER BY created_at DESC
@@ -145,15 +161,18 @@ impl EpisodeStorage {
             let final_answer_summary: String = row.get(3)?;
             let tags_json: String = row.get(4)?;
             let rollback_capability_str: String = row.get(5)?;
+            let execution_status_str: String = row.get(6)?;
+            let post_validation_json: Option<String> = row.get(7)?;
+            let rolled_back_episode_id: Option<i64> = row.get(8)?;
 
-            Ok((episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str))
+            Ok((episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str, execution_status_str, post_validation_json, rolled_back_episode_id))
         })?;
 
         let mut result = Vec::new();
         for episode_row in episodes {
-            let (episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str) = episode_row?;
+            let (episode_id, created_at_str, user_question, final_answer_summary, tags_json, rollback_capability_str, execution_status_str, post_validation_json, rolled_back_episode_id) = episode_row?;
 
-            if let Some(episode) = self.load_episode_by_id(episode_id, &created_at_str, &user_question, &final_answer_summary, &tags_json, &rollback_capability_str)? {
+            if let Some(episode) = self.load_episode_by_id(episode_id, &created_at_str, &user_question, &final_answer_summary, &tags_json, &rollback_capability_str, &execution_status_str, post_validation_json.as_deref(), rolled_back_episode_id)? {
                 result.push(episode);
             }
         }
@@ -164,7 +183,7 @@ impl EpisodeStorage {
     /// Load action episode by ID
     pub fn load_action_episode(&self, episode_id: i64) -> Result<Option<ActionEpisode>> {
         let mut stmt = self.conn.prepare(
-            "SELECT created_at, user_question, final_answer_summary, tags_json, rollback_capability
+            "SELECT created_at, user_question, final_answer_summary, tags_json, rollback_capability, execution_status, post_validation_json, rolled_back_episode_id
              FROM action_episodes
              WHERE episode_id = ?1"
         )?;
@@ -177,8 +196,11 @@ impl EpisodeStorage {
             let final_answer_summary: String = row.get(2)?;
             let tags_json: String = row.get(3)?;
             let rollback_capability_str: String = row.get(4)?;
+            let execution_status_str: String = row.get(5)?;
+            let post_validation_json: Option<String> = row.get(6)?;
+            let rolled_back_episode_id: Option<i64> = row.get(7)?;
 
-            self.load_episode_by_id(episode_id, &created_at_str, &user_question, &final_answer_summary, &tags_json, &rollback_capability_str)
+            self.load_episode_by_id(episode_id, &created_at_str, &user_question, &final_answer_summary, &tags_json, &rollback_capability_str, &execution_status_str, post_validation_json.as_deref(), rolled_back_episode_id)
         } else {
             Ok(None)
         }
@@ -193,6 +215,9 @@ impl EpisodeStorage {
         final_answer_summary: &str,
         tags_json: &str,
         rollback_capability_str: &str,
+        execution_status_str: &str,
+        post_validation_json: Option<&str>,
+        rolled_back_episode_id: Option<i64>,
     ) -> Result<Option<ActionEpisode>> {
         let created_at = chrono::DateTime::parse_from_rfc3339(created_at_str)
             .ok()
@@ -209,6 +234,16 @@ impl EpisodeStorage {
             "Partial" => RollbackCapability::Partial,
             _ => RollbackCapability::None,
         };
+
+        let execution_status = match execution_status_str {
+            "Executed" => ExecutionStatus::Executed,
+            "PartiallyExecuted" => ExecutionStatus::PartiallyExecuted,
+            "RolledBack" => ExecutionStatus::RolledBack,
+            _ => ExecutionStatus::PlannedOnly,
+        };
+
+        let post_validation = post_validation_json
+            .and_then(|json| serde_json::from_str::<PostValidation>(json).ok());
 
         // Load actions
         let mut stmt = self.conn.prepare(
@@ -270,6 +305,9 @@ impl EpisodeStorage {
             tags,
             actions,
             rollback_capability,
+            execution_status,
+            post_validation,
+            rolled_back_episode_id,
         }))
     }
 }

@@ -48,6 +48,24 @@ pub struct EpisodeTags {
     pub domain: Option<String>,  // "audio", "network", "packages", etc
 }
 
+/// Post-validation result from LLM
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PostValidation {
+    pub satisfaction_score: f32,      // 0.0 - 1.0
+    pub summary: String,               // 1-3 sentences
+    pub residual_concerns: Vec<String>, // Short list of potential issues
+    pub suggested_checks: Vec<String>, // At most 3 further commands
+}
+
+/// Episode execution status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ExecutionStatus {
+    PlannedOnly,      // Plan generated but not executed
+    Executed,         // Successfully executed
+    PartiallyExecuted, // Some commands failed
+    RolledBack,       // This episode was rolled back
+}
+
 /// Complete episode of actions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionEpisode {
@@ -58,6 +76,9 @@ pub struct ActionEpisode {
     pub tags: EpisodeTags,
     pub actions: Vec<ActionRecord>,
     pub rollback_capability: RollbackCapability,
+    pub execution_status: ExecutionStatus,
+    pub post_validation: Option<PostValidation>,
+    pub rolled_back_episode_id: Option<i64>, // If this is a rollback, link to original
 }
 
 /// Builder for constructing episodes
@@ -148,6 +169,9 @@ impl EpisodeBuilder {
             }),
             actions: self.actions,
             rollback_capability,
+            execution_status: ExecutionStatus::PlannedOnly,
+            post_validation: None,
+            rolled_back_episode_id: None,
         }
     }
 }

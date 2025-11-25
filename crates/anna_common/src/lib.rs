@@ -77,6 +77,14 @@ pub mod reality_check; // v6.48.0: Reality Check Engine - Multi-signal truth ver
 pub mod action_episodes; // v6.49.0: Episodic Action Log - "If Anna did it, Anna can undo it"
 pub mod rollback_engine; // v6.49.0: Rollback Engine - Semantic rollback with topic-based selection
 pub mod episode_storage; // v6.49.0: Episode Storage - Persistent SQLite storage for episodes
+pub mod execution_safety; // v6.50.0: Execution Safety - Risk classification and safe execution
+pub mod confirmation_ui; // v6.50.0: Confirmation UI - User prompts for plan execution
+pub mod episode_recorder; // v6.50.0: Episode Recorder - Convert executions to episodes
+pub mod post_validation; // v6.50.0: Post-Validation - LLM-based execution assessment
+pub mod change_journal; // v6.51.0: Change Journal - Read-only auditing of action history
+pub mod journal_query_intent; // v6.51.0: Journal Query Intent - Natural language to structured queries
+pub mod journal_renderer; // v6.51.0: Journal Renderer - Episode rendering for OutputEngine
+pub mod config_diff; // v6.51.0: Config Diff - Unified diffs for configuration changes
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

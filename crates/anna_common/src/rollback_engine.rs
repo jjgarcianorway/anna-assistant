@@ -299,6 +299,9 @@ mod tests {
             },
             actions: vec![],
             rollback_capability: RollbackCapability::Full,
+            execution_status: crate::action_episodes::ExecutionStatus::PlannedOnly,
+            post_validation: None,
+            rolled_back_episode_id: None,
         }
     }
 

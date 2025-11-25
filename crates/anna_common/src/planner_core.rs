@@ -9,7 +9,9 @@
 
 use crate::llm_client::{LlmClient, LlmError};
 use crate::tool_inventory::ToolInventory;
+use crate::execution_safety::{classify_command_risk, classify_command_domain, determine_execution_mode, PlanSummary, RiskLevel};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// User intent classification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,6 +174,50 @@ pub enum SafetyLevel {
 
     /// Risky operations (package install, file deletion)
     Risky,
+}
+
+impl CommandPlan {
+    /// Compute plan summary for v6.50.0 execution safety
+    ///
+    /// Analyzes all commands in the plan and determines:
+    /// - Overall risk level (Safe/Moderate/High)
+    /// - Execution mode (PlanOnly/ConfirmRequired)
+    /// - Domains involved
+    /// - Whether backups will be created
+    pub fn compute_plan_summary(&self, is_interactive: bool) -> PlanSummary {
+        let mut max_risk = RiskLevel::Safe;
+        let mut domains = HashSet::new();
+        let will_create_backups = self.commands.iter().any(|cmd| {
+            cmd.command.contains("backup") || cmd.purpose.to_lowercase().contains("backup")
+        });
+
+        // Analyze each command to determine risk
+        for cmd in &self.commands {
+            let full_command = format!("{} {}", cmd.command, cmd.args.join(" "));
+            let risk = classify_command_risk(&full_command, &cmd.purpose);
+
+            if risk > max_risk {
+                max_risk = risk;
+            }
+
+            let domain = classify_command_domain(&full_command);
+            domains.insert(domain);
+        }
+
+        let execution_mode = determine_execution_mode(&max_risk, is_interactive);
+
+        let description = self.goal_description.clone()
+            .unwrap_or_else(|| format!("Execute {} command(s)", self.commands.len()));
+
+        PlanSummary {
+            description,
+            risk_level: max_risk,
+            domains: domains.into_iter().collect(),
+            command_count: self.commands.len(),
+            will_create_backups,
+            execution_mode,
+        }
+    }
 }
 
 /// Planner interaction result (v6.43.0)
@@ -849,5 +895,127 @@ mod tests {
         assert!(!plan.commands.is_empty());
         assert_eq!(plan.commands[0].command, "echo");
         assert!(plan.commands[0].args[0].contains("DE_WM_DETECTOR"));
+    }
+
+    // v6.50.0: Test plan summary computation
+    #[test]
+    fn test_compute_plan_summary_safe() {
+        use crate::execution_safety::{ExecutionMode, RiskLevel};
+
+        let plan = CommandPlan {
+            commands: vec![PlannedCommand {
+                command: "ls".to_string(),
+                args: vec!["-la".to_string()],
+                purpose: "list files".to_string(),
+                requires_tools: vec![],
+                risk_level: StepRiskLevel::ReadOnly,
+                writes_files: false,
+                requires_root: false,
+                expected_outcome: None,
+                validation_hint: None,
+            }],
+            safety_level: SafetyLevel::ReadOnly,
+            fallbacks: vec![],
+            expected_output: "files".to_string(),
+            reasoning: "test".to_string(),
+            goal_description: Some("List files".to_string()),
+            assumptions: vec![],
+            confidence: 0.9,
+        };
+
+        let summary = plan.compute_plan_summary(true);
+        assert_eq!(summary.risk_level, RiskLevel::Safe);
+        assert_eq!(summary.execution_mode, ExecutionMode::ConfirmRequired);
+        assert_eq!(summary.command_count, 1);
+    }
+
+    #[test]
+    fn test_compute_plan_summary_moderate() {
+        use crate::execution_safety::{ExecutionMode, RiskLevel};
+
+        let plan = CommandPlan {
+            commands: vec![PlannedCommand {
+                command: "systemctl".to_string(),
+                args: vec!["restart".to_string(), "sshd".to_string()],
+                purpose: "restart service".to_string(),
+                requires_tools: vec![],
+                risk_level: StepRiskLevel::Medium,
+                writes_files: false,
+                requires_root: true,
+                expected_outcome: None,
+                validation_hint: None,
+            }],
+            safety_level: SafetyLevel::Risky,
+            fallbacks: vec![],
+            expected_output: "service restarted".to_string(),
+            reasoning: "test".to_string(),
+            goal_description: Some("Restart SSH".to_string()),
+            assumptions: vec![],
+            confidence: 0.85,
+        };
+
+        let summary = plan.compute_plan_summary(true);
+        assert_eq!(summary.risk_level, RiskLevel::Moderate);
+        assert_eq!(summary.execution_mode, ExecutionMode::ConfirmRequired);
+    }
+
+    #[test]
+    fn test_compute_plan_summary_high_risk() {
+        use crate::execution_safety::{ExecutionMode, RiskLevel};
+
+        let plan = CommandPlan {
+            commands: vec![PlannedCommand {
+                command: "fdisk".to_string(),
+                args: vec!["/dev/sda".to_string()],
+                purpose: "partition disk".to_string(),
+                requires_tools: vec![],
+                risk_level: StepRiskLevel::High,
+                writes_files: true,
+                requires_root: true,
+                expected_outcome: None,
+                validation_hint: None,
+            }],
+            safety_level: SafetyLevel::Risky,
+            fallbacks: vec![],
+            expected_output: "disk partitioned".to_string(),
+            reasoning: "test".to_string(),
+            goal_description: Some("Partition disk".to_string()),
+            assumptions: vec![],
+            confidence: 0.7,
+        };
+
+        let summary = plan.compute_plan_summary(true);
+        assert_eq!(summary.risk_level, RiskLevel::High);
+        assert_eq!(summary.execution_mode, ExecutionMode::PlanOnly);
+    }
+
+    #[test]
+    fn test_compute_plan_summary_one_shot_mode() {
+        use crate::execution_safety::{ExecutionMode, RiskLevel};
+
+        let plan = CommandPlan {
+            commands: vec![PlannedCommand {
+                command: "ls".to_string(),
+                args: vec![],
+                purpose: "list".to_string(),
+                requires_tools: vec![],
+                risk_level: StepRiskLevel::ReadOnly,
+                writes_files: false,
+                requires_root: false,
+                expected_outcome: None,
+                validation_hint: None,
+            }],
+            safety_level: SafetyLevel::ReadOnly,
+            fallbacks: vec![],
+            expected_output: "files".to_string(),
+            reasoning: "test".to_string(),
+            goal_description: None,
+            assumptions: vec![],
+            confidence: 0.9,
+        };
+
+        let summary = plan.compute_plan_summary(false); // non-interactive
+        assert_eq!(summary.risk_level, RiskLevel::Safe);
+        assert_eq!(summary.execution_mode, ExecutionMode::PlanOnly);
     }
 }
