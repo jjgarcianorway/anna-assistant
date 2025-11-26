@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "10.3.0"
+version = "0.0.1"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -17,7 +17,6 @@ repository = "https://github.com/jjgarcianorway/anna-assistant"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
@@ -32,38 +31,20 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # System info
 sysinfo = "0.30"
-num_cpus = "1.16"
 
 # CLI
-clap = { version = "4.0", features = ["derive", "cargo"] }
+clap = { version = "4.0", features = ["derive"] }
 
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
 
-# Unix socket
-tokio-stream = "0.1"
+# HTTP server
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
 
-# UUID generation
-uuid = { version = "1.0", features = ["v4", "serde"] }
-
-# Terminal formatting
-owo-colors = "4.0"
-console = "0.15"
-indicatif = "0.17"  # Beta.108: Professional thinking animations
-
-# TUI (Phase 5.7)
-ratatui = "0.26"
-crossterm = "0.27"
-
-# File system watching
-notify = "6.1"
-walkdir = "2.4"  # Beta.84: Directory traversal for file indexing
-
-# Cryptography (Phase 1.8)
-ed25519-dalek = { version = "2.0", features = ["rand_core"] }
-sha2 = "0.10"
-rand = "0.8"
-hex = "0.4"
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
 
 # Configuration
 toml = "0.8"
@@ -71,25 +52,5 @@ toml = "0.8"
 # Regex
 regex = "1.10"
 
-# Networking (Phase 1.9)
-axum = "0.7"
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["trace", "cors", "timeout", "limit"] }
-hyper = { version = "1.0", features = ["client", "http1", "http2"] }
-hyper-util = { version = "0.1", features = ["client-legacy", "http1", "http2", "tokio"] }
-http-body-util = "0.1"
-
-# TLS (Phase 1.11 + 1.12)
-rustls = "0.23"
-tokio-rustls = "0.26"
-rustls-pemfile = "2.1"
-
-# Metrics (Phase 1.9)
-prometheus = { version = "0.13", features = ["process"] }
-
-# Caching (Phase 1.11)
-lru = "0.12"
-
-# Database (Phase 3.6 - Persistent Context)
-rusqlite = { version = "0.31", features = ["bundled", "chrono"] }
-tokio-rusqlite = "0.5"
+# Terminal formatting
+owo-colors = "4.0"

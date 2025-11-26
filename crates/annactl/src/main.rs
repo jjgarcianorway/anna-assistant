@@ -1,93 +1,255 @@
-//! Anna Control - CLI client for Anna Assistant
+//! Anna CLI (annactl) - User interface wrapper
 //!
-//! v6.57.0: Brutal cleanup - single pipeline architecture
-//!
-//! All queries flow through the unified pipeline:
-//! planner_core → executor_core → interpreter_core → trace_renderer
-//!
-//! NO legacy handlers, NO hardcoded recipes, NO shortcut paths.
+//! Talks to LLM-A only. Provides clean output.
+
+mod client;
+mod llm_client;
+mod orchestrator;
+mod output;
 
 use anyhow::Result;
+use clap::{Parser, Subcommand};
+use owo_colors::OwoColorize;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-// Module declarations
-pub mod errors;
+#[derive(Parser)]
+#[command(name = "annactl")]
+#[command(author = "Anna Assistant Team")]
+#[command(version)]
+#[command(about = "Anna - Your intelligent Linux assistant", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
 
-// Core architecture modules
-mod cli;
-mod debug;
-pub mod llm;
-mod llm_query_handler;
-mod runtime;
-pub mod state;
-pub mod telemetry;
+    /// Ask Anna a question directly
+    #[arg(trailing_var_arg = true)]
+    question: Vec<String>,
+}
 
-// Feature modules
-mod action_executor;
-pub mod action_plan_executor;
-mod brain_command;
-mod context_engine;
-// REMOVED in 6.57.0: plan_command - depended on legacy orchestrator
-// REMOVED in 6.57.0: selftest_command - depended on legacy orchestrator
-mod diagnostic_formatter;
-// REMOVED in 6.57.0: sysadmin_answers - hardcoded answer templates
-// REMOVED in 6.57.0: deterministic_answers - bypassed the pipeline
-// REMOVED in v7.0.0: planner_query_handler - replaced by query_handler_v7
-pub mod query_handler_v7; // v7.0.0: Clean brain architecture
-pub mod query_handler_v8; // v8.0.0: Pure LLM-driven architecture
-pub mod query_handler_v10; // v10.0.0: Evidence-based architecture
-mod approval_ui;
-mod net_diagnostics;
-mod dialogue_v3_json;
-mod first_run;
-mod hardware_questions;
-mod health;
-mod help_commands;
-mod historian_cli;
-mod intent_router;
-mod internal_dialogue;
-// REMOVED in 6.57.0: json_types - depended on deleted caretaker_brain
-mod llm_integration;
-mod llm_wizard;
-mod logging;
-mod model_catalog;
-mod model_setup_wizard;
-mod output;
-mod personality_commands;
-mod power_diagnostics;
-// REMOVED in 6.57.0: query_handler - legacy recipe-based handler
-mod reflection_helper;
-// REMOVED in 6.57.0: recipe_formatter - legacy recipe formatting
-mod repair;
-mod rpc_client;
-mod runtime_prompt;
-mod startup;
-mod status_command;
-mod status_health;
-mod system_prompt_v2;
-mod system_prompt_v3_json;
-mod system_query;
-mod systemd;
-mod system_report;
-mod telemetry_truth;
-mod unified_query_handler;
-mod version_banner;
+#[derive(Subcommand)]
+enum Commands {
+    /// Ask Anna a question
+    Ask {
+        /// The question to ask
+        #[arg(trailing_var_arg = true)]
+        question: Vec<String>,
+    },
+    /// Check Anna daemon status
+    Status,
+    /// List available probes
+    Probes,
+    /// Run a specific probe
+    Probe {
+        /// Probe ID to run
+        id: String,
+    },
+    /// Show configuration
+    Config,
+    /// Initialize Anna (first run)
+    Init,
+}
 
-/// Application entry point
-///
-/// Beta.200: Delegates to runtime::run() for all application logic.
-/// Beta.240: Initializes debug flags and prints stats on exit (if enabled)
-/// This keeps main.rs minimal and focused on being an entry point.
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Beta.240: Initialize debug flags from environment variables
-    debug::init_debug_flags();
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "annactl=warn".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer().without_time())
+        .init();
 
-    // Run the application
-    let result = runtime::run().await;
+    let cli = Cli::parse();
 
-    // Beta.240: Print RPC stats on exit if debug enabled (developer-only)
-    // Note: Stats printing handled per-client in status_command, llm_query_handler, etc.
-    // This is just a reminder that debug output is opt-in via ANNA_DEBUG_RPC_STATS=1
+    // Handle commands
+    match cli.command {
+        Some(Commands::Ask { question }) => {
+            let q = question.join(" ");
+            if q.is_empty() {
+                eprintln!("{}  Please provide a question", "".red());
+                std::process::exit(1);
+            }
+            run_ask(&q).await?;
+        }
+        Some(Commands::Status) => {
+            run_status().await?;
+        }
+        Some(Commands::Probes) => {
+            run_list_probes().await?;
+        }
+        Some(Commands::Probe { id }) => {
+            run_probe(&id).await?;
+        }
+        Some(Commands::Config) => {
+            run_config().await?;
+        }
+        Some(Commands::Init) => {
+            run_init().await?;
+        }
+        None => {
+            // Direct question mode
+            if !cli.question.is_empty() {
+                let q = cli.question.join(" ");
+                run_ask(&q).await?;
+            } else {
+                print_banner();
+                println!("\nUsage: {} <question>", "annactl".cyan());
+                println!("       {} ask <question>", "annactl".cyan());
+                println!("       {} status", "annactl".cyan());
+                println!("\nRun {} for more options", "annactl --help".cyan());
+            }
+        }
+    }
 
-    result
+    Ok(())
+}
+
+fn print_banner() {
+    println!(
+        "\n{}  {}",
+        "".bright_magenta(),
+        format!("Anna v{}", env!("CARGO_PKG_VERSION")).bright_white()
+    );
+    println!("   Your intelligent Linux assistant\n");
+}
+
+async fn run_ask(question: &str) -> Result<()> {
+    let daemon = client::DaemonClient::new();
+
+    // Check daemon health
+    if !daemon.is_healthy().await {
+        eprintln!("{}  Anna daemon is not running", "".red());
+        eprintln!("   Run: {} to start", "sudo systemctl start annad".cyan());
+        std::process::exit(1);
+    }
+
+    // Run orchestrator
+    let result = orchestrator::process_question(question, &daemon).await?;
+
+    // Output result
+    output::display_response(&result);
+
+    Ok(())
+}
+
+async fn run_status() -> Result<()> {
+    let daemon = client::DaemonClient::new();
+
+    match daemon.health().await {
+        Ok(health) => {
+            println!(
+                "{}  Anna Daemon {}",
+                "".green(),
+                "running".bright_green()
+            );
+            println!("   Version: {}", health.version.cyan());
+            println!("   Uptime: {}s", health.uptime_seconds);
+            println!("   Probes: {}", health.probes_available);
+        }
+        Err(_) => {
+            println!("{}  Anna Daemon {}", "".red(), "stopped".bright_red());
+            println!(
+                "   Start with: {}",
+                "sudo systemctl start annad".cyan()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_list_probes() -> Result<()> {
+    let daemon = client::DaemonClient::new();
+    let probes = daemon.list_probes().await?;
+
+    println!("{}  Available Probes\n", "".cyan());
+    for probe in probes.probes {
+        println!(
+            "   {}  {}  ({})",
+            "".bright_blue(),
+            probe.id.bright_white(),
+            probe.cache_policy.dimmed()
+        );
+    }
+
+    Ok(())
+}
+
+async fn run_probe(id: &str) -> Result<()> {
+    let daemon = client::DaemonClient::new();
+    let result = daemon.run_probe(id, false).await?;
+
+    if result.success {
+        println!("{}  Probe: {}\n", "".green(), id.cyan());
+        let formatted = serde_json::to_string_pretty(&result.data)?;
+        println!("{}", formatted);
+    } else {
+        println!("{}  Probe failed: {}", "".red(), id);
+        if let Some(err) = result.error {
+            println!("   {}", err.red());
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_config() -> Result<()> {
+    let config = anna_common::AnnaConfig::default();
+    println!("{}  Anna Configuration\n", "".cyan());
+    println!("   Version: {}", config.version.cyan());
+    println!("   Orchestrator: {}", config.models.orchestrator.yellow());
+    println!("   Expert: {}", config.models.expert.yellow());
+    println!("   Daemon URL: {}", config.daemon_socket.dimmed());
+    println!("   Ollama URL: {}", config.ollama_url.dimmed());
+
+    Ok(())
+}
+
+async fn run_init() -> Result<()> {
+    println!("{}  Initializing Anna...\n", "".cyan());
+
+    // Detect hardware
+    println!("   {}  Detecting hardware...", "".bright_blue());
+    let hw = detect_hardware();
+    println!("      RAM: {} GB", hw.ram_gb);
+    println!("      CPU: {} cores", hw.cpu_cores);
+    println!(
+        "      GPU: {}",
+        if hw.has_gpu { "detected" } else { "none" }
+    );
+
+    // Select models
+    let models = hw.select_models();
+    println!("\n   {}  Selected models:", "".bright_blue());
+    println!("      Orchestrator (LLM-A): {}", models.orchestrator.yellow());
+    println!("      Expert (LLM-B): {}", models.expert.yellow());
+
+    println!(
+        "\n{}  Initialization complete",
+        "".green()
+    );
+    println!("   Run {} to check status", "annactl status".cyan());
+
+    Ok(())
+}
+
+fn detect_hardware() -> anna_common::HardwareInfo {
+    use sysinfo::System;
+
+    let mut sys = System::new_all();
+    sys.refresh_all();
+
+    let ram_gb = sys.total_memory() / 1024 / 1024 / 1024;
+    let cpu_cores = sys.cpus().len();
+
+    // Simple GPU detection (check for nvidia/amd devices)
+    let has_gpu = std::path::Path::new("/dev/nvidia0").exists()
+        || std::path::Path::new("/dev/dri/card0").exists();
+
+    anna_common::HardwareInfo {
+        ram_gb,
+        cpu_cores,
+        has_gpu,
+        vram_gb: None, // Would need nvidia-smi for accurate detection
+    }
 }

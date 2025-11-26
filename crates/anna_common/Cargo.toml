@@ -6,32 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
-chrono = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-owo-colors = { workspace = true }
-console = { workspace = true }
-toml = { workspace = true }
-reqwest = { version = "0.11", features = ["json", "blocking"] } # Task 12: LLM HTTP backend
-tracing = { workspace = true }
-libc = "0.2" # For root detection in updater (Beta.88)
-uuid = { workspace = true } # For self-healing framework (Phase 3.1)
-atty = "0.2" # For TTY detection in display library (Phase 4.1)
-indicatif = { workspace = true } # v6.36.0: Progress indicators and spinners
-sysinfo = { workspace = true } # For telemetry collection (Task 8)
-num_cpus = { workspace = true } # For system health load average per-core calculation
-sha2 = "0.10" # For file backup SHA256 verification
-nix = { version = "0.27", features = ["user"] } # For UID detection in backup manager
-walkdir = { workspace = true } # Beta.84: Directory traversal for file indexing
-regex = "1.10" # Beta.90: Template parameter validation
-flate2 = "1.0" # v6.55.1: Knowledge export compression
-
-# Database for persistent context (Phase 3.6)
-rusqlite = { workspace = true }
-tokio-rusqlite = { workspace = true }
-tokio = { workspace = true }
-
-[dev-dependencies]
-tempfile = "3.8"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true

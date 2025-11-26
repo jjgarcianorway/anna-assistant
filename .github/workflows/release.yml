@@ -5,129 +5,80 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-release:
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: anna-linux-x86_64
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: anna-linux-aarch64
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        rustflags: ''  # Don't treat warnings as errors for now
-        cache: true  # Enable cargo caching
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-    - name: Extract version from tag
-      id: get_version
-      run: |
-        VERSION=${GITHUB_REF#refs/tags/}
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Building version: $VERSION"
+      - uses: Swatinem/rust-cache@v2
 
-    - name: Set ANNA_VERSION environment variable
-      run: |
-        echo "ANNA_VERSION=${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_ENV
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
 
-    - name: Build release binaries with embedded version
-      run: |
-        cargo build --release --verbose
-        echo "Build complete - version $ANNA_VERSION embedded"
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/annad dist/
+          cp target/${{ matrix.target }}/release/annactl dist/
+          cp -r probes dist/
+          cp README.md LICENSE dist/
+          tar -czvf ${{ matrix.artifact }}.tar.gz -C dist .
 
-    - name: Verify embedded version in annad
-      run: |
-        ANNAD_VERSION=$(./target/release/annad --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
-        echo "annad reports version: $ANNAD_VERSION"
-        VERSION_CLEAN=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
-        if [ "$ANNAD_VERSION" != "$VERSION_CLEAN" ]; then
-          echo "ERROR: Version mismatch!"
-          echo "Expected: $VERSION_CLEAN"
-          echo "Got: $ANNAD_VERSION"
-          exit 1
-        fi
-        echo "✓ annad version verified"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.tar.gz
 
-    - name: Verify embedded version in annactl
-      run: |
-        ANNACTL_VERSION=$(./target/release/annactl --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?')
-        echo "annactl reports version: $ANNACTL_VERSION"
-        VERSION_CLEAN=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
-        if [ "$ANNACTL_VERSION" != "$VERSION_CLEAN" ]; then
-          echo "ERROR: Version mismatch!"
-          echo "Expected: $VERSION_CLEAN"
-          echo "Got: $ANNACTL_VERSION"
-          exit 1
-        fi
-        echo "✓ annactl version verified"
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-    - name: Strip binaries
-      run: |
-        strip target/release/annad
-        strip target/release/annactl
-        echo "✓ Binaries stripped"
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Prepare release artifacts
-      run: |
-        VERSION_CLEAN=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
-        mkdir -p release-${{ steps.get_version.outputs.VERSION }}
-        # Create simple names for auto-updater compatibility
-        cp target/release/annad "release-${{ steps.get_version.outputs.VERSION }}/annad"
-        cp target/release/annactl "release-${{ steps.get_version.outputs.VERSION }}/annactl"
-        # Also create versioned names for archival purposes
-        cp target/release/annad "release-${{ steps.get_version.outputs.VERSION }}/annad-${VERSION_CLEAN}-x86_64-unknown-linux-gnu"
-        cp target/release/annactl "release-${{ steps.get_version.outputs.VERSION }}/annactl-${VERSION_CLEAN}-x86_64-unknown-linux-gnu"
-        chmod +x release-${{ steps.get_version.outputs.VERSION }}/*
-        ls -lh release-${{ steps.get_version.outputs.VERSION }}/
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: Generate checksums
-      run: |
-        cd release-${{ steps.get_version.outputs.VERSION }}
-        sha256sum * > SHA256SUMS
-        cat SHA256SUMS
-        echo "✓ Checksums generated"
+      - name: Create checksums
+        run: |
+          cd artifacts
+          for dir in */; do
+            cd "$dir"
+            sha256sum *.tar.gz >> ../SHA256SUMS
+            cd ..
+          done
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          release-${{ steps.get_version.outputs.VERSION }}/*
-        body: |
-          # Anna Assistant ${{ steps.get_version.outputs.VERSION }}
-
-          ## Installation
-
-          ```bash
-          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.sh | sudo sh
-          ```
-
-          ## What's New
-
-          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-
-          ## Verify Installation
-
-          ```bash
-          annactl --version
-          annactl status
-          ```
-
-          ---
-
-          **Built with Rust • Powered by Arch Wiki • Privacy First**
-        draft: false
-        prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Release Summary
-      run: |
-        echo "::notice::Release ${{ steps.get_version.outputs.VERSION }} published successfully!"
-        echo "::notice::Download: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.VERSION }}"
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/SHA256SUMS
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,7 @@
+{
+  "id": "cpu.info",
+  "cmd": ["cat", "/proc/cpuinfo"],
+  "parser": "cpuinfo_v1",
+  "cache_policy": "STATIC",
+  "ttl": 0
+}

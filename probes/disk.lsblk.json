@@ -1,0 +1,7 @@
+{
+  "id": "disk.lsblk",
+  "cmd": ["lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE"],
+  "parser": "lsblk_v1",
+  "cache_policy": "SLOW",
+  "ttl": 3600
+}

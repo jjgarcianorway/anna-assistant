@@ -1,207 +1,174 @@
-#!/bin/bash
-# Anna Assistant - Uninstaller
-# Safely removes Anna with optional data backup
+#!/usr/bin/env bash
+# Anna v0.0.1 - Uninstall Script
+# Removes Anna components, preserves user data optionally
 
-set -e
-
-INSTALL_DIR="/usr/local/bin"
-DATA_DIR="/var/lib/anna"
-LOG_DIR="/var/log/anna"
-CONFIG_DIR="/etc/anna"
+set -euo pipefail
 
 # Colors
-if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors)" -ge 256 ]; then
-    BLUE='\033[38;5;117m'
-    GREEN='\033[38;5;120m'
-    YELLOW='\033[38;5;228m'
-    RED='\033[38;5;210m'
-    CYAN='\033[38;5;159m'
-    GRAY='\033[38;5;250m'
-    RESET='\033[0m'
-    BOLD='\033[1m'
-    CHECK="✓"; CROSS="✗"; ARROW="→"
-else
-    BLUE=''; GREEN=''; YELLOW=''; RED=''; CYAN=''; GRAY=''; RESET=''; BOLD=''
-    CHECK="[OK]"; CROSS="[X]"; ARROW="->"
-fi
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+BOLD='\033[1m'
 
-error_exit() {
-    echo -e "${RED}${CROSS} $1${RESET}" >&2
-    exit 1
+# Icons
+ICON_CHECK="✓"
+ICON_CROSS="✗"
+ICON_INFO="ℹ"
+ICON_WARN="⚠"
+ICON_TRASH="🗑"
+
+print_banner() {
+    echo -e "\n${RED}${ICON_TRASH}${NC}  ${BOLD}Anna Uninstall${NC}\n"
 }
 
-# Header
-echo
-echo -e "${BOLD}${CYAN}====================================================${RESET}"
-echo -e "${BOLD}${BLUE}    Anna Assistant Uninstaller${RESET}"
-echo -e "${BOLD}${CYAN}====================================================${RESET}"
-echo
+log_info() {
+    echo -e "${BLUE}${ICON_INFO}${NC}  $1"
+}
 
-# Check if Anna is installed
-if [ ! -f "$INSTALL_DIR/annactl" ] && [ ! -f "$INSTALL_DIR/annad" ]; then
-    echo -e "${YELLOW}${ARROW}${RESET} Anna doesn't appear to be installed."
-    echo
-    exit 0
-fi
+log_success() {
+    echo -e "${GREEN}${ICON_CHECK}${NC}  $1"
+}
 
-# Get current version
-VERSION=""
-if command -v annactl >/dev/null 2>&1; then
-    VERSION=$(annactl --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9\.]+)?' || echo "unknown")
-fi
+log_warn() {
+    echo -e "${YELLOW}${ICON_WARN}${NC}  $1"
+}
 
-echo "This will remove Anna Assistant from your system."
-echo
-if [ -n "$VERSION" ] && [ "$VERSION" != "unknown" ]; then
-    echo -e "${GRAY}Current version: ${CYAN}v${VERSION}${RESET}"
-    echo
-fi
+log_error() {
+    echo -e "${RED}${ICON_CROSS}${NC}  $1"
+}
 
-# Check sudo early
-command -v sudo >/dev/null 2>&1 || error_exit "sudo required"
+# Check if running as root
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        log_error "This script must be run as root"
+        echo "   Run: sudo $0"
+        exit 1
+    fi
+}
 
-# Stop daemon first
-echo -e "${CYAN}${ARROW}${RESET} Stopping Anna daemon..."
-if systemctl is-active --quiet annad 2>/dev/null; then
-    sudo systemctl stop annad
-    echo -e "${GREEN}${CHECK}${RESET} Daemon stopped"
-else
-    echo -e "${GRAY}  Daemon not running${RESET}"
-fi
+# Stop and disable service
+stop_service() {
+    log_info "Stopping Anna service..."
 
-# Ask about data
-echo
-echo -e "${BOLD}${YELLOW}Data Management${RESET}"
-echo -e "${GRAY}────────────────────────────────────────────────────${RESET}"
-echo
-
-DATA_SIZE="0"
-if [ -d "$DATA_DIR" ]; then
-    DATA_SIZE=$(du -sh "$DATA_DIR" 2>/dev/null | cut -f1 || echo "unknown")
-fi
-
-echo "Anna has stored data and knowledge about your system:"
-if [ -d "$DATA_DIR" ]; then
-    echo -e "  ${CYAN}${DATA_DIR}${RESET} (${DATA_SIZE})"
-fi
-if [ -d "$LOG_DIR" ]; then
-    echo -e "  ${CYAN}${LOG_DIR}${RESET}"
-fi
-echo
-
-echo -en "${BOLD}Do you want to delete Anna's data? [y/N]:${RESET} "
-read -r DELETE_DATA < /dev/tty
-echo
-
-BACKUP_CREATED=false
-BACKUP_PATH=""
-
-if [[ $DELETE_DATA =~ ^[Yy]$ ]]; then
-    # Offer backup
-    echo -e "${BOLD}Would you like to create a backup before deleting? [Y/n]:${RESET} "
-    read -r CREATE_BACKUP < /dev/tty
-    echo
-
-    if [[ ! $CREATE_BACKUP =~ ^[Nn]$ ]]; then
-        # Create backup
-        BACKUP_DIR="$HOME/anna-backups"
-        mkdir -p "$BACKUP_DIR"
-
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        if [ -n "$VERSION" ] && [ "$VERSION" != "unknown" ]; then
-            BACKUP_NAME="anna-backup-v${VERSION}-${TIMESTAMP}.tar.gz"
-        else
-            BACKUP_NAME="anna-backup-${TIMESTAMP}.tar.gz"
-        fi
-        BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
-
-        echo -e "${CYAN}${ARROW}${RESET} Creating backup..."
-        echo -e "${GRAY}Backup location: ${BACKUP_PATH}${RESET}"
-
-        # Create tarball
-        BACKUP_DIRS=""
-        [ -d "$DATA_DIR" ] && BACKUP_DIRS="$BACKUP_DIRS $DATA_DIR"
-        [ -d "$LOG_DIR" ] && BACKUP_DIRS="$BACKUP_DIRS $LOG_DIR"
-        [ -d "$CONFIG_DIR" ] && BACKUP_DIRS="$BACKUP_DIRS $CONFIG_DIR"
-
-        if [ -n "$BACKUP_DIRS" ]; then
-            if sudo tar czf "$BACKUP_PATH" $BACKUP_DIRS 2>/dev/null; then
-                sudo chown "$USER:$(id -gn)" "$BACKUP_PATH"
-                BACKUP_SIZE=$(du -sh "$BACKUP_PATH" 2>/dev/null | cut -f1 || echo "unknown")
-                echo -e "${GREEN}${CHECK}${RESET} Backup created: ${BACKUP_PATH} (${BACKUP_SIZE})"
-                BACKUP_CREATED=true
-            else
-                echo -e "${RED}${CROSS}${RESET} Backup failed"
-            fi
-        else
-            echo -e "${GRAY}  No data to backup${RESET}"
-        fi
-        echo
+    if systemctl is-active --quiet annad 2>/dev/null; then
+        systemctl stop annad
+        log_success "Stopped annad service"
     fi
 
-    # Delete data
-    echo -e "${CYAN}${ARROW}${RESET} Deleting Anna's data..."
-
-    [ -d "$DATA_DIR" ] && sudo rm -rf "$DATA_DIR"
-    [ -d "$LOG_DIR" ] && sudo rm -rf "$LOG_DIR"
-    [ -d "$CONFIG_DIR" ] && sudo rm -rf "$CONFIG_DIR"
-
-    echo -e "${GREEN}${CHECK}${RESET} Data deleted"
-else
-    echo -e "${GRAY}Keeping Anna's data (can be reused on reinstall)${RESET}"
-fi
-
-echo
+    if systemctl is-enabled --quiet annad 2>/dev/null; then
+        systemctl disable annad
+        log_success "Disabled annad service"
+    fi
+}
 
 # Remove binaries
-echo -e "${CYAN}${ARROW}${RESET} Removing binaries..."
-sudo rm -f "$INSTALL_DIR/annad" "$INSTALL_DIR/annactl"
-echo -e "${GREEN}${CHECK}${RESET} Binaries removed"
+remove_binaries() {
+    log_info "Removing binaries..."
+
+    rm -f /usr/local/bin/annad
+    rm -f /usr/local/bin/annactl
+
+    log_success "Removed binaries"
+}
 
 # Remove systemd service
-echo -e "${CYAN}${ARROW}${RESET} Removing systemd service..."
-sudo systemctl disable annad 2>/dev/null || true
-sudo rm -f /etc/systemd/system/annad.service
-sudo systemctl daemon-reload
-echo -e "${GREEN}${CHECK}${RESET} Service removed"
+remove_service() {
+    log_info "Removing systemd service..."
 
-# Remove shell completions
-echo -e "${CYAN}${ARROW}${RESET} Removing shell completions..."
-sudo rm -f /usr/share/bash-completion/completions/annactl
-sudo rm -f /usr/share/zsh/site-functions/_annactl
-sudo rm -f /usr/share/fish/vendor_completions.d/annactl.fish
-echo -e "${GREEN}${CHECK}${RESET} Completions removed"
+    rm -f /etc/systemd/system/annad.service
+    systemctl daemon-reload
 
-# Success message
-echo
-echo -e "${BOLD}${GREEN}====================================================${RESET}"
-echo -e "${BOLD}${GREEN}  ✓ Anna Assistant Uninstalled${RESET}"
-echo -e "${BOLD}${GREEN}====================================================${RESET}"
-echo
+    log_success "Removed systemd service"
+}
 
-if [ "$BACKUP_CREATED" = true ]; then
-    echo -e "${BOLD}${CYAN}Backup Information:${RESET}"
-    echo
-    echo -e "Your Anna data has been backed up to:"
-    echo -e "  ${CYAN}${BACKUP_PATH}${RESET}"
-    echo
-    echo "To restore this backup on a future installation:"
-    echo -e "  1. Install Anna: ${GRAY}curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash${RESET}"
-    echo -e "  2. Stop daemon: ${GRAY}sudo systemctl stop annad${RESET}"
-    echo -e "  3. Restore backup: ${GRAY}sudo tar xzf ${BACKUP_PATH} -C /${RESET}"
-    echo -e "  4. Restart daemon: ${GRAY}sudo systemctl start annad${RESET}"
-    echo
-fi
+# Remove probes
+remove_probes() {
+    log_info "Removing probes..."
 
-if [[ ! $DELETE_DATA =~ ^[Yy]$ ]]; then
-    echo -e "${BOLD}${YELLOW}Note:${RESET} Anna's data was preserved"
-    echo
-    echo "Data location: ${CYAN}${DATA_DIR}${RESET}"
-    echo
-    echo "To remove it manually later:"
-    echo -e "  ${GRAY}sudo rm -rf ${DATA_DIR} ${LOG_DIR}${RESET}"
-    echo
-fi
+    rm -rf /usr/share/anna
 
-echo "Thank you for trying Anna!"
-echo
+    log_success "Removed probes"
+}
+
+# Remove config (optional)
+remove_config() {
+    read -p "Remove configuration? [y/N] " -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf /etc/anna
+        log_success "Removed configuration"
+    else
+        log_info "Configuration preserved at /etc/anna"
+    fi
+}
+
+# Remove user data (optional)
+remove_user_data() {
+    read -p "Remove user data and logs? [y/N] " -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf /var/lib/anna
+        rm -rf /var/log/anna
+        rm -rf /run/anna
+        log_success "Removed user data and logs"
+    else
+        log_info "User data preserved at /var/lib/anna"
+    fi
+}
+
+# Remove anna user (optional)
+remove_user() {
+    read -p "Remove anna user? [y/N] " -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if id "anna" &>/dev/null; then
+            userdel anna 2>/dev/null || true
+            log_success "Removed anna user"
+        fi
+    else
+        log_info "Anna user preserved"
+    fi
+}
+
+# Confirm uninstall
+confirm_uninstall() {
+    echo -e "${YELLOW}${BOLD}Warning:${NC} This will remove Anna from your system."
+    echo ""
+    read -p "Are you sure you want to uninstall? [y/N] " -n 1 -r
+    echo
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Uninstall cancelled"
+        exit 0
+    fi
+}
+
+# Main
+main() {
+    print_banner
+    check_root
+    confirm_uninstall
+
+    echo ""
+    stop_service
+    remove_binaries
+    remove_service
+    remove_probes
+    remove_config
+    remove_user_data
+    remove_user
+
+    echo ""
+    log_success "${BOLD}Anna has been uninstalled${NC}"
+    echo ""
+    echo "   Thank you for using Anna!"
+    echo ""
+}
+
+main "$@"
