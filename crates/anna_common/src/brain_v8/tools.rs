@@ -56,15 +56,15 @@ impl ToolCatalog {
             // Packages
             ToolDef {
                 name: "pacman_query",
-                description: "Search for installed packages by name",
-                parameters: &[("pattern", "Package name or pattern to search")],
+                description: "Search for installed packages. USE THIS FIRST for 'is X installed?' questions. Returns package name and version if found, empty if not installed.",
+                parameters: &[("pattern", "Package name to search for (e.g., 'steam', 'firefox')")],
                 command: "pacman",
                 args: &["-Qs", "{pattern}"],
             },
             ToolDef {
                 name: "pacman_info",
-                description: "Get detailed info about an installed package",
-                parameters: &[("package", "Exact package name")],
+                description: "Get detailed info (version, size, dependencies) about a package ALREADY KNOWN to be installed. Use pacman_query first to check if installed.",
+                parameters: &[("package", "Exact package name (must be installed)")],
                 command: "pacman",
                 args: &["-Qi", "{package}"],
             },

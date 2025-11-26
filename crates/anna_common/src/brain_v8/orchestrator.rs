@@ -171,6 +171,30 @@ Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliabilit
     fn extract_simple_answer(&self, query: &str, evidence: &Evidence) -> String {
         let query_lower = query.to_lowercase();
 
+        // Package installation queries - handle both success and failure
+        if query_lower.contains("installed") {
+            for result in &evidence.tool_results {
+                if result.tool == "pacman_query" {
+                    // Extract package name from query (e.g., "is steam installed?" -> "steam")
+                    let words: Vec<&str> = query_lower.split_whitespace().collect();
+                    let package_name = words.iter()
+                        .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
+                        .unwrap_or(&"the package");
+
+                    if result.success && !result.stdout.is_empty() {
+                        // Package found - extract version
+                        if let Some(line) = result.stdout.lines().next() {
+                            return format!("Yes, {} is installed ({})", package_name, line.trim());
+                        }
+                        return format!("Yes, {} is installed.", package_name);
+                    } else {
+                        // Package not found
+                        return format!("No, {} is not installed.", package_name);
+                    }
+                }
+            }
+        }
+
         for result in &evidence.tool_results {
             if !result.success || result.stdout.is_empty() {
                 continue;
@@ -228,22 +252,16 @@ Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliabilit
     fn build_telemetry_summary(&self, telemetry: &SystemTelemetry) -> String {
         let mut lines = Vec::new();
 
-        // Hardware
-        lines.push(format!("cpu: {}", telemetry.hardware.cpu_model));
-        lines.push(format!("ram_mb: {}", telemetry.hardware.total_ram_mb));
+        // Hardware - clear labels
+        lines.push(format!("cpu_model: {}", telemetry.hardware.cpu_model));
+        lines.push(format!("total_ram_mb: {}", telemetry.hardware.total_ram_mb));
         lines.push(format!("machine_type: {:?}", telemetry.hardware.machine_type));
-
-        // Memory
-        lines.push(format!("used_ram_mb: {}", telemetry.memory.used_mb));
-        lines.push(format!("available_ram_mb: {}", telemetry.memory.available_mb));
-
-        // CPU
         lines.push(format!("cpu_cores: {}", telemetry.cpu.cores));
 
         // Desktop
         if let Some(desktop) = &telemetry.desktop {
             if let Some(de) = &desktop.de_name {
-                lines.push(format!("desktop: {}", de));
+                lines.push(format!("desktop_environment: {}", de));
             }
             if let Some(ds) = &desktop.display_server {
                 lines.push(format!("display_server: {}", ds));
@@ -262,9 +280,18 @@ Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliabilit
         evidence.tool_results
             .iter()
             .map(|r| {
+                // Special handling for pacman_query - exit code 1 means "not found"
+                if r.tool == "pacman_query" && !r.success && r.stdout.is_empty() {
+                    return format!("=== {} ===\nPackage NOT FOUND (not installed)", r.tool);
+                }
+
                 let status = if r.success { "SUCCESS" } else { "FAILED" };
                 let output = if r.success {
-                    truncate(&r.stdout, 2000)
+                    if r.stdout.is_empty() {
+                        "(no output)".to_string()
+                    } else {
+                        truncate(&r.stdout, 2000)
+                    }
                 } else {
                     format!("Error: {}", r.stderr)
                 };

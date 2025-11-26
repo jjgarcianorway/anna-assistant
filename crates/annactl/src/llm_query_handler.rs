@@ -68,9 +68,8 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // v8.0.0: Use LLM config with default settings
     let llm_config = anna_common::llm_client::LlmConfig::default();
 
-    // Use v7 for now (more reliable with local LLMs)
-    // v8 philosophy is correct but requires smarter LLMs
-    match crate::query_handler_v7::handle_query_v7(
+    // v8: Pure LLM-driven architecture
+    match crate::query_handler_v8::handle_query_v8(
         user_text,
         &telemetry,
         Some(&llm_config)
