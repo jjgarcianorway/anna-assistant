@@ -121,6 +121,8 @@ pub mod knowledge_import; // v6.55.1: Knowledge import
 pub mod knowledge_pruning; // v6.55.1: Knowledge pruning
 pub mod self_stats; // v6.56.0: Self statistics
 pub mod learned_facts; // v10.1.0: Learned Facts - Anna gets smarter over time
+pub mod game_detection; // v10.2.1: Filesystem-based game detection
+pub mod reasoning_log; // v10.2.1: Chain-of-thought debug logging
 
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection

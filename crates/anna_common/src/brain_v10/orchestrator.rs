@@ -1,8 +1,9 @@
-//! Anna Brain v10.2.0 - Orchestrator
+//! Anna Brain v10.2.1 - Orchestrator
 //!
 //! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER → LEARN
 //! Max 8 iterations. Evidence-based answers. Explicit reliability labels.
 //!
+//! v10.2.1: Chain-of-thought debug logging via ANNA_LOG_REASONING=1 or config
 //! v10.2.0: "No hardcoding, learn from host" philosophy with STATIC/SLOW/VOLATILE
 //! v10.1.0: Anna learns from her observations - facts are cached and reused
 //! v10.0.2: Focus on proper LLM dialog - let the LLM work through iterations
@@ -15,6 +16,7 @@ use crate::brain_v10::prompt::{build_state_message, suggest_command_for_query, S
 use crate::brain_v10::tools::{execute_tool, ToolCatalog};
 use crate::learned_facts::{FactCategory, FactLearner, LearnedFact, LearnedFactsDb};
 use crate::llm_client::{HttpLlmClient, LlmClient, LlmConfig};
+use crate::reasoning_log;
 use crate::telemetry::SystemTelemetry;
 use anyhow::Result;
 
@@ -69,6 +71,9 @@ impl BrainOrchestrator {
         telemetry: &SystemTelemetry,
         user_context: Option<&str>,
     ) -> Result<BrainResult> {
+        // v10.2.1: Log query start if debug logging enabled
+        reasoning_log::log_query_start(query);
+
         let telemetry_json = self.telemetry_to_json(telemetry);
 
         // Create session with telemetry as E0 evidence
@@ -160,6 +165,13 @@ impl BrainOrchestrator {
             // Parse response
             let step = self.parse_step(&response)?;
 
+            // v10.2.1: Log the reasoning step
+            reasoning_log::log_step(
+                session.iteration,
+                &format!("{:?}", step.step_type),
+                &step.reasoning,
+            );
+
             match step.step_type {
                 StepType::FinalAnswer => {
                     let reliability = step.reliability;
@@ -174,6 +186,9 @@ impl BrainOrchestrator {
                         reliability,
                         &label,
                     );
+
+                    // v10.2.1: Log the final answer
+                    reasoning_log::log_answer(query, &formatted, reliability, &label.display());
 
                     return Ok(BrainResult::Answer {
                         text: formatted,
@@ -207,6 +222,14 @@ impl BrainOrchestrator {
 
                     // Execute requested tool
                     if let Some(ref req) = step.tool_request {
+                        // v10.2.1: Log tool execution
+                        reasoning_log::log_tool(
+                            session.iteration,
+                            &req.tool,
+                            &format!("{:?}", req.arguments),
+                            &req.why,
+                        );
+
                         let output = execute_tool(
                             &req.tool,
                             &req.arguments,

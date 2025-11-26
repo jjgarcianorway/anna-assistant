@@ -1,9 +1,10 @@
-//! LLM Query Handler - Evidence-Based Architecture v10
+//! LLM Query Handler - Evidence-Based Architecture v10.2.1
 //!
-//! v10 (current): Evidence-based architecture with strict JSON protocol
+//! v10.2.1: Evidence-based architecture with strict JSON protocol
 //! - Every answer cites evidence from tool outputs
 //! - Explicit reliability labels (HIGH/MEDIUM/LOW/VERY LOW)
 //! - Step types: decide_tool, final_answer, ask_user
+//! - you:/anna: formatting with proper spacing
 
 use anna_common::display::UI;
 use anyhow::Result;
@@ -40,7 +41,7 @@ fn create_thinking_spinner(ui: &UI) -> ProgressBar {
 
 /// Handle a one-shot query from CLI
 ///
-/// v10.0.0: Evidence-based architecture with strict JSON protocol
+/// v10.2.1: Evidence-based architecture with strict JSON protocol
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Initialize formatter with user configuration
     let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();

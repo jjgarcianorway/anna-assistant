@@ -65,18 +65,65 @@ impl Default for OutputConfig {
     }
 }
 
+/// Developer/debug configuration (v10.2.1)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevConfig {
+    /// Show timing diagnostics for each query
+    /// Can also be enabled via ANNA_DEV_DEBUG=1
+    #[serde(default)]
+    pub show_timing: bool,
+
+    /// Log chain-of-thought reasoning to file
+    /// Logs to ~/.local/share/anna/reasoning.log
+    #[serde(default)]
+    pub log_reasoning: bool,
+
+    /// Show LLM orchestrator steps in output
+    #[serde(default)]
+    pub show_steps: bool,
+}
+
+impl Default for DevConfig {
+    fn default() -> Self {
+        Self {
+            show_timing: false,
+            log_reasoning: false,
+            show_steps: false,
+        }
+    }
+}
+
+impl DevConfig {
+    /// Check if dev debug is enabled (config or env)
+    pub fn is_debug_enabled(&self) -> bool {
+        self.show_timing
+            || std::env::var("ANNA_DEV_DEBUG").map(|v| v == "1").unwrap_or(false)
+    }
+
+    /// Check if reasoning logging is enabled
+    pub fn should_log_reasoning(&self) -> bool {
+        self.log_reasoning
+            || std::env::var("ANNA_LOG_REASONING").map(|v| v == "1").unwrap_or(false)
+    }
+}
+
 /// Main Anna configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnaConfig {
     /// Output preferences
     #[serde(default)]
     pub output: OutputConfig,
+
+    /// Developer/debug settings (v10.2.1)
+    #[serde(default)]
+    pub dev: DevConfig,
 }
 
 impl Default for AnnaConfig {
     fn default() -> Self {
         Self {
             output: OutputConfig::default(),
+            dev: DevConfig::default(),
         }
     }
 }
@@ -238,6 +285,7 @@ mod tests {
                 emojis: EmojiMode::Disabled,
                 color: ColorMode::Basic,
             },
+            dev: DevConfig::default(),
         };
 
         let toml = toml::to_string(&original).unwrap();
@@ -245,5 +293,14 @@ mod tests {
 
         assert_eq!(parsed.output.emojis, EmojiMode::Disabled);
         assert_eq!(parsed.output.color, ColorMode::Basic);
+    }
+
+    #[test]
+    fn test_dev_config_debug_enabled() {
+        let mut dev = DevConfig::default();
+        assert!(!dev.is_debug_enabled());
+
+        dev.show_timing = true;
+        assert!(dev.is_debug_enabled());
     }
 }

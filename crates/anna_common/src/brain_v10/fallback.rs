@@ -196,8 +196,10 @@ fn fallback_ram_query(session: &BrainSession) -> Option<BrainResult> {
 
 fn fallback_cpu_query(query: &str, session: &BrainSession) -> Option<BrainResult> {
     let mut model = String::new();
-    let mut cores = String::new();
-    let mut threads = String::new();
+    let mut cores_per_socket = String::new();
+    let mut sockets = String::new();
+    let mut threads_per_core = String::new();
+    let mut total_cpus = String::new();
     let mut evidence_id = String::new();
 
     for evidence in &session.evidence {
@@ -208,61 +210,170 @@ fn fallback_cpu_query(query: &str, session: &BrainSession) -> Option<BrainResult
                     evidence_id = evidence.id.clone();
                 }
             }
-            if line.starts_with("CPU(s):") {
+            // v10.2.1: Parse all relevant lscpu fields for accurate core/thread reporting
+            if line.starts_with("CPU(s):") && !line.contains("NUMA") && !line.contains("list") {
                 if let Some(c) = line.split(':').nth(1) {
-                    threads = c.trim().to_string();
+                    total_cpus = c.trim().to_string();
                 }
             }
             if line.contains("Core(s) per socket:") {
                 if let Some(c) = line.split(':').nth(1) {
-                    cores = c.trim().to_string();
+                    cores_per_socket = c.trim().to_string();
+                }
+            }
+            if line.contains("Socket(s):") {
+                if let Some(c) = line.split(':').nth(1) {
+                    sockets = c.trim().to_string();
+                }
+            }
+            if line.contains("Thread(s) per core:") {
+                if let Some(c) = line.split(':').nth(1) {
+                    threads_per_core = c.trim().to_string();
                 }
             }
         }
     }
 
     if !model.is_empty() {
-        let mut answer = format!("CPU: {} [{}]", model, evidence_id);
-        if !cores.is_empty() || !threads.is_empty() {
-            if query.contains("core") || query.contains("thread") {
-                answer = format!("{}\nCores: {}, Threads: {}", answer, cores, threads);
+        let mut answer = format!("🖥️  CPU: {} [{}]", model, evidence_id);
+
+        // v10.2.1: Be honest about core/thread counts - only report what we can prove
+        if query.contains("core") || query.contains("thread") {
+            answer.push_str("\n\n");
+
+            // Calculate physical cores if we have all the data
+            let can_calc_physical = !cores_per_socket.is_empty() && !sockets.is_empty();
+            let physical_cores = if can_calc_physical {
+                cores_per_socket.parse::<u32>().ok()
+                    .and_then(|c| sockets.parse::<u32>().ok().map(|s| c * s))
+            } else {
+                None
+            };
+
+            if !total_cpus.is_empty() {
+                answer.push_str(&format!("📊  Logical CPUs: {} [{}]\n", total_cpus, evidence_id));
+            }
+
+            if let Some(cores) = physical_cores {
+                answer.push_str(&format!("📊  Physical cores: {} ({} socket(s) × {} cores/socket) [{}]\n",
+                    cores, sockets, cores_per_socket, evidence_id));
+            } else if !cores_per_socket.is_empty() {
+                answer.push_str(&format!("📊  Cores per socket: {} [{}]\n", cores_per_socket, evidence_id));
+                if sockets.is_empty() {
+                    answer.push_str("⚠️  Socket count not in evidence - cannot calculate total physical cores\n");
+                }
+            } else {
+                answer.push_str(&format!(
+                    "⚠️  I see {} logical CPUs [{}] but cannot reliably determine physical core count.\n\
+                     Core(s) per socket and Socket(s) fields are missing from evidence.",
+                    if total_cpus.is_empty() { "unknown" } else { &total_cpus },
+                    evidence_id
+                ));
+            }
+
+            if !threads_per_core.is_empty() {
+                let smt = threads_per_core.parse::<u32>().unwrap_or(1) > 1;
+                answer.push_str(&format!("📊  Threads per core: {} (SMT/HT: {}) [{}]",
+                    threads_per_core,
+                    if smt { "enabled" } else { "disabled" },
+                    evidence_id
+                ));
             }
         }
+
         return Some(BrainResult::Answer {
             text: answer,
-            reliability: 0.95,
-            label: ReliabilityLabel::High,
+            reliability: if cores_per_socket.is_empty() { 0.7 } else { 0.95 },
+            label: if cores_per_socket.is_empty() { ReliabilityLabel::Medium } else { ReliabilityLabel::High },
         });
     }
     None
 }
 
 fn fallback_cpu_features_query(session: &BrainSession) -> Option<BrainResult> {
+    // v10.2.1: Only answer based on actual CPU flags in evidence
+    // NEVER answer from generic knowledge about CPU models
     for evidence in &session.evidence {
         let content = &evidence.content;
-        if content.contains("sse") || content.contains("avx") {
-            // Look for flags line or grep output
-            let features: Vec<&str> = content.lines()
-                .filter(|l| l.contains("sse") || l.contains("avx"))
+
+        // Look for actual flags - either from grep output or lscpu Flags line
+        let flags_line = content.lines()
+            .find(|l| l.starts_with("Flags:") || l.starts_with("flags"));
+
+        let flags_content = if let Some(line) = flags_line {
+            line.to_string()
+        } else {
+            // Check if this is grep output of individual flags
+            let individual_flags: Vec<&str> = content.lines()
+                .filter(|l| {
+                    let trimmed = l.trim();
+                    trimmed.starts_with("sse") || trimmed.starts_with("avx")
+                })
                 .collect();
 
-            let has_sse2 = content.contains("sse2");
-            let has_avx2 = content.contains("avx2");
+            if individual_flags.is_empty() {
+                continue;
+            }
+            individual_flags.join(" ")
+        };
 
-            return Some(BrainResult::Answer {
-                text: format!(
-                    "SSE2: {}, AVX2: {} [{}]\nFeatures found: {}",
-                    if has_sse2 { "Yes" } else { "No" },
-                    if has_avx2 { "Yes" } else { "No" },
-                    evidence.id,
-                    features.join(", ")
-                ),
-                reliability: 0.95,
-                label: ReliabilityLabel::High,
-            });
+        // Search for specific flags in the evidence
+        let has_sse2 = flags_content.contains("sse2");
+        let has_avx = flags_content.contains("avx ") || flags_content.contains("avx\n") || flags_content.ends_with("avx");
+        let has_avx2 = flags_content.contains("avx2");
+        let has_avx512 = flags_content.contains("avx512");
+
+        // Extract all SSE/AVX features found
+        let mut features: Vec<&str> = Vec::new();
+        for word in flags_content.split_whitespace() {
+            if word.starts_with("sse") || word.starts_with("avx") {
+                if !features.contains(&word) {
+                    features.push(word);
+                }
+            }
         }
+
+        let mut answer = String::new();
+        answer.push_str(&format!("🔬  CPU Feature Support [{}]\n\n", evidence.id));
+
+        if has_sse2 {
+            answer.push_str("✅  SSE2: Yes (confirmed in CPU flags)\n");
+        } else {
+            answer.push_str("❓  SSE2: Not found in evidence\n");
+        }
+
+        if has_avx2 {
+            answer.push_str("✅  AVX2: Yes (confirmed in CPU flags)\n");
+        } else if has_avx {
+            answer.push_str("⚠️  AVX2: No, but AVX (v1) is present\n");
+        } else {
+            answer.push_str("❓  AVX2: Not found in evidence\n");
+        }
+
+        if has_avx512 {
+            answer.push_str("✅  AVX-512: Yes (confirmed in CPU flags)\n");
+        }
+
+        if !features.is_empty() {
+            features.sort();
+            answer.push_str(&format!("\n📋  All SSE/AVX features detected:\n    {}", features.join(", ")));
+        }
+
+        return Some(BrainResult::Answer {
+            text: answer,
+            reliability: if has_sse2 || has_avx2 { 0.95 } else { 0.6 },
+            label: if has_sse2 || has_avx2 { ReliabilityLabel::High } else { ReliabilityLabel::Medium },
+        });
     }
-    None
+
+    // v10.2.1: If no flags evidence found, be honest about it
+    Some(BrainResult::Answer {
+        text: "⚠️  Cannot confirm SSE2/AVX2 support - CPU flags not in current evidence.\n\n\
+               I need a probe that captures /proc/cpuinfo flags or lscpu output.\n\
+               Run: grep -oE '(sse[^ ]*|avx[^ ]*)' /proc/cpuinfo | sort -u".to_string(),
+        reliability: 0.2,
+        label: ReliabilityLabel::VeryLow,
+    })
 }
 
 fn fallback_disk_query(session: &BrainSession) -> Option<BrainResult> {
