@@ -1,12 +1,12 @@
-//! Anna Brain v10.2.1 - Orchestrator
+//! Anna Brain v10.3.0 - Orchestrator
 //!
 //! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER → LEARN
-//! Max 8 iterations. Evidence-based answers. Explicit reliability labels.
+//! Iterate until HIGH confidence (>=90%) or evidence is impossible.
 //!
+//! v10.3.0: Strict evidence discipline - NO KNOWLEDGE WITHOUT EVIDENCE
 //! v10.2.1: Chain-of-thought debug logging via ANNA_LOG_REASONING=1 or config
 //! v10.2.0: "No hardcoding, learn from host" philosophy with STATIC/SLOW/VOLATILE
 //! v10.1.0: Anna learns from her observations - facts are cached and reused
-//! v10.0.2: Focus on proper LLM dialog - let the LLM work through iterations
 
 use crate::brain_v10::contracts::{
     BrainSession, BrainStep, ReliabilityLabel, StepType, ToolRequest,
@@ -21,10 +21,12 @@ use crate::telemetry::SystemTelemetry;
 use anyhow::Result;
 
 /// Maximum iterations of the think loop
-const MAX_ITERATIONS: usize = 8;
+/// v10.3.0: Increased to allow more probing iterations for HIGH confidence
+const MAX_ITERATIONS: usize = 12;
 
 /// Minimum reliability to accept an answer
-const MIN_RELIABILITY: f32 = 0.4;
+/// v10.3.0: Target HIGH confidence (>=0.9), but accept MEDIUM
+const MIN_RELIABILITY: f32 = 0.7;
 
 /// Result from the brain orchestrator
 #[derive(Debug, Clone)]

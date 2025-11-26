@@ -1,12 +1,12 @@
-//! Anna Brain v10.2.0 - System Prompt
+//! Anna Brain v10.3.0 - System Prompt
 //!
-//! The key philosophy: Learn from THIS machine, never hardcode.
-//! Evidence is the single source of truth.
+//! The key philosophy: NO KNOWLEDGE WITHOUT EVIDENCE.
+//! Iterate until HIGH confidence or evidence is impossible.
 
 use crate::brain_v10::contracts::{BrainSession, EvidenceItem};
 
-// Re-export the full system prompt from the dedicated module
-pub use crate::brain_v10::system_prompt::SYSTEM_PROMPT_V102 as SYSTEM_PROMPT;
+// Re-export the full system prompt from the dedicated module (v10.3)
+pub use crate::brain_v10::system_prompt::SYSTEM_PROMPT_V103 as SYSTEM_PROMPT;
 
 /// Build the state message for the LLM - with clear guidance
 pub fn build_state_message(session: &BrainSession) -> String {

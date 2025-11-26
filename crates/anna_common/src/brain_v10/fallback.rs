@@ -419,27 +419,83 @@ fn fallback_gpu_query(session: &BrainSession) -> Option<BrainResult> {
 fn fallback_desktop_query(session: &BrainSession) -> Option<BrainResult> {
     for evidence in &session.evidence {
         let content = &evidence.content;
-        if content.contains("XDG") || content.contains("DESKTOP") {
-            let mut de = "Unknown";
-            let mut session_type = "Unknown";
+        if content.contains("XDG") || content.contains("DESKTOP") || content.contains("SESSION") {
+            let mut de = String::new();
+            let mut session_type = String::new();
+            let mut wm_processes: Vec<&str> = Vec::new();
 
             for line in content.lines() {
+                // v10.3.0: Check XDG variables
                 if line.contains("XDG_CURRENT_DESKTOP=") {
                     if let Some(val) = line.split('=').nth(1) {
-                        if !val.is_empty() { de = val; }
+                        if !val.is_empty() && val != "\"\"" {
+                            de = val.trim_matches('"').to_string();
+                        }
                     }
                 }
                 if line.contains("XDG_SESSION_TYPE=") {
                     if let Some(val) = line.split('=').nth(1) {
-                        if !val.is_empty() { session_type = val; }
+                        if !val.is_empty() && val != "\"\"" {
+                            session_type = val.trim_matches('"').to_string();
+                        }
                     }
                 }
+                // v10.3.0: Check for WM/DE processes
+                let line_lower = line.to_lowercase();
+                if line_lower.contains("hyprland") { wm_processes.push("Hyprland"); }
+                if line_lower.contains("sway") { wm_processes.push("Sway"); }
+                if line_lower.contains("gnome-shell") { wm_processes.push("GNOME"); }
+                if line_lower.contains("kwin") { wm_processes.push("KDE/KWin"); }
+                if line_lower.contains("xfce") { wm_processes.push("XFCE"); }
+                if line_lower.contains("i3") && !line_lower.contains("i3status") { wm_processes.push("i3"); }
             }
 
+            // v10.3.0: Handle SSH/TMUX sessions explicitly
+            let is_tty = session_type == "tty" || session_type.is_empty();
+            let no_de = de.is_empty() && wm_processes.is_empty();
+
+            if is_tty && no_de {
+                return Some(BrainResult::Answer {
+                    text: format!(
+                        "No graphical session detected [{}].\n\n\
+                         Session type: {} (likely SSH or TTY)\n\
+                         XDG_CURRENT_DESKTOP: not set\n\n\
+                         Confidence: HIGH",
+                        evidence.id,
+                        if session_type.is_empty() { "tty" } else { &session_type }
+                    ),
+                    reliability: 0.95,
+                    label: ReliabilityLabel::High,
+                });
+            }
+
+            // Build answer from what we found
+            let mut answer = String::new();
+            if !de.is_empty() {
+                answer.push_str(&format!("Desktop Environment: {} [{}]\n", de, evidence.id));
+            }
+            if !session_type.is_empty() {
+                answer.push_str(&format!("Session Type: {} [{}]\n", session_type, evidence.id));
+            }
+            if !wm_processes.is_empty() {
+                wm_processes.dedup();
+                answer.push_str(&format!("WM/DE Processes: {} [{}]\n", wm_processes.join(", "), evidence.id));
+            }
+
+            if answer.is_empty() {
+                answer = format!("Cannot determine DE/WM from evidence [{}].\n\nConfidence: LOW", evidence.id);
+                return Some(BrainResult::Answer {
+                    text: answer,
+                    reliability: 0.4,
+                    label: ReliabilityLabel::Low,
+                });
+            }
+
+            answer.push_str("\nConfidence: HIGH");
             return Some(BrainResult::Answer {
-                text: format!("Desktop: {}, Session type: {} [{}]", de, session_type, evidence.id),
-                reliability: 0.85,
-                label: ReliabilityLabel::Medium,
+                text: answer,
+                reliability: 0.95,
+                label: ReliabilityLabel::High,
             });
         }
     }
@@ -447,29 +503,70 @@ fn fallback_desktop_query(session: &BrainSession) -> Option<BrainResult> {
 }
 
 fn fallback_games_query(session: &BrainSession) -> Option<BrainResult> {
+    // v10.3.0: Check for actual Steam/game package evidence
     for evidence in &session.evidence {
         let content = &evidence.content;
-        // Look for package names (either local/ format or just package names)
+        let desc_lower = evidence.description.to_lowercase();
+
+        // Only process pacman output for games
+        if !desc_lower.contains("steam") && !desc_lower.contains("game") && !desc_lower.contains("lutris") {
+            continue;
+        }
+
+        // v10.3.0: Empty pacman output = not installed
+        if content.trim().is_empty() {
+            return Some(BrainResult::Answer {
+                text: format!(
+                    "No gaming packages found in pacman query [{}].\n\n\
+                     Confidence: HIGH",
+                    evidence.id
+                ),
+                reliability: 0.95,
+                label: ReliabilityLabel::High,
+            });
+        }
+
+        // Look for actual package names in local/ format
         let game_packages: Vec<&str> = content.lines()
-            .filter(|l| !l.trim().is_empty())
+            .filter(|l| {
+                let trimmed = l.trim();
+                !trimmed.is_empty() && (trimmed.contains("local/") || trimmed.contains("steam") || trimmed.contains("lutris"))
+            })
             .take(10)
             .collect();
 
         if !game_packages.is_empty() {
             return Some(BrainResult::Answer {
-                text: format!("Gaming packages [{}]:\n{}", evidence.id, game_packages.join("\n")),
-                reliability: 0.9,
-                label: ReliabilityLabel::High,
-            });
-        }
-        if content.trim().is_empty() {
-            return Some(BrainResult::Answer {
-                text: format!("No gaming packages found [{}].", evidence.id),
-                reliability: 0.9,
+                text: format!(
+                    "Installed gaming packages [{}]:\n{}\n\nConfidence: HIGH",
+                    evidence.id,
+                    game_packages.join("\n")
+                ),
+                reliability: 0.95,
                 label: ReliabilityLabel::High,
             });
         }
     }
+
+    // v10.3.0: Check for filesystem evidence (Steam directories)
+    for evidence in &session.evidence {
+        let content = &evidence.content;
+        if content.contains("steamapps") || content.contains(".steam") {
+            let has_games = content.contains("common/") || content.contains("appmanifest");
+            if has_games {
+                return Some(BrainResult::Answer {
+                    text: format!(
+                        "Steam installation found [{}]:\n{}\n\nConfidence: HIGH",
+                        evidence.id,
+                        content.lines().take(10).collect::<Vec<_>>().join("\n")
+                    ),
+                    reliability: 0.95,
+                    label: ReliabilityLabel::High,
+                });
+            }
+        }
+    }
+
     None
 }
 

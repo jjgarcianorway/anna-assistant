@@ -1,8 +1,9 @@
-//! Anna Brain v10.2.1 - Query Handler
+//! Anna Brain v10.3.0 - Query Handler
 //!
 //! INPUT → LLM → TOOLS → LLM → ANSWER → LEARN
 //! Evidence-based answers with explicit reliability labels.
 //!
+//! v10.3.0: Strict evidence discipline - NO KNOWLEDGE WITHOUT EVIDENCE
 //! v10.2.1: Better output formatting, timing diagnostics, honest answers
 
 use anna_common::anna_config::AnnaConfig;
@@ -206,23 +207,24 @@ fn handle_meta_query(query: &str, _telemetry: &SystemTelemetry) -> String {
     }
 
     if q.contains("version") {
-        return "🤖  Anna Assistant v10.2.1 - Evidence-Based Learning Architecture".to_string();
+        return "🤖  Anna Assistant v10.3.0 - Strict Evidence Discipline".to_string();
     }
 
     if q.contains("who are you") || q.contains("about anna") || q.contains("what are you") {
         return r#"👋  I am Anna, your local Arch Linux system assistant.
 
-🧠  Architecture (v10.2.1 - Evidence-Based Learning):
-    • Every answer is grounded in tool output evidence
-    • Reliability scores: HIGH/MEDIUM/LOW/VERY LOW
+🧠  Architecture (v10.3.0 - Strict Evidence Discipline):
+    • NO KNOWLEDGE WITHOUT EVIDENCE - every claim requires proof
+    • I iterate until HIGH confidence (>=90%) or evidence is impossible
     • Citations reference evidence IDs like [E1], [E2]
-    • Learned facts with STATIC/SLOW/VOLATILE freshness
+    • Confidence labels: HIGH/MEDIUM/LOW/VERY_LOW
 
 📊  Philosophy:
-    • I never guess or hallucinate
-    • I only report what I observe from YOUR system
-    • If I can't find evidence, I say so honestly
-    • I learn from this machine and improve over time
+    • I NEVER guess or fabricate
+    • No placeholders like "Model name [E2]" - those are failures
+    • If evidence is missing, I request probes
+    • SSH/TMUX sessions: I say "No graphical session detected"
+    • I learn from THIS machine only
 
 🔧  Components:
     • annad: Background daemon (telemetry, tools)
@@ -258,10 +260,10 @@ mod tests {
         assert!(upgrade.contains("ollama"));
 
         let version = handle_meta_query("anna version", &telemetry);
-        assert!(version.contains("v10.2.1"));
+        assert!(version.contains("v10.3.0"));
 
         let about = handle_meta_query("who are you", &telemetry);
-        assert!(about.contains("Evidence-Based"));
+        assert!(about.contains("Strict Evidence Discipline"));
     }
 
     #[test]
