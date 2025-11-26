@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.61.0**
+**Experimental Arch Linux System Assistant - Version 6.62.0**
 
-[![Version](https://img.shields.io/badge/version-6.61.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.62.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,57 +29,61 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.61.0 - Strict Evidence-Based Answers 🎯
+## What's New in 6.62.0 - Hybrid LLM Orchestration with Reliability Scoring 🎯
 
-### "No hallucination - only facts from command output"
+### "Rust controls the loop, LLM follows strict contract"
 
-**The Problem:** v6.60.0's LLM orchestrator sometimes invented data not present in command output (wrong GPU names, fake recommendations, suggestions not supported by evidence).
+**The Problem:** v6.61.0's strict validation helped but the LLM still needed better guidance and the orchestrator lacked reliability feedback.
 
-**The Solution:** Strict evidence validation with hallucination rejection:
+**The Solution:** Hybrid architecture where Rust orchestrator controls execution flow while LLM follows strict JSON contract with reliability scoring:
 
-1. **Intent Parsing** - Classify queries before processing
-   - 🎯  Parse goal, domain, constraints, required evidence
-   - 🏷️  Domains: hardware, packages, network, services, disk, desktop, system
-   - ❓  Meta queries handled specially (upgrade brain, about anna)
+1. **Structured Planner Output** - LLM must produce strict JSON
+   - 📋  `subtasks`: What needs to be determined
+   - 🔧  `tool_calls`: Exact tool_id, purpose, expected_evidence
+   - ⚠️  `limitations`: What cannot be answered (optional)
 
-2. **Strict Command Planning** - Catalog enforcement
-   - ✅  All tools validated against catalog BEFORE execution
-   - ❌  "Tool missing: X. Cannot answer." when tool not found
-   - 📋  Improved tool catalog (GPU grep, DE env vars)
+2. **Evidence Bundle** - Rust collects real tool outputs
+   - 🏷️  Tool ID, purpose, expected evidence
+   - ✅/❌  Success status, stdout, stderr, exit code
+   - ⏱️  Timestamp for all evidence
 
-3. **Evidence-Only Extraction** - No invention allowed
-   - 🔍  Extract ONLY information present in command output
-   - ❌  "Unknown. Evidence insufficient." when data not found
-   - 🚫  Reject recommendations/suggestions not in output
+3. **Interpreter with Reliability Scoring** - Strict JSON output
+   - 📝  `answer`: Direct answer from evidence only
+   - 📊  `evidence_used`: What tools contributed what
+   - 🎯  `reliability`: Score (0.0-1.0), level (HIGH/MEDIUM/LOW), reason
+   - ❓  `uncertainty`: What is unknown or guessed
 
-4. **Hallucination Validation** - Catch invented data
-   - ✅  Check answer words exist in evidence
-   - 🚫  Reject common hallucination patterns ("recommend", "suggest")
-   - 📊  Confidence scoring: High/Medium/Insufficient
+4. **Reliability-Driven Retry Loop** - Rust controls retries
+   - ✅  Score ≥ 0.8: Accept answer
+   - 🔄  Score < 0.8: Retry with context (up to 2 times)
+   - ⚠️  Max retries reached: Return with explicit uncertainty warning
+
+**Contract Enforcement (in both LLM prompts):**
+- ❌  NEVER hardcode system facts (CPU, RAM, GPU, packages)
+- ❌  NEVER invent tools not in catalog
+- ❌  NEVER claim to have run commands that weren't executed
+- ✅  If evidence insufficient, say so explicitly
 
 **Working NL Queries:**
 ```bash
-annactl "how much RAM do I have"      # ✅ "Total RAM: 31791 MB"
-annactl "what CPU do I have"          # ✅ "Intel(R) Core(TM) i9-14900HX"
+annactl "how much RAM do I have"      # ✅ "You have 32.79 GB (32291 MB) of RAM"
 annactl "what GPU do I have"          # ✅ "NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile]"
-annactl "what is my IP address"       # ✅ "IP: 10.0.0.2/24"
-annactl "any failed services"         # ✅ "0 loaded units listed."
-annactl "list orphan packages"        # ✅ "No orphan packages found."
+annactl "anna version"                # ✅ "Anna Assistant v6.62.0"
 annactl "upgrade your brain"          # ✅ Step-by-step Ollama config guide
-annactl "biggest directories in home" # ✅ "target (52G)"
 ```
 
-**What Changed:**
-- GPU correctly identified as RTX 4060 Max-Q (not invented)
-- "Unknown" instead of hallucinated answers
-- Meta queries return real help, not package lists
-- No more invented recommendations
+**Architecture:**
+```
+Query → Planner LLM (structured JSON) → Rust executes tools → EvidenceBundle
+                                              ↓
+           ← Final answer ← Retry if <0.8 ← Interpreter LLM (reliability score)
+```
 
-**Status:** Complete. Evidence-only answers, hallucination rejected.
+**Status:** Complete. Hybrid orchestration with reliability scoring and retry loop.
 
 ---
 
-**Previous: 6.60.0 - Pure LLM Orchestration**
+**Previous: 6.61.0 - Strict Evidence-Based Answers**
 
 ---
 

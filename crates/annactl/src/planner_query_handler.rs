@@ -1,13 +1,13 @@
-//! Planner Query Handler - v6.60.0 Pure LLM Orchestration
+//! Planner Query Handler - v6.62.0 Hybrid LLM Orchestration
 //!
-//! ALL queries go through the LLM orchestration loop:
-//! 1. Query + tool catalog -> LLM Planner -> Command plan
-//! 2. Command plan -> Executor -> Raw output
-//! 3. Raw output -> LLM Interpreter -> Human answer
+//! ALL queries go through the LLM orchestration loop with reliability scoring:
+//! 1. Query + tool catalog -> LLM Planner -> Structured plan (subtasks, tool_calls)
+//! 2. Rust: Execute tools exactly as planned -> EvidenceBundle
+//! 3. Query + Evidence -> LLM Interpreter -> Answer with reliability score
+//! 4. If reliability < 0.8 and retries remain -> Retry with context
 //!
-//! The orchestrator NEVER decides which tools to run.
-//! The orchestrator NEVER interprets results.
-//! ALL decisions are delegated to the LLM.
+//! The orchestrator controls the loop, LLM follows strict JSON contract.
+//! Both LLM prompts enforce: NO hardcoding, NO invention, evidence-only answers.
 
 use anna_common::{
     llm_client::LlmConfig,
@@ -17,13 +17,13 @@ use anna_common::{
 use anyhow::Result;
 
 /// Check if query should use planner core
-/// v6.60.0: ALWAYS returns true - everything goes through LLM orchestration
+/// v6.62.0: ALWAYS returns true - everything goes through LLM orchestration
 pub fn should_use_planner(_query: &str) -> bool {
-    true // All queries use LLM orchestration
+    true // All queries use LLM orchestration with reliability scoring
 }
 
-/// Handle query using pure LLM orchestration
-/// v6.60.0: Complete rewrite - NO hardcoded logic
+/// Handle query using hybrid LLM orchestration with reliability scoring
+/// v6.62.0: Rust controls loop, LLM follows strict contract
 pub async fn handle_with_planner(
     query: &str,
     _telemetry: &SystemTelemetry,
