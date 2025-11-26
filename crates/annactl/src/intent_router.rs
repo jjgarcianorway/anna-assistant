@@ -48,6 +48,10 @@ pub enum Intent {
     KnowledgePruning { criteria: String },
     /// v6.55.1: Knowledge export - "backup your knowledge"
     KnowledgeExport { path: Option<String> },
+    /// v6.56.0: Self introspection - "how are you doing?", "your performance"
+    SelfIntrospection,
+    /// v6.56.0: Usage analytics - "show usage stats", "my usage patterns"
+    UsageAnalytics { scope: Option<String> },
     /// Unclear intent (Task 12: route to LLM)
     Unclear(String),
 }
@@ -282,6 +286,50 @@ pub fn route_intent(input: &str) -> Intent {
             || lower.contains("memory"))
     {
         return Intent::KnowledgeExport { path: None };
+    }
+
+    // v6.56.0: Self introspection - detailed stats about Anna herself
+    // Note: "how are you" routes to AnnaStatus for health check
+    // SelfIntrospection is for detailed metrics and analytics
+    if lower.contains("your stats")
+        || lower.contains("your statistics")
+        || lower.contains("your performance")
+        || lower.contains("anna's performance")
+        || lower.contains("anna's stats")
+        || lower.contains("how many queries")
+        || lower.contains("your uptime")
+        || lower.contains("your latency")
+        || lower.contains("biography")
+        || lower.contains("self biography")
+        || lower.contains("about yourself")
+        || lower.contains("tell me about you")
+        || (lower.contains("how are you doing") && lower.contains("performance"))
+    {
+        return Intent::SelfIntrospection;
+    }
+
+    // v6.56.0: Usage analytics - "show usage", "my usage", "usage stats"
+    if (lower.contains("usage stats")
+        || lower.contains("usage pattern")
+        || lower.contains("my usage")
+        || lower.contains("query history")
+        || lower.contains("intent distribution")
+        || lower.contains("what do i ask")
+        || lower.contains("most common"))
+        && !lower.contains("disk")
+        && !lower.contains("memory")
+        && !lower.contains("cpu")
+    {
+        let scope = if lower.contains("today") {
+            Some("today".to_string())
+        } else if lower.contains("week") {
+            Some("week".to_string())
+        } else if lower.contains("month") {
+            Some("month".to_string())
+        } else {
+            None
+        };
+        return Intent::UsageAnalytics { scope };
     }
 
     // Privacy explanation - multilingual
@@ -972,5 +1020,71 @@ mod tests {
             extract_knowledge_topic("what do you know about this machine?"),
             None // "this machine" is stripped
         );
+    }
+
+    // v6.56.0: Self introspection tests
+    #[test]
+    fn test_self_introspection_intent() {
+        // Note: "How are you?" routes to AnnaStatus (health check)
+        // SelfIntrospection is for detailed metrics
+        assert_eq!(route_intent("Show your stats"), Intent::SelfIntrospection);
+        assert_eq!(route_intent("Your performance"), Intent::SelfIntrospection);
+        assert_eq!(
+            route_intent("How many queries have you handled?"),
+            Intent::SelfIntrospection
+        );
+        assert_eq!(route_intent("Your uptime"), Intent::SelfIntrospection);
+        assert_eq!(route_intent("Show your biography"), Intent::SelfIntrospection);
+        assert_eq!(route_intent("Tell me about yourself"), Intent::SelfIntrospection);
+        assert_eq!(route_intent("Anna's stats"), Intent::SelfIntrospection);
+    }
+
+    // v6.56.0: Usage analytics tests
+    #[test]
+    fn test_usage_analytics_intent() {
+        if let Intent::UsageAnalytics { scope } = route_intent("Show usage stats") {
+            assert_eq!(scope, None);
+        } else {
+            panic!("Expected UsageAnalytics intent");
+        }
+
+        if let Intent::UsageAnalytics { scope } = route_intent("My usage today") {
+            assert_eq!(scope, Some("today".to_string()));
+        } else {
+            panic!("Expected UsageAnalytics intent");
+        }
+
+        if let Intent::UsageAnalytics { scope } = route_intent("Usage patterns this week") {
+            assert_eq!(scope, Some("week".to_string()));
+        } else {
+            panic!("Expected UsageAnalytics intent");
+        }
+
+        assert!(matches!(
+            route_intent("What do I ask most commonly?"),
+            Intent::UsageAnalytics { .. }
+        ));
+    }
+
+    // v6.56.0: Self vs system disambiguation
+    #[test]
+    fn test_self_vs_system_disambiguation() {
+        // "how is my computer" should be SystemStatus
+        assert_eq!(
+            route_intent("How is my computer doing?"),
+            Intent::SystemStatus
+        );
+
+        // "how are you" (Anna) should be AnnaStatus (health check)
+        assert_eq!(route_intent("How are you doing?"), Intent::AnnaStatus);
+
+        // "my system status" should be SystemStatus
+        assert_eq!(route_intent("My system status"), Intent::SystemStatus);
+
+        // "your performance" should be SelfIntrospection (detailed metrics)
+        assert_eq!(route_intent("Your performance"), Intent::SelfIntrospection);
+
+        // "Anna's stats" should be SelfIntrospection
+        assert_eq!(route_intent("Anna's stats"), Intent::SelfIntrospection);
     }
 }

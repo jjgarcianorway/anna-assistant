@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.55.1**
+**Experimental Arch Linux System Assistant - Version 6.56.0**
 
-[![Version](https://img.shields.io/badge/version-6.55.1-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.56.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,42 +29,41 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.55.1 - Knowledge Backup, Export & Introspection 🧠
+## What's New in 6.56.0 - Self Biography & Usage Analytics 📊
 
-### "What do you know about this machine?"
+### "How are you doing, Anna?"
 
-**The Problem:** Users have no visibility into what Anna has learned about their system, and no way to backup, migrate, or clean up Anna's accumulated knowledge.
+**The Problem:** Users have no visibility into Anna's own performance metrics, usage patterns, or activity history.
 
-**The Solution:** Complete knowledge management capabilities:
+**The Solution:** Complete self-introspection and usage analytics:
 
-1. **Knowledge Introspection** - Ask Anna what she knows
-   - 🧠  "What do you know about this machine?"
-   - 📊  "Show your knowledge summary"
-   - 🔍  "What do you know about my CPU/memory/services?"
+1. **Self Statistics** - Ask Anna about herself
+   - 📊  "Show your stats"
+   - ⚡  "Your performance"
+   - 🕐  "Your uptime"
+   - 📈  "How many queries have you handled?"
 
-2. **Knowledge Export/Backup** - Create portable backups
-   - 💾  "Backup your knowledge"
-   - 📤  "Export your memory to ~/anna-backup.json"
-   - 🗜️  Gzip compression for smaller backups
+2. **Usage Analytics** - Understand your usage patterns
+   - 📉  "Show usage stats"
+   - 🔍  "My usage patterns"
+   - 📋  "What do I ask most commonly?"
 
-3. **Knowledge Pruning** - Clean up old data
-   - 🧹  "Forget telemetry older than 90 days"
-   - 📉  "Prune data older than 6 months"
-   - Preview before deletion
+3. **Self Biography** - Complete self-description
+   - 🧠  "Tell me about yourself"
+   - 📚  "Show your biography"
+   - Query history, latency metrics, LLM token usage
 
-**Knowledge Domains (16 categories):**
-- System Metrics: CPU, memory, disk telemetry, network data
-- File System: Dynamic paths, watches
-- Action History: Undo records, timeline events
-- User Behavior: Usage patterns, baselines
-- Identity: Machine ID, user profile
-- Internal: LLM usage, learning patterns
+**New Modules:**
+- `self_stats.rs` - Query count, latency, token usage, uptime
+- Activity logging with `activity_log` table
+- Lifecycle events tracking (daemon starts, stops, crashes)
+- Intent-based usage distribution
 
-**Status:** Complete with 15+ tests. Part of the Self Biography v6.56.0 roadmap.
+**Status:** Complete with 11+ tests. Foundation for future self-optimization.
 
 ---
 
-**Previous: 6.49.0 - Episodic Action Log & Rollback Foundation 🔄**
+**Previous: 6.55.1 - Knowledge Backup, Export & Introspection 🧠**
 
 ## What's New in 6.49.0 - Episodic Action Log & Rollback Foundation 🔄
 

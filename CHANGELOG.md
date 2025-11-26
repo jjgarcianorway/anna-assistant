@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.56.0] - 2025-11-26
+
+### Self Biography & Usage Analytics
+
+**Type:** Feature
+**Focus:** Enable users to understand Anna's own performance, usage patterns, and activity history
+
+#### Overview
+
+v6.56.0 adds comprehensive self-introspection capabilities. Users can now:
+- Ask Anna about her own performance metrics
+- View usage analytics and query distribution by intent
+- Get Anna's "self biography" with complete statistics
+
+#### New Features
+
+1. **Self Statistics** - Anna tracks her own metrics
+   - 📊  Total queries processed (all-time, today, this week)
+   - ⚡  Latency metrics (average, P95)
+   - 🤖  LLM token usage
+   - 🛡️  Success/failure rates
+   - 🔧  Actions performed and rollbacks
+
+2. **Self Introspection** - Ask Anna about herself
+   - 💬  "What are your stats?"
+   - 📈  "Show your performance"
+   - 📖  "Tell me about yourself" / "Your biography"
+
+3. **Usage Analytics** - Understand usage patterns
+   - 📉  "Show usage statistics"
+   - 🎯  "My usage patterns"
+   - 🔍  Distribution by intent type
+
+4. **Activity Logging** - Track all interactions
+   - Every query logged with timestamp, intent, latency, tokens
+   - Lifecycle events (daemon start/stop/crash)
+   - Foundation for future analytics
+
+#### New Files
+
+- `crates/anna_common/src/self_stats.rs` - Core self-statistics module with:
+  - `SelfStats` struct with performance metrics
+  - `ActivityLogEntry` for query tracking
+  - `LifecycleEvent` and `LifecycleEventType` for daemon events
+  - `collect_self_stats()` - Aggregate statistics from activity log
+  - `generate_self_biography()` - Human-readable self-description
+  - `get_usage_by_intent()` - Query distribution analytics
+  - 11 comprehensive tests
+
+#### Intent Routing
+
+Two new intents added to `intent_router.rs`:
+- `SelfIntrospection` - "your stats", "your performance", "biography"
+- `UsageAnalytics { scope }` - "usage stats", "usage patterns"
+
+#### Handler Functions
+
+New handlers in `llm_query_handler.rs`:
+- `handle_self_introspection()` - Displays Anna's self biography
+- `handle_usage_analytics()` - Shows query distribution by intent
+
+#### Technical Details
+
+- Uses existing `activity_log` SQLite table
+- New `lifecycle_events` table for daemon tracking
+- Statistics calculated from real query history
+- Lifecycle events include: DaemonStart, DaemonStop, DaemonCrash, ConfigChange, DbMigration, UpdateInstalled, FirstRun
+
 ## [6.55.1] - 2025-11-26
 
 ### Knowledge Backup, Export, Introspection and Pruning

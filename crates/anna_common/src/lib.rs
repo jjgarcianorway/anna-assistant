@@ -94,6 +94,7 @@ pub mod knowledge_introspection; // v6.55.1: Knowledge introspection - query wha
 pub mod knowledge_export; // v6.55.1: Knowledge export for backup
 pub mod knowledge_import; // v6.55.1: Knowledge import from backup
 pub mod knowledge_pruning; // v6.55.1: Knowledge pruning - cleanup old data
+pub mod self_stats; // v6.56.0: Self statistics - Anna's own performance metrics
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine

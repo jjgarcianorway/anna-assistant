@@ -305,6 +305,16 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
             spinner.finish_and_clear();
             return handle_knowledge_export(&ui, path.as_deref()).await;
         }
+        // v6.56.0: Self introspection
+        crate::intent_router::Intent::SelfIntrospection => {
+            spinner.finish_and_clear();
+            return handle_self_introspection(&ui).await;
+        }
+        // v6.56.0: Usage analytics
+        crate::intent_router::Intent::UsageAnalytics { scope } => {
+            spinner.finish_and_clear();
+            return handle_usage_analytics(&ui, scope.as_deref()).await;
+        }
         _ => {
             // Continue with legacy pattern matching for other intents
         }
@@ -1140,6 +1150,129 @@ async fn handle_knowledge_export(_ui: &UI, path: Option<&str>) -> Result<()> {
         }
         Err(e) => {
             println!("{}  Error exporting knowledge: {}", "❌", e);
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+/// v6.56.0: Handle self introspection requests
+async fn handle_self_introspection(_ui: &UI) -> Result<()> {
+    use anna_common::context::db::{ContextDb, DbLocation};
+    use anna_common::self_stats::{collect_self_stats, generate_self_biography};
+    use anna_common::terminal_format as fmt;
+
+    println!();
+    print!("{}", fmt::bold("anna:"));
+    println!();
+    println!();
+
+    // Open database
+    let location = DbLocation::auto_detect();
+    let db_path = match location.path() {
+        Ok(p) => p.to_string_lossy().to_string(),
+        Err(_) => "/var/lib/anna/context.db".to_string(),
+    };
+    let db = match ContextDb::open(location).await {
+        Ok(db) => db,
+        Err(e) => {
+            println!("{}  Could not access database: {}", "❌", e);
+            return Ok(());
+        }
+    };
+
+    let conn = db.conn();
+    let conn_guard = conn.blocking_lock();
+
+    match collect_self_stats(&conn_guard, &db_path) {
+        Ok(stats) => {
+            let biography = generate_self_biography(&stats);
+            println!("{}", biography);
+        }
+        Err(e) => {
+            println!("{}  Error collecting self stats: {}", "❌", e);
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+/// v6.56.0: Handle usage analytics requests
+async fn handle_usage_analytics(_ui: &UI, scope: Option<&str>) -> Result<()> {
+    use anna_common::context::db::{ContextDb, DbLocation};
+    use anna_common::self_stats::{get_usage_by_intent, init_activity_tables};
+    use anna_common::terminal_format as fmt;
+
+    println!();
+    print!("{}", fmt::bold("anna:"));
+    println!();
+    println!();
+
+    // Open database
+    let location = DbLocation::auto_detect();
+    let db = match ContextDb::open(location).await {
+        Ok(db) => db,
+        Err(e) => {
+            println!("{}  Could not access database: {}", "❌", e);
+            return Ok(());
+        }
+    };
+
+    let conn = db.conn();
+    let conn_guard = conn.blocking_lock();
+
+    // Initialize tables if needed
+    if let Err(e) = init_activity_tables(&conn_guard) {
+        println!("{}  Error initializing activity tables: {}", "❌", e);
+        return Ok(());
+    }
+
+    let scope_text = match scope {
+        Some("today") => "today",
+        Some("week") => "this week",
+        Some("month") => "this month",
+        _ => "all time",
+    };
+
+    println!("📊  Usage Analytics ({})", scope_text);
+    println!();
+
+    match get_usage_by_intent(&conn_guard) {
+        Ok(usage) => {
+            if usage.is_empty() {
+                println!("   No query history found yet.");
+                println!();
+                println!(
+                    "{}  Activity tracking starts now. Ask me questions to build usage data!",
+                    "💡"
+                );
+            } else {
+                println!("   Intent Distribution:");
+                println!();
+
+                let total: u64 = usage.values().sum();
+                let mut sorted: Vec<_> = usage.into_iter().collect();
+                sorted.sort_by(|a, b| b.1.cmp(&a.1));
+
+                for (intent, count) in sorted.iter().take(10) {
+                    let pct = (*count as f64 / total as f64) * 100.0;
+                    println!("   {:25} {:>5} ({:>4.1}%)", intent, count, pct);
+                }
+
+                if sorted.len() > 10 {
+                    let other_count: u64 = sorted.iter().skip(10).map(|(_, c)| c).sum();
+                    let pct = (other_count as f64 / total as f64) * 100.0;
+                    println!("   {:25} {:>5} ({:>4.1}%)", "Other", other_count, pct);
+                }
+
+                println!();
+                println!("   Total queries: {}", total);
+            }
+        }
+        Err(e) => {
+            println!("{}  Error fetching usage data: {}", "❌", e);
         }
     }
 
