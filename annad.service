@@ -89,7 +89,8 @@ MemoryDenyWriteExecute=yes
 # NOTE: Removed IPAddressDeny/IPAddressAllow due to MediaTek mt7921e driver bug
 # These restrictions cause netlink operations that crash the WiFi driver
 # See: "nl80211: send_event_marker failed: Source based routing not supported"
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# v10.1.1: Added AF_NETLINK to allow 'ip' command to work (uses netlink sockets)
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 # IPAddressDeny=any
 # IPAddressAllow=localhost
 
