@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 10.0.0**
+**Experimental Arch Linux System Assistant - Version 10.0.1**
 
-[![Version](https://img.shields.io/badge/version-10.0.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-10.0.1-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,13 +29,16 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 10.0.0 - Evidence-Based Architecture 🔬
+## What's New in 10.0.1 - Reliable Fallback Architecture 🔬
 
-### "Every answer grounded in tool output evidence"
+### "Works even when the LLM fails to follow protocol"
 
-**The Problem:** Previous versions could answer without citing evidence. LLMs might guess or hallucinate.
+**The Problem in v10.0.0:** Local LLMs (like qwen2.5:14b) often failed to follow the complex JSON protocol, returning garbage or asking unrelated questions.
 
-**The Solution:** Pure evidence-based architecture with strict JSON protocol:
+**The Solution in v10.0.1:** Aggressive fallback system that:
+- Pre-runs the right command for common queries (RAM, CPU, disk, GPU, etc.)
+- Extracts answers from evidence using pattern matching when LLM fails
+- Works reliably for 15+ common query types
 
 ### Architecture: `brain_v10` Module
 
@@ -43,16 +46,17 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 crates/anna_common/src/brain_v10/
 ├── contracts.rs     # EvidenceItem, StepType, ReliabilityLabel
 ├── tools.rs         # Generic tool catalog (run_shell, read_file, etc.)
-├── prompt.rs        # Strong system prompt forbidding hallucination
-└── orchestrator.rs  # Evidence collection loop with fallback
+├── prompt.rs        # Simplified prompt + suggest_command_for_query()
+├── fallback.rs      # Pattern-matching answer extraction (NEW)
+└── orchestrator.rs  # Evidence collection loop with aggressive fallback
 ```
 
 ### Pipeline
 
 ```
-Query → LLM decides tool → Rust executes → Evidence collected
-                                                    ↓
-               ← Answer with [E1], [E2] citations ← LLM interprets evidence
+Query → Pre-fetch evidence → LLM attempts → Fallback if fails
+                                    ↓
+               ← Answer with [E1], [E2] citations ← Pattern match or LLM
 ```
 
 ### Key Design Principles

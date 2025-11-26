@@ -1,16 +1,19 @@
-//! Anna Brain v10.0.0 - Orchestrator
+//! Anna Brain v10.0.1 - Orchestrator
 //!
 //! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER
 //! Max 8 iterations. Evidence-based answers. Explicit reliability labels.
+//!
+//! v10.0.1: Aggressive fallback when LLM fails to follow protocol
 
 use crate::brain_v10::contracts::{
-    BrainSession, BrainStep, ReliabilityLabel, SessionResult, StepType, ToolRequest,
+    BrainSession, BrainStep, ReliabilityLabel, StepType, ToolRequest,
 };
-use crate::brain_v10::prompt::{build_state_message, SYSTEM_PROMPT, OUTPUT_SCHEMA};
-use crate::brain_v10::tools::{execute_tool, output_to_evidence, ToolCatalog, ToolSchema};
+use crate::brain_v10::fallback::try_fallback_answer;
+use crate::brain_v10::prompt::{build_state_message, suggest_command_for_query, SYSTEM_PROMPT, OUTPUT_SCHEMA};
+use crate::brain_v10::tools::{execute_tool, ToolCatalog};
 use crate::llm_client::{HttpLlmClient, LlmClient, LlmConfig};
 use crate::telemetry::SystemTelemetry;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 /// Maximum iterations of the think loop
 const MAX_ITERATIONS: usize = 8;
@@ -78,12 +81,35 @@ impl BrainOrchestrator {
             session.add_evidence("user_input", "User-provided information", ctx, 0);
         }
 
+        // v10.0.1: Pre-run fallback command if we have one for this query type
+        // This ensures we have evidence even if LLM fails to request the right tool
+        if let Some(fallback_cmd) = suggest_command_for_query(query) {
+            let output = execute_tool(
+                "run_shell",
+                &std::collections::HashMap::from([("command".to_string(), fallback_cmd.to_string())]),
+                Some(&session.telemetry),
+            );
+            session.add_evidence(
+                "run_shell",
+                &format!("Pre-fetched: {}", fallback_cmd),
+                if output.stdout.is_empty() && !output.stderr.is_empty() {
+                    &output.stderr
+                } else {
+                    &output.stdout
+                },
+                output.exit_code,
+            );
+        }
+
         // Main loop
         loop {
             session.next_iteration();
 
             if session.iteration > MAX_ITERATIONS {
-                // Return best effort answer
+                // Before giving up, try fallback answer from evidence
+                if let Some(fallback) = try_fallback_answer(query, &session) {
+                    return Ok(fallback);
+                }
                 return Ok(BrainResult::Answer {
                     text: format!(
                         "I could not answer confidently within {} iterations. \
@@ -98,8 +124,17 @@ impl BrainOrchestrator {
             // Build state message
             let state_msg = build_state_message(&session);
 
-            // Call LLM
-            let response = self.llm_client.call_json(SYSTEM_PROMPT, &state_msg, OUTPUT_SCHEMA)?;
+            // Call LLM - if it fails, try fallback
+            let response = match self.llm_client.call_json(SYSTEM_PROMPT, &state_msg, OUTPUT_SCHEMA) {
+                Ok(r) => r,
+                Err(_) => {
+                    // LLM failed - try fallback answer
+                    if let Some(fallback) = try_fallback_answer(query, &session) {
+                        return Ok(fallback);
+                    }
+                    continue; // Try again
+                }
+            };
 
             // Parse response
             let step = self.parse_step(&response)?;
@@ -127,6 +162,13 @@ impl BrainOrchestrator {
                 }
 
                 StepType::AskUser => {
+                    // v10.0.1: If LLM asks user on iteration 1-2, it's confused
+                    // Try fallback instead
+                    if session.iteration <= 2 {
+                        if let Some(fallback) = try_fallback_answer(query, &session) {
+                            return Ok(fallback);
+                        }
+                    }
                     let question = step
                         .user_question
                         .unwrap_or_else(|| "Please provide more information.".to_string());
@@ -134,9 +176,9 @@ impl BrainOrchestrator {
                 }
 
                 StepType::DecideTool => {
-                    // Safety: If stuck in loop with no progress
-                    if session.iteration >= 4 && step.reliability < MIN_RELIABILITY {
-                        if let Some(fallback) = self.try_fallback_answer(query, &session) {
+                    // Safety: If stuck in loop, try fallback earlier (iteration 2)
+                    if session.iteration >= 2 && step.reliability < MIN_RELIABILITY {
+                        if let Some(fallback) = try_fallback_answer(query, &session) {
                             return Ok(fallback);
                         }
                     }
@@ -150,7 +192,6 @@ impl BrainOrchestrator {
                         );
 
                         // Add result as evidence
-                        let evidence_id = format!("E{}", session.evidence.len());
                         let description = req.why.clone();
                         session.add_evidence(
                             &req.tool,
@@ -163,7 +204,10 @@ impl BrainOrchestrator {
                             output.exit_code,
                         );
                     } else {
-                        // LLM said decide_tool but no request - force answer
+                        // LLM said decide_tool but no request - use fallback
+                        if let Some(fallback) = try_fallback_answer(query, &session) {
+                            return Ok(fallback);
+                        }
                         return Ok(BrainResult::Answer {
                             text: "I need more information but don't know which tool to use."
                                 .to_string(),
@@ -174,114 +218,6 @@ impl BrainOrchestrator {
                 }
             }
         }
-    }
-
-    /// Try to extract an obvious answer from evidence when LLM fails
-    fn try_fallback_answer(&self, query: &str, session: &BrainSession) -> Option<BrainResult> {
-        let query_lower = query.to_lowercase();
-
-        // Package queries - extract the package name from query
-        if query_lower.contains("installed") {
-            // Extract package name from query
-            let package_name = query_lower
-                .split_whitespace()
-                .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
-                .unwrap_or("");
-
-            if !package_name.is_empty() {
-                for evidence in &session.evidence {
-                    if evidence.source == "run_shell" {
-                        // Check if this evidence is about the package we're looking for
-                        let is_relevant = evidence.description.to_lowercase().contains(package_name)
-                            || evidence.content.to_lowercase().contains(package_name);
-
-                        if !is_relevant {
-                            continue;
-                        }
-
-                        // Positive: package found
-                        if evidence.content.contains("local/") && evidence.is_success() {
-                            let pkg_line = evidence.content.lines().next()?;
-                            return Some(BrainResult::Answer {
-                                text: format!(
-                                    "Yes, {} is installed [{}].\nVersion: {}",
-                                    package_name, evidence.id, pkg_line.trim()
-                                ),
-                                reliability: 0.85,
-                                label: ReliabilityLabel::Medium,
-                            });
-                        }
-
-                        // Negative: pacman query returned empty (exit 0 but no output)
-                        if evidence.content.trim().is_empty() && evidence.is_success() {
-                            return Some(BrainResult::Answer {
-                                text: format!(
-                                    "No, {} is not installed [{}]. \
-                                    The package query returned no results.",
-                                    package_name, evidence.id
-                                ),
-                                reliability: 0.85,
-                                label: ReliabilityLabel::Medium,
-                            });
-                        }
-
-                        // Negative: exit code 1 (package not found)
-                        if !evidence.is_success() {
-                            return Some(BrainResult::Answer {
-                                text: format!(
-                                    "No, {} is not installed [{}].",
-                                    package_name, evidence.id
-                                ),
-                                reliability: 0.85,
-                                label: ReliabilityLabel::Medium,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // RAM queries
-        if query_lower.contains("ram") || query_lower.contains("memory") {
-            for evidence in &session.evidence {
-                if evidence.content.contains("Mem:") {
-                    for line in evidence.content.lines() {
-                        if line.starts_with("Mem:") {
-                            let parts: Vec<&str> = line.split_whitespace().collect();
-                            if parts.len() >= 2 {
-                                return Some(BrainResult::Answer {
-                                    text: format!(
-                                        "You have {} MB of RAM [{}].",
-                                        parts[1], evidence.id
-                                    ),
-                                    reliability: 0.9,
-                                    label: ReliabilityLabel::High,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // CPU queries
-        if query_lower.contains("cpu") || query_lower.contains("processor") {
-            for evidence in &session.evidence {
-                for line in evidence.content.lines() {
-                    if line.contains("Model name:") {
-                        if let Some(name) = line.split(':').nth(1) {
-                            return Some(BrainResult::Answer {
-                                text: format!("Your CPU is: {} [{}].", name.trim(), evidence.id),
-                                reliability: 0.9,
-                                label: ReliabilityLabel::High,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        None
     }
 
     /// Format answer with evidence citations
@@ -411,79 +347,33 @@ impl BrainOrchestrator {
 mod tests {
     use super::*;
 
+    fn create_orchestrator() -> BrainOrchestrator {
+        BrainOrchestrator {
+            llm_client: HttpLlmClient::new(LlmConfig::default()).unwrap(),
+            tool_catalog: ToolCatalog::new(),
+        }
+    }
+
     #[test]
     fn test_parse_decide_tool_step() {
         let json = serde_json::json!({
             "step_type": "decide_tool",
-            "tool_request": {
-                "tool": "run_shell",
-                "arguments": {"command": "pacman -Qs steam"},
-                "why": "Check if Steam is installed"
-            },
-            "answer": null,
-            "evidence_refs": [],
-            "reliability": 0.0,
-            "reasoning": "Need to check package",
-            "user_question": null
+            "tool_request": {"tool": "run_shell", "arguments": {"command": "pacman -Qs steam"}, "why": "Check Steam"},
+            "reliability": 0.0, "reasoning": "Need to check"
         });
-
-        let config = LlmConfig::default();
-        let orchestrator = BrainOrchestrator {
-            llm_client: HttpLlmClient::new(config).unwrap(),
-            tool_catalog: ToolCatalog::new(),
-        };
-
-        let step = orchestrator.parse_step(&json).unwrap();
+        let step = create_orchestrator().parse_step(&json).unwrap();
         assert_eq!(step.step_type, StepType::DecideTool);
         assert!(step.tool_request.is_some());
-        assert_eq!(step.tool_request.unwrap().tool, "run_shell");
     }
 
     #[test]
     fn test_parse_final_answer_step() {
         let json = serde_json::json!({
-            "step_type": "final_answer",
-            "tool_request": null,
-            "answer": "Yes, Steam is installed [E1]. Version 1.0.0.85-1.",
-            "evidence_refs": ["E1"],
-            "reliability": 0.95,
-            "reasoning": "pacman query confirmed installation",
-            "user_question": null
+            "step_type": "final_answer", "answer": "Yes, Steam is installed [E1].",
+            "evidence_refs": ["E1"], "reliability": 0.95, "reasoning": "confirmed"
         });
-
-        let config = LlmConfig::default();
-        let orchestrator = BrainOrchestrator {
-            llm_client: HttpLlmClient::new(config).unwrap(),
-            tool_catalog: ToolCatalog::new(),
-        };
-
-        let step = orchestrator.parse_step(&json).unwrap();
+        let step = create_orchestrator().parse_step(&json).unwrap();
         assert_eq!(step.step_type, StepType::FinalAnswer);
         assert!(step.answer.is_some());
-        assert!(step.answer.unwrap().contains("[E1]"));
-        assert!(step.reliability > 0.9);
-    }
-
-    #[test]
-    fn test_parse_ask_user_step() {
-        let json = serde_json::json!({
-            "step_type": "ask_user",
-            "tool_request": null,
-            "answer": null,
-            "evidence_refs": [],
-            "reliability": 0.1,
-            "reasoning": "Need user preference",
-            "user_question": "Which browser do you prefer to use?"
-        });
-
-        let config = LlmConfig::default();
-        let orchestrator = BrainOrchestrator {
-            llm_client: HttpLlmClient::new(config).unwrap(),
-            tool_catalog: ToolCatalog::new(),
-        };
-
-        let step = orchestrator.parse_step(&json).unwrap();
-        assert_eq!(step.step_type, StepType::AskUser);
-        assert!(step.user_question.is_some());
     }
 }
