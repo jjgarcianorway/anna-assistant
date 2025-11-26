@@ -204,30 +204,32 @@ impl BrainOrchestrator {
                 }
             }
             // Check for failed package query (not installed)
-            // But only if we don't have any successful results
+            // But only if we don't have any successful results showing the package
             let has_successful_package = tool_history.iter().any(|r| {
                 r.stdout.contains("local/") && r.exit_code == 0
             });
             if !has_successful_package {
-                for result in tool_history {
-                    if let Some(cmd) = result.arguments.get("command") {
-                        // pacman -Qs returns exit code 1 when nothing found
-                        if cmd.contains("pacman -Qs") && (result.exit_code != 0 || result.stdout.trim().is_empty()) {
-                            let package = query_lower
-                                .split_whitespace()
-                                .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
-                                .unwrap_or("the package");
-                            return Some(format!("No, {} is not installed.", package));
+                // Check if ANY tool run failed or returned empty (indicates not installed)
+                let has_failed_check = tool_history.iter().any(|r| {
+                    if let Some(cmd) = r.arguments.get("command") {
+                        // pacman -Qs returns exit code 1 or empty stdout when nothing found
+                        if cmd.contains("pacman") && (r.exit_code != 0 || r.stdout.trim().is_empty()) {
+                            return true;
                         }
                         // which command fails when not found
-                        if cmd.starts_with("which ") && (result.exit_code != 0 || result.stdout.trim().is_empty()) {
-                            let package = query_lower
-                                .split_whitespace()
-                                .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
-                                .unwrap_or("the package");
-                            return Some(format!("No, {} is not installed.", package));
+                        if cmd.starts_with("which") && (r.exit_code != 0 || r.stdout.trim().is_empty()) {
+                            return true;
                         }
                     }
+                    false
+                });
+
+                if has_failed_check {
+                    let package = query_lower
+                        .split_whitespace()
+                        .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
+                        .unwrap_or("the package");
+                    return Some(format!("No, {} is not installed.", package));
                 }
             }
         }
@@ -262,6 +264,23 @@ impl BrainOrchestrator {
                                 name.trim(), result.tool
                             ));
                         }
+                    }
+                }
+            }
+        }
+
+        // Disk usage queries
+        if query_lower.contains("disk") || query_lower.contains("storage") || query_lower.contains("space") {
+            for result in tool_history {
+                // Look for df output or lsblk output
+                if result.stdout.contains("Filesystem") || result.stdout.contains("/dev/") {
+                    // Found disk info - summarize it
+                    let lines: Vec<&str> = result.stdout.lines().collect();
+                    if lines.len() > 1 {
+                        return Some(format!(
+                            "Disk usage:\n{}",
+                            result.stdout.lines().take(10).collect::<Vec<_>>().join("\n")
+                        ));
                     }
                 }
             }
