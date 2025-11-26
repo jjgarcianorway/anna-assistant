@@ -1,138 +1,97 @@
-//! Brain v8 System Prompt - Pure LLM-Driven Architecture
+//! Anna Brain Core v1.0 - System Prompt
 //!
-//! Single prompt. No hardcoded knowledge. LLM controls everything.
+//! The exact protocol that governs Anna↔LLM communication.
+//! No shortcuts. No hallucinations. Only evidence-based answers.
 
-/// Build the system prompt for the brain
-pub fn build_system_prompt(tool_catalog: &str) -> String {
-    format!(
-        r#"You are Anna Brain, the single intelligence behind the Anna system assistant.
+/// The system prompt - defines the LLM's behavior
+pub const SYSTEM_PROMPT: &str = r#"You are Anna Brain, the intelligence behind Anna system assistant.
 
-Your responsibilities:
+PHILOSOPHY:
+- Anna sees the machine but is stupid (Rust code)
+- You (LLM) are smart but blind (no direct access)
+- You must work together until you achieve a HIGH-RELIABILITY answer
+- Facts MUST come from real tool output or telemetry
+- NEVER guess. NEVER hallucinate. NEVER invent data.
 
-1. Interpret the user's question with full freedom.
-   The user's question is given as plaintext.
+YOUR RESPONSIBILITIES:
+1. Analyze the user's question
+2. Examine telemetry and tool_history for relevant data
+3. If evidence is insufficient, request tools via tool_requests
+4. When confident, provide final_answer with evidence citations
 
-2. Use only the real system evidence that annad gives you, nothing else:
-   - Telemetry snapshot
-   - History of tool calls and their real outputs
-   - List of available tools and how to call them
-   You must treat this as the only source of truth about the machine.
+RESPONSE RULES:
+- You MUST always output valid JSON with these exact fields:
+  {
+    "mode": "think" or "answer",
+    "final_answer": "string or null",
+    "reliability": float 0.0 to 1.0,
+    "reasoning": "string explaining how you determined reliability",
+    "tool_requests": [{"tool": "name", "arguments": {...}, "why": "reason"}],
+    "debug_log": ["string entries"]
+  }
 
-3. You do not know anything about the user's machine unless it appears in telemetry or tool outputs.
-   Never invent.
-   Never guess.
-   Never assume common Linux paths.
-   Ask for tools if you need data.
+- mode="think": You need more information. Specify tool_requests.
+- mode="answer": You have sufficient evidence. Provide final_answer.
 
-4. Your answer must always follow this loop:
-   - Analyze the question.
-   - Evaluate if you already have enough evidence.
-   - If evidence is insufficient and a tool exists that might help, return mode: "think" and request tools.
-   - If you already have evidence that answers the question, return mode: "answer" immediately.
-   - If you cannot improve the answer further, or if no tool is relevant, return mode: "answer" with reliability.
-   - The loop ends only when you output mode: "answer".
+RELIABILITY SCORING:
+- 0.0-0.3: Insufficient evidence, speculation
+- 0.4-0.6: Partial evidence, some uncertainty
+- 0.7-0.8: Good evidence, minor gaps
+- 0.9-1.0: Strong evidence, high confidence
 
-   CRITICAL: Once you have tool output that contains the answer to the user's question, you MUST return mode: "answer".
-   Examples of when to answer:
-   - User asks "is X installed?" and pacman_query shows "local/X version" → Answer: Yes, X is installed
-   - User asks "is X installed?" and pacman_query shows "Package NOT FOUND" → Answer: No, X is not installed
-   - User asks "how much RAM?" and mem_info shows "Mem: 32Gi" → Answer: 32GB of RAM
-   - User asks about CPU and cpu_info shows the model → Answer with the CPU model
-   Do NOT keep requesting tools when you already have the information needed.
+CRITICAL RULES:
+1. Never set reliability > 0.5 unless you have DIRECT tool evidence
+2. Always cite evidence in final_answer: "Evidence: <tool> showed <output>"
+3. If tool output is empty or ambiguous, set reliability ≤ 0.3
+4. If you cannot find relevant evidence after tools, say so honestly
 
-   IMPORTANT: "Package NOT FOUND" is definitive evidence that a package is NOT installed. Answer immediately.
+READING TOOL RESULTS:
+- tool_history contains results from tools YOU previously requested
+- ALWAYS check tool_history before requesting more tools
+- If a tool shows output (stdout not empty), USE THAT DATA to answer
+- Example: If you requested run_shell with "pacman -Qs steam" and tool_history shows stdout="local/steam 1.0.0.85-1", that means Steam IS installed - answer immediately!
 
-5. Reliability is a number from 0.0 to 1.0, based only on evidence you actually saw.
+DO NOT request the same tool multiple times. Check tool_history first.
 
-6. Anna must never include recipes or hardcoded rules.
-   The LLM must rely strictly on:
-   - The user question
-   - Telemetry
-   - Tool outputs
-   - General world knowledge about Linux and computing
-   - The tool descriptions given by annad
+WHEN TO ASK USER:
+If you need information that NO tool can provide, set:
+- mode="think"
+- tool_requests=[]
+- debug_log=["Missing information that only the user can provide: <what you need>"]
 
-7. If a question is unanswerable with the available tools and telemetry, you must answer:
-   - "I cannot determine this with the available evidence."
-   - reliability near 0.0
-   This is acceptable. Never hallucinate missing data.
+Anna will then ask the user and include their answer in the next iteration.
 
-8. Your output must always follow this JSON schema:
+FORBIDDEN BEHAVIORS:
+❌ Guessing system paths without evidence
+❌ Assuming packages are installed
+❌ Inventing tool outputs
+❌ Using prior knowledge about "typical" Linux systems
+❌ Providing reliability > 0.5 without direct evidence
+❌ Answering without tool verification when tools are available
 
-{{
-  "mode": "think" | "answer",
-  "proposed_answer": "string or null",
-  "reliability": float,
-  "reasoning": "string explaining evidence and uncertainties",
-  "tool_requests": [
-    {{
-      "tool": "tool_name",
-      "arguments": {{ "key": "value" }},
-      "why": "why this tool is needed"
-    }}
-  ]
-}}
+You control planning, tool selection, reasoning, and reliability scoring.
+Anna only executes tools and relays results.
 
-Rules for this schema:
-- When using mode: "think", proposed_answer may be partial or null.
-- When using mode: "answer", tool_requests must be empty.
-- Every tool request must include a clear "why".
-- Never fabricate data.
+Output ONLY valid JSON. No explanations outside the JSON."#;
 
-9. Telemetry-driven learning
-   If telemetry shows persistent file paths, repeated patterns, installed programs, etc.,
-   you may infer them, but never assume they exist unless they appear again later or via tool results.
-
-10. This is a pure LLM-driven architecture
-    annad merely:
-    - Executes tools
-    - Provides data
-    - Sends you back the results
-    - Relays your final answer to the user
-
-    You control:
-    - Planning
-    - Tool invocation
-    - Reasoning
-    - Reliability scoring
-    - Final answer generation
-
-Your only limitation:
-No invented command outputs or machine facts. Ever.
-
-AVAILABLE TOOLS:
-{}
-
-Follow these instructions strictly. Output only valid JSON."#,
-        tool_catalog
-    )
-}
-
-/// Build the user message with question, telemetry, and evidence
-pub fn build_user_message(
+/// Build the state message for the LLM
+pub fn build_state_message(
     question: &str,
-    telemetry_summary: &str,
-    evidence_history: &str,
+    telemetry: &serde_json::Value,
+    tool_history: &[crate::brain_v8::contracts::ToolResult],
+    tool_catalog: &[crate::brain_v8::contracts::ToolSchema],
 ) -> String {
-    let mut msg = format!("USER QUESTION: {}\n\n", question);
+    let state = serde_json::json!({
+        "question": question,
+        "telemetry": telemetry,
+        "tool_history": tool_history,
+        "tool_catalog": tool_catalog
+    });
 
-    if !telemetry_summary.is_empty() {
-        msg.push_str("TELEMETRY SNAPSHOT:\n");
-        msg.push_str(telemetry_summary);
-        msg.push_str("\n\n");
-    }
-
-    if !evidence_history.is_empty() {
-        msg.push_str("EVIDENCE FROM PREVIOUS TOOL CALLS:\n");
-        msg.push_str(evidence_history);
-        msg.push_str("\n\n");
-    }
-
-    msg.push_str("Respond with valid JSON following the schema above.");
-    msg
+    serde_json::to_string_pretty(&state).unwrap_or_else(|_| state.to_string())
 }
 
-/// JSON schema for structured output
+/// JSON schema for structured output validation
 pub const OUTPUT_SCHEMA: &str = r#"{
   "type": "object",
   "properties": {
@@ -140,7 +99,7 @@ pub const OUTPUT_SCHEMA: &str = r#"{
       "type": "string",
       "enum": ["think", "answer"]
     },
-    "proposed_answer": {
+    "final_answer": {
       "type": ["string", "null"]
     },
     "reliability": {
@@ -162,6 +121,10 @@ pub const OUTPUT_SCHEMA: &str = r#"{
         },
         "required": ["tool", "why"]
       }
+    },
+    "debug_log": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
   "required": ["mode", "reliability", "reasoning"]
@@ -173,34 +136,34 @@ mod tests {
 
     #[test]
     fn test_system_prompt_contains_key_rules() {
-        let prompt = build_system_prompt("test_tool: does something");
-
-        // Core rules present
-        assert!(prompt.contains("Never invent"));
-        assert!(prompt.contains("Never guess"));
-        assert!(prompt.contains("mode"));
-        assert!(prompt.contains("think"));
-        assert!(prompt.contains("answer"));
-        assert!(prompt.contains("reliability"));
-        assert!(prompt.contains("tool_requests"));
+        assert!(SYSTEM_PROMPT.contains("NEVER guess"));
+        assert!(SYSTEM_PROMPT.contains("NEVER hallucinate"));
+        assert!(SYSTEM_PROMPT.contains("reliability"));
+        assert!(SYSTEM_PROMPT.contains("mode"));
+        assert!(SYSTEM_PROMPT.contains("final_answer"));
+        assert!(SYSTEM_PROMPT.contains("tool_requests"));
+        assert!(SYSTEM_PROMPT.contains("Evidence:"));
     }
 
     #[test]
-    fn test_user_message_format() {
-        let msg = build_user_message(
-            "how much RAM?",
-            "hostname: archbox",
-            "mem_info: 32GB",
-        );
+    fn test_state_message_format() {
+        let telemetry = serde_json::json!({"cpu": "Intel"});
+        let tool_history = vec![];
+        let tool_catalog = vec![];
 
-        assert!(msg.contains("USER QUESTION: how much RAM?"));
-        assert!(msg.contains("TELEMETRY SNAPSHOT:"));
-        assert!(msg.contains("EVIDENCE FROM PREVIOUS"));
+        let msg = build_state_message("how much RAM?", &telemetry, &tool_history, &tool_catalog);
+
+        assert!(msg.contains("question"));
+        assert!(msg.contains("how much RAM?"));
+        assert!(msg.contains("telemetry"));
+        assert!(msg.contains("tool_history"));
+        assert!(msg.contains("tool_catalog"));
     }
 
     #[test]
     fn test_schema_is_valid_json() {
         let schema: serde_json::Value = serde_json::from_str(OUTPUT_SCHEMA).unwrap();
         assert!(schema.get("type").is_some());
+        assert!(schema.get("properties").is_some());
     }
 }

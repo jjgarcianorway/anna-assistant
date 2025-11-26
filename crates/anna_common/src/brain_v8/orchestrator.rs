@@ -1,23 +1,25 @@
-//! Brain v8 Orchestrator - Pure LLM-driven loop
+//! Anna Brain Core v1.0 - Orchestrator
 //!
-//! Single LLM. Single prompt. Think→Answer loop.
-//! No planner. No interpreter. Just the brain.
+//! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER
+//! Max 8 iterations. Reliability threshold enforcement. User question support.
 
-use crate::brain_v8::contracts::{BrainOutput, BrainMode, Evidence, ToolResult};
-use crate::brain_v8::prompt::{build_system_prompt, build_user_message, OUTPUT_SCHEMA};
+use crate::brain_v8::contracts::{BrainOutput, BrainMode, ToolResult, ToolSchema};
+use crate::brain_v8::prompt::{SYSTEM_PROMPT, OUTPUT_SCHEMA, build_state_message};
 use crate::brain_v8::tools::{ToolCatalog, execute_tool};
 use crate::llm_client::{LlmConfig, HttpLlmClient, LlmClient};
 use crate::telemetry::SystemTelemetry;
 use anyhow::{Result, anyhow};
 
-/// Maximum iterations of the think loop
-const MAX_ITERATIONS: usize = 5;
+/// Maximum iterations of the think loop (spec says 8)
+const MAX_ITERATIONS: usize = 8;
 
-/// The brain orchestrator
+/// Minimum reliability to accept without forcing retry
+const MIN_RELIABILITY: f32 = 0.4;
+
+/// The brain orchestrator - implements the spec loop
 pub struct BrainOrchestrator {
     llm_client: HttpLlmClient,
     tool_catalog: ToolCatalog,
-    system_prompt: String,
 }
 
 impl BrainOrchestrator {
@@ -25,280 +27,259 @@ impl BrainOrchestrator {
     pub fn new(config: LlmConfig) -> Result<Self> {
         let llm_client = HttpLlmClient::new(config)?;
         let tool_catalog = ToolCatalog::new();
-        let system_prompt = build_system_prompt(&tool_catalog.to_prompt_string());
 
         Ok(Self {
             llm_client,
             tool_catalog,
-            system_prompt,
         })
     }
 
-    /// Process a query through the think→answer loop
-    pub fn process(&self, query: &str, telemetry: &SystemTelemetry) -> Result<String> {
-        let telemetry_summary = self.build_telemetry_summary(telemetry);
-        let mut evidence = Evidence::new();
+    /// Process a query through the brain loop
+    /// Returns (answer, needs_user_input, user_question)
+    pub fn process(
+        &self,
+        query: &str,
+        telemetry: &SystemTelemetry,
+        user_context: Option<&str>,
+    ) -> Result<BrainResult> {
+        let telemetry_json = self.telemetry_to_json(telemetry);
+        let tool_schemas: Vec<ToolSchema> = self.tool_catalog.to_schema_list().to_vec();
+        let mut tool_history: Vec<ToolResult> = Vec::new();
         let mut iterations = 0;
-        let mut last_tools_requested: Vec<String> = Vec::new();
+
+        // If user provided additional context, add it to telemetry
+        let telemetry_with_context = if let Some(ctx) = user_context {
+            let mut t = telemetry_json.clone();
+            if let Some(obj) = t.as_object_mut() {
+                obj.insert("user_provided_info".to_string(), serde_json::json!(ctx));
+            }
+            t
+        } else {
+            telemetry_json.clone()
+        };
 
         loop {
             iterations += 1;
 
-            // Smart early exit: if we have evidence and LLM keeps requesting same tools
-            if iterations > 2 && !evidence.is_empty() {
-                // After iteration 2 with evidence, force an answer
-                return self.synthesize_answer_from_evidence(query, &evidence, &telemetry_summary);
-            }
-
             if iterations > MAX_ITERATIONS {
-                return self.synthesize_answer_from_evidence(query, &evidence, &telemetry_summary);
+                return Ok(BrainResult::Answer {
+                    text: "I cannot answer confidently with the tools available.".to_string(),
+                    reliability: 0.0,
+                });
             }
 
-            // Build the user message with current evidence
-            let evidence_str = self.format_evidence(&evidence);
-            let user_message = build_user_message(query, &telemetry_summary, &evidence_str);
+            // Build state message for LLM
+            let state_msg = build_state_message(
+                query,
+                &telemetry_with_context,
+                &tool_history,
+                &tool_schemas,
+            );
 
-            // Call the LLM
+            // Call LLM
             let response = self.llm_client.call_json(
-                &self.system_prompt,
-                &user_message,
+                SYSTEM_PROMPT,
+                &state_msg,
                 OUTPUT_SCHEMA,
             )?;
 
-            // Parse the response
+            // Parse response
             let output = self.parse_output(&response)?;
 
             match output.mode {
                 BrainMode::Answer => {
-                    // We have our answer
-                    let answer = output.proposed_answer.unwrap_or_else(|| {
-                        if evidence.is_empty() {
-                            "I cannot determine this with the available evidence.".to_string()
-                        } else {
-                            // Try to synthesize from evidence
-                            return self.synthesize_answer_from_evidence(query, &evidence, &telemetry_summary)
-                                .unwrap_or_else(|_| "Unable to synthesize answer.".to_string());
-                        }
+                    let answer = output.final_answer.unwrap_or_else(|| {
+                        "I cannot determine this with the available evidence.".to_string()
                     });
 
-                    // Add reliability context if low
+                    // Include reliability in response if it's low
                     if output.reliability < 0.5 {
-                        return Ok(format!(
-                            "{}\n\n(Reliability: {:.0}% - {})",
-                            answer,
-                            output.reliability * 100.0,
-                            output.reasoning
-                        ));
+                        return Ok(BrainResult::Answer {
+                            text: format!(
+                                "{}\n\n(Reliability: {:.0}% - {})",
+                                answer,
+                                output.reliability * 100.0,
+                                output.reasoning
+                            ),
+                            reliability: output.reliability,
+                        });
                     }
-                    return Ok(answer);
+
+                    return Ok(BrainResult::Answer {
+                        text: answer,
+                        reliability: output.reliability,
+                    });
                 }
                 BrainMode::Think => {
+                    // Safety: If we have clear evidence but LLM keeps thinking, force answer
+                    if iterations >= 3 && !tool_history.is_empty() {
+                        if let Some(answer) = self.extract_obvious_answer(query, &tool_history) {
+                            return Ok(BrainResult::Answer {
+                                text: answer,
+                                reliability: 0.8,
+                            });
+                        }
+                    }
+
+                    // Check if user input is needed
+                    if output.needs_user_input() {
+                        let question = output.missing_user_info()
+                            .unwrap_or("Please provide additional information")
+                            .to_string();
+                        return Ok(BrainResult::NeedsUserInput { question });
+                    }
+
+                    // Check reliability threshold
+                    if output.reliability < MIN_RELIABILITY && output.tool_requests.is_empty() {
+                        // Force LLM to try harder
+                        tool_history.push(ToolResult {
+                            tool: "_system".to_string(),
+                            arguments: Default::default(),
+                            stdout: format!(
+                                "Your reliability ({:.1}) is too low. What information is missing? Which tool should I run?",
+                                output.reliability
+                            ),
+                            stderr: String::new(),
+                            exit_code: 0,
+                        });
+                        continue;
+                    }
+
                     // Execute requested tools
                     if output.tool_requests.is_empty() {
-                        // LLM said think but no tools - use evidence we have
-                        if !evidence.is_empty() {
-                            return self.synthesize_answer_from_evidence(query, &evidence, &telemetry_summary);
-                        }
-                        return Ok(output.proposed_answer.unwrap_or_else(|| {
-                            "I need more information but don't know which tools to use.".to_string()
-                        }));
+                        // LLM said think but no tools - force answer
+                        return Ok(BrainResult::Answer {
+                            text: output.final_answer.unwrap_or_else(|| {
+                                "I need more information but don't know which tools to use.".to_string()
+                            }),
+                            reliability: output.reliability,
+                        });
                     }
 
-                    // Check for repeated tool requests (stuck in loop)
-                    let current_tools: Vec<String> = output.tool_requests.iter()
-                        .map(|r| r.tool.clone())
-                        .collect();
-
-                    if current_tools == last_tools_requested && !evidence.is_empty() {
-                        // Same tools requested again - force answer
-                        return self.synthesize_answer_from_evidence(query, &evidence, &telemetry_summary);
-                    }
-                    last_tools_requested = current_tools;
-
+                    // Execute each tool and add to history
                     for request in &output.tool_requests {
-                        let result = execute_tool(
-                            &self.tool_catalog,
-                            &request.tool,
-                            &request.arguments,
-                        );
-                        evidence.add(result);
+                        let result = execute_tool(&request.tool, &request.arguments);
+                        tool_history.push(result);
                     }
                 }
             }
         }
     }
 
-    /// Synthesize an answer from collected evidence when LLM fails to answer properly
-    fn synthesize_answer_from_evidence(
-        &self,
-        query: &str,
-        evidence: &Evidence,
-        _telemetry: &str,
-    ) -> Result<String> {
-        // Build a simpler prompt to just interpret the evidence
-        let interpret_prompt = format!(
-            r#"Answer the user's question based ONLY on this evidence. Give a direct answer.
-
-QUESTION: {}
-
-EVIDENCE:
-{}
-
-Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliability":0.9,"reasoning":"based on evidence"}}"#,
-            query,
-            self.format_evidence(evidence)
-        );
-
-        // Simple schema for answer-only response
-        let simple_schema = r#"{"type":"object","properties":{"proposed_answer":{"type":"string"}}}"#;
-
-        // Try to get an LLM answer
-        match self.llm_client.call_json(&self.system_prompt, &interpret_prompt, simple_schema) {
-            Ok(response) => {
-                if let Some(answer) = response.get("proposed_answer").and_then(|a| a.as_str()) {
-                    if !answer.is_empty() && answer.len() > 5 {
-                        return Ok(answer.to_string());
-                    }
-                }
-                // Fallback to direct extraction
-                Ok(self.extract_simple_answer(query, evidence))
-            }
-            Err(_) => Ok(self.extract_simple_answer(query, evidence)),
-        }
-    }
-
-    /// Extract a simple answer directly from evidence when LLM fails
-    fn extract_simple_answer(&self, query: &str, evidence: &Evidence) -> String {
+    /// Extract obvious answer from tool history when LLM fails to interpret
+    fn extract_obvious_answer(&self, query: &str, tool_history: &[ToolResult]) -> Option<String> {
         let query_lower = query.to_lowercase();
 
-        // Package installation queries - handle both success and failure
+        // Package installation queries
         if query_lower.contains("installed") {
-            for result in &evidence.tool_results {
-                if result.tool == "pacman_query" {
-                    // Extract package name from query (e.g., "is steam installed?" -> "steam")
-                    let words: Vec<&str> = query_lower.split_whitespace().collect();
-                    let package_name = words.iter()
+            for result in tool_history {
+                if result.stdout.contains("local/") && result.exit_code == 0 {
+                    // Extract package name from query
+                    let package = query_lower
+                        .split_whitespace()
                         .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
-                        .unwrap_or(&"the package");
+                        .unwrap_or("the package");
 
-                    if result.success && !result.stdout.is_empty() {
-                        // Package found - extract version
-                        if let Some(line) = result.stdout.lines().next() {
-                            return format!("Yes, {} is installed ({})", package_name, line.trim());
+                    // Extract version from output
+                    if let Some(line) = result.stdout.lines().next() {
+                        return Some(format!(
+                            "Yes, {} is installed. Evidence: {} showed \"{}\"",
+                            package, result.tool, line.trim()
+                        ));
+                    }
+                }
+                // Check for "which" command success
+                if result.arguments.get("command").map(|c| c.starts_with("which")).unwrap_or(false)
+                    && result.exit_code == 0
+                    && !result.stdout.is_empty()
+                {
+                    let package = query_lower
+                        .split_whitespace()
+                        .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
+                        .unwrap_or("the package");
+                    return Some(format!(
+                        "Yes, {} is installed. Evidence: found at {}",
+                        package, result.stdout.trim()
+                    ));
+                }
+            }
+            // Check for failed package query (not installed)
+            // But only if we don't have any successful results
+            let has_successful_package = tool_history.iter().any(|r| {
+                r.stdout.contains("local/") && r.exit_code == 0
+            });
+            if !has_successful_package {
+                for result in tool_history {
+                    if let Some(cmd) = result.arguments.get("command") {
+                        // pacman -Qs returns exit code 1 when nothing found
+                        if cmd.contains("pacman -Qs") && (result.exit_code != 0 || result.stdout.trim().is_empty()) {
+                            let package = query_lower
+                                .split_whitespace()
+                                .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
+                                .unwrap_or("the package");
+                            return Some(format!("No, {} is not installed.", package));
                         }
-                        return format!("Yes, {} is installed.", package_name);
-                    } else {
-                        // Package not found
-                        return format!("No, {} is not installed.", package_name);
+                        // which command fails when not found
+                        if cmd.starts_with("which ") && (result.exit_code != 0 || result.stdout.trim().is_empty()) {
+                            let package = query_lower
+                                .split_whitespace()
+                                .find(|w| !["is", "installed", "installed?", "?", "do", "i", "have"].contains(w))
+                                .unwrap_or("the package");
+                            return Some(format!("No, {} is not installed.", package));
+                        }
                     }
                 }
             }
         }
 
-        for result in &evidence.tool_results {
-            if !result.success || result.stdout.is_empty() {
-                continue;
-            }
-
-            // RAM queries
-            if query_lower.contains("ram") || query_lower.contains("memory") {
-                if result.tool == "mem_info" {
-                    // Parse free -h output
+        // RAM queries
+        if query_lower.contains("ram") || query_lower.contains("memory") {
+            for result in tool_history {
+                if result.stdout.contains("Mem:") {
                     for line in result.stdout.lines() {
                         if line.starts_with("Mem:") {
                             let parts: Vec<&str> = line.split_whitespace().collect();
                             if parts.len() >= 2 {
-                                return format!("You have {} of RAM.", parts[1]);
+                                return Some(format!(
+                                    "You have {} of RAM. Evidence: {} showed \"{}\"",
+                                    parts[1], result.tool, line.trim()
+                                ));
                             }
                         }
                     }
                 }
             }
+        }
 
-            // CPU queries
-            if query_lower.contains("cpu") || query_lower.contains("processor") {
-                if result.tool == "cpu_info" {
-                    for line in result.stdout.lines() {
-                        if line.contains("Model name:") {
-                            if let Some(name) = line.split(':').nth(1) {
-                                return format!("Your CPU is: {}", name.trim());
-                            }
-                        }
-                    }
-                }
-            }
-
-            // GPU queries
-            if query_lower.contains("gpu") || query_lower.contains("graphics") {
-                if result.tool == "gpu_info" {
-                    for line in result.stdout.lines() {
-                        let line_lower = line.to_lowercase();
-                        if line_lower.contains("vga") || line_lower.contains("3d controller") {
-                            return format!("GPU: {}", line.trim());
+        // CPU queries
+        if query_lower.contains("cpu") || query_lower.contains("processor") {
+            for result in tool_history {
+                for line in result.stdout.lines() {
+                    if line.contains("Model name:") {
+                        if let Some(name) = line.split(':').nth(1) {
+                            return Some(format!(
+                                "Your CPU is: {}. Evidence: {} showed this.",
+                                name.trim(), result.tool
+                            ));
                         }
                     }
                 }
             }
         }
 
-        // Fallback: show raw evidence
-        format!(
-            "Based on the evidence I collected:\n{}",
-            self.format_evidence(evidence)
-        )
+        None
     }
 
-    /// Build a summary of telemetry for the prompt
-    fn build_telemetry_summary(&self, telemetry: &SystemTelemetry) -> String {
-        let mut lines = Vec::new();
-
-        // Hardware - clear labels
-        lines.push(format!("cpu_model: {}", telemetry.hardware.cpu_model));
-        lines.push(format!("total_ram_mb: {}", telemetry.hardware.total_ram_mb));
-        lines.push(format!("machine_type: {:?}", telemetry.hardware.machine_type));
-        lines.push(format!("cpu_cores: {}", telemetry.cpu.cores));
-
-        // Desktop
-        if let Some(desktop) = &telemetry.desktop {
-            if let Some(de) = &desktop.de_name {
-                lines.push(format!("desktop_environment: {}", de));
-            }
-            if let Some(ds) = &desktop.display_server {
-                lines.push(format!("display_server: {}", ds));
-            }
-        }
-
-        lines.join("\n")
-    }
-
-    /// Format evidence for the prompt
-    fn format_evidence(&self, evidence: &Evidence) -> String {
-        if evidence.is_empty() {
-            return String::new();
-        }
-
-        evidence.tool_results
-            .iter()
-            .map(|r| {
-                // Special handling for pacman_query - exit code 1 means "not found"
-                if r.tool == "pacman_query" && !r.success && r.stdout.is_empty() {
-                    return format!("=== {} ===\nPackage NOT FOUND (not installed)", r.tool);
-                }
-
-                let status = if r.success { "SUCCESS" } else { "FAILED" };
-                let output = if r.success {
-                    if r.stdout.is_empty() {
-                        "(no output)".to_string()
-                    } else {
-                        truncate(&r.stdout, 2000)
-                    }
-                } else {
-                    format!("Error: {}", r.stderr)
-                };
-                format!("=== {} ({}) ===\n{}", r.tool, status, output)
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n")
+    /// Convert telemetry to JSON for the LLM
+    fn telemetry_to_json(&self, telemetry: &SystemTelemetry) -> serde_json::Value {
+        serde_json::json!({
+            "cpu_model": telemetry.hardware.cpu_model,
+            "cpu_cores": telemetry.cpu.cores,
+            "total_ram_mb": telemetry.hardware.total_ram_mb,
+            "machine_type": format!("{:?}", telemetry.hardware.machine_type),
+            "desktop_environment": telemetry.desktop.as_ref().and_then(|d| d.de_name.clone()),
+            "display_server": telemetry.desktop.as_ref().and_then(|d| d.display_server.clone()),
+        })
     }
 
     /// Parse the LLM response into BrainOutput
@@ -307,15 +288,12 @@ Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliabilit
         let mode = match response.get("mode").and_then(|m| m.as_str()) {
             Some("think") => BrainMode::Think,
             Some("answer") => BrainMode::Answer,
-            _ => {
-                // Default to answer if unclear
-                BrainMode::Answer
-            }
+            _ => BrainMode::Answer, // Default to answer if unclear
         };
 
-        // Parse proposed_answer
-        let proposed_answer = response
-            .get("proposed_answer")
+        // Parse final_answer
+        let final_answer = response
+            .get("final_answer")
             .and_then(|a| a.as_str())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
@@ -325,7 +303,7 @@ Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliabilit
             .get("reliability")
             .and_then(|r| r.as_f64())
             .map(|r| r as f32)
-            .unwrap_or(0.5);
+            .unwrap_or(0.0);
 
         // Parse reasoning
         let reasoning = response
@@ -367,23 +345,35 @@ Respond with JSON: {{"mode":"answer","proposed_answer":"your answer","reliabilit
             })
             .unwrap_or_default();
 
+        // Parse debug_log
+        let debug_log = response
+            .get("debug_log")
+            .and_then(|d| d.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
         Ok(BrainOutput {
             mode,
-            proposed_answer,
+            final_answer,
             reliability,
             reasoning,
             tool_requests,
+            debug_log,
         })
     }
 }
 
-/// Truncate a string to a maximum length
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...[truncated]", &s[..max_len])
-    }
+/// Result from the brain loop
+#[derive(Debug)]
+pub enum BrainResult {
+    /// Final answer with reliability
+    Answer { text: String, reliability: f32 },
+    /// Need user input to continue
+    NeedsUserInput { question: String },
 }
 
 #[cfg(test)]
@@ -394,59 +384,73 @@ mod tests {
     fn test_parse_think_output() {
         let json = serde_json::json!({
             "mode": "think",
-            "proposed_answer": null,
+            "final_answer": null,
             "reliability": 0.0,
             "reasoning": "Need memory info",
             "tool_requests": [
                 {
-                    "tool": "mem_info",
+                    "tool": "memory_info",
                     "arguments": {},
                     "why": "Get RAM details"
                 }
-            ]
+            ],
+            "debug_log": []
         });
 
-        // Create a mock config for testing
         let config = LlmConfig::default();
         let orchestrator = BrainOrchestrator {
             llm_client: HttpLlmClient::new(config).unwrap(),
             tool_catalog: ToolCatalog::new(),
-            system_prompt: String::new(),
         };
 
         let output = orchestrator.parse_output(&json).unwrap();
         assert_eq!(output.mode, BrainMode::Think);
-        assert!(output.proposed_answer.is_none());
+        assert!(output.final_answer.is_none());
         assert_eq!(output.tool_requests.len(), 1);
-        assert_eq!(output.tool_requests[0].tool, "mem_info");
+        assert_eq!(output.tool_requests[0].tool, "memory_info");
     }
 
     #[test]
     fn test_parse_answer_output() {
         let json = serde_json::json!({
             "mode": "answer",
-            "proposed_answer": "You have 32 GB of RAM",
+            "final_answer": "You have 32 GB of RAM. Evidence: memory_info showed Mem: 32768",
             "reliability": 0.95,
-            "reasoning": "Verified from free -h output",
-            "tool_requests": []
+            "reasoning": "Verified from free -m output",
+            "tool_requests": [],
+            "debug_log": []
         });
 
         let config = LlmConfig::default();
         let orchestrator = BrainOrchestrator {
             llm_client: HttpLlmClient::new(config).unwrap(),
             tool_catalog: ToolCatalog::new(),
-            system_prompt: String::new(),
         };
 
         let output = orchestrator.parse_output(&json).unwrap();
         assert_eq!(output.mode, BrainMode::Answer);
-        assert_eq!(output.answer(), "You have 32 GB of RAM");
+        assert!(output.answer().contains("Evidence:"));
         assert!(output.reliability > 0.9);
     }
 
     #[test]
-    fn test_truncate() {
-        assert_eq!(truncate("hello", 10), "hello");
-        assert_eq!(truncate("hello world", 5), "hello...[truncated]");
+    fn test_parse_user_input_needed() {
+        let json = serde_json::json!({
+            "mode": "think",
+            "final_answer": null,
+            "reliability": 0.1,
+            "reasoning": "Need user preference",
+            "tool_requests": [],
+            "debug_log": ["Missing information that only the user can provide: preferred browser"]
+        });
+
+        let config = LlmConfig::default();
+        let orchestrator = BrainOrchestrator {
+            llm_client: HttpLlmClient::new(config).unwrap(),
+            tool_catalog: ToolCatalog::new(),
+        };
+
+        let output = orchestrator.parse_output(&json).unwrap();
+        assert!(output.needs_user_input());
     }
 }

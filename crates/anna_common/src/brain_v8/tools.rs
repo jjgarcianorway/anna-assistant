@@ -1,207 +1,109 @@
-//! Brain v8 Tools - The hands of the machine
+//! Anna Brain Core v1.0 - Generic Tool Catalog
 //!
-//! Pure tool catalog. LLM sees only descriptions.
-//! Rust owns execution. No hardcoded knowledge about what tools return.
+//! ONLY generic, reusable tools. No hardcoded detection logic.
+//! The LLM decides which commands to run via run_shell.
 
-use crate::brain_v8::contracts::ToolResult;
+use crate::brain_v8::contracts::{ToolResult, ToolSchema};
 use std::collections::HashMap;
 use std::process::Command;
 
-/// A tool definition
-#[derive(Debug, Clone)]
-pub struct ToolDef {
-    /// Tool name (what LLM requests)
-    pub name: &'static str,
-    /// Human-readable description for LLM
-    pub description: &'static str,
-    /// Parameters the tool accepts (name -> description)
-    pub parameters: &'static [(&'static str, &'static str)],
-    /// The actual command to run
-    command: &'static str,
-    /// Arguments (may include {param} placeholders)
-    args: &'static [&'static str],
-}
-
-/// The tool catalog
+/// The generic tool catalog - LLM chooses what to run
 pub struct ToolCatalog {
-    tools: HashMap<&'static str, ToolDef>,
+    tools: Vec<ToolSchema>,
 }
 
 impl ToolCatalog {
-    /// Create the catalog with all available tools
+    /// Create the catalog with generic tools only
     pub fn new() -> Self {
         let tools = vec![
-            // Hardware
-            ToolDef {
-                name: "mem_info",
-                description: "Get memory/RAM information",
-                parameters: &[],
-                command: "free",
-                args: &["-h"],
+            // The main generic tool - LLM decides the command
+            ToolSchema {
+                name: "run_shell".to_string(),
+                description: "Run any shell command. Use this to query the system.".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The shell command to execute (e.g., 'free -m', 'pacman -Qs steam', 'lscpu')"
+                        }
+                    },
+                    "required": ["command"]
+                }),
             },
-            ToolDef {
-                name: "cpu_info",
-                description: "Get CPU information",
-                parameters: &[],
-                command: "lscpu",
-                args: &[],
+            // Read file contents
+            ToolSchema {
+                name: "read_file".to_string(),
+                description: "Read contents of a text file.".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Absolute path to the file (e.g., '/proc/cpuinfo', '/etc/hostname')"
+                        }
+                    },
+                    "required": ["path"]
+                }),
             },
-            ToolDef {
-                name: "gpu_info",
-                description: "Get GPU/graphics card information",
-                parameters: &[],
-                command: "lspci",
-                args: &["-v"],
+            // List processes
+            ToolSchema {
+                name: "list_processes".to_string(),
+                description: "List running processes (ps aux).".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {}
+                }),
             },
-            // Packages
-            ToolDef {
-                name: "pacman_query",
-                description: "Search for installed packages. USE THIS FIRST for 'is X installed?' questions. Returns package name and version if found, empty if not installed.",
-                parameters: &[("pattern", "Package name to search for (e.g., 'steam', 'firefox')")],
-                command: "pacman",
-                args: &["-Qs", "{pattern}"],
+            // Block devices
+            ToolSchema {
+                name: "list_block_devices".to_string(),
+                description: "List block devices and partitions (lsblk --json).".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {}
+                }),
             },
-            ToolDef {
-                name: "pacman_info",
-                description: "Get detailed info (version, size, dependencies) about a package ALREADY KNOWN to be installed. Use pacman_query first to check if installed.",
-                parameters: &[("package", "Exact package name (must be installed)")],
-                command: "pacman",
-                args: &["-Qi", "{package}"],
+            // Network status
+            ToolSchema {
+                name: "network_status".to_string(),
+                description: "Get network connection status.".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {}
+                }),
             },
-            ToolDef {
-                name: "pacman_updates",
-                description: "Check for available package updates",
-                parameters: &[],
-                command: "checkupdates",
-                args: &[],
+            // Memory info
+            ToolSchema {
+                name: "memory_info".to_string(),
+                description: "Get memory/RAM statistics (free -m).".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {}
+                }),
             },
-            ToolDef {
-                name: "pacman_orphans",
-                description: "List orphaned packages (installed but not required)",
-                parameters: &[],
-                command: "pacman",
-                args: &["-Qdt"],
-            },
-            // Storage
-            ToolDef {
-                name: "disk_usage",
-                description: "Show disk space usage for mounted filesystems",
-                parameters: &[],
-                command: "df",
-                args: &["-h"],
-            },
-            ToolDef {
-                name: "dir_size",
-                description: "Get size of a directory",
-                parameters: &[("path", "Directory path to measure")],
-                command: "du",
-                args: &["-sh", "{path}"],
-            },
-            // Network
-            ToolDef {
-                name: "ip_addresses",
-                description: "Show network interface IP addresses",
-                parameters: &[],
-                command: "ip",
-                args: &["-brief", "addr"],
-            },
-            ToolDef {
-                name: "network_status",
-                description: "Show network connection status",
-                parameters: &[],
-                command: "nmcli",
-                args: &["general", "status"],
-            },
-            // System
-            ToolDef {
-                name: "systemd_failed",
-                description: "List failed systemd services",
-                parameters: &[],
-                command: "systemctl",
-                args: &["--failed", "--no-pager"],
-            },
-            ToolDef {
-                name: "uptime",
-                description: "Show system uptime",
-                parameters: &[],
-                command: "uptime",
-                args: &["-p"],
-            },
-            ToolDef {
-                name: "kernel_info",
-                description: "Show kernel version",
-                parameters: &[],
-                command: "uname",
-                args: &["-r"],
-            },
-            ToolDef {
-                name: "journal_errors",
-                description: "Show recent system errors from journal",
-                parameters: &[],
-                command: "journalctl",
-                args: &["-p", "err", "-n", "20", "--no-pager"],
-            },
-            // Desktop
-            ToolDef {
-                name: "desktop_session",
-                description: "Show current desktop environment",
-                parameters: &[],
-                command: "sh",
-                args: &["-c", "echo $XDG_CURRENT_DESKTOP"],
-            },
-            // Files
-            ToolDef {
-                name: "file_exists",
-                description: "Check if a file or directory exists",
-                parameters: &[("path", "Path to check")],
-                command: "test",
-                args: &["-e", "{path}"],
-            },
-            ToolDef {
-                name: "read_file",
-                description: "Read contents of a file (first 50 lines)",
-                parameters: &[("path", "File path to read")],
-                command: "head",
-                args: &["-n", "50", "{path}"],
+            // CPU info
+            ToolSchema {
+                name: "cpu_info".to_string(),
+                description: "Get CPU information (lscpu).".to_string(),
+                schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {}
+                }),
             },
         ];
 
-        let map: HashMap<&'static str, ToolDef> = tools
-            .into_iter()
-            .map(|t| (t.name, t))
-            .collect();
-
-        Self { tools: map }
+        Self { tools }
     }
 
-    /// Get a tool by name
-    pub fn get(&self, name: &str) -> Option<&ToolDef> {
-        self.tools.get(name)
+    /// Get the tool catalog for the LLM
+    pub fn to_schema_list(&self) -> &[ToolSchema] {
+        &self.tools
     }
 
-    /// Build the catalog description for the LLM prompt
-    pub fn to_prompt_string(&self) -> String {
-        let mut lines: Vec<String> = self.tools
-            .values()
-            .map(|t| {
-                if t.parameters.is_empty() {
-                    format!("- {}: {}", t.name, t.description)
-                } else {
-                    let params: Vec<String> = t.parameters
-                        .iter()
-                        .map(|(name, desc)| format!("{}={}", name, desc))
-                        .collect();
-                    format!("- {}({}): {}", t.name, params.join(", "), t.description)
-                }
-            })
-            .collect();
-        lines.sort();
-        lines.join("\n")
-    }
-
-    /// List all tool names
-    pub fn tool_names(&self) -> Vec<&'static str> {
-        self.tools.keys().copied().collect()
+    /// Check if a tool exists
+    pub fn has_tool(&self, name: &str) -> bool {
+        self.tools.iter().any(|t| t.name == name)
     }
 }
 
@@ -213,67 +115,108 @@ impl Default for ToolCatalog {
 
 /// Execute a tool with given arguments
 pub fn execute_tool(
-    catalog: &ToolCatalog,
     tool_name: &str,
     arguments: &HashMap<String, String>,
 ) -> ToolResult {
-    let tool = match catalog.get(tool_name) {
-        Some(t) => t,
-        None => {
-            return ToolResult {
-                tool: tool_name.to_string(),
-                success: false,
-                stdout: String::new(),
-                stderr: format!("Unknown tool: {}", tool_name),
-                exit_code: -1,
-            };
-        }
-    };
-
-    // Build command with argument substitution
-    let args: Vec<String> = tool.args
-        .iter()
-        .map(|arg| {
-            let mut result = (*arg).to_string();
-            for (key, value) in arguments {
-                result = result.replace(&format!("{{{}}}", key), value);
+    match tool_name {
+        "run_shell" => {
+            let command = arguments.get("command").cloned().unwrap_or_default();
+            if command.is_empty() {
+                return ToolResult {
+                    tool: tool_name.to_string(),
+                    arguments: arguments.clone(),
+                    stdout: String::new(),
+                    stderr: "Missing required argument: command".to_string(),
+                    exit_code: -1,
+                };
             }
-            result
-        })
-        .collect();
-
-    // Check if any placeholders remain (missing required args)
-    for arg in &args {
-        if arg.contains('{') && arg.contains('}') {
-            return ToolResult {
-                tool: tool_name.to_string(),
-                success: false,
-                stdout: String::new(),
-                stderr: format!("Missing required argument in: {}", arg),
-                exit_code: -1,
-            };
+            run_shell_command(&command, tool_name, arguments)
         }
+        "read_file" => {
+            let path = arguments.get("path").cloned().unwrap_or_default();
+            if path.is_empty() {
+                return ToolResult {
+                    tool: tool_name.to_string(),
+                    arguments: arguments.clone(),
+                    stdout: String::new(),
+                    stderr: "Missing required argument: path".to_string(),
+                    exit_code: -1,
+                };
+            }
+            read_file(&path, tool_name, arguments)
+        }
+        "list_processes" => run_shell_command("ps aux", tool_name, arguments),
+        "list_block_devices" => run_shell_command("lsblk --json", tool_name, arguments),
+        "network_status" => run_shell_command("nmcli -t -f TYPE,DEVICE,STATE device", tool_name, arguments),
+        "memory_info" => run_shell_command("free -m", tool_name, arguments),
+        "cpu_info" => run_shell_command("lscpu", tool_name, arguments),
+        _ => ToolResult {
+            tool: tool_name.to_string(),
+            arguments: arguments.clone(),
+            stdout: String::new(),
+            stderr: format!("Unknown tool: {}", tool_name),
+            exit_code: -1,
+        },
     }
+}
 
-    // Execute the command
-    let output = Command::new(tool.command)
-        .args(&args)
+/// Run a shell command and return result
+fn run_shell_command(
+    command: &str,
+    tool_name: &str,
+    arguments: &HashMap<String, String>,
+) -> ToolResult {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
         .output();
 
     match output {
         Ok(out) => ToolResult {
             tool: tool_name.to_string(),
-            success: out.status.success(),
+            arguments: arguments.clone(),
             stdout: String::from_utf8_lossy(&out.stdout).to_string(),
             stderr: String::from_utf8_lossy(&out.stderr).to_string(),
             exit_code: out.status.code().unwrap_or(-1),
         },
         Err(e) => ToolResult {
             tool: tool_name.to_string(),
-            success: false,
+            arguments: arguments.clone(),
             stdout: String::new(),
             stderr: format!("Failed to execute: {}", e),
             exit_code: -1,
+        },
+    }
+}
+
+/// Read a file and return result
+fn read_file(
+    path: &str,
+    tool_name: &str,
+    arguments: &HashMap<String, String>,
+) -> ToolResult {
+    match std::fs::read_to_string(path) {
+        Ok(content) => {
+            // Truncate very long files
+            let truncated = if content.len() > 10000 {
+                format!("{}...[truncated, {} bytes total]", &content[..10000], content.len())
+            } else {
+                content
+            };
+            ToolResult {
+                tool: tool_name.to_string(),
+                arguments: arguments.clone(),
+                stdout: truncated,
+                stderr: String::new(),
+                exit_code: 0,
+            }
+        }
+        Err(e) => ToolResult {
+            tool: tool_name.to_string(),
+            arguments: arguments.clone(),
+            stdout: String::new(),
+            stderr: format!("Failed to read file: {}", e),
+            exit_code: 1,
         },
     }
 }
@@ -283,42 +226,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_catalog_has_tools() {
+    fn test_catalog_has_generic_tools() {
         let catalog = ToolCatalog::new();
-        assert!(catalog.get("mem_info").is_some());
-        assert!(catalog.get("cpu_info").is_some());
-        assert!(catalog.get("pacman_query").is_some());
+        assert!(catalog.has_tool("run_shell"));
+        assert!(catalog.has_tool("read_file"));
+        assert!(catalog.has_tool("memory_info"));
+        assert!(catalog.has_tool("cpu_info"));
+    }
+
+    #[test]
+    fn test_run_shell_command() {
+        let mut args = HashMap::new();
+        args.insert("command".to_string(), "echo hello".to_string());
+
+        let result = execute_tool("run_shell", &args);
+        assert_eq!(result.exit_code, 0);
+        assert!(result.stdout.contains("hello"));
+    }
+
+    #[test]
+    fn test_memory_info() {
+        let result = execute_tool("memory_info", &HashMap::new());
+        assert_eq!(result.exit_code, 0);
+        assert!(result.stdout.contains("Mem:"));
+    }
+
+    #[test]
+    fn test_read_file() {
+        let mut args = HashMap::new();
+        args.insert("path".to_string(), "/etc/hostname".to_string());
+
+        let result = execute_tool("read_file", &args);
+        // Should succeed if file exists
+        assert!(result.exit_code == 0 || result.stderr.contains("Failed"));
     }
 
     #[test]
     fn test_unknown_tool() {
-        let catalog = ToolCatalog::new();
-        let result = execute_tool(&catalog, "nonexistent", &HashMap::new());
-        assert!(!result.success);
+        let result = execute_tool("nonexistent", &HashMap::new());
         assert!(result.stderr.contains("Unknown tool"));
-    }
-
-    #[test]
-    fn test_prompt_string_format() {
-        let catalog = ToolCatalog::new();
-        let prompt = catalog.to_prompt_string();
-
-        // Should have tool descriptions
-        assert!(prompt.contains("mem_info"));
-        assert!(prompt.contains("cpu_info"));
-        // Should not expose actual commands
-        assert!(!prompt.contains("lscpu"));
-        assert!(!prompt.contains("free -h"));
-    }
-
-    #[test]
-    fn test_argument_substitution() {
-        let catalog = ToolCatalog::new();
-        let mut args = HashMap::new();
-        args.insert("pattern".to_string(), "steam".to_string());
-
-        let result = execute_tool(&catalog, "pacman_query", &args);
-        // Result depends on whether steam is installed, but should execute
-        assert!(result.exit_code >= 0 || result.stderr.contains("Failed"));
     }
 }
