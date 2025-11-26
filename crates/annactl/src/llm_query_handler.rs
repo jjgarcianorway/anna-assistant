@@ -290,6 +290,21 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
         crate::intent_router::Intent::AnnaStatus => {
             return handle_health_question(&ui).await;
         }
+        // v6.55.1: Knowledge introspection
+        crate::intent_router::Intent::KnowledgeIntrospection { topic } => {
+            spinner.finish_and_clear();
+            return handle_knowledge_introspection(&ui, topic.as_deref()).await;
+        }
+        // v6.55.1: Knowledge pruning
+        crate::intent_router::Intent::KnowledgePruning { criteria } => {
+            spinner.finish_and_clear();
+            return handle_knowledge_pruning(&ui, &criteria).await;
+        }
+        // v6.55.1: Knowledge export
+        crate::intent_router::Intent::KnowledgeExport { path } => {
+            spinner.finish_and_clear();
+            return handle_knowledge_export(&ui, path.as_deref()).await;
+        }
         _ => {
             // Continue with legacy pattern matching for other intents
         }
@@ -900,5 +915,234 @@ async fn handle_personality_query(
         }
     }
 
+    Ok(())
+}
+
+/// v6.55.1: Handle knowledge introspection queries
+async fn handle_knowledge_introspection(_ui: &UI, topic: Option<&str>) -> Result<()> {
+    use anna_common::context::db::{ContextDb, DbLocation};
+    use anna_common::knowledge_introspection::{
+        describe_knowledge, query_knowledge_about, query_knowledge_summary,
+    };
+    use anna_common::terminal_format as fmt;
+
+    println!();
+    print!("{}", fmt::bold("anna:"));
+    println!();
+    println!();
+
+    // Open database
+    let location = DbLocation::auto_detect();
+    let db = match ContextDb::open(location.clone()).await {
+        Ok(db) => db,
+        Err(e) => {
+            println!("{}  Could not access knowledge database: {}", "❌", e);
+            return Ok(());
+        }
+    };
+
+    // Get database path for display
+    let db_path = location.path().unwrap_or_default();
+    let db_location_str = db_path.to_string_lossy().to_string();
+
+    if let Some(topic) = topic {
+        // Topic-specific knowledge query
+        let conn = db.conn();
+        let conn_guard = conn.blocking_lock();
+
+        match query_knowledge_about(&conn_guard, topic) {
+            Ok(items) if !items.is_empty() => {
+                println!(
+                    "{}  What I know about \"{}\":\n",
+                    "🧠", topic
+                );
+                for item in &items {
+                    println!(
+                        "   {}  {}: {}",
+                        item.domain.emoji(),
+                        item.description,
+                        item.value
+                    );
+                }
+            }
+            Ok(_) => {
+                println!(
+                    "{}  I don't have specific knowledge about \"{}\" yet.",
+                    "🤔", topic
+                );
+                println!();
+                println!("I learn from observing your system over time.");
+            }
+            Err(e) => {
+                println!("{}  Error querying knowledge: {}", "❌", e);
+            }
+        }
+    } else {
+        // General knowledge summary
+        let conn = db.conn();
+        let conn_guard = conn.blocking_lock();
+
+        match query_knowledge_summary(&conn_guard, &db_location_str) {
+            Ok(summary) => {
+                let description = describe_knowledge(&summary);
+                println!("{}", description);
+            }
+            Err(e) => {
+                println!("{}  Error querying knowledge summary: {}", "❌", e);
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+/// v6.55.1: Handle knowledge pruning requests
+async fn handle_knowledge_pruning(_ui: &UI, criteria_str: &str) -> Result<()> {
+    use anna_common::context::db::{ContextDb, DbLocation};
+    use anna_common::knowledge_pruning::{
+        describe_pruning_preview, parse_pruning_request, prune_knowledge,
+    };
+    use anna_common::terminal_format as fmt;
+
+    println!();
+    print!("{}", fmt::bold("anna:"));
+    println!();
+    println!();
+
+    // Parse the pruning request
+    let criteria = match parse_pruning_request(criteria_str) {
+        Some(c) => c,
+        None => {
+            println!("{}  I couldn't understand the pruning request.", "🤔");
+            println!();
+            println!("Try something like:");
+            println!("  • \"forget telemetry older than 90 days\"");
+            println!("  • \"prune old data confirm\"");
+            println!("  • \"clean up network telemetry older than 30 days\"");
+            return Ok(());
+        }
+    };
+
+    // Open database
+    let location = DbLocation::auto_detect();
+    let db = match ContextDb::open(location).await {
+        Ok(db) => db,
+        Err(e) => {
+            println!("{}  Could not access knowledge database: {}", "❌", e);
+            return Ok(());
+        }
+    };
+
+    // Execute pruning (dry run by default)
+    let conn = db.conn();
+    let conn_guard = conn.blocking_lock();
+
+    match prune_knowledge(&conn_guard, &criteria) {
+        Ok(result) => {
+            let description = describe_pruning_preview(&result);
+            println!("{}", description);
+
+            if result.was_dry_run && result.total_deleted > 0 {
+                println!();
+                println!(
+                    "{}  This was a dry run. To actually delete, say:",
+                    "💡"
+                );
+                println!("   \"forget telemetry older than {} days confirm\"", criteria.older_than_days);
+            }
+        }
+        Err(e) => {
+            println!("{}  Error during pruning: {}", "❌", e);
+        }
+    }
+
+    println!();
+    Ok(())
+}
+
+/// v6.55.1: Handle knowledge export requests
+async fn handle_knowledge_export(_ui: &UI, path: Option<&str>) -> Result<()> {
+    use anna_common::context::db::{ContextDb, DbLocation};
+    use anna_common::knowledge_export::{export_knowledge, ExportOptions};
+    use anna_common::terminal_format as fmt;
+    use chrono::Utc;
+
+    println!();
+    print!("{}", fmt::bold("anna:"));
+    println!();
+    println!();
+
+    // Determine export path
+    let export_path = match path {
+        Some(p) => std::path::PathBuf::from(p),
+        None => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+            std::path::PathBuf::from(format!(
+                "{}/anna_knowledge_backup_{}.json",
+                home, timestamp
+            ))
+        }
+    };
+
+    // Open database
+    let location = DbLocation::auto_detect();
+    let db = match ContextDb::open(location).await {
+        Ok(db) => db,
+        Err(e) => {
+            println!("{}  Could not access knowledge database: {}", "❌", e);
+            return Ok(());
+        }
+    };
+
+    println!("{}  Exporting knowledge...", "📦");
+    println!();
+
+    // Export with default options
+    let options = ExportOptions::default();
+    let conn = db.conn();
+    let conn_guard = conn.blocking_lock();
+
+    match export_knowledge(&conn_guard, &options) {
+        Ok(export) => {
+            // Write to file
+            match serde_json::to_string_pretty(&export) {
+                Ok(json) => {
+                    if let Err(e) = std::fs::write(&export_path, &json) {
+                        println!("{}  Error writing export file: {}", "❌", e);
+                        return Ok(());
+                    }
+
+                    println!(
+                        "{}  Exported {} records to:",
+                        "✅",
+                        export.metadata.total_records
+                    );
+                    println!("   {}", export_path.display());
+                    println!();
+                    println!("{}  Domains included:", "📊");
+                    for domain in &export.metadata.included_domains {
+                        if let Some(stats) = export.domains.get(domain.display_name()) {
+                            println!(
+                                "   {}  {}: {} records",
+                                domain.emoji(),
+                                domain.display_name(),
+                                stats.record_count
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("{}  Error serializing export: {}", "❌", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("{}  Error exporting knowledge: {}", "❌", e);
+        }
+    }
+
+    println!();
     Ok(())
 }

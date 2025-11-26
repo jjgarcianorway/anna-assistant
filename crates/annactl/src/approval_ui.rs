@@ -159,6 +159,7 @@ mod tests {
             goal_description: Some("Check for steam".to_string()),
             assumptions: vec![],
             confidence: 0.95,
+            policy_decision: None,
         };
 
         assert!(!requires_approval(&plan));
@@ -175,6 +176,7 @@ mod tests {
             goal_description: None,
             assumptions: vec![],
             confidence: 0.8,
+            policy_decision: None,
         };
 
         assert!(requires_approval(&plan));
@@ -201,6 +203,7 @@ mod tests {
             goal_description: None,
             assumptions: vec![],
             confidence: 0.8,
+            policy_decision: None,
         };
 
         assert!(requires_approval(&plan));
@@ -227,6 +230,7 @@ mod tests {
             goal_description: None,
             assumptions: vec![],
             confidence: 0.8,
+            policy_decision: None,
         };
 
         assert!(requires_approval(&plan));

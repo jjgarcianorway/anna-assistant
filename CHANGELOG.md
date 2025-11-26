@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.55.1] - 2025-11-26
+
+### Knowledge Backup, Export, Introspection and Pruning
+
+**Type:** Feature
+**Focus:** Enable users to understand, manage, backup, and prune Anna's knowledge
+
+#### Overview
+
+v6.55.1 adds comprehensive knowledge management capabilities. Users can now:
+- Ask what Anna knows about their system
+- Export/backup Anna's knowledge to JSON files (with optional gzip compression)
+- Import knowledge from backups
+- Prune old telemetry data to save space
+
+#### New Features
+
+1. **Knowledge Introspection** - Query what Anna knows
+   - 🧠  "What do you know about this machine?"
+   - 📊  "Show your knowledge summary"
+   - 🔍  "What do you know about my CPU/memory/services?"
+
+2. **Knowledge Export/Backup** - Create portable backups
+   - 💾  "Backup your knowledge"
+   - 📤  "Export your memory to /path/file.json"
+   - 🗜️  Supports gzip compression for smaller backups
+
+3. **Knowledge Import** - Restore from backups
+   - Three modes: Merge, Replace, IfEmpty
+   - Validation before import
+   - Cross-machine migration support
+
+4. **Knowledge Pruning** - Clean up old data
+   - 🧹  "Forget telemetry older than 90 days"
+   - 📉  "Prune data older than 6 months"
+   - Dry-run preview before actual deletion
+
+#### New Files
+
+- `crates/anna_common/src/knowledge_domain.rs` - Core knowledge types (16 domains, 6 categories)
+- `crates/anna_common/src/knowledge_introspection.rs` - Query and describe knowledge
+- `crates/anna_common/src/knowledge_export.rs` - Export to JSON/gzip
+- `crates/anna_common/src/knowledge_import.rs` - Import from backups
+- `crates/anna_common/src/knowledge_pruning.rs` - Prune old records
+
+#### Intent Routing
+
+Three new intents added to `intent_router.rs`:
+- `KnowledgeIntrospection { topic: Option<String> }`
+- `KnowledgeExport { path: Option<String> }`
+- `KnowledgePruning { criteria: String }`
+
+#### Technical Details
+
+- Knowledge organized into 16 domains: Telemetry, DynamicPaths, Watches, UndoHistory, UserProfile, MachineIdentity, ServiceHealth, NetworkTelemetry, BootSessions, LogSignatures, LlmUsage, Baselines, UsagePatterns, IssueTracking, LearningPatterns, TimelineEvents
+- Domains grouped into 6 categories: SystemMetrics, FileSystem, ActionHistory, UserBehavior, Identity, AnnaInternal
+- Export format includes metadata, timestamps, and domain-organized records
+- Added `flate2` dependency for gzip compression
+
+#### Bugfix
+
+- Fixed planner query routing to avoid false positives for RAM queries
+
 ## [6.55.0] - 2025-11-25
 
 ### Installer Model Selection Improvement

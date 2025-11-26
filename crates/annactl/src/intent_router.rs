@@ -42,6 +42,12 @@ pub enum Intent {
     Exit,
     /// Off-topic query (not sysadmin related)
     OffTopic,
+    /// v6.55.1: Knowledge introspection - "what do you know about this machine?"
+    KnowledgeIntrospection { topic: Option<String> },
+    /// v6.55.1: Knowledge pruning - "forget telemetry older than 90 days"
+    KnowledgePruning { criteria: String },
+    /// v6.55.1: Knowledge export - "backup your knowledge"
+    KnowledgeExport { path: Option<String> },
     /// Unclear intent (Task 12: route to LLM)
     Unclear(String),
 }
@@ -229,7 +235,57 @@ pub fn route_intent(input: &str) -> Intent {
         };
     }
 
+    // v6.55.1: Knowledge intents - MUST be checked BEFORE Privacy and Report
+    // to avoid "data", "telemetry", and "summary" matching those patterns first
+
+    // Knowledge introspection - "what do you know about..."
+    // Note: "your knowledge" only matches introspection if NOT preceded by "backup" or "export"
+    if (lower.contains("what do you know")
+        || lower.contains("what have you learned")
+        || lower.contains("tell me what you know")
+        || lower.contains("show me what you know")
+        || (lower.contains("your knowledge") && !lower.contains("backup") && !lower.contains("export"))
+        || lower.contains("knowledge summary")
+        || lower.contains("knowledge about"))
+        && !lower.contains("forget")
+        && !lower.contains("prune")
+        && !lower.contains("delete")
+    {
+        // Extract topic if present
+        let topic = extract_knowledge_topic(&lower);
+        return Intent::KnowledgeIntrospection { topic };
+    }
+
+    // Knowledge pruning - "forget", "prune", "delete old data"
+    if (lower.contains("forget")
+        || lower.contains("prune")
+        || lower.contains("clean up")
+        || lower.contains("cleanup")
+        || lower.contains("delete old"))
+        && (lower.contains("data")
+            || lower.contains("knowledge")
+            || lower.contains("telemetry")
+            || lower.contains("history")
+            || lower.contains("records")
+            || lower.contains("days")
+            || lower.contains("old"))
+    {
+        return Intent::KnowledgePruning {
+            criteria: input.to_string(),
+        };
+    }
+
+    // Knowledge export - "backup your knowledge", "export knowledge"
+    if (lower.contains("backup") || lower.contains("export"))
+        && (lower.contains("knowledge")
+            || lower.contains("what you know")
+            || lower.contains("memory"))
+    {
+        return Intent::KnowledgeExport { path: None };
+    }
+
     // Privacy explanation - multilingual
+    // Note: Moved AFTER knowledge intents to avoid matching "data" and "telemetry"
     if contains_any(
         &words,
         &[
@@ -633,6 +689,39 @@ fn extract_trait_set(input: &str) -> Option<(String, u8)> {
     None
 }
 
+/// Extract knowledge topic from natural language
+/// v6.55.1: Supports patterns like "what do you know about cpu" or "knowledge about network"
+fn extract_knowledge_topic(input: &str) -> Option<String> {
+    // Common patterns
+    let patterns = [
+        "what do you know about ",
+        "what have you learned about ",
+        "tell me what you know about ",
+        "show me what you know about ",
+        "knowledge about ",
+    ];
+
+    for pattern in patterns {
+        if let Some(pos) = input.find(pattern) {
+            let topic = input[pos + pattern.len()..].trim();
+            if !topic.is_empty() {
+                // Clean up common suffixes
+                let topic = topic
+                    .trim_end_matches('?')
+                    .trim_end_matches('.')
+                    .trim_end_matches("this machine")
+                    .trim_end_matches("my system")
+                    .trim();
+                if !topic.is_empty() {
+                    return Some(topic.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Generate helpful response for unclear intent
 pub fn unclear_response() -> String {
     "I'm not quite sure what you're asking. I focus on system administration \
@@ -781,6 +870,107 @@ mod tests {
             Intent::Personality {
                 adjustment: PersonalityAdjustment::MoreDetailed
             }
+        );
+    }
+
+    // v6.55.1: Knowledge introspection tests
+    #[test]
+    fn test_knowledge_introspection_intent() {
+        // General knowledge queries
+        assert!(matches!(
+            route_intent("What do you know about this machine?"),
+            Intent::KnowledgeIntrospection { topic: None }
+        ));
+
+        assert!(matches!(
+            route_intent("Show me what you know"),
+            Intent::KnowledgeIntrospection { topic: None }
+        ));
+
+        assert!(matches!(
+            route_intent("Your knowledge summary"),
+            Intent::KnowledgeIntrospection { topic: None }
+        ));
+
+        // Topic-specific queries
+        if let Intent::KnowledgeIntrospection { topic } =
+            route_intent("What do you know about cpu?")
+        {
+            assert_eq!(topic, Some("cpu".to_string()));
+        } else {
+            panic!("Expected KnowledgeIntrospection intent");
+        }
+
+        if let Intent::KnowledgeIntrospection { topic } =
+            route_intent("Tell me what you know about network")
+        {
+            assert_eq!(topic, Some("network".to_string()));
+        } else {
+            panic!("Expected KnowledgeIntrospection intent");
+        }
+    }
+
+    // v6.55.1: Knowledge pruning tests
+    #[test]
+    fn test_knowledge_pruning_intent() {
+        assert!(matches!(
+            route_intent("Forget telemetry older than 90 days"),
+            Intent::KnowledgePruning { .. }
+        ));
+
+        assert!(matches!(
+            route_intent("Prune old data"),
+            Intent::KnowledgePruning { .. }
+        ));
+
+        assert!(matches!(
+            route_intent("Clean up old telemetry"),
+            Intent::KnowledgePruning { .. }
+        ));
+
+        assert!(matches!(
+            route_intent("Delete old knowledge records"),
+            Intent::KnowledgePruning { .. }
+        ));
+    }
+
+    // v6.55.1: Knowledge export tests
+    #[test]
+    fn test_knowledge_export_intent() {
+        assert!(matches!(
+            route_intent("Backup your knowledge"),
+            Intent::KnowledgeExport { .. }
+        ));
+
+        assert!(matches!(
+            route_intent("Export what you know"),
+            Intent::KnowledgeExport { .. }
+        ));
+
+        assert!(matches!(
+            route_intent("Backup your memory"),
+            Intent::KnowledgeExport { .. }
+        ));
+
+        assert!(matches!(
+            route_intent("Export knowledge"),
+            Intent::KnowledgeExport { .. }
+        ));
+    }
+
+    #[test]
+    fn test_extract_knowledge_topic() {
+        assert_eq!(
+            extract_knowledge_topic("what do you know about cpu"),
+            Some("cpu".to_string())
+        );
+        assert_eq!(
+            extract_knowledge_topic("knowledge about network"),
+            Some("network".to_string())
+        );
+        assert_eq!(
+            extract_knowledge_topic("what do you know about this machine?"),
+            None // "this machine" is stripped
         );
     }
 }

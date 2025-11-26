@@ -18,37 +18,65 @@ pub fn should_use_planner(query: &str) -> bool {
     let query_lower = query.to_lowercase();
 
     // v6.42.0: Expanded patterns for planner core
-    let patterns = [
-        // Package queries
-        "do i have",
-        "is installed",
-        "have installed",
+    // v6.55.1: Fixed patterns to avoid false positives
+
+    // Package-specific queries that need planner
+    let package_patterns = [
+        "do i have",      // "do i have steam installed"
+        "installed",      // "is firefox installed"
         "what packages",
         "list packages",
         "show packages",
+    ];
 
-        // Hardware queries
+    // Hardware queries
+    let hardware_patterns = [
         "does my cpu",
         "does my gpu",
         "cpu feature",
         "cpu flag",
+        "cpu support",
         "hardware support",
+    ];
 
-        // DE/WM queries
+    // DE/WM queries
+    let de_patterns = [
         "what de",
         "what wm",
         "desktop environment",
         "window manager",
         "which de",
         "which wm",
+    ];
 
-        // System queries
+    // System queries
+    let system_patterns = [
         "file manager",
         "browser",
         "text editor",
     ];
 
-    patterns.iter().any(|pattern| query_lower.contains(pattern))
+    // Exclusion patterns - these should NOT use planner (simple telemetry queries)
+    let exclusion_patterns = [
+        "how much ram",
+        "how much memory",
+        "system status",
+        "cpu usage",
+        "memory usage",
+        "disk usage",
+        "disk space",
+    ];
+
+    // Check exclusions first
+    if exclusion_patterns.iter().any(|p| query_lower.contains(p)) {
+        return false;
+    }
+
+    // Check all pattern groups
+    package_patterns.iter().any(|p| query_lower.contains(p))
+        || hardware_patterns.iter().any(|p| query_lower.contains(p))
+        || de_patterns.iter().any(|p| query_lower.contains(p))
+        || system_patterns.iter().any(|p| query_lower.contains(p))
 }
 
 /// Handle query using Planner → Executor → Interpreter core

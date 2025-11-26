@@ -89,6 +89,11 @@ pub mod policy_engine; // v6.52.0: Policy Engine - User-configurable guardrails
 pub mod machine_identity; // v6.54.0: Machine identity and fingerprinting
 pub mod user_identity; // v6.54.0: User identity and profiles
 pub mod knowledge_scope; // v6.54.0: System vs User scoped data
+pub mod knowledge_domain; // v6.55.1: Knowledge domain types and categorization
+pub mod knowledge_introspection; // v6.55.1: Knowledge introspection - query what Anna knows
+pub mod knowledge_export; // v6.55.1: Knowledge export for backup
+pub mod knowledge_import; // v6.55.1: Knowledge import from backup
+pub mod knowledge_pruning; // v6.55.1: Knowledge pruning - cleanup old data
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection (mkinitcpio/dracut, hooks, modules, compression)
 pub mod insights; // Phase 5.2: Behavioral insights engine
