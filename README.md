@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.56.0**
+**Experimental Arch Linux System Assistant - Version 6.59.0**
 
-[![Version](https://img.shields.io/badge/version-6.56.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.59.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -26,6 +26,47 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 - ✅  CLI-only (no GUI)
 - ✅  Local-first (no telemetry sent anywhere)
 - ✅  Open source (GPL-3.0)
+
+---
+
+## What's New in 6.59.0 - Unified Tool Catalog & Typed Actions 🔧
+
+### "Ask anything about your system - and get real answers"
+
+**The Problem:** v6.58.0's strict catalog broke the NL executor - almost every query got rejected as "not in catalog" while the LLM still invented arbitrary shell commands.
+
+**The Solution:** Complete architectural fix with typed Action vocabulary:
+
+1. **Single Source of Truth** - `tooling::catalog`
+   - 🔧  `ToolId` enum with 35+ predefined tools (NO arbitrary shell)
+   - 📋  `ToolSpec` for each tool: binary, args, kind, description
+   - ✅  All tools are catalog-registered; unknown commands rejected
+
+2. **Typed Action Vocabulary** - `tooling::actions`
+   - 📝  `Action` enum: `GetMemoryInfo`, `GetCpuInfo`, `ListGames`, etc.
+   - 🎯  NL query → Action mapping (not LLM shell generation)
+   - 🔄  Each Action maps to specific ToolIds
+
+3. **Unified Executor** - `tooling::executor`
+   - 🚀  All NL queries go through `ToolExecutor.execute_query()`
+   - 🧠  LLM summarizes output, doesn't generate commands
+   - ❌  No more "command not in catalog" noise
+
+**Working NL Queries:**
+```bash
+annactl "how much RAM do I have"      # ✅ GetMemoryInfo → free -h
+annactl "what CPU do I have"          # ✅ GetCpuInfo → lscpu
+annactl "what GPU do I have"          # ✅ GetGpuInfo → lspci -v
+annactl "do I have any games"         # ✅ ListGames → pacman -Qs
+annactl "are there failed services"   # ✅ ListFailedServices → systemctl --failed
+annactl "any updates available"       # ✅ CheckUpdates → checkupdates
+```
+
+**Status:** Complete with 32 tests passing. NL queries now work reliably.
+
+---
+
+**Previous: 6.58.0 - Toolchain Reality Lock (broke NL executor)**
 
 ---
 

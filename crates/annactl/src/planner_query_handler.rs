@@ -4,12 +4,18 @@
 //! Instead of hard-coded handlers, we use LLM-driven planning and execution.
 //!
 //! v6.42.0: Real LLM integration with Planner and Interpreter.
+//!
+//! v6.59.0: FAST PATH using tooling::ToolExecutor for common queries.
+//! The LLM is NO LONGER allowed to generate arbitrary shell commands.
+//! Instead, queries first go through the typed Action vocabulary.
+//! Only complex queries that can't be handled by Actions fall back to LLM interpretation.
 
 use anna_common::{
     executor_core, interpreter_core, planner_core, trace_renderer,
     llm_client::{HttpLlmClient, LlmConfig, LlmClient},
     tool_inventory::ToolInventory,
     telemetry::SystemTelemetry,
+    tooling::ToolExecutor,
 };
 use anyhow::Result;
 
@@ -81,11 +87,48 @@ pub fn should_use_planner(query: &str) -> bool {
 
 /// Handle query using Planner → Executor → Interpreter core
 /// v6.42.0: Now with real LLM integration
+/// v6.59.0: FAST PATH - Try typed Actions first, then fall back to LLM interpretation
 pub async fn handle_with_planner(
     query: &str,
     telemetry: &SystemTelemetry,
     llm_config: Option<&LlmConfig>,
 ) -> Result<String> {
+
+    // === v6.59.0 FAST PATH ===
+    // Try the typed Action vocabulary FIRST before asking LLM
+    // This prevents LLM from generating arbitrary shell commands
+    let executor = ToolExecutor::new();
+    let tool_result = executor.execute_query(query);
+
+    if tool_result.success && !tool_result.combined_output.trim().is_empty() {
+        // Fast path succeeded! Now interpret the results with LLM if available
+        let raw_output = tool_result.combined_output.clone();
+
+        // Use LLM to summarize the output if available
+        let answer = if let Some(config) = llm_config {
+            if config.enabled {
+                match HttpLlmClient::new(config.clone()) {
+                    Ok(client) => {
+                        summarize_tool_output(&client, query, &raw_output)
+                    }
+                    Err(_) => {
+                        // No LLM - return raw output with formatting
+                        format_raw_tool_output(query, &raw_output, &tool_result.actions_executed)
+                    }
+                }
+            } else {
+                format_raw_tool_output(query, &raw_output, &tool_result.actions_executed)
+            }
+        } else {
+            format_raw_tool_output(query, &raw_output, &tool_result.actions_executed)
+        };
+
+        return Ok(answer);
+    }
+
+    // === FALLBACK PATH ===
+    // If no actions matched or execution failed, try original planner pipeline
+    // But ONLY for complex queries that need LLM reasoning
 
     // Step 1: Interpret user intent
     let intent = planner_core::interpret_intent(query);
@@ -96,32 +139,9 @@ pub async fn handle_with_planner(
     // Step 3: Build system signals JSON
     let system_signals = build_system_signals(telemetry);
 
-    // Step 4: Generate command plan (using LLM or fallback)
-    let plan = if let Some(config) = llm_config {
-        if config.enabled {
-            // Try LLM-backed planning
-            match HttpLlmClient::new(config.clone()) {
-                Ok(client) => {
-                    let planner = planner_core::LlmPlanner::new(&client, tool_inventory.clone());
-                    match planner.plan(&intent, &system_signals) {
-                        Ok(p) => p,
-                        Err(_e) => {
-                            // LLM planning failed, use fallback
-                            planner_core::fallback_plan(&intent, &tool_inventory)
-                        }
-                    }
-                }
-                Err(_e) => {
-                    // Failed to create LLM client, use fallback
-                    planner_core::fallback_plan(&intent, &tool_inventory)
-                }
-            }
-        } else {
-            planner_core::fallback_plan(&intent, &tool_inventory)
-        }
-    } else {
-        planner_core::fallback_plan(&intent, &tool_inventory)
-    };
+    // Step 4: Generate command plan (using fallback ONLY - no LLM shell generation)
+    // v6.59.0: We NO LONGER let LLM generate arbitrary shell commands
+    let plan = planner_core::fallback_plan(&intent, &tool_inventory);
 
     // Step 4.5: Request approval if needed (v6.43.0)
     if crate::approval_ui::requires_approval(&plan) {
@@ -175,6 +195,53 @@ pub async fn handle_with_planner(
     output.push_str(&format!("\nSource: {}", answer.source));
 
     Ok(output)
+}
+
+/// Summarize tool output using LLM
+fn summarize_tool_output(client: &HttpLlmClient, query: &str, raw_output: &str) -> String {
+    let system_prompt = "You are a helpful Linux system assistant. \
+        Summarize command output concisely and helpfully.";
+
+    let user_prompt = format!(
+        "The user asked: \"{}\"\n\n\
+         System output:\n```\n{}\n```\n\n\
+         Summarize this briefly.",
+        query,
+        raw_output.chars().take(2000).collect::<String>()
+    );
+
+    let schema = r#"{"type": "object", "properties": {"summary": {"type": "string"}}}"#;
+
+    match client.call_json(system_prompt, &user_prompt, schema) {
+        Ok(json) => {
+            json.get("summary")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| format_raw_tool_output(query, raw_output, &[]))
+        }
+        Err(_) => format_raw_tool_output(query, raw_output, &[]),
+    }
+}
+
+/// Format raw tool output when LLM is not available
+fn format_raw_tool_output(query: &str, raw_output: &str, actions: &[String]) -> String {
+    let mut output = String::new();
+
+    // Header
+    output.push_str(&format!("📋  Query: {}\n\n", query));
+
+    // Actions taken
+    if !actions.is_empty() {
+        output.push_str("🔧  Actions: ");
+        output.push_str(&actions.join(", "));
+        output.push_str("\n\n");
+    }
+
+    // Output
+    output.push_str("📊  Result:\n");
+    output.push_str(raw_output);
+
+    output
 }
 
 /// Build system signals JSON from telemetry

@@ -3,17 +3,19 @@
 //! This crate contains data models and utilities shared between
 //! the daemon (annad) and CLI client (annactl).
 //!
-//! ## v6.58.0 Architecture - Toolchain Reality Lock
+//! ## v6.59.0 Architecture - Unified Tool Catalog & Typed Actions
 //!
 //! All queries flow through a single unified pipeline:
-//! `planner_core` → `executor_core` → `interpreter_core` → `trace_renderer`
+//! `tooling::actions` → `tooling::executor` → LLM summarization
 //!
-//! v6.58.0 adds strict tool catalog enforcement:
-//! - Commands can ONLY come from `strict_tool_catalog`
-//! - `command_exec` layer captures real stdout/stderr
-//! - Tool self-test validates system tools at startup
-//! - Thinking traces show ONLY real execution results
+//! v6.59.0 fixes the NL executor with:
+//! - Single `tooling::catalog` with `ToolId` enum (NO arbitrary shell)
+//! - Typed `Action` vocabulary that LLM selects from
+//! - All execution goes through `ToolExecutor`
+//! - Honest error messages (no "not in catalog" spam)
+//! - Self-test feature validates all tools
 //!
+//! The LLM can ONLY select from predefined Actions. It cannot generate shell.
 //! There are NO legacy handlers, NO hardcoded recipes, NO shortcut paths.
 
 pub mod action_plan; // Beta.66: Secure ACTION_PLAN execution with validation
@@ -88,6 +90,9 @@ pub mod validation_loop; // v6.45.0: Multi-round LLM validation
 // === TOOLCHAIN REALITY LOCK (v6.58.0) ===
 pub mod strict_tool_catalog; // v6.58.0: Strict catalog of allowed commands
 pub mod command_exec; // v6.58.0: Real command execution with honest output
+
+// === UNIFIED TOOL CATALOG (v6.59.0) ===
+pub mod tooling; // v6.59.0: Single source of truth for all tools Anna can execute
 
 pub mod interactive_mode; // v6.46.0: Interactive Mode
 pub mod greeting_engine; // v6.47.0: Greeting Engine
