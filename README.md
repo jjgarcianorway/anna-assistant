@@ -43,18 +43,41 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
 
 ## Installation
 
+### Quick Install (curl)
+
 ```bash
-# Build
-cargo build --release
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo bash
+```
+
+### Manual Install
+
+```bash
+# Download binaries
+wget https://github.com/jjgarcianorway/anna-assistant/releases/download/v0.0.1/annad-0.0.1-x86_64-unknown-linux-gnu
+wget https://github.com/jjgarcianorway/anna-assistant/releases/download/v0.0.1/annactl-0.0.1-x86_64-unknown-linux-gnu
 
 # Install
+sudo mv annad-0.0.1-x86_64-unknown-linux-gnu /usr/local/bin/annad
+sudo mv annactl-0.0.1-x86_64-unknown-linux-gnu /usr/local/bin/annactl
+sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
+
+# Initialize
+annactl init
+```
+
+### Build from Source
+
+```bash
+cargo build --release
 sudo ./scripts/install.sh
+```
 
-# Start daemon
+### Start the Daemon
+
+```bash
 sudo systemctl start annad
-
-# Verify
-annactl status
+sudo systemctl enable annad  # Enable at boot
+annactl status               # Verify
 ```
 
 ## Usage
