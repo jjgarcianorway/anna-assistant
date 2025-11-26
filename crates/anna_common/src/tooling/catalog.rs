@@ -1,4 +1,4 @@
-//! Tool Catalog - v6.60.0
+//! Tool Catalog - v6.61.0
 //!
 //! Defines ALL tools Anna can execute. This is the single source of truth.
 //! The LLM cannot invent commands - it can only select from this catalog.
@@ -69,6 +69,10 @@ pub enum ToolId {
     // === Shell ===
     Echo,
     Whoami,
+
+    // === Desktop Environment ===
+    XdgCurrentDesktop,
+    DesktopSession,
 }
 
 impl ToolId {
@@ -112,6 +116,8 @@ impl ToolId {
             Self::CatFile => "cat_file",
             Self::Echo => "echo",
             Self::Whoami => "whoami",
+            Self::XdgCurrentDesktop => "xdg_desktop",
+            Self::DesktopSession => "desktop_session",
         }
     }
 }
@@ -200,11 +206,11 @@ pub fn tool_catalog() -> Vec<ToolSpec> {
         },
         ToolSpec {
             id: ToolId::LsPciGpu,
-            binary: "lspci",
-            args: vec!["-v"],
+            binary: "sh",
+            args: vec!["-c", "lspci | grep -E 'VGA|3D controller'"],
             kind: ToolKind::Stateless,
             required: false,
-            description: "List PCI devices with details (for GPU)",
+            description: "List GPU devices (VGA and 3D controllers)",
         },
         // === Disk ===
         ToolSpec {
@@ -469,6 +475,23 @@ pub fn tool_catalog() -> Vec<ToolSpec> {
             kind: ToolKind::Stateless,
             required: true,
             description: "Current user",
+        },
+        // === Desktop Environment ===
+        ToolSpec {
+            id: ToolId::XdgCurrentDesktop,
+            binary: "sh",
+            args: vec!["-c", "echo $XDG_CURRENT_DESKTOP"],
+            kind: ToolKind::Stateless,
+            required: false,
+            description: "Get current desktop environment from XDG_CURRENT_DESKTOP",
+        },
+        ToolSpec {
+            id: ToolId::DesktopSession,
+            binary: "sh",
+            args: vec!["-c", "echo $DESKTOP_SESSION"],
+            kind: ToolKind::Stateless,
+            required: false,
+            description: "Get desktop session from DESKTOP_SESSION",
         },
     ]
 }

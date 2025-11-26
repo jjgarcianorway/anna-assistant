@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.60.0**
+**Experimental Arch Linux System Assistant - Version 6.61.0**
 
-[![Version](https://img.shields.io/badge/version-6.60.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.61.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,52 +29,57 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.60.0 - Pure LLM Orchestration 🧠
+## What's New in 6.61.0 - Strict Evidence-Based Answers 🎯
 
-### "Zero hardcoded logic - the LLM decides everything"
+### "No hallucination - only facts from command output"
 
-**The Problem:** v6.59.0 had hardcoded Action mappings that limited Anna's flexibility. The query→Action→Tool chain was rigid and couldn't adapt to variations in user queries.
+**The Problem:** v6.60.0's LLM orchestrator sometimes invented data not present in command output (wrong GPU names, fake recommendations, suggestions not supported by evidence).
 
-**The Solution:** Complete rewrite with pure LLM-driven orchestration:
+**The Solution:** Strict evidence validation with hallucination rejection:
 
-1. **LLM Planner** - Selects commands from tool catalog
-   - 🧠  Query + tool catalog → LLM → Command plan
-   - 📋  Tool catalog is the single source of truth (35+ tools)
-   - ❌  No hardcoded query patterns or command mappings
+1. **Intent Parsing** - Classify queries before processing
+   - 🎯  Parse goal, domain, constraints, required evidence
+   - 🏷️  Domains: hardware, packages, network, services, disk, desktop, system
+   - ❓  Meta queries handled specially (upgrade brain, about anna)
 
-2. **LLM Interpreter** - Summarizes raw output
-   - 📊  Raw command output → LLM → Human-readable answer
-   - 🔄  Fallback to raw output when summarization fails
-   - ❌  No hardcoded summarization rules
+2. **Strict Command Planning** - Catalog enforcement
+   - ✅  All tools validated against catalog BEFORE execution
+   - ❌  "Tool missing: X. Cannot answer." when tool not found
+   - 📋  Improved tool catalog (GPU grep, DE env vars)
 
-3. **Pure Orchestrator** - Only enforces boundaries
-   - ✅  Enforces: allowed tool catalog, sandbox, result forwarding
-   - ❌  Never decides which tools to run
-   - ❌  Never interprets results (LLM does)
+3. **Evidence-Only Extraction** - No invention allowed
+   - 🔍  Extract ONLY information present in command output
+   - ❌  "Unknown. Evidence insufficient." when data not found
+   - 🚫  Reject recommendations/suggestions not in output
+
+4. **Hallucination Validation** - Catch invented data
+   - ✅  Check answer words exist in evidence
+   - 🚫  Reject common hallucination patterns ("recommend", "suggest")
+   - 📊  Confidence scoring: High/Medium/Insufficient
 
 **Working NL Queries:**
 ```bash
-annactl "how much RAM do I have"      # ✅ "You have 31GB of RAM available"
-annactl "what CPU do I have"          # ✅ "Intel Core i9-14900HX"
-annactl "what GPU do I have"          # ✅ "Intel Iris Xe Graphics"
-annactl "what DE am I running"        # ✅ "Xfce"
-annactl "how long has my system been up"  # ✅ "6 days and 11 hours"
-annactl "what is my IP address"       # ✅ "Your IP address is 10.0.0.2"
-annactl "any failed services"         # ✅ "There are no failed services"
+annactl "how much RAM do I have"      # ✅ "Total RAM: 31791 MB"
+annactl "what CPU do I have"          # ✅ "Intel(R) Core(TM) i9-14900HX"
+annactl "what GPU do I have"          # ✅ "NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile]"
+annactl "what is my IP address"       # ✅ "IP: 10.0.0.2/24"
+annactl "any failed services"         # ✅ "0 loaded units listed."
+annactl "list orphan packages"        # ✅ "No orphan packages found."
+annactl "upgrade your brain"          # ✅ Step-by-step Ollama config guide
+annactl "biggest directories in home" # ✅ "target (52G)"
 ```
 
-**Architecture:**
-```
-Query → LLM Planner → Command Plan → Executor → Raw Output → LLM Interpreter → Answer
-         ↓                                                       ↓
-    Tool Catalog                                           Summarization
-```
+**What Changed:**
+- GPU correctly identified as RTX 4060 Max-Q (not invented)
+- "Unknown" instead of hallucinated answers
+- Meta queries return real help, not package lists
+- No more invented recommendations
 
-**Status:** Complete. LLM quality depends on local model (llama3.2:3b recommended).
+**Status:** Complete. Evidence-only answers, hallucination rejected.
 
 ---
 
-**Previous: 6.59.0 - Unified Tool Catalog & Typed Actions**
+**Previous: 6.60.0 - Pure LLM Orchestration**
 
 ---
 
