@@ -44,7 +44,7 @@ pub fn is_diag_phrases_enabled() -> bool {
 /// Beta.240: Developer-only output, unstable format
 ///
 /// Example output:
-/// ```
+/// ```text
 /// [DEBUG][RPC] Connection Statistics:
 /// [DEBUG][RPC]   Connections created: 1
 /// [DEBUG][RPC]   Connections reused: 5
@@ -102,7 +102,7 @@ pub fn print_rpc_stats(stats: &ConnectionStats) {
 /// Beta.240: Developer-only logging, unstable format
 ///
 /// Example output:
-/// ```
+/// ```text
 /// [DEBUG][DIAG] matched="is my system ok" pattern="exact_match"
 /// ```
 pub fn log_diagnostic_phrase_match(matched_phrase: &str, pattern_type: &str) {

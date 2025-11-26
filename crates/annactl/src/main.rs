@@ -1,77 +1,72 @@
 //! Anna Control - CLI client for Anna Assistant
 //!
-//! Beta.200: Complete architectural redesign - simplified to three commands only
+//! v6.57.0: Brutal cleanup - single pipeline architecture
 //!
-//! The application logic has been moved to:
-//! - cli.rs - Command-line argument parsing (3 commands only)
-//! - runtime.rs - Application dispatch and mode selection
-//! - llm_query_handler.rs - Natural language query handling
+//! All queries flow through the unified pipeline:
+//! planner_core → executor_core → interpreter_core → trace_renderer
+//!
+//! NO legacy handlers, NO hardcoded recipes, NO shortcut paths.
 
 use anyhow::Result;
 
 // Module declarations
 pub mod errors;
 
-// Beta.200: Core architecture modules (ONLY these remain)
+// Core architecture modules
 mod cli;
-mod debug; // Beta.240: Debug utilities (developer-only)
-pub mod llm; // Beta.200: Organized LLM functionality
+mod debug;
+pub mod llm;
 mod llm_query_handler;
 mod runtime;
-pub mod state; // Beta.200: Application state management
-pub mod telemetry; // Beta.200: Telemetry fetching and caching
+pub mod state;
+pub mod telemetry;
 
-// Feature modules (KEEP - essential)
+// Feature modules
 mod action_executor;
-pub mod action_plan_executor; // ActionPlan execution engine
-mod brain_command; // Beta.217c: Standalone brain diagnostic command
-// 6.20.0: config_command removed - config changes must go through natural language queries
-mod context_engine; // Contextual awareness and proactive monitoring
-mod plan_command; // 6.3.0: Arch Wiki-based execution planner
-mod selftest_command; // 6.3.1: Built-in capability verification
-mod diagnostic_formatter; // Beta.250: Canonical diagnostic report formatting
-mod sysadmin_answers; // Beta.263: Sysadmin answer composer (services, disk, logs, network, CPU, memory)
-mod deterministic_answers; // v6.41.0: Deterministic answer engine (NO LLM HALLUCINATION)
-mod planner_query_handler; // v6.41.0: Planner → Executor → Interpreter core
-mod approval_ui; // v6.43.0: User approval for action plans
-mod net_diagnostics; // Beta.265: Proactive network diagnostics engine
+pub mod action_plan_executor;
+mod brain_command;
+mod context_engine;
+// REMOVED in 6.57.0: plan_command - depended on legacy orchestrator
+// REMOVED in 6.57.0: selftest_command - depended on legacy orchestrator
+mod diagnostic_formatter;
+// REMOVED in 6.57.0: sysadmin_answers - hardcoded answer templates
+// REMOVED in 6.57.0: deterministic_answers - bypassed the pipeline
+mod planner_query_handler; // v6.41.0: THE unified pipeline
+mod approval_ui;
+mod net_diagnostics;
 mod dialogue_v3_json;
 mod first_run;
-mod hardware_questions; // 6.12.1: Knowledge-first hardware answers
+mod hardware_questions;
 mod health;
 mod help_commands;
-mod historian_cli; // Simplified - basic history only
+mod historian_cli;
 mod intent_router;
 mod internal_dialogue;
-mod json_types;
+// REMOVED in 6.57.0: json_types - depended on deleted caretaker_brain
 mod llm_integration;
 mod llm_wizard;
 mod logging;
 mod model_catalog;
 mod model_setup_wizard;
 mod output;
-mod personality_commands; // Simplified - core traits only
-mod power_diagnostics; // 6.13.0: TLP and power management diagnostics
-mod query_handler;
-mod reflection_helper; // 6.7.0: Client-side reflection building
-mod recipe_formatter;
-// 6.3.1: recipes moved to legacy_recipes/ - not compiled in 6.x
-// mod recipes; // Deterministic ActionPlan recipes (77+)
-mod repair; // Self-healing capabilities
-// 6.0.0: repl.rs archived (see tui_legacy/repl.rs)
+mod personality_commands;
+mod power_diagnostics;
+// REMOVED in 6.57.0: query_handler - legacy recipe-based handler
+mod reflection_helper;
+// REMOVED in 6.57.0: recipe_formatter - legacy recipe formatting
+mod repair;
 mod rpc_client;
 mod runtime_prompt;
-mod startup; // Beta.211: Welcome engine
+mod startup;
 mod status_command;
-mod status_health; // 6.17.0: Strict health derivation
+mod status_health;
 mod system_prompt_v2;
 mod system_prompt_v3_json;
 mod system_query;
 mod systemd;
-mod system_report; // Unified system report generator
-mod telemetry_truth; // Telemetry truth enforcement
-// 6.0.0: TUI modules archived (see tui_legacy/ directory)
-mod unified_query_handler; // Unified query path for CLI
+mod system_report;
+mod telemetry_truth;
+mod unified_query_handler;
 mod version_banner;
 
 /// Application entry point

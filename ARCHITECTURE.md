@@ -1,22 +1,19 @@
-# Anna Assistant Architecture v6.41.0
+# Anna Assistant Architecture v6.57.0
 
 ## Core Philosophy
 
 Anna is a conversational sysadmin assistant that understands your questions, examines your system using real telemetry, plans appropriate commands, executes them safely, and explains the results with visible "thinking traces".
 
-**Key Principle**: One unified brain, not a collection of special-case handlers.
+**Key Principle**: One unified pipeline, not a collection of special-case handlers.
 
-## Architecture Overview
+## v6.57.0: Single Pipeline Architecture
+
+**CRITICAL CHANGE**: This release eliminates ALL legacy handlers, hardcoded recipes, and shortcut paths. Every query flows through ONE unified pipeline:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         User Question                            │
 └────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-                    ┌────────────────┐
-                    │ Intent Router  │  Classify: Inspect/Diagnose/List/Check
-                    └────────┬───────┘  Domain: Packages/Hardware/GUI/etc
                              │
                              ▼
                   ┌─────────────────────┐
@@ -60,7 +57,40 @@ Anna is a conversational sysadmin assistant that understands your questions, exa
               └────────────────┘
 ```
 
-## Core Modules (v6.41.0)
+## Removed in v6.57.0
+
+The following legacy systems were **deleted** (scorched earth cleanup):
+
+### Files Deleted
+- `crates/annactl/src/legacy_recipes/` - 82 hardcoded recipe files
+- `crates/annactl/src/deterministic_answers.rs` - 841 lines of bypass logic
+- `crates/annactl/src/sysadmin_answers.rs` - 2464 lines of hardcoded templates
+- `crates/annactl/src/query_handler.rs` - Legacy recipe-based handler
+- `crates/annactl/src/recipe_formatter.rs` - Legacy recipe formatting
+- `crates/annactl/src/plan_command.rs` - Legacy orchestrator-based planning
+- `crates/annactl/src/selftest_command.rs` - Depended on orchestrator
+- `crates/annactl/src/json_types.rs` - Depended on caretaker_brain
+- `crates/anna_common/src/command_recipe.rs` - Recipe system
+- `crates/anna_common/src/recipe_executor.rs` - Recipe execution
+- `crates/anna_common/src/recipe_planner.rs` - Recipe planning
+- `crates/anna_common/src/recipe_validator.rs` - Recipe validation
+- `crates/anna_common/src/template_library.rs` - 2589 lines of templates
+- `crates/anna_common/src/orchestrator/` - Legacy planner directory
+- `crates/anna_common/src/caretaker_brain.rs` - Legacy brain rules
+- `crates/anna_common/src/wiki_answer_engine.rs` - Wiki-based shortcuts
+- `crates/anna_common/src/answer_formatter.rs` - Legacy formatting
+- `crates/anna_common/src/executor.rs` - Legacy executor
+- `crates/anna_common/src/selftest.rs` - Legacy selftest
+- `crates/anna_common/src/context/noise_control.rs` - Legacy context
+- `crates/annad/src/intel/sysadmin_brain.rs` - Hardcoded diagnostic rules
+
+### Why Deleted?
+- **Hardcoded answers**: Pattern-matching handlers that bypassed the LLM
+- **Recipe system**: Static templates that couldn't adapt to system state
+- **Legacy brains**: Rule-based analyzers that duplicated planner logic
+- **Shortcut paths**: Any code that avoided the unified pipeline
+
+## Core Modules (v6.57.0)
 
 ### 1. Planner Core (`anna_common/src/planner_core.rs`)
 
@@ -69,9 +99,9 @@ Anna is a conversational sysadmin assistant that understands your questions, exa
 **Key Types**:
 ```rust
 pub struct Intent {
-    pub goal: GoalType,        // Inspect, Diagnose, List, Check
+    pub goal: GoalType,         // Inspect, Diagnose, List, Check
     pub domain: DomainType,     // Packages, Hardware, GUI, etc.
-    pub constraints: Vec<Constraint>,  // Path, Count, Feature, Category
+    pub constraints: Vec<Constraint>,
     pub query: String,
 }
 
@@ -84,238 +114,59 @@ pub struct CommandPlan {
 }
 ```
 
-**Features**:
-- Pattern-based intent classification (no hardcoded question matching)
-- Constraint extraction (paths, counts, features, categories)
-- LLM prompt generation for dynamic planning
-- Fallback planning for offline/no-LLM scenarios
-
-**Example**: "do I have games installed?"
-- Intent: `{goal: Inspect, domain: Packages, constraints: [Category("games")]}`
-- Plan: `pacman -Qq | grep -Ei '(steam|game|lutris|heroic|wine|proton)'`
-
 ### 2. Executor Core (`anna_common/src/executor_core.rs`)
 
 **Responsibility**: Execute command plans safely with tool validation.
 
-**Key Types**:
-```rust
-pub struct ExecutionResult {
-    pub plan: CommandPlan,
-    pub command_results: Vec<CommandResult>,
-    pub success: bool,
-    pub execution_time_ms: u64,
-}
-
-pub struct CommandResult {
-    pub command: String,
-    pub full_command: String,
-    pub exit_code: i32,
-    pub stdout: String,
-    pub stderr: String,
-    pub success: bool,
-    pub time_ms: u64,
-}
-```
-
 **Safety Features**:
-- Tool inventory detection (checks what's actually installed)
-- Command safety validation (blocks rm, dd, package removal)
-- Fallback execution when primary tools missing
+- Tool inventory detection
+- Command safety validation
+- Fallback execution
 - Timeout protection
-- Output capture (stdout/stderr/exit codes)
-
-**Tool Inventory**:
-- Package managers: pacman, yay, paru, apt, dnf, flatpak, snap
-- System tools: grep, awk, sed, du, df, find, ps, systemctl, lscpu, lspci
+- Output capture
 
 ### 3. Interpreter Core (`anna_common/src/interpreter_core.rs`)
 
 **Responsibility**: Analyze command outputs and generate answers.
 
-**Key Types**:
-```rust
-pub struct InterpretedAnswer {
-    pub answer: String,
-    pub details: Option<String>,
-    pub confidence: ConfidenceLevel,  // High, Medium, Low
-    pub reasoning: String,
-    pub source: String,
-}
-```
-
 **Features**:
-- LLM prompt generation for result interpretation
-- Fallback interpreters (domain-specific parsers):
-  - Package results: filters and counts packages
-  - Hardware results: parses CPU flags, groups SSE/AVX features
-  - GUI results: uses de_wm_detector for accurate DE/WM detection
-- Honest error handling (explains what went wrong)
+- LLM-driven result interpretation
+- Fallback interpreters for offline scenarios
+- Honest error handling
 
 ### 4. Trace Renderer (`anna_common/src/trace_renderer.rs`)
 
 **Responsibility**: Generate visible "thinking traces" showing Anna's process.
 
-**Example Trace**:
-```
-🧠 Anna thinking trace
+### 5. Query Handlers (Simplified in v6.57.0)
 
-Intent:
-  - Goal: Inspect
-  - Domain: Packages
-  - Constraints: Category("games")
-
-Commands executed:
-  [CMD] sh -c pacman -Qq | grep -Ei '(steam|game...)' ✓
-
-Key outputs:
-  sh: gamemode, steam, wine-staging
-
-Reasoning (LLM summary):
-  Fallback interpretation without LLM
-
-Execution time: 27ms
-```
-
-**Features**:
-- Compact format for non-TTY mode
-- TTY detection for automatic display
-- Structured output (not raw LLM tokens)
-- Execution timing
-
-## Integration Points
-
-### Query Handler (`annactl/src/planner_query_handler.rs`)
-
-**Flow**:
-1. Check if query matches pilot patterns
-2. Get telemetry from daemon
-3. Interpret intent → Plan commands → Execute → Interpret results → Render trace
-4. Return formatted output
-
-**Pilot Queries (v6.41.0)**:
-- "do I have games installed?"
-- "what DE/WM am I running?"
-- "does my CPU have SSE/AVX?"
-- "do I have any file manager installed?"
-
-### Fallback Chain
-
-```
-User Query
-    ↓
-Planner Query Handler? (pilot queries)
-    ↓ (if not matched)
-Deterministic Answers? (system facts)
-    ↓ (if not matched)
-Intent Router (personality, status, etc.)
-    ↓ (if not matched)
-Full LLM Query (generic questions)
-```
+- `planner_query_handler.rs` - THE unified pipeline entry point
+- `llm_query_handler.rs` - CLI one-shot queries (delegates to planner)
+- `unified_query_handler.rs` - Backwards compatibility (delegates to planner)
 
 ## Design Principles
 
-### 1. **No Special-Case Logic**
-Bad: `if query.contains("games") { check_for_games() }`
-Good: `Intent → Plan → Execute → Interpret` (handles all queries generically)
+### 1. **Single Pipeline**
+All queries flow through: `Planner → Executor → Interpreter → Trace`
 
-### 2. **Telemetry-Driven**
-- All planning uses real system state from Historian
-- Tool inventory detects what's actually available
-- DE/WM detector for accurate environment detection
+NO exceptions. NO shortcuts. NO special-case handlers.
 
-### 3. **Safety First**
+### 2. **LLM-Driven**
+The LLM plans commands based on real telemetry. No static templates.
+
+### 3. **Telemetry-First**
+All planning uses real system state from daemon telemetry.
+
+### 4. **Safety First**
 - Read-only commands execute automatically
 - Risky commands require explicit approval
 - Safety validation before execution
 
-### 4. **Visible Thinking**
-- Always show the thinking trace
-- Users see: intent, commands, outputs, reasoning
-- Builds trust and understanding
+### 5. **Visible Thinking**
+Users see: intent, commands, outputs, reasoning.
 
-### 5. **Honest Errors**
-- No hallucination - all data from real commands
-- Clear explanations when things fail
-- Suggest fixes or alternatives
-
-## Module Sizes (v6.41.0)
-
-- `planner_core.rs`: 382 lines ✓
-- `executor_core.rs`: 244 lines ✓
-- `interpreter_core.rs`: 371 lines ✓
-- `trace_renderer.rs`: 147 lines ✓
-- `planner_query_handler.rs`: 215 lines ✓
-
-**Total new code**: ~1,359 lines across 5 focused modules
-
-## Testing Strategy
-
-### Unit Tests
-- Intent interpretation (planner_core)
-- Command safety validation (executor_core)
-- Result parsing (interpreter_core)
-- Trace rendering (trace_renderer)
-
-### Integration Tests
-- End-to-end pilot queries
-- Fallback scenarios (missing tools)
-- Error handling paths
-
-### Manual Testing
-All pilot queries verified working:
-- ✓ Games detection
-- ✓ DE/WM detection (using de_wm_detector)
-- ✓ CPU features (SSE/AVX parsing)
-- ✓ File manager detection
-
-## Future Roadmap
-
-### v6.42.0 - LLM Integration
-- Real LLM-driven planning (not just fallback)
-- Dynamic command generation based on telemetry
-- Adaptive strategies per system configuration
-
-### v6.43.0 - Interactive REPL
-- Conversational shell mode
-- Session context for follow-up questions
-- "and free?" type queries
-
-### v6.44.0 - Action Plans
-- Commands with approval flow
-- Rollback support for changes
-- Safety guardrails for system modifications
-
-### v6.45.0+ - Full Migration
-- Migrate remaining special-case handlers to core
-- Deprecate old intent routing
-- Unified architecture for all queries
-
-## Dependencies
-
-**Core**:
-- `serde` / `serde_json`: Data serialization
-- `anyhow`: Error handling
-- `atty`: TTY detection for trace rendering
-
-**Execution**:
-- `std::process::Command`: Shell command execution
-- Tool detection via `which`
-
-**Detection**:
-- `de_wm_detector`: Desktop environment/window manager detection
-- `system_info`: Deterministic system information (CPU, RAM, GPU, disk)
-
-## Performance
-
-**Typical Query Timing** (from traces):
-- Intent interpretation: <1ms
-- Command planning: <5ms (fallback), variable (LLM)
-- Command execution: 10-50ms (depends on command)
-- Result interpretation: <5ms (fallback), variable (LLM)
-- Trace rendering: <1ms
-
-**Total**: 20-100ms for pilot queries with fallback planning
+### 6. **Honest Errors**
+No hallucination - all data from real commands.
 
 ## Key Files
 
@@ -323,7 +174,7 @@ All pilot queries verified working:
 crates/
 ├── anna_common/
 │   └── src/
-│       ├── planner_core.rs       # Intent + command planning
+│       ├── planner_core.rs        # Intent + command planning
 │       ├── executor_core.rs       # Safe execution
 │       ├── interpreter_core.rs    # Result interpretation
 │       ├── trace_renderer.rs      # Thinking traces
@@ -331,22 +182,27 @@ crates/
 │       └── system_info.rs         # System telemetry
 └── annactl/
     └── src/
-        ├── planner_query_handler.rs  # Integration layer
-        ├── llm_query_handler.rs      # Main query dispatcher
-        └── deterministic_answers.rs  # Fallback for system facts
+        ├── planner_query_handler.rs   # THE unified pipeline
+        ├── llm_query_handler.rs       # CLI one-shot (simplified)
+        └── unified_query_handler.rs   # Compatibility layer (simplified)
 ```
 
 ## Version History
 
-**v6.41.0** (Current):
+**v6.57.0** (Current):
+- SCORCHED EARTH: Deleted all legacy handlers and recipes
+- Single pipeline enforcement: ALL queries → planner_core
+- Removed ~15,000+ lines of legacy code
+- Simplified llm_query_handler.rs from 1281 to 110 lines
+- Simplified unified_query_handler.rs from 3481 to 120 lines
+
+**v6.54.0-v6.56.0**:
+- Config-driven LLM model selection
+- Identity, persistence, multi-user awareness
+- User policies and guardrails
+
+**v6.41.0-v6.53.0**:
 - Implemented Planner → Executor → Interpreter core
 - Added visible thinking traces
-- Pilot queries working (games, DE/WM, CPU features, file managers)
-- All tests passing (169 total)
-
-**v6.40.0**:
-- DE/WM detector with multi-layer detection
-- System report v2 (deterministic, no LLM)
-
-**v6.39.0 and earlier**:
+- Episodic action log and semantic rollback foundation
 - See CHANGELOG.md for detailed history

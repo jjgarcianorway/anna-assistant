@@ -1,6 +1,6 @@
 //! Proactive Engine - Deterministic Correlation and Root-Cause Analysis
 //!
-//! Beta.270: Proactive Sysadmin Autonomy Level 1
+//! v6.57.0: Cleaned up - DiagnosticInsight types moved here from deleted sysadmin_brain
 //!
 //! This module implements deterministic correlation of multiple telemetry signals
 //! into root-cause diagnoses with actionable remediation guidance.
@@ -11,14 +11,53 @@
 //! - Temporal awareness (15min, 1h, 24h windows)
 //! - Confidence-based filtering (only >= 0.7 surfaced)
 //! - Recovery tracking with 24h TTL
-//!
-//! Citation: [PROACTIVE_ENGINE_DESIGN.md]
 
-use super::sysadmin_brain::DiagnosticInsight;
 use crate::steward::HealthReport;
 use anna_common::network_monitoring::NetworkMonitoring;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+// ============================================================================
+// DIAGNOSTIC TYPES (moved from sysadmin_brain.rs in v6.57.0)
+// ============================================================================
+
+/// Severity levels for diagnostic insights
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DiagnosticSeverity {
+    /// Critical issue requiring immediate attention
+    Critical,
+    /// Warning that should be addressed
+    Warning,
+    /// Informational observation
+    Info,
+}
+
+/// A diagnostic insight from system analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticInsight {
+    /// Unique rule identifier
+    pub rule_id: String,
+    /// Human-readable title
+    pub title: String,
+    /// Detailed description
+    pub description: String,
+    /// Severity level
+    pub severity: DiagnosticSeverity,
+    /// Suggested remediation steps
+    pub remediation: Vec<String>,
+    /// Related telemetry keys
+    pub related_keys: Vec<String>,
+    /// Short summary of the issue
+    pub summary: String,
+    /// Supporting evidence (joined string)
+    pub evidence: String,
+    /// Technical details
+    pub details: String,
+    /// Diagnostic/fix commands
+    pub commands: Vec<String>,
+    /// Documentation citations
+    pub citations: Vec<String>,
+}
 
 // ============================================================================
 // CONSTANTS
@@ -626,11 +665,11 @@ fn correlate_network_priority_mismatch(
     // Parse evidence to extract interface names and speeds
     // Evidence format: "Ethernet eth0 (100 Mbps) has default route, WiFi wlan0 (866 Mbps) does not"
     let insight = priority_mismatch_insight.unwrap();
-    let evidence = &insight.evidence;
+    let evidence_str = insight.evidence.clone();
 
     // Simple parsing
     let (slow_interface, slow_speed, fast_interface, fast_speed) =
-        if let Some((eth_part, wifi_part)) = evidence.split_once(", WiFi") {
+        if let Some((eth_part, wifi_part)) = evidence_str.split_once(", WiFi") {
             // Extract eth info
             let eth_name = eth_part.split_whitespace()
                 .nth(1)
@@ -2125,6 +2164,25 @@ fn detect_network_trend(events: &[HistoryEvent]) -> Option<TrendObservation> {
     }
 
     None
+}
+
+// ============================================================================
+// LEGACY STUB FUNCTIONS (v6.57.0 - for backwards compatibility)
+// ============================================================================
+
+/// Stub function for legacy analyze_system_health
+/// v6.57.0: Returns empty results - legacy sysadmin_brain was removed
+pub fn analyze_system_health(_health: &HealthReport) -> Vec<DiagnosticInsight> {
+    // v6.57.0: Legacy sysadmin_brain analysis removed
+    // All analysis now goes through the unified pipeline
+    Vec::new()
+}
+
+/// Stub function for legacy format_insights
+/// v6.57.0: Returns empty string - legacy sysadmin_brain was removed
+pub fn format_insights(_insights: &[DiagnosticInsight]) -> String {
+    // v6.57.0: Legacy formatting removed
+    String::new()
 }
 
 // ============================================================================

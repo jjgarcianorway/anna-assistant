@@ -2190,9 +2190,9 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
                 }
             }
 
-            // Run sysadmin brain analysis
+            // Run sysadmin brain analysis (v6.57.0: stub returns empty)
             let insights = crate::intel::analyze_system_health(&health_report);
-            let formatted_output = crate::intel::sysadmin_brain::format_insights(&insights);
+            let formatted_output = crate::intel::format_insights(&insights);
 
             // Count by severity
             let critical_count = insights

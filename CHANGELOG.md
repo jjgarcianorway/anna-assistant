@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.57.0] - 2025-11-26
+
+### Brutal Cleanup & Single Pipeline Enforcement
+
+**Type:** Breaking Change / Architecture
+**Focus:** Eliminate ALL legacy handlers, enforce ONE unified pipeline
+
+#### Overview
+
+v6.57.0 is a "scorched earth" release that removes all legacy code paths. Every query now flows through ONE pipeline: `planner_core → executor_core → interpreter_core → trace_renderer`. No exceptions, no shortcuts, no special-case handlers.
+
+#### Key Philosophy
+
+> "We prefer a smaller, honest Anna over a big pile of lies."
+
+This release deletes code that:
+- Bypassed the LLM with hardcoded pattern matching
+- Used static templates that couldn't adapt to system state
+- Created special-case handlers for specific question types
+
+#### Deleted Files (~15,000+ lines)
+
+**Legacy Recipes & Templates:**
+- `crates/annactl/src/legacy_recipes/` - 82 hardcoded recipe files
+- `crates/anna_common/src/template_library.rs` - 2,589 lines
+- `crates/anna_common/src/command_recipe.rs` - Recipe system
+- `crates/anna_common/src/recipe_executor.rs` - Recipe execution
+- `crates/anna_common/src/recipe_planner.rs` - Recipe planning
+- `crates/anna_common/src/recipe_validator.rs` - Recipe validation
+
+**Hardcoded Answer Handlers:**
+- `crates/annactl/src/deterministic_answers.rs` - 841 lines bypass logic
+- `crates/annactl/src/sysadmin_answers.rs` - 2,464 lines hardcoded templates
+- `crates/annactl/src/query_handler.rs` - Legacy recipe-based handler
+- `crates/annactl/src/recipe_formatter.rs` - Legacy recipe formatting
+
+**Legacy Brain & Orchestrator:**
+- `crates/anna_common/src/orchestrator/` - Legacy planner directory
+- `crates/anna_common/src/caretaker_brain.rs` - Legacy brain rules
+- `crates/annad/src/intel/sysadmin_brain.rs` - Hardcoded diagnostic rules
+- `crates/anna_common/src/wiki_answer_engine.rs` - Wiki-based shortcuts
+- `crates/anna_common/src/answer_formatter.rs` - Legacy formatting
+
+**Legacy Execution:**
+- `crates/anna_common/src/executor.rs` - Legacy executor
+- `crates/anna_common/src/selftest.rs` - Legacy selftest
+- `crates/annactl/src/selftest_command.rs` - Depended on orchestrator
+- `crates/annactl/src/plan_command.rs` - Legacy orchestrator-based planning
+
+**Other Legacy:**
+- `crates/annactl/src/json_types.rs` - Depended on caretaker_brain
+- `crates/anna_common/src/context/noise_control.rs` - Legacy context
+
+#### Simplified Files
+
+**llm_query_handler.rs:** Reduced from 1,281 to 110 lines
+- Now ONLY delegates to `planner_query_handler`
+- No more intent routing, no special handlers
+- Single pipeline enforced
+
+**unified_query_handler.rs:** Reduced from 3,481 to 120 lines
+- Now ONLY delegates to `planner_query_handler`
+- Backwards compatibility preserved
+- All variants except `ConversationalAnswer` and `Error` removed
+
+#### Test Cleanup
+
+Deleted tests that referenced removed modules:
+- `acts_v1.rs`, `acts_v2_cli.rs`, `acts_v3_commands.rs`
+- `selftest_cli_test.rs`, `plan_cli_test.rs`
+- `qa_determinism.rs`, `integration_test.rs`
+- `regression_sysadmin_*.rs` (network, remediation, report)
+- `regression_proactive_surfacing.rs`
+
+#### Migration Notes
+
+**For Users:** No action needed. Anna still answers questions the same way, but now ALL answers come from the unified LLM-driven pipeline.
+
+**For Developers:** If you had code depending on:
+- `deterministic_answers` - Use `planner_query_handler` instead
+- `sysadmin_answers` - Use `planner_query_handler` instead
+- `orchestrator` - Use `planner_core` + `executor_core` instead
+- `caretaker_brain` - Use proactive engine diagnostics instead
+- `template_library` - Let the LLM generate responses
+
+#### Architecture
+
+All queries now follow this exact path:
+```
+User Query → Planner Core → Executor Core → Interpreter Core → Trace Renderer → Answer
+```
+
+No exceptions. No shortcuts. No special handlers.
+
 ## [6.56.0] - 2025-11-26
 
 ### Self Biography & Usage Analytics

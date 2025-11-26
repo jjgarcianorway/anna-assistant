@@ -1,5 +1,6 @@
 // Persistent Context Layer
 // Phase 3.6: Session Continuity
+// v6.57.0: Cleaned up - removed noise_control (depended on deleted caretaker_brain)
 //
 // Anna's memory system - tracks actions, system state, and learns over time.
 // All data stays local, no cloud sync, privacy-first design.
@@ -7,18 +8,12 @@
 pub mod actions;
 pub mod db;
 pub mod historian;
-pub mod noise_control;
+// REMOVED in 6.57.0: noise_control - depended on deleted caretaker_brain
 
 // Re-export commonly used types
 pub use actions::{ActionHistory, ActionOutcome, ResourceSnapshot};
 pub use db::{ContextDb, DbLocation};
 pub use historian::*;
-pub use noise_control::{
-    apply_issue_decisions, apply_visibility_hints, clear_issue_decision,
-    filter_issues_by_noise_control, get_issue_decision, get_issue_state, mark_issue_ignored,
-    mark_issue_repaired, mark_issue_shown, set_issue_acknowledged, set_issue_snoozed,
-    update_issue_state, DecisionType, IssueDecision, IssueState, NoiseControlConfig,
-};
 
 use anyhow::Result;
 use std::sync::Arc;
