@@ -289,6 +289,11 @@ pub enum Method {
     /// Get system knowledge snapshot (6.12.0)
     /// Returns Anna's persistent memory of the system
     GetSystemKnowledge,
+
+    /// Get toolchain health (v6.58.0)
+    /// Returns self-test results for system tools
+    /// Citation: [archwiki:System_maintenance]
+    GetToolchainHealth,
 }
 
 /// Response data variants
@@ -493,6 +498,11 @@ pub enum ResponseData {
     /// System knowledge snapshot (6.12.0)
     /// Anna's persistent memory of the system
     SystemKnowledge(SystemKnowledgeData),
+
+    /// Toolchain health (v6.58.0)
+    /// Self-test results for system tools
+    /// Citation: [archwiki:System_maintenance]
+    ToolchainHealth(crate::command_exec::ToolchainHealth),
 }
 
 /// System knowledge data for RPC (6.12.0)

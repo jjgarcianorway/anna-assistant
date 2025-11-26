@@ -3,10 +3,16 @@
 //! This crate contains data models and utilities shared between
 //! the daemon (annad) and CLI client (annactl).
 //!
-//! ## v6.57.0 Architecture
+//! ## v6.58.0 Architecture - Toolchain Reality Lock
 //!
 //! All queries flow through a single unified pipeline:
 //! `planner_core` → `executor_core` → `interpreter_core` → `trace_renderer`
+//!
+//! v6.58.0 adds strict tool catalog enforcement:
+//! - Commands can ONLY come from `strict_tool_catalog`
+//! - `command_exec` layer captures real stdout/stderr
+//! - Tool self-test validates system tools at startup
+//! - Thinking traces show ONLY real execution results
 //!
 //! There are NO legacy handlers, NO hardcoded recipes, NO shortcut paths.
 
@@ -78,6 +84,10 @@ pub mod interpreter_core; // v6.41.0: Interpreter Core - LLM-driven output inter
 pub mod trace_renderer; // v6.41.0: Trace Renderer - Visible thinking trace
 pub mod command_validator; // v6.44.0: Command Validation - safety rails
 pub mod validation_loop; // v6.45.0: Multi-round LLM validation
+
+// === TOOLCHAIN REALITY LOCK (v6.58.0) ===
+pub mod strict_tool_catalog; // v6.58.0: Strict catalog of allowed commands
+pub mod command_exec; // v6.58.0: Real command execution with honest output
 
 pub mod interactive_mode; // v6.46.0: Interactive Mode
 pub mod greeting_engine; // v6.47.0: Greeting Engine

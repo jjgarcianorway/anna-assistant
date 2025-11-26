@@ -333,6 +333,9 @@ pub async fn execute_anna_status_command(
 
     println!();
 
+    // v6.58.0: Toolchain Health - tool self-test results
+    display_toolchain_health(&engine).await;
+
     // 6.11.0: Hardware Profile and LLM Recommendation
     let current_hw = anna_common::anna_hardware_profile::detect_current_hardware();
     if let Some(previous_hw) = anna_common::anna_hardware_profile::AnnaHardwareProfile::read() {
@@ -827,6 +830,77 @@ async fn display_insights() {
     }
 
     println!("{}", "=".repeat(50));
+    println!();
+}
+
+/// v6.58.0: Display toolchain health from daemon self-test
+async fn display_toolchain_health(engine: &OutputEngine) {
+    use anna_common::command_exec::{ToolchainHealth, ToolchainStatus};
+    use anna_common::ipc::{Method, ResponseData};
+    use crate::rpc_client::RpcClient;
+
+    // Try to get toolchain health from daemon
+    let toolchain_health = match RpcClient::connect().await {
+        Ok(mut client) => {
+            match client.call(Method::GetToolchainHealth).await {
+                Ok(ResponseData::ToolchainHealth(health)) => Some(health),
+                _ => None,
+            }
+        }
+        Err(_) => None,
+    };
+
+    // If daemon not available, run local self-test
+    let health = match toolchain_health {
+        Some(h) => h,
+        None => {
+            // Run local self-test as fallback
+            let exec = anna_common::command_exec::CommandExec::new();
+            exec.self_test()
+        }
+    };
+
+    // Display toolchain health section
+    println!(
+        "{}",
+        engine.format_subheader_with_emoji("🔧", "Toolchain Health")
+    );
+    println!();
+
+    // Status line
+    let status_emoji = match health.status {
+        ToolchainStatus::Healthy => fmt::emojis::SUCCESS,
+        ToolchainStatus::Degraded => fmt::emojis::WARNING,
+        ToolchainStatus::Critical => fmt::emojis::CRITICAL,
+    };
+
+    let status_text = match health.status {
+        ToolchainStatus::Healthy => "HEALTHY - all essential tools available",
+        ToolchainStatus::Degraded => "DEGRADED - some optional tools missing",
+        ToolchainStatus::Critical => "CRITICAL - essential tools missing!",
+    };
+
+    println!("  {} {}", status_emoji, fmt::bold(status_text));
+
+    // Count available/unavailable tools
+    let available_count = health.tools.iter().filter(|t| t.available).count();
+    let total_count = health.tools.len();
+
+    println!(
+        "    {}",
+        fmt::dimmed(&format!("{}/{} tools verified at {}", available_count, total_count, health.tested_at))
+    );
+
+    // Show missing tools if any
+    let missing: Vec<_> = health.tools.iter().filter(|t| !t.available).collect();
+    if !missing.is_empty() {
+        println!();
+        println!("  {} {}", fmt::emojis::WARNING, "Missing tools:");
+        for tool in missing {
+            println!("    {} {} - {}", fmt::symbols::ARROW, tool.name, tool.status_message);
+        }
+    }
+
     println!();
 }
 

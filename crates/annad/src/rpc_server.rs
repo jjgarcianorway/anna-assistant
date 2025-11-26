@@ -142,6 +142,8 @@ pub struct DaemonState {
     pub update_manager: Arc<tokio::sync::RwLock<crate::update_manager::UpdateManager>>,
     /// Session Context - in-memory context for follow-ups (v6.26.0)
     pub session_context: Arc<tokio::sync::RwLock<anna_common::session_context::SessionContext>>,
+    /// Toolchain Health - v6.58.0 tool self-test results
+    pub toolchain_health: Arc<tokio::sync::RwLock<anna_common::command_exec::ToolchainHealth>>,
 }
 
 impl DaemonState {
@@ -187,6 +189,31 @@ impl DaemonState {
         // v6.26.0: Initialize Session Context for follow-up queries
         let session_context = anna_common::session_context::SessionContext::new();
 
+        // v6.58.0: Run tool self-test at startup - Toolchain Reality Lock
+        let command_exec = anna_common::command_exec::CommandExec::new();
+        let toolchain_health = command_exec.self_test();
+        match toolchain_health.status {
+            anna_common::command_exec::ToolchainStatus::Healthy => {
+                info!("🔧  Toolchain self-test: HEALTHY - all essential tools available");
+            }
+            anna_common::command_exec::ToolchainStatus::Degraded => {
+                warn!("⚠️  Toolchain self-test: DEGRADED - some optional tools missing");
+                for tool in &toolchain_health.tools {
+                    if !tool.available {
+                        warn!("   └─ {}: {}", tool.name, tool.status_message);
+                    }
+                }
+            }
+            anna_common::command_exec::ToolchainStatus::Critical => {
+                error!("🚨  Toolchain self-test: CRITICAL - essential tools missing!");
+                for tool in &toolchain_health.tools {
+                    if !tool.available {
+                        error!("   └─ {}: {}", tool.name, tool.status_message);
+                    }
+                }
+            }
+        }
+
         Ok(Self {
             version,
             start_time: std::time::Instant::now(),
@@ -208,6 +235,7 @@ impl DaemonState {
             anna_mode: Arc::new(tokio::sync::RwLock::new(anna_mode)),
             update_manager: Arc::new(tokio::sync::RwLock::new(update_manager)),
             session_context: Arc::new(tokio::sync::RwLock::new(session_context)),
+            toolchain_health: Arc::new(tokio::sync::RwLock::new(toolchain_health)),
         })
     }
 }
@@ -3373,6 +3401,12 @@ async fn handle_request(id: u64, method: Method, state: &DaemonState) -> Respons
             let kb = knowledge.get_cached();
             let data = kb.to_rpc_data();
             Ok(ResponseData::SystemKnowledge(data))
+        }
+
+        Method::GetToolchainHealth => {
+            // v6.58.0: Return toolchain health from startup self-test
+            let health = state.toolchain_health.read().await;
+            Ok(ResponseData::ToolchainHealth(health.clone()))
         }
     };
 

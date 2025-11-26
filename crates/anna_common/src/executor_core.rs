@@ -4,8 +4,13 @@
 //! on the real system, with safety checks and output capturing.
 //!
 //! v6.44.0: Evidence-based execution with proper classification of results.
+//!
+//! v6.58.0: Toolchain Reality Lock - commands MUST be in strict_tool_catalog.
+//! All execution goes through CommandExec layer with real output capture.
 
+use crate::command_exec::{CommandExec, ExecutionStatus};
 use crate::planner_core::{CommandPlan, PlannedCommand, SafetyLevel};
+use crate::strict_tool_catalog::StrictToolCatalog;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::process::Command;
@@ -142,6 +147,9 @@ impl ToolInventory {
 }
 
 /// Execute a command plan safely
+///
+/// v6.58.0: Toolchain Reality Lock - all commands MUST be in strict_tool_catalog.
+/// Commands not in the catalog will be rejected with ExecutionStatus::NotInCatalog.
 pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
     let start = std::time::Instant::now();
 
@@ -161,12 +169,46 @@ pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
         return Err(anyhow!("Refusing to execute risky command plan"));
     }
 
+    // v6.58.0: Use strict tool catalog for execution
+    let command_exec = CommandExec::new();
+    let catalog = command_exec.catalog();
     let inventory = ToolInventory::detect();
     let mut command_results = Vec::new();
     let mut all_success = true;
 
     for planned_cmd in &plan.commands {
-        // Check if required tools exist
+        // v6.58.0: Check if command is in strict catalog
+        let tool_name = &planned_cmd.command;
+        let full_cmd = format_full_command(planned_cmd);
+
+        // Try to find the tool in catalog by matching command name
+        if !catalog.exists(tool_name) && !is_catalog_command(&planned_cmd.command, catalog) {
+            // Command not in catalog - reject with clear error
+            let stderr_msg = format!(
+                "Tool '{}' is not in Anna's allowed catalog. Only verified system tools can be executed.",
+                tool_name
+            );
+            command_results.push(CommandResult {
+                command: planned_cmd.command.clone(),
+                full_command: full_cmd.clone(),
+                exit_code: -1,
+                stdout: String::new(),
+                stderr: stderr_msg.clone(),
+                success: false,
+                time_ms: 0,
+                evidence: EvidenceItem {
+                    command: full_cmd,
+                    exit_code: -1,
+                    stderr_snippet: stderr_msg,
+                    kind: EvidenceKind::Unknown,
+                    summary: Some("Not in catalog - command rejected".to_string()),
+                },
+            });
+            all_success = false;
+            continue;
+        }
+
+        // Check if required tools exist on system
         let mut missing_tools = Vec::new();
         for required_tool in &planned_cmd.requires_tools {
             if !inventory.has_tool(required_tool) {
@@ -197,7 +239,7 @@ pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
             continue;
         }
 
-        // Execute command
+        // Execute command (now verified against catalog)
         match execute_command(planned_cmd) {
             Ok(result) => {
                 if !result.success {
@@ -231,6 +273,11 @@ pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
     // Try fallbacks if primary commands failed
     if !all_success && !plan.fallbacks.is_empty() {
         for fallback_cmd in &plan.fallbacks {
+            // v6.58.0: Fallbacks must also be in catalog
+            if !catalog.exists(&fallback_cmd.command) && !is_catalog_command(&fallback_cmd.command, catalog) {
+                continue; // Skip non-catalog fallbacks
+            }
+
             // Check if tools exist
             if fallback_cmd.requires_tools.iter().all(|t| inventory.has_tool(t)) {
                 if let Ok(result) = execute_command(fallback_cmd) {
@@ -249,6 +296,50 @@ pub fn execute_plan(plan: &CommandPlan) -> Result<ExecutionResult> {
         success: all_success,
         execution_time_ms,
     })
+}
+
+/// v6.58.0: Check if a command base name is in the catalog
+/// Maps common commands to their catalog names
+fn is_catalog_command(command: &str, catalog: &StrictToolCatalog) -> bool {
+    // Direct match
+    if catalog.exists(command) {
+        return true;
+    }
+
+    // Map common command invocations to catalog names
+    let catalog_mapping: &[(&str, &str)] = &[
+        ("free", "free"),
+        ("lscpu", "lscpu"),
+        ("df", "df"),
+        ("du", "du"),
+        ("pacman", "pacman_query"),
+        ("ip", "ip_addr"),
+        ("ss", "ss"),
+        ("systemctl", "systemctl_status"),
+        ("journalctl", "journalctl"),
+        ("lspci", "lspci"),
+        ("lsblk", "lsblk"),
+        ("findmnt", "findmnt"),
+        ("sensors", "sensors"),
+        ("uptime", "uptime"),
+        ("uname", "uname"),
+        ("hostnamectl", "hostnamectl"),
+        ("ps", "ps_aux"),
+        ("top", "top_batch"),
+        ("cat", "cat_meminfo"), // Limited cat usage
+        ("nmcli", "nmcli"),
+        ("ping", "ping"),
+        ("ls", "ls"),
+        ("echo", "echo"),
+    ];
+
+    for (cmd, catalog_name) in catalog_mapping {
+        if command == *cmd && catalog.exists(catalog_name) {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Execute a single planned command
