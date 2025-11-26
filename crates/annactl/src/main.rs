@@ -32,6 +32,7 @@ mod diagnostic_formatter;
 // REMOVED in 6.57.0: sysadmin_answers - hardcoded answer templates
 // REMOVED in 6.57.0: deterministic_answers - bypassed the pipeline
 mod planner_query_handler; // v6.41.0: THE unified pipeline
+mod query_handler_v7; // v7.0.0: Clean brain architecture
 mod approval_ui;
 mod net_diagnostics;
 mod dialogue_v3_json;

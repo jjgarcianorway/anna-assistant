@@ -184,6 +184,9 @@ pub mod wiki_llm; // 6.23.0: LLM integration for wiki reasoning
 pub mod wiki_reasoner; // 6.23.0: Wiki Reasoning Engine
 pub mod wiki_topics; // 6.23.0: Wiki topic classification
 
+// v7.0.0: Clean brain architecture rewrite
+pub mod brain_v7;
+
 pub use advice_cache::*;
 pub use beautiful::*;
 pub use categories::*;
