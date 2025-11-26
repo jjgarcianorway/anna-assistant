@@ -6,45 +6,55 @@
 use crate::brain_v10::contracts::{BrainSession, EvidenceItem};
 
 /// The system prompt - simplified for local LLMs
-pub const SYSTEM_PROMPT: &str = r#"You are Anna, an Arch Linux system assistant. You answer questions about the user's system.
+pub const SYSTEM_PROMPT: &str = r#"You are Anna, an Arch Linux assistant. Answer questions using shell commands.
 
-OUTPUT FORMAT - Always respond with exactly this JSON:
-{"step_type":"decide_tool","tool_request":{"tool":"run_shell","arguments":{"command":"YOUR_COMMAND"},"why":"reason"},"answer":null,"evidence_refs":[],"reliability":0.0,"reasoning":"need data","user_question":null}
+RESPOND WITH JSON ONLY. Two formats:
 
-OR when you have evidence:
-{"step_type":"final_answer","tool_request":null,"answer":"Your answer here [E1]","evidence_refs":["E1"],"reliability":0.9,"reasoning":"found in tool output","user_question":null}
+1. To run a command:
+{"step_type":"decide_tool","tool_request":{"tool":"run_shell","arguments":{"command":"COMMAND"},"why":"WHY"},"answer":null,"evidence_refs":[],"reliability":0.0,"reasoning":"need data"}
 
-COMMAND EXAMPLES FOR COMMON QUESTIONS:
-- "RAM/memory" → free -m
-- "CPU" → lscpu
-- "disk space" → df -h
-- "is X installed" → pacman -Qs X
-- "GPU/graphics" → lspci | grep -i vga
-- "games installed" → pacman -Qs steam && pacman -Qs lutris && pacman -Qs wine
-- "file manager" → pacman -Qs thunar && pacman -Qs dolphin && pacman -Qs nautilus
-- "orphan packages" → pacman -Qdt
-- "desktop/WM" → echo $XDG_CURRENT_DESKTOP && echo $DESKTOP_SESSION
-- "network interface" → ip link show
-- "wifi status" → nmcli device status
-- "DNS" → cat /etc/resolv.conf
-- "updates" → checkupdates
-- "big folders" → du -sh /home/*/ 2>/dev/null | sort -rh | head -10
-- "big files /var" → sudo find /var -type f -exec du -h {} + 2>/dev/null | sort -rh | head -10
+2. To give an answer (after seeing command output in evidence):
+{"step_type":"final_answer","tool_request":null,"answer":"ANSWER [E1]","evidence_refs":["E1"],"reliability":0.9,"reasoning":"WHY"}
+
+COMMON COMMANDS:
+- RAM: free -h
+- CPU: lscpu
+- disk: df -h
+- GPU: lspci | grep -i vga
+- package check: pacman -Qs PACKAGE
+- orphans: pacman -Qdt
+- updates: checkupdates
+- network: ip link show; nmcli device status
+- DNS: cat /etc/resolv.conf
+- big folders: du -sh ~/*/ 2>/dev/null | sort -rh | head -10
 
 RULES:
-1. When asked a question, output decide_tool with the appropriate command
-2. After seeing tool output (in evidence), output final_answer citing [E1], [E2] etc.
-3. If evidence shows empty output for package query, the package is NOT installed
-4. Never guess. Use tool output only.
+1. No evidence yet? Use decide_tool to run a command
+2. Have evidence? Use final_answer citing [E1], [E2]
+3. Empty pacman output = package not installed
+4. Never guess. Only use command output."#;
 
-Output ONLY valid JSON. No text outside JSON."#;
-
-/// Build the state message for the LLM - simplified
+/// Build the state message for the LLM - with clear guidance
 pub fn build_state_message(session: &BrainSession) -> String {
+    let evidence = format_evidence(&session.evidence);
+    let has_data = evidence.iter().any(|e| {
+        e.get("output")
+            .and_then(|v| v.as_str())
+            .map(|s| !s.is_empty() && s != "null")
+            .unwrap_or(false)
+    });
+
+    let guidance = if has_data {
+        "You have evidence. Use final_answer to respond, citing evidence IDs like [E1]."
+    } else {
+        "No evidence yet. Use decide_tool to run a command."
+    };
+
     let state = serde_json::json!({
         "user_question": session.question,
-        "evidence_collected": format_evidence(&session.evidence),
+        "evidence_collected": evidence,
         "iteration": session.iteration,
+        "guidance": guidance,
     });
 
     serde_json::to_string_pretty(&state).unwrap_or_else(|_| state.to_string())
@@ -107,77 +117,121 @@ pub const OUTPUT_SCHEMA: &str = r#"{
 }"#;
 
 /// Map common queries to shell commands (fallback when LLM fails)
+/// Returns multiple commands as needed for complex queries
 pub fn suggest_command_for_query(query: &str) -> Option<&'static str> {
     let q = query.to_lowercase();
 
-    // RAM/Memory
-    if q.contains("ram") || q.contains("memory") {
-        return Some("free -m");
+    // RAM/Memory - handles "how much RAM", "free memory", etc.
+    if q.contains("ram") || q.contains("memory") || q.contains("free") && !q.contains("disk") {
+        return Some("free -h");
     }
 
-    // CPU
+    // CPU - handles cores, threads, model, SSE, AVX
     if q.contains("cpu") || q.contains("processor") || q.contains("core") || q.contains("thread") {
         return Some("lscpu");
     }
 
-    // GPU
-    if q.contains("gpu") || q.contains("graphics") || q.contains("video card") || q.contains("vga") {
-        return Some("lspci | grep -i vga");
+    // SSE/AVX CPU features - specific query for instruction sets
+    if q.contains("sse") || q.contains("avx") {
+        return Some("grep -oE '(sse[^ ]*|avx[^ ]*)' /proc/cpuinfo | sort -u; grep 'model name' /proc/cpuinfo | head -1");
     }
 
-    // Disk space
-    if q.contains("disk") || q.contains("space") || q.contains("storage") || q.contains("filesystem") {
+    // GPU - handles graphics card, video, nvidia, amd
+    if q.contains("gpu") || q.contains("graphics") || q.contains("video") || q.contains("vga") || q.contains("nvidia") || q.contains("amd") && q.contains("card") {
+        return Some("lspci | grep -iE 'vga|3d|display'");
+    }
+
+    // Disk space - handles "free space", "root filesystem", etc.
+    if q.contains("disk") || q.contains("space") || q.contains("storage") || q.contains("filesystem") || q.contains("root") && q.contains("free") {
         return Some("df -h");
     }
 
-    // Desktop/WM
-    if q.contains("desktop") || q.contains("window manager") || q.contains(" wm ") || q.contains(" de ") {
-        return Some("echo $XDG_CURRENT_DESKTOP; echo $XDG_SESSION_TYPE; loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Desktop -p Type 2>/dev/null");
+    // Big folders in home - handles variations
+    if (q.contains("folder") || q.contains("director")) && (q.contains("home") || q.contains("~")) && (q.contains("big") || q.contains("large") || q.contains("size") || q.contains("top")) {
+        return Some("du -sh ~/*/ 2>/dev/null | sort -rh | head -10");
     }
 
-    // Network
-    if q.contains("wifi") || q.contains("ethernet") || q.contains("network") || q.contains("connected") {
-        return Some("ip link show; nmcli device status 2>/dev/null || echo 'nmcli not available'");
+    // Big folders under /home (system wide)
+    if (q.contains("folder") || q.contains("director")) && q.contains("/home") && (q.contains("big") || q.contains("large") || q.contains("size") || q.contains("top")) {
+        return Some("du -sh /home/*/ 2>/dev/null | sort -rh | head -10");
     }
 
-    // DNS
-    if q.contains("dns") || q.contains("resolver") {
-        return Some("cat /etc/resolv.conf");
+    // Big files in /var
+    if q.contains("file") && q.contains("/var") && (q.contains("big") || q.contains("large") || q.contains("size") || q.contains("top")) {
+        return Some("find /var -xdev -type f -printf '%s %p\\n' 2>/dev/null | sort -rn | head -10 | awk '{printf \"%.1fM %s\\n\", $1/1048576, $2}'");
     }
 
-    // Updates
+    // Desktop/WM - handles "what desktop", "window manager", "DE"
+    if q.contains("desktop") || q.contains("window manager") || q.contains(" wm") || q.contains(" de ") || q.contains("environment") {
+        return Some("echo \"XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP\"; echo \"XDG_SESSION_TYPE=$XDG_SESSION_TYPE\"; echo \"DESKTOP_SESSION=$DESKTOP_SESSION\"; ps -e | grep -iE 'gnome-shell|kwin|xfwm|openbox|i3|sway|hyprland|bspwm|awesome' | head -5");
+    }
+
+    // Network - wifi, ethernet, interface
+    if q.contains("wifi") || q.contains("ethernet") || q.contains("network") || q.contains("connected") || q.contains("interface") {
+        return Some("ip link show; echo '---'; nmcli device status 2>/dev/null || echo 'NetworkManager not available'");
+    }
+
+    // DNS - resolver configuration
+    if q.contains("dns") || q.contains("resolver") || q.contains("nameserver") {
+        return Some("cat /etc/resolv.conf; echo '---'; resolvectl status 2>/dev/null | head -20 || echo 'resolvectl not available'");
+    }
+
+    // Updates - pacman and AUR
     if q.contains("update") && !q.contains("upgrade") {
-        return Some("checkupdates 2>/dev/null | head -20 || echo 'checkupdates not available or no updates'");
+        return Some("checkupdates 2>/dev/null | head -20 || echo 'No updates or checkupdates not available'");
     }
 
     // Orphan packages
     if q.contains("orphan") {
-        return Some("pacman -Qdt");
+        return Some("pacman -Qdt 2>/dev/null || echo 'No orphans found'");
     }
 
-    // Games
+    // Games - steam, lutris, wine, etc.
     if q.contains("game") {
-        return Some("pacman -Qs 'steam|lutris|wine|proton|gamemode|mangohud|dxvk' 2>/dev/null | head -30");
+        return Some("pacman -Qs -q 'steam|lutris|wine|proton|gamemode|mangohud|dxvk|retroarch' 2>/dev/null | head -20");
     }
 
-    // File manager
-    if q.contains("file manager") {
-        return Some("pacman -Qs 'thunar|dolphin|nautilus|pcmanfm|nemo|caja' 2>/dev/null");
+    // File manager - handles "graphical file manager", "any file manager"
+    if q.contains("file manager") || (q.contains("file") && q.contains("manager")) {
+        return Some("pacman -Qs -q 'thunar|dolphin|nautilus|pcmanfm|nemo|caja|ranger|mc|lf' 2>/dev/null");
     }
 
-    // Big folders in home
-    if q.contains("folder") && q.contains("home") && (q.contains("big") || q.contains("largest") || q.contains("size")) {
-        return Some("du -sh ~/*/ 2>/dev/null | sort -rh | head -10");
+    // Kernel version
+    if q.contains("kernel") {
+        return Some("uname -r; uname -a");
     }
 
-    // Big files in /var
-    if q.contains("file") && q.contains("/var") && (q.contains("big") || q.contains("largest")) {
-        return Some("find /var -type f -size +10M -exec ls -lh {} \\; 2>/dev/null | sort -k5 -rh | head -10");
+    // Failed services / systemd issues
+    if q.contains("failed") || q.contains("service") && q.contains("issue") || q.contains("systemd") {
+        return Some("systemctl --failed; echo '---'; journalctl -p 0..3 -b --no-pager | tail -20");
     }
 
-    // SSE/AVX CPU features
-    if q.contains("sse") || q.contains("avx") {
-        return Some("grep -E 'flags|model name' /proc/cpuinfo | head -2");
+    // System summary / overview
+    if q.contains("summary") || q.contains("overview") || q.contains("know about") || q.contains("how are you") {
+        return Some("echo \"Kernel: $(uname -r)\"; free -h | grep Mem; df -h /; ip route | head -1");
+    }
+
+    // Issues / problems / worried
+    if q.contains("issue") || q.contains("problem") || q.contains("worried") || q.contains("fire") {
+        return Some("systemctl --failed 2>/dev/null; journalctl -p 0..3 -b --no-pager 2>/dev/null | tail -10");
+    }
+
+    // Pacman cache cleaning
+    if q.contains("cache") && q.contains("pacman") || q.contains("clean") && q.contains("cache") {
+        return Some("du -sh /var/cache/pacman/pkg; paccache -d 2>/dev/null || echo 'paccache not available (install pacman-contrib)'");
+    }
+
+    // Package installed check - generic
+    if q.contains("installed") {
+        // Try to extract package name - look for common patterns
+        if q.contains("steam") {
+            return Some("pacman -Qs steam");
+        }
+        if q.contains("firefox") {
+            return Some("pacman -Qs firefox");
+        }
+        // Generic - will need LLM to figure out the package
+        return None;
     }
 
     None
@@ -189,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_query_to_command() {
-        assert_eq!(suggest_command_for_query("how much RAM"), Some("free -m"));
+        assert_eq!(suggest_command_for_query("how much RAM"), Some("free -h"));
         assert_eq!(suggest_command_for_query("what CPU"), Some("lscpu"));
         assert_eq!(suggest_command_for_query("disk space"), Some("df -h"));
         assert!(suggest_command_for_query("random text").is_none());

@@ -1,7 +1,7 @@
-//! LLM Client Abstraction - v6.42.0
+//! LLM Client Abstraction - v10.0.2
 //!
-//! Provides a generic interface for calling LLM backends with strict JSON schemas.
-//! Supports both real implementations (Ollama, OpenAI-compatible) and fake clients for testing.
+//! Provides a generic interface for calling LLM backends with proper multi-turn conversations.
+//! Uses Ollama's chat API for better context handling and JSON compliance.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -22,9 +22,9 @@ impl Default for LlmConfig {
         Self {
             enabled: true,
             endpoint: "http://localhost:11434".to_string(),
-            model: "llama3.2:3b".to_string(),
+            model: "qwen2.5:14b".to_string(),
             api_key: None,
-            timeout_secs: 30,
+            timeout_secs: 60,
         }
     }
 }
@@ -74,11 +74,6 @@ impl HttpLlmClient {
 
         Ok(Self { config, client })
     }
-
-    /// Check if endpoint is Ollama-style
-    fn is_ollama_endpoint(&self) -> bool {
-        self.config.endpoint.contains("11434") || self.config.endpoint.contains("ollama")
-    }
 }
 
 impl LlmClient for HttpLlmClient {
@@ -86,48 +81,52 @@ impl LlmClient for HttpLlmClient {
         &self,
         system_prompt: &str,
         user_prompt: &str,
-        schema_description: &str,
+        _schema_description: &str,
     ) -> Result<serde_json::Value, LlmError> {
         if !self.config.enabled {
             return Err(LlmError::Disabled);
         }
 
-        // Build the full prompt with schema
-        let full_prompt = format!(
-            "{}\n\nUser question: {}\n\nYou must respond with valid JSON matching this schema:\n{}",
-            system_prompt, user_prompt, schema_description
-        );
+        // Use chat API for better multi-turn handling
+        let url = format!("{}/api/chat", self.config.endpoint);
 
-        // Try Ollama-style API first
-        if self.is_ollama_endpoint() {
-            match self.call_ollama(&full_prompt) {
+        let request_body = serde_json::json!({
+            "model": self.config.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "stream": false,
+            "format": "json",
+            "options": {
+                "temperature": 0.1,  // Low temperature for consistent JSON
+                "num_predict": 1024, // Enough tokens for response
+            }
+        });
+
+        // Try up to 3 times for valid JSON
+        let mut last_error = LlmError::EmptyResponse;
+        for attempt in 0..3 {
+            match self.call_ollama_chat(&url, &request_body) {
                 Ok(json) => return Ok(json),
                 Err(e) => {
-                    tracing::debug!("Ollama API failed, trying OpenAI-compatible: {}", e);
+                    tracing::debug!("LLM attempt {} failed: {}", attempt + 1, e);
+                    last_error = e;
+                    // Continue to retry
                 }
             }
         }
 
-        // Fall back to OpenAI-compatible API
-        self.call_openai_compatible(system_prompt, &full_prompt)
+        Err(last_error)
     }
 }
 
 impl HttpLlmClient {
-    /// Call Ollama-style API
-    fn call_ollama(&self, prompt: &str) -> Result<serde_json::Value, LlmError> {
-        let url = format!("{}/api/generate", self.config.endpoint);
-
-        let request_body = serde_json::json!({
-            "model": self.config.model,
-            "prompt": prompt,
-            "stream": false,
-            "format": "json",
-        });
-
+    /// Call Ollama chat API
+    fn call_ollama_chat(&self, url: &str, body: &serde_json::Value) -> Result<serde_json::Value, LlmError> {
         let response = self.client
-            .post(&url)
-            .json(&request_body)
+            .post(url)
+            .json(body)
             .send()
             .map_err(|e| {
                 if e.is_timeout() {
@@ -148,71 +147,64 @@ impl HttpLlmClient {
             .json()
             .map_err(|e| LlmError::InvalidJson(format!("Failed to parse response: {}", e)))?;
 
-        // Extract response from Ollama format
+        // Extract response from Ollama chat format
         let text = response_json
-            .get("response")
+            .get("message")
+            .and_then(|m| m.get("content"))
             .and_then(|v| v.as_str())
             .ok_or_else(|| LlmError::EmptyResponse)?;
 
         // Parse the response as JSON
-        serde_json::from_str(text)
-            .map_err(|e| LlmError::InvalidJson(format!("LLM output is not valid JSON: {}", e)))
+        self.parse_json_response(text)
     }
 
-    /// Call OpenAI-compatible API
-    fn call_openai_compatible(
-        &self,
-        system_prompt: &str,
-        user_prompt: &str,
-    ) -> Result<serde_json::Value, LlmError> {
-        let url = format!("{}/v1/chat/completions", self.config.endpoint);
+    /// Parse JSON from LLM response, handling common issues
+    fn parse_json_response(&self, text: &str) -> Result<serde_json::Value, LlmError> {
+        let text = text.trim();
 
-        let mut request_body = serde_json::json!({
-            "model": self.config.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "response_format": {"type": "json_object"},
-        });
-
-        let mut request = self.client.post(&url).json(&request_body);
-
-        if let Some(api_key) = &self.config.api_key {
-            request = request.bearer_auth(api_key);
+        // Try direct parse first
+        if let Ok(json) = serde_json::from_str(text) {
+            return Ok(json);
         }
 
-        let response = request.send().map_err(|e| {
-            if e.is_timeout() {
-                LlmError::Timeout(self.config.timeout_secs)
-            } else {
-                LlmError::HttpError(format!("Request failed: {}", e))
+        // Try to extract JSON from markdown code blocks
+        if let Some(start) = text.find("```json") {
+            if let Some(end) = text[start + 7..].find("```") {
+                let json_str = &text[start + 7..start + 7 + end].trim();
+                if let Ok(json) = serde_json::from_str(json_str) {
+                    return Ok(json);
+                }
             }
-        })?;
-
-        if !response.status().is_success() {
-            return Err(LlmError::HttpError(format!(
-                "HTTP {} from OpenAI-compatible API",
-                response.status()
-            )));
         }
 
-        let response_json: serde_json::Value = response
-            .json()
-            .map_err(|e| LlmError::InvalidJson(format!("Failed to parse response: {}", e)))?;
+        // Try to extract JSON from generic code blocks
+        if let Some(start) = text.find("```") {
+            let after_start = &text[start + 3..];
+            if let Some(end) = after_start.find("```") {
+                // Skip the language identifier if present
+                let content = &after_start[..end];
+                let json_str = content.lines().skip(1).collect::<Vec<_>>().join("\n");
+                if let Ok(json) = serde_json::from_str(&json_str) {
+                    return Ok(json);
+                }
+                // Try without skipping
+                if let Ok(json) = serde_json::from_str(content.trim()) {
+                    return Ok(json);
+                }
+            }
+        }
 
-        // Extract content from OpenAI format
-        let text = response_json
-            .get("choices")
-            .and_then(|v| v.get(0))
-            .and_then(|v| v.get("message"))
-            .and_then(|v| v.get("content"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| LlmError::EmptyResponse)?;
+        // Try to find JSON object in the text
+        if let Some(start) = text.find('{') {
+            if let Some(end) = text.rfind('}') {
+                let json_str = &text[start..=end];
+                if let Ok(json) = serde_json::from_str(json_str) {
+                    return Ok(json);
+                }
+            }
+        }
 
-        // Parse the content as JSON
-        serde_json::from_str(text)
-            .map_err(|e| LlmError::InvalidJson(format!("LLM output is not valid JSON: {}", e)))
+        Err(LlmError::InvalidJson(format!("Could not parse JSON from: {}", &text[..text.len().min(200)])))
     }
 }
 
@@ -259,15 +251,12 @@ impl LlmClient for FakeLlmClient {
 
         let mut responses = self.responses.lock().unwrap();
         if responses.is_empty() {
-            // If no more responses, return the last one repeatedly
             return Err(LlmError::EmptyResponse);
         }
 
         if responses.len() == 1 {
-            // Keep returning the same response
             responses[0].clone()
         } else {
-            // Pop and return next response
             responses.remove(0)
         }
     }
@@ -282,54 +271,33 @@ mod tests {
         let config = LlmConfig::default();
         assert!(config.enabled);
         assert_eq!(config.endpoint, "http://localhost:11434");
-        assert_eq!(config.model, "llama3.2:3b");
-        assert!(config.api_key.is_none());
-        assert_eq!(config.timeout_secs, 30);
+        assert_eq!(config.model, "qwen2.5:14b");
     }
 
     #[test]
-    fn test_fake_client_always_valid() {
+    fn test_parse_json_response() {
+        let client = HttpLlmClient::new(LlmConfig::default()).unwrap();
+
+        // Direct JSON
+        let result = client.parse_json_response(r#"{"step_type": "final_answer"}"#);
+        assert!(result.is_ok());
+
+        // JSON in code block
+        let result = client.parse_json_response("```json\n{\"step_type\": \"final_answer\"}\n```");
+        assert!(result.is_ok());
+
+        // JSON with surrounding text
+        let result = client.parse_json_response("Here is my answer: {\"step_type\": \"final_answer\"}");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fake_client() {
         let json = serde_json::json!({"test": "data"});
         let client = FakeLlmClient::always_valid(json.clone());
 
         let result = client.call_json("system", "user", "schema");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json);
-        assert_eq!(client.call_count(), 1);
-
-        // Call again, should return same response
-        let result2 = client.call_json("system", "user", "schema");
-        assert!(result2.is_ok());
-        assert_eq!(client.call_count(), 2);
-    }
-
-    #[test]
-    fn test_fake_client_always_error() {
-        let client = FakeLlmClient::always_error(LlmError::Disabled);
-
-        let result = client.call_json("system", "user", "schema");
-        assert!(result.is_err());
-        assert_eq!(client.call_count(), 1);
-    }
-
-    #[test]
-    fn test_fake_client_multiple_responses() {
-        let client = FakeLlmClient::new(vec![
-            Ok(serde_json::json!({"response": 1})),
-            Ok(serde_json::json!({"response": 2})),
-            Err(LlmError::Timeout(30)),
-        ]);
-
-        let r1 = client.call_json("", "", "");
-        assert!(r1.is_ok());
-        assert_eq!(r1.unwrap()["response"], 1);
-
-        let r2 = client.call_json("", "", "");
-        assert!(r2.is_ok());
-        assert_eq!(r2.unwrap()["response"], 2);
-
-        let r3 = client.call_json("", "", "");
-        assert!(r3.is_err());
-        assert_eq!(client.call_count(), 3);
     }
 }

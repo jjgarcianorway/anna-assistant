@@ -1,9 +1,9 @@
-//! Anna Brain v10.0.1 - Orchestrator
+//! Anna Brain v10.0.2 - Orchestrator
 //!
 //! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER
 //! Max 8 iterations. Evidence-based answers. Explicit reliability labels.
 //!
-//! v10.0.1: Aggressive fallback when LLM fails to follow protocol
+//! v10.0.2: Focus on proper LLM dialog - let the LLM work through iterations
 
 use crate::brain_v10::contracts::{
     BrainSession, BrainStep, ReliabilityLabel, StepType, ToolRequest,
@@ -176,8 +176,9 @@ impl BrainOrchestrator {
                 }
 
                 StepType::DecideTool => {
-                    // Safety: If stuck in loop, try fallback earlier (iteration 2)
-                    if session.iteration >= 2 && step.reliability < MIN_RELIABILITY {
+                    // v10.0.2: Let LLM iterate through evidence naturally
+                    // Only fallback if truly stuck (iteration >= 5 AND we have evidence)
+                    if session.iteration >= 5 && session.evidence.len() >= 2 {
                         if let Some(fallback) = try_fallback_answer(query, &session) {
                             return Ok(fallback);
                         }
