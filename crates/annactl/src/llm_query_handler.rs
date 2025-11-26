@@ -1,9 +1,9 @@
-//! LLM Query Handler - v6.57.0 Single Pipeline
+//! LLM Query Handler - v7.0.0 Clean Brain Architecture
 //!
-//! ALL queries flow through ONE path:
-//! `planner_core` → `executor_core` → `interpreter_core` → `trace_renderer`
+//! ALL queries flow through the brain_v7 pipeline:
+//! PLAN (LLM) → EXECUTE (Rust) → INTERPRET (LLM)
 //!
-//! NO legacy handlers, NO hardcoded recipes, NO shortcut paths.
+//! Strict data contracts, reliability scoring, and retry logic.
 
 use anna_common::display::UI;
 use anyhow::Result;
@@ -40,7 +40,7 @@ fn create_thinking_spinner(ui: &UI) -> ProgressBar {
 
 /// Handle a one-shot query from CLI
 ///
-/// v6.57.0: Single pipeline - ALL queries go through planner_core
+/// v7.0.0: Uses brain_v7 pipeline (PLAN → EXECUTE → INTERPRET)
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Initialize formatter with user configuration
     let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();
@@ -63,11 +63,11 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Create spinner for thinking animation
     let spinner = create_thinking_spinner(&ui);
 
-    // v6.57.0: Use LLM config with default settings
+    // v7.0.0: Use LLM config with default settings
     let llm_config = anna_common::llm_client::LlmConfig::default();
 
-    // v6.57.0: Single pipeline - ALL queries go through planner
-    match crate::planner_query_handler::handle_with_planner(
+    // v7.0.0: Use the clean brain_v7 architecture
+    match crate::query_handler_v7::handle_query_v7(
         user_text,
         &telemetry,
         Some(&llm_config)

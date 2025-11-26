@@ -1,19 +1,17 @@
-//! Unified Query Handler - v6.57.0 Single Pipeline
+//! Unified Query Handler - v7.0.0 Clean Brain Architecture
 //!
-//! ALL queries flow through ONE path:
-//! `planner_core` → `executor_core` → `interpreter_core` → `trace_renderer`
+//! ALL queries flow through the v7 brain pipeline:
+//! PLAN (LLM) → EXECUTE (Rust) → INTERPRET (LLM)
 //!
+//! Strict data contracts, reliability scoring, and retry logic.
 //! NO legacy handlers, NO hardcoded recipes, NO shortcut paths.
-//!
-//! This is the scorched-earth cleanup version. If you need to add a feature,
-//! it must integrate with the planner_query_handler pipeline.
 
 use anna_common::action_plan_v3::ActionPlan;
 use anna_common::llm_client::LlmConfig;
 use anna_common::telemetry::SystemTelemetry;
 use anyhow::Result;
 
-/// Unified query result - simplified for v6.57.0
+/// Unified query result - simplified for v7.0.0
 #[derive(Debug)]
 pub enum UnifiedQueryResult {
     /// Action plan from planner pipeline
@@ -36,31 +34,28 @@ pub enum UnifiedQueryResult {
 /// Answer confidence level
 #[derive(Debug, Clone, Copy)]
 pub enum AnswerConfidence {
-    High,   // From telemetry/system data validated by interpreter
-    Medium, // From LLM with validation
-    Low,    // Fallback answer
+    High,   // Reliability >= 0.8
+    Medium, // Reliability 0.4-0.8
+    Low,    // Reliability < 0.4
 }
 
-/// v6.57.0: All queries go through the single pipeline
-///
-/// This function exists for backwards compatibility. The actual
-/// work is delegated to planner_query_handler.
+/// v7.0.0: All queries go through the brain_v7 pipeline
 pub async fn process_unified_query(
     user_text: &str,
     telemetry: &SystemTelemetry,
     llm_config: &LlmConfig,
 ) -> Result<UnifiedQueryResult> {
-    // v6.57.0: Single pipeline - delegate to planner_query_handler
-    use crate::planner_query_handler;
+    // v7.0.0: Use the clean brain architecture
+    use crate::query_handler_v7;
 
-    // Process through the unified pipeline
-    match planner_query_handler::handle_with_planner(user_text, telemetry, Some(llm_config)).await {
+    // Process through the v7 pipeline
+    match query_handler_v7::handle_query_v7(user_text, telemetry, Some(llm_config)).await {
         Ok(result) => {
-            // Convert planner result to unified result
+            // Convert to unified result
             Ok(UnifiedQueryResult::ConversationalAnswer {
                 answer: result,
                 confidence: AnswerConfidence::High,
-                sources: vec!["Unified Pipeline (planner→executor→interpreter)".to_string()],
+                sources: vec!["brain_v7 (PLAN→EXECUTE→INTERPRET)".to_string()],
             })
         }
         Err(e) => {

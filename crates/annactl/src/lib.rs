@@ -34,5 +34,6 @@ pub mod systemd;
 pub mod telemetry_truth;
 pub mod unified_query_handler;
 pub mod planner_query_handler; // v6.57.0: THE unified pipeline
+pub mod query_handler_v7; // v7.0.0: Clean brain architecture
 pub mod intent_router; // Intent classification
 pub mod approval_ui; // v6.43.0: User approval for plans

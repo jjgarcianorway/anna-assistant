@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.62.0**
+**Experimental Arch Linux System Assistant - Version 7.0.0**
 
-[![Version](https://img.shields.io/badge/version-6.62.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-7.0.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,61 +29,66 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.62.0 - Hybrid LLM Orchestration with Reliability Scoring 🎯
+## What's New in 7.0.0 - Clean Brain Architecture 🧠
 
-### "Rust controls the loop, LLM follows strict contract"
+### "Complete rewrite with strict data contracts"
 
-**The Problem:** v6.61.0's strict validation helped but the LLM still needed better guidance and the orchestrator lacked reliability feedback.
+**The Problem:** v6.x accumulated patches on patches. The LLM orchestration was a mess of half-hidden "planner here, interpreter there, random second call" logic.
 
-**The Solution:** Hybrid architecture where Rust orchestrator controls execution flow while LLM follows strict JSON contract with reliability scoring:
+**The Solution:** Complete brain rewrite with strict three-phase pipeline:
 
-1. **Structured Planner Output** - LLM must produce strict JSON
-   - 📋  `subtasks`: What needs to be determined
-   - 🔧  `tool_calls`: Exact tool_id, purpose, expected_evidence
-   - ⚠️  `limitations`: What cannot be answered (optional)
+### Architecture: `brain_v7` Module
 
-2. **Evidence Bundle** - Rust collects real tool outputs
-   - 🏷️  Tool ID, purpose, expected evidence
-   - ✅/❌  Success status, stdout, stderr, exit code
-   - ⏱️  Timestamp for all evidence
+```
+crates/anna_common/src/brain_v7/
+├── contracts.rs     # Strict data types
+├── tools.rs         # Fixed tool catalog (16 tools)
+├── prompts.rs       # Minimal LLM prompts
+└── orchestrator.rs  # PLAN → EXECUTE → INTERPRET
+```
 
-3. **Interpreter with Reliability Scoring** - Strict JSON output
-   - 📝  `answer`: Direct answer from evidence only
-   - 📊  `evidence_used`: What tools contributed what
-   - 🎯  `reliability`: Score (0.0-1.0), level (HIGH/MEDIUM/LOW), reason
-   - ❓  `uncertainty`: What is unknown or guessed
+### Pipeline
 
-4. **Reliability-Driven Retry Loop** - Rust controls retries
-   - ✅  Score ≥ 0.8: Accept answer
-   - 🔄  Score < 0.8: Retry with context (up to 2 times)
-   - ⚠️  Max retries reached: Return with explicit uncertainty warning
+```
+Query → Planner LLM (JSON) → Rust validates tools → Rust executes → EvidenceBundle
+                                                          ↓
+                        ← Final answer ← Retry? ← Interpreter LLM (reliability score)
+```
 
-**Contract Enforcement (in both LLM prompts):**
-- ❌  NEVER hardcode system facts (CPU, RAM, GPU, packages)
-- ❌  NEVER invent tools not in catalog
-- ❌  NEVER claim to have run commands that weren't executed
-- ✅  If evidence insufficient, say so explicitly
+### Key Design Principles
 
-**Working NL Queries:**
+1. **Strict Data Contracts** - If JSON parsing fails, the phase fails. No partial plans.
+2. **LLM Sees Descriptions Only** - Tool catalog exposes name + description, never commands.
+3. **Rust Owns Execution** - All tools run through Rust, not shell.
+4. **Reliability Scoring** - Score 0.0-1.0, retry if < 0.8, max 1 retry.
+
+### Tool Catalog (16 tools)
+
+| Category | Tools |
+|----------|-------|
+| Hardware | `mem_info`, `cpu_info`, `gpu_pci` |
+| Packages | `pacman_search`, `pacman_updates`, `aur_updates`, `pacman_orphans`, `pacman_cache_size` |
+| Storage | `disk_usage`, `home_du_top`, `var_largest_files` |
+| Network | `net_interfaces`, `ip_addresses`, `dns_config` |
+| System | `kernel_info`, `uptime`, `systemd_failed`, `journal_errors` |
+| Desktop | `desktop_session` |
+
+### Working NL Queries
+
 ```bash
-annactl "how much RAM do I have"      # ✅ "You have 32.79 GB (32291 MB) of RAM"
-annactl "what GPU do I have"          # ✅ "NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile]"
-annactl "anna version"                # ✅ "Anna Assistant v6.62.0"
-annactl "upgrade your brain"          # ✅ Step-by-step Ollama config guide
+annactl "how much RAM do I have"      # ✅ "You have 32 GB of RAM"
+annactl "what GPU do I have"          # ✅ "NVIDIA GeForce RTX 4060 Max-Q"
+annactl "what CPU do I have"          # ✅ "Intel Core i9-14900HX"
+annactl "is steam installed"          # ✅ "Steam is installed"
+annactl "any failed services"         # ✅ "No failed services"
+annactl "upgrade your brain"          # ✅ Step-by-step Ollama guide
 ```
 
-**Architecture:**
-```
-Query → Planner LLM (structured JSON) → Rust executes tools → EvidenceBundle
-                                              ↓
-           ← Final answer ← Retry if <0.8 ← Interpreter LLM (reliability score)
-```
-
-**Status:** Complete. Hybrid orchestration with reliability scoring and retry loop.
+**Status:** Complete. Clean architecture, all tests passing.
 
 ---
 
-**Previous: 6.61.0 - Strict Evidence-Based Answers**
+**Previous: 6.62.0 - Hybrid LLM Orchestration**
 
 ---
 
