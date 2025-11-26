@@ -1,4 +1,4 @@
-//! Core types for Anna v0.0.1
+//! Core types for Anna v0.2.0
 
 use serde::{Deserialize, Serialize};
 
@@ -124,6 +124,10 @@ pub struct AnnaConfig {
     pub models: ModelSelection,
     pub daemon_socket: String,
     pub ollama_url: String,
+    #[serde(default)]
+    pub auto_update: bool,
+    #[serde(default)]
+    pub update_channel: UpdateChannel,
 }
 
 impl Default for AnnaConfig {
@@ -133,8 +137,107 @@ impl Default for AnnaConfig {
             models: ModelSelection::default(),
             daemon_socket: "/run/anna/annad.sock".to_string(),
             ollama_url: "http://localhost:11434".to_string(),
+            auto_update: true,
+            update_channel: UpdateChannel::Stable,
         }
     }
+}
+
+/// Update channel for auto-updates
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateChannel {
+    #[default]
+    Stable,
+    Beta,
+}
+
+/// Evidence item - structured proof from probes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Evidence {
+    pub probe_id: String,
+    pub data: serde_json::Value,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub reliability: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_cmd: Option<String>,
+}
+
+impl Evidence {
+    /// Create new evidence from probe result
+    pub fn from_probe_result(result: &ProbeResult) -> Self {
+        Self {
+            probe_id: result.id.clone(),
+            data: result.data.clone(),
+            timestamp: result.timestamp,
+            reliability: if result.success { 1.0 } else { 0.0 },
+            source_cmd: None,
+        }
+    }
+}
+
+/// Tool catalog entry - defines available probes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCatalogEntry {
+    pub id: String,
+    pub description: String,
+    pub output_schema: String,
+    pub category: ToolCategory,
+}
+
+/// Categories of tools/probes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolCategory {
+    Cpu,
+    Memory,
+    Disk,
+    Network,
+    Process,
+    System,
+}
+
+/// Reliability score with breakdown
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReliabilityScore {
+    pub overall: f64,
+    pub evidence_quality: f64,
+    pub reasoning_quality: f64,
+    pub coverage: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deductions: Option<Vec<String>>,
+}
+
+impl ReliabilityScore {
+    /// Calculate overall reliability from components
+    pub fn calculate(evidence_quality: f64, reasoning_quality: f64, coverage: f64) -> Self {
+        let overall = (evidence_quality * 0.4 + reasoning_quality * 0.3 + coverage * 0.3).min(1.0);
+        Self {
+            overall,
+            evidence_quality,
+            reasoning_quality,
+            coverage,
+            deductions: None,
+        }
+    }
+
+    /// Add a deduction with reason
+    pub fn add_deduction(&mut self, amount: f64, reason: &str) {
+        self.overall = (self.overall - amount).max(0.0);
+        self.deductions
+            .get_or_insert_with(Vec::new)
+            .push(format!("-{:.0}%: {}", amount * 100.0, reason));
+    }
+}
+
+/// Version info for update checking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionInfo {
+    pub current: String,
+    pub latest: String,
+    pub update_available: bool,
+    pub release_notes: Option<String>,
+    pub download_url: Option<String>,
 }
 
 #[cfg(test)]

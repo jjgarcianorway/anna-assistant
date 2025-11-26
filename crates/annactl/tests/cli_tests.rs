@@ -30,7 +30,7 @@ fn test_annactl_version() {
 
     assert!(output.status.success());
     let version = String::from_utf8_lossy(&output.stdout);
-    assert!(version.contains("0.0.1"));
+    assert!(version.contains("0.2.0"));
 }
 
 /// Test annactl help
@@ -69,7 +69,7 @@ fn test_annactl_config() {
 
     assert!(output.status.success());
     let config = String::from_utf8_lossy(&output.stdout);
-    assert!(config.contains("0.0.1"));
+    assert!(config.contains("0.2.0"));
     assert!(config.contains("Orchestrator"));
     assert!(config.contains("Expert"));
 }

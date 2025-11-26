@@ -22,7 +22,7 @@ ICON_WARN="⚠"
 ICON_ROCKET="🚀"
 ICON_DOWN="⬇"
 
-VERSION="0.0.1"
+VERSION="0.2.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 

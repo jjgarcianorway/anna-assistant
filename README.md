@@ -1,8 +1,15 @@
-# Anna v0.0.1
+# Anna v0.2.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
+
+## What's New in v0.2.0
+
+- 🔒  **Strict Evidence Discipline** - Every claim must cite its source
+- 🛡️  **Tool Catalog Enforcement** - No hallucinated probes allowed
+- 📊  **Reliability Scoring** - Transparent confidence with breakdown
+- 🔄  **Auto-Update** - Anna can update herself automatically
 
 ## Architecture
 
@@ -40,6 +47,7 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
 2. **100% reliability** - No hallucinations, no guesses
 3. **Evidence-based** - Every claim must have a source
 4. **Transparent confidence** - Always show certainty level
+5. **Tool catalog enforcement** - Only registered probes allowed
 
 ## Installation
 
@@ -53,12 +61,12 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 ```bash
 # Download binaries
-wget https://github.com/jjgarcianorway/anna-assistant/releases/download/v0.0.1/annad-0.0.1-x86_64-unknown-linux-gnu
-wget https://github.com/jjgarcianorway/anna-assistant/releases/download/v0.0.1/annactl-0.0.1-x86_64-unknown-linux-gnu
+wget https://github.com/jjgarcianorway/anna-assistant/releases/download/v0.2.0/annad-0.2.0-x86_64-unknown-linux-gnu
+wget https://github.com/jjgarcianorway/anna-assistant/releases/download/v0.2.0/annactl-0.2.0-x86_64-unknown-linux-gnu
 
 # Install
-sudo mv annad-0.0.1-x86_64-unknown-linux-gnu /usr/local/bin/annad
-sudo mv annactl-0.0.1-x86_64-unknown-linux-gnu /usr/local/bin/annactl
+sudo mv annad-0.2.0-x86_64-unknown-linux-gnu /usr/local/bin/annad
+sudo mv annactl-0.2.0-x86_64-unknown-linux-gnu /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 
 # Initialize
@@ -97,6 +105,34 @@ annactl probes
 
 # Run specific probe
 annactl probe cpu.info
+
+# Check for updates
+annactl check-update
+
+# Update Anna
+annactl update
+
+# Show version
+annactl version
+```
+
+## Auto-Update
+
+Anna can update herself automatically. Updates are checked in the background (once per hour).
+
+```bash
+# Check for updates manually
+annactl check-update
+
+# Update to latest version
+annactl update
+
+# Use beta channel
+annactl check-update --beta
+annactl update --beta
+
+# Skip update check on startup
+annactl --no-update-check "your question"
 ```
 
 ## Probes
@@ -106,6 +142,18 @@ annactl probe cpu.info
 | `cpu.info` | CPU information from /proc/cpuinfo | STATIC |
 | `mem.info` | Memory usage from /proc/meminfo | VOLATILE (5s) |
 | `disk.lsblk` | Disk information from lsblk | SLOW (1h) |
+
+## Evidence Discipline
+
+Anna v0.2.0 enforces strict evidence discipline:
+
+- **Every claim must cite its source** - `[source: cpu.info]`
+- **Only registered probes allowed** - No hallucinated tools
+- **Reliability scoring** - Breakdown of confidence
+  - Evidence quality (40%)
+  - Reasoning quality (30%)
+  - Coverage (30%)
+- **Hallucination detection** - LLM-B catches unsupported claims
 
 ## LLM Model Selection
 
@@ -133,4 +181,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.0.1 - the clean room reboot. Architecture is intentionally minimal and strict.
+This is version 0.2.0 - Evidence discipline and auto-update release.
