@@ -1,11 +1,9 @@
-//! LLM Query Handler - Hybrid v7/v8 Architecture
+//! LLM Query Handler - Evidence-Based Architecture v10
 //!
-//! v7 (current default): PLAN → EXECUTE → INTERPRET - works well with local LLMs
-//! v8 (available): Pure think→answer loop - requires smarter LLMs
-//!
-//! The v8 philosophy is correct (LLM is the brain, Rust is just hands/memory),
-//! but current local LLMs (llama 3.2, etc.) aren't capable enough to follow
-//! the complex tool catalog instructions reliably.
+//! v10 (current): Evidence-based architecture with strict JSON protocol
+//! - Every answer cites evidence from tool outputs
+//! - Explicit reliability labels (HIGH/MEDIUM/LOW/VERY LOW)
+//! - Step types: decide_tool, final_answer, ask_user
 
 use anna_common::display::UI;
 use anyhow::Result;
@@ -42,7 +40,7 @@ fn create_thinking_spinner(ui: &UI) -> ProgressBar {
 
 /// Handle a one-shot query from CLI
 ///
-/// v8.0.0: Pure LLM-driven architecture - single prompt, think→answer loop
+/// v10.0.0: Evidence-based architecture with strict JSON protocol
 pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Initialize formatter with user configuration
     let config = anna_common::anna_config::AnnaConfig::load().unwrap_or_default();
@@ -65,11 +63,11 @@ pub async fn handle_one_shot_query(user_text: &str) -> Result<()> {
     // Create spinner for thinking animation
     let spinner = create_thinking_spinner(&ui);
 
-    // v8.0.0: Use LLM config with default settings
+    // v10.0.0: Use LLM config with default settings
     let llm_config = anna_common::llm_client::LlmConfig::default();
 
-    // v8: Pure LLM-driven architecture
-    match crate::query_handler_v8::handle_query_v8(
+    // v10: Evidence-based architecture
+    match crate::query_handler_v10::handle_query_v10(
         user_text,
         &telemetry,
         Some(&llm_config)

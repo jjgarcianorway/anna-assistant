@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 7.0.0**
+**Experimental Arch Linux System Assistant - Version 10.0.0**
 
-[![Version](https://img.shields.io/badge/version-7.0.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-10.0.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,66 +29,64 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 7.0.0 - Clean Brain Architecture 🧠
+## What's New in 10.0.0 - Evidence-Based Architecture 🔬
 
-### "Complete rewrite with strict data contracts"
+### "Every answer grounded in tool output evidence"
 
-**The Problem:** v6.x accumulated patches on patches. The LLM orchestration was a mess of half-hidden "planner here, interpreter there, random second call" logic.
+**The Problem:** Previous versions could answer without citing evidence. LLMs might guess or hallucinate.
 
-**The Solution:** Complete brain rewrite with strict three-phase pipeline:
+**The Solution:** Pure evidence-based architecture with strict JSON protocol:
 
-### Architecture: `brain_v7` Module
+### Architecture: `brain_v10` Module
 
 ```
-crates/anna_common/src/brain_v7/
-├── contracts.rs     # Strict data types
-├── tools.rs         # Fixed tool catalog (16 tools)
-├── prompts.rs       # Minimal LLM prompts
-└── orchestrator.rs  # PLAN → EXECUTE → INTERPRET
+crates/anna_common/src/brain_v10/
+├── contracts.rs     # EvidenceItem, StepType, ReliabilityLabel
+├── tools.rs         # Generic tool catalog (run_shell, read_file, etc.)
+├── prompt.rs        # Strong system prompt forbidding hallucination
+└── orchestrator.rs  # Evidence collection loop with fallback
 ```
 
 ### Pipeline
 
 ```
-Query → Planner LLM (JSON) → Rust validates tools → Rust executes → EvidenceBundle
-                                                          ↓
-                        ← Final answer ← Retry? ← Interpreter LLM (reliability score)
+Query → LLM decides tool → Rust executes → Evidence collected
+                                                    ↓
+               ← Answer with [E1], [E2] citations ← LLM interprets evidence
 ```
 
 ### Key Design Principles
 
-1. **Strict Data Contracts** - If JSON parsing fails, the phase fails. No partial plans.
-2. **LLM Sees Descriptions Only** - Tool catalog exposes name + description, never commands.
-3. **Rust Owns Execution** - All tools run through Rust, not shell.
-4. **Reliability Scoring** - Score 0.0-1.0, retry if < 0.8, max 1 retry.
+1. **Evidence Citations** - Every answer must cite evidence like [E1], [E2]
+2. **Reliability Labels** - Explicit scores: HIGH (0.9+), MEDIUM (0.7+), LOW (0.4+), VERY LOW
+3. **Step Types** - Strict protocol: `decide_tool`, `final_answer`, `ask_user`
+4. **No Hallucination** - LLM is forbidden from guessing; must use tool output
 
-### Tool Catalog (16 tools)
+### Generic Tool Catalog
 
-| Category | Tools |
-|----------|-------|
-| Hardware | `mem_info`, `cpu_info`, `gpu_pci` |
-| Packages | `pacman_search`, `pacman_updates`, `aur_updates`, `pacman_orphans`, `pacman_cache_size` |
-| Storage | `disk_usage`, `home_du_top`, `var_largest_files` |
-| Network | `net_interfaces`, `ip_addresses`, `dns_config` |
-| System | `kernel_info`, `uptime`, `systemd_failed`, `journal_errors` |
-| Desktop | `desktop_session` |
+| Tool | Description |
+|------|-------------|
+| `run_shell` | Execute any shell command (pacman, free, lscpu, etc.) |
+| `read_file` | Read file contents (configs, logs, /proc) |
+| `get_cached_snapshot` | Pre-collected telemetry (CPU, RAM, desktop) |
+| `list_processes` | Show running processes |
+| `list_block_devices` | Show disks and partitions |
 
 ### Working NL Queries
 
 ```bash
-annactl "how much RAM do I have"      # ✅ "You have 32 GB of RAM"
-annactl "what GPU do I have"          # ✅ "NVIDIA GeForce RTX 4060 Max-Q"
-annactl "what CPU do I have"          # ✅ "Intel Core i9-14900HX"
-annactl "is steam installed"          # ✅ "Steam is installed"
-annactl "any failed services"         # ✅ "No failed services"
-annactl "upgrade your brain"          # ✅ Step-by-step Ollama guide
+annactl "is steam installed?"         # ✅ "Yes, steam is installed [E2]."
+annactl "is firefox installed?"       # ✅ "No, firefox is not installed [E2]."
+annactl "how much RAM do I have?"     # ✅ "You have 31791 MB of RAM [E2]."
+annactl "what is my CPU?"             # ✅ "Your CPU is: Intel i9-14900HX [E2]."
+annactl "who are you?"                # ✅ Shows v10.0.0 evidence-based architecture
 ```
 
-**Status:** Complete. Clean architecture, all tests passing.
+**Status:** Complete. Evidence-based answers with explicit reliability labels.
 
 ---
 
-**Previous: 6.62.0 - Hybrid LLM Orchestration**
+**Previous: 9.0.0 - Brain Core v1.0 (Pure LLM-driven)**
 
 ---
 

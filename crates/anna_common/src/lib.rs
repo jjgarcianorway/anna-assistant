@@ -188,6 +188,8 @@ pub mod wiki_topics; // 6.23.0: Wiki topic classification
 pub mod brain_v7;
 // v8.0.0: Pure LLM-driven architecture - single prompt, single loop
 pub mod brain_v8;
+// v10.0.0: Evidence-based architecture with strict JSON protocol
+pub mod brain_v10;
 
 pub use advice_cache::*;
 pub use beautiful::*;

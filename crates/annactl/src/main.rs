@@ -34,6 +34,7 @@ mod diagnostic_formatter;
 // REMOVED in v7.0.0: planner_query_handler - replaced by query_handler_v7
 pub mod query_handler_v7; // v7.0.0: Clean brain architecture
 pub mod query_handler_v8; // v8.0.0: Pure LLM-driven architecture
+pub mod query_handler_v10; // v10.0.0: Evidence-based architecture
 mod approval_ui;
 mod net_diagnostics;
 mod dialogue_v3_json;
