@@ -186,6 +186,8 @@ pub mod wiki_topics; // 6.23.0: Wiki topic classification
 
 // v7.0.0: Clean brain architecture rewrite
 pub mod brain_v7;
+// v8.0.0: Pure LLM-driven architecture - single prompt, single loop
+pub mod brain_v8;
 
 pub use advice_cache::*;
 pub use beautiful::*;
