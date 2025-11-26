@@ -1,8 +1,8 @@
 # Anna Assistant
 
-**Experimental Arch Linux System Assistant - Version 6.59.0**
+**Experimental Arch Linux System Assistant - Version 6.60.0**
 
-[![Version](https://img.shields.io/badge/version-6.59.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
+[![Version](https://img.shields.io/badge/version-6.60.0-blue.svg)](https://github.com/jjgarcianorway/anna-assistant)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Arch%20Linux-1793d1.svg)](https://archlinux.org)
 [![Status](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/jjgarcianorway/anna-assistant)
@@ -29,44 +29,52 @@ This is an experimental CLI tool for Arch Linux system diagnostics and troublesh
 
 ---
 
-## What's New in 6.59.0 - Unified Tool Catalog & Typed Actions 🔧
+## What's New in 6.60.0 - Pure LLM Orchestration 🧠
 
-### "Ask anything about your system - and get real answers"
+### "Zero hardcoded logic - the LLM decides everything"
 
-**The Problem:** v6.58.0's strict catalog broke the NL executor - almost every query got rejected as "not in catalog" while the LLM still invented arbitrary shell commands.
+**The Problem:** v6.59.0 had hardcoded Action mappings that limited Anna's flexibility. The query→Action→Tool chain was rigid and couldn't adapt to variations in user queries.
 
-**The Solution:** Complete architectural fix with typed Action vocabulary:
+**The Solution:** Complete rewrite with pure LLM-driven orchestration:
 
-1. **Single Source of Truth** - `tooling::catalog`
-   - 🔧  `ToolId` enum with 35+ predefined tools (NO arbitrary shell)
-   - 📋  `ToolSpec` for each tool: binary, args, kind, description
-   - ✅  All tools are catalog-registered; unknown commands rejected
+1. **LLM Planner** - Selects commands from tool catalog
+   - 🧠  Query + tool catalog → LLM → Command plan
+   - 📋  Tool catalog is the single source of truth (35+ tools)
+   - ❌  No hardcoded query patterns or command mappings
 
-2. **Typed Action Vocabulary** - `tooling::actions`
-   - 📝  `Action` enum: `GetMemoryInfo`, `GetCpuInfo`, `ListGames`, etc.
-   - 🎯  NL query → Action mapping (not LLM shell generation)
-   - 🔄  Each Action maps to specific ToolIds
+2. **LLM Interpreter** - Summarizes raw output
+   - 📊  Raw command output → LLM → Human-readable answer
+   - 🔄  Fallback to raw output when summarization fails
+   - ❌  No hardcoded summarization rules
 
-3. **Unified Executor** - `tooling::executor`
-   - 🚀  All NL queries go through `ToolExecutor.execute_query()`
-   - 🧠  LLM summarizes output, doesn't generate commands
-   - ❌  No more "command not in catalog" noise
+3. **Pure Orchestrator** - Only enforces boundaries
+   - ✅  Enforces: allowed tool catalog, sandbox, result forwarding
+   - ❌  Never decides which tools to run
+   - ❌  Never interprets results (LLM does)
 
 **Working NL Queries:**
 ```bash
-annactl "how much RAM do I have"      # ✅ GetMemoryInfo → free -h
-annactl "what CPU do I have"          # ✅ GetCpuInfo → lscpu
-annactl "what GPU do I have"          # ✅ GetGpuInfo → lspci -v
-annactl "do I have any games"         # ✅ ListGames → pacman -Qs
-annactl "are there failed services"   # ✅ ListFailedServices → systemctl --failed
-annactl "any updates available"       # ✅ CheckUpdates → checkupdates
+annactl "how much RAM do I have"      # ✅ "You have 31GB of RAM available"
+annactl "what CPU do I have"          # ✅ "Intel Core i9-14900HX"
+annactl "what GPU do I have"          # ✅ "Intel Iris Xe Graphics"
+annactl "what DE am I running"        # ✅ "Xfce"
+annactl "how long has my system been up"  # ✅ "6 days and 11 hours"
+annactl "what is my IP address"       # ✅ "Your IP address is 10.0.0.2"
+annactl "any failed services"         # ✅ "There are no failed services"
 ```
 
-**Status:** Complete with 32 tests passing. NL queries now work reliably.
+**Architecture:**
+```
+Query → LLM Planner → Command Plan → Executor → Raw Output → LLM Interpreter → Answer
+         ↓                                                       ↓
+    Tool Catalog                                           Summarization
+```
+
+**Status:** Complete. LLM quality depends on local model (llama3.2:3b recommended).
 
 ---
 
-**Previous: 6.58.0 - Toolchain Reality Lock (broke NL executor)**
+**Previous: 6.59.0 - Unified Tool Catalog & Typed Actions**
 
 ---
 

@@ -1,4 +1,4 @@
-//! Tool Catalog - v6.59.0
+//! Tool Catalog - v6.60.0
 //!
 //! Defines ALL tools Anna can execute. This is the single source of truth.
 //! The LLM cannot invent commands - it can only select from this catalog.
