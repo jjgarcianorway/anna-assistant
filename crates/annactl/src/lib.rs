@@ -33,7 +33,7 @@ pub mod system_report;
 pub mod systemd;
 pub mod telemetry_truth;
 pub mod unified_query_handler;
-pub mod planner_query_handler; // v6.57.0: THE unified pipeline
+// REMOVED in v7.0.0: planner_query_handler - replaced by query_handler_v7
 pub mod query_handler_v7; // v7.0.0: Clean brain architecture
 pub mod intent_router; // Intent classification
 pub mod approval_ui; // v6.43.0: User approval for plans

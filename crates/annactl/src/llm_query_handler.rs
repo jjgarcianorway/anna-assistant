@@ -102,8 +102,8 @@ mod tests {
 
     #[test]
     fn test_single_pipeline_architecture() {
-        // v6.57.0: Verify we're using single pipeline
+        // v7.0.0: Verify we're using brain_v7 pipeline
         // This test exists to document the architecture choice
-        assert!(true, "All queries go through planner_query_handler");
+        assert!(true, "All queries go through query_handler_v7 (brain_v7)");
     }
 }

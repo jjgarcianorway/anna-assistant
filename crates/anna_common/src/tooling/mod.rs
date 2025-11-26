@@ -1,24 +1,17 @@
-//! Tooling - v6.62.0 Hybrid LLM Orchestration
+//! Tooling - v7.0.0 Clean Tool Catalog
 //!
 //! Single source of truth for all tools Anna can execute.
-//! Rust orchestrator controls the loop, LLM follows strict contract.
+//! v7.0.0: Moved orchestration to brain_v7 module.
 //!
-//! v6.62.0: Hybrid architecture with reliability scoring
+//! This module now provides:
 //! - Tool catalog defines WHAT tools exist
-//! - LLM planner outputs structured plan (subtasks, tool_calls, expected_evidence)
-//! - Rust executes tools and collects EvidenceBundle
-//! - LLM interpreter produces answer with reliability score
-//! - Rust retries if reliability < 0.8 (up to 2 times)
+//! - Tool executor runs individual tools
+//! - Actions map high-level intents to tool sequences
 
 pub mod catalog;
 pub mod actions;
 pub mod executor;
-pub mod llm_orchestrator;
 
 pub use catalog::{ToolId, ToolSpec, ToolKind, ToolResult, tool_catalog, get_tool};
 pub use actions::{Action, ActionResult, map_action_to_tools};
 pub use executor::{ToolExecutor, ExecutionError};
-pub use llm_orchestrator::{
-    LlmOrchestrator, OrchestrationResult, PlannerOutput, EvidenceBundle,
-    InterpreterOutput, ReliabilityScore, get_tool_catalog_for_llm
-};
