@@ -1,8 +1,9 @@
-//! Anna Brain v10.1.0 - Orchestrator
+//! Anna Brain v10.2.0 - Orchestrator
 //!
-//! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER
+//! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER → LEARN
 //! Max 8 iterations. Evidence-based answers. Explicit reliability labels.
 //!
+//! v10.2.0: "No hardcoding, learn from host" philosophy with STATIC/SLOW/VOLATILE
 //! v10.1.0: Anna learns from her observations - facts are cached and reused
 //! v10.0.2: Focus on proper LLM dialog - let the LLM work through iterations
 
@@ -48,7 +49,11 @@ impl BrainOrchestrator {
     pub fn new(config: LlmConfig) -> Result<Self> {
         let llm_client = HttpLlmClient::new(config)?;
         let tool_catalog = ToolCatalog::new();
-        let facts_db = LearnedFactsDb::load();
+        let mut facts_db = LearnedFactsDb::load();
+
+        // v10.2.0: Check for invalidation triggers on startup
+        // This handles boot changes and pacman.log modifications
+        facts_db.check_and_invalidate();
 
         Ok(Self {
             llm_client,

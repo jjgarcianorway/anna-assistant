@@ -1,38 +1,12 @@
-//! Anna Brain v10.0.0 - System Prompt
+//! Anna Brain v10.2.0 - System Prompt
 //!
-//! Simplified prompt that local LLMs can actually follow.
-//! Key: Be extremely directive with specific examples.
+//! The key philosophy: Learn from THIS machine, never hardcode.
+//! Evidence is the single source of truth.
 
 use crate::brain_v10::contracts::{BrainSession, EvidenceItem};
 
-/// The system prompt - simplified for local LLMs
-pub const SYSTEM_PROMPT: &str = r#"You are Anna, an Arch Linux assistant. Answer questions using shell commands.
-
-RESPOND WITH JSON ONLY. Two formats:
-
-1. To run a command:
-{"step_type":"decide_tool","tool_request":{"tool":"run_shell","arguments":{"command":"COMMAND"},"why":"WHY"},"answer":null,"evidence_refs":[],"reliability":0.0,"reasoning":"need data"}
-
-2. To give an answer (after seeing command output in evidence):
-{"step_type":"final_answer","tool_request":null,"answer":"ANSWER [E1]","evidence_refs":["E1"],"reliability":0.9,"reasoning":"WHY"}
-
-COMMON COMMANDS:
-- RAM: free -h
-- CPU: lscpu
-- disk: df -h
-- GPU: lspci | grep -i vga
-- package check: pacman -Qs PACKAGE
-- orphans: pacman -Qdt
-- updates: checkupdates
-- network: ip link show; nmcli device status
-- DNS: cat /etc/resolv.conf
-- big folders: du -sh ~/*/ 2>/dev/null | sort -rh | head -10
-
-RULES:
-1. No evidence yet? Use decide_tool to run a command
-2. Have evidence? Use final_answer citing [E1], [E2]
-3. Empty pacman output = package not installed
-4. Never guess. Only use command output."#;
+// Re-export the full system prompt from the dedicated module
+pub use crate::brain_v10::system_prompt::SYSTEM_PROMPT_V102 as SYSTEM_PROMPT;
 
 /// Build the state message for the LLM - with clear guidance
 pub fn build_state_message(session: &BrainSession) -> String {

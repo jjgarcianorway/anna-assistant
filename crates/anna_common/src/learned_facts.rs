@@ -1,8 +1,16 @@
-//! Anna Learned Facts - v10.1.0
+//! Anna Learned Facts - v10.2.0
 //!
 //! Anna learns from her observations and caches interpreted facts.
-//! Facts have freshness rules based on their nature - some rarely change,
-//! others are volatile and need frequent refresh.
+//! Facts have stability classes based on their nature:
+//!
+//! - STATIC: Hardware that almost never changes (CPU, GPU, RAM)
+//!   Refresh only on boot or if hardware change detected
+//!
+//! - SLOW: System config that rarely changes (kernel, packages, DE/WM)
+//!   Refresh on pacman operations or daily
+//!
+//! - VOLATILE: Dynamic state that changes constantly (network, processes, disk usage)
+//!   Always fetch fresh, do not cache long-term
 //!
 //! This enables Anna to get smarter over time without hardcoding.
 
@@ -12,33 +20,49 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-/// How often a fact type needs to be refreshed
+/// Stability class for learned facts (ChatGPT specification)
+///
+/// Maps to the "learn from the host, grow with telemetry" philosophy:
+/// - STATIC: Hardware model, CPU flags, GPU model, audio devices, partition layout
+/// - SLOW: Installed packages, DE, WM, game libraries, config paths
+/// - VOLATILE: Free RAM, WiFi quality, DNS servers, temperature, load averages
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FreshnessTier {
-    /// Almost never changes (CPU model, GPU model) - refresh on boot only
+pub enum StabilityClass {
+    /// Hardware facts - refresh only on boot or hardware change detection
+    /// Examples: CPU model, GPU model, total RAM, CPU flags (SSE/AVX)
     Static,
-    /// Rarely changes (total RAM, kernel version) - refresh daily or on boot
-    Stable,
-    /// Changes occasionally (installed packages) - refresh on pacman events or hourly
-    Moderate,
-    /// Changes frequently (disk usage, memory usage) - refresh every 10 minutes
-    Dynamic,
-    /// Very volatile (network status, process list) - always fetch fresh
+
+    /// System/package facts - refresh on pacman events or daily
+    /// Examples: installed packages, kernel version, DE/WM, config paths
+    Slow,
+
+    /// Dynamic state - always fetch fresh, short-term cache only
+    /// Examples: free RAM, disk usage, network status, temperatures
     Volatile,
 }
 
-impl FreshnessTier {
-    /// Get the maximum age for this tier before refresh is needed
+impl StabilityClass {
+    /// Get the maximum age for this class before refresh is needed
     pub fn max_age(&self) -> Duration {
         match self {
-            FreshnessTier::Static => Duration::days(30),
-            FreshnessTier::Stable => Duration::days(1),
-            FreshnessTier::Moderate => Duration::hours(1),
-            FreshnessTier::Dynamic => Duration::minutes(10),
-            FreshnessTier::Volatile => Duration::seconds(0), // Always refresh
+            StabilityClass::Static => Duration::days(30),   // Refresh on boot
+            StabilityClass::Slow => Duration::days(1),      // Refresh on pacman or daily
+            StabilityClass::Volatile => Duration::minutes(5), // Short cache
+        }
+    }
+
+    /// Get display name
+    pub fn display(&self) -> &'static str {
+        match self {
+            StabilityClass::Static => "STATIC",
+            StabilityClass::Slow => "SLOW",
+            StabilityClass::Volatile => "VOLATILE",
         }
     }
 }
+
+// Backward compatibility alias
+pub type FreshnessTier = StabilityClass;
 
 /// Categories of facts Anna can learn
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -87,51 +111,52 @@ pub enum FactCategory {
 }
 
 impl FactCategory {
-    /// Get the freshness tier for this category
-    pub fn freshness_tier(&self) -> FreshnessTier {
+    /// Get the stability class for this category (v10.2.0)
+    /// Uses the ChatGPT specification: STATIC / SLOW / VOLATILE
+    pub fn stability_class(&self) -> StabilityClass {
         match self {
-            // Hardware - almost never changes
-            FactCategory::CpuModel => FreshnessTier::Static,
-            FactCategory::CpuCores => FreshnessTier::Static,
-            FactCategory::CpuThreads => FreshnessTier::Static,
-            FactCategory::CpuFeatures => FreshnessTier::Static,
-            FactCategory::GpuModel => FreshnessTier::Static,
-            FactCategory::TotalRam => FreshnessTier::Static,
-            FactCategory::MachineType => FreshnessTier::Static,
+            // STATIC: Hardware that almost never changes
+            // Refresh only on boot or hardware change detection
+            FactCategory::CpuModel => StabilityClass::Static,
+            FactCategory::CpuCores => StabilityClass::Static,
+            FactCategory::CpuThreads => StabilityClass::Static,
+            FactCategory::CpuFeatures => StabilityClass::Static, // SSE/AVX flags
+            FactCategory::GpuModel => StabilityClass::Static,
+            FactCategory::TotalRam => StabilityClass::Static,
+            FactCategory::MachineType => StabilityClass::Static,
 
-            // System - rarely changes
-            FactCategory::KernelVersion => FreshnessTier::Stable,
-            FactCategory::ArchVersion => FreshnessTier::Stable,
-            FactCategory::Hostname => FreshnessTier::Stable,
+            // SLOW: System config that changes on updates/reboots
+            // Refresh on pacman operations or daily
+            FactCategory::KernelVersion => StabilityClass::Slow,
+            FactCategory::ArchVersion => StabilityClass::Slow,
+            FactCategory::Hostname => StabilityClass::Slow,
+            FactCategory::DesktopEnvironment => StabilityClass::Slow,
+            FactCategory::WindowManager => StabilityClass::Slow,
+            FactCategory::DisplayServer => StabilityClass::Slow,
+            FactCategory::InstalledPackage(_) => StabilityClass::Slow,
+            FactCategory::OrphanPackages => StabilityClass::Slow,
+            FactCategory::PendingUpdates => StabilityClass::Slow,
+            FactCategory::FailedServices => StabilityClass::Slow,
+            FactCategory::DnsServers => StabilityClass::Slow, // DNS config rarely changes
 
-            // Desktop - changes on login/session
-            FactCategory::DesktopEnvironment => FreshnessTier::Moderate,
-            FactCategory::WindowManager => FreshnessTier::Moderate,
-            FactCategory::DisplayServer => FreshnessTier::Moderate,
+            // VOLATILE: Dynamic state that changes constantly
+            // Always fetch fresh, short-term cache only
+            FactCategory::DiskUsageRoot => StabilityClass::Volatile,
+            FactCategory::DiskUsageHome => StabilityClass::Volatile,
+            FactCategory::LargestFoldersHome => StabilityClass::Volatile,
+            FactCategory::LargestFoldersVar => StabilityClass::Volatile,
+            FactCategory::PacmanCacheSize => StabilityClass::Volatile,
+            FactCategory::NetworkInterface => StabilityClass::Volatile,
+            FactCategory::WifiStatus => StabilityClass::Volatile,
 
-            // Packages - moderate, invalidate on pacman
-            FactCategory::InstalledPackage(_) => FreshnessTier::Moderate,
-            FactCategory::OrphanPackages => FreshnessTier::Moderate,
-            FactCategory::PendingUpdates => FreshnessTier::Moderate,
-
-            // Storage - dynamic
-            FactCategory::DiskUsageRoot => FreshnessTier::Dynamic,
-            FactCategory::DiskUsageHome => FreshnessTier::Dynamic,
-            FactCategory::LargestFoldersHome => FreshnessTier::Dynamic,
-            FactCategory::LargestFoldersVar => FreshnessTier::Dynamic,
-            FactCategory::PacmanCacheSize => FreshnessTier::Dynamic,
-
-            // Network - volatile
-            FactCategory::NetworkInterface => FreshnessTier::Volatile,
-            FactCategory::DnsServers => FreshnessTier::Moderate, // DNS config doesn't change often
-            FactCategory::WifiStatus => FreshnessTier::Volatile,
-
-            // Services
-            FactCategory::FailedServices => FreshnessTier::Moderate,
-
-            // Custom - default to moderate
-            FactCategory::Custom(_) => FreshnessTier::Moderate,
+            // Custom - default to SLOW
+            FactCategory::Custom(_) => StabilityClass::Slow,
         }
+    }
+
+    /// Backward compatibility alias
+    pub fn freshness_tier(&self) -> FreshnessTier {
+        self.stability_class()
     }
 
     /// Get a human-readable name for this category
@@ -225,8 +250,9 @@ impl LearnedFact {
 
     /// Check if this fact needs refresh due to boot
     pub fn needs_boot_refresh(&self) -> bool {
-        match self.category.freshness_tier() {
-            FreshnessTier::Static | FreshnessTier::Stable => {
+        match self.category.stability_class() {
+            // STATIC facts (hardware) should refresh on boot
+            StabilityClass::Static => {
                 // Check if boot ID changed
                 if let (Some(fact_boot), Some(current_boot)) = (&self.boot_id, get_current_boot_id()) {
                     fact_boot != &current_boot
@@ -234,6 +260,7 @@ impl LearnedFact {
                     false
                 }
             }
+            // SLOW and VOLATILE don't need boot-based refresh
             _ => false,
         }
     }
@@ -365,12 +392,14 @@ impl LearnedFactsDb {
         None
     }
 
-    /// Invalidate all package-related facts
+    /// Invalidate all SLOW facts (package-related, session, etc.)
+    /// Call this after pacman/yay operations
     pub fn invalidate_packages(&mut self) {
         let keys_to_remove: Vec<String> = self.facts.keys()
             .filter(|k| k.starts_with("pkg:") ||
                        k.contains("Orphan") ||
-                       k.contains("Update"))
+                       k.contains("Update") ||
+                       k.contains("Kernel"))  // Kernel might change on update
             .cloned()
             .collect();
 
@@ -381,7 +410,7 @@ impl LearnedFactsDb {
         let _ = self.save();
     }
 
-    /// Invalidate facts that depend on current session
+    /// Invalidate facts that depend on current session (DE/WM)
     pub fn invalidate_session(&mut self) {
         let session_categories = [
             "DesktopEnvironment",
@@ -393,6 +422,105 @@ impl LearnedFactsDb {
             self.facts.remove(cat);
         }
         let _ = self.save();
+    }
+
+    /// Invalidate all VOLATILE facts (network, disk usage)
+    /// These should be refreshed frequently anyway
+    pub fn invalidate_volatile(&mut self) {
+        let volatile_patterns = [
+            "DiskUsage", "Largest", "Network", "Wifi", "Cache",
+        ];
+
+        let keys_to_remove: Vec<String> = self.facts.keys()
+            .filter(|k| volatile_patterns.iter().any(|p| k.contains(p)))
+            .cloned()
+            .collect();
+
+        for key in keys_to_remove {
+            self.facts.remove(&key);
+        }
+        let _ = self.save();
+    }
+
+    /// Invalidate all facts on boot (new boot_id detected)
+    /// STATIC facts get refreshed, SLOW facts get refreshed
+    pub fn invalidate_on_boot(&mut self) {
+        let current_boot = get_current_boot_id();
+
+        // Check if any fact has a different boot_id
+        let needs_refresh: Vec<String> = self.facts.iter()
+            .filter(|(_, fact)| {
+                // STATIC facts refresh on boot
+                if fact.category.stability_class() == StabilityClass::Static {
+                    if let (Some(fact_boot), Some(ref curr)) = (&fact.boot_id, &current_boot) {
+                        return fact_boot != curr;
+                    }
+                }
+                false
+            })
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        for key in needs_refresh {
+            self.facts.remove(&key);
+        }
+
+        // Also refresh session-related facts on boot
+        self.invalidate_session();
+        let _ = self.save();
+    }
+
+    /// Invalidate by stability class
+    pub fn invalidate_by_class(&mut self, class: StabilityClass) {
+        let keys_to_remove: Vec<String> = self.facts.iter()
+            .filter(|(_, fact)| fact.category.stability_class() == class)
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        for key in keys_to_remove {
+            self.facts.remove(&key);
+        }
+        let _ = self.save();
+    }
+
+    /// Check if we should refresh based on detected changes
+    /// Returns true if any invalidation was performed
+    pub fn check_and_invalidate(&mut self) -> bool {
+        let mut invalidated = false;
+
+        // Check for boot change
+        let current_boot = get_current_boot_id();
+        let has_stale_static = self.facts.values().any(|f| {
+            if f.category.stability_class() == StabilityClass::Static {
+                if let (Some(fact_boot), Some(ref curr)) = (&f.boot_id, &current_boot) {
+                    return fact_boot != curr;
+                }
+            }
+            false
+        });
+
+        if has_stale_static {
+            self.invalidate_on_boot();
+            invalidated = true;
+        }
+
+        // Check for pacman.log changes (simple heuristic)
+        if let Ok(meta) = fs::metadata("/var/log/pacman.log") {
+            if let Ok(modified) = meta.modified() {
+                let modified_time = DateTime::<Utc>::from(modified);
+                if let Some(last_op) = self.last_pacman_operation {
+                    if modified_time > last_op {
+                        self.invalidate_packages();
+                        invalidated = true;
+                    }
+                } else {
+                    // First time - record the current time
+                    self.last_pacman_operation = Some(Utc::now());
+                }
+            }
+        }
+
+        invalidated
     }
 
     /// Get all facts for display
@@ -607,10 +735,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_freshness_tiers() {
-        assert!(FreshnessTier::Static.max_age() > FreshnessTier::Stable.max_age());
-        assert!(FreshnessTier::Stable.max_age() > FreshnessTier::Moderate.max_age());
-        assert!(FreshnessTier::Volatile.max_age() == Duration::seconds(0));
+    fn test_stability_classes() {
+        // STATIC > SLOW > VOLATILE in terms of max_age
+        assert!(StabilityClass::Static.max_age() > StabilityClass::Slow.max_age());
+        assert!(StabilityClass::Slow.max_age() > StabilityClass::Volatile.max_age());
+    }
+
+    #[test]
+    fn test_category_stability() {
+        // Hardware facts should be STATIC
+        assert_eq!(FactCategory::CpuModel.stability_class(), StabilityClass::Static);
+        assert_eq!(FactCategory::GpuModel.stability_class(), StabilityClass::Static);
+        assert_eq!(FactCategory::CpuFeatures.stability_class(), StabilityClass::Static);
+
+        // Package facts should be SLOW
+        assert_eq!(
+            FactCategory::InstalledPackage("steam".to_string()).stability_class(),
+            StabilityClass::Slow
+        );
+
+        // Disk usage should be VOLATILE
+        assert_eq!(FactCategory::DiskUsageRoot.stability_class(), StabilityClass::Volatile);
     }
 
     #[test]
@@ -634,5 +779,12 @@ Swap:             0B          0B          0B";
 
         let fact = FactLearner::learn_ram_from_free(output).unwrap();
         assert_eq!(fact.value, "31Gi");
+    }
+
+    #[test]
+    fn test_stability_display() {
+        assert_eq!(StabilityClass::Static.display(), "STATIC");
+        assert_eq!(StabilityClass::Slow.display(), "SLOW");
+        assert_eq!(StabilityClass::Volatile.display(), "VOLATILE");
     }
 }
