@@ -28,7 +28,7 @@ pub async fn handle_query_v10(
     };
 
     // Create orchestrator and process
-    let orchestrator = BrainOrchestrator::new(config)?;
+    let mut orchestrator = BrainOrchestrator::new(config)?;
 
     match orchestrator.process(query, telemetry, None)? {
         BrainResult::Answer { text, reliability, label } => {
@@ -52,7 +52,7 @@ pub async fn handle_query_v10_with_context(
         _ => return Ok(format_no_llm_message()),
     };
 
-    let orchestrator = BrainOrchestrator::new(config)?;
+    let mut orchestrator = BrainOrchestrator::new(config)?;
 
     match orchestrator.process(query, telemetry, Some(user_context))? {
         BrainResult::Answer { text, reliability, label } => {

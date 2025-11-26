@@ -120,6 +120,7 @@ pub mod knowledge_export; // v6.55.1: Knowledge export
 pub mod knowledge_import; // v6.55.1: Knowledge import
 pub mod knowledge_pruning; // v6.55.1: Knowledge pruning
 pub mod self_stats; // v6.56.0: Self statistics
+pub mod learned_facts; // v10.1.0: Learned Facts - Anna gets smarter over time
 
 pub mod ignore_filters;
 pub mod initramfs; // Initramfs configuration detection

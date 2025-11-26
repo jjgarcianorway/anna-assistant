@@ -1,8 +1,9 @@
-//! Anna Brain v10.0.2 - Orchestrator
+//! Anna Brain v10.1.0 - Orchestrator
 //!
 //! The main loop: INPUT → LLM → TOOL REQUESTS → TOOL OUTPUT → LLM → ANSWER
 //! Max 8 iterations. Evidence-based answers. Explicit reliability labels.
 //!
+//! v10.1.0: Anna learns from her observations - facts are cached and reused
 //! v10.0.2: Focus on proper LLM dialog - let the LLM work through iterations
 
 use crate::brain_v10::contracts::{
@@ -11,6 +12,7 @@ use crate::brain_v10::contracts::{
 use crate::brain_v10::fallback::try_fallback_answer;
 use crate::brain_v10::prompt::{build_state_message, suggest_command_for_query, SYSTEM_PROMPT, OUTPUT_SCHEMA};
 use crate::brain_v10::tools::{execute_tool, ToolCatalog};
+use crate::learned_facts::{FactCategory, FactLearner, LearnedFact, LearnedFactsDb};
 use crate::llm_client::{HttpLlmClient, LlmClient, LlmConfig};
 use crate::telemetry::SystemTelemetry;
 use anyhow::Result;
@@ -38,6 +40,7 @@ pub enum BrainResult {
 pub struct BrainOrchestrator {
     llm_client: HttpLlmClient,
     tool_catalog: ToolCatalog,
+    facts_db: LearnedFactsDb,
 }
 
 impl BrainOrchestrator {
@@ -45,16 +48,18 @@ impl BrainOrchestrator {
     pub fn new(config: LlmConfig) -> Result<Self> {
         let llm_client = HttpLlmClient::new(config)?;
         let tool_catalog = ToolCatalog::new();
+        let facts_db = LearnedFactsDb::load();
 
         Ok(Self {
             llm_client,
             tool_catalog,
+            facts_db,
         })
     }
 
     /// Process a query through the brain loop
     pub fn process(
-        &self,
+        &mut self,
         query: &str,
         telemetry: &SystemTelemetry,
         user_context: Option<&str>,
@@ -81,24 +86,35 @@ impl BrainOrchestrator {
             session.add_evidence("user_input", "User-provided information", ctx, 0);
         }
 
+        // v10.1.0: Check for relevant learned facts before running commands
+        self.inject_learned_facts(query, &mut session);
+
         // v10.0.1: Pre-run fallback command if we have one for this query type
-        // This ensures we have evidence even if LLM fails to request the right tool
-        if let Some(fallback_cmd) = suggest_command_for_query(query) {
-            let output = execute_tool(
-                "run_shell",
-                &std::collections::HashMap::from([("command".to_string(), fallback_cmd.to_string())]),
-                Some(&session.telemetry),
-            );
-            session.add_evidence(
-                "run_shell",
-                &format!("Pre-fetched: {}", fallback_cmd),
-                if output.stdout.is_empty() && !output.stderr.is_empty() {
+        // Only if we don't already have fresh facts for this query
+        if session.evidence.len() < 3 { // Only telemetry + maybe user context
+            if let Some(fallback_cmd) = suggest_command_for_query(query) {
+                let output = execute_tool(
+                    "run_shell",
+                    &std::collections::HashMap::from([("command".to_string(), fallback_cmd.to_string())]),
+                    Some(&session.telemetry),
+                );
+
+                let output_content = if output.stdout.is_empty() && !output.stderr.is_empty() {
                     &output.stderr
                 } else {
                     &output.stdout
-                },
-                output.exit_code,
-            );
+                };
+
+                session.add_evidence(
+                    "run_shell",
+                    &format!("Pre-fetched: {}", fallback_cmd),
+                    output_content,
+                    output.exit_code,
+                );
+
+                // v10.1.0: Learn from this output
+                self.learn_from_output(fallback_cmd, output_content, output.exit_code);
+            }
         }
 
         // Main loop
@@ -192,18 +208,25 @@ impl BrainOrchestrator {
                             Some(&session.telemetry),
                         );
 
+                        let output_content = if output.stdout.is_empty() && !output.stderr.is_empty() {
+                            output.stderr.clone()
+                        } else {
+                            output.stdout.clone()
+                        };
+
                         // Add result as evidence
                         let description = req.why.clone();
                         session.add_evidence(
                             &req.tool,
                             &description,
-                            if output.stdout.is_empty() && !output.stderr.is_empty() {
-                                &output.stderr
-                            } else {
-                                &output.stdout
-                            },
+                            &output_content,
                             output.exit_code,
                         );
+
+                        // v10.1.0: Learn from this output
+                        if let Some(cmd) = req.arguments.get("command") {
+                            self.learn_from_output(cmd, &output_content, output.exit_code);
+                        }
                     } else {
                         // LLM said decide_tool but no request - use fallback
                         if let Some(fallback) = try_fallback_answer(query, &session) {
@@ -253,6 +276,76 @@ impl BrainOrchestrator {
             "desktop_environment": telemetry.desktop.as_ref().and_then(|d| d.de_name.clone()),
             "display_server": telemetry.desktop.as_ref().and_then(|d| d.display_server.clone()),
         })
+    }
+
+    /// v10.1.0: Inject relevant learned facts as evidence
+    fn inject_learned_facts(&mut self, query: &str, session: &mut BrainSession) {
+        let q = query.to_lowercase();
+
+        // Map query patterns to fact categories
+        let relevant_categories: Vec<FactCategory> = if q.contains("ram") || q.contains("memory") {
+            vec![FactCategory::TotalRam]
+        } else if q.contains("cpu") || q.contains("processor") {
+            vec![FactCategory::CpuModel, FactCategory::CpuCores, FactCategory::CpuThreads]
+        } else if q.contains("sse") || q.contains("avx") {
+            vec![FactCategory::CpuFeatures]
+        } else if q.contains("gpu") || q.contains("graphics") {
+            vec![FactCategory::GpuModel]
+        } else if q.contains("disk") || q.contains("space") {
+            vec![FactCategory::DiskUsageRoot, FactCategory::DiskUsageHome]
+        } else if q.contains("kernel") {
+            vec![FactCategory::KernelVersion]
+        } else {
+            vec![]
+        };
+
+        // Inject fresh facts as evidence
+        for category in relevant_categories {
+            if let Some(fact) = self.facts_db.use_fact(&category) {
+                session.add_evidence(
+                    "learned_fact",
+                    &format!("Cached: {} (learned {})",
+                        category.display_name(),
+                        fact.learned_at.format("%Y-%m-%d %H:%M")),
+                    &format!("{}\n\nSource: {}", fact.value, fact.evidence),
+                    0, // Success
+                );
+            }
+        }
+    }
+
+    /// v10.1.0: Learn from command output
+    fn learn_from_output(&mut self, command: &str, output: &str, exit_code: i32) {
+        if exit_code != 0 || output.trim().is_empty() {
+            return; // Don't learn from failed or empty commands
+        }
+
+        // Learn based on command type
+        if command.contains("lscpu") {
+            let facts = FactLearner::learn_cpu_from_lscpu(output);
+            for fact in facts {
+                self.facts_db.learn(fact);
+            }
+        } else if command.contains("free") {
+            if let Some(fact) = FactLearner::learn_ram_from_free(output) {
+                self.facts_db.learn(fact);
+            }
+        } else if command.contains("lspci") && (command.contains("vga") || command.contains("3d")) {
+            if let Some(fact) = FactLearner::learn_gpu_from_lspci(output) {
+                self.facts_db.learn(fact);
+            }
+        } else if command.contains("df -h") {
+            let facts = FactLearner::learn_disk_from_df(output);
+            for fact in facts {
+                self.facts_db.learn(fact);
+            }
+        } else if command.starts_with("pacman -Qs") {
+            // Extract package name from command
+            if let Some(pkg) = command.strip_prefix("pacman -Qs ").map(|s| s.trim()) {
+                let fact = FactLearner::learn_package_from_pacman(pkg, output);
+                self.facts_db.learn(fact);
+            }
+        }
     }
 
     /// Parse the LLM response into BrainStep
@@ -352,6 +445,7 @@ mod tests {
         BrainOrchestrator {
             llm_client: HttpLlmClient::new(LlmConfig::default()).unwrap(),
             tool_catalog: ToolCatalog::new(),
+            facts_db: LearnedFactsDb::new(),
         }
     }
 

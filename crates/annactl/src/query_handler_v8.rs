@@ -34,7 +34,7 @@ pub async fn handle_query_v8(
     };
 
     // Create orchestrator and process
-    let orchestrator = BrainOrchestrator::new(config)?;
+    let mut orchestrator = BrainOrchestrator::new(config)?;
 
     match orchestrator.process(query, telemetry, None)? {
         BrainResult::Answer { text, reliability: _ } => Ok(text),
@@ -57,7 +57,7 @@ pub async fn handle_query_v8_with_context(
         _ => return Ok("LLM not configured".to_string()),
     };
 
-    let orchestrator = BrainOrchestrator::new(config)?;
+    let mut orchestrator = BrainOrchestrator::new(config)?;
 
     match orchestrator.process(query, telemetry, Some(user_context))? {
         BrainResult::Answer { text, reliability: _ } => Ok(text),
