@@ -149,12 +149,13 @@ fn plan_config_repair(component: &ComponentHealth) -> Option<RepairPlan> {
         if let Some(details) = &component.details {
             if let Some(errors) = details.get("parse_errors") {
                 if errors.as_array().is_some_and(|a| !a.is_empty()) {
-                    // Syntax error - can't auto-fix
+                    // Syntax error - can't auto-fix (requires sudo to edit /etc/anna)
                     return Some(RepairPlan {
                         action: RepairAction::RegenerateConfig,
                         safety: RepairSafety::WarnOnly,
                         description: "Fix config syntax (will reset to defaults)".to_string(),
-                        command: "rm ~/.config/anna/config.toml && annactl --version".to_string(),
+                        command: "sudo rm /etc/anna/config.toml && sudo systemctl restart annad"
+                            .to_string(),
                         target_component: "config".to_string(),
                     });
                 }

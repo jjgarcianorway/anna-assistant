@@ -8,12 +8,12 @@
 
 /// The 6 REAL probe IDs that actually exist - DO NOT ADD MORE
 pub const ALLOWED_PROBE_IDS: &[&str] = &[
-    "cpu.info",      // lscpu style JSON
-    "mem.info",      // /proc/meminfo text
-    "disk.lsblk",    // lsblk -J JSON
-    "hardware.gpu",  // GPU presence/model
-    "drivers.gpu",   // GPU driver stack
-    "hardware.ram",  // RAM summary
+    "cpu.info",     // lscpu style JSON
+    "mem.info",     // /proc/meminfo text
+    "disk.lsblk",   // lsblk -J JSON
+    "hardware.gpu", // GPU presence/model
+    "drivers.gpu",  // GPU driver stack
+    "hardware.ram", // RAM summary
 ];
 
 pub const LLM_A_SYSTEM_PROMPT: &str = r#"You are Anna's Planner/Answerer (LLM-A) v0.14.0.
@@ -268,8 +268,7 @@ mod tests {
 
     #[test]
     fn test_prompt_contains_strict_rules() {
-        assert!(LLM_A_SYSTEM_PROMPT
-            .contains("If there is no probe for a fact, you do NOT know it"));
+        assert!(LLM_A_SYSTEM_PROMPT.contains("If there is no probe for a fact, you do NOT know it"));
         assert!(LLM_A_SYSTEM_PROMPT.contains("PROBES THAT DO NOT EXIST"));
         assert!(LLM_A_SYSTEM_PROMPT.contains("NEVER fabricate"));
     }

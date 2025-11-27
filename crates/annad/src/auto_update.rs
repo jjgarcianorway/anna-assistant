@@ -235,8 +235,8 @@ impl AutoUpdateScheduler {
 
             if name == "annad" || name == "annactl" {
                 let dest = temp_dir.path().join(&name);
-                let mut file = fs::File::create(&dest)
-                    .context(format!("Failed to create {}", name))?;
+                let mut file =
+                    fs::File::create(&dest).context(format!("Failed to create {}", name))?;
                 std::io::copy(&mut entry, &mut file)
                     .context(format!("Failed to extract {}", name))?;
                 fs::set_permissions(&dest, fs::Permissions::from_mode(0o755))?;

@@ -19,12 +19,8 @@ use std::time::Duration;
 const DAEMON_URL: &str = "http://127.0.0.1:7865";
 /// Ollama endpoint
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
-/// Config file path
+/// Config file path (system-wide only, v0.15.0)
 const CONFIG_PATH: &str = "/etc/anna/config.toml";
-/// User config path
-fn user_config_path() -> Option<std::path::PathBuf> {
-    dirs::config_dir().map(|p| p.join("anna/config.toml"))
-}
 
 /// Check if annad daemon is running and responding
 pub fn check_daemon() -> ComponentHealth {
@@ -307,19 +303,7 @@ pub fn check_permissions() -> ComponentHealth {
         }
     }
 
-    // Also check user config directory
-    if let Some(user_config) = user_config_path() {
-        if let Some(parent) = user_config.parent() {
-            if !parent.exists() {
-                // This is fine - will be created on first use
-            } else if fs::metadata(parent)
-                .map(|m| m.permissions().readonly())
-                .unwrap_or(true)
-            {
-                issues.push(format!("{} is read-only", parent.display()));
-            }
-        }
-    }
+    // v0.15.0: Only system config at /etc/anna, no user config directory
 
     if issues.is_empty() {
         ComponentHealth {
@@ -356,41 +340,27 @@ pub fn check_permissions() -> ComponentHealth {
 }
 
 /// Check if configuration file is valid
+/// v0.15.0: Only system config at /etc/anna/config.toml
 pub fn check_config() -> ComponentHealth {
-    // Check system config first
     let system_config = Path::new(CONFIG_PATH);
-    let user_config = user_config_path();
 
-    let configs_found: Vec<String> = [
-        system_config.exists().then(|| CONFIG_PATH.to_string()),
-        user_config
-            .as_ref()
-            .filter(|p| p.exists())
-            .map(|p| p.display().to_string()),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-
-    if configs_found.is_empty() {
+    if !system_config.exists() {
         return ComponentHealth {
             name: "config".to_string(),
             status: ComponentStatus::Degraded,
             message: "No config file found (using defaults)".to_string(),
             details: Some(serde_json::json!({
-                "searched": [CONFIG_PATH, user_config.map(|p| p.display().to_string())],
-                "suggestion": "Run 'annactl' to generate default config"
+                "path": CONFIG_PATH,
+                "suggestion": "Config will be created by installer at /etc/anna/config.toml"
             })),
         };
     }
 
-    // Try to parse configs
+    // Try to parse config
     let mut parse_errors = Vec::new();
-    for config_path in &configs_found {
-        if let Ok(content) = fs::read_to_string(config_path) {
-            if let Err(e) = content.parse::<toml::Table>() {
-                parse_errors.push(format!("{}: {}", config_path, e));
-            }
+    if let Ok(content) = fs::read_to_string(system_config) {
+        if let Err(e) = content.parse::<toml::Table>() {
+            parse_errors.push(format!("{}: {}", CONFIG_PATH, e));
         }
     }
 
@@ -400,7 +370,7 @@ pub fn check_config() -> ComponentHealth {
             status: ComponentStatus::Degraded,
             message: "Config file has syntax errors".to_string(),
             details: Some(serde_json::json!({
-                "configs_found": configs_found,
+                "path": CONFIG_PATH,
                 "parse_errors": parse_errors,
                 "suggestion": "Check config file syntax"
             })),
@@ -409,10 +379,9 @@ pub fn check_config() -> ComponentHealth {
         ComponentHealth {
             name: "config".to_string(),
             status: ComponentStatus::Healthy,
-            message: format!("{} config file(s) valid", configs_found.len()),
+            message: "Config file valid".to_string(),
             details: Some(serde_json::json!({
-                "configs_found": configs_found,
-                "parse_errors": []
+                "path": CONFIG_PATH
             })),
         }
     }

@@ -21,7 +21,7 @@ fn get_binary_path() -> PathBuf {
         .join("target/release/annactl")
 }
 
-/// Test --version flag
+/// Test --version flag (instant, no daemon required since v0.14.4)
 #[test]
 fn test_annactl_version_long() {
     let binary = get_binary_path();
@@ -36,20 +36,17 @@ fn test_annactl_version_long() {
         .expect("Failed to run annactl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Either it shows version info (Anna Assistant vX.Y.Z), or shows connection error
+    // v0.14.4+: --version is instant, outputs "annactl X.Y.Z", no daemon needed
     assert!(
-        stdout.contains("Anna Assistant v")
-            || stderr.contains("daemon")
-            || stderr.contains("connection"),
-        "Expected version or daemon connection message, got stdout: {}, stderr: {}",
-        stdout,
-        stderr
+        stdout.contains("annactl"),
+        "Expected annactl version output, got: {}",
+        stdout
     );
+    assert!(output.status.success(), "annactl --version should succeed");
 }
 
-/// Test -V short flag
+/// Test -V short flag (instant, no daemon required since v0.14.4)
 #[test]
 fn test_annactl_version_short() {
     let binary = get_binary_path();
@@ -63,49 +60,43 @@ fn test_annactl_version_short() {
         .expect("Failed to run annactl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Either it shows version info, or it shows connection error (daemon not running)
+    // v0.14.4+: -V is instant, outputs "annactl X.Y.Z", no daemon needed
     assert!(
-        stdout.contains("Anna Assistant v")
-            || stderr.contains("daemon")
-            || stderr.contains("connection"),
-        "Expected version or daemon connection message"
+        stdout.contains("annactl"),
+        "Expected annactl version output, got: {}",
+        stdout
     );
+    assert!(output.status.success(), "annactl -V should succeed");
 }
 
-/// Test version output includes config and hardware status fields (v0.6.0 format)
+/// Test 'version' word goes through daemon and includes detailed status
+/// Note: -V/--version are now instant (v0.14.4+), only 'version' word uses daemon
 #[test]
-fn test_annactl_version_includes_config_status() {
+fn test_annactl_version_word_detailed_output() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
     }
 
     let output = Command::new(&binary)
-        .arg("--version")
+        .arg("version")
         .output()
         .expect("Failed to run annactl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // v0.11.0: Version should include structured sections with ASCII-only formatting
-    if stdout.contains("0.11.0") {
-        // Check for v0.11.0 ASCII-only format fields
-        let has_summary = stdout.contains("[SUMMARY]");
-        let has_details = stdout.contains("[DETAILS]");
-        let has_reliability = stdout.contains("[RELIABILITY]");
-        let has_mode = stdout.contains("Mode:") && stdout.contains("[source: config.core]");
-        let has_self_health =
-            stdout.contains("Self-health:") || stdout.contains("[source: self_health]");
-
-        // At least some v0.11.0 structured sections should be present
-        assert!(
-            has_summary || has_details || has_reliability || has_mode || has_self_health,
-            "Version output should include v0.11.0 structured sections, got: {}",
-            stdout
-        );
-    }
+    // v0.14.4+: 'version' word goes through daemon for detailed output
+    // Either shows detailed version OR connection error if daemon not running
+    assert!(
+        stdout.contains("Anna Assistant v")
+            || stderr.contains("daemon")
+            || stderr.contains("connection"),
+        "Expected detailed version or daemon connection error, got stdout: {}, stderr: {}",
+        stdout,
+        stderr
+    );
 }
 
 /// Test --help flag

@@ -72,10 +72,7 @@ async fn main() -> Result<()> {
         }
 
         // Detailed version via daemon
-        [flag]
-            if flag.eq_ignore_ascii_case("-v")
-                || flag.eq_ignore_ascii_case("version") =>
-        {
+        [flag] if flag.eq_ignore_ascii_case("-v") || flag.eq_ignore_ascii_case("version") => {
             run_version_via_llm().await
         }
 

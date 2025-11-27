@@ -12,9 +12,9 @@ const GITHUB_REPO: &str = "jjgarcianorway/anna-assistant";
 const GITHUB_API: &str = "https://api.github.com";
 
 /// Default paths for state and config
+/// v0.15.0: Only system-wide config at /etc/anna
 pub const STATE_DIR: &str = "/var/lib/anna";
 pub const CONFIG_DIR: &str = "/etc/anna";
-pub const USER_CONFIG_DIR: &str = ".config/anna";
 
 /// GitHub release information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,14 +173,9 @@ pub fn state_file_path() -> PathBuf {
     PathBuf::from(STATE_DIR).join("update_state.json")
 }
 
-/// Get the config file path (system-wide)
+/// Get the config file path (system-wide only, v0.15.0)
 pub fn config_file_path() -> PathBuf {
     PathBuf::from(CONFIG_DIR).join("config.toml")
-}
-
-/// Get user config file path
-pub fn user_config_file_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(USER_CONFIG_DIR).join("config.toml"))
 }
 
 /// Load update state from disk
@@ -206,24 +201,8 @@ pub fn save_update_state(state: &UpdateState) -> std::io::Result<()> {
     fs::write(path, json)
 }
 
-/// Load update config (checks user config first, then system config)
+/// Load update config from system config file (v0.15.0: no per-user config)
 pub fn load_update_config() -> UpdateConfig {
-    // Try user config first
-    if let Some(user_path) = user_config_file_path() {
-        if user_path.exists() {
-            if let Ok(content) = fs::read_to_string(&user_path) {
-                if let Ok(config) = toml::from_str::<toml::Value>(&content) {
-                    if let Some(update) = config.get("update") {
-                        if let Ok(update_config) = update.clone().try_into() {
-                            return update_config;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Try system config
     let system_path = config_file_path();
     if system_path.exists() {
         if let Ok(content) = fs::read_to_string(&system_path) {

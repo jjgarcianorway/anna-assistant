@@ -8,7 +8,9 @@
 //! - Has final say before any write operation
 //! - Suggests what to learn and store
 
-use crate::answer_engine::protocol_v15::{LlmAResponseV15, LlmBRequestV15, CheckResult, TrackedFact};
+use crate::answer_engine::protocol_v15::{
+    CheckResult, LlmAResponseV15, LlmBRequestV15, TrackedFact,
+};
 
 pub const LLM_B_SYSTEM_PROMPT_V15: &str = r#"You are Anna's Senior Reviewer (LLM-B) v0.15.0.
 

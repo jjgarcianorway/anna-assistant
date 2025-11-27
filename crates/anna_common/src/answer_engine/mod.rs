@@ -22,9 +22,9 @@ pub use scoring::*;
 
 // v0.15.0 protocol types (next iteration)
 pub use protocol_v15::{
-    CheckApproval, CheckRequest, CheckResult, CheckRisk, CheckRiskEval, CoreProbeId,
-    CoreProbeInfo, DynamicCheck, FactSource, Intent, LearningUpdate, LlmARequestV15,
-    LlmAResponseV15, LlmBRequestV15, LlmBResponseV15, LlmBVerdict, QuestionOption,
-    QuestionStyle, ReasoningTrace, TraceStep, TrackedFact, UserAnswer, UserAnswerValue,
-    UserQuestion, PROTOCOL_VERSION as PROTOCOL_VERSION_V15,
+    CheckApproval, CheckRequest, CheckResult, CheckRisk, CheckRiskEval, CoreProbeId, CoreProbeInfo,
+    DynamicCheck, FactSource, Intent, LearningUpdate, LlmARequestV15, LlmAResponseV15,
+    LlmBRequestV15, LlmBResponseV15, LlmBVerdict, QuestionOption, QuestionStyle, ReasoningTrace,
+    TraceStep, TrackedFact, UserAnswer, UserAnswerValue, UserQuestion,
+    PROTOCOL_VERSION as PROTOCOL_VERSION_V15,
 };

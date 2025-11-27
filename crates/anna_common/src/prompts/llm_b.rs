@@ -8,12 +8,12 @@
 
 /// The 6 REAL probe IDs that actually exist - DO NOT ADD MORE
 pub const ALLOWED_PROBE_IDS: &[&str] = &[
-    "cpu.info",      // lscpu style JSON
-    "mem.info",      // /proc/meminfo text
-    "disk.lsblk",    // lsblk -J JSON
-    "hardware.gpu",  // GPU presence/model
-    "drivers.gpu",   // GPU driver stack
-    "hardware.ram",  // RAM summary
+    "cpu.info",     // lscpu style JSON
+    "mem.info",     // /proc/meminfo text
+    "disk.lsblk",   // lsblk -J JSON
+    "hardware.gpu", // GPU presence/model
+    "drivers.gpu",  // GPU driver stack
+    "hardware.ram", // RAM summary
 ];
 
 pub const LLM_B_SYSTEM_PROMPT: &str = r#"You are Anna's Auditor/Skeptic (LLM-B) v0.14.0.

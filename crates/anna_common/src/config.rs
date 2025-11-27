@@ -1,8 +1,12 @@
-//! Anna Configuration Schema v0.8.0
+//! Anna Configuration Schema v0.15.0
 //!
-//! Natural language configuration via annactl.
-//! All configuration is manipulated through natural language prompts.
+//! System-wide configuration managed by administrators.
+//! Configuration lives in /etc/anna/config.toml - not per-user.
+//! This is intentional: the sysadmin controls the LLM model and settings,
+//! not individual users.
+//!
 //! v0.8.0: Added logging configuration.
+//! v0.15.0: Simplified to system-only config (no user override).
 
 use crate::logging::LogConfig;
 use serde::{Deserialize, Serialize};
@@ -12,9 +16,9 @@ use std::path::PathBuf;
 /// Minimum allowed update interval in seconds (10 minutes)
 pub const MIN_UPDATE_INTERVAL: u64 = 600;
 
-/// Default paths for config
-const SYSTEM_CONFIG_DIR: &str = "/etc/anna";
-const USER_CONFIG_SUBDIR: &str = ".config/anna";
+/// System configuration directory - the ONLY place config lives
+/// This is intentional: administrators control Anna settings, not users.
+pub const SYSTEM_CONFIG_DIR: &str = "/etc/anna";
 const CONFIG_FILE: &str = "config.toml";
 
 /// Core mode for Anna operation
@@ -165,21 +169,10 @@ pub struct AnnaConfigV5 {
 }
 
 impl AnnaConfigV5 {
-    /// Load config from disk (user config overrides system config)
+    /// Load config from system config directory (/etc/anna/config.toml)
+    /// v0.15.0: Config is system-wide only, no per-user override.
     pub fn load() -> Self {
-        // Try user config first
-        if let Some(user_path) = user_config_path() {
-            if user_path.exists() {
-                if let Ok(content) = fs::read_to_string(&user_path) {
-                    if let Ok(config) = toml::from_str(&content) {
-                        return config;
-                    }
-                }
-            }
-        }
-
-        // Try system config
-        let system_path = system_config_path();
+        let system_path = config_path();
         if system_path.exists() {
             if let Ok(content) = fs::read_to_string(&system_path) {
                 if let Ok(config) = toml::from_str(&content) {
@@ -191,11 +184,10 @@ impl AnnaConfigV5 {
         Self::default()
     }
 
-    /// Save config to user config file
+    /// Save config to system config file (/etc/anna/config.toml)
+    /// Note: Requires root/sudo to write to /etc/anna
     pub fn save(&self) -> std::io::Result<()> {
-        let path = user_config_path().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, "No home directory")
-        })?;
+        let path = config_path();
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -224,14 +216,15 @@ impl AnnaConfigV5 {
     }
 }
 
-/// Get user config path
-pub fn user_config_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(USER_CONFIG_SUBDIR).join(CONFIG_FILE))
+/// Get the config file path (/etc/anna/config.toml)
+/// v0.15.0: Single system-wide config, no per-user config.
+pub fn config_path() -> PathBuf {
+    PathBuf::from(SYSTEM_CONFIG_DIR).join(CONFIG_FILE)
 }
 
-/// Get system config path
-pub fn system_config_path() -> PathBuf {
-    PathBuf::from(SYSTEM_CONFIG_DIR).join(CONFIG_FILE)
+/// Get the config directory (/etc/anna)
+pub fn config_dir() -> PathBuf {
+    PathBuf::from(SYSTEM_CONFIG_DIR)
 }
 
 /// Config change for reporting to user

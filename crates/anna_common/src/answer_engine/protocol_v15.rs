@@ -627,7 +627,10 @@ pub struct LlmBResponseV15 {
 pub enum TraceStep {
     /// User initiated request
     #[serde(rename = "user_request")]
-    UserRequest { text: String, timestamp: DateTime<Utc> },
+    UserRequest {
+        text: String,
+        timestamp: DateTime<Utc>,
+    },
     /// LLM-A planning output
     #[serde(rename = "llm_a_plan")]
     LlmAPlan {

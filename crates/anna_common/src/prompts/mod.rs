@@ -19,9 +19,5 @@ pub use llm_a::{generate_llm_a_prompt, generate_llm_a_prompt_with_iteration, LLM
 pub use llm_b::{generate_llm_b_prompt, LLM_B_SYSTEM_PROMPT};
 
 // Re-export v0.15.0 (next iteration)
-pub use llm_a_v15::{
-    build_llm_a_request, generate_llm_a_prompt_v15, LLM_A_SYSTEM_PROMPT_V15,
-};
-pub use llm_b_v15::{
-    build_llm_b_request, generate_llm_b_prompt_v15, LLM_B_SYSTEM_PROMPT_V15,
-};
+pub use llm_a_v15::{build_llm_a_request, generate_llm_a_prompt_v15, LLM_A_SYSTEM_PROMPT_V15};
+pub use llm_b_v15::{build_llm_b_request, generate_llm_b_prompt_v15, LLM_B_SYSTEM_PROMPT_V15};

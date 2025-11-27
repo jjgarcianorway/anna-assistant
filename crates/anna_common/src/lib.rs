@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.13.0
+//! Anna Common - Shared types and schemas for Anna v0.15.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -13,12 +13,14 @@
 //! v0.12.0: Strict probe catalog, fix_and_accept verdict, partial answer fallback.
 //! v0.12.2: Iteration-aware prompts, force answer when evidence exists.
 //! v0.13.0: Strict Evidence Discipline - No more fabricated data.
+//! v0.15.0: Research Loop Engine - Junior/Senior LLM with command whitelist.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
 pub mod answer_engine;
+pub mod command_whitelist;
 pub mod config;
 pub mod config_mapper;
 pub mod hardware;
@@ -33,6 +35,7 @@ pub mod types;
 pub mod updater;
 
 pub use answer_engine::*;
+pub use command_whitelist::*;
 pub use config::*;
 pub use config_mapper::*;
 pub use hardware::*;
