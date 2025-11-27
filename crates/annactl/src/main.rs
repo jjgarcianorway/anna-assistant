@@ -20,6 +20,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+mod ask_user;
 mod client;
 mod llm_client;
 mod orchestrator;

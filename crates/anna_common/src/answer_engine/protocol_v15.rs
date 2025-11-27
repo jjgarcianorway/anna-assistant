@@ -713,6 +713,69 @@ impl Default for ReasoningTrace {
 }
 
 // ============================================================================
+// Session Types (for interactive flow)
+// ============================================================================
+
+/// Response from daemon during interactive research session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "status")]
+pub enum AnswerSessionResponse {
+    /// Final answer is ready
+    #[serde(rename = "complete")]
+    Complete { answer: crate::FinalAnswer },
+    /// Waiting for user to answer a question
+    #[serde(rename = "pending_question")]
+    PendingQuestion {
+        session_id: String,
+        question: UserQuestion,
+        iteration: usize,
+    },
+    /// Waiting for user to confirm a command
+    #[serde(rename = "pending_confirm")]
+    PendingConfirm {
+        session_id: String,
+        check_id: String,
+        command: String,
+        risk: String,
+        explanation: String,
+        iteration: usize,
+    },
+    /// Research loop is still running
+    #[serde(rename = "in_progress")]
+    InProgress {
+        session_id: String,
+        iteration: usize,
+        status_message: String,
+    },
+    /// Error occurred
+    #[serde(rename = "error")]
+    Error { message: String },
+}
+
+/// Request to start an answer session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnswerStartRequest {
+    pub question: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+/// Request to continue with a user answer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnswerContinueRequest {
+    pub session_id: String,
+    pub user_answer: UserAnswer,
+}
+
+/// Request to confirm a command
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfirmCommandRequest {
+    pub session_id: String,
+    pub check_id: String,
+    pub approved: bool,
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
