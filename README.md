@@ -180,7 +180,7 @@ selection_mode = "auto"   # auto or manual
 
 [update]
 enabled = true            # Auto-update enabled by default
-interval_seconds = 86400  # Check daily (minimum 600 = 10 minutes)
+interval_seconds = 600    # Check every 10 minutes (minimum allowed)
 channel = "main"          # main, stable, beta, or dev
 
 [log]

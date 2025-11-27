@@ -135,7 +135,7 @@ pub struct UpdateSettings {
 }
 
 fn default_interval_seconds() -> u64 {
-    86400 // 24 hours
+    600 // 10 minutes - fast iteration during development
 }
 
 impl Default for UpdateSettings {
@@ -274,7 +274,7 @@ mod tests {
     fn test_update_settings_default() {
         let settings = UpdateSettings::default();
         assert!(settings.enabled); // Auto-update enabled by default
-        assert_eq!(settings.interval_seconds, 86400);
+        assert_eq!(settings.interval_seconds, 600);
         assert_eq!(settings.channel, Channel::Main);
     }
 

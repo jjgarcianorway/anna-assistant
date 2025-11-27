@@ -160,9 +160,9 @@ impl UpdateChannel {
     /// Get the default update interval in seconds for this channel
     pub fn default_interval_seconds(&self) -> u64 {
         match self {
-            UpdateChannel::Stable => 86400, // 24 hours
-            UpdateChannel::Beta => 43200,   // 12 hours
-            UpdateChannel::Dev => 600,      // 10 minutes
+            UpdateChannel::Stable => 600, // 10 minutes - fast iteration
+            UpdateChannel::Beta => 43200, // 12 hours
+            UpdateChannel::Dev => 600,    // 10 minutes
         }
     }
 
@@ -382,7 +382,7 @@ mod tests {
     // v0.4.0: Update config tests
     #[test]
     fn test_update_channel_intervals() {
-        assert_eq!(UpdateChannel::Stable.default_interval_seconds(), 86400);
+        assert_eq!(UpdateChannel::Stable.default_interval_seconds(), 600);
         assert_eq!(UpdateChannel::Beta.default_interval_seconds(), 43200);
         assert_eq!(UpdateChannel::Dev.default_interval_seconds(), 600);
     }
@@ -406,7 +406,7 @@ mod tests {
     fn test_update_config_effective_interval() {
         // Default interval from channel
         let config = UpdateConfig::default();
-        assert_eq!(config.effective_interval(), 86400);
+        assert_eq!(config.effective_interval(), 600);
 
         // Custom interval overrides channel default
         let config = UpdateConfig {

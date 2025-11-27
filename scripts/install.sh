@@ -543,7 +543,7 @@ selection_mode = "auto"
 
 [update]
 enabled = true
-interval_seconds = 86400
+interval_seconds = 600
 channel = "main"
 
 [log]
