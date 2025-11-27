@@ -484,32 +484,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=anna
-Group=anna
+# Run as root to access nvidia-smi and system hardware
 ExecStart=/usr/local/bin/annad
-WorkingDirectory=/usr/share/anna
+WorkingDirectory=/var/lib/anna
 Restart=always
 RestartSec=5
-
-# Security hardening
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-PrivateTmp=yes
-# PrivateDevices=no to allow GPU detection (nvidia-smi needs /dev/nvidia*)
-PrivateDevices=no
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
-RestrictRealtime=yes
-RestrictSUIDSGID=yes
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
-
-# Allow reading system info and GPU devices
-ReadOnlyPaths=/proc /sys
-ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
-DeviceAllow=/dev/nvidia* rw
-DeviceAllow=/dev/dri/* rw
 
 [Install]
 WantedBy=multi-user.target
