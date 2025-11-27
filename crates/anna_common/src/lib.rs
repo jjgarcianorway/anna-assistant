@@ -1,7 +1,7 @@
-//! Anna Common - Shared types and schemas for Anna v0.2.0
+//! Anna Common - Shared types and schemas for Anna v0.3.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
-//! Strict evidence discipline. Auto-update capability.
+//! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
 
 pub mod prompts;
 pub mod schemas;

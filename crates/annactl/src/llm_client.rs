@@ -73,6 +73,7 @@ impl LlmClient {
     }
 
     /// Send a chat with history
+    #[allow(dead_code)]
     pub async fn chat_with_history(
         &self,
         model: &str,

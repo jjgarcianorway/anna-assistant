@@ -1,5 +1,5 @@
 #!/bin/bash
-# Anna v0.2.0 - Installation Script
+# Anna v0.3.0 - Installation Script
 # Downloads from GitHub, detects hardware, selects models, installs components
 # Requests sudo only when needed - not for the entire script
 
@@ -24,7 +24,7 @@ ICON_ROCKET="🚀"
 ICON_DOWN="⬇"
 ICON_LOCK="🔒"
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 

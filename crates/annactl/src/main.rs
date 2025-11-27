@@ -1,74 +1,22 @@
 //! Anna CLI (annactl) - User interface wrapper
 //!
-//! Talks to LLM-A only. Provides clean output.
-//! v0.2.0: Auto-update capability
+//! v0.3.0: Strict CLI with LLM-orchestrated help/version
+//!
+//! Only these commands exist:
+//!   - annactl "<question>"    Ask Anna anything
+//!   - annactl                 Start interactive REPL
+//!   - annactl -V | --version  Show version (via LLM)
+//!   - annactl -h | --help     Show help (via LLM)
 
 mod client;
 mod llm_client;
 mod orchestrator;
 mod output;
-mod updater;
 
-use anna_common::UpdateChannel;
 use anyhow::Result;
-use clap::{Parser, Subcommand};
 use owo_colors::OwoColorize;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-#[derive(Parser)]
-#[command(name = "annactl")]
-#[command(author = "Anna Assistant Team")]
-#[command(version)]
-#[command(about = "Anna - Your intelligent Linux assistant", long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-
-    /// Ask Anna a question directly
-    #[arg(trailing_var_arg = true)]
-    question: Vec<String>,
-
-    /// Skip update check on startup
-    #[arg(long, global = true)]
-    no_update_check: bool,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Ask Anna a question
-    Ask {
-        /// The question to ask
-        #[arg(trailing_var_arg = true)]
-        question: Vec<String>,
-    },
-    /// Check Anna daemon status
-    Status,
-    /// List available probes
-    Probes,
-    /// Run a specific probe
-    Probe {
-        /// Probe ID to run
-        id: String,
-    },
-    /// Show configuration
-    Config,
-    /// Initialize Anna (first run)
-    Init,
-    /// Check for updates
-    CheckUpdate {
-        /// Use beta channel
-        #[arg(long)]
-        beta: bool,
-    },
-    /// Update Anna to the latest version
-    Update {
-        /// Use beta channel
-        #[arg(long)]
-        beta: bool,
-    },
-    /// Show current version
-    Version,
-}
+use std::env;
+use std::io::{self, BufRead, Write};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -77,80 +25,91 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "annactl=warn".into()),
         ))
-        .with(tracing_subscriber::fmt::layer().without_time())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_target(false),
+        )
         .init();
 
-    let cli = Cli::parse();
+    let args: Vec<String> = env::args().skip(1).collect();
 
-    // Background update check (non-blocking)
-    if !cli.no_update_check && updater::should_check_updates() {
-        tokio::spawn(async {
-            if let Ok(info) = updater::check_for_updates(UpdateChannel::Stable).await {
-                if info.update_available {
-                    updater::display_update_banner(&info);
-                }
-                updater::record_update_check();
-            }
-        });
+    match args.as_slice() {
+        // No arguments - start REPL
+        [] => run_repl().await,
+
+        // Version flags - route through LLM
+        [flag] if flag == "-V" || flag == "--version" || flag == "version" => {
+            run_version_via_llm().await
+        }
+
+        // Help flags - route through LLM
+        [flag] if flag == "-h" || flag == "--help" || flag == "help" => {
+            run_help_via_llm().await
+        }
+
+        // Single quoted question
+        [question] => run_ask(question).await,
+
+        // Multiple words as question
+        words => {
+            let question = words.join(" ");
+            run_ask(&question).await
+        }
     }
+}
 
-    // Handle commands
-    match cli.command {
-        Some(Commands::Ask { question }) => {
-            let q = question.join(" ");
-            if q.is_empty() {
-                eprintln!("{}  Please provide a question", "✗".red());
-                std::process::exit(1);
-            }
-            run_ask(&q).await?;
+/// Run the interactive REPL
+async fn run_repl() -> Result<()> {
+    print_banner();
+    println!(
+        "{}  Interactive mode. Type {} to exit.\n",
+        "🗣️".cyan(),
+        "quit".yellow()
+    );
+
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    loop {
+        // Prompt
+        print!("{}  ", "anna>".bright_magenta());
+        stdout.flush()?;
+
+        // Read input
+        let mut line = String::new();
+        if stdin.lock().read_line(&mut line)? == 0 {
+            // EOF
+            break;
         }
-        Some(Commands::Status) => {
-            run_status().await?;
+
+        let input = line.trim();
+
+        // Handle exit commands
+        if input.is_empty() {
+            continue;
         }
-        Some(Commands::Probes) => {
-            run_list_probes().await?;
+        if matches!(
+            input.to_lowercase().as_str(),
+            "quit" | "exit" | "q" | ":q"
+        ) {
+            println!("\n{}  Goodbye!\n", "👋".bright_magenta());
+            break;
         }
-        Some(Commands::Probe { id }) => {
-            run_probe(&id).await?;
+
+        // Handle version/help in REPL too
+        if matches!(input.to_lowercase().as_str(), "version" | "-v" | "--version") {
+            run_version_via_llm().await?;
+            continue;
         }
-        Some(Commands::Config) => {
-            run_config().await?;
+        if matches!(input.to_lowercase().as_str(), "help" | "-h" | "--help") {
+            run_help_via_llm().await?;
+            continue;
         }
-        Some(Commands::Init) => {
-            run_init().await?;
-        }
-        Some(Commands::CheckUpdate { beta }) => {
-            let channel = if beta {
-                UpdateChannel::Beta
-            } else {
-                UpdateChannel::Stable
-            };
-            run_check_update(channel).await?;
-        }
-        Some(Commands::Update { beta }) => {
-            let channel = if beta {
-                UpdateChannel::Beta
-            } else {
-                UpdateChannel::Stable
-            };
-            run_update(channel).await?;
-        }
-        Some(Commands::Version) => {
-            run_version();
-        }
-        None => {
-            // Direct question mode
-            if !cli.question.is_empty() {
-                let q = cli.question.join(" ");
-                run_ask(&q).await?;
-            } else {
-                print_banner();
-                println!("\nUsage: {} <question>", "annactl".cyan());
-                println!("       {} ask <question>", "annactl".cyan());
-                println!("       {} status", "annactl".cyan());
-                println!("       {} update", "annactl".cyan());
-                println!("\nRun {} for more options", "annactl --help".cyan());
-            }
+
+        // Process question
+        if let Err(e) = run_ask(input).await {
+            eprintln!("{}  Error: {}", "✗".red(), e);
         }
     }
 
@@ -160,23 +119,27 @@ async fn main() -> Result<()> {
 fn print_banner() {
     println!(
         "\n{}  {}",
-        "".bright_magenta(),
-        format!("Anna v{}", env!("CARGO_PKG_VERSION")).bright_white()
+        "🤖".bright_magenta(),
+        "Anna v0.3.0".bright_white().bold()
     );
     println!("   Your intelligent Linux assistant\n");
 }
 
+/// Ask Anna a question - the core function
 async fn run_ask(question: &str) -> Result<()> {
     let daemon = client::DaemonClient::new();
 
     // Check daemon health
     if !daemon.is_healthy().await {
-        eprintln!("{}  Anna daemon is not running", "".red());
-        eprintln!("   Run: {} to start", "sudo systemctl start annad".cyan());
+        eprintln!("{}  Anna daemon is not running", "✗".red());
+        eprintln!(
+            "   Run: {} to start",
+            "sudo systemctl start annad".cyan()
+        );
         std::process::exit(1);
     }
 
-    // Run orchestrator
+    // Run orchestrator with stability check
     let result = orchestrator::process_question(question, &daemon).await?;
 
     // Output result
@@ -185,225 +148,69 @@ async fn run_ask(question: &str) -> Result<()> {
     Ok(())
 }
 
-async fn run_status() -> Result<()> {
+/// Version via LLM pipeline - Anna answers about herself
+async fn run_version_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
-    match daemon.health().await {
-        Ok(health) => {
-            println!(
-                "{}  Anna Daemon {}",
-                "".green(),
-                "running".bright_green()
-            );
-            println!("   Version: {}", health.version.cyan());
-            println!("   Uptime: {}s", health.uptime_seconds);
-            println!("   Probes: {}", health.probes_available);
+    // Build internal question for version info
+    let version_question = "What is your version? Report: Anna version, daemon status, model name, and tool catalog count.";
+
+    // Check if daemon is healthy and get status
+    let daemon_status = if daemon.is_healthy().await {
+        match daemon.health().await {
+            Ok(health) => format!(
+                "running (v{}, uptime: {}s, {} probes)",
+                health.version, health.uptime_seconds, health.probes_available
+            ),
+            Err(_) => "running (details unavailable)".to_string(),
         }
-        Err(_) => {
-            println!("{}  Anna Daemon {}", "".red(), "stopped".bright_red());
-            println!(
-                "   Start with: {}",
-                "sudo systemctl start annad".cyan()
-            );
-        }
-    }
-
-    Ok(())
-}
-
-async fn run_list_probes() -> Result<()> {
-    let daemon = client::DaemonClient::new();
-    let probes = daemon.list_probes().await?;
-
-    println!("{}  Available Probes\n", "".cyan());
-    for probe in probes.probes {
-        println!(
-            "   {}  {}  ({})",
-            "".bright_blue(),
-            probe.id.bright_white(),
-            probe.cache_policy.dimmed()
-        );
-    }
-
-    Ok(())
-}
-
-async fn run_probe(id: &str) -> Result<()> {
-    let daemon = client::DaemonClient::new();
-    let result = daemon.run_probe(id, false).await?;
-
-    if result.success {
-        println!("{}  Probe: {}\n", "".green(), id.cyan());
-        let formatted = serde_json::to_string_pretty(&result.data)?;
-        println!("{}", formatted);
     } else {
-        println!("{}  Probe failed: {}", "".red(), id);
-        if let Some(err) = result.error {
-            println!("   {}", err.red());
-        }
-    }
-
-    Ok(())
-}
-
-async fn run_config() -> Result<()> {
-    let config = anna_common::AnnaConfig::default();
-    println!("{}  Anna Configuration\n", "".cyan());
-    println!("   Version: {}", config.version.cyan());
-    println!("   Orchestrator: {}", config.models.orchestrator.yellow());
-    println!("   Expert: {}", config.models.expert.yellow());
-    println!("   Daemon URL: {}", config.daemon_socket.dimmed());
-    println!("   Ollama URL: {}", config.ollama_url.dimmed());
-
-    Ok(())
-}
-
-async fn run_init() -> Result<()> {
-    println!("{}  Initializing Anna...\n", "".cyan());
-
-    // Detect hardware
-    println!("   {}  Detecting hardware...", "".bright_blue());
-    let hw = detect_hardware();
-    println!("      RAM: {} GB", hw.ram_gb);
-    println!("      CPU: {} cores", hw.cpu_cores);
-    println!(
-        "      GPU: {}",
-        if hw.has_gpu { "detected" } else { "none" }
-    );
-
-    // Select models
-    let models = hw.select_models();
-    println!("\n   {}  Selected models:", "".bright_blue());
-    println!("      Orchestrator (LLM-A): {}", models.orchestrator.yellow());
-    println!("      Expert (LLM-B): {}", models.expert.yellow());
-
-    println!(
-        "\n{}  Initialization complete",
-        "".green()
-    );
-    println!("   Run {} to check status", "annactl status".cyan());
-
-    Ok(())
-}
-
-fn detect_hardware() -> anna_common::HardwareInfo {
-    use sysinfo::System;
-
-    let mut sys = System::new_all();
-    sys.refresh_all();
-
-    let ram_gb = sys.total_memory() / 1024 / 1024 / 1024;
-    let cpu_cores = sys.cpus().len();
-
-    // Simple GPU detection (check for nvidia/amd devices)
-    let has_gpu = std::path::Path::new("/dev/nvidia0").exists()
-        || std::path::Path::new("/dev/dri/card0").exists();
-
-    anna_common::HardwareInfo {
-        ram_gb,
-        cpu_cores,
-        has_gpu,
-        vram_gb: None, // Would need nvidia-smi for accurate detection
-    }
-}
-
-async fn run_check_update(channel: UpdateChannel) -> Result<()> {
-    println!("{}  Checking for updates...\n", "🔍".cyan());
-
-    let channel_name = match channel {
-        UpdateChannel::Stable => "stable",
-        UpdateChannel::Beta => "beta",
+        "stopped".to_string()
     };
-    println!("   Channel: {}", channel_name.yellow());
 
-    match updater::check_for_updates(channel).await {
-        Ok(info) => {
-            println!("   Current: {}", info.current.cyan());
-            println!("   Latest:  {}", info.latest.green());
-
-            if info.update_available {
-                println!(
-                    "\n{}  Update available!",
-                    "🆕".green()
-                );
-                println!("   Run: {} to update", "annactl update".cyan());
-
-                if let Some(notes) = &info.release_notes {
-                    println!("\n{}  Release Notes:", "📋".bright_blue());
-                    // Show first 500 chars of release notes
-                    let preview: String = notes.chars().take(500).collect();
-                    for line in preview.lines().take(10) {
-                        println!("   {}", line.dimmed());
-                    }
-                    if notes.len() > 500 {
-                        println!("   {}", "... (truncated)".dimmed());
-                    }
-                }
-            } else {
-                println!(
-                    "\n{}  You're up to date!",
-                    "✓".green()
-                );
-            }
-        }
-        Err(e) => {
-            eprintln!("{}  Failed to check for updates: {}", "✗".red(), e);
-        }
-    }
-
-    Ok(())
-}
-
-async fn run_update(channel: UpdateChannel) -> Result<()> {
-    let channel_name = match channel {
-        UpdateChannel::Stable => "stable",
-        UpdateChannel::Beta => "beta",
+    // Get probe count
+    let probe_count = if daemon.is_healthy().await {
+        daemon
+            .list_probes()
+            .await
+            .map(|p| p.probes.len())
+            .unwrap_or(0)
+    } else {
+        0
     };
-    println!(
-        "{}  Updating Anna from {} channel...\n",
-        "🚀".cyan(),
-        channel_name.yellow()
-    );
 
-    match updater::perform_update(channel).await {
-        Ok(updater::UpdateResult::Updated(info)) => {
-            println!(
-                "\n{}  Successfully updated to v{}!",
-                "✓".green(),
-                info.latest.bright_green()
-            );
-            println!("   Restart annactl to use the new version.");
-        }
-        Ok(updater::UpdateResult::AlreadyUpToDate(info)) => {
-            println!(
-                "\n{}  Already running the latest version (v{})",
-                "✓".green(),
-                info.current.cyan()
-            );
-        }
-        Err(e) => {
-            eprintln!(
-                "\n{}  Update failed: {}",
-                "✗".red(),
-                e.to_string().red()
-            );
-            eprintln!(
-                "   You can manually update with: {}",
-                "curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo bash".dimmed()
-            );
-            std::process::exit(1);
-        }
-    }
+    // Process through orchestrator for consistent formatting
+    let result = orchestrator::process_internal_query(
+        version_question,
+        &daemon,
+        orchestrator::InternalQueryType::Version {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            daemon_status,
+            probe_count,
+        },
+    )
+    .await?;
 
+    output::display_response(&result);
     Ok(())
 }
 
-fn run_version() {
-    println!(
-        "{}  Anna v{}",
-        "📦".cyan(),
-        env!("CARGO_PKG_VERSION").bright_white()
-    );
-    println!("   Evidence-based Linux assistant");
-    println!("   https://github.com/jjgarcianorway/anna-assistant");
+/// Help via LLM pipeline - Anna explains how to use herself
+async fn run_help_via_llm() -> Result<()> {
+    let daemon = client::DaemonClient::new();
+
+    let help_question = "How do I use Anna? Show usage, available commands, and examples.";
+
+    // Process through orchestrator for consistent formatting
+    let result = orchestrator::process_internal_query(
+        help_question,
+        &daemon,
+        orchestrator::InternalQueryType::Help,
+    )
+    .await?;
+
+    output::display_response(&result);
+    Ok(())
 }
+
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
