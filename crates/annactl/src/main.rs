@@ -65,10 +65,15 @@ async fn main() -> Result<()> {
         // v0.9.0: Status command (case-insensitive)
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
 
-        // Version flags - route through LLM (case-insensitive)
+        // Simple version flag - fast, no daemon contact
+        [flag] if flag == "-V" || flag == "--version" => {
+            println!("annactl {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+
+        // Detailed version via daemon
         [flag]
             if flag.eq_ignore_ascii_case("-v")
-                || flag.eq_ignore_ascii_case("--version")
                 || flag.eq_ignore_ascii_case("version") =>
         {
             run_version_via_llm().await
