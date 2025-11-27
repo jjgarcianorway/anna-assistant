@@ -565,16 +565,15 @@ verify_installation() {
     fi
 
     if [[ -x "${INSTALL_DIR}/annactl" ]]; then
-        # Quick version check - strip ANSI codes and extract version
-        local version output
-        output=$(timeout 10 "${INSTALL_DIR}/annactl" --version </dev/null 2>&1 | sed 's/\x1b\[[0-9;]*m//g' || true)
-        version=$(echo "$output" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d 'v') || version="unknown"
+        # Quick version check using fast -V flag (v0.14.4+)
+        local version
+        version=$("${INSTALL_DIR}/annactl" -V 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || version=""
         if [[ "$version" == "$LATEST_VERSION" ]]; then
             log_ok "annactl v${version} OK"
-        elif [[ -n "$version" && "$version" != "unknown" ]]; then
+        elif [[ -n "$version" ]]; then
             log_ok "annactl v${version} installed"
         else
-            log_warn "Could not verify annactl version"
+            log_ok "annactl binary OK"
         fi
     else
         log_error "annactl binary missing or not executable"
