@@ -1,4 +1,4 @@
-//! Anna Presentation Layer v0.6.0
+//! Anna Presentation Layer v0.12.0
 //!
 //! ASCII-only, sysadmin-style output formatting.
 //! No emojis. No Unicode box characters. Professional and compact.

@@ -1,10 +1,18 @@
-# Anna v0.11.0
+# Anna v0.12.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.11.0
+## What's New in v0.12.0
+
+- **Strict Probe Catalog** - Hard-frozen 14-probe catalog embedded in prompts, no invented probes
+- **fix_and_accept Verdict** - LLM-B can fix minor issues without requesting new probes
+- **Partial Answer Fallback** - Returns honest low-confidence answers instead of total refusal
+- **Robust JSON Parsing** - Better handling of malformed LLM responses
+- **Scoring Formula Update** - overall = min(evidence, reasoning, coverage) for stricter evaluation
+
+## Previous in v0.11.0
 
 - **Knowledge Store** - SQLite-backed persistent fact storage with entity/attribute/value model
 - **Event-Driven Learning** - Watches pacman.log for package changes, triggers learning jobs
@@ -18,70 +26,71 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
 - **Evidence-Based Answer Engine** - LLM-A/LLM-B supervised audit loop with strict JSON protocol
 - **Probe Catalog** - 14 registered probes with cost estimation (cheap/medium/expensive)
 - **Strict Evidence Discipline** - Every answer must cite probe evidence
-- **Reliability Scoring** - overall = 0.4×evidence + 0.3×reasoning + 0.3×coverage
-- **Confidence Levels** - GREEN (≥0.90), YELLOW (0.70-0.90), RED (<0.70 = refuse)
-
-## Previous in v0.9.0
-
-- **Locked CLI Surface** - Only 5 commands: REPL, request, status, version, help
-- **Status Command** - `annactl status` shows daemon, LLM, update state, and self-health
-- **Case-Insensitive Commands** - version/VERSION/Version all work, same for help/status
+- **Reliability Scoring** - Transparent scoring with confidence levels
+- **Confidence Levels** - GREEN (>=0.90), YELLOW (0.70-0.90), RED (<0.70)
 
 ## Architecture
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   annactl    │────▶│    LLM-A     │────▶│    LLM-B     │
-│  (CLI UI)    │     │  Planner/    │     │   Auditor/   │
-│              │     │  Answerer    │     │   Skeptic    │
-└──────────────┘     └──────────────┘     └──────────────┘
-                           │                    │
-                           ▼                    │
-                    ┌──────────────┐            │
-                    │    annad     │◀───────────┘
-                    │   (Daemon)   │
-                    └──────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-       ┌──────────┐ ┌──────────┐ ┌──────────┐
-       │  Probes  │ │Knowledge │ │  Brain   │
-       │(14 tools)│ │  Store   │ │ (Learn)  │
-       └──────────┘ └──────────┘ └──────────┘
++----------------+     +----------------+     +----------------+
+|   annactl      |---->|    LLM-A       |---->|    LLM-B       |
+|  (CLI UI)      |     |  Planner/      |     |   Auditor/     |
+|                |     |  Answerer      |     |   Skeptic      |
++----------------+     +----------------+     +----------------+
+                             |                      |
+                             v                      |
+                      +----------------+            |
+                      |    annad       |<-----------+
+                      |   (Daemon)     |
+                      +----------------+
+                             |
+                +------------+------------+
+                v            v            v
+         +----------+ +----------+ +----------+
+         |  Probes  | |Knowledge | |  Brain   |
+         |(14 tools)| |  Store   | | (Learn)  |
+         +----------+ +----------+ +----------+
 ```
 
-## v0.11.0 Knowledge Store
+## v0.12.0 LLM Protocol
 
-Anna now learns about your system and remembers facts persistently:
+### Hard-Frozen Probe Catalog
+
+| probe_id             | description                      | cost   |
+|----------------------|----------------------------------|--------|
+| cpu.info             | CPU info from lscpu              | cheap  |
+| mem.info             | Memory from /proc/meminfo        | cheap  |
+| disk.lsblk           | Block devices from lsblk         | cheap  |
+| fs.usage_root        | Root filesystem usage (df /)     | cheap  |
+| net.links            | Network link status (ip link)    | cheap  |
+| net.addr             | Network addresses (ip addr)      | cheap  |
+| net.routes           | Routing table (ip route)         | cheap  |
+| dns.resolv           | DNS config (/etc/resolv.conf)    | cheap  |
+| pkg.pacman_updates   | Available pacman updates         | medium |
+| pkg.yay_updates      | Available AUR updates            | medium |
+| pkg.games            | Game packages (steam/lutris/wine)| medium |
+| system.kernel        | Kernel info (uname -a)           | cheap  |
+| system.journal_slice | Recent journal entries           | medium |
+| anna.self_health     | Anna daemon health check         | cheap  |
+
+### LLM-B Verdicts
+
+| Verdict          | Meaning                                           |
+|------------------|---------------------------------------------------|
+| approve          | Answer is adequately grounded, deliver as-is      |
+| fix_and_accept   | Minor issues fixed, use fixed_answer              |
+| needs_more_probes| Specific catalog probes would improve answer      |
+| refuse           | No catalog probes can help (very rare)            |
+
+### Scoring
 
 ```
-Knowledge Store Schema:
-┌───────────────────────────────────────────────────┐
-│ Fact                                              │
-├───────────────────────────────────────────────────┤
-│ entity: "cpu:0" / "pkg:vim" / "net:wlp0s20f3"     │
-│ attribute: "cores" / "version" / "state"          │
-│ value: "8" / "9.1.0" / "UP"                       │
-│ source: "probe:cpu.info:2025-11-27T..."           │
-│ confidence: 0.95                                   │
-│ status: Active / Stale / Deprecated / Conflicted  │
-└───────────────────────────────────────────────────┘
+overall = min(evidence, reasoning, coverage)
+
+>= 0.90: GREEN  (high confidence) - approve
+>= 0.70: YELLOW (medium)          - approve or fix_and_accept
+<  0.70: RED    (low)             - partial answer with disclaimer
 ```
-
-### Entity Types
-
-| Prefix | Description |
-|--------|-------------|
-| `cpu:` | CPU information (cores, model, architecture) |
-| `gpu:` | GPU information (vendor, description) |
-| `disk:` | Block devices (size, type) |
-| `fs:` | Filesystems (device, mountpoint) |
-| `pkg:` | Packages (installed, version) |
-| `svc:` | Services (state) |
-| `net:` | Network interfaces (state) |
-| `system:` | System info (kernel, distro, memory) |
-| `user:` | User context (shell, editor, home) |
-| `desktop:` | Desktop environment (name, session_type) |
 
 ## Usage
 
@@ -107,25 +116,6 @@ annactl help          # Case-insensitive
 ```
 
 **That's it.** The CLI surface is locked. No other commands exist.
-
-## Probe Catalog (v0.10.0)
-
-| Probe ID | Description | Cost |
-|----------|-------------|------|
-| `cpu.info` | CPU information from lscpu | cheap |
-| `mem.info` | Memory usage from /proc/meminfo | cheap |
-| `disk.lsblk` | Block devices from lsblk | cheap |
-| `fs.usage_root` | Root filesystem usage | cheap |
-| `net.links` | Network interface link status | cheap |
-| `net.addr` | Network interface addresses | cheap |
-| `net.routes` | Network routing table | cheap |
-| `dns.resolv` | DNS resolver configuration | cheap |
-| `pkg.pacman_updates` | Available pacman updates | medium |
-| `pkg.yay_updates` | Available AUR updates | medium |
-| `pkg.games` | Installed game packages | medium |
-| `system.kernel` | Kernel and system info | cheap |
-| `system.journal_slice` | Recent journal entries | medium |
-| `anna.self_health` | Anna self-health check | cheap |
 
 ## Natural Language Configuration
 
@@ -174,15 +164,15 @@ channel = "main"          # main, stable, beta, or dev
 | **annad** | Evidence Oracle. Executes probes, orchestrates LLM-A/LLM-B loop, manages knowledge store. |
 | **annactl** | CLI wrapper. Clean output with citations and confidence. |
 | **LLM-A** | Planner/Answerer. Plans probes, produces draft answers, self-scores. |
-| **LLM-B** | Auditor/Skeptic. Verifies evidence grounding, approves/refuses/requests more. |
+| **LLM-B** | Auditor/Skeptic. Verifies evidence grounding, can fix or request more probes. |
 
 ## Core Principles
 
 1. **Zero hardcoded knowledge** - Only facts from probe catalog
 2. **100% reliability** - No hallucinations, no guesses
 3. **Evidence-based** - Every claim must have a citation
-4. **70% threshold** - Below 70% overall score = refuse to answer
-5. **Tool catalog enforcement** - Only registered probes allowed
+4. **Hard-frozen probe catalog** - Only 14 registered probes allowed
+5. **Partial answers over refusal** - Honest confidence better than blocking
 6. **Supervised audit loop** - LLM-B validates LLM-A's work
 7. **Learn from THIS machine** - Knowledge store captures facts from your system
 
@@ -221,4 +211,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.11.0 - Knowledge store, event-driven learning, and user telemetry.
+This is version 0.12.0 - Strict probe catalog, fix_and_accept verdict, partial answer fallback.

@@ -1,4 +1,4 @@
-//! Answer Engine v0.10.0
+//! Answer Engine v0.12.0
 //!
 //! Disciplined, auditable answer engine with:
 //! - Deterministic probe usage
@@ -6,7 +6,8 @@
 //! - Supervised second-pass auditor (LLM-B)
 //! - Transparent reliability scoring
 //! - Automatic back-and-forth until score is high enough
-//! - Clean refusal when it cannot answer safely
+//! - Partial answer fallback instead of total refusal
+//! - Strict probe catalog enforcement
 
 pub mod evidence;
 pub mod protocol;

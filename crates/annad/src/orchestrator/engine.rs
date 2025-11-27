@@ -1,14 +1,19 @@
-//! Answer Engine v0.10.0
+//! Answer Engine v0.12.0
 //!
 //! The main orchestration loop:
-//! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/refuse/retry
+//! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
+//!
+//! Key v0.12.0 changes:
+//! - FixAndAccept verdict for minor fixes without new probes
+//! - Strict probe_id validation before execution
+//! - Partial answer fallback instead of total refusal
 
 use super::llm_client::OllamaClient;
 use super::probe_executor;
 use anna_common::{
     generate_llm_a_prompt, generate_llm_b_prompt, AuditScores, AuditVerdict, ConfidenceLevel,
-    FinalAnswer, LoopOutcome, LoopState, ProbeCatalog, ProbeEvidenceV10, ReliabilityScores,
-    MINIMUM_ACCEPTABLE_SCORE, MAX_LOOPS,
+    FinalAnswer, LoopState, ProbeCatalog, ProbeEvidenceV10, ReliabilityScores,
+    MAX_LOOPS,
 };
 use anyhow::Result;
 use tracing::{debug, info, warn};
@@ -27,12 +32,29 @@ impl AnswerEngine {
         }
     }
 
+    /// Filter probe IDs to only valid ones from catalog
+    fn filter_valid_probes(&self, probe_ids: &[String]) -> Vec<String> {
+        probe_ids
+            .iter()
+            .filter(|id| {
+                let valid = self.catalog.is_valid(id);
+                if !valid {
+                    warn!("Rejecting invalid probe_id: {} (not in catalog)", id);
+                }
+                valid
+            })
+            .cloned()
+            .collect()
+    }
+
     /// Process a user question and return the final answer
     pub async fn process_question(&self, question: &str) -> Result<FinalAnswer> {
         info!("Processing question: {}", question);
 
         let mut loop_state = LoopState::default();
         let mut evidence: Vec<ProbeEvidenceV10> = vec![];
+        let mut last_draft_answer: Option<String> = None;
+        let mut last_scores: Option<AuditScores> = None;
 
         // Main orchestration loop
         while loop_state.can_continue() {
@@ -48,16 +70,21 @@ impl AnswerEngine {
 
             // Check for immediate refusal
             if llm_a_response.refuse_to_answer {
-                loop_state.mark_refused();
-                return Ok(self.build_refusal(
-                    question,
-                    llm_a_response.refusal_reason.as_deref().unwrap_or("Unable to answer"),
-                    &evidence,
-                    loop_state.iteration,
-                ));
+                // Only refuse if no evidence at all - otherwise try partial answer
+                if evidence.is_empty() {
+                    loop_state.mark_refused();
+                    return Ok(self.build_refusal(
+                        question,
+                        llm_a_response.refusal_reason.as_deref().unwrap_or("Unable to answer"),
+                        &evidence,
+                        loop_state.iteration,
+                    ));
+                }
+                // If we have evidence, try to provide partial answer
+                warn!("LLM-A wants to refuse but we have evidence - trying partial answer");
             }
 
-            // Step 2: Execute any requested probes
+            // Step 2: Execute any requested probes (validated)
             if llm_a_response.needs_more_probes || !llm_a_response.plan.probe_requests.is_empty() {
                 let probe_ids: Vec<String> = llm_a_response
                     .plan
@@ -66,9 +93,14 @@ impl AnswerEngine {
                     .map(|p| p.probe_id.clone())
                     .collect();
 
-                if !probe_ids.is_empty() {
-                    info!("Executing {} probes", probe_ids.len());
-                    let new_evidence = probe_executor::execute_probes(&self.catalog, &probe_ids).await;
+                // Filter to only valid probe IDs
+                let valid_probes = self.filter_valid_probes(&probe_ids);
+
+                if !valid_probes.is_empty() {
+                    info!("Executing {} valid probes (rejected {})",
+                          valid_probes.len(),
+                          probe_ids.len() - valid_probes.len());
+                    let new_evidence = probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                     evidence.extend(new_evidence);
                 }
 
@@ -87,6 +119,9 @@ impl AnswerEngine {
                 }
             };
 
+            // Store for potential partial answer
+            last_draft_answer = Some(draft_answer.text.clone());
+
             let self_scores = llm_a_response
                 .self_scores
                 .unwrap_or_else(|| ReliabilityScores::new(0.5, 0.5, 0.5));
@@ -98,6 +133,7 @@ impl AnswerEngine {
             debug!("LLM-B response: {:?}", llm_b_response);
 
             loop_state.record_score(llm_b_response.scores.overall);
+            last_scores = Some(llm_b_response.scores.clone());
 
             // Step 5: Handle verdict
             match llm_b_response.verdict {
@@ -111,25 +147,51 @@ impl AnswerEngine {
                         loop_state.iteration,
                     ));
                 }
+                AuditVerdict::FixAndAccept => {
+                    // LLM-B provided a fixed answer
+                    loop_state.mark_approved();
+                    let answer_text = llm_b_response
+                        .fixed_answer
+                        .as_deref()
+                        .unwrap_or(&draft_answer.text);
+                    return Ok(self.build_final_answer(
+                        question,
+                        answer_text,
+                        evidence,
+                        llm_b_response.scores,
+                        loop_state.iteration,
+                    ));
+                }
                 AuditVerdict::Refuse => {
-                    loop_state.mark_refused();
-                    let reason = llm_b_response.problems.first().map(|s| s.as_str()).unwrap_or(
-                        "Auditor determined answer cannot be safely provided",
-                    );
-                    return Ok(self.build_refusal(question, reason, &evidence, loop_state.iteration));
+                    // Only refuse if we have no evidence and no draft
+                    if evidence.is_empty() {
+                        loop_state.mark_refused();
+                        let reason = llm_b_response.problems.first().map(|s| s.as_str()).unwrap_or(
+                            "Auditor determined answer cannot be safely provided",
+                        );
+                        return Ok(self.build_refusal(question, reason, &evidence, loop_state.iteration));
+                    }
+                    // If we have evidence, try partial answer with low confidence
+                    warn!("LLM-B wants to refuse but we have evidence - will try partial answer");
+                    last_scores = Some(AuditScores::new(0.5, 0.5, 0.5));
+                    // Continue to see if we can improve
                 }
                 AuditVerdict::NeedsMoreProbes => {
-                    // Execute additional probes requested by auditor
+                    // Execute additional probes requested by auditor (validated)
                     let probe_ids: Vec<String> = llm_b_response
                         .probe_requests
                         .iter()
                         .map(|p| p.probe_id.clone())
                         .collect();
 
-                    if !probe_ids.is_empty() {
-                        info!("Auditor requested {} more probes", probe_ids.len());
+                    let valid_probes = self.filter_valid_probes(&probe_ids);
+
+                    if !valid_probes.is_empty() {
+                        info!("Auditor requested {} valid probes (rejected {})",
+                              valid_probes.len(),
+                              probe_ids.len() - valid_probes.len());
                         let new_evidence =
-                            probe_executor::execute_probes(&self.catalog, &probe_ids).await;
+                            probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                         evidence.extend(new_evidence);
                     }
                     // Continue to next iteration
@@ -137,31 +199,32 @@ impl AnswerEngine {
             }
         }
 
-        // Loop exhausted - check if we have acceptable score
+        // Loop exhausted - provide partial answer instead of refusal
         loop_state.mark_exhausted();
 
-        if loop_state.reached_acceptable {
-            // Use last score
-            let last_score = loop_state.score_history.last().copied().unwrap_or(0.0);
-            return Ok(self.build_final_answer(
+        // If we have a draft answer, return it with honest low confidence
+        if let Some(answer_text) = last_draft_answer {
+            let scores = last_scores.unwrap_or_else(|| AuditScores::new(0.5, 0.5, 0.5));
+            info!("Max loops reached - returning partial answer with confidence {:.2}", scores.overall);
+            return Ok(self.build_partial_answer(
                 question,
-                "Unable to provide a fully verified answer within loop limit.",
+                &answer_text,
                 evidence,
-                AuditScores::new(last_score, last_score, last_score),
+                scores,
                 loop_state.iteration,
             ));
         }
 
-        // No acceptable answer found
+        // No draft answer at all - this is a true refusal
         Ok(self.build_refusal(
             question,
-            "Could not reach acceptable confidence after maximum iterations",
+            "Could not generate any answer after maximum iterations",
             &evidence,
             loop_state.iteration,
         ))
     }
 
-    /// Build a final answer
+    /// Build a final answer (approved)
     fn build_final_answer(
         &self,
         question: &str,
@@ -184,7 +247,35 @@ impl AnswerEngine {
         }
     }
 
-    /// Build a refusal answer
+    /// Build a partial answer (max loops reached but have evidence)
+    fn build_partial_answer(
+        &self,
+        question: &str,
+        answer_text: &str,
+        evidence: Vec<ProbeEvidenceV10>,
+        scores: AuditScores,
+        loop_iterations: usize,
+    ) -> FinalAnswer {
+        let confidence_level = ConfidenceLevel::from_score(scores.overall);
+        let disclaimer = if confidence_level == ConfidenceLevel::Red {
+            "\n\n[Note: This answer has limited verification. Confidence is low.]"
+        } else {
+            ""
+        };
+
+        FinalAnswer {
+            question: question.to_string(),
+            answer: format!("{}{}", answer_text, disclaimer),
+            is_refusal: false,
+            citations: evidence,
+            scores,
+            confidence_level,
+            problems: vec!["Reached maximum verification loops".to_string()],
+            loop_iterations,
+        }
+    }
+
+    /// Build a refusal answer (truly cannot answer)
     fn build_refusal(
         &self,
         question: &str,
@@ -195,7 +286,7 @@ impl AnswerEngine {
         FinalAnswer {
             question: question.to_string(),
             answer: format!(
-                "I cannot answer this safely with the evidence available.\n\nReason: {}",
+                "I cannot answer this question.\n\nReason: {}",
                 reason
             ),
             is_refusal: true,
@@ -235,6 +326,21 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_valid_probes() {
+        let engine = AnswerEngine::default();
+        let probes = vec![
+            "cpu.info".to_string(),
+            "fake.probe".to_string(),
+            "mem.info".to_string(),
+            "invalid.id".to_string(),
+        ];
+        let valid = engine.filter_valid_probes(&probes);
+        assert_eq!(valid.len(), 2);
+        assert!(valid.contains(&"cpu.info".to_string()));
+        assert!(valid.contains(&"mem.info".to_string()));
+    }
+
+    #[test]
     fn test_build_refusal() {
         let engine = AnswerEngine::default();
         let result = engine.build_refusal("test question", "no evidence", &[], 1);
@@ -251,5 +357,16 @@ mod tests {
         assert!(!result.is_refusal);
         assert_eq!(result.confidence_level, ConfidenceLevel::Green);
         assert_eq!(result.loop_iterations, 2);
+    }
+
+    #[test]
+    fn test_build_partial_answer() {
+        let engine = AnswerEngine::default();
+        let scores = AuditScores::new(0.5, 0.5, 0.5);
+        let result = engine.build_partial_answer("test", "partial answer", vec![], scores, 3);
+        assert!(!result.is_refusal);
+        assert_eq!(result.confidence_level, ConfidenceLevel::Red);
+        assert!(result.answer.contains("[Note:"));
+        assert!(result.problems.contains(&"Reached maximum verification loops".to_string()));
     }
 }

@@ -1,4 +1,4 @@
-//! LLM Protocol v0.10.0
+//! LLM Protocol v0.12.0
 //!
 //! Strict JSON request/response protocol between annad and LLM-A / LLM-B.
 //! No prose allowed in responses - only valid JSON.
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 // Protocol Version
 // ============================================================================
 
-pub const PROTOCOL_VERSION: &str = "0.10.0";
+pub const PROTOCOL_VERSION: &str = "0.12.0";
 
 // ============================================================================
 // LLM-A: Planner/Answerer Protocol
@@ -163,7 +163,7 @@ impl LlmBRequest {
 /// Response from LLM-B to annad (must be valid JSON, no prose)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmBResponse {
-    /// Verdict: approve, needs_more_probes, or refuse
+    /// Verdict: approve, fix_and_accept, needs_more_probes, or refuse
     pub verdict: AuditVerdict,
     /// Auditor-computed scores
     pub scores: AuditScores,
@@ -176,17 +176,22 @@ pub struct LlmBResponse {
     /// Suggested fix if problems found
     #[serde(default)]
     pub suggested_fix: Option<String>,
+    /// Corrected answer text if verdict is fix_and_accept
+    #[serde(default)]
+    pub fixed_answer: Option<String>,
 }
 
 /// Audit verdict
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum AuditVerdict {
     /// Answer is adequately grounded and scored
     Approve,
+    /// Minor issues fixable without new probes - use fixed_answer
+    FixAndAccept,
     /// Need more probes before final answer
     NeedsMoreProbes,
-    /// System should refuse to answer
+    /// System should refuse to answer (rare - only when no probes can help)
     Refuse,
 }
 
@@ -194,6 +199,7 @@ impl AuditVerdict {
     pub fn as_str(&self) -> &'static str {
         match self {
             AuditVerdict::Approve => "approve",
+            AuditVerdict::FixAndAccept => "fix_and_accept",
             AuditVerdict::NeedsMoreProbes => "needs_more_probes",
             AuditVerdict::Refuse => "refuse",
         }
@@ -296,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_protocol_version() {
-        assert_eq!(PROTOCOL_VERSION, "0.10.0");
+        assert_eq!(PROTOCOL_VERSION, "0.12.0");
     }
 
     #[test]
@@ -338,7 +344,23 @@ mod tests {
     #[test]
     fn test_audit_verdict() {
         assert_eq!(AuditVerdict::Approve.as_str(), "approve");
+        assert_eq!(AuditVerdict::FixAndAccept.as_str(), "fix_and_accept");
         assert_eq!(AuditVerdict::NeedsMoreProbes.as_str(), "needs_more_probes");
         assert_eq!(AuditVerdict::Refuse.as_str(), "refuse");
+    }
+
+    #[test]
+    fn test_llm_b_response_fixed_answer() {
+        let json = r#"{
+            "verdict": "fix_and_accept",
+            "scores": {"evidence": 0.85, "reasoning": 0.90, "coverage": 0.80, "overall": 0.80},
+            "probe_requests": [],
+            "problems": ["minor wording issue"],
+            "suggested_fix": null,
+            "fixed_answer": "Corrected answer text here"
+        }"#;
+        let response: LlmBResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.verdict, AuditVerdict::FixAndAccept);
+        assert_eq!(response.fixed_answer, Some("Corrected answer text here".to_string()));
     }
 }

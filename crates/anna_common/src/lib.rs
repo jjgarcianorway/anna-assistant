@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.11.0
+//! Anna Common - Shared types and schemas for Anna v0.12.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -10,6 +10,7 @@
 //! v0.9.0: Locked CLI surface, status command.
 //! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop with proof.
 //! v0.11.0: Persistent knowledge store, event-driven learning, user telemetry.
+//! v0.12.0: Strict probe catalog, fix_and_accept verdict, partial answer fallback.
 
 pub mod answer_engine;
 pub mod config;

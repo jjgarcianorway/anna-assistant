@@ -1,4 +1,4 @@
-//! Ollama LLM Client v0.10.0
+//! Ollama LLM Client v0.12.0
 
 use anna_common::{
     LlmAResponse, LlmBResponse, OllamaChatRequest, OllamaChatResponse, OllamaMessage,
@@ -148,13 +148,14 @@ impl OllamaClient {
 
         warn!("Failed to parse LLM-B response: {}", text);
 
-        // Return a refuse verdict on parse failure
+        // Return needs_more_probes on parse failure (not refuse - be less paranoid)
         Ok(LlmBResponse {
-            verdict: anna_common::AuditVerdict::Refuse,
-            scores: anna_common::AuditScores::new(0.0, 0.0, 0.0),
+            verdict: anna_common::AuditVerdict::NeedsMoreProbes,
+            scores: anna_common::AuditScores::new(0.5, 0.5, 0.5),
             probe_requests: vec![],
             problems: vec![format!("Failed to parse audit response: {}", text)],
             suggested_fix: None,
+            fixed_answer: None,
         })
     }
 
