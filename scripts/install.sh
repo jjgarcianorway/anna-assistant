@@ -112,14 +112,14 @@ detect_hardware() {
 
     # CPU cores (physical) and threads
     CPU_THREADS=$(nproc)
-    CPU_CORES_PHYSICAL=$(lscpu | grep "^Core(s) per socket:" | awk '{print $4}')
-    CPU_SOCKETS=$(lscpu | grep "^Socket(s):" | awk '{print $2}')
-    if [[ -n "$CPU_CORES_PHYSICAL" ]] && [[ -n "$CPU_SOCKETS" ]]; then
+    CPU_CORES_PHYSICAL=$(lscpu 2>/dev/null | awk '/^Core\(s\) per socket:/ {print $4}')
+    CPU_SOCKETS=$(lscpu 2>/dev/null | awk '/^Socket\(s\):/ {print $2}')
+    if [ -n "$CPU_CORES_PHYSICAL" ] && [ -n "$CPU_SOCKETS" ] && [ "$CPU_CORES_PHYSICAL" -gt 0 ] 2>/dev/null; then
         CPU_CORES=$((CPU_CORES_PHYSICAL * CPU_SOCKETS))
-        echo "   CPU: ${CPU_CORES} cores (${CPU_THREADS} threads)"
+        printf "   CPU: ${CYAN}%d${NC} cores (${CYAN}%d${NC} threads)\n" "$CPU_CORES" "$CPU_THREADS"
     else
         CPU_CORES=$CPU_THREADS
-        echo "   CPU: ${CPU_CORES} threads"
+        printf "   CPU: ${CYAN}%d${NC} threads\n" "$CPU_CORES"
     fi
 
     # GPU detection
@@ -256,7 +256,7 @@ install_binaries() {
 
 # Download LLM models (no sudo needed)
 download_models() {
-    if [[ "$OLLAMA_MISSING" == "true" ]]; then
+    if [ "$OLLAMA_MISSING" = "true" ]; then
         log_warn "Skipping model download (Ollama not installed)"
         return
     fi
@@ -264,14 +264,15 @@ download_models() {
     log_info "Downloading LLM models (this may take a while)..."
     echo ""
 
-    # Pull model with progress - redirect to /dev/tty for progress bar visibility
+    # Pull model with progress
     pull_model() {
-        local model="$1"
-        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${model}${NC}...\n"
+        model="$1"
+        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}%s${NC}...\n" "$model"
 
-        # Try to show progress on the real terminal
-        if [[ -e /dev/tty ]]; then
-            if ollama pull "$model" < /dev/tty > /dev/tty 2>&1; then
+        # Use 'script' to create a pseudo-TTY for ollama progress bar
+        if command -v script >/dev/null 2>&1; then
+            # script command exists - use it for TTY emulation
+            if script -q -c "ollama pull '$model'" /dev/null; then
                 log_success "Downloaded ${model}"
                 return 0
             else
@@ -279,6 +280,7 @@ download_models() {
                 return 1
             fi
         else
+            # Fallback without progress bar
             if ollama pull "$model"; then
                 log_success "Downloaded ${model}"
                 return 0
