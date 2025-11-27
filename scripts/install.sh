@@ -517,33 +517,45 @@ select_model() {
     installed_models=$(ollama list 2>/dev/null || echo "")
 
     # Prioritized list of known-good models for Anna (best to acceptable)
+    # Criteria: reasoning ability, JSON output reliability, Linux/technical knowledge
+    #
     # Large models (14B+) - excellent quality, need 12GB+ VRAM
     local large_models=(
         "qwen2.5:14b"
         "qwen2.5:32b"
+        "qwen3:14b"
         "deepseek-coder:33b"
         "codellama:34b"
         "llama3.1:70b"
+        "mixtral:8x7b"
     )
 
-    # Medium models (7-8B) - great balance, need 8GB+ VRAM
+    # Medium models (7-8B) - great balance of quality and speed, need 8GB+ VRAM
+    # These are the sweet spot for most users
     local medium_models=(
         "qwen2.5:7b"
-        "llama3.1:8b"
+        "qwen3:8b"
+        "mistral:7b-instruct"
         "mistral:7b"
         "mistral-nemo:latest"
+        "llama3.1:8b"
+        "gemma2:9b"
         "deepseek-coder:6.7b"
         "codellama:7b"
-        "gemma2:9b"
+        "codestral:latest"
+        "starcoder2:7b"
         "phi3:medium"
     )
 
-    # Small models (3-4B) - acceptable for low VRAM/CPU
+    # Small models (3-4B) - acceptable for low VRAM/CPU, good JSON output
     local small_models=(
+        "nemotron-mini:4b"
         "llama3.2:3b"
+        "qwen2.5:3b"
+        "qwen3:4b"
         "phi3:mini"
         "gemma2:2b"
-        "qwen2.5:3b"
+        "starcoder2:3b"
     )
 
     # Check for already-installed large models first
