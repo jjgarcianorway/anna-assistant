@@ -110,9 +110,17 @@ detect_hardware() {
     RAM_GB=$((RAM_KB / 1024 / 1024))
     echo "   RAM: ${RAM_GB} GB"
 
-    # CPU cores
-    CPU_CORES=$(nproc)
-    echo "   CPU: ${CPU_CORES} cores"
+    # CPU cores (physical) and threads
+    CPU_THREADS=$(nproc)
+    CPU_CORES_PHYSICAL=$(lscpu | grep "^Core(s) per socket:" | awk '{print $4}')
+    CPU_SOCKETS=$(lscpu | grep "^Socket(s):" | awk '{print $2}')
+    if [[ -n "$CPU_CORES_PHYSICAL" ]] && [[ -n "$CPU_SOCKETS" ]]; then
+        CPU_CORES=$((CPU_CORES_PHYSICAL * CPU_SOCKETS))
+        echo "   CPU: ${CPU_CORES} cores (${CPU_THREADS} threads)"
+    else
+        CPU_CORES=$CPU_THREADS
+        echo "   CPU: ${CPU_CORES} threads"
+    fi
 
     # GPU detection
     HAS_GPU=false
@@ -253,20 +261,43 @@ download_models() {
         return
     fi
 
-    log_info "Downloading LLM models..."
+    log_info "Downloading LLM models (this may take a while)..."
+    echo ""
 
-    printf "\n   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_A}${NC}...\n\n"
-    if ollama pull "$LLM_A"; then
-        log_success "Downloaded ${LLM_A}"
-    else
-        log_warn "Failed to download ${LLM_A}"
-    fi
+    # When running via curl|bash, we need to connect ollama to the real terminal
+    # for progress bars to work
+    if [[ -t 1 ]]; then
+        # stdout is a terminal, normal operation
+        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_A}${NC}...\n"
+        if ollama pull "$LLM_A"; then
+            log_success "Downloaded ${LLM_A}"
+        else
+            log_warn "Failed to download ${LLM_A}"
+        fi
 
-    printf "\n   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_B}${NC}...\n\n"
-    if ollama pull "$LLM_B"; then
-        log_success "Downloaded ${LLM_B}"
+        echo ""
+        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_B}${NC}...\n"
+        if ollama pull "$LLM_B"; then
+            log_success "Downloaded ${LLM_B}"
+        else
+            log_warn "Failed to download ${LLM_B}"
+        fi
     else
-        log_warn "Failed to download ${LLM_B}"
+        # Running via pipe (curl|bash), try to use /dev/tty
+        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_A}${NC}...\n"
+        if [[ -e /dev/tty ]]; then
+            ollama pull "$LLM_A" </dev/tty >/dev/tty 2>&1 && log_success "Downloaded ${LLM_A}" || log_warn "Failed to download ${LLM_A}"
+        else
+            ollama pull "$LLM_A" && log_success "Downloaded ${LLM_A}" || log_warn "Failed to download ${LLM_A}"
+        fi
+
+        echo ""
+        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_B}${NC}...\n"
+        if [[ -e /dev/tty ]]; then
+            ollama pull "$LLM_B" </dev/tty >/dev/tty 2>&1 && log_success "Downloaded ${LLM_B}" || log_warn "Failed to download ${LLM_B}"
+        else
+            ollama pull "$LLM_B" && log_success "Downloaded ${LLM_B}" || log_warn "Failed to download ${LLM_B}"
+        fi
     fi
 }
 
