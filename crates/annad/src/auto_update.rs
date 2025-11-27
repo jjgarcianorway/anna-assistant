@@ -277,12 +277,14 @@ impl AutoUpdateScheduler {
     }
 
     /// Verify checksum
+    /// SHA256SUMS format: <hash>  <filename>
+    /// We look for lines ending with the binary name (annad or annactl)
     fn verify_checksum(
         &self,
         data: &[u8],
         name: &str,
         checksums: &str,
-        version: &str,
+        _version: &str,
     ) -> Result<()> {
         // Calculate SHA256
         let mut hasher = Sha256::new();
@@ -290,33 +292,32 @@ impl AutoUpdateScheduler {
         let hash = hasher.finalize();
         let calculated = format!("{:x}", hash);
 
-        // Find expected checksum
-        let arch = std::env::consts::ARCH;
-        let target = match arch {
-            "x86_64" => "x86_64-unknown-linux-gnu",
-            "aarch64" => "aarch64-unknown-linux-gnu",
-            _ => "x86_64-unknown-linux-gnu",
-        };
-        let binary_name = format!("{}-{}-{}", name, version, target);
-
+        // Find expected checksum - look for simple filename match
+        // SHA256SUMS format is: "hash  filename" (two spaces)
         for line in checksums.lines() {
-            if line.contains(&binary_name) {
-                let expected = line.split_whitespace().next().unwrap_or("");
-                if calculated == expected {
-                    debug!("✅  Checksum verified for {}", name);
-                    return Ok(());
-                } else {
-                    anyhow::bail!(
-                        "Checksum mismatch for {}: expected {}, got {}",
-                        name,
-                        expected,
-                        calculated
-                    );
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let expected_hash = parts[0];
+                let filename = parts[1];
+
+                // Match if filename is exactly the binary name
+                if filename == name {
+                    if calculated == expected_hash {
+                        debug!("Checksum verified for {}", name);
+                        return Ok(());
+                    } else {
+                        anyhow::bail!(
+                            "Checksum mismatch for {}: expected {}, got {}",
+                            name,
+                            expected_hash,
+                            calculated
+                        );
+                    }
                 }
             }
         }
 
-        anyhow::bail!("Checksum not found for {}", binary_name)
+        anyhow::bail!("Checksum not found for {} in SHA256SUMS", name)
     }
 
     /// Atomic file replacement with backup

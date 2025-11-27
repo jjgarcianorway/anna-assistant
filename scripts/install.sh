@@ -1,16 +1,18 @@
 #!/bin/bash
-# Anna v0.11.0 - Version-Aware Idempotent Installer
+# Anna Installer v2.0.0
+#
+# This installer is versioned INDEPENDENTLY from Anna itself.
+# Installer version: 2.x.x
+# Anna version: fetched from GitHub releases
 #
 # Behavior:
 #   - Detects installed version (if any)
-#   - Fetches latest version from GitHub
+#   - Fetches latest Anna version from GitHub
 #   - Compares and shows planned action
 #   - Non-interactive default: update if newer, skip if same/older
 #   - Interactive mode (-i): prompt for confirmation
 #   - Never clobbers config/data unless --reset is passed
 #   - Logs all actions to /var/log/anna/install.log
-#
-# v0.11.0: Knowledge store directory setup
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/.../install.sh | bash
@@ -30,7 +32,8 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="0.12.2"
+# Installer version (independent from Anna version)
+INSTALLER_VERSION="2.0.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -206,10 +209,11 @@ fetch_latest_version() {
         LATEST_VERSION=$(echo "$response" | grep -oP '"tag_name":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
     fi
 
-    # Fallback to hardcoded version if API fails
+    # Fail if we can't fetch the version - don't use stale hardcoded version
     if [[ -z "$LATEST_VERSION" ]]; then
-        LATEST_VERSION="$INSTALLER_VERSION"
-        log_warn "Could not fetch latest version, using installer version"
+        log_error "Could not fetch latest version from GitHub"
+        log_error "Check your internet connection or try again later"
+        exit 1
     fi
 }
 
