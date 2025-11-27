@@ -1,4 +1,4 @@
-# Anna v0.15.0
+# Anna v0.16.1
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
