@@ -164,21 +164,23 @@ version_compare() {
 detect_installed_version() {
     INSTALLED_VERSION=""
 
-    # Try annactl -V first
+    # Try annactl -V first (primary method)
     if command -v annactl &>/dev/null; then
         local output
         # Use timeout to avoid hanging on LLM-based version
-        output=$(timeout 3 annactl -V 2>&1 | head -5 || true)
-        # Extract version number (e.g., "v0.8.0" or "0.8.0")
-        if [[ "$output" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            INSTALLED_VERSION="${BASH_REMATCH[1]}"
+        output=$(timeout 5 annactl -V 2>&1 | head -20 || true)
+        # Look for "Anna Assistant vX.Y.Z" or "v0.X.Y" pattern specifically
+        if [[ "$output" =~ Anna[[:space:]]+(Assistant[[:space:]]+)?v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            INSTALLED_VERSION="${BASH_REMATCH[2]}"
         fi
     fi
 
-    # Fallback: check binary directly
+    # Fallback: check binary for embedded CARGO_PKG_VERSION
+    # Note: Don't use generic strings search as it picks up library versions
     if [[ -z "$INSTALLED_VERSION" ]] && [[ -x "${INSTALL_DIR}/annactl" ]]; then
         local output
-        output=$(strings "${INSTALL_DIR}/annactl" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+        # Look specifically for Anna version patterns in the binary
+        output=$(strings "${INSTALL_DIR}/annactl" 2>/dev/null | grep -E 'Anna.*[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
         if [[ -n "$output" ]]; then
             INSTALLED_VERSION="$output"
         fi
