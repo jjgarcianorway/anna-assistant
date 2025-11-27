@@ -13,7 +13,7 @@
 //!   - annactl                           Start interactive REPL
 //!   - annactl <request>                 One-shot natural language request
 //!   - annactl status                    Compact status summary
-//!   - annactl -V | --version | version  Show version info
+//!   - annactl version                   Show version info
 //!   - annactl -h | --help | help        Show help info
 
 // Allow dead code for features planned but not yet fully wired
@@ -67,15 +67,8 @@ async fn main() -> Result<()> {
         // v0.9.0: Status command (case-insensitive)
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
 
-        // Version flags - all instant, no LLM
-        [flag]
-            if flag == "-V"
-                || flag == "--version"
-                || flag.eq_ignore_ascii_case("-v")
-                || flag.eq_ignore_ascii_case("version") =>
-        {
-            run_version_instant().await
-        }
+        // v0.16.5: Version command only (removed -V flag)
+        [flag] if flag.eq_ignore_ascii_case("version") => run_version_instant().await,
 
         // Help flags - route through LLM (case-insensitive)
         [flag]
@@ -139,10 +132,8 @@ async fn run_repl() -> Result<()> {
         }
 
         // Handle version/help/status in REPL too (case-insensitive)
-        if matches!(
-            input.to_lowercase().as_str(),
-            "version" | "-v" | "--version"
-        ) {
+        // v0.16.5: Only "version" command, removed -v/--version flags
+        if input.eq_ignore_ascii_case("version") {
             run_version_instant().await?;
             continue;
         }
@@ -319,11 +310,13 @@ async fn run_version_instant() -> Result<()> {
     if daemon.is_healthy().await {
         match daemon.health().await {
             Ok(health) => {
+                // v0.16.5: Human-readable uptime
+                let uptime_str = format_uptime_human(health.uptime_seconds);
                 println!(
-                    "  {}  annad v{} (uptime {}s)",
+                    "  {}  annad v{} (uptime {})",
                     "+".bright_green(),
                     health.version,
-                    health.uptime_seconds
+                    uptime_str.cyan()
                 );
             }
             Err(_) => {
@@ -410,17 +403,28 @@ async fn run_status() -> Result<()> {
     if daemon.is_healthy().await {
         match daemon.health().await {
             Ok(health) => {
+                // v0.16.5: Human-readable uptime
+                let uptime_str = format_uptime_human(health.uptime_seconds);
                 println!(
-                    "  {}  annad v{} (uptime: {}s)",
+                    "  {}  annad v{} (uptime: {})",
                     "+".bright_green(),
                     health.version,
-                    health.uptime_seconds
+                    uptime_str.cyan()
                 );
-                println!(
-                    "  {}  {} probes available",
-                    "+".bright_green(),
-                    health.probes_available
-                );
+
+                // v0.16.5: List probe names instead of just count
+                if health.probe_names.is_empty() {
+                    println!("  {}  No probes available", "!".bright_red());
+                } else {
+                    println!(
+                        "  {}  {} probes:",
+                        "+".bright_green(),
+                        health.probes_available
+                    );
+                    for probe in &health.probe_names {
+                        println!("       •  {}", probe.dimmed());
+                    }
+                }
             }
             Err(_) => {
                 println!("  {}  annad running (details unavailable)", "~".yellow());
@@ -525,52 +529,66 @@ async fn run_status() -> Result<()> {
 
     println!("{}", THIN_SEPARATOR);
 
-    // Self-health summary (compact)
+    // v0.16.5: Detailed self-health with individual component status
     let health_report = self_health::run_all_probes();
     println!("{}", "SELF-HEALTH".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
+
+    // Overall status header
     match health_report.overall {
         OverallHealth::Healthy => {
             println!(
-                "  {}  All components healthy ({} checked)",
+                "  {}  Overall: {} ({} components)",
                 "+".bright_green(),
+                "healthy".bright_green(),
                 health_report.components.len()
             );
         }
         OverallHealth::Degraded => {
-            let degraded: Vec<_> = health_report
-                .components
-                .iter()
-                .filter(|c| !c.status.is_healthy())
-                .collect();
-            println!(
-                "  {}  Degraded: {}",
-                "~".yellow(),
-                degraded
-                    .iter()
-                    .map(|c| c.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
+            println!("  {}  Overall: {}", "~".yellow(), "degraded".yellow());
         }
         OverallHealth::Critical => {
-            let critical: Vec<_> = health_report
-                .components
-                .iter()
-                .filter(|c| c.status == anna_common::ComponentStatus::Critical)
-                .collect();
             println!(
-                "  {}  Critical: {}",
+                "  {}  Overall: {}",
                 "!".bright_red(),
-                critical
-                    .iter()
-                    .map(|c| c.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                "CRITICAL".bright_red().bold()
             );
         }
         OverallHealth::Unknown => {
-            println!("  {}  Status unknown", "?".dimmed());
+            println!("  {}  Overall: {}", "?".dimmed(), "unknown".dimmed());
+        }
+    }
+
+    // List each component with its status
+    for component in &health_report.components {
+        let (icon, status_str) = match component.status {
+            anna_common::ComponentStatus::Healthy => (
+                "+".bright_green().to_string(),
+                "ok".bright_green().to_string(),
+            ),
+            anna_common::ComponentStatus::Degraded => {
+                ("~".yellow().to_string(), "degraded".yellow().to_string())
+            }
+            anna_common::ComponentStatus::Critical => (
+                "!".bright_red().to_string(),
+                "CRITICAL".bright_red().to_string(),
+            ),
+            anna_common::ComponentStatus::Unknown => {
+                ("?".dimmed().to_string(), "unknown".dimmed().to_string())
+            }
+        };
+
+        // Show component with its status and message if not healthy
+        if component.status.is_healthy() {
+            println!("       {}  {}: {}", icon, component.name, status_str);
+        } else {
+            println!(
+                "       {}  {}: {} - {}",
+                icon,
+                component.name,
+                status_str,
+                component.message.dimmed()
+            );
         }
     }
     println!("{}", THIN_SEPARATOR);
@@ -614,6 +632,53 @@ fn format_time_ago(rfc3339: &str) -> String {
             }
         }
         Err(_) => rfc3339.to_string(), // Fallback to raw timestamp
+    }
+}
+
+/// v0.16.5: Format uptime seconds as human-readable duration
+/// Examples: "45s", "3m 12s", "2h 15m", "5d 3h 20m", "2w 1d"
+fn format_uptime_human(seconds: u64) -> String {
+    const MINUTE: u64 = 60;
+    const HOUR: u64 = 60 * MINUTE;
+    const DAY: u64 = 24 * HOUR;
+    const WEEK: u64 = 7 * DAY;
+
+    if seconds < MINUTE {
+        format!("{}s", seconds)
+    } else if seconds < HOUR {
+        let mins = seconds / MINUTE;
+        let secs = seconds % MINUTE;
+        if secs > 0 {
+            format!("{}m {}s", mins, secs)
+        } else {
+            format!("{}m", mins)
+        }
+    } else if seconds < DAY {
+        let hours = seconds / HOUR;
+        let mins = (seconds % HOUR) / MINUTE;
+        if mins > 0 {
+            format!("{}h {}m", hours, mins)
+        } else {
+            format!("{}h", hours)
+        }
+    } else if seconds < WEEK {
+        let days = seconds / DAY;
+        let hours = (seconds % DAY) / HOUR;
+        let mins = (seconds % HOUR) / MINUTE;
+        if hours > 0 {
+            format!("{}d {}h {}m", days, hours, mins)
+        } else {
+            format!("{}d", days)
+        }
+    } else {
+        let weeks = seconds / WEEK;
+        let days = (seconds % WEEK) / DAY;
+        let hours = (seconds % DAY) / HOUR;
+        if days > 0 {
+            format!("{}w {}d {}h", weeks, days, hours)
+        } else {
+            format!("{}w", weeks)
+        }
     }
 }
 

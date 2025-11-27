@@ -155,11 +155,16 @@ pub fn health_routes() -> Router<AppStateArc> {
 async fn health_check(State(state): State<AppStateArc>) -> Json<HealthResponse> {
     let registry = state.probe_registry.read().await;
 
+    // v0.16.5: Collect probe names for detailed status display
+    let mut probe_names: Vec<String> = registry.list().iter().map(|p| p.id.clone()).collect();
+    probe_names.sort();
+
     Json(HealthResponse {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
         probes_available: registry.count(),
+        probe_names,
     })
 }
 

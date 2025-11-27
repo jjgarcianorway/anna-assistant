@@ -1,4 +1,4 @@
-# Anna v0.16.4
+# Anna v0.16.5
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -142,11 +142,7 @@ annactl "How many CPU cores do I have?"
 # System status (daemon, LLM, update, self-health)
 annactl status
 
-# Version (instant, no daemon needed)
-annactl -V
-annactl --version
-
-# Version with details (requires daemon)
+# Version info
 annactl version
 
 # Help
@@ -357,6 +353,7 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.16.5 | Enhanced status: human-readable uptime, probe names, detailed health |
 | v0.16.4 | Real-time debug output with [JUNIOR model] and [SENIOR model] labels |
 | v0.16.3 | Debug trace output for development troubleshooting |
 | v0.15.0 | Research Loop Engine with command whitelist |

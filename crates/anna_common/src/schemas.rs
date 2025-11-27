@@ -49,6 +49,9 @@ pub struct HealthResponse {
     pub version: String,
     pub uptime_seconds: u64,
     pub probes_available: usize,
+    /// v0.16.5: List of available probe IDs
+    #[serde(default)]
+    pub probe_names: Vec<String>,
 }
 
 /// List probes response
