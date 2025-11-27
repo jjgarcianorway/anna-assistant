@@ -1,21 +1,21 @@
-# Anna v0.4.0
+# Anna v0.5.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.4.0
+## What's New in v0.5.0
+
+- 🗣️  **Natural Language Configuration** - Configure Anna by talking to her
+- 🧠  **Hardware-Aware Model Selection** - Automatically picks the right model for your hardware
+- 🔒  **GPU Driver Detection** - Safe fallback when GPU exists but drivers are missing
+- 🔄  **Dev Auto-Update** - 600 second minimum interval, config-driven
+
+## What's in v0.4.0
 
 - 🔄  **Dev Auto-Update** - Automatic updates every 10 minutes in dev mode
 - 📊  **Update Status in Version/Help** - Channel, mode, last check info
 - ⚙️  **Config-Driven Updates** - No new CLI commands, all via config
-
-## What's in v0.3.0
-
-- 🛡️  **Strict Hallucination Guardrails** - Zero tolerance for unsupported claims
-- 🔄  **Stable Repeated Answers** - Reconciliation when answers differ
-- 📊  **70% Reliability Threshold** - Below 70% = insufficient evidence
-- 🤖  **LLM-Orchestrated Help/Version** - Even help/version uses the evidence pipeline
 
 ## Architecture
 
@@ -51,66 +51,79 @@ annactl
 annactl -V
 annactl --version
 
-# Show help (mentions auto-update config)
+# Show help
 annactl -h
 annactl --help
 ```
 
 **That's it.** No other commands exist.
 
-## Auto-Update (v0.4.0)
+## Natural Language Configuration (v0.5.0)
 
-Anna can automatically update itself. Configuration is done via config file, not CLI:
+Configure Anna by talking to her - no manual config editing needed:
 
-### Config Location
+```bash
+# Enable dev auto-update every 10 minutes
+annactl "enable dev auto-update every 10 minutes"
 
-- User config: `~/.config/anna/config.toml`
-- System config: `/etc/anna/config.toml`
+# Switch to a specific model
+annactl "switch to manual model selection and use qwen2.5:14b"
 
-### Config Options
+# Go back to automatic model selection
+annactl "go back to automatic model selection"
 
-```toml
-[update]
-channel = "stable"        # stable, beta, or dev
-auto = false              # Enable auto-updates
-interval_seconds = 86400  # Check interval (optional)
+# Disable auto-update
+annactl "turn off auto update"
+
+# Show current configuration
+annactl "show me your current configuration"
 ```
 
-### Channels
+### Config Schema
 
-| Channel | Default Interval | Description |
-|---------|-----------------|-------------|
-| `stable` | 24 hours | Production releases only |
-| `beta` | 12 hours | Pre-release versions |
-| `dev` | 10 minutes | Development versions |
-
-### Dev Mode Auto-Update
-
-To enable automatic updates every 10 minutes:
+Under the hood, configuration is stored in `~/.config/anna/config.toml`:
 
 ```toml
+[core]
+mode = "normal"           # normal or dev
+
+[llm]
+preferred_model = "llama3.2:3b"
+fallback_model = "llama3.2:3b"
+selection_mode = "auto"   # auto or manual
+
 [update]
-channel = "dev"
-auto = true
+enabled = false
+interval_seconds = 86400  # Minimum 600 (10 minutes)
+channel = "main"          # main, stable, beta, or dev
 ```
 
-When enabled:
-- Checks for new versions every 10 minutes
-- Downloads and verifies binaries atomically
-- Restarts daemon automatically
-- Rolls back on failure
+### Hardware-Aware Model Selection
+
+Anna automatically selects the appropriate model based on your hardware:
+
+| Condition | Model Selected |
+|-----------|---------------|
+| GPU with drivers | `qwen2.5:14b` or `qwen2.5:32b` |
+| GPU without drivers | `llama3.2:3b` (safe fallback) |
+| High-performance CPU | `qwen2.5:7b` |
+| Standard CPU | `llama3.2:3b` |
+
+When GPU drivers become available, Anna can automatically upgrade to a larger model (in dev mode) or recommend an upgrade (in normal mode).
 
 ### Version Output
 
 ```
-Anna Assistant v0.4.0
-Channel: stable
-Update mode: manual
-Last update check: 2025-01-15 10:30:00 UTC
-Last update result: ok
-Daemon: running (v0.4.0, uptime: 3600s, 3 probes)
-Model: llama3.2:3b
-Tool catalog: 3 probes registered
+Anna Assistant v0.5.0
+Mode: normal [source: config.core]
+Update: manual (main, every 86400s) [source: config.update]
+LLM:
+  selection_mode: auto [source: config.llm]
+  active_model: llama3.2:3b [source: config.llm]
+  fallback_model: llama3.2:3b [source: config.llm]
+  hardware_recommendation: Standard CPU system [source: hardware.profile]
+Daemon: running (v0.5.0, uptime: 3600s, 6 probes) [source: system.version]
+Tool catalog: 6 probes registered [source: system.version]
 ```
 
 ## Components
@@ -161,10 +174,12 @@ annactl -V                   # Verify
 | `cpu.info` | CPU information from /proc/cpuinfo | STATIC |
 | `mem.info` | Memory usage from /proc/meminfo | VOLATILE (5s) |
 | `disk.lsblk` | Disk information from lsblk | SLOW (1h) |
+| `hardware.gpu` | GPU hardware detection via lspci | SLOW (1h) |
+| `drivers.gpu` | GPU driver status from kernel modules | SLOW (1h) |
+| `hardware.ram` | RAM information | SLOW (1h) |
 
 ## Domains WITHOUT Probes (Cannot Answer)
 
-- GPU/Graphics - No gpu.info probe
 - Network/WiFi/IP - No network.info probe
 - Packages/Software - No package.info probe
 - Processes/Services - No process.info probe

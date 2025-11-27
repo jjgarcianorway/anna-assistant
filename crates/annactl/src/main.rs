@@ -2,6 +2,7 @@
 //!
 //! v0.3.0: Strict CLI with LLM-orchestrated help/version
 //! v0.4.0: Update status in version/help output
+//! v0.5.0: Natural language configuration, hardware-aware model selection
 //!
 //! Only these commands exist:
 //!   - annactl "<question>"    Ask Anna anything
@@ -14,7 +15,7 @@ mod llm_client;
 mod orchestrator;
 mod output;
 
-use anna_common::{load_update_config, load_update_state};
+use anna_common::{AnnaConfigV5, HardwareProfile};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -155,7 +156,7 @@ async fn run_version_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
     // Build internal question for version info
-    let version_question = "What is your version? Report: Anna version, channel, update status, daemon status, model name, and tool catalog count.";
+    let version_question = "What is your version? Report: mode, update status, LLM config, daemon status.";
 
     // Check if daemon is healthy and get status
     let daemon_status = if daemon.is_healthy().await {
@@ -181,9 +182,9 @@ async fn run_version_via_llm() -> Result<()> {
         0
     };
 
-    // Load update config and state
-    let update_config = load_update_config();
-    let update_state = load_update_state();
+    // Load v0.5.0 config and detect hardware
+    let config = AnnaConfigV5::load();
+    let hardware = HardwareProfile::detect();
 
     // Process through orchestrator for consistent formatting
     let result = orchestrator::process_internal_query(
@@ -193,8 +194,8 @@ async fn run_version_via_llm() -> Result<()> {
             version: env!("CARGO_PKG_VERSION").to_string(),
             daemon_status,
             probe_count,
-            update_config,
-            update_state,
+            config,
+            hardware,
         },
     )
     .await?;
@@ -207,16 +208,16 @@ async fn run_version_via_llm() -> Result<()> {
 async fn run_help_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
-    let help_question = "How do I use Anna? Show usage, available commands, examples, and auto-update configuration.";
+    let help_question = "How do I use Anna? Show usage, natural language configuration, and examples.";
 
-    // Load update config
-    let update_config = load_update_config();
+    // Load v0.5.0 config
+    let config = AnnaConfigV5::load();
 
     // Process through orchestrator for consistent formatting
     let result = orchestrator::process_internal_query(
         help_question,
         &daemon,
-        orchestrator::InternalQueryType::Help { update_config },
+        orchestrator::InternalQueryType::Help { config },
     )
     .await?;
 

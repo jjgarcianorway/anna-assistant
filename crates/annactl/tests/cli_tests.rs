@@ -1,4 +1,4 @@
-//! CLI integration tests for annactl v0.4.0
+//! CLI integration tests for annactl v0.5.0
 //!
 //! Tests the simplified CLI interface:
 //! - annactl "<question>" - Ask a question
@@ -6,7 +6,7 @@
 //! - annactl -V / --version - Show version
 //! - annactl -h / --help - Show help
 //!
-//! v0.4.0: Version/help now show update status
+//! v0.5.0: Natural language configuration, hardware-aware model selection
 
 use std::env;
 use std::path::PathBuf;
@@ -36,14 +36,14 @@ fn test_annactl_version_long() {
         .output()
         .expect("Failed to run annactl");
 
-    // v0.4.0: Version shows update status
+    // v0.5.0: Version shows update status and config
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // Either it shows version info with update status, or shows connection error
     assert!(
-        stdout.contains("0.4.0") || stderr.contains("daemon") || stderr.contains("connection"),
-        "Expected version 0.4.0 or daemon connection message, got stdout: {}, stderr: {}",
+        stdout.contains("0.5.0") || stderr.contains("daemon") || stderr.contains("connection"),
+        "Expected version 0.5.0 or daemon connection message, got stdout: {}, stderr: {}",
         stdout,
         stderr
     );
@@ -67,14 +67,14 @@ fn test_annactl_version_short() {
 
     // Either it shows version info, or it shows connection error (daemon not running)
     assert!(
-        stdout.contains("0.4.0") || stderr.contains("daemon") || stderr.contains("connection"),
-        "Expected version 0.4.0 or daemon connection message"
+        stdout.contains("0.5.0") || stderr.contains("daemon") || stderr.contains("connection"),
+        "Expected version 0.5.0 or daemon connection message"
     );
 }
 
-/// Test version output includes update status fields
+/// Test version output includes config and hardware status fields (v0.5.0 format)
 #[test]
-fn test_annactl_version_includes_update_status() {
+fn test_annactl_version_includes_config_status() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -87,18 +87,18 @@ fn test_annactl_version_includes_update_status() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v0.4.0: Version should include channel and update mode
-    // If LLM is available and daemon is running, we should see these fields
-    if stdout.contains("0.4.0") {
-        // Check for update-related fields (at least one should be present)
-        let has_channel = stdout.contains("Channel:");
-        let has_update_mode = stdout.contains("Update mode:");
-        let has_last_check = stdout.contains("Last update check:");
+    // v0.5.0: Version should include config, LLM, and hardware info with evidence sources
+    if stdout.contains("0.5.0") {
+        // Check for v0.5.0 format fields
+        let has_mode = stdout.contains("Mode:") && stdout.contains("[source: config.core]");
+        let has_update = stdout.contains("Update:") && stdout.contains("[source: config.update]");
+        let has_llm = stdout.contains("LLM:") || stdout.contains("[source: config.llm]");
+        let has_hardware = stdout.contains("hardware") || stdout.contains("[source: hardware.profile]");
 
-        // At least some update info should be present
+        // At least some v0.5.0 config info should be present
         assert!(
-            has_channel || has_update_mode || has_last_check || stdout.contains("stable"),
-            "Version output should include update status fields, got: {}",
+            has_mode || has_update || has_llm || has_hardware,
+            "Version output should include v0.5.0 config/hardware status fields, got: {}",
             stdout
         );
     }

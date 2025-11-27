@@ -1,12 +1,12 @@
-//! Auto-update scheduler for Anna v0.4.0
+//! Auto-update scheduler for Anna v0.5.0
 //!
 //! Runs in the background and checks for updates based on config.
-//! Dev mode: Every 10 minutes when enabled.
+//! Dev mode: Every 10 minutes (600s minimum) when enabled.
 
 use anna_common::{
-    load_update_config, load_update_state, record_update_check, save_update_state,
-    should_check_for_updates, GitHubRelease, UpdateCheckResult, UpdateConfig, UpdateResult,
-    UpdateState,
+    load_update_state, record_update_check, save_update_state,
+    AnnaConfigV5, GitHubRelease, UpdateCheckResult, UpdateResult, UpdateState,
+    MIN_UPDATE_INTERVAL,
 };
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
@@ -21,9 +21,9 @@ use tracing::{debug, error, info, warn};
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Auto-update scheduler state
+/// Auto-update scheduler state (v0.5.0)
 pub struct AutoUpdateScheduler {
-    config: Arc<RwLock<UpdateConfig>>,
+    config: Arc<RwLock<AnnaConfigV5>>,
     state: Arc<RwLock<UpdateState>>,
     http_client: reqwest::Client,
 }
@@ -31,7 +31,7 @@ pub struct AutoUpdateScheduler {
 impl AutoUpdateScheduler {
     /// Create a new auto-update scheduler
     pub fn new() -> Self {
-        let config = load_update_config();
+        let config = AnnaConfigV5::load();
         let state = load_update_state();
 
         Self {
@@ -45,30 +45,48 @@ impl AutoUpdateScheduler {
         }
     }
 
+    /// Check if enough time has passed since last update check (v0.5.0)
+    fn should_check_for_updates(config: &AnnaConfigV5, state: &UpdateState) -> bool {
+        // Must be in dev mode with update enabled
+        if !config.is_dev_auto_update_active() {
+            return false;
+        }
+
+        let now = chrono::Utc::now().timestamp();
+        // Enforce minimum interval of 600 seconds
+        let interval = config.update.effective_interval().max(MIN_UPDATE_INTERVAL) as i64;
+
+        match state.last_check {
+            Some(last) => now - last >= interval,
+            None => true, // Never checked, should check
+        }
+    }
+
     /// Start the auto-update loop
     pub async fn start(self: Arc<Self>) {
         info!("🔄  Auto-update scheduler started");
 
         loop {
-            // Reload config each iteration (allows runtime changes)
-            let config = load_update_config();
+            // Reload config each iteration (allows runtime changes via NL)
+            let config = AnnaConfigV5::load();
             *self.config.write().await = config.clone();
 
-            if config.auto {
+            if config.is_dev_auto_update_active() {
                 let state = self.state.read().await.clone();
 
-                if should_check_for_updates(&config, &state) {
+                if Self::should_check_for_updates(&config, &state) {
+                    let interval = config.update.effective_interval();
                     info!(
-                        "🔍  Checking for updates (channel: {}, interval: {}s)",
-                        config.channel.as_str(),
-                        config.effective_interval()
+                        "🔍  Checking for updates (mode: {}, channel: {}, interval: {}s)",
+                        config.core.mode.as_str(),
+                        config.update.channel.as_str(),
+                        interval
                     );
 
                     match self.check_and_update().await {
                         Ok(true) => {
                             info!("✅  Update applied successfully");
                             // After successful update, the daemon should restart
-                            // This will be handled by the update process itself
                         }
                         Ok(false) => {
                             debug!("📋  No update available");
@@ -141,9 +159,12 @@ impl AutoUpdateScheduler {
         }
     }
 
-    /// Fetch the latest release from GitHub
-    async fn fetch_latest_release(&self, config: &UpdateConfig) -> Result<GitHubRelease> {
-        let url = anna_common::latest_release_url(config.channel);
+    /// Fetch the latest release from GitHub (v0.5.0 - single channel for now)
+    async fn fetch_latest_release(&self, config: &AnnaConfigV5) -> Result<GitHubRelease> {
+        // v0.5.0: All releases on main channel, channel value stored for future use
+        let url = format!(
+            "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest"
+        );
 
         let resp = self
             .http_client
@@ -157,39 +178,13 @@ impl AutoUpdateScheduler {
             anyhow::bail!("GitHub API returned {}", resp.status());
         }
 
-        match config.channel {
-            anna_common::UpdateChannel::Stable => {
-                resp.json::<GitHubRelease>()
-                    .await
-                    .context("Failed to parse release")
-            }
-            anna_common::UpdateChannel::Beta | anna_common::UpdateChannel::Dev => {
-                // Get list of releases and find latest matching channel
-                let releases: Vec<GitHubRelease> = resp
-                    .json()
-                    .await
-                    .context("Failed to parse releases")?;
+        // For v0.5.0, all channels use the latest release
+        // Channel value is stored but doesn't affect endpoint yet
+        debug!("Fetching release for channel: {}", config.update.channel.as_str());
 
-                // For dev, prefer prereleases with -dev suffix
-                // For beta, prefer prereleases with -beta suffix
-                let suffix = match config.channel {
-                    anna_common::UpdateChannel::Dev => "-dev",
-                    anna_common::UpdateChannel::Beta => "-beta",
-                    _ => "",
-                };
-
-                releases
-                    .into_iter()
-                    .find(|r| {
-                        if suffix.is_empty() {
-                            true
-                        } else {
-                            r.prerelease || r.tag_name.contains(suffix)
-                        }
-                    })
-                    .ok_or_else(|| anyhow::anyhow!("No matching release found"))
-            }
-        }
+        resp.json::<GitHubRelease>()
+            .await
+            .context("Failed to parse release")
     }
 
     /// Apply the update atomically
@@ -374,8 +369,8 @@ impl AutoUpdateScheduler {
         self.state.read().await.clone()
     }
 
-    /// Get current update config for reporting
-    pub async fn get_config(&self) -> UpdateConfig {
+    /// Get current config for reporting
+    pub async fn get_config(&self) -> AnnaConfigV5 {
         self.config.read().await.clone()
     }
 }
@@ -389,11 +384,80 @@ impl Default for AutoUpdateScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anna_common::{CoreMode, Channel};
 
     #[test]
     fn test_scheduler_creation() {
         let scheduler = AutoUpdateScheduler::new();
         // Should not panic and have default config
-        assert!(!scheduler.config.try_read().unwrap().auto);
+        let config = scheduler.config.try_read().unwrap();
+        assert!(!config.update.enabled);
+    }
+
+    #[test]
+    fn test_should_check_for_updates_dev_disabled() {
+        let config = AnnaConfigV5::default();
+        let state = UpdateState::default();
+
+        // Default config is not dev mode, should not check
+        assert!(!AutoUpdateScheduler::should_check_for_updates(&config, &state));
+    }
+
+    #[test]
+    fn test_should_check_for_updates_dev_enabled_never_checked() {
+        let mut config = AnnaConfigV5::default();
+        config.core.mode = CoreMode::Dev;
+        config.update.enabled = true;
+        config.update.interval_seconds = MIN_UPDATE_INTERVAL;
+
+        let state = UpdateState::default(); // last_check is None
+
+        // Dev mode enabled, never checked - should check
+        assert!(AutoUpdateScheduler::should_check_for_updates(&config, &state));
+    }
+
+    #[test]
+    fn test_should_check_for_updates_interval_not_passed() {
+        let mut config = AnnaConfigV5::default();
+        config.core.mode = CoreMode::Dev;
+        config.update.enabled = true;
+        config.update.interval_seconds = MIN_UPDATE_INTERVAL;
+
+        // Last check was 60 seconds ago
+        let mut state = UpdateState::default();
+        state.last_check = Some(chrono::Utc::now().timestamp() - 60);
+
+        // Interval (600s) hasn't passed - should not check
+        assert!(!AutoUpdateScheduler::should_check_for_updates(&config, &state));
+    }
+
+    #[test]
+    fn test_should_check_for_updates_interval_passed() {
+        let mut config = AnnaConfigV5::default();
+        config.core.mode = CoreMode::Dev;
+        config.update.enabled = true;
+        config.update.interval_seconds = MIN_UPDATE_INTERVAL;
+
+        // Last check was 700 seconds ago
+        let mut state = UpdateState::default();
+        state.last_check = Some(chrono::Utc::now().timestamp() - 700);
+
+        // Interval (600s) has passed - should check
+        assert!(AutoUpdateScheduler::should_check_for_updates(&config, &state));
+    }
+
+    #[test]
+    fn test_minimum_interval_enforced() {
+        let mut config = AnnaConfigV5::default();
+        config.core.mode = CoreMode::Dev;
+        config.update.enabled = true;
+        config.update.interval_seconds = 100; // Below minimum
+
+        // Last check was 200 seconds ago (above requested but below minimum)
+        let mut state = UpdateState::default();
+        state.last_check = Some(chrono::Utc::now().timestamp() - 200);
+
+        // Even though 200 > 100 requested, minimum of 600 is enforced
+        assert!(!AutoUpdateScheduler::should_check_for_updates(&config, &state));
     }
 }

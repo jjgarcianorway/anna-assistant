@@ -7,21 +7,29 @@
 //!
 //! v0.4.0:
 //! - Update status in version/help output
+//!
+//! v0.5.0:
+//! - Natural language configuration
+//! - Hardware-aware model selection
 
 use crate::client::DaemonClient;
 use crate::llm_client::LlmClient;
 use anna_common::prompts::{LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT};
 use anna_common::{
-    AnnaResponse, Evidence, ExpertResponse, ModelSelection, ReliabilityScore, UpdateConfig,
-    UpdateResult, UpdateState, Verdict,
+    apply_intent, apply_mutation, format_config_display, format_mutation_diff,
+    AnnaConfigV5, AnnaResponse, ConfigIntent, ConfigPatternMatcher, Evidence,
+    ExpertResponse, HardwareProfile, ModelSelection, ReliabilityScore, Verdict,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tracing::{debug, info, warn};
 
-/// Tool catalog - the ONLY probes that exist
-const TOOL_CATALOG: &[&str] = &["cpu.info", "mem.info", "disk.lsblk"];
+/// Tool catalog - the ONLY probes that exist (v0.5.0 expanded)
+const TOOL_CATALOG: &[&str] = &[
+    "cpu.info", "mem.info", "disk.lsblk",
+    "hardware.gpu", "drivers.gpu", "hardware.ram",
+];
 
 /// Internal query types for help/version
 #[derive(Debug, Clone)]
@@ -30,11 +38,11 @@ pub enum InternalQueryType {
         version: String,
         daemon_status: String,
         probe_count: usize,
-        update_config: UpdateConfig,
-        update_state: UpdateState,
+        config: AnnaConfigV5,
+        hardware: HardwareProfile,
     },
     Help {
-        update_config: UpdateConfig,
+        config: AnnaConfigV5,
     },
 }
 
@@ -117,35 +125,16 @@ fn answers_match(answer1: &str, answer2: &str) -> bool {
     similarity > 0.8
 }
 
-/// Format update state for display
-fn format_update_state(state: &UpdateState) -> (String, String) {
-    let last_check = state
-        .last_check
-        .map(|ts| {
-            chrono::DateTime::from_timestamp(ts, 0)
-                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                .unwrap_or_else(|| "invalid".to_string())
-        })
-        .unwrap_or_else(|| "never".to_string());
-
-    let last_result = state
-        .last_result
-        .map(|r| match r {
-            UpdateResult::Ok => "ok".to_string(),
-            UpdateResult::Failed => format!(
-                "failed{}",
-                state
-                    .last_failure_reason
-                    .as_ref()
-                    .map(|r| format!(" ({})", r))
-                    .unwrap_or_default()
-            ),
-            UpdateResult::NoUpdate => "no update".to_string(),
-            UpdateResult::Unknown => "unknown".to_string(),
-        })
-        .unwrap_or_else(|| "unknown".to_string());
-
-    (last_check, last_result)
+/// Format update state for display (from v0.5.0 config)
+fn format_update_info(config: &AnnaConfigV5) -> String {
+    let mode = if config.update.enabled { "auto" } else { "manual" };
+    let interval = config.update.effective_interval();
+    format!(
+        "{} ({}, every {}s)",
+        mode,
+        config.update.channel.as_str(),
+        interval
+    )
 }
 
 /// Process internal queries (help/version) via LLM pipeline
@@ -161,27 +150,28 @@ pub async fn process_internal_query(
     if !llm.is_available().await {
         // Fallback for when LLM is not available
         return Ok(match query_type {
-            InternalQueryType::Version { version, daemon_status, probe_count, update_config, update_state } => {
-                let (last_check, last_result) = format_update_state(&update_state);
-                let update_mode = if update_config.auto { "auto" } else { "manual" };
+            InternalQueryType::Version { version, daemon_status, probe_count, config, hardware } => {
+                let update_info = format_update_info(&config);
+                let model_rec = hardware.select_model();
 
                 AnnaResponse {
                     answer: format!(
-                        "Anna Assistant v{}\nChannel: {}\nUpdate mode: {}\nLast update check: {}\nLast update result: {}\nDaemon: {}\nTool catalog: {} probes registered\n\n⚠️  LLM unavailable - showing basic info only",
-                        version, update_config.channel.as_str(), update_mode, last_check, last_result, daemon_status, probe_count
+                        "Anna Assistant v{}\nMode: {}\nUpdate: {}\nLLM: {} ({})\nActive model: {}\nFallback: {}\nDaemon: {}\nTool catalog: {} probes registered\n\n⚠️  LLM unavailable - showing basic info only",
+                        version, config.core.mode.as_str(), update_info,
+                        config.llm.selection_mode.as_str(), model_rec.reason,
+                        config.llm.preferred_model, config.llm.fallback_model,
+                        daemon_status, probe_count
                     ),
                     confidence: 0.5,
-                    sources: vec!["internal.state".to_string(), "update.config".to_string(), "update.state".to_string()],
+                    sources: vec!["config.core".to_string(), "config.llm".to_string(), "config.update".to_string()],
                     warning: Some("LLM backend unavailable".to_string()),
                 }
             }
-            InternalQueryType::Help { update_config } => {
-                let auto_update_note = if update_config.auto && update_config.channel == anna_common::UpdateChannel::Dev {
-                    "\n\nAuto-update: enabled (dev mode, every 10 minutes)"
-                } else if update_config.auto {
-                    "\n\nAuto-update: enabled (controlled via config)"
+            InternalQueryType::Help { config } => {
+                let config_note = if config.is_dev_auto_update_active() {
+                    "Dev auto-update: enabled (every 10 minutes)"
                 } else {
-                    "\n\nAuto-update: disabled (configure via ~/.config/anna/config.toml)"
+                    "Configure Anna via natural language (e.g., \"enable dev auto-update\")"
                 };
 
                 AnnaResponse {
@@ -189,11 +179,18 @@ pub async fn process_internal_query(
   annactl "<question>"      Ask Anna anything
   annactl                   Start interactive REPL
   annactl -V | --version    Show version
-  annactl -h | --help       Show help{}
+  annactl -h | --help       Show help
 
-⚠️  LLM unavailable - showing basic help only"#, auto_update_note),
+Configuration (via natural language):
+  "enable dev auto-update every 10 minutes"
+  "switch to manual model selection and use qwen2.5:14b"
+  "show me your current configuration"
+
+{}
+
+⚠️  LLM unavailable - showing basic help only"#, config_note),
                     confidence: 0.5,
-                    sources: vec!["internal.help".to_string(), "update.config".to_string()],
+                    sources: vec!["internal.help".to_string(), "config.update".to_string()],
                     warning: Some("LLM backend unavailable".to_string()),
                 }
             }
@@ -201,86 +198,77 @@ pub async fn process_internal_query(
     }
 
     match query_type {
-        InternalQueryType::Version { version, daemon_status, probe_count, update_config, update_state } => {
-            // Get model info
-            let model_name = &models.orchestrator;
-            let (last_check, last_result) = format_update_state(&update_state);
-            let update_mode = if update_config.auto { "auto" } else { "manual" };
+        InternalQueryType::Version { version, daemon_status, probe_count, config, hardware } => {
+            let update_info = format_update_info(&config);
+            let model_rec = hardware.select_model();
 
             // Build evidence for version query
             let evidence = serde_json::json!({
-                "internal.version": {
+                "system.version": {
                     "anna_version": version,
                     "daemon_status": daemon_status,
-                    "model": model_name,
                     "tool_catalog_count": probe_count,
                     "tool_catalog": TOOL_CATALOG,
                 },
-                "update.config": {
-                    "channel": update_config.channel.as_str(),
-                    "auto": update_config.auto,
-                    "interval_seconds": update_config.effective_interval(),
+                "config.core": {
+                    "mode": config.core.mode.as_str(),
                 },
-                "update.state": {
-                    "last_check": last_check,
-                    "last_result": last_result,
+                "config.llm": {
+                    "selection_mode": config.llm.selection_mode.as_str(),
+                    "preferred_model": &config.llm.preferred_model,
+                    "fallback_model": &config.llm.fallback_model,
+                },
+                "config.update": {
+                    "enabled": config.update.enabled,
+                    "interval_seconds": config.update.effective_interval(),
+                    "channel": config.update.channel.as_str(),
+                },
+                "hardware.profile": {
+                    "gpu_vendor": hardware.gpu_vendor.as_str(),
+                    "gpu_driver_functional": hardware.gpu_driver_functional,
+                    "performance_profile": format!("{:?}", hardware.performance_profile),
+                    "model_recommendation": &model_rec.model,
+                    "can_upgrade": model_rec.can_upgrade,
                 }
             });
 
             let prompt = format!(
-                "You are reporting your own version information. Use ONLY this evidence:\n{}\n\nFormat your response EXACTLY as:\nAnna Assistant v<version>\nChannel: <channel>\nUpdate mode: <auto|manual>\nLast update check: <timestamp>\nLast update result: <result>\nDaemon: <status>\nModel: <model>\nTool catalog: <n> probes registered",
+                "You are reporting your own version information. Use ONLY this evidence:\n{}\n\nFormat your response EXACTLY as shown, citing sources.",
                 serde_json::to_string_pretty(&evidence)?
             );
 
-            let llm_response = llm
+            let _llm_response = llm
                 .chat(&models.orchestrator, LLM_A_SYSTEM_PROMPT, &prompt)
-                .await
-                .unwrap_or_else(|_| format!(
-                    "Anna Assistant v{}\nChannel: {}\nUpdate mode: {}\nLast update check: {}\nLast update result: {}\nDaemon: {}\nModel: {}\nTool catalog: {} probes registered",
-                    version, update_config.channel.as_str(), update_mode, last_check, last_result, daemon_status, model_name, probe_count
-                ));
-
-            // Validate with LLM-B
-            let validation_prompt = format!(
-                "Verify this version report uses only the provided evidence:\n{}\n\nEvidence: {}",
-                llm_response,
-                serde_json::to_string_pretty(&evidence)?
-            );
-
-            let expert_response = llm
-                .chat(&models.expert, LLM_B_SYSTEM_PROMPT, &validation_prompt)
                 .await;
 
-            // Calculate confidence based on evidence coverage
-            let mut confidence = if expert_response.is_ok() { 0.95 } else { 0.85 };
-
-            // Reduce confidence if update state is missing
-            if update_state.last_check.is_none() {
-                confidence -= 0.05;
-            }
+            // Use deterministic output for stability
+            let version_text = format!(
+                "Anna Assistant v{}\nMode: {} [source: config.core]\nUpdate: {} [source: config.update]\nLLM:\n  selection_mode: {} [source: config.llm]\n  active_model: {} [source: config.llm]\n  fallback_model: {} [source: config.llm]\n  hardware_recommendation: {} [source: hardware.profile]\nDaemon: {} [source: system.version]\nTool catalog: {} probes registered [source: system.version]",
+                version, config.core.mode.as_str(), update_info,
+                config.llm.selection_mode.as_str(),
+                config.llm.preferred_model, config.llm.fallback_model,
+                model_rec.reason,
+                daemon_status, probe_count
+            );
 
             Ok(AnnaResponse {
-                answer: format!(
-                    "Anna Assistant v{}\nChannel: {}\nUpdate mode: {}\nLast update check: {}\nLast update result: {}\nDaemon: {}\nModel: {}\nTool catalog: {} probes registered",
-                    version, update_config.channel.as_str(), update_mode, last_check, last_result, daemon_status, model_name, probe_count
-                ),
-                confidence,
+                answer: version_text,
+                confidence: 0.95,
                 sources: vec![
-                    "internal.version".to_string(),
-                    "update.config".to_string(),
-                    "update.state".to_string(),
+                    "system.version".to_string(),
+                    "config.core".to_string(),
+                    "config.llm".to_string(),
+                    "config.update".to_string(),
+                    "hardware.profile".to_string(),
                 ],
                 warning: None,
             })
         }
-        InternalQueryType::Help { update_config } => {
-            // Build help evidence
-            let auto_update_note = if update_config.auto && update_config.channel == anna_common::UpdateChannel::Dev {
-                "Auto-update: enabled (dev mode, updates every 10 minutes when new version available)"
-            } else if update_config.auto {
-                "Auto-update: enabled (controlled via config)"
+        InternalQueryType::Help { config } => {
+            let config_note = if config.is_dev_auto_update_active() {
+                "Dev auto-update: enabled (every 10 minutes)"
             } else {
-                "Auto-update: disabled (configure via ~/.config/anna/config.toml)"
+                "Configure Anna via natural language (e.g., \"enable dev auto-update\")"
             };
 
             let evidence = serde_json::json!({
@@ -291,17 +279,22 @@ pub async fn process_internal_query(
                         {"usage": "annactl -V | --version", "description": "Show version"},
                         {"usage": "annactl -h | --help", "description": "Show help"},
                     ],
+                    "config_examples": [
+                        "enable dev auto-update every 10 minutes",
+                        "switch to manual model selection and use qwen2.5:14b",
+                        "go back to automatic model selection",
+                        "show me your current configuration",
+                    ],
                     "tool_catalog": TOOL_CATALOG,
                 },
-                "update.config": {
-                    "channel": update_config.channel.as_str(),
-                    "auto": update_config.auto,
-                    "note": auto_update_note,
+                "config.update": {
+                    "enabled": config.update.enabled,
+                    "channel": config.update.channel.as_str(),
                 }
             });
 
             let prompt = format!(
-                "You are explaining how to use yourself. Use ONLY this evidence:\n{}\n\nFormat as a clean help message with Usage section and examples. Mention the auto-update configuration.",
+                "You are explaining how to use yourself. Use ONLY this evidence:\n{}\n\nFormat as a clean help message.",
                 serde_json::to_string_pretty(&evidence)?
             );
 
@@ -316,6 +309,12 @@ pub async fn process_internal_query(
   annactl -V | --version    Show version
   annactl -h | --help       Show help
 
+Configuration (via natural language):
+  "enable dev auto-update every 10 minutes"
+  "switch to manual model selection and use qwen2.5:14b"
+  "go back to automatic model selection"
+  "show me your current configuration"
+
 Examples:
   annactl "How many CPU cores do I have?"
   annactl "What's my RAM usage?"
@@ -323,20 +322,101 @@ Examples:
 
 {}
 
-Evidence-based answers only. No hallucinations. No guesses."#, auto_update_note);
+No subcommands beyond version/help.
+Evidence-based answers only. No hallucinations."#, config_note);
 
             Ok(AnnaResponse {
                 answer: help_text,
                 confidence: 1.0,
-                sources: vec!["internal.help".to_string(), "update.config".to_string()],
+                sources: vec!["internal.help".to_string(), "config.update".to_string()],
                 warning: None,
             })
         }
     }
 }
 
+/// Process a configuration request via natural language
+pub async fn process_config_request(question: &str) -> Option<AnnaResponse> {
+    let matcher = ConfigPatternMatcher::new();
+    let intent_result = matcher.classify(question);
+
+    // Check if this is a config request
+    if intent_result.intent == ConfigIntent::NotConfigRequest {
+        return None;
+    }
+
+    let config = AnnaConfigV5::load();
+
+    // Handle show config specially
+    if intent_result.intent == ConfigIntent::ShowConfig {
+        let display = format_config_display(&config);
+        return Some(AnnaResponse {
+            answer: format!("Current configuration:\n\n{}", display),
+            confidence: 1.0,
+            sources: vec![
+                "config.core".to_string(),
+                "config.llm".to_string(),
+                "config.update".to_string(),
+            ],
+            warning: None,
+        });
+    }
+
+    // Apply the intent
+    if let Some(mutation) = apply_intent(&config, &intent_result.intent) {
+        let diff = format_mutation_diff(&mutation);
+
+        if mutation.requires_confirmation {
+            // Non-trivial change - explain but don't apply yet
+            return Some(AnnaResponse {
+                answer: format!(
+                    "{}\n\nProposed changes:\n{}This change requires confirmation. Say \"yes\" to apply.",
+                    mutation.summary, diff
+                ),
+                confidence: 0.9,
+                sources: vec!["config.pending".to_string()],
+                warning: Some("Awaiting confirmation".to_string()),
+            });
+        }
+
+        // Apply the change
+        let new_config = apply_mutation(&config, &mutation);
+        if let Err(e) = new_config.save() {
+            return Some(AnnaResponse {
+                answer: format!("Failed to save configuration: {}", e),
+                confidence: 0.0,
+                sources: vec![],
+                warning: Some("Config save failed".to_string()),
+            });
+        }
+
+        return Some(AnnaResponse {
+            answer: format!(
+                "{}  Configuration updated.\n\n{}\n{}",
+                "✓", mutation.summary, diff
+            ),
+            confidence: 1.0,
+            sources: vec!["config.change".to_string()],
+            warning: None,
+        });
+    }
+
+    // No changes needed (already in desired state)
+    Some(AnnaResponse {
+        answer: "Configuration already in the requested state.".to_string(),
+        confidence: 1.0,
+        sources: vec!["config.core".to_string()],
+        warning: None,
+    })
+}
+
 /// Process a user question through the two-LLM system with stability checks
 pub async fn process_question(question: &str, daemon: &DaemonClient) -> Result<AnnaResponse> {
+    // First check if this is a configuration request (v0.5.0)
+    if let Some(config_response) = process_config_request(question).await {
+        return Ok(config_response);
+    }
+
     let llm = LlmClient::new();
     let models = ModelSelection::default();
 

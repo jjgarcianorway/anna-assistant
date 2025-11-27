@@ -1,0 +1,7 @@
+{
+  "id": "hardware.gpu",
+  "cmd": ["lspci", "-v"],
+  "parser": "gpu_info_v1",
+  "cache_policy": "SLOW",
+  "ttl": 3600
+}

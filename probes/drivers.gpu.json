@@ -1,0 +1,7 @@
+{
+  "id": "drivers.gpu",
+  "cmd": ["cat", "/proc/modules"],
+  "parser": "gpu_driver_v1",
+  "cache_policy": "SLOW",
+  "ttl": 3600
+}

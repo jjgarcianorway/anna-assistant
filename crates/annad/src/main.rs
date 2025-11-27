@@ -4,6 +4,7 @@
 //! No interpretation, no formatting.
 //!
 //! v0.4.0: Auto-update scheduler for dev mode.
+//! v0.5.0: Natural language configuration, hardware-aware model selection.
 
 mod auto_update;
 mod parser;
@@ -12,6 +13,7 @@ mod routes;
 mod server;
 mod state;
 
+use anna_common::AnnaConfigV5;
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::info;
@@ -44,13 +46,20 @@ async fn main() -> Result<()> {
     let auto_update_scheduler = Arc::new(auto_update::AutoUpdateScheduler::new());
     let scheduler_clone = Arc::clone(&auto_update_scheduler);
 
-    // Log update config
-    let update_config = anna_common::load_update_config();
+    // Log v0.5.0 config
+    let config = AnnaConfigV5::load();
     info!(
-        "🔄  Update config: channel={}, auto={}, interval={}s",
-        update_config.channel.as_str(),
-        update_config.auto,
-        update_config.effective_interval()
+        "⚙️  Config: mode={}, update.enabled={}, update.channel={}, update.interval={}s",
+        config.core.mode.as_str(),
+        config.update.enabled,
+        config.update.channel.as_str(),
+        config.update.effective_interval()
+    );
+    info!(
+        "🧠  LLM: selection_mode={}, preferred={}, fallback={}",
+        config.llm.selection_mode.as_str(),
+        config.llm.preferred_model,
+        config.llm.fallback_model
     );
 
     tokio::spawn(async move {
