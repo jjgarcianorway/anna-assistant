@@ -7,8 +7,10 @@
 //! v0.5.0: Natural language configuration, hardware-aware model selection.
 //! v0.9.0: Locked CLI surface, status command.
 //! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop.
+//! v0.11.0: Knowledge store, event-driven learning, user telemetry.
 
 mod auto_update;
+mod brain;
 mod orchestrator;
 mod parser;
 mod probe;
@@ -16,7 +18,7 @@ mod routes;
 mod server;
 mod state;
 
-use anna_common::AnnaConfigV5;
+use anna_common::{AnnaConfigV5, KnowledgeStore};
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::info;
@@ -35,6 +37,15 @@ async fn main() -> Result<()> {
     info!("🤖  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
     info!("📋  Evidence Oracle starting...");
 
+    // v0.11.0: Initialize knowledge store
+    let knowledge_store = KnowledgeStore::open_default()?;
+    let fact_count = knowledge_store.count()?;
+    info!("🧠  Knowledge store: {} facts", fact_count);
+
+    // v0.11.0: Initialize Anna's brain
+    let anna_brain = Arc::new(brain::AnnaBrain::new(knowledge_store));
+    let brain_clone = Arc::clone(&anna_brain);
+
     // Load probes
     let probe_registry = probe::registry::ProbeRegistry::load_from_dir("probes")?;
     info!("🔧  Loaded {} probes", probe_registry.count());
@@ -42,8 +53,8 @@ async fn main() -> Result<()> {
     // Create state manager
     let state_manager = state::StateManager::new();
 
-    // Create app state
-    let app_state = server::AppState::new(probe_registry, state_manager);
+    // Create app state with brain reference
+    let app_state = server::AppState::new_with_brain(probe_registry, state_manager, anna_brain);
 
     // Start auto-update scheduler in background
     let auto_update_scheduler = Arc::new(auto_update::AutoUpdateScheduler::new());
@@ -65,8 +76,14 @@ async fn main() -> Result<()> {
         config.llm.fallback_model
     );
 
+    // Start auto-update in background
     tokio::spawn(async move {
         scheduler_clone.start().await;
+    });
+
+    // v0.11.0: Start brain background tasks
+    tokio::spawn(async move {
+        brain_clone.start_background_tasks().await;
     });
 
     // Start server

@@ -1,36 +1,31 @@
-# Anna v0.10.0
+# Anna v0.11.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.10.0
+## What's New in v0.11.0
+
+- **Knowledge Store** - SQLite-backed persistent fact storage with entity/attribute/value model
+- **Event-Driven Learning** - Watches pacman.log for package changes, triggers learning jobs
+- **System Mapping** - Initial hardware/software discovery on first install
+- **User Telemetry** - Tracks query topics to prioritize learning (local only, private)
+- **Knowledge Hygiene** - Detects stale/conflicting facts, schedules revalidation
+- **Knowledge API** - New `/v1/knowledge/query` and `/v1/knowledge/stats` endpoints
+
+## Previous in v0.10.0
 
 - **Evidence-Based Answer Engine** - LLM-A/LLM-B supervised audit loop with strict JSON protocol
 - **Probe Catalog** - 14 registered probes with cost estimation (cheap/medium/expensive)
 - **Strict Evidence Discipline** - Every answer must cite probe evidence
 - **Reliability Scoring** - overall = 0.4×evidence + 0.3×reasoning + 0.3×coverage
 - **Confidence Levels** - GREEN (≥0.90), YELLOW (0.70-0.90), RED (<0.70 = refuse)
-- **Max 3 Loop Iterations** - System refuses if cannot reach acceptable confidence
-- **Citations Display** - Evidence sources shown with answers
 
 ## Previous in v0.9.0
 
 - **Locked CLI Surface** - Only 5 commands: REPL, request, status, version, help
 - **Status Command** - `annactl status` shows daemon, LLM, update state, and self-health
 - **Case-Insensitive Commands** - version/VERSION/Version all work, same for help/status
-- **Version-Aware Installer** - Idempotent installer shows planned action before execution
-
-## Previous in v0.8.0
-
-- **Observability Pipeline** - Structured logging with redaction and request tracing
-- **Debug Mode** - Enable per-request tracing via config or natural language
-
-## Previous in v0.7.0
-
-- **Self-Health Monitoring** - Anna monitors her own components
-- **Auto-Repair Engine** - Automatically fixes safe issues
-- **Safety Rules** - Clear separation between auto-repair and warn-only actions
 
 ## Architecture
 
@@ -47,33 +42,46 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
                     │   (Daemon)   │
                     └──────────────┘
                            │
-                           ▼
-                    ┌──────────────┐
-                    │ Probe Catalog │
-                    │ (14 probes)   │
-                    └──────────────┘
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+       ┌──────────┐ ┌──────────┐ ┌──────────┐
+       │  Probes  │ │Knowledge │ │  Brain   │
+       │(14 tools)│ │  Store   │ │ (Learn)  │
+       └──────────┘ └──────────┘ └──────────┘
 ```
 
-## v0.10.0 Answer Format
+## v0.11.0 Knowledge Store
+
+Anna now learns about your system and remembers facts persistently:
 
 ```
-==================================================
-  📋  Anna Answer
-==================================================
-
-Q:  am I connected using wifi or ethernet?
-
-A:  You are connected via wifi on interface wlp0s20f3.
-
-Evidence:
-  ✓  [net.links]  →  wlp0s20f3 is UP, type: wifi
-  ✓  [net.addr]   →  wlp0s20f3 has IPv4 10.0.0.2/24
-
-Confidence:  [GREEN] 0.94 (evidence 0.95, reasoning 0.90, coverage 0.95)
-
-==================================================
-Evidence-based  *  LLM-A/LLM-B audited  *  No hallucinations
+Knowledge Store Schema:
+┌───────────────────────────────────────────────────┐
+│ Fact                                              │
+├───────────────────────────────────────────────────┤
+│ entity: "cpu:0" / "pkg:vim" / "net:wlp0s20f3"     │
+│ attribute: "cores" / "version" / "state"          │
+│ value: "8" / "9.1.0" / "UP"                       │
+│ source: "probe:cpu.info:2025-11-27T..."           │
+│ confidence: 0.95                                   │
+│ status: Active / Stale / Deprecated / Conflicted  │
+└───────────────────────────────────────────────────┘
 ```
+
+### Entity Types
+
+| Prefix | Description |
+|--------|-------------|
+| `cpu:` | CPU information (cores, model, architecture) |
+| `gpu:` | GPU information (vendor, description) |
+| `disk:` | Block devices (size, type) |
+| `fs:` | Filesystems (device, mountpoint) |
+| `pkg:` | Packages (installed, version) |
+| `svc:` | Services (state) |
+| `net:` | Network interfaces (state) |
+| `system:` | System info (kernel, distro, memory) |
+| `user:` | User context (shell, editor, home) |
+| `desktop:` | Desktop environment (name, session_type) |
 
 ## Usage
 
@@ -163,7 +171,7 @@ channel = "main"          # main, stable, beta, or dev
 
 | Component | Role |
 |-----------|------|
-| **annad** | Evidence Oracle. Executes probes, orchestrates LLM-A/LLM-B loop. |
+| **annad** | Evidence Oracle. Executes probes, orchestrates LLM-A/LLM-B loop, manages knowledge store. |
 | **annactl** | CLI wrapper. Clean output with citations and confidence. |
 | **LLM-A** | Planner/Answerer. Plans probes, produces draft answers, self-scores. |
 | **LLM-B** | Auditor/Skeptic. Verifies evidence grounding, approves/refuses/requests more. |
@@ -176,6 +184,7 @@ channel = "main"          # main, stable, beta, or dev
 4. **70% threshold** - Below 70% overall score = refuse to answer
 5. **Tool catalog enforcement** - Only registered probes allowed
 6. **Supervised audit loop** - LLM-B validates LLM-A's work
+7. **Learn from THIS machine** - Knowledge store captures facts from your system
 
 ## Installation
 
@@ -212,4 +221,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.10.0 - Evidence-based answer engine with strict LLM-A/LLM-B audit loop.
+This is version 0.11.0 - Knowledge store, event-driven learning, and user telemetry.

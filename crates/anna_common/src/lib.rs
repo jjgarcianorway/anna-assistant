@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.10.0
+//! Anna Common - Shared types and schemas for Anna v0.11.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -9,11 +9,13 @@
 //! v0.8.0: Observability and debug logging with JSONL output.
 //! v0.9.0: Locked CLI surface, status command.
 //! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop with proof.
+//! v0.11.0: Persistent knowledge store, event-driven learning, user telemetry.
 
 pub mod answer_engine;
 pub mod config;
 pub mod config_mapper;
 pub mod hardware;
+pub mod knowledge;
 pub mod logging;
 pub mod presentation;
 pub mod prompts;
@@ -27,6 +29,7 @@ pub use answer_engine::*;
 pub use config::*;
 pub use config_mapper::*;
 pub use hardware::*;
+pub use knowledge::*;
 pub use logging::*;
 pub use presentation::*;
 pub use prompts::{generate_llm_a_prompt, generate_llm_b_prompt, LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT};

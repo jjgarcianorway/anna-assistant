@@ -2,14 +2,15 @@
 //!
 //! v0.9.0: Added /v1/update/state endpoint for status command
 //! v0.10.0: Added /v1/answer endpoint for evidence-based answers
+//! v0.11.0: Added /v1/knowledge routes for fact queries
 
 use crate::orchestrator::AnswerEngine;
 use crate::probe::executor::ProbeExecutor;
 use crate::server::AppState;
 use anna_common::{
-    load_update_state, AnnaConfigV5, FinalAnswer, GetStateRequest, HealthResponse,
-    InvalidateRequest, ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest,
-    SetStateRequest, StateResponse, UpdateStateResponse,
+    load_update_state, AnnaConfigV5, Fact, FactQuery, FinalAnswer, GetStateRequest,
+    HealthResponse, InvalidateRequest, ListProbesResponse, ProbeInfo, ProbeResult,
+    RunProbeRequest, SetStateRequest, StateResponse, UpdateStateResponse,
 };
 use axum::{
     extract::State,
@@ -239,6 +240,11 @@ async fn answer_question(
 ) -> Result<Json<FinalAnswer>, (StatusCode, String)> {
     info!("Processing question: {}", req.question);
 
+    // v0.11.0: Record query for telemetry
+    if let Some(brain) = &state.brain {
+        brain.record_query(&req.question).await;
+    }
+
     // Get model from config
     let config = AnnaConfigV5::load();
     let model = if config.llm.selection_mode.as_str() == "manual" {
@@ -274,4 +280,137 @@ async fn answer_question(
             Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
         }
     }
+}
+
+// ============================================================================
+// Knowledge Routes (v0.11.0)
+// ============================================================================
+
+/// Request to query facts from knowledge store
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeQueryRequest {
+    /// Entity prefix filter (optional)
+    pub entity_prefix: Option<String>,
+    /// Entity exact match (optional)
+    pub entity: Option<String>,
+    /// Attribute filter (optional)
+    pub attribute: Option<String>,
+    /// Minimum confidence (default: 0.0)
+    pub min_confidence: Option<f64>,
+    /// Only active facts (default: true)
+    pub active_only: Option<bool>,
+    /// Maximum results (default: 100)
+    pub limit: Option<usize>,
+}
+
+/// Response containing queried facts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeQueryResponse {
+    pub facts: Vec<Fact>,
+    pub total_count: usize,
+}
+
+/// Response with knowledge store stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeStatsResponse {
+    pub fact_count: usize,
+    pub entity_types: Vec<String>,
+    pub last_updated: Option<String>,
+}
+
+pub fn knowledge_routes() -> Router<AppStateArc> {
+    Router::new()
+        .route("/v1/knowledge/query", post(knowledge_query))
+        .route("/v1/knowledge/stats", get(knowledge_stats))
+}
+
+/// v0.11.0: Query facts from knowledge store
+async fn knowledge_query(
+    State(state): State<AppStateArc>,
+    Json(req): Json<KnowledgeQueryRequest>,
+) -> Result<Json<KnowledgeQueryResponse>, (StatusCode, String)> {
+    let brain = state.brain.as_ref().ok_or_else(|| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Knowledge store not initialized".to_string(),
+        )
+    })?;
+
+    let store = brain.store.read().await;
+
+    // Build query from request
+    let mut query = FactQuery::new();
+
+    if let Some(prefix) = &req.entity_prefix {
+        query = query.entity_prefix(prefix);
+    }
+
+    if let Some(entity) = &req.entity {
+        query = query.entity(entity);
+    }
+
+    if let Some(attr) = &req.attribute {
+        query = query.attribute(attr);
+    }
+
+    if let Some(conf) = req.min_confidence {
+        query = query.min_confidence(conf);
+    }
+
+    if req.active_only.unwrap_or(true) {
+        query = query.active_only();
+    }
+
+    query = query.limit(req.limit.unwrap_or(100));
+
+    // Execute query
+    let facts = store.query(&query).map_err(|e| {
+        error!("Knowledge query failed: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?;
+
+    Ok(Json(KnowledgeQueryResponse {
+        total_count: facts.len(),
+        facts,
+    }))
+}
+
+/// v0.11.0: Get knowledge store statistics
+async fn knowledge_stats(
+    State(state): State<AppStateArc>,
+) -> Result<Json<KnowledgeStatsResponse>, (StatusCode, String)> {
+    let brain = state.brain.as_ref().ok_or_else(|| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Knowledge store not initialized".to_string(),
+        )
+    })?;
+
+    let store = brain.store.read().await;
+
+    let fact_count = store.count().map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?;
+
+    // Get unique entity types
+    let all_facts = store.query(&FactQuery::new().limit(1000)).unwrap_or_default();
+    let mut entity_types: Vec<String> = all_facts
+        .iter()
+        .map(|f| f.entity.split(':').next().unwrap_or("unknown").to_string())
+        .collect();
+    entity_types.sort();
+    entity_types.dedup();
+
+    // Get most recent update
+    let last_updated = all_facts
+        .iter()
+        .map(|f| f.last_seen)
+        .max()
+        .map(|dt| dt.to_rfc3339());
+
+    Ok(Json(KnowledgeStatsResponse {
+        fact_count,
+        entity_types,
+        last_updated,
+    }))
 }
