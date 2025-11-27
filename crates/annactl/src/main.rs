@@ -66,15 +66,14 @@ async fn main() -> Result<()> {
         // v0.9.0: Status command (case-insensitive)
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
 
-        // Simple version flag - fast, no daemon contact
-        [flag] if flag == "-V" || flag == "--version" => {
-            println!("annactl {}", env!("CARGO_PKG_VERSION"));
-            Ok(())
-        }
-
-        // Detailed version via daemon
-        [flag] if flag.eq_ignore_ascii_case("-v") || flag.eq_ignore_ascii_case("version") => {
-            run_version_via_llm().await
+        // Version flags - all instant, no LLM
+        [flag]
+            if flag == "-V"
+                || flag == "--version"
+                || flag.eq_ignore_ascii_case("-v")
+                || flag.eq_ignore_ascii_case("version") =>
+        {
+            run_version_instant().await
         }
 
         // Help flags - route through LLM (case-insensitive)
@@ -143,7 +142,7 @@ async fn run_repl() -> Result<()> {
             input.to_lowercase().as_str(),
             "version" | "-v" | "--version"
         ) {
-            run_version_via_llm().await?;
+            run_version_instant().await?;
             continue;
         }
         if matches!(input.to_lowercase().as_str(), "help" | "-h" | "--help") {
@@ -290,58 +289,72 @@ async fn run_ask(question: &str) -> Result<()> {
     }
 }
 
-/// Version via LLM pipeline - Anna answers about herself
-async fn run_version_via_llm() -> Result<()> {
+/// v0.15.0: Instant version display - no LLM, shows all components
+async fn run_version_instant() -> Result<()> {
+    use anna_common::THIN_SEPARATOR;
+
     let daemon = client::DaemonClient::new();
 
-    // Build internal question for version info
-    let version_question =
-        "What is your version? Report: mode, update status, LLM config, daemon status.";
+    println!();
+    println!("{}", "ANNA VERSION".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
 
-    // Check if daemon is healthy and get status
-    let daemon_status = if daemon.is_healthy().await {
+    // annactl version (always available)
+    println!("  {}  annactl v{}", "*".cyan(), env!("CARGO_PKG_VERSION"));
+
+    // annad version (requires daemon)
+    if daemon.is_healthy().await {
         match daemon.health().await {
-            Ok(health) => format!(
-                "running (v{}, uptime: {}s, {} probes)",
-                health.version, health.uptime_seconds, health.probes_available
-            ),
-            Err(_) => "running (details unavailable)".to_string(),
+            Ok(health) => {
+                println!(
+                    "  {}  annad v{} (uptime {}s)",
+                    "+".bright_green(),
+                    health.version,
+                    health.uptime_seconds
+                );
+            }
+            Err(_) => {
+                println!("  {}  annad (version unavailable)", "~".yellow());
+            }
         }
     } else {
-        "stopped".to_string()
-    };
+        println!("  {}  annad not running", "!".bright_red());
+    }
 
-    // Get probe count
-    let probe_count = if daemon.is_healthy().await {
-        daemon
-            .list_probes()
-            .await
-            .map(|p| p.probes.len())
-            .unwrap_or(0)
-    } else {
-        0
-    };
+    // Ollama version
+    match check_ollama_version() {
+        Some(ver) => {
+            println!("  {}  ollama {}", "+".bright_green(), ver);
+        }
+        None => {
+            println!("  {}  ollama not available", "!".bright_red());
+        }
+    }
 
-    // Load v0.5.0 config and detect hardware
-    let config = AnnaConfigV5::load();
-    let hardware = HardwareProfile::detect();
+    println!("{}", THIN_SEPARATOR);
+    println!();
 
-    // Process through orchestrator for consistent formatting
-    let result = orchestrator::process_internal_query(
-        version_question,
-        &daemon,
-        orchestrator::InternalQueryType::Version {
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            daemon_status,
-            probe_count,
-            config,
-            hardware,
-        },
-    )
-    .await?;
-
-    output::display_response(&result);
     Ok(())
+}
+
+/// Check Ollama version
+fn check_ollama_version() -> Option<String> {
+    use std::process::Command;
+
+    let output = Command::new("ollama").args(["--version"]).output().ok()?;
+
+    if output.status.success() {
+        let ver = String::from_utf8_lossy(&output.stdout);
+        // Parse "ollama version is 0.5.4" -> "v0.5.4"
+        let ver = ver.trim();
+        if let Some(v) = ver.strip_prefix("ollama version is ") {
+            Some(format!("v{}", v))
+        } else {
+            Some(ver.to_string())
+        }
+    } else {
+        None
+    }
 }
 
 /// Help via LLM pipeline - Anna explains how to use herself

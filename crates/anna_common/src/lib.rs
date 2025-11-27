@@ -29,6 +29,7 @@ pub mod logging;
 pub mod presentation;
 pub mod prompts;
 pub mod reliability;
+pub mod safety;
 pub mod schemas;
 pub mod self_health;
 pub mod types;
@@ -47,6 +48,7 @@ pub use prompts::{
     LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT,
 };
 pub use reliability::*;
+pub use safety::*;
 pub use schemas::*;
 pub use self_health::*;
 pub use types::*;
