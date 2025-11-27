@@ -1,17 +1,18 @@
-//! Answer Engine v0.12.0
+//! Answer Engine v0.12.2
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
 //!
-//! Key v0.12.0 changes:
-//! - FixAndAccept verdict for minor fixes without new probes
-//! - Strict probe_id validation before execution
-//! - Partial answer fallback instead of total refusal
+//! Key v0.12.2 changes:
+//! - Iteration-aware prompting (forces answer on iteration 2+)
+//! - Fallback answer extraction from raw evidence
+//! - More aggressive answer generation when evidence exists
 
+use super::fallback;
 use super::llm_client::OllamaClient;
 use super::probe_executor;
 use anna_common::{
-    generate_llm_a_prompt, generate_llm_b_prompt, AuditScores, AuditVerdict, ConfidenceLevel,
+    generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict, ConfidenceLevel,
     FinalAnswer, LoopState, ProbeCatalog, ProbeEvidenceV10, ReliabilityScores,
     MAX_LOOPS,
 };
@@ -61,9 +62,13 @@ impl AnswerEngine {
             loop_state.next_iteration();
             info!("Loop iteration {}/{}", loop_state.iteration, MAX_LOOPS);
 
-            // Step 1: Call LLM-A
-            let llm_a_prompt =
-                generate_llm_a_prompt(question, &self.catalog.available_probes(), &evidence);
+            // Step 1: Call LLM-A with iteration awareness
+            let llm_a_prompt = generate_llm_a_prompt_with_iteration(
+                question,
+                &self.catalog.available_probes(),
+                &evidence,
+                loop_state.iteration,
+            );
             let llm_a_response = self.llm_client.call_llm_a(&llm_a_prompt).await?;
 
             debug!("LLM-A response: {:?}", llm_a_response);
@@ -213,6 +218,20 @@ impl AnswerEngine {
                 scores,
                 loop_state.iteration,
             ));
+        }
+
+        // No draft answer - try to extract basic facts from evidence as fallback
+        if !evidence.is_empty() {
+            if let Some(fallback) = fallback::extract_fallback_answer(question, &evidence) {
+                info!("Using fallback answer extracted from evidence");
+                return Ok(self.build_partial_answer(
+                    question,
+                    &fallback,
+                    evidence,
+                    AuditScores::new(0.6, 0.6, 0.6),
+                    loop_state.iteration,
+                ));
+            }
         }
 
         // No draft answer at all - this is a true refusal

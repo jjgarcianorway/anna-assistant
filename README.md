@@ -1,10 +1,17 @@
-# Anna v0.12.1
+# Anna v0.12.2
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.12.1
+## What's New in v0.12.2
+
+- **Iteration-Aware Prompting** - LLM-A now knows which iteration it's on, must answer on iteration 2+
+- **Fallback Answer Extraction** - When LLM fails, extracts facts directly from evidence (CPU flags, memory, etc.)
+- **Stronger Answer Requirements** - Absolute rules that force answers when evidence exists
+- **Better CPU Flag Detection** - Fallback can parse lscpu flags for SSE2, AVX, AVX2 support
+
+## Previous in v0.12.1
 
 - **Flexible JSON Parsing** - Handles null draft_answer, null text, missing fields gracefully
 - **Clearer LLM-A Prompts** - Explicit instruction to produce draft_answer when evidence exists
@@ -217,4 +224,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.12.1 - Flexible JSON parsing, clearer prompts, better defaults.
+This is version 0.12.2 - Iteration-aware prompts, fallback answer extraction, stronger answer requirements.
