@@ -264,41 +264,34 @@ download_models() {
     log_info "Downloading LLM models (this may take a while)..."
     echo ""
 
-    # When running via curl|bash, we need to connect ollama to the real terminal
-    # for progress bars to work
-    if [[ -t 1 ]]; then
-        # stdout is a terminal, normal operation
-        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_A}${NC}...\n"
-        if ollama pull "$LLM_A"; then
-            log_success "Downloaded ${LLM_A}"
-        else
-            log_warn "Failed to download ${LLM_A}"
-        fi
+    # Pull model with progress - redirect to /dev/tty for progress bar visibility
+    pull_model() {
+        local model="$1"
+        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${model}${NC}...\n"
 
-        echo ""
-        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_B}${NC}...\n"
-        if ollama pull "$LLM_B"; then
-            log_success "Downloaded ${LLM_B}"
-        else
-            log_warn "Failed to download ${LLM_B}"
-        fi
-    else
-        # Running via pipe (curl|bash), try to use /dev/tty
-        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_A}${NC}...\n"
+        # Try to show progress on the real terminal
         if [[ -e /dev/tty ]]; then
-            ollama pull "$LLM_A" </dev/tty >/dev/tty 2>&1 && log_success "Downloaded ${LLM_A}" || log_warn "Failed to download ${LLM_A}"
+            if ollama pull "$model" < /dev/tty > /dev/tty 2>&1; then
+                log_success "Downloaded ${model}"
+                return 0
+            else
+                log_warn "Failed to download ${model}"
+                return 1
+            fi
         else
-            ollama pull "$LLM_A" && log_success "Downloaded ${LLM_A}" || log_warn "Failed to download ${LLM_A}"
+            if ollama pull "$model"; then
+                log_success "Downloaded ${model}"
+                return 0
+            else
+                log_warn "Failed to download ${model}"
+                return 1
+            fi
         fi
+    }
 
-        echo ""
-        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_B}${NC}...\n"
-        if [[ -e /dev/tty ]]; then
-            ollama pull "$LLM_B" </dev/tty >/dev/tty 2>&1 && log_success "Downloaded ${LLM_B}" || log_warn "Failed to download ${LLM_B}"
-        else
-            ollama pull "$LLM_B" && log_success "Downloaded ${LLM_B}" || log_warn "Failed to download ${LLM_B}"
-        fi
-    fi
+    pull_model "$LLM_A"
+    echo ""
+    pull_model "$LLM_B"
 }
 
 # Create anna user (requires sudo)
