@@ -1,11 +1,13 @@
-//! Auto-update scheduler for Anna v0.14.2
+//! Auto-update scheduler for Anna v0.16.1
 //!
 //! Runs in the background and checks for updates based on config.
 //! Downloads tarball to ensure annad and annactl stay in sync.
+//! Also fetches model registry updates for dynamic model recommendations.
 
 use anna_common::{
-    load_update_state, record_update_check, save_update_state, AnnaConfigV5, GitHubRelease,
-    UpdateCheckResult, UpdateResult, UpdateState, MIN_UPDATE_INTERVAL,
+    load_update_state, model_registry, record_update_check, save_update_state, AnnaConfigV5,
+    GitHubRelease, ModelRegistry, UpdateCheckResult, UpdateResult, UpdateState, MIN_UPDATE_INTERVAL,
+    REGISTRY_URL,
 };
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
@@ -97,6 +99,11 @@ impl AutoUpdateScheduler {
                         Err(e) => {
                             error!("❌  Update check failed: {}", e);
                         }
+                    }
+
+                    // Also update model registry (non-blocking)
+                    if let Err(e) = self.update_model_registry().await {
+                        debug!("Model registry update skipped: {}", e);
                     }
                 }
             }
@@ -464,6 +471,39 @@ impl AutoUpdateScheduler {
                 Err(e).context("Atomic replace failed")
             }
         }
+    }
+
+    /// Update model registry from GitHub
+    async fn update_model_registry(&self) -> Result<()> {
+        debug!("📋  Fetching model registry from {}", REGISTRY_URL);
+
+        let resp = self
+            .http_client
+            .get(REGISTRY_URL)
+            .send()
+            .await
+            .context("Failed to fetch model registry")?;
+
+        if !resp.status().is_success() {
+            anyhow::bail!("Registry fetch failed: {}", resp.status());
+        }
+
+        let registry: ModelRegistry = resp
+            .json()
+            .await
+            .context("Failed to parse model registry JSON")?;
+
+        // Save to cache
+        registry
+            .save_to_cache()
+            .context("Failed to cache model registry")?;
+
+        info!(
+            "📋  Model registry updated (version: {}, updated: {})",
+            registry.schema_version, registry.last_updated
+        );
+
+        Ok(())
     }
 
     /// Request daemon restart via systemd

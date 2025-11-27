@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.15.0
+//! Anna Common - Shared types and schemas for Anna v0.16.1
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -14,6 +14,8 @@
 //! v0.12.2: Iteration-aware prompts, force answer when evidence exists.
 //! v0.13.0: Strict Evidence Discipline - No more fabricated data.
 //! v0.15.0: Research Loop Engine - Junior/Senior LLM with command whitelist.
+//! v0.16.0: Qwen3 default, granular hardware tiers.
+//! v0.16.1: Dynamic model registry, on-demand LLM loading, fact validation.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
@@ -26,6 +28,7 @@ pub mod config_mapper;
 pub mod hardware;
 pub mod knowledge;
 pub mod logging;
+pub mod model_registry;
 pub mod presentation;
 pub mod prompts;
 pub mod reliability;
@@ -42,6 +45,7 @@ pub use config_mapper::*;
 pub use hardware::*;
 pub use knowledge::*;
 pub use logging::*;
+pub use model_registry::*;
 pub use presentation::*;
 pub use prompts::{
     generate_llm_a_prompt, generate_llm_a_prompt_with_iteration, generate_llm_b_prompt,

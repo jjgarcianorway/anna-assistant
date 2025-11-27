@@ -1,14 +1,19 @@
 //! LLM client - communicates with Ollama
+//!
+//! v0.16.1: Added keep_alive support for on-demand model loading
 
 use anna_common::{OllamaChatRequest, OllamaChatResponse, OllamaMessage};
 use anyhow::{Context, Result};
 
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
+/// Default keep_alive - model stays loaded 5 minutes after request
+const DEFAULT_KEEP_ALIVE: &str = "5m";
 
 /// Client for communicating with Ollama
 pub struct LlmClient {
     client: reqwest::Client,
     base_url: String,
+    keep_alive: String,
 }
 
 impl LlmClient {
@@ -16,7 +21,15 @@ impl LlmClient {
         Self {
             client: reqwest::Client::new(),
             base_url: OLLAMA_URL.to_string(),
+            keep_alive: DEFAULT_KEEP_ALIVE.to_string(),
         }
+    }
+
+    /// Set custom keep_alive duration
+    #[allow(dead_code)]
+    pub fn with_keep_alive(mut self, keep_alive: &str) -> Self {
+        self.keep_alive = keep_alive.to_string();
+        self
     }
 
     /// Check if Ollama is available
@@ -48,6 +61,7 @@ impl LlmClient {
             ],
             stream: false,
             format: Some("json".to_string()),
+            keep_alive: Some(self.keep_alive.clone()),
         };
 
         let resp = self
@@ -86,6 +100,7 @@ impl LlmClient {
             messages,
             stream: false,
             format: Some("json".to_string()),
+            keep_alive: Some(self.keep_alive.clone()),
         };
 
         let resp = self

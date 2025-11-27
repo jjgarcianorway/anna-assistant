@@ -246,17 +246,21 @@ async fn answer_question(
     }
 
     // Get models from config - supports role-specific models for junior/senior
+    // Priority: explicit config > hardware auto-detection > defaults
     let config = AnnaConfigV5::load();
-    let (junior_model, senior_model) = if config.llm.selection_mode.as_str() == "manual" {
-        // Manual mode: use config-specified models
+    let (junior_model, senior_model) = if !config.llm.needs_role_model_migration() {
+        // Explicit junior/senior models configured - always use them
         let junior = config.llm.get_junior_model().to_string();
         let senior = config.llm.get_senior_model().to_string();
-        info!("🎯  Using manual models - Junior: {}, Senior: {}", junior, senior);
+        info!("🎯  Using configured models - Junior: {}, Senior: {}", junior, senior);
         (Some(junior), Some(senior))
+    } else if config.llm.selection_mode.as_str() == "manual" {
+        // Manual mode without role-specific: use preferred_model for both
+        let model = config.llm.preferred_model.clone();
+        info!("🎯  Using manual mode - Model: {} (for both roles)", model);
+        (Some(model.clone()), Some(model))
     } else {
-        // Auto selection - use hardware profile for both roles
-        // Note: In auto mode, we use the same model for both roles based on hardware
-        // Users can set junior_model/senior_model in config.toml for optimization
+        // Auto selection - use hardware profile (no explicit models configured)
         let profile = anna_common::HardwareProfile::detect();
         let recommendation = profile.select_model();
         info!(

@@ -1,9 +1,11 @@
-//! Ollama LLM Client v0.12.1
+//! Ollama LLM Client v0.16.1
 //!
 //! Robust JSON parsing that handles common LLM output variations:
 //! - "draft_answer": null
 //! - "text": null inside draft_answer
 //! - Missing optional fields
+//!
+//! v0.16.1: On-demand model loading with keep_alive parameter to save resources.
 
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
@@ -16,18 +18,25 @@ use std::time::Duration;
 use tracing::{debug, error, info, warn};
 
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
-const DEFAULT_JUNIOR_MODEL: &str = "llama3.2:3b";
-const DEFAULT_SENIOR_MODEL: &str = "llama3.1:8b";
+const DEFAULT_JUNIOR_MODEL: &str = "qwen3:4b";
+const DEFAULT_SENIOR_MODEL: &str = "qwen3:8b";
+
+/// Default keep_alive duration - model stays loaded for 5 minutes after last request
+const DEFAULT_KEEP_ALIVE: &str = "5m";
 
 /// Ollama LLM client with role-specific models
 ///
 /// Supports separate models for junior (LLM-A) and senior (LLM-B) roles:
 /// - Junior: Fast model for probe execution and command parsing
 /// - Senior: Smarter model for reasoning and synthesis
+///
+/// v0.16.1: Supports on-demand model loading with configurable keep_alive
 pub struct OllamaClient {
     http_client: reqwest::Client,
     junior_model: String, // LLM-A: fast, for probe execution
     senior_model: String, // LLM-B: smart, for reasoning
+    /// How long to keep model loaded after request (e.g., "5m", "0", "1h")
+    keep_alive: String,
 }
 
 impl OllamaClient {
@@ -41,6 +50,7 @@ impl OllamaClient {
                 .unwrap_or_default(),
             junior_model: m.clone(),
             senior_model: m,
+            keep_alive: DEFAULT_KEEP_ALIVE.to_string(),
         }
     }
 
@@ -53,7 +63,19 @@ impl OllamaClient {
                 .unwrap_or_default(),
             junior_model: junior.unwrap_or_else(|| DEFAULT_JUNIOR_MODEL.to_string()),
             senior_model: senior.unwrap_or_else(|| DEFAULT_SENIOR_MODEL.to_string()),
+            keep_alive: DEFAULT_KEEP_ALIVE.to_string(),
         }
+    }
+
+    /// Create client with custom keep_alive duration for on-demand loading
+    pub fn with_keep_alive(mut self, keep_alive: &str) -> Self {
+        self.keep_alive = keep_alive.to_string();
+        self
+    }
+
+    /// Get the current keep_alive setting
+    pub fn keep_alive(&self) -> &str {
+        &self.keep_alive
     }
 
     /// Get the junior model name
@@ -87,6 +109,7 @@ impl OllamaClient {
     }
 
     /// Raw Ollama API call with specified model
+    /// Uses keep_alive to control how long the model stays loaded in VRAM
     async fn call_ollama(&self, model: &str, system_prompt: &str, user_prompt: &str) -> Result<String> {
         let url = format!("{}/api/chat", OLLAMA_URL);
 
@@ -104,9 +127,10 @@ impl OllamaClient {
             ],
             stream: false,
             format: Some("json".to_string()),
+            keep_alive: Some(self.keep_alive.clone()),
         };
 
-        info!("📤  LLM CALL [{}]", model);
+        info!("📤  LLM CALL [{}] (keep_alive: {})", model, self.keep_alive);
         info!(
             "📝  SYSTEM PROMPT ({} chars): {}",
             system_prompt.len(),
@@ -414,6 +438,44 @@ impl OllamaClient {
         let url = format!("{}/api/tags", OLLAMA_URL);
         self.http_client.get(&url).send().await.is_ok()
     }
+
+    /// Explicitly unload a model from VRAM to free resources
+    /// This sends a request with keep_alive: 0 to immediately unload the model
+    pub async fn unload_model(&self, model: &str) -> Result<()> {
+        let url = format!("{}/api/chat", OLLAMA_URL);
+
+        let request = OllamaChatRequest {
+            model: model.to_string(),
+            messages: vec![OllamaMessage {
+                role: "user".to_string(),
+                content: "".to_string(), // Empty message just to trigger unload
+            }],
+            stream: false,
+            format: None,
+            keep_alive: Some("0".to_string()), // Immediately unload
+        };
+
+        info!("🔌  Unloading model [{}] from VRAM", model);
+
+        // We don't care about the response, just trigger the unload
+        let _ = self
+            .http_client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await;
+
+        Ok(())
+    }
+
+    /// Unload all models (junior and senior) to free VRAM
+    pub async fn unload_all_models(&self) -> Result<()> {
+        self.unload_model(&self.junior_model).await?;
+        if self.senior_model != self.junior_model {
+            self.unload_model(&self.senior_model).await?;
+        }
+        Ok(())
+    }
 }
 
 impl Default for OllamaClient {
@@ -513,5 +575,23 @@ mod tests {
             result.fixed_answer,
             Some("Corrected answer here".to_string())
         );
+    }
+
+    #[test]
+    fn test_default_keep_alive() {
+        let client = OllamaClient::default();
+        assert_eq!(client.keep_alive(), DEFAULT_KEEP_ALIVE);
+    }
+
+    #[test]
+    fn test_custom_keep_alive() {
+        let client = OllamaClient::default().with_keep_alive("10m");
+        assert_eq!(client.keep_alive(), "10m");
+    }
+
+    #[test]
+    fn test_immediate_unload_keep_alive() {
+        let client = OllamaClient::default().with_keep_alive("0");
+        assert_eq!(client.keep_alive(), "0");
     }
 }

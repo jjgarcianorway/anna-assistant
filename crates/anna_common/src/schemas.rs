@@ -74,6 +74,11 @@ pub struct OllamaChatRequest {
     pub stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
+    /// How long to keep model loaded in memory after request.
+    /// Use "0" to unload immediately, "5m" for 5 minutes, etc.
+    /// Default is "5m" to balance responsiveness and resource usage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keep_alive: Option<String>,
 }
 
 /// Ollama message

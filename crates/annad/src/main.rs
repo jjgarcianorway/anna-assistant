@@ -8,6 +8,7 @@
 //! v0.9.0: Locked CLI surface, status command.
 //! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop.
 //! v0.11.0: Knowledge store, event-driven learning, user telemetry.
+//! v0.16.1: Dynamic model registry, on-demand LLM loading.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
@@ -15,6 +16,7 @@
 
 mod auto_update;
 mod brain;
+mod model_registry_fetcher;
 mod orchestrator;
 mod parser;
 mod probe;
