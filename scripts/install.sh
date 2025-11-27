@@ -174,8 +174,10 @@ detect_installed_version() {
     if command -v annactl &>/dev/null; then
         local output
         output=$(timeout 5 annactl -V </dev/null 2>&1 | head -20) || true
-        # Look for "Anna Assistant vX.Y.Z" or "v0.X.Y" pattern specifically
-        if [[ "$output" =~ Anna[[:space:]]+(Assistant[[:space:]]+)?v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+        # Look for "annactl vX.Y.Z" (v0.14.4+) or "Anna Assistant vX.Y.Z" (legacy)
+        if [[ "$output" =~ annactl[[:space:]]+v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            INSTALLED_VERSION="${BASH_REMATCH[1]}"
+        elif [[ "$output" =~ Anna[[:space:]]+(Assistant[[:space:]]+)?v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             INSTALLED_VERSION="${BASH_REMATCH[2]}"
         fi
     fi
