@@ -512,6 +512,31 @@ select_model() {
     local vram_mb
     vram_mb=$(detect_gpu)
 
+    # First, check if a good model is already installed
+    local installed_models
+    installed_models=$(ollama list 2>/dev/null || echo "")
+
+    # Check for already-installed preferred models (best to worst)
+    if echo "$installed_models" | grep -qE "^qwen2\.5:14b[[:space:]]"; then
+        SELECTED_MODEL="qwen2.5:14b"
+        log_ok "Using already installed qwen2.5:14b"
+        return
+    fi
+    if echo "$installed_models" | grep -qE "^qwen2\.5:7b[[:space:]]"; then
+        SELECTED_MODEL="qwen2.5:7b"
+        log_ok "Using already installed qwen2.5:7b"
+        return
+    fi
+    if echo "$installed_models" | grep -qE "^llama3\.2:3b[[:space:]]"; then
+        # Only use 3b if we don't have VRAM for bigger models
+        if [[ "$vram_mb" -lt 8000 ]]; then
+            SELECTED_MODEL="llama3.2:3b"
+            log_ok "Using already installed llama3.2:3b"
+            return
+        fi
+    fi
+
+    # No good model installed, select based on VRAM
     if [[ "$vram_mb" -ge 16000 ]]; then
         # 16GB+ VRAM: Use 14B model
         SELECTED_MODEL="qwen2.5:14b"
@@ -573,9 +598,15 @@ install_ollama() {
     # Select appropriate model based on hardware
     select_model
 
-    # Check if model is already pulled
+    # Check if exact model is already pulled
     log_info "Checking for ${SELECTED_MODEL}..."
-    if ollama list 2>/dev/null | grep -q "${SELECTED_MODEL%%:*}"; then
+
+    # Extract model name and tag for exact matching
+    local model_name="${SELECTED_MODEL%%:*}"
+    local model_tag="${SELECTED_MODEL##*:}"
+
+    # Check for exact match (e.g., "qwen2.5:7b" not just "qwen2.5")
+    if ollama list 2>/dev/null | grep -E "^${model_name}:${model_tag}[[:space:]]" >/dev/null 2>&1; then
         log_ok "Model ${SELECTED_MODEL} already available"
     else
         log_info "Pulling ${SELECTED_MODEL} (this may take a few minutes)..."
