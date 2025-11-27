@@ -255,15 +255,15 @@ download_models() {
 
     log_info "Downloading LLM models..."
 
-    echo "   Pulling ${LLM_A}..."
-    if ollama pull "$LLM_A" 2>/dev/null; then
+    printf "\n   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_A}${NC}...\n\n"
+    if ollama pull "$LLM_A"; then
         log_success "Downloaded ${LLM_A}"
     else
         log_warn "Failed to download ${LLM_A}"
     fi
 
-    echo "   Pulling ${LLM_B}..."
-    if ollama pull "$LLM_B" 2>/dev/null; then
+    printf "\n   ${CYAN}⬇${NC}  Pulling ${BOLD}${LLM_B}${NC}...\n\n"
+    if ollama pull "$LLM_B"; then
         log_success "Downloaded ${LLM_B}"
     else
         log_warn "Failed to download ${LLM_B}"
