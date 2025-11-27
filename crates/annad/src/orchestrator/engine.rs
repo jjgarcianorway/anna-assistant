@@ -20,25 +20,45 @@ use anyhow::Result;
 use tracing::{debug, info, warn};
 
 /// Answer engine - orchestrates the LLM-A/LLM-B loop
+///
+/// Supports role-specific models:
+/// - Junior (LLM-A): Fast model for probe execution and command parsing
+/// - Senior (LLM-B): Smarter model for reasoning and synthesis
 pub struct AnswerEngine {
     llm_client: OllamaClient,
     catalog: ProbeCatalog,
-    model_name: String,
 }
 
 impl AnswerEngine {
+    /// Create engine with a single model for both roles (legacy/backwards compat)
     pub fn new(model: Option<String>) -> Self {
-        let model_name = model.clone().unwrap_or_else(|| "llama3.2:3b".to_string());
         Self {
             llm_client: OllamaClient::new(model),
             catalog: ProbeCatalog::standard(),
-            model_name,
         }
     }
 
-    /// Get the model name being used
+    /// Create engine with separate models for junior and senior roles
+    pub fn with_role_models(junior_model: Option<String>, senior_model: Option<String>) -> Self {
+        Self {
+            llm_client: OllamaClient::with_role_models(junior_model, senior_model),
+            catalog: ProbeCatalog::standard(),
+        }
+    }
+
+    /// Get the junior (LLM-A) model name
+    pub fn junior_model(&self) -> &str {
+        self.llm_client.junior_model()
+    }
+
+    /// Get the senior (LLM-B) model name
+    pub fn senior_model(&self) -> &str {
+        self.llm_client.senior_model()
+    }
+
+    /// Get the model name being used (legacy - returns junior model)
     pub fn model(&self) -> &str {
-        &self.model_name
+        self.llm_client.junior_model()
     }
 
     /// Filter probe IDs to only valid ones from catalog
@@ -311,7 +331,7 @@ impl AnswerEngine {
             confidence_level,
             problems: vec![],
             loop_iterations,
-            model_used: Some(self.model_name.clone()),
+            model_used: Some(self.senior_model().to_string()),
         }
     }
 
@@ -340,7 +360,7 @@ impl AnswerEngine {
             confidence_level,
             problems: vec!["Reached maximum verification loops".to_string()],
             loop_iterations,
-            model_used: Some(self.model_name.clone()),
+            model_used: Some(self.senior_model().to_string()),
         }
     }
 
@@ -361,7 +381,7 @@ impl AnswerEngine {
             confidence_level: ConfidenceLevel::Red,
             problems: vec![reason.to_string()],
             loop_iterations,
-            model_used: Some(self.model_name.clone()),
+            model_used: Some(self.senior_model().to_string()),
         }
     }
 

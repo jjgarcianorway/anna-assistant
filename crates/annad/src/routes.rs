@@ -245,13 +245,18 @@ async fn answer_question(
         brain.record_query(&req.question).await;
     }
 
-    // Get model from config
+    // Get models from config - supports role-specific models for junior/senior
     let config = AnnaConfigV5::load();
-    let model = if config.llm.selection_mode.as_str() == "manual" {
-        info!("🎯  Using manual model: {}", config.llm.preferred_model);
-        Some(config.llm.preferred_model.clone())
+    let (junior_model, senior_model) = if config.llm.selection_mode.as_str() == "manual" {
+        // Manual mode: use config-specified models
+        let junior = config.llm.get_junior_model().to_string();
+        let senior = config.llm.get_senior_model().to_string();
+        info!("🎯  Using manual models - Junior: {}, Senior: {}", junior, senior);
+        (Some(junior), Some(senior))
     } else {
-        // Auto selection - use hardware profile
+        // Auto selection - use hardware profile for both roles
+        // Note: In auto mode, we use the same model for both roles based on hardware
+        // Users can set junior_model/senior_model in config.toml for optimization
         let profile = anna_common::HardwareProfile::detect();
         let recommendation = profile.select_model();
         info!(
@@ -262,10 +267,11 @@ async fn answer_question(
             profile.vram_gb,
             profile.gpu_driver_functional
         );
-        Some(recommendation.model)
+        (Some(recommendation.model.clone()), Some(recommendation.model))
     };
 
-    let engine = AnswerEngine::new(model);
+    let engine = AnswerEngine::with_role_models(junior_model, senior_model);
+    info!("🤖  Engine ready - Junior: {}, Senior: {}", engine.junior_model(), engine.senior_model());
 
     // Check if LLM is available
     if !engine.is_available().await {

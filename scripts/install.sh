@@ -765,7 +765,17 @@ write_config() {
     log_info "Writing default configuration..."
 
     # Use selected model or default to llama3.1:8b (fast + reliable)
-    local model="${SELECTED_MODEL:-llama3.1:8b}"
+    # Junior (LLM-A): Fast model for probe execution - use smaller model
+    # Senior (LLM-B): Smart model for reasoning - use the selected model
+    local senior_model="${SELECTED_MODEL:-llama3.1:8b}"
+    local junior_model="llama3.2:3b"  # Always fast for probe execution
+
+    # If user has a large model, use medium for junior
+    case "$senior_model" in
+        *70b*|*32b*|*30b*|*14b*)
+            junior_model="llama3.1:8b"  # Use 8B for junior when senior is large
+            ;;
+    esac
 
     $SUDO tee "$config_file" > /dev/null << EOF
 # Anna v${LATEST_VERSION} Configuration
@@ -775,7 +785,13 @@ write_config() {
 mode = "normal"
 
 [llm]
-preferred_model = "${model}"
+# Role-specific models for optimized resource usage
+# Junior (LLM-A): Fast model for probe execution
+junior_model = "${junior_model}"
+# Senior (LLM-B): Smarter model for reasoning and synthesis
+senior_model = "${senior_model}"
+# Legacy/fallback (used if junior/senior not set)
+preferred_model = "${senior_model}"
 fallback_model = "llama3.2:3b"
 selection_mode = "auto"
 

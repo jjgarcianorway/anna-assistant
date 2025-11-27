@@ -581,6 +581,8 @@ pub fn format_config_display(config: &AnnaConfigV5) -> String {
 
 [source: config.llm]
   selection_mode: {}
+  junior_model: {}
+  senior_model: {}
   preferred_model: {}
   fallback_model: {}
 
@@ -598,6 +600,8 @@ pub fn format_config_display(config: &AnnaConfigV5) -> String {
   journal_enabled: {}"#,
         config.core.mode.as_str(),
         config.llm.selection_mode.as_str(),
+        config.llm.junior_model.as_deref().unwrap_or("(uses preferred_model)"),
+        config.llm.senior_model.as_deref().unwrap_or("(uses preferred_model)"),
         config.llm.preferred_model,
         config.llm.fallback_model,
         config.update.enabled,

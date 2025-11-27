@@ -16,51 +16,82 @@ use std::time::Duration;
 use tracing::{debug, error, info, warn};
 
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
-const DEFAULT_MODEL: &str = "llama3.2:3b";
+const DEFAULT_JUNIOR_MODEL: &str = "llama3.2:3b";
+const DEFAULT_SENIOR_MODEL: &str = "llama3.1:8b";
 
-/// Ollama LLM client
+/// Ollama LLM client with role-specific models
+///
+/// Supports separate models for junior (LLM-A) and senior (LLM-B) roles:
+/// - Junior: Fast model for probe execution and command parsing
+/// - Senior: Smarter model for reasoning and synthesis
 pub struct OllamaClient {
     http_client: reqwest::Client,
-    model: String,
+    junior_model: String, // LLM-A: fast, for probe execution
+    senior_model: String, // LLM-B: smart, for reasoning
 }
 
 impl OllamaClient {
+    /// Create client with a single model for both roles (legacy/backwards compat)
     pub fn new(model: Option<String>) -> Self {
+        let m = model.unwrap_or_else(|| DEFAULT_JUNIOR_MODEL.to_string());
         Self {
             http_client: reqwest::Client::builder()
                 .timeout(Duration::from_secs(120))
                 .build()
                 .unwrap_or_default(),
-            model: model.unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+            junior_model: m.clone(),
+            senior_model: m,
         }
     }
 
-    /// Call LLM-A with the given prompt
+    /// Create client with separate models for junior (LLM-A) and senior (LLM-B) roles
+    pub fn with_role_models(junior: Option<String>, senior: Option<String>) -> Self {
+        Self {
+            http_client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(120))
+                .build()
+                .unwrap_or_default(),
+            junior_model: junior.unwrap_or_else(|| DEFAULT_JUNIOR_MODEL.to_string()),
+            senior_model: senior.unwrap_or_else(|| DEFAULT_SENIOR_MODEL.to_string()),
+        }
+    }
+
+    /// Get the junior model name
+    pub fn junior_model(&self) -> &str {
+        &self.junior_model
+    }
+
+    /// Get the senior model name
+    pub fn senior_model(&self) -> &str {
+        &self.senior_model
+    }
+
+    /// Call LLM-A (junior) with the given prompt
     pub async fn call_llm_a(&self, user_prompt: &str) -> Result<LlmAResponse> {
         let response_text = self
-            .call_ollama(LLM_A_SYSTEM_PROMPT, user_prompt)
+            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-A call failed")?;
 
         self.parse_llm_a_response(&response_text)
     }
 
-    /// Call LLM-B with the given prompt
+    /// Call LLM-B (senior) with the given prompt
     pub async fn call_llm_b(&self, user_prompt: &str) -> Result<LlmBResponse> {
         let response_text = self
-            .call_ollama(LLM_B_SYSTEM_PROMPT, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
         self.parse_llm_b_response(&response_text)
     }
 
-    /// Raw Ollama API call
-    async fn call_ollama(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
+    /// Raw Ollama API call with specified model
+    async fn call_ollama(&self, model: &str, system_prompt: &str, user_prompt: &str) -> Result<String> {
         let url = format!("{}/api/chat", OLLAMA_URL);
 
         let request = OllamaChatRequest {
-            model: self.model.clone(),
+            model: model.to_string(),
             messages: vec![
                 OllamaMessage {
                     role: "system".to_string(),
@@ -75,7 +106,7 @@ impl OllamaClient {
             format: Some("json".to_string()),
         };
 
-        info!("📤  LLM CALL [{}]", self.model);
+        info!("📤  LLM CALL [{}]", model);
         info!(
             "📝  SYSTEM PROMPT ({} chars): {}",
             system_prompt.len(),
@@ -398,7 +429,18 @@ mod tests {
     #[test]
     fn test_ollama_client_default() {
         let client = OllamaClient::default();
-        assert_eq!(client.model, DEFAULT_MODEL);
+        assert_eq!(client.junior_model, DEFAULT_JUNIOR_MODEL);
+        assert_eq!(client.senior_model, DEFAULT_JUNIOR_MODEL); // Same when using new()
+    }
+
+    #[test]
+    fn test_ollama_client_with_role_models() {
+        let client = OllamaClient::with_role_models(
+            Some("llama3.2:3b".to_string()),
+            Some("llama3.1:8b".to_string()),
+        );
+        assert_eq!(client.junior_model, "llama3.2:3b");
+        assert_eq!(client.senior_model, "llama3.1:8b");
     }
 
     #[test]

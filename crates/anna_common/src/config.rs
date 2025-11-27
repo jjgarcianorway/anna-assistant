@@ -95,8 +95,20 @@ impl Default for CoreConfig {
 }
 
 /// LLM configuration section
+///
+/// Supports role-specific models for optimized resource usage:
+/// - `junior_model`: Fast model for LLM-A (probe execution, command parsing)
+/// - `senior_model`: Smarter model for LLM-B (reasoning, synthesis)
+/// - `preferred_model`: Legacy single-model config (used if junior/senior not set)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmConfig {
+    /// Model for junior role (LLM-A) - probe executor, needs speed
+    #[serde(default)]
+    pub junior_model: Option<String>,
+    /// Model for senior role (LLM-B) - reasoner, needs quality
+    #[serde(default)]
+    pub senior_model: Option<String>,
+    /// Legacy: single model for all roles (backwards compatible)
     #[serde(default = "default_preferred_model")]
     pub preferred_model: String,
     #[serde(default = "default_fallback_model")]
@@ -106,16 +118,32 @@ pub struct LlmConfig {
 }
 
 fn default_preferred_model() -> String {
-    "llama3.2:3b".to_string()
+    "llama3.1:8b".to_string()
 }
 
 fn default_fallback_model() -> String {
     "llama3.2:3b".to_string()
 }
 
+impl LlmConfig {
+    /// Get the model for junior role (LLM-A)
+    /// Falls back to preferred_model if junior_model not set
+    pub fn get_junior_model(&self) -> &str {
+        self.junior_model.as_deref().unwrap_or(&self.preferred_model)
+    }
+
+    /// Get the model for senior role (LLM-B)
+    /// Falls back to preferred_model if senior_model not set
+    pub fn get_senior_model(&self) -> &str {
+        self.senior_model.as_deref().unwrap_or(&self.preferred_model)
+    }
+}
+
 impl Default for LlmConfig {
     fn default() -> Self {
         Self {
+            junior_model: None,
+            senior_model: None,
             preferred_model: default_preferred_model(),
             fallback_model: default_fallback_model(),
             selection_mode: LlmSelectionMode::Auto,
