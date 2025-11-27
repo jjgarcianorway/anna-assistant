@@ -16,6 +16,10 @@
 //! - ASCII-only sysadmin style (no emojis)
 //! - Multi-round refinement loop with thresholds
 //! - Structured reports with [SUMMARY], [DETAILS], [EVIDENCE], [RELIABILITY]
+//!
+//! v0.7.0:
+//! - Self-health monitoring and auto-repair
+//! - [SELF-HEALTH] section in version output
 
 use crate::client::DaemonClient;
 use crate::llm_client::LlmClient;
@@ -24,7 +28,7 @@ use anna_common::{
     apply_intent, apply_mutation, format_config_display, format_mutation_diff,
     AnnaConfigV5, AnnaResponse, ConfigIntent, ConfigPatternMatcher, Evidence,
     ExpertResponse, HardwareProfile, ModelSelection, ReliabilityScore, Verdict,
-    SEPARATOR,
+    SEPARATOR, self_health,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -247,7 +251,7 @@ Configuration (via natural language):
                 .chat(&models.orchestrator, LLM_A_SYSTEM_PROMPT, &prompt)
                 .await;
 
-            // v0.6.0: ASCII-only sysadmin style version output
+            // v0.7.0: ASCII-only sysadmin style version output with self-health
             let gpu_status = if hardware.gpu_driver_functional {
                 "detected_with_driver"
             } else if hardware.gpu_vendor.as_str() != "none" {
@@ -256,12 +260,17 @@ Configuration (via natural language):
                 "none"
             };
 
+            // Run self-health probes
+            let health_report = self_health::run_all_probes();
+            let health_summary = self_health::summary_line(&health_report);
+
             let version_text = format!(
-                "{sep}\nAnna Assistant v{version}\n{sep}\n\n[SUMMARY]\n  * Mode: {mode} [source: config.core]\n  * Update: {update} [source: config.update]\n\n[DETAILS]\n  * LLM:\n    - selection_mode: {sel_mode} [source: config.llm]\n    - active_model: {active} [source: config.llm]\n    - fallback_model: {fallback} [source: config.llm]\n  * Hardware:\n    - CPU: {cpu_cores} cores [source: hardware.profile]\n    - RAM: {ram_gb} GB [source: hardware.profile]\n    - GPU: {gpu_status} [source: hardware.profile]\n    - recommendation: {rec} [source: hardware.profile]\n  * Daemon: {daemon} [source: system.version]\n  * Tool catalog: {probes} probes registered [source: system.version]\n\n[RELIABILITY]\n  * score: 0.95 (green)\n  * internal_passes: 1\n  * threshold_reached: yes\n\n{sep}",
+                "{sep}\nAnna Assistant v{version}\n{sep}\n\n[SUMMARY]\n  * Mode: {mode} [source: config.core]\n  * Update: {update} [source: config.update]\n  * Self-health: {health} [source: self_health]\n\n[DETAILS]\n  * LLM:\n    - selection_mode: {sel_mode} [source: config.llm]\n    - active_model: {active} [source: config.llm]\n    - fallback_model: {fallback} [source: config.llm]\n  * Hardware:\n    - CPU: {cpu_cores} cores [source: hardware.profile]\n    - RAM: {ram_gb} GB [source: hardware.profile]\n    - GPU: {gpu_status} [source: hardware.profile]\n    - recommendation: {rec} [source: hardware.profile]\n  * Daemon: {daemon} [source: system.version]\n  * Tool catalog: {probes} probes registered [source: system.version]\n\n[RELIABILITY]\n  * score: 0.95 (green)\n  * internal_passes: 1\n  * threshold_reached: yes\n\n{sep}",
                 sep = SEPARATOR,
                 version = version,
                 mode = config.core.mode.as_str(),
                 update = update_info,
+                health = health_summary,
                 sel_mode = config.llm.selection_mode.as_str(),
                 active = config.llm.preferred_model,
                 fallback = config.llm.fallback_model,

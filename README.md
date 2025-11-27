@@ -1,10 +1,18 @@
-# Anna v0.6.0
+# Anna v0.7.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.6.0
+## What's New in v0.7.0
+
+- **Self-Health Monitoring** - Anna monitors her own components (daemon, LLM, models, tools, permissions, config)
+- **Auto-Repair Engine** - Automatically fixes safe issues (restart services, pull models, fix permissions)
+- **Safety Rules** - Clear separation between auto-repair and warn-only actions
+- **[SELF-HEALTH] Section** - New output section showing component status and repairs
+- **REPL Notifications** - Real-time notifications when auto-repair events occur
+
+## Previous in v0.6.0
 
 - **ASCII-Only Sysadmin Style** - Professional output, no emojis, old-school terminal look
 - **Structured Reports** - [SUMMARY], [DETAILS], [EVIDENCE], [RELIABILITY] sections
@@ -116,7 +124,7 @@ When GPU drivers become available, Anna can automatically upgrade to a larger mo
 ### Version Output
 
 ```
-Anna Assistant v0.5.0
+Anna Assistant v0.7.0
 Mode: normal [source: config.core]
 Update: manual (main, every 86400s) [source: config.update]
 LLM:
@@ -124,8 +132,9 @@ LLM:
   active_model: llama3.2:3b [source: config.llm]
   fallback_model: llama3.2:3b [source: config.llm]
   hardware_recommendation: Standard CPU system [source: hardware.profile]
-Daemon: running (v0.5.0, uptime: 3600s, 6 probes) [source: system.version]
+Daemon: running (v0.7.0, uptime: 3600s, 6 probes) [source: system.version]
 Tool catalog: 6 probes registered [source: system.version]
+Self-health: OK (all components healthy) [source: self_health]
 ```
 
 ## Components
@@ -199,4 +208,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.4.0 - Dev auto-update release.
+This is version 0.7.0 - Self-health and auto-repair release.

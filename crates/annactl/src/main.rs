@@ -4,6 +4,7 @@
 //! v0.4.0: Update status in version/help output
 //! v0.5.0: Natural language configuration, hardware-aware model selection
 //! v0.6.0: ASCII-only sysadmin style, multi-round reliability refinement
+//! v0.7.0: Self-health monitoring with auto-repair and REPL notifications
 //!
 //! Only these commands exist:
 //!   - annactl "<question>"    Ask Anna anything
@@ -16,7 +17,7 @@ mod llm_client;
 mod orchestrator;
 mod output;
 
-use anna_common::{AnnaConfigV5, HardwareProfile};
+use anna_common::{AnnaConfigV5, HardwareProfile, self_health, OverallHealth, RepairSafety};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -66,6 +67,10 @@ async fn main() -> Result<()> {
 /// Run the interactive REPL
 async fn run_repl() -> Result<()> {
     print_banner();
+
+    // v0.7.0: Run self-health check with auto-repair on startup
+    run_startup_health_check();
+
     // v0.6.0: ASCII-only output
     println!(
         "{}  Interactive mode. Type {} to exit.\n",
@@ -231,3 +236,99 @@ async fn run_help_via_llm() -> Result<()> {
 }
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+/// v0.7.0: Run self-health check on REPL startup
+fn run_startup_health_check() {
+    // Run probes with auto-repair
+    let report = self_health::run_with_auto_repair();
+
+    // Display notifications based on health status
+    match report.overall {
+        OverallHealth::Healthy => {
+            // Silent if healthy - no notification needed
+        }
+        OverallHealth::Degraded => {
+            println!(
+                "{}  Self-health: {}",
+                "[NOTE]".yellow(),
+                "degraded".yellow()
+            );
+            // Show degraded components
+            for component in &report.components {
+                if !component.status.is_healthy() {
+                    println!(
+                        "   * {}: {}",
+                        component.name.yellow(),
+                        component.message
+                    );
+                }
+            }
+            println!();
+        }
+        OverallHealth::Critical => {
+            println!(
+                "{}  Self-health: {}",
+                "[WARNING]".bright_red(),
+                "critical".bright_red()
+            );
+            // Show critical components
+            for component in &report.components {
+                if !component.status.is_healthy() {
+                    println!(
+                        "   * {}: {}",
+                        component.name.bright_red(),
+                        component.message
+                    );
+                }
+            }
+            println!();
+        }
+        OverallHealth::Unknown => {
+            println!(
+                "{}  Self-health: {}",
+                "[NOTE]".dimmed(),
+                "unknown".dimmed()
+            );
+            println!();
+        }
+    }
+
+    // Show auto-repairs that were executed
+    if !report.repairs_executed.is_empty() {
+        println!(
+            "{}  Auto-repairs executed:",
+            "[AUTO-REPAIR]".bright_green()
+        );
+        for repair in &report.repairs_executed {
+            let status = if repair.success {
+                "+".bright_green().to_string()
+            } else {
+                "!".bright_red().to_string()
+            };
+            println!("   {} {}", status, repair.message);
+        }
+        println!();
+    }
+
+    // Show manual actions required
+    let manual_actions: Vec<_> = report
+        .repairs_available
+        .iter()
+        .filter(|r| r.safety == RepairSafety::WarnOnly)
+        .collect();
+
+    if !manual_actions.is_empty() {
+        println!(
+            "{}  Manual action required:",
+            "[ACTION]".yellow()
+        );
+        for repair in manual_actions {
+            println!(
+                "   * {}: {}",
+                repair.description.yellow(),
+                repair.command.cyan()
+            );
+        }
+        println!();
+    }
+}
