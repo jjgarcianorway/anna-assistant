@@ -44,10 +44,11 @@ impl AutoUpdateScheduler {
         }
     }
 
-    /// Check if enough time has passed since last update check (v0.5.0)
+    /// Check if enough time has passed since last update check
+    /// v0.14.0: Works in both Normal and Dev modes when enabled
     fn should_check_for_updates(config: &AnnaConfigV5, state: &UpdateState) -> bool {
-        // Must be in dev mode with update enabled
-        if !config.is_dev_auto_update_active() {
+        // Must have auto-update enabled
+        if !config.is_auto_update_enabled() {
             return false;
         }
 
@@ -70,7 +71,7 @@ impl AutoUpdateScheduler {
             let config = AnnaConfigV5::load();
             *self.config.write().await = config.clone();
 
-            if config.is_dev_auto_update_active() {
+            if config.is_auto_update_enabled() {
                 let state = self.state.read().await.clone();
 
                 if Self::should_check_for_updates(&config, &state) {
@@ -402,12 +403,24 @@ mod tests {
     }
 
     #[test]
-    fn test_should_check_for_updates_requires_dev_mode() {
+    fn test_should_check_for_updates_normal_mode_enabled() {
         let config = AnnaConfigV5::default();
         let state = UpdateState::default();
 
-        // Default config has auto-update enabled but is in Normal mode
-        // Auto-update scheduler only runs in Dev mode
+        // v0.14.0: Default config has auto-update enabled in Normal mode
+        // Auto-update now works in both Normal and Dev modes
+        assert!(AutoUpdateScheduler::should_check_for_updates(
+            &config, &state
+        ));
+    }
+
+    #[test]
+    fn test_should_check_for_updates_disabled() {
+        let mut config = AnnaConfigV5::default();
+        config.update.enabled = false;
+        let state = UpdateState::default();
+
+        // Auto-update disabled - should not check
         assert!(!AutoUpdateScheduler::should_check_for_updates(
             &config, &state
         ));
@@ -431,7 +444,6 @@ mod tests {
     #[test]
     fn test_should_check_for_updates_interval_not_passed() {
         let mut config = AnnaConfigV5::default();
-        config.core.mode = CoreMode::Dev;
         config.update.enabled = true;
         config.update.interval_seconds = MIN_UPDATE_INTERVAL;
 
@@ -450,7 +462,6 @@ mod tests {
     #[test]
     fn test_should_check_for_updates_interval_passed() {
         let mut config = AnnaConfigV5::default();
-        config.core.mode = CoreMode::Dev;
         config.update.enabled = true;
         config.update.interval_seconds = MIN_UPDATE_INTERVAL;
 
@@ -469,7 +480,6 @@ mod tests {
     #[test]
     fn test_minimum_interval_enforced() {
         let mut config = AnnaConfigV5::default();
-        config.core.mode = CoreMode::Dev;
         config.update.enabled = true;
         config.update.interval_seconds = 100; // Below minimum
 

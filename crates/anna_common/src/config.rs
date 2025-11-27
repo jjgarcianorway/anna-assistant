@@ -207,9 +207,15 @@ impl AnnaConfigV5 {
         fs::write(path, content)
     }
 
-    /// Check if dev auto-update is active
+    /// Check if dev auto-update is active (for frequent 10-min checks in dev mode)
     pub fn is_dev_auto_update_active(&self) -> bool {
         self.core.mode == CoreMode::Dev && self.update.enabled
+    }
+
+    /// Check if auto-update is enabled (works in any mode)
+    /// v0.14.0: Auto-update now works in both Normal and Dev modes
+    pub fn is_auto_update_enabled(&self) -> bool {
+        self.update.enabled
     }
 
     /// Get the active model based on selection mode

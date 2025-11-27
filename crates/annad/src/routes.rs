@@ -194,7 +194,7 @@ async fn update_state(State(_state): State<AppStateArc>) -> Json<UpdateStateResp
     });
 
     // Determine status description
-    let status = if !config.is_dev_auto_update_active() {
+    let status = if !config.is_auto_update_enabled() {
         "disabled".to_string()
     } else if update_state.last_check.is_none() {
         "never_checked".to_string()
