@@ -37,6 +37,7 @@ pub async fn run(state: AppState) -> Result<()> {
         .merge(routes::state_routes())
         .merge(routes::health_routes())
         .merge(routes::update_routes()) // v0.9.0: Update state endpoint
+        .merge(routes::answer_routes()) // v0.10.0: Answer engine endpoint
         .with_state(state)
         .layer(TraceLayer::new_for_http());
 

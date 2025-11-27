@@ -1,9 +1,10 @@
-//! Output formatting - clean, ASCII-only terminal output v0.6.0
+//! Output formatting - clean, ASCII-only terminal output v0.10.0
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
+//! v0.10.0: Evidence-based answers with citations and confidence scores
 #![allow(dead_code)]
 
-use anna_common::{AnnaResponse, THIN_SEPARATOR};
+use anna_common::{AnnaResponse, ConfidenceLevel, FinalAnswer, THIN_SEPARATOR};
 use owo_colors::OwoColorize;
 
 /// Display a response to the user
@@ -113,4 +114,115 @@ pub fn display_insufficient_evidence(domain: &str, missing_probes: &[&str]) {
         "[AVAILABLE PROBES] cpu.info, mem.info, disk.lsblk, hardware.gpu, drivers.gpu, hardware.ram"
     );
     eprintln!();
+}
+
+// ============================================================================
+// v0.10.0: Evidence-Based Answer Display
+// ============================================================================
+
+/// Display an evidence-based answer from the v0.10.0 answer engine
+pub fn display_final_answer(answer: &FinalAnswer) {
+    // Header
+    println!();
+    println!("{}", "==================================================".cyan());
+    println!("  {}  Anna Answer", "📋".bright_cyan());
+    println!("{}", "==================================================".cyan());
+    println!();
+
+    // Question
+    println!("{}  {}", "Q:".bold().bright_white(), answer.question);
+    println!();
+
+    // Answer or refusal
+    if answer.is_refusal {
+        println!(
+            "{}  {}",
+            "A:".bold().bright_red(),
+            answer.answer.bright_red()
+        );
+    } else {
+        println!("{}  {}", "A:".bold().bright_green(), answer.answer);
+    }
+
+    // Evidence citations
+    if !answer.citations.is_empty() {
+        println!();
+        println!("{}:", "Evidence".bold().bright_white());
+        for citation in &answer.citations {
+            let status_icon = match citation.status {
+                anna_common::EvidenceStatus::Ok => "✓".bright_green().to_string(),
+                anna_common::EvidenceStatus::Error => "✗".bright_red().to_string(),
+                anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
+                anna_common::EvidenceStatus::Timeout => "⧖".yellow().to_string(),
+            };
+            // Format: [probe_id] → summary
+            let summary = citation
+                .raw
+                .as_ref()
+                .map(|r| {
+                    let line = r.lines().next().unwrap_or("");
+                    if line.len() > 50 {
+                        format!("{}...", &line[..47])
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .unwrap_or_else(|| "no output".to_string());
+
+            println!(
+                "  {}  [{}]  →  {}",
+                status_icon,
+                citation.probe_id.cyan(),
+                summary.dimmed()
+            );
+        }
+    }
+
+    // Confidence score with colored level
+    println!();
+    let level_colored = match answer.confidence_level {
+        ConfidenceLevel::Green => "GREEN".bright_green().bold().to_string(),
+        ConfidenceLevel::Yellow => "YELLOW".yellow().bold().to_string(),
+        ConfidenceLevel::Red => "RED".bright_red().bold().to_string(),
+    };
+
+    let overall = answer.scores.overall;
+    let evidence = answer.scores.evidence;
+    let reasoning = answer.scores.reasoning;
+    let coverage = answer.scores.coverage;
+
+    println!(
+        "{}  [{}] {:.2} (evidence {:.2}, reasoning {:.2}, coverage {:.2})",
+        "Confidence:".bold().bright_white(),
+        level_colored,
+        overall,
+        evidence,
+        reasoning,
+        coverage
+    );
+
+    // Loop iterations info if multiple rounds
+    if answer.loop_iterations > 1 {
+        println!(
+            "{}  {} iterations",
+            "Audit loops:".dimmed(),
+            answer.loop_iterations
+        );
+    }
+
+    // Footer
+    println!();
+    println!("{}", "==================================================".cyan());
+    if !answer.is_refusal {
+        println!(
+            "{}",
+            "Evidence-based  *  LLM-A/LLM-B audited  *  No hallucinations".dimmed()
+        );
+    } else {
+        println!(
+            "{}",
+            "Refused due to insufficient evidence or low confidence".dimmed()
+        );
+    }
+    println!();
 }

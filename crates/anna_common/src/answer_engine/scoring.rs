@@ -1,0 +1,293 @@
+//! Reliability Scoring v0.10.0
+//!
+//! Scoring formula: overall = 0.4 * evidence + 0.3 * reasoning + 0.3 * coverage
+//! Thresholds:
+//! - >= 0.90: GREEN (high confidence)
+//! - 0.70 - 0.90: YELLOW (medium confidence)
+//! - < 0.70: RED (refuse to answer)
+
+use serde::{Deserialize, Serialize};
+
+// ============================================================================
+// Thresholds
+// ============================================================================
+
+/// Minimum score to accept an answer (below this = refuse)
+pub const MINIMUM_ACCEPTABLE_SCORE: f64 = 0.70;
+
+/// High confidence threshold (green)
+pub const HIGH_CONFIDENCE_THRESHOLD: f64 = 0.90;
+
+/// Maximum number of probe-audit loops before giving up
+pub const MAX_LOOPS: usize = 3;
+
+// ============================================================================
+// Score Weights
+// ============================================================================
+
+/// Weight for evidence score in overall calculation
+pub const EVIDENCE_WEIGHT: f64 = 0.4;
+
+/// Weight for reasoning score in overall calculation
+pub const REASONING_WEIGHT: f64 = 0.3;
+
+/// Weight for coverage score in overall calculation
+pub const COVERAGE_WEIGHT: f64 = 0.3;
+
+// ============================================================================
+// Reliability Scores
+// ============================================================================
+
+/// Reliability scores from LLM-A self-assessment
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ReliabilityScores {
+    /// How well the answer is backed by probe evidence (0.0 - 1.0)
+    #[serde(default)]
+    pub evidence: f64,
+    /// How logically consistent and non-contradictory (0.0 - 1.0)
+    #[serde(default)]
+    pub reasoning: f64,
+    /// How well the answer covers the actual user question (0.0 - 1.0)
+    #[serde(default)]
+    pub coverage: f64,
+}
+
+impl ReliabilityScores {
+    /// Create new scores
+    pub fn new(evidence: f64, reasoning: f64, coverage: f64) -> Self {
+        Self {
+            evidence: evidence.clamp(0.0, 1.0),
+            reasoning: reasoning.clamp(0.0, 1.0),
+            coverage: coverage.clamp(0.0, 1.0),
+        }
+    }
+
+    /// Compute weighted overall score
+    pub fn overall(&self) -> f64 {
+        EVIDENCE_WEIGHT * self.evidence
+            + REASONING_WEIGHT * self.reasoning
+            + COVERAGE_WEIGHT * self.coverage
+    }
+
+    /// Check if scores meet minimum threshold
+    pub fn is_acceptable(&self) -> bool {
+        self.overall() >= MINIMUM_ACCEPTABLE_SCORE
+    }
+
+    /// Check if scores indicate high confidence
+    pub fn is_high_confidence(&self) -> bool {
+        self.overall() >= HIGH_CONFIDENCE_THRESHOLD
+    }
+
+    /// Get confidence level
+    pub fn confidence_level(&self) -> ScoreConfidence {
+        let overall = self.overall();
+        if overall >= HIGH_CONFIDENCE_THRESHOLD {
+            ScoreConfidence::High
+        } else if overall >= MINIMUM_ACCEPTABLE_SCORE {
+            ScoreConfidence::Medium
+        } else {
+            ScoreConfidence::Low
+        }
+    }
+}
+
+/// Score confidence level
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ScoreConfidence {
+    /// >= 0.90
+    High,
+    /// 0.70 - 0.90
+    Medium,
+    /// < 0.70
+    Low,
+}
+
+impl ScoreConfidence {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ScoreConfidence::High => "HIGH",
+            ScoreConfidence::Medium => "MEDIUM",
+            ScoreConfidence::Low => "LOW",
+        }
+    }
+
+    /// ANSI color code for terminal
+    pub fn ansi_color(&self) -> &'static str {
+        match self {
+            ScoreConfidence::High => "\x1b[32m",   // Green
+            ScoreConfidence::Medium => "\x1b[33m", // Yellow
+            ScoreConfidence::Low => "\x1b[31m",    // Red
+        }
+    }
+}
+
+// ============================================================================
+// Loop State
+// ============================================================================
+
+/// State tracking for the probe-audit loop
+#[derive(Debug, Clone)]
+pub struct LoopState {
+    /// Current loop iteration (0-indexed)
+    pub iteration: usize,
+    /// Scores from each iteration
+    pub score_history: Vec<f64>,
+    /// Did we reach acceptable score?
+    pub reached_acceptable: bool,
+    /// Final outcome
+    pub outcome: LoopOutcome,
+}
+
+impl Default for LoopState {
+    fn default() -> Self {
+        Self {
+            iteration: 0,
+            score_history: vec![],
+            reached_acceptable: false,
+            outcome: LoopOutcome::Pending,
+        }
+    }
+}
+
+impl LoopState {
+    /// Check if we can do another iteration
+    pub fn can_continue(&self) -> bool {
+        self.iteration < MAX_LOOPS && self.outcome == LoopOutcome::Pending
+    }
+
+    /// Record a score for this iteration
+    pub fn record_score(&mut self, score: f64) {
+        self.score_history.push(score);
+        if score >= MINIMUM_ACCEPTABLE_SCORE {
+            self.reached_acceptable = true;
+        }
+    }
+
+    /// Mark as approved
+    pub fn mark_approved(&mut self) {
+        self.outcome = LoopOutcome::Approved;
+    }
+
+    /// Mark as refused
+    pub fn mark_refused(&mut self) {
+        self.outcome = LoopOutcome::Refused;
+    }
+
+    /// Mark as exhausted (max loops reached)
+    pub fn mark_exhausted(&mut self) {
+        self.outcome = LoopOutcome::Exhausted;
+    }
+
+    /// Advance to next iteration
+    pub fn next_iteration(&mut self) {
+        self.iteration += 1;
+    }
+}
+
+/// Loop outcome
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LoopOutcome {
+    /// Still processing
+    Pending,
+    /// Answer approved
+    Approved,
+    /// Answer refused by auditor
+    Refused,
+    /// Max loops exhausted without approval
+    Exhausted,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_thresholds() {
+        assert!((MINIMUM_ACCEPTABLE_SCORE - 0.70).abs() < 0.001);
+        assert!((HIGH_CONFIDENCE_THRESHOLD - 0.90).abs() < 0.001);
+        assert_eq!(MAX_LOOPS, 3);
+    }
+
+    #[test]
+    fn test_weights_sum_to_one() {
+        let sum = EVIDENCE_WEIGHT + REASONING_WEIGHT + COVERAGE_WEIGHT;
+        assert!((sum - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_reliability_scores_overall() {
+        let scores = ReliabilityScores::new(0.95, 0.90, 0.85);
+        // 0.4 * 0.95 + 0.3 * 0.90 + 0.3 * 0.85 = 0.38 + 0.27 + 0.255 = 0.905
+        assert!((scores.overall() - 0.905).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_reliability_scores_clamp() {
+        let scores = ReliabilityScores::new(1.5, -0.5, 0.5);
+        assert_eq!(scores.evidence, 1.0);
+        assert_eq!(scores.reasoning, 0.0);
+        assert_eq!(scores.coverage, 0.5);
+    }
+
+    #[test]
+    fn test_is_acceptable() {
+        let high = ReliabilityScores::new(0.95, 0.95, 0.95);
+        assert!(high.is_acceptable());
+
+        let medium = ReliabilityScores::new(0.80, 0.80, 0.80);
+        assert!(medium.is_acceptable());
+
+        let low = ReliabilityScores::new(0.50, 0.50, 0.50);
+        assert!(!low.is_acceptable());
+    }
+
+    #[test]
+    fn test_confidence_level() {
+        let high = ReliabilityScores::new(0.95, 0.95, 0.95);
+        assert_eq!(high.confidence_level(), ScoreConfidence::High);
+
+        let medium = ReliabilityScores::new(0.80, 0.80, 0.80);
+        assert_eq!(medium.confidence_level(), ScoreConfidence::Medium);
+
+        let low = ReliabilityScores::new(0.50, 0.50, 0.50);
+        assert_eq!(low.confidence_level(), ScoreConfidence::Low);
+    }
+
+    #[test]
+    fn test_loop_state() {
+        let mut state = LoopState::default();
+        assert!(state.can_continue());
+        assert_eq!(state.iteration, 0);
+
+        state.record_score(0.65);
+        assert!(!state.reached_acceptable);
+
+        state.next_iteration();
+        state.record_score(0.85);
+        assert!(state.reached_acceptable);
+
+        assert_eq!(state.score_history.len(), 2);
+    }
+
+    #[test]
+    fn test_loop_state_max_iterations() {
+        let mut state = LoopState::default();
+        for _ in 0..MAX_LOOPS {
+            state.next_iteration();
+        }
+        assert_eq!(state.iteration, MAX_LOOPS);
+        // Should not be able to continue after MAX_LOOPS
+        state.mark_exhausted();
+        assert!(!state.can_continue());
+    }
+
+    #[test]
+    fn test_score_confidence_colors() {
+        assert_eq!(ScoreConfidence::High.ansi_color(), "\x1b[32m");
+        assert_eq!(ScoreConfidence::Medium.ansi_color(), "\x1b[33m");
+        assert_eq!(ScoreConfidence::Low.ansi_color(), "\x1b[31m");
+    }
+}

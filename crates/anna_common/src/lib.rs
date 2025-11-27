@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.8.0
+//! Anna Common - Shared types and schemas for Anna v0.10.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -7,7 +7,10 @@
 //! v0.6.0: ASCII-only sysadmin style, multi-round reliability refinement.
 //! v0.7.0: Self-health monitoring and auto-repair engine.
 //! v0.8.0: Observability and debug logging with JSONL output.
+//! v0.9.0: Locked CLI surface, status command.
+//! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop with proof.
 
+pub mod answer_engine;
 pub mod config;
 pub mod config_mapper;
 pub mod hardware;
@@ -20,11 +23,13 @@ pub mod self_health;
 pub mod types;
 pub mod updater;
 
+pub use answer_engine::*;
 pub use config::*;
 pub use config_mapper::*;
 pub use hardware::*;
 pub use logging::*;
 pub use presentation::*;
+pub use prompts::{generate_llm_a_prompt, generate_llm_b_prompt, LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT};
 pub use reliability::*;
 pub use schemas::*;
 pub use self_health::*;

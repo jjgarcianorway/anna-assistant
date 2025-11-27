@@ -1,5 +1,5 @@
 #!/bin/bash
-# Anna v0.9.0 - Version-Aware Idempotent Installer
+# Anna v0.10.0 - Version-Aware Idempotent Installer
 #
 # Behavior:
 #   - Detects installed version (if any)
@@ -26,7 +26,7 @@ set -euo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="0.9.0"
+INSTALLER_VERSION="0.10.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"

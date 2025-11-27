@@ -7,6 +7,7 @@
 //! v0.7.0: Self-health monitoring with auto-repair and REPL notifications
 //! v0.8.0: Observability and debug logging with JSONL output
 //! v0.9.0: Version-aware installer, fully automatic auto-update, status command
+//! v0.10.0: Evidence-based answers with LLM-A/LLM-B audit loop
 //!
 //! Allowed CLI surface (case-insensitive):
 //!   - annactl                           Start interactive REPL
@@ -168,6 +169,7 @@ fn print_banner() {
 }
 
 /// Ask Anna a question - the core function
+/// v0.10.0: Uses evidence-based answer engine with LLM-A/LLM-B audit loop
 async fn run_ask(question: &str) -> Result<()> {
     // v0.8.0: Create request context with correlation ID
     let request_id = generate_request_id();
@@ -212,38 +214,63 @@ async fn run_ask(question: &str) -> Result<()> {
         std::process::exit(1);
     }
 
-    // Run orchestrator with stability check
-    let result = orchestrator::process_question(question, &daemon).await?;
+    // v0.10.0: Use evidence-based answer engine
+    match daemon.answer(question).await {
+        Ok(final_answer) => {
+            // v0.10.0: Log request completion
+            logging::with_current_request(|ctx| {
+                let status = if final_answer.is_refusal {
+                    RequestStatus::Failed
+                } else if final_answer.scores.overall >= 0.9 {
+                    RequestStatus::Ok
+                } else if final_answer.scores.overall >= 0.7 {
+                    RequestStatus::Degraded
+                } else {
+                    RequestStatus::Failed
+                };
+                ctx.set_result(final_answer.scores.overall, status);
+                log_request(&ctx.to_trace());
+            });
 
-    // v0.8.0: Log request completion and trace
-    logging::with_current_request(|ctx| {
-        let status = if result.confidence >= 0.9 {
-            RequestStatus::Ok
-        } else if result.confidence >= 0.7 {
-            RequestStatus::Degraded
-        } else {
-            RequestStatus::Failed
-        };
-        ctx.set_result(result.confidence, status);
-        log_request(&ctx.to_trace());
-    });
+            // Log completion
+            logging::logger().write_daemon(
+                &LogEntry::new(LogLevel::Info, LogComponent::Request, "Request completed")
+                    .with_request_id(&request_id)
+                    .with_fields(serde_json::json!({
+                        "confidence": final_answer.scores.overall,
+                        "is_refusal": final_answer.is_refusal,
+                        "citations_count": final_answer.citations.len(),
+                        "loop_iterations": final_answer.loop_iterations
+                    })),
+            );
 
-    // Log completion
-    logging::logger().write_daemon(
-        &LogEntry::new(LogLevel::Info, LogComponent::Request, "Request completed")
-            .with_request_id(&request_id)
-            .with_fields(serde_json::json!({
-                "confidence": result.confidence,
-                "sources_count": result.sources.len()
-            })),
-    );
+            clear_current_request();
 
-    clear_current_request();
+            // v0.10.0: Display evidence-based answer
+            output::display_final_answer(&final_answer);
+            Ok(())
+        }
+        Err(e) => {
+            // Log error
+            logging::logger().write_daemon(
+                &LogEntry::new(LogLevel::Error, LogComponent::Request, "Answer request failed")
+                    .with_request_id(&request_id)
+                    .with_fields(serde_json::json!({
+                        "error": e.to_string()
+                    })),
+            );
 
-    // Output result
-    output::display_response(&result);
+            logging::with_current_request(|ctx| {
+                ctx.set_result(0.0, RequestStatus::Failed);
+                log_request(&ctx.to_trace());
+            });
+            clear_current_request();
 
-    Ok(())
+            // Display error
+            output::display_error(&format!("Failed to get answer: {}", e));
+            Err(e)
+        }
+    }
 }
 
 /// Version via LLM pipeline - Anna answers about herself

@@ -5,8 +5,11 @@
 //!
 //! v0.4.0: Auto-update scheduler for dev mode.
 //! v0.5.0: Natural language configuration, hardware-aware model selection.
+//! v0.9.0: Locked CLI surface, status command.
+//! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop.
 
 mod auto_update;
+mod orchestrator;
 mod parser;
 mod probe;
 mod routes;

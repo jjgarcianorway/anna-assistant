@@ -1,13 +1,15 @@
 //! API routes for annad
 //!
 //! v0.9.0: Added /v1/update/state endpoint for status command
+//! v0.10.0: Added /v1/answer endpoint for evidence-based answers
 
+use crate::orchestrator::AnswerEngine;
 use crate::probe::executor::ProbeExecutor;
 use crate::server::AppState;
 use anna_common::{
-    load_update_state, AnnaConfigV5, GetStateRequest, HealthResponse, InvalidateRequest,
-    ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest, SetStateRequest, StateResponse,
-    UpdateStateResponse,
+    load_update_state, AnnaConfigV5, FinalAnswer, GetStateRequest, HealthResponse,
+    InvalidateRequest, ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest,
+    SetStateRequest, StateResponse, UpdateStateResponse,
 };
 use axum::{
     extract::State,
@@ -15,6 +17,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -213,4 +216,62 @@ async fn update_state(State(_state): State<AppStateArc>) -> Json<UpdateStateResp
         next_retry,
         last_failure: update_state.last_failure_reason.clone(),
     })
+}
+
+// ============================================================================
+// Answer Routes (v0.10.0)
+// ============================================================================
+
+/// Request to get an evidence-based answer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnswerRequest {
+    pub question: String,
+}
+
+pub fn answer_routes() -> Router<AppStateArc> {
+    Router::new().route("/v1/answer", post(answer_question))
+}
+
+/// v0.10.0: Process a question through the LLM-A/LLM-B audit loop
+async fn answer_question(
+    State(state): State<AppStateArc>,
+    Json(req): Json<AnswerRequest>,
+) -> Result<Json<FinalAnswer>, (StatusCode, String)> {
+    info!("Processing question: {}", req.question);
+
+    // Get model from config
+    let config = AnnaConfigV5::load();
+    let model = if config.llm.selection_mode.as_str() == "manual" {
+        Some(config.llm.preferred_model.clone())
+    } else {
+        // Auto selection - use hardware profile
+        let profile = anna_common::HardwareProfile::detect();
+        let recommendation = profile.select_model();
+        Some(recommendation.model)
+    };
+
+    let engine = AnswerEngine::new(model);
+
+    // Check if LLM is available
+    if !engine.is_available().await {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "LLM backend (Ollama) is not available".to_string(),
+        ));
+    }
+
+    // Process the question
+    match engine.process_question(&req.question).await {
+        Ok(answer) => {
+            info!(
+                "Answer ready: confidence={} ({:?})",
+                answer.scores.overall, answer.confidence_level
+            );
+            Ok(Json(answer))
+        }
+        Err(e) => {
+            error!("Failed to process question: {}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+        }
+    }
 }

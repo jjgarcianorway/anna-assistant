@@ -1,7 +1,13 @@
 //! Daemon client - communicates with annad
+//!
+//! v0.10.0: Added answer() method for evidence-based answers
 
-use anna_common::{HealthResponse, ListProbesResponse, ProbeResult, RunProbeRequest, UpdateStateResponse};
+use anna_common::{
+    FinalAnswer, HealthResponse, ListProbesResponse, ProbeResult, RunProbeRequest,
+    UpdateStateResponse,
+};
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 
 const DAEMON_URL: &str = "http://127.0.0.1:7865";
 
@@ -114,6 +120,39 @@ impl DaemonClient {
             // Return default state if endpoint not available
             Ok(UpdateStateResponse::default())
         }
+    }
+
+    /// v0.10.0: Get evidence-based answer through LLM-A/LLM-B loop
+    pub async fn answer(&self, question: &str) -> Result<FinalAnswer> {
+        let url = format!("{}/v1/answer", self.base_url);
+
+        #[derive(Serialize)]
+        struct AnswerRequest {
+            question: String,
+        }
+
+        let req = AnswerRequest {
+            question: question.to_string(),
+        };
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&req)
+            .timeout(std::time::Duration::from_secs(120)) // LLM calls can take time
+            .send()
+            .await
+            .context("Failed to connect to daemon")?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Answer request failed ({}): {}", status, text);
+        }
+
+        resp.json()
+            .await
+            .context("Failed to parse answer response")
     }
 }
 
