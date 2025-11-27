@@ -517,32 +517,37 @@ select_model() {
     installed_models=$(ollama list 2>/dev/null || echo "")
 
     # Prioritized list of known-good models for Anna (best to acceptable)
-    # Criteria: reasoning ability, JSON output reliability, Linux/technical knowledge
+    # Criteria: JSON reliability, SPEED (critical for agent loops), reasoning ability
+    #
+    # Note: Llama 3 8B is ~3x faster than Qwen 2 7B at similar quality!
+    # For agent communication loops, speed matters as much as quality.
     #
     # Large models (14B+) - excellent quality, need 12GB+ VRAM
-    # Note: MoE models like qwen3:30b-a3b have many params but fewer active, so they're efficient
+    # MoE models like qwen3:30b-a3b have many params but fewer active (efficient)
     local large_models=(
+        "llama3.1:70b"
         "qwen3:30b-a3b"
         "qwen2.5:14b"
         "qwen2.5:32b"
         "qwen3:14b"
         "qwen3:32b"
+        "mixtral:8x7b"
         "deepseek-coder:33b"
         "codellama:34b"
-        "llama3.1:70b"
-        "mixtral:8x7b"
     )
 
-    # Medium models (7-8B) - great balance of quality and speed, need 8GB+ VRAM
-    # These are the sweet spot for most users
+    # Medium models (7-8B) - the sweet spot for most users
+    # Llama 3/3.1 8B prioritized for SPEED + quality balance
+    # These run on 8GB VRAM or 16GB system RAM (4-bit quantized)
     local medium_models=(
+        "llama3.1:8b"
+        "llama3:8b"
+        "mistral:7b-instruct"
+        "mistral:7b"
         "qwen2.5:7b"
         "qwen3:8b"
         "qwen3-coder:8b"
-        "mistral:7b-instruct"
-        "mistral:7b"
         "mistral-nemo:latest"
-        "llama3.1:8b"
         "gemma2:9b"
         "deepseek-coder:6.7b"
         "codellama:7b"
@@ -551,13 +556,14 @@ select_model() {
         "phi3:medium"
     )
 
-    # Small models (3-4B) - acceptable for low VRAM/CPU, good JSON output
+    # Small models (3-4B) - for low VRAM/CPU, still good JSON output
+    # Can run on 4GB VRAM or 8GB system RAM
     local small_models=(
+        "llama3.2:3b"
         "qwen3:4b"
         "qwen2.5:3b"
         "qwen3:1.7b"
         "nemotron-mini:4b"
-        "llama3.2:3b"
         "phi3:mini"
         "gemma2:2b"
         "starcoder2:3b"
@@ -599,36 +605,36 @@ select_model() {
     fi
 
     # No suitable model installed, select based on VRAM and download
-    # Recommendation: Pick a model that runs COMFORTABLY, not just "technically works"
-    # Rule of thumb: model size (GB) should be ~60-70% of VRAM for smooth operation
-    # MoE models (like qwen3:30b-a3b) are efficient - 30B params but only 3B active!
+    # Priority: SPEED for agent loops + quality for JSON reliability
+    # Llama 3/3.1 8B is ~3x faster than Qwen 7B at similar quality!
+    #
+    # VRAM requirements (4-bit quantized):
+    #   - 8B models: 4-8GB VRAM or 16GB system RAM
+    #   - 14B models: 8-12GB VRAM or 32GB system RAM
+    #   - 70B models: 24GB+ VRAM
     if [[ "$vram_mb" -ge 24000 ]]; then
-        # 24GB+ VRAM: Use qwen3 MoE model - flagship quality with efficiency
+        # 24GB+ VRAM: Can run large models, use MoE for quality+efficiency
         SELECTED_MODEL="qwen3:30b-a3b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:30b-a3b (MoE - excellent quality)"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:30b-a3b (MoE - flagship quality)"
     elif [[ "$vram_mb" -ge 12000 ]]; then
-        # 12-24GB VRAM: 14B works well
+        # 12-24GB VRAM: 14B runs comfortably
         SELECTED_MODEL="qwen2.5:14b"
         log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:14b"
-    elif [[ "$vram_mb" -ge 8000 ]]; then
-        # 8-12GB VRAM: 7B/8B runs great
-        SELECTED_MODEL="qwen3:8b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:8b (best for your GPU)"
     elif [[ "$vram_mb" -ge 6000 ]]; then
-        # 6-8GB VRAM: 7B works but tight
-        SELECTED_MODEL="qwen2.5:7b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:7b"
+        # 6-12GB VRAM: Llama 3.1 8B is fastest, runs great
+        SELECTED_MODEL="llama3.1:8b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download llama3.1:8b (fast + reliable)"
     elif [[ "$vram_mb" -ge 4000 ]]; then
-        # 4-6GB VRAM: Use 4B model
-        SELECTED_MODEL="qwen3:4b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:4b"
+        # 4-6GB VRAM: 8B still works in 4-bit, tight but doable
+        SELECTED_MODEL="llama3.1:8b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download llama3.1:8b (4-bit quantized)"
     else
-        # CPU only or low VRAM: Use small model
-        SELECTED_MODEL="qwen3:4b"
+        # CPU only or very low VRAM: Use 3B model for speed
+        SELECTED_MODEL="llama3.2:3b"
         if [[ "$vram_mb" -eq 0 ]]; then
-            log_warn "No GPU detected - will download qwen3:4b (CPU mode)"
+            log_warn "No GPU detected - will download llama3.2:3b (CPU mode, fast)"
         else
-            log_ok "Low GPU memory (${vram_mb}MB) - will download qwen3:4b"
+            log_ok "Low GPU memory (${vram_mb}MB) - will download llama3.2:3b"
         fi
     fi
 }
@@ -758,8 +764,8 @@ write_config() {
 
     log_info "Writing default configuration..."
 
-    # Use selected model or default to qwen3:4b
-    local model="${SELECTED_MODEL:-qwen3:4b}"
+    # Use selected model or default to llama3.1:8b (fast + reliable)
+    local model="${SELECTED_MODEL:-llama3.1:8b}"
 
     $SUDO tee "$config_file" > /dev/null << EOF
 # Anna v${LATEST_VERSION} Configuration
@@ -770,7 +776,7 @@ mode = "normal"
 
 [llm]
 preferred_model = "${model}"
-fallback_model = "qwen3:4b"
+fallback_model = "llama3.2:3b"
 selection_mode = "auto"
 
 [update]
