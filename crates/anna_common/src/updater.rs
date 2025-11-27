@@ -98,14 +98,21 @@ impl UpdateCheckResult {
             let parts: Vec<&str> = v.split('.').collect();
             let major = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
             let minor = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-            let (patch, is_prerelease) = parts.get(2).map(|s| {
-                if s.contains('-') {
-                    let p = s.split('-').next().and_then(|p| p.parse().ok()).unwrap_or(0);
-                    (p, true)
-                } else {
-                    (s.parse().ok().unwrap_or(0), false)
-                }
-            }).unwrap_or((0, false));
+            let (patch, is_prerelease) = parts
+                .get(2)
+                .map(|s| {
+                    if s.contains('-') {
+                        let p = s
+                            .split('-')
+                            .next()
+                            .and_then(|p| p.parse().ok())
+                            .unwrap_or(0);
+                        (p, true)
+                    } else {
+                        (s.parse().ok().unwrap_or(0), false)
+                    }
+                })
+                .unwrap_or((0, false));
             (major, minor, patch, is_prerelease)
         };
 
@@ -230,7 +237,11 @@ pub fn should_check_for_updates(config: &UpdateConfig, state: &UpdateState) -> b
 }
 
 /// Record an update check
-pub fn record_update_check(state: &mut UpdateState, result: UpdateResult, failure_reason: Option<String>) {
+pub fn record_update_check(
+    state: &mut UpdateState,
+    result: UpdateResult,
+    failure_reason: Option<String>,
+) {
     let now = chrono::Utc::now().timestamp();
     state.last_check = Some(now);
     state.last_result = Some(result);
@@ -348,12 +359,19 @@ mod tests {
     #[test]
     fn test_record_update_check_failure() {
         let mut state = UpdateState::default();
-        record_update_check(&mut state, UpdateResult::Failed, Some("Download failed".to_string()));
+        record_update_check(
+            &mut state,
+            UpdateResult::Failed,
+            Some("Download failed".to_string()),
+        );
 
         assert!(state.last_check.is_some());
         assert_eq!(state.last_result, Some(UpdateResult::Failed));
         assert!(state.last_failed_update.is_some());
-        assert_eq!(state.last_failure_reason, Some("Download failed".to_string()));
+        assert_eq!(
+            state.last_failure_reason,
+            Some("Download failed".to_string())
+        );
     }
 
     #[test]

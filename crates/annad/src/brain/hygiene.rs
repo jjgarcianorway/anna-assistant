@@ -32,6 +32,7 @@ impl KnowledgeHygiene {
     }
 
     /// Run full hygiene check
+    #[allow(clippy::field_reassign_with_default)]
     pub async fn run(&self) -> anyhow::Result<HygieneReport> {
         info!("Running knowledge hygiene check");
         let mut report = HygieneReport::default();
@@ -78,7 +79,8 @@ impl KnowledgeHygiene {
         let facts = store.query(&query)?;
 
         // Group by entity+attribute to find conflicts
-        let mut groups: std::collections::HashMap<String, Vec<&Fact>> = std::collections::HashMap::new();
+        let mut groups: std::collections::HashMap<String, Vec<&Fact>> =
+            std::collections::HashMap::new();
 
         for fact in &facts {
             let key = format!("{}:{}", fact.entity, fact.attribute);
@@ -89,11 +91,7 @@ impl KnowledgeHygiene {
 
         for (key, group) in groups {
             if group.len() > 1 {
-                warn!(
-                    "Conflict detected for {}: {} values",
-                    key,
-                    group.len()
-                );
+                warn!("Conflict detected for {}: {} values", key, group.len());
                 conflict_count += 1;
 
                 // In a full implementation, we would resolve conflicts here
@@ -128,7 +126,10 @@ impl KnowledgeHygiene {
     }
 
     /// Get facts that need revalidation based on user activity
-    pub async fn get_revalidation_candidates(&self, topics: &[String]) -> anyhow::Result<Vec<Fact>> {
+    pub async fn get_revalidation_candidates(
+        &self,
+        topics: &[String],
+    ) -> anyhow::Result<Vec<Fact>> {
         let store = self.store.read().await;
 
         let mut candidates = Vec::new();
@@ -160,7 +161,9 @@ impl KnowledgeHygiene {
 
     /// Schedule revalidation for high-priority facts
     pub async fn schedule_revalidation(&self, topic: &str) -> anyhow::Result<Vec<String>> {
-        let candidates = self.get_revalidation_candidates(&[topic.to_string()]).await?;
+        let candidates = self
+            .get_revalidation_candidates(&[topic.to_string()])
+            .await?;
 
         let fact_ids: Vec<String> = candidates.iter().map(|f| f.id.clone()).collect();
 

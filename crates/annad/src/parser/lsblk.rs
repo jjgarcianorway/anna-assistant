@@ -10,6 +10,7 @@ pub fn parse(raw: &str) -> Result<Value> {
 
     let mut disks: Vec<Value> = Vec::new();
     let mut total_size: u64 = 0;
+    #[allow(unused_variables, unused_assignments)]
     let mut total_used: u64 = 0;
 
     if let Some(blockdevices) = parsed.get("blockdevices").and_then(|v| v.as_array()) {
@@ -28,8 +29,7 @@ pub fn parse(raw: &str) -> Result<Value> {
                 let mut partitions: Vec<Value> = Vec::new();
                 if let Some(children) = device.get("children").and_then(|v| v.as_array()) {
                     for child in children {
-                        let part_name =
-                            child.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        let part_name = child.get("name").and_then(|v| v.as_str()).unwrap_or("");
                         let part_size_str =
                             child.get("size").and_then(|v| v.as_str()).unwrap_or("0");
                         let part_mountpoint = child.get("mountpoint").and_then(|v| v.as_str());
@@ -77,7 +77,7 @@ fn parse_size(s: &str) -> u64 {
         return 0;
     }
 
-    let (num_str, suffix) = if s.chars().last().map_or(false, |c| c.is_alphabetic()) {
+    let (num_str, suffix) = if s.chars().last().is_some_and(|c| c.is_alphabetic()) {
         let idx = s.len() - 1;
         (&s[..idx], &s[idx..])
     } else {

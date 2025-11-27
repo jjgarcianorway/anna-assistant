@@ -107,9 +107,7 @@ fn plan_model_repair(component: &ComponentHealth) -> Option<RepairPlan> {
 fn plan_tools_repair(component: &ComponentHealth) -> Option<RepairPlan> {
     if component.status == ComponentStatus::Critical {
         Some(RepairPlan {
-            action: RepairAction::Custom(
-                "sudo mkdir -p /usr/share/anna/probes".to_string(),
-            ),
+            action: RepairAction::Custom("sudo mkdir -p /usr/share/anna/probes".to_string()),
             safety: RepairSafety::WarnOnly,
             description: "Create probes directory".to_string(),
             command: "sudo mkdir -p /usr/share/anna/probes".to_string(),
@@ -117,9 +115,7 @@ fn plan_tools_repair(component: &ComponentHealth) -> Option<RepairPlan> {
         })
     } else if component.status == ComponentStatus::Degraded {
         Some(RepairPlan {
-            action: RepairAction::Custom(
-                "Download probes from GitHub release".to_string(),
-            ),
+            action: RepairAction::Custom("Download probes from GitHub release".to_string()),
             safety: RepairSafety::WarnOnly,
             description: "Install probe definitions".to_string(),
             command: "See installation instructions".to_string(),
@@ -131,7 +127,8 @@ fn plan_tools_repair(component: &ComponentHealth) -> Option<RepairPlan> {
 }
 
 fn plan_permissions_repair(component: &ComponentHealth) -> Option<RepairPlan> {
-    if component.status == ComponentStatus::Critical || component.status == ComponentStatus::Degraded
+    if component.status == ComponentStatus::Critical
+        || component.status == ComponentStatus::Degraded
     {
         Some(RepairPlan {
             action: RepairAction::FixPermissions("/var/lib/anna".to_string()),
@@ -186,7 +183,10 @@ fn execute_restart_daemon() -> Result<RepairResult, String> {
 }
 
 fn execute_restart_ollama() -> Result<RepairResult, String> {
-    Err("Restarting Ollama requires elevated privileges - run: systemctl restart ollama".to_string())
+    Err(
+        "Restarting Ollama requires elevated privileges - run: systemctl restart ollama"
+            .to_string(),
+    )
 }
 
 fn execute_pull_model(model: &str) -> Result<RepairResult, String> {
@@ -220,8 +220,7 @@ fn execute_clear_cache() -> Result<RepairResult, String> {
         });
     }
 
-    std::fs::remove_dir_all(cache_dir)
-        .map_err(|e| format!("Failed to clear cache: {}", e))?;
+    std::fs::remove_dir_all(cache_dir).map_err(|e| format!("Failed to clear cache: {}", e))?;
 
     std::fs::create_dir_all(cache_dir)
         .map_err(|e| format!("Failed to recreate cache dir: {}", e))?;
@@ -283,12 +282,32 @@ fn execute_custom_command(cmd: &str) -> Result<RepairResult, String> {
 /// Get all available repair actions (for documentation)
 pub fn available_repairs() -> Vec<(&'static str, &'static str, RepairSafety)> {
     vec![
-        ("RestartDaemon", "Restart annad service", RepairSafety::WarnOnly),
-        ("RestartOllama", "Restart Ollama service", RepairSafety::WarnOnly),
+        (
+            "RestartDaemon",
+            "Restart annad service",
+            RepairSafety::WarnOnly,
+        ),
+        (
+            "RestartOllama",
+            "Restart Ollama service",
+            RepairSafety::WarnOnly,
+        ),
         ("PullModel", "Download LLM model", RepairSafety::Auto),
-        ("FixPermissions", "Fix directory permissions", RepairSafety::WarnOnly),
-        ("RegenerateConfig", "Create default config file", RepairSafety::Auto),
-        ("ClearProbeCache", "Clear cached probe results", RepairSafety::Auto),
+        (
+            "FixPermissions",
+            "Fix directory permissions",
+            RepairSafety::WarnOnly,
+        ),
+        (
+            "RegenerateConfig",
+            "Create default config file",
+            RepairSafety::Auto,
+        ),
+        (
+            "ClearProbeCache",
+            "Clear cached probe results",
+            RepairSafety::Auto,
+        ),
     ]
 }
 

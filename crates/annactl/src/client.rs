@@ -7,7 +7,7 @@ use anna_common::{
     UpdateStateResponse,
 };
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 const DAEMON_URL: &str = "http://127.0.0.1:7865";
 
@@ -40,9 +40,7 @@ impl DaemonClient {
             .await
             .context("Failed to connect to daemon")?;
 
-        resp.json()
-            .await
-            .context("Failed to parse health response")
+        resp.json().await.context("Failed to parse health response")
     }
 
     /// List available probes
@@ -55,9 +53,7 @@ impl DaemonClient {
             .await
             .context("Failed to connect to daemon")?;
 
-        resp.json()
-            .await
-            .context("Failed to parse probes response")
+        resp.json().await.context("Failed to parse probes response")
     }
 
     /// Run a specific probe
@@ -82,9 +78,7 @@ impl DaemonClient {
             anyhow::bail!("Probe failed ({}): {}", status, text);
         }
 
-        resp.json()
-            .await
-            .context("Failed to parse probe response")
+        resp.json().await.context("Failed to parse probe response")
     }
 
     /// Run multiple probes
@@ -150,9 +144,7 @@ impl DaemonClient {
             anyhow::bail!("Answer request failed ({}): {}", status, text);
         }
 
-        resp.json()
-            .await
-            .context("Failed to parse answer response")
+        resp.json().await.context("Failed to parse answer response")
     }
 }
 

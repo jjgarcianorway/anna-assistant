@@ -3,7 +3,7 @@
 //! JSONL file writer with rotation support.
 //! Handles graceful degradation when logging fails.
 
-use super::{LogConfig, LogEntry, LogLevel, LlmTrace, RequestTrace};
+use super::{LlmTrace, LogConfig, LogEntry, LogLevel, RequestTrace};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -158,7 +158,10 @@ impl LogWriter {
             if let Some(w) = writer.as_mut() {
                 let jsonl = entry.to_jsonl();
                 if let Err(e) = writeln!(w, "{}", jsonl) {
-                    self.set_status(WriterStatus::Degraded(format!("Daemon log write error: {}", e)));
+                    self.set_status(WriterStatus::Degraded(format!(
+                        "Daemon log write error: {}",
+                        e
+                    )));
                 }
                 let _ = w.flush();
             }
@@ -196,7 +199,10 @@ impl LogWriter {
             if let Some(w) = writer.as_mut() {
                 if let Ok(jsonl) = serde_json::to_string(trace) {
                     if let Err(e) = writeln!(w, "{}", jsonl) {
-                        self.set_status(WriterStatus::Degraded(format!("LLM log write error: {}", e)));
+                        self.set_status(WriterStatus::Degraded(format!(
+                            "LLM log write error: {}",
+                            e
+                        )));
                     }
                     let _ = w.flush();
                 }
@@ -287,8 +293,10 @@ mod tests {
     fn test_writer_status_default() {
         // Using a temp dir to avoid permission issues
         let temp = tempdir().unwrap();
-        let mut config = LogConfig::default();
-        config.log_dir = temp.path().to_path_buf();
+        let config = LogConfig {
+            log_dir: temp.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let writer = LogWriter::new(config);
         assert!(writer.is_healthy());
@@ -297,8 +305,10 @@ mod tests {
     #[test]
     fn test_write_daemon_log() {
         let temp = tempdir().unwrap();
-        let mut config = LogConfig::default();
-        config.log_dir = temp.path().to_path_buf();
+        let config = LogConfig {
+            log_dir: temp.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let writer = LogWriter::new(config.clone());
         writer.info(super::super::LogComponent::Daemon, "Test message");
@@ -314,8 +324,10 @@ mod tests {
     #[test]
     fn test_write_request_trace() {
         let temp = tempdir().unwrap();
-        let mut config = LogConfig::default();
-        config.log_dir = temp.path().to_path_buf();
+        let config = LogConfig {
+            log_dir: temp.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let writer = LogWriter::new(config.clone());
 
@@ -343,9 +355,11 @@ mod tests {
     #[test]
     fn test_log_level_filtering() {
         let temp = tempdir().unwrap();
-        let mut config = LogConfig::default();
-        config.log_dir = temp.path().to_path_buf();
-        config.level = LogLevel::Warn; // Only WARN and above
+        let config = LogConfig {
+            log_dir: temp.path().to_path_buf(),
+            level: LogLevel::Warn, // Only WARN and above
+            ..Default::default()
+        };
 
         let writer = LogWriter::new(config.clone());
 

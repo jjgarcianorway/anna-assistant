@@ -26,9 +26,15 @@ pub fn run_all_probes() -> SelfHealthReport {
 
     let components = vec![daemon, llm, model, tools, permissions, config, logging];
 
-    let overall_status = if components.iter().all(|c| c.status == ComponentStatus::Healthy) {
+    let overall_status = if components
+        .iter()
+        .all(|c| c.status == ComponentStatus::Healthy)
+    {
         OverallHealth::Healthy
-    } else if components.iter().any(|c| c.status == ComponentStatus::Critical) {
+    } else if components
+        .iter()
+        .any(|c| c.status == ComponentStatus::Critical)
+    {
         OverallHealth::Critical
     } else {
         OverallHealth::Degraded
@@ -112,9 +118,7 @@ pub fn format_report(report: &SelfHealthReport) -> String {
         };
         output.push_str(&format!(
             "  {} {}: {}\n",
-            icon,
-            component.name,
-            component.message
+            icon, component.name, component.message
         ));
     }
 
@@ -160,10 +164,7 @@ pub fn format_report(report: &SelfHealthReport) -> String {
 pub fn summary_line(report: &SelfHealthReport) -> String {
     match report.overall {
         OverallHealth::Healthy => {
-            format!(
-                "{} (all components healthy)",
-                "OK".bright_green()
-            )
+            format!("{} (all components healthy)", "OK".bright_green())
         }
         OverallHealth::Degraded => {
             let degraded: Vec<_> = report
@@ -172,11 +173,7 @@ pub fn summary_line(report: &SelfHealthReport) -> String {
                 .filter(|c| c.status == ComponentStatus::Degraded)
                 .map(|c| c.name.as_str())
                 .collect();
-            format!(
-                "{} ({})",
-                "DEGRADED".yellow(),
-                degraded.join(", ")
-            )
+            format!("{} ({})", "DEGRADED".yellow(), degraded.join(", "))
         }
         OverallHealth::Critical => {
             let critical: Vec<_> = report
@@ -185,11 +182,7 @@ pub fn summary_line(report: &SelfHealthReport) -> String {
                 .filter(|c| c.status == ComponentStatus::Critical)
                 .map(|c| c.name.as_str())
                 .collect();
-            format!(
-                "{} ({})",
-                "CRITICAL".bright_red(),
-                critical.join(", ")
-            )
+            format!("{} ({})", "CRITICAL".bright_red(), critical.join(", "))
         }
         OverallHealth::Unknown => {
             format!("{} (not yet checked)", "UNKNOWN".dimmed())
@@ -203,14 +196,12 @@ mod tests {
 
     #[test]
     fn test_overall_health_healthy() {
-        let components = vec![
-            ComponentHealth {
-                name: "test".to_string(),
-                status: ComponentStatus::Healthy,
-                message: "OK".to_string(),
-                details: None,
-            },
-        ];
+        let components = vec![ComponentHealth {
+            name: "test".to_string(),
+            status: ComponentStatus::Healthy,
+            message: "OK".to_string(),
+            details: None,
+        }];
         let report = SelfHealthReport {
             overall: OverallHealth::Healthy,
             components,

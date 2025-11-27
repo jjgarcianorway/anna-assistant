@@ -151,7 +151,7 @@ impl HardwareProfile {
                 // Extract GPU name
                 for line in lspci.lines() {
                     if line.contains("NVIDIA") && line.contains("VGA") {
-                        if let Some(name) = line.split(':').last() {
+                        if let Some(name) = line.split(':').next_back() {
                             self.gpu_name = Some(name.trim().to_string());
                         }
                         break;
@@ -163,7 +163,7 @@ impl HardwareProfile {
                 self.gpu_vendor = GpuVendor::Amd;
                 for line in lspci.lines() {
                     if line.contains("AMD") && line.contains("VGA") {
-                        if let Some(name) = line.split(':').last() {
+                        if let Some(name) = line.split(':').next_back() {
                             self.gpu_name = Some(name.trim().to_string());
                         }
                         break;

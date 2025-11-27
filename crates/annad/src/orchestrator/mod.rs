@@ -15,4 +15,3 @@ pub mod llm_client;
 pub mod probe_executor;
 
 pub use engine::AnswerEngine;
-pub use llm_client::OllamaClient;

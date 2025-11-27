@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.12.2
+//! Anna Common - Shared types and schemas for Anna v0.13.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -12,6 +12,11 @@
 //! v0.11.0: Persistent knowledge store, event-driven learning, user telemetry.
 //! v0.12.0: Strict probe catalog, fix_and_accept verdict, partial answer fallback.
 //! v0.12.2: Iteration-aware prompts, force answer when evidence exists.
+//! v0.13.0: Strict Evidence Discipline - No more fabricated data.
+
+// Allow dead code for features planned but not yet fully wired
+#![allow(dead_code)]
+#![allow(unused_imports)]
 
 pub mod answer_engine;
 pub mod config;
@@ -34,7 +39,10 @@ pub use hardware::*;
 pub use knowledge::*;
 pub use logging::*;
 pub use presentation::*;
-pub use prompts::{generate_llm_a_prompt, generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT};
+pub use prompts::{
+    generate_llm_a_prompt, generate_llm_a_prompt_with_iteration, generate_llm_b_prompt,
+    LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT,
+};
 pub use reliability::*;
 pub use schemas::*;
 pub use self_health::*;

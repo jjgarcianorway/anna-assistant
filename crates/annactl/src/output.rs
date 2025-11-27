@@ -15,11 +15,20 @@ pub fn display_response(response: &AnnaResponse) {
 
     // v0.6.0: Color categories
     let (conf_colored, reliability_indicator) = if conf_pct >= 90 {
-        (conf_str.bright_green().to_string(), "[OK]".bright_green().to_string())
+        (
+            conf_str.bright_green().to_string(),
+            "[OK]".bright_green().to_string(),
+        )
     } else if conf_pct >= 70 {
-        (conf_str.yellow().to_string(), "[PARTIAL]".yellow().to_string())
+        (
+            conf_str.yellow().to_string(),
+            "[PARTIAL]".yellow().to_string(),
+        )
     } else {
-        (conf_str.bright_red().to_string(), "[LOW]".bright_red().to_string())
+        (
+            conf_str.bright_red().to_string(),
+            "[LOW]".bright_red().to_string(),
+        )
     };
 
     // Header with reliability indicator (v0.6.0: ASCII only)
@@ -28,7 +37,13 @@ pub fn display_response(response: &AnnaResponse) {
         "{}  Reliability: {} ({})",
         reliability_indicator,
         conf_colored,
-        if conf_pct >= 90 { "green" } else if conf_pct >= 70 { "yellow" } else { "red" }
+        if conf_pct >= 90 {
+            "green"
+        } else if conf_pct >= 70 {
+            "yellow"
+        } else {
+            "red"
+        }
     );
     println!();
 
@@ -98,10 +113,7 @@ pub fn display_warning(message: &str) {
 /// Display insufficient evidence (v0.6.0: ASCII-only)
 pub fn display_insufficient_evidence(domain: &str, missing_probes: &[&str]) {
     eprintln!();
-    eprintln!(
-        "[ERROR] {}",
-        "Insufficient evidence".bright_red().bold()
-    );
+    eprintln!("[ERROR] {}", "Insufficient evidence".bright_red().bold());
     eprintln!();
     eprintln!("Cannot answer questions about: {}", domain.red());
     eprintln!();
@@ -124,9 +136,15 @@ pub fn display_insufficient_evidence(domain: &str, missing_probes: &[&str]) {
 pub fn display_final_answer(answer: &FinalAnswer) {
     // Header
     println!();
-    println!("{}", "==================================================".cyan());
+    println!(
+        "{}",
+        "==================================================".cyan()
+    );
     println!("  {}  Anna Answer", "📋".bright_cyan());
-    println!("{}", "==================================================".cyan());
+    println!(
+        "{}",
+        "==================================================".cyan()
+    );
     println!();
 
     // Question
@@ -212,7 +230,10 @@ pub fn display_final_answer(answer: &FinalAnswer) {
 
     // Footer
     println!();
-    println!("{}", "==================================================".cyan());
+    println!(
+        "{}",
+        "==================================================".cyan()
+    );
     if !answer.is_refusal {
         println!(
             "{}",

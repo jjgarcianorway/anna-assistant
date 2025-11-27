@@ -42,36 +42,56 @@ impl QueryTopic {
         if q.contains("dns") || q.contains("resolv") || q.contains("nameserver") {
             return QueryTopic::Dns;
         }
-        if q.contains("network") || q.contains("wifi") || q.contains("ethernet")
-            || q.contains("ip ") || q.contains("ip?") || q.contains("connected")
+        if q.contains("network")
+            || q.contains("wifi")
+            || q.contains("ethernet")
+            || q.contains("ip ")
+            || q.contains("ip?")
+            || q.contains("connected")
         {
             return QueryTopic::Network;
         }
-        if q.contains("cpu") || q.contains("core") || q.contains("processor") || q.contains("thread") {
+        if q.contains("cpu")
+            || q.contains("core")
+            || q.contains("processor")
+            || q.contains("thread")
+        {
             return QueryTopic::Cpu;
         }
         if q.contains("memory") || q.contains("ram") || q.contains("swap") {
             return QueryTopic::Memory;
         }
-        if q.contains("disk") || q.contains("storage") || q.contains("partition")
-            || q.contains("mount") || q.contains("filesystem")
+        if q.contains("disk")
+            || q.contains("storage")
+            || q.contains("partition")
+            || q.contains("mount")
+            || q.contains("filesystem")
         {
             return QueryTopic::Storage;
         }
-        if q.contains("package") || q.contains("pacman") || q.contains("yay")
-            || q.contains("install") || q.contains("aur")
+        if q.contains("package")
+            || q.contains("pacman")
+            || q.contains("yay")
+            || q.contains("install")
+            || q.contains("aur")
         {
             return QueryTopic::Packages;
         }
         if q.contains("service") || q.contains("systemd") || q.contains("daemon") {
             return QueryTopic::Services;
         }
-        if q.contains("desktop") || q.contains("hyprland") || q.contains("kde")
-            || q.contains("gnome") || q.contains("waybar") || q.contains("window manager")
+        if q.contains("desktop")
+            || q.contains("hyprland")
+            || q.contains("kde")
+            || q.contains("gnome")
+            || q.contains("waybar")
+            || q.contains("window manager")
         {
             return QueryTopic::Desktop;
         }
-        if q.contains("performance") || q.contains("slow") || q.contains("fast")
+        if q.contains("performance")
+            || q.contains("slow")
+            || q.contains("fast")
             || q.contains("optimize")
         {
             return QueryTopic::Performance;
@@ -91,8 +111,7 @@ impl QueryTopic {
         if q.contains("update") || q.contains("upgrade") {
             return QueryTopic::Updates;
         }
-        if q.contains("anna") || q.contains("version") || q.contains("help")
-            || q.contains("status")
+        if q.contains("anna") || q.contains("version") || q.contains("help") || q.contains("status")
         {
             return QueryTopic::Anna;
         }
@@ -122,7 +141,7 @@ impl QueryTopic {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "cpu" => QueryTopic::Cpu,
             "memory" => QueryTopic::Memory,
@@ -174,9 +193,7 @@ impl TopicStats {
 
     /// Recalculate weight based on recency and frequency
     fn recalculate_weight(&mut self) {
-        let age_hours = Utc::now()
-            .signed_duration_since(self.last_used)
-            .num_hours() as f64;
+        let age_hours = Utc::now().signed_duration_since(self.last_used).num_hours() as f64;
 
         // Decay factor: halves every 24 hours
         let recency_factor = 0.5_f64.powf(age_hours / 24.0);
@@ -239,14 +256,43 @@ impl UserTelemetry {
 
         // Common tools to track
         let tools = [
-            "hyprland", "waybar", "sway", "i3", "kde", "gnome", "xfce",
-            "docker", "podman", "kubernetes", "vagrant",
-            "vim", "neovim", "nvim", "emacs", "code", "vscode",
-            "firefox", "chrome", "chromium", "brave",
-            "steam", "lutris", "wine", "proton",
-            "git", "ssh", "tmux", "zsh", "bash", "fish",
-            "pacman", "yay", "paru",
-            "nvidia", "amd", "intel",
+            "hyprland",
+            "waybar",
+            "sway",
+            "i3",
+            "kde",
+            "gnome",
+            "xfce",
+            "docker",
+            "podman",
+            "kubernetes",
+            "vagrant",
+            "vim",
+            "neovim",
+            "nvim",
+            "emacs",
+            "code",
+            "vscode",
+            "firefox",
+            "chrome",
+            "chromium",
+            "brave",
+            "steam",
+            "lutris",
+            "wine",
+            "proton",
+            "git",
+            "ssh",
+            "tmux",
+            "zsh",
+            "bash",
+            "fish",
+            "pacman",
+            "yay",
+            "paru",
+            "nvidia",
+            "amd",
+            "intel",
         ];
 
         for tool in tools {
@@ -259,7 +305,11 @@ impl UserTelemetry {
     /// Get top topics by weight
     pub fn top_topics(&self, n: usize) -> Vec<&TopicStats> {
         let mut topics: Vec<_> = self.topics.values().collect();
-        topics.sort_by(|a, b| b.weight.partial_cmp(&a.weight).unwrap_or(std::cmp::Ordering::Equal));
+        topics.sort_by(|a, b| {
+            b.weight
+                .partial_cmp(&a.weight)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         topics.truncate(n);
         topics
     }
@@ -295,7 +345,10 @@ mod tests {
 
     #[test]
     fn test_topic_detection() {
-        assert_eq!(QueryTopic::from_query("How many CPU cores?"), QueryTopic::Cpu);
+        assert_eq!(
+            QueryTopic::from_query("How many CPU cores?"),
+            QueryTopic::Cpu
+        );
         assert_eq!(QueryTopic::from_query("Am I on wifi?"), QueryTopic::Network);
         assert_eq!(QueryTopic::from_query("DNS settings"), QueryTopic::Dns);
         assert_eq!(QueryTopic::from_query("Steam games"), QueryTopic::Games);

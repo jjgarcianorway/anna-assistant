@@ -22,10 +22,11 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Log level enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Trace = 0,
+    #[default]
     Debug = 1,
     Info = 2,
     Warn = 3,
@@ -43,7 +44,7 @@ impl LogLevel {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "trace" => Some(LogLevel::Trace),
             "debug" => Some(LogLevel::Debug),
@@ -52,12 +53,6 @@ impl LogLevel {
             "error" => Some(LogLevel::Error),
             _ => None,
         }
-    }
-}
-
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Debug // v0.8.0 default is DEBUG for development
     }
 }
 
@@ -233,12 +228,12 @@ mod tests {
     }
 
     #[test]
-    fn test_log_level_from_str() {
-        assert_eq!(LogLevel::from_str("debug"), Some(LogLevel::Debug));
-        assert_eq!(LogLevel::from_str("DEBUG"), Some(LogLevel::Debug));
-        assert_eq!(LogLevel::from_str("warn"), Some(LogLevel::Warn));
-        assert_eq!(LogLevel::from_str("warning"), Some(LogLevel::Warn));
-        assert_eq!(LogLevel::from_str("invalid"), None);
+    fn test_log_level_parse() {
+        assert_eq!(LogLevel::parse("debug"), Some(LogLevel::Debug));
+        assert_eq!(LogLevel::parse("DEBUG"), Some(LogLevel::Debug));
+        assert_eq!(LogLevel::parse("warn"), Some(LogLevel::Warn));
+        assert_eq!(LogLevel::parse("warning"), Some(LogLevel::Warn));
+        assert_eq!(LogLevel::parse("invalid"), None);
     }
 
     #[test]

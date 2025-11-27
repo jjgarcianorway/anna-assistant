@@ -4,9 +4,8 @@
 //! Dev mode: Every 10 minutes (600s minimum) when enabled.
 
 use anna_common::{
-    load_update_state, record_update_check, save_update_state,
-    AnnaConfigV5, GitHubRelease, UpdateCheckResult, UpdateResult, UpdateState,
-    MIN_UPDATE_INTERVAL,
+    load_update_state, record_update_check, save_update_state, AnnaConfigV5, GitHubRelease,
+    UpdateCheckResult, UpdateResult, UpdateState, MIN_UPDATE_INTERVAL,
 };
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
@@ -162,9 +161,8 @@ impl AutoUpdateScheduler {
     /// Fetch the latest release from GitHub (v0.5.0 - single channel for now)
     async fn fetch_latest_release(&self, config: &AnnaConfigV5) -> Result<GitHubRelease> {
         // v0.5.0: All releases on main channel, channel value stored for future use
-        let url = format!(
-            "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest"
-        );
+        let url = "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest"
+            .to_string();
 
         let resp = self
             .http_client
@@ -180,7 +178,10 @@ impl AutoUpdateScheduler {
 
         // For v0.5.0, all channels use the latest release
         // Channel value is stored but doesn't affect endpoint yet
-        debug!("Fetching release for channel: {}", config.update.channel.as_str());
+        debug!(
+            "Fetching release for channel: {}",
+            config.update.channel.as_str()
+        );
 
         resp.json::<GitHubRelease>()
             .await
@@ -222,7 +223,12 @@ impl AutoUpdateScheduler {
         // Verify checksums
         info!("🔐  Verifying checksums...");
         self.verify_checksum(&annad_data, "annad", &checksums, &check_result.info.latest)?;
-        self.verify_checksum(&annactl_data, "annactl", &checksums, &check_result.info.latest)?;
+        self.verify_checksum(
+            &annactl_data,
+            "annactl",
+            &checksums,
+            &check_result.info.latest,
+        )?;
 
         // Write binaries to temp
         fs::write(&annad_path, &annad_data).context("Failed to write annad")?;
@@ -385,7 +391,7 @@ impl Default for AutoUpdateScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anna_common::{CoreMode, Channel};
+    use anna_common::CoreMode;
 
     #[test]
     fn test_scheduler_creation() {
@@ -401,7 +407,9 @@ mod tests {
         let state = UpdateState::default();
 
         // Default config is not dev mode, should not check
-        assert!(!AutoUpdateScheduler::should_check_for_updates(&config, &state));
+        assert!(!AutoUpdateScheduler::should_check_for_updates(
+            &config, &state
+        ));
     }
 
     #[test]
@@ -414,7 +422,9 @@ mod tests {
         let state = UpdateState::default(); // last_check is None
 
         // Dev mode enabled, never checked - should check
-        assert!(AutoUpdateScheduler::should_check_for_updates(&config, &state));
+        assert!(AutoUpdateScheduler::should_check_for_updates(
+            &config, &state
+        ));
     }
 
     #[test]
@@ -429,7 +439,9 @@ mod tests {
         state.last_check = Some(chrono::Utc::now().timestamp() - 60);
 
         // Interval (600s) hasn't passed - should not check
-        assert!(!AutoUpdateScheduler::should_check_for_updates(&config, &state));
+        assert!(!AutoUpdateScheduler::should_check_for_updates(
+            &config, &state
+        ));
     }
 
     #[test]
@@ -444,7 +456,9 @@ mod tests {
         state.last_check = Some(chrono::Utc::now().timestamp() - 700);
 
         // Interval (600s) has passed - should check
-        assert!(AutoUpdateScheduler::should_check_for_updates(&config, &state));
+        assert!(AutoUpdateScheduler::should_check_for_updates(
+            &config, &state
+        ));
     }
 
     #[test]
@@ -459,6 +473,8 @@ mod tests {
         state.last_check = Some(chrono::Utc::now().timestamp() - 200);
 
         // Even though 200 > 100 requested, minimum of 600 is enforced
-        assert!(!AutoUpdateScheduler::should_check_for_updates(&config, &state));
+        assert!(!AutoUpdateScheduler::should_check_for_updates(
+            &config, &state
+        ));
     }
 }

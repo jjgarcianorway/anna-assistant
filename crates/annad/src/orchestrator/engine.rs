@@ -12,8 +12,8 @@ use super::fallback;
 use super::llm_client::OllamaClient;
 use super::probe_executor;
 use anna_common::{
-    generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict, ConfidenceLevel,
-    FinalAnswer, LoopState, ProbeCatalog, ProbeEvidenceV10, ReliabilityScores,
+    generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict,
+    ConfidenceLevel, FinalAnswer, LoopState, ProbeCatalog, ProbeEvidenceV10, ReliabilityScores,
     MAX_LOOPS,
 };
 use anyhow::Result;
@@ -80,7 +80,10 @@ impl AnswerEngine {
                     loop_state.mark_refused();
                     return Ok(self.build_refusal(
                         question,
-                        llm_a_response.refusal_reason.as_deref().unwrap_or("Unable to answer"),
+                        llm_a_response
+                            .refusal_reason
+                            .as_deref()
+                            .unwrap_or("Unable to answer"),
                         &evidence,
                         loop_state.iteration,
                     ));
@@ -102,10 +105,13 @@ impl AnswerEngine {
                 let valid_probes = self.filter_valid_probes(&probe_ids);
 
                 if !valid_probes.is_empty() {
-                    info!("Executing {} valid probes (rejected {})",
-                          valid_probes.len(),
-                          probe_ids.len() - valid_probes.len());
-                    let new_evidence = probe_executor::execute_probes(&self.catalog, &valid_probes).await;
+                    info!(
+                        "Executing {} valid probes (rejected {})",
+                        valid_probes.len(),
+                        probe_ids.len() - valid_probes.len()
+                    );
+                    let new_evidence =
+                        probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                     evidence.extend(new_evidence);
                 }
 
@@ -132,7 +138,8 @@ impl AnswerEngine {
                 .unwrap_or_else(|| ReliabilityScores::new(0.5, 0.5, 0.5));
 
             // Step 4: Call LLM-B to audit
-            let llm_b_prompt = generate_llm_b_prompt(question, &draft_answer, &evidence, &self_scores);
+            let llm_b_prompt =
+                generate_llm_b_prompt(question, &draft_answer, &evidence, &self_scores);
             let llm_b_response = self.llm_client.call_llm_b(&llm_b_prompt).await?;
 
             debug!("LLM-B response: {:?}", llm_b_response);
@@ -171,10 +178,17 @@ impl AnswerEngine {
                     // Only refuse if we have no evidence and no draft
                     if evidence.is_empty() {
                         loop_state.mark_refused();
-                        let reason = llm_b_response.problems.first().map(|s| s.as_str()).unwrap_or(
-                            "Auditor determined answer cannot be safely provided",
-                        );
-                        return Ok(self.build_refusal(question, reason, &evidence, loop_state.iteration));
+                        let reason = llm_b_response
+                            .problems
+                            .first()
+                            .map(|s| s.as_str())
+                            .unwrap_or("Auditor determined answer cannot be safely provided");
+                        return Ok(self.build_refusal(
+                            question,
+                            reason,
+                            &evidence,
+                            loop_state.iteration,
+                        ));
                     }
                     // If we have evidence, try partial answer with low confidence
                     warn!("LLM-B wants to refuse but we have evidence - will try partial answer");
@@ -192,9 +206,11 @@ impl AnswerEngine {
                     let valid_probes = self.filter_valid_probes(&probe_ids);
 
                     if !valid_probes.is_empty() {
-                        info!("Auditor requested {} valid probes (rejected {})",
-                              valid_probes.len(),
-                              probe_ids.len() - valid_probes.len());
+                        info!(
+                            "Auditor requested {} valid probes (rejected {})",
+                            valid_probes.len(),
+                            probe_ids.len() - valid_probes.len()
+                        );
                         let new_evidence =
                             probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                         evidence.extend(new_evidence);
@@ -210,7 +226,10 @@ impl AnswerEngine {
         // If we have a draft answer, return it with honest low confidence
         if let Some(answer_text) = last_draft_answer {
             let scores = last_scores.unwrap_or_else(|| AuditScores::new(0.5, 0.5, 0.5));
-            info!("Max loops reached - returning partial answer with confidence {:.2}", scores.overall);
+            info!(
+                "Max loops reached - returning partial answer with confidence {:.2}",
+                scores.overall
+            );
             return Ok(self.build_partial_answer(
                 question,
                 &answer_text,
@@ -304,10 +323,7 @@ impl AnswerEngine {
     ) -> FinalAnswer {
         FinalAnswer {
             question: question.to_string(),
-            answer: format!(
-                "I cannot answer this question.\n\nReason: {}",
-                reason
-            ),
+            answer: format!("I cannot answer this question.\n\nReason: {}", reason),
             is_refusal: true,
             citations: evidence.to_vec(),
             scores: AuditScores::new(0.0, 0.0, 0.0),
@@ -386,6 +402,8 @@ mod tests {
         assert!(!result.is_refusal);
         assert_eq!(result.confidence_level, ConfidenceLevel::Red);
         assert!(result.answer.contains("[Note:"));
-        assert!(result.problems.contains(&"Reached maximum verification loops".to_string()));
+        assert!(result
+            .problems
+            .contains(&"Reached maximum verification loops".to_string()));
     }
 }

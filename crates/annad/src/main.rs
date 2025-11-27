@@ -9,6 +9,10 @@
 //! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop.
 //! v0.11.0: Knowledge store, event-driven learning, user telemetry.
 
+// Allow dead code for features planned but not yet fully wired
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 mod auto_update;
 mod brain;
 mod orchestrator;

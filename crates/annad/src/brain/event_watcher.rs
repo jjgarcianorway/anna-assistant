@@ -4,7 +4,6 @@
 
 use anna_common::{LearningEvent, LearningJob};
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
@@ -60,10 +59,7 @@ impl EventWatcher {
                 if current_size > last_pos {
                     // Read new lines
                     if let Ok(content) = tokio::fs::read_to_string(&pacman_log).await {
-                        let new_content: String = content
-                            .chars()
-                            .skip(last_pos as usize)
-                            .collect();
+                        let new_content: String = content.chars().skip(last_pos as usize).collect();
 
                         for line in new_content.lines() {
                             if let Some(event) = Self::parse_pacman_line(line) {

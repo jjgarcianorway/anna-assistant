@@ -117,7 +117,10 @@ impl OllamaClient {
                 Ok(response)
             }
             Err(e) => {
-                warn!("Failed to parse LLM-A response as JSON: {} - text: {}", e, text);
+                warn!(
+                    "Failed to parse LLM-A response as JSON: {} - text: {}",
+                    e, text
+                );
                 // Return needs_more_probes to keep the loop going
                 Ok(LlmAResponse {
                     plan: LlmAPlan {
@@ -153,7 +156,10 @@ impl OllamaClient {
                 Ok(response)
             }
             Err(e) => {
-                warn!("Failed to parse LLM-B response as JSON: {} - text: {}", e, text);
+                warn!(
+                    "Failed to parse LLM-B response as JSON: {} - text: {}",
+                    e, text
+                );
                 // Return approve with low scores to keep the loop going
                 Ok(LlmBResponse {
                     verdict: AuditVerdict::Approve,
@@ -180,20 +186,25 @@ impl OllamaClient {
     /// Convert serde_json::Value to LlmAResponse with null handling
     fn value_to_llm_a_response(&self, v: &Value) -> LlmAResponse {
         // Parse plan
-        let plan = v.get("plan").map(|p| LlmAPlan {
-            intent: p.get("intent")
-                .and_then(|x| x.as_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            probe_requests: self.parse_probe_requests(p.get("probe_requests")),
-            can_answer_without_more_probes: p.get("can_answer_without_more_probes")
-                .and_then(|x| x.as_bool())
-                .unwrap_or(false),
-        }).unwrap_or(LlmAPlan {
-            intent: "unknown".to_string(),
-            probe_requests: vec![],
-            can_answer_without_more_probes: false,
-        });
+        let plan = v
+            .get("plan")
+            .map(|p| LlmAPlan {
+                intent: p
+                    .get("intent")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
+                probe_requests: self.parse_probe_requests(p.get("probe_requests")),
+                can_answer_without_more_probes: p
+                    .get("can_answer_without_more_probes")
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+            })
+            .unwrap_or(LlmAPlan {
+                intent: "unknown".to_string(),
+                probe_requests: vec![],
+                can_answer_without_more_probes: false,
+            });
 
         // Parse draft_answer - handle null and missing text
         let draft_answer = v.get("draft_answer").and_then(|da| {
@@ -226,15 +237,18 @@ impl OllamaClient {
             ))
         });
 
-        let needs_more_probes = v.get("needs_more_probes")
+        let needs_more_probes = v
+            .get("needs_more_probes")
             .and_then(|x| x.as_bool())
             .unwrap_or(draft_answer.is_none()); // Default: need probes if no draft
 
-        let refuse_to_answer = v.get("refuse_to_answer")
+        let refuse_to_answer = v
+            .get("refuse_to_answer")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
 
-        let refusal_reason = v.get("refusal_reason")
+        let refusal_reason = v
+            .get("refusal_reason")
             .and_then(|x| if x.is_null() { None } else { x.as_str() })
             .map(|s| s.to_string());
 
@@ -251,7 +265,8 @@ impl OllamaClient {
     /// Convert serde_json::Value to LlmBResponse with null handling
     fn value_to_llm_b_response(&self, v: &Value) -> LlmBResponse {
         // Parse verdict - default to approve if unclear
-        let verdict_str = v.get("verdict")
+        let verdict_str = v
+            .get("verdict")
             .and_then(|x| x.as_str())
             .unwrap_or("approve");
 
@@ -264,19 +279,23 @@ impl OllamaClient {
         };
 
         // Parse scores
-        let scores = v.get("scores").map(|s| {
-            AuditScores::new(
-                s.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.7),
-                s.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.7),
-                s.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.7),
-            )
-        }).unwrap_or(AuditScores::new(0.7, 0.7, 0.7));
+        let scores = v
+            .get("scores")
+            .map(|s| {
+                AuditScores::new(
+                    s.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.7),
+                    s.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.7),
+                    s.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.7),
+                )
+            })
+            .unwrap_or(AuditScores::new(0.7, 0.7, 0.7));
 
         // Parse probe_requests
         let probe_requests = self.parse_probe_requests(v.get("probe_requests"));
 
         // Parse problems
-        let problems = v.get("problems")
+        let problems = v
+            .get("problems")
             .and_then(|p| p.as_array())
             .map(|arr| {
                 arr.iter()
@@ -285,11 +304,13 @@ impl OllamaClient {
             })
             .unwrap_or_default();
 
-        let suggested_fix = v.get("suggested_fix")
+        let suggested_fix = v
+            .get("suggested_fix")
             .and_then(|x| if x.is_null() { None } else { x.as_str() })
             .map(|s| s.to_string());
 
-        let fixed_answer = v.get("fixed_answer")
+        let fixed_answer = v
+            .get("fixed_answer")
             .and_then(|x| if x.is_null() { None } else { x.as_str() })
             .map(|s| s.to_string());
 
@@ -310,7 +331,8 @@ impl OllamaClient {
                 arr.iter()
                     .filter_map(|p| {
                         let probe_id = p.get("probe_id").and_then(|x| x.as_str())?;
-                        let reason = p.get("reason")
+                        let reason = p
+                            .get("reason")
                             .and_then(|x| x.as_str())
                             .unwrap_or("requested");
                         Some(ProbeRequest {
@@ -428,6 +450,9 @@ mod tests {
 
         let result = client.parse_llm_b_response(json).unwrap();
         assert_eq!(result.verdict, AuditVerdict::FixAndAccept);
-        assert_eq!(result.fixed_answer, Some("Corrected answer here".to_string()));
+        assert_eq!(
+            result.fixed_answer,
+            Some("Corrected answer here".to_string())
+        );
     }
 }

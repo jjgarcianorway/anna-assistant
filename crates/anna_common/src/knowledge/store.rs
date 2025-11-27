@@ -240,7 +240,7 @@ impl KnowledgeStore {
                             .unwrap_or_else(|_| Utc::now().into())
                             .with_timezone(&Utc),
                         confidence: row.get(7)?,
-                        status: FactStatus::from_str(&row.get::<_, String>(8)?),
+                        status: FactStatus::parse(&row.get::<_, String>(8)?),
                         notes: row.get(9)?,
                     })
                 },
@@ -299,7 +299,8 @@ impl KnowledgeStore {
             sql.push_str(&format!(" LIMIT {}", limit));
         }
 
-        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> =
+            params_vec.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params_refs.as_slice(), |row| {
@@ -316,7 +317,7 @@ impl KnowledgeStore {
                     .unwrap_or_else(|_| Utc::now().into())
                     .with_timezone(&Utc),
                 confidence: row.get(7)?,
-                status: FactStatus::from_str(&row.get::<_, String>(8)?),
+                status: FactStatus::parse(&row.get::<_, String>(8)?),
                 notes: row.get(9)?,
             })
         })?;
@@ -357,8 +358,8 @@ impl KnowledgeStore {
                 fact_id: row.get(0)?,
                 old_value: row.get(1)?,
                 new_value: row.get(2)?,
-                old_status: FactStatus::from_str(&row.get::<_, String>(3)?),
-                new_status: FactStatus::from_str(&row.get::<_, String>(4)?),
+                old_status: FactStatus::parse(&row.get::<_, String>(3)?),
+                new_status: FactStatus::parse(&row.get::<_, String>(4)?),
                 reason: row.get(5)?,
                 changed_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
                     .unwrap_or_else(|_| Utc::now().into())
@@ -459,21 +460,25 @@ mod tests {
     fn test_query_by_entity() {
         let (store, _dir) = test_store();
 
-        store.upsert(&Fact::from_probe(
-            "pkg:vim".to_string(),
-            "version".to_string(),
-            "9.0".to_string(),
-            "pkg.info",
-            0.9,
-        )).unwrap();
+        store
+            .upsert(&Fact::from_probe(
+                "pkg:vim".to_string(),
+                "version".to_string(),
+                "9.0".to_string(),
+                "pkg.info",
+                0.9,
+            ))
+            .unwrap();
 
-        store.upsert(&Fact::from_probe(
-            "pkg:neovim".to_string(),
-            "version".to_string(),
-            "0.9.0".to_string(),
-            "pkg.info",
-            0.9,
-        )).unwrap();
+        store
+            .upsert(&Fact::from_probe(
+                "pkg:neovim".to_string(),
+                "version".to_string(),
+                "0.9.0".to_string(),
+                "pkg.info",
+                0.9,
+            ))
+            .unwrap();
 
         let query = FactQuery::new().entity_prefix("pkg:");
         let results = store.query(&query).unwrap();

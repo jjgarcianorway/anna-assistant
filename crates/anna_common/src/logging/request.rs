@@ -5,8 +5,8 @@
 //! through daemon, probes, and LLM orchestration.
 
 use super::{
-    LlmPhase, LlmTrace, LogComponent, LogEntry, LogLevel, ReliabilityBreakdown,
-    RequestStatus, RequestTrace,
+    LlmPhase, LlmTrace, LogComponent, LogEntry, LogLevel, ReliabilityBreakdown, RequestStatus,
+    RequestTrace,
 };
 use chrono::{DateTime, Utc};
 use std::cell::RefCell;
@@ -281,6 +281,9 @@ mod tests {
 
         assert_eq!(trace.request_id, "req-123");
         assert_eq!(trace.phase, LlmPhase::Planning);
-        assert_eq!(trace.plan_summary, Some("Request cpu.info probe".to_string()));
+        assert_eq!(
+            trace.plan_summary,
+            Some("Request cpu.info probe".to_string())
+        );
     }
 }

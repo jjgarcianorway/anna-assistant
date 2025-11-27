@@ -333,12 +333,9 @@ fn extract_score(response: &str) -> Option<f64> {
                 if let Some(m) = caps.get(1) {
                     if let Ok(score) = m.as_str().parse::<f64>() {
                         // Normalize to 0-1 range if needed
-                        return Some(if score > 1.0 {
-                            score / 100.0
-                        } else {
-                            score
-                        }
-                        .clamp(0.0, 1.0));
+                        return Some(
+                            if score > 1.0 { score / 100.0 } else { score }.clamp(0.0, 1.0),
+                        );
                     }
                 }
             }
@@ -542,7 +539,10 @@ mod tests {
             }
         });
 
-        assert!(matches!(action, Some(RefinementAction::AcceptLowConfidence { .. })));
+        assert!(matches!(
+            action,
+            Some(RefinementAction::AcceptLowConfidence { .. })
+        ));
     }
 
     #[test]

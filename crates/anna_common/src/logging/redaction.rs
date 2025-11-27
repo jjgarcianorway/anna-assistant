@@ -25,9 +25,13 @@ static SECRET_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
         // Generic secrets
         Regex::new(r"(?i)(secret|private[_-]?key)\s*[:=]\s*\S+").unwrap(),
         // SSH private key content
-        Regex::new(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----").unwrap(),
+        Regex::new(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----")
+            .unwrap(),
         // AWS credentials
-        Regex::new(r"(?i)(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)\s*[:=]\s*\S+").unwrap(),
+        Regex::new(
+            r"(?i)(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)\s*[:=]\s*\S+",
+        )
+        .unwrap(),
         // Generic token patterns (long hex strings that look like tokens)
         Regex::new(r"(?i)(token|key)\s*[:=]\s*[a-f0-9]{32,}").unwrap(),
         // Database connection strings
@@ -96,7 +100,12 @@ pub fn truncate(input: &str, limit: usize) -> String {
     let truncated_len = limit.saturating_sub(TRUNCATED.len() + 10);
     let preview = &input[..truncated_len.min(input.len())];
 
-    format!("{} {} (original: {} bytes)", preview, TRUNCATED, input.len())
+    format!(
+        "{} {} (original: {} bytes)",
+        preview,
+        TRUNCATED,
+        input.len()
+    )
 }
 
 /// Truncate with default limit

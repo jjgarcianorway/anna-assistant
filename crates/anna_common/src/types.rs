@@ -20,9 +20,9 @@ impl CachePolicy {
     /// Get TTL in seconds
     pub fn ttl_seconds(&self) -> u64 {
         match self {
-            CachePolicy::Static => 0,    // Infinite
-            CachePolicy::Slow => 3600,   // 1 hour
-            CachePolicy::Volatile => 5,  // 5 seconds
+            CachePolicy::Static => 0,   // Infinite
+            CachePolicy::Slow => 3600,  // 1 hour
+            CachePolicy::Volatile => 5, // 5 seconds
         }
     }
 }
@@ -74,8 +74,8 @@ pub struct ExpertResponse {
 /// LLM model selection
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelSelection {
-    pub orchestrator: String,  // LLM-A
-    pub expert: String,        // LLM-B
+    pub orchestrator: String, // LLM-A
+    pub expert: String,       // LLM-B
 }
 
 impl Default for ModelSelection {
@@ -115,7 +115,10 @@ impl HardwareInfo {
             "qwen2.5:7b".to_string()
         };
 
-        ModelSelection { orchestrator, expert }
+        ModelSelection {
+            orchestrator,
+            expert,
+        }
     }
 }
 
@@ -191,7 +194,7 @@ impl Default for UpdateConfig {
     fn default() -> Self {
         Self {
             channel: UpdateChannel::Stable,
-            auto: false, // Disabled by default for normal users
+            auto: false,            // Disabled by default for normal users
             interval_seconds: None, // Will use channel default
         }
     }
@@ -318,9 +321,11 @@ impl ReliabilityScore {
     /// Add a deduction with reason
     pub fn add_deduction(&mut self, amount: f64, reason: &str) {
         self.overall = (self.overall - amount).max(0.0);
-        self.deductions
-            .get_or_insert_with(Vec::new)
-            .push(format!("-{:.0}%: {}", amount * 100.0, reason));
+        self.deductions.get_or_insert_with(Vec::new).push(format!(
+            "-{:.0}%: {}",
+            amount * 100.0,
+            reason
+        ));
     }
 }
 

@@ -18,7 +18,12 @@ pub async fn execute_probe(catalog: &ProbeCatalog, probe_id: &str) -> Result<Pro
     let timestamp = chrono::Utc::now().to_rfc3339();
 
     // Handle internal probes
-    if probe_def.commands.first().map(|c| c.starts_with("internal:")).unwrap_or(false) {
+    if probe_def
+        .commands
+        .first()
+        .map(|c| c.starts_with("internal:"))
+        .unwrap_or(false)
+    {
         return execute_internal_probe(probe_id, &timestamp).await;
     }
 
@@ -68,13 +73,9 @@ async fn execute_shell_command(cmd: &str) -> Result<String> {
 
     // Use tokio::spawn_blocking for shell command
     let cmd_owned = cmd.to_string();
-    let output = tokio::task::spawn_blocking(move || {
-        Command::new("sh")
-            .arg("-c")
-            .arg(&cmd_owned)
-            .output()
-    })
-    .await??;
+    let output =
+        tokio::task::spawn_blocking(move || Command::new("sh").arg("-c").arg(&cmd_owned).output())
+            .await??;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -138,10 +139,7 @@ fn try_parse_json(text: &str) -> Option<serde_json::Value> {
 }
 
 /// Execute multiple probes in parallel
-pub async fn execute_probes(
-    catalog: &ProbeCatalog,
-    probe_ids: &[String],
-) -> Vec<ProbeEvidenceV10> {
+pub async fn execute_probes(catalog: &ProbeCatalog, probe_ids: &[String]) -> Vec<ProbeEvidenceV10> {
     let mut results = Vec::new();
 
     for probe_id in probe_ids {

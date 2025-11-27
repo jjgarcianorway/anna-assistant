@@ -2,9 +2,7 @@
 //!
 //! Processes learning jobs from the queue using LLM-A/LLM-B.
 
-use anna_common::{
-    Fact, JobPriority, JobStatus, KnowledgeStore, LearningEvent, LearningJob, MappingPhase,
-};
+use anna_common::{Fact, KnowledgeStore, LearningEvent, LearningJob, MappingPhase};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
@@ -75,7 +73,11 @@ impl JobProcessor {
 
             match job {
                 Some(mut job) => {
-                    info!("Processing learning job: {} ({:?})", job.id, job.event.event_type());
+                    info!(
+                        "Processing learning job: {} ({:?})",
+                        job.id,
+                        job.event.event_type()
+                    );
                     job.start();
 
                     match self.process_job(&mut job).await {
@@ -109,17 +111,18 @@ impl JobProcessor {
     /// Process a single job
     async fn process_job(&self, job: &mut LearningJob) -> anyhow::Result<Vec<Fact>> {
         match &job.event {
-            LearningEvent::InitialMapping { phase } => {
-                self.process_mapping_phase(*phase).await
-            }
+            LearningEvent::InitialMapping { phase } => self.process_mapping_phase(*phase).await,
             LearningEvent::PackageAdded { name, version } => {
                 self.process_package_added(name, version.as_deref()).await
             }
-            LearningEvent::PackageRemoved { name } => {
-                self.process_package_removed(name).await
-            }
-            LearningEvent::PackageUpgraded { name, old_version, new_version } => {
-                self.process_package_upgraded(name, old_version, new_version).await
+            LearningEvent::PackageRemoved { name } => self.process_package_removed(name).await,
+            LearningEvent::PackageUpgraded {
+                name,
+                old_version,
+                new_version,
+            } => {
+                self.process_package_upgraded(name, old_version, new_version)
+                    .await
             }
             LearningEvent::ServiceChanged { name, state } => {
                 self.process_service_changed(name, state).await
@@ -289,7 +292,10 @@ impl JobProcessor {
                 if let Ok(interfaces) = serde_json::from_str::<Vec<serde_json::Value>>(&stdout) {
                     for iface in interfaces {
                         let name = iface.get("ifname").and_then(|v| v.as_str()).unwrap_or("");
-                        let state = iface.get("operstate").and_then(|v| v.as_str()).unwrap_or("");
+                        let state = iface
+                            .get("operstate")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
 
                         if !name.is_empty() && name != "lo" {
                             facts.push(Fact::from_probe(
@@ -384,7 +390,11 @@ impl JobProcessor {
     }
 
     /// Process package added event
-    async fn process_package_added(&self, name: &str, version: Option<&str>) -> anyhow::Result<Vec<Fact>> {
+    async fn process_package_added(
+        &self,
+        name: &str,
+        version: Option<&str>,
+    ) -> anyhow::Result<Vec<Fact>> {
         let mut facts = Vec::new();
 
         facts.push(Fact::from_probe(
@@ -474,6 +484,7 @@ impl JobProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anna_common::JobPriority;
     use tempfile::tempdir;
 
     async fn test_processor() -> (JobProcessor, tempfile::TempDir) {

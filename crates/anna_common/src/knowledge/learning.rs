@@ -51,15 +51,25 @@ pub enum JobStatus {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LearningEvent {
     /// Package installed
-    PackageAdded { name: String, version: Option<String> },
+    PackageAdded {
+        name: String,
+        version: Option<String>,
+    },
     /// Package removed
     PackageRemoved { name: String },
     /// Package upgraded
-    PackageUpgraded { name: String, old_version: String, new_version: String },
+    PackageUpgraded {
+        name: String,
+        old_version: String,
+        new_version: String,
+    },
     /// Service state changed
     ServiceChanged { name: String, state: String },
     /// GPU driver availability changed
-    GpuDriverChanged { available: bool, driver: Option<String> },
+    GpuDriverChanged {
+        available: bool,
+        driver: Option<String>,
+    },
     /// Config file changed
     ConfigChanged { path: String },
     /// First install - map system

@@ -182,9 +182,7 @@ pub fn check_model_availability() -> ComponentHealth {
 
             // Check for recommended models
             let has_small = models.iter().any(|m| {
-                m.contains("llama3.2:3b")
-                    || m.contains("qwen2.5:3b")
-                    || m.contains("mistral")
+                m.contains("llama3.2:3b") || m.contains("qwen2.5:3b") || m.contains("mistral")
             });
 
             if has_small {
@@ -201,10 +199,7 @@ pub fn check_model_availability() -> ComponentHealth {
                 ComponentHealth {
                     name: "model".to_string(),
                     status: ComponentStatus::Degraded,
-                    message: format!(
-                        "{} model(s) found but none are recommended",
-                        models.len()
-                    ),
+                    message: format!("{} model(s) found but none are recommended", models.len()),
                     details: Some(serde_json::json!({
                         "models_found": models,
                         "has_recommended": false,
@@ -302,7 +297,10 @@ pub fn check_permissions() -> ComponentHealth {
         let path = Path::new(path);
         if !path.exists() {
             issues.push(format!("{} ({}) does not exist", path.display(), purpose));
-        } else if fs::metadata(path).map(|m| m.permissions().readonly()).unwrap_or(true) {
+        } else if fs::metadata(path)
+            .map(|m| m.permissions().readonly())
+            .unwrap_or(true)
+        {
             issues.push(format!("{} ({}) is read-only", path.display(), purpose));
         } else {
             healthy.push(path.display().to_string());

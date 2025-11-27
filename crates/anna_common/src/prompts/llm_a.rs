@@ -233,10 +233,7 @@ pub fn generate_llm_a_prompt_with_iteration(
         } else {
             String::new()
         };
-        format!(
-            "EVIDENCE AVAILABLE - Use this data to answer:{}",
-            urgency
-        )
+        format!("EVIDENCE AVAILABLE - Use this data to answer:{}", urgency)
     };
 
     format!(
@@ -270,7 +267,9 @@ mod tests {
 
     #[test]
     fn test_prompt_contains_strict_rules() {
-        assert!(LLM_A_SYSTEM_PROMPT.contains("If there is no probe for something, you do NOT know it"));
+        assert!(
+            LLM_A_SYSTEM_PROMPT.contains("If there is no probe for something, you do NOT know it")
+        );
         assert!(LLM_A_SYSTEM_PROMPT.contains("FORBIDDEN"));
         assert!(LLM_A_SYSTEM_PROMPT.contains("NEVER fabricate"));
     }
@@ -317,10 +316,12 @@ mod tests {
             parsed: None,
         }];
 
-        let prompt1 = generate_llm_a_prompt_with_iteration("How many cores?", &probes, &evidence, 1);
+        let prompt1 =
+            generate_llm_a_prompt_with_iteration("How many cores?", &probes, &evidence, 1);
         assert!(!prompt1.contains("ITERATION"));
 
-        let prompt2 = generate_llm_a_prompt_with_iteration("How many cores?", &probes, &evidence, 2);
+        let prompt2 =
+            generate_llm_a_prompt_with_iteration("How many cores?", &probes, &evidence, 2);
         assert!(prompt2.contains("ITERATION 2"));
         assert!(prompt2.contains("ANSWER NOW"));
     }

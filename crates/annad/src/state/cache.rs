@@ -20,7 +20,7 @@ impl CacheEntry {
     }
 
     fn is_expired(&self) -> bool {
-        self.expires_at.map_or(false, |exp| Instant::now() > exp)
+        self.expires_at.is_some_and(|exp| Instant::now() > exp)
     }
 }
 
@@ -78,7 +78,7 @@ impl StateManager {
     /// Get cached probe result
     pub fn get_probe_cache(&self, probe_id: &str) -> Option<ProbeResult> {
         self.probe_cache.get(probe_id).and_then(|(result, exp)| {
-            if exp.map_or(false, |e| Instant::now() > e) {
+            if exp.is_some_and(|e| Instant::now() > e) {
                 debug!("  Probe cache expired: {}", probe_id);
                 None
             } else {

@@ -342,10 +342,7 @@ impl ReportBuilder {
             "  * score: {}",
             format_reliability_score(self.reliability_score)
         ));
-        lines.push(format!(
-            "  * internal_passes: {}",
-            self.internal_passes
-        ));
+        lines.push(format!("  * internal_passes: {}", self.internal_passes));
         lines.push(format!(
             "  * threshold_reached: {}",
             if self.threshold_reached { "yes" } else { "no" }
@@ -456,7 +453,7 @@ pub fn contains_emoji(s: &str) -> bool {
             || (0x3030..=0x3030).contains(&code)    // Wavy Dash
             || (0x303D..=0x303D).contains(&code)    // Part Alternation Mark
             || (0x3297..=0x3297).contains(&code)    // Circled Ideograph Congratulation
-            || (0x3299..=0x3299).contains(&code)    // Circled Ideograph Secret
+            || (0x3299..=0x3299).contains(&code) // Circled Ideograph Secret
     })
 }
 
@@ -603,8 +600,9 @@ mod tests {
 
     /// Helper to strip ANSI escape codes
     fn strip_ansi_codes(s: &str) -> String {
-        let re = regex::Regex::new(r"\x1b\[[0-9;]*m|\x1b\]8;;[^\x1b]*\x1b\\[^\x1b]*\x1b\]8;;\x1b\\")
-            .unwrap();
+        let re =
+            regex::Regex::new(r"\x1b\[[0-9;]*m|\x1b\]8;;[^\x1b]*\x1b\\[^\x1b]*\x1b\]8;;\x1b\\")
+                .unwrap();
         re.replace_all(s, "").to_string()
     }
 }

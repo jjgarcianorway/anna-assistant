@@ -361,6 +361,9 @@ mod tests {
         }"#;
         let response: LlmBResponse = serde_json::from_str(json).unwrap();
         assert_eq!(response.verdict, AuditVerdict::FixAndAccept);
-        assert_eq!(response.fixed_answer, Some("Corrected answer text here".to_string()));
+        assert_eq!(
+            response.fixed_answer,
+            Some("Corrected answer text here".to_string())
+        );
     }
 }

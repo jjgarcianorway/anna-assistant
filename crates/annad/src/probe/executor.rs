@@ -17,10 +17,7 @@ impl ProbeExecutor {
         let timestamp = Utc::now();
 
         // Build command
-        let (program, args) = probe
-            .cmd
-            .split_first()
-            .context("Probe command is empty")?;
+        let (program, args) = probe.cmd.split_first().context("Probe command is empty")?;
 
         debug!("  Executing: {} {:?}", program, args);
 

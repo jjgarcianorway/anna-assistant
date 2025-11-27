@@ -2,10 +2,10 @@
 //!
 //! Maps system configuration on first install and incremental refreshes.
 
-use anna_common::{Fact, KnowledgeStore, MappingPhase, MappingState};
+use anna_common::{Fact, KnowledgeStore, MappingPhase};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
+use tracing::info;
 
 /// System mapper - discovers and records system facts
 pub struct SystemMapper {
@@ -40,7 +40,11 @@ impl SystemMapper {
             }
         }
 
-        info!("Phase {:?} complete, {} facts discovered", phase, facts.len());
+        info!(
+            "Phase {:?} complete, {} facts discovered",
+            phase,
+            facts.len()
+        );
         Ok(facts)
     }
 
@@ -173,7 +177,10 @@ impl SystemMapper {
 
         for dev in devices {
             let name = dev.get("name")?.as_str()?;
-            let dtype = dev.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
+            let dtype = dev
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
             let size = dev.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
 
             if dtype == "disk" {
@@ -227,10 +234,7 @@ impl SystemMapper {
     }
 
     async fn probe_gpu(&self) -> Option<Vec<Fact>> {
-        let output = tokio::process::Command::new("lspci")
-            .output()
-            .await
-            .ok()?;
+        let output = tokio::process::Command::new("lspci").output().await.ok()?;
 
         if !output.status.success() {
             return None;
@@ -253,7 +257,9 @@ impl SystemMapper {
                 // Detect vendor
                 let vendor = if line.to_lowercase().contains("nvidia") {
                     "nvidia"
-                } else if line.to_lowercase().contains("amd") || line.to_lowercase().contains("radeon") {
+                } else if line.to_lowercase().contains("amd")
+                    || line.to_lowercase().contains("radeon")
+                {
                     "amd"
                 } else if line.to_lowercase().contains("intel") {
                     "intel"
@@ -281,7 +287,11 @@ impl SystemMapper {
         let mut facts = Vec::new();
 
         // Kernel
-        if let Ok(output) = tokio::process::Command::new("uname").arg("-r").output().await {
+        if let Ok(output) = tokio::process::Command::new("uname")
+            .arg("-r")
+            .output()
+            .await
+        {
             if output.status.success() {
                 let kernel = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 facts.push(Fact::from_probe(
@@ -413,7 +423,10 @@ impl SystemMapper {
                 if let Ok(interfaces) = serde_json::from_str::<Vec<serde_json::Value>>(&stdout) {
                     for iface in interfaces {
                         let name = iface.get("ifname").and_then(|v| v.as_str()).unwrap_or("");
-                        let state = iface.get("operstate").and_then(|v| v.as_str()).unwrap_or("");
+                        let state = iface
+                            .get("operstate")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
 
                         if !name.is_empty() && name != "lo" {
                             facts.push(Fact::from_probe(

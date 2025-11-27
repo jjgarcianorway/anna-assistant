@@ -32,7 +32,7 @@ impl FactStatus {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "active" => FactStatus::Active,
             "stale" => FactStatus::Stale,

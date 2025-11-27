@@ -192,11 +192,9 @@ impl ConfigPatternMatcher {
         for (regex, intent) in &self.patterns {
             if regex.is_match(input) {
                 let matched_intent = match intent {
-                    ConfigIntent::EnableDevAutoUpdate { .. } => {
-                        ConfigIntent::EnableDevAutoUpdate {
-                            interval_seconds: interval,
-                        }
-                    }
+                    ConfigIntent::EnableDevAutoUpdate { .. } => ConfigIntent::EnableDevAutoUpdate {
+                        interval_seconds: interval,
+                    },
                     ConfigIntent::SetManualModel { .. } => {
                         if let Some(model) = model_name.clone() {
                             ConfigIntent::SetManualModel { model }
@@ -253,7 +251,14 @@ impl ConfigPatternMatcher {
 
         // Common model patterns
         let model_patterns = [
-            "qwen", "llama", "mistral", "phi", "gemma", "codellama", "deepseek", "yi",
+            "qwen",
+            "llama",
+            "mistral",
+            "phi",
+            "gemma",
+            "codellama",
+            "deepseek",
+            "yi",
         ];
 
         for caps in model_regex.captures_iter(input) {
@@ -632,7 +637,9 @@ mod tests {
         let result = matcher.classify("enable dev auto-update every 10 minutes");
         assert!(matches!(
             result.intent,
-            ConfigIntent::EnableDevAutoUpdate { interval_seconds: Some(600) }
+            ConfigIntent::EnableDevAutoUpdate {
+                interval_seconds: Some(600)
+            }
         ));
 
         let result = matcher.classify("turn on auto update");
@@ -762,13 +769,17 @@ mod tests {
         let result = matcher.classify("set log level to info");
         assert!(matches!(
             result.intent,
-            ConfigIntent::SetLogLevel { level: LogLevel::Info }
+            ConfigIntent::SetLogLevel {
+                level: LogLevel::Info
+            }
         ));
 
         let result = matcher.classify("set logging level to debug");
         assert!(matches!(
             result.intent,
-            ConfigIntent::SetLogLevel { level: LogLevel::Debug }
+            ConfigIntent::SetLogLevel {
+                level: LogLevel::Debug
+            }
         ));
     }
 
@@ -803,7 +814,9 @@ mod tests {
     #[test]
     fn test_apply_set_log_level() {
         let config = AnnaConfigV5::default();
-        let intent = ConfigIntent::SetLogLevel { level: LogLevel::Info };
+        let intent = ConfigIntent::SetLogLevel {
+            level: LogLevel::Info,
+        };
 
         let mutation = apply_intent(&config, &intent).unwrap();
         assert!(!mutation.changes.is_empty());

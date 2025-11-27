@@ -25,10 +25,9 @@ use crate::client::DaemonClient;
 use crate::llm_client::LlmClient;
 use anna_common::prompts::{LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT};
 use anna_common::{
-    apply_intent, apply_mutation, format_config_display, format_mutation_diff,
-    AnnaConfigV5, AnnaResponse, ConfigIntent, ConfigPatternMatcher, Evidence,
-    ExpertResponse, HardwareProfile, ModelSelection, ReliabilityScore, Verdict,
-    SEPARATOR, self_health,
+    apply_intent, apply_mutation, format_config_display, format_mutation_diff, self_health,
+    AnnaConfigV5, AnnaResponse, ConfigIntent, ConfigPatternMatcher, Evidence, ExpertResponse,
+    HardwareProfile, ModelSelection, ReliabilityScore, Verdict, SEPARATOR,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -37,8 +36,12 @@ use tracing::{debug, info, warn};
 
 /// Tool catalog - the ONLY probes that exist (v0.5.0 expanded)
 const TOOL_CATALOG: &[&str] = &[
-    "cpu.info", "mem.info", "disk.lsblk",
-    "hardware.gpu", "drivers.gpu", "hardware.ram",
+    "cpu.info",
+    "mem.info",
+    "disk.lsblk",
+    "hardware.gpu",
+    "drivers.gpu",
+    "hardware.ram",
 ];
 
 /// Internal query types for help/version
@@ -137,7 +140,11 @@ fn answers_match(answer1: &str, answer2: &str) -> bool {
 
 /// Format update state for display (from v0.5.0 config)
 fn format_update_info(config: &AnnaConfigV5) -> String {
-    let mode = if config.update.enabled { "auto" } else { "manual" };
+    let mode = if config.update.enabled {
+        "auto"
+    } else {
+        "manual"
+    };
     let interval = config.update.effective_interval();
     format!(
         "{} ({}, every {}s)",
@@ -160,7 +167,13 @@ pub async fn process_internal_query(
     if !llm.is_available().await {
         // Fallback for when LLM is not available
         return Ok(match query_type {
-            InternalQueryType::Version { version, daemon_status, probe_count, config, hardware } => {
+            InternalQueryType::Version {
+                version,
+                daemon_status,
+                probe_count,
+                config,
+                hardware,
+            } => {
                 let update_info = format_update_info(&config);
                 let model_rec = hardware.select_model();
 
@@ -185,7 +198,8 @@ pub async fn process_internal_query(
                 };
 
                 AnnaResponse {
-                    answer: format!(r#"Usage:
+                    answer: format!(
+                        r#"Usage:
   annactl "<question>"      Ask Anna anything
   annactl                   Start interactive REPL
   annactl -V | --version    Show version
@@ -198,7 +212,9 @@ Configuration (via natural language):
 
 {}
 
-[WARNING] LLM unavailable - showing basic help only"#, config_note),
+[WARNING] LLM unavailable - showing basic help only"#,
+                        config_note
+                    ),
                     confidence: 0.5,
                     sources: vec!["internal.help".to_string(), "config.update".to_string()],
                     warning: Some("LLM backend unavailable".to_string()),
@@ -208,7 +224,13 @@ Configuration (via natural language):
     }
 
     match query_type {
-        InternalQueryType::Version { version, daemon_status, probe_count, config, hardware } => {
+        InternalQueryType::Version {
+            version,
+            daemon_status,
+            probe_count,
+            config,
+            hardware,
+        } => {
             let update_info = format_update_info(&config);
             let model_rec = hardware.select_model();
 
@@ -334,7 +356,8 @@ Configuration (via natural language):
                 .await;
 
             // v0.6.0: ASCII-only sysadmin style help output
-            let help_text = format!(r#"{sep}
+            let help_text = format!(
+                r#"{sep}
 Anna Assistant - Help
 {sep}
 
@@ -369,7 +392,10 @@ Anna Assistant - Help
   * internal_passes: 1
   * threshold_reached: yes
 
-{sep}"#, sep = SEPARATOR, config_note = config_note);
+{sep}"#,
+                sep = SEPARATOR,
+                config_note = config_note
+            );
 
             Ok(AnnaResponse {
                 answer: help_text,
@@ -616,7 +642,8 @@ async fn process_question_internal(
             }
 
             // Build structured evidence
-            let evidence_list: Vec<Evidence> = results.iter().map(Evidence::from_probe_result).collect();
+            let evidence_list: Vec<Evidence> =
+                results.iter().map(Evidence::from_probe_result).collect();
             let evidence_json: serde_json::Value = results
                 .iter()
                 .map(|r| (r.id.clone(), r.data.clone()))
@@ -675,7 +702,10 @@ async fn process_question_internal(
 
             // Deduct for invalid probe requests (LLM hallucination)
             if !invalid_probes.is_empty() {
-                reliability.add_deduction(0.2, &format!("Invalid probes requested: {:?}", invalid_probes));
+                reliability.add_deduction(
+                    0.2,
+                    &format!("Invalid probes requested: {:?}", invalid_probes),
+                );
             }
 
             // === STRICT HALLUCINATION GUARDRAIL ===
@@ -698,18 +728,22 @@ async fn process_question_internal(
             // Build final response based on verdict
             match expert.verdict {
                 Verdict::Approved => {
-                    let final_action: OrchestratorAction =
-                        serde_json::from_str(&llm_a_answer).unwrap_or_else(|_| {
-                            OrchestratorAction::FinalAnswer {
-                                answer: llm_a_answer.clone(),
-                                confidence: expert.confidence,
-                                sources: valid_probes.clone(),
-                                reliability: None,
-                                limitations: None,
-                            }
+                    let final_action: OrchestratorAction = serde_json::from_str(&llm_a_answer)
+                        .unwrap_or_else(|_| OrchestratorAction::FinalAnswer {
+                            answer: llm_a_answer.clone(),
+                            confidence: expert.confidence,
+                            sources: valid_probes.clone(),
+                            reliability: None,
+                            limitations: None,
                         });
 
-                    if let OrchestratorAction::FinalAnswer { answer, sources, limitations, .. } = final_action {
+                    if let OrchestratorAction::FinalAnswer {
+                        answer,
+                        sources,
+                        limitations,
+                        ..
+                    } = final_action
+                    {
                         let warning = if reliability.overall < 0.8 {
                             Some(format!("Reliability: {:.0}%", reliability.overall * 100.0))
                         } else {
@@ -735,8 +769,9 @@ async fn process_question_internal(
                     warn!("LLM-B requested revision: {}", expert.explanation);
                     reliability.add_deduction(0.1, "Required revision");
 
-                    let answer = expert.corrected_reasoning
-                        .unwrap_or_else(|| format!("{}\n\n[NOTE] {}", llm_a_answer, expert.explanation));
+                    let answer = expert.corrected_reasoning.unwrap_or_else(|| {
+                        format!("{}\n\n[NOTE] {}", llm_a_answer, expert.explanation)
+                    });
 
                     Ok(AnnaResponse {
                         answer,
@@ -763,7 +798,11 @@ async fn process_question_internal(
                 }
             }
         }
-        OrchestratorAction::FinalAnswer { confidence, sources, .. } => {
+        OrchestratorAction::FinalAnswer {
+            confidence,
+            sources,
+            ..
+        } => {
             // === STRICT HALLUCINATION GUARDRAIL ===
             // Direct answer without probes - REJECT
             warn!("LLM-A provided answer without requesting probes - BLOCKED");
@@ -788,13 +827,25 @@ fn create_insufficient_evidence_response(question: &str) -> AnnaResponse {
     let mut missing_probes = Vec::new();
     let q_lower = question.to_lowercase();
 
-    if q_lower.contains("gpu") || q_lower.contains("graphics") || q_lower.contains("nvidia") || q_lower.contains("amd") {
+    if q_lower.contains("gpu")
+        || q_lower.contains("graphics")
+        || q_lower.contains("nvidia")
+        || q_lower.contains("amd")
+    {
         missing_probes.push("No gpu.info probe available");
     }
-    if q_lower.contains("network") || q_lower.contains("wifi") || q_lower.contains("ethernet") || q_lower.contains("ip") {
+    if q_lower.contains("network")
+        || q_lower.contains("wifi")
+        || q_lower.contains("ethernet")
+        || q_lower.contains("ip")
+    {
         missing_probes.push("No network.info probe available");
     }
-    if q_lower.contains("package") || q_lower.contains("install") || q_lower.contains("apt") || q_lower.contains("pacman") {
+    if q_lower.contains("package")
+        || q_lower.contains("install")
+        || q_lower.contains("apt")
+        || q_lower.contains("pacman")
+    {
         missing_probes.push("No package.info probe available");
     }
     if q_lower.contains("process") || q_lower.contains("running") || q_lower.contains("service") {

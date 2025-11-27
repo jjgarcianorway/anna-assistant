@@ -167,7 +167,8 @@ pub fn parse_log_config_intent(input: &str) -> LogConfigIntent {
     }
 
     // Set level
-    if lower.contains("set") && (lower.contains("log") || lower.contains("logging"))
+    if lower.contains("set")
+        && (lower.contains("log") || lower.contains("logging"))
         && lower.contains("level")
     {
         if lower.contains("trace") {
@@ -235,8 +236,10 @@ mod tests {
 
     #[test]
     fn test_should_log() {
-        let mut config = LogConfig::default();
-        config.level = LogLevel::Info;
+        let config = LogConfig {
+            level: LogLevel::Info,
+            ..Default::default()
+        };
 
         assert!(!config.should_log(LogLevel::Debug));
         assert!(config.should_log(LogLevel::Info));
@@ -247,9 +250,18 @@ mod tests {
     #[test]
     fn test_log_paths() {
         let config = LogConfig::default();
-        assert!(config.daemon_log_path().to_string_lossy().contains("anna-daemon.log"));
-        assert!(config.requests_log_path().to_string_lossy().contains("anna-requests.log"));
-        assert!(config.llm_log_path().to_string_lossy().contains("anna-llm.log"));
+        assert!(config
+            .daemon_log_path()
+            .to_string_lossy()
+            .contains("anna-daemon.log"));
+        assert!(config
+            .requests_log_path()
+            .to_string_lossy()
+            .contains("anna-requests.log"));
+        assert!(config
+            .llm_log_path()
+            .to_string_lossy()
+            .contains("anna-llm.log"));
     }
 
     #[test]

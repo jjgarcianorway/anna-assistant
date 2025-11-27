@@ -7,15 +7,12 @@
 //! - Knowledge hygiene
 //! - Event detection
 
+pub mod event_watcher;
+pub mod hygiene;
 pub mod job_processor;
 pub mod system_mapper;
-pub mod hygiene;
-pub mod event_watcher;
 
 pub use job_processor::*;
-pub use system_mapper::*;
-pub use hygiene::*;
-pub use event_watcher::*;
 
 use anna_common::{KnowledgeStore, MappingState, UserTelemetry};
 use std::sync::Arc;

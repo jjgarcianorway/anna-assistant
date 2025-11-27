@@ -16,16 +16,19 @@
 //!   - annactl -V | --version | version  Show version info
 //!   - annactl -h | --help | help        Show help info
 
+// Allow dead code for features planned but not yet fully wired
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 mod client;
 mod llm_client;
 mod orchestrator;
 mod output;
 
 use anna_common::{
-    AnnaConfigV5, HardwareProfile, OverallHealth, RepairSafety,
-    generate_request_id, init_logger, log_request, logging, self_health,
-    LogComponent, LogEntry, LogLevel, RequestContext, RequestStatus,
-    clear_current_request, set_current_request,
+    clear_current_request, generate_request_id, init_logger, log_request, logging, self_health,
+    set_current_request, AnnaConfigV5, HardwareProfile, LogComponent, LogEntry, LogLevel,
+    OverallHealth, RepairSafety, RequestContext, RequestStatus,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -126,17 +129,17 @@ async fn run_repl() -> Result<()> {
         if input.is_empty() {
             continue;
         }
-        if matches!(
-            input.to_lowercase().as_str(),
-            "quit" | "exit" | "q" | ":q"
-        ) {
+        if matches!(input.to_lowercase().as_str(), "quit" | "exit" | "q" | ":q") {
             // v0.6.0: ASCII-only output
             println!("\nGoodbye.\n");
             break;
         }
 
         // Handle version/help/status in REPL too (case-insensitive)
-        if matches!(input.to_lowercase().as_str(), "version" | "-v" | "--version") {
+        if matches!(
+            input.to_lowercase().as_str(),
+            "version" | "-v" | "--version"
+        ) {
             run_version_via_llm().await?;
             continue;
         }
@@ -163,7 +166,9 @@ fn print_banner() {
     println!(
         "\n{}  {}",
         ">>".bright_magenta(),
-        format!("Anna v{}", env!("CARGO_PKG_VERSION")).bright_white().bold()
+        format!("Anna v{}", env!("CARGO_PKG_VERSION"))
+            .bright_white()
+            .bold()
     );
     println!("   Your intelligent Linux assistant\n");
 }
@@ -179,12 +184,16 @@ async fn run_ask(question: &str) -> Result<()> {
 
     // Log request start
     logging::logger().write_daemon(
-        &LogEntry::new(LogLevel::Debug, LogComponent::Request, "Processing question")
-            .with_request_id(&request_id)
-            .with_fields(serde_json::json!({
-                "query_length": question.len(),
-                "query_preview": if question.len() > 50 { &question[..50] } else { question }
-            })),
+        &LogEntry::new(
+            LogLevel::Debug,
+            LogComponent::Request,
+            "Processing question",
+        )
+        .with_request_id(&request_id)
+        .with_fields(serde_json::json!({
+            "query_length": question.len(),
+            "query_preview": if question.len() > 50 { &question[..50] } else { question }
+        })),
     );
 
     let daemon = client::DaemonClient::new();
@@ -193,16 +202,17 @@ async fn run_ask(question: &str) -> Result<()> {
     if !daemon.is_healthy().await {
         // Log daemon unavailable
         logging::logger().write_daemon(
-            &LogEntry::new(LogLevel::Error, LogComponent::Request, "Daemon not available")
-                .with_request_id(&request_id),
+            &LogEntry::new(
+                LogLevel::Error,
+                LogComponent::Request,
+                "Daemon not available",
+            )
+            .with_request_id(&request_id),
         );
 
         // v0.6.0: ASCII-only error output
         eprintln!("[ERROR] Anna daemon is not running");
-        eprintln!(
-            "   Run: {} to start",
-            "sudo systemctl start annad".cyan()
-        );
+        eprintln!("   Run: {} to start", "sudo systemctl start annad".cyan());
 
         // Log and clear request context
         logging::with_current_request(|ctx| {
@@ -253,11 +263,15 @@ async fn run_ask(question: &str) -> Result<()> {
         Err(e) => {
             // Log error
             logging::logger().write_daemon(
-                &LogEntry::new(LogLevel::Error, LogComponent::Request, "Answer request failed")
-                    .with_request_id(&request_id)
-                    .with_fields(serde_json::json!({
-                        "error": e.to_string()
-                    })),
+                &LogEntry::new(
+                    LogLevel::Error,
+                    LogComponent::Request,
+                    "Answer request failed",
+                )
+                .with_request_id(&request_id)
+                .with_fields(serde_json::json!({
+                    "error": e.to_string()
+                })),
             );
 
             logging::with_current_request(|ctx| {
@@ -278,7 +292,8 @@ async fn run_version_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
     // Build internal question for version info
-    let version_question = "What is your version? Report: mode, update status, LLM config, daemon status.";
+    let version_question =
+        "What is your version? Report: mode, update status, LLM config, daemon status.";
 
     // Check if daemon is healthy and get status
     let daemon_status = if daemon.is_healthy().await {
@@ -330,7 +345,8 @@ async fn run_version_via_llm() -> Result<()> {
 async fn run_help_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
-    let help_question = "How do I use Anna? Show usage, natural language configuration, and examples.";
+    let help_question =
+        "How do I use Anna? Show usage, natural language configuration, and examples.";
 
     // Load v0.5.0 config
     let config = AnnaConfigV5::load();
@@ -359,11 +375,7 @@ async fn run_status() -> Result<()> {
     println!("{}", THIN_SEPARATOR);
 
     // Version info
-    println!(
-        "  {}  annactl v{}",
-        "*".cyan(),
-        env!("CARGO_PKG_VERSION")
-    );
+    println!("  {}  annactl v{}", "*".cyan(), env!("CARGO_PKG_VERSION"));
 
     // Daemon status
     if daemon.is_healthy().await {
@@ -415,11 +427,7 @@ async fn run_status() -> Result<()> {
     if daemon.is_healthy().await {
         match daemon.update_state().await {
             Ok(state) => {
-                println!(
-                    "  {}  Current: v{}",
-                    "*".cyan(),
-                    env!("CARGO_PKG_VERSION")
-                );
+                println!("  {}  Current: v{}", "*".cyan(), env!("CARGO_PKG_VERSION"));
                 if let Some(latest) = &state.latest_version {
                     if latest != env!("CARGO_PKG_VERSION") {
                         println!(
@@ -461,7 +469,10 @@ async fn run_status() -> Result<()> {
             }
         }
     } else {
-        println!("  {}  Daemon not running, update state unavailable", "!".bright_red());
+        println!(
+            "  {}  Daemon not running, update state unavailable",
+            "!".bright_red()
+        );
     }
 
     println!("{}", THIN_SEPARATOR);
@@ -566,11 +577,7 @@ fn run_startup_health_check() {
             // Show degraded components
             for component in &report.components {
                 if !component.status.is_healthy() {
-                    println!(
-                        "   * {}: {}",
-                        component.name.yellow(),
-                        component.message
-                    );
+                    println!("   * {}: {}", component.name.yellow(), component.message);
                 }
             }
             println!();
@@ -594,21 +601,14 @@ fn run_startup_health_check() {
             println!();
         }
         OverallHealth::Unknown => {
-            println!(
-                "{}  Self-health: {}",
-                "[NOTE]".dimmed(),
-                "unknown".dimmed()
-            );
+            println!("{}  Self-health: {}", "[NOTE]".dimmed(), "unknown".dimmed());
             println!();
         }
     }
 
     // Show auto-repairs that were executed
     if !report.repairs_executed.is_empty() {
-        println!(
-            "{}  Auto-repairs executed:",
-            "[AUTO-REPAIR]".bright_green()
-        );
+        println!("{}  Auto-repairs executed:", "[AUTO-REPAIR]".bright_green());
         for repair in &report.repairs_executed {
             let status = if repair.success {
                 "+".bright_green().to_string()
@@ -628,10 +628,7 @@ fn run_startup_health_check() {
         .collect();
 
     if !manual_actions.is_empty() {
-        println!(
-            "{}  Manual action required:",
-            "[ACTION]".yellow()
-        );
+        println!("{}  Manual action required:", "[ACTION]".yellow());
         for repair in manual_actions {
             println!(
                 "   * {}: {}",

@@ -8,9 +8,9 @@ use crate::orchestrator::AnswerEngine;
 use crate::probe::executor::ProbeExecutor;
 use crate::server::AppState;
 use anna_common::{
-    load_update_state, AnnaConfigV5, Fact, FactQuery, FinalAnswer, GetStateRequest,
-    HealthResponse, InvalidateRequest, ListProbesResponse, ProbeInfo, ProbeResult,
-    RunProbeRequest, SetStateRequest, StateResponse, UpdateStateResponse,
+    load_update_state, AnnaConfigV5, Fact, FactQuery, FinalAnswer, GetStateRequest, HealthResponse,
+    InvalidateRequest, ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest,
+    SetStateRequest, StateResponse, UpdateStateResponse,
 };
 use axum::{
     extract::State,
@@ -388,12 +388,14 @@ async fn knowledge_stats(
 
     let store = brain.store.read().await;
 
-    let fact_count = store.count().map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?;
+    let fact_count = store
+        .count()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Get unique entity types
-    let all_facts = store.query(&FactQuery::new().limit(1000)).unwrap_or_default();
+    let all_facts = store
+        .query(&FactQuery::new().limit(1000))
+        .unwrap_or_default();
     let mut entity_types: Vec<String> = all_facts
         .iter()
         .map(|f| f.entity.split(':').next().unwrap_or("unknown").to_string())

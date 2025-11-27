@@ -34,7 +34,7 @@ impl ProbeRegistry {
             let entry = entry?;
             let file_path = entry.path();
 
-            if file_path.extension().map_or(false, |ext| ext == "json") {
+            if file_path.extension().is_some_and(|ext| ext == "json") {
                 match registry.load_probe_file(&file_path) {
                     Ok(()) => debug!("  Loaded probe: {:?}", file_path),
                     Err(e) => warn!("  Failed to load probe {:?}: {}", file_path, e),

@@ -14,87 +14,76 @@ pub fn extract_fallback_answer(question: &str, evidence: &[ProbeEvidenceV10]) ->
         let raw = ev.raw.as_deref().unwrap_or("");
 
         // CPU-related questions
-        if q_lower.contains("cpu")
+        if (q_lower.contains("cpu")
             || q_lower.contains("processor")
             || q_lower.contains("core")
-            || q_lower.contains("thread")
+            || q_lower.contains("thread"))
+            && ev.probe_id == "cpu.info"
         {
-            if ev.probe_id == "cpu.info" {
-                return extract_cpu_fact(&q_lower, raw);
-            }
+            return extract_cpu_fact(&q_lower, raw);
         }
 
         // Memory questions
-        if q_lower.contains("ram") || q_lower.contains("memory") {
-            if ev.probe_id == "mem.info" {
-                return extract_memory_fact(raw);
-            }
+        if (q_lower.contains("ram") || q_lower.contains("memory")) && ev.probe_id == "mem.info" {
+            return extract_memory_fact(raw);
         }
 
         // Disk questions
-        if q_lower.contains("disk") || q_lower.contains("storage") || q_lower.contains("drive") {
-            if ev.probe_id == "disk.lsblk" {
-                return Some(format!(
-                    "Disk information from system:\n{}",
-                    truncate_raw(raw, 500)
-                ));
-            }
+        if (q_lower.contains("disk") || q_lower.contains("storage") || q_lower.contains("drive"))
+            && ev.probe_id == "disk.lsblk"
+        {
+            return Some(format!(
+                "Disk information from system:\n{}",
+                truncate_raw(raw, 500)
+            ));
         }
 
         // Network questions
-        if q_lower.contains("network") || q_lower.contains("interface") || q_lower.contains("ip") {
-            if ev.probe_id == "net.addr" || ev.probe_id == "net.links" {
-                return Some(format!("Network information:\n{}", truncate_raw(raw, 500)));
-            }
+        if (q_lower.contains("network") || q_lower.contains("interface") || q_lower.contains("ip"))
+            && (ev.probe_id == "net.addr" || ev.probe_id == "net.links")
+        {
+            return Some(format!("Network information:\n{}", truncate_raw(raw, 500)));
         }
 
         // Kernel questions
-        if q_lower.contains("kernel") {
-            if ev.probe_id == "system.kernel" {
-                return Some(format!("Kernel: {}", raw.trim()));
-            }
+        if q_lower.contains("kernel") && ev.probe_id == "system.kernel" {
+            return Some(format!("Kernel: {}", raw.trim()));
         }
 
         // DNS questions
-        if q_lower.contains("dns") {
-            if ev.probe_id == "dns.resolv" {
-                return Some(format!("DNS configuration:\n{}", raw.trim()));
-            }
+        if q_lower.contains("dns") && ev.probe_id == "dns.resolv" {
+            return Some(format!("DNS configuration:\n{}", raw.trim()));
         }
 
         // Route questions
-        if q_lower.contains("route") || q_lower.contains("routing") {
-            if ev.probe_id == "net.routes" {
-                return Some(format!("Routing table:\n{}", truncate_raw(raw, 500)));
-            }
+        if (q_lower.contains("route") || q_lower.contains("routing")) && ev.probe_id == "net.routes"
+        {
+            return Some(format!("Routing table:\n{}", truncate_raw(raw, 500)));
         }
 
         // Update questions
-        if q_lower.contains("update") || q_lower.contains("pacman") {
-            if ev.probe_id == "pkg.pacman_updates" {
-                let lines: Vec<&str> = raw.lines().collect();
-                if lines.is_empty() || raw.trim().is_empty() {
-                    return Some("No pacman updates are currently available.".to_string());
-                }
-                return Some(format!("{} pacman updates available.", lines.len()));
+        if (q_lower.contains("update") || q_lower.contains("pacman"))
+            && ev.probe_id == "pkg.pacman_updates"
+        {
+            let lines: Vec<&str> = raw.lines().collect();
+            if lines.is_empty() || raw.trim().is_empty() {
+                return Some("No pacman updates are currently available.".to_string());
             }
+            return Some(format!("{} pacman updates available.", lines.len()));
         }
 
         // Anna health questions
-        if q_lower.contains("healthy") || q_lower.contains("health") || q_lower.contains("anna") {
-            if ev.probe_id == "anna.self_health" {
-                return Some(format!("Anna self-health: {}", raw.trim()));
-            }
+        if (q_lower.contains("healthy") || q_lower.contains("health") || q_lower.contains("anna"))
+            && ev.probe_id == "anna.self_health"
+        {
+            return Some(format!("Anna self-health: {}", raw.trim()));
         }
 
         // Journal/logs questions
-        if q_lower.contains("log") || q_lower.contains("journal") {
-            if ev.probe_id == "system.journal_slice" {
-                return Some(format!(
-                    "Recent system logs:\n{}",
-                    truncate_raw(raw, 800)
-                ));
-            }
+        if (q_lower.contains("log") || q_lower.contains("journal"))
+            && ev.probe_id == "system.journal_slice"
+        {
+            return Some(format!("Recent system logs:\n{}", truncate_raw(raw, 800)));
         }
 
         // Home directory questions
@@ -146,7 +135,9 @@ fn extract_cpu_fact(question: &str, raw: &str) -> Option<String> {
         }
 
         // AVX/SSE flags
-        if (question.contains("avx") || question.contains("sse")) && line_lower.starts_with("flags:") {
+        if (question.contains("avx") || question.contains("sse"))
+            && line_lower.starts_with("flags:")
+        {
             if let Some(flags) = line.split(':').nth(1) {
                 let flags_lower = flags.to_lowercase();
                 let flag_list: Vec<&str> = flags_lower.split_whitespace().collect();
@@ -203,10 +194,7 @@ fn extract_memory_fact(raw: &str) -> Option<String> {
             }
         }
     }
-    Some(format!(
-        "Memory information:\n{}",
-        truncate_raw(raw, 300)
-    ))
+    Some(format!("Memory information:\n{}", truncate_raw(raw, 300)))
 }
 
 /// Truncate raw output to a max length
@@ -258,7 +246,10 @@ mod tests {
 
     #[test]
     fn test_extract_memory() {
-        let evidence = vec![make_evidence("mem.info", "MemTotal: 32768000 kB\nMemFree: 1000000 kB")];
+        let evidence = vec![make_evidence(
+            "mem.info",
+            "MemTotal: 32768000 kB\nMemFree: 1000000 kB",
+        )];
         let result = extract_fallback_answer("How much RAM do I have?", &evidence);
         assert!(result.is_some());
         assert!(result.unwrap().contains("31 GB"));

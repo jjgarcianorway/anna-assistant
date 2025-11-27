@@ -5,12 +5,12 @@
 //!
 //! Schema version: 1
 
+pub mod learning;
 pub mod schema;
 pub mod store;
 pub mod telemetry;
-pub mod learning;
 
+pub use learning::*;
 pub use schema::*;
 pub use store::*;
 pub use telemetry::*;
-pub use learning::*;
