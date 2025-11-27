@@ -467,7 +467,7 @@ User=anna
 Group=anna
 ExecStart=/usr/local/bin/annad
 WorkingDirectory=/usr/share/anna
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 # Security hardening
