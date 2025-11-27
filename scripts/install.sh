@@ -33,7 +33,7 @@ set -uo pipefail
 # ============================================================
 
 # Installer version (independent from Anna version)
-INSTALLER_VERSION="2.0.0"
+INSTALLER_VERSION="2.1.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -355,23 +355,30 @@ confirm_action() {
 # ============================================================
 
 download_binaries() {
-    log_info "Downloading binaries..."
+    log_info "Downloading release package..."
 
     local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${LATEST_VERSION}"
     TMP_DIR=$(mktemp -d)
 
-    # v0.11.0: Binaries are named simply annad/annactl (no arch suffix)
-    local annad_file="annad"
-    local annactl_file="annactl"
-
-    # Download files
-    if command -v curl &>/dev/null; then
-        curl -fsSL "${base_url}/${annad_file}" -o "${TMP_DIR}/annad" || {
-            log_error "Failed to download annad"
+    # Determine tarball name based on architecture
+    local tarball_name
+    case "$ARCH" in
+        x86_64-unknown-linux-gnu)
+            tarball_name="anna-linux-x86_64.tar.gz"
+            ;;
+        aarch64-unknown-linux-gnu)
+            tarball_name="anna-linux-aarch64.tar.gz"
+            ;;
+        *)
+            log_error "Unsupported architecture: $ARCH"
             return 1
-        }
-        curl -fsSL "${base_url}/${annactl_file}" -o "${TMP_DIR}/annactl" || {
-            log_error "Failed to download annactl"
+            ;;
+    esac
+
+    # Download tarball and checksums
+    if command -v curl &>/dev/null; then
+        curl -fsSL "${base_url}/${tarball_name}" -o "${TMP_DIR}/${tarball_name}" || {
+            log_error "Failed to download ${tarball_name}"
             return 1
         }
         curl -fsSL "${base_url}/SHA256SUMS" -o "${TMP_DIR}/SHA256SUMS" || {
@@ -379,27 +386,33 @@ download_binaries() {
             return 1
         }
     else
-        wget -q "${base_url}/${annad_file}" -O "${TMP_DIR}/annad" || return 1
-        wget -q "${base_url}/${annactl_file}" -O "${TMP_DIR}/annactl" || return 1
+        wget -q "${base_url}/${tarball_name}" -O "${TMP_DIR}/${tarball_name}" || return 1
         wget -q "${base_url}/SHA256SUMS" -O "${TMP_DIR}/SHA256SUMS" || return 1
     fi
 
-    log_ok "Downloaded binaries"
+    log_ok "Downloaded release package"
 
-    # Verify checksums
+    # Verify checksum
     log_info "Verifying checksums..."
     cd "$TMP_DIR"
 
-    local annad_sum annactl_sum
-    annad_sum=$(sha256sum annad | awk '{print $1}')
-    annactl_sum=$(sha256sum annactl | awk '{print $1}')
+    local tarball_sum
+    tarball_sum=$(sha256sum "${tarball_name}" | awk '{print $1}')
 
-    if grep -q "$annad_sum" SHA256SUMS && grep -q "$annactl_sum" SHA256SUMS; then
+    if grep -q "$tarball_sum" SHA256SUMS; then
         log_ok "Checksums verified"
     else
         log_error "Checksum verification failed!"
         return 1
     fi
+
+    # Extract tarball
+    log_info "Extracting release package..."
+    tar -xzf "${tarball_name}" || {
+        log_error "Failed to extract tarball"
+        return 1
+    }
+    log_ok "Extracted release package"
 }
 
 install_binaries() {
@@ -413,13 +426,21 @@ install_binaries() {
         $SUDO cp "${INSTALL_DIR}/annactl" "${INSTALL_DIR}/annactl.bak" 2>/dev/null || true
     fi
 
-    # Install (atomic move)
+    # Install binaries (atomic move)
     $SUDO mv "${TMP_DIR}/annad" "${INSTALL_DIR}/annad"
     $SUDO mv "${TMP_DIR}/annactl" "${INSTALL_DIR}/annactl"
     $SUDO chmod 755 "${INSTALL_DIR}/annad"
     $SUDO chmod 755 "${INSTALL_DIR}/annactl"
 
     log_ok "Installed binaries to ${INSTALL_DIR}"
+
+    # Install probe definitions
+    if [[ -d "${TMP_DIR}/probes" ]]; then
+        log_info "Installing probe definitions..."
+        $SUDO mkdir -p "$PROBES_DIR"
+        $SUDO cp -r "${TMP_DIR}/probes/"* "$PROBES_DIR/" 2>/dev/null || true
+        log_ok "Installed probe definitions to ${PROBES_DIR}"
+    fi
 }
 
 create_user_and_dirs() {
