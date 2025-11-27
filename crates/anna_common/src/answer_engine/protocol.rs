@@ -238,6 +238,50 @@ impl AuditScores {
 }
 
 // ============================================================================
+// Debug Trace for Development (v0.16.3)
+// ============================================================================
+
+/// A single iteration in the LLM dialog
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DebugIteration {
+    /// Iteration number (1-based)
+    pub iteration: usize,
+    /// LLM-A prompt sent (truncated for display)
+    pub llm_a_prompt: String,
+    /// LLM-A raw response
+    pub llm_a_response: String,
+    /// LLM-A parsed intent
+    pub llm_a_intent: String,
+    /// Probes requested by LLM-A
+    pub llm_a_probes: Vec<String>,
+    /// Whether LLM-A provided a draft answer
+    pub llm_a_has_draft: bool,
+    /// Probes actually executed
+    pub probes_executed: Vec<String>,
+    /// LLM-B prompt sent (truncated for display)
+    pub llm_b_prompt: Option<String>,
+    /// LLM-B raw response
+    pub llm_b_response: Option<String>,
+    /// LLM-B verdict
+    pub llm_b_verdict: Option<String>,
+    /// LLM-B confidence score
+    pub llm_b_confidence: Option<f64>,
+}
+
+/// Complete debug trace for a research session
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DebugTrace {
+    /// All iterations in the research loop
+    pub iterations: Vec<DebugIteration>,
+    /// Junior model used
+    pub junior_model: String,
+    /// Senior model used
+    pub senior_model: String,
+    /// Total duration in seconds
+    pub duration_secs: f64,
+}
+
+// ============================================================================
 // Final Answer Structure
 // ============================================================================
 
@@ -268,6 +312,9 @@ pub struct FinalAnswer {
     /// v0.15.21: Clarification question to ask user (if answer needs more info)
     #[serde(default)]
     pub clarification_needed: Option<String>,
+    /// v0.16.3: Debug trace showing full LLM dialog (for development)
+    #[serde(default)]
+    pub debug_trace: Option<DebugTrace>,
 }
 
 /// Confidence level derived from overall score

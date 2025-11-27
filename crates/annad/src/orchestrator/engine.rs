@@ -1,9 +1,10 @@
-//! Answer Engine v0.12.2
+//! Answer Engine v0.16.3
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
 //!
-//! Key v0.12.2 changes:
+//! Key v0.16.3 changes:
+//! - Debug trace captures full LLM dialog for development troubleshooting
 //! - Iteration-aware prompting (forces answer on iteration 2+)
 //! - Fallback answer extraction from raw evidence
 //! - More aggressive answer generation when evidence exists
@@ -13,10 +14,11 @@ use super::llm_client::OllamaClient;
 use super::probe_executor;
 use anna_common::{
     generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict,
-    ConfidenceLevel, FinalAnswer, LoopState, ProbeCatalog, ProbeEvidenceV10, ReliabilityScores,
-    MAX_LOOPS,
+    ConfidenceLevel, DebugIteration, DebugTrace, FinalAnswer, LoopState, ProbeCatalog,
+    ProbeEvidenceV10, ReliabilityScores, MAX_LOOPS,
 };
 use anyhow::Result;
+use std::time::Instant;
 use tracing::{debug, info, warn};
 
 /// Answer engine - orchestrates the LLM-A/LLM-B loop
@@ -79,16 +81,30 @@ impl AnswerEngine {
     /// Process a user question and return the final answer
     pub async fn process_question(&self, question: &str) -> Result<FinalAnswer> {
         info!("Processing question: {}", question);
+        let start_time = Instant::now();
 
         let mut loop_state = LoopState::default();
         let mut evidence: Vec<ProbeEvidenceV10> = vec![];
         let mut last_draft_answer: Option<String> = None;
         let mut last_scores: Option<AuditScores> = None;
 
+        // Debug trace to capture full LLM dialog
+        let mut debug_trace = DebugTrace {
+            junior_model: self.junior_model().to_string(),
+            senior_model: self.senior_model().to_string(),
+            ..Default::default()
+        };
+
         // Main orchestration loop
         while loop_state.can_continue() {
             loop_state.next_iteration();
             info!("Loop iteration {}/{}", loop_state.iteration, MAX_LOOPS);
+
+            // Initialize debug iteration
+            let mut debug_iter = DebugIteration {
+                iteration: loop_state.iteration,
+                ..Default::default()
+            };
 
             // Step 1: Call LLM-A with iteration awareness
             let llm_a_prompt = generate_llm_a_prompt_with_iteration(
@@ -97,7 +113,22 @@ impl AnswerEngine {
                 &evidence,
                 loop_state.iteration,
             );
-            let llm_a_response = self.llm_client.call_llm_a(&llm_a_prompt).await?;
+
+            // Capture prompt for debug (truncated)
+            debug_iter.llm_a_prompt = truncate_for_debug(&llm_a_prompt, 2000);
+
+            let (llm_a_response, llm_a_raw) = self.llm_client.call_llm_a(&llm_a_prompt).await?;
+
+            // Capture raw response for debug
+            debug_iter.llm_a_response = llm_a_raw;
+            debug_iter.llm_a_intent = llm_a_response.plan.intent.clone();
+            debug_iter.llm_a_probes = llm_a_response
+                .plan
+                .probe_requests
+                .iter()
+                .map(|p| p.probe_id.clone())
+                .collect();
+            debug_iter.llm_a_has_draft = llm_a_response.draft_answer.is_some();
 
             info!(
                 "🤖  LLM-A parsed: intent={}, probes={}, draft={}, needs_more={}, refuse={}",
@@ -119,7 +150,9 @@ impl AnswerEngine {
                 // Only refuse if no evidence at all - otherwise try partial answer
                 if evidence.is_empty() {
                     loop_state.mark_refused();
-                    return Ok(self.build_refusal(
+                    debug_trace.iterations.push(debug_iter);
+                    debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
+                    return Ok(self.build_refusal_with_trace(
                         question,
                         llm_a_response
                             .refusal_reason
@@ -127,6 +160,7 @@ impl AnswerEngine {
                             .unwrap_or("Unable to answer"),
                         &evidence,
                         loop_state.iteration,
+                        debug_trace,
                     ));
                 }
                 // If we have evidence, try to provide partial answer
@@ -151,6 +185,8 @@ impl AnswerEngine {
                         valid_probes.len(),
                         probe_ids.len() - valid_probes.len()
                     );
+                    // Capture executed probes for debug
+                    debug_iter.probes_executed = valid_probes.clone();
                     let new_evidence =
                         probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                     evidence.extend(new_evidence);
@@ -158,6 +194,7 @@ impl AnswerEngine {
 
                 // If needs more probes, continue to next iteration
                 if llm_a_response.needs_more_probes && llm_a_response.draft_answer.is_none() {
+                    debug_trace.iterations.push(debug_iter);
                     continue;
                 }
             }
@@ -167,6 +204,7 @@ impl AnswerEngine {
                 Some(draft) => draft,
                 None => {
                     warn!("LLM-A did not provide draft answer");
+                    debug_trace.iterations.push(debug_iter);
                     continue;
                 }
             };
@@ -181,7 +219,16 @@ impl AnswerEngine {
             // Step 4: Call LLM-B to audit
             let llm_b_prompt =
                 generate_llm_b_prompt(question, &draft_answer, &evidence, &self_scores);
-            let llm_b_response = self.llm_client.call_llm_b(&llm_b_prompt).await?;
+
+            // Capture LLM-B prompt for debug
+            debug_iter.llm_b_prompt = Some(truncate_for_debug(&llm_b_prompt, 2000));
+
+            let (llm_b_response, llm_b_raw) = self.llm_client.call_llm_b(&llm_b_prompt).await?;
+
+            // Capture LLM-B response for debug
+            debug_iter.llm_b_response = Some(llm_b_raw);
+            debug_iter.llm_b_verdict = Some(llm_b_response.verdict.as_str().to_string());
+            debug_iter.llm_b_confidence = Some(llm_b_response.scores.overall);
 
             info!(
                 "🔍  LLM-B parsed: verdict={:?}, score={:.2}, problems={}",
@@ -200,12 +247,15 @@ impl AnswerEngine {
             match llm_b_response.verdict {
                 AuditVerdict::Approve => {
                     loop_state.mark_approved();
-                    return Ok(self.build_final_answer(
+                    debug_trace.iterations.push(debug_iter);
+                    debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
+                    return Ok(self.build_final_answer_with_trace(
                         question,
                         &draft_answer.text,
                         evidence,
                         llm_b_response.scores,
                         loop_state.iteration,
+                        debug_trace,
                     ));
                 }
                 AuditVerdict::FixAndAccept => {
@@ -215,12 +265,15 @@ impl AnswerEngine {
                         .fixed_answer
                         .as_deref()
                         .unwrap_or(&draft_answer.text);
-                    return Ok(self.build_final_answer(
+                    debug_trace.iterations.push(debug_iter);
+                    debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
+                    return Ok(self.build_final_answer_with_trace(
                         question,
                         answer_text,
                         evidence,
                         llm_b_response.scores,
                         loop_state.iteration,
+                        debug_trace,
                     ));
                 }
                 AuditVerdict::Refuse => {
@@ -232,17 +285,21 @@ impl AnswerEngine {
                             .first()
                             .map(|s| s.as_str())
                             .unwrap_or("Auditor determined answer cannot be safely provided");
-                        return Ok(self.build_refusal(
+                        debug_trace.iterations.push(debug_iter);
+                        debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
+                        return Ok(self.build_refusal_with_trace(
                             question,
                             reason,
                             &evidence,
                             loop_state.iteration,
+                            debug_trace,
                         ));
                     }
                     // If we have evidence, try partial answer with low confidence
                     warn!("LLM-B wants to refuse but we have evidence - will try partial answer");
                     last_scores = Some(AuditScores::new(0.5, 0.5, 0.5));
                     // Continue to see if we can improve
+                    debug_trace.iterations.push(debug_iter);
                 }
                 AuditVerdict::NeedsMoreProbes => {
                     // Execute additional probes requested by auditor (validated)
@@ -264,13 +321,15 @@ impl AnswerEngine {
                             probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                         evidence.extend(new_evidence);
                     }
-                    // Continue to next iteration
+                    // Save iteration and continue to next
+                    debug_trace.iterations.push(debug_iter);
                 }
             }
         }
 
         // Loop exhausted - provide partial answer instead of refusal
         loop_state.mark_exhausted();
+        debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
 
         // If we have a draft answer, return it with honest low confidence
         if let Some(answer_text) = last_draft_answer {
@@ -279,12 +338,13 @@ impl AnswerEngine {
                 "Max loops reached - returning partial answer with confidence {:.2}",
                 scores.overall
             );
-            return Ok(self.build_partial_answer(
+            return Ok(self.build_partial_answer_with_trace(
                 question,
                 &answer_text,
                 evidence,
                 scores,
                 loop_state.iteration,
+                debug_trace,
             ));
         }
 
@@ -292,26 +352,111 @@ impl AnswerEngine {
         if !evidence.is_empty() {
             if let Some(fallback) = fallback::extract_fallback_answer(question, &evidence) {
                 info!("Using fallback answer extracted from evidence");
-                return Ok(self.build_partial_answer(
+                return Ok(self.build_partial_answer_with_trace(
                     question,
                     &fallback,
                     evidence,
                     AuditScores::new(0.6, 0.6, 0.6),
                     loop_state.iteration,
+                    debug_trace,
                 ));
             }
         }
 
         // No draft answer at all - this is a true refusal
-        Ok(self.build_refusal(
+        Ok(self.build_refusal_with_trace(
             question,
             "Could not generate any answer after maximum iterations",
             &evidence,
             loop_state.iteration,
+            debug_trace,
         ))
     }
 
-    /// Build a final answer (approved)
+    /// Build a final answer (approved) with debug trace
+    fn build_final_answer_with_trace(
+        &self,
+        question: &str,
+        answer_text: &str,
+        evidence: Vec<ProbeEvidenceV10>,
+        scores: AuditScores,
+        loop_iterations: usize,
+        debug_trace: DebugTrace,
+    ) -> FinalAnswer {
+        let confidence_level = ConfidenceLevel::from_score(scores.overall);
+
+        FinalAnswer {
+            question: question.to_string(),
+            answer: answer_text.to_string(),
+            is_refusal: false,
+            citations: evidence,
+            scores,
+            confidence_level,
+            problems: vec![],
+            loop_iterations,
+            model_used: Some(self.senior_model().to_string()),
+            clarification_needed: None,
+            debug_trace: Some(debug_trace),
+        }
+    }
+
+    /// Build a partial answer (max loops reached) with debug trace
+    fn build_partial_answer_with_trace(
+        &self,
+        question: &str,
+        answer_text: &str,
+        evidence: Vec<ProbeEvidenceV10>,
+        scores: AuditScores,
+        loop_iterations: usize,
+        debug_trace: DebugTrace,
+    ) -> FinalAnswer {
+        let confidence_level = ConfidenceLevel::from_score(scores.overall);
+        let disclaimer = if confidence_level == ConfidenceLevel::Red {
+            "\n\n[Note: This answer has limited verification. Confidence is low.]"
+        } else {
+            ""
+        };
+
+        FinalAnswer {
+            question: question.to_string(),
+            answer: format!("{}{}", answer_text, disclaimer),
+            is_refusal: false,
+            citations: evidence,
+            scores,
+            confidence_level,
+            problems: vec!["Reached maximum verification loops".to_string()],
+            loop_iterations,
+            model_used: Some(self.senior_model().to_string()),
+            clarification_needed: None,
+            debug_trace: Some(debug_trace),
+        }
+    }
+
+    /// Build a refusal answer with debug trace
+    fn build_refusal_with_trace(
+        &self,
+        question: &str,
+        reason: &str,
+        evidence: &[ProbeEvidenceV10],
+        loop_iterations: usize,
+        debug_trace: DebugTrace,
+    ) -> FinalAnswer {
+        FinalAnswer {
+            question: question.to_string(),
+            answer: format!("I cannot answer this question.\n\nReason: {}", reason),
+            is_refusal: true,
+            citations: evidence.to_vec(),
+            scores: AuditScores::new(0.0, 0.0, 0.0),
+            confidence_level: ConfidenceLevel::Red,
+            problems: vec![reason.to_string()],
+            loop_iterations,
+            model_used: Some(self.senior_model().to_string()),
+            clarification_needed: None,
+            debug_trace: Some(debug_trace),
+        }
+    }
+
+    /// Build a final answer (approved) - legacy without trace
     fn build_final_answer(
         &self,
         question: &str,
@@ -333,10 +478,11 @@ impl AnswerEngine {
             loop_iterations,
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
+            debug_trace: None,
         }
     }
 
-    /// Build a partial answer (max loops reached but have evidence)
+    /// Build a partial answer - legacy without trace
     fn build_partial_answer(
         &self,
         question: &str,
@@ -363,10 +509,11 @@ impl AnswerEngine {
             loop_iterations,
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
+            debug_trace: None,
         }
     }
 
-    /// Build a refusal answer (truly cannot answer)
+    /// Build a refusal answer - legacy without trace
     fn build_refusal(
         &self,
         question: &str,
@@ -385,6 +532,7 @@ impl AnswerEngine {
             loop_iterations,
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
+            debug_trace: None,
         }
     }
 
@@ -402,6 +550,15 @@ impl AnswerEngine {
 impl Default for AnswerEngine {
     fn default() -> Self {
         Self::new(None)
+    }
+}
+
+/// Truncate a string for debug display
+fn truncate_for_debug(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...[truncated {} chars]", &s[..max_len], s.len() - max_len)
     }
 }
 

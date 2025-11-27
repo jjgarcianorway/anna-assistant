@@ -1,11 +1,12 @@
-//! Output formatting - clean, ASCII-only terminal output v0.10.0
+//! Output formatting - clean, ASCII-only terminal output v0.16.3
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 //! v0.10.0: Evidence-based answers with citations and confidence scores
 //! v0.15.8: Timing display for spinner UX
+//! v0.16.3: Debug trace display for development troubleshooting
 #![allow(dead_code)]
 
-use anna_common::{AnnaResponse, ConfidenceLevel, FinalAnswer, THIN_SEPARATOR};
+use anna_common::{AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, THIN_SEPARATOR};
 use owo_colors::OwoColorize;
 use std::time::Duration;
 
@@ -365,4 +366,202 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
         );
     }
     println!();
+
+    // v0.16.3: Show debug trace if present and ANNA_DEBUG is set
+    if std::env::var("ANNA_DEBUG").is_ok() {
+        if let Some(ref trace) = answer.debug_trace {
+            display_debug_trace(trace);
+        }
+    }
+}
+
+// ============================================================================
+// v0.16.3: Debug Trace Display for Development
+// ============================================================================
+
+/// Display the full LLM dialog trace for development troubleshooting
+/// Only shown when ANNA_DEBUG environment variable is set
+pub fn display_debug_trace(trace: &DebugTrace) {
+    println!();
+    println!(
+        "{}",
+        "╔══════════════════════════════════════════════════════════════════════════════╗"
+            .bright_magenta()
+    );
+    println!(
+        "{}",
+        "║                            🔍  DEBUG TRACE                                   ║"
+            .bright_magenta()
+    );
+    println!(
+        "{}",
+        "╚══════════════════════════════════════════════════════════════════════════════╝"
+            .bright_magenta()
+    );
+    println!();
+
+    // Models used
+    println!(
+        "{}  Junior: {}  │  Senior: {}",
+        "Models:".bold().bright_white(),
+        trace.junior_model.bright_cyan(),
+        trace.senior_model.bright_cyan()
+    );
+    println!(
+        "{}  {:.2}s",
+        "Duration:".bold().bright_white(),
+        trace.duration_secs
+    );
+    println!();
+
+    // Each iteration
+    for iter in &trace.iterations {
+        println!(
+            "{}",
+            "────────────────────────────────────────────────────────────────────────────────"
+                .bright_yellow()
+        );
+        println!(
+            "{}  {}",
+            "ITERATION".bold().bright_yellow(),
+            iter.iteration.to_string().bold().bright_yellow()
+        );
+        println!(
+            "{}",
+            "────────────────────────────────────────────────────────────────────────────────"
+                .bright_yellow()
+        );
+        println!();
+
+        // LLM-A Section
+        println!(
+            "{}",
+            "┌─ LLM-A (Junior) ─────────────────────────────────────────────────────────────┐"
+                .bright_green()
+        );
+        println!();
+
+        // LLM-A Prompt (truncated)
+        println!("{}:", "Prompt".bold().bright_white());
+        display_wrapped_text(&iter.llm_a_prompt, "  ", 76);
+        println!();
+
+        // LLM-A Response
+        println!("{}:", "Response".bold().bright_white());
+        display_wrapped_text(&iter.llm_a_response, "  ", 76);
+        println!();
+
+        // LLM-A Parsed Summary
+        println!(
+            "{}  intent={}, probes={:?}, has_draft={}",
+            "Parsed:".bold().dimmed(),
+            iter.llm_a_intent.cyan(),
+            iter.llm_a_probes,
+            iter.llm_a_has_draft
+        );
+
+        // Probes executed
+        if !iter.probes_executed.is_empty() {
+            println!(
+                "{}  {:?}",
+                "Probes Executed:".bold().dimmed(),
+                iter.probes_executed
+            );
+        }
+        println!();
+        println!(
+            "{}",
+            "└──────────────────────────────────────────────────────────────────────────────┘"
+                .bright_green()
+        );
+        println!();
+
+        // LLM-B Section (if present)
+        if iter.llm_b_prompt.is_some() || iter.llm_b_response.is_some() {
+            println!(
+                "{}",
+                "┌─ LLM-B (Senior) ─────────────────────────────────────────────────────────────┐"
+                    .bright_blue()
+            );
+            println!();
+
+            // LLM-B Prompt
+            if let Some(ref prompt) = iter.llm_b_prompt {
+                println!("{}:", "Prompt".bold().bright_white());
+                display_wrapped_text(prompt, "  ", 76);
+                println!();
+            }
+
+            // LLM-B Response
+            if let Some(ref response) = iter.llm_b_response {
+                println!("{}:", "Response".bold().bright_white());
+                display_wrapped_text(response, "  ", 76);
+                println!();
+            }
+
+            // LLM-B Parsed Summary
+            if let Some(ref verdict) = iter.llm_b_verdict {
+                let verdict_colored = match verdict.as_str() {
+                    "approve" => verdict.bright_green().to_string(),
+                    "fix_and_accept" => verdict.yellow().to_string(),
+                    "needs_more_probes" => verdict.cyan().to_string(),
+                    "refuse" => verdict.bright_red().to_string(),
+                    _ => verdict.to_string(),
+                };
+                print!(
+                    "{}  verdict={}, ",
+                    "Parsed:".bold().dimmed(),
+                    verdict_colored
+                );
+                if let Some(conf) = iter.llm_b_confidence {
+                    println!("confidence={:.0}%", conf * 100.0);
+                } else {
+                    println!();
+                }
+            }
+            println!();
+            println!(
+                "{}",
+                "└──────────────────────────────────────────────────────────────────────────────┘"
+                    .bright_blue()
+            );
+            println!();
+        }
+    }
+
+    println!(
+        "{}",
+        "════════════════════════════════════════════════════════════════════════════════"
+            .bright_magenta()
+    );
+    println!(
+        "{}",
+        "Set ANNA_DEBUG=1 to see this trace. Unset to hide.".dimmed()
+    );
+    println!();
+}
+
+/// Display text wrapped to a given width with a prefix
+fn display_wrapped_text(text: &str, prefix: &str, width: usize) {
+    let lines: Vec<&str> = text.lines().collect();
+    let max_lines = 20; // Limit displayed lines
+
+    for (i, line) in lines.iter().enumerate() {
+        if i >= max_lines {
+            println!(
+                "{}... ({} more lines)",
+                prefix,
+                lines.len() - max_lines
+            );
+            break;
+        }
+
+        // Truncate long lines
+        let display_line = if line.len() > width {
+            format!("{}...", &line[..width - 3])
+        } else {
+            line.to_string()
+        };
+        println!("{}{}", prefix, display_line.dimmed());
+    }
 }

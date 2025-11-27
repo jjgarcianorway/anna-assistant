@@ -89,23 +89,27 @@ impl OllamaClient {
     }
 
     /// Call LLM-A (junior) with the given prompt
-    pub async fn call_llm_a(&self, user_prompt: &str) -> Result<LlmAResponse> {
+    /// Returns (parsed response, raw response text) for debug tracing
+    pub async fn call_llm_a(&self, user_prompt: &str) -> Result<(LlmAResponse, String)> {
         let response_text = self
             .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-A call failed")?;
 
-        self.parse_llm_a_response(&response_text)
+        let parsed = self.parse_llm_a_response(&response_text)?;
+        Ok((parsed, response_text))
     }
 
     /// Call LLM-B (senior) with the given prompt
-    pub async fn call_llm_b(&self, user_prompt: &str) -> Result<LlmBResponse> {
+    /// Returns (parsed response, raw response text) for debug tracing
+    pub async fn call_llm_b(&self, user_prompt: &str) -> Result<(LlmBResponse, String)> {
         let response_text = self
             .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
-        self.parse_llm_b_response(&response_text)
+        let parsed = self.parse_llm_b_response(&response_text)?;
+        Ok((parsed, response_text))
     }
 
     /// Raw Ollama API call with specified model
