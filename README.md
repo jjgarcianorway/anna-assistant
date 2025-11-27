@@ -1,15 +1,21 @@
-# Anna v0.12.0
+# Anna v0.12.1
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.12.0
+## What's New in v0.12.1
+
+- **Flexible JSON Parsing** - Handles null draft_answer, null text, missing fields gracefully
+- **Clearer LLM-A Prompts** - Explicit instruction to produce draft_answer when evidence exists
+- **Evidence-Aware Prompting** - User prompt now explicitly tells LLM-A when evidence is available
+- **Better Defaults** - Approves with low confidence on parse errors instead of refusing
+
+## Previous in v0.12.0
 
 - **Strict Probe Catalog** - Hard-frozen 14-probe catalog embedded in prompts, no invented probes
 - **fix_and_accept Verdict** - LLM-B can fix minor issues without requesting new probes
 - **Partial Answer Fallback** - Returns honest low-confidence answers instead of total refusal
-- **Robust JSON Parsing** - Better handling of malformed LLM responses
 - **Scoring Formula Update** - overall = min(evidence, reasoning, coverage) for stricter evaluation
 
 ## Previous in v0.11.0
@@ -211,4 +217,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.12.0 - Strict probe catalog, fix_and_accept verdict, partial answer fallback.
+This is version 0.12.1 - Flexible JSON parsing, clearer prompts, better defaults.
