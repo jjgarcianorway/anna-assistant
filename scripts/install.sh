@@ -594,25 +594,35 @@ select_model() {
     fi
 
     # No suitable model installed, select based on VRAM and download
-    if [[ "$vram_mb" -ge 16000 ]]; then
-        # 16GB+ VRAM: Use 14B model
+    # Recommendation: Pick a model that runs COMFORTABLY, not just "technically works"
+    # Rule of thumb: model size (GB) should be ~60-70% of VRAM for smooth operation
+    if [[ "$vram_mb" -ge 24000 ]]; then
+        # 24GB+ VRAM: Use 14B model comfortably
         SELECTED_MODEL="qwen2.5:14b"
-        log_ok "GPU detected with ${vram_mb}MB VRAM - will download qwen2.5:14b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:14b (excellent quality)"
+    elif [[ "$vram_mb" -ge 12000 ]]; then
+        # 12-24GB VRAM: 14B works but 7B is smoother
+        SELECTED_MODEL="qwen2.5:14b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:14b"
     elif [[ "$vram_mb" -ge 8000 ]]; then
-        # 8-16GB VRAM: Use 7B model
+        # 8-12GB VRAM: 7B runs great, 14B would sweat
         SELECTED_MODEL="qwen2.5:7b"
-        log_ok "GPU detected with ${vram_mb}MB VRAM - will download qwen2.5:7b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:7b (best for your GPU)"
+    elif [[ "$vram_mb" -ge 6000 ]]; then
+        # 6-8GB VRAM: 7B works but tight, 3B is smoother
+        SELECTED_MODEL="qwen2.5:7b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:7b"
     elif [[ "$vram_mb" -ge 4000 ]]; then
-        # 4-8GB VRAM: Use 3B model
-        SELECTED_MODEL="llama3.2:3b"
-        log_ok "GPU detected with ${vram_mb}MB VRAM - will download llama3.2:3b"
+        # 4-6GB VRAM: Use 3B model
+        SELECTED_MODEL="qwen2.5:3b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:3b"
     else
-        # CPU only or low VRAM: Use 3B model
-        SELECTED_MODEL="llama3.2:3b"
+        # CPU only or low VRAM: Use 3B model (qwen2.5 better than llama for structured tasks)
+        SELECTED_MODEL="qwen2.5:3b"
         if [[ "$vram_mb" -eq 0 ]]; then
-            log_warn "No GPU detected - will download llama3.2:3b (CPU mode)"
+            log_warn "No GPU detected - will download qwen2.5:3b (CPU mode)"
         else
-            log_ok "Low GPU memory (${vram_mb}MB) - will download llama3.2:3b"
+            log_ok "Low GPU memory (${vram_mb}MB) - will download qwen2.5:3b"
         fi
     fi
 }
